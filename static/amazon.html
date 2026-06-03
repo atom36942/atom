@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amazon Shipments Dashboard</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        :root {
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --bg-color: #F3F4F6;
+            --surface: #FFFFFF;
+            --text-main: #111827;
+            --text-muted: #6B7280;
+            --border: #E5E7EB;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+
+        /* Login Section */
+        #login-section {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .login-card {
+            background: var(--surface);
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-card h2 {
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+            color: var(--text-main);
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+        }
+
+        /* Dashboard Section */
+        #dashboard-section {
+            display: none;
+            width: 100%;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 1.875rem;
+        }
+
+        .table-container {
+            background: var(--surface);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            overflow-x: auto;
+            margin-bottom: 1.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th, td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.875rem;
+            white-space: nowrap;
+        }
+
+        th {
+            background-color: #F9FAFB;
+            font-weight: 600;
+            color: var(--text-muted);
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background-color: #F9FAFB;
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #E0E7FF;
+            color: #3730A3;
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .pagination button {
+            padding: 0.5rem 1rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            background: #F3F4F6;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .page-info {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .error-message {
+            color: #DC2626;
+            margin-top: 1rem;
+            text-align: center;
+            font-size: 0.875rem;
+            display: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Login Section -->
+    <div id="login-section" class="container">
+        <div class="login-card">
+            <h2>System Login</h2>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit" class="btn" id="login-btn">Login</button>
+                <div class="error-message" id="login-error"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dashboard Section -->
+    <div id="dashboard-section" class="container">
+        <div class="header">
+            <h1>Amazon Shipments Dashboard</h1>
+            <button class="btn" style="width: auto;" onclick="logout()">Logout</button>
+        </div>
+
+        <div class="table-container">
+            <div class="loading" id="table-loading">Loading shipments...</div>
+            <table id="shipments-table">
+                <thead>
+                    <tr>
+                        <th>Booking #</th>
+                        <th>Client</th>
+                        <th>Mode</th>
+                        <th>Weight</th>
+                        <th>UW</th>
+                        <th>Volume</th>
+                        <th>UV</th>
+                        <th>Service Lvl.</th>
+                        <th>Incoterm</th>
+                        <th>House Bill</th>
+                        <th>Consignor</th>
+                        <th>Amazon merchantId</th>
+                        <th>Amazon fbaShipmentId</th>
+                        <th>Controlling Customer</th>
+                        <th>Status</th>
+                        <th>Created Date</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    <!-- Rows will be populated by JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination">
+            <button id="prev-btn" onclick="changePage(-1)" disabled>Previous</button>
+            <span class="page-info">Page <span id="current-page">1</span></span>
+            <button id="next-btn" onclick="changePage(1)">Next</button>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let token = localStorage.getItem('access_token') || null;
+        let currentPage = 1;
+        const limit = 50;
+
+        // Elements
+        const loginSection = document.getElementById('login-section');
+        const dashboardSection = document.getElementById('dashboard-section');
+        const loginForm = document.getElementById('login-form');
+        const loginBtn = document.getElementById('login-btn');
+        const loginError = document.getElementById('login-error');
+        const tableBody = document.getElementById('table-body');
+        const tableLoading = document.getElementById('table-loading');
+        const shipmentsTable = document.getElementById('shipments-table');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const pageSpan = document.getElementById('current-page');
+
+        // Check auth on load
+        if (token) {
+            showDashboard();
+            fetchShipments(currentPage);
+        }
+
+        // Login Handler
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            loginBtn.textContent = 'Authenticating...';
+            loginBtn.disabled = true;
+            loginError.style.display = 'none';
+
+            try {
+                const response = await fetch('/auth/login-username-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: 1, username, password })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Authentication failed. Please check your credentials.');
+                }
+
+                const data = await response.json();
+                
+                if (data.status === 1 && data.message && data.message.token) {
+                    token = data.message.token;
+                    localStorage.setItem('access_token', token);
+                    showDashboard();
+                    fetchShipments(currentPage);
+                } else {
+                    throw new Error(data.message || 'No access token received from server.');
+                }
+            } catch (err) {
+                loginError.textContent = err.message;
+                loginError.style.display = 'block';
+            } finally {
+                loginBtn.textContent = 'Login';
+                loginBtn.disabled = false;
+            }
+        });
+
+        // Logout
+        function logout() {
+            localStorage.removeItem('access_token');
+            token = null;
+            dashboardSection.style.display = 'none';
+            loginSection.style.display = 'flex';
+            document.getElementById('password').value = '';
+        }
+
+        // View toggle
+        function showDashboard() {
+            loginSection.style.display = 'none';
+            dashboardSection.style.display = 'block';
+        }
+
+        // Fetch Data
+        async function fetchShipments(page) {
+            const offset = (page - 1) * limit;
+            
+            const sqlQuery = `
+                SELECT 
+                    js.JS_UniqueConsignRef AS [Booking #],
+                    org_client.OH_Code AS [Client],
+                    js.JS_PackingMode AS [Mode],
+                    js.JS_ActualWeight AS [Weight],
+                    js.JS_UnitOfWeight AS [UW],
+                    js.JS_ActualVolume AS [Volume],
+                    js.JS_UnitOfVolume AS [UV],
+                    js.JS_RS_NKServiceLevel AS [Service Lvl.],
+                    js.JS_INCO AS [Incoterm],
+                    js.JS_HouseBill AS [House Bill],
+                    org_consignor.OH_FullName AS [Consignor],
+                    MAX(CASE WHEN custom.XV_Name = 'Amazon merchantId' THEN custom.XV_Data END) AS [Amazon merchantId],
+                    MAX(CASE WHEN custom.XV_Name = 'Amazon fbaShipmentId' THEN custom.XV_Data END) AS [Amazon fbaShipmentId],
+                    org_control.OH_Code AS [Controlling Customer],
+                    js.JS_ShipmentStatus AS [SHIPMENT STATUS],
+                    js.JS_SystemCreateTimeUtc AS [Created Date]
+                FROM JobShipment js
+                LEFT JOIN JobHeader jh ON js.JS_TH_OneTimeQuote = jh.JH_ParentID
+                LEFT JOIN OrgAddress oa_client ON jh.JH_OA_LocalChargesAddr = oa_client.OA_PK
+                LEFT JOIN OrgHeader org_client ON oa_client.OA_OH = org_client.OH_PK
+                LEFT JOIN cvw_JobShipmentOrgs parties ON js.JS_PK = parties.JS_PK
+                LEFT JOIN OrgHeader org_consignor ON parties.JS_E2_OA_OH_Consignor = org_consignor.OH_PK
+                LEFT JOIN OrgHeader org_control ON parties.ControllingCustomer_PK = org_control.OH_PK
+                LEFT JOIN GenCustomAddOnValue custom ON js.JS_TH_OneTimeQuote = custom.XV_ParentID
+                WHERE org_client.OH_Code = 'AMAZONWAS'
+                GROUP BY 
+                    js.JS_UniqueConsignRef,
+                    org_client.OH_Code,
+                    js.JS_PackingMode,
+                    js.JS_ActualWeight,
+                    js.JS_UnitOfWeight,
+                    js.JS_ActualVolume,
+                    js.JS_UnitOfVolume,
+                    js.JS_RS_NKServiceLevel,
+                    js.JS_INCO,
+                    js.JS_HouseBill,
+                    org_consignor.OH_FullName,
+                    org_control.OH_Code,
+                    js.JS_ShipmentStatus,
+                    js.JS_SystemCreateTimeUtc
+                ORDER BY js.JS_SystemCreateTimeUtc DESC
+                OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY;
+            `;
+
+            tableLoading.style.display = 'block';
+            shipmentsTable.style.opacity = '0.5';
+
+            try {
+                const response = await fetch('/admin/mssql-sql-runner', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        mode: 'read',
+                        sql: sqlQuery
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.status === 401 || response.status === 403 || data.status === 0) {
+                    if (data.status === 0 && data.message && typeof data.message === 'string' && data.message.includes('expired')) {
+                        alert("Session expired. Please log in again.");
+                        logout();
+                        return;
+                    }
+                    if (data.status === 0) {
+                        throw new Error(data.message);
+                    }
+                }
+
+                // Assuming data.message holds the array of objects
+                const rows = Array.isArray(data.message) ? data.message : [];
+                renderTable(rows);
+
+                // Update pagination state
+                prevBtn.disabled = page === 1;
+                nextBtn.disabled = rows.length < limit; // If less than 50 rows returned, it's the last page
+
+            } catch (err) {
+                console.error(err);
+                alert("An error occurred while fetching shipments: " + err.message);
+            } finally {
+                tableLoading.style.display = 'none';
+                shipmentsTable.style.opacity = '1';
+            }
+        }
+
+        // Render Table
+        function renderTable(rows) {
+            tableBody.innerHTML = '';
+            
+            if (rows.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="16" style="text-align:center; padding: 2rem;">No shipments found</td></tr>';
+                return;
+            }
+
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+                
+                // Helper to render cell safely
+                const td = (val) => `<td>${val !== null && val !== undefined ? val : ''}</td>`;
+                
+                tr.innerHTML = `
+                    <td style="font-weight: 600;">${row['Booking #'] || ''}</td>
+                    ${td(row['Client'])}
+                    ${td(row['Mode'])}
+                    ${td(row['Weight'])}
+                    ${td(row['UW'])}
+                    ${td(row['Volume'])}
+                    ${td(row['UV'])}
+                    ${td(row['Service Lvl.'])}
+                    ${td(row['Incoterm'])}
+                    ${td(row['House Bill'])}
+                    ${td(row['Consignor'])}
+                    ${td(row['Amazon merchantId'])}
+                    ${td(row['Amazon fbaShipmentId'])}
+                    ${td(row['Controlling Customer'])}
+                    <td><span class="status-badge">${row['SHIPMENT STATUS'] || 'N/A'}</span></td>
+                    ${td(row['Created Date'] ? new Date(row['Created Date']).toLocaleString() : '')}
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        // Pagination Handler
+        function changePage(delta) {
+            const newPage = currentPage + delta;
+            if (newPage > 0) {
+                currentPage = newPage;
+                pageSpan.textContent = currentPage;
+                fetchShipments(currentPage);
+            }
+        }
+    </script>
+</body>
+</html>
