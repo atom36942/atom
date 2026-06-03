@@ -6,9 +6,13 @@
 !core/**
 !static/
 !static/**
+!drive/
+!drive/**
+!.vscode/
+
+# deployment
 !.github/
 !.github/**
-!.vscode/
 !infra/
 !infra/**
 

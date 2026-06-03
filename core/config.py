@@ -7,6 +7,12 @@ config_postgres_max_connection = 20
 # System
 config_root_user_password = "123456"
 config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
+config_index_html_path = "static/api.html"
+
+
+
+
+
 config_is_enable_postgres_sql_runner_write = 1
 config_is_enable_user_delete = 1
 config_is_enable_signup = 1
@@ -101,10 +107,6 @@ config_expiry_sec_otp = 600
 config_otp_length = 6
 config_token_key = ["id", "type", "role", "deactivated_at", "deleted_at", "id_ext"]
 config_google_login_client_id = None
-
-# HTML
-config_is_enable_index_html = 1
-config_index_html_path = "core/api.html"
 
 # CORS
 config_cors_origin = ["*"]
