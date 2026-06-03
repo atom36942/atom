@@ -1,7 +1,7 @@
 # import
 import asyncio
 import asyncpg
-from core.config import config_postgres_url, config_sensitive_table, config_table
+from config import config_postgres_url, config_sensitive_table, config_table
 
 # logic
 async def execute():

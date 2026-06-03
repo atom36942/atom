@@ -2,7 +2,7 @@
 import asyncio
 import asyncpg
 import random
-from core.config import config_postgres_url
+from config import config_postgres_url
 
 # logic
 async def execute():

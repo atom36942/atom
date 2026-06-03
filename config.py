@@ -8,11 +8,6 @@ config_postgres_max_connection = 20
 config_root_user_password = "123456"
 config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
 config_index_html_path = "static/api.html"
-
-
-
-
-
 config_is_enable_postgres_sql_runner_write = 1
 config_is_enable_user_delete = 1
 config_is_enable_signup = 1
@@ -662,5 +657,18 @@ config_postgres = {
 }
 
 # override
-from .function import func_config_override_from_env
+def func_config_override_from_env(*, global_dict: dict) -> None:
+    import orjson, os, ast, contextlib; from dotenv import load_dotenv
+    load_dotenv(".env")
+    for k, v in list(global_dict.items()):
+        if k.startswith("config_") and (ev := os.getenv(k)) is not None:
+            if isinstance(v, bool): global_dict[k] = 1 if ev.lower() in ("true", "1", "yes", "on", "ok") else 0
+            elif isinstance(v, (list, tuple, dict)):
+                with contextlib.suppress(Exception): global_dict[k] = orjson.loads(ev)
+            else: global_dict[k] = int(ev) if ev.lstrip("-").isdigit() else ev
+            if isinstance(global_dict[k], list): global_dict[k] = tuple(global_dict[k])
+    with contextlib.suppress(Exception):
+        for n in ast.parse(open("config.py", encoding="utf-8").read()).body:
+            if isinstance(n, ast.Assign) and len(n.targets)==1 and (t:=getattr(n.targets[0], "id", "")).startswith("config_") and (v:=getattr(n.value, "id", "")).startswith("config_") and os.getenv(t) is None: global_dict[t] = global_dict.get(v)
+    return None
 func_config_override_from_env(global_dict=globals())

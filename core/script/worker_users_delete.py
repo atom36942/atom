@@ -1,7 +1,7 @@
 # import
 import asyncio
 import asyncpg
-from core.config import config_aws_access_key_id, config_aws_secret_access_key, config_azure_account_key, config_azure_account_name, config_postgres_url, config_s3_region_name, config_users_delete_batch_limit, config_users_delete_exclude_table, config_users_ownership_column, config_users_delete_retention_day, config_users_delete_retry_delay_sec, config_blob_purge_batch_limit, config_blob_purge_azure_concurrency
+from config import config_aws_access_key_id, config_aws_secret_access_key, config_azure_account_key, config_azure_account_name, config_postgres_url, config_s3_region_name, config_users_delete_batch_limit, config_users_delete_exclude_table, config_users_ownership_column, config_users_delete_retention_day, config_users_delete_retry_delay_sec, config_blob_purge_batch_limit, config_blob_purge_azure_concurrency
 
 # logic
 async def execute():

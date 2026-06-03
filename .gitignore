@@ -18,6 +18,8 @@
 
 # add file
 !main.py
+!function.py
+!config.py
 !requirements.txt
 !Dockerfile
 !readme.md

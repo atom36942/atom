@@ -11,7 +11,7 @@ import urllib.parse
 from datetime import datetime, timedelta, timezone
 from google import genai
 from google.genai import types
-from core.config import config_postgres_url, config_gemini_key, config_postgres, config_azure_account_name, config_azure_account_key, config_aws_access_key_id, config_aws_secret_access_key
+from config import config_postgres_url, config_gemini_key, config_postgres, config_azure_account_name, config_azure_account_key, config_aws_access_key_id, config_aws_secret_access_key
 
 # logic
 async def execute():
