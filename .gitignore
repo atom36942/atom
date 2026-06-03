@@ -4,6 +4,8 @@
 # add folder
 !core/
 !core/**
+!router/
+!router/**
 !static/
 !static/**
 !drive/

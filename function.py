@@ -1043,7 +1043,7 @@ def func_app_router_add(*, app: any, router_dir: any, router_order: dict) -> Non
     router_paths = sorted(router_dir.glob("*.py"), key=lambda path: (router_order.get(path.stem, 100), path.stem))
     for router_path in router_paths:
         if router_path.name.startswith(("_", ".")): continue
-        spec = importlib.util.spec_from_file_location(f"core.router.{router_path.stem}", router_path)
+        spec = importlib.util.spec_from_file_location(f"router.{router_path.stem}", router_path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         if hasattr(module, "router"): app.include_router(module.router)

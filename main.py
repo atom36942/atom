@@ -12,7 +12,7 @@ async def func_lifespan(app:"FastAPI"):
         import time
         start_journey = time.perf_counter()
         # check
-        app.state.func_check(app_routes=app.routes, config_config_path="config.py", config_function_path="function.py", config_allowed_api_namespace=app.state.config_allowed_api_namespace, config_router_path="core/router", config_api=app.state.config_api, config_allowed_user_storage_backends=app.state.config_allowed_user_storage_backends, config_allowed_api_storage_backends=app.state.config_allowed_api_storage_backends, config_postgres=app.state.config_postgres)
+        app.state.func_check(app_routes=app.routes, config_config_path="config.py", config_function_path="function.py", config_allowed_api_namespace=app.state.config_allowed_api_namespace, config_router_path="router", config_api=app.state.config_api, config_allowed_user_storage_backends=app.state.config_allowed_user_storage_backends, config_allowed_api_storage_backends=app.state.config_allowed_api_storage_backends, config_postgres=app.state.config_postgres)
         # structure
         import os
         for directory in ("tmp", "secret"):os.makedirs(directory, exist_ok=True)
@@ -119,7 +119,7 @@ if app.state.config_is_enable_regex_check != 1: app.state.config_regex = {}
 
 # router
 import os
-func_app_router_add(app=app, router_dir=os.path.join(os.path.dirname(__file__), "core", "router"), router_order={"index": 0, "auth": 1, "my": 2, "public": 3, "private": 4, "admin": 5})
+func_app_router_add(app=app, router_dir=os.path.join(os.path.dirname(__file__), "router"), router_order={"index": 0, "auth": 1, "my": 2, "public": 3, "private": 4, "admin": 5})
 
 # static
 from fastapi.staticfiles import StaticFiles
