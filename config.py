@@ -60,7 +60,6 @@ config_azure_account_key = None
 config_azure_email_connection_string = None
 
 # Blob
-config_blob_container_default = "test"
 config_blob_limit_kb = 300
 config_blob_upload_limit_count = 100
 config_upload_url_expire_sec = 3600
@@ -135,7 +134,10 @@ config_sql = {
 "users_role": "select id,role from users where role is not null order by id asc limit 1000",
 "users_deactivated": "select id, deactivated_at from users order by id asc limit 1000",
 "users_deleted": "select id, deleted_at from users order by id asc limit 1000",
-"profile_metadata": {"test_count": "select count(*) from test where created_by_id=$1", "test_object": "select * from test where created_by_id=$1 limit 1"},
+"profile_metadata": {
+"test_count": "select count(*) from test where created_by_id=$1", 
+"test_object": "select * from test where created_by_id=$1 limit 1"
+},
 }
 
 config_table = {

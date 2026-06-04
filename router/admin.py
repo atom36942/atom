@@ -187,7 +187,7 @@ async def func_api_admin_blob_container_read(*, request: Request):
 @router.post("/admin/blob-container-ops")
 async def func_api_admin_blob_container_ops(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_allowed_blob_services, None), ("mode", "str", 1, ["create", "public", "empty", "delete"], None), ("container", "str", 0, None, app_state.config_blob_container_default)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_allowed_blob_services, None), ("container", "str", 1, None, None), ("mode", "str", 1, ["create", "public", "empty", "delete"], None)])
     service, mode, container = oq["service"], oq["mode"], oq["container"]
     if service == "s3":
         if mode == "create": res = await app_state.client_s3.create_bucket(Bucket=container, CreateBucketConfiguration={"LocationConstraint": app_state.config_s3_region_name})

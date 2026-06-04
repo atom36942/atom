@@ -68,7 +68,7 @@ async def func_api_public_otp_verify(*, request: Request):
 @router.post("/public/otp-send-email")
 async def func_api_public_otp_send_email(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_allowed_email_services, None), ("email", "str", 1, None, None), ("sender", "str", 1, None, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_allowed_email_services, None), ("sender", "str", 1, None, None), ("email", "str", 1, None, None)])
     otp = await app_state.func_otp_generate(client_postgres_pool=app_state.client_postgres_pool, email=oq["email"], mobile=None, config_otp_length=app_state.config_otp_length)
     if oq["service"] == "ses":
         app_state.client_ses.send_email(Source=oq["sender"], Destination={"ToAddresses": [oq["email"]]}, Message={"Subject": {"Data": "your otp code"}, "Body": {"Html": {"Data": str(otp)}}})

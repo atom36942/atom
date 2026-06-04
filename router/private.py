@@ -43,7 +43,7 @@ async def func_api_private_send_email(request:Request):
 @router.post("/private/blob-upload-file")
 async def func_api_private_blob_upload_file(request:Request):
     app_state = request.app.state
-    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("service", "str", 1, app_state.config_allowed_blob_services, None), ("file", "file", 1, None, None), ("container", "str", 0, None, app_state.config_blob_container_default)])
+    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("service", "str", 1, app_state.config_allowed_blob_services, None), ("container", "str", 1, None, None), ("file", "file", 1, None, None)])
     container = of["container"]
     if len(of["file"]) > app_state.config_blob_upload_limit_count: raise Exception(f"maximum {app_state.config_blob_upload_limit_count} files allowed")
     output = {}; blob_list = []
@@ -69,7 +69,7 @@ async def func_api_private_blob_upload_file(request:Request):
 @router.post("/private/blob-upload-url")
 async def func_api_private_blob_upload_url(request:Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_allowed_blob_services, None), ("count", "int", 0, None, 1), ("container", "str", 0, None, app_state.config_blob_container_default)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_allowed_blob_services, None), ("container", "str", 1, None, None), ("count", "int", 0, None, 1)])
     container = oq["container"]
     if oq["count"] > app_state.config_blob_upload_limit_count: raise Exception(f"maximum {app_state.config_blob_upload_limit_count} allowed")
     output = []; blob_list = []
@@ -92,7 +92,9 @@ async def func_api_private_blob_upload_url(request:Request):
 @router.post("/private/blob-container-sas")
 async def func_api_private_blob_container_sas(request:Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, [service for service in app_state.config_allowed_blob_services if service == "azure"], None), ("container", "str", 0, None, app_state.config_blob_container_default)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_allowed_blob_services, None), ("container", "str", 1, None, None)])
+    if oq["service"] == "s3":
+        raise Exception("s3 is not allowed for this api")
     container = oq["container"]
     if oq["service"] == "azure":
         sas_token = generate_container_sas(account_name=app_state.config_azure_account_name, account_key=app_state.config_azure_account_key, container_name=container, permission=ContainerSasPermissions(read=True), expiry=datetime.now(timezone.utc) + timedelta(seconds=app_state.config_preview_url_expire_sec))

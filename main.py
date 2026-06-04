@@ -50,6 +50,7 @@ async def func_lifespan(app:"FastAPI"):
         # postges schema init
         if client_postgres_pool and app.state.config_is_enable_postgres_init_startup == 1: await app.state.func_postgres_schema_init(client_postgres_pool=client_postgres_pool, config_postgres=app.state.config_postgres)
         # cache init
+        cache_openapi=app.state.func_openapi_spec_generate(app_routes=app.routes, config_allowed_api_namespace_auth=app.state.config_allowed_api_namespace_auth, app_state=app.state)
         cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres_pool=client_postgres_pool) if client_postgres_pool else {}
         cache_config = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("config"), is_json_value=1) if client_postgres_pool and "config" in cache_postgres_schema else {}
         cache_postgres_table_list = list(cache_postgres_schema.keys())
@@ -62,8 +63,6 @@ async def func_lifespan(app:"FastAPI"):
         app.state.flush_lock, app.state.pulse_flush_task = asyncio.Lock(), None
         # app state add
         [setattr(app.state, k, v) for k, v in {**globals(), **locals()}.items() if k.startswith(("client_", "cache_"))]
-        # openapi spec
-        app.state.cache_openapi=app.state.func_openapi_spec_generate(app_routes=app.routes, config_allowed_api_namespace_auth=app.state.config_allowed_api_namespace_auth, app_state=app.state)
         # postgres buffer flush loop
         async def pulse_flush():
             while True:
