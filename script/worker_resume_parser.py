@@ -1,16 +1,23 @@
-# import
-import sys
-import os
-import json
+# import stdlib
 import asyncio
-import aiohttp
-import asyncpg
+import json
+import os
+import sys
 import tempfile
+import time
 import traceback
 import urllib.parse
 from datetime import datetime, timedelta, timezone
+
+# import packages
+import aiohttp
+import asyncpg
+import boto3
+from azure.storage.blob import BlobSasPermissions, generate_blob_sas
 from google import genai
 from google.genai import types
+
+# import internal
 from config import config_postgres_url, config_gemini_key, config_postgres, config_azure_account_name, config_azure_account_key, config_aws_access_key_id, config_aws_secret_access_key
 
 # logic
@@ -82,7 +89,6 @@ async def execute():
         job_is_remote = candidate["job_is_remote"]
         job_location = candidate["job_location"] or "Not specified"
         parsed_url = urllib.parse.urlparse(resume_url.split('?')[0])
-        import os
         ext = os.path.splitext(parsed_url.path)[1].lower()
         if ext not in ['.pdf', '.docx', '.txt', '.doc']:
             ext = '.pdf'
@@ -90,7 +96,6 @@ async def execute():
         download_url = resume_url
         if "blob.core.windows.net" in download_url and "?" not in download_url and config_azure_account_name and config_azure_account_key:
             try:
-                from azure.storage.blob import generate_blob_sas, BlobSasPermissions
                 parsed = urllib.parse.urlparse(download_url)
                 parts = parsed.path.lstrip("/").split("/", 1)
                 if len(parts) == 2:
@@ -101,7 +106,6 @@ async def execute():
                 pass
         elif "amazonaws.com" in download_url and "?" not in download_url and config_aws_access_key_id and config_aws_secret_access_key:
             try:
-                import boto3
                 parsed = urllib.parse.urlparse(download_url)
                 host_parts = parsed.netloc.split(".")
                 if host_parts[0] != "s3":
@@ -146,7 +150,6 @@ async def execute():
                 8. Provide an objective 'ai_rating' (1.0 to 10.0) specifically indicating their fit for THIS job.
                 9. Provide an 'ai_remark' (max 2 sentences) justifying the rating and highlighting major gaps or strong fits for THIS job.
                 """
-                import time
                 for attempt in range(5):
                     try:
                         response = client_gemini.models.generate_content(model='gemini-2.5-flash', contents=[uploaded_file, prompt], config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=schema, temperature=0.1))

@@ -1,16 +1,19 @@
-# router
-from fastapi import APIRouter
-router = APIRouter()
-
-# import
-from fastapi import Request
-import shutil
+# import stdlib
+import asyncio
 import os
 import re
-import orjson
-import asyncio
+import shutil
 import uuid
+
+# import packages
+import orjson
+from azure.storage.blob import PublicAccess
+from fastapi import APIRouter, Request
+from fastapi.responses import StreamingResponse
 from pymongo import DeleteOne, UpdateOne
+
+# router
+router = APIRouter()
 
 # api
 @router.get("/admin/sync")
@@ -86,7 +89,6 @@ async def func_api_admin_postgres_sql_runner(*, request: Request):
 async def func_api_admin_postgres_export(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
-    from fastapi.responses import StreamingResponse
     sql = ob["sql"]
     ql = sql.lower().strip().lstrip("(").strip()
     if not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("export restricted to select/with/explain/show/describe")
@@ -201,7 +203,6 @@ async def func_api_admin_blob_container_ops(*, request: Request):
             await app_state.client_azure_blob.create_container(container)
             res = {"service": service, "mode": mode, "container": container}
         elif mode == "public":
-            from azure.storage.blob import PublicAccess
             container_client = app_state.client_azure_blob.get_container_client(container)
             await container_client.set_container_access_policy(signed_identifiers={}, public_access=PublicAccess.Blob)
             res = {"service": service, "mode": mode, "container": container}

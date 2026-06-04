@@ -1,9 +1,8 @@
-# router
-from fastapi import APIRouter
-router = APIRouter()
+# import packages
+from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, responses
 
-# import
-from fastapi import Request, responses, WebSocket, WebSocketDisconnect
+# router
+router = APIRouter()
 
 # api
 @router.get("/")

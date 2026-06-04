@@ -1,31 +1,49 @@
-# import
+# import stdlib
+import asyncio
+import os
+import time
+from contextlib import asynccontextmanager, suppress
+
+# import packages
+import aio_pika
+import aiobotocore.session
+import aioodbc
+import asyncpg
+import asyncssh
+import boto3
+import httpx
+import motor.motor_asyncio
+import openai
+import redis.asyncio as redis
+import sentry_sdk
+import uvicorn
+from aiokafka import AIOKafkaProducer
+from argon2 import PasswordHasher
+from azure.communication.email import EmailClient
+from azure.storage.blob.aio import BlobServiceClient
+from celery import Celery
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from google import genai
+from posthog import Posthog
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+
+# import internal
 from function import *
 from config import *
 
 # lifespan
-from contextlib import asynccontextmanager
 @asynccontextmanager
 async def func_lifespan(app:"FastAPI"):
     try:
-        import asyncio
         # start
-        import time
         start_journey = time.perf_counter()
         # check
         app.state.func_check(app_routes=app.routes, config_config_path="config.py", config_function_path="function.py", config_allowed_api_namespace=app.state.config_allowed_api_namespace, config_router_path="router", config_api=app.state.config_api, config_allowed_user_storage_backends=app.state.config_allowed_user_storage_backends, config_allowed_api_storage_backends=app.state.config_allowed_api_storage_backends, config_postgres=app.state.config_postgres)
         # structure
-        import os
         for directory in ("tmp", "secret"):os.makedirs(directory, exist_ok=True)
         # client init
-        import aio_pika, aiobotocore.session, asyncpg, asyncssh, boto3, httpx, motor.motor_asyncio, openai, aioodbc
-        import redis.asyncio as redis
-        from google import genai
-        from argon2 import PasswordHasher
-        from aiokafka import AIOKafkaProducer
-        from azure.communication.email import EmailClient
-        from azure.storage.blob.aio import BlobServiceClient
-        from celery import Celery
-        from posthog import Posthog
         client_password_hasher = PasswordHasher()
         client_http = httpx.AsyncClient()
         client_postgres_pool = await asyncpg.create_pool(dsn=app.state.config_postgres_url, min_size=5, max_size=20) if app.state.config_postgres_url else None
@@ -59,7 +77,7 @@ async def func_lifespan(app:"FastAPI"):
         cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("users_deactivated")) if client_postgres_pool else {}
         cache_users_deleted = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("users_deleted")) if client_postgres_pool else {}
         cache_ratelimiter, cache_api_response, cache_postgres_buffer_create = {}, {}, {}
-        # lock prevents concurrent buffer flushes during background pulse and shutdown
+        # flush lock
         app.state.flush_lock, app.state.pulse_flush_task = asyncio.Lock(), None
         # app state add
         [setattr(app.state, k, v) for k, v in {**globals(), **locals()}.items() if k.startswith(("client_", "cache_"))]
@@ -109,31 +127,24 @@ async def func_lifespan(app:"FastAPI"):
         print(f"❌ shutdown error: {e}")
 
 # app
-from fastapi import FastAPI
 app = FastAPI(debug=True, lifespan=func_lifespan, openapi_url=None, docs_url=None, redoc_url=None)
 
 # state
 [setattr(app.state, k, v) for k, v in globals().items() if k.startswith(("func_", "config_"))]
-if app.state.config_is_enable_regex_check != 1: app.state.config_regex = {}
 
 # router
-import os
 func_app_router_add(app=app, router_dir=os.path.join(os.path.dirname(__file__), "router"), router_order={"index": 0, "auth": 1, "my": 2, "public": 3, "private": 4, "admin": 5})
 
 # static
-from fastapi.staticfiles import StaticFiles
 app.mount("/static", StaticFiles(directory="./static", check_dir=False), name="static")
 
 # sentry
-import sentry_sdk
-from sentry_sdk.integrations.fastapi import FastApiIntegration
 if config_sentry_dsn: sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=bool(config_is_enable_sentry_default_pii))
 
 # middleware
 method_map = {v: k for k, v in config_column_int_mapping.get("method", {}).get("log_api", {}).items()}
 @app.middleware("http")
 async def middleware(request, api_function):
-    import time
     if request.method == "OPTIONS": return await api_function(request)
     start, error, response_type, request.state.user = time.perf_counter(), None, 1, {}
     app_state = request.app.state
@@ -158,16 +169,13 @@ async def middleware(request, api_function):
     except Exception as e:
         response_type = 5
         error, response = await app_state.func_middleware_api_response_error(exception=e, is_traceback=app_state.config_is_enable_traceback, sentry_dsn=app_state.config_sentry_dsn)
-    from contextlib import suppress
     if app_state.config_is_enable_log_api == 1 and (pool := app_state.client_postgres_pool):
         with suppress(Exception): await app_state.func_postgres_create(client_postgres_pool=pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=0, config_buffer_limit=app_state.config_buffer_limit, mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": request.client.host if request.client else None, "path": request.url.path, "method": method_map.get(request.method), "query_param": str(request.query_params), "status_code": response.status_code if hasattr(response, "status_code") else None, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
     return response
 
 # cors
-from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(CORSMiddleware, allow_origins=[] if "*" in config_cors_origin and config_is_enable_cors_credentials == 1 else config_cors_origin, allow_origin_regex=".*" if "*" in config_cors_origin and config_is_enable_cors_credentials == 1 else None, allow_methods=config_cors_method, allow_headers=config_cors_headers, expose_headers=config_cors_expose_headers, allow_credentials=bool(config_is_enable_cors_credentials))
 
 # main
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))

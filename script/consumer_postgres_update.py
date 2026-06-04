@@ -1,7 +1,11 @@
-# import
+# import stdlib
 import sys
-from argon2 import PasswordHasher
+
+# import packages
 import asyncpg
+from argon2 import PasswordHasher
+
+# import internal
 from function import func_run_broker, func_postgres_schema_read, func_postgres_update, func_postgres_serialize, func_regex_check
 from config import config_postgres_url, config_regex, config_table, config_obj_list_limit, config_consumer_concurrency, config_redis_queue_url, config_rabbitmq_url, config_kafka_url, config_kafka_group_id, config_kafka_is_enable_auto_commit, config_kafka_username, config_kafka_password, config_kafka_batch_timeout_ms, config_kafka_batch_limit, config_celery_url
 

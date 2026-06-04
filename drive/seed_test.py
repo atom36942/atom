@@ -1,8 +1,12 @@
-# import
+# import stdlib
 import asyncio
-import asyncpg
 import random
 from datetime import date, datetime, timedelta, timezone
+
+# import packages
+import asyncpg
+
+# import internal
 from config import config_postgres_url
 
 # logic

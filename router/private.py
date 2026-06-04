@@ -1,14 +1,15 @@
-# router
-from fastapi import APIRouter
-router = APIRouter()
-
-# import
-from fastapi import Request
+# import stdlib
 import asyncio
-import orjson
 import uuid
 from datetime import datetime, timedelta, timezone
-from azure.storage.blob import generate_blob_sas, generate_container_sas, BlobSasPermissions, ContainerSasPermissions
+
+# import packages
+import orjson
+from azure.storage.blob import BlobSasPermissions, ContainerSasPermissions, generate_blob_sas, generate_container_sas
+from fastapi import APIRouter, Request
+
+# router
+router = APIRouter()
 
 # api
 @router.post("/private/send-email")

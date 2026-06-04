@@ -1,9 +1,8 @@
-# router
-from fastapi import APIRouter
-router = APIRouter()
+# import packages
+from fastapi import APIRouter, Request
 
-# import
-from fastapi import Request
+# router
+router = APIRouter()
 
 # api
 @router.get("/my/profile")
@@ -144,4 +143,3 @@ async def func_api_my_message_thread(*, request: Request):
         obj_list = [dict(r) for r in records]
         await conn.execute("UPDATE message SET read_at=now() WHERE created_by_id=$1 AND user_id=$2;", oq["user_id"], user_one_id)
     return {"status": 1, "message": obj_list}
-

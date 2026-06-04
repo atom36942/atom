@@ -1,7 +1,11 @@
-# import
+# import stdlib
 import asyncio
-import asyncpg
 import random
+
+# import packages
+import asyncpg
+
+# import internal
 from config import config_postgres_url
 
 # logic
