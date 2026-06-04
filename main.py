@@ -56,10 +56,10 @@ async def func_lifespan(app:"FastAPI"):
         client_redis_producer = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_queue_url)) if app.state.config_redis_queue_url else None
         client_mongodb = motor.motor_asyncio.AsyncIOMotorClient(app.state.config_mongodb_url) if app.state.config_mongodb_url else None
         client_mssql = await aioodbc.create_pool(dsn=app.state.config_mssql_url, pool_recycle=900) if app.state.config_mssql_url else None
-        client_s3 = aiobotocore.session.get_session().create_client("s3", region_name=app.state.config_s3_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_s3_region_name else None
-        client_s3_resource = boto3.resource("s3", region_name=app.state.config_s3_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_s3_region_name else None
-        client_sns = boto3.client("sns", region_name=app.state.config_sns_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_sns_region_name else None
-        client_ses = boto3.client("ses", region_name=app.state.config_ses_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_ses_region_name else None
+        client_s3 = aiobotocore.session.get_session().create_client("s3", region_name=app.state.config_aws_s3_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_aws_s3_region_name else None
+        client_s3_resource = boto3.resource("s3", region_name=app.state.config_aws_s3_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_aws_s3_region_name else None
+        client_sns = boto3.client("sns", region_name=app.state.config_aws_sns_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_aws_sns_region_name else None
+        client_ses = boto3.client("ses", region_name=app.state.config_aws_ses_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_aws_ses_region_name else None
         client_openai = openai.OpenAI(api_key=app.state.config_openai_key) if app.state.config_openai_key else None
         client_gemini = genai.Client(api_key=app.state.config_gemini_key) if app.state.config_gemini_key else None
         client_posthog = Posthog(app.state.config_posthog_project_key, host=app.state.config_posthog_project_host) if app.state.config_posthog_project_key else None
@@ -87,9 +87,10 @@ async def func_lifespan(app:"FastAPI"):
         [setattr(app.state, k, v) for k, v in {**globals(), **locals()}.items() if k.startswith(("client_", "cache_"))]
         # postgres buffer flush loop
         async def pulse_flush():
+            buffer_flush_interval_sec = 60
             while True:
                 try:
-                    await asyncio.sleep(app.state.config_buffer_flush_interval_sec)
+                    await asyncio.sleep(buffer_flush_interval_sec)
                     if client_postgres_pool:
                         async with app.state.flush_lock:
                             await app.state.func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=app.state.func_postgres_serialize, func_regex_check=app.state.func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=app.state.config_regex, config_table=app.state.config_table, config_obj_list_limit=0, config_buffer_limit=app.state.config_buffer_limit, mode="flush", table="", obj_list=[])
@@ -142,7 +143,7 @@ func_app_router_add(app=app, router_dir=os.path.join(os.path.dirname(__file__), 
 app.mount("/static", StaticFiles(directory="./static", check_dir=False), name="static")
 
 # sentry
-if config_sentry_dsn: sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=bool(config_is_enable_sentry_default_pii))
+if config_sentry_dsn: sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=False)
 
 # middleware
 method_map = {v: k for k, v in config_column_int_mapping.get("method", {}).get("log_api", {}).items()}
@@ -177,7 +178,7 @@ async def middleware(request, api_function):
     return response
 
 # cors
-app.add_middleware(CORSMiddleware, allow_origins=[] if "*" in config_cors_origin and config_is_enable_cors_credentials == 1 else config_cors_origin, allow_origin_regex=".*" if "*" in config_cors_origin and config_is_enable_cors_credentials == 1 else None, allow_methods=config_cors_method, allow_headers=config_cors_headers, expose_headers=config_cors_expose_headers, allow_credentials=bool(config_is_enable_cors_credentials))
+app.add_middleware(CORSMiddleware, allow_origins=[], allow_origin_regex=".*", allow_methods=["*"], allow_headers=["*"], expose_headers=["Content-Disposition", "x-cache"], allow_credentials=True)
 
 # main
 if __name__ == "__main__":

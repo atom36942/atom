@@ -19,14 +19,14 @@ async def func_api_my_profile(*, request: Request):
                 metadata[key] = [dict(record) for record in records]
         await conn.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id)
     profile = {**user, **metadata}
-    token = await app_state.func_token_encode(user=profile, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
+    token = await app_state.func_token_encode(user=profile, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_allowed_token_key=app_state.config_allowed_token_key)
     return {"status": 1, "message": profile | {"token": token}}
 
 @router.post("/my/token-refresh")
 async def func_api_my_token_refresh(*, request: Request):
     app_state = request.app.state
     user = await app_state.func_user_read_single(client_postgres_pool=app_state.client_postgres_pool, user_id=request.state.user["id"])
-    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
+    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_allowed_token_key=app_state.config_allowed_token_key)
     return {"status": 1, "message": token}
 
 @router.get("/my/api-usage")
@@ -86,7 +86,7 @@ async def func_api_my_object_update(*, request: Request):
     if oq["table"] == "users" and len(obj_list) > 1: raise Exception("multi-object user update restricted")
     if oq["table"] == "users" and str(obj_list[0].get("id")) != str(request.state.user["id"]): raise Exception("ownership issue: cannot update other users")
     if oq["table"] == "users" and any(key in app_state.config_column_enable_single_update for key in obj_list[0]) and len(obj_list[0]) != 2: raise Exception("sensitive fields must be updated individually (item length 2 required)")
-    if oq["table"] == "users" and any(key in obj_list[0] for key in ("email", "mobile")): await app_state.func_otp_verify(client_postgres_pool=app_state.client_postgres_pool, otp=oq["otp"], email=obj_list[0].get("email"), mobile=obj_list[0].get("mobile"), config_expiry_sec_otp=app_state.config_expiry_sec_otp)
+    if oq["table"] == "users" and any(key in obj_list[0] for key in ("email", "mobile")): await app_state.func_otp_verify(client_postgres_pool=app_state.client_postgres_pool, otp=oq["otp"], email=obj_list[0].get("email"), mobile=obj_list[0].get("mobile"), config_otp_expiry_sec=app_state.config_otp_expiry_sec)
     if "updated_by_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'updated_by_id' column for update tracking")
     if request.state.user.get("id"): obj_list = [dict(item, updated_by_id=request.state.user["id"]) for item in obj_list]
     created_by_id = request.state.user["id"] if oq["table"] != "users" else None

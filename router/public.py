@@ -67,7 +67,7 @@ async def func_api_public_converter_number(*, request: Request):
 async def func_api_public_otp_verify(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("type", "str", 1, ["email", "mobile"], None), ("value", "str", 1, None, None), ("otp", "int", 1, None, None)])
-    return {"status": 1, "message": await app_state.func_otp_verify(client_postgres_pool=app_state.client_postgres_pool, otp=oq["otp"], email=oq["value"] if oq["type"] == "email" else None, mobile=oq["value"] if oq["type"] == "mobile" else None, config_expiry_sec_otp=app_state.config_expiry_sec_otp)}
+    return {"status": 1, "message": await app_state.func_otp_verify(client_postgres_pool=app_state.client_postgres_pool, otp=oq["otp"], email=oq["value"] if oq["type"] == "email" else None, mobile=oq["value"] if oq["type"] == "mobile" else None, config_otp_expiry_sec=app_state.config_otp_expiry_sec)}
 
 @router.post("/public/otp-send-email")
 async def func_api_public_otp_send_email(*, request: Request):

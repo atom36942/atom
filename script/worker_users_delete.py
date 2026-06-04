@@ -8,15 +8,17 @@ from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob.aio import BlobServiceClient
 
 # import internal
-from config import config_aws_access_key_id, config_aws_secret_access_key, config_azure_account_key, config_azure_account_name, config_postgres_url, config_s3_region_name, config_users_delete_batch_limit, config_users_delete_exclude_table, config_users_ownership_column, config_users_delete_retention_day, config_users_delete_retry_delay_sec, config_blob_purge_batch_limit, config_blob_purge_azure_concurrency
+from config import config_aws_access_key_id, config_aws_secret_access_key, config_azure_account_key, config_azure_account_name, config_postgres_url, config_aws_s3_region_name, config_users_delete_batch_limit, config_users_delete_exclude_table, config_users_ownership_column, config_users_delete_retention_day, config_users_delete_retry_delay_sec
 
 # logic
 async def execute():
     print("Starting Users Delete Worker Script...")
+    blob_purge_batch_limit = 5000
+    blob_purge_azure_concurrency = 256
     pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=5, server_settings={"application_name": "atom-daemon-users-delete"})
     clients = {"s3": None, "azure": None}
-    if config_s3_region_name:
-        clients["s3"] = boto3.client("s3", region_name=config_s3_region_name, aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_aws_secret_access_key)
+    if config_aws_s3_region_name:
+        clients["s3"] = boto3.client("s3", region_name=config_aws_s3_region_name, aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_aws_secret_access_key)
     if config_azure_account_name and config_azure_account_key:
         clients["azure"] = BlobServiceClient.from_connection_string(f"DefaultEndpointsProtocol=https;AccountName={config_azure_account_name};AccountKey={config_azure_account_key};EndpointSuffix=core.windows.net")
     def func_quote_ident(name: str) -> str:
@@ -98,8 +100,8 @@ async def execute():
             for i in range(0, len(keys), 1000):
                 response = await asyncio.to_thread(clients["s3"].delete_objects, Bucket=bucket, Delete={"Objects": keys[i:i+1000], "Quiet": True})
                 if response.get("Errors"): raise Exception(f"S3 blob delete failed: {response['Errors'][:3]}")
-        for i in range(0, len(azure_tasks), config_blob_purge_azure_concurrency):
-            results = await asyncio.gather(*azure_tasks[i:i+config_blob_purge_azure_concurrency], return_exceptions=True)
+        for i in range(0, len(azure_tasks), blob_purge_azure_concurrency):
+            results = await asyncio.gather(*azure_tasks[i:i+blob_purge_azure_concurrency], return_exceptions=True)
             for result in results:
                 if isinstance(result, ResourceNotFoundError): continue
                 if isinstance(result, Exception): raise result
@@ -107,7 +109,7 @@ async def execute():
         total_deleted = 0
         deleted_count = -1
         while deleted_count != 0:
-            rows = await conn.fetch('SELECT id, service, container, blob_key FROM "blob" WHERE "deleted_at" < NOW() - ($1 * INTERVAL \'1 day\') LIMIT $2', config_users_delete_retention_day, config_blob_purge_batch_limit)
+            rows = await conn.fetch('SELECT id, service, container, blob_key FROM "blob" WHERE "deleted_at" < NOW() - ($1 * INTERVAL \'1 day\') LIMIT $2', config_users_delete_retention_day, blob_purge_batch_limit)
             if not rows:
                 deleted_count = 0
                 continue

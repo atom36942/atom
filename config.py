@@ -1,40 +1,65 @@
-# Databases
+# Integrations
 config_postgres_url = None
 config_postgres_url_read = None
 config_redis_url = None
 config_mongodb_url = None
 config_mssql_url = None
-
-# Queue
-config_redis_queue_url = None
-config_celery_url = None
+config_google_login_client_id = None
+config_openai_key = None
+config_gemini_key = None
+config_posthog_project_host = None
+config_posthog_project_key = None
+config_sentry_dsn = None
+config_fast2sms_url = None
+config_fast2sms_key = None
+config_resend_url = None
+config_resend_key = None
+config_sftp_host = None
+config_sftp_port = None
+config_sftp_username = None
+config_sftp_password = None
+config_aws_access_key_id = None
+config_aws_secret_access_key = None
+config_aws_s3_region_name = None
+config_aws_sns_region_name = None
+config_aws_ses_region_name = None
+config_azure_account_name = None
+config_azure_account_key = None
+config_azure_email_connection_string = None
 config_kafka_url = None
 config_kafka_username = None
 config_kafka_password = None
 config_rabbitmq_url = None
-
-# AWS
-config_aws_access_key_id = None
-config_aws_secret_access_key = None
-config_s3_region_name = None
-config_sns_region_name = None
-config_ses_region_name = None
-
-# Azure
-config_azure_account_name = None
-config_azure_account_key = None
-config_azure_email_connection_string = None
+config_celery_url = None
+config_redis_queue_url = None
 
 # System
 config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
 config_is_enable_user_delete = 1
 config_is_enable_sql_write = 1
 config_is_enable_signup = 1
-config_allowed_auth_types = [1]
+config_is_enable_otp_require_users_update = 0
+config_users_delete_retention_day = 30
 config_redis_cache_ttl_sec = 3600
-config_blob_size_limit_kb = 300
-config_blob_upload_limit = 100
-config_blob_upload_url_expire_sec = 3600
+config_otp_length = 6
+config_otp_expiry_sec = 600
+config_token_expiry_sec = 10*365*24*60*60
+config_token_refresh_expiry_sec = 100*365*24*60*60
+config_blob_limit_size_kb = 300
+config_blob_limit_upload = 100
+config_blob_expire_sec_upload = 3600
+config_blob_expire_sec_preview = 360000
+config_query_limit_default = 100
+config_query_limit_max = 1000
+config_relation_fetch_limit_max = 100
+config_obj_list_limit = 1000
+config_allowed_auth_types = [1]
+config_allowed_token_key = ["id", "type", "role", "deactivated_at", "deleted_at", "id_ext"]
+
+
+
+
+
 
 # Settings
 config_allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
@@ -45,64 +70,10 @@ config_allowed_user_storage_backends = ["token", "realtime", "redis", "inmemory"
 config_allowed_api_storage_backends = ["redis", "inmemory"]
 config_allowed_api_namespace = ["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"]
 
-
-
-
-
-# Blob
-
-config_preview_url_expire_sec = 360000
-config_blob_purge_batch_limit = 5000
-config_blob_purge_azure_concurrency = 256
-
-# SFTP
-config_sftp_host = None
-config_sftp_port = None
-config_sftp_username = None
-config_sftp_password = None
-
-# Email / SMS
-config_fast2sms_url = None
-config_fast2sms_key = None
-config_resend_url = None
-config_resend_key = None
-
-# AI Providers
-config_openai_key = None
-config_gemini_key = None
-
-# Analytics / Monitoring
-config_is_enable_sentry_default_pii = 0
-config_posthog_project_host = None
-config_posthog_project_key = None
-config_sentry_dsn = None
-
-# Auth
-config_token_expiry_sec = 10*365*24*60*60
-config_token_refresh_expiry_sec = 100*365*24*60*60
-config_is_enable_otp_users_update_admin = 0
-config_expiry_sec_otp = 600
-config_otp_length = 6
-config_token_key = ["id", "type", "role", "deactivated_at", "deleted_at", "id_ext"]
-config_google_login_client_id = None
-
-# CORS
-config_cors_origin = ["*"]
-config_cors_method = ["*"]
-config_cors_headers = ["*"]
-config_is_enable_cors_credentials = 1
-config_cors_expose_headers = ["Content-Disposition", "x-cache"]
-
 # Limits / Buffers
-config_query_limit_default = 100
-config_query_limit_max = 1000
-config_relation_fetch_limit_max = 100
-config_obj_list_limit = 1000
 config_buffer_limit = 100
-config_buffer_flush_interval_sec = 60
 
 # User Deletion
-config_users_delete_retention_day = 30
 config_users_delete_batch_limit = 100
 config_users_delete_retry_delay_sec = [60, 300, 900, 3600, 21600]
 config_users_ownership_column = ["created_by_id", "user_id"]

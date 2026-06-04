@@ -20,7 +20,7 @@ async def func_api_auth_signup_username_password(*, request:Request):
     if app_state.config_is_enable_signup == 0: raise Exception("signup disabled")
     async with app_state.client_postgres_pool.acquire() as conn:
         user = dict((await conn.fetch("INSERT INTO users (type, username, password) VALUES ($1, $2, $3) RETURNING *;", ob["type"], ob["username"], app_state.client_password_hasher.hash(str(ob["password"]))))[0])
-    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
+    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_allowed_token_key=app_state.config_allowed_token_key)
     asyncio.create_task(app_state.func_notification_create(type=3, app_state=app_state, payload={"table": "users", "obj_list": [user]}))
     return {"status":1,"message":{"user":user,"token":token}}
 
@@ -36,7 +36,7 @@ async def func_api_auth_login_username_password(*, request:Request):
         try: app_state.client_password_hasher.verify(records[0]["password"], str(ob["password"]))
         except Exception: raise Exception("incorrect password")
         user = dict(records[0])
-    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
+    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_allowed_token_key=app_state.config_allowed_token_key)
     return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/login-email-password")
@@ -51,7 +51,7 @@ async def func_api_auth_login_email_password(*, request:Request):
         try: app_state.client_password_hasher.verify(records[0]["password"], str(ob["password"]))
         except Exception: raise Exception("incorrect password")
         user = dict(records[0])
-    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
+    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_allowed_token_key=app_state.config_allowed_token_key)
     return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/login-mobile-password")
@@ -66,7 +66,7 @@ async def func_api_auth_login_mobile_password(*, request:Request):
         try: app_state.client_password_hasher.verify(records[0]["password"], str(ob["password"]))
         except Exception: raise Exception("incorrect password")
         user = dict(records[0])
-    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
+    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_allowed_token_key=app_state.config_allowed_token_key)
     return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/login-email-otp")
@@ -75,12 +75,12 @@ async def func_api_auth_login_email_otp(*, request:Request):
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("type","int",1,app_state.config_allowed_auth_types,None),("email","str",1,None,None),("otp","int",1,None,None)])
     if ob.get("email"): ob["email"] = ob["email"].strip()
     await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
-    await app_state.func_otp_verify(client_postgres_pool=app_state.client_postgres_pool, otp=ob["otp"], email=ob["email"], mobile=None, config_expiry_sec_otp=app_state.config_expiry_sec_otp)
+    await app_state.func_otp_verify(client_postgres_pool=app_state.client_postgres_pool, otp=ob["otp"], email=ob["email"], mobile=None, config_otp_expiry_sec=app_state.config_otp_expiry_sec)
     async with app_state.client_postgres_pool.acquire() as conn:
         records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND email=$2 ORDER BY id DESC LIMIT 1;", ob["type"], ob["email"])
         if not records and app_state.config_is_enable_signup == 0: raise Exception("signup disabled")
         user = dict(records[0]) if records else dict((await conn.fetch("INSERT INTO users (type, email) VALUES ($1, $2) RETURNING *;", ob["type"], ob["email"]))[0])
-    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
+    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_allowed_token_key=app_state.config_allowed_token_key)
     return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/login-mobile-otp")
@@ -89,12 +89,12 @@ async def func_api_auth_login_mobile_otp(*, request:Request):
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("type","int",1,app_state.config_allowed_auth_types,None),("mobile","str",1,None,None),("otp","int",1,None,None)])
     if ob.get("mobile"): ob["mobile"] = ob["mobile"].strip()
     await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
-    await app_state.func_otp_verify(client_postgres_pool=app_state.client_postgres_pool, otp=ob["otp"], mobile=ob["mobile"], email=None, config_expiry_sec_otp=app_state.config_expiry_sec_otp)
+    await app_state.func_otp_verify(client_postgres_pool=app_state.client_postgres_pool, otp=ob["otp"], mobile=ob["mobile"], email=None, config_otp_expiry_sec=app_state.config_otp_expiry_sec)
     async with app_state.client_postgres_pool.acquire() as conn:
         records = await conn.fetch("SELECT * FROM users WHERE type=$1 AND mobile=$2 ORDER BY id DESC LIMIT 1;", ob["type"], ob["mobile"])
         if not records and app_state.config_is_enable_signup == 0: raise Exception("signup disabled")
         user = dict(records[0]) if records else dict((await conn.fetch("INSERT INTO users (type, mobile) VALUES ($1, $2) RETURNING *;", ob["type"], ob["mobile"]))[0])
-    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
+    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_allowed_token_key=app_state.config_allowed_token_key)
     return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/login-google")
@@ -107,5 +107,5 @@ async def func_api_auth_login_google(*, request:Request):
         records = await conn.fetch("SELECT * FROM users WHERE google_login_id=$1 AND type=$2;", id_info["sub"], ob["type"])
         if not records and app_state.config_is_enable_signup == 0: raise Exception("signup disabled")
         user = dict(records[0]) if records else dict((await conn.fetch("INSERT INTO users (type, google_login_id, email, name, google_login_metadata) VALUES ($1, $2, $3, $4, $5) RETURNING *;", ob["type"], id_info["sub"], id_info.get("email"), id_info.get("name"), orjson.dumps(id_info).decode("utf-8")))[0])
-    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_token_key=app_state.config_token_key)
+    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_allowed_token_key=app_state.config_allowed_token_key)
     return {"status":1,"message":{"user":user,"token":token}}
