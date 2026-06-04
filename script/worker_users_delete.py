@@ -12,9 +12,9 @@ from config import config_azure_account_key
 from config import config_azure_account_name
 from config import config_postgres_url
 from config import config_aws_s3_region_name
-from config import config_users_delete_worker_exclude_table
+from config import config_users_delete_exclude_table
 from config import config_users_ownership_column
-from config import config_users_delete_worker_retention_day
+from config import config_users_delete_data_retention_day
 
 # logic
 async def execute():
@@ -32,7 +32,7 @@ async def execute():
     def func_quote_ident(name: str) -> str:
         return '"' + name.replace('"', '""') + '"'
     def func_is_excluded_table(table: str) -> bool:
-        for pattern in config_users_delete_worker_exclude_table:
+        for pattern in config_users_delete_exclude_table:
             if pattern.endswith("*"):
                 if table.startswith(pattern[:-1]): return True
             elif table == pattern: return True
@@ -70,7 +70,7 @@ async def execute():
     async def func_purge_retained_rows(conn: asyncpg.Connection, table: str, has_is_protected: bool) -> int:
         table_sql = func_quote_ident(table)
         protected_where = ' AND ("is_protected" IS NULL OR "is_protected" IS FALSE)' if has_is_protected else ""
-        result = await conn.execute(f'DELETE FROM {table_sql} WHERE ctid IN (SELECT ctid FROM {table_sql} WHERE "deleted_at" < NOW() - ($1 * INTERVAL \'1 day\') {protected_where} LIMIT 5000)', config_users_delete_worker_retention_day)
+        result = await conn.execute(f'DELETE FROM {table_sql} WHERE ctid IN (SELECT ctid FROM {table_sql} WHERE "deleted_at" < NOW() - ($1 * INTERVAL \'1 day\') {protected_where} LIMIT 5000)', config_users_delete_data_retention_day)
         return int(result.rsplit(" ", 1)[-1])
     async def func_process_event(conn: asyncpg.Connection, event: asyncpg.Record, owned_tables: list) -> None:
         user_id = event["user_id"]
@@ -116,12 +116,12 @@ async def execute():
         total_deleted = 0
         deleted_count = -1
         while deleted_count != 0:
-            rows = await conn.fetch('SELECT id, service, container, blob_key FROM "blob" WHERE "deleted_at" < NOW() - ($1 * INTERVAL \'1 day\') LIMIT $2', config_users_delete_worker_retention_day, blob_purge_batch_limit)
+            rows = await conn.fetch('SELECT id, service, container, blob_key FROM "blob" WHERE "deleted_at" < NOW() - ($1 * INTERVAL \'1 day\') LIMIT $2', config_users_delete_data_retention_day, blob_purge_batch_limit)
             if not rows:
                 deleted_count = 0
                 continue
             await func_delete_blob_storage(rows)
-            result = await conn.execute('DELETE FROM "blob" WHERE id = ANY($1::bigint[]) AND "deleted_at" < NOW() - ($2 * INTERVAL \'1 day\')', [row["id"] for row in rows], config_users_delete_worker_retention_day)
+            result = await conn.execute('DELETE FROM "blob" WHERE id = ANY($1::bigint[]) AND "deleted_at" < NOW() - ($2 * INTERVAL \'1 day\')', [row["id"] for row in rows], config_users_delete_data_retention_day)
             deleted_count = int(result.rsplit(" ", 1)[-1])
             total_deleted += deleted_count
             if deleted_count: await asyncio.sleep(0.05)

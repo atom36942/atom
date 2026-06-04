@@ -1351,7 +1351,7 @@ async def func_postgres_where_build(*, client_postgres_pool: any, client_passwor
     where_sql = await build_filter(filter)
     return where_sql, values
 
-async def func_postgres_relation(*, client_postgres_pool: any, client_postgres_conn: any = None, obj_list: list, relation: list, config_api_relation_fetch_limit_max: int) -> list:
+async def func_postgres_relation(*, client_postgres_pool: any, client_postgres_conn: any = None, obj_list: list, relation: list, config_sql_read_relation_fetch_limit_max: int) -> list:
     """Standardized relationship logic: handles both aggregates (count, sum, etc) and associations (fetching rows) from source to target."""
     if not relation or not obj_list: return obj_list
     import re
@@ -1384,7 +1384,7 @@ async def func_postgres_relation(*, client_postgres_pool: any, client_postgres_c
         elif op_main == "fetch":
             if len(op_parts) < 2 or not op_parts[1].isdigit(): raise Exception("explicit limit required in relation fetch (e.g. fetch|10)")
             custom_limit = int(op_parts[1])
-            if custom_limit > config_api_relation_fetch_limit_max: raise Exception(f"relation fetch limit {custom_limit} exceeds maximum allowed: {config_api_relation_fetch_limit_max}")
+            if custom_limit > config_sql_read_relation_fetch_limit_max: raise Exception(f"relation fetch limit {custom_limit} exceeds maximum allowed: {config_sql_read_relation_fetch_limit_max}")
             cols_sql = "*" if val == "*" else ",".join([f'"{v.strip()}"' for v in val.split(",")])
             if val != "*" and "id" not in val.split(",") and target_col != "id": cols_sql += f',"{target_col}"'
             sql = f'SELECT * FROM (SELECT {cols_sql}, "{target_col}" AS relation_id, ROW_NUMBER() OVER(PARTITION BY "{target_col}" ORDER BY id DESC) as rn FROM "{target_table}" WHERE "{target_col}" = ANY($1)) t WHERE rn <= $2'
@@ -1471,13 +1471,13 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
     if mode == "now":
         return await insert_serialized(table, serialized_list)
 
-async def func_postgres_read(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_api_query_limit_max: int, config_api_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list) -> list:
+async def func_postgres_read(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if limit < 1: raise Exception("query limit must be greater than 0")
     if page < 1: raise Exception("query page must be greater than 0")
-    if config_api_query_limit_max and limit > config_api_query_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {config_api_query_limit_max}")
+    if config_sql_read_limit_max and limit > config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {config_sql_read_limit_max}")
     order = str(order or "").strip() or "id desc"
     order_list = []
     for part in order.split(","):
@@ -1506,7 +1506,7 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
         records = await conn.fetch(sql_select, *values)
         result_list = [dict(r) for r in records]
         if relation and result_list:
-            result_list = await func_postgres_relation(client_postgres_pool=client_postgres_pool, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_api_relation_fetch_limit_max=config_api_relation_fetch_limit_max)
+            result_list = await func_postgres_relation(client_postgres_pool=client_postgres_pool, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_sql_read_relation_fetch_limit_max=config_sql_read_relation_fetch_limit_max)
         return result_list
 
 async def func_postgres_update(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, table: str, obj_list: list, created_by_id: int) -> any:
