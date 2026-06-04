@@ -556,8 +556,9 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                 await conn.execute(query)
     return "database init done"
     
-async def func_middleware_check_auth(*, headers: dict, url_path: str, config_token_secret_key: str, config_allowed_api_namespace_auth: list) -> dict:
+async def func_middleware_check_auth(*, headers: dict, url_path: str, config_token_secret_key: str) -> dict:
     """Unified authentication: extracts Bearer token, validates presence for protected routes, and decodes JWT. Returns the decoded user dict or an empty dict."""
+    auth_namespaces = ["/my/", "/private/", "/admin/"]
     auth_header = headers.get("Authorization")
     token = auth_header.split("Bearer ", 1)[1] if auth_header and auth_header.startswith("Bearer ") else None
     if token:
@@ -567,7 +568,7 @@ async def func_middleware_check_auth(*, headers: dict, url_path: str, config_tok
         user_obj = orjson.loads(decoded_payload["data"])
     else:
         user_obj = {}
-        if url_path.startswith(tuple(config_allowed_api_namespace_auth)):
+        if url_path.startswith(tuple(auth_namespaces)):
             raise Exception("authorization token missing")
     return user_obj
 
@@ -721,10 +722,11 @@ async def func_middleware_check_ratelimiter(*, client_redis: any, config_api: di
         raise Exception(f"invalid ratelimiter mode: {mode}, allowed: redis, inmemory")
     return None
 
-async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, config_api: dict, client_redis: any = None, user_id: int = 0, cache_api_response: dict = None, config_allowed_api_namespace_user: list = None, response: any = None) -> any:
+async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, config_api: dict, client_redis: any = None, user_id: int = 0, cache_api_response: dict = None, response: any = None) -> any:
     """Get or set middleware API cache for a request."""
     from fastapi import Response
     import gzip, base64, time
+    user_namespaces = ["/my/"]
     if mode not in ("get", "set"): raise Exception(f"invalid cache operation: {mode}, allowed: get, set")
     cfg = config_api.get(path, {}).get("api_cache_sec")
     cache_mode = cfg[0] if isinstance(cfg, list) else cfg
@@ -733,8 +735,7 @@ async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict,
     if mode == "set" and not is_enabled: return response
     if mode == "get" and not is_enabled: return None
     if cache_api_response is None: cache_api_response = {}
-    if config_allowed_api_namespace_user is None: config_allowed_api_namespace_user = []
-    uid = user_id if path.startswith(tuple(config_allowed_api_namespace_user)) else 0
+    uid = user_id if path.startswith(tuple(user_namespaces)) else 0
     key = f"cache:{path}?{'&'.join(f'{k}={v}' for k, v in sorted(query_params.items()))}:{uid}"
     if mode == "get":
         data = await client_redis.get(key) if cache_mode == "redis" else (item["data"] if (item := cache_api_response.get(key)) and item["expire_at"] > time.time() else None)
@@ -863,7 +864,7 @@ async def func_request_param_read(*, request: any, mode: str, strict: int, confi
         key, dtype, is_mandatory, allowed_values, default_value = param[0], param[1], int(param[2]), param[3], param[4]
         if dtype not in TYPE_MAP and not dtype.startswith("list:"): raise Exception(f"parameter '{key}' has invalid dtype '{dtype}'")
         if is_mandatory == 1 and default_value is not None: raise Exception(f"parameter '{key}' is mandatory, default_value must be None")
-        if default_value is not None and allowed_values and default_value not in allowed_values:
+        if default_value is not None and allowed_values is not None and default_value not in allowed_values:
             raise Exception(f"parameter '{key}' default '{default_value}' violating allowed_values: {allowed_values}")
         if allowed_values is not None and not isinstance(allowed_values, (list, tuple)): raise Exception(f"parameter '{key}' allowed_values must be a list or tuple")
         val = params_dict.get(key)
@@ -896,14 +897,15 @@ async def func_request_param_read(*, request: any, mode: str, strict: int, confi
                 raise Exception(f"parameter '{key}' missing or invalid file upload")
             if dtype == "list" and (not isinstance(val, list) or len(val) == 0):
                  raise Exception(f"parameter '{key}' missing or empty list")
-        if val is not None and allowed_values and val not in allowed_values: raise Exception(f"parameter '{key}' value not allowed, allowed: {allowed_values}")
+        if val is not None and allowed_values is not None and val not in allowed_values: raise Exception(f"parameter '{key}' value not allowed, allowed: {allowed_values}")
         output_dict[key] = val
     return output_dict
 
 
-def func_openapi_spec_generate(*, app_routes: list, config_allowed_api_namespace_auth: list, app_state: any) -> dict:
+def func_openapi_spec_generate(*, app_routes: list, app_state: any) -> dict:
     """Generate a standard OpenAPI 3.0.0 specification from FastAPI routes using source inspection."""
     import inspect, re, ast
+    auth_namespaces = ["/my/", "/private/", "/admin/"]
     TYPE_MAP = {
         "int": "integer", "bigint": "integer", "smallint": "integer", "integer": "integer", "int4": "integer", "int8": "integer",
         "float": "number", "number": "number", "numeric": "number",
@@ -978,7 +980,7 @@ def func_openapi_spec_generate(*, app_routes: list, config_allowed_api_namespace
             m_lower = method.lower()
             tag = path.split("/")[1] if len(path.split("/")) > 1 and path.split("/")[1] else "system"
             op = {"tags": [tag], "parameters": [], "responses": {"200": {"description": "Successful Response"}}}
-            if any(path.startswith(x) for x in config_allowed_api_namespace_auth):
+            if any(path.startswith(x) for x in auth_namespaces):
                 op["security"] = [{"BearerAuth": []}]
                 op["parameters"].append({"name": "Authorization", "in": "header", "required": True, "schema": {"type": "string", "default": "Bearer {token}"}})
             for p in re.findall(r"\{(\w+)\}", path):
@@ -1551,12 +1553,11 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
         async with client_postgres_pool.acquire() as conn: await _execute_update(conn)
     return returned_ids if returned_ids else "updated"
 
-async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_conn: any, cache_postgres_schema: dict = None, config_obj_list_limit: int, table: str, ids: list, created_by_id: int, config_is_enable_user_delete: int = 1) -> int:
+async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_conn: any, cache_postgres_schema: dict = None, config_obj_list_limit: int, table: str, ids: list, created_by_id: int) -> int:
     """Delete records by ID with schema-aware optional ownership restrictions."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if table == "spatial_ref_sys": raise Exception("system table protected")
-    if table == "users" and config_is_enable_user_delete != 1: raise Exception("users hard delete disabled")
     schema = (cache_postgres_schema or {}).get(table, {})
     if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"unknown table {table}")
     if schema and "id" not in schema: raise Exception(f"table {table} missing id column")
@@ -1577,11 +1578,12 @@ async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_con
             records = await conn.fetch(sql_delete, *values)
     return len(records)
 
-async def func_producer(*, queue: str, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, channel: str, payload: dict, config_allowed_queue_services: list) -> any:
+async def func_producer(*, queue: str, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, channel: str, payload: dict) -> any:
     """Ultra-standardized producer orchestration. Handles multi-tech dispatch with explicit clients."""
     import orjson
+    allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
     if not queue: raise Exception("invalid queue format: queue missing")
-    if queue not in config_allowed_queue_services: raise Exception(f"invalid queue: {queue}. allowed: {config_allowed_queue_services}")
+    if queue not in allowed_queue_services: raise Exception(f"invalid queue: {queue}. allowed: {allowed_queue_services}")
     if queue == "celery":
         if not client_celery_producer: raise Exception("celery producer not initialized")
         return client_celery_producer.send_task(channel, kwargs=payload, queue=channel).id
@@ -1713,7 +1715,8 @@ def func_run_broker(*, queue: str, channel: str, config_broker: dict, setup_call
     async def async_runner():
         setup_data = await setup_callback()
         client_primary = setup_data[0]
-        semaphore = asyncio.Semaphore(config_broker.get("config_consumer_concurrency", 1))
+        consumer_concurrency = 10
+        semaphore = asyncio.Semaphore(consumer_concurrency)
         async def _execute(n, p):
             async with semaphore:
                 try:
@@ -1741,7 +1744,7 @@ def func_run_broker(*, queue: str, channel: str, config_broker: dict, setup_call
                 import aio_pika
                 conn = await aio_pika.connect_robust(config_broker.get("config_rabbitmq_url"))
                 ch = await conn.channel()
-                await ch.set_qos(prefetch_count=config_broker.get("config_consumer_concurrency", 1))
+                await ch.set_qos(prefetch_count=consumer_concurrency)
                 rq = await ch.declare_queue(channel, durable=True)
                 print(f"rabbitmq consumer started on {channel}", flush=True)
                 async def _execute_rmq(n, m):
@@ -1757,15 +1760,19 @@ def func_run_broker(*, queue: str, channel: str, config_broker: dict, setup_call
                     await conn.close()
             elif queue == "kafka":
                 from aiokafka import AIOKafkaConsumer
+                kafka_group_id = "atom"
+                kafka_is_enable_auto_commit = 1
+                kafka_batch_limit = 100
+                kafka_batch_timeout_ms = 1000
                 if config_broker.get("config_kafka_username"):
-                    consumer = AIOKafkaConsumer(channel, bootstrap_servers=config_broker.get("config_kafka_url"), group_id=config_broker.get("config_kafka_group_id"), enable_auto_commit=bool(config_broker.get("config_kafka_is_enable_auto_commit")), security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=config_broker.get("config_kafka_username"), sasl_plain_password=config_broker.get("config_kafka_password"))
+                    consumer = AIOKafkaConsumer(channel, bootstrap_servers=config_broker.get("config_kafka_url"), group_id=kafka_group_id, enable_auto_commit=bool(kafka_is_enable_auto_commit), security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=config_broker.get("config_kafka_username"), sasl_plain_password=config_broker.get("config_kafka_password"))
                 else:
-                    consumer = AIOKafkaConsumer(channel, bootstrap_servers=config_broker.get("config_kafka_url"), group_id=config_broker.get("config_kafka_group_id"), enable_auto_commit=bool(config_broker.get("config_kafka_is_enable_auto_commit")))
+                    consumer = AIOKafkaConsumer(channel, bootstrap_servers=config_broker.get("config_kafka_url"), group_id=kafka_group_id, enable_auto_commit=bool(kafka_is_enable_auto_commit))
                 await consumer.start()
                 print(f"kafka consumer started on {channel}", flush=True)
                 try:
                     while True:
-                        batch = await consumer.getmany(timeout_ms=config_broker.get("config_kafka_batch_timeout_ms", 100), max_records=config_broker.get("config_kafka_batch_limit", 100))
+                        batch = await consumer.getmany(timeout_ms=kafka_batch_timeout_ms, max_records=kafka_batch_limit)
                         if not batch: continue
                         for tp, messages in batch.items():
                             tasks = []
@@ -1774,7 +1781,7 @@ def func_run_broker(*, queue: str, channel: str, config_broker: dict, setup_call
                                 print(f"task started #{n}: {channel}", flush=True)
                                 tasks.append(asyncio.create_task(_execute(n, msg.value)))
                             if tasks: await asyncio.gather(*tasks)
-                            if not config_broker.get("config_kafka_is_enable_auto_commit"): await consumer.commit(tp)
+                            if not kafka_is_enable_auto_commit: await consumer.commit(tp)
                 finally:
                     await consumer.stop()
             else:

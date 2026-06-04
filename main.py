@@ -1,6 +1,7 @@
 # import stdlib
 import asyncio
 import os
+import shutil
 import time
 from contextlib import asynccontextmanager, suppress
 
@@ -42,7 +43,10 @@ async def func_lifespan(app:"FastAPI"):
         # check
         app.state.func_check(app_routes=app.routes, config_config_path="config.py", config_function_path="function.py", config_allowed_api_namespace=app.state.config_allowed_api_namespace, config_router_path="router", config_api=app.state.config_api, config_allowed_user_storage_backends=app.state.config_allowed_user_storage_backends, config_allowed_api_storage_backends=app.state.config_allowed_api_storage_backends, config_postgres=app.state.config_postgres)
         # structure
-        for directory in ("tmp", "secret"):os.makedirs(directory, exist_ok=True)
+        if os.path.isdir("tmp") and not os.path.islink("tmp"): shutil.rmtree("tmp")
+        elif os.path.exists("tmp"): os.remove("tmp")
+        os.makedirs("tmp", exist_ok=True)
+        os.makedirs("secret", exist_ok=True)
         # client init
         client_password_hasher = PasswordHasher()
         client_http = httpx.AsyncClient()
@@ -66,9 +70,9 @@ async def func_lifespan(app:"FastAPI"):
         client_azure_email = EmailClient.from_connection_string(app.state.config_azure_email_connection_string) if app.state.config_azure_email_connection_string else None
         client_azure_blob = BlobServiceClient.from_connection_string(f"DefaultEndpointsProtocol=https;AccountName={app.state.config_azure_account_name};AccountKey={app.state.config_azure_account_key};EndpointSuffix=core.windows.net") if (app.state.config_azure_account_name and app.state.config_azure_account_key) else None
         # postges schema init
-        if client_postgres_pool and app.state.config_is_enable_postgres_init_startup == 1: await app.state.func_postgres_schema_init(client_postgres_pool=client_postgres_pool, config_postgres=app.state.config_postgres)
+        if client_postgres_pool: await app.state.func_postgres_schema_init(client_postgres_pool=client_postgres_pool, config_postgres=app.state.config_postgres)
         # cache init
-        cache_openapi=app.state.func_openapi_spec_generate(app_routes=app.routes, config_allowed_api_namespace_auth=app.state.config_allowed_api_namespace_auth, app_state=app.state)
+        cache_openapi=app.state.func_openapi_spec_generate(app_routes=app.routes, app_state=app.state)
         cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres_pool=client_postgres_pool) if client_postgres_pool else {}
         cache_config = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("config"), is_json_value=1) if client_postgres_pool and "config" in cache_postgres_schema else {}
         cache_postgres_table_list = list(cache_postgres_schema.keys())
@@ -91,8 +95,7 @@ async def func_lifespan(app:"FastAPI"):
                             await app.state.func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=app.state.func_postgres_serialize, func_regex_check=app.state.func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=app.state.config_regex, config_table=app.state.config_table, config_obj_list_limit=0, config_buffer_limit=app.state.config_buffer_limit, mode="flush", table="", obj_list=[])
                 except asyncio.CancelledError: break
                 except Exception as e: print(f"❌ pulse flush error: {e}")
-        if app.state.config_is_enable_background_workers == 1:
-            app.state.pulse_flush_task = asyncio.create_task(pulse_flush())
+        app.state.pulse_flush_task = asyncio.create_task(pulse_flush())
     except Exception as e:
         print(f"❌ startup error: {e}")
         raise
@@ -149,27 +152,27 @@ async def middleware(request, api_function):
     start, error, response_type, request.state.user = time.perf_counter(), None, 1, {}
     app_state = request.app.state
     try:
-        request.state.user = await app_state.func_middleware_check_auth(headers=request.headers, url_path=request.url.path, config_token_secret_key=app_state.config_token_secret_key, config_allowed_api_namespace_auth=app_state.config_allowed_api_namespace_auth)
+        request.state.user = await app_state.func_middleware_check_auth(headers=request.headers, url_path=request.url.path, config_token_secret_key=app_state.config_token_secret_key)
         await app_state.func_middleware_check_user_role(user_dict=request.state.user, url_path=request.url.path, config_api=app_state.config_api, client_postgres_pool=app_state.client_postgres_pool, client_redis=app_state.client_redis, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, url_path=request.url.path, config_api=app_state.config_api, client_postgres_pool=app_state.client_postgres_pool, client_redis=app_state.client_redis, cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, url_path=request.url.path, config_api=app_state.config_api, client_postgres_pool=app_state.client_postgres_pool, client_redis=app_state.client_redis, cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_ratelimiter(client_redis=app_state.client_redis, config_api=app_state.config_api, url_path=request.url.path, identifier=request.state.user.get("id") if request.state.user else request.client.host, cache_ratelimiter=app_state.cache_ratelimiter)
         user_id, path, query_params = (request.state.user.get("id") if request.state.user else 0), request.url.path, dict(request.query_params)
-        response = await app_state.func_middleware_api_cache(mode="get", path=path, query_params=query_params, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response, config_allowed_api_namespace_user=app_state.config_allowed_api_namespace_user)
+        response = await app_state.func_middleware_api_cache(mode="get", path=path, query_params=query_params, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response)
         if not response:
             if query_params.get("is_background") == "1":
                 response_type = 4
                 response = await app_state.func_middleware_api_background(scope=request.scope, body_bytes=await request.body(), api_function=api_function)
             else:
                 response = await api_function(request)
-                response = await app_state.func_middleware_api_cache(mode="set", path=path, query_params=query_params, response=response, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response, config_allowed_api_namespace_user=app_state.config_allowed_api_namespace_user)
+                response = await app_state.func_middleware_api_cache(mode="set", path=path, query_params=query_params, response=response, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response)
                 if getattr(response, "is_cache_set", False): response_type = 2
         else:
             response_type = 3
     except Exception as e:
         response_type = 5
-        error, response = await app_state.func_middleware_api_response_error(exception=e, is_traceback=app_state.config_is_enable_traceback, sentry_dsn=app_state.config_sentry_dsn)
-    if app_state.config_is_enable_log_api == 1 and (pool := app_state.client_postgres_pool):
+        error, response = await app_state.func_middleware_api_response_error(exception=e, is_traceback=1, sentry_dsn=app_state.config_sentry_dsn)
+    if pool := app_state.client_postgres_pool:
         with suppress(Exception): await app_state.func_postgres_create(client_postgres_pool=pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=0, config_buffer_limit=app_state.config_buffer_limit, mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": request.client.host if request.client else None, "path": request.url.path, "method": method_map.get(request.method), "query_param": str(request.query_params), "status_code": response.status_code if hasattr(response, "status_code") else None, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
     return response
 

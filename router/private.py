@@ -46,12 +46,12 @@ async def func_api_private_blob_upload_file(request:Request):
     app_state = request.app.state
     of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("service", "str", 1, app_state.config_allowed_blob_services, None), ("container", "str", 1, None, None), ("file", "file", 1, None, None)])
     container = of["container"]
-    if len(of["file"]) > app_state.config_blob_upload_limit_count: raise Exception(f"maximum {app_state.config_blob_upload_limit_count} files allowed")
+    if len(of["file"]) > app_state.config_blob_upload_limit: raise Exception(f"maximum {app_state.config_blob_upload_limit} files allowed")
     output = {}; blob_list = []
     if of["service"] == "s3":
         for item in of["file"]:
             file_data = await item.read()
-            if len(file_data) > app_state.config_blob_limit_kb * 1024: raise Exception(f"file size exceeds {app_state.config_blob_limit_kb}kb")
+            if len(file_data) > app_state.config_blob_size_limit_kb * 1024: raise Exception(f"file size exceeds {app_state.config_blob_size_limit_kb}kb")
             ext = item.filename.split(".")[-1] if "." in item.filename else "bin"; file_key = f"{uuid.uuid4().hex}.{ext}"
             await app_state.client_s3.put_object(Bucket=container, Key=file_key, Body=file_data)
             file_url = f"https://{container}.s3.amazonaws.com/{file_key}"
@@ -60,7 +60,7 @@ async def func_api_private_blob_upload_file(request:Request):
         container_client = app_state.client_azure_blob.get_container_client(container)
         for item in of["file"]:
             file_data = await item.read()
-            if len(file_data) > app_state.config_blob_limit_kb * 1024: raise Exception(f"file size exceeds {app_state.config_blob_limit_kb}kb")
+            if len(file_data) > app_state.config_blob_size_limit_kb * 1024: raise Exception(f"file size exceeds {app_state.config_blob_size_limit_kb}kb")
             ext = item.filename.split(".")[-1] if "." in item.filename else "bin"; file_key = f"{uuid.uuid4().hex}.{ext}"
             blob_client=container_client.get_blob_client(file_key); await blob_client.upload_blob(file_data)
             output[item.filename] = blob_client.url; blob_list.append({"created_by_id": request.state.user["id"], "type": 1, "service": of["service"], "container": container, "blob_key": file_key, "file_url": blob_client.url})
@@ -72,18 +72,18 @@ async def func_api_private_blob_upload_url(request:Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_allowed_blob_services, None), ("container", "str", 1, None, None), ("count", "int", 0, None, 1)])
     container = oq["container"]
-    if oq["count"] > app_state.config_blob_upload_limit_count: raise Exception(f"maximum {app_state.config_blob_upload_limit_count} allowed")
+    if oq["count"] > app_state.config_blob_upload_limit: raise Exception(f"maximum {app_state.config_blob_upload_limit} allowed")
     output = []; blob_list = []
     if oq["service"] == "s3":
         for _ in range(oq["count"]):
             file_key = f"{uuid.uuid4().hex}.bin"
-            presigned_post = app_state.client_s3.generate_presigned_post(Bucket=container, Key=file_key, ExpiresIn=app_state.config_upload_url_expire_sec, Conditions=[["content-length-range", 1, app_state.config_blob_limit_kb * 1024]])
+            presigned_post = app_state.client_s3.generate_presigned_post(Bucket=container, Key=file_key, ExpiresIn=app_state.config_blob_upload_url_expire_sec, Conditions=[["content-length-range", 1, app_state.config_blob_size_limit_kb * 1024]])
             file_url = f"https://{container}.s3.{app_state.config_s3_region_name}.amazonaws.com/{file_key}"
             output.append({"upload_url": presigned_post["url"], **presigned_post["fields"], "file_url": file_url}); blob_list.append({"created_by_id": request.state.user["id"], "type": 2, "service": oq["service"], "container": container, "blob_key": file_key, "file_url": file_url})
     elif oq["service"] == "azure":
         for _ in range(oq["count"]):
             file_key = f"{uuid.uuid4().hex}.bin"
-            sas_token = generate_blob_sas(account_name=app_state.config_azure_account_name, account_key=app_state.config_azure_account_key, container_name=container, blob_name=file_key, permission=BlobSasPermissions(write=True, create=True), expiry=datetime.now(timezone.utc) + timedelta(seconds=app_state.config_upload_url_expire_sec))
+            sas_token = generate_blob_sas(account_name=app_state.config_azure_account_name, account_key=app_state.config_azure_account_key, container_name=container, blob_name=file_key, permission=BlobSasPermissions(write=True, create=True), expiry=datetime.now(timezone.utc) + timedelta(seconds=app_state.config_blob_upload_url_expire_sec))
             sas_url = f"https://{app_state.config_azure_account_name}.blob.core.windows.net/{container}/{file_key}?{sas_token}"
             file_url = f"https://{app_state.config_azure_account_name}.blob.core.windows.net/{container}/{file_key}"
             output.append({"upload_url": sas_url, "key": file_key, "file_url": file_url}); blob_list.append({"created_by_id": request.state.user["id"], "type": 2, "service": oq["service"], "container": container, "blob_key": file_key, "file_url": file_url})

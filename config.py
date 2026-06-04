@@ -1,35 +1,7 @@
-# Postgres
+# Databases
 config_postgres_url = None
 config_postgres_url_read = None
-
-# System
-config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
-config_is_enable_postgres_sql_runner_write = 1
-config_is_enable_user_delete = 1
-config_is_enable_signup = 1
-config_allowed_auth_types = [1]
-config_is_enable_reset_tmp = 0
-config_is_enable_background_workers = 1
-config_is_enable_traceback = 1
-config_is_enable_log_api = 1
-config_is_enable_postgres_init_startup = 1
-
-# Allowed
-config_allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
-config_allowed_blob_services = ["s3", "azure"]
-config_allowed_email_services = ["ses", "resend", "azure"]
-config_allowed_mobile_services = ["sns", "fast2sms"]
-config_allowed_user_storage_backends = ["token", "realtime", "redis", "inmemory"]
-config_allowed_api_storage_backends = ["redis", "inmemory"]
-config_allowed_api_namespace = ["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"]
-config_allowed_api_namespace_auth = ["/my/", "/private/", "/admin/"]
-config_allowed_api_namespace_user = ["/my/"]
-
-# Redis
 config_redis_url = None
-config_redis_cache_ttl_sec = 3600
-
-# Databases
 config_mongodb_url = None
 config_mssql_url = None
 
@@ -40,11 +12,6 @@ config_kafka_url = None
 config_kafka_username = None
 config_kafka_password = None
 config_rabbitmq_url = None
-config_consumer_concurrency = 10
-config_kafka_group_id = "group_1"
-config_kafka_is_enable_auto_commit = 1
-config_kafka_batch_limit = 100
-config_kafka_batch_timeout_ms = 1000
 
 # AWS
 config_aws_access_key_id = None
@@ -58,10 +25,32 @@ config_azure_account_name = None
 config_azure_account_key = None
 config_azure_email_connection_string = None
 
+# System
+config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
+config_is_enable_user_delete = 1
+config_is_enable_sql_write = 1
+config_is_enable_signup = 1
+config_allowed_auth_types = [1]
+config_redis_cache_ttl_sec = 3600
+config_blob_size_limit_kb = 300
+config_blob_upload_limit = 100
+config_blob_upload_url_expire_sec = 3600
+
+# Settings
+config_allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
+config_allowed_blob_services = ["s3", "azure"]
+config_allowed_email_services = ["ses", "resend", "azure"]
+config_allowed_mobile_services = ["sns", "fast2sms"]
+config_allowed_user_storage_backends = ["token", "realtime", "redis", "inmemory"]
+config_allowed_api_storage_backends = ["redis", "inmemory"]
+config_allowed_api_namespace = ["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"]
+
+
+
+
+
 # Blob
-config_blob_limit_kb = 300
-config_blob_upload_limit_count = 100
-config_upload_url_expire_sec = 3600
+
 config_preview_url_expire_sec = 360000
 config_blob_purge_batch_limit = 5000
 config_blob_purge_azure_concurrency = 256

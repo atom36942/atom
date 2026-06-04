@@ -1,8 +1,6 @@
 # import stdlib
 import asyncio
-import os
 import re
-import shutil
 import uuid
 
 # import packages
@@ -27,7 +25,6 @@ async def func_api_admin_sync(*, request: Request):
     app_state.cache_users_role = await app_state.func_postgres_map_column(client_postgres_pool=app_state.client_postgres_pool, config_sql=app_state.config_sql.get("users_role")) if app_state.client_postgres_pool else {}
     app_state.cache_users_deactivated = await app_state.func_postgres_map_column(client_postgres_pool=app_state.client_postgres_pool, config_sql=app_state.config_sql.get("users_deactivated")) if app_state.client_postgres_pool else {}
     app_state.cache_users_deleted = await app_state.func_postgres_map_column(client_postgres_pool=app_state.client_postgres_pool, config_sql=app_state.config_sql.get("users_deleted")) if app_state.client_postgres_pool else {}
-    if app_state.config_is_enable_reset_tmp == 1 and os.path.exists("tmp"): shutil.rmtree("tmp"); os.makedirs("tmp")
     return {"status": 1, "message": "done"}
 
 @router.post("/admin/object-create")
@@ -65,7 +62,8 @@ async def func_api_admin_object_update(*, request: Request):
 async def func_api_admin_object_delete(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "list:int", 1, None, None)])
-    deleted_count = await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, config_obj_list_limit=app_state.config_obj_list_limit, table=ob["table"], ids=ob["ids"], created_by_id=None, config_is_enable_user_delete=app_state.config_is_enable_user_delete)
+    if ob["table"] == "users" and app_state.config_is_enable_user_delete != 1: raise Exception("users hard delete disabled")
+    deleted_count = await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, config_obj_list_limit=app_state.config_obj_list_limit, table=ob["table"], ids=ob["ids"], created_by_id=None)
     return {"status": 1, "message": f"{deleted_count} ids deleted"}
 
 @router.post("/admin/postgres-sql-runner")
@@ -75,7 +73,7 @@ async def func_api_admin_postgres_sql_runner(*, request: Request):
     if ob["mode"] not in ("read", "write"): raise Exception(f"invalid mode: {ob['mode']}")
     ql = ob["sql"].lower().strip().lstrip("(").strip()
     if ob["mode"] == "read" and not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("read mode restricted")
-    if ob["mode"] == "write" and app_state.config_is_enable_postgres_sql_runner_write != 1: raise Exception("postgres sql runner write mode disabled")
+    if ob["mode"] == "write" and app_state.config_is_enable_sql_write != 1: raise Exception("postgres sql runner write mode disabled")
     if ob["mode"] == "read":
         if not app_state.client_postgres_pool_read: raise Exception("postgres read client not initialized")
         async with app_state.client_postgres_pool_read.acquire() as conn:
@@ -108,6 +106,7 @@ async def func_api_admin_postgres_export(*, request: Request):
 async def func_api_admin_postgres_import(*, request: Request):
     app_state = request.app.state
     of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("mode", "str", 1, ["create", "update", "delete"], None), ("table", "str", 1, app_state.cache_postgres_table_list, None), ("file", "file", 1, None, None)])
+    if of["mode"] == "delete" and of["table"] == "users" and app_state.config_is_enable_user_delete != 1: raise Exception("users hard delete disabled")
     count = 0
     async with app_state.client_postgres_pool.acquire() as conn:
         async with conn.transaction():
@@ -119,7 +118,7 @@ async def func_api_admin_postgres_import(*, request: Request):
                 elif of["mode"] == "update":
                     await app_state.func_postgres_update(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=app_state.config_obj_list_limit, table=of["table"], obj_list=ol, created_by_id=None)
                 elif of["mode"] == "delete":
-                    await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=conn, cache_postgres_schema=app_state.cache_postgres_schema, config_obj_list_limit=app_state.config_obj_list_limit, table=of["table"], ids=[obj["id"] for obj in ol], created_by_id=None, config_is_enable_user_delete=app_state.config_is_enable_user_delete)
+                    await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=conn, cache_postgres_schema=app_state.cache_postgres_schema, config_obj_list_limit=app_state.config_obj_list_limit, table=of["table"], ids=[obj["id"] for obj in ol], created_by_id=None)
                 count += len(ol)
     return {"status": 1, "message": f"{count} rows processed"}
 
