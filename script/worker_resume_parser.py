@@ -16,10 +16,12 @@ from config import config_postgres_url, config_gemini_key, config_postgres, conf
 # logic
 async def execute():
     BASE_COLUMNS = {"id", "created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id", "deactivated_at", "deactivated_by_id", "verified_at", "verified_by_id", "job_id", "resume_url", "status", "worker_status", "worker_last_error", "metadata", "worker_retry_count", "worker_next_retry_at", "worker_processed_at"}
+    BATCH_LIMIT = 5
+    CONCURRENCY_LIMIT = 3
     if not config_gemini_key:
         print("Error: config_gemini_key is not set. Worker requires Gemini.")
         return
-    print("Starting Dynamic Resume Parser Worker Script...")
+    print(f"Starting Dynamic Resume Parser Worker Script... batch_limit={BATCH_LIMIT} concurrency_limit={CONCURRENCY_LIMIT}")
     client_gemini = genai.Client(api_key=config_gemini_key)
     pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=5, server_settings={"application_name": "atom-daemon-resume-parser"})
     def func_get_dynamic_schema() -> dict:
@@ -171,18 +173,23 @@ async def execute():
         except Exception as exc:
             async with pool.acquire() as event_conn:
                 async with event_conn.transaction():
-                    retry_count = candidate.get("worker_retry_count") or 0
+                    retry_count = candidate["worker_retry_count"] or 0
                     await func_mark_failed(event_conn, candidate["id"], retry_count, exc)
             print(f"[resume-parser-worker] failed candidate_id={candidate['id']} error={str(exc)[:300]}")
     async def func_resume_parser_worker_once() -> int:
         async with pool.acquire() as conn:
             async with conn.transaction():
-                candidates = await func_claim_candidates(conn, 5)
+                candidates = await func_claim_candidates(conn, BATCH_LIMIT)
         if candidates:
             print(f"[resume-parser-worker] claimed {len(candidates)} candidate(s)")
-            for candidate in candidates:
-                await process_and_update(candidate)
-                await asyncio.sleep(0.1)
+            semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
+            async def process_with_limit(candidate: asyncpg.Record):
+                async with semaphore:
+                    await process_and_update(candidate)
+            results = await asyncio.gather(*(process_with_limit(candidate) for candidate in candidates), return_exceptions=True)
+            for candidate, result in zip(candidates, results):
+                if isinstance(result, Exception):
+                    print(f"[resume-parser-worker] unexpected task error candidate_id={candidate['id']} error={str(result)[:300]}")
         return len(candidates)
     try:
         idle_count = 0

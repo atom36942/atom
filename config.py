@@ -125,7 +125,7 @@ config_users_delete_exclude_table = ["users", "spatial_ref_sys", "log_*"]
 config_table_create_disable_my = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
 config_table_create_enable_public = ["test", "support"]
 config_table_read_enable_public = ["*"]
-config_sensitive_table = ["users", "spatial_ref_sys", "geometry_columns", "geography_columns", "raster_columns", "raster_overviews"]
+config_sensitive_table = ["users", "spatial_ref_sys"]
 config_admin_columns = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id", "deleted_by_id", "deactivated_by_id", "archived_by_id"]
 config_column_enable_single_update = ["username", "password", "email", "mobile", "deleted_at"]
 
