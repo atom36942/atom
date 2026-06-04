@@ -79,10 +79,7 @@ config_sql = {
 "users_role": "select id,role from users where role is not null order by id asc limit 1000",
 "users_deactivated": "select id, deactivated_at from users order by id asc limit 1000",
 "users_deleted": "select id, deleted_at from users order by id asc limit 1000",
-"profile_metadata": {
-"test_count": "select count(*) from test where created_by_id=$1", 
-"test_object": "select * from test where created_by_id=$1 limit 1"
-},
+"profile_metadata": {},
 }
 
 config_sensitive_table = ["users", "spatial_ref_sys"]
