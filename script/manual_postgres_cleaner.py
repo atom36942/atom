@@ -6,11 +6,12 @@ import time
 import asyncpg
 
 # import internal
-from config import config_postgres_url, config_sensitive_table, config_table
+from config import config_postgres_url, config_table
 
 # logic
 async def execute():
-    blocked_tables = [table for table, cfg in config_table.items() if cfg.get("retention_day") is not None and table in config_sensitive_table]
+    sensitive_tables = ["users", "spatial_ref_sys"]
+    blocked_tables = [table for table, cfg in config_table.items() if cfg.get("retention_day") is not None and table in sensitive_tables]
     if blocked_tables:
         raise Exception(f"postgres cleaner blocked for sensitive table(s): {', '.join(blocked_tables)}")
     print("Starting Postgres Cleanup Script...")

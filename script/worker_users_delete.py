@@ -8,11 +8,13 @@ from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob.aio import BlobServiceClient
 
 # import internal
-from config import config_aws_access_key_id, config_aws_secret_access_key, config_azure_account_key, config_azure_account_name, config_postgres_url, config_aws_s3_region_name, config_users_delete_batch_limit, config_users_delete_exclude_table, config_users_ownership_column, config_users_delete_retention_day, config_users_delete_retry_delay_sec
+from config import config_aws_access_key_id, config_aws_secret_access_key, config_azure_account_key, config_azure_account_name, config_postgres_url, config_aws_s3_region_name, config_users_delete_worker_exclude_table, config_users_ownership_column, config_users_delete_worker_retention_day
 
 # logic
 async def execute():
     print("Starting Users Delete Worker Script...")
+    users_delete_batch_limit = 100
+    users_delete_retry_delay_sec = [60, 300, 900, 3600, 21600]
     blob_purge_batch_limit = 5000
     blob_purge_azure_concurrency = 256
     pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=5, server_settings={"application_name": "atom-daemon-users-delete"})
@@ -24,15 +26,14 @@ async def execute():
     def func_quote_ident(name: str) -> str:
         return '"' + name.replace('"', '""') + '"'
     def func_is_excluded_table(table: str) -> bool:
-        for pattern in config_users_delete_exclude_table:
+        for pattern in config_users_delete_worker_exclude_table:
             if pattern.endswith("*"):
                 if table.startswith(pattern[:-1]): return True
             elif table == pattern: return True
         return False
     def func_retry_delay_sec(retry_count: int) -> int:
-        if not config_users_delete_retry_delay_sec: return 300
-        index = min(max(retry_count, 0), len(config_users_delete_retry_delay_sec) - 1)
-        return config_users_delete_retry_delay_sec[index]
+        index = min(max(retry_count, 0), len(users_delete_retry_delay_sec) - 1)
+        return users_delete_retry_delay_sec[index]
     async def func_schema_columns(conn: asyncpg.Connection) -> dict:
         rows = await conn.fetch("SELECT c.table_name, c.column_name FROM information_schema.columns c JOIN information_schema.tables t ON c.table_name = t.table_name AND c.table_schema = t.table_schema WHERE c.table_schema = 'public' AND t.table_type = 'BASE TABLE'")
         schema = {}
@@ -63,7 +64,7 @@ async def execute():
     async def func_purge_retained_rows(conn: asyncpg.Connection, table: str, has_is_protected: bool) -> int:
         table_sql = func_quote_ident(table)
         protected_where = ' AND ("is_protected" IS NULL OR "is_protected" IS FALSE)' if has_is_protected else ""
-        result = await conn.execute(f'DELETE FROM {table_sql} WHERE ctid IN (SELECT ctid FROM {table_sql} WHERE "deleted_at" < NOW() - ($1 * INTERVAL \'1 day\') {protected_where} LIMIT 5000)', config_users_delete_retention_day)
+        result = await conn.execute(f'DELETE FROM {table_sql} WHERE ctid IN (SELECT ctid FROM {table_sql} WHERE "deleted_at" < NOW() - ($1 * INTERVAL \'1 day\') {protected_where} LIMIT 5000)', config_users_delete_worker_retention_day)
         return int(result.rsplit(" ", 1)[-1])
     async def func_process_event(conn: asyncpg.Connection, event: asyncpg.Record, owned_tables: list) -> None:
         user_id = event["user_id"]
@@ -109,12 +110,12 @@ async def execute():
         total_deleted = 0
         deleted_count = -1
         while deleted_count != 0:
-            rows = await conn.fetch('SELECT id, service, container, blob_key FROM "blob" WHERE "deleted_at" < NOW() - ($1 * INTERVAL \'1 day\') LIMIT $2', config_users_delete_retention_day, blob_purge_batch_limit)
+            rows = await conn.fetch('SELECT id, service, container, blob_key FROM "blob" WHERE "deleted_at" < NOW() - ($1 * INTERVAL \'1 day\') LIMIT $2', config_users_delete_worker_retention_day, blob_purge_batch_limit)
             if not rows:
                 deleted_count = 0
                 continue
             await func_delete_blob_storage(rows)
-            result = await conn.execute('DELETE FROM "blob" WHERE id = ANY($1::bigint[]) AND "deleted_at" < NOW() - ($2 * INTERVAL \'1 day\')', [row["id"] for row in rows], config_users_delete_retention_day)
+            result = await conn.execute('DELETE FROM "blob" WHERE id = ANY($1::bigint[]) AND "deleted_at" < NOW() - ($2 * INTERVAL \'1 day\')', [row["id"] for row in rows], config_users_delete_worker_retention_day)
             deleted_count = int(result.rsplit(" ", 1)[-1])
             total_deleted += deleted_count
             if deleted_count: await asyncio.sleep(0.05)
@@ -124,7 +125,7 @@ async def execute():
             schema = await func_schema_columns(conn)
             owned_tables = func_owned_tables(schema)
             async with conn.transaction():
-                events = await func_claim_events(conn, config_users_delete_batch_limit)
+                events = await func_claim_events(conn, users_delete_batch_limit)
         if events: print(f"[users-delete-worker] claimed {len(events)} event(s)")
         for event in events:
             async with pool.acquire() as event_conn:

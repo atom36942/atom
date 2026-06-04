@@ -163,7 +163,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
             if legacy_key in control:
                 return 0 if control.get(legacy_key) else 1
         return default
-    is_ext, is_autovacuum = control.get("is_enable_extension", 0), control.get("is_enable_autovacuum_optimize", 0)
+    is_autovacuum = control.get("is_enable_autovacuum_optimize", 0)
     is_enable_drop_schema = get_enable_control_switch("is_enable_drop_schema", 1, ("is_enable_drop_schema_disable", "is_disable_drop_schema"))
     is_enable_drop_table = get_enable_control_switch("is_enable_drop_table", 1, ("is_enable_drop_table_disable", "is_disable_drop_table"))
     is_enable_truncate = get_enable_control_switch("is_enable_truncate", 1, ("is_enable_truncate_disable", "is_disable_truncate"))
@@ -186,12 +186,32 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
     bulk_blocked = control.get("table_delete_disable_row_bulk", control.get("disable_table_delete_row_bulk", []))
     table_blocked = control.get("table_delete_disable_row", control.get("disable_table_delete_row", []))
     catalog = {"idx": set(), "uni": set(), "chk": set(), "tg": set()}
-    for key, val in config_postgres.get("sql", {}).items():
-        if key == "index" and isinstance(val, dict):
-            for idx_name in val.keys():
-                catalog["idx"].add(idx_name)
-        elif isinstance(key, str) and key.startswith("index_"):
-            catalog["idx"].add(key[6:])
+    def register_sql_catalog(sql_config: any) -> None:
+        if not isinstance(sql_config, dict):
+            return None
+        for key, val in sql_config.items():
+            if isinstance(key, str) and isinstance(val, str):
+                if key.startswith("index_"):
+                    catalog["idx"].add(key[6:])
+                elif key.startswith("idx_"):
+                    catalog["idx"].add(key)
+                elif key.startswith("unique_"):
+                    catalog["uni"].add(key)
+                elif key.startswith("check_"):
+                    catalog["chk"].add(key)
+            elif isinstance(val, dict):
+                register_sql_catalog(val)
+        return None
+    def iter_sql_queries(sql_config: any):
+        if isinstance(sql_config, dict):
+            for val in sql_config.values():
+                yield from iter_sql_queries(val)
+        elif isinstance(sql_config, (list, tuple)):
+            for val in sql_config:
+                yield from iter_sql_queries(val)
+        elif isinstance(sql_config, str) and sql_config.strip():
+            yield sql_config
+    register_sql_catalog(config_postgres.get("sql", {}))
     reserved = {"all", "analyze", "and", "any", "as", "asc", "asymmetric", "authorization", "binary", "both", "case", "cast", "check", "collate", "collation", "column", "concurrently", "constraint", "create", "cross", "current_catalog", "current_date", "current_role", "current_schema", "current_time", "current_timestamp", "current_user", "default", "deferrable", "desc", "distinct", "do", "else", "end", "except", "false", "fetch", "for", "foreign", "freeze", "from", "full", "grant", "group", "having", "ilike", "in", "initially", "inner", "intersect", "into", "is", "isnull", "join", "lateral", "leading", "left", "like", "limit", "localtime", "localtimestamp", "natural", "not", "notnull", "null", "offset", "on", "only", "or", "order", "outer", "overlaps", "placing", "primary", "references", "returning", "right", "select", "session_user", "similar", "some", "symmetric", "table", "tablesample", "then", "to", "trailing", "true", "union", "unique", "user", "using", "variadic", "verbose", "when", "where", "window", "with"}
     for table_name, column_configs in config_postgres["table"].items():
         primary_cfg = column_configs[0] if column_configs else {}
@@ -244,8 +264,8 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
     def is_enabled_col_setting(col_cfg: dict, key: str) -> bool:
         return key in col_cfg and col_cfg.get(key) not in (None, "")
     async with client_postgres_pool.acquire() as conn:
-        if is_ext:
-            extensions = config_postgres.get("extension", [])
+        extensions = config_postgres.get("extension") or []
+        if extensions:
             for extension in extensions:
                 try:
                     await conn.execute(f'CREATE EXTENSION IF NOT EXISTS "{extension}";')
@@ -437,7 +457,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                 await conn.execute("DROP TRIGGER IF EXISTS trigger_password_log_users ON users; CREATE TRIGGER trigger_password_log_users AFTER UPDATE ON users FOR EACH ROW EXECUTE FUNCTION func_password_log_users();")
             if is_enable_log_users_delete and "deleted_at" in users_cols and "log_users_delete" in db_tables:
                 catalog["tg"].add("trigger_log_users_delete")
-                await conn.execute("CREATE OR REPLACE FUNCTION func_log_users_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'UPDATE' THEN IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN INSERT INTO log_users_delete (user_id, event, status, created_by_id) VALUES (NEW.id, 1, 1, NEW.deleted_by_id); ELSIF OLD.deleted_at IS NOT NULL AND NEW.deleted_at IS NULL THEN INSERT INTO log_users_delete (user_id, event, status, created_by_id) VALUES (NEW.id, 2, 1, NEW.updated_by_id); END IF; RETURN NEW; ELSIF TG_OP = 'DELETE' THEN INSERT INTO log_users_delete (user_id, event, status) VALUES (OLD.id, 3, 1); RETURN OLD; END IF; RETURN NULL; END; $$;")
+                await conn.execute("CREATE OR REPLACE FUNCTION func_log_users_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'UPDATE' THEN IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN INSERT INTO log_users_delete (user_id, event, worker_status, created_by_id) VALUES (NEW.id, 1, 1, NEW.deleted_by_id); ELSIF OLD.deleted_at IS NOT NULL AND NEW.deleted_at IS NULL THEN INSERT INTO log_users_delete (user_id, event, worker_status, created_by_id) VALUES (NEW.id, 2, 1, NEW.updated_by_id); END IF; RETURN NEW; ELSIF TG_OP = 'DELETE' THEN INSERT INTO log_users_delete (user_id, event, worker_status) VALUES (OLD.id, 3, 1); RETURN OLD; END IF; RETURN NULL; END; $$;")
                 await conn.execute("DROP TRIGGER IF EXISTS trigger_log_users_delete ON users; CREATE TRIGGER trigger_log_users_delete AFTER UPDATE OF deleted_at OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_log_users_delete();")
             if is_enable_delete_disable_users_role and "role" in users_cols:
                 catalog["tg"].add("trigger_delete_disable_role_users")
@@ -547,13 +567,8 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                 drop_vars = "record.relname, record.conname"
                 like_filter = f"(conname LIKE 'unique_%%' OR conname LIKE 'check_%%') AND relname IN ({managed_tables_str})"
             await conn.execute(f"""DO $$ DECLARE record RECORD; BEGIN FOR record IN SELECT {selection} FROM {info_tbl} {join_clause} WHERE {like_filter} LOOP IF NOT record.{selection.split(",")[0]} IN ({wants_str}) THEN EXECUTE format('{drop_fmt}', {drop_vars}); END IF; END LOOP; END $$;""")
-        for key, query in config_postgres.get("sql", {}).items():
-            if key == "index" and isinstance(query, dict):
-                for idx_name, idx_query in query.items():
-                    if isinstance(idx_query, str) and idx_query.strip():
-                        await conn.execute(idx_query)
-            elif isinstance(query, str) and query.strip():
-                await conn.execute(query)
+        for query in iter_sql_queries(config_postgres.get("sql", {})):
+            await conn.execute(query)
     return "database init done"
     
 async def func_middleware_check_auth(*, headers: dict, url_path: str, config_token_secret_key: str) -> dict:
@@ -1336,7 +1351,7 @@ async def func_postgres_where_build(*, client_postgres_pool: any, client_passwor
     where_sql = await build_filter(filter)
     return where_sql, values
 
-async def func_postgres_relation(*, client_postgres_pool: any, client_postgres_conn: any = None, obj_list: list, relation: list, config_relation_fetch_limit_max: int) -> list:
+async def func_postgres_relation(*, client_postgres_pool: any, client_postgres_conn: any = None, obj_list: list, relation: list, config_api_relation_fetch_limit_max: int) -> list:
     """Standardized relationship logic: handles both aggregates (count, sum, etc) and associations (fetching rows) from source to target."""
     if not relation or not obj_list: return obj_list
     import re
@@ -1369,7 +1384,7 @@ async def func_postgres_relation(*, client_postgres_pool: any, client_postgres_c
         elif op_main == "fetch":
             if len(op_parts) < 2 or not op_parts[1].isdigit(): raise Exception("explicit limit required in relation fetch (e.g. fetch|10)")
             custom_limit = int(op_parts[1])
-            if custom_limit > config_relation_fetch_limit_max: raise Exception(f"relation fetch limit {custom_limit} exceeds maximum allowed: {config_relation_fetch_limit_max}")
+            if custom_limit > config_api_relation_fetch_limit_max: raise Exception(f"relation fetch limit {custom_limit} exceeds maximum allowed: {config_api_relation_fetch_limit_max}")
             cols_sql = "*" if val == "*" else ",".join([f'"{v.strip()}"' for v in val.split(",")])
             if val != "*" and "id" not in val.split(",") and target_col != "id": cols_sql += f',"{target_col}"'
             sql = f'SELECT * FROM (SELECT {cols_sql}, "{target_col}" AS relation_id, ROW_NUMBER() OVER(PARTITION BY "{target_col}" ORDER BY id DESC) as rn FROM "{target_table}" WHERE "{target_col}" = ANY($1)) t WHERE rn <= $2'
@@ -1386,7 +1401,7 @@ async def func_postgres_relation(*, client_postgres_pool: any, client_postgres_c
         else: raise Exception(f"invalid operator: {op}")
     return obj_list
 
-async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, config_buffer_limit: int, mode: str, table: str, obj_list: list) -> any:
+async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, config_buffer_limit_default: int, mode: str, table: str, obj_list: list) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     import re, orjson
     async def insert_serialized(tbl, serialized_list):
@@ -1447,7 +1462,7 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
     if mode == "buffer":
         key = f"{table}|{','.join(sorted(serialized_list[0].keys()))}"
         cache_postgres_buffer_create.setdefault(key, []).extend(serialized_list)
-        if len(cache_postgres_buffer_create[key]) >= config_buffer_limit:
+        if len(cache_postgres_buffer_create[key]) >= config_buffer_limit_default:
             items = cache_postgres_buffer_create[key]
             await insert_serialized(table, items)
             cache_postgres_buffer_create[key] = []
@@ -1456,13 +1471,13 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
     if mode == "now":
         return await insert_serialized(table, serialized_list)
 
-async def func_postgres_read(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_query_limit_max: int, config_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list) -> list:
+async def func_postgres_read(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_api_query_limit_max: int, config_api_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if limit < 1: raise Exception("query limit must be greater than 0")
     if page < 1: raise Exception("query page must be greater than 0")
-    if config_query_limit_max and limit > config_query_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {config_query_limit_max}")
+    if config_api_query_limit_max and limit > config_api_query_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {config_api_query_limit_max}")
     order = str(order or "").strip() or "id desc"
     order_list = []
     for part in order.split(","):
@@ -1491,7 +1506,7 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
         records = await conn.fetch(sql_select, *values)
         result_list = [dict(r) for r in records]
         if relation and result_list:
-            result_list = await func_postgres_relation(client_postgres_pool=client_postgres_pool, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_relation_fetch_limit_max=config_relation_fetch_limit_max)
+            result_list = await func_postgres_relation(client_postgres_pool=client_postgres_pool, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_api_relation_fetch_limit_max=config_api_relation_fetch_limit_max)
         return result_list
 
 async def func_postgres_update(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, table: str, obj_list: list, created_by_id: int) -> any:
@@ -1729,7 +1744,7 @@ def func_run_broker(*, queue: str, channel: str, config_broker: dict, setup_call
         try:
             if queue == "redis":
                 import redis.asyncio as redis
-                client = redis.Redis.from_pool(redis.ConnectionPool.from_url(config_broker.get("config_redis_queue_url"))) if config_broker.get("config_redis_queue_url") else None
+                client = redis.Redis.from_pool(redis.ConnectionPool.from_url(config_broker.get("config_redis_url_queue"))) if config_broker.get("config_redis_url_queue") else None
                 print(f"redis consumer started on {channel}", flush=True)
                 try:
                     while True:
@@ -1826,7 +1841,7 @@ async def func_notification_create(*, type: int, app_state: any, payload: dict) 
             obj_id = obj.get("id")
             if obj_id:
                 notification_obj_list.append({"type": type, "created_by_id": None, "user_id": obj_id, "title": "Account Created", "description": "Your account has been created successfully.", "reference_table": table, "reference_id": obj_id})
-    if notification_obj_list: await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=0, config_buffer_limit=app_state.config_buffer_limit, mode="buffer", table="notification", obj_list=notification_obj_list)
+    if notification_obj_list: await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=0, config_buffer_limit_default=app_state.config_buffer_limit_default, mode="buffer", table="notification", obj_list=notification_obj_list)
     return None
 
 def func_postgres_mark_read(*, client_postgres_pool: any, table: str, ownership_column: str, user_id: int, ids: list) -> None:

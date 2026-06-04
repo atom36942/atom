@@ -2,6 +2,7 @@
 config_postgres_url = None
 config_postgres_url_read = None
 config_redis_url = None
+config_redis_url_queue = None
 config_mongodb_url = None
 config_mssql_url = None
 config_google_login_client_id = None
@@ -31,7 +32,6 @@ config_kafka_username = None
 config_kafka_password = None
 config_rabbitmq_url = None
 config_celery_url = None
-config_redis_queue_url = None
 
 # System
 config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
@@ -39,8 +39,6 @@ config_is_enable_user_delete = 1
 config_is_enable_sql_write = 1
 config_is_enable_signup = 1
 config_is_enable_otp_require_users_update = 0
-config_users_delete_retention_day = 30
-config_redis_cache_ttl_sec = 3600
 config_otp_length = 6
 config_otp_expiry_sec = 600
 config_token_expiry_sec = 10*365*24*60*60
@@ -49,19 +47,23 @@ config_blob_limit_size_kb = 300
 config_blob_limit_upload = 100
 config_blob_expire_sec_upload = 3600
 config_blob_expire_sec_preview = 360000
-config_query_limit_default = 100
-config_query_limit_max = 1000
-config_relation_fetch_limit_max = 100
-config_obj_list_limit = 1000
+config_api_query_limit_default = 100
+config_api_query_limit_max = 1000
+config_api_relation_fetch_limit_max = 100
 config_allowed_auth_types = [1]
 config_allowed_token_key = ["id", "type", "role", "deactivated_at", "deleted_at", "id_ext"]
+config_users_delete_worker_retention_day = 30
+config_users_delete_worker_exclude_table = ["users", "spatial_ref_sys", "log_*"]
+config_redis_cache_ttl_sec = 3600
+config_obj_list_limit = 1000
+config_buffer_limit_default = 100
+config_table_create_disable_my = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
+config_table_create_enable_public = ["test", "support"]
+config_table_read_enable_public = ["*"]
+config_admin_columns = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id", "deleted_by_id", "deactivated_by_id", "archived_by_id"]
+config_column_enable_single_update = ["username", "password", "email", "mobile", "deleted_at"]
 
-
-
-
-
-
-# Settings
+# General
 config_allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
 config_allowed_blob_services = ["s3", "azure"]
 config_allowed_email_services = ["ses", "resend", "azure"]
@@ -69,23 +71,7 @@ config_allowed_mobile_services = ["sns", "fast2sms"]
 config_allowed_user_storage_backends = ["token", "realtime", "redis", "inmemory"]
 config_allowed_api_storage_backends = ["redis", "inmemory"]
 config_allowed_api_namespace = ["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"]
-
-# Limits / Buffers
-config_buffer_limit = 100
-
-# User Deletion
-config_users_delete_batch_limit = 100
-config_users_delete_retry_delay_sec = [60, 300, 900, 3600, 21600]
 config_users_ownership_column = ["created_by_id", "user_id"]
-config_users_delete_exclude_table = ["users", "spatial_ref_sys", "log_*"]
-
-# Tables / Schema
-config_table_create_disable_my = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
-config_table_create_enable_public = ["test", "support"]
-config_table_read_enable_public = ["*"]
-config_sensitive_table = ["users", "spatial_ref_sys"]
-config_admin_columns = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id", "deleted_by_id", "deactivated_by_id", "archived_by_id"]
-config_column_enable_single_update = ["username", "password", "email", "mobile", "deleted_at"]
 
 # Dict
 config_sql = {
@@ -168,7 +154,7 @@ config_column_int_mapping = {
 }
 
 config_postgres = {
-"extension": ["postgis", "pg_trgm", "btree_gin",],
+"extension": ["postgis", "pg_trgm", "btree_gin"],
 "table":{
 "test":[
 {"name":"id","datatype":"bigserial","is_primary":1},
@@ -548,7 +534,6 @@ config_postgres = {
 ],
 },
 "control":{
-"is_enable_extension":1,
 "is_enable_drop_schema":1,
 "is_enable_drop_table":1,
 "is_enable_truncate":1,
