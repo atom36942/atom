@@ -4,7 +4,7 @@
 # flow
 !function.py
 !config.py
-config_extend.py
+!config_extend.py
 !function_extend.py
 !main.py
 !router/
