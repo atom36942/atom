@@ -1,12 +1,11 @@
-# import stdlib
+# import packages
 import asyncio
 import time
-
-# import packages
 import asyncpg
 
 # import internal
-from config import config_postgres_url, config_table
+from config import config_postgres_url
+from config import config_table
 
 # logic
 async def execute():

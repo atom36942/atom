@@ -1,9 +1,7 @@
-# import stdlib
+# import packages
 import asyncio
 import random
 from datetime import date, datetime, timedelta, timezone
-
-# import packages
 import asyncpg
 
 # import internal

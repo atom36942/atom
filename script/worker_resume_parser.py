@@ -1,4 +1,4 @@
-# import stdlib
+# import packages
 import asyncio
 import json
 import os
@@ -8,8 +8,6 @@ import time
 import traceback
 import urllib.parse
 from datetime import datetime, timedelta, timezone
-
-# import packages
 import aiohttp
 import asyncpg
 import boto3
@@ -18,7 +16,13 @@ from google import genai
 from google.genai import types
 
 # import internal
-from config import config_postgres_url, config_gemini_key, config_postgres, config_azure_account_name, config_azure_account_key, config_aws_access_key_id, config_aws_secret_access_key
+from config import config_postgres_url
+from config import config_gemini_key
+from config import config_postgres
+from config import config_azure_account_name
+from config import config_azure_account_key
+from config import config_aws_access_key_id
+from config import config_aws_secret_access_key
 
 # logic
 async def execute():

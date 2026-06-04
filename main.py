@@ -1,12 +1,10 @@
-# import stdlib
+# import packages
 import asyncio
 import importlib.util
 import os
 import shutil
 import time
 from contextlib import asynccontextmanager, suppress
-
-# import packages
 import aio_pika
 import aiobotocore.session
 import aioodbc

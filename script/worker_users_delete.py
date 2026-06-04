@@ -1,14 +1,20 @@
-# import stdlib
-import asyncio
-
 # import packages
+import asyncio
 import asyncpg
 import boto3
 from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob.aio import BlobServiceClient
 
 # import internal
-from config import config_aws_access_key_id, config_aws_secret_access_key, config_azure_account_key, config_azure_account_name, config_postgres_url, config_aws_s3_region_name, config_users_delete_worker_exclude_table, config_users_ownership_column, config_users_delete_worker_retention_day
+from config import config_aws_access_key_id
+from config import config_aws_secret_access_key
+from config import config_azure_account_key
+from config import config_azure_account_name
+from config import config_postgres_url
+from config import config_aws_s3_region_name
+from config import config_users_delete_worker_exclude_table
+from config import config_users_ownership_column
+from config import config_users_delete_worker_retention_day
 
 # logic
 async def execute():

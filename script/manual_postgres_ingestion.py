@@ -1,13 +1,12 @@
-# import stdlib
+# import packages
 import asyncio
 import csv
 import itertools
 import os
+import re
 import sys
 import time
 from datetime import datetime
-
-# import packages
 import asyncpg
 
 # import internal
@@ -26,6 +25,10 @@ const_column: list[list] | None = None
 async def execute():
     """Performs high-performance bulk operations from a CSV to Postgres."""
     csv.field_size_limit(sys.maxsize)
+    if not csv_path: raise ValueError("csv_path is required")
+    if not os.path.isfile(csv_path): raise ValueError(f"csv_path not found: {csv_path}")
+    if not table: raise ValueError("table is required")
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", table): raise ValueError(f"invalid table name: {table}")
     if crud_mode not in ("create", "update", "delete"): raise ValueError(f"Invalid crud_mode: '{crud_mode}'")
     if validation_mode not in ("strict", "reject", "loose"): raise ValueError(f"Invalid validation_mode: '{validation_mode}'")
     if crud_mode == "delete" and const_column: raise ValueError("'const_column' must be None for 'delete' mode.")

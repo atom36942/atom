@@ -1,8 +1,6 @@
-# import stdlib
+# import packages
 import asyncio
 import random
-
-# import packages
 import asyncpg
 
 # import internal
