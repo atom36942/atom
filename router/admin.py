@@ -1,9 +1,7 @@
-# import stdlib
+# packages
 import asyncio
 import re
 import uuid
-
-# import packages
 import orjson
 from azure.storage.blob import PublicAccess
 from fastapi import APIRouter, Request

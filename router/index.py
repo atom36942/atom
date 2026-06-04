@@ -1,4 +1,4 @@
-# import packages
+# packages
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, responses
 
 # router

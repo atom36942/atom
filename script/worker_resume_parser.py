@@ -1,4 +1,4 @@
-# import packages
+# packages
 import asyncio
 import json
 import os
@@ -15,7 +15,7 @@ from azure.storage.blob import BlobSasPermissions, generate_blob_sas
 from google import genai
 from google.genai import types
 
-# import internal
+# config
 from config import config_postgres_url
 from config import config_gemini_key
 from config import config_postgres

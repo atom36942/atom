@@ -1,14 +1,16 @@
-# import packages
+# packages
 import sys
 import asyncpg
 from argon2 import PasswordHasher
 
-# import internal
+# function
 from function import func_run_broker
 from function import func_postgres_create
 from function import func_postgres_serialize
 from function import func_regex_check
 from function import func_postgres_schema_read
+
+# config
 from config import config_postgres_url
 from config import config_regex
 from config import config_table
@@ -16,10 +18,10 @@ from config import config_obj_list_limit
 from config import config_buffer_limit_default
 from config import config_redis_url_queue
 from config import config_rabbitmq_url
+from config import config_celery_url
 from config import config_kafka_url
 from config import config_kafka_username
 from config import config_kafka_password
-from config import config_celery_url
 
 # logic
 async def setup():
@@ -36,6 +38,7 @@ async def execute(payload, client_postgres_pool, cache_postgres_buffer_create, c
 # init
 if __name__ == "__main__":
     if len(sys.argv) < 2:
+        print("Error: queue is required. Usage: python script/consumer_postgres_create.py <redis|rabbitmq|kafka|celery>")
         sys.exit(1)
     queue = sys.argv[1]
     channel = "func_postgres_create"

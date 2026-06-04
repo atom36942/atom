@@ -1,7 +1,5 @@
-# import stdlib
+# packages
 import asyncio
-
-# import packages
 import orjson
 from fastapi import APIRouter, Request
 from google.auth.transport import requests

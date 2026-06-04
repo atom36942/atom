@@ -1,9 +1,9 @@
-# import packages
+# packages
 import asyncio
 import random
 import asyncpg
 
-# import internal
+# config
 from config import config_postgres_url
 
 # logic

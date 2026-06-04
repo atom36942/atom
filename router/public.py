@@ -1,10 +1,8 @@
-# import stdlib
+# packages
 import asyncio
 import os
 import re
 import uuid
-
-# import packages
 import httpx
 import orjson
 import pandas as pd

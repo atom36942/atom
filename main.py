@@ -1,4 +1,4 @@
-# import packages
+# packages
 import asyncio
 import importlib.util
 import os
@@ -29,11 +29,13 @@ from google import genai
 from posthog import Posthog
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 
-# import internal
+# function
 from function import *
+if importlib.util.find_spec("function_extend"): from function_extend import *
+
+# config
 from config import *
 if importlib.util.find_spec("config_extend"): from config_extend import *
-if importlib.util.find_spec("function_extend"): from function_extend import *
 
 # lifespan
 @asynccontextmanager

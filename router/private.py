@@ -1,9 +1,7 @@
-# import stdlib
+# packages
 import asyncio
 import uuid
 from datetime import datetime, timedelta, timezone
-
-# import packages
 import orjson
 from azure.storage.blob import BlobSasPermissions, ContainerSasPermissions, generate_blob_sas, generate_container_sas
 from fastapi import APIRouter, Request

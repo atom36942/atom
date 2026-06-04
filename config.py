@@ -85,6 +85,8 @@ config_sql = {
 },
 }
 
+config_sensitive_table = ["users", "spatial_ref_sys"]
+
 config_table = {
 "test": {"buffer_limit": 10},
 "log_api": {"retention_day": 30, "buffer_limit": 10},
@@ -534,22 +536,22 @@ config_postgres = {
 ],
 },
 "control":{
+"is_enable_autovacuum_optimize":1,
+"is_enable_is_protected_delete_disable":1,
+"is_enable_updated_at_set":1,
 "is_enable_drop_schema":1,
 "is_enable_drop_table":1,
-"is_enable_truncate":1,
+"is_enable_truncate_table":1,
 "is_enable_drop_column":1,
 "is_enable_drop_column_mismatch":1,
-"is_enable_delete_disable_is_protected":1,
-"is_enable_updated_at_set":1,
 "is_enable_log_users_password":1,
 "is_enable_log_users_delete":1,
-"is_enable_users_root_upsert":1,
-"is_enable_delete_disable_users_root":1,
-"is_enable_delete_disable_users_role":1,
-"is_enable_delete_disable_users_role_soft":1,
-"is_enable_autovacuum_optimize":1,
-"table_delete_disable_row":[],
-"table_delete_disable_row_bulk":[],
+"is_enable_root_user_create":1,
+"is_enable_root_user_delete_disable":1,
+"is_enable_users_role_delete_disable_hard":1,
+"is_enable_users_role_delete_disable_soft":1,
+"table_row_delete_disable_all":[],
+"table_row_delete_disable_bulk":[],
 "actor_tracking_column": {"deleted_at": "deleted_by_id","deactivated_at": "deactivated_by_id","archived_at": "archived_by_id","verified_at": "verified_by_id"},
 },
 "sql":{
