@@ -1401,7 +1401,7 @@ async def func_postgres_relation(*, client_postgres_pool: any, client_postgres_c
         else: raise Exception(f"invalid operator: {op}")
     return obj_list
 
-async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, config_buffer_limit_default: int, mode: str, table: str, obj_list: list) -> any:
+async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, buffer_limit: int, mode: str, table: str, obj_list: list) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     import re, orjson
     async def insert_serialized(tbl, serialized_list):
@@ -1462,7 +1462,7 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
     if mode == "buffer":
         key = f"{table}|{','.join(sorted(serialized_list[0].keys()))}"
         cache_postgres_buffer_create.setdefault(key, []).extend(serialized_list)
-        if len(cache_postgres_buffer_create[key]) >= config_buffer_limit_default:
+        if len(cache_postgres_buffer_create[key]) >= buffer_limit:
             items = cache_postgres_buffer_create[key]
             await insert_serialized(table, items)
             cache_postgres_buffer_create[key] = []
@@ -1841,7 +1841,7 @@ async def func_notification_create(*, type: int, app_state: any, payload: dict) 
             obj_id = obj.get("id")
             if obj_id:
                 notification_obj_list.append({"type": type, "created_by_id": None, "user_id": obj_id, "title": "Account Created", "description": "Your account has been created successfully.", "reference_table": table, "reference_id": obj_id})
-    if notification_obj_list: await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=0, config_buffer_limit_default=app_state.config_buffer_limit_default, mode="buffer", table="notification", obj_list=notification_obj_list)
+    if notification_obj_list: await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=0, buffer_limit=app_state.config_table.get("notification", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="notification", obj_list=notification_obj_list)
     return None
 
 def func_postgres_mark_read(*, client_postgres_pool: any, table: str, ownership_column: str, user_id: int, ids: list) -> None:
