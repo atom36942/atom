@@ -57,3 +57,32 @@ CargoWise allows users to create unlimited custom fields. They are stored in a k
 | Table Name | Purpose / Business Concept | Example Key Columns |
 | :--- | :--- | :--- |
 | `GenCustomAddOnValue` | The actual value entered into a custom field for a specific record. | `XV_PK`, `XV_ParentID` (FK to JobShipment/Consol), `XV_Name` (e.g., 'Amazon fbaShipmentId'), `XV_Data` (The string value) |
+
+
+## 8. Analytics & Tracking Events (Milestones)
+CargoWise captures robust tracking events and milestone data. This allows developers to build deep analytics around supply chain performance, exception management, and SLA tracking.
+
+| Table / Concept | Purpose / Business Concept | Example Key Columns |
+| :--- | :--- | :--- |
+| **Direct Shipment Dates** (`JobShipment`) | The core estimated vs. actual routing dates are stored directly on the shipment row for easy reporting. | `JS_EstDeparture`, `JS_ActDeparture`, `JS_EstArrival`, `JS_ActArrival` |
+| **Direct Consol Dates** (`JobConsol`) | Master-level routing dates (e.g., when the vessel actually sails). | `JC_EstDeparture`, `JC_ActDeparture` |
+| **Tracking Events** (`WorkflowEvent` / `WorkflowMilestone`) | The granular milestone logs. Every time a container is gated in, boarded, or delayed, an event is logged here. | `EventCode` (e.g., 'DEP' for Departed), `EventDate`, `ParentID` (FK to Shipment/Consol) |
+
+
+## 9. Container & Equipment Management
+CargoWise tracks physical shipping containers and equipment attached to shipments and master consols. This is heavily used by ocean and drayage forwarders.
+
+| Table / Concept | Purpose / Business Concept | Example Key Columns |
+| :--- | :--- | :--- |
+| `JobContainer` | Represents a physical container (e.g., a 40HC or 20GP) attached to a Consol or Shipment. | `CT_PK`, `CT_ContainerNum`, `CT_SealNum`, `CT_ContainerType` |
+| `JobContainerMove` | Tracking the individual gate-in / gate-out and terminal movements of the container. | `CM_PK`, `CM_CT` (FK to Container), `CM_MoveType` |
+
+
+## 10. Warehousing (WMS)
+CargoWise contains a full-fledged Warehouse Management System. It handles receiving, putaway, picking, and dispatching inventory.
+
+| Table / Concept | Purpose / Business Concept | Example Key Columns |
+| :--- | :--- | :--- |
+| `WhsWarehouse` & `WhsLocation` | Defines the physical warehouse and its bin/rack locations. | `WH_Code`, `WL_BinCode` |
+| `WhsDocket` | A Warehouse Receipt (Inbound) or Dispatch (Outbound) order. | `DK_PK`, `DK_DocketNum`, `DK_Type` |
+| `WhsPick` & `WhsPutaway` | Task tables for warehouse workers moving inventory. | `PK_Status`, `PA_Quantity` |

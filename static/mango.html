@@ -389,7 +389,26 @@
             </div>
         </div>
 
-                        <!-- Live Bookings Table -->
+                                <!-- Exceptions & Alerts -->
+        <h2 id="exceptions-header" style="display:none; margin-bottom: 0.5rem; color: #DC2626;">Exceptions & Alerts</h2>
+        <div class="table-container" id="exceptions-container" style="display:none; border-color: #FCA5A5;">
+            <div class="loading" id="exception-loading">Login to view data.</div>
+            <table id="exception-table" style="display: none;">
+                <thead style="background-color: #FEF2F2;">
+                    <tr>
+                        <th style="color: #991B1B;">Alert Type</th>
+                        <th style="color: #991B1B;">Booking #</th>
+                        <th style="color: #991B1B;">Consignor</th>
+                        <th style="color: #991B1B;">Expected Arrival</th>
+                        <th style="color: #991B1B;">Days Delayed</th>
+                    </tr>
+                </thead>
+                <tbody id="exception-body">
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Live Bookings Table -->
         <h2 id="bookings-header" style="display:none; margin-bottom: 0.5rem;">Pre-Shipment Bookings</h2>
         <div class="table-container">
             <div class="loading" id="booking-loading">Login to view data.</div>
@@ -522,10 +541,11 @@
         }
 
         // Refresh Data helper
-                        function refreshData() {
+                                function refreshData() {
             fetchBuyerRows(currentPage);
             fetchBookingRows();
             fetchShipmentRows();
+            fetchExceptions();
             fetchKPIs();
         }
 
@@ -595,6 +615,11 @@
             downloadCsvBtn.style.display = 'block';
             document.getElementById('kpi-section').style.display = 'grid';
             
+            document.getElementById('exceptions-header').style.display = 'block';
+            document.getElementById('exceptions-container').style.display = 'block';
+            document.getElementById('exception-table').style.display = 'table';
+            document.getElementById('exception-loading').style.display = 'none';
+            
             document.getElementById('bookings-header').style.display = 'block';
             document.getElementById('booking-table').style.display = 'table';
             document.getElementById('booking-loading').style.display = 'none';
@@ -614,6 +639,13 @@
             refreshBtn.style.display = 'none';
             downloadCsvBtn.style.display = 'none';
             document.getElementById('kpi-section').style.display = 'none';
+            
+            document.getElementById('exceptions-header').style.display = 'none';
+            document.getElementById('exceptions-container').style.display = 'none';
+            document.getElementById('exception-table').style.display = 'none';
+            document.getElementById('exception-loading').style.display = 'block';
+            document.getElementById('exception-loading').textContent = 'Login to view data.';
+            document.getElementById('exception-body').innerHTML = '';
             
             document.getElementById('bookings-header').style.display = 'none';
             document.getElementById('booking-table').style.display = 'none';
@@ -635,7 +667,61 @@
             tableBody.innerHTML = '';
         }
 
-                        async function fetchBookingRows() {
+                                async function fetchExceptions() {
+            if (!token) return;
+            // Query shipments that have an Est Arrival in the past but no Actual Arrival (Delayed)
+            const sqlQuery = `
+                SELECT TOP 10
+                    js.JS_UniqueConsignRef AS [Booking #],
+                    org_consignor.OH_FullName AS [Consignor],
+                    js.JS_EstArrival AS [Expected Arrival],
+                    DATEDIFF(day, js.JS_EstArrival, GETUTCDATE()) AS [Days Delayed]
+                FROM cvw_JobShipmentOrgs parties
+                JOIN JobShipment js ON parties.JS_PK = js.JS_PK
+                LEFT JOIN OrgHeader org_consignor ON parties.JS_E2_OA_OH_Consignor = org_consignor.OH_PK
+                WHERE parties.JS_E2_OA_OH_Consignee = 'B9F7B9CA-96A2-4009-800D-2F10C52F351D'
+                  AND js.JS_IsBooking = 0
+                  AND js.JS_EstArrival < GETUTCDATE()
+                  AND js.JS_ActArrival IS NULL
+                ORDER BY js.JS_EstArrival ASC;
+            `;
+
+            try {
+                const response = await fetch('/admin/mssql-sql-runner', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: 'read', sql: sqlQuery })
+                });
+                const data = await response.json();
+                const rows = Array.isArray(data.message) ? data.message : [];
+                renderExceptionTable(rows);
+            } catch (err) { console.error("Exception fetch error", err); }
+        }
+
+        function renderExceptionTable(rows) {
+            const tBody = document.getElementById('exception-body');
+            tBody.innerHTML = '';
+            if (rows.length === 0) {
+                tBody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 2rem; color: #065F46; font-weight: 600; background-color: #D1FAE5;">✅ No exceptions found! All shipments are running on schedule.</td></tr>';
+                return;
+            }
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+                const td = (val) => `<td>${escapeHtml(val)}</td>`;
+                const dateStr = row['Expected Arrival'] ? new Date(row['Expected Arrival']).toLocaleDateString() : '';
+
+                tr.innerHTML = `
+                    <td><span class="status-badge inactive">DELAYED</span></td>
+                    <td style="font-family: monospace; color: #DC2626; font-weight: bold;">${escapeHtml(row['Booking #'])}</td>
+                    <td style="font-weight: 600;">${escapeHtml(row.Consignor)}</td>
+                    ${td(dateStr)}
+                    <td style="color: #DC2626; font-weight: bold;">${escapeHtml(row['Days Delayed'])} Days</td>
+                `;
+                tBody.appendChild(tr);
+            });
+        }
+
+        async function fetchBookingRows() {
             if (!token) return;
             const sqlQuery = `
                 SELECT TOP 50
