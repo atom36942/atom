@@ -1,10 +1,14 @@
 # packages
 import argparse
 import asyncio
+import os
+import sys
 from datetime import datetime, timezone
 import aioodbc
 import asyncpg
 from argon2 import PasswordHasher
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # function
 from function import func_postgres_create
