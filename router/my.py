@@ -11,12 +11,7 @@ async def func_api_my_profile(*, request: Request):
     user_id = request.state.user["id"]
     user = await app_state.func_user_read_single(client_postgres_pool=app_state.client_postgres_pool, user_id=user_id)
     async with app_state.client_postgres_pool.acquire() as conn:
-        metadata = {}
-        queries_metadata = app_state.config_sql.get("profile_metadata")
-        if queries_metadata:
-            for key, sql in queries_metadata.items():
-                records = await conn.fetch(sql, user_id)
-                metadata[key] = [dict(record) for record in records]
+        metadata = {k: [dict(r) for r in await conn.fetch(v, user_id)] for k, v in app_state.config_sql.get("profile_metadata", {}).items()}
         await conn.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id)
     profile = {**user, **metadata}
     token = await app_state.func_token_encode(user=profile, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_allowed_token_key=app_state.config_allowed_token_key)
@@ -116,7 +111,7 @@ async def func_api_my_object_delete_misc(*, request: Request):
             if oq["id"] is None: raise Exception("parameter 'id' missing")
             await conn.execute("DELETE FROM message WHERE id=$1 AND (created_by_id=$2 OR user_id=$2)", oq["id"], user_id)
             return {"status": 1, "message": "message deleted"}
-        if oq["mode"] == "message_delete_sent": await conn.execute("DELETE FROM message WHERE created_by_id=$1", user_id)
+        elif oq["mode"] == "message_delete_sent": await conn.execute("DELETE FROM message WHERE created_by_id=$1", user_id)
         elif oq["mode"] == "message_delete_received": await conn.execute("DELETE FROM message WHERE user_id=$1", user_id)
         elif oq["mode"] == "message_delete_all": await conn.execute("DELETE FROM message WHERE (created_by_id=$1 OR user_id=$1)", user_id)
     return {"status": 1, "message": "messages deleted"}
@@ -125,13 +120,10 @@ async def func_api_my_object_delete_misc(*, request: Request):
 async def func_api_my_message_inbox(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mode", "str", 1, ["all", "unread", "read"], None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
-    user_id = request.state.user["id"]
-    where_clause = "user_id=$1 AND read_at IS NOT NULL" if oq["mode"] == "read" else "user_id=$1 AND read_at IS NULL" if oq["mode"] == "unread" else "1=1"
+    where_clause = {"read": "user_id=$1 AND read_at IS NOT NULL", "unread": "user_id=$1 AND read_at IS NULL"}.get(oq["mode"], "1=1")
     sql = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
     async with app_state.client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(sql, user_id)
-        obj_list = [dict(r) for r in records]
-    return {"status": 1, "message": obj_list}
+        return {"status": 1, "message": [dict(r) for r in await conn.fetch(sql, request.state.user["id"])]}
 
 @router.get("/my/message-thread")
 async def func_api_my_message_thread(*, request: Request):
@@ -140,7 +132,6 @@ async def func_api_my_message_thread(*, request: Request):
     user_one_id = request.state.user["id"]
     sql = f"SELECT * FROM message WHERE ((created_by_id=$1 AND user_id=$2) OR (created_by_id=$2 AND user_id=$1)) ORDER BY {oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
     async with app_state.client_postgres_pool.acquire() as conn:
-        records = await conn.fetch(sql, user_one_id, oq["user_id"])
-        obj_list = [dict(r) for r in records]
+        obj_list = [dict(r) for r in await conn.fetch(sql, user_one_id, oq["user_id"])]
         await conn.execute("UPDATE message SET read_at=now() WHERE created_by_id=$1 AND user_id=$2;", oq["user_id"], user_one_id)
     return {"status": 1, "message": obj_list}
