@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyShipment</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Chart.js for Analytics/Sustainability -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>MyShipment</h2>
+            </div>
+            <nav class="nav-menu">
+                <a href="#visibility" class="nav-item active" data-target="visibility">
+                    <i class="fa-solid fa-eye"></i> Visibility
+                </a>
+                <a href="#exceptions" class="nav-item" data-target="exceptions">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Exceptions
+                </a>
+                <a href="#analytics" class="nav-item" data-target="analytics">
+                    <i class="fa-solid fa-chart-line"></i> Analytics
+                </a>
+                <a href="#sustainability" class="nav-item" data-target="sustainability">
+                    <i class="fa-solid fa-leaf"></i> Sustainability
+                </a>
+                <a href="#intelligence" class="nav-item" data-target="intelligence">
+                    <i class="fa-solid fa-lightbulb"></i> Intelligence
+                </a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="search-bar">
+                    <i class="fa-solid fa-search"></i>
+                    <input type="text" placeholder="Search POs, Shipments, or Containers...">
+                </div>
+                <div class="user-controls">
+                    <button class="icon-btn"><i class="fa-regular fa-bell"></i><span class="notification-dot"></span></button>
+                    <div class="user-profile">
+                        <div class="avatar">JB</div>
+                        <span>Jane Buyer</span>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-wrapper">
+                <!-- Visibility Section -->
+                <section id="visibility" class="view-section active">
+                    <div class="section-header">
+                        <h1>Visibility Dashboard</h1>
+                        <div class="filters">
+                            <select><option>All Statuses</option><option>In Transit</option><option>Delivered</option></select>
+                            <select><option>All Origins</option><option>Shanghai</option><option>Shenzhen</option></select>
+                        </div>
+                    </div>
+                    
+                    <div class="kpi-row">
+                        <div class="kpi-card">
+                            <h4>Active Shipments</h4>
+                            <div class="val">142</div>
+                        </div>
+                        <div class="kpi-card">
+                            <h4>Open POs</h4>
+                            <div class="val">89</div>
+                        </div>
+                        <div class="kpi-card warning">
+                            <h4>Flagged / Exceptions</h4>
+                            <div class="val" style="color: #EF4444;">12</div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>Live Shipment List</h3>
+                            <button class="btn btn-primary btn-sm">Export Data</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="shipment-table">
+                                <thead>
+                                    <tr>
+                                        <th>Shipment ID</th>
+                                        <th>Linked POs</th>
+                                        <th>Origin ➔ Destination</th>
+                                        <th>Mode</th>
+                                        <th>ETA</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Exceptions Section -->
+                <section id="exceptions" class="view-section">
+                    <div class="section-header">
+                        <h1>Exceptions Management</h1>
+                    </div>
+                    <div class="kpi-row">
+                        <div class="kpi-card warning">
+                            <h4>Active Exceptions</h4>
+                            <div class="val" style="color: #EF4444;">12</div>
+                        </div>
+                        <div class="kpi-card warning">
+                            <h4>SLA Breaches</h4>
+                            <div class="val" style="color: #EF4444;">3</div>
+                        </div>
+                        <div class="kpi-card">
+                            <h4>Resolved (7 Days)</h4>
+                            <div class="val">45</div>
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>Exception List</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="exception-table">
+                                <thead>
+                                    <tr>
+                                        <th>Shipment ID</th>
+                                        <th>Issue Type</th>
+                                        <th>Severity</th>
+                                        <th>Affected Milestone</th>
+                                        <th>Expected Delay</th>
+                                        <th>Status / Owner</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Analytics Section -->
+                <section id="analytics" class="view-section">
+                    <div class="section-header">
+                        <h1>Analytics Dashboard</h1>
+                    </div>
+                    <div class="kpi-row">
+                        <div class="panel" style="flex: 1; margin-bottom: 0;">
+                            <div class="panel-header"><h3>Shipment Volume (Monthly)</h3></div>
+                            <canvas id="volumeChart" height="250"></canvas>
+                        </div>
+                        <div class="panel" style="flex: 1; margin-bottom: 0;">
+                            <div class="panel-header"><h3>Carrier On-Time Performance</h3></div>
+                            <canvas id="carrierChart" height="250"></canvas>
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-header"><h3>Freight Spend by Mode</h3></div>
+                        <div style="width: 300px; margin: 0 auto;">
+                            <canvas id="spendChart"></canvas>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Sustainability Section -->
+                <section id="sustainability" class="view-section">
+                    <div class="section-header">
+                        <h1>Sustainability & Emissions</h1>
+                    </div>
+                    <div class="kpi-row">
+                        <div class="kpi-card">
+                            <h4>Total CO2e (YTD)</h4>
+                            <div class="val" style="color: #10B981;">1,245 MT</div>
+                        </div>
+                        <div class="kpi-card">
+                            <h4>Avg Emission Intensity</h4>
+                            <div class="val" style="color: #10B981;">1.2 kg/$</div>
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-header"><h3>Emissions by Mode</h3></div>
+                        <div style="width: 300px; margin: 0 auto;">
+                            <canvas id="emissionsChart"></canvas>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Intelligence Section -->
+                <section id="intelligence" class="view-section">
+                    <div class="section-header">
+                        <h1>Market Intelligence</h1>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-header"><h3>Market Updates Feed</h3></div>
+                        <div class="feed-list" style="display:flex; flex-direction:column; gap: 1rem;">
+                            <div class="feed-item" style="padding: 1.25rem; border: 1px solid var(--border); border-radius: 8px;">
+                                <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-clock"></i> Oct 10, 2026 - Global Alert</div>
+                                <strong style="font-size: 1.1rem;">Suez Canal Congestion</strong>
+                                <p style="margin: 0.5rem 0 0 0; color: var(--text-dark);">Vessel wait times have increased by 48 hours due to severe weather. Impacted carriers: MSC, Maersk.</p>
+                            </div>
+                            <div class="feed-item" style="padding: 1.25rem; border: 1px solid var(--border); border-radius: 8px;">
+                                <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-arrow-trend-up"></i> Oct 08, 2026 - Rate Trend</div>
+                                <strong style="font-size: 1.1rem;">Trans-Pacific Air Freight Surging</strong>
+                                <p style="margin: 0.5rem 0 0 0; color: var(--text-dark);">Due to Q4 electronics launches, air freight rates from Shenzhen to LAX have increased by 15% WoW.</p>
+                            </div>
+                            <div class="feed-item" style="padding: 1.25rem; border: 1px solid var(--border); border-radius: 8px;">
+                                <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-ship"></i> Oct 05, 2026 - Carrier Schedule</div>
+                                <strong style="font-size: 1.1rem;">Hapag-Lloyd Blank Sailings</strong>
+                                <p style="margin: 0.5rem 0 0 0; color: var(--text-dark);">Hapag-Lloyd announced 3 blank sailings for the Asia-Europe loop next month. Expect tighter capacity.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- MGH ASK Chat Widget -->
+    <div class="chat-widget">
+        <button class="chat-toggle" id="chat-toggle">
+            <i class="fa-solid fa-message"></i> MGH ASK
+        </button>
+        <div class="chat-window" id="chat-window" style="display: none;">
+            <div class="chat-header">
+                <h4><i class="fa-solid fa-robot"></i> MGH ASK Assistant</h4>
+                <button id="chat-close"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="chat-body">
+                <div class="msg bot">Hello! I am MGH ASK, your AI logistics assistant. Ask me about your shipments, POs, or market rates!</div>
+                <div class="msg user">Where is PO-99105?</div>
+                <div class="msg bot">PO-99105 is currently linked to Shipment SHP-2023-002 and is on <strong>Customs Hold</strong> in New York. The estimated delay is 48 hours. Would you like me to alert the broker?</div>
+            </div>
+            <div class="chat-input">
+                <input type="text" placeholder="Type your question...">
+                <button><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Shipment Detail -->
+    <div class="modal" id="shipment-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Shipment Detail</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="milestone-tracker">
+                    <div class="step completed">Booked</div>
+                    <div class="step completed">Origin Port</div>
+                    <div class="step active">In Transit</div>
+                    <div class="step">Dest Port</div>
+                    <div class="step">Delivered</div>
+                </div>
+                <div class="modal-details" style="margin-top:3rem; background: var(--bg-main); padding: 1.5rem; border-radius: 8px;">
+                    <p style="margin-top:0;"><strong>Vessel/Flight:</strong> EVER GIVEN V.123</p>
+                    <p><strong>Container:</strong> TLLU4839210 (40HC)</p>
+                    <p><strong>Last Milestone:</strong> Passed Suez Canal - 2 hours ago</p>
+                    <p style="margin-bottom:0; color: var(--status-yellow-text); font-weight: 500;"><i class="fa-solid fa-circle-exclamation"></i> Heavy congestion reported at destination port.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
