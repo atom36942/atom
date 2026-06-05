@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 
 # config
 load_dotenv(".env")
-postgres_url = os.getenv("postgres_url")
+pg_dsn = os.getenv("PG_DSN")
 csv_path = os.getenv("csv_path")
 table = os.getenv("table")
 crud_mode = os.getenv("crud_mode")
@@ -25,7 +25,7 @@ const_column = None
 async def execute():
     """Performs high-performance bulk operations from a CSV to Postgres."""
     csv.field_size_limit(sys.maxsize)
-    if not postgres_url: raise ValueError("postgres_url is required")
+    if not pg_dsn: raise ValueError("PG_DSN is required")
     if not csv_path: raise ValueError("csv_path is required")
     if not os.path.isfile(csv_path): raise ValueError(f"csv_path not found: {csv_path}")
     if not table: raise ValueError("table is required")
@@ -45,7 +45,7 @@ async def execute():
     c_names, c_vals = [c[0] for c in valid_consts], [c[1] for c in valid_consts]
     rename_map = {old: new for old, new in valid_renames}
     reverse_rename_map = {new: old for old, new in valid_renames}
-    conn = await asyncpg.connect(postgres_url, timeout=60)
+    conn = await asyncpg.connect(pg_dsn, timeout=60)
     try:
         q = "SELECT column_name, udt_name, is_nullable FROM information_schema.columns WHERE table_name=$1"
         columns_records = await conn.fetch(q, table)
