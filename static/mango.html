@@ -359,23 +359,23 @@
             </div>
         </div>
 
-        <!-- KPI Cards -->
+                <!-- KPI Cards -->
         <div class="kpi-container" id="kpi-section" style="display: none;">
-            <div class="kpi-card">
-                <div class="kpi-title">Buyer Rows</div>
-                <div class="kpi-value" id="kpi-total">-</div>
+            <div class="kpi-card" style="border-top-color: #0F766E;">
+                <div class="kpi-title">Total Shipments</div>
+                <div class="kpi-value" id="kpi-total-shipments">-</div>
+            </div>
+            <div class="kpi-card" style="border-top-color: #0F766E;">
+                <div class="kpi-title">Total Volume</div>
+                <div class="kpi-value" id="kpi-total-volume">-</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-title">Linked Suppliers</div>
-                <div class="kpi-value" id="kpi-30days">-</div>
+                <div class="kpi-value" id="kpi-suppliers">-</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-title">Buyer Country</div>
-                <div class="kpi-value" id="kpi-weight">-</div>
-            </div>
-            <div class="kpi-card">
-                <div class="kpi-title">Status</div>
-                <div class="kpi-value" id="kpi-volume">-</div>
+                <div class="kpi-value" id="kpi-country">-</div>
             </div>
         </div>
 
@@ -389,7 +389,53 @@
             </div>
         </div>
 
-        <!-- Data Table -->
+                        <!-- Live Bookings Table -->
+        <h2 id="bookings-header" style="display:none; margin-bottom: 0.5rem;">Pre-Shipment Bookings</h2>
+        <div class="table-container">
+            <div class="loading" id="booking-loading">Login to view data.</div>
+            <table id="booking-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Created Date</th>
+                        <th>Status</th>
+                        <th>Booking Ref #</th>
+                        <th>Mode</th>
+                        <th>Incoterm</th>
+                        <th>Estimated Weight</th>
+                        <th>Estimated Volume</th>
+                        <th>Consignor</th>
+                    </tr>
+                </thead>
+                <tbody id="booking-body">
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Live Shipments Table -->
+        <h2 id="shipments-header" style="display:none; margin-bottom: 0.5rem;">Live Shipments</h2>
+        <div class="table-container">
+            <div class="loading" id="shipment-loading">Login to view data.</div>
+            <table id="shipment-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Created Date</th>
+                        <th>Status</th>
+                        <th>Booking #</th>
+                        <th>House Bill</th>
+                        <th>Mode</th>
+                        <th>Incoterm</th>
+                        <th>Weight</th>
+                        <th>Volume</th>
+                        <th>Consignor</th>
+                    </tr>
+                </thead>
+                <tbody id="shipment-body">
+                </tbody>
+            </table>
+        </div>
+
+        <h2 id="relationships-header" style="display:none; margin-bottom: 0.5rem; margin-top: 2rem;">Supplier Relationships</h2>
+        <!-- Data Table (Relationships) -->
         <div class="table-container">
             <div class="loading" id="table-loading">Login to view data.</div>
             <table id="buyer-table" style="display: none;">
@@ -476,8 +522,10 @@
         }
 
         // Refresh Data helper
-        function refreshData() {
+                        function refreshData() {
             fetchBuyerRows(currentPage);
+            fetchBookingRows();
+            fetchShipmentRows();
             fetchKPIs();
         }
 
@@ -540,23 +588,46 @@
         }
 
         // UI State management
-        function updateUIToLoggedIn() {
+                        function updateUIToLoggedIn() {
             showLoginBtn.style.display = 'none';
             logoutBtn.style.display = 'block';
             refreshBtn.style.display = 'block';
             downloadCsvBtn.style.display = 'block';
             document.getElementById('kpi-section').style.display = 'grid';
+            
+            document.getElementById('bookings-header').style.display = 'block';
+            document.getElementById('booking-table').style.display = 'table';
+            document.getElementById('booking-loading').style.display = 'none';
+            
+            document.getElementById('shipments-header').style.display = 'block';
+            document.getElementById('relationships-header').style.display = 'block';
+            document.getElementById('shipment-table').style.display = 'table';
+            document.getElementById('shipment-loading').style.display = 'none';
             paginationBar.style.display = 'flex';
             buyerTable.style.display = 'table';
             tableLoading.style.display = 'none';
         }
 
-        function updateUIToLoggedOut() {
+                        function updateUIToLoggedOut() {
             showLoginBtn.style.display = 'block';
             logoutBtn.style.display = 'none';
             refreshBtn.style.display = 'none';
             downloadCsvBtn.style.display = 'none';
             document.getElementById('kpi-section').style.display = 'none';
+            
+            document.getElementById('bookings-header').style.display = 'none';
+            document.getElementById('booking-table').style.display = 'none';
+            document.getElementById('booking-loading').style.display = 'block';
+            document.getElementById('booking-loading').textContent = 'Login to view data.';
+            document.getElementById('booking-body').innerHTML = '';
+            
+            document.getElementById('shipments-header').style.display = 'none';
+            document.getElementById('relationships-header').style.display = 'none';
+            document.getElementById('shipment-table').style.display = 'none';
+            document.getElementById('shipment-loading').style.display = 'block';
+            document.getElementById('shipment-loading').textContent = 'Login to view data.';
+            document.getElementById('shipment-body').innerHTML = '';
+            
             paginationBar.style.display = 'none';
             buyerTable.style.display = 'none';
             tableLoading.style.display = 'block';
@@ -564,6 +635,144 @@
             tableBody.innerHTML = '';
         }
 
+                        async function fetchBookingRows() {
+            if (!token) return;
+            const sqlQuery = `
+                SELECT TOP 50
+                    js.JS_SystemCreateTimeUtc AS [Created Date],
+                    js.JS_UniqueConsignRef AS [Booking #],
+                    js.JS_ShipmentStatus AS [SHIPMENT STATUS],
+                    org_consignor.OH_FullName AS [Consignor],
+                    js.JS_PackingMode AS [Mode],
+                    js.JS_INCO AS [Incoterm],
+                    js.JS_ActualWeight AS [Weight],
+                    js.JS_UnitOfWeight AS [UW],
+                    js.JS_ActualVolume AS [Volume],
+                    js.JS_UnitOfVolume AS [UV]
+                FROM cvw_JobShipmentOrgs parties
+                JOIN JobShipment js ON parties.JS_PK = js.JS_PK
+                LEFT JOIN OrgHeader org_consignor ON parties.JS_E2_OA_OH_Consignor = org_consignor.OH_PK
+                WHERE parties.JS_E2_OA_OH_Consignee = 'B9F7B9CA-96A2-4009-800D-2F10C52F351D'
+                  AND js.JS_IsBooking = 0
+                  AND js.JS_IsBooking = 1
+                ORDER BY js.JS_SystemCreateTimeUtc DESC;
+            `;
+
+            try {
+                const response = await fetch('/admin/mssql-sql-runner', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: 'read', sql: sqlQuery })
+                });
+                const data = await response.json();
+                const rows = Array.isArray(data.message) ? data.message : [];
+                renderBookingTable(rows);
+            } catch (err) { console.error("Booking fetch error", err); }
+        }
+
+        function renderBookingTable(rows) {
+            const tBody = document.getElementById('booking-body');
+            tBody.innerHTML = '';
+            if (rows.length === 0) {
+                tBody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 2rem;">No active bookings found</td></tr>';
+                return;
+            }
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+                const td = (val) => `<td>${escapeHtml(val)}</td>`;
+                
+                let statusClass = 'bkd'; // Default for bookings
+                const st = row['SHIPMENT STATUS'] || 'BKD';
+
+                const weightStr = row.Weight ? `${row.Weight} ${row.UW||''}` : '';
+                const volStr = row.Volume ? `${row.Volume} ${row.UV||''}` : '';
+                const dateStr = row['Created Date'] ? new Date(row['Created Date']).toLocaleDateString() : '';
+
+                tr.innerHTML = `
+                    ${td(dateStr)}
+                    <td><span class="status-badge ${statusClass}">${escapeHtml(st)}</span></td>
+                    <td style="font-family: monospace; color: var(--primary);">${escapeHtml(row['Booking #'])}</td>
+                    ${td(row.Mode)}
+                    ${td(row.Incoterm)}
+                    ${td(weightStr)}
+                    ${td(volStr)}
+                    <td style="font-weight: 600;">${escapeHtml(row.Consignor)}</td>
+                `;
+                tBody.appendChild(tr);
+            });
+        }
+
+        async function fetchShipmentRows() {
+            if (!token) return;
+            const sqlQuery = `
+                SELECT TOP 50
+                    js.JS_SystemCreateTimeUtc AS [Created Date],
+                    js.JS_UniqueConsignRef AS [Booking #],
+                    js.JS_ShipmentStatus AS [SHIPMENT STATUS],
+                    org_consignor.OH_FullName AS [Consignor],
+                    js.JS_HouseBill AS [House Bill],
+                    js.JS_PackingMode AS [Mode],
+                    js.JS_INCO AS [Incoterm],
+                    js.JS_ActualWeight AS [Weight],
+                    js.JS_UnitOfWeight AS [UW],
+                    js.JS_ActualVolume AS [Volume],
+                    js.JS_UnitOfVolume AS [UV]
+                FROM cvw_JobShipmentOrgs parties
+                JOIN JobShipment js ON parties.JS_PK = js.JS_PK
+                LEFT JOIN OrgHeader org_consignor ON parties.JS_E2_OA_OH_Consignor = org_consignor.OH_PK
+                WHERE parties.JS_E2_OA_OH_Consignee = 'B9F7B9CA-96A2-4009-800D-2F10C52F351D'
+                  AND js.JS_IsBooking = 0
+                ORDER BY js.JS_SystemCreateTimeUtc DESC;
+            `;
+
+            try {
+                const response = await fetch('/admin/mssql-sql-runner', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: 'read', sql: sqlQuery })
+                });
+                const data = await response.json();
+                const rows = Array.isArray(data.message) ? data.message : [];
+                renderShipmentTable(rows);
+            } catch (err) { console.error("Shipment fetch error", err); }
+        }
+
+        function renderShipmentTable(rows) {
+            const tBody = document.getElementById('shipment-body');
+            tBody.innerHTML = '';
+            if (rows.length === 0) {
+                tBody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 2rem;">No active shipments found</td></tr>';
+                return;
+            }
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+                const td = (val) => `<td>${escapeHtml(val)}</td>`;
+                
+                let statusClass = '';
+                const st = row['SHIPMENT STATUS'] || '';
+                if(st === 'BKD') statusClass = 'bkd';
+                else if(st === 'RCV') statusClass = 'rcv';
+                else statusClass = 'active';
+
+                const weightStr = row.Weight ? `${row.Weight} ${row.UW||''}` : '';
+                const volStr = row.Volume ? `${row.Volume} ${row.UV||''}` : '';
+                const dateStr = row['Created Date'] ? new Date(row['Created Date']).toLocaleDateString() : '';
+
+                tr.innerHTML = `
+                    ${td(dateStr)}
+                    <td><span class="status-badge ${statusClass}">${escapeHtml(st)}</span></td>
+                    <td style="font-family: monospace; color: var(--primary);">${escapeHtml(row['Booking #'])}</td>
+                    <td style="font-family: monospace;">${escapeHtml(row['House Bill'])}</td>
+                    ${td(row.Mode)}
+                    ${td(row.Incoterm)}
+                    ${td(weightStr)}
+                    ${td(volStr)}
+                    <td style="font-weight: 600;">${escapeHtml(row.Consignor)}</td>
+                `;
+                tBody.appendChild(tr);
+            });
+        }
+        
         // Fetch Data
         async function fetchBuyerRows(page) {
             if (!token) return;
@@ -726,48 +935,62 @@
         }
 
         // Fetch KPIs
-        async function fetchKPIs() {
+                async function fetchKPIs() {
             if (!token) return;
             
-            const sqlQuery = `
+            // Suppliers KPI
+            const sqlQuerySuppliers = `
                 SELECT
-                    COUNT(*) AS BuyerRows,
                     COUNT(DISTINCT OrganisationPK) AS LinkedSuppliers,
-                    MAX(BuyerCountry) AS BuyerCountry,
-                    MAX(Active) AS BuyerStatus
+                    MAX(BuyerCountry) AS BuyerCountry
                 FROM dbo.vw_Report_ConsignorBuyerDetails
                 WHERE BuyerPK = 'B9F7B9CA-96A2-4009-800D-2F10C52F351D';
             `;
+            
+            // Shipments KPI
+            const sqlQueryShipments = `
+                SELECT 
+                    COUNT(js.JS_PK) AS TotalShipments,
+                    SUM(js.JS_ActualVolume) AS TotalVolume
+                FROM cvw_JobShipmentOrgs parties
+                JOIN JobShipment js ON parties.JS_PK = js.JS_PK
+                WHERE parties.JS_E2_OA_OH_Consignee = 'B9F7B9CA-96A2-4009-800D-2F10C52F351D'
+                  AND js.JS_IsBooking = 0;
+            `;
 
-            document.getElementById('kpi-total').textContent = '...';
-            document.getElementById('kpi-30days').textContent = '...';
-            document.getElementById('kpi-weight').textContent = '...';
-            document.getElementById('kpi-volume').textContent = '...';
+            document.getElementById('kpi-total-shipments').textContent = '...';
+            document.getElementById('kpi-total-volume').textContent = '...';
+            document.getElementById('kpi-suppliers').textContent = '...';
+            document.getElementById('kpi-country').textContent = '...';
 
             try {
-                const response = await fetch('/admin/mssql-sql-runner', {
+                // Fetch Suppliers
+                const resSup = await fetch('/admin/mssql-sql-runner', {
                     method: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + token,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ mode: 'read', sql: sqlQuery })
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: 'read', sql: sqlQuerySuppliers })
                 });
-
-                const data = await response.json();
-                
-                if (data.status === 1 && data.message && data.message.length > 0) {
-                    const row = data.message[0];
-                    const formatNum = (num) => {
-                        const val = parseFloat(num);
-                        return isNaN(val) ? 0 : val.toLocaleString();
-                    };
-                    
-                    document.getElementById('kpi-total').textContent = formatNum(row.BuyerRows);
-                    document.getElementById('kpi-30days').textContent = formatNum(row.LinkedSuppliers);
-                    document.getElementById('kpi-weight').textContent = row.BuyerCountry || '-';
-                    document.getElementById('kpi-volume').textContent = row.BuyerStatus || '-';
+                const dataSup = await resSup.json();
+                if (dataSup.status === 1 && dataSup.message && dataSup.message.length > 0) {
+                    const row = dataSup.message[0];
+                    document.getElementById('kpi-suppliers').textContent = row.LinkedSuppliers || '0';
+                    document.getElementById('kpi-country').textContent = row.BuyerCountry || '-';
                 }
+
+                // Fetch Shipments
+                const resShp = await fetch('/admin/mssql-sql-runner', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: 'read', sql: sqlQueryShipments })
+                });
+                const dataShp = await resShp.json();
+                if (dataShp.status === 1 && dataShp.message && dataShp.message.length > 0) {
+                    const row = dataShp.message[0];
+                    document.getElementById('kpi-total-shipments').textContent = row.TotalShipments || '0';
+                    const vol = parseFloat(row.TotalVolume);
+                    document.getElementById('kpi-total-volume').textContent = isNaN(vol) ? '0' : vol.toLocaleString();
+                }
+
             } catch (err) {
                 console.error("Failed to fetch KPIs", err);
             }

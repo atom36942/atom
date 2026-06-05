@@ -93,7 +93,7 @@ config_table = {
 }
 
 config_regex = {
-"username": ["^(?=.{3,20}\\Z)[a-z0-9]([a-z0-9_@-]*[a-z0-9])?\\Z", "Username must be 3-20 characters, start and end with a letter or number, and contain only lowercase letters, numbers, _, @, or -"],
+"username": ["^(?=.{3,20}\\Z)[A-Za-z0-9]([A-Za-z0-9_@.-]*[A-Za-z0-9])?\\Z", "Username must be 3-20 characters, start and end with a letter or number, and contain only letters, numbers, _, @, ., or -"],
 "password": ["^\\S{6,30}\\Z", "Password must be 6-30 characters and contain no spaces"],
 }
 
@@ -228,7 +228,7 @@ config_postgres = {
 {"name":"description","datatype":"text"},
 {"name":"date_of_birth","datatype":"date"},
 {"name":"gender","datatype":"smallint"},
-{"name":"id_ext","datatype":"text"},
+{"name":"id_ext","datatype":"text","unique":"id_ext,type"},
 ],
 "post":[
 {"name":"id","datatype":"bigserial","is_primary":1},
