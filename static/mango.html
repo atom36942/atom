@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amazon CargoWise Shipments</title>
+    <title>Mango CargoWise Buyer Dashboard</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         
         :root {
-            --primary: #1F2937;
-            --primary-hover: #111827;
+            --primary: #111827;
+            --primary-hover: #374151;
             --accent: #0F766E;
             --bg-color: #F6F7F9;
             --surface: #FFFFFF;
@@ -218,6 +218,8 @@
         
         .status-badge.bkd { background: #FEF3C7; color: #92400E; }
         .status-badge.rcv { background: #D1FAE5; color: #065F46; }
+        .status-badge.active { background: #D1FAE5; color: #065F46; }
+        .status-badge.inactive { background: #FEE2E2; color: #991B1B; }
 
         /* KPI Cards */
         .kpi-container {
@@ -342,8 +344,8 @@
         <!-- Header Info -->
         <div class="header">
             <div>
-                <h1>Amazon CargoWise Data</h1>
-                <p>Live view of Amazon FBA shipments and tracking data directly from CargoWise.</p>
+                <h1>Mango CargoWise Data</h1>
+                <p>Live view of Mango buyer profile and consignor relationship data directly from CargoWise.</p>
             </div>
             <div class="controls">
                 <button class="btn btn-green" id="refresh-btn" onclick="refreshData()" style="display: none;">
@@ -360,26 +362,26 @@
         <!-- KPI Cards -->
         <div class="kpi-container" id="kpi-section" style="display: none;">
             <div class="kpi-card">
-                <div class="kpi-title">Total Shipments</div>
+                <div class="kpi-title">Buyer Rows</div>
                 <div class="kpi-value" id="kpi-total">-</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-title">Last 30 Days</div>
+                <div class="kpi-title">Linked Suppliers</div>
                 <div class="kpi-value" id="kpi-30days">-</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-title">Total Weight (kg)</div>
+                <div class="kpi-title">Buyer Country</div>
                 <div class="kpi-value" id="kpi-weight">-</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-title">Total Volume</div>
+                <div class="kpi-title">Status</div>
                 <div class="kpi-value" id="kpi-volume">-</div>
             </div>
         </div>
 
         <!-- Top Pagination -->
         <div class="pagination" id="pagination-bar" style="display: none;">
-            <div class="page-info">Showing Amazon Shipments</div>
+            <div class="page-info">Showing Mango Buyer Relationships</div>
             <div class="pagination-controls">
                 <button class="prev-btn" onclick="changePage(-1)" disabled>Previous</button>
                 <span class="page-info">Page <span class="current-page">1</span></span>
@@ -390,25 +392,28 @@
         <!-- Data Table -->
         <div class="table-container">
             <div class="loading" id="table-loading">Login to view data.</div>
-            <table id="shipments-table" style="display: none;">
+            <table id="buyer-table" style="display: none;">
                 <thead>
                     <tr>
-                        <th>Created Date</th>
-                        <th>Booking #</th>
-                        <th>Amazon fbaShipmentId</th>
-                        <th>Amazon merchantId</th>
-                        <th>Controlling Customer</th>
                         <th>Status</th>
-                        <th>Consignor</th>
-                        <th>House Bill</th>
-                        <th>Client</th>
-                        <th>Mode</th>
+                        <th>Buyer Code</th>
+                        <th>Buyer Name</th>
+                        <th>Address</th>
+                        <th>City</th>
+                        <th>State</th>
+                        <th>Post Code</th>
+                        <th>Country</th>
+                        <th>Supplier Code</th>
+                        <th>Supplier Name</th>
+                        <th>Supplier Country</th>
+                        <th>Supplier UNLOCO</th>
                         <th>Incoterm</th>
-                        <th>Service Lvl.</th>
-                        <th>Weight</th>
-                        <th>UW</th>
-                        <th>Volume</th>
-                        <th>UV</th>
+                        <th>Currency</th>
+                        <th>Transport</th>
+                        <th>Container</th>
+                        <th>Controlled By</th>
+                        <th>Import Broker</th>
+                        <th>Docs</th>
                     </tr>
                 </thead>
                 <tbody id="table-body">
@@ -457,7 +462,7 @@
         
         const tableBody = document.getElementById('table-body');
         const tableLoading = document.getElementById('table-loading');
-        const shipmentsTable = document.getElementById('shipments-table');
+        const buyerTable = document.getElementById('buyer-table');
         const paginationBar = document.getElementById('pagination-bar');
         
         const prevBtns = document.querySelectorAll('.prev-btn');
@@ -472,7 +477,7 @@
 
         // Refresh Data helper
         function refreshData() {
-            fetchShipments(currentPage);
+            fetchBuyerRows(currentPage);
             fetchKPIs();
         }
 
@@ -542,7 +547,7 @@
             downloadCsvBtn.style.display = 'block';
             document.getElementById('kpi-section').style.display = 'grid';
             paginationBar.style.display = 'flex';
-            shipmentsTable.style.display = 'table';
+            buyerTable.style.display = 'table';
             tableLoading.style.display = 'none';
         }
 
@@ -553,66 +558,70 @@
             downloadCsvBtn.style.display = 'none';
             document.getElementById('kpi-section').style.display = 'none';
             paginationBar.style.display = 'none';
-            shipmentsTable.style.display = 'none';
+            buyerTable.style.display = 'none';
             tableLoading.style.display = 'block';
             tableLoading.textContent = 'Login to view data.';
             tableBody.innerHTML = '';
         }
 
         // Fetch Data
-        async function fetchShipments(page) {
+        async function fetchBuyerRows(page) {
             if (!token) return;
             const offset = (page - 1) * limit;
             
             const sqlQuery = `
-                SELECT 
-                    js.JS_UniqueConsignRef AS [Booking #],
-                    org_client.OH_Code AS [Client],
-                    js.JS_PackingMode AS [Mode],
-                    js.JS_ActualWeight AS [Weight],
-                    js.JS_UnitOfWeight AS [UW],
-                    js.JS_ActualVolume AS [Volume],
-                    js.JS_UnitOfVolume AS [UV],
-                    js.JS_RS_NKServiceLevel AS [Service Lvl.],
-                    js.JS_INCO AS [Incoterm],
-                    js.JS_HouseBill AS [House Bill],
-                    org_consignor.OH_FullName AS [Consignor],
-                    MAX(CASE WHEN custom.XV_Name = 'Amazon merchantId' THEN custom.XV_Data END) AS [Amazon merchantId],
-                    MAX(CASE WHEN custom.XV_Name = 'Amazon fbaShipmentId' THEN custom.XV_Data END) AS [Amazon fbaShipmentId],
-                    org_control.OH_Code AS [Controlling Customer],
-                    js.JS_ShipmentStatus AS [SHIPMENT STATUS],
-                    js.JS_SystemCreateTimeUtc AS [Created Date]
-                FROM JobShipment js
-                LEFT JOIN JobHeader jh ON js.JS_TH_OneTimeQuote = jh.JH_ParentID
-                LEFT JOIN OrgAddress oa_client ON jh.JH_OA_LocalChargesAddr = oa_client.OA_PK
-                LEFT JOIN OrgHeader org_client ON oa_client.OA_OH = org_client.OH_PK
-                LEFT JOIN cvw_JobShipmentOrgs parties ON js.JS_PK = parties.JS_PK
-                LEFT JOIN OrgHeader org_consignor ON parties.JS_E2_OA_OH_Consignor = org_consignor.OH_PK
-                LEFT JOIN OrgHeader org_control ON parties.ControllingCustomer_PK = org_control.OH_PK
-                LEFT JOIN GenCustomAddOnValue custom ON js.JS_TH_OneTimeQuote = custom.XV_ParentID
-                WHERE org_client.OH_Code = 'AMAZONWAS'
-                GROUP BY 
-                    js.JS_UniqueConsignRef,
-                    org_client.OH_Code,
-                    js.JS_PackingMode,
-                    js.JS_ActualWeight,
-                    js.JS_UnitOfWeight,
-                    js.JS_ActualVolume,
-                    js.JS_UnitOfVolume,
-                    js.JS_RS_NKServiceLevel,
-                    js.JS_INCO,
-                    js.JS_HouseBill,
-                    org_consignor.OH_FullName,
-                    org_control.OH_Code,
-                    js.JS_ShipmentStatus,
-                    js.JS_SystemCreateTimeUtc
-                ORDER BY js.JS_SystemCreateTimeUtc DESC
+                WITH BuyerAddress AS (
+                    SELECT
+                        OA.*,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY OA.OA_OH
+                            ORDER BY OA.OA_IsActive DESC, OA.OA_IsValid DESC, OA.OA_Code, OA.OA_PK
+                        ) AS rn
+                    FROM dbo.OrgAddress AS OA
+                    WHERE OA.OA_IsValid = 1
+                )
+                SELECT
+                    v.BuyerCode,
+                    v.BuyerName,
+                    v.BuyerPK,
+                    v.BuyerCountry,
+                    v.BuyerUNLOCO,
+                    v.Active,
+                    OA.OA_Address1 AS Address1,
+                    OA.OA_Address2 AS Address2,
+                    OA.OA_City AS City,
+                    OA.OA_State AS State,
+                    OA.OA_PostCode AS PostCode,
+                    OA.OA_RN_NKCountryCode AS AddressCountry,
+                    OA.OA_Phone AS Phone,
+                    OA.OA_Email AS Email,
+                    v.OrganisationCode AS SupplierCode,
+                    v.OrganisationName AS SupplierName,
+                    v.OrganisationPK AS SupplierPK,
+                    v.ConsignorCountry AS SupplierCountry,
+                    v.ConsignorUNLOCO AS SupplierUNLOCO,
+                    v.IncoTerm,
+                    v.BuyerCurrency,
+                    v.transportMode AS TransportMode,
+                    v.ContMode AS ContainerMode,
+                    v.ControlledBy,
+                    v.ImportBroker,
+                    v.Docs,
+                    v.ShipmentDate
+                FROM dbo.vw_Report_ConsignorBuyerDetails AS v
+                LEFT JOIN dbo.OrgHeader AS OH
+                    ON OH.OH_PK = v.BuyerPK
+                LEFT JOIN BuyerAddress AS OA
+                    ON OA.OA_OH = OH.OH_PK
+                   AND OA.rn = 1
+                WHERE v.BuyerPK = 'B9F7B9CA-96A2-4009-800D-2F10C52F351D'
+                ORDER BY v.OrganisationName, v.OrganisationCode
                 OFFSET ${offset} ROWS FETCH NEXT ${limit} ROWS ONLY;
             `;
 
             refreshBtn.textContent = 'Refreshing...';
             refreshBtn.disabled = true;
-            shipmentsTable.style.opacity = '0.5';
+            buyerTable.style.opacity = '0.5';
 
             try {
                 const response = await fetch('/admin/mssql-sql-runner', {
@@ -656,15 +665,19 @@
             } finally {
                 refreshBtn.textContent = 'Refresh';
                 refreshBtn.disabled = false;
-                shipmentsTable.style.opacity = '1';
+                buyerTable.style.opacity = '1';
             }
         }
 
-        // Format Date Helper
-        function formatDate(dateStr) {
-            if (!dateStr) return '';
-            const date = new Date(dateStr);
-            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        // HTML Escape Helper
+        function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
         }
 
         // Render Table
@@ -672,37 +685,41 @@
             tableBody.innerHTML = '';
             
             if (rows.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="16" style="text-align:center; padding: 2rem;">No shipments found</td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="19" style="text-align:center; padding: 2rem;">No Mango buyer rows found</td></tr>';
                 return;
             }
 
             rows.forEach(row => {
                 const tr = document.createElement('tr');
-                const td = (val) => `<td>${val !== null && val !== undefined ? val : ''}</td>`;
+                const td = (val) => `<td>${escapeHtml(val)}</td>`;
                 
-                const status = row['SHIPMENT STATUS'] || 'N/A';
+                const status = row.Active || 'N/A';
                 let statusClass = '';
-                if (status.toLowerCase() === 'bkd') statusClass = 'bkd';
-                else if (status.toLowerCase() === 'rcv') statusClass = 'rcv';
+                if (status.toLowerCase() === 'active') statusClass = 'active';
+                else if (status.toLowerCase() === 'inactive') statusClass = 'inactive';
+                const address = [row.Address1, row.Address2].filter(Boolean).join(' ');
 
                 // Render in the logical order
                 tr.innerHTML = `
-                    <td style="color: var(--text-muted);">${formatDate(row['Created Date'])}</td>
-                    <td style="font-weight: 600;">${row['Booking #'] || ''}</td>
-                    <td style="font-family: monospace; color: var(--primary);">${row['Amazon fbaShipmentId'] || ''}</td>
-                    <td>${row['Amazon merchantId'] || ''}</td>
-                    <td style="font-weight: 500;">${row['Controlling Customer'] || ''}</td>
-                    <td><span class="status-badge ${statusClass}">${status}</span></td>
-                    ${td(row['Consignor'])}
-                    ${td(row['House Bill'])}
-                    ${td(row['Client'])}
-                    ${td(row['Mode'])}
-                    ${td(row['Incoterm'])}
-                    ${td(row['Service Lvl.'])}
-                    ${td(row['Weight'])}
-                    ${td(row['UW'])}
-                    ${td(row['Volume'])}
-                    ${td(row['UV'])}
+                    <td><span class="status-badge ${statusClass}">${escapeHtml(status)}</span></td>
+                    <td style="font-family: monospace; color: var(--primary);">${escapeHtml(row.BuyerCode)}</td>
+                    <td style="font-weight: 600;">${escapeHtml(row.BuyerName)}</td>
+                    ${td(address)}
+                    ${td(row.City)}
+                    ${td(row.State)}
+                    ${td(row.PostCode)}
+                    ${td(row.AddressCountry || row.BuyerCountry)}
+                    <td style="font-family: monospace;">${escapeHtml(row.SupplierCode)}</td>
+                    ${td(row.SupplierName)}
+                    ${td(row.SupplierCountry)}
+                    ${td(row.SupplierUNLOCO)}
+                    ${td(row.IncoTerm)}
+                    ${td(row.BuyerCurrency)}
+                    ${td(row.TransportMode)}
+                    ${td(row.ContainerMode)}
+                    ${td(row.ControlledBy)}
+                    ${td(row.ImportBroker)}
+                    ${td(row.Docs)}
                 `;
                 tableBody.appendChild(tr);
             });
@@ -713,16 +730,13 @@
             if (!token) return;
             
             const sqlQuery = `
-                SELECT 
-                    COUNT(js.JS_PK) AS TotalShipments,
-                    SUM(CASE WHEN js.JS_SystemCreateTimeUtc >= DATEADD(day, -30, GETUTCDATE()) THEN 1 ELSE 0 END) AS ShipmentsLast30Days,
-                    SUM(js.JS_ActualWeight) AS TotalWeight,
-                    SUM(js.JS_ActualVolume) AS TotalVolume
-                FROM JobShipment js
-                LEFT JOIN JobHeader jh ON js.JS_TH_OneTimeQuote = jh.JH_ParentID
-                LEFT JOIN OrgAddress oa_client ON jh.JH_OA_LocalChargesAddr = oa_client.OA_PK
-                LEFT JOIN OrgHeader org_client ON oa_client.OA_OH = org_client.OH_PK
-                WHERE org_client.OH_Code = 'AMAZONWAS';
+                SELECT
+                    COUNT(*) AS BuyerRows,
+                    COUNT(DISTINCT OrganisationPK) AS LinkedSuppliers,
+                    MAX(BuyerCountry) AS BuyerCountry,
+                    MAX(Active) AS BuyerStatus
+                FROM dbo.vw_Report_ConsignorBuyerDetails
+                WHERE BuyerPK = 'B9F7B9CA-96A2-4009-800D-2F10C52F351D';
             `;
 
             document.getElementById('kpi-total').textContent = '...';
@@ -749,10 +763,10 @@
                         return isNaN(val) ? 0 : val.toLocaleString();
                     };
                     
-                    document.getElementById('kpi-total').textContent = formatNum(row.TotalShipments);
-                    document.getElementById('kpi-30days').textContent = formatNum(row.ShipmentsLast30Days);
-                    document.getElementById('kpi-weight').textContent = formatNum(row.TotalWeight);
-                    document.getElementById('kpi-volume').textContent = formatNum(row.TotalVolume);
+                    document.getElementById('kpi-total').textContent = formatNum(row.BuyerRows);
+                    document.getElementById('kpi-30days').textContent = formatNum(row.LinkedSuppliers);
+                    document.getElementById('kpi-weight').textContent = row.BuyerCountry || '-';
+                    document.getElementById('kpi-volume').textContent = row.BuyerStatus || '-';
                 }
             } catch (err) {
                 console.error("Failed to fetch KPIs", err);
@@ -765,7 +779,7 @@
             if (newPage > 0) {
                 currentPage = newPage;
                 pageSpans.forEach(span => span.textContent = currentPage);
-                fetchShipments(currentPage);
+                fetchBuyerRows(currentPage);
             }
         }
 
@@ -773,7 +787,7 @@
         async function downloadCSV() {
             if (!token) return;
             
-            const limitStr = prompt("Enter the number of latest records to download:", "1000");
+            const limitStr = prompt("Enter the number of Mango buyer rows to download:", "1000");
             if (limitStr === null) return; // User cancelled
             
             const dlLimit = parseInt(limitStr);
@@ -784,34 +798,42 @@
 
             const sqlQuery = `
                 SELECT TOP ${dlLimit}
-                    js.JS_SystemCreateTimeUtc AS [Created Date],
-                    js.JS_UniqueConsignRef AS [Booking #],
-                    MAX(CASE WHEN custom.XV_Name = 'Amazon fbaShipmentId' THEN custom.XV_Data END) AS [Amazon fbaShipmentId],
-                    MAX(CASE WHEN custom.XV_Name = 'Amazon merchantId' THEN custom.XV_Data END) AS [Amazon merchantId],
-                    org_control.OH_Code AS [Controlling Customer],
-                    js.JS_ShipmentStatus AS [SHIPMENT STATUS],
-                    org_consignor.OH_FullName AS [Consignor],
-                    js.JS_HouseBill AS [House Bill],
-                    org_client.OH_Code AS [Client],
-                    js.JS_PackingMode AS [Mode],
-                    js.JS_INCO AS [Incoterm],
-                    js.JS_RS_NKServiceLevel AS [Service Lvl.],
-                    js.JS_ActualWeight AS [Weight],
-                    js.JS_UnitOfWeight AS [UW],
-                    js.JS_ActualVolume AS [Volume],
-                    js.JS_UnitOfVolume AS [UV]
-                FROM JobShipment js
-                LEFT JOIN JobHeader jh ON js.JS_TH_OneTimeQuote = jh.JH_ParentID
-                LEFT JOIN OrgAddress oa_client ON jh.JH_OA_LocalChargesAddr = oa_client.OA_PK
-                LEFT JOIN OrgHeader org_client ON oa_client.OA_OH = org_client.OH_PK
-                LEFT JOIN cvw_JobShipmentOrgs parties ON js.JS_PK = parties.JS_PK
-                LEFT JOIN OrgHeader org_consignor ON parties.JS_E2_OA_OH_Consignor = org_consignor.OH_PK
-                LEFT JOIN OrgHeader org_control ON parties.ControllingCustomer_PK = org_control.OH_PK
-                LEFT JOIN GenCustomAddOnValue custom ON js.JS_TH_OneTimeQuote = custom.XV_ParentID
-                WHERE org_client.OH_Code = 'AMAZONWAS'
-                GROUP BY 
-                    js.JS_UniqueConsignRef, org_client.OH_Code, js.JS_PackingMode, js.JS_ActualWeight, js.JS_UnitOfWeight, js.JS_ActualVolume, js.JS_UnitOfVolume, js.JS_RS_NKServiceLevel, js.JS_INCO, js.JS_HouseBill, org_consignor.OH_FullName, org_control.OH_Code, js.JS_ShipmentStatus, js.JS_SystemCreateTimeUtc
-                ORDER BY js.JS_SystemCreateTimeUtc DESC;
+                    v.BuyerCode,
+                    v.BuyerName,
+                    v.BuyerPK,
+                    v.BuyerCountry,
+                    v.BuyerUNLOCO,
+                    v.Active,
+                    OA.OA_Address1 AS Address1,
+                    OA.OA_Address2 AS Address2,
+                    OA.OA_City AS City,
+                    OA.OA_State AS State,
+                    OA.OA_PostCode AS PostCode,
+                    OA.OA_RN_NKCountryCode AS AddressCountry,
+                    OA.OA_Phone AS Phone,
+                    OA.OA_Email AS Email,
+                    v.OrganisationCode AS SupplierCode,
+                    v.OrganisationName AS SupplierName,
+                    v.OrganisationPK AS SupplierPK,
+                    v.ConsignorCountry AS SupplierCountry,
+                    v.ConsignorUNLOCO AS SupplierUNLOCO,
+                    v.IncoTerm,
+                    v.BuyerCurrency,
+                    v.transportMode AS TransportMode,
+                    v.ContMode AS ContainerMode,
+                    v.ControlledBy,
+                    v.ImportBroker,
+                    v.Docs,
+                    v.ShipmentDate
+                FROM dbo.vw_Report_ConsignorBuyerDetails AS v
+                LEFT JOIN dbo.OrgHeader AS OH
+                    ON OH.OH_PK = v.BuyerPK
+                LEFT JOIN dbo.OrgAddress AS OA
+                    ON OA.OA_OH = OH.OH_PK
+                   AND OA.OA_IsValid = 1
+                   AND OA.OA_IsActive = 1
+                WHERE v.BuyerPK = 'B9F7B9CA-96A2-4009-800D-2F10C52F351D'
+                ORDER BY v.OrganisationName, v.OrganisationCode;
             `;
 
             downloadCsvBtn.textContent = 'Preparing...';
@@ -867,7 +889,7 @@
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement("a");
                 link.setAttribute("href", url);
-                link.setAttribute("download", `amazon_shipments_${new Date().getTime()}.csv`);
+                link.setAttribute("download", `mango_buyer_data_${new Date().getTime()}.csv`);
                 link.style.visibility = 'hidden';
                 document.body.appendChild(link);
                 link.click();
