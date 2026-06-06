@@ -519,12 +519,12 @@
         ; const tableRows = arr.map((row, rowIndex) => `\n<tr style="background:${rowIndex % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)"}">\n${keys.map(k => {
           const cv = row[k]
             ; const val = cv == null ? "" : typeof cv === "object" ? JSON.stringify(cv) : String(cv); const enc = val.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
-            ; const isLong = val.length > 60; const display = isLong ? he(val.substring(0, 57)) + "..." : enc
-            ; const isObj = cv !== null && typeof cv === "object"; const needsExpand = isLong || isObj
-            ; const viewBtn = needsExpand ? `<button type="button" class="icon-btn cell-expand-btn" data-raw="${encodeURIComponent(val)}" style="padding:2px;margin-left:auto" title="Expand">${ICON.expand(14)}</button>` : ""
-            ; return `<td title="${enc}"><div style="display:flex;align-items:center;gap:8px;max-width:${colW(k)}px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${display}</span>${viewBtn}</div></td>`
+            ; const isLong = val.length > 500; const display = isLong ? he(val.substring(0, 497)) + "..." : enc
+            ; const isObj = cv !== null && typeof cv === "object"; const needsExpand = val.length > 60 || isObj
+            ; const viewBtn = needsExpand ? `<button type="button" class="icon-btn cell-expand-btn" data-raw="${encodeURIComponent(val)}" style="padding:2px;margin-left:auto;flex-shrink:0" title="Expand">${ICON.expand(14)}</button>` : ""
+            ; return `<td title="${enc}"><div style="display:flex;align-items:center;gap:8px;width:100%"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${display}</span>${viewBtn}</div></td>`
         }).join("")}\n</tr>`).join("")
-        ; return `\n<div class="modal-card panel-shell" style="margin:16px"><div class="modal-card-body" style="padding:0"><div class="resp-tbl-wrap master-table-wrap" style="max-height:500px;opacity:1"><table class="resp-tbl"><thead><tr>${keys.map(k => `<th style="width:${colW(k)}px;min-width:${colW(k)}px">${he(k)}</th>`).join("")}</tr></thead><tbody>${tableRows}</tbody></table></div></div></div>`
+        ; return `\n<div class="modal-card panel-shell" style="margin:16px"><div class="modal-card-body" style="padding:0"><div class="resp-tbl-wrap master-table-wrap" style="max-height:500px;opacity:1"><table class="resp-tbl" style="table-layout:fixed;width:100%"><thead><tr>${keys.map(k => `<th style="width:${colW(k)}px;min-width:60px;position:relative;user-select:none">${he(k)}</th>`).join("")}</tr></thead><tbody>${tableRows}</tbody></table></div></div></div>`
     }
       ; const highlight = s => s.replace(/"([^"]+)"\s*:/g, '<span class="jk">"$1"</span>:').replace(/:"([^"]*)"/g, ':<span class="js">"$1"</span>').replace(/:\s*([\d.]+)/g, ': <span class="jn">$1</span>').replace(/:\s*(true|false)/g, ': <span class="jb">$1</span>').replace(/:\s*(null)/g, ': <span class="jl">$1</span>')
       ; const highlightCurl = s => {
@@ -570,7 +570,34 @@
         }); if (type === "raw") {
           UI("rawPre").innerHTML = highlight(JSON.stringify(data, null, 2))
         } else if (type === "pretty") { UI("viewPretty").innerHTML = renderTree(data) } else if (type === "table") {
-          const tableData = data?.message; const tableHtml = fmtGrid(tableData); if (tableHtml) { UI("viewTable").innerHTML = tableHtml } else {
+          const tableData = data?.message; const tableHtml = fmtGrid(tableData); if (tableHtml) { 
+            UI("viewTable").innerHTML = tableHtml;
+            const t = UI("viewTable").querySelector("table");
+            if (t) {
+              [...t.querySelectorAll("th")].forEach(th => {
+                const r = document.createElement("div");
+                r.style.cssText = "width:4px;height:100%;position:absolute;right:0;top:0;cursor:col-resize;background:rgba(255,255,255,0.03);z-index:10;transition:background 0.2s";
+                r.onmouseenter = () => r.style.background = "var(--accent)";
+                r.onmouseleave = () => r.style.background = "rgba(255,255,255,0.03)";
+                th.appendChild(r);
+                let sx, sw;
+                r.onmousedown = e => {
+                  sx = e.pageX; sw = th.offsetWidth;
+                  r.style.background = "var(--accent)";
+                  document.onmousemove = mm; document.onmouseup = mu;
+                  e.preventDefault(); e.stopPropagation();
+                };
+                const mm = e => {
+                  const w = Math.max(40, sw + (e.pageX - sx));
+                  th.style.width = w + "px"; th.style.minWidth = w + "px";
+                };
+                const mu = () => {
+                  document.onmousemove = null; document.onmouseup = null;
+                  r.style.background = "rgba(255,255,255,0.03)";
+                };
+              });
+            }
+          } else {
             UI("viewTable").innerHTML = `<div style="padding:50px;text-align:center;color:var(--muted);font-style:italic;line-height:1.6">Table view not available for this response type.<br>Please use <b>Tree View</b> or <b>Raw View</b> for detailed inspection.</div>`
           }
         } else if (type === "chart") {

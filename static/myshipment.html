@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyShipment</title>
+    <style>
+:root {
+    --bg-main: #F3F4F6;
+    --bg-surface: #FFFFFF;
+    --sidebar-bg: #111827;
+    --sidebar-text: #9CA3AF;
+    --sidebar-text-active: #FFFFFF;
+    --sidebar-active-bg: #1F2937;
+    --primary: #4F46E5;
+    --primary-hover: #4338CA;
+    --text-dark: #111827;
+    --text-muted: #6B7280;
+    --border: #E5E7EB;
+    
+    --status-green: #D1FAE5;
+    --status-green-text: #065F46;
+    --status-yellow: #FEF3C7;
+    --status-yellow-text: #92400E;
+    --status-red: #FEE2E2;
+    --status-red-text: #B91C1C;
+    --status-blue: #DBEAFE;
+    --status-blue-text: #1E3A8A;
+}
+
+body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-dark);
+}
+
+.app-layout {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 250px;
+    background-color: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar .logo {
+    padding: 1.5rem;
+    color: white;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.sidebar .logo h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.nav-menu {
+    padding: 1rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.nav-item {
+    padding: 0.875rem 1.5rem;
+    color: var(--sidebar-text);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+}
+
+.nav-item i {
+    width: 20px;
+    text-align: center;
+}
+
+.nav-item:hover {
+    color: var(--sidebar-text-active);
+    background-color: rgba(255,255,255,0.05);
+}
+
+.nav-item.active {
+    color: var(--sidebar-text-active);
+    background-color: var(--sidebar-active-bg);
+    border-left: 4px solid var(--primary);
+}
+
+/* Main Content */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.top-bar {
+    height: 64px;
+    min-height: 64px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 2rem;
+}
+
+.search-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--bg-main);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    width: 350px;
+}
+
+.search-bar input {
+    border: none;
+    background: transparent;
+    outline: none;
+    width: 100%;
+    font-family: inherit;
+    font-size: 0.9rem;
+}
+
+.search-bar i {
+    color: var(--text-muted);
+}
+
+.user-controls {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    position: relative;
+}
+
+.notification-dot {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 8px;
+    height: 8px;
+    background: #EF4444;
+    border-radius: 50%;
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+/* Views */
+.content-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    padding: 2rem;
+}
+
+.view-section {
+    display: none;
+}
+
+.view-section.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.section-header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+.filters {
+    display: flex;
+    gap: 1rem;
+}
+
+.filters select {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-surface);
+    font-family: inherit;
+    outline: none;
+}
+
+/* KPI Cards */
+.kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.kpi-card {
+    background: var(--bg-surface);
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border-top: 4px solid var(--primary);
+}
+
+.kpi-card.warning { border-top-color: #EF4444; }
+
+.kpi-card h4 {
+    margin: 0 0 0.5rem 0;
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.kpi-card .val {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+/* Panels */
+.panel {
+    background: var(--bg-surface);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    margin-bottom: 1.5rem;
+    padding: 1.5rem;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.panel-header h3 {
+    margin: 0;
+    font-size: 1.125rem;
+}
+
+.btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--primary-hover);
+}
+
+.btn-sm {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+/* Tables */
+.table-responsive {
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th, .data-table td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.875rem;
+    white-space: nowrap;
+}
+
+.data-table th {
+    background: #F9FAFB;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.data-table tbody tr:hover {
+    background: #F9FAFB;
+}
+
+.badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.badge.transit { background: var(--status-blue); color: var(--status-blue-text); }
+.badge.delivered { background: var(--status-green); color: var(--status-green-text); }
+.badge.exception { background: var(--status-red); color: var(--status-red-text); }
+.badge.open { background: var(--status-yellow); color: var(--status-yellow-text); }
+
+/* Chat Widget */
+.chat-widget {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 100;
+}
+
+.chat-toggle {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 1rem 1.5rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: inherit;
+}
+
+.chat-toggle:hover {
+    background: var(--primary-hover);
+}
+
+.chat-window {
+    background: var(--bg-surface);
+    width: 350px;
+    height: 450px;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: absolute;
+    bottom: calc(100% + 1rem);
+    right: 0;
+}
+
+.chat-header {
+    background: var(--primary);
+    color: white;
+    padding: 1rem 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-header h4 { margin: 0; display: flex; align-items: center; gap: 0.5rem; }
+
+.chat-header button {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 1.1rem;
+}
+
+.chat-body {
+    flex: 1;
+    padding: 1.25rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    background: #F9FAFB;
+}
+
+.msg {
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    max-width: 85%;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.msg.bot {
+    background: white;
+    align-self: flex-start;
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 0;
+}
+
+.msg.user {
+    background: var(--primary);
+    color: white;
+    align-self: flex-end;
+    border-bottom-right-radius: 0;
+}
+
+.chat-input {
+    padding: 1rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 0.5rem;
+    background: var(--bg-surface);
+}
+
+.chat-input input {
+    flex: 1;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    outline: none;
+    font-family: inherit;
+}
+
+.chat-input button {
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    width: 40px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.chat-input button:hover {
+    background: var(--primary-hover);
+}
+
+/* Modals */
+.modal {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(17, 24, 39, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: var(--bg-surface);
+    width: 650px;
+    max-width: 90%;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+}
+
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 { margin: 0; }
+.close-modal { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); }
+
+.modal-body {
+    padding: 2rem;
+}
+
+/* Milestone Tracker */
+.milestone-tracker {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+    padding: 0 10px;
+}
+
+.milestone-tracker::before {
+    content: '';
+    position: absolute;
+    top: 12px;
+    left: 20px;
+    right: 20px;
+    height: 4px;
+    background: var(--border);
+    z-index: 1;
+}
+
+.step {
+    position: relative;
+    z-index: 2;
+    background: transparent;
+    padding-top: 35px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-align: center;
+    width: 80px;
+    color: var(--text-muted);
+}
+
+.step::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--bg-surface);
+    border: 4px solid var(--border);
+    box-sizing: border-box;
+}
+
+.step.completed {
+    color: var(--primary);
+}
+
+.step.completed::before {
+    border-color: var(--primary);
+    background: var(--primary);
+}
+
+.step.active {
+    color: var(--text-dark);
+}
+
+.step.active::before {
+    border-color: var(--primary);
+    background: white;
+}
+
+/* Auth shell */
+.top-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.top-brand {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.top-brand strong {
+    font-size: 1rem;
+}
+
+.top-brand span {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.login-btn {
+    padding: 0.65rem 1.1rem;
+    min-width: 96px;
+}
+
+.user-profile {
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+}
+
+.user-profile:hover {
+    border-color: var(--border);
+    background: var(--bg-main);
+}
+
+.home-section {
+    min-height: calc(100vh - 128px);
+    display: none;
+    align-items: center;
+}
+
+.home-section.active {
+    display: flex;
+}
+
+.home-hero {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+    gap: 2rem;
+    align-items: center;
+}
+
+.home-copy {
+    max-width: 700px;
+}
+
+.home-eyebrow {
+    color: var(--primary);
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.78rem;
+}
+
+.home-copy h1 {
+    margin: 0;
+    font-size: clamp(2rem, 4vw, 3.7rem);
+    line-height: 1.04;
+    color: var(--text-dark);
+}
+
+.home-copy p {
+    margin: 1.25rem 0 1.5rem;
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    line-height: 1.7;
+}
+
+.home-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.home-note {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.home-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 18px 40px rgba(17, 24, 39, 0.08);
+}
+
+.home-card-row {
+    display: grid;
+    grid-template-columns: 42px 1fr;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.home-card-row:last-child {
+    border-bottom: none;
+}
+
+.home-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: #EEF2FF;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.home-card-row strong {
+    display: block;
+    margin-bottom: 0.2rem;
+}
+
+.home-card-row span {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.form-field label {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.form-field input {
+    padding: 0.75rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    outline: none;
+}
+
+.form-field input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+.modal-actions-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.auth-message {
+    min-height: 1.2rem;
+    color: var(--text-muted);
+    font-size: 0.86rem;
+}
+
+.profile-grid {
+    display: grid;
+    gap: 0.8rem;
+}
+
+.profile-row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 1rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.profile-row:last-child {
+    border-bottom: none;
+}
+
+.profile-row span {
+    color: var(--text-muted);
+}
+
+.profile-row strong {
+    min-width: 0;
+    word-break: break-word;
+}
+
+body.logged-out .sidebar,
+body.logged-out .auth-only {
+    display: none !important;
+}
+
+body.logged-in .guest-only {
+    display: none !important;
+}
+
+body.logged-out .main-content {
+    width: 100%;
+}
+
+body.logged-out .content-wrapper {
+    padding: 3rem;
+}
+
+@media (max-width: 900px) {
+    .home-hero {
+        grid-template-columns: 1fr;
+    }
+
+    .top-bar {
+        padding: 0 1rem;
+    }
+
+    .top-brand span {
+        display: none;
+    }
+}
+    </style>
+    <!-- Chart.js for Analytics/Sustainability -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="logged-out">
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>MyShipment</h2>
+            </div>
+            <nav class="nav-menu">
+                <a href="#visibility" class="nav-item active" data-target="visibility">
+                    <i class="fa-solid fa-eye"></i> Visibility
+                </a>
+                <a href="#exceptions" class="nav-item" data-target="exceptions">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Exceptions
+                </a>
+                <a href="#analytics" class="nav-item" data-target="analytics">
+                    <i class="fa-solid fa-chart-line"></i> Analytics
+                </a>
+                <a href="#sustainability" class="nav-item" data-target="sustainability">
+                    <i class="fa-solid fa-leaf"></i> Sustainability
+                </a>
+                <a href="#intelligence" class="nav-item" data-target="intelligence">
+                    <i class="fa-solid fa-lightbulb"></i> Intelligence
+                </a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <div class="top-brand">
+                        <strong>MyShipment</strong>
+                        <span>Buyer visibility portal</span>
+                    </div>
+                    <div class="search-bar auth-only">
+                        <i class="fa-solid fa-search"></i>
+                        <input type="text" placeholder="Search POs, Shipments, or Containers...">
+                    </div>
+                </div>
+                <div class="user-controls">
+                    <button class="btn btn-primary login-btn guest-only" id="header-login-btn">Login</button>
+                    <button class="icon-btn auth-only"><i class="fa-regular fa-bell"></i><span class="notification-dot"></span></button>
+                    <div class="user-profile auth-only" id="user-profile-trigger" role="button" tabindex="0" title="View profile">
+                        <div class="avatar">JB</div>
+                        <span>Jane Buyer</span>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-wrapper">
+                <!-- Home Section -->
+                <section id="home" class="view-section home-section active">
+                    <div class="home-hero">
+                        <div class="home-copy">
+                            <div class="home-eyebrow">CargoWise buyer portal</div>
+                            <h1>Welcome to MyShipment</h1>
+                            <p>Track shipments, exceptions, purchase order movement, sustainability signals, and logistics intelligence from one buyer-friendly workspace.</p>
+                            <div class="home-actions">
+                                <button class="btn btn-primary login-btn" id="home-login-btn">Login</button>
+                                <span class="home-note">Your dashboard appears after login.</span>
+                            </div>
+                        </div>
+                        <div class="home-card">
+                            <div class="home-card-row">
+                                <div class="home-icon"><i class="fa-solid fa-eye"></i></div>
+                                <div><strong>Live visibility</strong><span>Shipments, POs, containers, ETAs, and milestone status in one place.</span></div>
+                            </div>
+                            <div class="home-card-row">
+                                <div class="home-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                                <div><strong>Exceptions first</strong><span>Spot delays, document gaps, and customs holds before they become surprises.</span></div>
+                            </div>
+                            <div class="home-card-row">
+                                <div class="home-icon"><i class="fa-solid fa-chart-line"></i></div>
+                                <div><strong>Analytics ready</strong><span>Volume, carrier performance, freight spend, and emissions are ready to grow here.</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Visibility Section -->
+                <section id="visibility" class="view-section">
+                    <div class="section-header">
+                        <h1>Visibility Dashboard</h1>
+                        <div class="filters">
+                            <select><option>All Statuses</option><option>In Transit</option><option>Delivered</option></select>
+                            <select><option>All Origins</option><option>Shanghai</option><option>Shenzhen</option></select>
+                        </div>
+                    </div>
+                    
+                    <div class="kpi-row">
+                        <div class="kpi-card">
+                            <h4>Active Shipments</h4>
+                            <div class="val">142</div>
+                        </div>
+                        <div class="kpi-card">
+                            <h4>Open POs</h4>
+                            <div class="val">89</div>
+                        </div>
+                        <div class="kpi-card warning">
+                            <h4>Flagged / Exceptions</h4>
+                            <div class="val" style="color: #EF4444;">12</div>
+                        </div>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>Live Shipment List</h3>
+                            <button class="btn btn-primary btn-sm">Export Data</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="shipment-table">
+                                <thead>
+                                    <tr>
+                                        <th>Shipment ID</th>
+                                        <th>Linked POs</th>
+                                        <th>Origin ➔ Destination</th>
+                                        <th>Mode</th>
+                                        <th>ETA</th>
+                                        <th>Status</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Exceptions Section -->
+                <section id="exceptions" class="view-section">
+                    <div class="section-header">
+                        <h1>Exceptions Management</h1>
+                    </div>
+                    <div class="kpi-row">
+                        <div class="kpi-card warning">
+                            <h4>Active Exceptions</h4>
+                            <div class="val" style="color: #EF4444;">12</div>
+                        </div>
+                        <div class="kpi-card warning">
+                            <h4>SLA Breaches</h4>
+                            <div class="val" style="color: #EF4444;">3</div>
+                        </div>
+                        <div class="kpi-card">
+                            <h4>Resolved (7 Days)</h4>
+                            <div class="val">45</div>
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>Exception List</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="exception-table">
+                                <thead>
+                                    <tr>
+                                        <th>Shipment ID</th>
+                                        <th>Issue Type</th>
+                                        <th>Severity</th>
+                                        <th>Affected Milestone</th>
+                                        <th>Expected Delay</th>
+                                        <th>Status / Owner</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Analytics Section -->
+                <section id="analytics" class="view-section">
+                    <div class="section-header">
+                        <h1>Analytics Dashboard</h1>
+                    </div>
+                    <div class="kpi-row">
+                        <div class="panel" style="flex: 1; margin-bottom: 0;">
+                            <div class="panel-header"><h3>Shipment Volume (Monthly)</h3></div>
+                            <canvas id="volumeChart" height="250"></canvas>
+                        </div>
+                        <div class="panel" style="flex: 1; margin-bottom: 0;">
+                            <div class="panel-header"><h3>Carrier On-Time Performance</h3></div>
+                            <canvas id="carrierChart" height="250"></canvas>
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-header"><h3>Freight Spend by Mode</h3></div>
+                        <div style="width: 300px; margin: 0 auto;">
+                            <canvas id="spendChart"></canvas>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Sustainability Section -->
+                <section id="sustainability" class="view-section">
+                    <div class="section-header">
+                        <h1>Sustainability & Emissions</h1>
+                    </div>
+                    <div class="kpi-row">
+                        <div class="kpi-card">
+                            <h4>Total CO2e (YTD)</h4>
+                            <div class="val" style="color: #10B981;">1,245 MT</div>
+                        </div>
+                        <div class="kpi-card">
+                            <h4>Avg Emission Intensity</h4>
+                            <div class="val" style="color: #10B981;">1.2 kg/$</div>
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-header"><h3>Emissions by Mode</h3></div>
+                        <div style="width: 300px; margin: 0 auto;">
+                            <canvas id="emissionsChart"></canvas>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Intelligence Section -->
+                <section id="intelligence" class="view-section">
+                    <div class="section-header">
+                        <h1>Market Intelligence</h1>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-header"><h3>Market Updates Feed</h3></div>
+                        <div class="feed-list" style="display:flex; flex-direction:column; gap: 1rem;">
+                            <div class="feed-item" style="padding: 1.25rem; border: 1px solid var(--border); border-radius: 8px;">
+                                <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-clock"></i> Oct 10, 2026 - Global Alert</div>
+                                <strong style="font-size: 1.1rem;">Suez Canal Congestion</strong>
+                                <p style="margin: 0.5rem 0 0 0; color: var(--text-dark);">Vessel wait times have increased by 48 hours due to severe weather. Impacted carriers: MSC, Maersk.</p>
+                            </div>
+                            <div class="feed-item" style="padding: 1.25rem; border: 1px solid var(--border); border-radius: 8px;">
+                                <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-arrow-trend-up"></i> Oct 08, 2026 - Rate Trend</div>
+                                <strong style="font-size: 1.1rem;">Trans-Pacific Air Freight Surging</strong>
+                                <p style="margin: 0.5rem 0 0 0; color: var(--text-dark);">Due to Q4 electronics launches, air freight rates from Shenzhen to LAX have increased by 15% WoW.</p>
+                            </div>
+                            <div class="feed-item" style="padding: 1.25rem; border: 1px solid var(--border); border-radius: 8px;">
+                                <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-ship"></i> Oct 05, 2026 - Carrier Schedule</div>
+                                <strong style="font-size: 1.1rem;">Hapag-Lloyd Blank Sailings</strong>
+                                <p style="margin: 0.5rem 0 0 0; color: var(--text-dark);">Hapag-Lloyd announced 3 blank sailings for the Asia-Europe loop next month. Expect tighter capacity.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- MGH ASK Chat Widget -->
+    <div class="chat-widget auth-only">
+        <button class="chat-toggle" id="chat-toggle">
+            <i class="fa-solid fa-message"></i> MGH ASK
+        </button>
+        <div class="chat-window" id="chat-window" style="display: none;">
+            <div class="chat-header">
+                <h4><i class="fa-solid fa-robot"></i> MGH ASK Assistant</h4>
+                <button id="chat-close"><i class="fa-solid fa-times"></i></button>
+            </div>
+            <div class="chat-body">
+                <div class="msg bot">Hello! I am MGH ASK, your AI logistics assistant. Ask me about your shipments, POs, or market rates!</div>
+                <div class="msg user">Where is PO-99105?</div>
+                <div class="msg bot">PO-99105 is currently linked to Shipment SHP-2023-002 and is on <strong>Customs Hold</strong> in New York. The estimated delay is 48 hours. Would you like me to alert the broker?</div>
+            </div>
+            <div class="chat-input">
+                <input type="text" placeholder="Type your question...">
+                <button><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Shipment Detail -->
+    <div class="modal" id="shipment-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Shipment Detail</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="milestone-tracker">
+                    <div class="step completed">Booked</div>
+                    <div class="step completed">Origin Port</div>
+                    <div class="step active">In Transit</div>
+                    <div class="step">Dest Port</div>
+                    <div class="step">Delivered</div>
+                </div>
+                <div class="modal-details" style="margin-top:3rem; background: var(--bg-main); padding: 1.5rem; border-radius: 8px;">
+                    <p style="margin-top:0;"><strong>Vessel/Flight:</strong> EVER GIVEN V.123</p>
+                    <p><strong>Container:</strong> TLLU4839210 (40HC)</p>
+                    <p><strong>Last Milestone:</strong> Passed Suez Canal - 2 hours ago</p>
+                    <p style="margin-bottom:0; color: var(--status-yellow-text); font-weight: 500;"><i class="fa-solid fa-circle-exclamation"></i> Heavy congestion reported at destination port.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal" id="login-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Login to MyShipment</h3>
+                <button class="close-modal" id="login-modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form class="auth-form" id="login-form">
+                    <input type="hidden" id="login-type" value="1">
+                    <div class="form-field">
+                        <label for="login-username">Buyer Code</label>
+                        <input id="login-username" autocomplete="username" placeholder="Enter buyer code" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="login-password">Password</label>
+                        <input id="login-password" type="password" autocomplete="current-password" placeholder="Enter password" required>
+                    </div>
+                    <div class="auth-message" id="login-message"></div>
+                    <div class="modal-actions-row">
+                        <button class="btn" type="button" id="login-cancel-btn">Cancel</button>
+                        <button class="btn btn-primary" type="submit" id="login-submit-btn">Login</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Modal -->
+    <div class="modal" id="profile-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Buyer Profile</h3>
+                <button class="close-modal" id="profile-modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="profile-grid">
+                    <div class="profile-row"><span>Name</span><strong id="profile-name">-</strong></div>
+                    <div class="profile-row"><span>Buyer Code</span><strong id="profile-username">-</strong></div>
+                    <div class="profile-row"><span>BuyerPK</span><strong id="profile-id-ext">-</strong></div>
+                    <div class="profile-row"><span>Type</span><strong id="profile-type">-</strong></div>
+                    <div class="profile-row"><span>Role</span><strong id="profile-role">-</strong></div>
+                </div>
+                <div class="modal-actions-row" style="margin-top: 1.5rem;">
+                    <button class="btn" type="button" id="profile-close-btn">Close</button>
+                    <button class="btn btn-primary" type="button" id="logout-btn">Logout</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+// App Logic
+document.addEventListener('DOMContentLoaded', () => {
+    const STORAGE_KEY_TOKEN = 'token';
+    const STORAGE_KEY_USER = 'user';
+    const API_BASE = location.origin && location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
+    const LOGIN_PATH = '/auth/login-username-password';
+    const PROFILE_PATH = '/my/profile';
+    let authToken = localStorage.getItem(STORAGE_KEY_TOKEN) || '';
+    let authUser = null;
+    const readStoredUser = () => {
+        try { return JSON.parse(localStorage.getItem(STORAGE_KEY_USER) || 'null'); } catch (err) { return null; }
+    };
+    const writeUser = user => {
+        authUser = user || null;
+        if (authUser) localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(authUser));
+        else localStorage.removeItem(STORAGE_KEY_USER);
+        localStorage.removeItem('profile');
+        localStorage.removeItem('myshipment_profile');
+    };
+    const writeToken = token => {
+        authToken = token || '';
+        if (authToken) localStorage.setItem(STORAGE_KEY_TOKEN, authToken);
+        else localStorage.removeItem(STORAGE_KEY_TOKEN);
+    };
+    const extractAccessToken = payload => {
+        const msg = payload && payload.message ? payload.message : payload;
+        const tokenObj = msg && msg.token ? msg.token : msg;
+        return tokenObj && typeof tokenObj === 'object' ? tokenObj.token : '';
+    };
+    const extractUser = payload => {
+        const msg = payload && payload.message ? payload.message : payload;
+        const user = msg && msg.user ? msg.user : msg;
+        if (!user || typeof user !== 'object') return null;
+        const cleanUser = { ...user };
+        delete cleanUser.token;
+        return cleanUser;
+    };
+    const api = async (path, options = {}) => {
+        const res = await fetch(API_BASE + path, options);
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || body.status === 0) throw new Error(body.message || body.detail || 'Request failed');
+        return body;
+    };
+    const openModal = id => { document.getElementById(id).style.display = 'flex'; };
+    const closeModal = id => { document.getElementById(id).style.display = 'none'; };
+    const initialsFromName = name => {
+        const parts = String(name || 'Buyer').trim().split(/\s+/).filter(Boolean);
+        return (parts[0] || 'B').slice(0, 2).toUpperCase();
+    };
+    const showSection = target => {
+        document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+        const section = document.getElementById(target);
+        if (section) section.classList.add('active');
+        document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.getAttribute('data-target') === target));
+    };
+    const renderProfile = () => {
+        const user = authUser || {};
+        const displayName = user.name || user.username || 'Buyer';
+        const profileName = document.querySelector('.user-profile span');
+        const profileAvatar = document.querySelector('.avatar');
+        if (profileName) profileName.textContent = displayName;
+        if (profileAvatar) profileAvatar.textContent = initialsFromName(displayName);
+        document.getElementById('profile-name').textContent = user.name || '-';
+        document.getElementById('profile-username').textContent = user.username || '-';
+        document.getElementById('profile-id-ext').textContent = user.id_ext || '-';
+        document.getElementById('profile-type').textContent = user.type ?? '-';
+        document.getElementById('profile-role').textContent = user.role ?? '-';
+    };
+    const applyAuthState = () => {
+        const loggedIn = Boolean(authToken && authUser);
+        document.body.classList.toggle('logged-in', loggedIn);
+        document.body.classList.toggle('logged-out', !loggedIn);
+        renderProfile();
+        showSection(loggedIn ? 'visibility' : 'home');
+    };
+    const saveAuthPayload = payload => {
+        const nextToken = extractAccessToken(payload);
+        const nextUser = extractUser(payload);
+        if (nextToken) writeToken(nextToken);
+        if (nextUser) writeUser(nextUser);
+    };
+    const fetchProfile = async () => {
+        if (!authToken) return;
+        const payload = await api(PROFILE_PATH, { headers: { Authorization: `Bearer ${authToken}` } });
+        saveAuthPayload(payload);
+    };
+    const logout = () => {
+        writeToken('');
+        writeUser(null);
+        closeModal('profile-modal');
+        closeModal('login-modal');
+        applyAuthState();
+    };
+    authUser = readStoredUser();
+
+    // 1. Tab Routing
+    const navItems = document.querySelectorAll('.nav-item');
+
+    navItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (!authToken || !authUser) return;
+            const target = item.getAttribute('data-target');
+            showSection(target);
+        });
+    });
+
+    document.getElementById('header-login-btn').addEventListener('click', () => openModal('login-modal'));
+    document.getElementById('home-login-btn').addEventListener('click', () => openModal('login-modal'));
+    document.getElementById('login-modal-close').addEventListener('click', () => closeModal('login-modal'));
+    document.getElementById('login-cancel-btn').addEventListener('click', () => closeModal('login-modal'));
+    document.getElementById('profile-modal-close').addEventListener('click', () => closeModal('profile-modal'));
+    document.getElementById('profile-close-btn').addEventListener('click', () => closeModal('profile-modal'));
+    document.getElementById('logout-btn').addEventListener('click', logout);
+    document.getElementById('user-profile-trigger').addEventListener('click', () => {
+        renderProfile();
+        openModal('profile-modal');
+    });
+    document.getElementById('user-profile-trigger').addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            renderProfile();
+            openModal('profile-modal');
+        }
+    });
+    document.getElementById('login-form').addEventListener('submit', async e => {
+        e.preventDefault();
+        const msg = document.getElementById('login-message');
+        const btn = document.getElementById('login-submit-btn');
+        msg.textContent = 'Logging in...';
+        msg.style.color = 'var(--text-muted)';
+        btn.disabled = true;
+        try {
+            const payload = await api(LOGIN_PATH, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: Number(document.getElementById('login-type').value || 1),
+                    username: document.getElementById('login-username').value.trim(),
+                    password: document.getElementById('login-password').value
+                })
+            });
+            saveAuthPayload(payload);
+            await fetchProfile();
+            msg.textContent = '';
+            closeModal('login-modal');
+            document.getElementById('login-form').reset();
+            document.getElementById('login-type').value = '1';
+            applyAuthState();
+        } catch (err) {
+            msg.textContent = err.message || 'Login failed';
+            msg.style.color = '#EF4444';
+        } finally {
+            btn.disabled = false;
+        }
+    });
+
+    // 2. Chat Widget Toggle
+    const chatToggle = document.getElementById('chat-toggle');
+    const chatWindow = document.getElementById('chat-window');
+    const chatClose = document.getElementById('chat-close');
+
+    chatToggle.addEventListener('click', () => {
+        chatWindow.style.display = chatWindow.style.display === 'none' ? 'flex' : 'none';
+    });
+
+    chatClose.addEventListener('click', () => {
+        chatWindow.style.display = 'none';
+    });
+
+    // 3. Mock Data for Visibility - Shipment List
+    const mockShipments = [
+        { id: 'SHP-2023-001', po: 'PO-99102', lane: 'Shanghai ➔ Los Angeles', mode: 'Ocean', eta: 'Oct 15, 2026', status: 'In Transit', statusCode: 'transit' },
+        { id: 'SHP-2023-002', po: 'PO-99105', lane: 'Shenzhen ➔ New York', mode: 'Ocean', eta: 'Oct 12, 2026', status: 'Customs Hold', statusCode: 'exception' },
+        { id: 'SHP-2023-003', po: 'PO-99110', lane: 'Frankfurt ➔ Chicago', mode: 'Air', eta: 'Oct 05, 2026', status: 'Delivered', statusCode: 'delivered' },
+        { id: 'SHP-2023-004', po: 'PO-99118', lane: 'Ho Chi Minh ➔ Seattle', mode: 'Ocean', eta: 'Oct 20, 2026', status: 'Booked', statusCode: 'open' },
+        { id: 'SHP-2023-005', po: 'PO-99120', lane: 'Mumbai ➔ London', mode: 'Ocean', eta: 'Oct 25, 2026', status: 'Booked', statusCode: 'open' },
+        { id: 'SHP-2023-006', po: 'PO-99122', lane: 'Paris ➔ New York', mode: 'Air', eta: 'Oct 06, 2026', status: 'In Transit', statusCode: 'transit' }
+    ];
+
+    const tableBody = document.querySelector('#shipment-table tbody');
+    mockShipments.forEach(s => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><strong>${s.id}</strong></td>
+            <td>${s.po}</td>
+            <td>${s.lane}</td>
+            <td>${s.mode}</td>
+            <td>${s.eta}</td>
+            <td><span class="badge ${s.statusCode}">${s.status}</span></td>
+            <td><button class="btn btn-primary btn-sm" onclick="openShipmentModal('${s.id}')">View</button></td>
+        `;
+        tableBody.appendChild(tr);
+    });
+
+    // 4. Modal logic
+    const modal = document.getElementById('shipment-modal');
+    const closeModalBtn = document.querySelector('#shipment-modal .close-modal');
+
+    window.openShipmentModal = (id) => {
+        document.getElementById('modal-title').textContent = `Shipment Detail: ${id}`;
+        modal.style.display = 'flex';
+    };
+
+    closeModalBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+    });
+
+    // Close modal when clicking outside
+    window.addEventListener('click', (e) => {
+        if (e.target.classList && e.target.classList.contains('modal')) {
+            e.target.style.display = 'none';
+        }
+    });
+
+    // 5. Mock Data for Exceptions
+    const mockExceptions = [
+        { id: 'SHP-2023-002', issue: 'Customs Hold', severity: 'High', milestone: 'Dest Port', delay: '48h', status: 'In Progress', owner: 'Jane Buyer' },
+        { id: 'SHP-2023-018', issue: 'Missing Docs', severity: 'Medium', milestone: 'Origin Port', delay: '24h', status: 'Open', owner: 'Unassigned' },
+        { id: 'SHP-2023-024', issue: 'Vessel Delay', severity: 'Low', milestone: 'In Transit', delay: '12h', status: 'Closed', owner: 'System' },
+    ];
+
+    const excTableBody = document.querySelector('#exception-table tbody');
+    if (excTableBody) {
+        mockExceptions.forEach(e => {
+            const tr = document.createElement('tr');
+            const sevColor = e.severity === 'High' ? 'color: #EF4444; font-weight: bold;' : (e.severity === 'Medium' ? 'color: #F59E0B;' : 'color: var(--text-muted);');
+            tr.innerHTML = `
+                <td><strong>${e.id}</strong></td>
+                <td>${e.issue}</td>
+                <td style="${sevColor}">${e.severity}</td>
+                <td>${e.milestone}</td>
+                <td>${e.delay}</td>
+                <td>
+                    <select class="status-select" style="padding:0.25rem; border-radius:4px; border:1px solid var(--border);">
+                        <option ${e.status==='Open'?'selected':''}>Open</option>
+                        <option ${e.status==='In Progress'?'selected':''}>In Progress</option>
+                        <option ${e.status==='Closed'?'selected':''}>Closed</option>
+                    </select>
+                    <br><small style="color:var(--text-muted);">${e.owner}</small>
+                </td>
+            `;
+            excTableBody.appendChild(tr);
+        });
+    }
+
+    // 6. Chart.js Initialization
+    const initCharts = () => {
+        // Analytics Charts
+        const volCtx = document.getElementById('volumeChart');
+        if (volCtx) {
+            new Chart(volCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    datasets: [{ label: 'Shipments', data: [65, 59, 80, 81, 56, 142], borderColor: '#4F46E5', tension: 0.1, fill: false }]
+                },
+                options: { maintainAspectRatio: false }
+            });
+        }
+
+        const carrCtx = document.getElementById('carrierChart');
+        if (carrCtx) {
+            new Chart(carrCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Maersk', 'MSC', 'CMA CGM', 'Hapag-Lloyd'],
+                    datasets: [{ label: 'OTD %', data: [92, 88, 85, 90], backgroundColor: '#10B981' }]
+                },
+                options: { maintainAspectRatio: false, scales: { y: { min: 50, max: 100 } } }
+            });
+        }
+
+        const spendCtx = document.getElementById('spendChart');
+        if (spendCtx) {
+            new Chart(spendCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Ocean', 'Air', 'Road'],
+                    datasets: [{ data: [60, 30, 10], backgroundColor: ['#4F46E5', '#F59E0B', '#10B981'] }]
+                }
+            });
+        }
+
+        // Sustainability Chart
+        const emissCtx = document.getElementById('emissionsChart');
+        if (emissCtx) {
+            new Chart(emissCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['Ocean', 'Air', 'Road'],
+                    datasets: [{ data: [300, 800, 145], backgroundColor: ['#4F46E5', '#F59E0B', '#10B981'] }]
+                }
+            });
+        }
+    };
+    initCharts();
+    applyAuthState();
+    if (authToken) {
+        fetchProfile()
+            .then(applyAuthState)
+            .catch(() => logout());
+    }
+
+});
+    </script>
+</body>
+</html>

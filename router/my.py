@@ -1,4 +1,5 @@
 # packages
+import asyncio
 from fastapi import APIRouter, Request
 
 # router
@@ -12,10 +13,9 @@ async def func_api_my_profile(*, request: Request):
     user = await app_state.func_user_read_single(client_postgres_pool=app_state.client_postgres_pool, user_id=user_id)
     async with app_state.client_postgres_pool.acquire() as conn:
         metadata = {k: [dict(r) for r in await conn.fetch(v, user_id)] for k, v in app_state.config_sql.get("profile_metadata", {}).items()}
-        await conn.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id)
-    profile = {**user, **metadata}
-    token = await app_state.func_token_encode(user=profile, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_allowed_token_key=app_state.config_allowed_token_key)
-    return {"status": 1, "message": profile | {"token": token}}
+    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_allowed_token_key=app_state.config_allowed_token_key)
+    asyncio.create_task(app_state.client_postgres_pool.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id))
+    return {"status": 1, "message": {**user, "metadata": metadata, "token": token}}
 
 @router.post("/my/token-refresh")
 async def func_api_my_token_refresh(*, request: Request):

@@ -86,3 +86,23 @@ CargoWise contains a full-fledged Warehouse Management System. It handles receiv
 | `WhsWarehouse` & `WhsLocation` | Defines the physical warehouse and its bin/rack locations. | `WH_Code`, `WL_BinCode` |
 | `WhsDocket` | A Warehouse Receipt (Inbound) or Dispatch (Outbound) order. | `DK_PK`, `DK_DocketNum`, `DK_Type` |
 | `WhsPick` & `WhsPutaway` | Task tables for warehouse workers moving inventory. | `PK_Status`, `PA_Quantity` |
+
+## SQL
+
+### Top 10 Buyers
+
+```sql
+SELECT TOP (10)
+    OH.OH_PK AS BuyerPK,
+    OH.OH_Code AS BuyerCode,
+    OH.OH_FullName AS BuyerName,
+    OH.OH_IsActive AS IsActive
+FROM dbo.OrgHeader AS OH
+WHERE OH.OH_PK IN (
+    SELECT DISTINCT BuyerPK
+    FROM dbo.vw_Report_ConsignorBuyerDetails
+    WHERE BuyerPK IS NOT NULL
+)
+  AND OH.OH_IsValid = 1
+ORDER BY OH.OH_Code;
+```
