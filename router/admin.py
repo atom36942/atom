@@ -19,6 +19,7 @@ async def func_api_admin_sync(*, request: Request):
     app_state.cache_postgres_schema = await app_state.func_postgres_schema_read(client_postgres_pool=app_state.client_postgres_pool) if app_state.client_postgres_pool else {}
     app_state.cache_postgres_table_list = list(app_state.cache_postgres_schema.keys())
     app_state.cache_postgres_column_list = sorted(list(set(col for table in app_state.cache_postgres_schema.values() for col in table.keys())))
+    app_state.cache_openapi = app_state.func_openapi_spec_generate(app_routes=request.app.routes, app_state=app_state)
     app_state.cache_config = await app_state.func_postgres_map_column(client_postgres_pool=app_state.client_postgres_pool, config_sql=app_state.config_sql.get("config"), is_json_value=1) if app_state.client_postgres_pool and "config" in app_state.cache_postgres_schema else {}
     app_state.cache_users_role = await app_state.func_postgres_map_column(client_postgres_pool=app_state.client_postgres_pool, config_sql=app_state.config_sql.get("users_role")) if app_state.client_postgres_pool else {}
     app_state.cache_users_deactivated = await app_state.func_postgres_map_column(client_postgres_pool=app_state.client_postgres_pool, config_sql=app_state.config_sql.get("users_deactivated")) if app_state.client_postgres_pool else {}

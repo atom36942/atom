@@ -75,11 +75,14 @@ async def func_lifespan(app:"FastAPI"):
         # postges schema init
         if client_postgres_pool: await app.state.func_postgres_schema_init(client_postgres_pool=client_postgres_pool, config_postgres=app.state.config_postgres)
         # cache init
-        cache_openapi=app.state.func_openapi_spec_generate(app_routes=app.routes, app_state=app.state)
         cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres_pool=client_postgres_pool) if client_postgres_pool else {}
         cache_config = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("config"), is_json_value=1) if client_postgres_pool and "config" in cache_postgres_schema else {}
         cache_postgres_table_list = list(cache_postgres_schema.keys())
         cache_postgres_column_list = sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
+        app.state.cache_postgres_schema = cache_postgres_schema
+        app.state.cache_postgres_table_list = cache_postgres_table_list
+        app.state.cache_postgres_column_list = cache_postgres_column_list
+        cache_openapi=app.state.func_openapi_spec_generate(app_routes=app.routes, app_state=app.state)
         cache_users_role = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("users_role")) if client_postgres_pool else {}
         cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("users_deactivated")) if client_postgres_pool else {}
         cache_users_deleted = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("users_deleted")) if client_postgres_pool else {}
