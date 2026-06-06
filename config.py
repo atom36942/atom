@@ -40,7 +40,6 @@ config_is_enable_sql_write = 1
 config_is_enable_signup = 1
 config_is_enable_otp_require_users_update = 0
 config_is_notification = 0
-config_is_enable_object_delete_all_my = 1
 config_otp_length = 6
 config_otp_expiry_sec = 600
 config_token_expiry_sec = 10*365*24*60*60
@@ -59,11 +58,13 @@ config_users_delete_exclude_table = ["users", "spatial_ref_sys", "log_*"]
 config_redis_cache_ttl_sec = 3600
 config_buffer_limit_default = 100
 config_api_batch_item_limit = 1000
-config_table_create_disable_my = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
-config_table_create_enable_public = ["test", "support"]
-config_table_read_enable_public = ["*"]
-config_admin_columns = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id", "deleted_by_id", "deactivated_by_id", "archived_by_id"]
-config_column_enable_single_update = ["username", "password", "email", "mobile", "deleted_at"]
+config_table_disable_create_my = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
+config_table_enable_create_public = ["test", "support"]
+config_table_enable_read_public = ["*"]
+config_table_enable_delete_all_my = ["*"]
+config_table_enable_delete_all_my_user_id = ["message","notification"]
+config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id", "deleted_by_id", "deactivated_by_id", "archived_by_id"]
+config_column_single_update = ["username", "password", "email", "mobile", "deleted_at"]
 
 # General
 config_allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]

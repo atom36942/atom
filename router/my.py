@@ -5,9 +5,6 @@ from fastapi import APIRouter, Request
 # router
 router = APIRouter()
 
-def func_delete_count(result: str) -> int:
-    return int(result.rsplit(" ", 1)[-1])
-
 # api
 @router.get("/my/profile")
 async def func_api_my_profile(*, request: Request):
@@ -51,11 +48,11 @@ async def func_api_my_object_create_mongodb(*, request: Request):
 async def func_api_my_object_create(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("mode", "str", 0, ["now", "buffer"], "now"), ("queue", "str", 0, app_state.config_allowed_queue_services, None)])
-    if "*" in app_state.config_table_create_disable_my or oq["table"] in app_state.config_table_create_disable_my: raise Exception(f"creation disabled for table: {oq['table']}")
+    if "*" in app_state.config_table_disable_create_my or oq["table"] in app_state.config_table_disable_create_my: raise Exception(f"creation disabled for table: {oq['table']}")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
     if app_state.config_api_batch_item_limit and len(obj_list) > app_state.config_api_batch_item_limit: raise Exception(f"maximum {app_state.config_api_batch_item_limit} objects allowed")
-    if restricted_key := next((key for item in obj_list for key in item if key == "deleted_at" or key in app_state.config_admin_columns), None): raise Exception("deleted_at cannot be set on create; use deactivated_at for reversible inactive state" if restricted_key == "deleted_at" else f"unauthorized creation of restricted field: {restricted_key}")
+    if restricted_key := next((key for item in obj_list for key in item if key == "deleted_at" or key in app_state.config_column_admin), None): raise Exception("deleted_at cannot be set on create; use deactivated_at for reversible inactive state" if restricted_key == "deleted_at" else f"unauthorized creation of restricted field: {restricted_key}")
     if "created_by_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'created_by_id' column for ownership tracking")
     if request.state.user.get("id"): obj_list = [dict(item, created_by_id=request.state.user["id"]) for item in obj_list]
     if oq["queue"]: return {"status": 1, "message": await app_state.func_producer(queue=oq["queue"], client_celery_producer=app_state.client_celery_producer, client_kafka_producer=app_state.client_kafka_producer, client_rabbitmq_producer=app_state.client_rabbitmq_producer, client_redis_producer=app_state.client_redis_producer, channel="func_postgres_create", payload={"mode": oq["mode"], "table": oq["table"], "obj_list": obj_list})}
@@ -65,7 +62,7 @@ async def func_api_my_object_create(*, request: Request):
 async def func_api_my_object_read(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ownership_column", "str", 0, app_state.config_users_ownership_column, "created_by_id"), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("relation", "list", 0, None, []), ("filter", "list", 0, None, [])])
-    if (disabled_relation_table := next((parts[1] for rel in oq["relation"] for parts in ([p.strip() for p in rel.split(",", 4)],) if len(parts) >= 2 and "*" not in app_state.config_table_read_enable_public and parts[1] not in app_state.config_table_read_enable_public), None)) is not None: raise Exception(f"relation read disabled for table: {disabled_relation_table}")
+    if (disabled_relation_table := next((parts[1] for rel in oq["relation"] for parts in ([p.strip() for p in rel.split(",", 4)],) if len(parts) >= 2 and "*" not in app_state.config_table_enable_read_public and parts[1] not in app_state.config_table_enable_read_public), None)) is not None: raise Exception(f"relation read disabled for table: {disabled_relation_table}")
     schema_cols = app_state.cache_postgres_schema.get(oq["table"], {})
     if oq["ownership_column"] not in schema_cols: raise Exception(f"table '{oq['table']}' lacks ownership column '{oq['ownership_column']}'")
     filters = oq["filter"] + [f"""{oq["ownership_column"]} = {request.state.user["id"]}"""]
@@ -81,10 +78,10 @@ async def func_api_my_object_update(*, request: Request):
     obj_list = ob.get("obj_list", [ob])
     if app_state.config_api_batch_item_limit and len(obj_list) > app_state.config_api_batch_item_limit: raise Exception(f"maximum {app_state.config_api_batch_item_limit} objects allowed")
     if any("deleted_at" in item for item in obj_list) and oq["table"] != "users": raise Exception("deleted_at update allowed only for users table; use deactivated_at etc for reversible inactive state")
-    if restricted_key := next((key for item in obj_list for key in item if key in app_state.config_admin_columns), None): raise Exception(f"unauthorized update to restricted field: {restricted_key}")
+    if restricted_key := next((key for item in obj_list for key in item if key in app_state.config_column_admin), None): raise Exception(f"unauthorized update to restricted field: {restricted_key}")
     if oq["table"] == "users" and len(obj_list) > 1: raise Exception("multi-object user update restricted")
     if oq["table"] == "users" and str(obj_list[0].get("id")) != str(request.state.user["id"]): raise Exception("ownership issue: cannot update other users")
-    if oq["table"] == "users" and any(key in app_state.config_column_enable_single_update for key in obj_list[0]) and len(obj_list[0]) != 2: raise Exception("sensitive fields must be updated individually (item length 2 required)")
+    if oq["table"] == "users" and any(key in app_state.config_column_single_update for key in obj_list[0]) and len(obj_list[0]) != 2: raise Exception("sensitive fields must be updated individually (item length 2 required)")
     if oq["table"] == "users" and any(key in obj_list[0] for key in ("email", "mobile")): await app_state.func_otp_verify(client_postgres_pool=app_state.client_postgres_pool, otp=oq["otp"], email=obj_list[0].get("email"), mobile=obj_list[0].get("mobile"), config_otp_expiry_sec=app_state.config_otp_expiry_sec)
     if "updated_by_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'updated_by_id' column for update tracking")
     if request.state.user.get("id"): obj_list = [dict(item, updated_by_id=request.state.user["id"]) for item in obj_list]
@@ -95,38 +92,52 @@ async def func_api_my_object_update(*, request: Request):
 @router.post("/my/object-delete")
 async def func_api_my_ids_delete(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "list:int", 1, None, None), ("ownership_column", "str", 0, app_state.config_users_ownership_column, "created_by_id")])
-    user_id = request.state.user.get("id", 0)
-    created_by_id = user_id
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "list:int", 1, None, None)])
     if app_state.config_api_batch_item_limit and len(ob["ids"]) > app_state.config_api_batch_item_limit: raise Exception(f"maximum {app_state.config_api_batch_item_limit} objects allowed")
     if ob["table"] == "users" and app_state.config_is_enable_user_delete != 1: raise Exception("users hard delete disabled")
     if ob["table"] == "users" and len(ob["ids"]) != 1: raise Exception("multiple users table delete not allowed")
-    if ob["table"] == "users" and int(ob["ids"][0]) != int(user_id): raise Exception("users table delete allowed only for own account")
-    if ob["table"] == "users": created_by_id = None
-    if ob["ownership_column"] == "created_by_id":
-        deleted_count = await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, table=ob["table"], ids=ob["ids"], created_by_id=created_by_id)
-    else:
-        schema_cols = app_state.cache_postgres_schema.get(ob["table"], {})
-        if ob["ownership_column"] not in schema_cols: raise Exception(f"table '{ob['table']}' lacks required '{ob['ownership_column']}' column for ownership tracking")
-        id_list, deleted_count = [int(x) for x in ob["ids"]], 0
-        async with app_state.client_postgres_pool.acquire() as conn:
-            async with conn.transaction():
-                for i in range(0, len(id_list), 5000):
-                    result = await conn.fetchval(f"""WITH deleted AS (DELETE FROM "{ob["table"]}" WHERE id=ANY($1::bigint[]) AND "{ob["ownership_column"]}"=$2 RETURNING 1) SELECT COUNT(*) FROM deleted""", id_list[i:i+5000], user_id)
-                    deleted_count += result
+    if ob["table"] == "users" and int(ob["ids"][0]) != int(request.state.user["id"]): raise Exception("users table delete allowed only for own account")
+    created_by_id = request.state.user["id"] if ob["table"] != "users" else None
+    deleted_count = await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, table=ob["table"], ids=ob["ids"], created_by_id=created_by_id)
     return {"status": 1, "message": f"{deleted_count} ids deleted"}
 
 @router.delete("/my/object-delete-all")
 async def func_api_my_object_delete_all(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
-    if app_state.config_is_enable_object_delete_all_my != 1: raise Exception("my object delete all disabled")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ownership_column", "str", 0, app_state.config_users_ownership_column, "created_by_id")])
-    schema_cols = app_state.cache_postgres_schema.get(oq["table"], {})
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None)])
     if oq["table"] == "users": raise Exception("users bulk delete disabled; use /my/object-delete for own account")
-    if oq["ownership_column"] not in schema_cols: raise Exception(f"table '{oq['table']}' lacks required '{oq['ownership_column']}' column for ownership tracking")
+    if "*" not in app_state.config_table_enable_delete_all_my and oq["table"] not in app_state.config_table_enable_delete_all_my: raise Exception(f"delete all disabled for table: {oq['table']}")
+    if "created_by_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'created_by_id' column for ownership tracking")
     async with app_state.client_postgres_pool.acquire() as conn:
-        result = await conn.execute(f"""DELETE FROM "{oq["table"]}" WHERE "{oq["ownership_column"]}"=$1""", user_id)
-    return {"status": 1, "message": f"{func_delete_count(result)} objects deleted"}
+        result = await conn.execute(f"""DELETE FROM "{oq["table"]}" WHERE "created_by_id"=$1""", user_id)
+    return {"status": 1, "message": f"{int(result.rsplit(' ', 1)[-1])} objects deleted"}
+
+@router.post("/my/object-delete-received")
+async def func_api_my_received_ids_delete(*, request: Request):
+    app_state, user_id = request.app.state, request.state.user["id"]
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "list:int", 1, None, None)])
+    if app_state.config_api_batch_item_limit and len(ob["ids"]) > app_state.config_api_batch_item_limit: raise Exception(f"maximum {app_state.config_api_batch_item_limit} objects allowed")
+    if ob["table"] == "users": raise Exception("users received delete disabled")
+    if "id" not in app_state.cache_postgres_schema.get(ob["table"], {}): raise Exception(f"table '{ob['table']}' lacks required 'id' column")
+    if "user_id" not in app_state.cache_postgres_schema.get(ob["table"], {}): raise Exception(f"table '{ob['table']}' lacks required 'user_id' column for ownership tracking")
+    id_list, deleted_count = [int(x) for x in ob["ids"]], 0
+    async with app_state.client_postgres_pool.acquire() as conn:
+        async with conn.transaction():
+            for i in range(0, len(id_list), 5000):
+                result = await conn.fetchval(f"""WITH deleted AS (DELETE FROM "{ob["table"]}" WHERE id=ANY($1::bigint[]) AND "user_id"=$2 RETURNING 1) SELECT COUNT(*) FROM deleted""", id_list[i:i+5000], user_id)
+                deleted_count += result
+    return {"status": 1, "message": f"{deleted_count} ids deleted"}
+
+@router.delete("/my/object-delete-received-all")
+async def func_api_my_received_object_delete_all(*, request: Request):
+    app_state, user_id = request.app.state, request.state.user["id"]
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None)])
+    if oq["table"] == "users": raise Exception("users received bulk delete disabled")
+    if "*" not in app_state.config_table_enable_delete_all_my_user_id and oq["table"] not in app_state.config_table_enable_delete_all_my_user_id: raise Exception(f"received delete all disabled for table: {oq['table']}")
+    if "user_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'user_id' column for ownership tracking")
+    async with app_state.client_postgres_pool.acquire() as conn:
+        result = await conn.execute(f"""DELETE FROM "{oq["table"]}" WHERE "user_id"=$1""", user_id)
+    return {"status": 1, "message": f"{int(result.rsplit(' ', 1)[-1])} objects deleted"}
 
 @router.get("/my/message-inbox")
 async def func_api_my_message_inbox(*, request: Request):
