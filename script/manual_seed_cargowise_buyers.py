@@ -144,13 +144,13 @@ async def execute():
         total = 0
         cache_postgres_buffer_create = {}
         for batch in chunked(obj_list, batch_size):
-            await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, config_table=config_table, buffer_limit=config_table.get("users", {}).get("buffer_limit", config_buffer_limit_default), mode="now", table="users", obj_list=batch)
+            await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, buffer_limit=config_table.get("users", {}).get("buffer_limit", config_buffer_limit_default), mode="now", table="users", obj_list=batch)
             total += len(batch)
         return total
     async def update_users(client_postgres_pool, cache_postgres_schema, client_password_hasher, obj_list):
         total = 0
         for batch in chunked(obj_list, batch_size):
-            await func_postgres_update(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, config_regex=config_regex, config_table=config_table, table="users", obj_list=batch, created_by_id=None)
+            await func_postgres_update(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, config_regex=config_regex, table="users", obj_list=batch, created_by_id=None)
             total += len(batch)
         return total
     args = parse_args()

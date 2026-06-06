@@ -20,12 +20,10 @@ async def func_api_public_object_create(*, request: Request):
     if "*" not in app_state.config_table_create_enable_public and oq["table"] not in app_state.config_table_create_enable_public: raise Exception(f"creation disabled for table: {oq['table']}")
     ob=await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
-    if any("deleted_at" in item for item in obj_list): raise Exception("deleted_at cannot be set on create; use deactivated_at for reversible inactive state")
-    restricted_key = next((key for item in obj_list for key in item if key in app_state.config_admin_columns), None)
-    if restricted_key: raise Exception(f"unauthorized creation of restricted field: {restricted_key}")
+    if restricted_key := next((key for item in obj_list for key in item if key == "deleted_at" or key in app_state.config_admin_columns), None): raise Exception("deleted_at cannot be set on create; use deactivated_at for reversible inactive state" if restricted_key == "deleted_at" else f"unauthorized creation of restricted field: {restricted_key}")
     if "created_by_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'created_by_id' column for ownership tracking")
     if request.state.user.get("id"): obj_list = [dict(item, created_by_id=request.state.user["id"]) for item in obj_list]
-    return {"status": 1, "message": await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, buffer_limit=app_state.config_table.get(oq["table"], {}).get("buffer_limit", app_state.config_buffer_limit_default), mode=oq["mode"], table=oq["table"], obj_list=obj_list)}
+    return {"status": 1, "message": await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_table.get(oq["table"], {}).get("buffer_limit", app_state.config_buffer_limit_default), mode=oq["mode"], table=oq["table"], obj_list=obj_list)}
 
 @router.get("/public/object-read")
 async def func_api_public_object_read(*, request: Request):

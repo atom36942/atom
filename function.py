@@ -1411,7 +1411,7 @@ async def func_postgres_relation(*, client_postgres_pool: any, client_postgres_c
         else: raise Exception(f"invalid operator: {op}")
     return obj_list
 
-async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, config_table: dict, buffer_limit: int, mode: str, table: str, obj_list: list) -> any:
+async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, buffer_limit: int, mode: str, table: str, obj_list: list) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     import re, orjson
     limit_chunk = 5000
@@ -1537,7 +1537,7 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
             result_list = await func_postgres_relation(client_postgres_pool=client_postgres_pool, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_sql_read_relation_fetch_limit_max=config_sql_read_relation_fetch_limit_max)
         return result_list
 
-async def func_postgres_update(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, config_table: dict, table: str, obj_list: list, created_by_id: int) -> any:
+async def func_postgres_update(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, table: str, obj_list: list, created_by_id: int) -> any:
     """Update PostgreSQL records immediately with support for owner validation and dynamic serialization."""
     import re
     if not obj_list: raise Exception("object list required")
@@ -1857,7 +1857,7 @@ async def func_notification_create(*, type: int, app_state: any, payload: dict) 
             obj_id = obj.get("id")
             if obj_id:
                 notification_obj_list.append({"type": type, "created_by_id": None, "user_id": obj_id, "title": "Account Created", "description": "Your account has been created successfully.", "reference_table": table, "reference_id": obj_id})
-    if notification_obj_list: await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, buffer_limit=app_state.config_table.get("notification", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="notification", obj_list=notification_obj_list)
+    if notification_obj_list: await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_table.get("notification", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="notification", obj_list=notification_obj_list)
     return None
 
 def func_postgres_mark_read(*, client_postgres_pool: any, table: str, ownership_column: str, user_id: int, ids: list) -> None:
