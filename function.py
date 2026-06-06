@@ -1401,17 +1401,19 @@ async def func_postgres_relation(*, client_postgres_pool: any, client_postgres_c
         else: raise Exception(f"invalid operator: {op}")
     return obj_list
 
-async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, buffer_limit: int, mode: str, table: str, obj_list: list) -> any:
+async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, config_table: dict, buffer_limit: int, mode: str, table: str, obj_list: list) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     import re, orjson
-    async def insert_serialized(tbl, serialized_list):
+    limit_chunk = 5000
+    async def insert_serialized(tbl, serialized_list, connection=None):
         columns = [c for c in serialized_list[0] if re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(c)) or (_ for _ in ()).throw(Exception(f"invalid identifier {c}"))]
         cols_sql = ",".join([f'"{c}"' for c in columns])
         if len(serialized_list) == 1:
             placeholders = ",".join([f"${i+1}" for i in range(len(columns))])
             sql = f'INSERT INTO "{tbl}" ({cols_sql}) VALUES ({placeholders}) RETURNING id;'
             args = [serialized_list[0][c] for c in columns]
-            if client_postgres_conn: ids = await client_postgres_conn.fetch(sql, *args)
+            if connection: ids = await connection.fetch(sql, *args)
+            elif client_postgres_conn: ids = await client_postgres_conn.fetch(sql, *args)
             else:
                 async with client_postgres_pool.acquire() as conn: ids = await conn.fetch(sql, *args)
         else:
@@ -1429,20 +1431,27 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
                     cast_parts.append(f'("{c}"->>0)::{col_dtype}')
             cast_list = ",".join(cast_parts)
             all_ids = []
-            limit_chunk = 5000
             async def _execute_bulk(connection):
-                for i in range(0, len(serialized_list), limit_chunk):
-                    batch = serialized_list[i : i + limit_chunk]
-                    sql = f'INSERT INTO "{tbl}" ({col_list}) SELECT {cast_list} FROM jsonb_to_recordset($1::jsonb) AS x({def_list}) RETURNING id'
-                    ids_batch = await connection.fetch(sql, orjson.dumps(batch, default=str).decode('utf-8'))
-                    all_ids.extend([dict(r) for r in ids_batch])
-            if client_postgres_conn:
+                async with connection.transaction():
+                    for i in range(0, len(serialized_list), limit_chunk):
+                        batch = serialized_list[i : i + limit_chunk]
+                        sql = f'INSERT INTO "{tbl}" ({col_list}) SELECT {cast_list} FROM jsonb_to_recordset($1::jsonb) AS x({def_list}) RETURNING id'
+                        ids_batch = await connection.fetch(sql, orjson.dumps(batch, default=str).decode('utf-8'))
+                        all_ids.extend([dict(r) for r in ids_batch])
+            if connection:
+                await _execute_bulk(connection)
+            elif client_postgres_conn:
                 await _execute_bulk(client_postgres_conn)
             else:
                 async with client_postgres_pool.acquire() as conn:
                     await _execute_bulk(conn)
             ids = all_ids
         return [r["id"] for r in ids] if ids and "id" in ids[0] else "created"
+    async def serialize_batches():
+        for i in range(0, len(obj_list), limit_chunk):
+            batch = obj_list[i:i+limit_chunk]
+            await func_regex_check(config_regex=config_regex, obj_list=batch)
+            yield await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=batch, is_base=0 if len(batch) > 1 else 1)
     if mode not in ("now", "buffer", "flush"): raise Exception(f"invalid mode: {mode}")
     if mode == "flush":
         for key, buffer_list in list(cache_postgres_buffer_create.items()):
@@ -1455,21 +1464,30 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
     if not obj_list: raise Exception("object list required")
     if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
     obj_list = [dict(item) for item in obj_list]; [item.pop("id", None) for item in obj_list]
-    if config_obj_list_limit and len(obj_list) > config_obj_list_limit: raise Exception(f"maximum {config_obj_list_limit} objects allowed")
     if table == "spatial_ref_sys": raise Exception("system table protected")
-    await func_regex_check(config_regex=config_regex, obj_list=obj_list)
-    serialized_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=0 if len(obj_list) > 1 else 1)
     if mode == "buffer":
-        key = f"{table}|{','.join(sorted(serialized_list[0].keys()))}"
-        cache_postgres_buffer_create.setdefault(key, []).extend(serialized_list)
-        if len(cache_postgres_buffer_create[key]) >= buffer_limit:
-            items = cache_postgres_buffer_create[key]
-            await insert_serialized(table, items)
-            cache_postgres_buffer_create[key] = []
-            return "buffered released"
-        return "buffered"
+        result = "buffered"
+        async for serialized_list in serialize_batches():
+            key = f"{table}|{','.join(sorted(serialized_list[0].keys()))}"
+            cache_postgres_buffer_create.setdefault(key, []).extend(serialized_list)
+            if len(cache_postgres_buffer_create[key]) >= buffer_limit:
+                items = cache_postgres_buffer_create[key]
+                await insert_serialized(table, items)
+                cache_postgres_buffer_create[key] = []
+                result = "buffered released"
+        return result
     if mode == "now":
-        return await insert_serialized(table, serialized_list)
+        all_ids = []
+        async def _execute_now(connection):
+            async with connection.transaction():
+                async for serialized_list in serialize_batches():
+                    ids = await insert_serialized(table, serialized_list, connection=connection)
+                    if isinstance(ids, list): all_ids.extend(ids)
+            return all_ids if all_ids else "created"
+        if client_postgres_conn:
+            return await _execute_now(client_postgres_conn)
+        async with client_postgres_pool.acquire() as conn:
+            return await _execute_now(conn)
 
 async def func_postgres_read(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
@@ -1509,52 +1527,37 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
             result_list = await func_postgres_relation(client_postgres_pool=client_postgres_pool, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_sql_read_relation_fetch_limit_max=config_sql_read_relation_fetch_limit_max)
         return result_list
 
-async def func_postgres_update(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, config_table: dict, config_obj_list_limit: int, table: str, obj_list: list, created_by_id: int) -> any:
+async def func_postgres_update(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, config_table: dict, table: str, obj_list: list, created_by_id: int) -> any:
     """Update PostgreSQL records immediately with support for owner validation and dynamic serialization."""
     import re
     if not obj_list: raise Exception("object list required")
     if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
     if any(not isinstance(obj, dict) for obj in obj_list): raise Exception("object data invalid")
-    if config_obj_list_limit and len(obj_list) > config_obj_list_limit: raise Exception(f"maximum {config_obj_list_limit} objects allowed")
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if table == "spatial_ref_sys": raise Exception("system table protected")
-    await func_regex_check(config_regex=config_regex, obj_list=obj_list)
-    obj_list = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=obj_list, is_base=1)
     if any("id" not in obj for obj in obj_list): raise Exception("missing required field: 'id' for update operation")
+    if table == "users" and created_by_id is not None:
+        if len(obj_list) != 1: raise Exception("multi-object user update restricted")
+        if str(obj_list[0].get("id")) != str(created_by_id): raise Exception("ownership issue: cannot update other users")
+        created_by_id = None
     update_cols = [c for c in obj_list[0] if c != "id" and (re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(c)) or (_ for _ in ()).throw(Exception(f"invalid identifier {c}")))]
     if not update_cols: raise Exception("update field required")
     if any(set(obj.keys()) != set(obj_list[0].keys()) for obj in obj_list): raise Exception("object keys mismatch")
     returned_ids = []
-    if len(obj_list) == 1:
-        async def _execute_one(connection):
-            obj = obj_list[0]
-            batch_vals = [obj[col] for col in update_cols]
-            set_clause = ", ".join([f'"{col}"=${i+1}' for i, col in enumerate(update_cols)])
-            where_clause = f'"id"=${len(batch_vals)+1}'
-            batch_vals.append(obj["id"])
-            if created_by_id is not None:
-                where_clause += f' AND "created_by_id"=${len(batch_vals)+1}'
-                batch_vals.append(created_by_id)
-            sql = f'UPDATE "{table}" SET {set_clause} WHERE {where_clause} RETURNING id;'
-            ids = await connection.fetch(sql, *batch_vals)
-            return [r["id"] for r in ids] if ids else []
-        if client_postgres_conn: return await _execute_one(client_postgres_conn)
-        async with client_postgres_pool.acquire() as conn: return await _execute_one(conn)
     limit_batch = 5000
-    actual_batch_size = max(1, limit_batch // (len(update_cols) + (2 if created_by_id is not None else 1)))
+    actual_batch_size = max(1, (limit_batch - (1 if created_by_id is not None else 0)) // ((2 * len(update_cols)) + 1))
     async def _execute_update(connection):
         async with connection.transaction():
             for i in range(0, len(obj_list), actual_batch_size):
-                batch = obj_list[i:i+actual_batch_size]
+                batch_raw = obj_list[i:i+actual_batch_size]
+                await func_regex_check(config_regex=config_regex, obj_list=batch_raw)
+                batch = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=batch_raw, is_base=1)
                 batch_vals, set_clauses = [], []
                 for col in update_cols:
                     case_statements = []
                     for obj in batch:
                         batch_vals.extend([obj["id"], obj[col]])
-                        if created_by_id is not None:
-                            batch_vals.append(created_by_id)
-                            case_statements.append(f'WHEN "id"=${len(batch_vals)-2}::bigint AND "created_by_id"=${len(batch_vals)}::bigint THEN ${len(batch_vals)-1}')
-                        else: case_statements.append(f'WHEN "id"=${len(batch_vals)-1}::bigint THEN ${len(batch_vals)}')
+                        case_statements.append(f'WHEN "id"=${len(batch_vals)-1}::bigint THEN ${len(batch_vals)}')
                     set_clauses.append(f'"{col}" = CASE {" ".join(case_statements)} ELSE "{col}" END')
                 id_list = [obj["id"] for obj in batch]
                 where_clause = f'"id" IN ({",".join(f"${len(batch_vals)+j+1}::bigint" for j in range(len(id_list)))})'
@@ -1566,9 +1569,9 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
     if client_postgres_conn: await _execute_update(client_postgres_conn)
     else:
         async with client_postgres_pool.acquire() as conn: await _execute_update(conn)
-    return returned_ids if returned_ids else "updated"
+    return returned_ids if returned_ids or len(obj_list) == 1 else "updated"
 
-async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_conn: any, cache_postgres_schema: dict = None, config_obj_list_limit: int, table: str, ids: list, created_by_id: int) -> int:
+async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_conn: any, cache_postgres_schema: dict = None, table: str, ids: list, created_by_id: int) -> int:
     """Delete records by ID with schema-aware optional ownership restrictions."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
@@ -1577,21 +1580,32 @@ async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_con
     if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"unknown table {table}")
     if schema and "id" not in schema: raise Exception(f"table {table} missing id column")
     if not ids or not isinstance(ids, (list, tuple)): raise Exception("ids required")
-    if config_obj_list_limit and len(ids) > config_obj_list_limit: raise Exception(f"maximum {config_obj_list_limit} objects allowed")
     id_list = [int(x) for x in ids]
-    where_clause = '"id" = ANY($1::bigint[])'
-    values = [id_list]
+    if table == "users" and created_by_id is not None:
+        if len(id_list) != 1: raise Exception("multiple users table delete not allowed")
+        if int(id_list[0]) != int(created_by_id): raise Exception("users table delete allowed only for own account")
+        created_by_id = None
+    limit_chunk = 5000
     if created_by_id is not None:
         if schema and "created_by_id" not in schema: raise Exception(f"table {table} missing created_by_id column")
-        where_clause += ' AND "created_by_id"=$2::bigint'
-        values.append(created_by_id)
-    sql_delete = f'DELETE FROM "{table}" WHERE {where_clause} RETURNING id;'
+    async def _execute_delete(connection):
+        deleted_count = 0
+        async with connection.transaction():
+            for i in range(0, len(id_list), limit_chunk):
+                batch_ids = id_list[i:i+limit_chunk]
+                where_clause = '"id" = ANY($1::bigint[])'
+                values = [batch_ids]
+                if created_by_id is not None:
+                    where_clause += ' AND "created_by_id"=$2::bigint'
+                    values.append(created_by_id)
+                sql_delete = f'WITH deleted AS (DELETE FROM "{table}" WHERE {where_clause} RETURNING 1) SELECT COUNT(*) FROM deleted;'
+                deleted_count += await connection.fetchval(sql_delete, *values)
+        return deleted_count
     if client_postgres_conn:
-        records = await client_postgres_conn.fetch(sql_delete, *values)
+        return await _execute_delete(client_postgres_conn)
     else:
         async with client_postgres_pool.acquire() as conn:
-            records = await conn.fetch(sql_delete, *values)
-    return len(records)
+            return await _execute_delete(conn)
 
 async def func_producer(*, queue: str, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, channel: str, payload: dict) -> any:
     """Ultra-standardized producer orchestration. Handles multi-tech dispatch with explicit clients."""
@@ -1841,7 +1855,7 @@ async def func_notification_create(*, type: int, app_state: any, payload: dict) 
             obj_id = obj.get("id")
             if obj_id:
                 notification_obj_list.append({"type": type, "created_by_id": None, "user_id": obj_id, "title": "Account Created", "description": "Your account has been created successfully.", "reference_table": table, "reference_id": obj_id})
-    if notification_obj_list: await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, config_obj_list_limit=0, buffer_limit=app_state.config_table.get("notification", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="notification", obj_list=notification_obj_list)
+    if notification_obj_list: await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, config_table=app_state.config_table, buffer_limit=app_state.config_table.get("notification", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="notification", obj_list=notification_obj_list)
     return None
 
 def func_postgres_mark_read(*, client_postgres_pool: any, table: str, ownership_column: str, user_id: int, ids: list) -> None:

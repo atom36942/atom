@@ -19,7 +19,6 @@ from config import config_mssql_url
 from config import config_postgres_url
 from config import config_regex
 from config import config_table
-from config import config_obj_list_limit
 from config import config_buffer_limit_default
 config_seed_buyer_password = "123456"
 config_seed_buyer_user_type = 1
@@ -144,16 +143,14 @@ async def execute():
     async def create_users(client_postgres_pool, cache_postgres_schema, client_password_hasher, obj_list):
         total = 0
         cache_postgres_buffer_create = {}
-        chunk_size = min(batch_size, config_obj_list_limit or batch_size)
-        for batch in chunked(obj_list, chunk_size):
-            await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, config_table=config_table, config_obj_list_limit=config_obj_list_limit, buffer_limit=config_table.get("users", {}).get("buffer_limit", config_buffer_limit_default), mode="now", table="users", obj_list=batch)
+        for batch in chunked(obj_list, batch_size):
+            await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, config_table=config_table, buffer_limit=config_table.get("users", {}).get("buffer_limit", config_buffer_limit_default), mode="now", table="users", obj_list=batch)
             total += len(batch)
         return total
     async def update_users(client_postgres_pool, cache_postgres_schema, client_password_hasher, obj_list):
         total = 0
-        chunk_size = min(batch_size, config_obj_list_limit or batch_size)
-        for batch in chunked(obj_list, chunk_size):
-            await func_postgres_update(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, config_regex=config_regex, config_table=config_table, config_obj_list_limit=config_obj_list_limit, table="users", obj_list=batch, created_by_id=None)
+        for batch in chunked(obj_list, batch_size):
+            await func_postgres_update(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, config_regex=config_regex, config_table=config_table, table="users", obj_list=batch, created_by_id=None)
             total += len(batch)
         return total
     args = parse_args()

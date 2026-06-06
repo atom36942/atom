@@ -14,7 +14,6 @@ from function import func_postgres_schema_read
 from config import config_postgres_url
 from config import config_regex
 from config import config_table
-from config import config_obj_list_limit
 from config import config_buffer_limit_default
 from config import config_redis_url_queue
 from config import config_rabbitmq_url
@@ -33,7 +32,7 @@ async def setup():
 
 async def execute(payload, client_postgres_pool, cache_postgres_buffer_create, cache_postgres_schema, client_password_hasher):
     table = payload.get("table")
-    return await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, config_table=config_table, config_obj_list_limit=config_obj_list_limit, buffer_limit=config_table.get(table, {}).get("buffer_limit", config_buffer_limit_default), mode=payload.get("mode", "now"), table=table, obj_list=payload.get("obj_list"))
+    return await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, config_table=config_table, buffer_limit=config_table.get(table, {}).get("buffer_limit", config_buffer_limit_default), mode=payload.get("mode", "now"), table=table, obj_list=payload.get("obj_list"))
 
 # init
 if __name__ == "__main__":

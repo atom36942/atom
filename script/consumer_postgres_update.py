@@ -14,7 +14,6 @@ from function import func_regex_check
 from config import config_postgres_url
 from config import config_regex
 from config import config_table
-from config import config_obj_list_limit
 from config import config_redis_url_queue
 from config import config_rabbitmq_url
 from config import config_celery_url
@@ -32,7 +31,7 @@ async def setup():
 
 async def execute(payload, client_postgres_pool, cache_postgres_buffer_create, cache_postgres_schema, client_password_hasher):
     table = payload.get("table")
-    return await func_postgres_update(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, config_regex=config_regex, config_table=config_table, config_obj_list_limit=config_obj_list_limit, table=table, obj_list=payload.get("obj_list"), created_by_id=payload.get("created_by_id"))
+    return await func_postgres_update(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, config_regex=config_regex, config_table=config_table, table=table, obj_list=payload.get("obj_list"), created_by_id=payload.get("created_by_id"))
 
 # init
 if __name__ == "__main__":
