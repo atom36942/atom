@@ -44,7 +44,7 @@ async def func_lifespan(app:"FastAPI"):
         # start
         start_journey = time.perf_counter()
         # check
-        app.state.func_check(app_routes=app.routes, config_config_path="config.py", config_function_path="function.py", config_allowed_api_namespace=app.state.config_allowed_api_namespace, config_router_path="router", config_api=app.state.config_api, config_allowed_user_storage_backends=app.state.config_allowed_user_storage_backends, config_allowed_api_storage_backends=app.state.config_allowed_api_storage_backends, config_postgres=app.state.config_postgres)
+        app.state.func_check(app=app)
         # structure
         if os.path.isdir("tmp") and not os.path.islink("tmp"): shutil.rmtree("tmp")
         elif os.path.exists("tmp"): os.remove("tmp")

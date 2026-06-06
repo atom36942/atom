@@ -1,5 +1,15 @@
-def func_check(*, app_routes: list, config_config_path: str, config_function_path: str, config_allowed_api_namespace: list, config_router_path: str, config_api: dict, config_allowed_user_storage_backends: list, config_allowed_api_storage_backends: list, config_postgres: dict) -> None:
+def func_check(*, app: any) -> None:
     import re
+    app_routes = app.routes
+    app_state = app.state
+    config_config_path = "config.py"
+    config_function_path = "function.py"
+    config_router_path = "router"
+    config_allowed_api_namespace = app_state.config_allowed_api_namespace
+    config_api = app_state.config_api
+    config_allowed_user_storage_backends = app_state.config_allowed_user_storage_backends
+    config_allowed_api_storage_backends = app_state.config_allowed_api_storage_backends
+    config_postgres = app_state.config_postgres
     def optional_mode(mode_cfg):
         return mode_cfg[0] if isinstance(mode_cfg, list) else mode_cfg
     def is_valid_postgres_datatype(datatype: str) -> bool:
@@ -1536,10 +1546,6 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if table == "spatial_ref_sys": raise Exception("system table protected")
     if any("id" not in obj for obj in obj_list): raise Exception("missing required field: 'id' for update operation")
-    if table == "users" and created_by_id is not None:
-        if len(obj_list) != 1: raise Exception("multi-object user update restricted")
-        if str(obj_list[0].get("id")) != str(created_by_id): raise Exception("ownership issue: cannot update other users")
-        created_by_id = None
     update_cols = [c for c in obj_list[0] if c != "id" and (re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(c)) or (_ for _ in ()).throw(Exception(f"invalid identifier {c}")))]
     if not update_cols: raise Exception("update field required")
     if any(set(obj.keys()) != set(obj_list[0].keys()) for obj in obj_list): raise Exception("object keys mismatch")
@@ -1581,10 +1587,6 @@ async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_con
     if schema and "id" not in schema: raise Exception(f"table {table} missing id column")
     if not ids or not isinstance(ids, (list, tuple)): raise Exception("ids required")
     id_list = [int(x) for x in ids]
-    if table == "users" and created_by_id is not None:
-        if len(id_list) != 1: raise Exception("multiple users table delete not allowed")
-        if int(id_list[0]) != int(created_by_id): raise Exception("users table delete allowed only for own account")
-        created_by_id = None
     limit_chunk = 5000
     if created_by_id is not None:
         if schema and "created_by_id" not in schema: raise Exception(f"table {table} missing created_by_id column")
