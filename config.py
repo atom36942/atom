@@ -52,7 +52,7 @@ config_sql_read_limit_default = 100
 config_sql_read_limit_max = 1000
 config_sql_read_relation_fetch_limit_max = 100
 config_allowed_auth_types = [1]
-config_allowed_token_key = ["id", "type", "role", "deactivated_at", "deleted_at", "id_ext"]
+config_allowed_token_key = ["id", "type", "role", "username", "deactivated_at", "deleted_at"]
 config_users_delete_data_retention_day = 30
 config_users_delete_exclude_table = ["users", "spatial_ref_sys", "log_*"]
 config_redis_cache_ttl_sec = 3600
@@ -65,6 +65,7 @@ config_table_enable_delete_all_my = ["*"]
 config_table_enable_delete_all_my_user_id = ["message","notification"]
 config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id", "deleted_by_id", "deactivated_by_id", "archived_by_id"]
 config_column_single_update = ["username", "password", "email", "mobile", "deleted_at"]
+config_column_my_block = ["username"]
 
 # General
 config_allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
@@ -96,8 +97,8 @@ config_table = {
 }
 
 config_regex = {
-"username": ["^(?=.{3,20}\\Z)[A-Za-z0-9]([A-Za-z0-9_@.-]*[A-Za-z0-9])?\\Z", "Username must be 3-20 characters, start and end with a letter or number, and contain only letters, numbers, _, @, ., or -"],
-"password": ["^\\S{6,30}\\Z", "Password must be 6-30 characters and contain no spaces"],
+"username": ["^(?=.{1,120}\\Z)\\S+\\Z", "Username must be 1-120 characters and contain no spaces"],
+"password": ["^(?=.{6,120}\\Z)\\S+\\Z", "Password must be 6-120 characters and contain no spaces"],
 }
 
 config_api = {
@@ -132,7 +133,7 @@ config_column_int_mapping = {
 "log_api": {1: "GET", 2: "POST", 3: "PUT", 4: "PATCH", 5: "DELETE", 6: "OPTIONS", 7: "HEAD"},
 },
 "role": {
-"users": {1: "Admin", 2: "Manager", 3: "User"},
+"users": {1: "Admin", 2: "CargoWise User"},
 },
 "type": {
 "test": {1: "Type 1", 2: "Type 2", 3: "Type 3", 4: "Type 4", 5: "Type 5"},
@@ -212,13 +213,13 @@ config_postgres = {
 {"name":"verified_by_id","datatype":"bigint"},
 {"name":"is_protected","datatype":"boolean"},
 {"name":"type","datatype":"smallint","is_mandatory":1,"index":"btree(type)"},
-{"name":"username","datatype":"text","unique":"username,type"},
+{"name":"username","datatype":"text","is_mandatory":1,"unique":"username,type"},
 {"name":"password","datatype":"text","index":"btree(password)"},
 {"name":"google_login_id","datatype":"text","unique":"google_login_id,type"},
 {"name":"google_login_metadata","datatype":"jsonb"},
 {"name":"email","datatype":"text","unique":"email,type"},
 {"name":"mobile","datatype":"text","unique":"mobile,type"},
-{"name":"role","datatype":"smallint"},
+{"name":"role","datatype":"smallint","is_mandatory":1,"index":"btree(role)"},
 {"name":"last_active_at","datatype":"timestamptz"},
 {"name":"name","datatype":"text"},
 {"name":"country","datatype":"text"},
@@ -558,7 +559,7 @@ config_postgres = {
 "index": {
 "idx_users_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_users_deactivated_at_not_null ON users (id) WHERE deactivated_at IS NOT NULL",
 "idx_users_deactivated_at_null_email_unique": "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_deactivated_at_null_email_unique ON users (email) WHERE deactivated_at IS NULL",
-"idx_users_deactivated_at_null_username_unique": "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_deactivated_at_null_username_unique ON users (username) WHERE deactivated_at IS NULL",
+"idx_users_deactivated_at_null_username_unique": "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_deactivated_at_null_username_unique ON users (username, type) WHERE deactivated_at IS NULL",
 "idx_users_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_users_deleted_at_not_null ON users (id) WHERE deleted_at IS NOT NULL",
 "idx_users_is_protected_1": "CREATE INDEX IF NOT EXISTS idx_users_is_protected_1 ON users (id) WHERE is_protected IS TRUE",
 "idx_users_verified_at_null": "CREATE INDEX IF NOT EXISTS idx_users_verified_at_null ON users (id) WHERE verified_at IS NULL",
