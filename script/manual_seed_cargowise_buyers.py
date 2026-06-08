@@ -40,22 +40,19 @@ async def execute():
     def chunked(items, size):
         for i in range(0, len(items), size):
             yield items[i:i + size]
-    def cargowise_org_sql(include_inactive):
-        active_filter = "" if include_inactive else "AND OH.OH_IsActive = 1"
+    def cargowise_org_sql():
         return textwrap.dedent(f"""\
-            SELECT DISTINCT
+            SELECT
                 CONVERT(varchar(36), OH.OH_PK) AS username,
                 OH.OH_FullName AS name
             FROM dbo.OrgHeader AS OH
-            WHERE OH.OH_IsValid = 1
-              {active_filter}
             ORDER BY OH.OH_FullName;""")
     async def fetch_cargowise_orgs(mssql_url, include_inactive):
         pool = await aioodbc.create_pool(dsn=mssql_url, minsize=1, maxsize=3)
         try:
             async with pool.acquire() as conn:
                 cursor = await conn.cursor()
-                await cursor.execute(cargowise_org_sql(include_inactive))
+                await cursor.execute(cargowise_org_sql())
                 columns = [column[0] for column in cursor.description]
                 rows = await cursor.fetchall()
         finally:

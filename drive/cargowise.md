@@ -89,66 +89,10 @@ CargoWise contains a full-fledged Warehouse Management System. It handles receiv
 
 ## SQL
 
-### Total Organization Users by Type
+### Total Org Users 
 
 ```sql
-SELECT 
-    OrgRole AS [User Type], 
-    COUNT(h.OH_PK) AS [Total Organizations] 
-FROM 
-    OrgHeader h 
-CROSS APPLY (
-    VALUES 
-        ('OH_IsConsignee', h.OH_IsConsignee), 
-        ('OH_IsConsignor', h.OH_IsConsignor), 
-        ('OH_IsControllingCustomer', h.OH_IsControllingCustomer), 
-        ('OH_IsBroker', h.OH_IsBroker), 
-        ('OH_IsForwarder', h.OH_IsForwarder), 
-        ('OH_IsControllingAgent', h.OH_IsControllingAgent), 
-        ('OH_IsShippingLine', h.OH_IsShippingLine), 
-        ('OH_IsAirLine', h.OH_IsAirLine), 
-        ('OH_IsWarehouseClient', h.OH_IsWarehouseClient), 
-        ('OH_IsLocalTransport', h.OH_IsLocalTransport)
-) AS Roles(OrgRole, IsRoleActive) 
-WHERE 
-    IsRoleActive = 1 
-    AND h.OH_IsActive = 1 
-    AND h.OH_IsValid = 1 
-GROUP BY 
-    OrgRole 
-ORDER BY 
-    [Total Organizations] DESC;
+SELECT TOP (10000) * FROM  dbo.OrgHeader;
 ```
 
-### All Active Organization Users
 
-```sql
-SELECT DISTINCT 
-    CONVERT(varchar(36), OH.OH_PK) AS username, 
-    OH.OH_FullName AS name
-FROM 
-    dbo.OrgHeader AS OH
-WHERE 
-    OH.OH_IsValid = 1 
-    AND OH.OH_IsActive = 1
-ORDER BY 
-    OH.OH_FullName;
-```
-
-### Top 10 Buyers
-
-```sql
-SELECT TOP (10)
-    OH.OH_PK AS BuyerPK,
-    OH.OH_Code AS BuyerCode,
-    OH.OH_FullName AS BuyerName,
-    OH.OH_IsActive AS IsActive
-FROM dbo.OrgHeader AS OH
-WHERE OH.OH_PK IN (
-    SELECT DISTINCT BuyerPK
-    FROM dbo.vw_Report_ConsignorBuyerDetails
-    WHERE BuyerPK IS NOT NULL
-)
-  AND OH.OH_IsValid = 1
-ORDER BY OH.OH_Code;
-```
