@@ -2,8 +2,11 @@ def func_check(*, app: any) -> None:
     import re
     app_routes = app.routes
     app_state = app.state
+    import os
     config_config_path = "config.py"
+    config_config_extend_path = "config_extend.py" if os.path.exists("config_extend.py") else None
     config_function_path = "function.py"
+    config_function_extend_path = "function_extend.py" if os.path.exists("function_extend.py") else None
     config_router_path = "router"
     config_allowed_api_namespace = app_state.config_allowed_api_namespace
     config_api = app_state.config_api
@@ -82,8 +85,8 @@ def func_check(*, app: any) -> None:
         if path.suffix == ".py":
             return [path]
         return [path.with_suffix(".py")]
-    if config_config_path:
-        for config_path in iter_python_paths(config_config_path):
+    for cfg_path in (p for p in (config_config_path, config_config_extend_path) if p):
+        for config_path in iter_python_paths(cfg_path):
             with open(config_path, "r", encoding="utf-8") as f: tree = ast.parse(f.read())
             for node in tree.body:
                 if isinstance(node, ast.Assign):
@@ -95,15 +98,21 @@ def func_check(*, app: any) -> None:
                             if isinstance(t, (ast.Tuple, ast.List)): targets_to_check.extend(t.elts)
                 elif isinstance(node, ast.AnnAssign):
                     if isinstance(node.target, ast.Name) and not node.target.id.startswith("config_"): raise Exception(f"invalid config variable name: {node.target.id}")
-    if config_function_path:
-        for function_path in iter_python_paths(config_function_path):
+    for fn_path in (p for p in (config_function_path, config_function_extend_path) if p):
+        for function_path in iter_python_paths(fn_path):
             with open(function_path, "r", encoding="utf-8") as f: tree = ast.parse(f.read())
             for node in tree.body:
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("func_"): raise Exception(f"invalid function name: {node.name}")
     if config_router_path:
+        allowed_router_verbs = {"get", "post", "put", "patch", "delete", "head", "options", "trace", "api_route", "websocket"}
         for router_path in iter_python_paths(config_router_path):
             with open(router_path, "r", encoding="utf-8") as f: tree = ast.parse(f.read())
             if not any(isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "router" for target in node.targets) for node in tree.body): raise Exception(f"router file '{router_path.name}' missing 'router' variable")
+            for node in tree.body:
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    if not node.name.startswith("func_api_"): raise Exception(f"router file '{router_path.name}': function '{node.name}' must start with 'func_api_' (helpers belong in function.py)")
+                    has_router_decorator = any(isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute) and isinstance(dec.func.value, ast.Name) and dec.func.value.id == "router" and dec.func.attr in allowed_router_verbs for dec in node.decorator_list)
+                    if not has_router_decorator: raise Exception(f"router file '{router_path.name}': function '{node.name}' is missing a @router.<verb> decorator (helpers belong in function.py)")
     if config_postgres and "table" in config_postgres:
         global_column_types = {}
         for table_name, columns in config_postgres["table"].items():
