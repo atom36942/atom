@@ -5,6 +5,7 @@ config_redis_url = None
 config_redis_url_queue = None
 config_mongodb_url = None
 config_mssql_url = None
+config_mssql_url_read = None
 config_google_login_client_id = None
 config_openai_key = None
 config_gemini_key = None
@@ -35,15 +36,16 @@ config_celery_url = None
 
 # System
 config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
+config_root_html_path = "static/api.html"
 config_is_enable_user_delete = 1
-config_is_enable_sql_write = 1
+
 config_is_enable_signup = 1
 config_is_enable_otp_require_users_update = 0
 config_is_notification = 0
 config_otp_length = 6
 config_otp_expiry_sec = 600
-config_token_expiry_sec = 10*365*24*60*60
-config_token_refresh_expiry_sec = 100*365*24*60*60
+config_access_token_expires_in_sec = 3155695200 
+config_refresh_token_expires_in_sec = 3155695200000
 config_blob_limit_size_kb = 300
 config_blob_limit_upload = 100
 config_blob_expire_sec_upload = 3600
@@ -108,6 +110,7 @@ config_api = {
 "/admin/object-read": {"id": 4, "user_role_check": ["token", [1]]},
 "/admin/object-delete": {"id": 5, "user_role_check": ["realtime", [1]], "user_deactivated_check": ["realtime"], "user_deleted_check": ["realtime"]},
 "/admin/postgres-sql-runner": {"id": 6, "user_role_check": ["realtime", [1]]},
+"/admin/postgres-sql-runner-read": {"id": 22, "user_role_check": ["realtime", [1]]},
 "/admin/postgres-export": {"id": 7, "user_role_check": ["inmemory", [1]]},
 "/admin/postgres-import": {"id": 8, "user_role_check": ["realtime", [1]]},
 "/admin/redis-import": {"id": 9, "user_role_check": ["token", [1]]},
@@ -116,6 +119,7 @@ config_api = {
 "/admin/blob-container-ops": {"id": 12, "user_role_check": ["token", [1]]},
 "/admin/blob-url-delete": {"id": 13, "user_role_check": ["token", [1]]},
 "/admin/mssql-sql-runner": {"id": 21, "user_role_check": ["realtime", [1]]},
+"/admin/mssql-sql-runner-read": {"id": 23, "user_role_check": ["realtime", [1]]},
 "/public/object-read": {"id": 14, "api_cache_sec": ["inmemory", 100]},
 "/info": {"id": 17, "api_cache_sec": ["inmemory", 100]},
 "/public/table-groupby": {"id": 18, "api_cache_sec": ["inmemory", 10]},

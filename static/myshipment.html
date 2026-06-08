@@ -142,32 +142,12 @@ body {
 .user-controls {
     display: flex;
     align-items: center;
-    gap: 1.5rem;
-}
-
-.icon-btn {
-    background: none;
-    border: none;
-    font-size: 1.25rem;
-    color: var(--text-muted);
-    cursor: pointer;
-    position: relative;
-}
-
-.notification-dot {
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 8px;
-    height: 8px;
-    background: #EF4444;
-    border-radius: 50%;
+    gap: 1rem;
 }
 
 .user-profile {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
     cursor: pointer;
     font-weight: 500;
 }
@@ -182,7 +162,11 @@ body {
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 0.875rem;
+    font-size: 0.68rem;
+    line-height: 1;
+    letter-spacing: 0;
+    overflow: hidden;
+    white-space: nowrap;
 }
 
 /* Views */
@@ -591,11 +575,6 @@ body {
     font-size: 1rem;
 }
 
-.top-brand span {
-    color: var(--text-muted);
-    font-size: 0.8rem;
-}
-
 .login-btn {
     padding: 0.65rem 1.1rem;
     min-width: 96px;
@@ -604,7 +583,8 @@ body {
 .user-profile {
     border: 1px solid transparent;
     border-radius: 999px;
-    padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+    padding: 0.25rem;
+    background: transparent;
 }
 
 .user-profile:hover {
@@ -612,8 +592,103 @@ body {
     background: var(--bg-main);
 }
 
+.profile-actions {
+    position: relative;
+}
+
+.profile-menu {
+    position: absolute;
+    top: calc(100% + 0.65rem);
+    right: 0;
+    width: 168px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 18px 35px rgba(17, 24, 39, 0.14);
+    padding: 0.35rem;
+    display: none;
+    z-index: 200;
+}
+
+.profile-menu.open {
+    display: block;
+}
+
+.profile-menu button {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    padding: 0.65rem 0.75rem;
+    border-radius: 6px;
+    color: var(--text-dark);
+    font: inherit;
+    cursor: pointer;
+}
+
+.profile-menu button:hover {
+    background: var(--bg-main);
+}
+
+.profile-menu button.danger {
+    color: #B91C1C;
+}
+
+#login-modal .modal-content {
+    width: 420px;
+}
+
+#login-modal .modal-header {
+    padding: 1rem 1.25rem;
+}
+
+#login-modal .modal-body {
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+#login-modal .auth-form {
+    gap: 0.75rem;
+}
+
+#login-modal .form-field {
+    gap: 0.35rem;
+}
+
+#login-modal .auth-message {
+    min-height: 1rem;
+}
+
+.password-input-wrap {
+    position: relative;
+}
+
+.password-input-wrap input {
+    width: 100%;
+    padding-right: 3rem;
+    box-sizing: border-box;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 0.45rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 34px;
+    height: 34px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.password-toggle:hover {
+    background: var(--bg-main);
+    color: var(--text-dark);
+}
+
 .home-section {
-    min-height: calc(100vh - 128px);
+    min-height: calc(100vh - 114px);
     display: none;
     align-items: center;
 }
@@ -634,15 +709,6 @@ body {
     max-width: 700px;
 }
 
-.home-eyebrow {
-    color: var(--primary);
-    font-weight: 700;
-    margin-bottom: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 0.78rem;
-}
-
 .home-copy h1 {
     margin: 0;
     font-size: clamp(2rem, 4vw, 3.7rem);
@@ -657,23 +723,11 @@ body {
     line-height: 1.7;
 }
 
-.home-actions {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-}
-
-.home-note {
-    color: var(--text-muted);
-    font-size: 0.875rem;
-}
-
 .home-card {
     background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: 12px;
-    padding: 1.5rem;
+    padding: 1.25rem;
     box-shadow: 0 18px 40px rgba(17, 24, 39, 0.08);
 }
 
@@ -681,7 +735,7 @@ body {
     display: grid;
     grid-template-columns: 42px 1fr;
     gap: 1rem;
-    padding: 1rem 0;
+    padding: 0.8rem 0;
     border-bottom: 1px solid var(--border);
 }
 
@@ -794,7 +848,8 @@ body.logged-out .main-content {
 }
 
 body.logged-out .content-wrapper {
-    padding: 3rem;
+    padding: 1.5rem 3rem;
+    overflow: hidden;
 }
 
 @media (max-width: 900px) {
@@ -806,9 +861,6 @@ body.logged-out .content-wrapper {
         padding: 0 1rem;
     }
 
-    .top-brand span {
-        display: none;
-    }
 }
     </style>
     <!-- Chart.js for Analytics/Sustainability -->
@@ -847,7 +899,6 @@ body.logged-out .content-wrapper {
                 <div class="top-bar-left">
                     <div class="top-brand">
                         <strong>MyShipment</strong>
-                        <span>Buyer visibility portal</span>
                     </div>
                     <div class="search-bar auth-only">
                         <i class="fa-solid fa-search"></i>
@@ -856,10 +907,14 @@ body.logged-out .content-wrapper {
                 </div>
                 <div class="user-controls">
                     <button class="btn btn-primary login-btn guest-only" id="header-login-btn">Login</button>
-                    <button class="icon-btn auth-only"><i class="fa-regular fa-bell"></i><span class="notification-dot"></span></button>
-                    <div class="user-profile auth-only" id="user-profile-trigger" role="button" tabindex="0" title="View profile">
-                        <div class="avatar">JB</div>
-                        <span>Jane Buyer</span>
+                    <div class="profile-actions auth-only">
+                        <button class="user-profile" id="user-profile-trigger" type="button" title="Account menu" aria-label="Account menu" aria-expanded="false">
+                            <div class="avatar">US</div>
+                        </button>
+                        <div class="profile-menu" id="profile-menu">
+                            <button type="button" id="profile-menu-profile">Login Details</button>
+                            <button type="button" class="danger" id="profile-menu-logout">Logout</button>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -869,13 +924,8 @@ body.logged-out .content-wrapper {
                 <section id="home" class="view-section home-section active">
                     <div class="home-hero">
                         <div class="home-copy">
-                            <div class="home-eyebrow">CargoWise buyer portal</div>
                             <h1>Welcome to MyShipment</h1>
-                            <p>Track shipments, exceptions, purchase order movement, sustainability signals, and logistics intelligence from one buyer-friendly workspace.</p>
-                            <div class="home-actions">
-                                <button class="btn btn-primary login-btn" id="home-login-btn">Login</button>
-                                <span class="home-note">Your dashboard appears after login.</span>
-                            </div>
+                            <p>Track shipments, exceptions, purchase order movement, sustainability signals, and logistics intelligence from one workspace.</p>
                         </div>
                         <div class="home-card">
                             <div class="home-card-row">
@@ -1122,12 +1172,17 @@ body.logged-out .content-wrapper {
                 <form class="auth-form" id="login-form">
                     <input type="hidden" id="login-type" value="1">
                     <div class="form-field">
-                        <label for="login-username">Buyer Code</label>
-                        <input id="login-username" autocomplete="username" placeholder="Enter buyer code" required>
+                        <label for="login-username">Username</label>
+                        <input id="login-username" autocomplete="username" placeholder="Enter username" required>
                     </div>
                     <div class="form-field">
                         <label for="login-password">Password</label>
-                        <input id="login-password" type="password" autocomplete="current-password" placeholder="Enter password" required>
+                        <div class="password-input-wrap">
+                            <input id="login-password" type="password" autocomplete="current-password" placeholder="Enter password" required>
+                            <button class="password-toggle" type="button" id="toggle-password" aria-label="Show password" title="Show password">
+                                <i class="fa-regular fa-eye"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="auth-message" id="login-message"></div>
                     <div class="modal-actions-row">
@@ -1143,20 +1198,16 @@ body.logged-out .content-wrapper {
     <div class="modal" id="profile-modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Buyer Profile</h3>
+                <h3>Login Details</h3>
                 <button class="close-modal" id="profile-modal-close">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="profile-grid">
-                    <div class="profile-row"><span>Name</span><strong id="profile-name">-</strong></div>
-                    <div class="profile-row"><span>Buyer Code</span><strong id="profile-username">-</strong></div>
-                    <div class="profile-row"><span>BuyerPK</span><strong id="profile-id-ext">-</strong></div>
-                    <div class="profile-row"><span>Type</span><strong id="profile-type">-</strong></div>
-                    <div class="profile-row"><span>Role</span><strong id="profile-role">-</strong></div>
+                    <div class="profile-row"><span>Username</span><strong id="profile-username">-</strong></div>
+                    <div class="profile-row"><span>Password</span><strong id="profile-password">-</strong></div>
                 </div>
                 <div class="modal-actions-row" style="margin-top: 1.5rem;">
                     <button class="btn" type="button" id="profile-close-btn">Close</button>
-                    <button class="btn btn-primary" type="button" id="logout-btn">Logout</button>
                 </div>
             </div>
         </div>
@@ -1169,9 +1220,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const STORAGE_KEY_USER = 'user';
     const API_BASE = location.origin && location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
     const LOGIN_PATH = '/auth/login-username-password';
-    const PROFILE_PATH = '/my/profile';
-    let authToken = localStorage.getItem(STORAGE_KEY_TOKEN) || '';
     let authUser = null;
+    const readStoredToken = () => {
+        const rawToken = localStorage.getItem(STORAGE_KEY_TOKEN);
+        if (!rawToken) return '';
+        try { return JSON.parse(rawToken); } catch (err) { return rawToken; }
+    };
     const readStoredUser = () => {
         try { return JSON.parse(localStorage.getItem(STORAGE_KEY_USER) || 'null'); } catch (err) { return null; }
     };
@@ -1184,13 +1238,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const writeToken = token => {
         authToken = token || '';
-        if (authToken) localStorage.setItem(STORAGE_KEY_TOKEN, authToken);
+        if (authToken) localStorage.setItem(STORAGE_KEY_TOKEN, typeof authToken === 'string' ? authToken : JSON.stringify(authToken));
         else localStorage.removeItem(STORAGE_KEY_TOKEN);
     };
-    const extractAccessToken = payload => {
+    const extractToken = payload => {
         const msg = payload && payload.message ? payload.message : payload;
-        const tokenObj = msg && msg.token ? msg.token : msg;
-        return tokenObj && typeof tokenObj === 'object' ? tokenObj.token : '';
+        return msg && msg.token ? msg.token : null;
     };
     const extractUser = payload => {
         const msg = payload && payload.message ? payload.message : payload;
@@ -1203,14 +1256,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const api = async (path, options = {}) => {
         const res = await fetch(API_BASE + path, options);
         const body = await res.json().catch(() => ({}));
-        if (!res.ok || body.status === 0) throw new Error(body.message || body.detail || 'Request failed');
+        if (!res.ok || body.status !== 1) throw new Error(body.message || body.detail || 'Request failed');
         return body;
     };
     const openModal = id => { document.getElementById(id).style.display = 'flex'; };
     const closeModal = id => { document.getElementById(id).style.display = 'none'; };
-    const initialsFromName = name => {
-        const parts = String(name || 'Buyer').trim().split(/\s+/).filter(Boolean);
-        return (parts[0] || 'B').slice(0, 2).toUpperCase();
+    const closeProfileMenu = () => {
+        const menu = document.getElementById('profile-menu');
+        const trigger = document.getElementById('user-profile-trigger');
+        if (menu) menu.classList.remove('open');
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    };
+    const toggleProfileMenu = () => {
+        const menu = document.getElementById('profile-menu');
+        const trigger = document.getElementById('user-profile-trigger');
+        const isOpen = menu.classList.toggle('open');
+        trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    };
+    const avatarTextFromUsername = username => {
+        const value = String(username || 'User').trim();
+        return (value || 'U').slice(0, 3).toUpperCase();
     };
     const showSection = target => {
         document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
@@ -1219,17 +1284,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.getAttribute('data-target') === target));
     };
     const renderProfile = () => {
-        const user = authUser || {};
-        const displayName = user.name || user.username || 'Buyer';
-        const profileName = document.querySelector('.user-profile span');
+        const user = readStoredUser() || authUser || {};
+        authUser = user && Object.keys(user).length ? user : null;
         const profileAvatar = document.querySelector('.avatar');
-        if (profileName) profileName.textContent = displayName;
-        if (profileAvatar) profileAvatar.textContent = initialsFromName(displayName);
-        document.getElementById('profile-name').textContent = user.name || '-';
+        if (profileAvatar) profileAvatar.textContent = avatarTextFromUsername(user.username || user.name);
         document.getElementById('profile-username').textContent = user.username || '-';
-        document.getElementById('profile-id-ext').textContent = user.id_ext || '-';
-        document.getElementById('profile-type').textContent = user.type ?? '-';
-        document.getElementById('profile-role').textContent = user.role ?? '-';
+        document.getElementById('profile-password').textContent = user.password ? '****' : '-';
     };
     const applyAuthState = () => {
         const loggedIn = Boolean(authToken && authUser);
@@ -1239,23 +1299,22 @@ document.addEventListener('DOMContentLoaded', () => {
         showSection(loggedIn ? 'visibility' : 'home');
     };
     const saveAuthPayload = payload => {
-        const nextToken = extractAccessToken(payload);
+        const nextToken = extractToken(payload);
         const nextUser = extractUser(payload);
-        if (nextToken) writeToken(nextToken);
-        if (nextUser) writeUser(nextUser);
-    };
-    const fetchProfile = async () => {
-        if (!authToken) return;
-        const payload = await api(PROFILE_PATH, { headers: { Authorization: `Bearer ${authToken}` } });
-        saveAuthPayload(payload);
+        if (!nextToken || !nextUser) throw new Error('Login response missing token or user');
+        writeToken(nextToken);
+        writeUser(nextUser);
     };
     const logout = () => {
+        if (!confirm('Logout from MyShipment?')) return;
         writeToken('');
         writeUser(null);
+        closeProfileMenu();
         closeModal('profile-modal');
         closeModal('login-modal');
         applyAuthState();
     };
+    let authToken = readStoredToken();
     authUser = readStoredUser();
 
     // 1. Tab Routing
@@ -1271,22 +1330,37 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('header-login-btn').addEventListener('click', () => openModal('login-modal'));
-    document.getElementById('home-login-btn').addEventListener('click', () => openModal('login-modal'));
     document.getElementById('login-modal-close').addEventListener('click', () => closeModal('login-modal'));
     document.getElementById('login-cancel-btn').addEventListener('click', () => closeModal('login-modal'));
     document.getElementById('profile-modal-close').addEventListener('click', () => closeModal('profile-modal'));
     document.getElementById('profile-close-btn').addEventListener('click', () => closeModal('profile-modal'));
-    document.getElementById('logout-btn').addEventListener('click', logout);
-    document.getElementById('user-profile-trigger').addEventListener('click', () => {
+    document.getElementById('profile-menu-profile').addEventListener('click', () => {
+        closeProfileMenu();
         renderProfile();
         openModal('profile-modal');
+    });
+    document.getElementById('profile-menu-logout').addEventListener('click', logout);
+    document.getElementById('toggle-password').addEventListener('click', () => {
+        const input = document.getElementById('login-password');
+        const icon = document.querySelector('#toggle-password i');
+        const shouldShow = input.type === 'password';
+        input.type = shouldShow ? 'text' : 'password';
+        icon.className = shouldShow ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+        document.getElementById('toggle-password').setAttribute('aria-label', shouldShow ? 'Hide password' : 'Show password');
+        document.getElementById('toggle-password').setAttribute('title', shouldShow ? 'Hide password' : 'Show password');
+    });
+    document.getElementById('user-profile-trigger').addEventListener('click', e => {
+        e.stopPropagation();
+        toggleProfileMenu();
     });
     document.getElementById('user-profile-trigger').addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            renderProfile();
-            openModal('profile-modal');
+            toggleProfileMenu();
         }
+    });
+    document.addEventListener('click', e => {
+        if (!e.target.closest('.profile-actions')) closeProfileMenu();
     });
     document.getElementById('login-form').addEventListener('submit', async e => {
         e.preventDefault();
@@ -1306,7 +1380,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
             saveAuthPayload(payload);
-            await fetchProfile();
             msg.textContent = '';
             closeModal('login-modal');
             document.getElementById('login-form').reset();
@@ -1461,11 +1534,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     initCharts();
     applyAuthState();
-    if (authToken) {
-        fetchProfile()
-            .then(applyAuthState)
-            .catch(() => logout());
-    }
 
 });
     </script>

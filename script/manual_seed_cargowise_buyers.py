@@ -15,108 +15,84 @@ from function import func_regex_check
 from function import func_postgres_schema_read
 
 # config
-from config import config_mssql_url
+from config import config_mssql_url_read
 from config import config_postgres_url
 from config import config_regex
 from config import config_table
 from config import config_buffer_limit_default
-config_seed_buyer_password = "123456"
-config_seed_buyer_user_type = 1
-config_seed_buyer_role = 2
+config_seed_cargowise_user_password = "123456"
+config_seed_cargowise_user_type = 1
+config_seed_cargowise_user_role = 2
 
 # logic
 async def execute():
     batch_size = 1000
     def parse_args():
-        parser = argparse.ArgumentParser(description="Seed CargoWise buyers into Postgres users.")
+        parser = argparse.ArgumentParser(description="Seed CargoWise orgs into Postgres users.")
         parser.add_argument("--postgres-url", default=config_postgres_url, help="PostgreSQL DSN. Defaults to config_postgres_url.")
-        parser.add_argument("--mssql-url", default=config_mssql_url, help="MSSQL ODBC DSN. Defaults to config_mssql_url.")
-        parser.add_argument("--password", default=config_seed_buyer_password, help="Default password for newly-created buyer users.")
-        parser.add_argument("--user-type", type=int, default=config_seed_buyer_user_type, help="users.type value for buyer users.")
-        parser.add_argument("--role", type=int, default=config_seed_buyer_role, help="users.role value for buyer users.")
-        parser.add_argument("--include-inactive", action="store_true", help="Include inactive CargoWise buyer orgs.")
+        parser.add_argument("--mssql-url", default=config_mssql_url_read, help="MSSQL ODBC DSN. Defaults to config_mssql_url_read.")
+        parser.add_argument("--password", default=config_seed_cargowise_user_password, help="Default password for newly-created CargoWise users.")
+        parser.add_argument("--user-type", type=int, default=config_seed_cargowise_user_type, help="users.type value for CargoWise users.")
+        parser.add_argument("--role", type=int, default=config_seed_cargowise_user_role, help="users.role value for CargoWise users.")
+        parser.add_argument("--include-inactive", action="store_true", help="Include inactive CargoWise orgs.")
         parser.add_argument("--dry-run", action="store_true", help="Print planned changes without writing to Postgres.")
         return parser.parse_args()
     def chunked(items, size):
         for i in range(0, len(items), size):
             yield items[i:i + size]
-    def buyer_sql(include_inactive):
+    def cargowise_org_sql(include_inactive):
         active_filter = "" if include_inactive else "AND OH.OH_IsActive = 1"
         return textwrap.dedent(f"""\
-            WITH BuyerIds AS (
-                SELECT DISTINCT
-                    BuyerPK
-                FROM dbo.vw_Report_ConsignorBuyerDetails
-                WHERE BuyerPK IS NOT NULL
-                UNION
-                SELECT DISTINCT
-                    OL_OH_Buyer AS BuyerPK
-                FROM dbo.OrgSupplierBuyerLink
-                WHERE OL_IsValid = 1
-            )
             SELECT DISTINCT
-                CONVERT(varchar(36), OH.OH_PK) AS id_ext,
-                OH.OH_Code AS buyer_code,
-                OH.OH_FullName AS buyer_name
-            FROM BuyerIds AS B
-            JOIN dbo.OrgHeader AS OH
-                ON OH.OH_PK = B.BuyerPK
+                CONVERT(varchar(36), OH.OH_PK) AS username,
+                OH.OH_FullName AS name
+            FROM dbo.OrgHeader AS OH
             WHERE OH.OH_IsValid = 1
               {active_filter}
-            ORDER BY OH.OH_Code;""")
-    async def fetch_cargowise_buyers(mssql_url, include_inactive):
+            ORDER BY OH.OH_FullName;""")
+    async def fetch_cargowise_orgs(mssql_url, include_inactive):
         pool = await aioodbc.create_pool(dsn=mssql_url, minsize=1, maxsize=3)
         try:
             async with pool.acquire() as conn:
                 cursor = await conn.cursor()
-                await cursor.execute(buyer_sql(include_inactive))
+                await cursor.execute(cargowise_org_sql(include_inactive))
                 columns = [column[0] for column in cursor.description]
                 rows = await cursor.fetchall()
         finally:
             pool.close()
             await pool.wait_closed()
-        buyers = []
+        orgs = []
         for row in rows:
             item = dict(zip(columns, row))
-            id_ext = str(item.get("id_ext") or "").strip()
-            buyer_code = str(item.get("buyer_code") or "").strip()
-            buyer_name = str(item.get("buyer_name") or "").strip()
-            if not id_ext or not buyer_code:
+            username = str(item.get("username") or "").strip()
+            name = str(item.get("name") or "").strip()
+            if not username:
                 continue
-            buyers.append({"id_ext": id_ext, "username": buyer_code, "name": buyer_name})
-        return buyers
-    async def read_existing_users(client_postgres_pool, buyers, user_type):
-        if not buyers:
+            orgs.append({"username": username, "name": name})
+        return orgs
+    async def read_existing_users(client_postgres_pool, orgs):
+        if not orgs:
             return []
-        id_exts = [buyer["id_ext"] for buyer in buyers]
-        usernames = [buyer["username"] for buyer in buyers]
+        usernames = [org["username"] for org in orgs]
         sql = textwrap.dedent("""\
             SELECT
                 id,
                 type,
                 username,
-                id_ext,
                 name,
-                role
+                role,
+                deactivated_at,
+                deleted_at
             FROM users
-            WHERE type = $1
-              AND (
-                    id_ext = ANY($2::text[])
-                    OR username = ANY($3::text[])
-              );""")
+            WHERE username = ANY($1::text[])
+            ORDER BY username, deleted_at NULLS FIRST, deactivated_at NULLS FIRST, type;""")
         async with client_postgres_pool.acquire() as conn:
-            records = await conn.fetch(sql, user_type, id_exts, usernames)
+            records = await conn.fetch(sql, usernames)
         return [dict(record) for record in records]
-    def plan_user_changes(buyers, existing_users, password, user_type, role):
-        existing_by_id_ext = {}
+    def plan_user_changes(orgs, existing_users, password, user_type, role):
         existing_by_username = {}
         duplicate_warnings = []
         for user in existing_users:
-            if user.get("id_ext"):
-                if user["id_ext"] in existing_by_id_ext:
-                    duplicate_warnings.append(f"duplicate existing id_ext skipped: {user['id_ext']}")
-                    continue
-                existing_by_id_ext[user["id_ext"]] = user
             if user.get("username"):
                 if user["username"] in existing_by_username:
                     duplicate_warnings.append(f"duplicate existing username skipped: {user['username']}")
@@ -125,18 +101,12 @@ async def execute():
         create_list = []
         update_list = []
         sync_time = datetime.now(timezone.utc)
-        for buyer in buyers:
-            existing = existing_by_id_ext.get(buyer["id_ext"])
+        for org in orgs:
+            existing = existing_by_username.get(org["username"])
             if not existing:
-                existing_by_username_match = existing_by_username.get(buyer["username"])
-                if existing_by_username_match and existing_by_username_match.get("id_ext") not in (None, "", buyer["id_ext"]):
-                    duplicate_warnings.append(f"username conflict skipped: {buyer['username']} -> {buyer['id_ext']}")
-                    continue
-                existing = existing_by_username_match
-            if not existing:
-                create_list.append({"type": user_type, "username": buyer["username"], "password": password, "id_ext": buyer["id_ext"], "role": role, "name": buyer["name"]})
+                create_list.append({"type": user_type, "username": org["username"], "password": password, "role": role, "name": org["name"]})
                 continue
-            desired = {"username": buyer["username"], "id_ext": buyer["id_ext"], "role": role, "name": buyer["name"]}
+            desired = {"type": user_type, "role": role, "name": org["name"]}
             if any(existing.get(key) != value for key, value in desired.items()):
                 update_list.append({"id": existing["id"], **desired, "updated_at": sync_time})
         return create_list, update_list, duplicate_warnings
@@ -158,12 +128,12 @@ async def execute():
         print("Error: PostgreSQL URL is required. Set config_postgres_url or pass --postgres-url.")
         return
     if not args.mssql_url:
-        print("Error: MSSQL URL is required. Set config_mssql_url or pass --mssql-url.")
+        print("Error: MSSQL URL is required. Set config_mssql_url_read or pass --mssql-url.")
         return
-    print("Fetching CargoWise buyers...")
-    buyers = await fetch_cargowise_buyers(args.mssql_url, args.include_inactive)
-    print(f"Fetched {len(buyers)} buyer(s).")
-    if not buyers:
+    print("Fetching CargoWise orgs...")
+    orgs = await fetch_cargowise_orgs(args.mssql_url, args.include_inactive)
+    print(f"Fetched {len(orgs)} org(s).")
+    if not orgs:
         return
     client_postgres_pool = await asyncpg.create_pool(dsn=args.postgres_url, min_size=1, max_size=5)
     try:
@@ -171,8 +141,8 @@ async def execute():
         if "users" not in cache_postgres_schema:
             raise Exception("users table not found in Postgres schema")
         client_password_hasher = PasswordHasher()
-        existing_users = await read_existing_users(client_postgres_pool, buyers, args.user_type)
-        create_list, update_list, duplicate_warnings = plan_user_changes(buyers, existing_users, args.password, args.user_type, args.role)
+        existing_users = await read_existing_users(client_postgres_pool, orgs)
+        create_list, update_list, duplicate_warnings = plan_user_changes(orgs, existing_users, args.password, args.user_type, args.role)
         print(f"Existing matched user(s): {len(existing_users)}")
         print(f"Planned creates: {len(create_list)}")
         print(f"Planned updates: {len(update_list)}")
@@ -187,9 +157,9 @@ async def execute():
             return
         created_count = await create_users(client_postgres_pool, cache_postgres_schema, client_password_hasher, create_list) if create_list else 0
         updated_count = await update_users(client_postgres_pool, cache_postgres_schema, client_password_hasher, update_list) if update_list else 0
-        print(f"Created buyer user(s): {created_count}")
-        print(f"Updated buyer user(s): {updated_count}")
-        print("CargoWise buyer user seed completed.")
+        print(f"Created CargoWise user(s): {created_count}")
+        print(f"Updated CargoWise user(s): {updated_count}")
+        print("CargoWise user seed completed.")
     finally:
         await client_postgres_pool.close()
         

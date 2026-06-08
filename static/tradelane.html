@@ -3,609 +3,424 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tradelane Database | MGH Group</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>Tradelane Ops Portal | MGH Group</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-base: #050505;
-            --surface-glass: rgba(20, 20, 22, 0.6);
-            --surface-glass-hover: rgba(30, 30, 35, 0.8);
-            --primary-glow: #4f46e5;
-            --secondary-glow: #06b6d4;
-            --text-main: #ffffff;
-            --text-muted: #a1a1aa;
-            --border-light: rgba(255, 255, 255, 0.1);
+            --bg-color: #f1f5f9;
+            --surface-color: #ffffff;
+            --nav-bg: #0f172a;
+            --nav-text: #f8fafc;
+            --border-color: #e2e8f0;
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
             --danger-color: #ef4444;
+            --danger-hover: #dc2626;
             --success-color: #10b981;
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            font-family: 'Outfit', sans-serif;
-            background-color: var(--bg-base);
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
             color: var(--text-main);
-            line-height: 1.6;
+            line-height: 1.5;
             min-height: 100vh;
-            overflow-x: hidden;
-            background-image: 
-                radial-gradient(circle at 15% 50%, rgba(79, 70, 229, 0.15), transparent 25%),
-                radial-gradient(circle at 85% 30%, rgba(6, 182, 212, 0.15), transparent 25%);
-            background-attachment: fixed;
         }
 
-        /* Glassmorphism Navbar */
+        /* Top Navigation */
         nav {
+            background-color: var(--nav-bg);
+            padding: 1rem 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1.25rem 3rem;
-            background: var(--surface-glass);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border-bottom: 1px solid var(--border-light);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
             position: sticky;
             top: 0;
             z-index: 100;
         }
 
         .brand h1 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            background: linear-gradient(to right, #fff, #a1a1aa);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: -0.5px;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--nav-text);
+            letter-spacing: -0.025em;
         }
 
         .brand span {
-            background: linear-gradient(to right, var(--secondary-glow), var(--primary-glow));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-size: 0.9rem;
-            font-weight: 600;
-            margin-left: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            font-size: 0.875rem;
+            color: #94a3b8;
+            margin-left: 0.5rem;
+            font-weight: 400;
         }
 
-        .auth-section {
-            display: flex;
-            align-items: center;
-            gap: 1.5rem;
-        }
+        .auth-section { display: flex; align-items: center; gap: 1rem; }
 
-        /* Premium Buttons */
+        /* Buttons */
         .btn {
-            background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
-            border: 1px solid var(--border-light);
-            color: white;
-            padding: 0.6rem 1.5rem;
-            border-radius: 2rem;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
             font-weight: 500;
-            font-family: inherit;
+            border-radius: 0.375rem;
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            backdrop-filter: blur(10px);
-            position: relative;
-            overflow: hidden;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            font-family: inherit;
         }
-
-        .btn::before {
-            content: '';
-            position: absolute;
-            top: 0; left: -100%; width: 100%; height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: all 0.5s ease;
-        }
-
-        .btn:hover::before { left: 100%; }
-        .btn:hover {
-            border-color: rgba(255,255,255,0.3);
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px -10px var(--primary-glow);
-        }
-        .btn:active { transform: translateY(0); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
         .btn-primary {
-            background: linear-gradient(135deg, var(--primary-glow), #312e81);
-            border: none;
+            background-color: var(--primary-color);
+            color: white;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
+        .btn-primary:hover:not(:disabled) { background-color: var(--primary-hover); }
 
-        .btn-danger {
-            background: transparent;
-            border: 1px solid rgba(239, 68, 68, 0.5);
-            color: var(--danger-color);
+        .btn-outline {
+            background-color: transparent;
+            border-color: var(--border-color);
+            color: var(--text-main);
         }
-        .btn-danger:hover {
-            background: rgba(239, 68, 68, 0.1);
-            border-color: var(--danger-color);
-            box-shadow: 0 10px 20px -10px var(--danger-color);
+        .btn-outline:hover:not(:disabled) { background-color: #f8fafc; }
+
+        .btn-nav-outline {
+            background-color: transparent;
+            border-color: #334155;
+            color: var(--nav-text);
         }
+        .btn-nav-outline:hover:not(:disabled) { background-color: #1e293b; }
 
         .avatar {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, var(--secondary-glow), var(--primary-glow));
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 1.2rem;
+            width: 32px; height: 32px;
+            background-color: #3b82f6;
             color: white;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 600; font-size: 0.875rem;
             text-transform: uppercase;
-            box-shadow: 0 0 15px rgba(79, 70, 229, 0.5);
+            box-shadow: 0 0 0 2px #1e293b;
         }
 
         /* Modal */
         .modal-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(8px);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(4px);
+            display: none; align-items: center; justify-content: center; z-index: 1000;
         }
-
         .modal {
-            background: var(--surface-glass);
-            backdrop-filter: blur(20px);
-            padding: 3rem;
-            border-radius: 1.5rem;
-            width: 100%;
-            max-width: 420px;
-            border: 1px solid rgba(255,255,255,0.15);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255,255,255,0.1);
-            transform: scale(0.95) translateY(20px);
-            opacity: 0;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: var(--surface-color); padding: 2.5rem; border-radius: 0.75rem;
+            width: 100%; max-width: 420px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
         }
-
-        .modal.active {
-            transform: scale(1) translateY(0);
-            opacity: 1;
-        }
-
-        .modal h2 { margin-bottom: 2rem; font-size: 1.75rem; font-weight: 600; text-align: center; }
-        .form-group { margin-bottom: 1.5rem; }
-        .form-group label { display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem; }
+        .modal h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 1.5rem; color: var(--text-main); }
+        .form-group { margin-bottom: 1.25rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 500; color: var(--text-main); }
         .form-input {
-            width: 100%;
-            padding: 0.875rem 1rem;
-            background: rgba(0,0,0,0.3);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 0.75rem;
-            color: white;
-            font-family: inherit;
-            font-size: 1rem;
-            transition: all 0.3s ease;
+            width: 100%; padding: 0.625rem 0.75rem; border: 1px solid var(--border-color);
+            border-radius: 0.5rem; font-family: inherit; font-size: 0.875rem;
+            background-color: #f8fafc; color: var(--text-main);
+            transition: all 0.2s;
         }
-        .form-input:focus { 
-            outline: none; 
-            border-color: var(--primary-glow);
-            background: rgba(0,0,0,0.5);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
-        }
-        .modal .btn { width: 100%; margin-top: 1rem; padding: 1rem; border-radius: 0.75rem; }
-        .error-msg { color: var(--danger-color); font-size: 0.875rem; margin-top: 0.5rem; display: none; text-align: center; }
+        .form-input:focus { outline: none; border-color: var(--primary-color); background-color: white; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        .modal .btn { width: 100%; margin-top: 1rem; padding: 0.75rem; font-size: 1rem; }
+        .error-msg { color: var(--danger-color); font-size: 0.875rem; margin-top: 0.5rem; display: none; font-weight: 500; }
 
         /* Main Content */
-        main { padding: 3rem 2rem; max-width: 1400px; margin: 0 auto; }
-        
-        /* Stunning Hero Section */
+        main { padding: 2rem; max-width: 1600px; margin: 0 auto; }
+
+        /* Hero / Login Prompt */
         .hero {
-            text-align: center;
-            padding: 8rem 2rem;
-            position: relative;
-            border-radius: 2rem;
-            overflow: hidden;
-            margin-bottom: 3rem;
-            border: 1px solid rgba(255,255,255,0.05);
-            background: radial-gradient(circle at 50% 0%, rgba(30, 30, 35, 0.8), transparent 70%);
+            text-align: center; padding: 5rem 2rem 3rem; background: var(--surface-color);
+            border-radius: 0.75rem; border: 1px solid var(--border-color); margin-top: 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
         }
+        .hero h2 { font-size: 2rem; margin-bottom: 1rem; color: var(--text-main); font-weight: 600; letter-spacing: -0.025em; }
+        .hero p { color: var(--text-muted); margin-bottom: 3.5rem; font-size: 1.125rem; max-width: 600px; margin-left: auto; margin-right: auto; }
 
-        .hero::before {
-            content: '';
-            position: absolute;
-            top: -50%; left: -50%; width: 200%; height: 200%;
-            background: conic-gradient(from 0deg at 50% 50%, transparent 0deg, var(--primary-glow) 90deg, transparent 180deg);
-            opacity: 0.05;
-            animation: rotate 20s linear infinite;
-            z-index: -1;
+        /* Feature Cards */
+        .features-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;
+            max-width: 1100px; margin: 0 auto; padding-bottom: 2rem;
         }
-
-        @keyframes rotate { 100% { transform: rotate(360deg); } }
-
-        .hero h2 { 
-            font-size: 4rem; 
-            font-weight: 700;
-            margin-bottom: 1.5rem; 
-            line-height: 1.1;
-            background: linear-gradient(to right, #fff, #9ca3af);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: -1px;
-            animation: fadeUp 1s ease forwards;
-        }
-
-        .hero p { 
-            color: var(--text-muted); 
-            font-size: 1.25rem;
-            max-width: 650px; 
-            margin: 0 auto 2.5rem; 
-            line-height: 1.8;
-            animation: fadeUp 1s ease 0.2s forwards;
-            opacity: 0;
-        }
-
-        .hero-btn {
-            animation: fadeUp 1s ease 0.4s forwards;
-            opacity: 0;
-        }
-
-        @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .dashboard { display: none; animation: fadeUp 0.6s ease forwards; }
-
-        /* SQL Runner Card */
-        .sql-runner {
-            background: var(--surface-glass);
-            backdrop-filter: blur(12px);
-            padding: 2rem;
-            border-radius: 1.5rem;
-            border: 1px solid var(--border-light);
-            margin-bottom: 2.5rem;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
-        }
-
-        .sql-runner h3 { 
-            margin-bottom: 1.5rem; 
-            font-size: 1.5rem; 
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-        
-        .sql-runner h3::before {
-            content: '';
-            display: block;
-            width: 12px; height: 12px;
-            background: var(--success-color);
-            border-radius: 50%;
-            box-shadow: 0 0 10px var(--success-color);
-        }
-
-        .sql-textarea {
-            width: 100%;
-            height: 180px;
-            background: rgba(0,0,0,0.4);
-            color: #34d399;
-            padding: 1.5rem;
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 1rem;
-            font-family: 'Fira Code', 'Courier New', monospace;
-            font-size: 1.05rem;
-            line-height: 1.5;
-            resize: vertical;
-            margin-bottom: 1.5rem;
+        .feature-card {
+            background: #f8fafc; padding: 2rem; border-radius: 0.75rem;
+            border: 1px solid var(--border-color); text-align: left;
             transition: all 0.3s ease;
         }
-        .sql-textarea:focus { 
-            outline: none; 
-            border-color: var(--primary-glow);
-            box-shadow: inset 0 0 0 1px var(--primary-glow);
+        .feature-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border-color: #cbd5e1; }
+        .feature-card h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-main); }
+        .feature-card p { color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; }
+        .feature-icon {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 56px; height: 56px; border-radius: 0.75rem;
+            background: white; color: var(--primary-color);
+            margin-bottom: 1.5rem; font-size: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid var(--border-color);
         }
-        
+
+        /* Dashboard */
+        .dashboard { display: none; }
+
+        .panel {
+            background: var(--surface-color); border: 1px solid var(--border-color);
+            border-radius: 0.75rem; margin-bottom: 1.5rem; overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        }
+        .panel-header {
+            padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color);
+            background-color: #f8fafc; font-weight: 600; font-size: 0.875rem; color: var(--text-main);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .panel-body { padding: 1.5rem; }
+
+        /* SQL Editor */
+        .sql-textarea {
+            width: 100%; height: 140px; padding: 1rem; border: 1px solid var(--border-color);
+            border-radius: 0.5rem; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 0.875rem;
+            resize: vertical; margin-bottom: 1.25rem; color: var(--text-main);
+            background-color: #f8fafc; line-height: 1.5;
+            transition: all 0.2s;
+        }
+        .sql-textarea:focus { outline: none; border-color: var(--primary-color); background-color: white; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
         .toolbar { display: flex; justify-content: space-between; align-items: center; }
-        .status-msg { color: var(--text-muted); font-size: 0.95rem; font-weight: 500; }
+        .status-msg { font-size: 0.875rem; font-weight: 500; color: var(--text-muted); padding: 0.5rem 1rem; border-radius: 0.375rem; background: var(--bg-color); }
 
-        /* Premium Table */
-        .table-container {
-            width: 100%;
-            overflow-x: auto;
-            background: var(--surface-glass);
-            backdrop-filter: blur(12px);
-            border-radius: 1.5rem;
-            border: 1px solid var(--border-light);
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
-        }
-
-        .table-container::-webkit-scrollbar { height: 8px; }
-        .table-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 4px; }
-        .table-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
-        .table-container::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-            font-size: 0.95rem;
-        }
-
-        th, td { 
-            padding: 1rem 1.5rem; 
-            border-bottom: 1px solid rgba(255,255,255,0.05); 
-            white-space: nowrap; 
-        }
-        
-        th { 
-            background: rgba(0,0,0,0.3); 
-            color: var(--text-muted); 
-            font-weight: 600; 
-            text-transform: uppercase;
-            font-size: 0.8rem;
-            letter-spacing: 1px;
-            position: sticky;
-            top: 0;
-            backdrop-filter: blur(5px);
-        }
-        
-        tr { transition: background-color 0.2s; }
-        tr:hover { background-color: rgba(255,255,255,0.03); }
-        
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-        
-        .empty-state { padding: 5rem 2rem; text-align: center; color: var(--text-muted); font-size: 1.1rem; }
-
+        /* Table */
+        .table-responsive { width: 100%; overflow-x: auto; max-height: 600px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.875rem; text-align: left; }
+        th, td { padding: 0.875rem 1.5rem; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+        th { background: #f8fafc; font-weight: 600; color: var(--text-main); position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 0 var(--border-color); }
+        tr:hover td { background-color: #f1f5f9; }
+        td { color: var(--text-muted); }
+        .empty-state { padding: 4rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.95rem; }
     </style>
 </head>
 <body>
 
     <nav>
         <div class="brand">
-            <h1>Tradelane Database<span>MGH Group</span></h1>
+            <h1>Tradelane<span>Database</span></h1>
         </div>
-        <div class="auth-section" id="authSection">
-            <!-- Injected via JS -->
-        </div>
+        <div class="auth-section" id="authSection"></div>
     </nav>
 
     <!-- Login Modal -->
     <div class="modal-overlay" id="loginModal">
-        <div class="modal" id="modalContent">
-            <h2>Access Portal</h2>
+        <div class="modal">
+            <h2>Login</h2>
             <form id="loginForm">
                 <div class="form-group">
                     <label>Username</label>
-                    <input type="text" id="username" class="form-input" required autocomplete="username">
+                    <input type="text" id="username" class="form-input" required autocomplete="username" placeholder="Enter your username">
                 </div>
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" id="password" class="form-input" required autocomplete="current-password">
+                    <input type="password" id="password" class="form-input" required autocomplete="current-password" placeholder="••••••••">
                 </div>
                 <div class="error-msg" id="loginError"></div>
-                <button type="submit" class="btn btn-primary" id="loginBtn">Authenticate Access</button>
+                <button type="submit" class="btn btn-primary" id="loginBtn">Sign In to Portal</button>
             </form>
         </div>
     </div>
 
     <main>
-        <!-- Logged Out View -->
         <div class="hero" id="heroView">
-            <h2>Next-Gen Intelligence</h2>
-            <p>Access the global master database for real-time export and import insights. Highly secure, incredibly fast.</p>
-            <button class="btn btn-primary hero-btn" onclick="openModal()" style="padding: 1rem 2.5rem; font-size: 1.1rem;">Enter Platform</button>
+            <h2>Authorized Access Only</h2>
+            <p>Please use the sign-in button in the top right to authenticate your session and access the data exploration portal.</p>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">⚡️</div>
+                    <h3>Fast Query Execution</h3>
+                    <p>Run optimized read-only queries directly against the Tradelane database. Supports standard PostgreSQL syntax with rapid response times.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>Direct CSV Export</h3>
+                    <p>Export your query results instantly to standard CSV format. Perfect for creating ad-hoc reports and downstream data processing.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>Secure & Audited</h3>
+                    <p>All operations are securely authenticated via OAuth 2.0. Queries are restricted to read-mode to ensure complete data integrity.</p>
+                </div>
+            </div>
         </div>
 
-        <!-- Logged In Dashboard -->
         <div class="dashboard" id="dashboardView">
-            <div class="sql-runner">
-                <h3>Terminal (Read-Only)</h3>
-                <textarea id="sqlInput" class="sql-textarea" placeholder="SELECT * FROM master LIMIT 10;"></textarea>
-                <div class="toolbar">
-                    <div class="status-msg" id="queryStatus">System Ready.</div>
-                    <div style="display: flex; gap: 1rem;">
-                        <button class="btn btn-danger" onclick="downloadCSV()" id="downloadBtn" disabled>Export CSV</button>
+            <div class="panel">
+                <div class="panel-header">
+                    Query Editor
+                    <span class="status-msg" id="queryStatus">System Ready</span>
+                </div>
+                <div class="panel-body">
+                    <textarea id="sqlInput" class="sql-textarea" placeholder="SELECT * FROM master LIMIT 100;"></textarea>
+                    <div class="toolbar">
+                        <button class="btn btn-outline" onclick="downloadCSV()" id="downloadBtn" disabled>Export Data (CSV)</button>
                         <button class="btn btn-primary" onclick="runQuery()" id="runBtn">Execute Query</button>
                     </div>
                 </div>
             </div>
 
-            <div class="table-container">
-                <table id="resultsTable">
-                    <thead id="tableHead"></thead>
-                    <tbody id="tableBody">
-                        <tr><td class="empty-state" colspan="100%">Awaiting execution protocol. Run a query to view results.</td></tr>
-                    </tbody>
-                </table>
+            <div class="panel">
+                <div class="panel-header" id="tableTitle">Query Results (0)</div>
+                <div class="table-responsive">
+                    <table id="resultsTable">
+                        <thead id="tableHead"></thead>
+                        <tbody id="tableBody">
+                            <tr><td class="empty-state" colspan="100%">No data to display. Run a query above to explore the database.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </main>
 
     <script>
-        // State
         let currentData = [];
         let currentColumns = [];
 
-        // DOM Elements
         const authSection = document.getElementById('authSection');
         const loginModal = document.getElementById('loginModal');
-        const modalContent = document.getElementById('modalContent');
         const loginForm = document.getElementById('loginForm');
         const heroView = document.getElementById('heroView');
         const dashboardView = document.getElementById('dashboardView');
         const loginError = document.getElementById('loginError');
         const queryStatus = document.getElementById('queryStatus');
+        const tableTitle = document.getElementById('tableTitle');
         const runBtn = document.getElementById('runBtn');
         const downloadBtn = document.getElementById('downloadBtn');
 
-        // Initialization
         function init() {
-            const token = localStorage.getItem('tradelane_token');
-            const userStr = localStorage.getItem('tradelane_user');
+            const token = localStorage.getItem('token');
+            const userStr = localStorage.getItem('user');
             
             if (token && userStr) {
-                const user = JSON.parse(userStr);
-                renderLoggedInAuth(user);
-                showDashboard();
+                renderLoggedInAuth(JSON.parse(userStr));
+                heroView.style.display = 'none';
+                dashboardView.style.display = 'block';
             } else {
                 renderLoggedOutAuth();
-                showHero();
+                heroView.style.display = 'block';
+                dashboardView.style.display = 'none';
             }
         }
 
-        // Auth UI
         function renderLoggedOutAuth() {
-            authSection.innerHTML = `<button class="btn btn-primary" onclick="openModal()">Log In</button>`;
+            authSection.innerHTML = `<button class="btn btn-nav-outline" onclick="openModal()">Sign In</button>`;
         }
 
         function renderLoggedInAuth(user) {
             const initial = user.username ? user.username.charAt(0).toUpperCase() : '?';
             authSection.innerHTML = `
                 <div class="avatar" title="${user.username}">${initial}</div>
-                <button class="btn btn-danger" onclick="logout()">Disconnect</button>
+                <button class="btn btn-nav-outline" onclick="logout()">Sign Out</button>
             `;
         }
 
-        function showHero() {
-            heroView.style.display = 'block';
-            dashboardView.style.display = 'none';
-        }
+        function openModal() { loginModal.style.display = 'flex'; }
+        function closeModal() { loginModal.style.display = 'none'; }
+        loginModal.addEventListener('click', (e) => { if (e.target === loginModal) closeModal(); });
 
-        function showDashboard() {
-            heroView.style.display = 'none';
-            dashboardView.style.display = 'block';
-        }
-
-        // Modal Logic
-        function openModal() {
-            loginModal.style.display = 'flex';
-            setTimeout(() => modalContent.classList.add('active'), 10);
-        }
-
-        function closeModal() {
-            modalContent.classList.remove('active');
-            setTimeout(() => loginModal.style.display = 'none', 400);
-        }
-
-        loginModal.addEventListener('click', (e) => {
-            if (e.target === loginModal) closeModal();
-        });
-
-        // Login Logic
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             loginError.style.display = 'none';
             const btn = document.getElementById('loginBtn');
-            btn.innerHTML = '<span style="opacity: 0.7">Authenticating...</span>';
-            btn.disabled = true;
-
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
+            btn.textContent = 'Authenticating...'; btn.disabled = true;
 
             try {
-                // Login directly
                 const res = await fetch('/auth/login-username-password', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ type: 1, username, password })
+                    body: JSON.stringify({ 
+                        type: 1, 
+                        username: document.getElementById('username').value, 
+                        password: document.getElementById('password').value 
+                    })
                 });
                 
                 const data = await res.json();
-                
-                if (data.status !== 1) {
-                    throw new Error(data.message || 'Authentication failed');
-                }
+                if (data.status !== 1) throw new Error(data.message || 'Authentication failed');
 
-                const token = data.message.token.token;
-                localStorage.setItem('tradelane_token', token);
-
-                // Fetch Profile
-                const profileRes = await fetch('/my/profile', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                const profileData = await profileRes.json();
-                if (profileData.status !== 1) {
-                    throw new Error(profileData.message || JSON.stringify(profileData));
-                }
-
-                localStorage.setItem('tradelane_user', JSON.stringify(profileData.message));
+                localStorage.setItem('token', JSON.stringify(data.message.token));
+                localStorage.setItem('user', JSON.stringify(data.message.user));
                 
                 closeModal();
                 init();
-
             } catch (err) {
                 loginError.textContent = err.message;
                 loginError.style.display = 'block';
             } finally {
-                btn.textContent = 'Authenticate Access';
-                btn.disabled = false;
+                btn.textContent = 'Sign In to Portal'; btn.disabled = false;
             }
         });
 
         function logout() {
-            localStorage.removeItem('tradelane_token');
-            localStorage.removeItem('tradelane_user');
-            currentData = [];
-            currentColumns = [];
-            renderTable();
-            init();
+            const confirmLogout = confirm("Are you sure you want to sign out of the Tradelane Database?");
+            if (!confirmLogout) return;
+
+            localStorage.clear();
+            currentData = []; currentColumns = [];
+            document.getElementById('sqlInput').value = '';
+            window.location.reload();
         }
 
-        // SQL Runner Logic
         async function runQuery() {
             const sql = document.getElementById('sqlInput').value.trim();
             if (!sql) return;
 
-            const token = localStorage.getItem('tradelane_token');
-            if (!token) return logout();
-
-            queryStatus.innerHTML = '<span style="color: var(--secondary-glow)">Executing query protocol...</span>';
-            runBtn.disabled = true;
-            downloadBtn.disabled = true;
+            const tokenStr = localStorage.getItem('token');
+            if (!tokenStr) return logout();
             
+            let tokenObj;
+            try {
+                tokenObj = JSON.parse(tokenStr);
+            } catch (e) {
+                return logout();
+            }
+            const accessToken = tokenObj.access_token || tokenObj;
+
+            queryStatus.textContent = 'Executing Query...';
+            queryStatus.style.color = 'var(--text-muted)';
+            queryStatus.style.backgroundColor = '#f1f5f9';
+            runBtn.disabled = true; downloadBtn.disabled = true;
             document.getElementById('tableHead').innerHTML = '';
-            document.getElementById('tableBody').innerHTML = '<tr><td class="empty-state" colspan="100%"><div style="color: var(--secondary-glow); font-size: 1.2rem; animation: pulse 1.5s infinite">Loading Data Stream...</div></td></tr>';
+            document.getElementById('tableBody').innerHTML = '<tr><td class="empty-state" colspan="100%">Loading data from database...</td></tr>';
 
             try {
-                const res = await fetch('/admin/postgres-sql-runner', {
+                const res = await fetch('/admin/postgres-sql-runner-read', {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
+                        'Authorization': `Bearer ${accessToken}`
                     },
-                    body: JSON.stringify({ mode: 'read', sql: sql })
+                    body: JSON.stringify({ sql: sql })
                 });
 
                 const data = await res.json();
-                
-                if (data.status !== 1) {
-                    throw new Error(data.message || 'Query failed');
-                }
+                if (data.status !== 1) throw new Error(data.message || 'Query failed');
 
                 const rows = data.message;
-                if (!Array.isArray(rows)) {
-                    throw new Error(typeof rows === 'string' ? rows : 'Invalid response format');
-                }
+                if (!Array.isArray(rows)) throw new Error(typeof rows === 'string' ? rows : 'Invalid response');
 
                 currentData = rows;
                 currentColumns = rows.length > 0 ? Object.keys(rows[0]) : [];
                 
-                queryStatus.textContent = `Success: Transmitted ${rows.length} rows.`;
+                queryStatus.textContent = `Completed in success`;
                 queryStatus.style.color = 'var(--success-color)';
+                queryStatus.style.backgroundColor = '#ecfdf5';
+                tableTitle.textContent = `Query Results (${rows.length} rows)`;
                 downloadBtn.disabled = rows.length === 0;
                 
                 renderTable();
-
             } catch (err) {
-                queryStatus.textContent = `Error: ${err.message}`;
+                queryStatus.textContent = 'Query Error';
                 queryStatus.style.color = 'var(--danger-color)';
+                queryStatus.style.backgroundColor = '#fef2f2';
                 document.getElementById('tableBody').innerHTML = `<tr><td class="empty-state" colspan="100%" style="color:var(--danger-color)">${err.message}</td></tr>`;
             } finally {
                 runBtn.disabled = false;
@@ -618,65 +433,43 @@
             
             if (currentData.length === 0) {
                 thead.innerHTML = '';
-                tbody.innerHTML = '<tr><td class="empty-state" colspan="100%">Zero results found.</td></tr>';
+                tbody.innerHTML = '<tr><td class="empty-state" colspan="100%">0 rows returned.</td></tr>';
                 return;
             }
 
-            // Headers
-            let headHTML = '<tr>';
-            currentColumns.forEach(col => {
-                headHTML += `<th>${col}</th>`;
-            });
-            headHTML += '</tr>';
-            thead.innerHTML = headHTML;
+            thead.innerHTML = '<tr>' + currentColumns.map(c => `<th>${c}</th>`).join('') + '</tr>';
 
-            // Rows
             let bodyHTML = '';
-            // Limit UI rendering to 1000 rows to prevent browser freeze
             const renderLimit = Math.min(currentData.length, 1000);
             for (let i = 0; i < renderLimit; i++) {
-                bodyHTML += '<tr>';
-                const row = currentData[i];
-                currentColumns.forEach(col => {
-                    bodyHTML += `<td>${row[col] !== null ? row[col] : '<span style="opacity:0.3">null</span>'}</td>`;
-                });
-                bodyHTML += '</tr>';
+                bodyHTML += '<tr>' + currentColumns.map(c => {
+                    let val = currentData[i][c];
+                    return `<td>${val !== null ? val : '<span style="color:#cbd5e1">null</span>'}</td>`;
+                }).join('') + '</tr>';
             }
             if (currentData.length > 1000) {
-                bodyHTML += `<tr><td colspan="100%" style="text-align:center; padding:1.5rem; color:var(--secondary-glow)">Showing 1000 of ${currentData.length} rows. Export CSV for complete transmission.</td></tr>`;
+                bodyHTML += `<tr><td colspan="100%" style="text-align:center; padding:1.5rem; color:var(--text-muted)">Displaying first 1000 of ${currentData.length} rows. Export to CSV to view all data.</td></tr>`;
             }
             tbody.innerHTML = bodyHTML;
         }
 
         function downloadCSV() {
             if (currentData.length === 0) return;
-
             let csv = currentColumns.join(',') + '\n';
-            
             currentData.forEach(row => {
-                const rowCSV = currentColumns.map(col => {
+                csv += currentColumns.map(col => {
                     let val = row[col];
                     if (val === null || val === undefined) return '';
                     val = String(val);
-                    if (val.includes(',') || val.includes('"') || val.includes('\n')) {
-                        return `"${val.replace(/"/g, '""')}"`;
-                    }
-                    return val;
-                });
-                csv += rowCSV.join(',') + '\n';
+                    return val.includes(',') || val.includes('"') || val.includes('\n') ? `"${val.replace(/"/g, '""')}"` : val;
+                }).join(',') + '\n';
             });
-
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = `tradelane_export_${new Date().getTime()}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+            a.download = `tradelane_export.csv`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
         }
 
-        // Start
         init();
     </script>
 </body>

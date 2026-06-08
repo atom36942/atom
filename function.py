@@ -1630,7 +1630,7 @@ async def func_producer(*, queue: str, client_celery_producer: any, client_kafka
         return await client_redis_producer.lpush(channel, orjson.dumps(payload).decode("utf-8"))
     return None
 
-async def func_token_encode(*, user: dict, config_token_secret_key: str, config_token_expiry_sec: int, config_token_refresh_expiry_sec: int, config_allowed_token_key: list) -> dict:
+async def func_token_encode(*, user: dict, config_token_secret_key: str, config_access_token_expires_in_sec: int, config_refresh_token_expires_in_sec: int, config_allowed_token_key: list) -> dict:
     """Generate access and refresh JWT tokens for a user object."""
     import jwt, orjson, time
     if user is None: return None
@@ -1639,9 +1639,9 @@ async def func_token_encode(*, user: dict, config_token_secret_key: str, config_
     payload_dict = {k: user.get(k) for k in config_allowed_token_key} if config_allowed_token_key else dict(user) if isinstance(user, dict) else user
     serialized_payload = orjson.dumps(payload_dict, default=str).decode("utf-8")
     now_ts = int(time.time())
-    access_token = jwt.encode({"exp": now_ts + config_token_expiry_sec, "data": serialized_payload, "type": "access"}, token_secret_key)
-    refresh_token = jwt.encode({"exp": now_ts + config_token_refresh_expiry_sec, "data": serialized_payload, "type": "refresh"}, token_secret_key)
-    return {"token": access_token, "token_refresh": refresh_token, "token_expiry_sec": config_token_expiry_sec, "token_refresh_expiry_sec": config_token_refresh_expiry_sec}
+    access_token = jwt.encode({"exp": now_ts + config_access_token_expires_in_sec, "data": serialized_payload, "type": "access"}, token_secret_key)
+    refresh_token = jwt.encode({"exp": now_ts + config_refresh_token_expires_in_sec, "data": serialized_payload, "type": "refresh"}, token_secret_key)
+    return {"access_token": access_token, "refresh_token": refresh_token, "expires_in": config_access_token_expires_in_sec, "refresh_expires_in": config_refresh_token_expires_in_sec}
 
 async def func_otp_generate(*, client_postgres_pool: any, email: str, mobile: str, config_otp_length: int) -> int:
     """Generate a random OTP and store it in PostgreSQL for a given email or mobile."""

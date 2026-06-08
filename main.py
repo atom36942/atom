@@ -59,6 +59,7 @@ async def func_lifespan(app:"FastAPI"):
         client_redis_producer = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_queue)) if app.state.config_redis_url_queue else None
         client_mongodb = motor.motor_asyncio.AsyncIOMotorClient(app.state.config_mongodb_url) if app.state.config_mongodb_url else None
         client_mssql = await aioodbc.create_pool(dsn=app.state.config_mssql_url, pool_recycle=900) if app.state.config_mssql_url else None
+        client_mssql_read = await aioodbc.create_pool(dsn=app.state.config_mssql_url_read, pool_recycle=900) if app.state.config_mssql_url_read else None
         client_s3 = aiobotocore.session.get_session().create_client("s3", region_name=app.state.config_aws_s3_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_aws_s3_region_name else None
         client_s3_resource = boto3.resource("s3", region_name=app.state.config_aws_s3_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_aws_s3_region_name else None
         client_sns = boto3.client("sns", region_name=app.state.config_aws_sns_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_aws_sns_region_name else None
@@ -125,6 +126,7 @@ async def func_lifespan(app:"FastAPI"):
         if client_redis: await client_redis.aclose()
         if client_mongodb: client_mongodb.close()
         if client_mssql: client_mssql.close(); await client_mssql.wait_closed()
+        if client_mssql_read: client_mssql_read.close(); await client_mssql_read.wait_closed()
         if client_posthog: client_posthog.shutdown(); client_posthog.flush()
         if client_kafka_producer: await client_kafka_producer.stop()
         if client_rabbitmq_producer and not client_rabbitmq_producer.is_closed: await client_rabbitmq_producer.close()

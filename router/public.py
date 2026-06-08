@@ -114,22 +114,19 @@ async def func_api_public_jira_worklog_export(*, request: Request):
     os.makedirs("tmp", exist_ok=True)
     output_path = f"tmp/{uuid.uuid4().hex}.csv"
     def _export():
-        jira_client = JIRA(server=ob["url"], basic_auth=(ob["email"], ob["api_token"]))
-        log_rows = []; people = set(); jql = f"worklogDate >= '{ob['start_date']}' AND worklogDate <= '{ob['end_date']}'"
-        all_issues = jira_client.enhanced_search_issues(jql, maxResults=0)
-        for issue in all_issues:
+        jira = JIRA(server=ob["url"], basic_auth=(ob["email"], ob["api_token"]))
+        log_rows, people = [], set()
+        for issue in jira.enhanced_search_issues(f"worklogDate >= '{ob['start_date']}' AND worklogDate <= '{ob['end_date']}'", maxResults=0):
             if getattr(issue.fields, "assignee", None): people.add(issue.fields.assignee.displayName)
-            for worklog in jira_client.worklogs(issue.id):
-                started_at = worklog.started[:10]
-                if ob["start_date"] <= started_at <= ob["end_date"]:
-                    author_name = worklog.author.displayName; people.add(author_name)
-                    log_rows.append((author_name, started_at, worklog.timeSpentSeconds / 3600))
-        date_range = pd.date_range(start=ob["start_date"], end=ob["end_date"]).strftime("%Y-%m-%d").tolist()
-        if not log_rows:
-            df = pd.DataFrame(index=sorted(list(people)), columns=date_range).fillna(0).astype(int) if people else pd.DataFrame(columns=date_range)
-        else:
-            df = pd.DataFrame(log_rows, columns=["author", "date", "hours"]).pivot_table(index="author", columns="date", values="hours", aggfunc="sum", fill_value=0).reindex(index=sorted(list(people)), columns=date_range, fill_value=0).round(0).astype(int)
-        df.to_csv(output_path); return output_path
+            for w in jira.worklogs(issue.id):
+                if ob["start_date"] <= w.started[:10] <= ob["end_date"]:
+                    people.add(w.author.displayName)
+                    log_rows.append((w.author.displayName, w.started[:10], w.timeSpentSeconds / 3600))  
+        cols = pd.date_range(ob["start_date"], ob["end_date"]).strftime("%Y-%m-%d").tolist()
+        df = pd.DataFrame(log_rows, columns=["author", "date", "hours"])
+        if not df.empty: df = df.pivot_table(index="author", columns="date", values="hours", aggfunc="sum", fill_value=0)
+        df.reindex(index=sorted(people), columns=cols, fill_value=0).round(0).astype(int).to_csv(output_path)
+        return output_path
     await asyncio.to_thread(_export)
     def iterfile():
         with open(output_path, mode="rb") as f:

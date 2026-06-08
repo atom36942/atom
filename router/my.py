@@ -11,17 +11,16 @@ async def func_api_my_profile(*, request: Request):
     app_state = request.app.state
     user_id = request.state.user["id"]
     user = await app_state.func_user_read_single(client_postgres_pool=app_state.client_postgres_pool, user_id=user_id)
-    async with app_state.client_postgres_pool.acquire() as conn:
-        metadata = {k: [dict(r) for r in await conn.fetch(v, user_id)] for k, v in app_state.config_sql.get("profile_metadata", {}).items()}
-    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_allowed_token_key=app_state.config_allowed_token_key)
+    metadata = {k: [dict(r) for r in await app_state.client_postgres_pool.fetch(v, user_id)] for k, v in app_state.config_sql.get("profile_metadata", {}).items()}
+    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_in_sec=app_state.config_access_token_expires_in_sec, config_refresh_token_expires_in_sec=app_state.config_refresh_token_expires_in_sec, config_allowed_token_key=app_state.config_allowed_token_key)
     asyncio.create_task(app_state.client_postgres_pool.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id))
-    return {"status": 1, "message": {**user, "metadata": metadata}}
+    return {"status": 1, "message": {**user, "metadata": metadata, "token": token}}
 
 @router.post("/my/token-refresh")
 async def func_api_my_token_refresh(*, request: Request):
     app_state = request.app.state
     user = await app_state.func_user_read_single(client_postgres_pool=app_state.client_postgres_pool, user_id=request.state.user["id"])
-    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_token_expiry_sec=app_state.config_token_expiry_sec, config_token_refresh_expiry_sec=app_state.config_token_refresh_expiry_sec, config_allowed_token_key=app_state.config_allowed_token_key)
+    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_in_sec=app_state.config_access_token_expires_in_sec, config_refresh_token_expires_in_sec=app_state.config_refresh_token_expires_in_sec, config_allowed_token_key=app_state.config_allowed_token_key)
     return {"status": 1, "message": token}
 
 @router.get("/my/api-usage")
@@ -118,9 +117,8 @@ async def func_api_my_received_ids_delete(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "list:int", 1, None, None)])
     if app_state.config_api_batch_item_limit and len(ob["ids"]) > app_state.config_api_batch_item_limit: raise Exception(f"maximum {app_state.config_api_batch_item_limit} objects allowed")
-    if ob["table"] == "users": raise Exception("users received delete disabled")
-    if "id" not in app_state.cache_postgres_schema.get(ob["table"], {}): raise Exception(f"table '{ob['table']}' lacks required 'id' column")
-    if "user_id" not in app_state.cache_postgres_schema.get(ob["table"], {}): raise Exception(f"table '{ob['table']}' lacks required 'user_id' column for ownership tracking")
+    schema = app_state.cache_postgres_schema.get(ob["table"], {})
+    if ob["table"] == "users" or "id" not in schema or "user_id" not in schema: raise Exception("users delete disabled or missing 'id'/'user_id' column")
     id_list, deleted_count = [int(x) for x in ob["ids"]], 0
     async with app_state.client_postgres_pool.acquire() as conn:
         async with conn.transaction():

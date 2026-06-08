@@ -6,8 +6,8 @@ router = APIRouter()
 
 # api
 @router.get("/")
-async def func_api_index():
-    return responses.FileResponse("static/api.html")
+async def func_api_index(*, request: Request):
+    return responses.FileResponse(request.app.state.config_root_html_path)
 
 @router.get("/health")
 async def func_api_index_health(*, request:Request):

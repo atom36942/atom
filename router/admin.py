@@ -70,19 +70,24 @@ async def func_api_admin_object_delete(*, request: Request):
 @router.post("/admin/postgres-sql-runner")
 async def func_api_admin_postgres_sql_runner(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("mode", "str", 0, ["read", "write"], "read"), ("sql", "str", 1, None, None)])
-    if ob["mode"] not in ("read", "write"): raise Exception(f"invalid mode: {ob['mode']}")
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
     ql = ob["sql"].lower().strip().lstrip("(").strip()
-    if ob["mode"] == "read" and not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("read mode restricted")
-    if ob["mode"] == "write" and app_state.config_is_enable_sql_write != 1: raise Exception("postgres sql runner write mode disabled")
-    if ob["mode"] == "read":
-        if not app_state.client_postgres_pool_read: raise Exception("postgres read client not initialized")
-        async with app_state.client_postgres_pool_read.acquire() as conn:
-            return {"status": 1, "message": [dict(r) for r in await conn.fetch(ob["sql"], timeout=15)]}
     async with app_state.client_postgres_pool.acquire() as conn:
         if ql.startswith(("select", "with", "explain", "show", "describe")) or "returning" in ql:
-            return {"status": 1, "message": [dict(r) for r in await conn.fetch(ob["sql"], timeout=15)]}
-        return {"status": 1, "message": await conn.execute(ob["sql"], timeout=15)}
+            result = [dict(r) for r in await conn.fetch(ob["sql"], timeout=15)]
+        else:
+            result = await conn.execute(ob["sql"], timeout=15)
+        return {"status": 1, "message": result}
+
+@router.post("/admin/postgres-sql-runner-read")
+async def func_api_admin_postgres_sql_runner_read(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
+    ql = ob["sql"].lower().strip().lstrip("(").strip()
+    if not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("only read mode allowed")
+    if not app_state.client_postgres_pool_read: raise Exception("postgres read client not initialized")
+    async with app_state.client_postgres_pool_read.acquire() as conn:
+        return {"status": 1, "message": [dict(r) for r in await conn.fetch(ob["sql"], timeout=15)]}
 
 @router.post("/admin/postgres-export")
 async def func_api_admin_postgres_export(*, request: Request):
