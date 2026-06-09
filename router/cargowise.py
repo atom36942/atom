@@ -1,5 +1,5 @@
 # packages
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from fastapi.encoders import jsonable_encoder
 
 # router
@@ -465,13 +465,17 @@ async def func_api_my_cargowise_tracking(*, request: Request):
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("CargoWise org id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_id", "str", 0, None, "")])
     limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 300))
     page = max(1, int(oq["page"] or 1))
+    shipment_id = str(oq.get("shipment_id") or "").strip()
     offset = (page - 1) * limit
     sql = f"""
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        DECLARE @shipment_id_str nvarchar(max) = ?;
+        DECLARE @shipment_id uniqueidentifier = NULL;
+        IF @shipment_id_str <> '' SET @shipment_id = TRY_CONVERT(uniqueidentifier, @shipment_id_str);
         WITH visible_shipments AS (
             SELECT DISTINCT JS.JS_PK
             FROM dbo.JobShipment AS JS
@@ -481,6 +485,7 @@ async def func_api_my_cargowise_tracking(*, request: Request):
             LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JS.JS_IsValid = 1
+              AND (@shipment_id IS NULL OR JS.JS_PK = @shipment_id)
               AND (
                     JS.JS_OH_Creditor = @org
                  OR JS.JS_OH_DeliveryAgent = @org
@@ -533,7 +538,7 @@ async def func_api_my_cargowise_tracking(*, request: Request):
         OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY;"""
     async with app_state.client_mssql_read.acquire() as conn:
         cursor = await conn.cursor()
-        await cursor.execute(sql, org_pk)
+        await cursor.execute(sql, org_pk, shipment_id)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": jsonable_encoder(obj_list)}
@@ -615,6 +620,7 @@ async def func_api_my_cargowise_exceptions(*, request: Request):
             FROM visible_orders AS VO
             JOIN dbo.JobOrderHeader AS JD ON JD.JD_PK = VO.JD_PK
             WHERE JD.JD_IsCancelled = 0
+              AND JD.JD_OrderStatus NOT IN ('CLS', 'FIN', 'DEL', 'COM')
               AND JD.JD_DeliveryRequiredBy IS NOT NULL
               AND JD.JD_DeliveryRequiredBy < SYSUTCDATETIME()
             UNION ALL
@@ -643,6 +649,7 @@ async def func_api_my_cargowise_exceptions(*, request: Request):
             FROM visible_shipments AS VS
             JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
             WHERE JS.JS_IsCancelled = 0
+              AND JS.JS_ShipmentStatus NOT IN ('CLS', 'FIN', 'DEL', 'COM')
               AND JS.JS_E_ARV IS NOT NULL
               AND JS.JS_E_ARV < SYSUTCDATETIME()
             UNION ALL
@@ -792,6 +799,108 @@ async def func_api_my_cargowise_documents(*, request: Request):
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": jsonable_encoder(obj_list)}
+
+@router.get("/my/cargowise-documents-download")
+async def func_api_my_cargowise_documents_download(*, request: Request):
+    app_state = request.app.state
+    org_pk = str(request.state.user.get("username") or "").strip()
+    if not org_pk: raise Exception("CargoWise org id missing")
+    if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("document_id", "str", 1, None, None)])
+    document_id = str(oq.get("document_id") or "").strip()
+    sql = """
+        SET NOCOUNT ON;
+        DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        DECLARE @document_id uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        WITH visible_orders AS (
+            SELECT DISTINCT JD.JD_PK
+            FROM dbo.JobOrderHeader AS JD
+            LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
+            LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
+            WHERE JD.JD_IsValid = 1
+              AND (
+                    BuyerOA.OA_OH = @org
+                 OR SupplierOA.OA_OH = @org
+                 OR JD.JD_OH_Carrier = @org
+                 OR JD.JD_OH_SendingAgent = @org
+                 OR JD.JD_OH_ReceivingAgent = @org
+              )
+        ),
+        visible_shipments AS (
+            SELECT DISTINCT JS.JS_PK
+            FROM dbo.JobShipment AS JS
+            LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
+            LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
+            LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
+            LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
+            LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
+            WHERE JS.JS_IsValid = 1
+              AND (
+                    JS.JS_OH_Creditor = @org
+                 OR JS.JS_OH_DeliveryAgent = @org
+                 OR JS.JS_OH_ExportBroker = @org
+                 OR JS.JS_OH_HandledOnBehalfOfForwarder = @org
+                 OR JS.JS_OH_ImportBroker = @org
+                 OR JS.JS_OH_TranshipAgent = @org
+                 OR E2OA.OA_OH = @org
+                 OR BuyerOA.OA_OH = @org
+                 OR SupplierOA.OA_OH = @org
+                 OR JD.JD_OH_Carrier = @org
+                 OR JD.JD_OH_SendingAgent = @org
+                 OR JD.JD_OH_ReceivingAgent = @org
+              )
+        ),
+        visible_consols AS (
+            SELECT DISTINCT JN.JN_JK
+            FROM dbo.JobConShipLink AS JN
+            JOIN visible_shipments AS VS ON VS.JS_PK = JN.JN_JS
+            WHERE JN.JN_JK IS NOT NULL
+        )
+        SELECT TOP 1
+            JDD.JDD_File AS file_data,
+            JDD.JDD_Name AS file_name,
+            JDD.JDD_Ext AS file_ext
+        FROM dbo.JobDocumentData AS JDD
+        LEFT JOIN dbo.JobRequiredDocument AS EQ ON EQ.EQ_PK = JDD.JDD_ParentID AND JDD.JDD_ParentTableCode = 'EQ'
+        LEFT JOIN visible_shipments AS VS ON VS.JS_PK = JDD.JDD_ParentID AND JDD.JDD_ParentTableCode = 'JS'
+        LEFT JOIN visible_consols AS VC ON VC.JN_JK = JDD.JDD_ParentID AND JDD.JDD_ParentTableCode = 'JK'
+        LEFT JOIN visible_orders AS VO ON VO.JD_PK = JDD.JDD_ParentID AND JDD.JDD_ParentTableCode = 'JD'
+        WHERE (JDD.JDD_PK = @document_id OR EQ.EQ_PK = @document_id)
+          AND JDD.JDD_IsValid = 1
+          AND JDD.JDD_File IS NOT NULL
+          AND (
+                VS.JS_PK IS NOT NULL
+             OR VC.JN_JK IS NOT NULL
+             OR VO.JD_PK IS NOT NULL
+             OR (
+                    EQ.EQ_PK IS NOT NULL
+                AND (
+                        EQ.EQ_OH_DocumentOwner = @org
+                     OR EQ.EQ_OH_IssuedBy = @org
+                     OR EXISTS (SELECT 1 FROM visible_shipments WHERE JS_PK = EQ.EQ_ParentID AND EQ.EQ_ParentTableCode = 'JS')
+                     OR EXISTS (SELECT 1 FROM visible_consols WHERE JN_JK = EQ.EQ_ParentID AND EQ.EQ_ParentTableCode = 'JK')
+                     OR EXISTS (SELECT 1 FROM visible_orders WHERE JD_PK = EQ.EQ_ParentID AND EQ.EQ_ParentTableCode = 'JD')
+                    )
+             )
+          );
+    """
+    async with app_state.client_mssql_read.acquire() as conn:
+        cursor = await conn.cursor()
+        await cursor.execute(sql, org_pk, document_id)
+        row = await cursor.fetchone()
+    if not row:
+        raise Exception("Document not found, access denied, or file content missing in database.")
+    file_data = row[0]
+    file_name = row[1] or "document"
+    file_ext = row[2] or "pdf"
+    # Clean up filename
+    if not file_name.lower().endswith(f".{file_ext.lower()}"):
+        file_name = f"{file_name}.{file_ext}"
+    return Response(
+        content=file_data,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{file_name}"'}
+    )
 
 @router.get("/my/cargowise-analytics")
 async def func_api_my_cargowise_analytics(*, request: Request):
