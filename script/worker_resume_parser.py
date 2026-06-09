@@ -18,7 +18,6 @@ from google.genai import types
 # config
 from config import config_postgres_url
 from config import config_gemini_key
-from config import config_postgres
 from config import config_azure_account_name
 from config import config_azure_account_key
 from config import config_aws_access_key_id
@@ -26,6 +25,7 @@ from config import config_aws_secret_access_key
 
 # logic
 async def execute():
+    TABLE_NAME = "candidate"
     BASE_COLUMNS = {"id", "created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id", "deactivated_at", "deactivated_by_id", "verified_at", "verified_by_id", "job_id", "resume_url", "status", "worker_status", "worker_last_error", "metadata", "worker_retry_count", "worker_next_retry_at", "worker_processed_at"}
     BATCH_LIMIT = 5
     CONCURRENCY_LIMIT = 3
@@ -35,9 +35,15 @@ async def execute():
     print(f"Starting Dynamic Resume Parser Worker Script... batch_limit={BATCH_LIMIT} concurrency_limit={CONCURRENCY_LIMIT}")
     client_gemini = genai.Client(api_key=config_gemini_key)
     pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=5, server_settings={"application_name": "atom-daemon-resume-parser"})
+    async with pool.acquire() as conn:
+        records = await conn.fetch(f"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1", TABLE_NAME)
+        if not records:
+            print(f"Error: Table '{TABLE_NAME}' not found in database.")
+            return
+        candidate_cols = [{"name": r["column_name"], "datatype": r["data_type"]} for r in records]
+        candidate_col_names = {r["name"] for r in candidate_cols}
     def func_get_dynamic_schema() -> dict:
         properties = {}
-        candidate_cols = config_postgres["table"].get("candidate", [])
         for col in candidate_cols:
             col_name = col["name"]
             if col_name in BASE_COLUMNS:
@@ -49,18 +55,17 @@ async def execute():
                 properties[col_name] = {"type": "NUMBER", "nullable": True}
             elif datatype.startswith("boolean"):
                 properties[col_name] = {"type": "BOOLEAN", "nullable": True}
-            elif datatype.endswith("[]"):
+            elif datatype == "array" or datatype.endswith("[]"):
                 properties[col_name] = {"type": "ARRAY", "items": {"type": "STRING"}, "nullable": True}
             else:
                 properties[col_name] = {"type": "STRING", "nullable": True}
         return {"type": "OBJECT", "properties": properties}
     async def func_claim_candidates(conn: asyncpg.Connection, batch_limit: int) -> list:
-        return await conn.fetch("WITH claim AS (SELECT c.id FROM candidate c WHERE (((c.worker_status IN (1, 4) OR c.worker_status IS NULL) AND (c.worker_next_retry_at <= NOW() OR c.worker_next_retry_at IS NULL)) OR (c.worker_status = 2 AND c.updated_at < NOW() - INTERVAL '15 minutes')) AND c.resume_url IS NOT NULL AND c.deleted_at IS NULL ORDER BY c.created_at, c.id LIMIT $1 FOR UPDATE OF c SKIP LOCKED) UPDATE candidate u SET worker_status = 2, updated_at = NOW() FROM claim JOIN candidate c ON c.id = claim.id LEFT JOIN job j ON c.job_id = j.id WHERE u.id = claim.id RETURNING u.id, u.resume_url, j.profile as job_profile, j.description as job_description, j.skills as job_skills, j.experience_min as job_experience_min, j.experience_max as job_experience_max, j.is_remote as job_is_remote, j.location as job_location, c.worker_retry_count", batch_limit)
+        return await conn.fetch(f"WITH claim AS (SELECT c.id FROM {TABLE_NAME} c WHERE (((c.worker_status IN (1, 4) OR c.worker_status IS NULL) AND (c.worker_next_retry_at <= NOW() OR c.worker_next_retry_at IS NULL)) OR (c.worker_status = 2 AND c.updated_at < NOW() - INTERVAL '15 minutes')) AND c.resume_url IS NOT NULL AND c.deleted_at IS NULL ORDER BY c.created_at, c.id LIMIT $1 FOR UPDATE OF c SKIP LOCKED) UPDATE {TABLE_NAME} u SET worker_status = 2, updated_at = NOW() FROM claim JOIN {TABLE_NAME} c ON c.id = claim.id LEFT JOIN job j ON c.job_id = j.id WHERE u.id = claim.id RETURNING u.id, u.resume_url, j.profile as job_profile, j.description as job_description, j.skills as job_skills, j.experience_min as job_experience_min, j.experience_max as job_experience_max, j.is_remote as job_is_remote, j.location as job_location, c.worker_retry_count", batch_limit)
     async def func_mark_completed(conn: asyncpg.Connection, candidate_id: int, data: dict) -> None:
-        candidate_cols = {col["name"] for col in config_postgres["table"].get("candidate", [])}
-        update_data = {k: v for k, v in data.items() if k in candidate_cols and k not in BASE_COLUMNS}
+        update_data = {k: v for k, v in data.items() if k in candidate_col_names and k not in BASE_COLUMNS}
         if not update_data:
-            await conn.execute("UPDATE candidate SET worker_status = 3, worker_processed_at = NOW(), worker_last_error = NULL, updated_at = NOW() WHERE id = $1", candidate_id)
+            await conn.execute(f"UPDATE {TABLE_NAME} SET worker_status = 3, worker_processed_at = NOW(), worker_last_error = NULL, updated_at = NOW() WHERE id = $1", candidate_id)
             return
         set_clauses = ["worker_status = 3", "worker_processed_at = NOW()", "worker_last_error = NULL", "updated_at = NOW()"]
         values = [candidate_id]
@@ -72,7 +77,7 @@ async def execute():
             set_clauses.append(f'"{key}" = ${i}')
             values.append(value)
         set_query = ", ".join(set_clauses)
-        query = f"UPDATE candidate SET {set_query} WHERE id = $1"
+        query = f"UPDATE {TABLE_NAME} SET {set_query} WHERE id = $1"
         await conn.execute(query, *values)
     def func_retry_delay_sec(retry_count: int) -> int:
         delays = [60, 300, 3600, 86400]
@@ -81,7 +86,7 @@ async def execute():
     async def func_mark_failed(conn: asyncpg.Connection, candidate_id: int, retry_count: int, error: Exception) -> None:
         error_str = str(error)[:1000]
         delay_sec = func_retry_delay_sec(retry_count)
-        await conn.execute("UPDATE candidate SET worker_status = 4, worker_last_error = $2, worker_retry_count = worker_retry_count + 1, worker_next_retry_at = NOW() + ($3 * INTERVAL '1 second'), updated_at = NOW() WHERE id = $1", candidate_id, f"AI Parsing Failed: {error_str}", delay_sec)
+        await conn.execute(f"UPDATE {TABLE_NAME} SET worker_status = 4, worker_last_error = $2, worker_retry_count = worker_retry_count + 1, worker_next_retry_at = NOW() + ($3 * INTERVAL '1 second'), updated_at = NOW() WHERE id = $1", candidate_id, f"AI Parsing Failed: {error_str}", delay_sec)
     async def func_process_candidate(candidate: asyncpg.Record) -> dict:
         candidate_id = candidate["id"]
         resume_url = candidate["resume_url"]

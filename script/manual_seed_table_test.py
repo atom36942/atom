@@ -23,7 +23,7 @@ async def execute():
         print(f"Inserting {num_records} records into 'test' table...")
         for i in range(1, num_records + 1):
             test_id = await conn.fetchval(
-                'INSERT INTO test (created_by_id, updated_by_id, views, type, title, code, slug, email, tag, tag_int, rating, price, "Price (USD)", coordinate, status, metadata) VALUES (1, 1, $1, 1, $2, $3, $4, $5, ARRAY[\'tag1\', \'tag2\', \'tag3\']::text[], ARRAY[1, 2, 3]::integer[], $6, $7, $8, ST_SetSRID(ST_MakePoint($9, $10), 4326)::geography, $11, \'{"active": true, "bool": true}\'::jsonb) RETURNING id', 
+                'INSERT INTO test (created_by_id, updated_by_id, views, type, title, code, slug, email, tag, tag_int, rating, price, coordinate, status, metadata) VALUES (1, 1, $1, 1, $2, $3, $4, $5, ARRAY[\'tag1\', \'tag2\', \'tag3\']::text[], ARRAY[1, 2, 3]::integer[], $6, $7, ST_SetSRID(ST_MakePoint($8, $9), 4326)::geography, $10, \'{"active": true, "bool": true}\'::jsonb) RETURNING id', 
                 random.randint(55, 200),
                 f"A Great Title for Testing {i}",
                 f"CODE_{random.randint(1000, 9999)}_{i}",
@@ -31,7 +31,6 @@ async def execute():
                 f"tester_{i}@example.com",
                 round(random.uniform(1.1, 4.9), 1),
                 round(random.uniform(10.0, 999.0), 2),
-                round(random.uniform(100.0, 999.0), 2),
                 80.0 + random.uniform(-0.01, 0.01),
                 15.0 + random.uniform(-0.01, 0.01),
                 random.choice([1, 2, 3])

@@ -51,7 +51,11 @@ body {
 }
 
 .sidebar .logo {
-    padding: 1.5rem;
+    height: 64px;
+    box-sizing: border-box;
+    padding: 0 1.5rem;
+    display: flex;
+    align-items: center;
     color: white;
     border-bottom: 1px solid rgba(255,255,255,0.1);
 }
@@ -67,6 +71,8 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+    flex: 1;
+    overflow-y: auto;
 }
 
 .nav-item {
@@ -108,6 +114,7 @@ body {
 .top-bar {
     height: 64px;
     min-height: 64px;
+    box-sizing: border-box;
     background: var(--bg-surface);
     border-bottom: 1px solid var(--border);
     display: flex;
@@ -137,6 +144,21 @@ body {
 
 .search-bar i {
     color: var(--text-muted);
+}
+
+.search-bar button {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.search-bar button:hover {
+    color: var(--text-dark);
 }
 
 .user-controls {
@@ -297,15 +319,17 @@ body {
 /* Tables */
 .table-responsive {
     overflow-x: auto;
+    max-height: 600px;
 }
 
 .data-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
 }
 
 .data-table th, .data-table td {
-    padding: 1rem;
+    padding: 1rem 1.25rem;
     text-align: left;
     border-bottom: 1px solid var(--border);
     font-size: 0.875rem;
@@ -316,10 +340,22 @@ body {
     background: #F9FAFB;
     font-weight: 600;
     color: var(--text-muted);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 1px 0 var(--border);
+}
+
+.data-table tbody tr {
+    transition: background-color 0.2s ease;
 }
 
 .data-table tbody tr:hover {
-    background: #F9FAFB;
+    background: #F3F4F6;
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: none;
 }
 
 .badge {
@@ -335,46 +371,16 @@ body {
 .badge.exception { background: var(--status-red); color: var(--status-red-text); }
 .badge.open { background: var(--status-yellow); color: var(--status-yellow-text); }
 
-/* Chat Widget */
-.chat-widget {
-    position: fixed;
-    bottom: 2rem;
-    right: 2rem;
-    z-index: 100;
-}
-
-.chat-toggle {
-    background: var(--primary);
-    color: white;
-    border: none;
-    padding: 1rem 1.5rem;
-    border-radius: 9999px;
-    font-weight: 600;
-    cursor: pointer;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    font-size: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-family: inherit;
-}
-
-.chat-toggle:hover {
-    background: var(--primary-hover);
-}
-
-.chat-window {
+/* MGH ASK Full View */
+.chat-container {
     background: var(--bg-surface);
-    width: 350px;
-    height: 450px;
     border-radius: 12px;
-    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    position: absolute;
-    bottom: calc(100% + 1rem);
-    right: 0;
+    height: calc(100vh - 200px);
+    border: 1px solid var(--border);
 }
 
 .chat-header {
@@ -999,6 +1005,37 @@ body.logged-out .content-wrapper {
     }
 
 }
+    /* Slide-out Panel */
+    .side-panel-overlay {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 1000; opacity: 0; pointer-events: none;
+        transition: opacity 0.3s ease; backdrop-filter: blur(2px);
+    }
+    .side-panel-overlay.active { opacity: 1; pointer-events: all; }
+    .side-panel {
+        position: fixed; top: 0; right: -700px; width: 100%; max-width: 700px; height: 100vh;
+        background: var(--surface); box-shadow: -4px 0 24px rgba(0, 0, 0, 0.1);
+        z-index: 1001; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex; flex-direction: column;
+    }
+    .side-panel.active { right: 0; }
+    .side-panel-header {
+        padding: 1.5rem; border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; justify-content: space-between;
+        background: var(--surface);
+    }
+    .side-panel-title { font-size: 1.25rem; font-weight: 600; color: var(--text-dark); margin: 0; }
+    .side-panel-subtitle { font-size: 0.875rem; color: var(--text-muted); margin-top: 0.25rem; }
+    .side-panel-close {
+        background: none; border: none; color: var(--text-muted); cursor: pointer;
+        padding: 0.5rem; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+        transition: all 0.2s; font-size: 1.25rem;
+    }
+    .side-panel-close:hover { background: var(--border); color: var(--text-dark); }
+    .side-panel-body { flex: 1; overflow-y: auto; padding: 1.5rem; background: var(--background); }
+    .clickable-row { cursor: pointer; }
+    .clickable-row:hover { background: #F8FAFC !important; }
     </style>
     <!-- Chart.js for Analytics/Sustainability -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1037,15 +1074,17 @@ body.logged-out .content-wrapper {
                 <a href="#analytics" class="nav-item" data-target="analytics">
                     <i class="fa-solid fa-chart-line"></i> Analytics
                 </a>
+                <a href="#mghask" class="nav-item" data-target="mghask">
+                    <i class="fa-solid fa-robot"></i> MGH ASK
+                </a>
             </nav>
         </aside>
 
         <main class="main-content">
             <header class="top-bar">
                 <div class="top-bar-left">
-                    <div class="search-bar auth-only">
-                        <i class="fa-solid fa-search"></i>
-                        <input type="text" placeholder="Search POs, Shipments, or Containers...">
+                    <div class="search-bar auth-only" style="display: none;">
+                        <input type="text" placeholder="Search POs...">
                     </div>
                 </div>
                 <div class="user-controls">
@@ -1139,24 +1178,31 @@ body.logged-out .content-wrapper {
 
                 <!-- Purchase Orders Section -->
                 <section id="purchase-orders" class="view-section">
-                    <div class="section-header">
-                        <h1>Purchase Orders</h1>
-                    </div>
-
                     <div class="panel">
-                        <div class="panel-header">
-                            <h3>Purchase Order List</h3>
+                        <div class="panel-header" style="justify-content: space-between; border-bottom: none; padding-bottom: 0;">
+                            <form class="search-bar" id="po-search-form" style="width: auto; border: 1px solid var(--border); margin: 0; padding: 0.25rem 0.5rem; border-radius: 8px; display: flex; align-items: center;">
+                                <input type="text" id="po-search-input" placeholder="Search PO Number..." style="padding: 0.5rem; flex: 1; outline: none; border: none; background: transparent; min-width: 200px;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-right: 0.25rem;">
+                                    <button type="button" id="po-search-clear" title="Clear" style="display: none; background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 0.25rem;"><i class="fa-solid fa-xmark"></i></button>
+                                    <button type="submit" id="po-search-submit" title="Search" style="display: none; background: none; border: none; cursor: pointer; color: var(--primary); padding: 0.25rem;"><i class="fa-solid fa-arrow-right"></i></button>
+                                </div>
+                            </form>
+                            <div class="pagination-controls" style="display: flex; gap: 0.5rem; align-items: center;">
+                                <button class="btn btn-sm" id="po-prev-btn" disabled>Previous</button>
+                                <span id="po-page-display" style="font-size: 0.9rem; font-weight: 500;">Page 1</span>
+                                <button class="btn btn-sm" id="po-next-btn" disabled>Next</button>
+                            </div>
                         </div>
                         <div class="table-responsive">
                             <table class="data-table" id="purchase-order-table">
                                 <thead>
                                     <tr>
+                                        <th>Created At</th>
                                         <th>PO Number</th>
                                         <th>Status</th>
                                         <th>Buyer</th>
                                         <th>Supplier</th>
                                         <th>Ship Window</th>
-                                        <th>Linked Shipment</th>
                                         <th>Lines</th>
                                     </tr>
                                 </thead>
@@ -1168,8 +1214,7 @@ body.logged-out .content-wrapper {
 
                 <!-- Shipments Section -->
                 <section id="shipments" class="view-section">
-                    <div class="section-header">
-                        <h1>Shipments</h1>
+                    <div class="section-header" style="justify-content: flex-end; margin-bottom: 1rem;">
                         <div class="filters">
                             <select><option>All Statuses</option><option>In Transit</option><option>Delivered</option></select>
                             <select><option>All Origins</option><option>Shanghai</option><option>Shenzhen</option></select>
@@ -1192,8 +1237,7 @@ body.logged-out .content-wrapper {
                     </div>
 
                     <div class="panel">
-                        <div class="panel-header">
-                            <h3>Shipment List</h3>
+                        <div class="panel-header" style="justify-content: flex-end; border-bottom: none; padding-bottom: 0;">
                             <button class="btn btn-primary btn-sm">Export Data</button>
                         </div>
                         <div class="table-responsive">
@@ -1217,13 +1261,7 @@ body.logged-out .content-wrapper {
 
                 <!-- Containers Section -->
                 <section id="containers" class="view-section">
-                    <div class="section-header">
-                        <h1>Containers</h1>
-                    </div>
                     <div class="panel">
-                        <div class="panel-header">
-                            <h3>Container List</h3>
-                        </div>
                         <div class="table-responsive">
                             <table class="data-table" id="container-table">
                                 <thead>
@@ -1245,9 +1283,6 @@ body.logged-out .content-wrapper {
 
                 <!-- Tracking Section -->
                 <section id="tracking" class="view-section">
-                    <div class="section-header">
-                        <h1>Tracking</h1>
-                    </div>
                     <div class="kpi-row tracking-summary">
                         <div class="kpi-card">
                             <h4>Latest Event</h4>
@@ -1267,18 +1302,12 @@ body.logged-out .content-wrapper {
                         </div>
                     </div>
                     <div class="panel">
-                        <div class="panel-header">
-                            <h3>Shipment Event Timeline</h3>
-                        </div>
                         <div class="event-timeline" id="tracking-timeline"></div>
                     </div>
                 </section>
 
                 <!-- Exceptions Section -->
                 <section id="exceptions" class="view-section">
-                    <div class="section-header">
-                        <h1>Exceptions</h1>
-                    </div>
                     <div class="kpi-row">
                         <div class="kpi-card warning">
                             <h4>Active Exceptions</h4>
@@ -1294,9 +1323,6 @@ body.logged-out .content-wrapper {
                         </div>
                     </div>
                     <div class="panel">
-                        <div class="panel-header">
-                            <h3>Exception List</h3>
-                        </div>
                         <div class="table-responsive">
                             <table class="data-table" id="exception-table">
                                 <thead>
@@ -1318,13 +1344,7 @@ body.logged-out .content-wrapper {
 
                 <!-- Documents Section -->
                 <section id="documents" class="view-section">
-                    <div class="section-header">
-                        <h1>Documents</h1>
-                    </div>
                     <div class="panel">
-                        <div class="panel-header">
-                            <h3>Document List</h3>
-                        </div>
                         <div class="table-responsive">
                             <table class="data-table" id="document-table">
                                 <thead>
@@ -1346,9 +1366,6 @@ body.logged-out .content-wrapper {
 
                 <!-- Analytics Section -->
                 <section id="analytics" class="view-section">
-                    <div class="section-header">
-                        <h1>Analytics Dashboard</h1>
-                    </div>
                     <div class="kpi-row">
                         <div class="kpi-card">
                             <h4>Purchase Orders</h4>
@@ -1380,28 +1397,51 @@ body.logged-out .content-wrapper {
                         </div>
                     </div>
                 </section>
+
+                <!-- MGH ASK Section -->
+                <section id="mghask" class="view-section">
+                    <div class="chat-container">
+                        <div class="chat-body" style="flex: 1; padding: 2rem;">
+                            <div class="msg bot" style="max-width: 60%; font-size: 1rem;">Hello! I am MGH ASK, your AI logistics assistant. Ask me about your shipments, POs, or market rates!</div>
+                            <div class="msg user" style="max-width: 60%; font-size: 1rem;">Where is PO-99105?</div>
+                            <div class="msg bot" style="max-width: 60%; font-size: 1rem;">PO-99105 is currently linked to Shipment SHP-2023-002 and is on <strong>Customs Hold</strong> in New York. The estimated delay is 48 hours. Would you like me to alert the broker?</div>
+                        </div>
+                        <div class="chat-input" style="padding: 1.5rem; background: var(--bg-surface);">
+                            <input type="text" placeholder="Type your question..." style="padding: 1rem; font-size: 1rem;">
+                            <button style="width: 60px;"><i class="fa-solid fa-paper-plane" style="font-size: 1.2rem;"></i></button>
+                        </div>
+                    </div>
+                </section>
             </div>
         </main>
     </div>
 
-    <!-- MGH ASK Chat Widget -->
-    <div class="chat-widget auth-only">
-        <button class="chat-toggle" id="chat-toggle">
-            <i class="fa-solid fa-message"></i> MGH ASK
-        </button>
-        <div class="chat-window" id="chat-window" style="display: none;">
-            <div class="chat-header">
-                <h4><i class="fa-solid fa-robot"></i> MGH ASK Assistant</h4>
-                <button id="chat-close"><i class="fa-solid fa-times"></i></button>
+    <!-- Slide-out Panel for PO Lines -->
+    <div class="side-panel-overlay" id="po-lines-overlay" onclick="closePoLinesPanel()"></div>
+    <div class="side-panel" id="po-lines-panel">
+        <div class="side-panel-header">
+            <div>
+                <h2 class="side-panel-title">Line Items</h2>
+                <div class="side-panel-subtitle" id="po-lines-subtitle">PO #---</div>
             </div>
-            <div class="chat-body">
-                <div class="msg bot">Hello! I am MGH ASK, your AI logistics assistant. Ask me about your shipments, POs, or market rates!</div>
-                <div class="msg user">Where is PO-99105?</div>
-                <div class="msg bot">PO-99105 is currently linked to Shipment SHP-2023-002 and is on <strong>Customs Hold</strong> in New York. The estimated delay is 48 hours. Would you like me to alert the broker?</div>
-            </div>
-            <div class="chat-input">
-                <input type="text" placeholder="Type your question...">
-                <button><i class="fa-solid fa-paper-plane"></i></button>
+            <button class="side-panel-close" onclick="closePoLinesPanel()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="side-panel-body">
+            <div class="table-responsive">
+                <table class="table" id="po-lines-table">
+                    <thead>
+                        <tr>
+                            <th>Part No.</th>
+                            <th>Description</th>
+                            <th>Qty</th>
+                            <th>Price</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="5">Select a PO to view lines.</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -1475,6 +1515,8 @@ body.logged-out .content-wrapper {
                 <div class="profile-grid">
                     <div class="profile-row"><span>Username</span><strong id="profile-username">-</strong></div>
                     <div class="profile-row"><span>Password</span><strong id="profile-password">-</strong></div>
+                    <div class="profile-row"><span>Type</span><strong id="profile-type">-</strong></div>
+                    <div class="profile-row"><span>Role</span><strong id="profile-role">-</strong></div>
                 </div>
                 <div class="modal-actions-row" style="margin-top: 1.5rem;">
                     <button class="btn" type="button" id="profile-close-btn">Close</button>
@@ -1492,16 +1534,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const LOGIN_PATH = '/auth/login-username-password';
     const CARGOWISE_PROFILE_PATH = '/my/cargowise-profile';
     const MODULE_ENDPOINTS = {
-        'purchase-orders': '/my/purchase-orders',
-        shipments: '/my/shipments',
-        containers: '/my/containers',
-        tracking: '/my/tracking',
-        exceptions: '/my/exceptions',
-        documents: '/my/documents',
-        analytics: '/my/analytics'
+        'purchase-orders': '/my/cargowise-purchase-orders',
+        shipments: '/my/cargowise-shipments',
+        containers: '/my/cargowise-containers',
+        tracking: '/my/cargowise-tracking',
+        exceptions: '/my/cargowise-exceptions',
+        documents: '/my/cargowise-documents',
+        analytics: '/my/cargowise-analytics'
     };
     let authUser = null;
     let cargowiseProfileLoaded = false;
+    let poCurrentPage = 1;
+    let poSearchQuery = '';
+    let poSearchTimeout;
     const moduleCache = {};
     const readStoredToken = () => {
         const rawToken = localStorage.getItem(STORAGE_KEY_TOKEN);
@@ -1601,8 +1646,11 @@ document.addEventListener('DOMContentLoaded', () => {
         authUser = user && Object.keys(user).length ? user : null;
         const profileAvatar = document.querySelector('.avatar');
         if (profileAvatar) profileAvatar.textContent = avatarTextFromUsername(user.username || user.name);
-        document.getElementById('profile-username').textContent = user.username || '-';
-        document.getElementById('profile-password').textContent = user.password ? '****' : '-';
+        const rawValue = value => value === null || value === undefined || value === '' ? '-' : String(value);
+        document.getElementById('profile-username').textContent = rawValue(user.username);
+        document.getElementById('profile-password').textContent = user.password ? '••••••••' : '-';
+        document.getElementById('profile-type').textContent = rawValue(user.type);
+        document.getElementById('profile-role').textContent = rawValue(user.role);
     };
     const renderCargowiseProfile = profile => {
         const org = profile.org || {};
@@ -1670,17 +1718,49 @@ document.addEventListener('DOMContentLoaded', () => {
             content.style.display = 'grid';
         }
     };
+    
+    const openPoLinesPanel = async (poId, poNumber) => {
+        document.getElementById('po-lines-subtitle').textContent = `PO #${poNumber}`;
+        document.getElementById('po-lines-overlay').classList.add('active');
+        document.getElementById('po-lines-panel').classList.add('active');
+        
+        const tbody = document.querySelector('#po-lines-table tbody');
+        tbody.innerHTML = '<tr><td colspan="5">Loading lines...</td></tr>';
+        
+        try {
+            const payload = await api(`/my/cargowise-purchase-orders/${encodeURIComponent(poId)}/lines`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const rows = Array.isArray(payload.message) ? payload.message : [];
+            
+            tbody.innerHTML = rows.length ? rows.map(row => `
+                <tr>
+                    <td><strong>${escapeHtml(displayValue(row.part_number))}</strong></td>
+                    <td>${escapeHtml(displayValue(row.description))}</td>
+                    <td>${escapeHtml(displayValue(row.quantity))} ${escapeHtml(row.pack_type || '')}</td>
+                    <td>$${escapeHtml(displayValue(row.unit_price))}</td>
+                    <td>$${escapeHtml(displayValue(row.total_price))}</td>
+                </tr>
+            `).join('') : '<tr><td colspan="5">No lines found for this PO.</td></tr>';
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="5">Error loading lines: ${escapeHtml(err.message)}</td></tr>`;
+        }
+    };
+    
+    const closePoLinesPanel = () => {
+        document.getElementById('po-lines-overlay').classList.remove('active');
+        document.getElementById('po-lines-panel').classList.remove('active');
+    };
+
     const renderPurchaseOrders = rows => {
         const body = document.querySelector('#purchase-order-table tbody');
         if (!body) return;
         body.innerHTML = rows.length ? rows.map(row => `
-            <tr>
+            <tr class="clickable-row" onclick="openPoLinesPanel('${escapeHtml(row.purchase_order_id)}', '${escapeHtml(row.order_number)}')">
+                <td>${escapeHtml(formatDate(row.created_at))}</td>
                 <td><strong>${escapeHtml(displayValue(row.order_number))}</strong></td>
                 <td><span class="badge ${badgeClass(row.status)}">${escapeHtml(displayValue(row.status))}</span></td>
                 <td>${escapeHtml(displayValue(row.buyer_name || row.buyer_code))}</td>
                 <td>${escapeHtml(displayValue(row.supplier_name || row.supplier_code))}</td>
                 <td>${escapeHtml(formatDate(row.shipment_window_start))} / ${escapeHtml(formatDate(row.shipment_window_end))}</td>
-                <td>${escapeHtml(displayValue(row.shipment_reference))}</td>
                 <td>${escapeHtml(displayValue(row.line_count))}</td>
             </tr>
         `).join('') : '<tr><td colspan="7">No purchase orders found.</td></tr>';
@@ -1832,7 +1912,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadModule = async target => {
         const endpoint = MODULE_ENDPOINTS[target];
         if (!endpoint || !authToken || !authUser) return;
-        if (moduleCache[target]) {
+        if (moduleCache[target] && target !== 'purchase-orders') {
             renderModule(target, moduleCache[target]);
             return;
         }
@@ -1846,10 +1926,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target === 'tracking') setBlockMessage('tracking-timeline', 'Loading events...');
         if (loadingMap[target]) setTableMessage(loadingMap[target][0], loadingMap[target][1], 'Loading...');
         try {
-            const joiner = endpoint.includes('?') ? '&' : '?';
-            const payload = await api(`${endpoint}${joiner}limit=100`, { headers: { Authorization: `Bearer ${accessToken()}` } });
-            moduleCache[target] = payload.message;
+            let endpointUrl = '';
+            if (target === 'purchase-orders') {
+                const joiner = endpoint.includes('?') ? '&' : '?';
+                const searchParam = poSearchQuery ? `&po_number=${encodeURIComponent(poSearchQuery)}` : '';
+                endpointUrl = `${endpoint}${joiner}limit=100&page=${poCurrentPage}${searchParam}`;
+            } else {
+                const joiner = endpoint.includes('?') ? '&' : '?';
+                endpointUrl = `${endpoint}${joiner}limit=100`;
+            }
+            const payload = await api(endpointUrl, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            if (target !== 'purchase-orders') moduleCache[target] = payload.message;
             renderModule(target, payload.message);
+            if (target === 'purchase-orders') {
+                document.getElementById('po-page-display').textContent = `Page ${poCurrentPage}`;
+                document.getElementById('po-prev-btn').disabled = poCurrentPage <= 1;
+                document.getElementById('po-next-btn').disabled = payload.message.length < 100;
+            }
         } catch (err) {
             if (target === 'tracking') setBlockMessage('tracking-timeline', err.message || 'Unable to load events');
             if (loadingMap[target]) setTableMessage(loadingMap[target][0], loadingMap[target][1], err.message || 'Unable to load data');
@@ -1888,6 +1981,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 1. Tab Routing
     const navItems = document.querySelectorAll('.nav-item');
+
+    // PO Pagination & Search Listeners
+    const poSearchInput = document.getElementById('po-search-input');
+    const poSearchClear = document.getElementById('po-search-clear');
+    const poSearchSubmit = document.getElementById('po-search-submit');
+    
+    poSearchInput?.addEventListener('input', e => {
+        const hasText = e.target.value.length > 0;
+        if (poSearchClear) poSearchClear.style.display = hasText ? 'block' : 'none';
+        if (poSearchSubmit) poSearchSubmit.style.display = hasText ? 'block' : 'none';
+    });
+
+    document.getElementById('po-search-form')?.addEventListener('submit', e => {
+        e.preventDefault();
+        poSearchQuery = poSearchInput.value.trim();
+        poCurrentPage = 1;
+        loadModule('purchase-orders');
+    });
+
+    poSearchClear?.addEventListener('click', () => {
+        poSearchInput.value = '';
+        poSearchClear.style.display = 'none';
+        if (poSearchSubmit) poSearchSubmit.style.display = 'none';
+        poSearchQuery = '';
+        poCurrentPage = 1;
+        loadModule('purchase-orders');
+    });
+    document.getElementById('po-prev-btn')?.addEventListener('click', () => {
+        if (poCurrentPage > 1) { poCurrentPage--; loadModule('purchase-orders'); }
+    });
+    document.getElementById('po-next-btn')?.addEventListener('click', () => {
+        poCurrentPage++; loadModule('purchase-orders');
+    });
 
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
@@ -1962,19 +2088,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             btn.disabled = false;
         }
-    });
-
-    // 2. Chat Widget Toggle
-    const chatToggle = document.getElementById('chat-toggle');
-    const chatWindow = document.getElementById('chat-window');
-    const chatClose = document.getElementById('chat-close');
-
-    chatToggle.addEventListener('click', () => {
-        chatWindow.style.display = chatWindow.style.display === 'none' ? 'flex' : 'none';
-    });
-
-    chatClose.addEventListener('click', () => {
-        chatWindow.style.display = 'none';
     });
 
     // 3. Modal logic

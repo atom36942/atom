@@ -102,19 +102,22 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("CargoWise org id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, 50), ("page", "int", 0, None, 1)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, 50), ("page", "int", 0, None, 1), ("po_number", "str", 0, None, "")])
     limit = max(1, min(int(oq["limit"] or 50), 200))
     page = max(1, int(oq["page"] or 1))
     offset = (page - 1) * limit
+    po_number = str(oq.get("po_number") or "").strip()
     sql = f"""
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        DECLARE @po_number nvarchar(max) = ?;
         WITH visible_orders AS (
             SELECT DISTINCT JD.JD_PK
             FROM dbo.JobOrderHeader AS JD
             LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JD.JD_IsValid = 1
+              { "AND JD.JD_OrderNumber = @po_number" if po_number else "" }
               AND (
                     BuyerOA.OA_OH = @org
                  OR SupplierOA.OA_OH = @org
@@ -169,7 +172,7 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
             CONVERT(varchar(36), JS.JS_PK) AS shipment_id,
             JS.JS_UniqueConsignRef AS shipment_reference,
             JS.JS_ShipmentStatus AS shipment_status,
-            LS.line_count,
+            COALESCE(LS.line_count, 0) AS line_count,
             LS.total_quantity,
             LS.total_value,
             LS.total_weight,
@@ -188,9 +191,78 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
         OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY;"""
     async with app_state.client_mssql_read.acquire() as conn:
         cursor = await conn.cursor()
-        await cursor.execute(sql, org_pk)
+        await cursor.execute(sql, org_pk, po_number)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
+    return {"status": 1, "message": jsonable_encoder(obj_list)}
+
+@router.get("/my/cargowise-purchase-orders/{po_id}/lines")
+async def func_api_my_cargowise_purchase_order_lines(po_id: str, request: Request):
+    app_state = request.app.state
+    org_pk = str(request.state.user.get("username") or "").strip()
+    if not org_pk: raise Exception("CargoWise org id missing")
+    if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("search", "str", 0, None, "")])
+    search = str(oq.get("search") or "").strip()
+    sql = """
+        SET NOCOUNT ON;
+        DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        DECLARE @po_id uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        DECLARE @search nvarchar(max) = ?;
+
+        IF NOT EXISTS (
+            SELECT 1 FROM dbo.JobOrderHeader AS JD
+            LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
+            LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
+            WHERE JD.JD_PK = @po_id
+              AND JD.JD_IsValid = 1
+              AND (
+                    BuyerOA.OA_OH = @org
+                 OR SupplierOA.OA_OH = @org
+                 OR JD.JD_OH_Carrier = @org
+                 OR JD.JD_OH_SendingAgent = @org
+                 OR JD.JD_OH_ReceivingAgent = @org
+                 OR EXISTS (
+                        SELECT 1 FROM dbo.JobOrderLine AS JO
+                        WHERE JO.JO_JD = JD.JD_PK AND JO.JO_IsValid = 1 AND JO.JO_OH_Supplier = @org
+                    )
+              )
+        )
+        BEGIN
+            SELECT TOP 0 1;
+            RETURN;
+        END
+
+        SELECT
+            CONVERT(varchar(36), JO.JO_PK) AS line_id,
+            JO.JO_LineNumber AS line_number,
+            JO.JO_PartNum AS part_number,
+            JO.JO_Description AS description,
+            JO.JO_Quantity AS quantity,
+            JO.JO_PackQty AS pack_quantity,
+            JO.JO_PackType AS pack_type,
+            JO.JO_LinePrice AS unit_price,
+            (JO.JO_LinePrice * JO.JO_Quantity) AS total_price,
+            JO.JO_ActualWeight AS actual_weight,
+            JO.JO_ActualVolume AS actual_volume
+        FROM dbo.JobOrderLine AS JO
+        WHERE JO.JO_JD = @po_id
+          AND JO.JO_IsValid = 1
+          AND (
+                @search = ''
+             OR LOWER(JO.JO_PartNum)     LIKE '%' + LOWER(@search) + '%'
+             OR LOWER(JO.JO_Description) LIKE '%' + LOWER(@search) + '%'
+          )
+        ORDER BY JO.JO_LineNumber ASC, JO.JO_SystemCreateTimeUtc ASC;
+    """
+    async with app_state.client_mssql_read.acquire() as conn:
+        cursor = await conn.cursor()
+        await cursor.execute(sql, org_pk, po_id, search)
+        if cursor.description:
+            columns = [column[0] for column in cursor.description]
+            obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
+        else:
+            obj_list = []
     return {"status": 1, "message": jsonable_encoder(obj_list)}
 
 @router.get("/my/cargowise-shipments")
@@ -280,12 +352,8 @@ async def func_api_my_cargowise_shipments(*, request: Request):
         ) AS JH
         OUTER APPLY (
             SELECT
-                COUNT(DISTINCT JD.JD_PK) AS linked_purchase_orders,
-                COUNT(DISTINCT JC.JC_PK) AS container_count
-            FROM dbo.JobOrderHeader AS JD
-            FULL OUTER JOIN dbo.JobConShipLink AS JN ON JN.JN_JS = JS.JS_PK
-            FULL OUTER JOIN dbo.JobContainer AS JC ON JC.JC_JS_FCLBookingOnlyLink = JS.JS_PK OR JC.JC_JK = JN.JN_JK
-            WHERE JD.JD_JS = JS.JS_PK OR JN.JN_JS = JS.JS_PK OR JC.JC_JS_FCLBookingOnlyLink = JS.JS_PK
+                (SELECT COUNT(JD_PK) FROM dbo.JobOrderHeader WHERE JD_JS = JS.JS_PK) AS linked_purchase_orders,
+                (SELECT COUNT(DISTINCT JC.JC_PK) FROM dbo.JobContainer AS JC LEFT JOIN dbo.JobConShipLink AS JN ON JN.JN_JK = JC.JC_JK WHERE JC.JC_JS_FCLBookingOnlyLink = JS.JS_PK OR JN.JN_JS = JS.JS_PK) AS container_count
         ) AS Summary
         ORDER BY COALESCE(JS.JS_SystemLastEditTimeUtc, JS.JS_SystemCreateTimeUtc) DESC
         OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY;"""
@@ -884,3 +952,81 @@ async def func_api_my_cargowise_analytics(*, request: Request):
         transport_modes = [dict(zip(transport_modes_columns, row)) for row in await cursor.fetchall()]
     analytics_object = {"kpis": kpis[0] if kpis else {}, "purchase_orders_by_status": purchase_orders_by_status, "shipments_by_status": shipments_by_status, "shipments_by_month": shipments_by_month, "transport_modes": transport_modes}
     return {"status": 1, "message": jsonable_encoder(analytics_object)}
+
+@router.get("/admin/cargowise-360")
+async def func_api_admin_cargowise_360(*, request: Request):
+    app_state = request.app.state
+    user = request.state.user or {}
+    if int(user.get("role") or 0) != 1: raise Exception("Admin role required")
+    if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, 50), ("page", "int", 0, None, 1), ("name", "str", 0, None, "")])
+    limit = max(1, min(int(oq["limit"] or 50), 200))
+    page = max(1, int(oq["page"] or 1))
+    offset = (page - 1) * limit
+    name = str(oq.get("name") or "").strip()
+    sql = f"""
+        SET NOCOUNT ON;
+        WITH POs AS (
+            SELECT OA.OA_OH AS OrgPK, COUNT(JD.JD_PK) AS TotalPOs
+            FROM dbo.JobOrderHeader JD
+            INNER JOIN dbo.OrgAddress OA ON JD.JD_OA_BuyerAddress = OA.OA_PK
+            GROUP BY OA.OA_OH
+        ),
+        Shipments AS (
+            SELECT
+                JSO.JS_E2_OA_OH_Consignee AS OrgPK,
+                COUNT(JS.JS_PK) AS TotalShipments,
+                SUM(CASE WHEN JS.JS_IsBooking = 1 THEN 1 ELSE 0 END) AS TotalBookings,
+                MAX(JS.JS_SystemCreateTimeUtc) AS LastActivityDate
+            FROM dbo.JobShipment JS
+            INNER JOIN dbo.cvw_JobShipmentOrgs JSO ON JS.JS_PK = JSO.JS_PK
+            GROUP BY JSO.JS_E2_OA_OH_Consignee
+        ),
+        Consols AS (
+            SELECT OA.OA_OH AS OrgPK, COUNT(JK.JK_PK) AS TotalConsols
+            FROM dbo.JobConsol JK
+            INNER JOIN dbo.OrgAddress OA ON JK.JK_OA_SendingForwarderAddress = OA.OA_PK
+            GROUP BY OA.OA_OH
+        ),
+        Finance AS (
+            SELECT AH.AH_OH AS OrgPK, COUNT(AH.AH_PK) AS TotalInvoices
+            FROM dbo.AccTransactionHeader AH
+            GROUP BY AH.AH_OH
+        ),
+        Combined AS (
+            SELECT
+                CONVERT(varchar(36), OH.OH_PK) AS org_id,
+                OH.OH_FullName AS name,
+                ISNULL(POs.TotalPOs, 0) AS total_pos,
+                ISNULL(Shipments.TotalBookings, 0) AS total_bookings,
+                ISNULL(Shipments.TotalShipments, 0) AS total_shipments,
+                ISNULL(Consols.TotalConsols, 0) AS total_consols,
+                ISNULL(Finance.TotalInvoices, 0) AS total_invoices,
+                Shipments.LastActivityDate AS last_activity_date
+            FROM dbo.OrgHeader OH
+            LEFT JOIN POs ON OH.OH_PK = POs.OrgPK
+            LEFT JOIN Shipments ON OH.OH_PK = Shipments.OrgPK
+            LEFT JOIN Consols ON OH.OH_PK = Consols.OrgPK
+            LEFT JOIN Finance ON OH.OH_PK = Finance.OrgPK
+            WHERE OH.OH_IsActive = 1
+              AND OH.OH_IsValid = 1
+              AND (? = '' OR LOWER(OH.OH_FullName) LIKE '%' + LOWER(?) + '%')
+        )
+        SELECT
+            org_id,
+            name,
+            total_pos,
+            total_bookings,
+            total_shipments,
+            total_consols,
+            total_invoices,
+            last_activity_date
+        FROM Combined
+        ORDER BY total_shipments DESC, name ASC
+        OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY;"""
+    async with app_state.client_mssql_read.acquire() as conn:
+        cursor = await conn.cursor()
+        await cursor.execute(sql, name, name)
+        columns = [column[0] for column in cursor.description]
+        obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
+    return {"status": 1, "message": jsonable_encoder(obj_list)}
