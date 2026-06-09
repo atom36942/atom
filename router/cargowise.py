@@ -102,8 +102,8 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("CargoWise org id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, 50), ("page", "int", 0, None, 1), ("po_number", "str", 0, None, "")])
-    limit = max(1, min(int(oq["limit"] or 50), 200))
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("po_number", "str", 0, None, "")])
+    limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
     page = max(1, int(oq["page"] or 1))
     offset = (page - 1) * limit
     po_number = str(oq.get("po_number") or "").strip()
@@ -196,22 +196,22 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": jsonable_encoder(obj_list)}
 
-@router.get("/my/cargowise-purchase-orders/{po_id}/lines")
-async def func_api_my_cargowise_purchase_order_lines(po_id: str, request: Request):
+@router.get("/my/cargowise-purchase-orders-line-items")
+async def func_api_my_cargowise_purchase_order_lines(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("CargoWise org id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("search", "str", 0, None, "")])
-    search = str(oq.get("search") or "").strip()
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("po_id", "str", 1, None, None)])
+    po_id = str(oq.get("po_id") or "").strip()
     sql = """
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @po_id uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
-        DECLARE @search nvarchar(max) = ?;
 
-        IF NOT EXISTS (
-            SELECT 1 FROM dbo.JobOrderHeader AS JD
+        WITH visible_orders AS (
+            SELECT DISTINCT JD.JD_PK
+            FROM dbo.JobOrderHeader AS JD
             LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JD.JD_PK = @po_id
@@ -228,11 +228,6 @@ async def func_api_my_cargowise_purchase_order_lines(po_id: str, request: Reques
                     )
               )
         )
-        BEGIN
-            SELECT TOP 0 1;
-            RETURN;
-        END
-
         SELECT
             CONVERT(varchar(36), JO.JO_PK) AS line_id,
             JO.JO_LineNumber AS line_number,
@@ -246,18 +241,13 @@ async def func_api_my_cargowise_purchase_order_lines(po_id: str, request: Reques
             JO.JO_ActualWeight AS actual_weight,
             JO.JO_ActualVolume AS actual_volume
         FROM dbo.JobOrderLine AS JO
-        WHERE JO.JO_JD = @po_id
-          AND JO.JO_IsValid = 1
-          AND (
-                @search = ''
-             OR LOWER(JO.JO_PartNum)     LIKE '%' + LOWER(@search) + '%'
-             OR LOWER(JO.JO_Description) LIKE '%' + LOWER(@search) + '%'
-          )
+        JOIN visible_orders AS VO ON VO.JD_PK = JO.JO_JD
+        WHERE JO.JO_IsValid = 1
         ORDER BY JO.JO_LineNumber ASC, JO.JO_SystemCreateTimeUtc ASC;
     """
     async with app_state.client_mssql_read.acquire() as conn:
         cursor = await conn.cursor()
-        await cursor.execute(sql, org_pk, po_id, search)
+        await cursor.execute(sql, org_pk, po_id)
         if cursor.description:
             columns = [column[0] for column in cursor.description]
             obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
@@ -271,8 +261,8 @@ async def func_api_my_cargowise_shipments(*, request: Request):
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("CargoWise org id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, 50), ("page", "int", 0, None, 1)])
-    limit = max(1, min(int(oq["limit"] or 50), 200))
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
+    limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
     page = max(1, int(oq["page"] or 1))
     offset = (page - 1) * limit
     sql = f"""
@@ -370,13 +360,17 @@ async def func_api_my_cargowise_containers(*, request: Request):
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("CargoWise org id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, 50), ("page", "int", 0, None, 1)])
-    limit = max(1, min(int(oq["limit"] or 50), 200))
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_id", "str", 0, None, "")])
+    limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
     page = max(1, int(oq["page"] or 1))
+    shipment_id = str(oq.get("shipment_id") or "").strip()
     offset = (page - 1) * limit
     sql = f"""
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        DECLARE @shipment_id_str nvarchar(max) = ?;
+        DECLARE @shipment_id uniqueidentifier = NULL;
+        IF @shipment_id_str <> '' SET @shipment_id = TRY_CONVERT(uniqueidentifier, @shipment_id_str);
         WITH visible_shipments AS (
             SELECT DISTINCT JS.JS_PK
             FROM dbo.JobShipment AS JS
@@ -413,6 +407,11 @@ async def func_api_my_cargowise_containers(*, request: Request):
                  OR VS2.JS_PK IS NOT NULL
                  OR JC.JC_OH_CFSClient = @org
                  OR JC.JC_OH_ShippingLine = @org
+              )
+              AND (
+                    @shipment_id IS NULL
+                 OR JC.JC_JS_FCLBookingOnlyLink = @shipment_id
+                 OR JN.JN_JS = @shipment_id
               )
         )
         SELECT
@@ -455,7 +454,7 @@ async def func_api_my_cargowise_containers(*, request: Request):
         OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY;"""
     async with app_state.client_mssql_read.acquire() as conn:
         cursor = await conn.cursor()
-        await cursor.execute(sql, org_pk)
+        await cursor.execute(sql, org_pk, shipment_id)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": jsonable_encoder(obj_list)}
@@ -466,8 +465,8 @@ async def func_api_my_cargowise_tracking(*, request: Request):
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("CargoWise org id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, 100), ("page", "int", 0, None, 1)])
-    limit = max(1, min(int(oq["limit"] or 100), 300))
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
+    limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 300))
     page = max(1, int(oq["page"] or 1))
     offset = (page - 1) * limit
     sql = f"""
@@ -545,8 +544,8 @@ async def func_api_my_cargowise_exceptions(*, request: Request):
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("CargoWise org id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, 50), ("page", "int", 0, None, 1)])
-    limit = max(1, min(int(oq["limit"] or 50), 200))
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
+    limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
     page = max(1, int(oq["page"] or 1))
     offset = (page - 1) * limit
     sql = f"""
@@ -678,8 +677,8 @@ async def func_api_my_cargowise_documents(*, request: Request):
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("CargoWise org id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, 50), ("page", "int", 0, None, 1)])
-    limit = max(1, min(int(oq["limit"] or 50), 200))
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
+    limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
     page = max(1, int(oq["page"] or 1))
     offset = (page - 1) * limit
     sql = f"""
@@ -959,8 +958,8 @@ async def func_api_admin_cargowise_360(*, request: Request):
     user = request.state.user or {}
     if int(user.get("role") or 0) != 1: raise Exception("Admin role required")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, 50), ("page", "int", 0, None, 1), ("name", "str", 0, None, "")])
-    limit = max(1, min(int(oq["limit"] or 50), 200))
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("name", "str", 0, None, "")])
+    limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
     page = max(1, int(oq["page"] or 1))
     offset = (page - 1) * limit
     name = str(oq.get("name") or "").strip()

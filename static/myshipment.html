@@ -995,6 +995,65 @@ body.logged-out .content-wrapper {
     overflow: hidden;
 }
 
+body.not-allowed .sidebar,
+body.not-allowed .auth-only {
+    display: none !important;
+}
+
+body.not-allowed .main-content {
+    width: 100%;
+}
+
+body.not-allowed .content-wrapper {
+    padding: 1.5rem 3rem;
+    overflow: hidden;
+}
+
+.blocked-section {
+    min-height: calc(100vh - 114px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.blocked-section.active {
+    display: flex;
+}
+
+.blocked-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2.5rem;
+    text-align: center;
+    max-width: 480px;
+    box-shadow: 0 18px 40px rgba(17, 24, 39, 0.08);
+}
+
+.blocked-card .lock {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: #FEE2E2;
+    color: #B91C1C;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    margin: 0 auto 1.25rem;
+}
+
+.blocked-card h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.4rem;
+}
+
+.blocked-card p {
+    margin: 0 0 1.5rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
 @media (max-width: 900px) {
     .home-hero {
         grid-template-columns: 1fr;
@@ -1123,6 +1182,16 @@ body.logged-out .content-wrapper {
                                 <div><strong>Analytics ready</strong><span>Volume, carrier performance, freight spend, and emissions are ready to grow here.</span></div>
                             </div>
                         </div>
+                    </div>
+                </section>
+
+                <!-- Access Blocked Section (role != 2) -->
+                <section id="blocked" class="blocked-section">
+                    <div class="blocked-card">
+                        <div class="lock"><i class="fa-solid fa-lock"></i></div>
+                        <h2>Access not allowed</h2>
+                        <p>This portal is restricted to users with <strong>role = 2</strong>. Your account currently has <strong>role = <span id="blocked-current-role">-</span></strong>. Please contact your administrator if you believe this is a mistake.</p>
+                        <button class="btn btn-primary" id="blocked-logout-btn" type="button">Logout</button>
                     </div>
                 </section>
 
@@ -1728,7 +1797,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tbody.innerHTML = '<tr><td colspan="5">Loading lines...</td></tr>';
         
         try {
-            const payload = await api(`/my/cargowise-purchase-orders/${encodeURIComponent(poId)}/lines`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const payload = await api(`/my/cargowise-purchase-orders-line-items?po_id=${encodeURIComponent(poId)}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
             const rows = Array.isArray(payload.message) ? payload.message : [];
             
             tbody.innerHTML = rows.length ? rows.map(row => `
@@ -1948,13 +2017,35 @@ document.addEventListener('DOMContentLoaded', () => {
             if (loadingMap[target]) setTableMessage(loadingMap[target][0], loadingMap[target][1], err.message || 'Unable to load data');
         }
     };
+    const PORTAL_ALLOWED_ROLE = 2;
+    const showBlocked = () => {
+        document.querySelectorAll('.view-section, .blocked-section').forEach(sec => sec.classList.remove('active'));
+        const blocked = document.getElementById('blocked');
+        if (blocked) blocked.classList.add('active');
+        const currentRoleEl = document.getElementById('blocked-current-role');
+        if (currentRoleEl) {
+            const raw = authUser && authUser.role !== undefined && authUser.role !== null && authUser.role !== '' ? String(authUser.role) : '-';
+            currentRoleEl.textContent = raw;
+        }
+    };
     const applyAuthState = () => {
         const loggedIn = Boolean(authToken && authUser);
+        const userRole = authUser ? Number(authUser.role) : null;
+        const allowed = loggedIn && userRole === PORTAL_ALLOWED_ROLE;
         document.body.classList.toggle('logged-in', loggedIn);
         document.body.classList.toggle('logged-out', !loggedIn);
+        document.body.classList.toggle('not-allowed', loggedIn && !allowed);
         renderProfile();
-        showSection(loggedIn ? 'profile' : 'home');
-        if (loggedIn) loadCargowiseProfile();
+        if (!loggedIn) {
+            showSection('home');
+            return;
+        }
+        if (!allowed) {
+            showBlocked();
+            return;
+        }
+        showSection('profile');
+        loadCargowiseProfile();
     };
     const saveAuthPayload = payload => {
         const nextToken = extractToken(payload);
@@ -2019,6 +2110,7 @@ document.addEventListener('DOMContentLoaded', () => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
             if (!authToken || !authUser) return;
+            if (Number(authUser.role) !== PORTAL_ALLOWED_ROLE) { showBlocked(); return; }
             const target = item.getAttribute('data-target');
             showSection(target);
             if (target === 'profile') loadCargowiseProfile();
@@ -2037,6 +2129,7 @@ document.addEventListener('DOMContentLoaded', () => {
         openModal('profile-modal');
     });
     document.getElementById('profile-menu-logout').addEventListener('click', logout);
+    document.getElementById('blocked-logout-btn').addEventListener('click', logout);
     document.getElementById('toggle-password').addEventListener('click', () => {
         const input = document.getElementById('login-password');
         const icon = document.querySelector('#toggle-password i');
