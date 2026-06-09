@@ -38,7 +38,7 @@ config_celery_url = None
 config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
 config_root_html_path = "static/api.html"
 config_is_enable_user_delete = 1
-
+config_is_enable_postgres_schema_init = 1
 config_is_enable_signup = 1
 config_is_enable_otp_require_users_update = 0
 config_is_notification = 0

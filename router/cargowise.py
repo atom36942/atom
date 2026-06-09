@@ -96,8 +96,8 @@ async def func_api_my_cargowise_profile(*, request: Request):
     profile_object = {"org": org, "roles": roles, "addresses": addresses, "contacts": contacts}
     return {"status": 1, "message": jsonable_encoder(profile_object)}
 
-@router.get("/my/purchase-orders")
-async def func_api_my_purchase_orders(*, request: Request):
+@router.get("/my/cargowise-purchase-orders")
+async def func_api_my_cargowise_purchase_orders(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("CargoWise org id missing")
@@ -193,8 +193,8 @@ async def func_api_my_purchase_orders(*, request: Request):
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": jsonable_encoder(obj_list)}
 
-@router.get("/my/shipments")
-async def func_api_my_shipments(*, request: Request):
+@router.get("/my/cargowise-shipments")
+async def func_api_my_cargowise_shipments(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("CargoWise org id missing")
@@ -296,8 +296,8 @@ async def func_api_my_shipments(*, request: Request):
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": jsonable_encoder(obj_list)}
 
-@router.get("/my/containers")
-async def func_api_my_containers(*, request: Request):
+@router.get("/my/cargowise-containers")
+async def func_api_my_cargowise_containers(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("CargoWise org id missing")
@@ -392,8 +392,8 @@ async def func_api_my_containers(*, request: Request):
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": jsonable_encoder(obj_list)}
 
-@router.get("/my/tracking")
-async def func_api_my_tracking(*, request: Request):
+@router.get("/my/cargowise-tracking")
+async def func_api_my_cargowise_tracking(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("CargoWise org id missing")
@@ -471,8 +471,8 @@ async def func_api_my_tracking(*, request: Request):
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": jsonable_encoder(obj_list)}
 
-@router.get("/my/exceptions")
-async def func_api_my_exceptions(*, request: Request):
+@router.get("/my/cargowise-exceptions")
+async def func_api_my_cargowise_exceptions(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("CargoWise org id missing")
@@ -604,8 +604,8 @@ async def func_api_my_exceptions(*, request: Request):
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": jsonable_encoder(obj_list)}
 
-@router.get("/my/documents")
-async def func_api_my_documents(*, request: Request):
+@router.get("/my/cargowise-documents")
+async def func_api_my_cargowise_documents(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("CargoWise org id missing")
@@ -726,8 +726,8 @@ async def func_api_my_documents(*, request: Request):
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": jsonable_encoder(obj_list)}
 
-@router.get("/my/analytics")
-async def func_api_my_analytics(*, request: Request):
+@router.get("/my/cargowise-analytics")
+async def func_api_my_cargowise_analytics(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("CargoWise org id missing")
