@@ -565,16 +565,6 @@ body {
     gap: 1.25rem;
 }
 
-.top-brand {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-}
-
-.top-brand strong {
-    font-size: 1rem;
-}
-
 .login-btn {
     padding: 0.65rem 1.1rem;
     min-width: 96px;
@@ -834,6 +824,153 @@ body {
     word-break: break-word;
 }
 
+.profile-status {
+    margin-bottom: 1rem;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.profile-layout {
+    display: grid;
+    gap: 1.25rem;
+}
+
+.profile-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+}
+
+.profile-summary-item {
+    min-width: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.85rem;
+    background: #F9FAFB;
+}
+
+.profile-summary-item span {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 0.35rem;
+}
+
+.profile-summary-item strong {
+    display: block;
+    font-size: 0.95rem;
+    word-break: break-word;
+}
+
+.role-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.3rem 0.7rem;
+    background: #EEF2FF;
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 0.78rem;
+}
+
+.profile-table td {
+    vertical-align: top;
+}
+
+.tracking-summary {
+    margin-bottom: 1.25rem;
+}
+
+.event-timeline {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.event-item {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 0.85rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #FFFFFF;
+}
+
+.event-dot {
+    width: 12px;
+    height: 12px;
+    margin: 0.35rem auto 0;
+    border-radius: 999px;
+    background: var(--primary);
+    box-shadow: 0 0 0 5px #EEF2FF;
+}
+
+.event-item.exception .event-dot {
+    background: #EF4444;
+    box-shadow: 0 0 0 5px #FEE2E2;
+}
+
+.event-item.estimate .event-dot {
+    background: #F59E0B;
+    box-shadow: 0 0 0 5px #FEF3C7;
+}
+
+.event-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.event-title {
+    min-width: 0;
+}
+
+.event-title strong {
+    display: block;
+    font-size: 0.98rem;
+    color: var(--text-dark);
+}
+
+.event-title span {
+    display: block;
+    margin-top: 0.25rem;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+.event-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+.event-reference {
+    margin-top: 0.75rem;
+    color: var(--text-dark);
+    font-size: 0.86rem;
+    word-break: break-word;
+}
+
+.empty-state {
+    padding: 1rem;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    background: #F9FAFB;
+}
+
 body.logged-out .sidebar,
 body.logged-out .auth-only {
     display: none !important;
@@ -876,20 +1013,29 @@ body.logged-out .content-wrapper {
                 <h2>MyShipment</h2>
             </div>
             <nav class="nav-menu">
-                <a href="#visibility" class="nav-item active" data-target="visibility">
-                    <i class="fa-solid fa-eye"></i> Visibility
+                <a href="#profile" class="nav-item active" data-target="profile">
+                    <i class="fa-solid fa-user"></i> My Profile
+                </a>
+                <a href="#purchase-orders" class="nav-item" data-target="purchase-orders">
+                    <i class="fa-solid fa-file-invoice"></i> Purchase Orders
+                </a>
+                <a href="#shipments" class="nav-item" data-target="shipments">
+                    <i class="fa-solid fa-ship"></i> Shipments
+                </a>
+                <a href="#containers" class="nav-item" data-target="containers">
+                    <i class="fa-solid fa-boxes-stacked"></i> Containers
+                </a>
+                <a href="#tracking" class="nav-item" data-target="tracking">
+                    <i class="fa-solid fa-route"></i> Tracking
                 </a>
                 <a href="#exceptions" class="nav-item" data-target="exceptions">
                     <i class="fa-solid fa-triangle-exclamation"></i> Exceptions
                 </a>
+                <a href="#documents" class="nav-item" data-target="documents">
+                    <i class="fa-solid fa-folder-open"></i> Documents
+                </a>
                 <a href="#analytics" class="nav-item" data-target="analytics">
                     <i class="fa-solid fa-chart-line"></i> Analytics
-                </a>
-                <a href="#sustainability" class="nav-item" data-target="sustainability">
-                    <i class="fa-solid fa-leaf"></i> Sustainability
-                </a>
-                <a href="#intelligence" class="nav-item" data-target="intelligence">
-                    <i class="fa-solid fa-lightbulb"></i> Intelligence
                 </a>
             </nav>
         </aside>
@@ -897,9 +1043,6 @@ body.logged-out .content-wrapper {
         <main class="main-content">
             <header class="top-bar">
                 <div class="top-bar-left">
-                    <div class="top-brand">
-                        <strong>MyShipment</strong>
-                    </div>
                     <div class="search-bar auth-only">
                         <i class="fa-solid fa-search"></i>
                         <input type="text" placeholder="Search POs, Shipments, or Containers...">
@@ -925,12 +1068,12 @@ body.logged-out .content-wrapper {
                     <div class="home-hero">
                         <div class="home-copy">
                             <h1>Welcome to MyShipment</h1>
-                            <p>Track shipments, exceptions, purchase order movement, sustainability signals, and logistics intelligence from one workspace.</p>
+                            <p>Track purchase orders, shipments, containers, milestones, exceptions, documents, and analytics from one workspace.</p>
                         </div>
                         <div class="home-card">
                             <div class="home-card-row">
                                 <div class="home-icon"><i class="fa-solid fa-eye"></i></div>
-                                <div><strong>Live visibility</strong><span>Shipments, POs, containers, ETAs, and milestone status in one place.</span></div>
+                                <div><strong>Live tracking</strong><span>Shipments, POs, containers, ETAs, and milestone status in one place.</span></div>
                             </div>
                             <div class="home-card-row">
                                 <div class="home-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
@@ -944,10 +1087,89 @@ body.logged-out .content-wrapper {
                     </div>
                 </section>
 
-                <!-- Visibility Section -->
-                <section id="visibility" class="view-section">
+                <!-- My Profile Section -->
+                <section id="profile" class="view-section">
+                    <div class="profile-layout" id="cargowise-profile-content" style="display: none;">
+                        <div class="panel">
+                            <div class="panel-header"><h3>Organization</h3></div>
+                            <div class="profile-summary-grid" id="cargowise-org-summary"></div>
+                        </div>
+                        <div class="panel">
+                            <div class="panel-header"><h3>Roles</h3></div>
+                            <div class="role-badges" id="cargowise-role-list"></div>
+                        </div>
+                        <div class="panel">
+                            <div class="panel-header"><h3>Addresses</h3></div>
+                            <div class="table-responsive">
+                                <table class="data-table profile-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Code</th>
+                                            <th>Address</th>
+                                            <th>City</th>
+                                            <th>Country</th>
+                                            <th>Phone</th>
+                                            <th>Email</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cargowise-address-list"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="panel">
+                            <div class="panel-header"><h3>Contacts</h3></div>
+                            <div class="table-responsive">
+                                <table class="data-table profile-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Title</th>
+                                            <th>Phone</th>
+                                            <th>Mobile</th>
+                                            <th>Email</th>
+                                            <th>Web Access</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cargowise-contact-list"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Purchase Orders Section -->
+                <section id="purchase-orders" class="view-section">
                     <div class="section-header">
-                        <h1>Visibility Dashboard</h1>
+                        <h1>Purchase Orders</h1>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>Purchase Order List</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="purchase-order-table">
+                                <thead>
+                                    <tr>
+                                        <th>PO Number</th>
+                                        <th>Status</th>
+                                        <th>Buyer</th>
+                                        <th>Supplier</th>
+                                        <th>Ship Window</th>
+                                        <th>Linked Shipment</th>
+                                        <th>Lines</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Shipments Section -->
+                <section id="shipments" class="view-section">
+                    <div class="section-header">
+                        <h1>Shipments</h1>
                         <div class="filters">
                             <select><option>All Statuses</option><option>In Transit</option><option>Delivered</option></select>
                             <select><option>All Origins</option><option>Shanghai</option><option>Shenzhen</option></select>
@@ -957,21 +1179,21 @@ body.logged-out .content-wrapper {
                     <div class="kpi-row">
                         <div class="kpi-card">
                             <h4>Active Shipments</h4>
-                            <div class="val">142</div>
+                            <div class="val" id="shipment-total">-</div>
                         </div>
                         <div class="kpi-card">
                             <h4>Open POs</h4>
-                            <div class="val">89</div>
+                            <div class="val" id="shipment-linked-pos">-</div>
                         </div>
                         <div class="kpi-card warning">
                             <h4>Flagged / Exceptions</h4>
-                            <div class="val" style="color: #EF4444;">12</div>
+                            <div class="val" id="shipment-exceptions" style="color: #EF4444;">-</div>
                         </div>
                     </div>
 
                     <div class="panel">
                         <div class="panel-header">
-                            <h3>Live Shipment List</h3>
+                            <h3>Shipment List</h3>
                             <button class="btn btn-primary btn-sm">Export Data</button>
                         </div>
                         <div class="table-responsive">
@@ -979,39 +1201,96 @@ body.logged-out .content-wrapper {
                                 <thead>
                                     <tr>
                                         <th>Shipment ID</th>
-                                        <th>Linked POs</th>
-                                        <th>Origin ➔ Destination</th>
+                                        <th>Reference</th>
+                                        <th>Origin / Destination</th>
                                         <th>Mode</th>
                                         <th>ETA</th>
                                         <th>Status</th>
-                                        <th>Action</th>
+                                        <th>Linked POs</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <!-- Populated by JS -->
-                                </tbody>
+                                <tbody></tbody>
                             </table>
                         </div>
+                    </div>
+                </section>
+
+                <!-- Containers Section -->
+                <section id="containers" class="view-section">
+                    <div class="section-header">
+                        <h1>Containers</h1>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>Container List</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="container-table">
+                                <thead>
+                                    <tr>
+                                        <th>Container</th>
+                                        <th>Status</th>
+                                        <th>Mode</th>
+                                        <th>Shipment</th>
+                                        <th>Seal</th>
+                                        <th>Available</th>
+                                        <th>Gate Out</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Tracking Section -->
+                <section id="tracking" class="view-section">
+                    <div class="section-header">
+                        <h1>Tracking</h1>
+                    </div>
+                    <div class="kpi-row tracking-summary">
+                        <div class="kpi-card">
+                            <h4>Latest Event</h4>
+                            <div class="val" id="tracking-latest">-</div>
+                        </div>
+                        <div class="kpi-card">
+                            <h4>Actual Events</h4>
+                            <div class="val" id="tracking-actual">-</div>
+                        </div>
+                        <div class="kpi-card">
+                            <h4>Estimated Events</h4>
+                            <div class="val" id="tracking-estimated">-</div>
+                        </div>
+                        <div class="kpi-card warning">
+                            <h4>Exceptions</h4>
+                            <div class="val" id="tracking-exception" style="color: #EF4444;">-</div>
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>Shipment Event Timeline</h3>
+                        </div>
+                        <div class="event-timeline" id="tracking-timeline"></div>
                     </div>
                 </section>
 
                 <!-- Exceptions Section -->
                 <section id="exceptions" class="view-section">
                     <div class="section-header">
-                        <h1>Exceptions Management</h1>
+                        <h1>Exceptions</h1>
                     </div>
                     <div class="kpi-row">
                         <div class="kpi-card warning">
                             <h4>Active Exceptions</h4>
-                            <div class="val" style="color: #EF4444;">12</div>
+                            <div class="val" id="exception-total" style="color: #EF4444;">-</div>
                         </div>
                         <div class="kpi-card warning">
-                            <h4>SLA Breaches</h4>
-                            <div class="val" style="color: #EF4444;">3</div>
+                            <h4>High Severity</h4>
+                            <div class="val" id="exception-high" style="color: #EF4444;">-</div>
                         </div>
                         <div class="kpi-card">
-                            <h4>Resolved (7 Days)</h4>
-                            <div class="val">45</div>
+                            <h4>Medium Severity</h4>
+                            <div class="val" id="exception-medium">-</div>
                         </div>
                     </div>
                     <div class="panel">
@@ -1022,17 +1301,44 @@ body.logged-out .content-wrapper {
                             <table class="data-table" id="exception-table">
                                 <thead>
                                     <tr>
-                                        <th>Shipment ID</th>
-                                        <th>Issue Type</th>
+                                        <th>Source</th>
+                                        <th>Reference</th>
+                                        <th>Exception</th>
                                         <th>Severity</th>
-                                        <th>Affected Milestone</th>
-                                        <th>Expected Delay</th>
-                                        <th>Status / Owner</th>
+                                        <th>Status</th>
+                                        <th>Date</th>
+                                        <th>Note</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <!-- Populated by JS -->
-                                </tbody>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Documents Section -->
+                <section id="documents" class="view-section">
+                    <div class="section-header">
+                        <h1>Documents</h1>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>Document List</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="document-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Source</th>
+                                        <th>Type</th>
+                                        <th>Parent</th>
+                                        <th>Required</th>
+                                        <th>Received</th>
+                                        <th>Owner</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
                             </table>
                         </div>
                     </div>
@@ -1044,69 +1350,33 @@ body.logged-out .content-wrapper {
                         <h1>Analytics Dashboard</h1>
                     </div>
                     <div class="kpi-row">
+                        <div class="kpi-card">
+                            <h4>Purchase Orders</h4>
+                            <div class="val" id="analytics-pos">-</div>
+                        </div>
+                        <div class="kpi-card">
+                            <h4>Shipments</h4>
+                            <div class="val" id="analytics-shipments">-</div>
+                        </div>
+                        <div class="kpi-card">
+                            <h4>Containers</h4>
+                            <div class="val" id="analytics-containers">-</div>
+                        </div>
+                    </div>
+                    <div class="kpi-row">
                         <div class="panel" style="flex: 1; margin-bottom: 0;">
                             <div class="panel-header"><h3>Shipment Volume (Monthly)</h3></div>
                             <canvas id="volumeChart" height="250"></canvas>
                         </div>
                         <div class="panel" style="flex: 1; margin-bottom: 0;">
-                            <div class="panel-header"><h3>Carrier On-Time Performance</h3></div>
+                            <div class="panel-header"><h3>Shipment Status</h3></div>
                             <canvas id="carrierChart" height="250"></canvas>
                         </div>
                     </div>
                     <div class="panel">
-                        <div class="panel-header"><h3>Freight Spend by Mode</h3></div>
+                        <div class="panel-header"><h3>Transport Mode Mix</h3></div>
                         <div style="width: 300px; margin: 0 auto;">
                             <canvas id="spendChart"></canvas>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Sustainability Section -->
-                <section id="sustainability" class="view-section">
-                    <div class="section-header">
-                        <h1>Sustainability & Emissions</h1>
-                    </div>
-                    <div class="kpi-row">
-                        <div class="kpi-card">
-                            <h4>Total CO2e (YTD)</h4>
-                            <div class="val" style="color: #10B981;">1,245 MT</div>
-                        </div>
-                        <div class="kpi-card">
-                            <h4>Avg Emission Intensity</h4>
-                            <div class="val" style="color: #10B981;">1.2 kg/$</div>
-                        </div>
-                    </div>
-                    <div class="panel">
-                        <div class="panel-header"><h3>Emissions by Mode</h3></div>
-                        <div style="width: 300px; margin: 0 auto;">
-                            <canvas id="emissionsChart"></canvas>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Intelligence Section -->
-                <section id="intelligence" class="view-section">
-                    <div class="section-header">
-                        <h1>Market Intelligence</h1>
-                    </div>
-                    <div class="panel">
-                        <div class="panel-header"><h3>Market Updates Feed</h3></div>
-                        <div class="feed-list" style="display:flex; flex-direction:column; gap: 1rem;">
-                            <div class="feed-item" style="padding: 1.25rem; border: 1px solid var(--border); border-radius: 8px;">
-                                <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-clock"></i> Oct 10, 2026 - Global Alert</div>
-                                <strong style="font-size: 1.1rem;">Suez Canal Congestion</strong>
-                                <p style="margin: 0.5rem 0 0 0; color: var(--text-dark);">Vessel wait times have increased by 48 hours due to severe weather. Impacted carriers: MSC, Maersk.</p>
-                            </div>
-                            <div class="feed-item" style="padding: 1.25rem; border: 1px solid var(--border); border-radius: 8px;">
-                                <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-arrow-trend-up"></i> Oct 08, 2026 - Rate Trend</div>
-                                <strong style="font-size: 1.1rem;">Trans-Pacific Air Freight Surging</strong>
-                                <p style="margin: 0.5rem 0 0 0; color: var(--text-dark);">Due to Q4 electronics launches, air freight rates from Shenzhen to LAX have increased by 15% WoW.</p>
-                            </div>
-                            <div class="feed-item" style="padding: 1.25rem; border: 1px solid var(--border); border-radius: 8px;">
-                                <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;"><i class="fa-solid fa-ship"></i> Oct 05, 2026 - Carrier Schedule</div>
-                                <strong style="font-size: 1.1rem;">Hapag-Lloyd Blank Sailings</strong>
-                                <p style="margin: 0.5rem 0 0 0; color: var(--text-dark);">Hapag-Lloyd announced 3 blank sailings for the Asia-Europe loop next month. Expect tighter capacity.</p>
-                            </div>
                         </div>
                     </div>
                 </section>
@@ -1220,7 +1490,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const STORAGE_KEY_USER = 'user';
     const API_BASE = location.origin && location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
     const LOGIN_PATH = '/auth/login-username-password';
+    const CARGOWISE_PROFILE_PATH = '/my/cargowise-profile';
+    const MODULE_ENDPOINTS = {
+        'purchase-orders': '/my/purchase-orders',
+        shipments: '/my/shipments',
+        containers: '/my/containers',
+        tracking: '/my/tracking',
+        exceptions: '/my/exceptions',
+        documents: '/my/documents',
+        analytics: '/my/analytics'
+    };
     let authUser = null;
+    let cargowiseProfileLoaded = false;
+    const moduleCache = {};
     const readStoredToken = () => {
         const rawToken = localStorage.getItem(STORAGE_KEY_TOKEN);
         if (!rawToken) return '';
@@ -1259,6 +1541,37 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!res.ok || body.status !== 1) throw new Error(body.message || body.detail || 'Request failed');
         return body;
     };
+    const accessToken = () => typeof authToken === 'object' ? authToken.access_token || authToken.token || '' : authToken || '';
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+    const displayValue = value => value === null || value === undefined || value === '' ? '-' : String(value);
+    const formatDate = value => {
+        if (!value) return '-';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return displayValue(value);
+        return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
+    };
+    const formatDateTime = value => {
+        if (!value) return '-';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return displayValue(value);
+        return date.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    };
+    const badgeClass = value => {
+        const text = String(value || '').toLowerCase();
+        if (text.includes('cancel') || text.includes('hold') || text.includes('high')) return 'exception';
+        if (text.includes('confirm') || text === 'cnf') return 'transit';
+        if (text.includes('book') || text === 'bkd' || text === 'plc') return 'open';
+        if (text.includes('deliver')) return 'delivered';
+        return 'open';
+    };
+    const setTableMessage = (tableId, colSpan, message) => {
+        const body = document.querySelector(`#${tableId} tbody`);
+        if (body) body.innerHTML = `<tr><td colspan="${colSpan}">${escapeHtml(message)}</td></tr>`;
+    };
+    const setBlockMessage = (id, message) => {
+        const element = document.getElementById(id);
+        if (element) element.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
+    };
     const openModal = id => { document.getElementById(id).style.display = 'flex'; };
     const closeModal = id => { document.getElementById(id).style.display = 'none'; };
     const closeProfileMenu = () => {
@@ -1291,12 +1604,264 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('profile-username').textContent = user.username || '-';
         document.getElementById('profile-password').textContent = user.password ? '****' : '-';
     };
+    const renderCargowiseProfile = profile => {
+        const org = profile.org || {};
+        const roles = profile.roles || [];
+        const addresses = profile.addresses || [];
+        const contacts = profile.contacts || [];
+        const summary = [
+            ['Name', org.name],
+            ['Code', org.org_code],
+            ['Status', `${org.is_active ? 'Active' : 'Inactive'} / ${org.is_valid ? 'Valid' : 'Invalid'}`],
+            ['Category', org.category],
+            ['Closest Port', org.closest_port],
+            ['Screening', org.screening_status],
+            ['Updated', org.updated_at],
+            ['Org ID', org.org_id],
+        ];
+        document.getElementById('cargowise-org-summary').innerHTML = summary.map(([label, value]) => `
+            <div class="profile-summary-item">
+                <span>${escapeHtml(label)}</span>
+                <strong>${escapeHtml(displayValue(value))}</strong>
+            </div>
+        `).join('');
+        document.getElementById('cargowise-role-list').innerHTML = roles.length ? roles.map(role => `<span class="role-badge">${escapeHtml(role)}</span>`).join('') : '<span class="profile-status">No active roles found.</span>';
+        document.getElementById('cargowise-address-list').innerHTML = addresses.length ? addresses.map(address => `
+            <tr>
+                <td>${escapeHtml(displayValue(address.code))}</td>
+                <td>${escapeHtml([address.company_name, address.address_1, address.address_2].filter(Boolean).join(', ') || '-')}</td>
+                <td>${escapeHtml([address.city, address.state, address.post_code].filter(Boolean).join(', ') || '-')}</td>
+                <td>${escapeHtml(displayValue(address.country_code))}</td>
+                <td>${escapeHtml(displayValue(address.phone || address.mobile))}</td>
+                <td>${escapeHtml(displayValue(address.email))}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="6">No active addresses found.</td></tr>';
+        document.getElementById('cargowise-contact-list').innerHTML = contacts.length ? contacts.map(contact => `
+            <tr>
+                <td>${escapeHtml(displayValue(contact.name))}</td>
+                <td>${escapeHtml(displayValue(contact.title))}</td>
+                <td>${escapeHtml(displayValue(contact.phone))}</td>
+                <td>${escapeHtml(displayValue(contact.mobile))}</td>
+                <td>${escapeHtml(displayValue(contact.email))}</td>
+                <td>${contact.web_access_enabled ? 'Yes' : 'No'}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="6">No active contacts found.</td></tr>';
+    };
+    const loadCargowiseProfile = async () => {
+        if (!authToken || !authUser) return;
+        if (cargowiseProfileLoaded) return;
+        const content = document.getElementById('cargowise-profile-content');
+        content.style.display = 'none';
+        try {
+            const payload = await api(CARGOWISE_PROFILE_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            renderCargowiseProfile(payload.message || {});
+            cargowiseProfileLoaded = true;
+            content.style.display = 'grid';
+        } catch (err) {
+            document.getElementById('cargowise-org-summary').innerHTML = `
+                <div class="profile-summary-item">
+                    <span>Error</span>
+                    <strong>${escapeHtml(err.message || 'Unable to load CargoWise profile')}</strong>
+                </div>
+            `;
+            document.getElementById('cargowise-role-list').innerHTML = '';
+            document.getElementById('cargowise-address-list').innerHTML = '<tr><td colspan="6">-</td></tr>';
+            document.getElementById('cargowise-contact-list').innerHTML = '<tr><td colspan="6">-</td></tr>';
+            content.style.display = 'grid';
+        }
+    };
+    const renderPurchaseOrders = rows => {
+        const body = document.querySelector('#purchase-order-table tbody');
+        if (!body) return;
+        body.innerHTML = rows.length ? rows.map(row => `
+            <tr>
+                <td><strong>${escapeHtml(displayValue(row.order_number))}</strong></td>
+                <td><span class="badge ${badgeClass(row.status)}">${escapeHtml(displayValue(row.status))}</span></td>
+                <td>${escapeHtml(displayValue(row.buyer_name || row.buyer_code))}</td>
+                <td>${escapeHtml(displayValue(row.supplier_name || row.supplier_code))}</td>
+                <td>${escapeHtml(formatDate(row.shipment_window_start))} / ${escapeHtml(formatDate(row.shipment_window_end))}</td>
+                <td>${escapeHtml(displayValue(row.shipment_reference))}</td>
+                <td>${escapeHtml(displayValue(row.line_count))}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="7">No purchase orders found.</td></tr>';
+    };
+    const renderShipments = rows => {
+        const body = document.querySelector('#shipment-table tbody');
+        if (!body) return;
+        const linkedPos = rows.reduce((sum, row) => sum + Number(row.linked_purchase_orders || 0), 0);
+        document.getElementById('shipment-total').textContent = rows.length;
+        document.getElementById('shipment-linked-pos').textContent = linkedPos;
+        document.getElementById('shipment-exceptions').textContent = rows.filter(row => row.is_cancelled).length;
+        body.innerHTML = rows.length ? rows.map(row => `
+            <tr>
+                <td><strong>${escapeHtml(displayValue(row.job_number || row.shipment_reference))}</strong></td>
+                <td>${escapeHtml(displayValue(row.shipment_reference))}</td>
+                <td>${escapeHtml(displayValue(row.origin))} / ${escapeHtml(displayValue(row.destination))}</td>
+                <td>${escapeHtml(displayValue(row.transport_mode))}</td>
+                <td>${escapeHtml(formatDate(row.eta || row.client_requested_eta || row.delivery_due_date))}</td>
+                <td><span class="badge ${badgeClass(row.status)}">${escapeHtml(displayValue(row.status))}</span></td>
+                <td>${escapeHtml(displayValue(row.linked_purchase_orders))}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="7">No shipments found.</td></tr>';
+    };
+    const renderContainers = rows => {
+        const body = document.querySelector('#container-table tbody');
+        if (!body) return;
+        body.innerHTML = rows.length ? rows.map(row => `
+            <tr>
+                <td><strong>${escapeHtml(displayValue(row.container_number))}</strong></td>
+                <td><span class="badge ${badgeClass(row.status)}">${escapeHtml(displayValue(row.status))}</span></td>
+                <td>${escapeHtml(displayValue(row.container_mode))}</td>
+                <td>${escapeHtml(displayValue(row.shipment_reference))}</td>
+                <td>${escapeHtml(displayValue(row.seal_number))}</td>
+                <td>${escapeHtml(formatDate(row.fcl_available))}</td>
+                <td>${escapeHtml(formatDate(row.fcl_wharf_gate_out))}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="7">No containers found.</td></tr>';
+    };
+    const renderTracking = rows => {
+        const timeline = document.getElementById('tracking-timeline');
+        if (!timeline) return;
+        const actualCount = rows.filter(row => row.is_estimate !== 'Y').length;
+        const estimatedCount = rows.filter(row => row.is_estimate === 'Y').length;
+        const exceptionCount = rows.filter(row => row.event_category === 'Exception' || String(row.event_code || '').startsWith('EX')).length;
+        document.getElementById('tracking-latest').textContent = rows.length ? formatDate(rows[0].event_at) : '-';
+        document.getElementById('tracking-actual').textContent = actualCount;
+        document.getElementById('tracking-estimated').textContent = estimatedCount;
+        document.getElementById('tracking-exception').textContent = exceptionCount;
+        timeline.innerHTML = rows.length ? rows.map(row => {
+            const isException = row.event_category === 'Exception' || String(row.event_code || '').startsWith('EX');
+            const isEstimate = row.is_estimate === 'Y';
+            const itemClass = isException ? 'exception' : isEstimate ? 'estimate' : '';
+            const eventType = isEstimate ? 'Estimate' : 'Actual';
+            return `
+                <div class="event-item ${itemClass}">
+                    <div class="event-dot"></div>
+                    <div>
+                        <div class="event-head">
+                            <div class="event-title">
+                                <strong>${escapeHtml(displayValue(row.event_name))}</strong>
+                                <span>${escapeHtml(displayValue(row.shipment_reference))} · ${escapeHtml(displayValue(row.origin))} / ${escapeHtml(displayValue(row.destination))}</span>
+                            </div>
+                            <span class="badge ${isException ? 'exception' : isEstimate ? 'open' : 'transit'}">${escapeHtml(displayValue(row.event_code))}</span>
+                        </div>
+                        <div class="event-meta">
+                            <span>${escapeHtml(formatDateTime(row.event_at))}</span>
+                            <span>${escapeHtml(eventType)}</span>
+                            <span>${escapeHtml(displayValue(row.event_category))}</span>
+                            <span>Status: ${escapeHtml(displayValue(row.shipment_status))}</span>
+                        </div>
+                        ${row.event_reference ? `<div class="event-reference">${escapeHtml(row.event_reference)}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('') : '<div class="empty-state">No tracking events found.</div>';
+    };
+    const renderExceptions = rows => {
+        const body = document.querySelector('#exception-table tbody');
+        if (!body) return;
+        document.getElementById('exception-total').textContent = rows.length;
+        document.getElementById('exception-high').textContent = rows.filter(row => row.severity === 'High').length;
+        document.getElementById('exception-medium').textContent = rows.filter(row => row.severity === 'Medium').length;
+        body.innerHTML = rows.length ? rows.map(row => `
+            <tr>
+                <td>${escapeHtml(displayValue(row.source_type))}</td>
+                <td><strong>${escapeHtml(displayValue(row.reference))}</strong></td>
+                <td>${escapeHtml(displayValue(row.exception_type))}</td>
+                <td><span class="badge ${badgeClass(row.severity)}">${escapeHtml(displayValue(row.severity))}</span></td>
+                <td>${escapeHtml(displayValue(row.status))}</td>
+                <td>${escapeHtml(formatDate(row.event_at))}</td>
+                <td>${escapeHtml(displayValue(row.note))}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="7">No exceptions found.</td></tr>';
+    };
+    const renderDocuments = rows => {
+        const body = document.querySelector('#document-table tbody');
+        if (!body) return;
+        body.innerHTML = rows.length ? rows.map(row => `
+            <tr>
+                <td><strong>${escapeHtml(displayValue(row.name || row.document_number))}</strong></td>
+                <td>${escapeHtml(displayValue(row.document_source))}</td>
+                <td>${escapeHtml(displayValue(row.document_type || row.category))}</td>
+                <td>${escapeHtml(displayValue(row.parent_type))}</td>
+                <td>${escapeHtml(formatDate(row.date_required))}</td>
+                <td>${escapeHtml(formatDate(row.date_received))}</td>
+                <td>${escapeHtml(displayValue(row.owner_name || row.issued_by_name))}</td>
+            </tr>
+        `).join('') : '<tr><td colspan="7">No documents found.</td></tr>';
+    };
+    const chartInstances = {};
+    const renderChart = (id, config) => {
+        const canvas = document.getElementById(id);
+        if (!canvas || typeof Chart === 'undefined') return;
+        if (chartInstances[id]) chartInstances[id].destroy();
+        chartInstances[id] = new Chart(canvas, config);
+    };
+    const renderAnalytics = data => {
+        const kpis = data.kpis || {};
+        document.getElementById('analytics-pos').textContent = displayValue(kpis.purchase_orders);
+        document.getElementById('analytics-shipments').textContent = displayValue(kpis.shipments);
+        document.getElementById('analytics-containers').textContent = displayValue(kpis.containers);
+        const monthly = [...(data.shipments_by_month || [])].reverse();
+        const statuses = data.shipments_by_status || [];
+        const modes = data.transport_modes || [];
+        renderChart('volumeChart', {
+            type: 'line',
+            data: { labels: monthly.map(item => item.month || '-'), datasets: [{ label: 'Shipments', data: monthly.map(item => item.count || 0), borderColor: '#4F46E5', tension: 0.2, fill: false }] },
+            options: { maintainAspectRatio: false }
+        });
+        renderChart('carrierChart', {
+            type: 'bar',
+            data: { labels: statuses.map(item => displayValue(item.status)), datasets: [{ label: 'Shipments', data: statuses.map(item => item.count || 0), backgroundColor: '#10B981' }] },
+            options: { maintainAspectRatio: false }
+        });
+        renderChart('spendChart', {
+            type: 'doughnut',
+            data: { labels: modes.map(item => displayValue(item.transport_mode)), datasets: [{ data: modes.map(item => item.count || 0), backgroundColor: ['#4F46E5', '#F59E0B', '#10B981', '#EF4444', '#64748B'] }] }
+        });
+    };
+    const renderModule = (target, data) => {
+        if (target === 'purchase-orders') renderPurchaseOrders(Array.isArray(data) ? data : []);
+        if (target === 'shipments') renderShipments(Array.isArray(data) ? data : []);
+        if (target === 'containers') renderContainers(Array.isArray(data) ? data : []);
+        if (target === 'tracking') renderTracking(Array.isArray(data) ? data : []);
+        if (target === 'exceptions') renderExceptions(Array.isArray(data) ? data : []);
+        if (target === 'documents') renderDocuments(Array.isArray(data) ? data : []);
+        if (target === 'analytics') renderAnalytics(data || {});
+    };
+    const loadModule = async target => {
+        const endpoint = MODULE_ENDPOINTS[target];
+        if (!endpoint || !authToken || !authUser) return;
+        if (moduleCache[target]) {
+            renderModule(target, moduleCache[target]);
+            return;
+        }
+        const loadingMap = {
+            'purchase-orders': ['purchase-order-table', 7],
+            shipments: ['shipment-table', 7],
+            containers: ['container-table', 7],
+            exceptions: ['exception-table', 7],
+            documents: ['document-table', 7]
+        };
+        if (target === 'tracking') setBlockMessage('tracking-timeline', 'Loading events...');
+        if (loadingMap[target]) setTableMessage(loadingMap[target][0], loadingMap[target][1], 'Loading...');
+        try {
+            const joiner = endpoint.includes('?') ? '&' : '?';
+            const payload = await api(`${endpoint}${joiner}limit=100`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            moduleCache[target] = payload.message;
+            renderModule(target, payload.message);
+        } catch (err) {
+            if (target === 'tracking') setBlockMessage('tracking-timeline', err.message || 'Unable to load events');
+            if (loadingMap[target]) setTableMessage(loadingMap[target][0], loadingMap[target][1], err.message || 'Unable to load data');
+        }
+    };
     const applyAuthState = () => {
         const loggedIn = Boolean(authToken && authUser);
         document.body.classList.toggle('logged-in', loggedIn);
         document.body.classList.toggle('logged-out', !loggedIn);
         renderProfile();
-        showSection(loggedIn ? 'visibility' : 'home');
+        showSection(loggedIn ? 'profile' : 'home');
+        if (loggedIn) loadCargowiseProfile();
     };
     const saveAuthPayload = payload => {
         const nextToken = extractToken(payload);
@@ -1304,11 +1869,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!nextToken || !nextUser) throw new Error('Login response missing token or user');
         writeToken(nextToken);
         writeUser(nextUser);
+        cargowiseProfileLoaded = false;
+        Object.keys(moduleCache).forEach(key => delete moduleCache[key]);
     };
     const logout = () => {
         if (!confirm('Logout from MyShipment?')) return;
         writeToken('');
         writeUser(null);
+        cargowiseProfileLoaded = false;
+        Object.keys(moduleCache).forEach(key => delete moduleCache[key]);
         closeProfileMenu();
         closeModal('profile-modal');
         closeModal('login-modal');
@@ -1326,6 +1895,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!authToken || !authUser) return;
             const target = item.getAttribute('data-target');
             showSection(target);
+            if (target === 'profile') loadCargowiseProfile();
+            else loadModule(target);
         });
     });
 
@@ -1406,32 +1977,7 @@ document.addEventListener('DOMContentLoaded', () => {
         chatWindow.style.display = 'none';
     });
 
-    // 3. Mock Data for Visibility - Shipment List
-    const mockShipments = [
-        { id: 'SHP-2023-001', po: 'PO-99102', lane: 'Shanghai ➔ Los Angeles', mode: 'Ocean', eta: 'Oct 15, 2026', status: 'In Transit', statusCode: 'transit' },
-        { id: 'SHP-2023-002', po: 'PO-99105', lane: 'Shenzhen ➔ New York', mode: 'Ocean', eta: 'Oct 12, 2026', status: 'Customs Hold', statusCode: 'exception' },
-        { id: 'SHP-2023-003', po: 'PO-99110', lane: 'Frankfurt ➔ Chicago', mode: 'Air', eta: 'Oct 05, 2026', status: 'Delivered', statusCode: 'delivered' },
-        { id: 'SHP-2023-004', po: 'PO-99118', lane: 'Ho Chi Minh ➔ Seattle', mode: 'Ocean', eta: 'Oct 20, 2026', status: 'Booked', statusCode: 'open' },
-        { id: 'SHP-2023-005', po: 'PO-99120', lane: 'Mumbai ➔ London', mode: 'Ocean', eta: 'Oct 25, 2026', status: 'Booked', statusCode: 'open' },
-        { id: 'SHP-2023-006', po: 'PO-99122', lane: 'Paris ➔ New York', mode: 'Air', eta: 'Oct 06, 2026', status: 'In Transit', statusCode: 'transit' }
-    ];
-
-    const tableBody = document.querySelector('#shipment-table tbody');
-    mockShipments.forEach(s => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td><strong>${s.id}</strong></td>
-            <td>${s.po}</td>
-            <td>${s.lane}</td>
-            <td>${s.mode}</td>
-            <td>${s.eta}</td>
-            <td><span class="badge ${s.statusCode}">${s.status}</span></td>
-            <td><button class="btn btn-primary btn-sm" onclick="openShipmentModal('${s.id}')">View</button></td>
-        `;
-        tableBody.appendChild(tr);
-    });
-
-    // 4. Modal logic
+    // 3. Modal logic
     const modal = document.getElementById('shipment-modal');
     const closeModalBtn = document.querySelector('#shipment-modal .close-modal');
 
@@ -1451,88 +1997,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 5. Mock Data for Exceptions
-    const mockExceptions = [
-        { id: 'SHP-2023-002', issue: 'Customs Hold', severity: 'High', milestone: 'Dest Port', delay: '48h', status: 'In Progress', owner: 'Jane Buyer' },
-        { id: 'SHP-2023-018', issue: 'Missing Docs', severity: 'Medium', milestone: 'Origin Port', delay: '24h', status: 'Open', owner: 'Unassigned' },
-        { id: 'SHP-2023-024', issue: 'Vessel Delay', severity: 'Low', milestone: 'In Transit', delay: '12h', status: 'Closed', owner: 'System' },
-    ];
-
-    const excTableBody = document.querySelector('#exception-table tbody');
-    if (excTableBody) {
-        mockExceptions.forEach(e => {
-            const tr = document.createElement('tr');
-            const sevColor = e.severity === 'High' ? 'color: #EF4444; font-weight: bold;' : (e.severity === 'Medium' ? 'color: #F59E0B;' : 'color: var(--text-muted);');
-            tr.innerHTML = `
-                <td><strong>${e.id}</strong></td>
-                <td>${e.issue}</td>
-                <td style="${sevColor}">${e.severity}</td>
-                <td>${e.milestone}</td>
-                <td>${e.delay}</td>
-                <td>
-                    <select class="status-select" style="padding:0.25rem; border-radius:4px; border:1px solid var(--border);">
-                        <option ${e.status==='Open'?'selected':''}>Open</option>
-                        <option ${e.status==='In Progress'?'selected':''}>In Progress</option>
-                        <option ${e.status==='Closed'?'selected':''}>Closed</option>
-                    </select>
-                    <br><small style="color:var(--text-muted);">${e.owner}</small>
-                </td>
-            `;
-            excTableBody.appendChild(tr);
-        });
-    }
-
-    // 6. Chart.js Initialization
-    const initCharts = () => {
-        // Analytics Charts
-        const volCtx = document.getElementById('volumeChart');
-        if (volCtx) {
-            new Chart(volCtx, {
-                type: 'line',
-                data: {
-                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                    datasets: [{ label: 'Shipments', data: [65, 59, 80, 81, 56, 142], borderColor: '#4F46E5', tension: 0.1, fill: false }]
-                },
-                options: { maintainAspectRatio: false }
-            });
-        }
-
-        const carrCtx = document.getElementById('carrierChart');
-        if (carrCtx) {
-            new Chart(carrCtx, {
-                type: 'bar',
-                data: {
-                    labels: ['Maersk', 'MSC', 'CMA CGM', 'Hapag-Lloyd'],
-                    datasets: [{ label: 'OTD %', data: [92, 88, 85, 90], backgroundColor: '#10B981' }]
-                },
-                options: { maintainAspectRatio: false, scales: { y: { min: 50, max: 100 } } }
-            });
-        }
-
-        const spendCtx = document.getElementById('spendChart');
-        if (spendCtx) {
-            new Chart(spendCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Ocean', 'Air', 'Road'],
-                    datasets: [{ data: [60, 30, 10], backgroundColor: ['#4F46E5', '#F59E0B', '#10B981'] }]
-                }
-            });
-        }
-
-        // Sustainability Chart
-        const emissCtx = document.getElementById('emissionsChart');
-        if (emissCtx) {
-            new Chart(emissCtx, {
-                type: 'pie',
-                data: {
-                    labels: ['Ocean', 'Air', 'Road'],
-                    datasets: [{ data: [300, 800, 145], backgroundColor: ['#4F46E5', '#F59E0B', '#10B981'] }]
-                }
-            });
-        }
-    };
-    initCharts();
     applyAuthState();
 
 });
