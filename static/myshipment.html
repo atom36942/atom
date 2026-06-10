@@ -1165,6 +1165,7 @@ body.not-allowed .content-wrapper {
                 <section id="home" class="view-section home-section active">
                     <div class="home-hero">
                         <div class="home-copy">
+                            <span style="display: inline-block; padding: 0.35rem 0.85rem; background: #EEF2FF; border: 1px solid #C7D2FE; color: var(--primary); border-radius: 9999px; font-size: 0.75rem; font-weight: 700; margin-bottom: 1rem; letter-spacing: 0.05em; text-transform: uppercase; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">MGH GROUP</span>
                             <h1>Welcome to MyShipment</h1>
                             <p>Track purchase orders, shipments, containers, milestones, exceptions, documents, and analytics from one workspace.</p>
                         </div>
@@ -1736,7 +1737,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return (value || 'U').slice(0, 3).toUpperCase();
     };
     const showSection = target => {
-        document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+        document.querySelectorAll('.view-section, .blocked-section').forEach(sec => sec.classList.remove('active'));
         const section = document.getElementById(target);
         if (section) section.classList.add('active');
         document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.getAttribute('data-target') === target));
