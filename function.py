@@ -1099,21 +1099,35 @@ async def func_regex_check(*, config_regex: dict, obj_list: list) -> None:
     return None
 
 async def func_postgres_schema_read(*, client_postgres_pool: any) -> dict:
-    """Read full PostgreSQL schema (including tables, views, and materialized views) from public namespace."""
+    """Read full PostgreSQL schema (including tables, views, materialized views, and per-column index info) from public namespace."""
     sql = """
-        SELECT 
+        SELECT
             c.relname AS table_name,
             a.attname AS column_name,
             format_type(a.atttypid, a.atttypmod) AS data_type,
             CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END AS is_nullable,
-            pg_get_expr(d.adbin, d.adrelid) AS column_default
+            pg_get_expr(d.adbin, d.adrelid) AS column_default,
+            idx.is_primary AS is_primary,
+            idx.is_unique AS is_unique,
+            idx.is_index AS is_index,
+            idx.index_names AS index_names
         FROM pg_class c
         JOIN pg_attribute a ON c.oid = a.attrelid
         JOIN pg_namespace n ON c.relnamespace = n.oid
         LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
-        WHERE n.nspname = 'public' 
+        LEFT JOIN LATERAL (
+            SELECT
+                COALESCE(bool_or(ix.indisprimary), false) AS is_primary,
+                COALESCE(bool_or(ix.indisunique), false) AS is_unique,
+                count(*) > 0 AS is_index,
+                COALESCE(array_agg(i.relname ORDER BY i.relname), '{}') AS index_names
+            FROM pg_index ix
+            JOIN pg_class i ON i.oid = ix.indexrelid
+            WHERE ix.indrelid = c.oid AND a.attnum = ANY(ix.indkey)
+        ) idx ON true
+        WHERE n.nspname = 'public'
           AND c.relkind IN ('r', 'v', 'm')
-          AND a.attnum > 0 
+          AND a.attnum > 0
           AND NOT a.attisdropped
         ORDER BY c.relname, a.attnum;
     """
@@ -1121,7 +1135,7 @@ async def func_postgres_schema_read(*, client_postgres_pool: any) -> dict:
         records = await conn.fetch(sql)
     schema = {}
     for r in records:
-        schema.setdefault(r["table_name"], {})[r["column_name"]] = {"datatype": r["data_type"], "is_nullable": r["is_nullable"], "default": r["column_default"]}
+        schema.setdefault(r["table_name"], {})[r["column_name"]] = {"datatype": r["data_type"], "is_nullable": r["is_nullable"], "default": r["column_default"], "is_primary": r["is_primary"], "is_unique": r["is_unique"], "is_index": r["is_index"], "index_names": list(r["index_names"] or [])}
     return schema
 
 async def func_postgres_map_column(*, client_postgres_pool: any, config_sql: str, is_json_value: int = 0) -> dict:
