@@ -1,5 +1,6 @@
 # packages
 from fastapi import APIRouter, Request, Response
+from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 
 # router
@@ -106,6 +107,7 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
     limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
     page = max(1, int(oq["page"] or 1))
     offset = (page - 1) * limit
+    sql_limit = limit + 1
     po_number = str(oq.get("po_number") or "").strip()
     sql = f"""
         SET NOCOUNT ON;
@@ -187,14 +189,14 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
         LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
         LEFT JOIN dbo.OrgHeader AS SupplierOH ON SupplierOH.OH_PK = SupplierOA.OA_OH
         LEFT JOIN line_summary AS LS ON LS.order_pk = JD.JD_PK
-        ORDER BY COALESCE(JD.JD_SystemLastEditTimeUtc, JD.JD_SystemCreateTimeUtc) DESC
-        OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY;"""
+        ORDER BY COALESCE(JD.JD_SystemLastEditTimeUtc, JD.JD_SystemCreateTimeUtc) DESC, JD.JD_PK DESC
+        OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(sql, org_pk, po_number)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
-    return {"status": 1, "message": jsonable_encoder(obj_list)}
+    return JSONResponse(content={"status": 1, "message": jsonable_encoder(obj_list[:limit])}, headers={"X-Has-Next-Page": str(len(obj_list) > limit).lower()})
 
 @router.get("/my/cargowise-purchase-orders-line-items")
 async def func_api_my_cargowise_purchase_order_lines(*, request: Request):
@@ -265,6 +267,7 @@ async def func_api_my_cargowise_shipments(*, request: Request):
     limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
     page = max(1, int(oq["page"] or 1))
     offset = (page - 1) * limit
+    sql_limit = limit + 1
     sql = f"""
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
@@ -345,14 +348,14 @@ async def func_api_my_cargowise_shipments(*, request: Request):
                 (SELECT COUNT(JD_PK) FROM dbo.JobOrderHeader WHERE JD_JS = JS.JS_PK) AS linked_purchase_orders,
                 (SELECT COUNT(DISTINCT JC.JC_PK) FROM dbo.JobContainer AS JC LEFT JOIN dbo.JobConShipLink AS JN ON JN.JN_JK = JC.JC_JK WHERE JC.JC_JS_FCLBookingOnlyLink = JS.JS_PK OR JN.JN_JS = JS.JS_PK) AS container_count
         ) AS Summary
-        ORDER BY COALESCE(JS.JS_SystemLastEditTimeUtc, JS.JS_SystemCreateTimeUtc) DESC
-        OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY;"""
+        ORDER BY COALESCE(JS.JS_SystemLastEditTimeUtc, JS.JS_SystemCreateTimeUtc) DESC, JS.JS_PK DESC
+        OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(sql, org_pk)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
-    return {"status": 1, "message": jsonable_encoder(obj_list)}
+    return JSONResponse(content={"status": 1, "message": jsonable_encoder(obj_list[:limit])}, headers={"X-Has-Next-Page": str(len(obj_list) > limit).lower()})
 
 @router.get("/my/cargowise-containers")
 async def func_api_my_cargowise_containers(*, request: Request):
@@ -365,6 +368,7 @@ async def func_api_my_cargowise_containers(*, request: Request):
     page = max(1, int(oq["page"] or 1))
     shipment_id = str(oq.get("shipment_id") or "").strip()
     offset = (page - 1) * limit
+    sql_limit = limit + 1
     sql = f"""
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
@@ -450,14 +454,14 @@ async def func_api_my_cargowise_containers(*, request: Request):
                OR JN.JN_JK = JC.JC_JK
             ORDER BY JS.JS_SystemLastEditTimeUtc DESC
         ) AS JS
-        ORDER BY COALESCE(JC.JC_SystemLastEditTimeUtc, JC.JC_SystemCreateTimeUtc) DESC
-        OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY;"""
+        ORDER BY COALESCE(JC.JC_SystemLastEditTimeUtc, JC.JC_SystemCreateTimeUtc) DESC, JC.JC_PK DESC
+        OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(sql, org_pk, shipment_id)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
-    return {"status": 1, "message": jsonable_encoder(obj_list)}
+    return JSONResponse(content={"status": 1, "message": jsonable_encoder(obj_list[:limit])}, headers={"X-Has-Next-Page": str(len(obj_list) > limit).lower()})
 
 @router.get("/my/cargowise-tracking")
 async def func_api_my_cargowise_tracking(*, request: Request):
@@ -470,6 +474,7 @@ async def func_api_my_cargowise_tracking(*, request: Request):
     page = max(1, int(oq["page"] or 1))
     shipment_id = str(oq.get("shipment_id") or "").strip()
     offset = (page - 1) * limit
+    sql_limit = limit + 1
     sql = f"""
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
@@ -534,14 +539,14 @@ async def func_api_my_cargowise_tracking(*, request: Request):
         LEFT JOIN dbo.StmEvent AS SE ON SE.SE_Code = AL.SL_SE_NKEvent
         WHERE AL.SL_EventTime IS NOT NULL
           AND ISNULL(AL.SL_IsCancelled, 'N') <> 'Y'
-        ORDER BY AL.SL_EventTime DESC, AL.SL_PostedTimeUtc DESC
-        OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY;"""
+        ORDER BY AL.SL_EventTime DESC, AL.SL_PostedTimeUtc DESC, AL.SL_PK DESC
+        OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(sql, org_pk, shipment_id)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
-    return {"status": 1, "message": jsonable_encoder(obj_list)}
+    return JSONResponse(content={"status": 1, "message": jsonable_encoder(obj_list[:limit])}, headers={"X-Has-Next-Page": str(len(obj_list) > limit).lower()})
 
 @router.get("/my/cargowise-exceptions")
 async def func_api_my_cargowise_exceptions(*, request: Request):
@@ -553,6 +558,7 @@ async def func_api_my_cargowise_exceptions(*, request: Request):
     limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
     page = max(1, int(oq["page"] or 1))
     offset = (page - 1) * limit
+    sql_limit = limit + 1
     sql = f"""
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
@@ -669,14 +675,14 @@ async def func_api_my_cargowise_exceptions(*, request: Request):
         )
         SELECT *
         FROM exception_rows
-        ORDER BY event_at DESC
-        OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY;"""
+        ORDER BY event_at DESC, reference_id DESC
+        OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(sql, org_pk)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
-    return {"status": 1, "message": jsonable_encoder(obj_list)}
+    return JSONResponse(content={"status": 1, "message": jsonable_encoder(obj_list[:limit])}, headers={"X-Has-Next-Page": str(len(obj_list) > limit).lower()})
 
 @router.get("/my/cargowise-documents")
 async def func_api_my_cargowise_documents(*, request: Request):
@@ -688,6 +694,7 @@ async def func_api_my_cargowise_documents(*, request: Request):
     limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
     page = max(1, int(oq["page"] or 1))
     offset = (page - 1) * limit
+    sql_limit = limit + 1
     sql = f"""
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
@@ -791,14 +798,14 @@ async def func_api_my_cargowise_documents(*, request: Request):
         )
         SELECT *
         FROM document_rows
-        ORDER BY updated_at DESC
-        OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY;"""
+        ORDER BY updated_at DESC, document_id DESC
+        OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(sql, org_pk)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
-    return {"status": 1, "message": jsonable_encoder(obj_list)}
+    return JSONResponse(content={"status": 1, "message": jsonable_encoder(obj_list[:limit])}, headers={"X-Has-Next-Page": str(len(obj_list) > limit).lower()})
 
 @router.get("/my/cargowise-documents-download")
 async def func_api_my_cargowise_documents_download(*, request: Request):
@@ -1071,6 +1078,7 @@ async def func_api_admin_cargowise_360(*, request: Request):
     limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
     page = max(1, int(oq["page"] or 1))
     offset = (page - 1) * limit
+    sql_limit = limit + 1
     name = str(oq.get("name") or "").strip()
     sql = f"""
         SET NOCOUNT ON;
@@ -1131,10 +1139,10 @@ async def func_api_admin_cargowise_360(*, request: Request):
             last_activity_date
         FROM Combined
         ORDER BY total_shipments DESC, name ASC
-        OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY;"""
+        OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(sql, name, name)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
-    return {"status": 1, "message": jsonable_encoder(obj_list)}
+    return JSONResponse(content={"status": 1, "message": jsonable_encoder(obj_list[:limit])}, headers={"X-Has-Next-Page": str(len(obj_list) > limit).lower()})

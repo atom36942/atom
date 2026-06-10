@@ -186,7 +186,7 @@ async def middleware(request, api_function):
     return response
 
 # cors
-app.add_middleware(CORSMiddleware, allow_origins=[], allow_origin_regex=".*", allow_methods=["*"], allow_headers=["*"], expose_headers=["Content-Disposition", "x-cache"], allow_credentials=True)
+app.add_middleware(CORSMiddleware, allow_origins=[], allow_origin_regex=".*", allow_methods=["*"], allow_headers=["*"], expose_headers=["*"], allow_credentials=True)
 
 # main
 if __name__ == "__main__":

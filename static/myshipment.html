@@ -1306,7 +1306,12 @@ body.not-allowed .content-wrapper {
                     </div>
 
                     <div class="panel">
-                        <div class="panel-header" style="justify-content: flex-end; border-bottom: none; padding-bottom: 0;">
+                        <div class="panel-header" style="justify-content: space-between; border-bottom: none; padding-bottom: 0;">
+                            <div class="pagination-controls" style="display: flex; gap: 0.5rem; align-items: center;">
+                                <button class="btn btn-sm" id="shipment-prev-btn" disabled>Previous</button>
+                                <span id="shipment-page-display" style="font-size: 0.9rem; font-weight: 500;">Page 1</span>
+                                <button class="btn btn-sm" id="shipment-next-btn" disabled>Next</button>
+                            </div>
                             <button class="btn btn-primary btn-sm">Export Data</button>
                         </div>
                         <div class="table-responsive">
@@ -1331,6 +1336,13 @@ body.not-allowed .content-wrapper {
                 <!-- Containers Section -->
                 <section id="containers" class="view-section">
                     <div class="panel">
+                        <div class="panel-header" style="justify-content: space-between; border-bottom: none; padding-bottom: 0;">
+                            <div class="pagination-controls" style="display: flex; gap: 0.5rem; align-items: center;">
+                                <button class="btn btn-sm" id="container-prev-btn" disabled>Previous</button>
+                                <span id="container-page-display" style="font-size: 0.9rem; font-weight: 500;">Page 1</span>
+                                <button class="btn btn-sm" id="container-next-btn" disabled>Next</button>
+                            </div>
+                        </div>
                         <div class="table-responsive">
                             <table class="data-table" id="container-table">
                                 <thead>
@@ -1392,6 +1404,13 @@ body.not-allowed .content-wrapper {
                         </div>
                     </div>
                     <div class="panel">
+                        <div class="panel-header" style="justify-content: space-between; border-bottom: none; padding-bottom: 0;">
+                            <div class="pagination-controls" style="display: flex; gap: 0.5rem; align-items: center;">
+                                <button class="btn btn-sm" id="exception-prev-btn" disabled>Previous</button>
+                                <span id="exception-page-display" style="font-size: 0.9rem; font-weight: 500;">Page 1</span>
+                                <button class="btn btn-sm" id="exception-next-btn" disabled>Next</button>
+                            </div>
+                        </div>
                         <div class="table-responsive">
                             <table class="data-table" id="exception-table">
                                 <thead>
@@ -1414,6 +1433,13 @@ body.not-allowed .content-wrapper {
                 <!-- Documents Section -->
                 <section id="documents" class="view-section">
                     <div class="panel">
+                        <div class="panel-header" style="justify-content: space-between; border-bottom: none; padding-bottom: 0;">
+                            <div class="pagination-controls" style="display: flex; gap: 0.5rem; align-items: center;">
+                                <button class="btn btn-sm" id="document-prev-btn" disabled>Previous</button>
+                                <span id="document-page-display" style="font-size: 0.9rem; font-weight: 500;">Page 1</span>
+                                <button class="btn btn-sm" id="document-next-btn" disabled>Next</button>
+                            </div>
+                        </div>
                         <div class="table-responsive">
                             <table class="data-table" id="document-table">
                                 <thead>
@@ -1614,6 +1640,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let authUser = null;
     let cargowiseProfileLoaded = false;
     let poCurrentPage = 1;
+    let shipmentCurrentPage = 1;
+    let containerCurrentPage = 1;
+    let exceptionCurrentPage = 1;
+    let documentCurrentPage = 1;
     let poSearchQuery = '';
     let poSearchTimeout;
     const moduleCache = {};
@@ -1653,6 +1683,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch(API_BASE + path, options);
         const body = await res.json().catch(() => ({}));
         if (!res.ok || body.status !== 1) throw new Error(body.message || body.detail || 'Request failed');
+        body._headers = res.headers;
         return body;
     };
     const accessToken = () => typeof authToken === 'object' ? authToken.access_token || authToken.token || '' : authToken || '';
@@ -1981,10 +2012,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadModule = async target => {
         const endpoint = MODULE_ENDPOINTS[target];
         if (!endpoint || !authToken || !authUser) return;
-        if (moduleCache[target] && target !== 'purchase-orders') {
-            renderModule(target, moduleCache[target]);
-            return;
-        }
+        // Cache bypassed for pagination
         const loadingMap = {
             'purchase-orders': ['purchase-order-table', 7],
             shipments: ['shipment-table', 7],
@@ -1996,21 +2024,38 @@ document.addEventListener('DOMContentLoaded', () => {
         if (loadingMap[target]) setTableMessage(loadingMap[target][0], loadingMap[target][1], 'Loading...');
         try {
             let endpointUrl = '';
+            const joiner = endpoint.includes('?') ? '&' : '?';
             if (target === 'purchase-orders') {
-                const joiner = endpoint.includes('?') ? '&' : '?';
                 const searchParam = poSearchQuery ? `&po_number=${encodeURIComponent(poSearchQuery)}` : '';
                 endpointUrl = `${endpoint}${joiner}limit=100&page=${poCurrentPage}${searchParam}`;
+            } else if (target === 'shipments') {
+                endpointUrl = `${endpoint}${joiner}limit=100&page=${shipmentCurrentPage}`;
+            } else if (target === 'containers') {
+                endpointUrl = `${endpoint}${joiner}limit=100&page=${containerCurrentPage}`;
+            } else if (target === 'exceptions') {
+                endpointUrl = `${endpoint}${joiner}limit=100&page=${exceptionCurrentPage}`;
+            } else if (target === 'documents') {
+                endpointUrl = `${endpoint}${joiner}limit=100&page=${documentCurrentPage}`;
             } else {
-                const joiner = endpoint.includes('?') ? '&' : '?';
                 endpointUrl = `${endpoint}${joiner}limit=100`;
             }
             const payload = await api(endpointUrl, { headers: { Authorization: `Bearer ${accessToken()}` } });
-            if (target !== 'purchase-orders') moduleCache[target] = payload.message;
+            
+            const hasNextPage = payload._headers && payload._headers.get('X-Has-Next-Page') === 'true';
+            
             renderModule(target, payload.message);
-            if (target === 'purchase-orders') {
-                document.getElementById('po-page-display').textContent = `Page ${poCurrentPage}`;
-                document.getElementById('po-prev-btn').disabled = poCurrentPage <= 1;
-                document.getElementById('po-next-btn').disabled = payload.message.length < 100;
+            const stateMap = {
+                'purchase-orders': { page: poCurrentPage, prefix: 'po' },
+                'shipments': { page: shipmentCurrentPage, prefix: 'shipment' },
+                'containers': { page: containerCurrentPage, prefix: 'container' },
+                'exceptions': { page: exceptionCurrentPage, prefix: 'exception' },
+                'documents': { page: documentCurrentPage, prefix: 'document' }
+            };
+            if (stateMap[target]) {
+                const conf = stateMap[target];
+                document.getElementById(`${conf.prefix}-page-display`).textContent = `Page ${conf.page}`;
+                document.getElementById(`${conf.prefix}-prev-btn`).disabled = conf.page <= 1;
+                document.getElementById(`${conf.prefix}-next-btn`).disabled = !hasNextPage;
             }
         } catch (err) {
             if (target === 'tracking') setBlockMessage('tracking-timeline', err.message || 'Unable to load events');
@@ -2105,6 +2150,19 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('po-next-btn')?.addEventListener('click', () => {
         poCurrentPage++; loadModule('purchase-orders');
     });
+
+    document.getElementById('shipment-prev-btn')?.addEventListener('click', () => { if (shipmentCurrentPage > 1) { shipmentCurrentPage--; loadModule('shipments'); } });
+    document.getElementById('shipment-next-btn')?.addEventListener('click', () => { shipmentCurrentPage++; loadModule('shipments'); });
+    
+    document.getElementById('container-prev-btn')?.addEventListener('click', () => { if (containerCurrentPage > 1) { containerCurrentPage--; loadModule('containers'); } });
+    document.getElementById('container-next-btn')?.addEventListener('click', () => { containerCurrentPage++; loadModule('containers'); });
+    
+    document.getElementById('exception-prev-btn')?.addEventListener('click', () => { if (exceptionCurrentPage > 1) { exceptionCurrentPage--; loadModule('exceptions'); } });
+    document.getElementById('exception-next-btn')?.addEventListener('click', () => { exceptionCurrentPage++; loadModule('exceptions'); });
+    
+    document.getElementById('document-prev-btn')?.addEventListener('click', () => { if (documentCurrentPage > 1) { documentCurrentPage--; loadModule('documents'); } });
+    document.getElementById('document-next-btn')?.addEventListener('click', () => { documentCurrentPage++; loadModule('documents'); });
+
 
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {

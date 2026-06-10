@@ -1,6 +1,8 @@
 # packages
 import asyncio
 from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 
 # router
 router = APIRouter()
@@ -50,7 +52,7 @@ async def func_api_my_object_create(*, request: Request):
     if "*" in app_state.config_table_disable_create_my or oq["table"] in app_state.config_table_disable_create_my: raise Exception(f"creation disabled for table: {oq['table']}")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
-    if app_state.config_api_batch_item_limit and len(obj_list) > app_state.config_api_batch_item_limit: raise Exception(f"maximum {app_state.config_api_batch_item_limit} objects allowed")
+    if app_state.config_batch_item_limit and len(obj_list) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
     if restricted_key := next((key for item in obj_list for key in item if key == "deleted_at" or key in app_state.config_column_admin), None): raise Exception("deleted_at cannot be set on create; use deactivated_at for reversible inactive state" if restricted_key == "deleted_at" else f"unauthorized creation of restricted field: {restricted_key}")
     if "created_by_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'created_by_id' column for ownership tracking")
     if request.state.user.get("id"): obj_list = [dict(item, created_by_id=request.state.user["id"]) for item in obj_list]
@@ -65,9 +67,9 @@ async def func_api_my_object_read(*, request: Request):
     schema_cols = app_state.cache_postgres_schema.get(oq["table"], {})
     if oq["ownership_column"] not in schema_cols: raise Exception(f"table '{oq['table']}' lacks ownership column '{oq['ownership_column']}'")
     filters = oq["filter"] + [f"""{oq["ownership_column"]} = {request.state.user["id"]}"""]
-    ol = await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
+    ol = await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
     if oq["ownership_column"] == "user_id" and "id" in schema_cols and "read_at" in schema_cols: app_state.func_postgres_mark_read(client_postgres_pool=app_state.client_postgres_pool, table=oq["table"], ownership_column=oq["ownership_column"], user_id=request.state.user["id"], ids=[r.get("id") for r in ol if isinstance(r, dict)])
-    return {"status": 1, "message": ol}
+    return JSONResponse(content={"status": 1, "message": jsonable_encoder(ol[:oq["limit"]])}, headers={"X-Has-Next-Page": str(len(ol) > oq["limit"]).lower()})
 
 @router.put("/my/object-update")
 async def func_api_my_object_update(*, request: Request):
@@ -75,7 +77,7 @@ async def func_api_my_object_update(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("otp", "int", 0, None, None), ("queue", "str", 0, app_state.config_allowed_queue_services, None)])
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
-    if app_state.config_api_batch_item_limit and len(obj_list) > app_state.config_api_batch_item_limit: raise Exception(f"maximum {app_state.config_api_batch_item_limit} objects allowed")
+    if app_state.config_batch_item_limit and len(obj_list) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
     if any("deleted_at" in item for item in obj_list) and oq["table"] != "users": raise Exception("deleted_at update allowed only for users table; use deactivated_at etc for reversible inactive state")
     if restricted_key := next((key for item in obj_list for key in item if key in app_state.config_column_admin), None): raise Exception(f"unauthorized update to restricted field: {restricted_key}")
     if oq["table"] == "users" and len(obj_list) > 1: raise Exception("multi-object user update restricted")
@@ -93,7 +95,7 @@ async def func_api_my_object_update(*, request: Request):
 async def func_api_my_ids_delete(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "list:int", 1, None, None)])
-    if app_state.config_api_batch_item_limit and len(ob["ids"]) > app_state.config_api_batch_item_limit: raise Exception(f"maximum {app_state.config_api_batch_item_limit} objects allowed")
+    if app_state.config_batch_item_limit and len(ob["ids"]) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
     if ob["table"] == "users" and app_state.config_is_enable_user_delete != 1: raise Exception("users hard delete disabled")
     if ob["table"] == "users" and len(ob["ids"]) != 1: raise Exception("multiple users table delete not allowed")
     if ob["table"] == "users" and int(ob["ids"][0]) != int(request.state.user["id"]): raise Exception("users table delete allowed only for own account")
@@ -116,7 +118,7 @@ async def func_api_my_object_delete_all(*, request: Request):
 async def func_api_my_received_ids_delete(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "list:int", 1, None, None)])
-    if app_state.config_api_batch_item_limit and len(ob["ids"]) > app_state.config_api_batch_item_limit: raise Exception(f"maximum {app_state.config_api_batch_item_limit} objects allowed")
+    if app_state.config_batch_item_limit and len(ob["ids"]) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
     schema = app_state.cache_postgres_schema.get(ob["table"], {})
     if ob["table"] == "users" or "id" not in schema or "user_id" not in schema: raise Exception("users delete disabled or missing 'id'/'user_id' column")
     id_list, deleted_count = [int(x) for x in ob["ids"]], 0
@@ -143,17 +145,18 @@ async def func_api_my_message_inbox(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mode", "str", 1, ["all", "unread", "read"], None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
     where_clause = {"read": "user_id=$1 AND read_at IS NOT NULL", "unread": "user_id=$1 AND read_at IS NULL"}.get(oq["mode"], "1=1")
-    sql = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
+    sql = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
     async with app_state.client_postgres_pool.acquire() as conn:
-        return {"status": 1, "message": [dict(r) for r in await conn.fetch(sql, request.state.user["id"])]}
+        ol = [dict(r) for r in await conn.fetch(sql, request.state.user["id"])]
+        return JSONResponse(content={"status": 1, "message": jsonable_encoder(ol[:oq["limit"]])}, headers={"X-Has-Next-Page": str(len(ol) > oq["limit"]).lower()})
 
 @router.get("/my/message-thread")
 async def func_api_my_message_thread(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("user_id", "int", 1, None, None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
     user_one_id = request.state.user["id"]
-    sql = f"SELECT * FROM message WHERE ((created_by_id=$1 AND user_id=$2) OR (created_by_id=$2 AND user_id=$1)) ORDER BY {oq['order']} LIMIT {oq['limit']} OFFSET {(oq['page']-1)*oq['limit']};"
+    sql = f"SELECT * FROM message WHERE ((created_by_id=$1 AND user_id=$2) OR (created_by_id=$2 AND user_id=$1)) ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
     async with app_state.client_postgres_pool.acquire() as conn:
-        obj_list = [dict(r) for r in await conn.fetch(sql, user_one_id, oq["user_id"])]
+        ol = [dict(r) for r in await conn.fetch(sql, user_one_id, oq["user_id"])]
         await conn.execute("UPDATE message SET read_at=now() WHERE created_by_id=$1 AND user_id=$2;", oq["user_id"], user_one_id)
-    return {"status": 1, "message": obj_list}
+    return JSONResponse(content={"status": 1, "message": jsonable_encoder(ol[:oq["limit"]])}, headers={"X-Has-Next-Page": str(len(ol) > oq["limit"]).lower()})

@@ -50,6 +50,8 @@ config_blob_limit_size_kb = 300
 config_blob_limit_upload = 100
 config_blob_expire_sec_upload = 3600
 config_blob_expire_sec_preview = 360000
+config_buffer_limit_default = 100
+config_batch_item_limit = 1000
 config_sql_read_limit_default = 100
 config_sql_read_limit_max = 1000
 config_sql_read_relation_fetch_limit_max = 100
@@ -58,8 +60,6 @@ config_allowed_token_key = ["id", "type", "role", "username", "deactivated_at", 
 config_users_delete_data_retention_day = 30
 config_users_delete_exclude_table = ["users", "spatial_ref_sys", "log_*"]
 config_redis_cache_ttl_sec = 3600
-config_buffer_limit_default = 100
-config_api_batch_item_limit = 1000
 config_table_disable_create_my = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
 config_table_enable_create_public = ["test", "support"]
 config_table_enable_read_public = ["*"]
@@ -122,6 +122,7 @@ config_api = {
 "/admin/mssql-sql-runner-read": {"id": 23, "user_role_check": ["realtime", [1]]},
 "/my/cargowise-profile": {"id": 24, "api_cache_sec": ["redis", 300]},
 "/my/cargowise-purchase-orders": {"id": 25, "api_cache_sec": ["redis", 300]},
+"/my/cargowise-purchase-orders-line-items": {"id": 33, "api_cache_sec": ["redis", 300]},
 "/my/cargowise-shipments": {"id": 26, "api_cache_sec": ["redis", 300]},
 "/my/cargowise-containers": {"id": 27, "api_cache_sec": ["redis", 300]},
 "/my/cargowise-tracking": {"id": 28, "api_cache_sec": ["redis", 300]},
