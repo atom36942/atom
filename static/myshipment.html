@@ -1684,7 +1684,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch(API_BASE + path, options);
         const body = await res.json().catch(() => ({}));
         if (!res.ok || body.status !== 1) throw new Error(body.message || body.detail || 'Request failed');
-        body._headers = res.headers;
         return body;
     };
     const accessToken = () => typeof authToken === 'object' ? authToken.access_token || authToken.token || '' : authToken || '';
@@ -2013,7 +2012,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadModule = async target => {
         const endpoint = MODULE_ENDPOINTS[target];
         if (!endpoint || !authToken || !authUser) return;
-        // Cache bypassed for pagination
         const loadingMap = {
             'purchase-orders': ['purchase-order-table', 7],
             shipments: ['shipment-table', 7],
@@ -2041,10 +2039,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 endpointUrl = `${endpoint}${joiner}limit=100`;
             }
             const payload = await api(endpointUrl, { headers: { Authorization: `Bearer ${accessToken()}` } });
-            
-            const hasNextPage = payload._headers && payload._headers.get('X-Has-Next-Page') === 'true';
-            
-            renderModule(target, payload.message);
+            const message = payload.message;
+            const hasNextPage = Boolean(message && message.has_next_page);
+            renderModule(target, message && Array.isArray(message.obj_list) ? message.obj_list : message);
             const stateMap = {
                 'purchase-orders': { page: poCurrentPage, prefix: 'po' },
                 'shipments': { page: shipmentCurrentPage, prefix: 'shipment' },

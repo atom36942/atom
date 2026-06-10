@@ -1,8 +1,6 @@
 # packages
 import asyncio
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
-from fastapi.encoders import jsonable_encoder
 
 # router
 router = APIRouter()
@@ -69,7 +67,7 @@ async def func_api_my_object_read(*, request: Request):
     filters = oq["filter"] + [f"""{oq["ownership_column"]} = {request.state.user["id"]}"""]
     ol = await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
     if oq["ownership_column"] == "user_id" and "id" in schema_cols and "read_at" in schema_cols: app_state.func_postgres_mark_read(client_postgres_pool=app_state.client_postgres_pool, table=oq["table"], ownership_column=oq["ownership_column"], user_id=request.state.user["id"], ids=[r.get("id") for r in ol if isinstance(r, dict)])
-    return JSONResponse(content={"status": 1, "message": jsonable_encoder(ol[:oq["limit"]])}, headers={"X-Has-Next-Page": str(len(ol) > oq["limit"]).lower()})
+    return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 
 @router.put("/my/object-update")
 async def func_api_my_object_update(*, request: Request):
@@ -148,7 +146,7 @@ async def func_api_my_message_inbox(*, request: Request):
     sql = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
     async with app_state.client_postgres_pool.acquire() as conn:
         ol = [dict(r) for r in await conn.fetch(sql, request.state.user["id"])]
-        return JSONResponse(content={"status": 1, "message": jsonable_encoder(ol[:oq["limit"]])}, headers={"X-Has-Next-Page": str(len(ol) > oq["limit"]).lower()})
+        return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 
 @router.get("/my/message-thread")
 async def func_api_my_message_thread(*, request: Request):
@@ -159,4 +157,4 @@ async def func_api_my_message_thread(*, request: Request):
     async with app_state.client_postgres_pool.acquire() as conn:
         ol = [dict(r) for r in await conn.fetch(sql, user_one_id, oq["user_id"])]
         await conn.execute("UPDATE message SET read_at=now() WHERE created_by_id=$1 AND user_id=$2;", oq["user_id"], user_one_id)
-    return JSONResponse(content={"status": 1, "message": jsonable_encoder(ol[:oq["limit"]])}, headers={"X-Has-Next-Page": str(len(ol) > oq["limit"]).lower()})
+    return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}

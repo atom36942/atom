@@ -7,8 +7,6 @@ import httpx
 import orjson
 import pandas as pd
 from fastapi import APIRouter, Request, responses
-from fastapi.responses import JSONResponse
-from fastapi.encoders import jsonable_encoder
 from jira import JIRA
 
 # router
@@ -34,7 +32,7 @@ async def func_api_public_object_read(*, request: Request):
     if "*" not in app_state.config_table_enable_read_public and oq["table"] not in app_state.config_table_enable_read_public: raise Exception(f"read disabled for table: {oq['table']}")
     if (disabled_relation_table := next((parts[1] for rel in oq["relation"] for parts in ([p.strip() for p in rel.split(",", 4)],) if len(parts) >= 2 and "*" not in app_state.config_table_enable_read_public and parts[1] not in app_state.config_table_enable_read_public), None)) is not None: raise Exception(f"relation read disabled for table: {disabled_relation_table}")
     ol = await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
-    return JSONResponse(content={"status": 1, "message": jsonable_encoder(ol[:oq["limit"]])}, headers={"X-Has-Next-Page": str(len(ol) > oq["limit"]).lower()})
+    return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
     
 @router.get("/public/converter-number")
 async def func_api_public_converter_number(*, request: Request):
@@ -153,4 +151,4 @@ async def func_api_public_table_groupby(*, request: Request):
     async with app_state.client_postgres_pool.acquire() as conn:
         rows = await conn.fetch(sql, *values)
         ol = [{"item": row["item_col"], "value": row["agg_val"]} for row in rows]
-        return JSONResponse(content={"status": 1, "message": jsonable_encoder(ol[:limit])}, headers={"X-Has-Next-Page": str(len(ol) > limit).lower()})
+        return {"status": 1, "message": {"obj_list": ol[:limit], "has_next_page": len(ol) > limit}}

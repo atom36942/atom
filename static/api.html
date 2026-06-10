@@ -88,7 +88,7 @@
             ; if (s.data) copyWithFeedback(UI("masterRespCopy"), JSON.stringify(s.data, null, 2), 16, "Response copied")
         }); UI("masterRespCopyFull")?.addEventListener("click", () => {
           const s = ResponseView.states.master; if (s.data && s.index !== null) {
-            const full = `## CURL\n${generateCurl(s.index)}\n\n## RESPONSE\n${JSON.stringify(s.data, null, 2)}`
+            const full = `## CURL\n${generateCurl(s.index)}\n\n## RESPONSE HEADERS\n${JSON.stringify(s.headers || {}, null, 2)}\n\n## RESPONSE\n${JSON.stringify(s.data, null, 2)}`
               ; copyWithFeedback(UI("masterRespCopyFull"), full, 16, "Curl & Response copied")
           }
         }); UI("masterRespCsv")?.addEventListener("click", () => {
@@ -101,7 +101,7 @@
         ; UI("rCopyFull")?.addEventListener("click", () => {
           const s = ResponseView.states.runner; if (s.data && curr) {
             const idx = COMMANDS.indexOf(curr)
-              ; const full = `## CURL\n${generateCurl(idx)}\n\n## RESPONSE\n${JSON.stringify(s.data, null, 2)}`; copyWithFeedback(UI("rCopyFull"), full, 16, "Curl & Response copied")
+              ; const full = `## CURL\n${generateCurl(idx)}\n\n## RESPONSE HEADERS\n${JSON.stringify(s.headers || {}, null, 2)}\n\n## RESPONSE\n${JSON.stringify(s.data, null, 2)}`; copyWithFeedback(UI("rCopyFull"), full, 16, "Curl & Response copied")
           }
         })
         ; UI("rCsv")?.addEventListener("click", () => {
@@ -708,7 +708,7 @@
       }, copy(scope, isFull = false) {
         const s = this.states.runner; if (!s.data) return toast("No data"); const raw = JSON.stringify(s.data, null, 2)
           ; if (!isFull) return copyWithFeedback(UI("rCopy"), raw, 16, "Copied"); const curl = generateCurl(s.index !== null ? s.index : COMMANDS.indexOf(curr))
-          ; copyWithFeedback(UI("rCopyFull"), `CURL:\n${curl}\n\nRESPONSE:\n${raw}`, 16, "Curl & Response copied")
+          ; const hdrs = JSON.stringify(s.headers || {}, null, 2); copyWithFeedback(UI("rCopyFull"), `CURL:\n${curl}\n\nRESPONSE HEADERS:\n${hdrs}\n\nRESPONSE:\n${raw}`, 16, "Curl & Response copied")
       }
     }; const openJsonResponseModal = (title, data) => {
       const jsonStr = typeof data === "string" ? data : JSON.stringify(data, null, 2); testResponseRaw = jsonStr; UI("testResponseTitle").textContent = title;

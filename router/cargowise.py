@@ -1,6 +1,5 @@
 # packages
 from fastapi import APIRouter, Request, Response
-from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 
 # router
@@ -196,7 +195,7 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
         await cursor.execute(sql, org_pk, po_number)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
-    return JSONResponse(content={"status": 1, "message": jsonable_encoder(obj_list[:limit])}, headers={"X-Has-Next-Page": str(len(obj_list) > limit).lower()})
+    return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
 @router.get("/my/cargowise-purchase-orders-line-items")
 async def func_api_my_cargowise_purchase_order_lines(*, request: Request):
@@ -355,7 +354,7 @@ async def func_api_my_cargowise_shipments(*, request: Request):
         await cursor.execute(sql, org_pk)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
-    return JSONResponse(content={"status": 1, "message": jsonable_encoder(obj_list[:limit])}, headers={"X-Has-Next-Page": str(len(obj_list) > limit).lower()})
+    return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
 @router.get("/my/cargowise-containers")
 async def func_api_my_cargowise_containers(*, request: Request):
@@ -461,7 +460,7 @@ async def func_api_my_cargowise_containers(*, request: Request):
         await cursor.execute(sql, org_pk, shipment_id)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
-    return JSONResponse(content={"status": 1, "message": jsonable_encoder(obj_list[:limit])}, headers={"X-Has-Next-Page": str(len(obj_list) > limit).lower()})
+    return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
 @router.get("/my/cargowise-tracking")
 async def func_api_my_cargowise_tracking(*, request: Request):
@@ -546,7 +545,7 @@ async def func_api_my_cargowise_tracking(*, request: Request):
         await cursor.execute(sql, org_pk, shipment_id)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
-    return JSONResponse(content={"status": 1, "message": jsonable_encoder(obj_list[:limit])}, headers={"X-Has-Next-Page": str(len(obj_list) > limit).lower()})
+    return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
 @router.get("/my/cargowise-exceptions")
 async def func_api_my_cargowise_exceptions(*, request: Request):
@@ -682,7 +681,7 @@ async def func_api_my_cargowise_exceptions(*, request: Request):
         await cursor.execute(sql, org_pk)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
-    return JSONResponse(content={"status": 1, "message": jsonable_encoder(obj_list[:limit])}, headers={"X-Has-Next-Page": str(len(obj_list) > limit).lower()})
+    return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
 @router.get("/my/cargowise-documents")
 async def func_api_my_cargowise_documents(*, request: Request):
@@ -805,7 +804,7 @@ async def func_api_my_cargowise_documents(*, request: Request):
         await cursor.execute(sql, org_pk)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
-    return JSONResponse(content={"status": 1, "message": jsonable_encoder(obj_list[:limit])}, headers={"X-Has-Next-Page": str(len(obj_list) > limit).lower()})
+    return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
 @router.get("/my/cargowise-documents-download")
 async def func_api_my_cargowise_documents_download(*, request: Request):
@@ -1145,4 +1144,4 @@ async def func_api_admin_cargowise_360(*, request: Request):
         await cursor.execute(sql, name, name)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
-    return JSONResponse(content={"status": 1, "message": jsonable_encoder(obj_list[:limit])}, headers={"X-Has-Next-Page": str(len(obj_list) > limit).lower()})
+    return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
