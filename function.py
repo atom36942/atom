@@ -759,7 +759,7 @@ async def func_middleware_check_ratelimiter(*, client_redis: any, config_api: di
 async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, config_api: dict, client_redis: any = None, user_id: int = 0, cache_api_response: dict = None, response: any = None) -> any:
     """Get or set middleware API cache for a request."""
     from fastapi import Response
-    import gzip, base64, time, json
+    import gzip, base64, time
     user_namespaces = ["/my/"]
     if mode not in ("get", "set"): raise Exception(f"invalid cache operation: {mode}, allowed: get, set")
     cfg = config_api.get(path, {}).get("api_cache_sec")
@@ -773,17 +773,11 @@ async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict,
     key = f"cache:{path}?{'&'.join(f'{k}={v}' for k, v in sorted(query_params.items()))}:{uid}"
     if mode == "get":
         data = await client_redis.get(key) if cache_mode == "redis" else (item["data"] if (item := cache_api_response.get(key)) and item["expire_at"] > time.time() else None)
-        if not data: return None
-        if isinstance(data, bytes): data = data.decode()
-        try: envelope = json.loads(data); comp, extra_headers = envelope["body"], envelope.get("headers", {})
-        except Exception: comp, extra_headers = data, {}  # entries cached before headers were stored
-        return Response(content=gzip.decompress(base64.b64decode(comp)).decode(), status_code=200, media_type="application/json", headers={**extra_headers, "x-cache": "hit"})
+        return Response(content=gzip.decompress(base64.b64decode(data)).decode(), status_code=200, media_type="application/json", headers={"x-cache": "hit"}) if data else None
     body = getattr(response, "body", None) or b"".join([chunk async for chunk in response.body_iterator])
     comp = base64.b64encode(gzip.compress(body)).decode()
-    extra_headers = {k: v for k, v in response.headers.items() if k.lower().startswith("x-")}
-    envelope = json.dumps({"body": comp, "headers": extra_headers})
-    if cache_mode == "redis": await client_redis.setex(key, ttl, envelope)
-    else: cache_api_response[key] = {"data": envelope, "expire_at": time.time() + ttl}
+    if cache_mode == "redis": await client_redis.setex(key, ttl, comp)
+    else: cache_api_response[key] = {"data": comp, "expire_at": time.time() + ttl}
     response = Response(content=body, status_code=response.status_code, media_type=response.media_type, headers=dict(response.headers))
     response.is_cache_set = True
     return response
