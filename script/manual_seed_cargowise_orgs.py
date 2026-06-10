@@ -34,7 +34,6 @@ async def execute():
         parser.add_argument("--password", default=config_seed_cargowise_user_password, help="Default password for newly-created CargoWise users.")
         parser.add_argument("--user-type", type=int, default=config_seed_cargowise_user_type, help="users.type value for CargoWise users.")
         parser.add_argument("--role", type=int, default=config_seed_cargowise_user_role, help="users.role value for CargoWise users.")
-        parser.add_argument("--include-inactive", action="store_true", help="Include inactive CargoWise orgs.")
         parser.add_argument("--dry-run", action="store_true", help="Print planned changes without writing to Postgres.")
         return parser.parse_args()
     def chunked(items, size):
@@ -44,10 +43,12 @@ async def execute():
         return textwrap.dedent(f"""\
             SELECT
                 CONVERT(varchar(36), OH.OH_PK) AS username,
-                OH.OH_FullName AS name
+                OH.OH_FullName AS name,
+                OH.OH_IsValid AS is_valid,
+                OH.OH_IsActive AS is_active
             FROM dbo.OrgHeader AS OH
             ORDER BY OH.OH_FullName;""")
-    async def fetch_cargowise_orgs(mssql_url, include_inactive):
+    async def fetch_cargowise_orgs(mssql_url):
         pool = await aioodbc.create_pool(dsn=mssql_url, minsize=1, maxsize=3)
         try:
             async with pool.acquire() as conn:
@@ -63,9 +64,11 @@ async def execute():
             item = dict(zip(columns, row))
             username = str(item.get("username") or "").strip()
             name = str(item.get("name") or "").strip()
+            is_valid = bool(item.get("is_valid"))
+            is_active = bool(item.get("is_active"))
             if not username:
                 continue
-            orgs.append({"username": username, "name": name})
+            orgs.append({"username": username, "name": name, "is_valid": is_valid, "is_active": is_active})
         return orgs
     async def read_existing_users(client_postgres_pool, orgs):
         if not orgs:
@@ -100,10 +103,22 @@ async def execute():
         sync_time = datetime.now(timezone.utc)
         for org in orgs:
             existing = existing_by_username.get(org["username"])
+            
+            deleted_at = None if org["is_valid"] else sync_time
+            deactivated_at = None if org["is_active"] else sync_time
+            
             if not existing:
-                create_list.append({"type": user_type, "username": org["username"], "password": password, "role": role, "name": org["name"]})
+                create_list.append({
+                    "type": user_type, "username": org["username"], "password": password, 
+                    "role": role, "name": org["name"], 
+                    "deleted_at": deleted_at, "deactivated_at": deactivated_at
+                })
                 continue
-            desired = {"type": user_type, "role": role, "name": org["name"]}
+            
+            desired = {
+                "type": user_type, "role": role, "name": org["name"], 
+                "deleted_at": deleted_at, "deactivated_at": deactivated_at
+            }
             if any(existing.get(key) != value for key, value in desired.items()):
                 update_list.append({"id": existing["id"], **desired, "updated_at": sync_time})
         return create_list, update_list, duplicate_warnings
@@ -128,7 +143,7 @@ async def execute():
         print("Error: MSSQL URL is required. Set config_mssql_url_read or pass --mssql-url.")
         return
     print("Fetching CargoWise orgs...")
-    orgs = await fetch_cargowise_orgs(args.mssql_url, args.include_inactive)
+    orgs = await fetch_cargowise_orgs(args.mssql_url)
     print(f"Fetched {len(orgs)} org(s).")
     if not orgs:
         return

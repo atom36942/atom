@@ -37,7 +37,7 @@ config_celery_url = None
 # System
 config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
 config_root_html_path = "static/api.html"
-config_is_enable_user_delete = 1
+config_is_enable_user_delete = 0
 config_is_enable_postgres_schema_init = 1
 config_is_enable_signup = 1
 config_is_enable_otp_require_users_update = 0
@@ -562,7 +562,7 @@ config_postgres = {
 "is_enable_root_user_create":1,
 "is_enable_root_user_delete_disable":1,
 "is_enable_users_role_delete_disable_hard":1,
-"is_enable_users_role_delete_disable_soft":1,
+"is_enable_users_role_delete_disable_soft":0,
 "table_row_delete_disable_all":[],
 "table_row_delete_disable_bulk":[],
 "actor_tracking_column": {"deleted_at": "deleted_by_id","deactivated_at": "deactivated_by_id","archived_at": "archived_by_id","verified_at": "verified_by_id"},
