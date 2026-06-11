@@ -1,35 +1,12 @@
 # packages
-import asyncio
-from functools import wraps
 from fastapi import APIRouter, Request, Response
 from fastapi.encoders import jsonable_encoder
 
 # router
 router = APIRouter()
 
-# helpers
-def func_cargowise_mssql_read_retry(func):
-    @wraps(func)
-    async def wrapper(*args, **kwargs):
-        request = kwargs.get("request") or next((arg for arg in args if isinstance(arg, Request)), None)
-        for attempt in range(3):
-            try:
-                return await func(*args, **kwargs)
-            except Exception as exc:
-                if "08S01" not in str(exc) or attempt == 2:
-                    raise
-                pool = getattr(request.app.state, "client_mssql_read", None) if request else None
-                if pool:
-                    try:
-                        await pool.clear()
-                    except Exception:
-                        pass
-                await asyncio.sleep(0.25 * (2 ** attempt))
-    return wrapper
-
 # api
 @router.get("/my/cargowise-profile")
-@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_profile(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
@@ -186,7 +163,6 @@ async def func_api_my_cargowise_profile(*, request: Request):
     return {"status": 1, "message": jsonable_encoder(profile_object)}
 
 @router.get("/my/cargowise-purchase-orders")
-@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_purchase_orders(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
@@ -288,7 +264,6 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
 @router.get("/my/cargowise-purchase-orders-line-items")
-@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_purchase_order_lines(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
@@ -349,7 +324,6 @@ async def func_api_my_cargowise_purchase_order_lines(*, request: Request):
     return {"status": 1, "message": jsonable_encoder(obj_list)}
 
 @router.get("/my/cargowise-shipments")
-@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_shipments(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
@@ -450,7 +424,6 @@ async def func_api_my_cargowise_shipments(*, request: Request):
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
 @router.get("/my/cargowise-containers")
-@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_containers(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
@@ -557,7 +530,6 @@ async def func_api_my_cargowise_containers(*, request: Request):
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
 @router.get("/my/cargowise-tracking")
-@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_tracking(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
@@ -643,7 +615,6 @@ async def func_api_my_cargowise_tracking(*, request: Request):
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
 @router.get("/my/cargowise-exceptions")
-@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_exceptions(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
@@ -780,7 +751,6 @@ async def func_api_my_cargowise_exceptions(*, request: Request):
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
 @router.get("/my/cargowise-documents")
-@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_documents(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
@@ -904,7 +874,6 @@ async def func_api_my_cargowise_documents(*, request: Request):
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
 @router.get("/my/cargowise-documents-download")
-@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_documents_download(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
@@ -1007,7 +976,6 @@ async def func_api_my_cargowise_documents_download(*, request: Request):
     )
 
 @router.get("/my/cargowise-analytics")
-@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_analytics(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
@@ -1167,7 +1135,6 @@ async def func_api_my_cargowise_analytics(*, request: Request):
     return {"status": 1, "message": jsonable_encoder(analytics_object)}
 
 @router.get("/admin/cargowise-360")
-@func_cargowise_mssql_read_retry
 async def func_api_admin_cargowise_360(*, request: Request):
     app_state = request.app.state
     user = request.state.user or {}
@@ -1212,12 +1179,24 @@ async def func_api_admin_cargowise_360(*, request: Request):
             SELECT
                 CONVERT(varchar(36), OH.OH_PK) AS org_id,
                 OH.OH_FullName AS name,
+                OH.OH_IsValid AS is_valid,
+                OH.OH_IsActive AS is_active,
+                OH.OH_ScreeningStatus AS screening_status,
+                OH.OH_Category AS category,
+                OH.OH_RL_NKClosestPort AS closest_port,
+                OH.OH_IsGlobalAccount AS is_global_account,
                 ISNULL(POs.TotalPOs, 0) AS total_pos,
                 ISNULL(Shipments.TotalBookings, 0) AS total_bookings,
                 ISNULL(Shipments.TotalShipments, 0) AS total_shipments,
                 ISNULL(Consols.TotalConsols, 0) AS total_consols,
                 ISNULL(Finance.TotalInvoices, 0) AS total_invoices,
-                Shipments.LastActivityDate AS last_activity_date
+                Shipments.LastActivityDate AS last_activity_date,
+                OH.OH_IsConsignee AS is_consignee,
+                OH.OH_IsConsignor AS is_consignor,
+                OH.OH_SystemCreateUser AS created_by,
+                CASE WHEN OH.OH_SystemCreateTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OH.OH_SystemCreateTimeUtc, 126) + 'Z' END AS created_at,
+                OH.OH_SystemLastEditUser AS updated_by,
+                CASE WHEN OH.OH_SystemLastEditTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OH.OH_SystemLastEditTimeUtc, 126) + 'Z' END AS updated_at
             FROM dbo.OrgHeader OH
             LEFT JOIN POs ON OH.OH_PK = POs.OrgPK
             LEFT JOIN Shipments ON OH.OH_PK = Shipments.OrgPK
@@ -1230,12 +1209,24 @@ async def func_api_admin_cargowise_360(*, request: Request):
         SELECT
             org_id,
             name,
+            is_valid,
+            is_active,
+            screening_status,
+            category,
+            closest_port,
+            is_global_account,
             total_pos,
             total_bookings,
             total_shipments,
             total_consols,
             total_invoices,
-            last_activity_date
+            last_activity_date,
+            is_consignee,
+            is_consignor,
+            created_by,
+            created_at,
+            updated_by,
+            updated_at
         FROM Combined
         ORDER BY total_shipments DESC, name ASC
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""

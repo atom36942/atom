@@ -106,7 +106,7 @@
         })
         ; UI("rCsv")?.addEventListener("click", () => {
           const s = ResponseView.states.runner; if (s.data) {
-            const raw = s.data?.message; if (raw && typeof raw === "object") {
+            const raw = getResponseTableData(s.data); if (raw && typeof raw === "object") {
               let csvData = [];
               if (Array.isArray(raw)) {
                 if (raw.length > 0 && typeof raw[0] === "object" && raw[0] !== null) {
@@ -568,6 +568,10 @@
     }; const gvVal = v => {
       if (v === null) return '<span class="jl">null</span>'; if (typeof v === "string") return `<span class="js">"${v}"</span>`
         ; if (typeof v === "number") return `<span class="jn">${v}</span>`; if (typeof v === "boolean") return `<span class="jb">${v}</span>`; return String(v)
+    }; const getResponseTableData = data => {
+      const message = data?.message;
+      if (message !== null && typeof message === "object" && Object.prototype.hasOwnProperty.call(message, "obj_list")) return message.obj_list;
+      return message
     }; const fmtGrid = (v, depth = 0) => {
       if (v == null || typeof v !== "object") return null; const isArr = Array.isArray(v);
       const isNestedCell = html => html.startsWith('<div class="nested-grid-wrapper">');
@@ -651,7 +655,7 @@
         const s = this.states.runner; s.data = data; s.status = status; s.time = time
           ; s.index = index; s.headers = headers; const codeColor = status >= 200 && status < 300 ? "var(--primary)" : status >= 400 ? "var(--delete)" : "var(--accent)"
           ; const codeHtml = (status != null ? `<span style="color:${codeColor};font-weight:600">${status}</span>` : "") + (time != null ? ` <span style="color:var(--muted);font-size:11px;margin-left:8px">${time}ms</span>` : "")
-          ; const tableData = data?.message; const isTabular = tableData != null && typeof tableData === "object"; const isChartable = Array.isArray(tableData) && tableData.length > 0 && tableData[0].hasOwnProperty("item") && tableData[0].hasOwnProperty("value")
+          ; const tableData = getResponseTableData(data); const isTabular = tableData != null && typeof tableData === "object"; const chartData = data?.message; const isChartable = Array.isArray(chartData) && chartData.length > 0 && chartData[0].hasOwnProperty("item") && chartData[0].hasOwnProperty("value")
           ; const generalIcons = ["btnRaw", "btnPretty", "btnChart", "btnHeaders", "rCopy", "rCopyFull", "rJson"]
           ; generalIcons.forEach(id => { const btn = UI(id); if (!btn) return; if (id === "btnChart") { btn.disabled = !isChartable; btn.style.opacity = isChartable ? "1" : "0.35"; btn.style.pointerEvents = isChartable ? "auto" : "none" } else if (id === "btnHeaders") { const hasH = s.headers && Object.keys(s.headers).length > 0; btn.disabled = !hasH; btn.style.opacity = hasH ? "1" : "0.35"; btn.style.pointerEvents = hasH ? "auto" : "none" } else { btn.disabled = false; btn.style.opacity = "1"; btn.style.pointerEvents = "auto"; btn.style.cursor = "pointer" } }); const tblBtn = UI("btnTable"); const csvBtn = UI("rCsv");[tblBtn, csvBtn].forEach(btn => {
             if (!btn) return; btn.disabled = !isTabular; btn.style.opacity = isTabular ? "1" : "0.35"
@@ -665,7 +669,7 @@
         }); if (type === "raw") {
           UI("rawPre").innerHTML = highlight(JSON.stringify(data, null, 2))
         } else if (type === "pretty") { UI("viewPretty").innerHTML = renderTree(data) } else if (type === "table") {
-          const tableData = data?.message; const tableHtml = fmtGrid(tableData); if (tableHtml) { 
+          const tableData = getResponseTableData(data); const tableHtml = fmtGrid(tableData); if (tableHtml) {
             UI("viewTable").innerHTML = tableHtml;
             const t = UI("viewTable").querySelector("table");
             if (t) {
