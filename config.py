@@ -143,9 +143,6 @@ config_column_int_mapping = {
 "job": {1: "Engineering", 2: "Human Resources", 3: "Sales", 4: "Marketing", 5: "Finance", 6: "Operations", 7: "IT", 8: "Legal", 9: "Customer Support", 10: "Product Management", 11: "Research & Development", 12: "Administration", 13: "Quality Assurance", 14: "Data & Analytics", 15: "Management", 16: "Design", 17: "Procurement"},
 },
 "response_type": {1: "Direct No Cache Set", 2: "Direct Cache Set", 3: "Cache Response", 4: "Background Added", 5: "Error"},
-"method": {
-"log_api": {1: "GET", 2: "POST", 3: "PUT", 4: "PATCH", 5: "DELETE", 6: "OPTIONS", 7: "HEAD"},
-},
 "role": {
 "users": {1: "Admin", 2: "Portal User"},
 },
@@ -526,7 +523,7 @@ config_postgres = {
 {"name":"deleted_by_id","datatype":"bigint"},
 {"name":"ip_address","datatype":"text"},
 {"name":"response_type","datatype":"smallint","in":(1,2,3,4,5),"index":"btree(response_type,created_at)"},
-{"name":"method","datatype":"smallint","index":"btree(method,created_at)"},
+{"name":"method","datatype":"text","index":"btree(method,created_at)"},
 {"name":"path","datatype":"text","index":"btree(path,created_at)"},
 {"name":"query_param","datatype":"text"},
 {"name":"status_code","datatype":"smallint","index":"btree(status_code)"},

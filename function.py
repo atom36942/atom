@@ -12,33 +12,8 @@ def func_check(*, app: any) -> None:
     config_api = app_state.config_api
     config_allowed_user_storage_backends = app_state.config_allowed_user_storage_backends
     config_allowed_api_storage_backends = app_state.config_allowed_api_storage_backends
-    config_postgres = app_state.config_postgres
     def optional_mode(mode_cfg):
         return mode_cfg[0] if isinstance(mode_cfg, list) else mode_cfg
-    def is_valid_postgres_datatype(datatype: str) -> bool:
-        if not isinstance(datatype, str) or not datatype.strip():
-            return False
-        dtype = re.sub(r"\s+", " ", datatype.strip().lower())
-        while dtype.endswith("[]"):
-            dtype = dtype[:-2].strip()
-        dtype = re.sub(r"\([^)]*\)", "", dtype)
-        dtype = re.sub(r"\s+", " ", dtype).strip()
-        allowed_types = {
-            "smallint", "integer", "bigint", "int2", "int4", "int8", "serial", "serial2", "serial4", "bigserial", "serial8",
-            "real", "double precision", "float4", "float8", "numeric", "decimal", "money",
-            "boolean", "bool",
-            "text", "varchar", "character varying", "char", "character",
-            "date", "time", "time without time zone", "time with time zone", "timetz",
-            "timestamp", "timestamp without time zone", "timestamp with time zone", "timestamptz", "interval",
-            "json", "jsonb", "uuid", "bytea", "xml",
-            "cidr", "inet", "macaddr", "macaddr8",
-            "point", "line", "lseg", "box", "path", "polygon", "circle",
-            "tsvector", "tsquery",
-            "bit", "bit varying", "varbit",
-            "int4range", "int8range", "numrange", "tsrange", "tstzrange", "daterange",
-            "geometry", "geography",
-        }
-        return dtype in allowed_types
     api_ids = []
     for path, cfg in config_api.items():
         if (api_id := cfg.get("id")):
@@ -113,68 +88,14 @@ def func_check(*, app: any) -> None:
                     if not node.name.startswith("func_api_"): raise Exception(f"router file '{router_path.name}': function '{node.name}' must start with 'func_api_' (helpers belong in function.py)")
                     has_router_decorator = any(isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute) and isinstance(dec.func.value, ast.Name) and dec.func.value.id == "router" and dec.func.attr in allowed_router_verbs for dec in node.decorator_list)
                     if not has_router_decorator: raise Exception(f"router file '{router_path.name}': function '{node.name}' is missing a @router.<verb> decorator (helpers belong in function.py)")
-    if config_postgres and "table" in config_postgres:
-        global_column_types = {}
-        for table_name, columns in config_postgres["table"].items():
-            if not table_name or not table_name.strip(): raise Exception("table name cannot be empty")
-            column_names_list = [col.get("name") for col in columns if "name" in col]
-            if len(column_names_list) != len(set(column_names_list)):
-                seen = set()
-                for name in column_names_list:
-                    if name in seen: raise Exception(f"duplicate column name '{name}' in table '{table_name}'")
-                    seen.add(name)
-            column_names = set(column_names_list)
-            btrees, others = [], []
-            for col in columns:
-                col_name, col_type = col.get("name"), col.get("datatype")
-                if not col_name or not col_name.strip(): raise Exception(f"column name in {table_name} cannot be empty")
-                if not col_type or not col_type.strip(): raise Exception(f"datatype in {table_name}.{col_name} cannot be empty")
-                if not is_valid_postgres_datatype(col_type): raise Exception(f"invalid datatype '{col_type}' in {table_name}.{col_name}")
-                if col_name in global_column_types and global_column_types[col_name] != col_type:
-                    raise Exception(f"datatype mismatch for column '{col_name}': '{col_type}' in {table_name} vs '{global_column_types[col_name]}' elsewhere")
-                global_column_types[col_name] = col_type
-                if (col_unique := col.get("unique")):
-                    for group in (x.strip() for x in col_unique.split("|")):
-                        u_cols = [c.strip() for c in group.split(",")]
-                        if len(u_cols) != len(set(u_cols)): raise Exception(f"unique constraint in {table_name}.{col_name} contains duplicate columns: {u_cols}")
-                        for uc in u_cols:
-                            if uc not in column_names: raise Exception(f"unique constraint in {table_name}.{col_name} references non-existent column '{uc}'")
-                        if col_name not in u_cols: raise Exception(f"unique constraint in {table_name}.{col_name} does not include '{col_name}' itself")
-                        btrees.append((u_cols, True, col_name))
-                if (col_index := col.get("index")):
-                    curr_table_types = {c.get("name"): c.get("datatype", "") for c in columns if c.get("name")}
-                    for group in (x.strip() for x in col_index.split("|")):
-                        if "(" in group and group.endswith(")"):
-                            idx_type, cols_str = group[:-1].split("(", 1)
-                            idx_type, idx_cols = idx_type.strip().lower(), [c.strip() for c in cols_str.split(",")]
-                            if len(idx_cols) != len(set(idx_cols)): raise Exception(f"index in {table_name}.{col_name} contains duplicate columns: {idx_cols}")
-                            if col_name == "id" and idx_cols == ["id"] and idx_type == "btree": raise Exception(f"Primary key '{table_name}.id' is natively indexed. Do not add an explicit btree index for it.")
-                            for ic in idx_cols:
-                                if ic not in column_names: raise Exception(f"index in {table_name}.{col_name} references non-existent column '{ic}'")
-                                ic_type = curr_table_types.get(ic, "").lower()
-                                if idx_type == "btree" and ("[]" in ic_type or "jsonb" in ic_type): raise Exception(f"btree index in {table_name}.{col_name} on column '{ic}' (type {ic_type}) is unsupported. Use gin instead.")
-                            if idx_cols[0] != col_name: raise Exception(f"index in {table_name}.{col_name} must have '{col_name}' as the first column")
-                            if idx_type == "btree": btrees.append((idx_cols, False, col_name))
-                            else: others.append((idx_type, idx_cols, col_name))
-                        else:
-                            raise Exception(f"invalid index syntax '{group}' in {table_name}.{col_name}")
-            for i, (c1, u1, o1) in enumerate(btrees):
-                for j, (c2, u2, o2) in enumerate(btrees):
-                    if i == j: continue
-                    if c1 == c2 and u1 == u2: raise Exception(f"duplicate {'unique' if u1 else 'btree index'} on {table_name}: {c1}")
-                    if not u1 and c2[:len(c1)] == c1: raise Exception(f"redundant btree index on {table_name}.{o1}({','.join(c1)}) covered by {'unique' if u2 else 'btree'} on {o2}({','.join(c2)})")
-                    if u1 and u2 and c1[:len(c2)] == c2: raise Exception(f"redundant unique constraint on {table_name}.{o1}({','.join(c1)}) - {o2}({','.join(c2)}) is already unique")
-            for i, (t1, c1, o1) in enumerate(others):
-                for j, (t2, c2, o2) in enumerate(others):
-                    if i == j: continue
-                    if t1 == t2 and c1 == c2: raise Exception(f"duplicate {t1} index on {table_name}: {c1}")
     return None
 
 async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgres: dict) -> str:
     """Initialize PostgreSQL database schema, tables, indexes, constraints, and triggers based on configuration."""
-    if not config_postgres: raise Exception("config_postgres missing")
-    if "table" not in config_postgres: raise Exception("config_postgres.table missing")
-    control = config_postgres.get("control", {})
+    config_db = config_postgres
+    if not config_db: raise Exception("config_db missing")
+    if "table" not in config_db: raise Exception("config_db.table missing")
+    control = config_db.get("control", {})
     def get_enable_control_switch(key: str, default: int = 1, legacy_disable_keys: tuple = ()) -> int:
         if key in control:
             return control.get(key)
@@ -201,7 +122,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
         is_enable_users_role_delete_disable_hard = control.get("is_disable_users_delete_role")
     is_enable_drop_column_mismatch = control.get("is_enable_drop_column_mismatch", control.get("is_drop_column_mismatch_db", control.get("is_drop_column_mismatch", 0)))
     if not is_enable_drop_column and is_enable_drop_column_mismatch:
-        raise Exception("config_postgres.control conflict: is_enable_drop_column=0 blocks is_enable_drop_column_mismatch=1")
+        raise Exception("config_db.control conflict: is_enable_drop_column=0 blocks is_enable_drop_column_mismatch=1")
     bulk_blocked = control.get("table_row_delete_disable_bulk", control.get("table_delete_disable_row_bulk", control.get("disable_table_delete_row_bulk", [])))
     table_blocked = control.get("table_row_delete_disable_all", control.get("table_delete_disable_row", control.get("disable_table_delete_row", [])))
     catalog = {"idx": set(), "uni": set(), "chk": set(), "tg": set()}
@@ -230,9 +151,9 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                 yield from iter_sql_queries(val)
         elif isinstance(sql_config, str) and sql_config.strip():
             yield sql_config
-    register_sql_catalog(config_postgres.get("sql", {}))
+    register_sql_catalog(config_db.get("sql", {}))
     reserved = {"all", "analyze", "and", "any", "as", "asc", "asymmetric", "authorization", "binary", "both", "case", "cast", "check", "collate", "collation", "column", "concurrently", "constraint", "create", "cross", "current_catalog", "current_date", "current_role", "current_schema", "current_time", "current_timestamp", "current_user", "default", "deferrable", "desc", "distinct", "do", "else", "end", "except", "false", "fetch", "for", "foreign", "freeze", "from", "full", "grant", "group", "having", "ilike", "in", "initially", "inner", "intersect", "into", "is", "isnull", "join", "lateral", "leading", "left", "like", "limit", "localtime", "localtimestamp", "natural", "not", "notnull", "null", "offset", "on", "only", "or", "order", "outer", "overlaps", "placing", "primary", "references", "returning", "right", "select", "session_user", "similar", "some", "symmetric", "table", "tablesample", "then", "to", "trailing", "true", "union", "unique", "user", "using", "variadic", "verbose", "when", "where", "window", "with"}
-    for table_name, column_configs in config_postgres["table"].items():
+    for table_name, column_configs in config_db["table"].items():
         primary_cfg = column_configs[0] if column_configs else {}
         if len(primary_cfg) > 3:
             raise Exception(f"{table_name}.id primary column config cannot have more than 3 keys")
@@ -283,7 +204,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
     def is_enabled_col_setting(col_cfg: dict, key: str) -> bool:
         return key in col_cfg and col_cfg.get(key) not in (None, "")
     async with client_postgres_pool.acquire() as conn:
-        extensions = config_postgres.get("extension") or []
+        extensions = config_db.get("extension") or []
         if extensions:
             for extension in extensions:
                 try:
@@ -305,7 +226,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                 print(f"⚠️  {'drop column event trigger':<30} : ❌ skipped (insufficient privileges)")
             else:
                 raise e
-        for table_name, column_configs in config_postgres["table"].items():
+        for table_name, column_configs in config_db["table"].items():
             primary_cfg = column_configs[0]
             await conn.execute(f'CREATE TABLE IF NOT EXISTS "{table_name}" ("{primary_cfg["name"]}" {primary_cfg["datatype"]} PRIMARY KEY);')
             if is_autovacuum:
@@ -559,7 +480,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                 catalog["tg"].add(tab_tg_name)
                 await conn.execute(f"DROP TRIGGER IF EXISTS {tab_tg_name} ON {table}")
                 await conn.execute(f"CREATE TRIGGER {tab_tg_name} BEFORE DELETE ON {table} FOR EACH ROW EXECUTE FUNCTION func_delete_disable_table();")
-        managed_tables = list(config_postgres["table"].keys())
+        managed_tables = list(config_db["table"].keys())
         managed_tables_str = ",".join(f"'{t}'" for t in managed_tables) if managed_tables else "''"
         for prefix in ("tg", "uni_chk", "idx"):
             wants = catalog["tg"] if prefix == "tg" else catalog["uni"] | catalog["chk"] if prefix == "uni_chk" else catalog["idx"] | catalog["uni"] | catalog["chk"]
@@ -586,7 +507,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                 drop_vars = "record.relname, record.conname"
                 like_filter = f"(conname LIKE 'unique_%%' OR conname LIKE 'check_%%') AND relname IN ({managed_tables_str})"
             await conn.execute(f"""DO $$ DECLARE record RECORD; BEGIN FOR record IN SELECT {selection} FROM {info_tbl} {join_clause} WHERE {like_filter} LOOP IF NOT record.{selection.split(",")[0]} IN ({wants_str}) THEN EXECUTE format('{drop_fmt}', {drop_vars}); END IF; END LOOP; END $$;""")
-        for query in iter_sql_queries(config_postgres.get("sql", {})):
+        for query in iter_sql_queries(config_db.get("sql", {})):
             await conn.execute(query)
     return "database init done"
     
