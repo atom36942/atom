@@ -1,6 +1,6 @@
-title,is_featured,views,deactivated_at,tag,tag_int,rating,coordinate,date_of_birth,metadata
-Create Sample Title 0,True,0,,"{tag0,tag1}","{0,1}",1.0,POINT(-10.0 20.0),1990-01-01,"{""key"": ""value0""}"
-Create Sample Title 1,False,100,2026-05-21T00:00:00Z,"{tag1,tag2}","{1,2}",2.0,POINT(-11.0 21.0),1990-01-02,"{""key"": ""value1""}"
-Create Sample Title 2,True,200,,"{tag2,tag3}","{2,3}",3.0,POINT(-12.0 22.0),1990-01-03,"{""key"": ""value2""}"
-Create Sample Title 3,False,300,2026-05-21T00:00:00Z,"{tag3,tag4}","{3,4}",4.0,POINT(-13.0 23.0),1990-01-04,"{""key"": ""value3""}"
-Create Sample Title 4,True,400,,"{tag4,tag5}","{4,5}",5.0,POINT(-14.0 24.0),1990-01-05,"{""key"": ""value4""}"
+title,tag,tag_int,rating,coordinate,date_of_birth,metadata
+Create Sample Title 0,"{tag0,tag1}","{0,1}",1.0,POINT(-10.0 20.0),1990-01-01,"{""key"": ""value0""}"
+Create Sample Title 1,"{tag1,tag2}","{1,2}",2.0,POINT(-11.0 21.0),1990-01-02,"{""key"": ""value1""}"
+Create Sample Title 2,"{tag2,tag3}","{2,3}",3.0,POINT(-12.0 22.0),1990-01-03,"{""key"": ""value2""}"
+Create Sample Title 3,"{tag3,tag4}","{3,4}",4.0,POINT(-13.0 23.0),1990-01-04,"{""key"": ""value3""}"
+Create Sample Title 4,"{tag4,tag5}","{4,5}",5.0,POINT(-14.0 24.0),1990-01-05,"{""key"": ""value4""}"

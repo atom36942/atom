@@ -37,9 +37,6 @@ if importlib.util.find_spec("function_extend"): from function_extend import *
 from config import *
 if importlib.util.find_spec("config_extend"): from config_extend import *
 
-# schema
-if importlib.util.find_spec("schema"): from schema import *
-
 # lifespan
 @asynccontextmanager
 async def func_lifespan(app:"FastAPI"):
