@@ -147,7 +147,7 @@ config_column_int_mapping = {
 "log_api": {1: "GET", 2: "POST", 3: "PUT", 4: "PATCH", 5: "DELETE", 6: "OPTIONS", 7: "HEAD"},
 },
 "role": {
-"users": {1: "Admin", 2: "CargoWise User"},
+"users": {1: "Admin", 2: "Portal User"},
 },
 "type": {
 "test": {1: "Type 1", 2: "Type 2", 3: "Type 3", 4: "Type 4", 5: "Type 5"},
@@ -420,8 +420,16 @@ config_postgres = {
 {"name":"location","datatype":"text"},
 {"name":"scheduled_at","datatype":"timestamptz","index":"btree(scheduled_at)"},
 {"name":"duration_minutes","datatype":"integer"},
-{"name":"panel","datatype":"text[]","index":"gin(panel)"},
 {"name":"status","datatype":"smallint","default":1,"index":"btree(status)"}
+],
+"panel":[
+{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
+{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"interview_id","datatype":"bigint","is_mandatory":1,"index":"btree(interview_id)"},
+{"name":"user_id","datatype":"bigint","is_mandatory":1,"index":"btree(user_id)"}
 ],
 "notification":[
 {"name":"id","datatype":"bigserial","is_primary":1},
@@ -594,6 +602,9 @@ config_postgres = {
 "idx_interview_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_interview_deactivated_at_not_null ON interview (id) WHERE deactivated_at IS NOT NULL",
 "idx_interview_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_interview_deleted_at_not_null ON interview (id) WHERE deleted_at IS NOT NULL",
 "idx_interview_verified_at_null": "CREATE INDEX IF NOT EXISTS idx_interview_verified_at_null ON interview (id) WHERE verified_at IS NULL",
+"idx_panel_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_panel_deactivated_at_not_null ON panel (id) WHERE deactivated_at IS NOT NULL",
+"idx_panel_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_panel_deleted_at_not_null ON panel (id) WHERE deleted_at IS NOT NULL",
+"idx_panel_verified_at_null": "CREATE INDEX IF NOT EXISTS idx_panel_verified_at_null ON panel (id) WHERE verified_at IS NULL",
 "idx_message_deactivated_at_not_null": "CREATE INDEX IF NOT EXISTS idx_message_deactivated_at_not_null ON message (id) WHERE deactivated_at IS NOT NULL",
 "idx_message_deleted_at_not_null": "CREATE INDEX IF NOT EXISTS idx_message_deleted_at_not_null ON message (id) WHERE deleted_at IS NOT NULL",
 "idx_message_read_at_null": "CREATE INDEX IF NOT EXISTS idx_message_read_at_null ON message (user_id) WHERE read_at IS NULL",

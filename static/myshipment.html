@@ -371,6 +371,363 @@ body {
 .badge.exception { background: var(--status-red); color: var(--status-red-text); }
 .badge.open { background: var(--status-yellow); color: var(--status-yellow-text); }
 
+/* Purchase orders */
+.po-panel {
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 24px rgba(17, 24, 39, 0.05);
+}
+
+.po-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-surface);
+}
+
+.po-heading h2 {
+    margin: 0;
+    font-size: 1.15rem;
+}
+
+.po-heading p {
+    margin: 0.28rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.84rem;
+}
+
+.po-toolbar-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.po-search {
+    width: min(330px, 100%);
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    box-sizing: border-box;
+    padding: 0 0.45rem 0 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: #F9FAFB;
+    transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+
+.po-search:focus-within {
+    border-color: #A5B4FC;
+    background: #FFFFFF;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.po-search > i {
+    color: var(--text-muted);
+    font-size: 0.84rem;
+}
+
+.po-search input {
+    min-width: 0;
+    flex: 1;
+    padding: 0.65rem 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text-dark);
+    font: inherit;
+    font-size: 0.86rem;
+}
+
+.po-search-button {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.po-search-button:hover {
+    background: #EEF2FF;
+    color: var(--primary);
+}
+
+.po-search-button.primary {
+    background: var(--primary);
+    color: #FFFFFF;
+}
+
+.po-search-button.primary:hover {
+    background: var(--primary-hover);
+}
+
+.po-summary-bar {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.65rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    background: #F9FAFB;
+}
+
+.po-result-count {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+.po-result-count strong {
+    color: var(--text-dark);
+}
+
+.po-pagination {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.po-page-button {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: #FFFFFF;
+    color: var(--text-dark);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.po-page-button:hover:not(:disabled) {
+    border-color: #A5B4FC;
+    color: var(--primary);
+}
+
+.po-page-button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+#po-page-display {
+    min-width: 64px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.po-table-wrap {
+    max-height: 610px;
+}
+
+#purchase-order-table {
+    min-width: 940px;
+}
+
+#purchase-order-table th {
+    padding: 0.75rem 1rem;
+    color: #4B5563;
+    font-size: 0.72rem;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+}
+
+#purchase-order-table td {
+    padding: 0.9rem 1rem;
+    white-space: normal;
+    vertical-align: middle;
+}
+
+#purchase-order-table tbody tr {
+    position: relative;
+    cursor: pointer;
+}
+
+#purchase-order-table tbody tr.po-row-disabled {
+    cursor: default;
+}
+
+#purchase-order-table tbody tr:hover,
+#purchase-order-table tbody tr:focus-visible {
+    background: #F8FAFF;
+    box-shadow: inset 3px 0 0 var(--primary);
+    outline: none;
+}
+
+#purchase-order-table tbody tr.po-row-disabled:hover {
+    background: transparent;
+    box-shadow: none;
+}
+
+.po-primary {
+    display: block;
+    color: #312E81;
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.po-secondary {
+    display: block;
+    margin-top: 0.22rem;
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    line-height: 1.35;
+}
+
+.po-party-flow {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) 18px minmax(120px, 1fr);
+    align-items: center;
+    gap: 0.45rem;
+    max-width: 380px;
+}
+
+.po-party {
+    min-width: 0;
+}
+
+.po-party .po-primary {
+    overflow: hidden;
+    color: var(--text-dark);
+    font-size: 0.84rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.po-party-arrow {
+    color: #9CA3AF;
+    font-size: 0.7rem;
+    text-align: center;
+}
+
+.po-date-range {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--text-dark);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.po-date-range i {
+    color: var(--primary);
+}
+
+.po-status-stack {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.po-mini-flag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: #B45309;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.po-shipping-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.28rem;
+    color: var(--text-muted);
+    font-size: 0.74rem;
+}
+
+.po-shipping-meta span + span::before {
+    content: '•';
+    margin-right: 0.4rem;
+    color: #D1D5DB;
+}
+
+.po-line-count {
+    min-width: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.28rem 0.55rem;
+    border-radius: 999px;
+    background: #F3F4F6;
+    color: #374151;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.po-line-count.is-empty {
+    background: #F9FAFB;
+    color: #9CA3AF;
+}
+
+.po-row-action {
+    width: 34px;
+    height: 34px;
+    display: inline-grid;
+    place-items: center;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #FFFFFF;
+    color: var(--primary);
+}
+
+.po-row-action.is-disabled {
+    border-color: #E5E7EB;
+    background: #F9FAFB;
+    color: #C4C8D0;
+}
+
+#purchase-order-table tbody tr:hover .po-row-action,
+#purchase-order-table tbody tr:focus-visible .po-row-action {
+    border-color: #A5B4FC;
+    background: #EEF2FF;
+}
+
+#purchase-order-table tbody tr.po-row-disabled:hover .po-row-action.is-disabled {
+    border-color: #E5E7EB;
+    background: #F9FAFB;
+}
+
+.po-lines-message {
+    padding: 2.5rem 1rem !important;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.po-lines-message i {
+    display: block;
+    margin-bottom: 0.6rem;
+    color: #9CA3AF;
+    font-size: 1.35rem;
+}
+
+.po-empty-row td {
+    padding: 3rem 1rem !important;
+    color: var(--text-muted);
+    text-align: center;
+}
+
 /* MGH ASK Full View */
 .chat-container {
     background: var(--bg-surface);
@@ -469,8 +826,10 @@ body {
 .modal {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(17, 24, 39, 0.7);
-    backdrop-filter: blur(4px);
+    padding: 1.25rem;
+    box-sizing: border-box;
+    background: rgba(17, 24, 39, 0.62);
+    backdrop-filter: blur(5px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -480,25 +839,116 @@ body {
 .modal-content {
     background: var(--bg-surface);
     width: 650px;
-    max-width: 90%;
-    border-radius: 12px;
+    max-width: 100%;
+    max-height: calc(100vh - 2.5rem);
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    border-radius: 14px;
     overflow: hidden;
-    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    box-shadow: 0 24px 60px rgba(17, 24, 39, 0.24);
 }
 
 .modal-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--border);
+    min-height: 76px;
+    box-sizing: border-box;
+    padding: 1rem 1.25rem 1rem 1.5rem;
+    border-bottom: 1px solid #C7D2FE;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 1rem;
+    background: linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%);
 }
 
-.modal-header h3 { margin: 0; }
-.close-modal { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); }
+.modal-heading {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.modal-heading-icon {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #C7D2FE;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.78);
+    color: var(--primary);
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #312E81;
+    font-size: 1.05rem;
+    line-height: 1.3;
+}
+
+.modal-subtitle {
+    margin: 0.18rem 0 0;
+    color: #6366A0;
+    font-size: 0.8rem;
+    line-height: 1.35;
+}
+
+.close-modal,
+.side-panel-close {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: transparent;
+    color: #6366A0;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.close-modal:hover,
+.side-panel-close:hover {
+    border-color: #C7D2FE;
+    background: rgba(255, 255, 255, 0.78);
+    color: #312E81;
+}
+
+.close-modal:focus-visible,
+.side-panel-close:focus-visible {
+    outline: 3px solid rgba(79, 70, 229, 0.2);
+    outline-offset: 2px;
+}
 
 .modal-body {
-    padding: 2rem;
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border);
+    background: #F9FAFB;
+}
+
+.btn-secondary {
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text-dark);
+}
+
+.btn-secondary:hover {
+    border-color: #C7D2FE;
+    background: #EEF2FF;
+    color: #312E81;
 }
 
 /* Milestone Tracker */
@@ -634,12 +1084,8 @@ body {
     width: 420px;
 }
 
-#login-modal .modal-header {
-    padding: 1rem 1.25rem;
-}
-
 #login-modal .modal-body {
-    padding: 1rem 1.25rem 1.25rem;
+    padding: 1.25rem 1.5rem;
 }
 
 #login-modal .auth-form {
@@ -791,11 +1237,8 @@ body {
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
 }
 
-.modal-actions-row {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.75rem;
-    align-items: center;
+.auth-form .modal-footer {
+    margin: 0 -1.5rem -1.25rem;
 }
 
 .auth-message {
@@ -841,6 +1284,215 @@ body {
     gap: 1.25rem;
 }
 
+.profile-feedback {
+    min-height: 280px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    padding: 2rem;
+    border: 1px dashed var(--border);
+    border-radius: 16px;
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.profile-feedback i {
+    color: var(--primary);
+    font-size: 1.5rem;
+}
+
+.profile-feedback.is-error i {
+    color: #B91C1C;
+}
+
+.profile-hero {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1.75rem;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #1E1B4B 0%, #3730A3 58%, #4F46E5 100%);
+    color: #FFFFFF;
+    box-shadow: 0 16px 35px rgba(49, 46, 129, 0.18);
+}
+
+.profile-hero::after {
+    content: '';
+    position: absolute;
+    width: 240px;
+    height: 240px;
+    right: -80px;
+    top: -120px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.profile-identity {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.profile-monogram {
+    width: 64px;
+    height: 64px;
+    flex: 0 0 64px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.14);
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.profile-eyebrow {
+    margin-bottom: 0.3rem;
+    color: #C7D2FE;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+
+.profile-hero h1 {
+    margin: 0;
+    font-size: clamp(1.35rem, 2.5vw, 1.9rem);
+    line-height: 1.2;
+}
+
+.profile-code {
+    margin-top: 0.4rem;
+    color: #E0E7FF;
+    font-size: 0.9rem;
+}
+
+.profile-health {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.55rem;
+}
+
+.profile-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.42rem 0.7rem;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    color: #FFFFFF;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.profile-chip::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #86EFAC;
+}
+
+.profile-chip.is-negative::before {
+    background: #FCA5A5;
+}
+
+.profile-tab-list {
+    display: flex;
+    gap: 0.35rem;
+    padding: 0.35rem;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-surface);
+    box-shadow: 0 1px 3px rgba(17, 24, 39, 0.04);
+}
+
+.profile-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 42px;
+    padding: 0.65rem 1rem;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.profile-tab:hover {
+    color: var(--text-dark);
+    background: #F9FAFB;
+}
+
+.profile-tab.active {
+    color: var(--primary);
+    background: #EEF2FF;
+    box-shadow: inset 0 0 0 1px #C7D2FE;
+}
+
+.profile-tab-count {
+    min-width: 20px;
+    padding: 0.12rem 0.4rem;
+    border-radius: 999px;
+    background: #E5E7EB;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    text-align: center;
+}
+
+.profile-tab.active .profile-tab-count {
+    background: #FFFFFF;
+    color: var(--primary);
+}
+
+.profile-tab-panel {
+    display: none;
+}
+
+.profile-tab-panel.active {
+    display: block;
+    animation: fadeIn 0.2s ease;
+}
+
+.profile-overview-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(260px, 0.8fr);
+    gap: 1.25rem;
+}
+
+.profile-tab-panel .panel {
+    margin-bottom: 0;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 16px rgba(17, 24, 39, 0.04);
+}
+
+.profile-panel-subtitle {
+    margin: 0.25rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.84rem;
+}
+
 .profile-summary-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -850,8 +1502,8 @@ body {
 .profile-summary-item {
     min-width: 0;
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.85rem;
+    border-radius: 10px;
+    padding: 1rem;
     background: #F9FAFB;
 }
 
@@ -876,6 +1528,22 @@ body {
     gap: 0.5rem;
 }
 
+.profile-flag-group + .profile-flag-group {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+}
+
+.profile-flag-label {
+    display: block;
+    margin-bottom: 0.6rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
 .role-badge {
     display: inline-flex;
     align-items: center;
@@ -889,6 +1557,30 @@ body {
 
 .profile-table td {
     vertical-align: top;
+}
+
+.profile-cell-main {
+    display: block;
+    color: var(--text-dark);
+    font-weight: 600;
+    white-space: normal;
+}
+
+.profile-cell-sub {
+    display: block;
+    margin-top: 0.24rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    white-space: normal;
+}
+
+.profile-table a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.profile-table a:hover {
+    text-decoration: underline;
 }
 
 .tracking-summary {
@@ -1059,46 +1751,185 @@ body.not-allowed .content-wrapper {
         grid-template-columns: 1fr;
     }
 
+    .profile-overview-grid {
+        grid-template-columns: 1fr;
+    }
+
     .top-bar {
         padding: 0 1rem;
     }
 
 }
+
+@media (max-width: 700px) {
+    .po-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+        padding: 1rem;
+    }
+
+    .po-toolbar-actions {
+        align-items: stretch;
+        justify-content: stretch;
+    }
+
+    .po-search {
+        width: 100%;
+    }
+
+    .po-summary-bar {
+        padding: 0.65rem 1rem;
+    }
+
+    .po-page-button span {
+        display: none;
+    }
+
+    .po-page-button {
+        width: 34px;
+        justify-content: center;
+        padding: 0;
+    }
+
+    .modal {
+        padding: 0.75rem;
+        align-items: flex-end;
+    }
+
+    .modal-content {
+        max-height: calc(100vh - 1.5rem);
+        border-radius: 14px;
+    }
+
+    .modal-header,
+    .side-panel-header {
+        padding: 0.9rem 1rem;
+    }
+
+    .modal-body,
+    .side-panel-body {
+        padding: 1rem;
+    }
+
+    .modal-footer {
+        padding: 0.85rem 1rem;
+    }
+
+    .auth-form .modal-footer {
+        margin: 0 -1rem -1rem;
+    }
+
+    .modal-heading-icon {
+        width: 36px;
+        height: 36px;
+        flex-basis: 36px;
+    }
+
+    .profile-row {
+        grid-template-columns: 90px minmax(0, 1fr);
+    }
+
+    .app-layout {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        flex: 0 0 auto;
+    }
+
+    .sidebar .logo {
+        display: none;
+    }
+
+    .nav-menu {
+        flex-direction: row;
+        gap: 0.35rem;
+        padding: 0.55rem;
+        overflow-x: auto;
+    }
+
+    .nav-item {
+        flex: 0 0 auto;
+        gap: 0.5rem;
+        padding: 0.65rem 0.8rem;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        white-space: nowrap;
+    }
+
+    .nav-item.active {
+        border-left: 0;
+        background: var(--sidebar-active-bg);
+        box-shadow: inset 0 -2px 0 var(--primary);
+    }
+
+    .main-content {
+        min-height: 0;
+    }
+
+    .content-wrapper {
+        padding: 1rem;
+    }
+
+    .profile-hero {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 1.25rem;
+    }
+
+    .profile-health {
+        justify-content: flex-start;
+    }
+
+    .profile-monogram {
+        width: 52px;
+        height: 52px;
+        flex-basis: 52px;
+        border-radius: 13px;
+    }
+
+    .profile-tab {
+        flex: 1 0 auto;
+    }
+
+    .panel {
+        padding: 1rem;
+    }
+}
     /* Slide-out Panel */
     .side-panel-overlay {
         position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0, 0, 0, 0.4);
+        background: rgba(17, 24, 39, 0.55);
         z-index: 1000; opacity: 0; pointer-events: none;
-        transition: opacity 0.3s ease; backdrop-filter: blur(2px);
+        transition: opacity 0.3s ease; backdrop-filter: blur(4px);
     }
     .side-panel-overlay.active { opacity: 1; pointer-events: all; }
     .side-panel {
-        position: fixed; top: 0; right: -700px; width: 100%; max-width: 700px; height: 100vh;
-        background: var(--surface); box-shadow: -4px 0 24px rgba(0, 0, 0, 0.1);
-        z-index: 1001; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: fixed; top: 0; right: 0; width: 100%; max-width: 700px; height: 100vh;
+        background: var(--bg-surface); box-shadow: -12px 0 40px rgba(17, 24, 39, 0.18);
+        z-index: 1001; transform: translateX(100%);
         display: flex; flex-direction: column;
     }
-    .side-panel.active { right: 0; }
+    .side-panel.active { transform: translateX(0); }
     .side-panel-header {
-        padding: 1.5rem; border-bottom: 1px solid var(--border);
+        min-height: 76px; box-sizing: border-box; padding: 1rem 1.25rem 1rem 1.5rem; border-bottom: 1px solid #C7D2FE;
         display: flex; align-items: center; justify-content: space-between;
-        background: var(--surface);
+        gap: 1rem; background: linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%);
     }
-    .side-panel-title { font-size: 1.25rem; font-weight: 600; color: var(--text-dark); margin: 0; }
-    .side-panel-subtitle { font-size: 0.875rem; color: var(--text-muted); margin-top: 0.25rem; }
-    .side-panel-close {
-        background: none; border: none; color: var(--text-muted); cursor: pointer;
-        padding: 0.5rem; border-radius: 6px; display: flex; align-items: center; justify-content: center;
-        transition: all 0.2s; font-size: 1.25rem;
+    .side-panel-title { font-size: 1.05rem; line-height: 1.3; font-weight: 600; color: #312E81; margin: 0; }
+    .side-panel-subtitle { font-size: 0.8rem; line-height: 1.35; color: #6366A0; margin-top: 0.18rem; }
+    .side-panel-body { flex: 1; overflow-y: auto; padding: 1.5rem; background: var(--bg-main); }
+    @media (max-width: 700px) {
+        .side-panel-header { padding: 0.9rem 1rem; }
+        .side-panel-body { padding: 1rem; }
     }
-    .side-panel-close:hover { background: var(--border); color: var(--text-dark); }
-    .side-panel-body { flex: 1; overflow-y: auto; padding: 1.5rem; background: var(--background); }
     .clickable-row { cursor: pointer; }
     .clickable-row:hover { background: #F8FAFC !important; }
     </style>
     <!-- Chart.js for Analytics/Sustainability -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -1198,49 +2029,119 @@ body.not-allowed .content-wrapper {
 
                 <!-- My Profile Section -->
                 <section id="profile" class="view-section">
+                    <div class="profile-feedback" id="cargowise-profile-feedback">
+                        <i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>
+                        <strong id="cargowise-profile-feedback-title">Loading your organization profile</strong>
+                        <span id="cargowise-profile-feedback-detail">Checking organization, address, and contact details.</span>
+                        <button class="btn btn-primary" id="cargowise-profile-retry" type="button" style="display: none;">Try again</button>
+                    </div>
                     <div class="profile-layout" id="cargowise-profile-content" style="display: none;">
-                        <div class="panel">
-                            <div class="panel-header"><h3>Organization</h3></div>
-                            <div class="profile-summary-grid" id="cargowise-org-summary"></div>
+                        <div class="profile-hero">
+                            <div class="profile-identity">
+                                <div class="profile-monogram" id="cargowise-profile-monogram">--</div>
+                                <div>
+                                    <h1 id="cargowise-profile-name">Organization</h1>
+                                    <div class="profile-code" id="cargowise-profile-code">Code unavailable</div>
+                                </div>
+                            </div>
+                            <div class="profile-health" id="cargowise-profile-health"></div>
                         </div>
-                        <div class="panel">
-                            <div class="panel-header"><h3>Roles</h3></div>
-                            <div class="role-badges" id="cargowise-role-list"></div>
+
+                        <div class="profile-tab-list" role="tablist" aria-label="Profile details">
+                            <button class="profile-tab active" id="profile-tab-overview" type="button" role="tab" aria-selected="true" aria-controls="profile-panel-overview" data-profile-tab="overview">
+                                <i class="fa-regular fa-building" aria-hidden="true"></i> Overview
+                            </button>
+                            <button class="profile-tab" id="profile-tab-addresses" type="button" role="tab" aria-selected="false" aria-controls="profile-panel-addresses" tabindex="-1" data-profile-tab="addresses">
+                                <i class="fa-solid fa-location-dot" aria-hidden="true"></i> Addresses
+                                <span class="profile-tab-count" id="cargowise-address-count">0</span>
+                            </button>
+                            <button class="profile-tab" id="profile-tab-contacts" type="button" role="tab" aria-selected="false" aria-controls="profile-panel-contacts" tabindex="-1" data-profile-tab="contacts">
+                                <i class="fa-regular fa-address-book" aria-hidden="true"></i> Contacts
+                                <span class="profile-tab-count" id="cargowise-contact-count">0</span>
+                            </button>
                         </div>
-                        <div class="panel">
-                            <div class="panel-header"><h3>Addresses</h3></div>
-                            <div class="table-responsive">
-                                <table class="data-table profile-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Code</th>
-                                            <th>Address</th>
-                                            <th>City</th>
-                                            <th>Country</th>
-                                            <th>Phone</th>
-                                            <th>Email</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="cargowise-address-list"></tbody>
-                                </table>
+
+                        <div class="profile-tab-panel active" id="profile-panel-overview" role="tabpanel" aria-labelledby="profile-tab-overview" data-profile-panel="overview">
+                            <div class="profile-overview-grid">
+                                <div class="panel">
+                                    <div class="panel-header">
+                                        <div>
+                                            <h3>Organization details</h3>
+                                            <p class="profile-panel-subtitle">Core identity and account status information.</p>
+                                        </div>
+                                    </div>
+                                    <div class="profile-summary-grid" id="cargowise-org-summary"></div>
+                                </div>
+                                <div class="panel">
+                                    <div class="panel-header">
+                                        <div>
+                                            <h3>Roles &amp; classifications</h3>
+                                            <p class="profile-panel-subtitle">Operational roles and account classifications.</p>
+                                        </div>
+                                    </div>
+                                    <div class="profile-flag-group">
+                                        <span class="profile-flag-label">Operational roles</span>
+                                        <div class="role-badges" id="cargowise-role-list"></div>
+                                    </div>
+                                    <div class="profile-flag-group" id="cargowise-classification-group" style="display: none;">
+                                        <span class="profile-flag-label">Account classifications</span>
+                                        <div class="role-badges" id="cargowise-classification-list"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="panel">
-                            <div class="panel-header"><h3>Contacts</h3></div>
-                            <div class="table-responsive">
-                                <table class="data-table profile-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Name</th>
-                                            <th>Title</th>
-                                            <th>Phone</th>
-                                            <th>Mobile</th>
-                                            <th>Email</th>
-                                            <th>Web Access</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="cargowise-contact-list"></tbody>
-                                </table>
+
+                        <div class="profile-tab-panel" id="profile-panel-addresses" role="tabpanel" aria-labelledby="profile-tab-addresses" data-profile-panel="addresses">
+                            <div class="panel">
+                                <div class="panel-header">
+                                    <div>
+                                        <h3>Active addresses</h3>
+                                        <p class="profile-panel-subtitle">Only active and valid addresses are shown.</p>
+                                    </div>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="data-table profile-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Code</th>
+                                                <th>Address</th>
+                                                <th>City / Region</th>
+                                                <th>Country</th>
+                                                <th>Contact</th>
+                                                <th>Validation</th>
+                                                <th>Last Updated</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="cargowise-address-list"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="profile-tab-panel" id="profile-panel-contacts" role="tabpanel" aria-labelledby="profile-tab-contacts" data-profile-panel="contacts">
+                            <div class="panel">
+                                <div class="panel-header">
+                                    <div>
+                                        <h3>Active contacts</h3>
+                                        <p class="profile-panel-subtitle">Contact and web-access details for your organization.</p>
+                                    </div>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="data-table profile-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Phone</th>
+                                                <th>Mobile</th>
+                                                <th>Email</th>
+                                                <th>Address</th>
+                                                <th>Web Access</th>
+                                                <th>Last Updated</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="cargowise-contact-list"></tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1248,35 +2149,43 @@ body.not-allowed .content-wrapper {
 
                 <!-- Purchase Orders Section -->
                 <section id="purchase-orders" class="view-section">
-                    <div class="panel">
-                        <div class="panel-header" style="justify-content: space-between; border-bottom: none; padding-bottom: 0;">
-                            <form class="search-bar" id="po-search-form" style="width: auto; border: 1px solid var(--border); margin: 0; padding: 0.25rem 0.5rem; border-radius: 8px; display: flex; align-items: center;">
-                                <input type="text" id="po-search-input" placeholder="Search PO Number..." style="padding: 0.5rem; flex: 1; outline: none; border: none; background: transparent; min-width: 200px;">
-                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-right: 0.25rem;">
-                                    <button type="button" id="po-search-clear" title="Clear" style="display: none; background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 0.25rem;"><i class="fa-solid fa-xmark"></i></button>
-                                    <button type="submit" id="po-search-submit" title="Search" style="display: none; background: none; border: none; cursor: pointer; color: var(--primary); padding: 0.25rem;"><i class="fa-solid fa-arrow-right"></i></button>
-                                </div>
-                            </form>
-                            <div class="pagination-controls" style="display: flex; gap: 0.5rem; align-items: center;">
-                                <button class="btn btn-sm" id="po-prev-btn" disabled>Previous</button>
-                                <span id="po-page-display" style="font-size: 0.9rem; font-weight: 500;">Page 1</span>
-                                <button class="btn btn-sm" id="po-next-btn" disabled>Next</button>
+                    <div class="panel po-panel">
+                        <div class="po-toolbar">
+                            <div class="po-heading">
+                                <h2>Purchase Orders</h2>
+                                <p>Review order status, parties, shipping windows, and line items.</p>
+                            </div>
+                            <div class="po-toolbar-actions">
+                                <form class="po-search" id="po-search-form" role="search">
+                                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                                    <input type="search" id="po-search-input" placeholder="Search PO" aria-label="Search PO number">
+                                    <button class="po-search-button" type="button" id="po-search-clear" aria-label="Clear search" title="Clear search" style="display: none;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                                    <button class="po-search-button primary" type="submit" id="po-search-submit" aria-label="Search" title="Search" style="display: none;"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+                                </form>
                             </div>
                         </div>
-                        <div class="table-responsive">
+                        <div class="po-summary-bar">
+                            <div class="po-result-count" id="po-result-count">Loading purchase orders...</div>
+                            <div class="po-pagination" aria-label="Purchase order pages">
+                                <button class="po-page-button" id="po-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
+                                <span id="po-page-display">Page 1</span>
+                                <button class="po-page-button" id="po-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+                        <div class="table-responsive po-table-wrap">
                             <table class="data-table" id="purchase-order-table">
                                 <thead>
                                     <tr>
-                                        <th>Created At</th>
-                                        <th>PO Number</th>
+                                        <th>Order</th>
                                         <th>Status</th>
-                                        <th>Buyer</th>
-                                        <th>Supplier</th>
-                                        <th>Ship Window</th>
+                                        <th>Buyer / Supplier</th>
+                                        <th>Shipping Window</th>
+                                        <th>Shipment</th>
                                         <th>Lines</th>
+                                        <th aria-label="Actions"></th>
                                     </tr>
                                 </thead>
-                                <tbody></tbody>
+                                <tbody><tr class="po-empty-row"><td colspan="7">Loading purchase orders...</td></tr></tbody>
                             </table>
                         </div>
                     </div>
@@ -1514,13 +2423,16 @@ body.not-allowed .content-wrapper {
 
     <!-- Slide-out Panel for PO Lines -->
     <div class="side-panel-overlay" id="po-lines-overlay" onclick="closePoLinesPanel()"></div>
-    <div class="side-panel" id="po-lines-panel">
+    <div class="side-panel" id="po-lines-panel" role="dialog" aria-modal="true" aria-labelledby="po-lines-title" aria-hidden="true">
         <div class="side-panel-header">
-            <div>
-                <h2 class="side-panel-title">Line Items</h2>
-                <div class="side-panel-subtitle" id="po-lines-subtitle">PO #---</div>
+            <div class="modal-heading">
+                <div class="modal-heading-icon"><i class="fa-solid fa-list-check" aria-hidden="true"></i></div>
+                <div>
+                    <h2 class="side-panel-title" id="po-lines-title">Line Items</h2>
+                    <div class="side-panel-subtitle" id="po-lines-subtitle">PO #---</div>
+                </div>
             </div>
-            <button class="side-panel-close" onclick="closePoLinesPanel()"><i class="fa-solid fa-xmark"></i></button>
+            <button class="side-panel-close" type="button" onclick="closePoLinesPanel()" aria-label="Close line items" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
         </div>
         <div class="side-panel-body">
             <div class="table-responsive">
@@ -1543,11 +2455,17 @@ body.not-allowed .content-wrapper {
     </div>
 
     <!-- Modal for Shipment Detail -->
-    <div class="modal" id="shipment-modal" style="display: none;">
-        <div class="modal-content">
+    <div class="modal" id="shipment-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" style="display: none;">
+        <div class="modal-content" role="document">
             <div class="modal-header">
-                <h3 id="modal-title">Shipment Detail</h3>
-                <button class="close-modal">&times;</button>
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-ship" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="modal-title">Shipment Detail</h3>
+                        <p class="modal-subtitle">Current movement and milestone information</p>
+                    </div>
+                </div>
+                <button class="close-modal" type="button" aria-label="Close shipment details" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
             <div class="modal-body">
                 <div class="milestone-tracker">
@@ -1564,15 +2482,23 @@ body.not-allowed .content-wrapper {
                     <p style="margin-bottom:0; color: var(--status-yellow-text); font-weight: 500;"><i class="fa-solid fa-circle-exclamation"></i> Heavy congestion reported at destination port.</p>
                 </div>
             </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" id="shipment-close-btn">Close</button>
+            </div>
         </div>
     </div>
 
     <!-- Login Modal -->
-    <div class="modal" id="login-modal" style="display: none;">
-        <div class="modal-content">
+    <div class="modal" id="login-modal" role="dialog" aria-modal="true" aria-labelledby="login-modal-title" style="display: none;">
+        <div class="modal-content" role="document">
             <div class="modal-header">
-                <h3>Login to MyShipment</h3>
-                <button class="close-modal" id="login-modal-close">&times;</button>
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="login-modal-title">Login to MyShipment</h3>
+                    </div>
+                </div>
+                <button class="close-modal" id="login-modal-close" type="button" aria-label="Close login" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
             <div class="modal-body">
                 <form class="auth-form" id="login-form">
@@ -1591,8 +2517,8 @@ body.not-allowed .content-wrapper {
                         </div>
                     </div>
                     <div class="auth-message" id="login-message"></div>
-                    <div class="modal-actions-row">
-                        <button class="btn" type="button" id="login-cancel-btn">Cancel</button>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" type="button" id="login-cancel-btn">Cancel</button>
                         <button class="btn btn-primary" type="submit" id="login-submit-btn">Login</button>
                     </div>
                 </form>
@@ -1601,11 +2527,17 @@ body.not-allowed .content-wrapper {
     </div>
 
     <!-- Profile Modal -->
-    <div class="modal" id="profile-modal" style="display: none;">
-        <div class="modal-content">
+    <div class="modal" id="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title" style="display: none;">
+        <div class="modal-content" role="document">
             <div class="modal-header">
-                <h3>Login Details</h3>
-                <button class="close-modal" id="profile-modal-close">&times;</button>
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-regular fa-id-card" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="profile-modal-title">Login Details</h3>
+                        <p class="modal-subtitle">Portal account and access information</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="profile-modal-close" type="button" aria-label="Close login details" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
             <div class="modal-body">
                 <div class="profile-grid">
@@ -1614,9 +2546,9 @@ body.not-allowed .content-wrapper {
                     <div class="profile-row"><span>Type</span><strong id="profile-type">-</strong></div>
                     <div class="profile-row"><span>Role</span><strong id="profile-role">-</strong></div>
                 </div>
-                <div class="modal-actions-row" style="margin-top: 1.5rem;">
-                    <button class="btn" type="button" id="profile-close-btn">Close</button>
-                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" id="profile-close-btn">Close</button>
             </div>
         </div>
     </div>
@@ -1735,6 +2667,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const value = String(username || 'User').trim();
         return (value || 'U').slice(0, 3).toUpperCase();
     };
+    const monogramFromName = name => {
+        const words = String(name || '').trim().split(/\s+/).filter(Boolean);
+        if (!words.length) return '--';
+        return words.slice(0, 2).map(word => word.charAt(0)).join('').toUpperCase();
+    };
+    const setProfileTab = tabName => {
+        document.querySelectorAll('[data-profile-tab]').forEach(tab => {
+            const isActive = tab.dataset.profileTab === tabName;
+            tab.classList.toggle('active', isActive);
+            tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            tab.tabIndex = isActive ? 0 : -1;
+        });
+        document.querySelectorAll('[data-profile-panel]').forEach(panel => {
+            panel.classList.toggle('active', panel.dataset.profilePanel === tabName);
+        });
+    };
+    const showProfileFeedback = ({ error = false, title, detail }) => {
+        const feedback = document.getElementById('cargowise-profile-feedback');
+        const icon = feedback.querySelector('i');
+        feedback.classList.toggle('is-error', error);
+        feedback.style.display = 'flex';
+        icon.className = error ? 'fa-solid fa-circle-exclamation' : 'fa-solid fa-circle-notch fa-spin';
+        document.getElementById('cargowise-profile-feedback-title').textContent = title;
+        document.getElementById('cargowise-profile-feedback-detail').textContent = detail;
+        document.getElementById('cargowise-profile-retry').style.display = error ? 'inline-flex' : 'none';
+    };
     const showSection = target => {
         document.querySelectorAll('.view-section, .blocked-section').forEach(sec => sec.classList.remove('active'));
         const section = document.getElementById(target);
@@ -1755,16 +2713,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderCargowiseProfile = profile => {
         const org = profile.org || {};
         const roles = profile.roles || [];
+        const classifications = profile.classifications || [];
         const addresses = profile.addresses || [];
         const contacts = profile.contacts || [];
+
+        document.getElementById('cargowise-profile-monogram').textContent = monogramFromName(org.name);
+        document.getElementById('cargowise-profile-name').textContent = displayValue(org.name);
+        document.getElementById('cargowise-profile-code').textContent = org.org_code ? `Organization code ${org.org_code}` : 'Organization code unavailable';
+        document.getElementById('cargowise-profile-health').innerHTML = `
+            <span class="profile-chip${org.is_active ? '' : ' is-negative'}">${org.is_active ? 'Active' : 'Inactive'}</span>
+            <span class="profile-chip${org.is_valid ? '' : ' is-negative'}">${org.is_valid ? 'Valid record' : 'Invalid record'}</span>
+        `;
+        document.getElementById('cargowise-address-count').textContent = String(addresses.length);
+        document.getElementById('cargowise-contact-count').textContent = String(contacts.length);
+
         const summary = [
-            ['Name', org.name],
-            ['Code', org.org_code],
-            ['Status', `${org.is_active ? 'Active' : 'Inactive'} / ${org.is_valid ? 'Valid' : 'Invalid'}`],
             ['Category', org.category],
+            ['Language', org.language],
             ['Closest Port', org.closest_port],
             ['Screening', org.screening_status],
-            ['Updated', org.updated_at],
+            ['Created', formatDateTime(org.created_at)],
+            ['Last Updated', formatDateTime(org.updated_at)],
             ['Org ID', org.org_id],
         ];
         document.getElementById('cargowise-org-summary').innerHTML = summary.map(([label, value]) => `
@@ -1774,58 +2743,66 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `).join('');
         document.getElementById('cargowise-role-list').innerHTML = roles.length ? roles.map(role => `<span class="role-badge">${escapeHtml(role)}</span>`).join('') : '<span class="profile-status">No active roles found.</span>';
+        document.getElementById('cargowise-classification-list').innerHTML = classifications.map(item => `<span class="role-badge">${escapeHtml(item)}</span>`).join('');
+        document.getElementById('cargowise-classification-group').style.display = classifications.length ? 'block' : 'none';
         document.getElementById('cargowise-address-list').innerHTML = addresses.length ? addresses.map(address => `
             <tr>
-                <td>${escapeHtml(displayValue(address.code))}</td>
-                <td>${escapeHtml([address.company_name, address.address_1, address.address_2].filter(Boolean).join(', ') || '-')}</td>
-                <td>${escapeHtml([address.city, address.state, address.post_code].filter(Boolean).join(', ') || '-')}</td>
+                <td><span class="profile-cell-main">${escapeHtml(displayValue(address.code))}</span>${address.related_port ? `<span class="profile-cell-sub">Port: ${escapeHtml(address.related_port)}</span>` : ''}</td>
+                <td><span class="profile-cell-main">${escapeHtml([address.company_name, address.address_1].filter(Boolean).join(', ') || '-')}</span>${address.address_2 ? `<span class="profile-cell-sub">${escapeHtml(address.address_2)}</span>` : ''}</td>
+                <td><span class="profile-cell-main">${escapeHtml(displayValue(address.city))}</span><span class="profile-cell-sub">${escapeHtml([address.state, address.post_code].filter(Boolean).join(' ') || '-')}</span></td>
                 <td>${escapeHtml(displayValue(address.country_code))}</td>
-                <td>${escapeHtml(displayValue(address.phone || address.mobile))}</td>
-                <td>${escapeHtml(displayValue(address.email))}</td>
+                <td><span class="profile-cell-main">${escapeHtml(displayValue(address.phone || address.mobile))}</span><span class="profile-cell-sub">${escapeHtml(displayValue(address.email))}</span></td>
+                <td>${escapeHtml(displayValue(address.validation_status))}</td>
+                <td>${escapeHtml(formatDateTime(address.updated_at))}</td>
             </tr>
-        `).join('') : '<tr><td colspan="6">No active addresses found.</td></tr>';
+        `).join('') : '<tr><td colspan="7">No active addresses found.</td></tr>';
         document.getElementById('cargowise-contact-list').innerHTML = contacts.length ? contacts.map(contact => `
             <tr>
-                <td>${escapeHtml(displayValue(contact.name))}</td>
-                <td>${escapeHtml(displayValue(contact.title))}</td>
-                <td>${escapeHtml(displayValue(contact.phone))}</td>
+                <td><span class="profile-cell-main">${escapeHtml(displayValue(contact.name))}</span><span class="profile-cell-sub">${escapeHtml(displayValue(contact.title))}</span></td>
+                <td><span class="profile-cell-main">${escapeHtml(displayValue(contact.phone))}</span>${contact.phone_extension ? `<span class="profile-cell-sub">Ext. ${escapeHtml(contact.phone_extension)}</span>` : ''}</td>
                 <td>${escapeHtml(displayValue(contact.mobile))}</td>
                 <td>${escapeHtml(displayValue(contact.email))}</td>
+                <td>${escapeHtml(displayValue(contact.address_code))}</td>
                 <td>${contact.web_access_enabled ? 'Yes' : 'No'}</td>
+                <td>${escapeHtml(formatDateTime(contact.updated_at))}</td>
             </tr>
-        `).join('') : '<tr><td colspan="6">No active contacts found.</td></tr>';
+        `).join('') : '<tr><td colspan="7">No active contacts found.</td></tr>';
+        setProfileTab('overview');
     };
-    const loadCargowiseProfile = async () => {
+    const loadCargowiseProfile = async (force = false) => {
         if (!authToken || !authUser) return;
-        if (cargowiseProfileLoaded) return;
+        if (cargowiseProfileLoaded && !force) return;
         const content = document.getElementById('cargowise-profile-content');
         content.style.display = 'none';
+        showProfileFeedback({
+            title: 'Loading your organization profile',
+            detail: 'Checking organization, address, and contact details.'
+        });
         try {
             const payload = await api(CARGOWISE_PROFILE_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
             renderCargowiseProfile(payload.message || {});
             cargowiseProfileLoaded = true;
+            document.getElementById('cargowise-profile-feedback').style.display = 'none';
             content.style.display = 'grid';
         } catch (err) {
-            document.getElementById('cargowise-org-summary').innerHTML = `
-                <div class="profile-summary-item">
-                    <span>Error</span>
-                    <strong>${escapeHtml(err.message || 'Unable to load CargoWise profile')}</strong>
-                </div>
-            `;
-            document.getElementById('cargowise-role-list').innerHTML = '';
-            document.getElementById('cargowise-address-list').innerHTML = '<tr><td colspan="6">-</td></tr>';
-            document.getElementById('cargowise-contact-list').innerHTML = '<tr><td colspan="6">-</td></tr>';
-            content.style.display = 'grid';
+            cargowiseProfileLoaded = false;
+            showProfileFeedback({
+                error: true,
+                title: 'Profile could not be loaded',
+                detail: 'Please try again. If the problem continues, contact support.'
+            });
         }
     };
     
     const openPoLinesPanel = async (poId, poNumber) => {
         document.getElementById('po-lines-subtitle').textContent = `PO #${poNumber}`;
         document.getElementById('po-lines-overlay').classList.add('active');
-        document.getElementById('po-lines-panel').classList.add('active');
+        const panel = document.getElementById('po-lines-panel');
+        panel.classList.add('active');
+        panel.setAttribute('aria-hidden', 'false');
         
         const tbody = document.querySelector('#po-lines-table tbody');
-        tbody.innerHTML = '<tr><td colspan="5">Loading lines...</td></tr>';
+        tbody.innerHTML = '<tr><td class="po-lines-message" colspan="5"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Loading line items...</td></tr>';
         
         try {
             const payload = await api(`/my/cargowise-purchase-orders-line-items?po_id=${encodeURIComponent(poId)}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
@@ -1839,31 +2816,65 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>$${escapeHtml(displayValue(row.unit_price))}</td>
                     <td>$${escapeHtml(displayValue(row.total_price))}</td>
                 </tr>
-            `).join('') : '<tr><td colspan="5">No lines found for this PO.</td></tr>';
+            `).join('') : '<tr><td class="po-lines-message" colspan="5"><i class="fa-regular fa-folder-open" aria-hidden="true"></i>No line items found.</td></tr>';
         } catch (err) {
-            tbody.innerHTML = `<tr><td colspan="5">Error loading lines: ${escapeHtml(err.message)}</td></tr>`;
+            tbody.innerHTML = '<tr><td class="po-lines-message" colspan="5"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>Line items could not be loaded. Please try again.</td></tr>';
         }
     };
     
     const closePoLinesPanel = () => {
         document.getElementById('po-lines-overlay').classList.remove('active');
-        document.getElementById('po-lines-panel').classList.remove('active');
+        const panel = document.getElementById('po-lines-panel');
+        panel.classList.remove('active');
+        panel.setAttribute('aria-hidden', 'true');
     };
+    window.openPoLinesPanel = openPoLinesPanel;
+    window.closePoLinesPanel = closePoLinesPanel;
 
     const renderPurchaseOrders = rows => {
         const body = document.querySelector('#purchase-order-table tbody');
         if (!body) return;
-        body.innerHTML = rows.length ? rows.map(row => `
-            <tr class="clickable-row" onclick="openPoLinesPanel('${escapeHtml(row.purchase_order_id)}', '${escapeHtml(row.order_number)}')">
-                <td>${escapeHtml(formatDate(row.created_at))}</td>
-                <td><strong>${escapeHtml(displayValue(row.order_number))}</strong></td>
-                <td><span class="badge ${badgeClass(row.status)}">${escapeHtml(displayValue(row.status))}</span></td>
-                <td>${escapeHtml(displayValue(row.buyer_name || row.buyer_code))}</td>
-                <td>${escapeHtml(displayValue(row.supplier_name || row.supplier_code))}</td>
-                <td>${escapeHtml(formatDate(row.shipment_window_start))} / ${escapeHtml(formatDate(row.shipment_window_end))}</td>
-                <td>${escapeHtml(displayValue(row.line_count))}</td>
+        const resultCount = document.getElementById('po-result-count');
+        if (resultCount) {
+            const noun = rows.length === 1 ? 'order' : 'orders';
+            const searchContext = poSearchQuery ? ` matching “${poSearchQuery}”` : '';
+            resultCount.innerHTML = `<strong>${rows.length}</strong> ${noun} on this page${escapeHtml(searchContext)}`;
+        }
+        body.innerHTML = rows.length ? rows.map(row => {
+            const lineCount = Math.max(0, Number(row.line_count) || 0);
+            const hasLines = lineCount > 0;
+            return `
+            <tr class="${hasLines ? '' : 'po-row-disabled'}" data-po-id="${escapeHtml(displayValue(row.purchase_order_id))}" data-po-number="${escapeHtml(displayValue(row.order_number))}" data-has-lines="${hasLines ? 'true' : 'false'}"${hasLines ? ` tabindex="0" role="button" aria-label="View ${lineCount} line items for purchase order ${escapeHtml(displayValue(row.order_number))}"` : ` aria-label="Purchase order ${escapeHtml(displayValue(row.order_number))} has no line items"`}>
+                <td>
+                    <span class="po-primary">${escapeHtml(displayValue(row.order_number))}${row.order_split ? ` / ${escapeHtml(row.order_split)}` : ''}</span>
+                    <span class="po-secondary">${escapeHtml(row.customer_reference ? `Ref: ${row.customer_reference}` : `Created ${formatDate(row.created_at)}`)}</span>
+                </td>
+                <td>
+                    <div class="po-status-stack">
+                        <span class="badge ${badgeClass(row.is_cancelled ? 'cancelled' : row.status)}">${escapeHtml(row.is_cancelled ? 'Cancelled' : displayValue(row.status))}</span>
+                        ${row.is_priority ? '<span class="po-mini-flag"><i class="fa-solid fa-bolt" aria-hidden="true"></i> Priority</span>' : ''}
+                    </div>
+                    <span class="po-secondary">${row.is_released ? 'Released' : 'Not released'}</span>
+                </td>
+                <td>
+                    <div class="po-party-flow">
+                        <div class="po-party"><span class="po-primary" title="${escapeHtml(displayValue(row.buyer_name || row.buyer_code))}">${escapeHtml(displayValue(row.buyer_name || row.buyer_code))}</span><span class="po-secondary">Buyer</span></div>
+                        <i class="fa-solid fa-arrow-right po-party-arrow" aria-hidden="true"></i>
+                        <div class="po-party"><span class="po-primary" title="${escapeHtml(displayValue(row.supplier_name || row.supplier_code))}">${escapeHtml(displayValue(row.supplier_name || row.supplier_code))}</span><span class="po-secondary">Supplier</span></div>
+                    </div>
+                </td>
+                <td>
+                    <div class="po-date-range"><i class="fa-regular fa-calendar" aria-hidden="true"></i><span>${escapeHtml(formatDate(row.shipment_window_start))} – ${escapeHtml(formatDate(row.shipment_window_end))}</span></div>
+                    <div class="po-shipping-meta">${row.transport_mode ? `<span>${escapeHtml(row.transport_mode)}</span>` : ''}${row.inco_term ? `<span>${escapeHtml(row.inco_term)}</span>` : ''}</div>
+                </td>
+                <td>
+                    <span class="po-primary">${escapeHtml(displayValue(row.shipment_reference))}</span>
+                    <span class="po-secondary">${escapeHtml(displayValue(row.shipment_status))}</span>
+                </td>
+                <td><span class="po-line-count${hasLines ? '' : ' is-empty'}">${lineCount}</span></td>
+                <td><span class="po-row-action${hasLines ? '' : ' is-disabled'}" title="${hasLines ? 'View line items' : 'No line items'}" aria-hidden="true"><i class="fa-solid ${hasLines ? 'fa-chevron-right' : 'fa-minus'}"></i></span></td>
             </tr>
-        `).join('') : '<tr><td colspan="7">No purchase orders found.</td></tr>';
+        `}).join('') : '<tr class="po-empty-row"><td colspan="7"><i class="fa-regular fa-folder-open" aria-hidden="true"></i><br>No purchase orders found.</td></tr>';
     };
     const renderShipments = rows => {
         const body = document.querySelector('#shipment-table tbody');
@@ -2021,6 +3032,10 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         if (target === 'tracking') setBlockMessage('tracking-timeline', 'Loading events...');
         if (loadingMap[target]) setTableMessage(loadingMap[target][0], loadingMap[target][1], 'Loading...');
+        if (target === 'purchase-orders') {
+            const resultCount = document.getElementById('po-result-count');
+            if (resultCount) resultCount.textContent = 'Loading purchase orders...';
+        }
         try {
             let endpointUrl = '';
             const joiner = endpoint.includes('?') ? '&' : '?';
@@ -2058,6 +3073,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             if (target === 'tracking') setBlockMessage('tracking-timeline', err.message || 'Unable to load events');
             if (loadingMap[target]) setTableMessage(loadingMap[target][0], loadingMap[target][1], err.message || 'Unable to load data');
+            if (target === 'purchase-orders') {
+                const resultCount = document.getElementById('po-result-count');
+                if (resultCount) resultCount.textContent = 'Purchase orders could not be loaded';
+            }
         }
     };
     const PORTAL_ALLOWED_ROLE = 2;
@@ -2116,15 +3135,48 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Tab Routing
     const navItems = document.querySelectorAll('.nav-item');
 
+    const profileTabs = [...document.querySelectorAll('[data-profile-tab]')];
+    profileTabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => setProfileTab(tab.dataset.profileTab));
+        tab.addEventListener('keydown', event => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            let nextIndex = index;
+            if (event.key === 'ArrowLeft') nextIndex = (index - 1 + profileTabs.length) % profileTabs.length;
+            if (event.key === 'ArrowRight') nextIndex = (index + 1) % profileTabs.length;
+            if (event.key === 'Home') nextIndex = 0;
+            if (event.key === 'End') nextIndex = profileTabs.length - 1;
+            profileTabs[nextIndex].focus();
+            setProfileTab(profileTabs[nextIndex].dataset.profileTab);
+        });
+    });
+    document.getElementById('cargowise-profile-retry').addEventListener('click', () => loadCargowiseProfile(true));
+
     // PO Pagination & Search Listeners
     const poSearchInput = document.getElementById('po-search-input');
     const poSearchClear = document.getElementById('po-search-clear');
     const poSearchSubmit = document.getElementById('po-search-submit');
+    const purchaseOrderBody = document.querySelector('#purchase-order-table tbody');
+    const openPurchaseOrderRow = row => {
+        if (!row || !row.dataset.poId || row.dataset.hasLines !== 'true') return;
+        openPoLinesPanel(row.dataset.poId, row.dataset.poNumber || '-');
+    };
+
+    purchaseOrderBody?.addEventListener('click', event => {
+        openPurchaseOrderRow(event.target.closest('tr[data-po-id]'));
+    });
+    purchaseOrderBody?.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        const row = event.target.closest('tr[data-po-id]');
+        if (!row) return;
+        event.preventDefault();
+        openPurchaseOrderRow(row);
+    });
     
     poSearchInput?.addEventListener('input', e => {
         const hasText = e.target.value.length > 0;
-        if (poSearchClear) poSearchClear.style.display = hasText ? 'block' : 'none';
-        if (poSearchSubmit) poSearchSubmit.style.display = hasText ? 'block' : 'none';
+        if (poSearchClear) poSearchClear.style.display = hasText ? 'grid' : 'none';
+        if (poSearchSubmit) poSearchSubmit.style.display = hasText ? 'grid' : 'none';
     });
 
     document.getElementById('po-search-form')?.addEventListener('submit', e => {
@@ -2242,15 +3294,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. Modal logic
     const modal = document.getElementById('shipment-modal');
     const closeModalBtn = document.querySelector('#shipment-modal .close-modal');
+    const shipmentCloseBtn = document.getElementById('shipment-close-btn');
 
     window.openShipmentModal = (id) => {
         document.getElementById('modal-title').textContent = `Shipment Detail: ${id}`;
         modal.style.display = 'flex';
     };
 
-    closeModalBtn.addEventListener('click', () => {
+    const closeShipmentModal = () => {
         modal.style.display = 'none';
-    });
+    };
+
+    closeModalBtn.addEventListener('click', closeShipmentModal);
+    shipmentCloseBtn.addEventListener('click', closeShipmentModal);
 
     // Close modal when clicking outside
     window.addEventListener('click', (e) => {

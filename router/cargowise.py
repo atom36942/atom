@@ -1,16 +1,39 @@
 # packages
+import asyncio
+from functools import wraps
 from fastapi import APIRouter, Request, Response
 from fastapi.encoders import jsonable_encoder
 
 # router
 router = APIRouter()
 
+# helpers
+def func_cargowise_mssql_read_retry(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        request = kwargs.get("request") or next((arg for arg in args if isinstance(arg, Request)), None)
+        for attempt in range(3):
+            try:
+                return await func(*args, **kwargs)
+            except Exception as exc:
+                if "08S01" not in str(exc) or attempt == 2:
+                    raise
+                pool = getattr(request.app.state, "client_mssql_read", None) if request else None
+                if pool:
+                    try:
+                        await pool.clear()
+                    except Exception:
+                        pass
+                await asyncio.sleep(0.25 * (2 ** attempt))
+    return wrapper
+
 # api
 @router.get("/my/cargowise-profile")
+@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_profile(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
-    if not org_pk: raise Exception("CargoWise org id missing")
+    if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
     role_map = {
         "is_consignee": "Consignee",
@@ -19,10 +42,39 @@ async def func_api_my_cargowise_profile(*, request: Request):
         "is_warehouse_client": "Warehouse Client",
         "is_forwarder": "Forwarder",
         "is_shipping_provider": "Shipping Provider",
+        "is_air_wholesaler": "Air Wholesaler",
+        "is_sea_wholesaler": "Sea Wholesaler",
+        "is_rail_provider": "Rail Provider",
+        "is_line_haul_provider": "Line Haul Provider",
+        "is_misc_freight_services": "Miscellaneous Freight Services",
+        "is_air_cto": "Air CTO",
+        "is_air_line": "Airline",
         "is_broker": "Broker",
+        "is_container_yard": "Container Yard",
+        "is_local_transport": "Local Transport",
+        "is_pack_depot": "Pack Depot",
+        "is_sea_cto": "Sea CTO",
         "is_shipping_line": "Shipping Line",
+        "is_unpack_depot": "Unpack Depot",
+        "is_rail_head": "Rail Head",
+        "is_road_freight_depot": "Road Freight Depot",
+        "is_shipping_consortium": "Shipping Consortium",
+        "is_fumigation_contractor": "Fumigation Contractor",
+        "is_distribution_centre": "Distribution Centre",
         "is_controlling_customer": "Controlling Customer",
         "is_controlling_agent": "Controlling Agent",
+        "is_ferry_water_terminal": "Ferry / Water Terminal",
+        "is_container_leasing_company": "Container Leasing Company",
+        "is_inland_waterway_provider": "Inland Waterway Provider",
+        "is_vgm_contractor": "VGM Contractor",
+    }
+    classification_map = {
+        "is_global_account": "Global Account",
+        "is_national_account": "National Account",
+        "is_sales_lead": "Sales Lead",
+        "is_competitor": "Competitor",
+        "is_temp_account": "Temporary Account",
+        "is_personal_effects_account": "Personal Effects Account",
     }
     async with app_state.client_mssql_read.acquire() as conn:
         cursor = await conn.cursor()
@@ -37,25 +89,53 @@ async def func_api_my_cargowise_profile(*, request: Request):
                 OH.OH_Language AS language,
                 OH.OH_RL_NKClosestPort AS closest_port,
                 OH.OH_ScreeningStatus AS screening_status,
-                OH.OH_SystemCreateTimeUtc AS created_at,
-                OH.OH_SystemLastEditTimeUtc AS updated_at,
+                CASE WHEN OH.OH_SystemCreateTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OH.OH_SystemCreateTimeUtc, 126) + 'Z' END AS created_at,
+                CASE WHEN OH.OH_SystemLastEditTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OH.OH_SystemLastEditTimeUtc, 126) + 'Z' END AS updated_at,
                 OH.OH_IsConsignee AS is_consignee,
                 OH.OH_IsConsignor AS is_consignor,
                 OH.OH_IsTransportClient AS is_transport_client,
                 OH.OH_IsWarehouseClient AS is_warehouse_client,
                 OH.OH_IsForwarder AS is_forwarder,
                 OH.OH_IsShippingProvider AS is_shipping_provider,
+                OH.OH_IsAirWholesaler AS is_air_wholesaler,
+                OH.OH_IsSeaWholesaler AS is_sea_wholesaler,
+                OH.OH_IsRailProvider AS is_rail_provider,
+                OH.OH_IsLineHaulProvider AS is_line_haul_provider,
+                OH.OH_IsMiscFreightServices AS is_misc_freight_services,
+                OH.OH_IsAirCTO AS is_air_cto,
+                OH.OH_IsAirLine AS is_air_line,
                 OH.OH_IsBroker AS is_broker,
+                OH.OH_IsContainerYard AS is_container_yard,
+                OH.OH_IsLocalTransport AS is_local_transport,
+                OH.OH_IsPackDepot AS is_pack_depot,
+                OH.OH_IsSeaCTO AS is_sea_cto,
                 OH.OH_IsShippingLine AS is_shipping_line,
+                OH.OH_IsUnpackDepot AS is_unpack_depot,
+                OH.OH_IsRailHead AS is_rail_head,
+                OH.OH_IsRoadFreightDepot AS is_road_freight_depot,
+                OH.OH_IsShippingConsortium AS is_shipping_consortium,
+                OH.OH_IsFumigationContractor AS is_fumigation_contractor,
+                OH.OH_IsGlobalAccount AS is_global_account,
+                OH.OH_IsNationalAccount AS is_national_account,
+                OH.OH_IsSalesLead AS is_sales_lead,
+                OH.OH_IsCompetitor AS is_competitor,
+                OH.OH_IsTempAccount AS is_temp_account,
+                OH.OH_IsPersonalEffectsAccount AS is_personal_effects_account,
+                OH.OH_IsDistributionCentre AS is_distribution_centre,
                 OH.OH_IsControllingCustomer AS is_controlling_customer,
-                OH.OH_IsControllingAgent AS is_controlling_agent
+                OH.OH_IsControllingAgent AS is_controlling_agent,
+                OH.OH_IsFerryWaterTerminal AS is_ferry_water_terminal,
+                OH.OH_IsContainerLeasingCompany AS is_container_leasing_company,
+                OH.OH_IsInlandWaterwayProvider AS is_inland_waterway_provider,
+                OH.OH_IsVGMContractor AS is_vgm_contractor
             FROM dbo.OrgHeader AS OH
             WHERE OH.OH_PK = TRY_CONVERT(uniqueidentifier, ?);""", org_pk)
         org_columns = [column[0] for column in cursor.description]
         org_rows = [dict(zip(org_columns, row)) for row in await cursor.fetchall()]
-        if not org_rows: raise Exception("CargoWise profile not found")
+        if not org_rows: raise Exception("Organization profile not found")
         org = org_rows[0]
         roles = [label for key, label in role_map.items() if org.pop(key, None)]
+        classifications = [label for key, label in classification_map.items() if org.pop(key, None)]
         await cursor.execute("""
             SELECT TOP 50
                 CONVERT(varchar(36), OA.OA_PK) AS address_id,
@@ -67,14 +147,17 @@ async def func_api_my_cargowise_profile(*, request: Request):
                 OA.OA_State AS state,
                 OA.OA_PostCode AS post_code,
                 OA.OA_RN_NKCountryCode AS country_code,
+                OA.OA_ValidationStatus AS validation_status,
+                OA.OA_RL_NKRelatedPortCode AS related_port,
                 OA.OA_Phone AS phone,
                 OA.OA_Mobile AS mobile,
-                OA.OA_Email AS email
+                OA.OA_Email AS email,
+                CASE WHEN OA.OA_SystemLastEditTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OA.OA_SystemLastEditTimeUtc, 126) + 'Z' END AS updated_at
             FROM dbo.OrgAddress AS OA
             WHERE OA.OA_OH = TRY_CONVERT(uniqueidentifier, ?)
               AND OA.OA_IsValid = 1
               AND OA.OA_IsActive = 1
-            ORDER BY OA.OA_Code;""", org_pk)
+            ORDER BY OA.OA_Code, OA.OA_PK;""", org_pk)
         address_columns = [column[0] for column in cursor.description]
         addresses = [dict(zip(address_columns, row)) for row in await cursor.fetchall()]
         await cursor.execute("""
@@ -83,24 +166,31 @@ async def func_api_my_cargowise_profile(*, request: Request):
                 OC.OC_ContactName AS name,
                 OC.OC_Title AS title,
                 OC.OC_Phone AS phone,
+                OC.OC_PhoneExtension AS phone_extension,
                 OC.OC_Mobile AS mobile,
                 OC.OC_Email AS email,
-                OC.OC_WebAccessEnabled AS web_access_enabled
+                OC.OC_WebAccessEnabled AS web_access_enabled,
+                OA.OA_Code AS address_code,
+                CASE WHEN OC.OC_SystemLastEditTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OC.OC_SystemLastEditTimeUtc, 126) + 'Z' END AS updated_at
             FROM dbo.OrgContact AS OC
+            LEFT JOIN dbo.OrgAddress AS OA
+              ON OA.OA_PK = OC.OC_OA_OrgAddress
+             AND OA.OA_IsValid = 1
             WHERE OC.OC_OH = TRY_CONVERT(uniqueidentifier, ?)
               AND OC.OC_IsValid = 1
               AND OC.OC_IsActive = 1
-            ORDER BY OC.OC_ContactName;""", org_pk)
+            ORDER BY OC.OC_ContactName, OC.OC_PK;""", org_pk)
         contact_columns = [column[0] for column in cursor.description]
         contacts = [dict(zip(contact_columns, row)) for row in await cursor.fetchall()]
-    profile_object = {"org": org, "roles": roles, "addresses": addresses, "contacts": contacts}
+    profile_object = {"org": org, "roles": roles, "classifications": classifications, "addresses": addresses, "contacts": contacts}
     return {"status": 1, "message": jsonable_encoder(profile_object)}
 
 @router.get("/my/cargowise-purchase-orders")
+@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_purchase_orders(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
-    if not org_pk: raise Exception("CargoWise org id missing")
+    if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("po_number", "str", 0, None, "")])
     limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
@@ -198,10 +288,11 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
 @router.get("/my/cargowise-purchase-orders-line-items")
+@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_purchase_order_lines(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
-    if not org_pk: raise Exception("CargoWise org id missing")
+    if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("po_id", "str", 1, None, None)])
     po_id = str(oq.get("po_id") or "").strip()
@@ -231,20 +322,21 @@ async def func_api_my_cargowise_purchase_order_lines(*, request: Request):
         )
         SELECT
             CONVERT(varchar(36), JO.JO_PK) AS line_id,
-            JO.JO_LineNumber AS line_number,
-            JO.JO_PartNum AS part_number,
+            JO.JO_LineNo AS line_number,
+            JO.JO_SubLineNo AS sub_line_number,
+            JO.JO_Partno AS part_number,
             JO.JO_Description AS description,
             JO.JO_Quantity AS quantity,
-            JO.JO_PackQty AS pack_quantity,
-            JO.JO_PackType AS pack_type,
-            JO.JO_LinePrice AS unit_price,
-            (JO.JO_LinePrice * JO.JO_Quantity) AS total_price,
+            JO.JO_OuterPacks AS pack_quantity,
+            COALESCE(NULLIF(JO.JO_OrderUnitOfQty, ''), NULLIF(JO.JO_F3_NKPackType, ''), NULLIF(JO.JO_OuterPacksUQ, ''), NULLIF(JO.JO_InnerPacksUQ, '')) AS pack_type,
+            JO.JO_ItemPrice AS unit_price,
+            JO.JO_LinePrice AS total_price,
             JO.JO_ActualWeight AS actual_weight,
             JO.JO_ActualVolume AS actual_volume
         FROM dbo.JobOrderLine AS JO
         JOIN visible_orders AS VO ON VO.JD_PK = JO.JO_JD
         WHERE JO.JO_IsValid = 1
-        ORDER BY JO.JO_LineNumber ASC, JO.JO_SystemCreateTimeUtc ASC;
+        ORDER BY JO.JO_LineNo ASC, JO.JO_SubLineNo ASC, JO.JO_LineSplitNumber ASC, JO.JO_SystemCreateTimeUtc ASC;
     """
     async with app_state.client_mssql_read.acquire() as conn:
         cursor = await conn.cursor()
@@ -257,10 +349,11 @@ async def func_api_my_cargowise_purchase_order_lines(*, request: Request):
     return {"status": 1, "message": jsonable_encoder(obj_list)}
 
 @router.get("/my/cargowise-shipments")
+@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_shipments(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
-    if not org_pk: raise Exception("CargoWise org id missing")
+    if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
     limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
@@ -357,10 +450,11 @@ async def func_api_my_cargowise_shipments(*, request: Request):
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
 @router.get("/my/cargowise-containers")
+@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_containers(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
-    if not org_pk: raise Exception("CargoWise org id missing")
+    if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_id", "str", 0, None, "")])
     limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
@@ -463,10 +557,11 @@ async def func_api_my_cargowise_containers(*, request: Request):
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
 @router.get("/my/cargowise-tracking")
+@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_tracking(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
-    if not org_pk: raise Exception("CargoWise org id missing")
+    if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_id", "str", 0, None, "")])
     limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 300))
@@ -548,10 +643,11 @@ async def func_api_my_cargowise_tracking(*, request: Request):
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
 @router.get("/my/cargowise-exceptions")
+@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_exceptions(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
-    if not org_pk: raise Exception("CargoWise org id missing")
+    if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
     limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
@@ -684,10 +780,11 @@ async def func_api_my_cargowise_exceptions(*, request: Request):
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
 @router.get("/my/cargowise-documents")
+@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_documents(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
-    if not org_pk: raise Exception("CargoWise org id missing")
+    if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
     limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
@@ -807,10 +904,11 @@ async def func_api_my_cargowise_documents(*, request: Request):
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
 @router.get("/my/cargowise-documents-download")
+@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_documents_download(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
-    if not org_pk: raise Exception("CargoWise org id missing")
+    if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("document_id", "str", 1, None, None)])
     document_id = str(oq.get("document_id") or "").strip()
@@ -909,10 +1007,11 @@ async def func_api_my_cargowise_documents_download(*, request: Request):
     )
 
 @router.get("/my/cargowise-analytics")
+@func_cargowise_mssql_read_retry
 async def func_api_my_cargowise_analytics(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
-    if not org_pk: raise Exception("CargoWise org id missing")
+    if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
     kpis_sql = """
         SET NOCOUNT ON;
@@ -1068,6 +1167,7 @@ async def func_api_my_cargowise_analytics(*, request: Request):
     return {"status": 1, "message": jsonable_encoder(analytics_object)}
 
 @router.get("/admin/cargowise-360")
+@func_cargowise_mssql_read_retry
 async def func_api_admin_cargowise_360(*, request: Request):
     app_state = request.app.state
     user = request.state.user or {}
