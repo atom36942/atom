@@ -4,6 +4,7 @@
 # flow
 !function.py
 !config.py
+!schema.py
 !config_extend.py
 !function_extend.py
 !main.py
