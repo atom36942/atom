@@ -90,7 +90,7 @@ def func_check(*, app: any) -> None:
                     if not has_router_decorator: raise Exception(f"router file '{router_path.name}': function '{node.name}' is missing a @router.<verb> decorator (helpers belong in function.py)")
     return None
 
-async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgres: dict) -> str:
+async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgres: dict, root_user_password_hash: str = None) -> str:
     """Initialize PostgreSQL database schema, tables, indexes, constraints, and triggers based on configuration."""
     config_db = config_postgres
     if not config_db: raise Exception("config_db missing")
@@ -388,7 +388,8 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
                 catalog["tg"].add("trigger_protect_root_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_protect_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'DELETE' THEN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; END IF; RETURN NULL; END; $$; DROP TRIGGER IF EXISTS trigger_protect_root_users ON users; CREATE TRIGGER trigger_protect_root_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_protect_root_users();")
             if is_enable_root_user_create and all(c in users_cols for c in ("type", "username", "password", "role", "deleted_at", "deactivated_at")):
-                root_user_password_hash = "$argon2id$v=19$m=65536,t=3,p=4$XXabrpBeXx2PeIcUC7cxWA$CqF+8i+q+k62/6MkQMXFcyMGoTeWmDMvwf8u7WvnrG8"
+                if not root_user_password_hash:
+                    root_user_password_hash = "$argon2id$v=19$m=65536,t=3,p=4$XXabrpBeXx2PeIcUC7cxWA$CqF+8i+q+k62/6MkQMXFcyMGoTeWmDMvwf8u7WvnrG8"
                 await conn.execute("INSERT INTO users (type, username, password, role) VALUES (1, 'admin', $1, 1) ON CONFLICT (username, type) DO UPDATE SET type = 1, username = 'admin', password = COALESCE(users.password, EXCLUDED.password), role = 1, deleted_at = NULL, deactivated_at = NULL;", root_user_password_hash)
                 await conn.execute("UPDATE users SET type = 1, username = 'admin', password = COALESCE(users.password, $1), role = 1, deleted_at = NULL, deactivated_at = NULL WHERE id = 1;", root_user_password_hash)
             if is_enable_log_users_password and "password" in users_cols and "log_users_password" in db_tables:

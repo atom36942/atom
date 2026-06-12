@@ -35,7 +35,7 @@ config_rabbitmq_url = None
 config_celery_url = None
 
 # System
-config_is_debug = 1
+config_root_user_password = "123456"
 config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
 config_root_html_path = "static/api.html"
 config_is_enable_user_delete = 0
@@ -43,6 +43,7 @@ config_is_enable_postgres_schema_init = 1
 config_is_enable_signup = 1
 config_is_enable_otp_require_users_update = 0
 config_is_notification = 0
+config_is_debug = 1
 config_otp_length = 6
 config_otp_expiry_sec = 600
 config_access_token_expires_in_sec = 3155695200 
@@ -133,7 +134,7 @@ config_api = {
 "/my/cargowise-exceptions": {"id": 29, "api_cache_sec": ["redis", 300]},
 "/my/cargowise-documents": {"id": 30, "api_cache_sec": ["redis", 300]},
 "/my/cargowise-analytics": {"id": 31, "api_cache_sec": ["redis", 300]},
-"/admin/cargowise-360": {"id": 32, "user_role_check": ["token", [1]], "api_cache_sec": ["redis", 300]},
+"/admin/cargowise-360": {"id": 32, "user_role_check": ["token", [1]], "api_cache_sec": ["redis", 1000]},
 "/public/object-read": {"id": 14, "api_cache_sec": ["inmemory", 100]},
 "/info": {"id": 17, "api_cache_sec": ["inmemory", 100]},
 "/public/table-groupby": {"id": 18, "api_cache_sec": ["inmemory", 10]},

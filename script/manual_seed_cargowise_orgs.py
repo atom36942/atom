@@ -1,11 +1,13 @@
 # packages
 import argparse
 import asyncio
+import os
 import textwrap
 from datetime import datetime, timezone
 import aioodbc
 import asyncpg
 from argon2 import PasswordHasher
+from dotenv import load_dotenv
 
 # function
 from function import func_postgres_create
@@ -15,25 +17,21 @@ from function import func_regex_check
 from function import func_postgres_schema_read
 
 # config
-from config import config_mssql_url_read
+load_dotenv(".env")
 from config import config_postgres_url
+from config import config_mssql_url_read
 from config import config_regex
 from config import config_table
 from config import config_buffer_limit_default
-config_seed_cargowise_user_password = "123456"
-config_seed_cargowise_user_type = 1
-config_seed_cargowise_user_role = 2
+seed_cargowise_user_password = os.getenv("seed_cargowise_user_password") or "123456"
+seed_cargowise_user_type = int(os.getenv("seed_cargowise_user_type") or 1)
+seed_cargowise_user_role = int(os.getenv("seed_cargowise_user_role") or 2)
 
 # logic
 async def execute():
     batch_size = 1000
     def parse_args():
         parser = argparse.ArgumentParser(description="Seed CargoWise orgs into Postgres users.")
-        parser.add_argument("--postgres-url", default=config_postgres_url, help="PostgreSQL DSN. Defaults to config_postgres_url.")
-        parser.add_argument("--mssql-url", default=config_mssql_url_read, help="MSSQL ODBC DSN. Defaults to config_mssql_url_read.")
-        parser.add_argument("--password", default=config_seed_cargowise_user_password, help="Default password for newly-created CargoWise users.")
-        parser.add_argument("--user-type", type=int, default=config_seed_cargowise_user_type, help="users.type value for CargoWise users.")
-        parser.add_argument("--role", type=int, default=config_seed_cargowise_user_role, help="users.role value for CargoWise users.")
         parser.add_argument("--dry-run", action="store_true", help="Print planned changes without writing to Postgres.")
         return parser.parse_args()
     def chunked(items, size):
@@ -136,25 +134,25 @@ async def execute():
             total += len(batch)
         return total
     args = parse_args()
-    if not args.postgres_url:
-        print("Error: PostgreSQL URL is required. Set config_postgres_url or pass --postgres-url.")
+    if not config_postgres_url:
+        print("Error: PostgreSQL URL is required. Set config_postgres_url in the config section.")
         return
-    if not args.mssql_url:
-        print("Error: MSSQL URL is required. Set config_mssql_url_read or pass --mssql-url.")
+    if not config_mssql_url_read:
+        print("Error: MSSQL URL is required. Set config_mssql_url_read in the config section.")
         return
     print("Fetching CargoWise orgs...")
-    orgs = await fetch_cargowise_orgs(args.mssql_url)
+    orgs = await fetch_cargowise_orgs(config_mssql_url_read)
     print(f"Fetched {len(orgs)} org(s).")
     if not orgs:
         return
-    client_postgres_pool = await asyncpg.create_pool(dsn=args.postgres_url, min_size=1, max_size=5)
+    client_postgres_pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=5)
     try:
         cache_postgres_schema = await func_postgres_schema_read(client_postgres_pool=client_postgres_pool)
         if "users" not in cache_postgres_schema:
             raise Exception("users table not found in Postgres schema")
         client_password_hasher = PasswordHasher()
         existing_users = await read_existing_users(client_postgres_pool, orgs)
-        create_list, update_list, duplicate_warnings = plan_user_changes(orgs, existing_users, args.password, args.user_type, args.role)
+        create_list, update_list, duplicate_warnings = plan_user_changes(orgs, existing_users, seed_cargowise_user_password, seed_cargowise_user_type, seed_cargowise_user_role)
         print(f"Existing matched user(s): {len(existing_users)}")
         print(f"Planned creates: {len(create_list)}")
         print(f"Planned updates: {len(update_list)}")

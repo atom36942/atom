@@ -1,4 +1,5 @@
 # packages
+import ast
 import asyncio
 import csv
 import itertools
@@ -16,10 +17,10 @@ pg_dsn = os.getenv("PG_DSN")
 csv_path = os.getenv("csv_path")
 table = os.getenv("table")
 crud_mode = os.getenv("crud_mode")
-validation_mode = "strict"
-rename_column = None
-ignore_column = None
-const_column = None
+validation_mode = os.getenv("validation_mode") or "strict"
+rename_column = ast.literal_eval(os.getenv("rename_column")) if os.getenv("rename_column") else None
+ignore_column = ast.literal_eval(os.getenv("ignore_column")) if os.getenv("ignore_column") else None
+const_column = ast.literal_eval(os.getenv("const_column")) if os.getenv("const_column") else None
 
 # logic
 async def execute():

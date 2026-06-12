@@ -74,7 +74,7 @@ async def func_lifespan(app:"FastAPI"):
         client_azure_email = EmailClient.from_connection_string(app.state.config_azure_email_connection_string) if app.state.config_azure_email_connection_string else None
         client_azure_blob = BlobServiceClient.from_connection_string(f"DefaultEndpointsProtocol=https;AccountName={app.state.config_azure_account_name};AccountKey={app.state.config_azure_account_key};EndpointSuffix=core.windows.net") if (app.state.config_azure_account_name and app.state.config_azure_account_key) else None
         # postges schema init
-        if client_postgres_pool and app.state.config_is_enable_postgres_schema_init: await app.state.func_postgres_schema_init(client_postgres_pool=client_postgres_pool, config_postgres=app.state.config_postgres)
+        if client_postgres_pool and app.state.config_is_enable_postgres_schema_init: await app.state.func_postgres_schema_init(client_postgres_pool=client_postgres_pool, config_postgres=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(config_root_user_password) if config_root_user_password else None)
         # cache init
         cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres_pool=client_postgres_pool) if client_postgres_pool else {}
         cache_config = await app.state.func_postgres_map_column(client_postgres_pool=client_postgres_pool, config_sql=app.state.config_sql.get("config"), is_json_value=1) if client_postgres_pool and "config" in cache_postgres_schema else {}
