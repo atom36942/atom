@@ -90,7 +90,6 @@ async def execute():
     async def func_process_candidate(candidate: asyncpg.Record) -> dict:
         candidate_id = candidate["id"]
         resume_url = candidate["resume_url"]
-
         parsed_url = urllib.parse.urlparse(resume_url.split('?')[0])
         ext = os.path.splitext(parsed_url.path)[1].lower()
         if ext not in ['.pdf', '.docx', '.txt', '.doc']:

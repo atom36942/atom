@@ -1,5 +1,6 @@
 # packages
 import asyncio
+import urllib.parse
 from fastapi import APIRouter, Request
 
 # router
@@ -61,7 +62,6 @@ async def func_api_my_object_create(*, request: Request):
 async def func_api_my_object_read(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ownership_column", "str", 0, app_state.config_users_ownership_column, "created_by_id"), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("relation", "list", 0, None, []), ("filter", "list", 0, None, [])])
-
     schema_cols = app_state.cache_postgres_schema.get(oq["table"], {})
     if oq["ownership_column"] not in schema_cols: raise Exception(f"table '{oq['table']}' lacks ownership column '{oq['ownership_column']}'")
     filters = oq["filter"] + [f"""{oq["ownership_column"]} = {request.state.user["id"]}"""]
@@ -99,6 +99,76 @@ async def func_api_my_ids_delete(*, request: Request):
     created_by_id = request.state.user["id"] if ob["table"] != "users" else None
     deleted_count = await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, table=ob["table"], ids=ob["ids"], created_by_id=created_by_id)
     return {"status": 1, "message": f"{deleted_count} ids deleted"}
+
+@router.post("/my/object-blob-delete")
+async def func_api_my_object_blob_delete(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("cols", "list:str", 1, None, None), ("ids", "list:int", 1, None, None)])
+    if app_state.config_batch_item_limit and len(ob["ids"]) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
+    schema = app_state.cache_postgres_schema.get(ob["table"], {})
+    if "created_by_id" not in schema: raise Exception(f"table '{ob['table']}' lacks required 'created_by_id' column for ownership tracking")
+    for col in ob["cols"]:
+        if col not in schema: raise Exception(f"column '{col}' not found in table '{ob['table']}'")
+    id_list, user_id = [int(x) for x in ob["ids"]], request.state.user["id"]
+    cols_query = ", ".join(f'"{c}"' for c in ob["cols"])
+    async with app_state.client_postgres_pool.acquire() as conn:
+        rows = await conn.fetch(f"""SELECT "id", {cols_query} FROM "{ob['table']}" WHERE "id"=ANY($1::bigint[]) AND "created_by_id"=$2""", id_list, user_id)
+    if not rows: return {"status": 1, "message": "0 ids deleted"}
+    s3_batches, azure_tasks = {}, []
+    for row in rows:
+        for col in ob["cols"]:
+            if not (url := row[col]): continue
+            parsed = urllib.parse.urlparse(url)
+            if "blob.core.windows.net" in url:
+                parts = parsed.path.lstrip("/").split("/", 1)
+                if len(parts) == 2:
+                    if not app_state.client_azure_blob: raise Exception("azure blob client not configured")
+                    azure_tasks.append(app_state.client_azure_blob.get_blob_client(container=parts[0], blob=urllib.parse.unquote(parts[1])).delete_blob())
+            elif "amazonaws.com" in url:
+                host_parts = parsed.netloc.split(".")
+                if host_parts[0] != "s3": bucket, key = host_parts[0], parsed.path.lstrip("/")
+                else:
+                    parts = parsed.path.lstrip("/").split("/", 1)
+                    if len(parts) != 2: continue
+                    bucket, key = parts[0], parts[1]
+                if not app_state.client_s3: raise Exception("s3 client not configured")
+                s3_batches.setdefault(bucket, []).append({"Key": urllib.parse.unquote(key)})
+    for bucket, keys in s3_batches.items():
+        for i in range(0, len(keys), 1000):
+            response = await app_state.client_s3.delete_objects(Bucket=bucket, Delete={"Objects": keys[i:i+1000], "Quiet": True})
+            if response.get("Errors"): raise Exception(f"S3 blob delete failed: {response['Errors'][:3]}")
+    if azure_tasks:
+        for result in await asyncio.gather(*azure_tasks, return_exceptions=True):
+            if isinstance(result, Exception) and type(result).__name__ != "ResourceNotFoundError": raise result
+    set_clause = ", ".join(f'"{c}"=NULL' for c in ob["cols"])
+    async with app_state.client_postgres_pool.acquire() as conn:
+        await conn.execute(f"""UPDATE "{ob['table']}" SET {set_clause} WHERE "id"=ANY($1::bigint[]) AND "created_by_id"=$2""", [r["id"] for r in rows], user_id)
+    return {"status": 1, "message": f"{len(rows)} ids deleted"}
+
+@router.post("/my/blob-url-delete")
+async def func_api_my_blob_url_delete(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("service", "str", 1, app_state.config_allowed_blob_services, None), ("url", "list:str", 1, None, None)])
+    service, urls, user_id = ob["service"], ob["url"], request.state.user["id"]
+    tasks = []
+    if service == "s3":
+        batches = {}
+        for u in urls:
+            bucket = u.split("//", 1)[1].split(".", 1)[0]
+            key = u.split(".com/", 1)[1]
+            if not urllib.parse.unquote(key).startswith(f"user_{user_id}/"): continue
+            if bucket not in batches: batches[bucket] = []
+            batches[bucket].append({"Key": urllib.parse.unquote(key)})
+        for b, keys in batches.items():
+            for i in range(0, len(keys), 1000): tasks.append(app_state.client_s3.delete_objects(Bucket=b, Delete={"Objects": keys[i:i+1000]}))
+    elif service == "azure":
+        for u in urls:
+            parts = u.split(".net/", 1)[1].split("/", 1)
+            blob_key = urllib.parse.unquote(parts[1])
+            if not blob_key.startswith(f"user_{user_id}/"): continue
+            tasks.append(app_state.client_azure_blob.get_blob_client(container=parts[0], blob=blob_key).delete_blob())
+    if tasks: await asyncio.gather(*tasks, return_exceptions=True)
+    return {"status": 1, "message": f"{len(urls)} {service} URLs processed"}
 
 @router.delete("/my/object-delete-all")
 async def func_api_my_object_delete_all(*, request: Request):

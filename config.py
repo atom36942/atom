@@ -63,11 +63,17 @@ config_sensitive_tables = ["spatial_ref_sys", "users", "log_users_delete"]
 config_redis_cache_ttl_sec = 3600
 config_table_disable_create_my = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
 config_table_enable_create_public = ["test"]
-config_table_enable_read_public = ["*"]
+config_table_enable_read_public = ["test"]
 config_table_enable_delete_all_my = ["*"]
 config_table_enable_delete_all_my_user_id = ["message","notification"]
 config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id"]
 config_column_single_update = ["username", "password", "email", "mobile", "deleted_at"]
+config_cors_allow_origins = []
+config_cors_allow_origin_regex = ".*"
+config_cors_allow_methods = ["*"]
+config_cors_allow_headers = ["*"]
+config_cors_expose_headers = ["*"]
+config_cors_allow_credentials = True
 
 # General
 config_allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
@@ -78,14 +84,6 @@ config_allowed_user_storage_backends = ["token", "realtime", "redis", "inmemory"
 config_allowed_api_storage_backends = ["redis", "inmemory"]
 config_allowed_api_namespace = ["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"]
 config_users_ownership_column = ["created_by_id", "user_id"]
-
-# CORS
-config_cors_allow_origins = []
-config_cors_allow_origin_regex = ".*"
-config_cors_allow_methods = ["*"]
-config_cors_allow_headers = ["*"]
-config_cors_expose_headers = ["*"]
-config_cors_allow_credentials = True
 
 # Dict
 config_sql = {
@@ -214,17 +212,13 @@ config_postgres = {
 ],
 "blob":[
 {"name":"id","datatype":"bigserial","is_primary":1},
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
+{"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree(created_by_id)"},
-{"name":"updated_at","datatype":"timestamptz"},
-{"name":"updated_by_id","datatype":"bigint"},
 {"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"deleted_by_id","datatype":"bigint"},
-{"name":"upload_method","datatype":"text","is_mandatory":1,"index":"btree(upload_method,created_at)"},
+{"name":"upload_method","datatype":"smallint","is_mandatory":1},
 {"name":"service","datatype":"text","is_mandatory":1},
-{"name":"container","datatype":"text","is_mandatory":1},
-{"name":"blob_key","datatype":"text","is_mandatory":1,"unique":"service,container,blob_key"},
-{"name":"file_url","datatype":"text","is_mandatory":1}
+{"name":"file_url","datatype":"text","is_mandatory":1,"unique":"file_url"}
 ],
 "message":[
 {"name":"id","datatype":"bigserial","is_primary":1},
@@ -273,14 +267,14 @@ config_postgres = {
 ],
 "log_api":[
 {"name":"id","datatype":"bigserial","is_primary":1},
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
-{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id,created_at)"},
+{"name":"created_at","datatype":"timestamptz","default":"now()"},
+{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
 {"name":"deleted_at","datatype":"timestamptz"},
 {"name":"deleted_by_id","datatype":"bigint"},
 {"name":"ip_address","datatype":"text"},
 {"name":"response_type","datatype":"text"},
-{"name":"method","datatype":"text","index":"btree(method,created_at)"},
-{"name":"path","datatype":"text","index":"btree(path,created_at)"},
+{"name":"method","datatype":"text"},
+{"name":"path","datatype":"text"},
 {"name":"query_param","datatype":"text"},
 {"name":"status_code","datatype":"smallint","index":"btree(status_code)"},
 {"name":"response_time_ms","datatype":"integer"},
@@ -301,8 +295,8 @@ config_postgres = {
 {"name":"created_by_id","datatype":"bigint"},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"user_id","datatype":"bigint","is_mandatory":1,"index":"btree(user_id,created_at)"},
 {"name":"event","datatype":"smallint","is_mandatory":1,"in":(1,2,3),"index":"btree(event,created_at)"},
+{"name":"user_id","datatype":"bigint","is_mandatory":1,"index":"btree(user_id,created_at)"},
 {"name":"worker_status","datatype":"smallint","default":1,"is_mandatory":1,"in":(1,2,3,4),"index":"btree(worker_status,worker_next_retry_at,created_at)"},
 {"name":"worker_retry_count","datatype":"integer","default":0},
 {"name":"worker_next_retry_at","datatype":"timestamptz","default":"now()"},
@@ -379,15 +373,11 @@ config_postgres = {
 }
 
 config_column_int_mapping = {
+"upload_method": {1: "File", 2: "Presigned Url"},
+"worker_status": {1: "Pending", 2: "Processing", 3: "Completed", 4: "Failed"},
 "type": {
-
 "notification": {1: "Password Change", 2: "Job Status Change", 3: "Account Created"},
 },
-"status": {
-"test": {1: "Active", 2: "Inactive", 3: "Archived"},
-"jobseeker": {1: "Applied", 2: "Shortlisted", 3: "Interviewing", 4: "Under Review", 5: "Selected", 6: "Offer Approved", 7: "Offer Sent", 8: "Offer Accepted", 9: "Offer Declined", 10: "Joined", 11: "Rejected", 12: "Withdrawn", 13: "On Hold", 14: "Salary Negotiation", 15: "Background Check", 16: "Documentation Pending"},
-},
-"worker_status": {1: "Pending", 2: "Processing", 3: "Completed", 4: "Failed"},
 "event": {
 "log_users_delete": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
 },

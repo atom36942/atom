@@ -1,6 +1,7 @@
 # packages
 import asyncio
 import asyncpg
+import urllib.parse
 import boto3
 from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob.aio import BlobServiceClient
@@ -94,12 +95,16 @@ async def execute():
         s3_batches = {}
         azure_tasks = []
         for row in rows:
-            service, container, blob_key = row["service"], row["container"], row["blob_key"]
+            service, file_url = row["service"], row["file_url"]
             if service == "s3":
                 if not clients.get("s3"): raise Exception("S3 client is not configured for blob purge")
-                s3_batches.setdefault(container, []).append({"Key": blob_key})
+                bucket = file_url.split("//", 1)[1].split(".", 1)[0]
+                blob_key = urllib.parse.unquote(file_url.split(".com/", 1)[1])
+                s3_batches.setdefault(bucket, []).append({"Key": blob_key})
             elif service == "azure":
                 if not clients.get("azure"): raise Exception("Azure blob client is not configured for blob purge")
+                parts = file_url.split(".net/", 1)[1].split("/", 1)
+                container, blob_key = parts[0], urllib.parse.unquote(parts[1])
                 azure_tasks.append(clients["azure"].get_blob_client(container=container, blob=blob_key).delete_blob())
             else:
                 raise Exception(f"unsupported blob service: {service}")
@@ -116,7 +121,7 @@ async def execute():
         total_deleted = 0
         deleted_count = -1
         while deleted_count != 0:
-            rows = await conn.fetch('SELECT id, service, container, blob_key FROM "blob" WHERE "deleted_at" < NOW() - ($1 * INTERVAL \'1 day\') LIMIT $2', config_users_delete_data_retention_day, blob_purge_batch_limit)
+            rows = await conn.fetch('SELECT id, service, file_url FROM "blob" WHERE "deleted_at" < NOW() - ($1 * INTERVAL \'1 day\') LIMIT $2', config_users_delete_data_retention_day, blob_purge_batch_limit)
             if not rows:
                 deleted_count = 0
                 continue
