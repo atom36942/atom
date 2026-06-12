@@ -35,6 +35,7 @@ config_rabbitmq_url = None
 config_celery_url = None
 
 # System
+config_is_debug = 1
 config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
 config_root_html_path = "static/api.html"
 config_is_enable_user_delete = 0
@@ -77,6 +78,14 @@ config_allowed_user_storage_backends = ["token", "realtime", "redis", "inmemory"
 config_allowed_api_storage_backends = ["redis", "inmemory"]
 config_allowed_api_namespace = ["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"]
 config_users_ownership_column = ["created_by_id", "user_id"]
+
+# CORS
+config_cors_allow_origins = []
+config_cors_allow_origin_regex = ".*"
+config_cors_allow_methods = ["*"]
+config_cors_allow_headers = ["*"]
+config_cors_expose_headers = ["*"]
+config_cors_allow_credentials = True
 
 # Dict
 config_sql = {
@@ -188,7 +197,7 @@ config_postgres = {
 {"name":"address","datatype":"text"},
 {"name":"title","datatype":"text"},
 {"name":"description","datatype":"text"},
-{"name":"gender","datatype":"smallint"},
+{"name":"gender","datatype":"text"},
 {"name":"id_ext","datatype":"text","unique":"id_ext,type"},
 ],
 "config":[
@@ -211,7 +220,7 @@ config_postgres = {
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"deleted_by_id","datatype":"bigint"},
-{"name":"type","datatype":"smallint","is_mandatory":1,"index":"btree(type,created_at)"},
+{"name":"upload_method","datatype":"text","is_mandatory":1,"index":"btree(upload_method,created_at)"},
 {"name":"service","datatype":"text","is_mandatory":1},
 {"name":"container","datatype":"text","is_mandatory":1},
 {"name":"blob_key","datatype":"text","is_mandatory":1,"unique":"service,container,blob_key"},
@@ -269,7 +278,7 @@ config_postgres = {
 {"name":"deleted_at","datatype":"timestamptz"},
 {"name":"deleted_by_id","datatype":"bigint"},
 {"name":"ip_address","datatype":"text"},
-{"name":"response_type","datatype":"smallint","in":(1,2,3,4,5),"index":"btree(response_type,created_at)"},
+{"name":"response_type","datatype":"text"},
 {"name":"method","datatype":"text","index":"btree(method,created_at)"},
 {"name":"path","datatype":"text","index":"btree(path,created_at)"},
 {"name":"query_param","datatype":"text"},
@@ -334,7 +343,7 @@ config_postgres = {
 {"name":"github_url","datatype":"text"},
 {"name":"portfolio_url","datatype":"text"},
 {"name":"languages","datatype":"text[]","index":"gin(languages)"},
-{"name":"gender","datatype":"smallint"},
+{"name":"gender","datatype":"text"},
 {"name":"worker_status","datatype":"smallint","default":1,"index":"btree(worker_status)"},
 {"name":"worker_retry_count","datatype":"integer","default":0},
 {"name":"worker_next_retry_at","datatype":"timestamptz","default":"now()","index":"btree(worker_next_retry_at)"},
@@ -370,20 +379,12 @@ config_postgres = {
 }
 
 config_column_int_mapping = {
-"gender": {1: "Male", 2: "Female", 3: "Other", 4: "Prefer not to say"},
-"response_type": {1: "Direct No Cache Set", 2: "Direct Cache Set", 3: "Cache Response", 4: "Background Added", 5: "Error"},
-"role": {
-"users": {1: "Admin", 2: "Portal User"},
-},
 "type": {
-"test": {1: "Type 1", 2: "Type 2", 3: "Type 3", 4: "Type 4", 5: "Type 5"},
-"users": {1: "Default", 2: "Internal", 3: "External"},
-"blob": {1: "Upload File", 2: "Upload URL"},
+
 "notification": {1: "Password Change", 2: "Job Status Change", 3: "Account Created"},
 },
 "status": {
 "test": {1: "Active", 2: "Inactive", 3: "Archived"},
-
 "jobseeker": {1: "Applied", 2: "Shortlisted", 3: "Interviewing", 4: "Under Review", 5: "Selected", 6: "Offer Approved", 7: "Offer Sent", 8: "Offer Accepted", 9: "Offer Declined", 10: "Joined", 11: "Rejected", 12: "Withdrawn", 13: "On Hold", 14: "Salary Negotiation", 15: "Background Check", 16: "Documentation Pending"},
 },
 "worker_status": {1: "Pending", 2: "Processing", 3: "Completed", 4: "Failed"},

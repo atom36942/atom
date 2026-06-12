@@ -1016,19 +1016,44 @@ async def func_postgres_schema_read(*, client_postgres_pool: any) -> dict:
             idx.is_primary AS is_primary,
             idx.is_unique AS is_unique,
             idx.is_index AS is_index,
-            idx.index_names AS index_names
+            idx.index_names AS index_names,
+            idx.btree_cnt,
+            idx.gin_cnt,
+            idx.gist_cnt,
+            idx.brin_cnt,
+            idx.hash_cnt,
+            idx.spgist_cnt,
+            idx.total_index_cnt,
+            idx.usable_index_cnt,
+            idx.total_idx_scans,
+            s.n_distinct::float AS estimated_distinct_values,
+            round((s.null_frac * 100)::numeric, 2)::float AS percentage_null,
+            round((s.correlation)::numeric, 4)::float AS correlation,
+            s.avg_width AS avg_width_bytes
         FROM pg_class c
         JOIN pg_attribute a ON c.oid = a.attrelid
         JOIN pg_namespace n ON c.relnamespace = n.oid
         LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
+        LEFT JOIN pg_stats s ON s.schemaname = n.nspname AND s.tablename = c.relname AND s.attname = a.attname
         LEFT JOIN LATERAL (
             SELECT
                 COALESCE(bool_or(ix.indisprimary), false) AS is_primary,
                 COALESCE(bool_or(ix.indisunique), false) AS is_unique,
                 count(*) > 0 AS is_index,
-                COALESCE(array_agg(i.relname ORDER BY i.relname), '{}') AS index_names
+                COALESCE(array_agg(i.relname ORDER BY i.relname), '{}') AS index_names,
+                COUNT(ix.indexrelid) FILTER (WHERE am.amname='btree') AS btree_cnt,
+                COUNT(ix.indexrelid) FILTER (WHERE am.amname='gin') AS gin_cnt,
+                COUNT(ix.indexrelid) FILTER (WHERE am.amname='gist') AS gist_cnt,
+                COUNT(ix.indexrelid) FILTER (WHERE am.amname='brin') AS brin_cnt,
+                COUNT(ix.indexrelid) FILTER (WHERE am.amname='hash') AS hash_cnt,
+                COUNT(ix.indexrelid) FILTER (WHERE am.amname='spgist') AS spgist_cnt,
+                COUNT(ix.indexrelid) AS total_index_cnt,
+                COUNT(ix.indexrelid) FILTER (WHERE a.attnum = ix.indkey[0]) AS usable_index_cnt,
+                COALESCE(SUM(ui.idx_scan), 0) AS total_idx_scans
             FROM pg_index ix
             JOIN pg_class i ON i.oid = ix.indexrelid
+            LEFT JOIN pg_am am ON am.oid=i.relam
+            LEFT JOIN pg_stat_user_indexes ui ON ui.indexrelid = i.oid
             WHERE ix.indrelid = c.oid AND a.attnum = ANY(ix.indkey)
         ) idx ON true
         WHERE n.nspname = 'public'
@@ -1041,7 +1066,28 @@ async def func_postgres_schema_read(*, client_postgres_pool: any) -> dict:
         records = await conn.fetch(sql)
     schema = {}
     for r in records:
-        schema.setdefault(r["table_name"], {})[r["column_name"]] = {"datatype": r["data_type"], "is_nullable": r["is_nullable"], "default": r["column_default"], "is_primary": r["is_primary"], "is_unique": r["is_unique"], "is_index": r["is_index"], "index_names": list(r["index_names"] or [])}
+        schema.setdefault(r["table_name"], {})[r["column_name"]] = {
+            "datatype": r["data_type"],
+            "is_nullable": r["is_nullable"],
+            "default": r["column_default"],
+            "is_primary": r["is_primary"],
+            "is_unique": r["is_unique"],
+            "is_index": r["is_index"],
+            "index_names": list(r["index_names"] or []),
+            "estimated_distinct_values": r["estimated_distinct_values"],
+            "percentage_null": r["percentage_null"],
+            "correlation": r["correlation"],
+            "avg_width_bytes": r["avg_width_bytes"],
+            "btree_cnt": r["btree_cnt"],
+            "gin_cnt": r["gin_cnt"],
+            "gist_cnt": r["gist_cnt"],
+            "brin_cnt": r["brin_cnt"],
+            "hash_cnt": r["hash_cnt"],
+            "spgist_cnt": r["spgist_cnt"],
+            "total_index_cnt": r["total_index_cnt"],
+            "usable_index_cnt": r["usable_index_cnt"],
+            "total_idx_scans": r["total_idx_scans"]
+        }
     return schema
 
 async def func_postgres_map_column(*, client_postgres_pool: any, config_sql: str, is_json_value: int = 0) -> dict:

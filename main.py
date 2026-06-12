@@ -139,7 +139,7 @@ async def func_lifespan(app:"FastAPI"):
         print(f"❌ shutdown error: {e}")
 
 # app
-app = FastAPI(debug=True, lifespan=func_lifespan, openapi_url=None, docs_url=None, redoc_url=None)
+app = FastAPI(debug=bool(config_is_debug), lifespan=func_lifespan, openapi_url=None, docs_url=None, redoc_url=None)
 
 # state
 [setattr(app.state, k, v) for k, v in globals().items() if k.startswith(("func_", "config_"))]
@@ -157,7 +157,7 @@ if config_sentry_dsn: sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastA
 @app.middleware("http")
 async def middleware(request, api_function):
     if request.method == "OPTIONS": return await api_function(request)
-    start, error, response_type, request.state.user = time.perf_counter(), None, 1, {}
+    start, error, response_type, request.state.user = time.perf_counter(), None, "direct_no_cache_set", {}
     app_state = request.app.state
     try:
         request.state.user = await app_state.func_middleware_check_auth(headers=request.headers, url_path=request.url.path, config_token_secret_key=app_state.config_token_secret_key)
@@ -169,23 +169,23 @@ async def middleware(request, api_function):
         response = await app_state.func_middleware_api_cache(mode="get", path=path, query_params=query_params, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response)
         if not response:
             if query_params.get("is_background") == "1":
-                response_type = 4
+                response_type = "background_added"
                 response = await app_state.func_middleware_api_background(scope=request.scope, body_bytes=await request.body(), api_function=api_function)
             else:
                 response = await api_function(request)
                 response = await app_state.func_middleware_api_cache(mode="set", path=path, query_params=query_params, response=response, config_api=app_state.config_api, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response)
-                if getattr(response, "is_cache_set", False): response_type = 2
+                if getattr(response, "is_cache_set", False): response_type = "direct_cache_set"
         else:
-            response_type = 3
+            response_type = "cache_response"
     except Exception as e:
-        response_type = 5
+        response_type = "error"
         error, response = await app_state.func_middleware_api_response_error(exception=e, is_traceback=1, sentry_dsn=app_state.config_sentry_dsn)
     if pool := app_state.client_postgres_pool:
         with suppress(Exception): await app_state.func_postgres_create(client_postgres_pool=pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": request.client.host if request.client else None, "path": request.url.path, "method": request.method, "query_param": str(request.query_params), "status_code": response.status_code if hasattr(response, "status_code") else None, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
     return response
 
 # cors
-app.add_middleware(CORSMiddleware, allow_origins=[], allow_origin_regex=".*", allow_methods=["*"], allow_headers=["*"], expose_headers=["*"], allow_credentials=True)
+app.add_middleware(CORSMiddleware, allow_origins=config_cors_allow_origins, allow_origin_regex=config_cors_allow_origin_regex, allow_methods=config_cors_allow_methods, allow_headers=config_cors_allow_headers, expose_headers=config_cors_expose_headers, allow_credentials=config_cors_allow_credentials)
 
 # main
 if __name__ == "__main__":

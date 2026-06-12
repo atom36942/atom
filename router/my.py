@@ -61,7 +61,7 @@ async def func_api_my_object_create(*, request: Request):
 async def func_api_my_object_read(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ownership_column", "str", 0, app_state.config_users_ownership_column, "created_by_id"), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("relation", "list", 0, None, []), ("filter", "list", 0, None, [])])
-    if (disabled_relation_table := next((parts[1] for rel in oq["relation"] for parts in ([p.strip() for p in rel.split(",", 4)],) if len(parts) >= 2 and "*" not in app_state.config_table_enable_read_public and parts[1] not in app_state.config_table_enable_read_public), None)) is not None: raise Exception(f"relation read disabled for table: {disabled_relation_table}")
+
     schema_cols = app_state.cache_postgres_schema.get(oq["table"], {})
     if oq["ownership_column"] not in schema_cols: raise Exception(f"table '{oq['table']}' lacks ownership column '{oq['ownership_column']}'")
     filters = oq["filter"] + [f"""{oq["ownership_column"]} = {request.state.user["id"]}"""]
@@ -105,7 +105,8 @@ async def func_api_my_object_delete_all(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None)])
     if oq["table"] == "users": raise Exception("users bulk delete disabled; use /my/object-delete for own account")
-    if "*" not in app_state.config_table_enable_delete_all_my and oq["table"] not in app_state.config_table_enable_delete_all_my: raise Exception(f"delete all disabled for table: {oq['table']}")
+    enabled_delete_all = app_state.config_table_enable_delete_all_my or []
+    if "*" not in enabled_delete_all and oq["table"] not in enabled_delete_all: raise Exception(f"delete all disabled for table: {oq['table']}")
     if "created_by_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'created_by_id' column for ownership tracking")
     async with app_state.client_postgres_pool.acquire() as conn:
         result = await conn.execute(f"""DELETE FROM "{oq["table"]}" WHERE "created_by_id"=$1""", user_id)
@@ -131,7 +132,8 @@ async def func_api_my_received_object_delete_all(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None)])
     if oq["table"] == "users": raise Exception("users received bulk delete disabled")
-    if "*" not in app_state.config_table_enable_delete_all_my_user_id and oq["table"] not in app_state.config_table_enable_delete_all_my_user_id: raise Exception(f"received delete all disabled for table: {oq['table']}")
+    enabled_delete_all_user_id = app_state.config_table_enable_delete_all_my_user_id or []
+    if "*" not in enabled_delete_all_user_id and oq["table"] not in enabled_delete_all_user_id: raise Exception(f"received delete all disabled for table: {oq['table']}")
     if "user_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'user_id' column for ownership tracking")
     async with app_state.client_postgres_pool.acquire() as conn:
         result = await conn.execute(f"""DELETE FROM "{oq["table"]}" WHERE "user_id"=$1""", user_id)
