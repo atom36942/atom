@@ -58,7 +58,7 @@ config_sql_read_relation_fetch_limit_max = 100
 config_allowed_auth_types = [1]
 config_allowed_token_key = ["id", "type", "role", "username", "deactivated_at", "deleted_at"]
 config_users_delete_data_retention_day = 30
-config_users_delete_exclude_table = ["users", "spatial_ref_sys", "log_*"]
+config_sensitive_tables = ["spatial_ref_sys", "users", "log_users_delete"]
 config_redis_cache_ttl_sec = 3600
 config_table_disable_create_my = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
 config_table_enable_create_public = ["test"]
@@ -67,7 +67,6 @@ config_table_enable_delete_all_my = ["*"]
 config_table_enable_delete_all_my_user_id = ["message","notification"]
 config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id"]
 config_column_single_update = ["username", "password", "email", "mobile", "deleted_at"]
-config_column_my_block = ["username"]
 
 # General
 config_allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
@@ -301,7 +300,7 @@ config_postgres = {
 {"name":"worker_processed_at","datatype":"timestamptz"},
 {"name":"worker_last_error","datatype":"text"}
 ],
-"job":[
+"jobseeker":[
 {"name":"id","datatype":"bigserial","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
@@ -313,36 +312,6 @@ config_postgres = {
 {"name":"deactivated_by_id","datatype":"bigint"},
 {"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"deleted_by_id","datatype":"bigint"},
-{"name":"profile","datatype":"text","index":"btree(profile)|gin(profile)"},
-{"name":"description","datatype":"text","index":"gin(description)"},
-{"name":"country","datatype":"text","index":"btree(country)|gin(country)"},
-{"name":"department","datatype":"smallint","index":"btree(department)"},
-{"name":"quantity","datatype":"integer","is_mandatory":0},
-{"name":"employment_type","datatype":"smallint","index":"btree(employment_type)"},
-{"name":"is_remote","datatype":"boolean","default":False},
-{"name":"salary_min","datatype":"integer","index":"btree(salary_min)"},
-{"name":"salary_max","datatype":"integer","index":"btree(salary_max)"},
-{"name":"experience_min","datatype":"numeric(4,1)","index":"btree(experience_min)"},
-{"name":"experience_max","datatype":"numeric(4,1)","index":"btree(experience_max)"},
-{"name":"currency","datatype":"text"},
-{"name":"skills","datatype":"text[]","index":"gin(skills)"},
-{"name":"closing_date","datatype":"date"},
-{"name":"location","datatype":"text","index":"btree(location)"},
-{"name":"status","datatype":"smallint","default":1,"index":"btree(status)"}
-],
-"candidate":[
-{"name":"id","datatype":"bigserial","is_primary":1},
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
-{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
-{"name":"updated_at","datatype":"timestamptz"},
-{"name":"updated_by_id","datatype":"bigint"},
-{"name":"verified_at","datatype":"timestamptz"},
-{"name":"verified_by_id","datatype":"bigint"},
-{"name":"deactivated_at","datatype":"timestamptz"},
-{"name":"deactivated_by_id","datatype":"bigint"},
-{"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
-{"name":"deleted_by_id","datatype":"bigint"},
-{"name":"job_id","datatype":"bigint","is_mandatory":1,"index":"btree(job_id)"},
 {"name":"profile","datatype":"text","index":"btree(profile)|gin(profile)"},
 {"name":"name","datatype":"text","index":"btree(name)|gin(name)"},
 {"name":"email","datatype":"text","index":"btree(email)"},
@@ -402,10 +371,6 @@ config_postgres = {
 
 config_column_int_mapping = {
 "gender": {1: "Male", 2: "Female", 3: "Other", 4: "Prefer not to say"},
-"employment_type": {1: "Full-time", 2: "Part-time", 3: "Contract", 4: "Internship", 5: "Freelance"},
-"department": {
-"job": {1: "Engineering", 2: "Human Resources", 3: "Sales", 4: "Marketing", 5: "Finance", 6: "Operations", 7: "IT", 8: "Legal", 9: "Customer Support", 10: "Product Management", 11: "Research & Development", 12: "Administration", 13: "Quality Assurance", 14: "Data & Analytics", 15: "Management", 16: "Design", 17: "Procurement"},
-},
 "response_type": {1: "Direct No Cache Set", 2: "Direct Cache Set", 3: "Cache Response", 4: "Background Added", 5: "Error"},
 "role": {
 "users": {1: "Admin", 2: "Portal User"},
@@ -418,8 +383,8 @@ config_column_int_mapping = {
 },
 "status": {
 "test": {1: "Active", 2: "Inactive", 3: "Archived"},
-"job": {1: "Draft", 2: "Approval Pending", 3: "Approved", 4: "Rejected", 5: "Published", 6: "On Hold", 7: "Closed", 8: "Cancelled", 9: "Archived"},
-"candidate": {1: "Applied", 2: "Shortlisted", 3: "Interviewing", 4: "Under Review", 5: "Selected", 6: "Offer Approved", 7: "Offer Sent", 8: "Offer Accepted", 9: "Offer Declined", 10: "Joined", 11: "Rejected", 12: "Withdrawn", 13: "On Hold", 14: "Salary Negotiation", 15: "Background Check", 16: "Documentation Pending"},
+
+"jobseeker": {1: "Applied", 2: "Shortlisted", 3: "Interviewing", 4: "Under Review", 5: "Selected", 6: "Offer Approved", 7: "Offer Sent", 8: "Offer Accepted", 9: "Offer Declined", 10: "Joined", 11: "Rejected", 12: "Withdrawn", 13: "On Hold", 14: "Salary Negotiation", 15: "Background Check", 16: "Documentation Pending"},
 },
 "worker_status": {1: "Pending", 2: "Processing", 3: "Completed", 4: "Failed"},
 "event": {

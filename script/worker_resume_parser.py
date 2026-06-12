@@ -25,8 +25,8 @@ from config import config_aws_secret_access_key
 
 # logic
 async def execute():
-    TABLE_NAME = "candidate"
-    BASE_COLUMNS = {"id", "created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id", "deactivated_at", "deactivated_by_id", "verified_at", "verified_by_id", "job_id", "resume_url", "status", "worker_status", "worker_last_error", "metadata", "worker_retry_count", "worker_next_retry_at", "worker_processed_at"}
+    TABLE_NAME = "jobseeker"
+    BASE_COLUMNS = {"id", "created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id", "deactivated_at", "deactivated_by_id", "verified_at", "verified_by_id", "resume_url", "status", "worker_status", "worker_last_error", "metadata", "worker_retry_count", "worker_next_retry_at", "worker_processed_at", "rating", "remark"}
     BATCH_LIMIT = 5
     CONCURRENCY_LIMIT = 3
     if not config_gemini_key:
@@ -61,7 +61,7 @@ async def execute():
                 properties[col_name] = {"type": "STRING", "nullable": True}
         return {"type": "OBJECT", "properties": properties}
     async def func_claim_candidates(conn: asyncpg.Connection, batch_limit: int) -> list:
-        return await conn.fetch(f"WITH claim AS (SELECT c.id FROM {TABLE_NAME} c WHERE (((c.worker_status IN (1, 4) OR c.worker_status IS NULL) AND (c.worker_next_retry_at <= NOW() OR c.worker_next_retry_at IS NULL)) OR (c.worker_status = 2 AND c.updated_at < NOW() - INTERVAL '15 minutes')) AND c.resume_url IS NOT NULL AND c.deleted_at IS NULL ORDER BY c.created_at, c.id LIMIT $1 FOR UPDATE OF c SKIP LOCKED) UPDATE {TABLE_NAME} u SET worker_status = 2, updated_at = NOW() FROM claim JOIN {TABLE_NAME} c ON c.id = claim.id LEFT JOIN job j ON c.job_id = j.id WHERE u.id = claim.id RETURNING u.id, u.resume_url, j.profile as job_profile, j.description as job_description, j.skills as job_skills, j.experience_min as job_experience_min, j.experience_max as job_experience_max, j.is_remote as job_is_remote, j.location as job_location, c.worker_retry_count", batch_limit)
+        return await conn.fetch(f"WITH claim AS (SELECT c.id FROM {TABLE_NAME} c WHERE (((c.worker_status IN (1, 4) OR c.worker_status IS NULL) AND (c.worker_next_retry_at <= NOW() OR c.worker_next_retry_at IS NULL)) OR (c.worker_status = 2 AND c.updated_at < NOW() - INTERVAL '15 minutes')) AND c.resume_url IS NOT NULL AND c.deleted_at IS NULL ORDER BY c.created_at, c.id LIMIT $1 FOR UPDATE OF c SKIP LOCKED) UPDATE {TABLE_NAME} u SET worker_status = 2, updated_at = NOW() FROM claim JOIN {TABLE_NAME} c ON c.id = claim.id WHERE u.id = claim.id RETURNING u.id, u.resume_url, c.worker_retry_count", batch_limit)
     async def func_mark_completed(conn: asyncpg.Connection, candidate_id: int, data: dict) -> None:
         update_data = {k: v for k, v in data.items() if k in candidate_col_names and k not in BASE_COLUMNS}
         if not update_data:
@@ -90,13 +90,7 @@ async def execute():
     async def func_process_candidate(candidate: asyncpg.Record) -> dict:
         candidate_id = candidate["id"]
         resume_url = candidate["resume_url"]
-        job_profile = candidate["job_profile"] or "General Role"
-        job_description = candidate["job_description"] or "No description provided."
-        job_skills = candidate["job_skills"] or []
-        job_experience_min = candidate["job_experience_min"] or 0
-        job_experience_max = candidate["job_experience_max"]
-        job_is_remote = candidate["job_is_remote"]
-        job_location = candidate["job_location"] or "Not specified"
+
         parsed_url = urllib.parse.urlparse(resume_url.split('?')[0])
         ext = os.path.splitext(parsed_url.path)[1].lower()
         if ext not in ['.pdf', '.docx', '.txt', '.doc']:
@@ -139,14 +133,7 @@ async def execute():
                 uploaded_file = client_gemini.files.upload(file=temp_file_path)
                 schema = func_get_dynamic_schema()
                 prompt = f"""
-                You are an expert HR Technical Recruiter evaluating a candidate's resume for a specific job.
-                
-                JOB CONTEXT:
-                Role: {job_profile}
-                Required Experience: {job_experience_min}+ years {f'(up to {job_experience_max} years)' if job_experience_max else ''}
-                Required Skills: {', '.join(job_skills) if job_skills else 'Not specified'}
-                Location: {job_location} {'(Remote)' if job_is_remote else ''}
-                Job Description Summary: {job_description[:500]}...
+                You are an expert HR Technical Recruiter evaluating a candidate's resume.
                 
                 INSTRUCTIONS:
                 1. Extract the candidate's information from their resume exactly as per the JSON schema provided.
@@ -155,9 +142,9 @@ async def execute():
                 4. For 'company_past', extract all past companies and combine them as a comma-separated string (e.g. "Google, Facebook").
                 5. If there are multiple colleges, combine them as a comma-separated string (e.g. "MIT, Harvard").
                 6. For 'profile', extract a relevant and concise professional profile or headline for the candidate (e.g. 'Software Engineer', 'Product Manager').
-                7. Evaluate how well this candidate matches the JOB CONTEXT. 
-                8. Provide an objective 'ai_rating' (1.0 to 10.0) specifically indicating their fit for THIS job.
-                9. Provide an 'ai_remark' (max 2 sentences) justifying the rating and highlighting major gaps or strong fits for THIS job.
+                7. Evaluate the candidate's overall profile strength, skills, and experience. 
+                8. Provide an objective 'ai_rating' (1.0 to 10.0) indicating their general employability and strength of their resume.
+                9. Provide an 'ai_remark' (max 2 sentences) justifying the rating and highlighting their key strengths or areas for improvement.
                 """
                 for attempt in range(5):
                     try:
