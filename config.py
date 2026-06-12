@@ -47,7 +47,7 @@ config_otp_length = 6
 config_otp_expiry_sec = 600
 config_access_token_expires_in_sec = 3155695200 
 config_refresh_token_expires_in_sec = 3155695200000
-config_blob_limit_size_kb = 300
+config_blob_limit_size_kb = 500
 config_blob_limit_upload = 100
 config_blob_expire_sec_upload = 3600
 config_blob_expire_sec_preview = 360000
@@ -329,6 +329,7 @@ config_postgres = {
 {"name":"email","datatype":"text","index":"btree(email)"},
 {"name":"college","datatype":"text"},
 {"name":"resume_url","datatype":"text"},
+{"name":"resume_content","datatype":"text"},
 {"name":"video_url","datatype":"text"},
 {"name":"skills","datatype":"text[]","index":"gin(skills)"},
 {"name":"experience","datatype":"numeric(4,1)","index":"btree(experience)"},
