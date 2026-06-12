@@ -54,7 +54,7 @@ config_blob_expire_sec_preview = 360000
 config_buffer_limit_default = 100
 config_batch_item_limit = 1000
 config_sql_read_limit_default = 100
-config_sql_read_limit_max = 1000
+config_sql_read_limit_max = 10000
 config_sql_read_relation_fetch_limit_max = 100
 config_allowed_auth_types = [1]
 config_allowed_token_key = ["id", "type", "role", "username", "deactivated_at", "deleted_at"]
@@ -205,6 +205,7 @@ config_postgres = {
 {"name":"title","datatype":"text"},
 {"name":"description","datatype":"text"},
 {"name":"gender","datatype":"text"},
+{"name":"date_of_birth","datatype":"date"},
 {"name":"id_ext","datatype":"text","unique":"id_ext,type"},
 ],
 "config":[

@@ -169,7 +169,9 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("po_number", "str", 0, None, "")])
-    limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
+    limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
+    if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
+    limit = max(1, limit)
     page = max(1, int(oq["page"] or 1))
     offset = (page - 1) * limit
     sql_limit = limit + 1
@@ -330,7 +332,9 @@ async def func_api_my_cargowise_shipments(*, request: Request):
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
-    limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
+    limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
+    if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
+    limit = max(1, limit)
     page = max(1, int(oq["page"] or 1))
     offset = (page - 1) * limit
     sql_limit = limit + 1
@@ -430,7 +434,9 @@ async def func_api_my_cargowise_containers(*, request: Request):
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_id", "str", 0, None, "")])
-    limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
+    limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
+    if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
+    limit = max(1, limit)
     page = max(1, int(oq["page"] or 1))
     shipment_id = str(oq.get("shipment_id") or "").strip()
     offset = (page - 1) * limit
@@ -536,7 +542,9 @@ async def func_api_my_cargowise_tracking(*, request: Request):
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_id", "str", 0, None, "")])
-    limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 300))
+    limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
+    if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
+    limit = max(1, limit)
     page = max(1, int(oq["page"] or 1))
     shipment_id = str(oq.get("shipment_id") or "").strip()
     offset = (page - 1) * limit
@@ -621,7 +629,9 @@ async def func_api_my_cargowise_exceptions(*, request: Request):
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
-    limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
+    limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
+    if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
+    limit = max(1, limit)
     page = max(1, int(oq["page"] or 1))
     offset = (page - 1) * limit
     sql_limit = limit + 1
@@ -757,7 +767,9 @@ async def func_api_my_cargowise_documents(*, request: Request):
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
-    limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
+    limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
+    if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
+    limit = max(1, limit)
     page = max(1, int(oq["page"] or 1))
     offset = (page - 1) * limit
     sql_limit = limit + 1
@@ -1140,12 +1152,16 @@ async def func_api_admin_cargowise_360(*, request: Request):
     user = request.state.user or {}
     if int(user.get("role") or 0) != 1: raise Exception("Admin role required")
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("name", "str", 0, None, "")])
-    limit = max(1, min(int(oq["limit"] or app_state.config_sql_read_limit_default), 200))
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("name", "str", 0, None, ""), ("include_inactive", "int", 0, [0,1], 0), ("org_id", "str", 0, None, "")])
+    limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
+    if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
+    limit = max(1, limit)
     page = max(1, int(oq["page"] or 1))
     offset = (page - 1) * limit
     sql_limit = limit + 1
     name = str(oq.get("name") or "").strip()
+    include_inactive = int(oq.get("include_inactive") or 0)
+    org_id = str(oq.get("org_id") or "").strip()
     sql = f"""
         SET NOCOUNT ON;
         WITH POs AS (
@@ -1202,9 +1218,10 @@ async def func_api_admin_cargowise_360(*, request: Request):
             LEFT JOIN Shipments ON OH.OH_PK = Shipments.OrgPK
             LEFT JOIN Consols ON OH.OH_PK = Consols.OrgPK
             LEFT JOIN Finance ON OH.OH_PK = Finance.OrgPK
-            WHERE OH.OH_IsActive = 1
-              AND OH.OH_IsValid = 1
+            WHERE 1=1
+              {"" if include_inactive else "AND OH.OH_IsActive = 1 AND OH.OH_IsValid = 1"}
               AND (? = '' OR LOWER(OH.OH_FullName) LIKE '%' + LOWER(?) + '%')
+              AND (? = '' OR OH.OH_PK = TRY_CONVERT(uniqueidentifier, ?))
         )
         SELECT
             org_id,
@@ -1232,7 +1249,7 @@ async def func_api_admin_cargowise_360(*, request: Request):
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read.acquire() as conn:
         cursor = await conn.cursor()
-        await cursor.execute(sql, name, name)
+        await cursor.execute(sql, name, name, org_id, org_id)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
