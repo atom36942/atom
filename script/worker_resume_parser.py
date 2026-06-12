@@ -94,10 +94,8 @@ async def execute():
         candidate_id = candidate["id"]
         resume_url = candidate["resume_url"]
         resume_content = candidate["resume_content"]
-
         temp_file_path = None
         gemini_contents_input = []
-
         if resume_content:
             gemini_contents_input.append(f"Here is the parsed text content of the candidate's resume:\n\n{resume_content}")
         elif resume_url:
