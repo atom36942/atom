@@ -28,6 +28,7 @@ async def execute():
     TABLE_NAME = "jobseeker"
     BASE_COLUMNS = {"id", "created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id", "deactivated_at", "deactivated_by_id", "verified_at", "verified_by_id", "resume_url", "status", "worker_status", "worker_last_error", "metadata", "worker_retry_count", "worker_next_retry_at", "worker_processed_at", "rating", "remark"}
     BATCH_LIMIT = 5
+    worker_retry_delay_sec = [60, 300, 3600, 86400]
     CONCURRENCY_LIMIT = 3
     if not config_gemini_key:
         print("Error: config_gemini_key is not set. Worker requires Gemini.")
@@ -61,13 +62,13 @@ async def execute():
                 properties[col_name] = {"type": "STRING", "nullable": True}
         return {"type": "OBJECT", "properties": properties}
     async def func_claim_candidates(conn: asyncpg.Connection, batch_limit: int) -> list:
-        return await conn.fetch(f"WITH claim AS (SELECT c.id FROM {TABLE_NAME} c WHERE (((c.worker_status IN (1, 4) OR c.worker_status IS NULL) AND (c.worker_next_retry_at <= NOW() OR c.worker_next_retry_at IS NULL)) OR (c.worker_status = 2 AND c.updated_at < NOW() - INTERVAL '15 minutes')) AND c.resume_url IS NOT NULL AND c.deleted_at IS NULL ORDER BY c.created_at, c.id LIMIT $1 FOR UPDATE OF c SKIP LOCKED) UPDATE {TABLE_NAME} u SET worker_status = 2, updated_at = NOW() FROM claim JOIN {TABLE_NAME} c ON c.id = claim.id WHERE u.id = claim.id RETURNING u.id, u.resume_url, c.worker_retry_count", batch_limit)
+        return await conn.fetch(f"WITH claim AS (SELECT c.id FROM {TABLE_NAME} c WHERE (((c.worker_status = 3 OR c.worker_status IS NULL) AND (c.worker_next_retry_at <= NOW() OR c.worker_next_retry_at IS NULL)) OR (c.worker_status = 1 AND c.updated_at < NOW() - INTERVAL '15 minutes')) AND c.resume_url IS NOT NULL AND c.deleted_at IS NULL ORDER BY c.created_at, c.id LIMIT $1 FOR UPDATE OF c SKIP LOCKED) UPDATE {TABLE_NAME} u SET worker_status = 1, updated_at = NOW() FROM claim JOIN {TABLE_NAME} c ON c.id = claim.id WHERE u.id = claim.id RETURNING u.id, u.resume_url, c.worker_retry_count", batch_limit)
     async def func_mark_completed(conn: asyncpg.Connection, candidate_id: int, data: dict) -> None:
         update_data = {k: v for k, v in data.items() if k in candidate_col_names and k not in BASE_COLUMNS}
         if not update_data:
-            await conn.execute(f"UPDATE {TABLE_NAME} SET worker_status = 3, worker_processed_at = NOW(), worker_last_error = NULL, updated_at = NOW() WHERE id = $1", candidate_id)
+            await conn.execute(f"UPDATE {TABLE_NAME} SET worker_status = 2, worker_processed_at = NOW(), worker_last_error = NULL, updated_at = NOW() WHERE id = $1", candidate_id)
             return
-        set_clauses = ["worker_status = 3", "worker_processed_at = NOW()", "worker_last_error = NULL", "updated_at = NOW()"]
+        set_clauses = ["worker_status = 2", "worker_processed_at = NOW()", "worker_last_error = NULL", "updated_at = NOW()"]
         values = [candidate_id]
         for i, (key, value) in enumerate(update_data.items(), start=2):
             if value in ("", "null", "None"):
@@ -80,13 +81,15 @@ async def execute():
         query = f"UPDATE {TABLE_NAME} SET {set_query} WHERE id = $1"
         await conn.execute(query, *values)
     def func_retry_delay_sec(retry_count: int) -> int:
-        delays = [60, 300, 3600, 86400]
-        index = min(max(retry_count, 0), len(delays) - 1)
-        return delays[index]
+        index = min(max(retry_count, 0), len(worker_retry_delay_sec) - 1)
+        return worker_retry_delay_sec[index]
     async def func_mark_failed(conn: asyncpg.Connection, candidate_id: int, retry_count: int, error: Exception) -> None:
         error_str = str(error)[:1000]
-        delay_sec = func_retry_delay_sec(retry_count)
-        await conn.execute(f"UPDATE {TABLE_NAME} SET worker_status = 4, worker_last_error = $2, worker_retry_count = worker_retry_count + 1, worker_next_retry_at = NOW() + ($3 * INTERVAL '1 second'), updated_at = NOW() WHERE id = $1", candidate_id, f"AI Parsing Failed: {error_str}", delay_sec)
+        if retry_count >= len(worker_retry_delay_sec):
+            await conn.execute(f"UPDATE {TABLE_NAME} SET worker_status = 4, worker_last_error = $2, worker_retry_count = worker_retry_count + 1, updated_at = NOW() WHERE id = $1", candidate_id, f"AI Parsing Failed (DEAD): {error_str}")
+        else:
+            delay_sec = func_retry_delay_sec(retry_count)
+            await conn.execute(f"UPDATE {TABLE_NAME} SET worker_status = 3, worker_last_error = $2, worker_retry_count = worker_retry_count + 1, worker_next_retry_at = NOW() + ($3 * INTERVAL '1 second'), updated_at = NOW() WHERE id = $1", candidate_id, f"AI Parsing Failed: {error_str}", delay_sec)
     async def func_process_candidate(candidate: asyncpg.Record) -> dict:
         candidate_id = candidate["id"]
         resume_url = candidate["resume_url"]

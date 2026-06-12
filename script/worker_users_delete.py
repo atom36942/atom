@@ -21,7 +21,7 @@ from config import config_users_delete_data_retention_day
 async def execute():
     print("Starting Users Delete Worker Script...")
     users_delete_batch_limit = 100
-    users_delete_retry_delay_sec = [60, 300, 900, 3600, 21600]
+    worker_retry_delay_sec = [60, 300, 900, 3600, 21600]
     blob_purge_batch_limit = 5000
     blob_purge_azure_concurrency = 256
     pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=5, server_settings={"application_name": "atom-daemon-users-delete"})
@@ -39,8 +39,8 @@ async def execute():
             elif table == pattern: return True
         return False
     def func_retry_delay_sec(retry_count: int) -> int:
-        index = min(max(retry_count, 0), len(users_delete_retry_delay_sec) - 1)
-        return users_delete_retry_delay_sec[index]
+        index = min(max(retry_count, 0), len(worker_retry_delay_sec) - 1)
+        return worker_retry_delay_sec[index]
     async def func_schema_columns(conn: asyncpg.Connection) -> dict:
         rows = await conn.fetch("SELECT c.table_name, c.column_name FROM information_schema.columns c JOIN information_schema.tables t ON c.table_name = t.table_name AND c.table_schema = t.table_schema WHERE c.table_schema = 'public' AND t.table_type = 'BASE TABLE'")
         schema = {}
@@ -55,12 +55,15 @@ async def execute():
             tables.append((table, ownership_columns, "is_protected" in columns))
         return tables
     async def func_claim_tasks(conn: asyncpg.Connection, batch_limit: int) -> list:
-        return await conn.fetch("WITH claim AS (SELECT id FROM log_users_delete WHERE (((worker_status IN (1, 4) OR worker_status IS NULL) AND (worker_next_retry_at <= NOW() OR worker_next_retry_at IS NULL)) OR (worker_status = 2 AND updated_at < NOW() - INTERVAL '15 minutes')) ORDER BY created_at, id LIMIT $1 FOR UPDATE SKIP LOCKED) UPDATE log_users_delete l SET worker_status = 2, updated_at = NOW() FROM claim WHERE l.id = claim.id RETURNING l.id, l.user_id, l.type, l.worker_retry_count", batch_limit)
+        return await conn.fetch("WITH claim AS (SELECT id FROM log_users_delete WHERE (((worker_status = 3 OR worker_status IS NULL) AND (worker_next_retry_at <= NOW() OR worker_next_retry_at IS NULL)) OR (worker_status = 1 AND updated_at < NOW() - INTERVAL '15 minutes')) ORDER BY created_at, id LIMIT $1 FOR UPDATE SKIP LOCKED) UPDATE log_users_delete l SET worker_status = 1, updated_at = NOW() FROM claim WHERE l.id = claim.id RETURNING l.id, l.user_id, l.type, l.worker_retry_count", batch_limit)
     async def func_mark_completed(conn: asyncpg.Connection, task_id: int) -> None:
-        await conn.execute("UPDATE log_users_delete SET worker_status = 3, updated_at = NOW(), worker_processed_at = NOW(), worker_last_error = NULL WHERE id = $1", task_id)
+        await conn.execute("UPDATE log_users_delete SET worker_status = 2, updated_at = NOW(), worker_processed_at = NOW(), worker_last_error = NULL WHERE id = $1", task_id)
     async def func_mark_failed(conn: asyncpg.Connection, task_id: int, retry_count: int, error: Exception) -> None:
-        delay_sec = func_retry_delay_sec(retry_count)
-        await conn.execute("UPDATE log_users_delete SET worker_status = 4, updated_at = NOW(), worker_retry_count = worker_retry_count + 1, worker_next_retry_at = NOW() + ($2 * INTERVAL '1 second'), worker_last_error = $3 WHERE id = $1", task_id, delay_sec, str(error)[:5000])
+        if retry_count >= len(worker_retry_delay_sec):
+            await conn.execute("UPDATE log_users_delete SET worker_status = 4, updated_at = NOW(), worker_retry_count = worker_retry_count + 1, worker_last_error = $2 WHERE id = $1", task_id, str(error)[:5000])
+        else:
+            delay_sec = func_retry_delay_sec(retry_count)
+            await conn.execute("UPDATE log_users_delete SET worker_status = 3, updated_at = NOW(), worker_retry_count = worker_retry_count + 1, worker_next_retry_at = NOW() + ($2 * INTERVAL '1 second'), worker_last_error = $3 WHERE id = $1", task_id, delay_sec, str(error)[:5000])
     async def func_set_deleted_at(conn: asyncpg.Connection, table: str, ownership_columns: list, has_is_protected: bool, user_id: int, value_sql: str, require_null: bool) -> int:
         table_sql = func_quote_ident(table)
         owner_where = " OR ".join(f"{func_quote_ident(col)} = $1" for col in ownership_columns)

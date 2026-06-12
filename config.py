@@ -141,7 +141,7 @@ config_api = {
 }
 
 config_column_int_mapping = {
-"worker_status": {1: "Pending", 2: "Processing", 3: "Completed", 4: "Failed"},
+"worker_status": {None: "Pending", 1: "Processing", 2: "Completed", 3: "Failed", 4: "Dead"},
 "type": {
 "notification": {1: "Password Change", 2: "Job Status Change", 3: "Account Created"},
 "log_users_delete": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
@@ -306,7 +306,7 @@ config_postgres = {
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"type","datatype":"smallint","is_mandatory":1,"in":(1,2,3),"index":"btree(type,created_at)"},
 {"name":"user_id","datatype":"bigint","is_mandatory":1,"index":"btree(user_id,created_at)"},
-{"name":"worker_status","datatype":"smallint","default":1,"is_mandatory":1,"in":(1,2,3,4),"index":"btree(worker_status,worker_next_retry_at,created_at)"},
+{"name":"worker_status","datatype":"smallint","in":(1,2,3,4),"index":"btree(worker_status,worker_next_retry_at,created_at)"},
 {"name":"worker_retry_count","datatype":"integer","default":0},
 {"name":"worker_next_retry_at","datatype":"timestamptz","default":"now()"},
 {"name":"worker_processed_at","datatype":"timestamptz"},
@@ -347,9 +347,9 @@ config_postgres = {
 {"name":"portfolio_url","datatype":"text"},
 {"name":"languages","datatype":"text[]","index":"gin(languages)"},
 {"name":"gender","datatype":"text"},
-{"name":"worker_status","datatype":"smallint","default":1,"index":"btree(worker_status)"},
+{"name":"worker_status","datatype":"smallint","in":(1,2,3,4),"index":"btree(worker_status,worker_next_retry_at,created_at)"},
 {"name":"worker_retry_count","datatype":"integer","default":0},
-{"name":"worker_next_retry_at","datatype":"timestamptz","default":"now()","index":"btree(worker_next_retry_at)"},
+{"name":"worker_next_retry_at","datatype":"timestamptz","default":"now()"},
 {"name":"worker_processed_at","datatype":"timestamptz"},
 {"name":"worker_last_error","datatype":"text"},
 {"name":"ai_remark","datatype":"text"},
