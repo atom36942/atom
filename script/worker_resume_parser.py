@@ -164,15 +164,15 @@ async def execute():
     async def process_and_update(candidate: asyncpg.Record):
         try:
             data = await func_process_candidate(candidate)
-            async with pool.acquire() as event_conn:
-                async with event_conn.transaction():
-                    await func_mark_completed(event_conn, candidate["id"], data)
+            async with pool.acquire() as task_conn:
+                async with task_conn.transaction():
+                    await func_mark_completed(task_conn, candidate["id"], data)
             print(f"[resume-parser-worker] completed candidate_id={candidate['id']}")
         except Exception as exc:
-            async with pool.acquire() as event_conn:
-                async with event_conn.transaction():
+            async with pool.acquire() as task_conn:
+                async with task_conn.transaction():
                     retry_count = candidate["worker_retry_count"] or 0
-                    await func_mark_failed(event_conn, candidate["id"], retry_count, exc)
+                    await func_mark_failed(task_conn, candidate["id"], retry_count, exc)
             print(f"[resume-parser-worker] failed candidate_id={candidate['id']} error={str(exc)[:300]}")
     async def func_resume_parser_worker_once() -> int:
         async with pool.acquire() as conn:

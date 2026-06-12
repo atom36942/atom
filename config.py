@@ -63,7 +63,7 @@ config_sensitive_tables = ["spatial_ref_sys", "users", "log_users_delete"]
 config_redis_cache_ttl_sec = 3600
 config_table_disable_create_my = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
 config_table_enable_create_public = ["test"]
-config_table_enable_read_public = ["test"]
+config_table_enable_read_public = ["*"]
 config_table_enable_delete_all_my = ["*"]
 config_table_enable_delete_all_my_user_id = ["message","notification"]
 config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id"]
@@ -140,6 +140,15 @@ config_api = {
 "/public/jira-worklog-export": {"id": 19, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
 }
 
+config_column_int_mapping = {
+"worker_status": {1: "Pending", 2: "Processing", 3: "Completed", 4: "Failed"},
+"type": {
+"notification": {1: "Password Change", 2: "Job Status Change", 3: "Account Created"},
+"log_users_delete": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
+"blob": {1: "File", 2: "Presigned Url"},
+},
+}
+
 config_postgres = {
 "extension": ["postgis", "pg_trgm", "btree_gin"],
 "table":{
@@ -184,7 +193,7 @@ config_postgres = {
 {"name":"google_login_metadata","datatype":"jsonb"},
 {"name":"email","datatype":"text","unique":"email,type"},
 {"name":"mobile","datatype":"text","unique":"mobile,type"},
-{"name":"role","datatype":"smallint","is_mandatory":1,"index":"btree(role)"},
+{"name":"role","datatype":"smallint","is_mandatory":0,"index":"btree(role)"},
 {"name":"last_active_at","datatype":"timestamptz"},
 {"name":"name","datatype":"text"},
 {"name":"country","datatype":"text"},
@@ -216,7 +225,7 @@ config_postgres = {
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree(created_by_id)"},
 {"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"deleted_by_id","datatype":"bigint"},
-{"name":"upload_method","datatype":"smallint","is_mandatory":1},
+{"name":"type","datatype":"smallint","is_mandatory":1},
 {"name":"service","datatype":"text","is_mandatory":1},
 {"name":"file_url","datatype":"text","is_mandatory":1,"unique":"file_url"}
 ],
@@ -295,7 +304,7 @@ config_postgres = {
 {"name":"created_by_id","datatype":"bigint"},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"event","datatype":"smallint","is_mandatory":1,"in":(1,2,3),"index":"btree(event,created_at)"},
+{"name":"type","datatype":"smallint","is_mandatory":1,"in":(1,2,3),"index":"btree(type,created_at)"},
 {"name":"user_id","datatype":"bigint","is_mandatory":1,"index":"btree(user_id,created_at)"},
 {"name":"worker_status","datatype":"smallint","default":1,"is_mandatory":1,"in":(1,2,3,4),"index":"btree(worker_status,worker_next_retry_at,created_at)"},
 {"name":"worker_retry_count","datatype":"integer","default":0},
@@ -369,17 +378,6 @@ config_postgres = {
 "table_row_delete_disable_bulk":[],
 },
 "sql":{
-},
-}
-
-config_column_int_mapping = {
-"upload_method": {1: "File", 2: "Presigned Url"},
-"worker_status": {1: "Pending", 2: "Processing", 3: "Completed", 4: "Failed"},
-"type": {
-"notification": {1: "Password Change", 2: "Job Status Change", 3: "Account Created"},
-},
-"event": {
-"log_users_delete": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
 },
 }
 

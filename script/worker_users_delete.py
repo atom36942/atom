@@ -54,13 +54,13 @@ async def execute():
             if "deleted_at" not in columns or not ownership_columns: continue
             tables.append((table, ownership_columns, "is_protected" in columns))
         return tables
-    async def func_claim_events(conn: asyncpg.Connection, batch_limit: int) -> list:
-        return await conn.fetch("WITH claim AS (SELECT id FROM log_users_delete WHERE (((worker_status IN (1, 4) OR worker_status IS NULL) AND (worker_next_retry_at <= NOW() OR worker_next_retry_at IS NULL)) OR (worker_status = 2 AND updated_at < NOW() - INTERVAL '15 minutes')) ORDER BY created_at, id LIMIT $1 FOR UPDATE SKIP LOCKED) UPDATE log_users_delete l SET worker_status = 2, updated_at = NOW() FROM claim WHERE l.id = claim.id RETURNING l.id, l.user_id, l.event, l.worker_retry_count", batch_limit)
-    async def func_mark_completed(conn: asyncpg.Connection, event_id: int) -> None:
-        await conn.execute("UPDATE log_users_delete SET worker_status = 3, updated_at = NOW(), worker_processed_at = NOW(), worker_last_error = NULL WHERE id = $1", event_id)
-    async def func_mark_failed(conn: asyncpg.Connection, event_id: int, retry_count: int, error: Exception) -> None:
+    async def func_claim_tasks(conn: asyncpg.Connection, batch_limit: int) -> list:
+        return await conn.fetch("WITH claim AS (SELECT id FROM log_users_delete WHERE (((worker_status IN (1, 4) OR worker_status IS NULL) AND (worker_next_retry_at <= NOW() OR worker_next_retry_at IS NULL)) OR (worker_status = 2 AND updated_at < NOW() - INTERVAL '15 minutes')) ORDER BY created_at, id LIMIT $1 FOR UPDATE SKIP LOCKED) UPDATE log_users_delete l SET worker_status = 2, updated_at = NOW() FROM claim WHERE l.id = claim.id RETURNING l.id, l.user_id, l.type, l.worker_retry_count", batch_limit)
+    async def func_mark_completed(conn: asyncpg.Connection, task_id: int) -> None:
+        await conn.execute("UPDATE log_users_delete SET worker_status = 3, updated_at = NOW(), worker_processed_at = NOW(), worker_last_error = NULL WHERE id = $1", task_id)
+    async def func_mark_failed(conn: asyncpg.Connection, task_id: int, retry_count: int, error: Exception) -> None:
         delay_sec = func_retry_delay_sec(retry_count)
-        await conn.execute("UPDATE log_users_delete SET worker_status = 4, updated_at = NOW(), worker_retry_count = worker_retry_count + 1, worker_next_retry_at = NOW() + ($2 * INTERVAL '1 second'), worker_last_error = $3 WHERE id = $1", event_id, delay_sec, str(error)[:5000])
+        await conn.execute("UPDATE log_users_delete SET worker_status = 4, updated_at = NOW(), worker_retry_count = worker_retry_count + 1, worker_next_retry_at = NOW() + ($2 * INTERVAL '1 second'), worker_last_error = $3 WHERE id = $1", task_id, delay_sec, str(error)[:5000])
     async def func_set_deleted_at(conn: asyncpg.Connection, table: str, ownership_columns: list, has_is_protected: bool, user_id: int, value_sql: str, require_null: bool) -> int:
         table_sql = func_quote_ident(table)
         owner_where = " OR ".join(f"{func_quote_ident(col)} = $1" for col in ownership_columns)
@@ -73,14 +73,14 @@ async def execute():
         protected_where = ' AND ("is_protected" IS NULL OR "is_protected" IS FALSE)' if has_is_protected else ""
         result = await conn.execute(f'DELETE FROM {table_sql} WHERE ctid IN (SELECT ctid FROM {table_sql} WHERE "deleted_at" < NOW() - ($1 * INTERVAL \'1 day\') {protected_where} LIMIT 5000)', config_users_delete_data_retention_day)
         return int(result.rsplit(" ", 1)[-1])
-    async def func_process_event(conn: asyncpg.Connection, event: asyncpg.Record, owned_tables: list) -> None:
-        user_id = event["user_id"]
-        event_type = event["event"]
-        if event_type not in (1, 2, 3): raise Exception(f"invalid log_users_delete event: {event_type}")
+    async def func_process_task(conn: asyncpg.Connection, task: asyncpg.Record, owned_tables: list) -> None:
+        user_id = task["user_id"]
+        task_type = task["type"]
+        if task_type not in (1, 2, 3): raise Exception(f"invalid log_users_delete type: {task_type}")
         for table, ownership_columns, has_is_protected in owned_tables:
-            if event_type == 1: await func_set_deleted_at(conn, table, ownership_columns, has_is_protected, user_id, "NOW()", True)
-            elif event_type == 2: await func_set_deleted_at(conn, table, ownership_columns, has_is_protected, user_id, "NULL", False)
-            elif event_type == 3: await func_set_deleted_at(conn, table, ownership_columns, has_is_protected, user_id, "NOW()", True)
+            if task_type == 1: await func_set_deleted_at(conn, table, ownership_columns, has_is_protected, user_id, "NOW()", True)
+            elif task_type == 2: await func_set_deleted_at(conn, table, ownership_columns, has_is_protected, user_id, "NULL", False)
+            elif task_type == 3: await func_set_deleted_at(conn, table, ownership_columns, has_is_protected, user_id, "NOW()", True)
     async def func_purge_retained_owned_rows(conn: asyncpg.Connection, owned_tables: list) -> int:
         total_deleted = 0
         for table, _ownership_columns, has_is_protected in owned_tables:
@@ -136,25 +136,25 @@ async def execute():
             schema = await func_schema_columns(conn)
             owned_tables = func_owned_tables(schema)
             async with conn.transaction():
-                events = await func_claim_events(conn, users_delete_batch_limit)
-        if events: print(f"[users-delete-worker] claimed {len(events)} event(s)")
-        for event in events:
-            async with pool.acquire() as event_conn:
+                tasks = await func_claim_tasks(conn, users_delete_batch_limit)
+        if tasks: print(f"[users-delete-worker] claimed {len(tasks)} task(s)")
+        for task in tasks:
+            async with pool.acquire() as task_conn:
                 try:
-                    async with event_conn.transaction():
-                        await func_process_event(event_conn, event, owned_tables)
-                        await func_mark_completed(event_conn, event["id"])
-                    print(f"[users-delete-worker] completed event_id={event['id']} user_id={event['user_id']} event={event['event']}")
+                    async with task_conn.transaction():
+                        await func_process_task(task_conn, task, owned_tables)
+                        await func_mark_completed(task_conn, task["id"])
+                    print(f"[users-delete-worker] completed task_id={task['id']} user_id={task['user_id']} type={task['type']}")
                 except Exception as exc:
-                    async with event_conn.transaction():
-                        await func_mark_failed(event_conn, event["id"], event["worker_retry_count"], exc)
-                    print(f"[users-delete-worker] failed event_id={event['id']} user_id={event['user_id']} event={event['event']} error={str(exc)[:300]}")
+                    async with task_conn.transaction():
+                        await func_mark_failed(task_conn, task["id"], task["worker_retry_count"], exc)
+                    print(f"[users-delete-worker] failed task_id={task['id']} user_id={task['user_id']} type={task['type']} error={str(exc)[:300]}")
         async with pool.acquire() as purge_conn:
             purged = await func_purge_retained_owned_rows(purge_conn, owned_tables)
             if any(table == "blob" for table, _ownership_columns, _has_is_protected in owned_tables):
                 purged += await func_purge_retained_blob_rows(purge_conn)
             if purged: print(f"[users-delete-worker] purged {purged} retained deleted row(s)")
-        return len(events)
+        return len(tasks)
     try:
         idle_count = 0
         while True:
@@ -165,7 +165,7 @@ async def execute():
             else:
                 idle_count += 1
                 if idle_count == 1 or idle_count % 12 == 0:
-                    print("[users-delete-worker] no pending events; sleeping...")
+                    print("[users-delete-worker] no pending tasks; sleeping...")
                 await asyncio.sleep(5)
     finally:
         if clients.get("azure"): await clients["azure"].close()

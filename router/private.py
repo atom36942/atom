@@ -53,7 +53,7 @@ async def func_api_private_blob_upload_file(request:Request):
             ext = item.filename.split(".")[-1] if "." in item.filename else "bin"; file_key = f"user_{request.state.user['id']}/{uuid.uuid4().hex}.{ext}"
             await app_state.client_s3.put_object(Bucket=container, Key=file_key, Body=file_data)
             file_url = f"https://{container}.s3.amazonaws.com/{file_key}"
-            output[item.filename] = file_url; blob_list.append({"created_by_id": request.state.user["id"], "upload_method": 1, "service": of["service"], "file_url": file_url})
+            output[item.filename] = file_url; blob_list.append({"created_by_id": request.state.user["id"], "type": 1, "service": of["service"], "file_url": file_url})
     elif of["service"] == "azure":
         container_client = app_state.client_azure_blob.get_container_client(container)
         for item in of["file"]:
@@ -61,7 +61,7 @@ async def func_api_private_blob_upload_file(request:Request):
             if len(file_data) > app_state.config_blob_limit_size_kb * 1024: raise Exception(f"file size exceeds {app_state.config_blob_limit_size_kb}kb")
             ext = item.filename.split(".")[-1] if "." in item.filename else "bin"; file_key = f"user_{request.state.user['id']}/{uuid.uuid4().hex}.{ext}"
             blob_client=container_client.get_blob_client(file_key); await blob_client.upload_blob(file_data)
-            output[item.filename] = blob_client.url; blob_list.append({"created_by_id": request.state.user["id"], "upload_method": 1, "service": of["service"], "file_url": blob_client.url})
+            output[item.filename] = blob_client.url; blob_list.append({"created_by_id": request.state.user["id"], "type": 1, "service": of["service"], "file_url": blob_client.url})
     if blob_list: await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
     return {"status":1,"message":output}
 
@@ -77,14 +77,14 @@ async def func_api_private_blob_upload_url(request:Request):
             file_key = f"user_{request.state.user['id']}/{uuid.uuid4().hex}.bin"
             presigned_post = app_state.client_s3.generate_presigned_post(Bucket=container, Key=file_key, ExpiresIn=app_state.config_blob_expire_sec_upload, Conditions=[["content-length-range", 1, app_state.config_blob_limit_size_kb * 1024]])
             file_url = f"https://{container}.s3.{app_state.config_aws_s3_region_name}.amazonaws.com/{file_key}"
-            output.append({"upload_url": presigned_post["url"], **presigned_post["fields"], "file_url": file_url}); blob_list.append({"created_by_id": request.state.user["id"], "upload_method": 2, "service": oq["service"], "file_url": file_url})
+            output.append({"upload_url": presigned_post["url"], **presigned_post["fields"], "file_url": file_url}); blob_list.append({"created_by_id": request.state.user["id"], "type": 2, "service": oq["service"], "file_url": file_url})
     elif oq["service"] == "azure":
         for _ in range(oq["count"]):
             file_key = f"user_{request.state.user['id']}/{uuid.uuid4().hex}.bin"
             sas_token = generate_blob_sas(account_name=app_state.config_azure_account_name, account_key=app_state.config_azure_account_key, container_name=container, blob_name=file_key, permission=BlobSasPermissions(write=True, create=True), expiry=datetime.now(timezone.utc) + timedelta(seconds=app_state.config_blob_expire_sec_upload))
             sas_url = f"https://{app_state.config_azure_account_name}.blob.core.windows.net/{container}/{file_key}?{sas_token}"
             file_url = f"https://{app_state.config_azure_account_name}.blob.core.windows.net/{container}/{file_key}"
-            output.append({"upload_url": sas_url, "key": file_key, "file_url": file_url}); blob_list.append({"created_by_id": request.state.user["id"], "upload_method": 2, "service": oq["service"], "file_url": file_url})
+            output.append({"upload_url": sas_url, "key": file_key, "file_url": file_url}); blob_list.append({"created_by_id": request.state.user["id"], "type": 2, "service": oq["service"], "file_url": file_url})
     if blob_list: await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
     return {"status":1,"message":output}
 
