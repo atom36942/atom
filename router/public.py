@@ -33,7 +33,7 @@ async def func_api_public_object_read(*, request: Request):
     enabled_tables = app_state.config_table_enable_read_public or []
     if "*" not in enabled_tables and oq["table"] not in enabled_tables: raise Exception(f"read disabled for table: {oq['table']}")
     if (disabled_relation_table := next((parts[1] for rel in oq["relation"] for parts in ([p.strip() for p in rel.split(",", 4)],) if len(parts) >= 2 and "*" not in enabled_tables and parts[1] not in enabled_tables), None)) is not None: raise Exception(f"relation read disabled for table: {disabled_relation_table}")
-    ol = await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
+    ol = await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool_read_fallback, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
     
 @router.get("/public/converter-number")
@@ -144,14 +144,14 @@ async def func_api_public_table_groupby(*, request: Request):
     if "*" not in enabled_tables and oq["table"] not in enabled_tables: raise Exception(f"read disabled for table: {oq['table']}")
     table, col, limit, page, agg, a_col, order = oq["table"], oq["col"], oq["limit"], oq["page"], oq["agg_func"], oq["agg_col"], oq["order"]
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)) or not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(col)) or (a_col != "*" and not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(a_col))): raise Exception("invalid identifier")
-    where_clause, values = await app_state.func_postgres_where_build(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, table=table, filter=oq["filter"], prefix="x.")
+    where_clause, values = await app_state.func_postgres_where_build(client_postgres_pool=app_state.client_postgres_pool_read_fallback, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, table=table, filter=oq["filter"], prefix="x.")
     bind_idx = len(values) + 1
     is_array = "[]" in (dt := app_state.cache_postgres_schema.get(table, {}).get(col, {}).get("datatype", "text").lower()) or "array" in dt
     agg_sql = f'{agg}(*)' if agg == "count" and a_col == "*" else f'{agg}("{a_col}")'
     order_sql = (("agg_val" if agg != "count" else "count(*)") if "count" in order else "item_col") + (" DESC" if "desc" in order else " ASC")
     q_col = f'"{col}"'; sql = f'SELECT {"item_col" if is_array else "x."+q_col+" AS item_col"}, {agg_sql} AS agg_val FROM "{table}" x {f"CROSS JOIN LATERAL unnest(x."+q_col+") item_col" if is_array else ""} {where_clause} GROUP BY item_col ORDER BY {order_sql} LIMIT ${bind_idx} OFFSET ${bind_idx+1}'
     values.extend([limit + 1, (page - 1) * limit])
-    async with app_state.client_postgres_pool.acquire() as conn:
+    async with app_state.client_postgres_pool_read_fallback.acquire() as conn:
         rows = await conn.fetch(sql, *values)
         ol = [{"item": row["item_col"], "value": row["agg_val"]} for row in rows]
         return {"status": 1, "message": {"obj_list": ol[:limit], "has_next_page": len(ol) > limit}}

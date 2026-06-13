@@ -11,7 +11,7 @@ async def func_api_my_cargowise_profile(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
-    if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
+    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     role_map = {
         "is_consignee": "Consignee",
         "is_consignor": "Consignor",
@@ -53,7 +53,7 @@ async def func_api_my_cargowise_profile(*, request: Request):
         "is_temp_account": "Temporary Account",
         "is_personal_effects_account": "Personal Effects Account",
     }
-    async with app_state.client_mssql_read.acquire() as conn:
+    async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute("""
             SELECT
@@ -167,7 +167,7 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
-    if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
+    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("po_number", "str", 0, None, "")])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
@@ -258,7 +258,7 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
         LEFT JOIN line_summary AS LS ON LS.order_pk = JD.JD_PK
         ORDER BY COALESCE(JD.JD_SystemLastEditTimeUtc, JD.JD_SystemCreateTimeUtc) DESC, JD.JD_PK DESC
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
-    async with app_state.client_mssql_read.acquire() as conn:
+    async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(sql, org_pk, po_number)
         columns = [column[0] for column in cursor.description]
@@ -270,7 +270,7 @@ async def func_api_my_cargowise_purchase_order_lines(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
-    if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
+    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("po_id", "str", 1, None, None)])
     po_id = str(oq.get("po_id") or "").strip()
     sql = """
@@ -315,7 +315,7 @@ async def func_api_my_cargowise_purchase_order_lines(*, request: Request):
         WHERE JO.JO_IsValid = 1
         ORDER BY JO.JO_LineNo ASC, JO.JO_SubLineNo ASC, JO.JO_LineSplitNumber ASC, JO.JO_SystemCreateTimeUtc ASC;
     """
-    async with app_state.client_mssql_read.acquire() as conn:
+    async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(sql, org_pk, po_id)
         if cursor.description:
@@ -330,7 +330,7 @@ async def func_api_my_cargowise_shipments(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
-    if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
+    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
@@ -420,7 +420,7 @@ async def func_api_my_cargowise_shipments(*, request: Request):
         ) AS Summary
         ORDER BY COALESCE(JS.JS_SystemLastEditTimeUtc, JS.JS_SystemCreateTimeUtc) DESC, JS.JS_PK DESC
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
-    async with app_state.client_mssql_read.acquire() as conn:
+    async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(sql, org_pk)
         columns = [column[0] for column in cursor.description]
@@ -432,7 +432,7 @@ async def func_api_my_cargowise_containers(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
-    if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
+    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_id", "str", 0, None, "")])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
@@ -528,7 +528,7 @@ async def func_api_my_cargowise_containers(*, request: Request):
         ) AS JS
         ORDER BY COALESCE(JC.JC_SystemLastEditTimeUtc, JC.JC_SystemCreateTimeUtc) DESC, JC.JC_PK DESC
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
-    async with app_state.client_mssql_read.acquire() as conn:
+    async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(sql, org_pk, shipment_id)
         columns = [column[0] for column in cursor.description]
@@ -540,7 +540,7 @@ async def func_api_my_cargowise_tracking(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
-    if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
+    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_id", "str", 0, None, "")])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
@@ -615,7 +615,7 @@ async def func_api_my_cargowise_tracking(*, request: Request):
           AND ISNULL(AL.SL_IsCancelled, 'N') <> 'Y'
         ORDER BY AL.SL_EventTime DESC, AL.SL_PostedTimeUtc DESC, AL.SL_PK DESC
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
-    async with app_state.client_mssql_read.acquire() as conn:
+    async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(sql, org_pk, shipment_id)
         columns = [column[0] for column in cursor.description]
@@ -627,7 +627,7 @@ async def func_api_my_cargowise_exceptions(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
-    if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
+    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
@@ -753,7 +753,7 @@ async def func_api_my_cargowise_exceptions(*, request: Request):
         FROM exception_rows
         ORDER BY event_at DESC, reference_id DESC
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
-    async with app_state.client_mssql_read.acquire() as conn:
+    async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(sql, org_pk)
         columns = [column[0] for column in cursor.description]
@@ -765,7 +765,7 @@ async def func_api_my_cargowise_documents(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
-    if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
+    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
@@ -878,7 +878,7 @@ async def func_api_my_cargowise_documents(*, request: Request):
         FROM document_rows
         ORDER BY updated_at DESC, document_id DESC
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
-    async with app_state.client_mssql_read.acquire() as conn:
+    async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(sql, org_pk)
         columns = [column[0] for column in cursor.description]
@@ -890,7 +890,7 @@ async def func_api_my_cargowise_documents_download(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
-    if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
+    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("document_id", "str", 1, None, None)])
     document_id = str(oq.get("document_id") or "").strip()
     sql = """
@@ -969,7 +969,7 @@ async def func_api_my_cargowise_documents_download(*, request: Request):
              )
           );
     """
-    async with app_state.client_mssql_read.acquire() as conn:
+    async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(sql, org_pk, document_id)
         row = await cursor.fetchone()
@@ -992,7 +992,7 @@ async def func_api_my_cargowise_analytics(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
-    if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
+    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     kpis_sql = """
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
@@ -1126,7 +1126,7 @@ async def func_api_my_cargowise_analytics(*, request: Request):
         JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
         GROUP BY JS.JS_TransportMode
         ORDER BY COUNT(1) DESC;"""
-    async with app_state.client_mssql_read.acquire() as conn:
+    async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(kpis_sql, org_pk)
         kpis_columns = [column[0] for column in cursor.description]
@@ -1151,7 +1151,7 @@ async def func_api_admin_cargowise_360(*, request: Request):
     app_state = request.app.state
     user = request.state.user or {}
     if int(user.get("role") or 0) != 1: raise Exception("Admin role required")
-    if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
+    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("name", "str", 0, None, ""), ("include_disabled", "int", 0, [0,1], 0), ("org_id", "str", 0, None, "")])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
@@ -1253,7 +1253,7 @@ async def func_api_admin_cargowise_360(*, request: Request):
         FROM Combined
         ORDER BY total_shipments DESC, name ASC
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
-    async with app_state.client_mssql_read.acquire() as conn:
+    async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(sql, name, name, org_id, org_id)
         columns = [column[0] for column in cursor.description]
