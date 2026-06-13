@@ -1146,13 +1146,13 @@ async def func_api_my_cargowise_analytics(*, request: Request):
     analytics_object = {"kpis": kpis[0] if kpis else {}, "purchase_orders_by_status": purchase_orders_by_status, "shipments_by_status": shipments_by_status, "shipments_by_month": shipments_by_month, "transport_modes": transport_modes}
     return {"status": 1, "message": jsonable_encoder(analytics_object)}
 
-@router.get("/admin/cargowise-360")
-async def func_api_admin_cargowise_360(*, request: Request):
+@router.get("/admin/cargowise-buyer-360")
+async def func_api_admin_cargowise_buyer_360(*, request: Request):
     app_state = request.app.state
     user = request.state.user or {}
     if int(user.get("role") or 0) != 1: raise Exception("Admin role required")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("name", "str", 0, None, ""), ("include_disabled", "int", 0, [0,1], 0), ("org_id", "str", 0, None, "")])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("name", "str", 0, None, ""), ("org_id", "str", 0, None, "")])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
     limit = max(1, limit)
@@ -1160,98 +1160,67 @@ async def func_api_admin_cargowise_360(*, request: Request):
     offset = (page - 1) * limit
     sql_limit = limit + 1
     name = str(oq.get("name") or "").strip()
-    include_disabled = int(oq.get("include_disabled") or 0)
     org_id = str(oq.get("org_id") or "").strip()
     sql = f"""
         SET NOCOUNT ON;
-        WITH POs AS (
-            SELECT OA.OA_OH AS OrgPK, COUNT(JD.JD_PK) AS TotalPOs
+        SELECT
+            CONVERT(varchar(36), OH.OH_PK) AS org_id,
+            OH.OH_FullName AS name,
+            OH.OH_Category AS category,
+            OH.OH_IsActive AS is_active,
+            OH.OH_IsValid AS is_valid,
+            OH.OH_IsGlobalAccount AS is_global_account,
+            OH.OH_IsConsignee AS is_consignee,
+            OH.OH_IsConsignor AS is_consignor,
+            OH.OH_RL_NKClosestPort AS closest_port,
+            OH.OH_ScreeningStatus AS screening_status,
+            ISNULL(POs.TotalPOs, 0) AS total_purchase_orders,
+            ISNULL(Shipments.TotalBookings, 0) AS total_bookings,
+            ISNULL(Shipments.TotalShipments, 0) AS total_shipments,
+            ISNULL(Consols.TotalConsols, 0) AS total_consols,
+            ISNULL(Finance.TotalInvoices, 0) AS total_invoices,
+            Shipments.LastActivityDate AS last_activity_date,
+            OH.OH_SystemCreateUser AS created_by,
+            CreateStaff.GS_FullName AS created_by_name,
+            CASE WHEN OH.OH_SystemCreateTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OH.OH_SystemCreateTimeUtc, 126) + 'Z' END AS created_at,
+            OH.OH_SystemLastEditUser AS updated_by,
+            UpdateStaff.GS_FullName AS updated_by_name,
+            CASE WHEN OH.OH_SystemLastEditTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OH.OH_SystemLastEditTimeUtc, 126) + 'Z' END AS updated_at
+        FROM dbo.OrgHeader OH
+        OUTER APPLY (
+            SELECT COUNT(JD.JD_PK) AS TotalPOs
             FROM dbo.JobOrderHeader JD
             INNER JOIN dbo.OrgAddress OA ON JD.JD_OA_BuyerAddress = OA.OA_PK
-            GROUP BY OA.OA_OH
-        ),
-        Shipments AS (
+            WHERE OA.OA_OH = OH.OH_PK
+        ) POs
+        OUTER APPLY (
             SELECT
-                JSO.JS_E2_OA_OH_Consignee AS OrgPK,
                 COUNT(JS.JS_PK) AS TotalShipments,
                 SUM(CASE WHEN JS.JS_IsBooking = 1 THEN 1 ELSE 0 END) AS TotalBookings,
                 MAX(JS.JS_SystemCreateTimeUtc) AS LastActivityDate
             FROM dbo.JobShipment JS
             INNER JOIN dbo.cvw_JobShipmentOrgs JSO ON JS.JS_PK = JSO.JS_PK
-            GROUP BY JSO.JS_E2_OA_OH_Consignee
-        ),
-        Consols AS (
-            SELECT OA.OA_OH AS OrgPK, COUNT(JK.JK_PK) AS TotalConsols
+            WHERE JSO.JS_E2_OA_OH_Consignee = OH.OH_PK
+        ) Shipments
+        OUTER APPLY (
+            SELECT COUNT(JK.JK_PK) AS TotalConsols
             FROM dbo.JobConsol JK
             INNER JOIN dbo.OrgAddress OA ON JK.JK_OA_SendingForwarderAddress = OA.OA_PK
-            GROUP BY OA.OA_OH
-        ),
-        Finance AS (
-            SELECT AH.AH_OH AS OrgPK, COUNT(AH.AH_PK) AS TotalInvoices
+            WHERE OA.OA_OH = OH.OH_PK
+        ) Consols
+        OUTER APPLY (
+            SELECT COUNT(AH.AH_PK) AS TotalInvoices
             FROM dbo.AccTransactionHeader AH
-            GROUP BY AH.AH_OH
-        ),
-        Combined AS (
-            SELECT
-                CONVERT(varchar(36), OH.OH_PK) AS org_id,
-                OH.OH_FullName AS name,
-                OH.OH_Category AS category,
-                OH.OH_IsActive AS is_active,
-                OH.OH_IsValid AS is_valid,
-                OH.OH_IsGlobalAccount AS is_global_account,
-                OH.OH_IsConsignee AS is_consignee,
-                OH.OH_IsConsignor AS is_consignor,
-                OH.OH_RL_NKClosestPort AS closest_port,
-                OH.OH_ScreeningStatus AS screening_status,
-                ISNULL(POs.TotalPOs, 0) AS total_purchase_orders,
-                ISNULL(Shipments.TotalBookings, 0) AS total_bookings,
-                ISNULL(Shipments.TotalShipments, 0) AS total_shipments,
-                ISNULL(Consols.TotalConsols, 0) AS total_consols,
-                ISNULL(Finance.TotalInvoices, 0) AS total_invoices,
-                Shipments.LastActivityDate AS last_activity_date,
-                OH.OH_SystemCreateUser AS created_by,
-                CreateStaff.GS_FullName AS created_by_name,
-                CASE WHEN OH.OH_SystemCreateTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OH.OH_SystemCreateTimeUtc, 126) + 'Z' END AS created_at,
-                OH.OH_SystemLastEditUser AS updated_by,
-                UpdateStaff.GS_FullName AS updated_by_name,
-                CASE WHEN OH.OH_SystemLastEditTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OH.OH_SystemLastEditTimeUtc, 126) + 'Z' END AS updated_at
-            FROM dbo.OrgHeader OH
-            LEFT JOIN POs ON OH.OH_PK = POs.OrgPK
-            LEFT JOIN Shipments ON OH.OH_PK = Shipments.OrgPK
-            LEFT JOIN Consols ON OH.OH_PK = Consols.OrgPK
-            LEFT JOIN Finance ON OH.OH_PK = Finance.OrgPK
-            LEFT JOIN dbo.GlbStaff CreateStaff ON CreateStaff.GS_Code = OH.OH_SystemCreateUser
-            LEFT JOIN dbo.GlbStaff UpdateStaff ON UpdateStaff.GS_Code = OH.OH_SystemLastEditUser
-            WHERE 1=1
-              {"" if include_disabled else "AND OH.OH_IsActive = 1 AND OH.OH_IsValid = 1"}
-              AND (? = '' OR LOWER(OH.OH_FullName) LIKE '%' + LOWER(?) + '%')
-              AND (? = '' OR OH.OH_PK = TRY_CONVERT(uniqueidentifier, ?))
-        )
-        SELECT
-            org_id,
-            name,
-            category,
-            is_active,
-            is_valid,
-            is_global_account,
-            is_consignee,
-            is_consignor,
-            closest_port,
-            screening_status,
-            total_purchase_orders,
-            total_bookings,
-            total_shipments,
-            total_consols,
-            total_invoices,
-            last_activity_date,
-            created_by,
-            created_by_name,
-            created_at,
-            updated_by,
-            updated_by_name,
-            updated_at
-        FROM Combined
-        ORDER BY total_shipments DESC, name ASC
+            WHERE AH.AH_OH = OH.OH_PK
+        ) Finance
+        LEFT JOIN dbo.GlbStaff CreateStaff ON CreateStaff.GS_Code = OH.OH_SystemCreateUser
+        LEFT JOIN dbo.GlbStaff UpdateStaff ON UpdateStaff.GS_Code = OH.OH_SystemLastEditUser
+        WHERE OH.OH_IsActive = 1 
+          AND OH.OH_IsValid = 1 
+          AND OH.OH_IsConsignee = 1
+          AND (? = '' OR LOWER(OH.OH_FullName) LIKE '%' + LOWER(?) + '%')
+          AND (? = '' OR OH.OH_PK = TRY_CONVERT(uniqueidentifier, ?))
+        ORDER BY ISNULL(Shipments.TotalShipments, 0) DESC, OH.OH_FullName ASC
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()

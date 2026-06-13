@@ -134,7 +134,7 @@ config_api = {
 "/my/cargowise-exceptions": {"id": 29, "api_cache_sec": ["redis", 300]},
 "/my/cargowise-documents": {"id": 30, "api_cache_sec": ["redis", 300]},
 "/my/cargowise-analytics": {"id": 31, "api_cache_sec": ["redis", 300]},
-"/admin/cargowise-360": {"id": 32, "user_role_check": ["token", [1]], "api_cache_sec": ["redis", 1000]},
+"/admin/cargowise-buyer-360": {"id": 32, "user_role_check": ["token", [1]], "api_cache_sec": ["redis", 1000]},
 "/public/object-read": {"id": 14, "api_cache_sec": ["inmemory", 100]},
 "/info": {"id": 17, "api_cache_sec": ["inmemory", 100]},
 "/public/table-groupby": {"id": 18, "api_cache_sec": ["inmemory", 10]},
