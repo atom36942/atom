@@ -90,7 +90,7 @@ def func_check(*, app: any) -> None:
                     if not has_router_decorator: raise Exception(f"router file '{router_path.name}': function '{node.name}' is missing a @router.<verb> decorator (helpers belong in function.py)")
     return None
 
-async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgres: dict, root_user_password_hash: str = None) -> str:
+async def func_postgres_schema_init(*, client_postgres: any, config_postgres: dict, root_user_password_hash: str = None) -> str:
     """Initialize PostgreSQL database schema, tables, indexes, constraints, and triggers based on configuration."""
     config_db = config_postgres
     if not config_db: raise Exception("config_db missing")
@@ -203,7 +203,7 @@ async def func_postgres_schema_init(*, client_postgres_pool: any, config_postgre
         return hashlib.md5(str(val).encode()).hexdigest()[:4]
     def is_enabled_col_setting(col_cfg: dict, key: str) -> bool:
         return key in col_cfg and col_cfg.get(key) not in (None, "")
-    async with client_postgres_pool.acquire() as conn:
+    async with client_postgres.acquire() as conn:
         extensions = config_db.get("extension") or []
         if extensions:
             for extension in extensions:
@@ -513,7 +513,7 @@ async def func_middleware_check_auth(*, headers: dict, url_path: str, config_tok
             raise Exception("authorization token missing")
     return user_obj
 
-async def func_middleware_check_user_deactivated(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_user_deactivated(*, user_dict: dict, url_path: str, config_api: dict, client_postgres: any, client_redis: any, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is deactivated using a strictly configured mode from config_api."""
     cfg = config_api.get(url_path, {}).get("user_deactivated_check")
     if not cfg or not user_dict: return None
@@ -522,8 +522,8 @@ async def func_middleware_check_user_deactivated(*, user_dict: dict, url_path: s
     if not mode: return None
     if active_flag == 0: return None
     async def fetch_deactivated_status(uid):
-        if not client_postgres_pool: raise Exception("postgres client missing")
-        async with client_postgres_pool.acquire() as conn:
+        if not client_postgres: raise Exception("postgres client missing")
+        async with client_postgres.acquire() as conn:
             rows = await conn.fetch("select id, deactivated_at from users where id=$1", uid)
         if not rows: raise Exception("user not found")
         return rows[0]["deactivated_at"]
@@ -550,7 +550,7 @@ async def func_middleware_check_user_deactivated(*, user_dict: dict, url_path: s
     if active_status == "absent": raise Exception("missing deactivated_at")
     if active_status is not None: raise Exception("user not active")
 
-async def func_middleware_check_user_deleted(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_deleted: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_user_deleted(*, user_dict: dict, url_path: str, config_api: dict, client_postgres: any, client_redis: any, cache_users_deleted: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is deleted using a strictly configured mode from config_api."""
     cfg = config_api.get(url_path, {}).get("user_deleted_check")
     if not cfg or not user_dict: return None
@@ -559,8 +559,8 @@ async def func_middleware_check_user_deleted(*, user_dict: dict, url_path: str, 
     if not mode: return None
     if deleted_flag == 0: return None
     async def fetch_deleted(uid):
-        if not client_postgres_pool: raise Exception("postgres client missing")
-        async with client_postgres_pool.acquire() as conn:
+        if not client_postgres: raise Exception("postgres client missing")
+        async with client_postgres.acquire() as conn:
             rows = await conn.fetch("select deleted_at from users where id=$1", uid)
         if not rows: raise Exception("user not found")
         return rows[0]["deleted_at"]
@@ -587,15 +587,15 @@ async def func_middleware_check_user_deleted(*, user_dict: dict, url_path: str, 
     if deleted_status == "absent": raise Exception("missing deleted_at")
     if deleted_status is not None: raise Exception("user is deleted")
 
-async def func_middleware_check_user_role(*, user_dict: dict, url_path: str, config_api: dict, client_postgres_pool: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_user_role(*, user_dict: dict, url_path: str, config_api: dict, client_postgres: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
     """Ensure sufficient roles to access endpoints using a strictly configured mode from config_api."""
     if not url_path.startswith("/admin") or not (cfg := config_api.get(url_path)) or "user_role_check" not in cfg:
         return None
     mode = cfg["user_role_check"][0]
     roles = set(cfg["user_role_check"][1])
     async def fetch_role(uid):
-        if not client_postgres_pool: raise Exception("postgres client missing")
-        async with client_postgres_pool.acquire() as conn:
+        if not client_postgres: raise Exception("postgres client missing")
+        async with client_postgres.acquire() as conn:
             rows = await conn.fetch("select role from users where id=$1", uid)
         if not rows: raise Exception("user not found")
         return rows[0]["role"]
@@ -1005,7 +1005,7 @@ async def func_regex_check(*, config_regex: dict, obj_list: list) -> None:
                     raise Exception(error_msg)
     return None
 
-async def func_postgres_schema_read(*, client_postgres_pool: any) -> dict:
+async def func_postgres_schema_read(*, client_postgres: any) -> dict:
     """Read full PostgreSQL schema (including tables, views, materialized views, and per-column index info) from public namespace."""
     sql = """
         SELECT
@@ -1063,7 +1063,7 @@ async def func_postgres_schema_read(*, client_postgres_pool: any) -> dict:
           AND NOT a.attisdropped
         ORDER BY c.relname, a.attnum;
     """
-    async with client_postgres_pool.acquire() as conn:
+    async with client_postgres.acquire() as conn:
         records = await conn.fetch(sql)
     schema = {}
     for r in records:
@@ -1091,10 +1091,10 @@ async def func_postgres_schema_read(*, client_postgres_pool: any) -> dict:
         }
     return schema
 
-async def func_postgres_map_column(*, client_postgres_pool: any, config_sql: str, is_json_value: int = 0) -> dict:
+async def func_postgres_map_column(*, client_postgres: any, config_sql: str, is_json_value: int = 0) -> dict:
     """Execute a mapping SQL query and return a dictionary from the first two columns."""
     if not config_sql: return {}
-    async with client_postgres_pool.acquire() as conn:
+    async with client_postgres.acquire() as conn:
         rows = await conn.fetch(config_sql)
     if is_json_value != 1: return {r[0]: r[1] for r in rows}
     import orjson
@@ -1105,7 +1105,7 @@ async def func_postgres_map_column(*, client_postgres_pool: any, config_sql: str
         output[r[0]] = value
     return output
 
-async def func_postgres_serialize(*, client_postgres_pool: any, client_password_hasher: any, cache_postgres_schema: dict, table: str, obj_list: list, is_base: int) -> list:
+async def func_postgres_serialize(*, client_postgres: any, client_password_hasher: any, cache_postgres_schema: dict, table: str, obj_list: list, is_base: int) -> list:
     """Serialize Python objects (JSON, Arrays, Geog) to PostgreSQL compatible formats using schema-aware injection."""
     import orjson
     if table not in cache_postgres_schema: return obj_list
@@ -1187,7 +1187,7 @@ async def func_postgres_serialize(*, client_postgres_pool: any, client_password_
         output_list.append(new_item)
     return output_list
 
-async def func_postgres_where_build(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, filter: list, prefix: str = "") -> tuple:
+async def func_postgres_where_build(*, client_postgres: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, filter: list, prefix: str = "") -> tuple:
     """Build a SQL WHERE clause with support for recursion, logical operators (_or, _and), flat SQL strings, and explicit operator syntax."""
     import re, orjson
     values = []
@@ -1244,7 +1244,7 @@ async def func_postgres_where_build(*, client_postgres_pool: any, client_passwor
         return allowed_ops
     async def serialize_filter_many(col, val_list, is_base_type=0, schema_override=None):
         obj_list = [{col: None if str(val).lower() == "null" else val} for val in val_list]
-        serialized = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=schema_override or cache_postgres_schema, table=table, obj_list=obj_list, is_base=is_base_type)
+        serialized = await func_postgres_serialize(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=schema_override or cache_postgres_schema, table=table, obj_list=obj_list, is_base=is_base_type)
         return [item[col] for item in serialized]
     async def serialize_filter(col, val, is_base_type=0):
         return (await serialize_filter_many(col, [val], is_base_type))[0]
@@ -1337,7 +1337,7 @@ async def func_postgres_where_build(*, client_postgres_pool: any, client_passwor
     where_sql = await build_filter(filter)
     return where_sql, values
 
-async def func_postgres_relation(*, client_postgres_pool: any, client_postgres_conn: any = None, obj_list: list, relation: list, config_sql_read_relation_fetch_limit_max: int) -> list:
+async def func_postgres_relation(*, client_postgres: any, client_postgres_conn: any = None, obj_list: list, relation: list, config_sql_read_relation_fetch_limit_max: int) -> list:
     """Standardized relationship logic: handles both aggregates (count, sum, etc) and associations (fetching rows) from source to target."""
     if not relation or not obj_list: return obj_list
     import re
@@ -1358,7 +1358,7 @@ async def func_postgres_relation(*, client_postgres_pool: any, client_postgres_c
         if any(source_col not in r for r in obj_list): raise Exception(f"relation source column missing from selected columns: {source_col}")
         source_ids = {r.get(source_col) for r in obj_list if r.get(source_col) is not None}
         if not source_ids: continue
-        client = client_postgres_conn or client_postgres_pool
+        client = client_postgres_conn or client_postgres
         if op_main in ("count", "sum", "avg", "min", "max"):
             val_sql = "*" if val == "*" else f'"{val}"'
             sql = f'SELECT "{target_col}" AS id, {op_main}({val_sql}) AS value FROM "{target_table}" WHERE "{target_col}" = ANY($1) GROUP BY "{target_col}";'
@@ -1387,7 +1387,7 @@ async def func_postgres_relation(*, client_postgres_pool: any, client_postgres_c
         else: raise Exception(f"invalid operator: {op}")
     return obj_list
 
-async def func_postgres_create(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, buffer_limit: int, mode: str, table: str, obj_list: list) -> any:
+async def func_postgres_create(*, client_postgres: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, buffer_limit: int, mode: str, table: str, obj_list: list) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     import re, orjson
     limit_chunk = 5000
@@ -1401,7 +1401,7 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
             if connection: ids = await connection.fetch(sql, *args)
             elif client_postgres_conn: ids = await client_postgres_conn.fetch(sql, *args)
             else:
-                async with client_postgres_pool.acquire() as conn: ids = await conn.fetch(sql, *args)
+                async with client_postgres.acquire() as conn: ids = await conn.fetch(sql, *args)
         else:
             schema = cache_postgres_schema.get(tbl, {})
             col_list = ",".join([f'"{c}"' for c in columns])
@@ -1429,7 +1429,7 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
             elif client_postgres_conn:
                 await _execute_bulk(client_postgres_conn)
             else:
-                async with client_postgres_pool.acquire() as conn:
+                async with client_postgres.acquire() as conn:
                     await _execute_bulk(conn)
             ids = all_ids
         return [r["id"] for r in ids] if ids and "id" in ids[0] else "created"
@@ -1437,7 +1437,7 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
         for i in range(0, len(obj_list), limit_chunk):
             batch = obj_list[i:i+limit_chunk]
             await func_regex_check(config_regex=config_regex, obj_list=batch)
-            yield await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=batch, is_base=0 if len(batch) > 1 else 1)
+            yield await func_postgres_serialize(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=batch, is_base=0 if len(batch) > 1 else 1)
     if mode not in ("now", "buffer", "flush"): raise Exception(f"invalid mode: {mode}")
     if mode == "flush":
         for key, buffer_list in list(cache_postgres_buffer_create.items()):
@@ -1472,10 +1472,10 @@ async def func_postgres_create(*, client_postgres_pool: any, client_postgres_con
             return all_ids if all_ids else "created"
         if client_postgres_conn:
             return await _execute_now(client_postgres_conn)
-        async with client_postgres_pool.acquire() as conn:
+        async with client_postgres.acquire() as conn:
             return await _execute_now(conn)
 
-async def func_postgres_read(*, client_postgres_pool: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list) -> list:
+async def func_postgres_read(*, client_postgres: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
@@ -1502,18 +1502,18 @@ async def func_postgres_read(*, client_postgres_pool: any, client_password_hashe
             cols.append(c_strip)
         column_list = ",".join([f'"{c}"' for c in cols])
     filters = filter
-    where_statement, values = await func_postgres_where_build(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter=filters, prefix="")
+    where_statement, values = await func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter=filters, prefix="")
     bind_idx = len(values) + 1
     sql_select = f'SELECT {column_list} FROM "{table}" {where_statement} ORDER BY {order_clause} LIMIT ${bind_idx} OFFSET ${bind_idx+1}'
     values.extend([limit, (page - 1) * limit])
-    async with client_postgres_pool.acquire() as conn:
+    async with client_postgres.acquire() as conn:
         records = await conn.fetch(sql_select, *values)
         result_list = [dict(r) for r in records]
         if relation and result_list:
-            result_list = await func_postgres_relation(client_postgres_pool=client_postgres_pool, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_sql_read_relation_fetch_limit_max=config_sql_read_relation_fetch_limit_max)
+            result_list = await func_postgres_relation(client_postgres=client_postgres, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_sql_read_relation_fetch_limit_max=config_sql_read_relation_fetch_limit_max)
         return result_list
 
-async def func_postgres_update(*, client_postgres_pool: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, table: str, obj_list: list, created_by_id: int) -> any:
+async def func_postgres_update(*, client_postgres: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, table: str, obj_list: list, created_by_id: int) -> any:
     """Update PostgreSQL records immediately with support for owner validation and dynamic serialization."""
     import re
     if not obj_list: raise Exception("object list required")
@@ -1533,7 +1533,7 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
             for i in range(0, len(obj_list), actual_batch_size):
                 batch_raw = obj_list[i:i+actual_batch_size]
                 await func_regex_check(config_regex=config_regex, obj_list=batch_raw)
-                batch = await func_postgres_serialize(client_postgres_pool=client_postgres_pool, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=batch_raw, is_base=1)
+                batch = await func_postgres_serialize(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=batch_raw, is_base=1)
                 batch_vals, set_clauses = [], []
                 for col in update_cols:
                     case_statements = []
@@ -1550,10 +1550,10 @@ async def func_postgres_update(*, client_postgres_pool: any, client_postgres_con
                 returned_ids.extend([r["id"] for r in (await connection.fetch(sql, *batch_vals))])
     if client_postgres_conn: await _execute_update(client_postgres_conn)
     else:
-        async with client_postgres_pool.acquire() as conn: await _execute_update(conn)
+        async with client_postgres.acquire() as conn: await _execute_update(conn)
     return returned_ids if returned_ids or len(obj_list) == 1 else "updated"
 
-async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_conn: any, cache_postgres_schema: dict = None, table: str, ids: list, created_by_id: int) -> int:
+async def func_postgres_delete(*, client_postgres: any, client_postgres_conn: any, cache_postgres_schema: dict = None, table: str, ids: list, created_by_id: int) -> int:
     """Delete records by ID with schema-aware optional ownership restrictions."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
@@ -1582,7 +1582,7 @@ async def func_postgres_delete(*, client_postgres_pool: any, client_postgres_con
     if client_postgres_conn:
         return await _execute_delete(client_postgres_conn)
     else:
-        async with client_postgres_pool.acquire() as conn:
+        async with client_postgres.acquire() as conn:
             return await _execute_delete(conn)
 
 async def func_producer(*, queue: str, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, channel: str, payload: dict) -> any:
@@ -1619,16 +1619,16 @@ async def func_token_encode(*, user: dict, config_token_secret_key: str, config_
     refresh_token = jwt.encode({"exp": now_ts + config_refresh_token_expires_in_sec, "data": serialized_payload, "type": "refresh"}, token_secret_key)
     return {"access_token": access_token, "refresh_token": refresh_token, "expires_in": config_access_token_expires_in_sec, "refresh_expires_in": config_refresh_token_expires_in_sec}
 
-async def func_otp_generate(*, client_postgres_pool: any, email: str, mobile: str, config_otp_length: int) -> int:
+async def func_otp_generate(*, client_postgres: any, email: str, mobile: str, config_otp_length: int) -> int:
     """Generate a random OTP and store it in PostgreSQL for a given email or mobile."""
     import random
     otp = random.randint(10**(config_otp_length-1), 10**config_otp_length - 1)
     sql = "INSERT INTO otp (otp, email, mobile) VALUES ($1, $2, $3);"
-    async with client_postgres_pool.acquire() as conn:
+    async with client_postgres.acquire() as conn:
         await conn.execute(sql, otp, email.strip().lower() if email else None, mobile.strip() if mobile else None)
     return otp
 
-async def func_otp_verify(*, client_postgres_pool: any, otp: int, email: str, mobile: str, config_otp_expiry_sec: int) -> None:
+async def func_otp_verify(*, client_postgres: any, otp: int, email: str, mobile: str, config_otp_expiry_sec: int) -> None:
     """Verify an OTP for email or mobile within its expiration window."""
     if not otp: raise Exception("otp code missing")
     if not email and not mobile: raise Exception("missing both email and mobile")
@@ -1639,7 +1639,7 @@ async def func_otp_verify(*, client_postgres_pool: any, otp: int, email: str, mo
     else:
         sql = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_otp_expiry_sec}s') as is_valid FROM otp WHERE mobile=$1 ORDER BY id DESC LIMIT 1"
         identifier = mobile.strip()
-    async with client_postgres_pool.acquire() as conn:
+    async with client_postgres.acquire() as conn:
         records = await conn.fetch(sql, identifier)
         if not records: raise Exception("otp not found")
         if records[0]["otp"] != otp: raise Exception("invalid otp code")
@@ -1668,9 +1668,9 @@ async def func_api_file_to_chunks(*, upload_file: any, chunk_size: int):
     finally:
         if is_wrapped_upload: f.detach()
 
-async def func_user_read_single(*, client_postgres_pool: any, user_id: int) -> dict:
+async def func_user_read_single(*, client_postgres: any, user_id: int) -> dict:
     """Read a single user by ID from PostgreSQL, raises Exception if not found."""
-    async with client_postgres_pool.acquire() as conn:
+    async with client_postgres.acquire() as conn:
         record = await conn.fetchrow("SELECT * FROM users WHERE id=$1;", user_id)
     if not record: raise Exception("user not found")
     return dict(record)
@@ -1810,7 +1810,7 @@ async def func_notification_create(*, type: int, app_state: any, payload: dict) 
         missing_ids = [obj["id"] for obj in obj_list if not obj.get("created_by_id") and obj.get("id")]
         if missing_ids:
             try:
-                db_records = await app_state.client_postgres_pool.fetch(f'SELECT "id", "created_by_id" FROM "{tbl}" WHERE "id" = ANY($1::int[])', missing_ids)
+                db_records = await app_state.client_postgres.fetch(f'SELECT "id", "created_by_id" FROM "{tbl}" WHERE "id" = ANY($1::int[])', missing_ids)
                 db_map = {r["id"]: r.get("created_by_id") for r in db_records}
                 for obj in obj_list:
                     if obj.get("id") in db_map:
@@ -1833,10 +1833,10 @@ async def func_notification_create(*, type: int, app_state: any, payload: dict) 
             obj_id = obj.get("id")
             if obj_id:
                 notification_obj_list.append({"type": type, "created_by_id": None, "user_id": obj_id, "title": "Account Created", "description": "Your account has been created successfully.", "reference_table": table, "reference_id": obj_id})
-    if notification_obj_list: await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_table.get("notification", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="notification", obj_list=notification_obj_list)
+    if notification_obj_list: await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_table.get("notification", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="notification", obj_list=notification_obj_list)
     return None
 
-def func_postgres_mark_read(*, client_postgres_pool: any, table: str, ownership_column: str, user_id: int, ids: list) -> None:
+def func_postgres_mark_read(*, client_postgres: any, table: str, ownership_column: str, user_id: int, ids: list) -> None:
     """Schedule a non-blocking read_at update for fetched objects owned by a user."""
     import asyncio, re
     if not ids: return
@@ -1845,7 +1845,7 @@ def func_postgres_mark_read(*, client_postgres_pool: any, table: str, ownership_
     read_ids = list(dict.fromkeys(int(obj_id) for obj_id in ids if obj_id is not None))
     if not read_ids: return
     async def update_read_at():
-        async with client_postgres_pool.acquire() as conn:
+        async with client_postgres.acquire() as conn:
             await conn.execute(f'UPDATE "{table}" SET read_at=now() WHERE "{ownership_column}"=$1 AND "id"=ANY($2::bigint[]) AND read_at IS NULL', user_id, read_ids)
     task = asyncio.create_task(update_read_at())
     task.add_done_callback(lambda t: (t.exception() if not t.cancelled() else None))

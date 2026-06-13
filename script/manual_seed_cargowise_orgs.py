@@ -68,7 +68,7 @@ async def execute():
                 continue
             orgs.append({"username": username, "name": name, "is_valid": is_valid, "is_active": is_active})
         return orgs
-    async def read_existing_users(client_postgres_pool, orgs):
+    async def read_existing_users(client_postgres, orgs):
         if not orgs:
             return []
         usernames = [org["username"] for org in orgs]
@@ -84,7 +84,7 @@ async def execute():
             FROM users
             WHERE username = ANY($1::text[])
             ORDER BY username, deleted_at NULLS FIRST, deactivated_at NULLS FIRST, type;""")
-        async with client_postgres_pool.acquire() as conn:
+        async with client_postgres.acquire() as conn:
             records = await conn.fetch(sql, usernames)
         return [dict(record) for record in records]
     def plan_user_changes(orgs, existing_users, password, user_type, role):
@@ -120,17 +120,17 @@ async def execute():
             if any(existing.get(key) != value for key, value in desired.items()):
                 update_list.append({"id": existing["id"], **desired, "updated_at": sync_time})
         return create_list, update_list, duplicate_warnings
-    async def create_users(client_postgres_pool, cache_postgres_schema, client_password_hasher, obj_list):
+    async def create_users(client_postgres, cache_postgres_schema, client_password_hasher, obj_list):
         total = 0
         cache_postgres_buffer_create = {}
         for batch in chunked(obj_list, batch_size):
-            await func_postgres_create(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, buffer_limit=config_table.get("users", {}).get("buffer_limit", config_buffer_limit_default), mode="now", table="users", obj_list=batch)
+            await func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, buffer_limit=config_table.get("users", {}).get("buffer_limit", config_buffer_limit_default), mode="now", table="users", obj_list=batch)
             total += len(batch)
         return total
-    async def update_users(client_postgres_pool, cache_postgres_schema, client_password_hasher, obj_list):
+    async def update_users(client_postgres, cache_postgres_schema, client_password_hasher, obj_list):
         total = 0
         for batch in chunked(obj_list, batch_size):
-            await func_postgres_update(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, config_regex=config_regex, table="users", obj_list=batch, created_by_id=None)
+            await func_postgres_update(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, config_regex=config_regex, table="users", obj_list=batch, created_by_id=None)
             total += len(batch)
         return total
     args = parse_args()
@@ -145,13 +145,13 @@ async def execute():
     print(f"Fetched {len(orgs)} org(s).")
     if not orgs:
         return
-    client_postgres_pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=5)
+    client_postgres = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=5)
     try:
-        cache_postgres_schema = await func_postgres_schema_read(client_postgres_pool=client_postgres_pool)
+        cache_postgres_schema = await func_postgres_schema_read(client_postgres=client_postgres)
         if "users" not in cache_postgres_schema:
             raise Exception("users table not found in Postgres schema")
         client_password_hasher = PasswordHasher()
-        existing_users = await read_existing_users(client_postgres_pool, orgs)
+        existing_users = await read_existing_users(client_postgres, orgs)
         create_list, update_list, duplicate_warnings = plan_user_changes(orgs, existing_users, seed_cargowise_user_password, seed_cargowise_user_type, seed_cargowise_user_role)
         print(f"Existing matched user(s): {len(existing_users)}")
         print(f"Planned creates: {len(create_list)}")
@@ -165,13 +165,13 @@ async def execute():
         if args.dry_run:
             print("Dry run complete. No Postgres writes performed.")
             return
-        created_count = await create_users(client_postgres_pool, cache_postgres_schema, client_password_hasher, create_list) if create_list else 0
-        updated_count = await update_users(client_postgres_pool, cache_postgres_schema, client_password_hasher, update_list) if update_list else 0
+        created_count = await create_users(client_postgres, cache_postgres_schema, client_password_hasher, create_list) if create_list else 0
+        updated_count = await update_users(client_postgres, cache_postgres_schema, client_password_hasher, update_list) if update_list else 0
         print(f"Created CargoWise user(s): {created_count}")
         print(f"Updated CargoWise user(s): {updated_count}")
         print("CargoWise user seed completed.")
     finally:
-        await client_postgres_pool.close()
+        await client_postgres.close()
         
 # init
 if __name__ == "__main__":

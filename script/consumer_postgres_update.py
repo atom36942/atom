@@ -22,15 +22,15 @@ from config import config_kafka_password
 
 # logic
 async def setup():
-    client_postgres_pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=5)
+    client_postgres = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=5)
     cache_postgres_buffer_create = {}
-    cache_postgres_schema = await func_postgres_schema_read(client_postgres_pool=client_postgres_pool)
+    cache_postgres_schema = await func_postgres_schema_read(client_postgres=client_postgres)
     client_password_hasher = PasswordHasher()
-    return client_postgres_pool, cache_postgres_buffer_create, cache_postgres_schema, client_password_hasher
+    return client_postgres, cache_postgres_buffer_create, cache_postgres_schema, client_password_hasher
 
-async def execute(payload, client_postgres_pool, cache_postgres_buffer_create, cache_postgres_schema, client_password_hasher):
+async def execute(payload, client_postgres, cache_postgres_buffer_create, cache_postgres_schema, client_password_hasher):
     table = payload.get("table")
-    return await func_postgres_update(client_postgres_pool=client_postgres_pool, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, config_regex=config_regex, table=table, obj_list=payload.get("obj_list"), created_by_id=payload.get("created_by_id"))
+    return await func_postgres_update(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, config_regex=config_regex, table=table, obj_list=payload.get("obj_list"), created_by_id=payload.get("created_by_id"))
 
 # init
 if __name__ == "__main__":

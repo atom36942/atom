@@ -11,16 +11,16 @@ router = APIRouter()
 async def func_api_my_profile(*, request: Request):
     app_state = request.app.state
     user_id = request.state.user["id"]
-    user = await app_state.func_user_read_single(client_postgres_pool=app_state.client_postgres_pool_read_fallback, user_id=user_id)
-    metadata = {k: [dict(r) for r in await app_state.client_postgres_pool_read_fallback.fetch(v, user_id)] for k, v in app_state.config_sql.get("profile_metadata", {}).items()}
+    user = await app_state.func_user_read_single(client_postgres=app_state.client_postgres_read_fallback, user_id=user_id)
+    metadata = {k: [dict(r) for r in await app_state.client_postgres_read_fallback.fetch(v, user_id)] for k, v in app_state.config_sql.get("profile_metadata", {}).items()}
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_in_sec=app_state.config_access_token_expires_in_sec, config_refresh_token_expires_in_sec=app_state.config_refresh_token_expires_in_sec, config_allowed_token_key=app_state.config_allowed_token_key)
-    asyncio.create_task(app_state.client_postgres_pool.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id))
+    asyncio.create_task(app_state.client_postgres.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id))
     return {"status": 1, "message": {**user, "metadata": metadata, "token": token}}
 
 @router.post("/my/token-refresh")
 async def func_api_my_token_refresh(*, request: Request):
     app_state = request.app.state
-    user = await app_state.func_user_read_single(client_postgres_pool=app_state.client_postgres_pool, user_id=request.state.user["id"])
+    user = await app_state.func_user_read_single(client_postgres=app_state.client_postgres_read_fallback, user_id=request.state.user["id"])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_in_sec=app_state.config_access_token_expires_in_sec, config_refresh_token_expires_in_sec=app_state.config_refresh_token_expires_in_sec, config_allowed_token_key=app_state.config_allowed_token_key)
     return {"status": 1, "message": token}
 
@@ -29,7 +29,7 @@ async def func_api_my_api_usage(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("days", "int", 1, None, None)])
     sql = "SELECT path AS api, count(*) FROM log_api WHERE created_at >= NOW() - ($1 * INTERVAL '1 day') AND created_by_id=$2 GROUP BY path LIMIT 1000;"
-    async with app_state.client_postgres_pool_read_fallback.acquire() as conn:
+    async with app_state.client_postgres_read_fallback.acquire() as conn:
         records = await conn.fetch(sql, oq["days"], request.state.user["id"])
         obj_list = [dict(r) for r in records]
     return {"status": 1, "message": obj_list}
@@ -56,7 +56,7 @@ async def func_api_my_object_create(*, request: Request):
     if "created_by_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'created_by_id' column for ownership tracking")
     if request.state.user.get("id"): obj_list = [dict(item, created_by_id=request.state.user["id"]) for item in obj_list]
     if oq["queue"]: return {"status": 1, "message": await app_state.func_producer(queue=oq["queue"], client_celery_producer=app_state.client_celery_producer, client_kafka_producer=app_state.client_kafka_producer, client_rabbitmq_producer=app_state.client_rabbitmq_producer, client_redis_producer=app_state.client_redis_producer, channel="func_postgres_create", payload={"mode": oq["mode"], "table": oq["table"], "obj_list": obj_list})}
-    return {"status": 1, "message": await app_state.func_postgres_create(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_table.get(oq["table"], {}).get("buffer_limit", app_state.config_buffer_limit_default), mode=oq["mode"], table=oq["table"], obj_list=obj_list)}
+    return {"status": 1, "message": await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_table.get(oq["table"], {}).get("buffer_limit", app_state.config_buffer_limit_default), mode=oq["mode"], table=oq["table"], obj_list=obj_list)}
 
 @router.get("/my/object-read")
 async def func_api_my_object_read(*, request: Request):
@@ -65,8 +65,8 @@ async def func_api_my_object_read(*, request: Request):
     schema_cols = app_state.cache_postgres_schema.get(oq["table"], {})
     if oq["ownership_column"] not in schema_cols: raise Exception(f"table '{oq['table']}' lacks ownership column '{oq['ownership_column']}'")
     filters = oq["filter"] + [f"""{oq["ownership_column"]} = {request.state.user["id"]}"""]
-    ol = await app_state.func_postgres_read(client_postgres_pool=app_state.client_postgres_pool_read_fallback, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
-    if oq["ownership_column"] == "user_id" and "id" in schema_cols and "read_at" in schema_cols: app_state.func_postgres_mark_read(client_postgres_pool=app_state.client_postgres_pool, table=oq["table"], ownership_column=oq["ownership_column"], user_id=request.state.user["id"], ids=[r.get("id") for r in ol if isinstance(r, dict)])
+    ol = await app_state.func_postgres_read(client_postgres=app_state.client_postgres_read_fallback, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
+    if oq["ownership_column"] == "user_id" and "id" in schema_cols and "read_at" in schema_cols: app_state.func_postgres_mark_read(client_postgres=app_state.client_postgres, table=oq["table"], ownership_column=oq["ownership_column"], user_id=request.state.user["id"], ids=[r.get("id") for r in ol if isinstance(r, dict)])
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 
 @router.put("/my/object-update")
@@ -81,12 +81,12 @@ async def func_api_my_object_update(*, request: Request):
     if oq["table"] == "users" and len(obj_list) > 1: raise Exception("multi-object user update restricted")
     if oq["table"] == "users" and str(obj_list[0].get("id")) != str(request.state.user["id"]): raise Exception("ownership issue: cannot update other users")
     if oq["table"] == "users" and any(key in app_state.config_column_single_update for key in obj_list[0]) and len(obj_list[0]) != 2: raise Exception("sensitive fields must be updated individually (item length 2 required)")
-    if oq["table"] == "users" and any(key in obj_list[0] for key in ("email", "mobile")): await app_state.func_otp_verify(client_postgres_pool=app_state.client_postgres_pool, otp=oq["otp"], email=obj_list[0].get("email"), mobile=obj_list[0].get("mobile"), config_otp_expiry_sec=app_state.config_otp_expiry_sec)
+    if oq["table"] == "users" and any(key in obj_list[0] for key in ("email", "mobile")): await app_state.func_otp_verify(client_postgres=app_state.client_postgres, otp=oq["otp"], email=obj_list[0].get("email"), mobile=obj_list[0].get("mobile"), config_otp_expiry_sec=app_state.config_otp_expiry_sec)
     if "updated_by_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'updated_by_id' column for update tracking")
     if request.state.user.get("id"): obj_list = [dict(item, updated_by_id=request.state.user["id"]) for item in obj_list]
     created_by_id = request.state.user["id"] if oq["table"] != "users" else None
     if oq["queue"]: return {"status": 1, "message": await app_state.func_producer(queue=oq["queue"], client_celery_producer=app_state.client_celery_producer, client_kafka_producer=app_state.client_kafka_producer, client_rabbitmq_producer=app_state.client_rabbitmq_producer, client_redis_producer=app_state.client_redis_producer, channel="func_postgres_update", payload={"table": oq["table"], "obj_list": obj_list, "created_by_id": created_by_id})}
-    return {"status": 1, "message": await app_state.func_postgres_update(client_postgres_pool=app_state.client_postgres_pool, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, config_regex=app_state.config_regex, table=oq["table"], obj_list=obj_list, created_by_id=created_by_id, client_postgres_conn=None)}
+    return {"status": 1, "message": await app_state.func_postgres_update(client_postgres=app_state.client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, config_regex=app_state.config_regex, table=oq["table"], obj_list=obj_list, created_by_id=created_by_id, client_postgres_conn=None)}
 
 @router.post("/my/object-delete")
 async def func_api_my_ids_delete(*, request: Request):
@@ -97,7 +97,7 @@ async def func_api_my_ids_delete(*, request: Request):
     if ob["table"] == "users" and len(ob["ids"]) != 1: raise Exception("multiple users table delete not allowed")
     if ob["table"] == "users" and int(ob["ids"][0]) != int(request.state.user["id"]): raise Exception("users table delete allowed only for own account")
     created_by_id = request.state.user["id"] if ob["table"] != "users" else None
-    deleted_count = await app_state.func_postgres_delete(client_postgres_pool=app_state.client_postgres_pool, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, table=ob["table"], ids=ob["ids"], created_by_id=created_by_id)
+    deleted_count = await app_state.func_postgres_delete(client_postgres=app_state.client_postgres, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, table=ob["table"], ids=ob["ids"], created_by_id=created_by_id)
     return {"status": 1, "message": f"{deleted_count} ids deleted"}
 
 @router.post("/my/object-blob-delete")
@@ -111,7 +111,7 @@ async def func_api_my_object_blob_delete(*, request: Request):
         if col not in schema: raise Exception(f"column '{col}' not found in table '{ob['table']}'")
     id_list, user_id = [int(x) for x in ob["ids"]], request.state.user["id"]
     cols_query = ", ".join(f'"{c}"' for c in ob["cols"])
-    async with app_state.client_postgres_pool.acquire() as conn:
+    async with app_state.client_postgres.acquire() as conn:
         rows = await conn.fetch(f"""SELECT "id", {cols_query} FROM "{ob['table']}" WHERE "id"=ANY($1::bigint[]) AND "created_by_id"=$2""", id_list, user_id)
     if not rows: return {"status": 1, "message": "0 ids deleted"}
     s3_batches, azure_tasks = {}, []
@@ -141,7 +141,7 @@ async def func_api_my_object_blob_delete(*, request: Request):
         for result in await asyncio.gather(*azure_tasks, return_exceptions=True):
             if isinstance(result, Exception) and type(result).__name__ != "ResourceNotFoundError": raise result
     set_clause = ", ".join(f'"{c}"=NULL' for c in ob["cols"])
-    async with app_state.client_postgres_pool.acquire() as conn:
+    async with app_state.client_postgres.acquire() as conn:
         await conn.execute(f"""UPDATE "{ob['table']}" SET {set_clause} WHERE "id"=ANY($1::bigint[]) AND "created_by_id"=$2""", [r["id"] for r in rows], user_id)
     return {"status": 1, "message": f"{len(rows)} ids deleted"}
 
@@ -178,7 +178,7 @@ async def func_api_my_object_delete_all(*, request: Request):
     enabled_delete_all = app_state.config_table_enable_delete_all_my or []
     if "*" not in enabled_delete_all and oq["table"] not in enabled_delete_all: raise Exception(f"delete all disabled for table: {oq['table']}")
     if "created_by_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'created_by_id' column for ownership tracking")
-    async with app_state.client_postgres_pool.acquire() as conn:
+    async with app_state.client_postgres.acquire() as conn:
         result = await conn.execute(f"""DELETE FROM "{oq["table"]}" WHERE "created_by_id"=$1""", user_id)
     return {"status": 1, "message": f"{int(result.rsplit(' ', 1)[-1])} objects deleted"}
 
@@ -190,7 +190,7 @@ async def func_api_my_received_ids_delete(*, request: Request):
     schema = app_state.cache_postgres_schema.get(ob["table"], {})
     if ob["table"] == "users" or "id" not in schema or "user_id" not in schema: raise Exception("users delete disabled or missing 'id'/'user_id' column")
     id_list, deleted_count = [int(x) for x in ob["ids"]], 0
-    async with app_state.client_postgres_pool.acquire() as conn:
+    async with app_state.client_postgres.acquire() as conn:
         async with conn.transaction():
             for i in range(0, len(id_list), 5000):
                 result = await conn.fetchval(f"""WITH deleted AS (DELETE FROM "{ob["table"]}" WHERE id=ANY($1::bigint[]) AND "user_id"=$2 RETURNING 1) SELECT COUNT(*) FROM deleted""", id_list[i:i+5000], user_id)
@@ -205,7 +205,7 @@ async def func_api_my_received_object_delete_all(*, request: Request):
     enabled_delete_all_user_id = app_state.config_table_enable_delete_all_my_user_id or []
     if "*" not in enabled_delete_all_user_id and oq["table"] not in enabled_delete_all_user_id: raise Exception(f"received delete all disabled for table: {oq['table']}")
     if "user_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'user_id' column for ownership tracking")
-    async with app_state.client_postgres_pool.acquire() as conn:
+    async with app_state.client_postgres.acquire() as conn:
         result = await conn.execute(f"""DELETE FROM "{oq["table"]}" WHERE "user_id"=$1""", user_id)
     return {"status": 1, "message": f"{int(result.rsplit(' ', 1)[-1])} objects deleted"}
 
@@ -215,7 +215,7 @@ async def func_api_my_message_inbox(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mode", "str", 1, ["all", "unread", "read"], None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
     where_clause = {"read": "user_id=$1 AND read_at IS NOT NULL", "unread": "user_id=$1 AND read_at IS NULL"}.get(oq["mode"], "1=1")
     sql = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
-    async with app_state.client_postgres_pool_read_fallback.acquire() as conn:
+    async with app_state.client_postgres_read_fallback.acquire() as conn:
         ol = [dict(r) for r in await conn.fetch(sql, request.state.user["id"])]
         return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 
@@ -225,7 +225,7 @@ async def func_api_my_message_thread(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("user_id", "int", 1, None, None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
     user_one_id = request.state.user["id"]
     sql = f"SELECT * FROM message WHERE ((created_by_id=$1 AND user_id=$2) OR (created_by_id=$2 AND user_id=$1)) ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
-    async with app_state.client_postgres_pool.acquire() as conn:
+    async with app_state.client_postgres.acquire() as conn:
         ol = [dict(r) for r in await conn.fetch(sql, user_one_id, oq["user_id"])]
         await conn.execute("UPDATE message SET read_at=now() WHERE created_by_id=$1 AND user_id=$2;", oq["user_id"], user_one_id)
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
