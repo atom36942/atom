@@ -15,13 +15,11 @@ router = APIRouter()
 @router.post("/admin/cargowise-sync-users")
 async def func_api_admin_cargowise_sync_users(*, request: Request):
     app_state = request.app.state
-    user = request.state.user or {}
-    if int(user.get("role") or 0) != 1: raise Exception("Admin role required")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     if not app_state.client_postgres: raise Exception("Postgres client not initialized")
-    seed_cargowise_user_password = os.getenv("seed_cargowise_user_password") or "123456"
-    seed_cargowise_user_type = int(os.getenv("seed_cargowise_user_type") or 1)
-    seed_cargowise_user_role = int(os.getenv("seed_cargowise_user_role") or 2)
+    seed_cargowise_user_password = "123456"
+    seed_cargowise_user_type = 1
+    seed_cargowise_user_role = 2
     batch_size = 1000
     def chunked(items, size):
         for i in range(0, len(items), size):
@@ -94,14 +92,10 @@ async def func_api_admin_cargowise_sync_users(*, request: Request):
     sync_time = datetime.now(timezone.utc)
     for org in orgs:
         existing = existing_by_username.get(org["username"])
-        deleted_at = None if org["cw_is_valid"] else sync_time
-        deactivated_at = None if org["cw_is_active"] else sync_time
         desired = {
             "type": seed_cargowise_user_type,
             "role": seed_cargowise_user_role,
             "name": org["name"],
-            "deleted_at": deleted_at,
-            "deactivated_at": deactivated_at,
             "cw_is_valid": org["cw_is_valid"],
             "cw_is_active": org["cw_is_active"],
             "cw_is_consignee": org["cw_is_consignee"],
@@ -141,8 +135,6 @@ async def func_api_admin_cargowise_sync_users(*, request: Request):
 @router.get("/admin/cargowise-buyer-360")
 async def func_api_admin_cargowise_buyer_360(*, request: Request):
     app_state = request.app.state
-    user = request.state.user or {}
-    if int(user.get("role") or 0) != 1: raise Exception("Admin role required")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("name", "str", 0, None, ""), ("org_id", "str", 0, None, "")])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
