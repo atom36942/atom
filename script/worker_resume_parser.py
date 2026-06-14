@@ -62,7 +62,7 @@ async def execute():
                 properties[col_name] = {"type": "STRING", "nullable": True}
         return {"type": "OBJECT", "properties": properties}
     async def func_claim_candidates(conn: asyncpg.Connection, batch_limit: int) -> list:
-        return await conn.fetch(f"WITH claim AS (SELECT c.id FROM {TABLE_NAME} c WHERE (((c.worker_status = 3 OR c.worker_status IS NULL) AND (c.worker_next_retry_at <= NOW() OR c.worker_next_retry_at IS NULL)) OR (c.worker_status = 1 AND c.updated_at < NOW() - INTERVAL '15 minutes')) AND (c.resume_url IS NOT NULL OR c.resume_content IS NOT NULL) AND c.deleted_at IS NULL ORDER BY c.created_at, c.id LIMIT $1 FOR UPDATE OF c SKIP LOCKED) UPDATE {TABLE_NAME} u SET worker_status = 1, updated_at = NOW() FROM claim JOIN {TABLE_NAME} c ON c.id = claim.id WHERE u.id = claim.id RETURNING u.id, u.resume_url, c.resume_content, c.worker_retry_count", batch_limit)
+        return await conn.fetch(f"WITH claim AS (SELECT c.id FROM {TABLE_NAME} c WHERE (c.worker_status IS NULL OR c.worker_status IN (1, 3)) AND (c.worker_next_retry_at <= NOW() OR c.worker_next_retry_at IS NULL) AND (c.resume_url IS NOT NULL OR c.resume_content IS NOT NULL) AND c.deleted_at IS NULL ORDER BY c.created_at, c.id LIMIT $1 FOR UPDATE OF c SKIP LOCKED) UPDATE {TABLE_NAME} u SET worker_status = 1, worker_next_retry_at = NOW() + INTERVAL '15 minutes' FROM claim JOIN {TABLE_NAME} c ON c.id = claim.id WHERE u.id = claim.id RETURNING u.id, u.resume_url, c.resume_content, c.worker_retry_count", batch_limit)
     async def func_mark_completed(conn: asyncpg.Connection, candidate_id: int, data: dict) -> None:
         update_data = {k: v for k, v in data.items() if k in candidate_col_names and k not in BASE_COLUMNS}
         if not update_data:
