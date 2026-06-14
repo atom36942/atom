@@ -4,7 +4,52 @@
   </style></head><body><!-- API Master shell --><div id="appLoader" class="app-loader-overlay"><div class="app-loader-content"><div class="app-loader-title">API MASTER</div><div class="app-loader-bar-wrap"><div id="appLoaderFill" class="app-loader-bar-fill"></div></div><div id="appLoaderPct" class="app-loader-pct">0%</div><div id="appLoaderMsg" class="app-loader-msg">Initializing...</div></div></div><div class="container"><div class="card" style="padding:0;flex:1;display:flex;flex-direction:column;min-height:0;box-sizing:border-box"><div class="modal-header" style="border-top-left-radius:12px;border-top-right-radius:12px;padding:12px var(--card-pad,22px)"><div class="modal-title-block" style="display:flex;align-items:center;gap:12px;flex-direction:row"><h3 style="margin:0">API Master</h3></div><div class="modal-actions" style="display:flex;align-items:center;gap:8px"><button type="button" class="icon-btn" id="pasteCurlToggleBtn" title="Paste cURL" onclick="openPasteCurlModal()"></button><button type="button" class="icon-btn" id="infoToggleBtn" title="View Documentation (D)" onclick="showModal('infoModal');renderAnalytics();setupIcons();"></button><button type="button" class="icon-btn" id="pathFiltersToggleBtn" title="Tag Filters (F)" onclick="showModal('tagFiltersModal');setupIcons();"></button><button type="button" class="icon-btn" id="storageToggleBtn" title="Local Storage State (S)" onclick="showModal('storageModal');renderStorage();setupIcons();"></button><div style="width:1px;height:24px;background:rgba(255,255,255,0.1);margin:0 4px"></div><button id="loginIndicator" title="Auth Status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:6px 14px;border-radius:12px;background:rgba(220,53,69,0.1);color:var(--delete);border:none;cursor:pointer;transition:all 0.2s"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span> Login </button></div></div><div class="modal-body" style="padding:var(--card-pad,22px);max-height:none;flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden"><div style="display:flex;gap:12px;align-items:stretch;flex-wrap:wrap;margin-bottom:var(--card-pad,22px);flex-shrink:0"><div class="toolbar-search header-search" style="position:relative;display:flex;align-items:center;background:#14171c;border:1px solid rgba(255,255,255,0.08);border-radius:6px;box-sizing:border-box;height:42px;padding:2px 10px;gap:6px;transition:border-color 0.2s;flex:1 1 320px;min-width:280px" onfocusin="this.style.borderColor='var(--accent)'" onfocusout="this.style.borderColor='rgba(255,255,255,0.08)'"><input type="text" id="apiInfoSearch" placeholder="Search APIs..." style="padding:4px 24px 4px 6px !important;font-size:15px !important;font-weight:600 !important;color:#f87171 !important;background:transparent !important;border:none !important;flex:1 !important;min-width:60px !important;height:100% !important;box-sizing:border-box !important;outline:none !important;border-radius:0 !important;box-shadow:none !important" /><button type="button" id="apiInfoSearchClear" class="clear-api-btn" title="Clear Search" style="right:12px;font-size:21px;position:absolute;top:50%;transform:translateY(-50%);line-height:1;color:#f87171;font-weight:700;opacity:1">×</button></div><div class="test-summary" id="testSummary" style="display:flex;margin:0;flex:1 1 320px;min-width:280px;height:42px;padding:0 10px;box-sizing:border-box;gap:8px;flex-wrap:nowrap;overflow:hidden"></div></div><div class="modal-card panel-shell" style="flex:1;display:flex;flex-direction:column;min-height:0;margin-bottom:0"><div class="modal-card-body" style="padding:0;flex:1;display:flex;flex-direction:column;min-height:0"><div class="resp-tbl-wrap master-table-wrap"><table class="resp-tbl" id="apiInfoTbl"></table></div></div></div></div></div></div><script>
     // Modal markup
     const MODAL_HTML = `\n\x3c!-- API Runner Modal --\x3e<div id="apiRunnerModal" class="modal"><div class="modal-content" style="max-width:760px;margin:1% auto;height:calc(100vh - 2vh);display:flex;flex-direction:column"><div class="modal-header"><div class="modal-title-block"><h3>API Runner</h3></div><div class="modal-actions"><button type="button" class="icon-btn" id="runnerOvrBtn" title="Show Override Parameters" onclick="if(curr){const ovr=PATH_OVERRIDES[curr.p];if(ovr){openJsonResponseModal('Override',ovr);}}"></button><button type="button" class="icon-btn" id="runnerCurlBtn" title="Show Curl Command" onclick="if(curr){openCurlViewModal(curr);}"></button><button type="submit" class="btn btn-primary" id="subBtn" form="apiForm" title="Run API" style="height:36px;padding:0 16px;font-size:13px;flex:0 0 auto;gap:8px;display:flex;align-items:center"><div class="spinner"></div><span id="subBtnIcon" style="display:flex;align-items:center"></span><span id="subBtnText">Run</span></button><button type="button" class="icon-btn" id="runnerCloseBtn" title="Close"></button></div></div><div class="modal-body" style="flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;padding-bottom:12px;overflow-y:auto"><div class="modal-card" style="flex:0 0 auto"><div class="modal-card-header"><div id="runnerPathHeader" style="font-size:13px;color:var(--muted);font-family:'SF Mono',Menlo,monospace"></div></div><div id="runnerAdhocBanner" style="display:none;padding:10px 16px;background:rgba(237,137,54,0.1);border-bottom:1px solid rgba(237,137,54,0.3);color:#ed8936;font-size:11px;font-weight:600;line-height:1.5"></div><div class="modal-card-body"><form id="apiForm"><div class="section-group" id="hSec"><div class="section-label">Headers <button type="button" id="addH" class="add-btn-small" title="Add Custom Header">+</button></div><div id="hCont" class="dynamic-container"></div></div><div class="section-group" id="uSec"><div class="section-label">Path Params <button type="button" id="addU" class="add-btn-small" title="Add Custom Path Parameter">+</button></div><div id="uCont" class="dynamic-container"></div></div><div class="section-group" id="qSec"><div class="section-label">Query Params <button type="button" id="addQ" class="add-btn-small" title="Add Custom Query Parameter">+</button></div><div id="qCont" class="dynamic-container"></div></div><div class="section-group" id="fSec"><div class="section-label">Form Data <button type="button" id="addF" class="add-btn-small" title="Add Custom Form Data Field">+</button></div><div id="fCont" class="dynamic-container"></div></div><div class="section-group" id="jSec"><div class="section-label">JSON Body <button type="button" id="addJ" class="add-btn-small" title="Add Custom JSON Parameter">+</button></div><div id="jCont" class="dynamic-container"></div></div></form></div></div><div class="modal-card resp-box" id="rBox" style="flex:1;flex-direction:column;min-height:280px"><div class="modal-card-header"><h4>API RESPONSE <span id="rCode" style="font-weight:400;margin-left:8px"></span></h4><div style="display:flex;align-items:center;gap:6px;margin-left:auto"><button class="view-btn" data-view="raw" title="Raw View" id="btnRaw" disabled style="opacity:0.35;pointer-events:none"></button><button class="view-btn" data-view="headers" title="Headers View" id="btnHeaders" disabled style="opacity:0.35;pointer-events:none"></button><button id="rJson" class="icon-btn" title="Download JSON" disabled style="opacity:0.35;pointer-events:none"></button><button id="rCopy" class="icon-btn" title="Copy Response" disabled style="opacity:0.35;pointer-events:none"></button><div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div><button class="view-btn" data-view="pretty" title="Tree View" id="btnPretty" disabled style="opacity:0.35;pointer-events:none"></button><button class="view-btn" data-view="chart" title="Chart View" id="btnChart" disabled style="opacity:0.35;pointer-events:none"></button><div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div><button class="view-btn" data-view="table" title="Table View" id="btnTable" disabled style="opacity:0.35;pointer-events:none"></button><button id="rCsv" class="icon-btn" title="Download CSV" disabled style="opacity:0.35;pointer-events:none"></button><div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div><button id="rCopyFull" class="icon-btn" title="Copy Curl & Response" disabled style="opacity:0.35;pointer-events:none"></button><button type="button" class="icon-btn delete" id="runnerResetBtn" title="Clear Response History"></button></div></div><div class="modal-card-body" style="padding:0;overflow-y:auto;display:flex;flex-direction:column"><div class="resp-content" style="flex:1"><div id="viewPretty" class="resp-view active"></div><div id="viewRaw" class="resp-view"><pre class="resp-pre" id="rawPre" style="margin:0"></pre></div><div id="viewTable" class="resp-view"></div><div id="viewChart" class="resp-view"></div><div id="viewHeaders" class="resp-view"><pre class="resp-pre" id="headersPre" style="margin:0"></pre></div></div></div></div></div></div></div>\x3c!-- WebSocket Runner Modal --\x3e<div id="wsRunnerModal" class="modal"><div class="modal-content" style="max-width:760px;margin:2% auto"><div class="modal-header"><h3>WebSocket Runner</h3><div class="modal-actions"><button type="button" class="icon-btn" id="wsRunnerCloseBtn" title="Close"></button></div></div><div class="modal-body"><div id="wsIn" style="margin-bottom:20px;padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.08);font-family:'SF Mono',Menlo,monospace;font-size:13px"></div><div style="display:flex;gap:12px;margin-bottom:20px"><input type="text" id="wsUrlIn" readonly style="flex:1;background:rgba(255,255,255,0.02);color:var(--accent);font-weight:600"><button id="wsConnBtn" type="button" class="btn btn-primary" title="Connect to WebSocket" style="flex:0 0 120px">Connect</button></div><div style="margin-bottom:20px"><div class="section-label">Send Message</div><div style="display:flex;gap:8px"><input type="text" id="wsMsgIn" placeholder="Type a message..." style="flex:1"><button type="button" id="wsSendBtn" class="btn btn-primary" title="Send Message" style="flex:0 0 80px">Send</button></div></div><div class="resp-box show" id="wsBox" style="display:flex;max-height:400px"><div class="resp-header"><span>Connection Logs <span id="wsCode" style="font-weight:400"></span></span><button class="copy-btn" id="wsLogsClearBtn" title="Clear Logs"></button></div><div class="resp-content" id="wsLogs" style="padding:16px;font-family:'SF Mono',Menlo,monospace;font-size:12px;color:var(--muted)"></div></div></div></div></div>\x3c!-- Test Response Modal --\x3e<div id="testResponseModal" class="modal"><div class="modal-content" style="max-width:700px;margin:2% auto"><div class="modal-header"><h3 id="testResponseTitle">API Response</h3><div class="modal-actions"><button type="button" class="icon-btn" id="testResponseTreeBtn" title="Tree View"></button><button type="button" class="icon-btn" id="testResponseTableBtn" title="Table View"></button><div style="width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px"></div><button type="button" class="icon-btn" id="testResponseJson" title="Download JSON"></button><button type="button" class="icon-btn" id="testResponseCopy" title="Copy Response"></button><button type="button" class="icon-btn" id="testResponseCloseBtn" title="Close"></button></div></div><div class="modal-body"><div id="testResponseContent" style="background:#14171c;border-radius:8px;border:1px solid rgba(255,255,255,.08)"></div></div></div></div>\x3c!-- Info Modal --\x3e<div id="infoModal" class="modal"><div class="modal-content" style="max-width:800px;margin:2% auto"><div class="modal-header"><h3>API Master Information</h3><div class="modal-actions"><button type="button" class="icon-btn" id="infoCloseBtn" title="Close"></button></div></div><div class="modal-body modal-card-grid" style="display:flex;flex-direction:column;gap:10px"><div class="modal-card"><div class="modal-card-header"><h4>GENERAL INFORMATION</h4></div><div class="modal-card-body"><div style="display:flex;flex-direction:column;gap:12px"><div style="font-size:13px;color:var(--muted);display:flex;gap:12px;align-items:center"><span style="opacity:0.6;min-width:145px">Base URL:</span><span id="baseUrl" style="color:var(--accent);font-weight:600;letter-spacing:0.5px"></span></div><div style="font-size:13px;color:var(--muted);display:flex;gap:12px;align-items:center"><span style="opacity:0.6;min-width:145px">OpenAPI Specification:</span><a href="/openapi.json" target="_blank" style="color:var(--primary);text-decoration:none;font-weight:600">/openapi.json</a></div><div style="font-size:13px;color:var(--muted);display:flex;gap:12px;align-items:center"><span style="opacity:0.6;min-width:145px">API CSV Catalog:</span><a href="#" onclick="exportCatalogCsv(); return false;" style="color:var(--primary);text-decoration:none;font-weight:600" title="Export CSV Catalog (E)">Download CSV Catalog</a></div><div style="font-size:13px;color:var(--muted);display:flex;gap:12px;align-items:center"><span style="opacity:0.6;min-width:145px">Path Override:</span><span style="color:var(--secondary-text)">Updates actual params first; else injects into Query for GET/DELETE else Body.</span></div></div></div></div><div class="modal-card"><div class="modal-card-header"><h4>ANALYTICS</h4></div><div class="modal-card-body"><div id="infoAnalyticsGrid" class="analytics-grid" style="margin-top:0"></div></div></div></div></div></div>\x3c!-- Paste cURL Modal --\x3e<div id="pasteCurlModal" class="modal"><div class="modal-content" style="max-width:760px;margin:5% auto"><div class="modal-header"><h3>Paste cURL Command</h3><div class="modal-actions"><button type="button" class="btn btn-primary" id="pasteCurlSubmitBtn" title="Open in API Runner" style="height:36px;padding:0 16px;font-size:13px;flex:0 0 auto">Open Runner</button><button type="button" class="icon-btn" id="pasteCurlCloseBtn" title="Close"></button></div></div><div class="modal-body" style="padding:20px"><div class="modal-card" style="margin-bottom:0"><div class="modal-card-header"><h4>CURL COMMAND</h4></div><div class="modal-card-body"><textarea id="pasteCurlInput" placeholder="Paste cURL here. If path matches an API in /openapi.json, Runner opens pre-filled; otherwise runs as-is in ad-hoc mode (response not saved)." spellcheck="false" style="width:100%;min-height:240px;padding:12px;font-family:'SF Mono',Menlo,monospace;font-size:13px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#14171c;color:#e6eef3;box-sizing:border-box;resize:vertical;outline:none;line-height:1.5"></textarea><div id="pasteCurlError" style="display:none;margin-top:10px;padding:10px 12px;background:rgba(220,53,69,0.1);border:1px solid rgba(220,53,69,0.3);border-radius:6px;color:var(--delete);font-size:12px;font-family:'SF Mono',Menlo,monospace"></div></div></div></div></div></div>\x3c!-- Param Info Modal --\x3e<div id="paramInfoModal" class="modal"><div class="modal-content" style="max-width:1000px;margin:2% auto"><div class="modal-header"><h3 id="paramInfoTitle">Parameter Configuration</h3><div class="modal-actions"><button type="button" class="icon-btn" id="paramInfoCopyBtn" title="Copy Detail"></button><button type="button" class="icon-btn" id="paramInfoCloseBtn" title="Close"></button></div></div><div id="paramInfoBody" class="modal-body"></div></div></div>\x3c!-- Curl View Modal --\x3e<div id="curlViewModal" class="modal"><div class="modal-content" style="max-width:760px;margin:2% auto"><div class="modal-header"><h3 id="curlViewTitle">Curl Command</h3><div class="modal-actions"><button type="button" class="icon-btn" id="curlViewCopyHeaderBtn" title="Copy Curl Command"></button><button type="button" class="icon-btn" id="curlViewCopyRawHeaderBtn" title="Copy Curl With Placeholders"></button><button type="button" class="icon-btn" id="curlViewCloseBtn" title="Close"></button></div></div><div class="modal-body" style="padding:20px"><div id="curlViewContent" style="background:#14171c;border-radius:8px;border:1px solid rgba(255,255,255,.08);padding:20px;overflow-x:auto;max-height:60vh;font-family:'SF Mono',Menlo,monospace;font-size:13px;line-height:1.5"></div></div></div></div>\x3c!-- Storage Modal --\x3e<div id="storageModal" class="modal"><div class="modal-content" style="max-width:540px;margin:2% auto"><div class="modal-header"><h3>Local Storage</h3><div class="modal-actions"><button type="button" class="icon-btn" id="storageDownloadAll" title="Download All State"></button><button type="button" class="icon-btn delete" id="storageResetAll" title="Reset All State"></button><button type="button" class="icon-btn" id="storageCloseBtn" title="Close"></button></div></div><div class="modal-body"><div class="modal-card" id="storageCard"><div class="modal-card-body" style="padding:0"><div id="storageContent"></div></div></div></div></div></div>\x3c!-- Popups --\x3e<div id="cellPop" class="cell-pop"><span id="cellPopTxt"></span><button class="cell-pop-copy" id="cellPopCopy" title="Copy"></button></div>\n\x3c!-- Tag Filters Modal --\x3e<div id="tagFiltersModal" class="modal"><div class="modal-content" style="max-width:640px;margin:2% auto"><div class="modal-header"><h3>Filters</h3><div class="modal-actions"><button type="button" class="icon-btn" id="tagFiltersCloseBtn" title="Close"></button></div></div><div class="modal-body modal-card-grid vertical-stack" style="padding:20px;display:flex;flex-direction:column;gap:16px"><div class="modal-card" style="margin-bottom:0;flex-shrink:0;min-height:auto"><div class="modal-card-header"><h4>API Namespaces</h4></div><div class="modal-card-body" style="padding:16px"><div class="namespace-filters" style="display:flex;gap:8px;flex-wrap:wrap;flex-direction:row"><span class="tag-filter namespace-filter" data-prefix="/" style="flex-shrink:0">/</span><span class="tag-filter namespace-filter" data-prefix="/auth/" style="flex-shrink:0">/auth/</span><span class="tag-filter namespace-filter" data-prefix="/my/" style="flex-shrink:0">/my/</span><span class="tag-filter namespace-filter" data-prefix="/public/" style="flex-shrink:0">/public/</span><span class="tag-filter namespace-filter" data-prefix="/private/" style="flex-shrink:0">/private/</span><span class="tag-filter namespace-filter" data-prefix="/admin/" style="flex-shrink:0">/admin/</span></div></div></div><div class="modal-card" style="margin-bottom:0;flex-shrink:0;min-height:auto"><div class="modal-card-header"><h4>Parameter Types</h4></div><div class="modal-card-body" style="padding:16px"><div class="type-filters" style="display:flex;gap:8px;flex-wrap:wrap;flex-direction:row"><span class="tag-filter type-filter" data-filter="is:override" style="flex-shrink:0">is:override</span><span class="tag-filter type-filter" data-filter="is:query" style="flex-shrink:0">is:query</span><span class="tag-filter type-filter" data-filter="is:header" style="flex-shrink:0">is:header</span><span class="tag-filter type-filter" data-filter="is:form" style="flex-shrink:0">is:form</span><span class="tag-filter type-filter" data-filter="is:body" style="flex-shrink:0">is:body</span></div></div></div><div class="modal-card" style="margin-bottom:0"><div class="modal-card-header"><h4>Path Tags <span id="pathFilterTotal" style="font-weight:500;color:var(--muted)"></span></h4></div><div class="modal-card-body" id="apiInfoTags" style="padding:16px;max-height:162px;overflow-y:auto"></div></div></div></div></div>\x3c!-- Logout Modal --\x3e<div id="logoutModal" class="modal"><div class="modal-content" style="max-width:600px;margin:2% auto;height:calc(100vh - 4vh);display:flex;flex-direction:column"><div class="modal-header"><h3>User</h3><div class="modal-actions"><button type="button" class="btn btn-danger" id="logoutConfirmBtn" style="height:32px;padding:0 16px;font-size:12px;flex:0 0 auto;margin-right:8px;width:auto">Logout</button><button type="button" class="icon-btn" id="logoutModalCopyBtn" title="Copy User JSON"></button><button type="button" class="icon-btn" id="logoutModalDownloadBtn" title="Download User JSON"></button><button type="button" class="icon-btn" id="logoutModalCloseBtn" title="Close"></button></div></div><div class="modal-body" style="padding:20px;text-align:left;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column"><div id="logoutUserValue" style="font-size:13px;font-family:'SF Mono',Menlo,monospace;color:#e6eef3;background:#14171c;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;flex:1;overflow-y:auto;word-break:break-all;text-align:left"></div></div></div></div>\n`;
-    function injectModals() { const container = document.createElement("div"); container.id = "modalContainer"; container.innerHTML = MODAL_HTML; document.body.appendChild(container); injectFilterChildCards() }
+    function injectModals() { const container = document.createElement("div"); container.id = "modalContainer"; container.innerHTML = MODAL_HTML; document.body.appendChild(container); injectFilterChildCards(); injectProfileUi(); injectPasteCurlUi() }
+    function injectPasteCurlUi() {
+      const modal = UI("pasteCurlModal"), body = modal?.querySelector(".modal-body"), input = UI("pasteCurlInput"), error = UI("pasteCurlError"), submit = UI("pasteCurlSubmitBtn"); if (!modal || !body || !input || !error || !submit) return
+        ; const title = modal.querySelector(".modal-header h3"); if (title) title.textContent = "Paste cURL Runner"
+        ; submit.title = "Run cURL"; submit.style.gap = "8px"; submit.innerHTML = '<span id="pasteCurlRunIcon" style="display:flex;align-items:center"></span><span>Run</span>'
+        ; input.style.minHeight = "280px"; input.style.padding = "14px"; body.innerHTML = ""; body.appendChild(input); body.appendChild(error)
+    }
+    function injectProfileUi() {
+      UI("logoutModal")?.remove();
+      if (!UI("profileUiStyles")) {
+        const style = d.createElement("style"); style.id = "profileUiStyles"; style.textContent = `
+          .profile-json { display:block; width:max-content; min-width:100%; margin:0; padding:16px; box-sizing:border-box; color:#e6eef3; font:12px/1.6 "SF Mono",Menlo,monospace; white-space:pre; overflow-wrap:normal; word-break:normal; tab-size:2; }
+          .profile-json-wrap { max-height:360px; overflow:auto; background:#14171c; }
+          .profile-json-key { color:#7ec8e3; font-weight:600; }
+          .profile-json-string { color:#98c379; }
+          .profile-json-number { color:#d19a66; }
+          .profile-json-boolean { color:#c678dd; font-weight:600; }
+          .profile-json-null { color:#56b6c2; font-style:italic; }
+          .profile-json-punctuation { color:#9aa0a6; }
+          #profileBtn:disabled { pointer-events:none; }
+        `; d.head.appendChild(style)
+      }
+      const loginButton = UI("loginIndicator");
+      if (loginButton && !UI("profileBtn")) {
+        const profileButton = d.createElement("button");
+        profileButton.type = "button";
+        profileButton.className = "icon-btn";
+        profileButton.id = "profileBtn";
+        profileButton.title = "Profile";
+        profileButton.setAttribute("aria-label", "Profile");
+        profileButton.setAttribute("onclick", "renderProfile();showModal('profileModal')");
+        profileButton.style.display = "flex";
+        profileButton.disabled = true;
+        profileButton.style.opacity = "0.35";
+        profileButton.style.cursor = "default";
+        loginButton.parentNode.insertBefore(profileButton, loginButton);
+      }
+      if (!UI("profileModal")) {
+        const profileModal = d.createElement("div");
+        profileModal.id = "profileModal";
+        profileModal.className = "modal";
+        profileModal.innerHTML = `<div class="modal-content" style="max-width:820px;margin:3% auto;max-height:94vh;display:flex;flex-direction:column"><div class="modal-header"><h3>Profile</h3><div class="modal-actions"><button type="button" class="icon-btn" id="profileCloseBtn" title="Close" onclick="hideModal('profileModal')"></button></div></div><div class="modal-body modal-card-grid vertical-stack" style="padding:20px;display:flex;flex-direction:column;gap:16px;overflow-y:auto"><div class="modal-card" style="margin-bottom:0"><div class="modal-card-header"><h4>Token</h4><button type="button" class="icon-btn" id="profileTokenCopyBtn" title="Copy Token" onclick="copyWithFeedback(this,getProfileCopyValue(STORAGE_KEY_TOKEN),18,'Token copied')"></button></div><div class="modal-card-body profile-json-wrap" style="padding:0"><pre id="profileTokenValue" class="profile-json"></pre></div></div><div class="modal-card" style="margin-bottom:0"><div class="modal-card-header"><h4>User</h4><button type="button" class="icon-btn" id="profileUserCopyBtn" title="Copy User" onclick="copyWithFeedback(this,getProfileCopyValue(STORAGE_KEY_USER),18,'User copied')"></button></div><div class="modal-card-body profile-json-wrap" style="padding:0"><pre id="profileUserValue" class="profile-json"></pre></div></div></div></div>`;
+        UI("modalContainer").appendChild(profileModal);
+        profileModal.onclick = e => { if (e.target === profileModal) hideModal("profileModal") };
+      }
+    }
     function injectFilterChildCards() {
       const pathCard = UI("apiInfoTags")?.closest(".modal-card"); if (!pathCard || UI("apiMethodNameTags")) return
         ; const card = d.createElement("div"); card.className = "modal-card"; card.style.marginBottom = "0"; card.innerHTML = '<div class="modal-card-header"><h4>Method Name Tags <span id="methodNameFilterTotal" style="font-weight:500;color:var(--muted)"></span></h4></div><div class="modal-card-body" id="apiMethodNameTags" style="padding:16px;max-height:162px;overflow-y:auto"></div>'; pathCard.parentNode.insertBefore(card, pathCard)
@@ -36,30 +81,11 @@
       }); UI("apiInfoSearchClear")?.addEventListener("click", () => { UI("apiInfoSearch").value = ""; UI("apiInfoSearchClear").style.display = "none"; d.querySelectorAll(".namespace-filter").forEach(el => el.classList.remove("active")); d.querySelectorAll(".type-filter").forEach(el => el.classList.remove("active")); d.querySelectorAll(".method-name-filter").forEach(el => el.classList.remove("active")); renderApiInfoTags(); renderApiInfoTable("") })
         ; d.querySelectorAll(".modal").forEach(modal => { modal.addEventListener("click", e => { if (e.target === modal) hideModal(modal.id) }) }); const closeMapping = {
           runnerCloseBtn: "apiRunnerModal",
-          wsRunnerCloseBtn: "wsRunnerModal", testResponseCloseBtn: "testResponseModal", masterResponseCloseBtn: "masterResponseModal", infoCloseBtn: "infoModal", paramInfoCloseBtn: "paramInfoModal", curlViewCloseBtn: "curlViewModal", storageCloseBtn: "storageModal", tagFiltersCloseBtn: "tagFiltersModal", pasteCurlCloseBtn: "pasteCurlModal", logoutModalCloseBtn: "logoutModal"
+          wsRunnerCloseBtn: "wsRunnerModal", testResponseCloseBtn: "testResponseModal", masterResponseCloseBtn: "masterResponseModal", infoCloseBtn: "infoModal", paramInfoCloseBtn: "paramInfoModal", curlViewCloseBtn: "curlViewModal", storageCloseBtn: "storageModal", tagFiltersCloseBtn: "tagFiltersModal", pasteCurlCloseBtn: "pasteCurlModal", logoutModalCloseBtn: "logoutModal", profileCloseBtn: "profileModal"
         }
         ; Object.entries(closeMapping).forEach(([btnId, modalId]) => { UI(btnId)?.addEventListener("click", () => { if (modalId === "wsRunnerModal") wsDisconnect(); hideModal(modalId) }) })
         ; UI("pasteCurlSubmitBtn")?.addEventListener("click", submitPasteCurl); UI("pasteCurlInput")?.addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); submitPasteCurl() } })
-        ; UI("logoutConfirmBtn")?.addEventListener("click", () => {
-          if (confirm("Are you sure you want to logout?")) {
-            Store.token = null; 
-            localStorage.removeItem("user"); 
-            localStorage.removeItem("user_key");
-            hideModal("logoutModal"); 
-            updateLoginIndicator(); 
-            toast("Logged Out");
-          }
-        }); UI("logoutModalCopyBtn")?.addEventListener("click", function() {
-          const val = localStorage.getItem("user_key") || localStorage.getItem("user") || Store.token || "";
-          copyWithFeedback(this, val, 18, "Copied");
-        }); UI("logoutModalDownloadBtn")?.addEventListener("click", function() {
-          const val = localStorage.getItem("user_key") || localStorage.getItem("user") || Store.token || "";
-          try {
-            downloadJson("user.json", JSON.parse(val));
-          } catch(e) {
-            downloadJson("user.json", val);
-          }
-        }); UI("wsConnBtn")?.addEventListener("click", wsToggleConnect); UI("wsSendBtn")?.addEventListener("click", wsSend); UI("wsLogsClearBtn")?.addEventListener("click", () => {
+        ; UI("wsConnBtn")?.addEventListener("click", wsToggleConnect); UI("wsSendBtn")?.addEventListener("click", wsSend); UI("wsLogsClearBtn")?.addEventListener("click", () => {
           UI("wsLogs").innerHTML = ""
         }); UI("wsMsgIn")?.addEventListener("keydown", e => { if (e.key === "Enter") wsSend() }); UI("apiForm")?.addEventListener("submit", e => {
           e.preventDefault()
@@ -131,32 +157,12 @@
         })
         ; UI("loginIndicator")?.addEventListener("click", () => {
           if (Store.token) {
-            const userVal = localStorage.getItem("user_key") || localStorage.getItem("user") || "";
-            const uElem = UI("logoutUserValue");
-            if (uElem) {
-              let parsed = null;
-              try {
-                if (userVal && userVal !== "Unknown User") {
-                  parsed = JSON.parse(userVal);
-                }
-              } catch(e) {}
-
-              let tbl = '<table class="resp-tbl" style="width:100%"><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody>';
-              if (typeof parsed === 'object' && parsed !== null && Object.keys(parsed).length > 0) {
-                const priorityKeys = ["id", "type", "role", "username"];
-                const keys = Object.keys(parsed);
-                const sortedKeys = [...priorityKeys.filter(k => keys.includes(k)), ...keys.filter(k => !priorityKeys.includes(k))];
-                for (let k of sortedKeys) {
-                  tbl += `<tr><td style="color:#7ec8e3">${k}</td><td>${typeof parsed[k]==='object'?JSON.stringify(parsed[k]):String(parsed[k])}</td></tr>`;
-                }
-              } else {
-                tbl += `<tr><td colspan="2" style="text-align:center;padding:30px!important;color:var(--muted)">${userVal || "No user data found in localStorage"}</td></tr>`;
-              }
-              tbl += '</tbody></table>';
-              uElem.innerHTML = `<div class="resp-tbl-wrap" style="height:100%;max-height:none;background:none;border-radius:8px">${tbl}</div>`;
-              uElem.style.padding = '0';
+            if (confirm("Are you sure you want to logout?")) {
+              Store.clearAuth();
+              hideModal("profileModal");
+              updateLoginIndicator();
+              toast("Logged out");
             }
-            showModal("logoutModal");
           } else {
             const idx = COMMANDS.findIndex(c => c.p === "/auth/login-username-password" && c.m === "POST"); if (idx !== -1) {
               activeMasterRunIndex = null
@@ -232,6 +238,7 @@
         }); d.querySelectorAll(".namespace-filter").forEach(pill => { pill.addEventListener("click", () => { const prefix = pill.dataset.prefix; const searchInput = UI("apiInfoSearch"); if (searchInput.value === prefix) { searchInput.value = ""; UI("apiInfoSearchClear").style.display = "none"; renderApiInfoTags(); renderApiInfoTable("") } else { searchInput.value = prefix; UI("apiInfoSearchClear").style.display = "block"; renderApiInfoTags(); renderApiInfoTable(prefix); hideModal("tagFiltersModal") } }) })
         ; d.querySelectorAll(".type-filter").forEach(pill => { pill.addEventListener("click", () => { const filter = pill.dataset.filter; const searchInput = UI("apiInfoSearch"); if (searchInput.value === filter) { searchInput.value = ""; UI("apiInfoSearchClear").style.display = "none"; renderApiInfoTags(); renderApiInfoTable("") } else { searchInput.value = filter; UI("apiInfoSearchClear").style.display = "block"; renderApiInfoTags(); renderApiInfoTable(filter); hideModal("tagFiltersModal") } }) })
     }; var STORAGE_KEY_TOKEN = "token";
+    var STORAGE_KEY_USER = "user";
     var STORAGE_KEY_RESPONSE = "response";
     const parseStorageJson = (key) => {
       const rawValue = localStorage.getItem(key);
@@ -266,16 +273,24 @@
       }, set token(v) {
         if (!v) localStorage.removeItem(STORAGE_KEY_TOKEN); else localStorage.setItem(STORAGE_KEY_TOKEN, typeof v === 'object' ? JSON.stringify(v) : v);
       },
+      get user() { return parseStorageJson(STORAGE_KEY_USER) }, set user(v) {
+        if (v == null) localStorage.removeItem(STORAGE_KEY_USER); else localStorage.setItem(STORAGE_KEY_USER, typeof v === "string" ? v : JSON.stringify(v));
+      },
+      clearAuth() {
+        localStorage.removeItem(STORAGE_KEY_TOKEN);
+        localStorage.removeItem(STORAGE_KEY_USER);
+        localStorage.removeItem("user_key");
+      },
       get responses() { return memoryResponses }, set responses(v) { memoryResponses = v || {} },
       getResponse(i) { return this.responses[String(i)] || null }, setResponse(i, val) {
         const r = this.responses
           ; r[String(i)] = val; this.responses = r
       }, removeResponse(i) { const r = this.responses; delete r[String(i)]; this.responses = r }, clear() {
-        localStorage.removeItem(STORAGE_KEY_TOKEN)
+        this.clearAuth()
           ; memoryResponses = {}
       }
     }; const getStorageSnapshot = () => {
-      const snapshot = {};[STORAGE_KEY_TOKEN].forEach(key => {
+      const snapshot = {};[STORAGE_KEY_TOKEN, STORAGE_KEY_USER].forEach(key => {
         const rawValue = localStorage.getItem(key); if (rawValue == null) return; snapshot[key] = parseStorageJson(key)
       }); return snapshot
     }; const getStorageRows = () => {
@@ -285,9 +300,12 @@
             scope: "token", key: STORAGE_KEY_TOKEN,
             value: snapshot[STORAGE_KEY_TOKEN], removable: 1
           })
+        } if (Object.prototype.hasOwnProperty.call(snapshot, STORAGE_KEY_USER)) {
+          rowList.push({ scope: "user", key: STORAGE_KEY_USER, value: snapshot[STORAGE_KEY_USER], removable: 1 })
         } return rowList
     }; const deleteStorageEntry = row => {
       if (row.key === STORAGE_KEY_TOKEN) { Store.token = null; return 1 }
+      if (row.key === STORAGE_KEY_USER) { Store.user = null; return 1 }
       return 0
     }
       ; const SVG = (w, paths, stroke = "currentColor") => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none">${paths}</svg>`;
@@ -297,6 +315,7 @@
       check: s => SVG(s, '<polyline points="20 6 9 17 4 12"/>', "#22c55e"), cross: s => SVG(s, '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>', "#ef4444"),
       play: s => SVG(s, '<polygon points="5 3 19 12 5 21 5 3"/>', "#38a169"), trash: s => SVG(s, '<path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>'),
       terminal: s => SVG(s, '<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>'),
+      curl: s => SVG(s, '<rect x="2.5" y="4" width="19" height="16" rx="2"/><line x1="2.5" y1="8" x2="21.5" y2="8"/><circle cx="6" cy="6" r=".6" fill="currentColor" stroke="none"/><circle cx="8.5" cy="6" r=".6" fill="currentColor" stroke="none"/><polyline points="6 12 9 14.5 6 17"/><line x1="11.5" y1="17" x2="17" y2="17"/>'),
       list: s => SVG(s, '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>'),
       code: s => SVG(s, '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>'),
       table: s => SVG(s, '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>'),
@@ -326,18 +345,21 @@
     const clearIconTooltips = (root = d) => { root.querySelectorAll('.icon-btn,.view-btn,.copy-btn,.cell-pop-copy,.param-badge,.info-icon-btn,.cell-expand-btn,.run-btn,.clear-api-btn,.clear-input-btn,.toggle-mode-btn,.remove-btn,.add-btn-small').forEach(el => { el.removeAttribute("title"); delete el.dataset.tooltip }) }
       ; const setupIcons = () => {
         const iconMap = {
-          pasteCurlToggleBtn: ICON.paste(18), pathFiltersToggleBtn: ICON.tag(18), infoToggleBtn: ICON.info(18), storageToggleBtn: ICON.database(18),
+          pasteCurlToggleBtn: ICON.curl(18), pasteCurlRunIcon: ICON.play(13), pathFiltersToggleBtn: ICON.tag(18), infoToggleBtn: ICON.info(18), storageToggleBtn: ICON.database(18),
           btnRaw: ICON.code(16), btnPretty: ICON.list(16), btnTable: ICON.table(16), btnChart: ICON.chart(16), btnHeaders: ICON.headers(16), rCopy: ICON.copy(16), rCopyFull: ICON.copyCurl(16), rCsv: ICON.downloadCsv(16), rJson: ICON.download(16),
           testAllExportCsv: ICON.downloadCsv(16), testResponseJson: ICON.downloadJson(20), testResponseCopy: ICON.copy(20), storageDownloadAll: ICON.download(18),
-          storageResetAll: ICON.trash(18), cellPopCopy: ICON.copy(14), curlViewCopyHeaderBtn: ICON.copy(20), curlViewCopyRawHeaderBtn: ICON.copyCurl(20), runnerResetBtn: ICON.trash(18), runnerOvrBtn: ICON.ovr(18), runnerCurlBtn: ICON.terminal(18), subBtnIcon: ICON.play(14), logoutModalCopyBtn: ICON.copy(18), logoutModalDownloadBtn: ICON.downloadJson(18)
+          storageResetAll: ICON.trash(18), cellPopCopy: ICON.copy(14), curlViewCopyHeaderBtn: ICON.copy(20), curlViewCopyRawHeaderBtn: ICON.copyCurl(20), runnerResetBtn: ICON.trash(18), runnerOvrBtn: ICON.ovr(18), runnerCurlBtn: ICON.terminal(18), subBtnIcon: ICON.play(14), profileBtn: ICON.user(18), profileTokenCopyBtn: ICON.copy(16), profileUserCopyBtn: ICON.copy(16)
         }; Object.entries(iconMap).forEach(([id, svg]) => {
           const el = UI(id)
             ; if (el && svg) el.innerHTML = svg
         }); d.querySelectorAll('.modal-header .icon-btn[title="Close"]').forEach(btn => { btn.innerHTML = ICON.close(24) }); clearIconTooltips()
       }; const toast = msg => {
         const el = d.createElement("div"); el.className = "toast"; el.textContent = msg; d.body.appendChild(el); setTimeout(() => el.remove(), 2500)
-      }; const copyWithFeedback = (btn, text, size = 16, msg) => {
-        try { if (navigator.clipboard) { navigator.clipboard.writeText(text) } else { console.warn("Clipboard API not available") } } catch (err) { console.error("Failed to copy:", err) } if (msg) toast(msg)
+      }; const copyWithFeedback = async (btn, text, size = 16, msg) => {
+        let copied = false; try { if (navigator.clipboard) { await navigator.clipboard.writeText(text); copied = true } } catch (err) { console.warn("Clipboard API unavailable, using fallback") }
+        if (!copied) {
+          const temp = d.createElement("textarea"); temp.value = text; temp.style.position = "fixed"; temp.style.opacity = "0"; d.body.appendChild(temp); temp.select(); copied = d.execCommand("copy"); temp.remove()
+        } if (msg && copied) toast(msg)
           ; if (btn.dataset.copied === "1") return; const originalHtml = btn.innerHTML; btn.dataset.copied = "1"; btn.innerHTML = ICON.check(size); setTimeout(() => {
             btn.innerHTML = originalHtml
               ; delete btn.dataset.copied
@@ -882,10 +904,37 @@
               ; exportBtn.style.cursor = stats.hasResults ? "pointer" : "default"; exportBtn.disabled = !stats.hasResults
           }; clearIconTooltips(summaryEl)
       }
+    }; const formatProfileValue = (value, emptyMessage) => {
+      if (value == null || value === "") return emptyMessage
+        ; if (typeof value === "object") return JSON.stringify(value, null, 2)
+        ; if (typeof value === "string") {
+          const trimmed = value.trim(); try { const parsed = JSON.parse(trimmed); return typeof parsed === "object" && parsed !== null ? JSON.stringify(parsed, null, 2) : value } catch (err) { return value }
+        } return String(value)
+    }; const highlightProfileJson = text => {
+      const tokenPattern = /"(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"\s*:|"(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"|\b(?:true|false)\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|[{}\[\],:]/g
+        ; let html = "", lastIndex = 0; text.replace(tokenPattern, (match, offset) => {
+          html += he(text.slice(lastIndex, offset)); let rendered
+            ; if (match.trimEnd().endsWith(":")) {
+              const colonIndex = match.lastIndexOf(":"); rendered = `<span class="profile-json-key">${he(match.slice(0, colonIndex))}</span><span class="profile-json-punctuation">${he(match.slice(colonIndex))}</span>`
+            } else if (match.startsWith('"')) rendered = `<span class="profile-json-string">${he(match)}</span>`
+              ; else if (match === "true" || match === "false") rendered = `<span class="profile-json-boolean">${match}</span>`
+                ; else if (match === "null") rendered = `<span class="profile-json-null">${match}</span>`
+                  ; else if (/^-?\d/.test(match)) rendered = `<span class="profile-json-number">${match}</span>`
+                    ; else rendered = `<span class="profile-json-punctuation">${match}</span>`
+          html += rendered; lastIndex = offset + match.length; return match
+        }); return html + he(text.slice(lastIndex))
+    }; const getProfileCopyValue = key => formatProfileValue(parseStorageJson(key), "")
+      ; const renderProfile = () => {
+      const token = parseStorageJson(STORAGE_KEY_TOKEN);
+      const user = parseStorageJson(STORAGE_KEY_USER);
+      const tokenValue = UI("profileTokenValue");
+      const userValue = UI("profileUserValue");
+      if (tokenValue) tokenValue.innerHTML = highlightProfileJson(formatProfileValue(token, "No token stored"));
+      if (userValue) userValue.innerHTML = highlightProfileJson(formatProfileValue(user, "No user stored"));
     }; const updateLoginIndicator = () => {
-      const ind = UI("loginIndicator"); if (!ind) return; const tUser = Store.token; if (tUser) {
-        ind.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Logout`; ind.style.background = "rgba(56,161,105,0.1)"; ind.style.color = "var(--primary)"
-      } else { ind.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Login`; ind.style.background = "rgba(220,53,69,0.1)"; ind.style.color = "var(--delete)" }
+      const ind = UI("loginIndicator"); if (!ind) return; const profileBtn = UI("profileBtn"); const tUser = Store.token; if (tUser) {
+        ind.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Logout`; ind.title = "Logout"; ind.style.background = "rgba(220,53,69,0.1)"; ind.style.color = "var(--delete)"; if (profileBtn) { profileBtn.disabled = false; profileBtn.style.opacity = "1"; profileBtn.style.cursor = "pointer" }
+      } else { ind.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor"></span>Login`; ind.title = "Login"; ind.style.background = "rgba(56,161,105,0.12)"; ind.style.color = "var(--primary)"; if (profileBtn) { profileBtn.disabled = true; profileBtn.style.opacity = "0.35"; profileBtn.style.cursor = "default" } }
     }; const bindClear = r => {
       const inp = r.querySelector(".row-val"), btn = r.querySelector(".clear-input-btn"); if (!btn || !inp) return; const upd = () => { btn.style.display = inp.value ? "block" : "none"; if (inp.value) inp.setAttribute("data-has-value", "true"); else inp.removeAttribute("data-has-value") }
         ; upd(); inp.oninput = upd; inp.onchange = upd; btn.onclick = e => { e.stopPropagation(); inp.value = ""; upd(); inp.focus() }
@@ -976,10 +1025,8 @@
               if (r.ok && json && curr.p.includes("/auth/login")) {
                 if (json.status === 1 && json.message?.token) {
                   Store.token = json.message.token;
-                  if (json.message.user) {
-                    const userStr = typeof json.message.user === 'object' ? JSON.stringify(json.message.user) : json.message.user;
-                    localStorage.setItem("user", userStr);
-                  }
+                  Store.user = json.message.user ?? null;
+                  localStorage.removeItem("user_key");
                   toast(`Session Token Saved`);
                   updateLoginIndicator();
                 }
