@@ -109,6 +109,7 @@ config_regex = {
 }
 
 config_api = {
+"/admin/sync": {"id": 1, "user_role_check": ["realtime", [1]]},
 "/admin/object-create": {"id": 2, "user_role_check": ["token", [1]]},
 "/admin/object-update": {"id": 3, "user_role_check": ["token", [1]]},
 "/admin/object-read": {"id": 4, "user_role_check": ["token", [1]]},

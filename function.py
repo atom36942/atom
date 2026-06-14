@@ -581,7 +581,7 @@ async def func_middleware_check_user_deleted(*, user_dict: dict, url_path: str, 
     if deleted_status == "absent": raise Exception("missing deleted_at")
     if deleted_status is not None: raise Exception("user is deleted")
 
-async def func_middleware_check_user_role(*, user_dict: dict, url_path: str, config_api: dict, client_postgres: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_admin(*, user_dict: dict, url_path: str, config_api: dict, client_postgres: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
     """Ensure sufficient roles to access endpoints using a strictly configured mode from config_api."""
     if not url_path.startswith("/admin"):
         return None
