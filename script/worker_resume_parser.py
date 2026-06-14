@@ -27,15 +27,15 @@ from config import config_aws_secret_access_key
 async def execute():
     TABLE_NAME = "jobseeker"
     BASE_COLUMNS = {"id", "created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id", "deactivated_at", "deactivated_by_id", "verified_at", "verified_by_id", "resume_url", "resume_content", "status", "worker_status", "worker_last_error", "metadata", "worker_retry_count", "worker_next_retry_at", "worker_processed_at", "rating", "remark"}
-    BATCH_LIMIT = 5
+    BATCH_LIMIT = 100
     worker_retry_delay_sec = [60, 300, 3600, 86400]
-    CONCURRENCY_LIMIT = 3
+    CONCURRENCY_LIMIT = 20
     if not config_gemini_key:
         print("Error: config_gemini_key is not set. Worker requires Gemini.")
         return
     print(f"Starting Dynamic Resume Parser Worker Script... batch_limit={BATCH_LIMIT} concurrency_limit={CONCURRENCY_LIMIT}")
     client_gemini = genai.Client(api_key=config_gemini_key)
-    pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=5, server_settings={"application_name": "atom-daemon-resume-parser"})
+    pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=20, server_settings={"application_name": "atom-daemon-resume-parser"})
     async with pool.acquire() as conn:
         records = await conn.fetch(f"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1", TABLE_NAME)
         if not records:
@@ -50,7 +50,11 @@ async def execute():
             if col_name in BASE_COLUMNS:
                 continue
             datatype = col["datatype"].lower()
-            if datatype.startswith("int") or datatype.startswith("bigint") or datatype.startswith("smallint"):
+            if col_name == "projects":
+                properties[col_name] = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"title": {"type": "STRING"}, "description": {"type": "STRING"}, "technologies": {"type": "ARRAY", "items": {"type": "STRING"}}, "url": {"type": "STRING"}}}, "nullable": True}
+            elif col_name == "certifications":
+                properties[col_name] = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"name": {"type": "STRING"}, "issuer": {"type": "STRING"}, "year": {"type": "INTEGER"}}}, "nullable": True}
+            elif datatype.startswith("int") or datatype.startswith("bigint") or datatype.startswith("smallint"):
                 properties[col_name] = {"type": "INTEGER", "nullable": True}
             elif datatype.startswith("numeric") or datatype.startswith("float") or datatype.startswith("real"):
                 properties[col_name] = {"type": "NUMBER", "nullable": True}
@@ -62,7 +66,7 @@ async def execute():
                 properties[col_name] = {"type": "STRING", "nullable": True}
         return {"type": "OBJECT", "properties": properties}
     async def func_claim_candidates(conn: asyncpg.Connection, batch_limit: int) -> list:
-        return await conn.fetch(f"WITH claim AS (SELECT c.id FROM {TABLE_NAME} c WHERE (c.worker_status IS NULL OR c.worker_status IN (1, 3)) AND (c.worker_next_retry_at <= NOW() OR c.worker_next_retry_at IS NULL) AND (c.resume_url IS NOT NULL OR c.resume_content IS NOT NULL) AND c.deleted_at IS NULL ORDER BY c.created_at, c.id LIMIT $1 FOR UPDATE OF c SKIP LOCKED) UPDATE {TABLE_NAME} u SET worker_status = 1, worker_next_retry_at = NOW() + INTERVAL '15 minutes' FROM claim JOIN {TABLE_NAME} c ON c.id = claim.id WHERE u.id = claim.id RETURNING u.id, u.resume_url, c.resume_content, c.worker_retry_count", batch_limit)
+        return await conn.fetch(f"WITH claim AS (SELECT c.id FROM {TABLE_NAME} c WHERE (c.worker_status IS NULL OR c.worker_status IN (1, 3)) AND (c.worker_next_retry_at <= NOW() OR c.worker_next_retry_at IS NULL) AND (c.resume_url IS NOT NULL OR c.resume_content IS NOT NULL) AND c.deleted_at IS NULL AND c.deactivated_at IS NULL ORDER BY c.created_at, c.id LIMIT $1 FOR UPDATE OF c SKIP LOCKED) UPDATE {TABLE_NAME} u SET worker_status = 1, worker_next_retry_at = NOW() + INTERVAL '15 minutes' FROM claim JOIN {TABLE_NAME} c ON c.id = claim.id WHERE u.id = claim.id RETURNING u.id, u.resume_url, c.resume_content, c.worker_retry_count", batch_limit)
     async def func_mark_completed(conn: asyncpg.Connection, candidate_id: int, data: dict) -> None:
         update_data = {k: v for k, v in data.items() if k in candidate_col_names and k not in BASE_COLUMNS}
         if not update_data:
@@ -70,12 +74,18 @@ async def execute():
             return
         set_clauses = ["worker_status = 2", "worker_processed_at = NOW()", "worker_last_error = NULL", "updated_at = NOW()"]
         values = [candidate_id]
+        col_datatypes = {col["name"]: col["datatype"].lower() for col in candidate_cols}
         for i, (key, value) in enumerate(update_data.items(), start=2):
             if value in ("", "null", "None"):
                 value = None
             if key in ("ctc_current", "ctc_expected") and value == 0:
                 value = None
-            set_clauses.append(f'"{key}" = ${i}')
+            datatype = col_datatypes.get(key, "")
+            if datatype in ("json", "jsonb") and value is not None:
+                value = json.dumps(value)
+                set_clauses.append(f'"{key}" = ${i}::jsonb')
+            else:
+                set_clauses.append(f'"{key}" = ${i}')
             values.append(value)
         set_query = ", ".join(set_clauses)
         query = f"UPDATE {TABLE_NAME} SET {set_query} WHERE id = $1"
@@ -152,12 +162,12 @@ async def execute():
                 1. Extract the candidate's information from their resume exactly as per the JSON schema provided.
                 2. For any missing numeric values (like current/expected CTC), output null. For missing arrays, output empty array [].
                 3. For 'company_current', extract ONLY the most recent or active employer. Do not list past companies.
-                4. For 'company_past', extract all past companies and combine them as a comma-separated string (e.g. "Google, Facebook").
-                5. If there are multiple colleges, combine them as a comma-separated string (e.g. "MIT, Harvard").
+                4. For 'company_past', extract an array of all past companies.
+                5. For 'college', extract an array of all colleges attended.
                 6. For 'profile', extract a relevant and concise professional profile or headline for the candidate (e.g. 'Software Engineer', 'Product Manager').
-                7. Evaluate the candidate's overall profile strength, skills, and experience. 
-                8. Provide an objective 'ai_rating' (1.0 to 10.0) indicating their general employability and strength of their resume.
-                9. Provide an 'ai_remark' (max 2 sentences) justifying the rating and highlighting their key strengths or areas for improvement.
+                7. Evaluate the candidate's overall profile strength, skills, and experience. Be a STRICT, highly critical Recruiter.
+                8. Provide an 'ai_rating' (1.0 to 10.0). Grading must be strict: an average, standard resume is a 5.0. Only the top 1% of elite candidates get above 8.5. Penalize for lack of measurable achievements, bad formatting, or unexplained gaps.
+                9. Provide an 'ai_remark' detailing your feedback. Format it clearly as: "Pros: [1-2 key strengths]. Cons: [1-2 weaknesses, missing skills, or red flags]." Be ruthlessly honest.
                 """
                 
                 contents_to_send = gemini_contents_input.copy()

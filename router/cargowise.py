@@ -1173,6 +1173,12 @@ async def func_api_admin_cargowise_buyer_360(*, request: Request):
             OH.OH_IsConsignee AS is_consignee,
             OH.OH_IsConsignor AS is_consignor,
             OH.OH_RL_NKClosestPort AS closest_port,
+            DefaultAddress.CountryCode AS country_code,
+            DefaultAddress.State AS state,
+            DefaultAddress.City AS city,
+            DefaultAddress.Address1 AS address_1,
+            DefaultAddress.Address2 AS address_2,
+            DefaultAddress.PostCode AS post_code,
             OH.OH_ScreeningStatus AS screening_status,
             ISNULL(POs.TotalPOs, 0) AS total_purchase_orders,
             ISNULL(Shipments.TotalBookings, 0) AS total_bookings,
@@ -1187,6 +1193,18 @@ async def func_api_admin_cargowise_buyer_360(*, request: Request):
             UpdateStaff.GS_FullName AS updated_by_name,
             CASE WHEN OH.OH_SystemLastEditTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OH.OH_SystemLastEditTimeUtc, 126) + 'Z' END AS updated_at
         FROM dbo.OrgHeader OH
+        OUTER APPLY (
+            SELECT TOP 1 
+                OA.OA_RN_NKCountryCode AS CountryCode, 
+                OA.OA_State AS State,
+                OA.OA_City AS City,
+                OA.OA_Address1 AS Address1,
+                OA.OA_Address2 AS Address2,
+                OA.OA_PostCode AS PostCode
+            FROM dbo.OrgAddress OA
+            WHERE OA.OA_OH = OH.OH_PK AND OA.OA_IsValid = 1
+            ORDER BY OA.OA_SystemCreateTimeUtc ASC
+        ) DefaultAddress
         OUTER APPLY (
             SELECT COUNT(JD.JD_PK) AS TotalPOs
             FROM dbo.JobOrderHeader JD
