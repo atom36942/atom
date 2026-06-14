@@ -63,7 +63,7 @@ config_users_delete_data_retention_day = 30
 config_sensitive_tables = ["spatial_ref_sys", "users", "log_users_delete", "jobseeker"]
 config_redis_cache_ttl_sec = 3600
 config_table_disable_create_my = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
-config_table_enable_create_public = ["test"]
+config_table_enable_create_public = ["test","jobseeker"]
 config_table_enable_read_public = ["*"]
 config_table_enable_delete_all_my = ["*"]
 config_table_enable_delete_all_my_user_id = ["message","notification"]
@@ -125,6 +125,12 @@ config_api = {
 "/admin/blob-url-delete": {"id": 13, "user_role_check": ["token", [1]]},
 "/admin/mssql-sql-runner": {"id": 21, "user_role_check": ["realtime", [1]]},
 "/admin/mssql-sql-runner-read": {"id": 23, "user_role_check": ["realtime", [1]]},
+"/public/object-read": {"id": 14, "api_cache_sec": ["inmemory", 100]},
+"/info": {"id": 17, "api_cache_sec": ["inmemory", 100]},
+"/public/table-groupby": {"id": 18, "api_cache_sec": ["inmemory", 10]},
+"/public/jira-worklog-export": {"id": 19, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
+"/admin/cargowise-sync-users": {"id": 34, "user_role_check": ["token", [1]]},
+"/admin/cargowise-buyer-360": {"id": 32, "user_role_check": ["token", [1]], "api_cache_sec": ["redis", 1000]},
 "/my/cargowise-profile": {"id": 24, "api_cache_sec": ["redis", 300]},
 "/my/cargowise-purchase-orders": {"id": 25, "api_cache_sec": ["redis", 300]},
 "/my/cargowise-purchase-orders-line-items": {"id": 33, "api_cache_sec": ["redis", 300]},
@@ -134,11 +140,6 @@ config_api = {
 "/my/cargowise-exceptions": {"id": 29, "api_cache_sec": ["redis", 300]},
 "/my/cargowise-documents": {"id": 30, "api_cache_sec": ["redis", 300]},
 "/my/cargowise-analytics": {"id": 31, "api_cache_sec": ["redis", 300]},
-"/admin/cargowise-buyer-360": {"id": 32, "user_role_check": ["token", [1]], "api_cache_sec": ["redis", 1000]},
-"/public/object-read": {"id": 14, "api_cache_sec": ["inmemory", 100]},
-"/info": {"id": 17, "api_cache_sec": ["inmemory", 100]},
-"/public/table-groupby": {"id": 18, "api_cache_sec": ["inmemory", 10]},
-"/public/jira-worklog-export": {"id": 19, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
 }
 
 config_column_int_mapping = {
@@ -207,10 +208,24 @@ config_postgres = {
 {"name":"description","datatype":"text"},
 {"name":"gender","datatype":"text"},
 {"name":"date_of_birth","datatype":"date"},
-{"name":"id_ext","datatype":"text","unique":"id_ext,type"},
+{"name":"cw_is_valid","datatype":"boolean"},
+{"name":"cw_is_active","datatype":"boolean"},
+{"name":"cw_is_consignee","datatype":"boolean"},
+{"name":"cw_is_consignor","datatype":"boolean"},
+{"name":"cw_is_global_account","datatype":"boolean"},
+{"name":"cw_is_controlling_agent","datatype":"boolean"},
+{"name":"cw_is_controlling_customer","datatype":"boolean"},
+{"name":"cw_category","datatype":"text"},
+{"name":"cw_closest_port","datatype":"text"},
+{"name":"cw_code","datatype":"text"},
+{"name":"cw_screening_status","datatype":"text"}
 ],
 "config":[
 {"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
+{"name":"created_by_id","datatype":"bigint"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"updated_by_id","datatype":"bigint"},
 {"name":"key","datatype":"text","is_mandatory":1,"unique":"key"},
 {"name":"value","datatype":"jsonb","is_mandatory":1},
 ],

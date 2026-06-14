@@ -1,11 +1,244 @@
 # packages
 from fastapi import APIRouter, Request, Response
 from fastapi.encoders import jsonable_encoder
+import os
+import textwrap
+from datetime import datetime, timezone
+from argon2 import PasswordHasher
+from function import func_postgres_create, func_postgres_update, func_postgres_serialize, func_regex_check
+from config import config_regex, config_table, config_buffer_limit_default
 
 # router
 router = APIRouter()
 
 # api
+@router.post("/admin/cargowise-sync-users")
+async def func_api_admin_cargowise_sync_users(*, request: Request):
+    app_state = request.app.state
+    user = request.state.user or {}
+    if int(user.get("role") or 0) != 1: raise Exception("Admin role required")
+    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
+    if not app_state.client_postgres: raise Exception("Postgres client not initialized")
+    seed_cargowise_user_password = os.getenv("seed_cargowise_user_password") or "123456"
+    seed_cargowise_user_type = int(os.getenv("seed_cargowise_user_type") or 1)
+    seed_cargowise_user_role = int(os.getenv("seed_cargowise_user_role") or 2)
+    batch_size = 1000
+    def chunked(items, size):
+        for i in range(0, len(items), size):
+            yield items[i:i + size]
+    sql_mssql = textwrap.dedent("""\
+        SELECT
+            CONVERT(varchar(36), OH.OH_PK) AS username,
+            OH.OH_FullName AS name,
+            OH.OH_IsValid AS cw_is_valid,
+            OH.OH_IsActive AS cw_is_active,
+            OH.OH_IsConsignee AS cw_is_consignee,
+            OH.OH_IsConsignor AS cw_is_consignor,
+            OH.OH_IsGlobalAccount AS cw_is_global_account,
+            OH.OH_IsControllingAgent AS cw_is_controlling_agent,
+            OH.OH_IsControllingCustomer AS cw_is_controlling_customer,
+            OH.OH_Category AS cw_category,
+            OH.OH_RL_NKClosestPort AS cw_closest_port,
+            OH.OH_Code AS cw_code,
+            OH.OH_ScreeningStatus AS cw_screening_status
+        FROM dbo.OrgHeader AS OH
+        ORDER BY OH.OH_FullName;""")
+    async with app_state.client_mssql_read_fallback.acquire() as conn:
+        cursor = await conn.cursor()
+        await cursor.execute(sql_mssql)
+        columns = [column[0] for column in cursor.description]
+        rows = await cursor.fetchall()
+    orgs = []
+    for row in rows:
+        item = dict(zip(columns, row))
+        username = str(item.get("username") or "").strip()
+        if not username: continue
+        orgs.append({
+            "username": username,
+            "name": str(item.get("name") or "").strip(),
+            "cw_is_valid": bool(item.get("cw_is_valid")),
+            "cw_is_active": bool(item.get("cw_is_active")),
+            "cw_is_consignee": bool(item.get("cw_is_consignee")),
+            "cw_is_consignor": bool(item.get("cw_is_consignor")),
+            "cw_is_global_account": bool(item.get("cw_is_global_account")),
+            "cw_is_controlling_agent": bool(item.get("cw_is_controlling_agent")),
+            "cw_is_controlling_customer": bool(item.get("cw_is_controlling_customer")),
+            "cw_category": str(item.get("cw_category") or "").strip(),
+            "cw_closest_port": str(item.get("cw_closest_port") or "").strip(),
+            "cw_code": str(item.get("cw_code") or "").strip(),
+            "cw_screening_status": str(item.get("cw_screening_status") or "").strip()
+        })
+    if not orgs:
+        return {"status": 1, "message": {"created": 0, "updated": 0, "info": "No orgs found in CargoWise"}}
+    usernames = [org["username"] for org in orgs]
+    sql_pg = textwrap.dedent("""\
+        SELECT
+            id, type, username, name, role, deactivated_at, deleted_at,
+            cw_is_consignee, cw_is_consignor, cw_is_global_account, 
+            cw_is_controlling_agent, cw_is_controlling_customer,
+            cw_category, cw_closest_port, cw_is_valid, cw_is_active, 
+            cw_code, cw_screening_status
+        FROM users
+        WHERE username = ANY($1::text[])
+        ORDER BY username, deleted_at NULLS FIRST, deactivated_at NULLS FIRST, type;""")
+    async with app_state.client_postgres.acquire() as conn:
+        records = await conn.fetch(sql_pg, usernames)
+    existing_users = [dict(record) for record in records]
+    existing_by_username = {}
+    for existing_user in existing_users:
+        if existing_user.get("username"):
+            if existing_user["username"] in existing_by_username: continue
+            existing_by_username[existing_user["username"]] = existing_user
+    create_list = []
+    update_list = []
+    sync_time = datetime.now(timezone.utc)
+    for org in orgs:
+        existing = existing_by_username.get(org["username"])
+        deleted_at = None if org["cw_is_valid"] else sync_time
+        deactivated_at = None if org["cw_is_active"] else sync_time
+        desired = {
+            "type": seed_cargowise_user_type,
+            "role": seed_cargowise_user_role,
+            "name": org["name"],
+            "deleted_at": deleted_at,
+            "deactivated_at": deactivated_at,
+            "cw_is_valid": org["cw_is_valid"],
+            "cw_is_active": org["cw_is_active"],
+            "cw_is_consignee": org["cw_is_consignee"],
+            "cw_is_consignor": org["cw_is_consignor"],
+            "cw_is_global_account": org["cw_is_global_account"],
+            "cw_is_controlling_agent": org["cw_is_controlling_agent"],
+            "cw_is_controlling_customer": org["cw_is_controlling_customer"],
+            "cw_category": org["cw_category"],
+            "cw_closest_port": org["cw_closest_port"],
+            "cw_code": org["cw_code"],
+            "cw_screening_status": org["cw_screening_status"]
+        }
+        if not existing:
+            create_list.append({
+                "username": org["username"],
+                "password": seed_cargowise_user_password,
+                **desired
+            })
+            continue
+        if any(existing.get(key) != value for key, value in desired.items()):
+            update_list.append({"id": existing["id"], **desired, "updated_at": sync_time})
+    client_password_hasher = PasswordHasher()
+    cache_postgres_schema = request.app.state.cache_postgres_schema
+    created_count = 0
+    if create_list:
+        cache_postgres_buffer_create = {}
+        for batch in chunked(create_list, batch_size):
+            await func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, buffer_limit=config_table.get("users", {}).get("buffer_limit", config_buffer_limit_default), mode="now", table="users", obj_list=batch)
+            created_count += len(batch)
+    updated_count = 0
+    if update_list:
+        for batch in chunked(update_list, batch_size):
+            await func_postgres_update(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, config_regex=config_regex, table="users", obj_list=batch, created_by_id=None)
+            updated_count += len(batch)
+    return {"status": 1, "message": {"created": created_count, "updated": updated_count}}
+
+@router.get("/admin/cargowise-buyer-360")
+async def func_api_admin_cargowise_buyer_360(*, request: Request):
+    app_state = request.app.state
+    user = request.state.user or {}
+    if int(user.get("role") or 0) != 1: raise Exception("Admin role required")
+    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("name", "str", 0, None, ""), ("org_id", "str", 0, None, "")])
+    limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
+    if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
+    limit = max(1, limit)
+    page = max(1, int(oq["page"] or 1))
+    offset = (page - 1) * limit
+    sql_limit = limit + 1
+    name = str(oq.get("name") or "").strip()
+    org_id = str(oq.get("org_id") or "").strip()
+    sql = f"""
+        SET NOCOUNT ON;
+        SELECT
+            CONVERT(varchar(36), OH.OH_PK) AS org_id,
+            OH.OH_FullName AS name,
+            OH.OH_Category AS category,
+            OH.OH_IsActive AS is_active,
+            OH.OH_IsValid AS is_valid,
+            OH.OH_IsGlobalAccount AS is_global_account,
+            OH.OH_IsConsignee AS is_consignee,
+            OH.OH_IsConsignor AS is_consignor,
+            OH.OH_RL_NKClosestPort AS closest_port,
+            DefaultAddress.CountryCode AS country_code,
+            DefaultAddress.State AS state,
+            DefaultAddress.City AS city,
+            DefaultAddress.Address1 AS address_1,
+            DefaultAddress.Address2 AS address_2,
+            DefaultAddress.PostCode AS post_code,
+            OH.OH_ScreeningStatus AS screening_status,
+            ISNULL(POs.TotalPOs, 0) AS total_purchase_orders,
+            ISNULL(Shipments.TotalBookings, 0) AS total_bookings,
+            ISNULL(Shipments.TotalShipments, 0) AS total_shipments,
+            ISNULL(Consols.TotalConsols, 0) AS total_consols,
+            ISNULL(Finance.TotalInvoices, 0) AS total_invoices,
+            Shipments.LastActivityDate AS last_activity_date,
+            OH.OH_SystemCreateUser AS created_by,
+            CreateStaff.GS_FullName AS created_by_name,
+            CASE WHEN OH.OH_SystemCreateTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OH.OH_SystemCreateTimeUtc, 126) + 'Z' END AS created_at,
+            OH.OH_SystemLastEditUser AS updated_by,
+            UpdateStaff.GS_FullName AS updated_by_name,
+            CASE WHEN OH.OH_SystemLastEditTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OH.OH_SystemLastEditTimeUtc, 126) + 'Z' END AS updated_at
+        FROM dbo.OrgHeader OH
+        OUTER APPLY (
+            SELECT TOP 1 
+                OA.OA_RN_NKCountryCode AS CountryCode, 
+                OA.OA_State AS State,
+                OA.OA_City AS City,
+                OA.OA_Address1 AS Address1,
+                OA.OA_Address2 AS Address2,
+                OA.OA_PostCode AS PostCode
+            FROM dbo.OrgAddress OA
+            WHERE OA.OA_OH = OH.OH_PK AND OA.OA_IsValid = 1
+            ORDER BY OA.OA_SystemCreateTimeUtc ASC
+        ) DefaultAddress
+        OUTER APPLY (
+            SELECT COUNT(JD.JD_PK) AS TotalPOs
+            FROM dbo.JobOrderHeader JD
+            INNER JOIN dbo.OrgAddress OA ON JD.JD_OA_BuyerAddress = OA.OA_PK
+            WHERE OA.OA_OH = OH.OH_PK
+        ) POs
+        OUTER APPLY (
+            SELECT
+                COUNT(JS.JS_PK) AS TotalShipments,
+                SUM(CASE WHEN JS.JS_IsBooking = 1 THEN 1 ELSE 0 END) AS TotalBookings,
+                MAX(JS.JS_SystemCreateTimeUtc) AS LastActivityDate
+            FROM dbo.JobShipment JS
+            INNER JOIN dbo.cvw_JobShipmentOrgs JSO ON JS.JS_PK = JSO.JS_PK
+            WHERE JSO.JS_E2_OA_OH_Consignee = OH.OH_PK
+        ) Shipments
+        OUTER APPLY (
+            SELECT COUNT(JK.JK_PK) AS TotalConsols
+            FROM dbo.JobConsol JK
+            INNER JOIN dbo.OrgAddress OA ON JK.JK_OA_SendingForwarderAddress = OA.OA_PK
+            WHERE OA.OA_OH = OH.OH_PK
+        ) Consols
+        OUTER APPLY (
+            SELECT COUNT(AH.AH_PK) AS TotalInvoices
+            FROM dbo.AccTransactionHeader AH
+            WHERE AH.AH_OH = OH.OH_PK
+        ) Finance
+        LEFT JOIN dbo.GlbStaff CreateStaff ON CreateStaff.GS_Code = OH.OH_SystemCreateUser
+        LEFT JOIN dbo.GlbStaff UpdateStaff ON UpdateStaff.GS_Code = OH.OH_SystemLastEditUser
+        WHERE OH.OH_IsActive = 1 
+          AND OH.OH_IsValid = 1 
+          AND OH.OH_IsConsignee = 1
+          AND (? = '' OR LOWER(OH.OH_FullName) LIKE '%' + LOWER(?) + '%')
+          AND (? = '' OR OH.OH_PK = TRY_CONVERT(uniqueidentifier, ?))
+        ORDER BY ISNULL(Shipments.TotalShipments, 0) DESC, OH.OH_FullName ASC
+        OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
+    async with app_state.client_mssql_read_fallback.acquire() as conn:
+        cursor = await conn.cursor()
+        await cursor.execute(sql, name, name, org_id, org_id)
+        columns = [column[0] for column in cursor.description]
+        obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
+    return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
+    
 @router.get("/my/cargowise-profile")
 async def func_api_my_cargowise_profile(*, request: Request):
     app_state = request.app.state
@@ -1146,103 +1379,3 @@ async def func_api_my_cargowise_analytics(*, request: Request):
     analytics_object = {"kpis": kpis[0] if kpis else {}, "purchase_orders_by_status": purchase_orders_by_status, "shipments_by_status": shipments_by_status, "shipments_by_month": shipments_by_month, "transport_modes": transport_modes}
     return {"status": 1, "message": jsonable_encoder(analytics_object)}
 
-@router.get("/admin/cargowise-buyer-360")
-async def func_api_admin_cargowise_buyer_360(*, request: Request):
-    app_state = request.app.state
-    user = request.state.user or {}
-    if int(user.get("role") or 0) != 1: raise Exception("Admin role required")
-    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("name", "str", 0, None, ""), ("org_id", "str", 0, None, "")])
-    limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
-    if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
-    limit = max(1, limit)
-    page = max(1, int(oq["page"] or 1))
-    offset = (page - 1) * limit
-    sql_limit = limit + 1
-    name = str(oq.get("name") or "").strip()
-    org_id = str(oq.get("org_id") or "").strip()
-    sql = f"""
-        SET NOCOUNT ON;
-        SELECT
-            CONVERT(varchar(36), OH.OH_PK) AS org_id,
-            OH.OH_FullName AS name,
-            OH.OH_Category AS category,
-            OH.OH_IsActive AS is_active,
-            OH.OH_IsValid AS is_valid,
-            OH.OH_IsGlobalAccount AS is_global_account,
-            OH.OH_IsConsignee AS is_consignee,
-            OH.OH_IsConsignor AS is_consignor,
-            OH.OH_RL_NKClosestPort AS closest_port,
-            DefaultAddress.CountryCode AS country_code,
-            DefaultAddress.State AS state,
-            DefaultAddress.City AS city,
-            DefaultAddress.Address1 AS address_1,
-            DefaultAddress.Address2 AS address_2,
-            DefaultAddress.PostCode AS post_code,
-            OH.OH_ScreeningStatus AS screening_status,
-            ISNULL(POs.TotalPOs, 0) AS total_purchase_orders,
-            ISNULL(Shipments.TotalBookings, 0) AS total_bookings,
-            ISNULL(Shipments.TotalShipments, 0) AS total_shipments,
-            ISNULL(Consols.TotalConsols, 0) AS total_consols,
-            ISNULL(Finance.TotalInvoices, 0) AS total_invoices,
-            Shipments.LastActivityDate AS last_activity_date,
-            OH.OH_SystemCreateUser AS created_by,
-            CreateStaff.GS_FullName AS created_by_name,
-            CASE WHEN OH.OH_SystemCreateTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OH.OH_SystemCreateTimeUtc, 126) + 'Z' END AS created_at,
-            OH.OH_SystemLastEditUser AS updated_by,
-            UpdateStaff.GS_FullName AS updated_by_name,
-            CASE WHEN OH.OH_SystemLastEditTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OH.OH_SystemLastEditTimeUtc, 126) + 'Z' END AS updated_at
-        FROM dbo.OrgHeader OH
-        OUTER APPLY (
-            SELECT TOP 1 
-                OA.OA_RN_NKCountryCode AS CountryCode, 
-                OA.OA_State AS State,
-                OA.OA_City AS City,
-                OA.OA_Address1 AS Address1,
-                OA.OA_Address2 AS Address2,
-                OA.OA_PostCode AS PostCode
-            FROM dbo.OrgAddress OA
-            WHERE OA.OA_OH = OH.OH_PK AND OA.OA_IsValid = 1
-            ORDER BY OA.OA_SystemCreateTimeUtc ASC
-        ) DefaultAddress
-        OUTER APPLY (
-            SELECT COUNT(JD.JD_PK) AS TotalPOs
-            FROM dbo.JobOrderHeader JD
-            INNER JOIN dbo.OrgAddress OA ON JD.JD_OA_BuyerAddress = OA.OA_PK
-            WHERE OA.OA_OH = OH.OH_PK
-        ) POs
-        OUTER APPLY (
-            SELECT
-                COUNT(JS.JS_PK) AS TotalShipments,
-                SUM(CASE WHEN JS.JS_IsBooking = 1 THEN 1 ELSE 0 END) AS TotalBookings,
-                MAX(JS.JS_SystemCreateTimeUtc) AS LastActivityDate
-            FROM dbo.JobShipment JS
-            INNER JOIN dbo.cvw_JobShipmentOrgs JSO ON JS.JS_PK = JSO.JS_PK
-            WHERE JSO.JS_E2_OA_OH_Consignee = OH.OH_PK
-        ) Shipments
-        OUTER APPLY (
-            SELECT COUNT(JK.JK_PK) AS TotalConsols
-            FROM dbo.JobConsol JK
-            INNER JOIN dbo.OrgAddress OA ON JK.JK_OA_SendingForwarderAddress = OA.OA_PK
-            WHERE OA.OA_OH = OH.OH_PK
-        ) Consols
-        OUTER APPLY (
-            SELECT COUNT(AH.AH_PK) AS TotalInvoices
-            FROM dbo.AccTransactionHeader AH
-            WHERE AH.AH_OH = OH.OH_PK
-        ) Finance
-        LEFT JOIN dbo.GlbStaff CreateStaff ON CreateStaff.GS_Code = OH.OH_SystemCreateUser
-        LEFT JOIN dbo.GlbStaff UpdateStaff ON UpdateStaff.GS_Code = OH.OH_SystemLastEditUser
-        WHERE OH.OH_IsActive = 1 
-          AND OH.OH_IsValid = 1 
-          AND OH.OH_IsConsignee = 1
-          AND (? = '' OR LOWER(OH.OH_FullName) LIKE '%' + LOWER(?) + '%')
-          AND (? = '' OR OH.OH_PK = TRY_CONVERT(uniqueidentifier, ?))
-        ORDER BY ISNULL(Shipments.TotalShipments, 0) DESC, OH.OH_FullName ASC
-        OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
-    async with app_state.client_mssql_read_fallback.acquire() as conn:
-        cursor = await conn.cursor()
-        await cursor.execute(sql, name, name, org_id, org_id)
-        columns = [column[0] for column in cursor.description]
-        obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
-    return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
