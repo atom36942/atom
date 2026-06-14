@@ -79,15 +79,9 @@ def func_check(*, app: any) -> None:
             for node in tree.body:
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("func_"): raise Exception(f"invalid function name: {node.name}")
     if config_router_path:
-        allowed_router_verbs = {"get", "post", "put", "patch", "delete", "head", "options", "trace", "api_route", "websocket"}
         for router_path in iter_python_paths(config_router_path):
             with open(router_path, "r", encoding="utf-8") as f: tree = ast.parse(f.read())
             if not any(isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "router" for target in node.targets) for node in tree.body): raise Exception(f"router file '{router_path.name}' missing 'router' variable")
-            for node in tree.body:
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    if not node.name.startswith("func_api_"): raise Exception(f"router file '{router_path.name}': function '{node.name}' must start with 'func_api_' (helpers belong in function.py)")
-                    has_router_decorator = any(isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute) and isinstance(dec.func.value, ast.Name) and dec.func.value.id == "router" and dec.func.attr in allowed_router_verbs for dec in node.decorator_list)
-                    if not has_router_decorator: raise Exception(f"router file '{router_path.name}': function '{node.name}' is missing a @router.<verb> decorator (helpers belong in function.py)")
     return None
 
 async def func_postgres_schema_init(*, client_postgres: any, config_postgres: dict, root_user_password_hash: str = None) -> str:
@@ -589,8 +583,11 @@ async def func_middleware_check_user_deleted(*, user_dict: dict, url_path: str, 
 
 async def func_middleware_check_user_role(*, user_dict: dict, url_path: str, config_api: dict, client_postgres: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
     """Ensure sufficient roles to access endpoints using a strictly configured mode from config_api."""
-    if not url_path.startswith("/admin") or not (cfg := config_api.get(url_path)) or "user_role_check" not in cfg:
+    if not url_path.startswith("/admin"):
         return None
+    cfg = config_api.get(url_path)
+    if not cfg or "user_role_check" not in cfg:
+        raise Exception("role not mapped with admin api")
     mode = cfg["user_role_check"][0]
     roles = set(cfg["user_role_check"][1])
     async def fetch_role(uid):
