@@ -48,7 +48,7 @@ async def func_api_my_object_create_mongodb(*, request: Request):
 async def func_api_my_object_create(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("mode", "str", 0, ["now", "buffer"], "now"), ("queue", "str", 0, app_state.config_allowed_queue_services, None)])
-    if "*" in app_state.config_table_disable_create_my or oq["table"] in app_state.config_table_disable_create_my: raise Exception(f"creation disabled for table: {oq['table']}")
+    if "*" in app_state.config_table_my_create_disable or oq["table"] in app_state.config_table_my_create_disable: raise Exception(f"creation disabled for table: {oq['table']}")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
     if app_state.config_batch_item_limit and len(obj_list) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
@@ -99,6 +99,66 @@ async def func_api_my_ids_delete(*, request: Request):
     created_by_id = request.state.user["id"] if ob["table"] != "users" else None
     deleted_count = await app_state.func_postgres_delete(client_postgres=app_state.client_postgres, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, table=ob["table"], ids=ob["ids"], created_by_id=created_by_id)
     return {"status": 1, "message": f"{deleted_count} ids deleted"}
+
+@router.delete("/my/object-delete-all")
+async def func_api_my_object_delete_all(*, request: Request):
+    app_state, user_id = request.app.state, request.state.user["id"]
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None)])
+    if oq["table"] == "users": raise Exception("users bulk delete disabled; use /my/object-delete for own account")
+    enabled_delete_all = app_state.config_table_enable_delete_all_my or []
+    if "*" not in enabled_delete_all and oq["table"] not in enabled_delete_all: raise Exception(f"delete all disabled for table: {oq['table']}")
+    if "created_by_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'created_by_id' column for ownership tracking")
+    async with app_state.client_postgres.acquire() as conn:
+        result = await conn.execute(f"""DELETE FROM "{oq["table"]}" WHERE "created_by_id"=$1""", user_id)
+    return {"status": 1, "message": f"{int(result.rsplit(' ', 1)[-1])} objects deleted"}
+
+@router.post("/my/object-delete-user-id")
+async def func_api_my_user_id_object_delete(*, request: Request):
+    app_state, user_id = request.app.state, request.state.user["id"]
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "list:int", 1, None, None)])
+    if app_state.config_batch_item_limit and len(ob["ids"]) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
+    schema = app_state.cache_postgres_schema.get(ob["table"], {})
+    if ob["table"] == "users" or "id" not in schema or "user_id" not in schema: raise Exception("users delete disabled or missing 'id'/'user_id' column")
+    id_list, deleted_count = [int(x) for x in ob["ids"]], 0
+    async with app_state.client_postgres.acquire() as conn:
+        async with conn.transaction():
+            for i in range(0, len(id_list), 5000):
+                result = await conn.fetchval(f"""WITH deleted AS (DELETE FROM "{ob["table"]}" WHERE id=ANY($1::bigint[]) AND "user_id"=$2 RETURNING 1) SELECT COUNT(*) FROM deleted""", id_list[i:i+5000], user_id)
+                deleted_count += result
+    return {"status": 1, "message": f"{deleted_count} ids deleted"}
+
+@router.delete("/my/object-delete-user-id-all")
+async def func_api_my_user_id_object_delete_all(*, request: Request):
+    app_state, user_id = request.app.state, request.state.user["id"]
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None)])
+    if oq["table"] == "users": raise Exception("users received bulk delete disabled")
+    enabled_delete_all_user_id = app_state.config_table_enable_delete_all_my_user_id or []
+    if "*" not in enabled_delete_all_user_id and oq["table"] not in enabled_delete_all_user_id: raise Exception(f"received delete all disabled for table: {oq['table']}")
+    if "user_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'user_id' column for ownership tracking")
+    async with app_state.client_postgres.acquire() as conn:
+        result = await conn.execute(f"""DELETE FROM "{oq["table"]}" WHERE "user_id"=$1""", user_id)
+    return {"status": 1, "message": f"{int(result.rsplit(' ', 1)[-1])} objects deleted"}
+
+@router.get("/my/message-inbox")
+async def func_api_my_message_inbox(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mode", "str", 1, ["all", "unread", "read"], None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
+    where_clause = {"read": "user_id=$1 AND read_at IS NOT NULL", "unread": "user_id=$1 AND read_at IS NULL"}.get(oq["mode"], "1=1")
+    sql = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
+    async with app_state.client_postgres_read_fallback.acquire() as conn:
+        ol = [dict(r) for r in await conn.fetch(sql, request.state.user["id"])]
+        return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
+
+@router.get("/my/message-thread")
+async def func_api_my_message_thread(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("user_id", "int", 1, None, None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
+    user_one_id = request.state.user["id"]
+    sql = f"SELECT * FROM message WHERE ((created_by_id=$1 AND user_id=$2) OR (created_by_id=$2 AND user_id=$1)) ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
+    async with app_state.client_postgres.acquire() as conn:
+        ol = [dict(r) for r in await conn.fetch(sql, user_one_id, oq["user_id"])]
+        await conn.execute("UPDATE message SET read_at=now() WHERE created_by_id=$1 AND user_id=$2;", oq["user_id"], user_one_id)
+    return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 
 @router.post("/my/object-blob-delete")
 async def func_api_my_object_blob_delete(*, request: Request):
@@ -169,63 +229,3 @@ async def func_api_my_blob_url_delete(*, request: Request):
             tasks.append(app_state.client_azure_blob.get_blob_client(container=parts[0], blob=blob_key).delete_blob())
     if tasks: await asyncio.gather(*tasks, return_exceptions=True)
     return {"status": 1, "message": f"{len(urls)} {service} URLs processed"}
-
-@router.delete("/my/object-delete-all")
-async def func_api_my_object_delete_all(*, request: Request):
-    app_state, user_id = request.app.state, request.state.user["id"]
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None)])
-    if oq["table"] == "users": raise Exception("users bulk delete disabled; use /my/object-delete for own account")
-    enabled_delete_all = app_state.config_table_enable_delete_all_my or []
-    if "*" not in enabled_delete_all and oq["table"] not in enabled_delete_all: raise Exception(f"delete all disabled for table: {oq['table']}")
-    if "created_by_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'created_by_id' column for ownership tracking")
-    async with app_state.client_postgres.acquire() as conn:
-        result = await conn.execute(f"""DELETE FROM "{oq["table"]}" WHERE "created_by_id"=$1""", user_id)
-    return {"status": 1, "message": f"{int(result.rsplit(' ', 1)[-1])} objects deleted"}
-
-@router.post("/my/object-delete-received")
-async def func_api_my_received_ids_delete(*, request: Request):
-    app_state, user_id = request.app.state, request.state.user["id"]
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "list:int", 1, None, None)])
-    if app_state.config_batch_item_limit and len(ob["ids"]) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
-    schema = app_state.cache_postgres_schema.get(ob["table"], {})
-    if ob["table"] == "users" or "id" not in schema or "user_id" not in schema: raise Exception("users delete disabled or missing 'id'/'user_id' column")
-    id_list, deleted_count = [int(x) for x in ob["ids"]], 0
-    async with app_state.client_postgres.acquire() as conn:
-        async with conn.transaction():
-            for i in range(0, len(id_list), 5000):
-                result = await conn.fetchval(f"""WITH deleted AS (DELETE FROM "{ob["table"]}" WHERE id=ANY($1::bigint[]) AND "user_id"=$2 RETURNING 1) SELECT COUNT(*) FROM deleted""", id_list[i:i+5000], user_id)
-                deleted_count += result
-    return {"status": 1, "message": f"{deleted_count} ids deleted"}
-
-@router.delete("/my/object-delete-received-all")
-async def func_api_my_received_object_delete_all(*, request: Request):
-    app_state, user_id = request.app.state, request.state.user["id"]
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None)])
-    if oq["table"] == "users": raise Exception("users received bulk delete disabled")
-    enabled_delete_all_user_id = app_state.config_table_enable_delete_all_my_user_id or []
-    if "*" not in enabled_delete_all_user_id and oq["table"] not in enabled_delete_all_user_id: raise Exception(f"received delete all disabled for table: {oq['table']}")
-    if "user_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'user_id' column for ownership tracking")
-    async with app_state.client_postgres.acquire() as conn:
-        result = await conn.execute(f"""DELETE FROM "{oq["table"]}" WHERE "user_id"=$1""", user_id)
-    return {"status": 1, "message": f"{int(result.rsplit(' ', 1)[-1])} objects deleted"}
-
-@router.get("/my/message-inbox")
-async def func_api_my_message_inbox(*, request: Request):
-    app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("mode", "str", 1, ["all", "unread", "read"], None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
-    where_clause = {"read": "user_id=$1 AND read_at IS NOT NULL", "unread": "user_id=$1 AND read_at IS NULL"}.get(oq["mode"], "1=1")
-    sql = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
-    async with app_state.client_postgres_read_fallback.acquire() as conn:
-        ol = [dict(r) for r in await conn.fetch(sql, request.state.user["id"])]
-        return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
-
-@router.get("/my/message-thread")
-async def func_api_my_message_thread(*, request: Request):
-    app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("user_id", "int", 1, None, None), ("order", "str", 0, None, "id desc"), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
-    user_one_id = request.state.user["id"]
-    sql = f"SELECT * FROM message WHERE ((created_by_id=$1 AND user_id=$2) OR (created_by_id=$2 AND user_id=$1)) ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
-    async with app_state.client_postgres.acquire() as conn:
-        ol = [dict(r) for r in await conn.fetch(sql, user_one_id, oq["user_id"])]
-        await conn.execute("UPDATE message SET read_at=now() WHERE created_by_id=$1 AND user_id=$2;", oq["user_id"], user_one_id)
-    return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}

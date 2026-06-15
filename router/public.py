@@ -17,7 +17,7 @@ router = APIRouter()
 async def func_api_public_object_create(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("mode", "str", 0, ["now", "buffer"], "now")])
-    enabled_create_tables = app_state.config_table_enable_create_public or []
+    enabled_create_tables = app_state.config_table_create_enable_public or []
     if "*" not in enabled_create_tables and oq["table"] not in enabled_create_tables: raise Exception(f"creation disabled for table: {oq['table']}")
     ob=await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
