@@ -19,7 +19,6 @@ async def func_api_auth_signup_username_password(*, request:Request):
     async with app_state.client_postgres.acquire() as conn:
         user = dict((await conn.fetch("INSERT INTO users (type, username, password) VALUES ($1, $2, $3) RETURNING *;", ob["type"], ob["username"], app_state.client_password_hasher.hash(str(ob["password"]))))[0])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_in_sec=app_state.config_access_token_expires_in_sec, config_refresh_token_expires_in_sec=app_state.config_refresh_token_expires_in_sec, config_column_token_encode=app_state.config_column_token_encode)
-    if app_state.config_is_notification == 1:asyncio.create_task(app_state.func_notification_create(type=3, app_state=app_state, payload={"table": "users", "obj_list": [user]}))
     return {"status":1,"message":{"user":user,"token":token}}
 
 @router.post("/auth/login-username-password")

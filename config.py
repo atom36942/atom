@@ -42,7 +42,6 @@ config_is_enable_user_delete = 0
 config_is_enable_postgres_schema_init = 1
 config_is_enable_signup = 1
 config_is_enable_otp_require_users_update = 0
-config_is_notification = 0
 config_is_debug = 1
 config_otp_length = 6
 config_otp_expiry_sec = 600
@@ -150,7 +149,6 @@ config_column_int_mapping = {
 "users": {1: "Admin", 2: "Buyer", 3: "Procurement", 4: "Salesperson"},
 },
 "type": {
-"notification": {1: "Password Change", 2: "Job Status Change", 3: "Account Created"},
 "log_users_delete": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
 "blob": {1: "File", 2: "Presigned Url"},
 },

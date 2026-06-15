@@ -55,9 +55,6 @@ async def func_api_admin_object_update(*, request: Request):
     if request.state.user.get("id"): obj_list = [dict(item, updated_by_id=request.state.user["id"]) for item in obj_list]
     created_by_id = None
     result = await app_state.func_postgres_update(client_postgres=app_state.client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], obj_list=obj_list, created_by_id=created_by_id, client_postgres_conn=None, config_regex=app_state.config_regex)
-    if app_state.config_is_notification == 1:
-        asyncio.create_task(app_state.func_notification_create(type=1, app_state=app_state, payload={"table": oq["table"], "obj_list": obj_list}))
-        asyncio.create_task(app_state.func_notification_create(type=2, app_state=app_state, payload={"table": oq["table"], "obj_list": obj_list}))
     return {"status": 1, "message": result}
 
 @router.post("/admin/object-delete")
