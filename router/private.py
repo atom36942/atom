@@ -13,7 +13,7 @@ router = APIRouter()
 @router.post("/private/send-email")
 async def func_api_private_send_email(request:Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("service", "str", 1, app_state.config_allowed_email_services, None), ("sender", "str", 1, None, None), ("to", "list", 1, None, None), ("subject", "str", 1, None, None), ("text", "str", 1, None, None), ("cc", "list", 0, None, []), ("bcc", "list", 0, None, []), ("reply_to", "list", 0, None, [])])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("service", "str", 1, app_state.config_email_services, None), ("sender", "str", 1, None, None), ("to", "list", 1, None, None), ("subject", "str", 1, None, None), ("text", "str", 1, None, None), ("cc", "list", 0, None, []), ("bcc", "list", 0, None, []), ("reply_to", "list", 0, None, [])])
     message = None
     if ob["service"] == "ses":
         params = {"Source": ob["sender"], "Destination": {"ToAddresses": ob["to"], "CcAddresses": ob["cc"], "BccAddresses": ob["bcc"]}, "Message": {"Subject": {"Data": ob["subject"]}, "Body": {"Text": {"Data": ob["text"]}}}}
@@ -42,7 +42,7 @@ async def func_api_private_send_email(request:Request):
 @router.post("/private/blob-upload-file")
 async def func_api_private_blob_upload_file(request:Request):
     app_state = request.app.state
-    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("service", "str", 1, app_state.config_allowed_blob_services, None), ("container", "str", 1, None, None), ("file", "file", 1, None, None)])
+    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("service", "str", 1, app_state.config_blob_services, None), ("container", "str", 1, None, None), ("file", "file", 1, None, None)])
     container = of["container"]
     if len(of["file"]) > app_state.config_blob_limit_upload: raise Exception(f"maximum {app_state.config_blob_limit_upload} files allowed")
     output = {}; blob_list = []
@@ -68,7 +68,7 @@ async def func_api_private_blob_upload_file(request:Request):
 @router.post("/private/blob-upload-url")
 async def func_api_private_blob_upload_url(request:Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_allowed_blob_services, None), ("container", "str", 1, None, None), ("count", "int", 0, None, 1)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_blob_services, None), ("container", "str", 1, None, None), ("count", "int", 0, None, 1)])
     container = oq["container"]
     if oq["count"] > app_state.config_blob_limit_upload: raise Exception(f"maximum {app_state.config_blob_limit_upload} allowed")
     output = []; blob_list = []
@@ -91,7 +91,7 @@ async def func_api_private_blob_upload_url(request:Request):
 @router.post("/private/blob-container-sas")
 async def func_api_private_blob_container_sas(request:Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_allowed_blob_services, None), ("container", "str", 1, None, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_blob_services, None), ("container", "str", 1, None, None)])
     if oq["service"] == "s3":
         raise Exception("s3 is not allowed for this api")
     container = oq["container"]
@@ -102,7 +102,7 @@ async def func_api_private_blob_container_sas(request:Request):
 @router.post("/private/blob-preview-urls")
 async def func_api_private_blob_preview_urls(request:Request):
     app_state = request.app.state
-    of = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("service", "str", 1, app_state.config_allowed_blob_services, None), ("urls", "list", 1, None, None)])
+    of = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("service", "str", 1, app_state.config_blob_services, None), ("urls", "list", 1, None, None)])
     output = {}
     if of["service"] == "s3":
         for file_url in of["urls"]:

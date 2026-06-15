@@ -76,19 +76,17 @@ config_table_enable_delete_all_my_user_id = ["message","notification"]
 config_column_token_encode = ["id", "type", "role", "username", "deactivated_at", "deleted_at"]
 config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id"]
 config_column_single_update = ["username", "password", "email", "mobile", "deleted_at"]
+config_column_ownership = ["created_by_id", "user_id"]
 
-# General
-config_allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
-config_allowed_blob_services = ["s3", "azure"]
-config_allowed_email_services = ["ses", "resend", "azure"]
-config_allowed_mobile_services = ["sns", "fast2sms"]
-config_allowed_user_storage_backends = ["token", "realtime", "redis", "inmemory"]
-config_allowed_api_storage_backends = ["redis", "inmemory"]
-config_allowed_api_namespace = ["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"]
+# Services
+config_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
+config_blob_services = ["s3", "azure"]
+config_email_services = ["ses", "resend", "azure"]
+config_mobile_services = ["sns", "fast2sms"]
+
 config_allowed_api_namespace_auth = ["/my/", "/private/", "/admin/"]
 config_allowed_api_namespace_role = ["/admin"]
 config_allowed_api_namespace_cache_user = ["/my/"]
-config_users_ownership_column = ["created_by_id", "user_id"]
 
 # Dict
 config_sql = {

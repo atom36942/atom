@@ -14,7 +14,7 @@ from config import config_azure_account_name
 from config import config_postgres_url
 from config import config_aws_s3_region_name
 from config import config_table_sensitive
-from config import config_users_ownership_column
+from config import config_column_ownership
 from config import config_users_delete_data_retention_day
 
 # logic
@@ -50,7 +50,7 @@ async def execute():
         tables = []
         for table, columns in schema.items():
             if func_is_excluded_table(table): continue
-            ownership_columns = [col for col in config_users_ownership_column if col in columns]
+            ownership_columns = [col for col in config_column_ownership if col in columns]
             if "deleted_at" not in columns or not ownership_columns: continue
             tables.append((table, ownership_columns, "is_protected" in columns))
         return tables
