@@ -1604,13 +1604,13 @@ async def func_producer(*, queue: str, client_celery_producer: any, client_kafka
         return await client_redis_producer.lpush(channel, orjson.dumps(payload).decode("utf-8"))
     return None
 
-async def func_token_encode(*, user: dict, config_token_secret_key: str, config_access_token_expires_in_sec: int, config_refresh_token_expires_in_sec: int, config_allowed_token_key: list) -> dict:
+async def func_token_encode(*, user: dict, config_token_secret_key: str, config_access_token_expires_in_sec: int, config_refresh_token_expires_in_sec: int, config_column_token_encode: list) -> dict:
     """Generate access and refresh JWT tokens for a user object."""
     import jwt, orjson, time
     if user is None: return None
     if config_token_secret_key in (None, ""): raise Exception("token secret key missing")
     token_secret_key = str(config_token_secret_key)
-    payload_dict = {k: user.get(k) for k in config_allowed_token_key} if config_allowed_token_key else dict(user) if isinstance(user, dict) else user
+    payload_dict = {k: user.get(k) for k in config_column_token_encode} if config_column_token_encode else dict(user) if isinstance(user, dict) else user
     serialized_payload = orjson.dumps(payload_dict, default=str).decode("utf-8")
     now_ts = int(time.time())
     access_token = jwt.encode({"exp": now_ts + config_access_token_expires_in_sec, "data": serialized_payload, "type": "access"}, token_secret_key)

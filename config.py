@@ -38,7 +38,6 @@ config_celery_url = None
 config_root_user_password = "123456"
 config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
 config_root_html_path = "static/api.html"
-config_is_enable_func_check = 1
 config_is_enable_user_delete = 0
 config_is_enable_postgres_schema_init = 1
 config_is_enable_signup = 1
@@ -59,23 +58,25 @@ config_sql_read_limit_default = 100
 config_sql_read_limit_max = 10000
 config_sql_read_relation_fetch_limit_max = 100
 config_allowed_auth_types = [1]
-config_allowed_token_key = ["id", "type", "role", "username", "deactivated_at", "deleted_at"]
-config_users_delete_data_retention_day = 30
-config_sensitive_tables = ["spatial_ref_sys", "users", "log_users_delete", "jobseeker"]
 config_redis_cache_ttl_sec = 3600
-config_table_disable_create_my = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
-config_table_enable_create_public = ["test","jobseeker"]
-config_table_enable_read_public = ["*"]
-config_table_enable_delete_all_my = ["*"]
-config_table_enable_delete_all_my_user_id = ["message","notification"]
-config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id"]
-config_column_single_update = ["username", "password", "email", "mobile", "deleted_at"]
+config_users_delete_data_retention_day = 30
 config_cors_allow_origins = []
 config_cors_allow_origin_regex = ".*"
 config_cors_allow_methods = ["*"]
 config_cors_allow_headers = ["*"]
 config_cors_expose_headers = ["*"]
 config_cors_allow_credentials = True
+
+#table/column
+config_table_sensitive = ["spatial_ref_sys", "users", "log_users_delete", "jobseeker"]
+config_table_disable_create_my = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
+config_table_enable_create_public = ["test","jobseeker"]
+config_table_enable_read_public = ["*"]
+config_table_enable_delete_all_my = ["*"]
+config_table_enable_delete_all_my_user_id = ["message","notification"]
+config_column_token_encode = ["id", "type", "role", "username", "deactivated_at", "deleted_at"]
+config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id"]
+config_column_single_update = ["username", "password", "email", "mobile", "deleted_at"]
 
 # General
 config_allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
@@ -116,7 +117,7 @@ config_api = {
 "/admin/sync": {"id": 1, "user_role_check": ["realtime", [1]]},
 "/admin/object-create": {"id": 2, "user_role_check": ["token", [1]]},
 "/admin/object-update": {"id": 3, "user_role_check": ["token", [1]]},
-"/admin/object-read": {"id": 4, "user_role_check": ["token", [1]]},
+"/admin/object-read": {"id": 4, "user_role_check": ["token", [1,2,3,4]]},
 "/admin/object-delete": {"id": 5, "user_role_check": ["realtime", [1]], "user_deactivated_check": ["realtime"], "user_deleted_check": ["realtime"]},
 "/admin/postgres-sql-runner": {"id": 6, "user_role_check": ["realtime", [1]]},
 "/admin/postgres-sql-runner-read": {"id": 22, "user_role_check": ["realtime", [1]]},
@@ -133,7 +134,6 @@ config_api = {
 "/info": {"id": 17, "api_cache_sec": ["inmemory", 100]},
 "/public/table-groupby": {"id": 18, "api_cache_sec": ["inmemory", 10]},
 "/public/jira-worklog-export": {"id": 19, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
-"/admin/cargowise-sync-users": {"id": 34, "user_role_check": ["token", [1]]},
 "/admin/cargowise-buyer-360": {"id": 32, "user_role_check": ["token", [1]], "api_cache_sec": ["inmemory", 1000]},
 "/my/cargowise-profile": {"id": 24, "api_cache_sec": ["redis", 300]},
 "/my/cargowise-purchase-orders": {"id": 25, "api_cache_sec": ["redis", 300]},
@@ -149,7 +149,7 @@ config_api = {
 config_column_int_mapping = {
 "worker_status": {None: "Pending", 1: "Processing", 2: "Completed", 3: "Failed", 4: "Dead"},
 "role": {
-"users": {1: "Admin", 2: "Buyer", 3: "CRM", 4: "Salesperson"},
+"users": {1: "Admin", 2: "Buyer", 3: "Procurement", 4: "Salesperson"},
 },
 "type": {
 "notification": {1: "Password Change", 2: "Job Status Change", 3: "Account Created"},
@@ -376,6 +376,27 @@ config_postgres = {
 {"name":"summary","datatype":"text"},
 {"name":"projects","datatype":"jsonb","index":"gin(projects)"},
 {"name":"industry","datatype":"text","index":"btree(industry)"}
+],
+"freight_rates":[
+{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
+{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"deactivated_at","datatype":"timestamptz"},
+{"name":"deactivated_by_id","datatype":"bigint"},
+{"name":"carrier","datatype":"text","is_mandatory":1,"index":"btree(carrier)"},
+{"name":"pol","datatype":"text","is_mandatory":1,"index":"btree(pol,pod)"},
+{"name":"pod","datatype":"text","is_mandatory":1},
+{"name":"rate_validity","datatype":"date","index":"btree(rate_validity)"},
+{"name":"freight_20ft_cntr_usd","datatype":"numeric(12,2)"},
+{"name":"freight_40ft_cntr_usd","datatype":"numeric(12,2)"},
+{"name":"manifest_shpt_usd","datatype":"numeric(12,2)"},
+{"name":"seal_cntr_usd","datatype":"numeric(12,2)"},
+{"name":"thc_20ft_cntr_inr","datatype":"numeric(12,2)"},
+{"name":"thc_40ft_cntr_inr","datatype":"numeric(12,2)"},
+{"name":"bl_fees_shpt_inr","datatype":"numeric(12,2)"},
+{"name":"remarks","datatype":"text"}
 ],
 },
 "control":{

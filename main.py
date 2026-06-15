@@ -44,7 +44,7 @@ async def func_lifespan(app:"FastAPI"):
         # start
         start_journey = time.perf_counter()
         # check
-        if app.state.config_is_enable_func_check:app.state.func_check(app=app)
+        app.state.func_check(app=app)
         # structure
         if os.path.isdir("tmp") and not os.path.islink("tmp"): shutil.rmtree("tmp")
         elif os.path.exists("tmp"): os.remove("tmp")

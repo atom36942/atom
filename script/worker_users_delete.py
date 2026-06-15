@@ -13,7 +13,7 @@ from config import config_azure_account_key
 from config import config_azure_account_name
 from config import config_postgres_url
 from config import config_aws_s3_region_name
-from config import config_sensitive_tables
+from config import config_table_sensitive
 from config import config_users_ownership_column
 from config import config_users_delete_data_retention_day
 
@@ -33,7 +33,7 @@ async def execute():
     def func_quote_ident(name: str) -> str:
         return '"' + name.replace('"', '""') + '"'
     def func_is_excluded_table(table: str) -> bool:
-        for pattern in config_sensitive_tables:
+        for pattern in config_table_sensitive:
             if pattern.endswith("*"):
                 if table.startswith(pattern[:-1]): return True
             elif table == pattern: return True

@@ -13,7 +13,7 @@ async def func_api_my_profile(*, request: Request):
     user_id = request.state.user["id"]
     user = await app_state.func_user_read_single(client_postgres=app_state.client_postgres_read_fallback, user_id=user_id)
     metadata = {k: [dict(r) for r in await app_state.client_postgres_read_fallback.fetch(v, user_id)] for k, v in app_state.config_sql.get("profile_metadata", {}).items()}
-    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_in_sec=app_state.config_access_token_expires_in_sec, config_refresh_token_expires_in_sec=app_state.config_refresh_token_expires_in_sec, config_allowed_token_key=app_state.config_allowed_token_key)
+    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_in_sec=app_state.config_access_token_expires_in_sec, config_refresh_token_expires_in_sec=app_state.config_refresh_token_expires_in_sec, config_column_token_encode=app_state.config_column_token_encode)
     asyncio.create_task(app_state.client_postgres.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id))
     return {"status": 1, "message": {**user, "metadata": metadata, "token": token}}
 
@@ -21,7 +21,7 @@ async def func_api_my_profile(*, request: Request):
 async def func_api_my_token_refresh(*, request: Request):
     app_state = request.app.state
     user = await app_state.func_user_read_single(client_postgres=app_state.client_postgres_read_fallback, user_id=request.state.user["id"])
-    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_in_sec=app_state.config_access_token_expires_in_sec, config_refresh_token_expires_in_sec=app_state.config_refresh_token_expires_in_sec, config_allowed_token_key=app_state.config_allowed_token_key)
+    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_in_sec=app_state.config_access_token_expires_in_sec, config_refresh_token_expires_in_sec=app_state.config_refresh_token_expires_in_sec, config_column_token_encode=app_state.config_column_token_encode)
     return {"status": 1, "message": token}
 
 @router.get("/my/api-usage")

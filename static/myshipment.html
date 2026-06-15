@@ -396,6 +396,15 @@ body {
     background: var(--primary-hover);
 }
 
+.btn-danger {
+    background: #DC2626;
+    color: #FFFFFF;
+}
+
+.btn-danger:hover {
+    background: #B91C1C;
+}
+
 .btn-sm {
     padding: 0.35rem 0.75rem;
     font-size: 0.875rem;
@@ -807,6 +816,145 @@ body {
     font-size: 1.35rem;
 }
 
+.po-lines-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.po-lines-stat {
+    min-width: 0;
+    padding: 0.9rem 1rem;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    background: #FFFFFF;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.po-lines-stat-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: #64748B;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.po-lines-stat-label i { color: var(--primary); }
+
+.po-lines-stat-value {
+    margin-top: 0.35rem;
+    color: #0F172A;
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.po-lines-table-wrap {
+    max-height: none;
+    overflow: auto;
+    border: 1px solid #E2E8F0;
+    border-radius: 14px;
+    background: #FFFFFF;
+}
+
+#po-lines-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+#po-lines-table th,
+#po-lines-table td {
+    padding: 0.9rem 0.85rem;
+    border-bottom: 1px solid #E2E8F0;
+    color: #334155;
+    font-size: 0.82rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+#po-lines-table th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    color: #64748B;
+    background: #F8FAFC;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+#po-lines-table th:nth-child(1) { width: 19%; }
+#po-lines-table th:nth-child(2) { width: 33%; }
+#po-lines-table th:nth-child(3) { width: 16%; }
+#po-lines-table th:nth-child(4),
+#po-lines-table th:nth-child(5) { width: 16%; text-align: right; }
+#po-lines-table td:nth-child(4),
+#po-lines-table td:nth-child(5) { text-align: right; }
+#po-lines-table tbody tr:last-child td { border-bottom: 0; }
+#po-lines-table tbody tr:hover { background: #F8FAFC; }
+
+.po-line-part {
+    color: #0F172A;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.po-line-number {
+    display: block;
+    margin-top: 0.25rem;
+    color: #94A3B8;
+    font-size: 0.7rem;
+}
+
+.po-line-description {
+    color: #334155;
+    line-height: 1.45;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.po-line-quantity {
+    color: #0F172A;
+    font-weight: 650;
+}
+
+.po-line-detail {
+    display: block;
+    margin-top: 0.25rem;
+    color: #94A3B8;
+    font-size: 0.68rem;
+    font-weight: 500;
+}
+
+.po-line-money {
+    color: #0F172A;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.po-lines-footnote {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-top: 0.75rem;
+    color: #64748B;
+    font-size: 0.72rem;
+}
+
+@media (max-width: 700px) {
+    .po-lines-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #po-lines-table { min-width: 660px; }
+}
+
 .po-empty-row td {
     padding: 3rem 1rem !important;
     color: var(--text-muted);
@@ -1125,6 +1273,28 @@ body {
 
 .profile-actions {
     position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.header-role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 30px;
+    padding: 0.35rem 0.7rem;
+    color: #3730A3;
+    background: #EEF2FF;
+    border: 1px solid #C7D2FE;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.header-role-badge i {
+    font-size: 0.7rem;
 }
 
 .profile-menu {
@@ -1167,6 +1337,23 @@ body {
 
 #login-modal .modal-content {
     width: 420px;
+}
+
+#profile-modal .modal-content {
+    width: 400px;
+}
+
+#logout-modal .modal-content {
+    width: 420px;
+}
+
+.logout-confirmation {
+    color: #475569;
+    line-height: 1.55;
+}
+
+.logout-confirmation p {
+    margin: 0;
 }
 
 #login-modal .modal-body {
@@ -1754,6 +1941,262 @@ body {
     background: #F9FAFB;
 }
 
+/* Freight Rates */
+.rate-toolbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.55rem;
+}
+
+.rate-filters {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(140px, 1fr)) minmax(130px, 0.7fr) auto;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid var(--border);
+    background: #F8FAFC;
+}
+
+.rate-filter-field {
+    position: relative;
+}
+
+.rate-filter-field i {
+    position: absolute;
+    left: 0.8rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94A3B8;
+    font-size: 0.75rem;
+    pointer-events: none;
+}
+
+.rate-filter-field input,
+.rate-filter-field select,
+.rate-page-size {
+    width: 100%;
+    min-height: 40px;
+    box-sizing: border-box;
+    padding: 0.65rem 0.8rem 0.65rem 2.2rem;
+    border: 1px solid #D8DEE9;
+    border-radius: 8px;
+    background: #FFFFFF;
+    color: var(--text-dark);
+    font: inherit;
+    font-size: 0.82rem;
+    outline: none;
+}
+
+.rate-filter-field select { padding-left: 0.8rem; }
+
+.rate-filter-field input:focus,
+.rate-filter-field select:focus,
+.rate-page-size:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.rate-filter-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.rate-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.8rem;
+    padding: 1rem 1.25rem 0;
+}
+
+.rate-kpi {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    min-width: 0;
+    padding: 0.85rem 1rem;
+    border: 1px solid #E2E8F0;
+    border-radius: 11px;
+    background: #FFFFFF;
+}
+
+.rate-kpi-icon {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    background: #EEF2FF;
+    color: var(--primary);
+}
+
+.rate-kpi-label {
+    color: #64748B;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.rate-kpi-value {
+    margin-top: 0.18rem;
+    color: #0F172A;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.rate-table-wrap {
+    margin: 1rem 1.25rem 0;
+    border: 1px solid #E2E8F0;
+    border-radius: 11px;
+    overflow: auto;
+}
+
+#freight-rates-table {
+    min-width: 1260px;
+}
+
+#freight-rates-table th,
+#freight-rates-table td {
+    vertical-align: middle;
+}
+
+.rate-route {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+}
+
+.rate-route i { color: var(--primary); }
+
+.rate-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(62px, 1fr));
+    gap: 0.35rem;
+}
+
+.rate-pair span {
+    display: block;
+    padding: 0.3rem 0.45rem;
+    border-radius: 6px;
+    background: #F8FAFC;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.rate-pair small {
+    display: block;
+    color: #94A3B8;
+    font-size: 0.6rem;
+    text-transform: uppercase;
+}
+
+.rate-actions {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.rate-icon-btn {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #D8DEE9;
+    border-radius: 7px;
+    background: #FFFFFF;
+    color: #475569;
+    cursor: pointer;
+}
+
+.rate-icon-btn:hover { border-color: #A5B4FC; color: var(--primary); background: #EEF2FF; }
+.rate-icon-btn.danger:hover { border-color: #FCA5A5; color: #B91C1C; background: #FEF2F2; }
+.rate-icon-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.rate-checkbox {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+}
+
+.rate-csv-help {
+    padding: 0.9rem 1rem;
+    border: 1px solid #C7D2FE;
+    border-radius: 9px;
+    background: #EEF2FF;
+    color: #4338CA;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.rate-file-drop {
+    display: grid;
+    place-items: center;
+    gap: 0.55rem;
+    min-height: 150px;
+    margin-top: 1rem;
+    padding: 1.25rem;
+    border: 1px dashed #A5B4FC;
+    border-radius: 10px;
+    background: #FAFAFF;
+    color: #64748B;
+    text-align: center;
+    cursor: pointer;
+}
+
+.rate-file-drop i { color: var(--primary); font-size: 1.5rem; }
+.rate-file-drop input { display: none; }
+
+.rate-csv-status {
+    min-height: 1.2rem;
+    margin-top: 0.8rem;
+    color: #64748B;
+    font-size: 0.82rem;
+}
+
+#rate-csv-modal .modal-content,
+#rate-edit-modal .modal-content { width: 760px; }
+
+.rate-edit-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+}
+
+.rate-edit-grid .wide { grid-column: 1 / -1; }
+
+.rate-edit-grid input,
+.rate-edit-grid textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font: inherit;
+    outline: none;
+}
+
+.rate-edit-grid textarea { min-height: 82px; resize: vertical; }
+.rate-edit-grid input:focus,
+.rate-edit-grid textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+
+@media (max-width: 900px) {
+    .rate-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .rate-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+    .rate-filters,
+    .rate-kpis,
+    .rate-edit-grid { grid-template-columns: 1fr; }
+    .rate-edit-grid .wide { grid-column: auto; }
+    .rate-toolbar-actions { justify-content: stretch; }
+    .rate-toolbar-actions .btn { flex: 1 1 auto; }
+}
+
 body.logged-out .sidebar,
 body.logged-out .auth-only {
     display: none !important;
@@ -1991,10 +2434,10 @@ body.not-allowed .content-wrapper {
     }
     .side-panel-overlay.active { opacity: 1; pointer-events: all; }
     .side-panel {
-        position: fixed; top: 0; right: 0; width: 100%; max-width: 700px; height: 100vh;
+        position: fixed; top: 0; right: 0; width: 100%; max-width: 820px; height: 100vh;
         background: var(--bg-surface); box-shadow: -12px 0 40px rgba(17, 24, 39, 0.18);
         z-index: 1001; transform: translateX(100%);
-        display: flex; flex-direction: column;
+        display: flex; flex-direction: column; transition: transform 0.3s ease;
     }
     .side-panel.active { transform: translateX(0); }
     .side-panel-header {
@@ -2025,6 +2468,9 @@ body.not-allowed .content-wrapper {
                 <h2>MyShipment</h2>
             </div>
             <nav class="nav-menu">
+                <a href="#freight-rates" class="nav-item" data-target="freight-rates" data-roles="1,2,3,4" hidden>
+                    <i class="fa-solid fa-sailboat"></i> Freight Rates
+                </a>
                 <a href="#users" class="nav-item" data-target="users" data-roles="1" hidden>
                     <i class="fa-solid fa-users"></i> Users
                 </a>
@@ -2071,6 +2517,7 @@ body.not-allowed .content-wrapper {
                 <div class="user-controls">
                     <button class="btn btn-primary login-btn guest-only" id="header-login-btn">Login</button>
                     <div class="profile-actions auth-only">
+                        <span class="header-role-badge" id="header-role-badge"><i class="fa-solid fa-user-shield" aria-hidden="true"></i><span id="header-role-label">Role</span></span>
                         <button class="user-profile" id="user-profile-trigger" type="button" title="Account menu" aria-label="Account menu" aria-expanded="false">
                             <div class="avatar">US</div>
                         </button>
@@ -2115,6 +2562,97 @@ body.not-allowed .content-wrapper {
                         <h2>Access not allowed</h2>
                         <p>This portal is not configured for your account role. Your account currently has <strong>role = <span id="blocked-current-role">-</span></strong>. Please contact your administrator if you believe this is a mistake.</p>
                         <button class="btn btn-primary" id="blocked-logout-btn" type="button">Logout</button>
+                    </div>
+                </section>
+
+                <!-- Freight Rates Section -->
+                <section id="freight-rates" class="view-section">
+                    <div class="panel po-panel">
+                        <div class="po-toolbar">
+                            <div class="po-heading">
+                                <h2>Freight Rates</h2>
+                                <p>Search current ocean freight rates by carrier, port of loading, and port of discharge.</p>
+                            </div>
+                            <div class="rate-toolbar-actions">
+                                <button class="btn btn-secondary" id="rates-template-btn" type="button">
+                                    <i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i> CSV Template
+                                </button>
+                                <button class="btn btn-secondary rate-manager-only" id="rates-update-csv-btn" type="button" hidden>
+                                    <i class="fa-solid fa-file-pen" aria-hidden="true"></i> Update CSV
+                                </button>
+                                <button class="btn btn-primary rate-manager-only" id="rates-upload-btn" type="button" hidden>
+                                    <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> Upload Rates
+                                </button>
+                            </div>
+                        </div>
+                        <form class="rate-filters" id="rates-filter-form">
+                            <div class="rate-filter-field">
+                                <i class="fa-solid fa-building" aria-hidden="true"></i>
+                                <input id="rates-carrier-filter" placeholder="Carrier, e.g. MAERSK" aria-label="Filter by carrier">
+                            </div>
+                            <div class="rate-filter-field">
+                                <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+                                <input id="rates-pol-filter" placeholder="POL, e.g. NHAVASHAVA" aria-label="Filter by port of loading">
+                            </div>
+                            <div class="rate-filter-field">
+                                <i class="fa-solid fa-anchor" aria-hidden="true"></i>
+                                <input id="rates-pod-filter" placeholder="POD, e.g. ROTTERDAM" aria-label="Filter by port of discharge">
+                            </div>
+                            <div class="rate-filter-field">
+                                <select id="rates-status-filter" aria-label="Filter by rate status">
+                                    <option value="">All statuses</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Deactivated</option>
+                                </select>
+                            </div>
+                            <div class="rate-filter-actions">
+                                <button class="btn btn-primary" type="submit"><i class="fa-solid fa-filter" aria-hidden="true"></i> Apply</button>
+                                <button class="btn btn-secondary" id="rates-reset-btn" type="button" title="Reset filters"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
+                            </div>
+                        </form>
+                        <div class="rate-kpis">
+                            <div class="rate-kpi"><div class="rate-kpi-icon"><i class="fa-solid fa-list-check"></i></div><div><div class="rate-kpi-label">Rates On Page</div><div class="rate-kpi-value" id="rates-kpi-total">-</div></div></div>
+                            <div class="rate-kpi"><div class="rate-kpi-icon"><i class="fa-solid fa-circle-check"></i></div><div><div class="rate-kpi-label">Active</div><div class="rate-kpi-value" id="rates-kpi-active">-</div></div></div>
+                            <div class="rate-kpi"><div class="rate-kpi-icon"><i class="fa-solid fa-circle-pause"></i></div><div><div class="rate-kpi-label">Deactivated</div><div class="rate-kpi-value" id="rates-kpi-inactive">-</div></div></div>
+                            <div class="rate-kpi"><div class="rate-kpi-icon"><i class="fa-solid fa-user-pen"></i></div><div><div class="rate-kpi-label">My Uploads</div><div class="rate-kpi-value" id="rates-kpi-mine">-</div></div></div>
+                        </div>
+                        <div class="po-summary-bar">
+                            <div class="po-result-count" id="rates-result-count">Loading freight rates...</div>
+                            <div class="rate-toolbar-actions">
+                                <button class="btn btn-secondary rate-manager-only" id="rates-deactivate-btn" type="button" hidden disabled><i class="fa-solid fa-ban"></i> Deactivate</button>
+                                <button class="btn btn-secondary rate-manager-only" id="rates-delete-btn" type="button" hidden disabled><i class="fa-solid fa-trash"></i> Delete</button>
+                                <select class="rate-page-size" id="rates-page-size" aria-label="Rows per page">
+                                    <option value="25">25 rows</option>
+                                    <option value="50">50 rows</option>
+                                    <option value="100">100 rows</option>
+                                </select>
+                                <div class="po-pagination" aria-label="Freight rate pages">
+                                    <button class="po-page-button" id="rates-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left"></i><span>Previous</span></button>
+                                    <span id="rates-page-display">Page 1</span>
+                                    <button class="po-page-button" id="rates-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="rate-table-wrap">
+                            <table class="data-table" id="freight-rates-table">
+                                <thead>
+                                    <tr>
+                                        <th><input class="rate-checkbox rate-manager-only" id="rates-select-all" type="checkbox" aria-label="Select all owned rates" hidden></th>
+                                        <th>Carrier</th>
+                                        <th>Route</th>
+                                        <th>Validity</th>
+                                        <th>Freight USD</th>
+                                        <th>Manifest / Seal USD</th>
+                                        <th>THC INR</th>
+                                        <th>BL Fee INR</th>
+                                        <th>Status</th>
+                                        <th>Uploaded</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody><tr><td colspan="11">Loading freight rates...</td></tr></tbody>
+                            </table>
+                        </div>
                     </div>
                 </section>
 
@@ -2163,12 +2701,12 @@ body.not-allowed .content-wrapper {
                         <div class="po-toolbar">
                             <div class="po-heading">
                                 <h2>Buyer 360</h2>
-                                <p>Search CargoWise buyers and review their operational activity in one place.</p>
+                                <p>Enter a CargoWise organization ID to review one buyer's operational activity.</p>
                             </div>
                             <div class="po-toolbar-actions">
                                 <form class="po-search" id="buyer-search-form" role="search">
                                     <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-                                    <input type="search" id="buyer-search-input" placeholder="Buyer name or organization ID" aria-label="Buyer name or organization ID">
+                                    <input type="search" id="buyer-search-input" placeholder="CargoWise organization ID" aria-label="CargoWise organization ID">
                                     <button class="po-search-button" type="button" id="buyer-search-clear" aria-label="Clear buyer search" title="Clear" style="display: none;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
                                     <button class="po-search-button primary" type="submit" id="buyer-search-submit" aria-label="Search buyers" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
                                 </form>
@@ -2217,12 +2755,7 @@ body.not-allowed .content-wrapper {
                             </article>
                         </div>
                         <div class="po-summary-bar">
-                            <div class="po-result-count" id="buyer-result-count">Search by buyer name or organization ID.</div>
-                            <div class="po-pagination" aria-label="Buyer pages">
-                                <button class="po-page-button" id="buyer-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
-                                <span id="buyer-page-display">Page 1</span>
-                                <button class="po-page-button" id="buyer-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
-                            </div>
+                            <div class="po-result-count" id="buyer-result-count">Enter a CargoWise organization ID.</div>
                         </div>
                         <div class="table-responsive po-table-wrap">
                             <table class="data-table" id="buyer-table">
@@ -2653,7 +3186,25 @@ body.not-allowed .content-wrapper {
             <button class="side-panel-close" type="button" onclick="closePoLinesPanel()" aria-label="Close line items" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
         </div>
         <div class="side-panel-body">
-            <div class="table-responsive">
+            <div class="po-lines-summary" id="po-lines-summary">
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-list-ol" aria-hidden="true"></i> Line Items</div>
+                    <div class="po-lines-stat-value" id="po-lines-count">-</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i> Total Quantity</div>
+                    <div class="po-lines-stat-value" id="po-lines-quantity">-</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Actual Weight</div>
+                    <div class="po-lines-stat-value" id="po-lines-weight">-</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-receipt" aria-hidden="true"></i> Line Value</div>
+                    <div class="po-lines-stat-value" id="po-lines-value">-</div>
+                </div>
+            </div>
+            <div class="table-responsive po-lines-table-wrap">
                 <table class="table" id="po-lines-table">
                     <thead>
                         <tr>
@@ -2669,6 +3220,7 @@ body.not-allowed .content-wrapper {
                     </tbody>
                 </table>
             </div>
+            <div class="po-lines-footnote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Quantity, weight and value summarize the CargoWise lines shown above.</span></div>
         </div>
     </div>
 
@@ -2703,6 +3255,76 @@ body.not-allowed .content-wrapper {
             <div class="modal-footer">
                 <button class="btn btn-secondary" type="button" id="shipment-close-btn">Close</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Freight Rate CSV Modal -->
+    <div class="modal" id="rate-csv-modal" role="dialog" aria-modal="true" aria-labelledby="rate-csv-modal-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-file-csv" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="rate-csv-modal-title">Upload Freight Rates</h3>
+                        <p class="modal-subtitle" id="rate-csv-modal-subtitle">Create rate records from a CSV file</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="rate-csv-modal-close" type="button" aria-label="Close CSV upload" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="rate-csv-help" id="rate-csv-help"></div>
+                <label class="rate-file-drop" for="rate-csv-file">
+                    <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
+                    <strong>Choose a CSV file</strong>
+                    <span>Maximum 1,000 records per upload</span>
+                    <input id="rate-csv-file" type="file" accept=".csv,text/csv">
+                </label>
+                <div class="rate-csv-status" id="rate-csv-status">No file selected.</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="rate-csv-cancel-btn" type="button">Cancel</button>
+                <button class="btn btn-primary" id="rate-csv-submit-btn" type="button" disabled>Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Freight Rate Edit Modal -->
+    <div class="modal" id="rate-edit-modal" role="dialog" aria-modal="true" aria-labelledby="rate-edit-modal-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="rate-edit-modal-title">Update Freight Rate</h3>
+                        <p class="modal-subtitle">Only rates uploaded by you can be changed</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="rate-edit-modal-close" type="button" aria-label="Close rate editor" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="rate-edit-form">
+                <div class="modal-body">
+                    <input id="rate-edit-id" type="hidden">
+                    <div class="rate-edit-grid">
+                        <div class="form-field"><label for="rate-edit-carrier">Carrier</label><input id="rate-edit-carrier" required></div>
+                        <div class="form-field"><label for="rate-edit-validity">Rate Validity</label><input id="rate-edit-validity" type="date"></div>
+                        <div class="form-field"><label for="rate-edit-pol">POL</label><input id="rate-edit-pol" required></div>
+                        <div class="form-field"><label for="rate-edit-pod">POD</label><input id="rate-edit-pod" required></div>
+                        <div class="form-field"><label for="rate-edit-freight-20">20ft Freight (USD)</label><input id="rate-edit-freight-20" type="number" min="0" step="0.01"></div>
+                        <div class="form-field"><label for="rate-edit-freight-40">40ft Freight (USD)</label><input id="rate-edit-freight-40" type="number" min="0" step="0.01"></div>
+                        <div class="form-field"><label for="rate-edit-manifest">Manifest / Shipment (USD)</label><input id="rate-edit-manifest" type="number" min="0" step="0.01"></div>
+                        <div class="form-field"><label for="rate-edit-seal">Seal / Container (USD)</label><input id="rate-edit-seal" type="number" min="0" step="0.01"></div>
+                        <div class="form-field"><label for="rate-edit-thc-20">20ft THC (INR)</label><input id="rate-edit-thc-20" type="number" min="0" step="0.01"></div>
+                        <div class="form-field"><label for="rate-edit-thc-40">40ft THC (INR)</label><input id="rate-edit-thc-40" type="number" min="0" step="0.01"></div>
+                        <div class="form-field"><label for="rate-edit-bl-fee">BL Fee / Shipment (INR)</label><input id="rate-edit-bl-fee" type="number" min="0" step="0.01"></div>
+                        <div class="form-field wide"><label for="rate-edit-remarks">Remarks</label><textarea id="rate-edit-remarks"></textarea></div>
+                    </div>
+                    <div class="auth-message" id="rate-edit-message"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="rate-edit-cancel-btn" type="button">Cancel</button>
+                    <button class="btn btn-primary" id="rate-edit-submit-btn" type="submit">Save Changes</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -2761,12 +3383,30 @@ body.not-allowed .content-wrapper {
                 <div class="profile-grid">
                     <div class="profile-row"><span>Username</span><strong id="profile-username">-</strong></div>
                     <div class="profile-row"><span>Password</span><strong id="profile-password">-</strong></div>
-                    <div class="profile-row"><span>Type</span><strong id="profile-type">-</strong></div>
-                    <div class="profile-row"><span>Role</span><strong id="profile-role">-</strong></div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" type="button" id="profile-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logout Confirmation Modal -->
+    <div class="modal" id="logout-modal" role="dialog" aria-modal="true" aria-labelledby="logout-modal-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <h3 id="logout-modal-title">Logout</h3>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="logout-confirmation">
+                    <p>Are you sure you want to logout? You will need to enter your credentials again to access the portal.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" id="logout-cancel-btn">Cancel</button>
+                <button class="btn btn-danger" type="button" id="logout-submit-btn">Logout</button>
             </div>
         </div>
     </div>
@@ -2783,9 +3423,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const ADMIN_USERS_PATH = '/admin/object-read';
     const ADMIN_POSTGRES_EXPORT_PATH = '/admin/postgres-export';
     const ADMIN_BUYER_360_PATH = '/admin/cargowise-buyer-360';
+    const FREIGHT_RATES_READ_PATH = '/admin/object-read';
+    const MY_OBJECT_CREATE_PATH = '/my/object-create';
+    const MY_OBJECT_UPDATE_PATH = '/my/object-update';
+    const MY_OBJECT_DELETE_PATH = '/my/object-delete';
     const ADMIN_ROLE = 1;
     const BUYER_ROLE = 2;
-    const SUPPORTED_ROLES = [ADMIN_ROLE, BUYER_ROLE];
+    const PROCUREMENT_ROLE = 3;
+    const SALESPERSON_ROLE = 4;
+    const SUPPORTED_ROLES = [ADMIN_ROLE, BUYER_ROLE, PROCUREMENT_ROLE, SALESPERSON_ROLE];
     let roleLabels = {};
     const MODULE_ENDPOINTS = {
         'purchase-orders': '/my/cargowise-purchase-orders',
@@ -2804,7 +3450,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let exceptionCurrentPage = 1;
     let documentCurrentPage = 1;
     let usersCurrentPage = 1;
-    let buyerCurrentPage = 1;
+    let ratesCurrentPage = 1;
+    let ratesRows = [];
+    let ratesCsvMode = 'create';
+    let ratesCsvObjects = [];
+    const selectedRateIds = new Set();
     let buyerSearchQuery = '';
     let poSearchQuery = '';
     let poSearchTimeout;
@@ -2942,10 +3592,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const profileAvatar = document.querySelector('.avatar');
         if (profileAvatar) profileAvatar.textContent = avatarTextFromUsername(user.username || user.name);
         const rawValue = value => value === null || value === undefined || value === '' ? '-' : String(value);
+        const roleLabel = roleLabels[String(user.role)] || rawValue(user.role);
+        const roleIcon = Number(user.role) === ADMIN_ROLE ? 'fa-user-shield' : Number(user.role) === BUYER_ROLE ? 'fa-building-user' : Number(user.role) === PROCUREMENT_ROLE ? 'fa-cart-flatbed' : 'fa-user-tie';
         document.getElementById('profile-username').textContent = rawValue(user.username);
         document.getElementById('profile-password').textContent = user.password ? '••••••••' : '-';
-        document.getElementById('profile-type').textContent = rawValue(user.type);
-        document.getElementById('profile-role').textContent = roleLabels[String(user.role)] || rawValue(user.role);
+        document.getElementById('header-role-label').textContent = roleLabel;
+        document.querySelector('#header-role-badge i').className = `fa-solid ${roleIcon}`;
     };
     const renderCargowiseProfile = profile => {
         const org = profile.org || {};
@@ -3040,18 +3692,41 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const tbody = document.querySelector('#po-lines-table tbody');
         tbody.innerHTML = '<tr><td class="po-lines-message" colspan="5"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Loading line items...</td></tr>';
+        ['count', 'quantity', 'weight', 'value'].forEach(key => { document.getElementById(`po-lines-${key}`).textContent = '-'; });
         
         try {
             const payload = await api(`/my/cargowise-purchase-orders-line-items?po_id=${encodeURIComponent(poId)}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
             const rows = Array.isArray(payload.message) ? payload.message : [];
-            
+            const toNumber = value => {
+                const number = Number(value);
+                return Number.isFinite(number) ? number : 0;
+            };
+            const numberFormat = (value, maximumFractionDigits = 2) => toNumber(value).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits });
+            const moneyFormat = value => `$${toNumber(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            const totals = rows.reduce((result, row) => {
+                result.quantity += toNumber(row.quantity);
+                result.weight += toNumber(row.actual_weight);
+                result.value += toNumber(row.total_price);
+                return result;
+            }, { quantity: 0, weight: 0, value: 0 });
+            document.getElementById('po-lines-count').textContent = numberFormat(rows.length, 0);
+            document.getElementById('po-lines-quantity').textContent = numberFormat(totals.quantity);
+            document.getElementById('po-lines-weight').textContent = `${numberFormat(totals.weight)} kg`;
+            document.getElementById('po-lines-value').textContent = moneyFormat(totals.value);
             tbody.innerHTML = rows.length ? rows.map(row => `
                 <tr>
-                    <td><strong>${escapeHtml(displayValue(row.part_number))}</strong></td>
-                    <td>${escapeHtml(displayValue(row.description))}</td>
-                    <td>${escapeHtml(displayValue(row.quantity))} ${escapeHtml(row.pack_type || '')}</td>
-                    <td>$${escapeHtml(displayValue(row.unit_price))}</td>
-                    <td>$${escapeHtml(displayValue(row.total_price))}</td>
+                    <td>
+                        <div class="po-line-part">${escapeHtml(displayValue(row.part_number))}</div>
+                        <span class="po-line-number">Line ${escapeHtml(displayValue(row.line_number))}${row.sub_line_number ? `.${escapeHtml(row.sub_line_number)}` : ''}</span>
+                    </td>
+                    <td><div class="po-line-description">${escapeHtml(displayValue(row.description))}</div></td>
+                    <td>
+                        <span class="po-line-quantity">${escapeHtml(numberFormat(row.quantity))} ${escapeHtml(row.pack_type || '')}</span>
+                        ${toNumber(row.pack_quantity) ? `<span class="po-line-detail">${escapeHtml(numberFormat(row.pack_quantity))} outer packs</span>` : ''}
+                        ${toNumber(row.actual_volume) ? `<span class="po-line-detail">${escapeHtml(numberFormat(row.actual_volume, 3))} m³</span>` : ''}
+                    </td>
+                    <td><span class="po-line-money">${escapeHtml(moneyFormat(row.unit_price))}</span></td>
+                    <td><strong class="po-line-money">${escapeHtml(moneyFormat(row.total_price))}</strong></td>
                 </tr>
             `).join('') : '<tr><td class="po-lines-message" colspan="5"><i class="fa-regular fa-folder-open" aria-hidden="true"></i>No line items found.</td></tr>';
         } catch (err) {
@@ -3218,6 +3893,227 @@ document.addEventListener('DOMContentLoaded', () => {
             </tr>
         `).join('') : '<tr><td colspan="7">No documents found.</td></tr>';
     };
+    const RATE_COLUMNS = ['carrier', 'pol', 'pod', 'rate_validity', 'freight_20ft_cntr_usd', 'freight_40ft_cntr_usd', 'manifest_shpt_usd', 'seal_cntr_usd', 'thc_20ft_cntr_inr', 'thc_40ft_cntr_inr', 'bl_fees_shpt_inr', 'remarks'];
+    const RATE_NUMERIC_COLUMNS = new Set(['freight_20ft_cntr_usd', 'freight_40ft_cntr_usd', 'manifest_shpt_usd', 'seal_cntr_usd', 'thc_20ft_cntr_inr', 'thc_40ft_cntr_inr', 'bl_fees_shpt_inr']);
+    const rateManager = () => Number(authUser && authUser.role) === PROCUREMENT_ROLE;
+    const formatAmount = value => value === null || value === undefined || value === '' ? '-' : Number(value).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    const normalizeCsvHeader = value => String(value || '').replace(/^\uFEFF/, '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    const parseCsvRows = text => {
+        const rows = [];
+        let row = [];
+        let value = '';
+        let quoted = false;
+        for (let index = 0; index < text.length; index++) {
+            const char = text[index];
+            if (char === '"') {
+                if (quoted && text[index + 1] === '"') { value += '"'; index++; }
+                else quoted = !quoted;
+            } else if (char === ',' && !quoted) {
+                row.push(value); value = '';
+            } else if ((char === '\n' || char === '\r') && !quoted) {
+                if (char === '\r' && text[index + 1] === '\n') index++;
+                row.push(value); value = '';
+                if (row.some(cell => String(cell).trim() !== '')) rows.push(row);
+                row = [];
+            } else {
+                value += char;
+            }
+        }
+        if (value || row.length) {
+            row.push(value);
+            if (row.some(cell => String(cell).trim() !== '')) rows.push(row);
+        }
+        return rows;
+    };
+    const rateObjectsFromCsv = (text, mode) => {
+        const rows = parseCsvRows(text);
+        if (rows.length < 2) throw new Error('CSV must contain a header and at least one data row.');
+        const headers = rows[0].map(normalizeCsvHeader);
+        const allowed = new Set(mode === 'update' ? ['id', ...RATE_COLUMNS] : RATE_COLUMNS);
+        const unknown = headers.filter(header => header && !allowed.has(header));
+        if (unknown.length) throw new Error(`Unknown CSV column${unknown.length === 1 ? '' : 's'}: ${unknown.join(', ')}`);
+        if (new Set(headers).size !== headers.length) throw new Error('CSV contains duplicate column names.');
+        if (mode === 'update' && !headers.includes('id')) throw new Error('Update CSV must include the id column.');
+        if (mode === 'create' && !['carrier', 'pol', 'pod'].every(column => headers.includes(column))) throw new Error('Upload CSV must include carrier, pol, and pod.');
+        const objects = rows.slice(1).map((cells, rowIndex) => {
+            const object = {};
+            headers.forEach((header, columnIndex) => {
+                if (!header) return;
+                const raw = String(cells[columnIndex] ?? '').trim();
+                if (!raw && mode === 'update') return;
+                if (raw.toUpperCase() === 'NULL') { object[header] = null; return; }
+                if (!raw) return;
+                if (header === 'id') {
+                    const id = Number(raw);
+                    if (!Number.isSafeInteger(id) || id < 1) throw new Error(`Row ${rowIndex + 2}: id must be a positive whole number.`);
+                    object.id = id;
+                } else if (RATE_NUMERIC_COLUMNS.has(header)) {
+                    const number = Number(raw.replace(/,/g, ''));
+                    if (!Number.isFinite(number) || number < 0) throw new Error(`Row ${rowIndex + 2}: ${header} must be a non-negative number.`);
+                    object[header] = number;
+                } else {
+                    object[header] = raw;
+                }
+            });
+            if (mode === 'create' && ['carrier', 'pol', 'pod'].some(column => !object[column])) throw new Error(`Row ${rowIndex + 2}: carrier, pol, and pod are required.`);
+            if (mode === 'update' && (!object.id || Object.keys(object).length < 2)) throw new Error(`Row ${rowIndex + 2}: include id and at least one column to update.`);
+            return object;
+        });
+        if (objects.length > 1000) throw new Error('A CSV upload can contain a maximum of 1,000 data rows.');
+        return objects;
+    };
+    const downloadRateTemplate = () => {
+        const headers = RATE_COLUMNS.join(',');
+        const example = ['MAERSK', 'NHAVASHAVA', 'ROTTERDAM', '', '2000', '3000', '35', '10', '18500', '21500', '5000', ''].join(',');
+        const blob = new Blob([`${headers}\n${example}\n`], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'freight_rates_template.csv';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    };
+    const setRateManagerControls = () => {
+        document.querySelectorAll('.rate-manager-only').forEach(element => { element.hidden = !rateManager(); });
+    };
+    const updateRateSelectionControls = () => {
+        const count = selectedRateIds.size;
+        const deactivateButton = document.getElementById('rates-deactivate-btn');
+        const deleteButton = document.getElementById('rates-delete-btn');
+        if (deactivateButton) { deactivateButton.disabled = count === 0; deactivateButton.innerHTML = `<i class="fa-solid fa-ban"></i> Deactivate${count ? ` (${count})` : ''}`; }
+        if (deleteButton) { deleteButton.disabled = count === 0; deleteButton.innerHTML = `<i class="fa-solid fa-trash"></i> Delete${count ? ` (${count})` : ''}`; }
+        const ownedIds = ratesRows.filter(row => Number(row.created_by_id) === Number(authUser && authUser.id)).map(row => Number(row.id));
+        const selectAll = document.getElementById('rates-select-all');
+        if (selectAll) {
+            selectAll.checked = ownedIds.length > 0 && ownedIds.every(id => selectedRateIds.has(id));
+            selectAll.indeterminate = ownedIds.some(id => selectedRateIds.has(id)) && !selectAll.checked;
+        }
+    };
+    const renderFreightRates = rows => {
+        ratesRows = rows;
+        selectedRateIds.clear();
+        const body = document.querySelector('#freight-rates-table tbody');
+        if (!body) return;
+        const userId = Number(authUser && authUser.id);
+        document.getElementById('rates-kpi-total').textContent = rows.length.toLocaleString();
+        document.getElementById('rates-kpi-active').textContent = rows.filter(row => !row.deactivated_at).length.toLocaleString();
+        document.getElementById('rates-kpi-inactive').textContent = rows.filter(row => row.deactivated_at).length.toLocaleString();
+        document.getElementById('rates-kpi-mine').textContent = rows.filter(row => Number(row.created_by_id) === userId).length.toLocaleString();
+        body.innerHTML = rows.length ? rows.map(row => {
+            const owned = rateManager() && Number(row.created_by_id) === userId;
+            const active = !row.deactivated_at;
+            return `
+                <tr data-rate-id="${Number(row.id)}">
+                    <td>${owned ? `<input class="rate-checkbox rate-row-checkbox" type="checkbox" value="${Number(row.id)}" aria-label="Select rate ${Number(row.id)}">` : ''}</td>
+                    <td><strong>${escapeHtml(displayValue(row.carrier))}</strong>${row.remarks ? `<div class="profile-status">${escapeHtml(row.remarks)}</div>` : ''}</td>
+                    <td><div class="rate-route"><strong>${escapeHtml(displayValue(row.pol))}</strong><i class="fa-solid fa-arrow-right-long"></i><strong>${escapeHtml(displayValue(row.pod))}</strong></div></td>
+                    <td>${escapeHtml(formatDate(row.rate_validity))}</td>
+                    <td><div class="rate-pair"><span><small>20ft</small>$${escapeHtml(formatAmount(row.freight_20ft_cntr_usd))}</span><span><small>40ft</small>$${escapeHtml(formatAmount(row.freight_40ft_cntr_usd))}</span></div></td>
+                    <td><div class="rate-pair"><span><small>Manifest</small>$${escapeHtml(formatAmount(row.manifest_shpt_usd))}</span><span><small>Seal</small>$${escapeHtml(formatAmount(row.seal_cntr_usd))}</span></div></td>
+                    <td><div class="rate-pair"><span><small>20ft</small>₹${escapeHtml(formatAmount(row.thc_20ft_cntr_inr))}</span><span><small>40ft</small>₹${escapeHtml(formatAmount(row.thc_40ft_cntr_inr))}</span></div></td>
+                    <td>₹${escapeHtml(formatAmount(row.bl_fees_shpt_inr))}</td>
+                    <td><span class="badge ${active ? 'delivered' : 'exception'}">${active ? 'Active' : 'Deactivated'}</span></td>
+                    <td>${escapeHtml(formatDateTime(row.created_at))}<div class="profile-status">User #${escapeHtml(displayValue(row.created_by_id))}</div></td>
+                    <td>${owned ? `<div class="rate-actions"><button class="rate-icon-btn" type="button" data-rate-action="edit" data-rate-id="${Number(row.id)}" title="Edit rate"><i class="fa-solid fa-pen"></i></button><button class="rate-icon-btn danger" type="button" data-rate-action="delete" data-rate-id="${Number(row.id)}" title="Delete rate"><i class="fa-solid fa-trash"></i></button></div>` : '<span class="profile-status">View only</span>'}</td>
+                </tr>
+            `;
+        }).join('') : '<tr><td colspan="11">No freight rates match these filters.</td></tr>';
+        updateRateSelectionControls();
+    };
+    const loadFreightRates = async () => {
+        if (!authToken || !authUser || !SUPPORTED_ROLES.includes(Number(authUser.role))) return;
+        setTableMessage('freight-rates-table', 11, 'Loading freight rates...');
+        document.getElementById('rates-result-count').textContent = 'Loading freight rates...';
+        const filters = [];
+        const carrier = document.getElementById('rates-carrier-filter').value.trim();
+        const pol = document.getElementById('rates-pol-filter').value.trim();
+        const pod = document.getElementById('rates-pod-filter').value.trim();
+        const status = document.getElementById('rates-status-filter').value;
+        if (carrier) filters.push({ carrier: `ilike,%${carrier}%` });
+        if (pol) filters.push({ pol: `ilike,%${pol}%` });
+        if (pod) filters.push({ pod: `ilike,%${pod}%` });
+        if (status === 'active') filters.push({ deactivated_at: 'is,null' });
+        if (status === 'inactive') filters.push({ deactivated_at: 'is not,null' });
+        const limit = document.getElementById('rates-page-size').value;
+        const query = new URLSearchParams({ table: 'freight_rates', limit, page: String(ratesCurrentPage) });
+        if (filters.length) query.set('filter', JSON.stringify(filters));
+        try {
+            const payload = await api(`${FREIGHT_RATES_READ_PATH}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const message = payload.message || {};
+            const rows = Array.isArray(message.obj_list) ? message.obj_list : [];
+            renderFreightRates(rows);
+            document.getElementById('rates-result-count').innerHTML = `<strong>${rows.length}</strong> rate${rows.length === 1 ? '' : 's'} on this page`;
+            document.getElementById('rates-page-display').textContent = `Page ${ratesCurrentPage}`;
+            document.getElementById('rates-prev-btn').disabled = ratesCurrentPage <= 1;
+            document.getElementById('rates-next-btn').disabled = !message.has_next_page;
+        } catch (err) {
+            setTableMessage('freight-rates-table', 11, err.message || 'Unable to load freight rates');
+            document.getElementById('rates-result-count').textContent = 'Freight rates could not be loaded';
+        }
+    };
+    const openRateCsvModal = mode => {
+        ratesCsvMode = mode;
+        ratesCsvObjects = [];
+        document.getElementById('rate-csv-file').value = '';
+        document.getElementById('rate-csv-status').textContent = 'No file selected.';
+        document.getElementById('rate-csv-submit-btn').disabled = true;
+        document.getElementById('rate-csv-modal-title').textContent = mode === 'create' ? 'Upload Freight Rates' : 'Update Freight Rates';
+        document.getElementById('rate-csv-modal-subtitle').textContent = mode === 'create' ? 'Create rate records from a CSV file' : 'Bulk update rates previously uploaded by you';
+        document.getElementById('rate-csv-submit-btn').textContent = mode === 'create' ? 'Upload' : 'Update';
+        document.getElementById('rate-csv-help').textContent = mode === 'create' ? `Required columns: carrier, pol, pod. Optional columns: ${RATE_COLUMNS.slice(3).join(', ')}.` : `Required column: id. Add only the columns to change. Blank cells are skipped; use NULL to clear a value.`;
+        openModal('rate-csv-modal');
+    };
+    const submitRateCsv = async () => {
+        if (!rateManager() || !ratesCsvObjects.length) return;
+        const button = document.getElementById('rate-csv-submit-btn');
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = ratesCsvMode === 'create' ? 'Uploading...' : 'Updating...';
+        try {
+            const path = ratesCsvMode === 'create' ? MY_OBJECT_CREATE_PATH : MY_OBJECT_UPDATE_PATH;
+            await api(`${path}?table=freight_rates`, {
+                method: ratesCsvMode === 'create' ? 'POST' : 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
+                body: JSON.stringify({ obj_list: ratesCsvObjects })
+            });
+            closeModal('rate-csv-modal');
+            ratesCurrentPage = 1;
+            await loadFreightRates();
+        } catch (err) {
+            document.getElementById('rate-csv-status').textContent = err.message || 'CSV operation failed.';
+            document.getElementById('rate-csv-status').style.color = '#B91C1C';
+        } finally {
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    };
+    const openRateEditModal = id => {
+        const row = ratesRows.find(item => Number(item.id) === Number(id));
+        if (!row || Number(row.created_by_id) !== Number(authUser && authUser.id) || !rateManager()) return;
+        const values = {
+            'rate-edit-id': row.id, 'rate-edit-carrier': row.carrier, 'rate-edit-validity': row.rate_validity,
+            'rate-edit-pol': row.pol, 'rate-edit-pod': row.pod, 'rate-edit-freight-20': row.freight_20ft_cntr_usd,
+            'rate-edit-freight-40': row.freight_40ft_cntr_usd, 'rate-edit-manifest': row.manifest_shpt_usd,
+            'rate-edit-seal': row.seal_cntr_usd, 'rate-edit-thc-20': row.thc_20ft_cntr_inr,
+            'rate-edit-thc-40': row.thc_40ft_cntr_inr, 'rate-edit-bl-fee': row.bl_fees_shpt_inr,
+            'rate-edit-remarks': row.remarks
+        };
+        Object.entries(values).forEach(([elementId, value]) => { document.getElementById(elementId).value = value ?? ''; });
+        document.getElementById('rate-edit-message').textContent = '';
+        openModal('rate-edit-modal');
+    };
+    const deleteFreightRates = async ids => {
+        if (!rateManager() || !ids.length) return;
+        await api(MY_OBJECT_DELETE_PATH, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
+            body: JSON.stringify({ table: 'freight_rates', ids })
+        });
+        selectedRateIds.clear();
+        await loadFreightRates();
+    };
     const renderUsers = rows => {
         const body = document.querySelector('#users-table tbody');
         if (!body) return;
@@ -3297,53 +4193,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     const buyerNumber = value => Number(value || 0).toLocaleString();
-    const renderBuyer360 = rows => {
+    const renderBuyer360 = buyer => {
         const body = document.querySelector('#buyer-table tbody');
         if (!body) return;
-        const totals = rows.reduce((result, row) => {
-            result.purchaseOrders += Number(row.total_purchase_orders || 0);
-            result.shipments += Number(row.total_shipments || 0);
-            result.invoices += Number(row.total_invoices || 0);
-            return result;
-        }, { purchaseOrders: 0, shipments: 0, invoices: 0 });
-        document.getElementById('buyer-kpi-count').textContent = buyerNumber(rows.length);
-        document.getElementById('buyer-kpi-pos').textContent = buyerNumber(totals.purchaseOrders);
-        document.getElementById('buyer-kpi-shipments').textContent = buyerNumber(totals.shipments);
-        document.getElementById('buyer-kpi-invoices').textContent = buyerNumber(totals.invoices);
-        body.innerHTML = rows.length ? rows.map(row => {
-            const location = [row.city, row.state, row.country_code].filter(Boolean).join(', ') || '-';
-            const isActive = row.is_active === true || Number(row.is_active) === 1;
-            const isValid = row.is_valid === true || Number(row.is_valid) === 1;
-            return `
+        document.getElementById('buyer-kpi-count').textContent = buyer ? '1' : '0';
+        document.getElementById('buyer-kpi-pos').textContent = buyerNumber(buyer?.total_purchase_orders);
+        document.getElementById('buyer-kpi-shipments').textContent = buyerNumber(buyer?.total_shipments);
+        document.getElementById('buyer-kpi-invoices').textContent = buyerNumber(buyer?.total_invoices);
+        if (buyer) {
+            const location = [buyer.city, buyer.state, buyer.country_code].filter(Boolean).join(', ') || '-';
+            const isActive = buyer.is_active === true || Number(buyer.is_active) === 1;
+            const isValid = buyer.is_valid === true || Number(buyer.is_valid) === 1;
+            body.innerHTML = `
                 <tr>
                     <td>
-                        <strong>${escapeHtml(displayValue(row.name))}</strong>
-                        <div class="profile-status">${escapeHtml(displayValue(row.org_id))}</div>
+                        <strong>${escapeHtml(displayValue(buyer.name))}</strong>
+                        <div class="profile-status">${escapeHtml(displayValue(buyer.org_id))}</div>
                     </td>
-                    <td>${escapeHtml(location)}<div class="profile-status">${escapeHtml(displayValue(row.closest_port))}</div></td>
-                    <td>${escapeHtml(buyerNumber(row.total_purchase_orders))}</td>
-                    <td>${escapeHtml(buyerNumber(row.total_bookings))}</td>
-                    <td>${escapeHtml(buyerNumber(row.total_shipments))}</td>
-                    <td>${escapeHtml(buyerNumber(row.total_consols))}</td>
-                    <td>${escapeHtml(buyerNumber(row.total_invoices))}</td>
-                    <td>${escapeHtml(formatDateTime(row.last_activity_date))}</td>
+                    <td>${escapeHtml(location)}<div class="profile-status">${escapeHtml(displayValue(buyer.closest_port))}</div></td>
+                    <td>${escapeHtml(buyerNumber(buyer.total_purchase_orders))}</td>
+                    <td>${escapeHtml(buyerNumber(buyer.total_bookings))}</td>
+                    <td>${escapeHtml(buyerNumber(buyer.total_shipments))}</td>
+                    <td>${escapeHtml(buyerNumber(buyer.total_consols))}</td>
+                    <td>${escapeHtml(buyerNumber(buyer.total_invoices))}</td>
+                    <td>${escapeHtml(formatDateTime(buyer.last_activity_date))}</td>
                     <td>
                         <span class="badge ${isActive && isValid ? 'delivered' : 'exception'}">${isActive && isValid ? 'Active' : 'Review'}</span>
-                        <div class="profile-status">${escapeHtml(displayValue(row.screening_status))}</div>
+                        <div class="profile-status">${escapeHtml(displayValue(buyer.screening_status))}</div>
                     </td>
                 </tr>
             `;
-        }).join('') : '<tr><td colspan="9">No buyers found for this search.</td></tr>';
+        } else {
+            body.innerHTML = '<tr><td colspan="9">No buyer found for this organization ID.</td></tr>';
+        }
     };
     const resetBuyer360 = () => {
-        buyerCurrentPage = 1;
         buyerSearchQuery = '';
         document.getElementById('buyer-search-input').value = '';
         document.getElementById('buyer-search-clear').style.display = 'none';
-        document.getElementById('buyer-result-count').textContent = 'Search by buyer name or organization ID.';
-        document.getElementById('buyer-page-display').textContent = 'Page 1';
-        document.getElementById('buyer-prev-btn').disabled = true;
-        document.getElementById('buyer-next-btn').disabled = true;
+        document.getElementById('buyer-result-count').textContent = 'Enter a CargoWise organization ID.';
         ['count', 'pos', 'shipments', 'invoices'].forEach(key => { document.getElementById(`buyer-kpi-${key}`).textContent = '-'; });
         setTableMessage('buyer-table', 9, 'Use the search above to load Buyer 360 data.');
     };
@@ -3351,17 +4239,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!authToken || Number(authUser && authUser.role) !== ADMIN_ROLE || !buyerSearchQuery) return;
         setTableMessage('buyer-table', 9, 'Loading Buyer 360 data...');
         document.getElementById('buyer-result-count').textContent = 'Loading Buyer 360 data...';
-        const isOrgId = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(buyerSearchQuery);
-        const query = new URLSearchParams({ limit: '25', page: String(buyerCurrentPage), [isOrgId ? 'org_id' : 'name']: buyerSearchQuery });
+        const query = new URLSearchParams({ org_id: buyerSearchQuery });
         try {
             const payload = await api(`${ADMIN_BUYER_360_PATH}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
-            const message = payload.message || {};
-            const rows = Array.isArray(message.obj_list) ? message.obj_list : [];
-            renderBuyer360(rows);
-            document.getElementById('buyer-result-count').innerHTML = `<strong>${rows.length}</strong> buyer${rows.length === 1 ? '' : 's'} on this page`;
-            document.getElementById('buyer-page-display').textContent = `Page ${buyerCurrentPage}`;
-            document.getElementById('buyer-prev-btn').disabled = buyerCurrentPage <= 1;
-            document.getElementById('buyer-next-btn').disabled = !message.has_next_page;
+            const buyer = payload.message || null;
+            renderBuyer360(buyer);
+            document.getElementById('buyer-result-count').innerHTML = buyer ? '<strong>Buyer found</strong>' : 'No buyer found for this organization ID.';
         } catch (err) {
             setTableMessage('buyer-table', 9, err.message || 'Unable to load Buyer 360 data');
             document.getElementById('buyer-result-count').textContent = 'Buyer 360 data could not be loaded';
@@ -3489,6 +4372,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.toggle('logged-out', !loggedIn);
         document.body.classList.toggle('not-allowed', loggedIn && !allowed);
         applyRoleNavigation(userRole);
+        setRateManagerControls();
         renderProfile();
         if (!loggedIn) {
             showSection('home');
@@ -3503,8 +4387,13 @@ document.addEventListener('DOMContentLoaded', () => {
             loadUsers();
             return;
         }
-        showSection('profile');
-        loadCargowiseProfile();
+        if (userRole === BUYER_ROLE) {
+            showSection('profile');
+            loadCargowiseProfile();
+            return;
+        }
+        showSection('freight-rates');
+        loadFreightRates();
     };
     const saveAuthPayload = payload => {
         const nextToken = extractToken(payload);
@@ -3515,16 +4404,22 @@ document.addEventListener('DOMContentLoaded', () => {
         cargowiseProfileLoaded = false;
         Object.keys(moduleCache).forEach(key => delete moduleCache[key]);
     };
+    const requestLogout = () => {
+        closeProfileMenu();
+        openModal('logout-modal');
+    };
     const logout = () => {
-        if (!confirm('Logout from MyShipment?')) return;
         writeToken('');
         writeUser(null);
         cargowiseProfileLoaded = false;
         Object.keys(moduleCache).forEach(key => delete moduleCache[key]);
+        ratesRows = [];
+        selectedRateIds.clear();
         resetBuyer360();
         closeProfileMenu();
         closeModal('profile-modal');
         closeModal('login-modal');
+        closeModal('logout-modal');
         applyAuthState();
     };
     let authToken = readStoredToken();
@@ -3613,6 +4508,132 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('users-prev-btn')?.addEventListener('click', () => { if (usersCurrentPage > 1) { usersCurrentPage--; loadUsers(); } });
     document.getElementById('users-next-btn')?.addEventListener('click', () => { usersCurrentPage++; loadUsers(); });
     document.getElementById('users-export-btn')?.addEventListener('click', exportUsers);
+    document.getElementById('rates-template-btn')?.addEventListener('click', downloadRateTemplate);
+    document.getElementById('rates-upload-btn')?.addEventListener('click', () => openRateCsvModal('create'));
+    document.getElementById('rates-update-csv-btn')?.addEventListener('click', () => openRateCsvModal('update'));
+    document.getElementById('rate-csv-modal-close')?.addEventListener('click', () => closeModal('rate-csv-modal'));
+    document.getElementById('rate-csv-cancel-btn')?.addEventListener('click', () => closeModal('rate-csv-modal'));
+    document.getElementById('rate-csv-submit-btn')?.addEventListener('click', submitRateCsv);
+    document.getElementById('rate-csv-file')?.addEventListener('change', async event => {
+        const file = event.target.files && event.target.files[0];
+        const status = document.getElementById('rate-csv-status');
+        const submit = document.getElementById('rate-csv-submit-btn');
+        ratesCsvObjects = [];
+        submit.disabled = true;
+        status.style.color = '#64748B';
+        if (!file) { status.textContent = 'No file selected.'; return; }
+        try {
+            ratesCsvObjects = rateObjectsFromCsv(await file.text(), ratesCsvMode);
+            status.textContent = `${file.name}: ${ratesCsvObjects.length} valid row${ratesCsvObjects.length === 1 ? '' : 's'} ready.`;
+            status.style.color = '#047857';
+            submit.disabled = false;
+        } catch (err) {
+            status.textContent = err.message || 'Unable to read CSV file.';
+            status.style.color = '#B91C1C';
+        }
+    });
+    document.getElementById('rates-filter-form')?.addEventListener('submit', event => {
+        event.preventDefault();
+        ratesCurrentPage = 1;
+        loadFreightRates();
+    });
+    document.getElementById('rates-reset-btn')?.addEventListener('click', () => {
+        document.getElementById('rates-filter-form').reset();
+        ratesCurrentPage = 1;
+        loadFreightRates();
+    });
+    document.getElementById('rates-page-size')?.addEventListener('change', () => { ratesCurrentPage = 1; loadFreightRates(); });
+    document.getElementById('rates-prev-btn')?.addEventListener('click', () => { if (ratesCurrentPage > 1) { ratesCurrentPage--; loadFreightRates(); } });
+    document.getElementById('rates-next-btn')?.addEventListener('click', () => { ratesCurrentPage++; loadFreightRates(); });
+    document.getElementById('rates-select-all')?.addEventListener('change', event => {
+        ratesRows.filter(row => Number(row.created_by_id) === Number(authUser && authUser.id)).forEach(row => {
+            if (event.target.checked) selectedRateIds.add(Number(row.id));
+            else selectedRateIds.delete(Number(row.id));
+        });
+        document.querySelectorAll('.rate-row-checkbox').forEach(checkbox => { checkbox.checked = event.target.checked; });
+        updateRateSelectionControls();
+    });
+    document.querySelector('#freight-rates-table tbody')?.addEventListener('change', event => {
+        if (!event.target.classList.contains('rate-row-checkbox')) return;
+        const id = Number(event.target.value);
+        if (event.target.checked) selectedRateIds.add(id);
+        else selectedRateIds.delete(id);
+        updateRateSelectionControls();
+    });
+    document.querySelector('#freight-rates-table tbody')?.addEventListener('click', async event => {
+        const button = event.target.closest('[data-rate-action]');
+        if (!button) return;
+        const id = Number(button.dataset.rateId);
+        if (button.dataset.rateAction === 'edit') { openRateEditModal(id); return; }
+        if (button.dataset.rateAction === 'delete' && window.confirm('Delete this freight rate permanently?')) {
+            try { await deleteFreightRates([id]); }
+            catch (err) { window.alert(err.message || 'Unable to delete freight rate.'); }
+        }
+    });
+    document.getElementById('rates-deactivate-btn')?.addEventListener('click', async () => {
+        const ids = [...selectedRateIds];
+        if (!ids.length || !window.confirm(`Deactivate ${ids.length} selected freight rate${ids.length === 1 ? '' : 's'}?`)) return;
+        const button = document.getElementById('rates-deactivate-btn');
+        button.disabled = true;
+        try {
+            const deactivatedAt = new Date().toISOString();
+            await api(`${MY_OBJECT_UPDATE_PATH}?table=freight_rates`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
+                body: JSON.stringify({ obj_list: ids.map(id => ({ id, deactivated_at: deactivatedAt })) })
+            });
+            await loadFreightRates();
+        } catch (err) {
+            window.alert(err.message || 'Unable to deactivate selected rates.');
+            updateRateSelectionControls();
+        }
+    });
+    document.getElementById('rates-delete-btn')?.addEventListener('click', async () => {
+        const ids = [...selectedRateIds];
+        if (!ids.length || !window.confirm(`Delete ${ids.length} selected freight rate${ids.length === 1 ? '' : 's'} permanently?`)) return;
+        try { await deleteFreightRates(ids); }
+        catch (err) { window.alert(err.message || 'Unable to delete selected freight rates.'); }
+    });
+    document.getElementById('rate-edit-modal-close')?.addEventListener('click', () => closeModal('rate-edit-modal'));
+    document.getElementById('rate-edit-cancel-btn')?.addEventListener('click', () => closeModal('rate-edit-modal'));
+    document.getElementById('rate-edit-form')?.addEventListener('submit', async event => {
+        event.preventDefault();
+        const message = document.getElementById('rate-edit-message');
+        const button = document.getElementById('rate-edit-submit-btn');
+        const numberOrNull = id => document.getElementById(id).value === '' ? null : Number(document.getElementById(id).value);
+        const object = {
+            id: Number(document.getElementById('rate-edit-id').value),
+            carrier: document.getElementById('rate-edit-carrier').value.trim(),
+            pol: document.getElementById('rate-edit-pol').value.trim(),
+            pod: document.getElementById('rate-edit-pod').value.trim(),
+            rate_validity: document.getElementById('rate-edit-validity').value || null,
+            freight_20ft_cntr_usd: numberOrNull('rate-edit-freight-20'),
+            freight_40ft_cntr_usd: numberOrNull('rate-edit-freight-40'),
+            manifest_shpt_usd: numberOrNull('rate-edit-manifest'),
+            seal_cntr_usd: numberOrNull('rate-edit-seal'),
+            thc_20ft_cntr_inr: numberOrNull('rate-edit-thc-20'),
+            thc_40ft_cntr_inr: numberOrNull('rate-edit-thc-40'),
+            bl_fees_shpt_inr: numberOrNull('rate-edit-bl-fee'),
+            remarks: document.getElementById('rate-edit-remarks').value.trim() || null
+        };
+        message.textContent = 'Saving changes...';
+        message.style.color = '#64748B';
+        button.disabled = true;
+        try {
+            await api(`${MY_OBJECT_UPDATE_PATH}?table=freight_rates`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
+                body: JSON.stringify({ obj_list: [object] })
+            });
+            closeModal('rate-edit-modal');
+            await loadFreightRates();
+        } catch (err) {
+            message.textContent = err.message || 'Unable to update freight rate.';
+            message.style.color = '#B91C1C';
+        } finally {
+            button.disabled = false;
+        }
+    });
     const buyerSearchInput = document.getElementById('buyer-search-input');
     const buyerSearchClear = document.getElementById('buyer-search-clear');
     buyerSearchInput?.addEventListener('input', event => {
@@ -3621,13 +4642,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('buyer-search-form')?.addEventListener('submit', event => {
         event.preventDefault();
         buyerSearchQuery = buyerSearchInput.value.trim();
-        buyerCurrentPage = 1;
         if (!buyerSearchQuery) { resetBuyer360(); return; }
+        const isOrgId = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(buyerSearchQuery);
+        if (!isOrgId) {
+            setTableMessage('buyer-table', 9, 'Enter a valid CargoWise organization ID.');
+            document.getElementById('buyer-result-count').textContent = 'Invalid organization ID format.';
+            return;
+        }
         loadBuyer360();
     });
     buyerSearchClear?.addEventListener('click', resetBuyer360);
-    document.getElementById('buyer-prev-btn')?.addEventListener('click', () => { if (buyerCurrentPage > 1) { buyerCurrentPage--; loadBuyer360(); } });
-    document.getElementById('buyer-next-btn')?.addEventListener('click', () => { buyerCurrentPage++; loadBuyer360(); });
 
 
     navItems.forEach(item => {
@@ -3639,7 +4663,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!SUPPORTED_ROLES.includes(userRole) || !allowedRoles.includes(userRole)) { showBlocked(); return; }
             const target = item.getAttribute('data-target');
             showSection(target);
-            if (target === 'users') loadUsers();
+            if (target === 'freight-rates') loadFreightRates();
+            else if (target === 'users') loadUsers();
             else if (target === 'buyer-360') return;
             else if (target === 'profile') loadCargowiseProfile();
             else loadModule(target);
@@ -3651,13 +4676,15 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('login-cancel-btn').addEventListener('click', () => closeModal('login-modal'));
     document.getElementById('profile-modal-close').addEventListener('click', () => closeModal('profile-modal'));
     document.getElementById('profile-close-btn').addEventListener('click', () => closeModal('profile-modal'));
+    document.getElementById('logout-cancel-btn').addEventListener('click', () => closeModal('logout-modal'));
+    document.getElementById('logout-submit-btn').addEventListener('click', logout);
     document.getElementById('profile-menu-profile').addEventListener('click', () => {
         closeProfileMenu();
         renderProfile();
         openModal('profile-modal');
     });
-    document.getElementById('profile-menu-logout').addEventListener('click', logout);
-    document.getElementById('blocked-logout-btn').addEventListener('click', logout);
+    document.getElementById('profile-menu-logout').addEventListener('click', requestLogout);
+    document.getElementById('blocked-logout-btn').addEventListener('click', requestLogout);
     document.getElementById('toggle-password').addEventListener('click', () => {
         const input = document.getElementById('login-password');
         const icon = document.querySelector('#toggle-password i');

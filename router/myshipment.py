@@ -2,152 +2,20 @@
 from fastapi import APIRouter, Request, Response
 from fastapi.encoders import jsonable_encoder
 import os
-import textwrap
-from datetime import datetime, timezone
-from argon2 import PasswordHasher
-from function import func_postgres_create, func_postgres_update, func_postgres_serialize, func_regex_check
-from config import config_regex, config_table, config_buffer_limit_default
 
 # router
 router = APIRouter()
 
 # api
-@router.post("/admin/cargowise-sync-users")
-async def func_api_admin_cargowise_sync_users(*, request: Request):
-    app_state = request.app.state
-    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    if not app_state.client_postgres: raise Exception("Postgres client not initialized")
-    seed_cargowise_user_password = "123456"
-    seed_cargowise_user_type = 1
-    seed_cargowise_user_role = 2
-    batch_size = 1000
-    def chunked(items, size):
-        for i in range(0, len(items), size):
-            yield items[i:i + size]
-    sql_mssql = textwrap.dedent("""\
-        SELECT
-            CONVERT(varchar(36), OH.OH_PK) AS username,
-            OH.OH_FullName AS name,
-            OH.OH_IsValid AS cw_is_valid,
-            OH.OH_IsActive AS cw_is_active,
-            OH.OH_IsConsignee AS cw_is_consignee,
-            OH.OH_IsConsignor AS cw_is_consignor,
-            OH.OH_IsGlobalAccount AS cw_is_global_account,
-            OH.OH_IsControllingAgent AS cw_is_controlling_agent,
-            OH.OH_IsControllingCustomer AS cw_is_controlling_customer,
-            OH.OH_Category AS cw_category,
-            OH.OH_RL_NKClosestPort AS cw_closest_port,
-            OH.OH_Code AS cw_code,
-            OH.OH_ScreeningStatus AS cw_screening_status
-        FROM dbo.OrgHeader AS OH
-        ORDER BY OH.OH_FullName;""")
-    async with app_state.client_mssql_read_fallback.acquire() as conn:
-        cursor = await conn.cursor()
-        await cursor.execute(sql_mssql)
-        columns = [column[0] for column in cursor.description]
-        rows = await cursor.fetchall()
-    orgs = []
-    for row in rows:
-        item = dict(zip(columns, row))
-        username = str(item.get("username") or "").strip()
-        if not username: continue
-        orgs.append({
-            "username": username,
-            "name": str(item.get("name") or "").strip(),
-            "cw_is_valid": bool(item.get("cw_is_valid")),
-            "cw_is_active": bool(item.get("cw_is_active")),
-            "cw_is_consignee": bool(item.get("cw_is_consignee")),
-            "cw_is_consignor": bool(item.get("cw_is_consignor")),
-            "cw_is_global_account": bool(item.get("cw_is_global_account")),
-            "cw_is_controlling_agent": bool(item.get("cw_is_controlling_agent")),
-            "cw_is_controlling_customer": bool(item.get("cw_is_controlling_customer")),
-            "cw_category": str(item.get("cw_category") or "").strip(),
-            "cw_closest_port": str(item.get("cw_closest_port") or "").strip(),
-            "cw_code": str(item.get("cw_code") or "").strip(),
-            "cw_screening_status": str(item.get("cw_screening_status") or "").strip()
-        })
-    if not orgs:
-        return {"status": 1, "message": {"created": 0, "updated": 0, "info": "No orgs found in CargoWise"}}
-    usernames = [org["username"] for org in orgs]
-    sql_pg = textwrap.dedent("""\
-        SELECT
-            id, type, username, name, role, deactivated_at, deleted_at,
-            cw_is_consignee, cw_is_consignor, cw_is_global_account, 
-            cw_is_controlling_agent, cw_is_controlling_customer,
-            cw_category, cw_closest_port, cw_is_valid, cw_is_active, 
-            cw_code, cw_screening_status
-        FROM users
-        WHERE username = ANY($1::text[])
-        ORDER BY username, deleted_at NULLS FIRST, deactivated_at NULLS FIRST, type;""")
-    async with app_state.client_postgres.acquire() as conn:
-        records = await conn.fetch(sql_pg, usernames)
-    existing_users = [dict(record) for record in records]
-    existing_by_username = {}
-    for existing_user in existing_users:
-        if existing_user.get("username"):
-            if existing_user["username"] in existing_by_username: continue
-            existing_by_username[existing_user["username"]] = existing_user
-    create_list = []
-    update_list = []
-    sync_time = datetime.now(timezone.utc)
-    for org in orgs:
-        existing = existing_by_username.get(org["username"])
-        desired = {
-            "type": seed_cargowise_user_type,
-            "role": seed_cargowise_user_role,
-            "name": org["name"],
-            "cw_is_valid": org["cw_is_valid"],
-            "cw_is_active": org["cw_is_active"],
-            "cw_is_consignee": org["cw_is_consignee"],
-            "cw_is_consignor": org["cw_is_consignor"],
-            "cw_is_global_account": org["cw_is_global_account"],
-            "cw_is_controlling_agent": org["cw_is_controlling_agent"],
-            "cw_is_controlling_customer": org["cw_is_controlling_customer"],
-            "cw_category": org["cw_category"],
-            "cw_closest_port": org["cw_closest_port"],
-            "cw_code": org["cw_code"],
-            "cw_screening_status": org["cw_screening_status"]
-        }
-        if not existing:
-            create_list.append({
-                "username": org["username"],
-                "password": seed_cargowise_user_password,
-                **desired
-            })
-            continue
-        if any(existing.get(key) != value for key, value in desired.items()):
-            update_list.append({"id": existing["id"], **desired, "updated_at": sync_time})
-    client_password_hasher = PasswordHasher()
-    cache_postgres_schema = request.app.state.cache_postgres_schema
-    created_count = 0
-    if create_list:
-        cache_postgres_buffer_create = {}
-        for batch in chunked(create_list, batch_size):
-            await func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, buffer_limit=config_table.get("users", {}).get("buffer_limit", config_buffer_limit_default), mode="now", table="users", obj_list=batch)
-            created_count += len(batch)
-    updated_count = 0
-    if update_list:
-        for batch in chunked(update_list, batch_size):
-            await func_postgres_update(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, config_regex=config_regex, table="users", obj_list=batch, created_by_id=None)
-            updated_count += len(batch)
-    return {"status": 1, "message": {"created": created_count, "updated": updated_count}}
-
 @router.get("/admin/cargowise-buyer-360")
 async def func_api_admin_cargowise_buyer_360(*, request: Request):
     app_state = request.app.state
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("name", "str", 0, None, ""), ("org_id", "str", 0, None, "")])
-    limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
-    if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
-    limit = max(1, limit)
-    page = max(1, int(oq["page"] or 1))
-    offset = (page - 1) * limit
-    sql_limit = limit + 1
-    name = str(oq.get("name") or "").strip()
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("org_id", "str", 1, None, None)])
     org_id = str(oq.get("org_id") or "").strip()
-    sql = f"""
+    sql = """
         SET NOCOUNT ON;
-        SELECT
+        SELECT TOP 1
             CONVERT(varchar(36), OH.OH_PK) AS org_id,
             OH.OH_FullName AS name,
             OH.OH_Category AS category,
@@ -220,16 +88,14 @@ async def func_api_admin_cargowise_buyer_360(*, request: Request):
         WHERE OH.OH_IsActive = 1 
           AND OH.OH_IsValid = 1 
           AND OH.OH_IsConsignee = 1
-          AND (? = '' OR LOWER(OH.OH_FullName) LIKE '%' + LOWER(?) + '%')
-          AND (? = '' OR OH.OH_PK = TRY_CONVERT(uniqueidentifier, ?))
-        ORDER BY ISNULL(Shipments.TotalShipments, 0) DESC, OH.OH_FullName ASC
-        OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
+          AND OH.OH_PK = TRY_CONVERT(uniqueidentifier, ?)
+        ORDER BY OH.OH_FullName ASC;"""
     async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
-        await cursor.execute(sql, name, name, org_id, org_id)
+        await cursor.execute(sql, org_id)
         columns = [column[0] for column in cursor.description]
-        obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
-    return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
+        row = await cursor.fetchone()
+    return {"status": 1, "message": dict(zip(columns, row)) if row else None}
     
 @router.get("/my/cargowise-profile")
 async def func_api_my_cargowise_profile(*, request: Request):
@@ -1370,4 +1236,3 @@ async def func_api_my_cargowise_analytics(*, request: Request):
         transport_modes = [dict(zip(transport_modes_columns, row)) for row in await cursor.fetchall()]
     analytics_object = {"kpis": kpis[0] if kpis else {}, "purchase_orders_by_status": purchase_orders_by_status, "shipments_by_status": shipments_by_status, "shipments_by_month": shipments_by_month, "transport_modes": transport_modes}
     return {"status": 1, "message": jsonable_encoder(analytics_object)}
-
