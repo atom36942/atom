@@ -38,7 +38,7 @@ config_celery_url = None
 config_root_user_password = "123456"
 config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
 config_root_html_path = "static/api.html"
-config_is_enable_func_check = 0
+config_is_enable_func_check = 1
 config_is_enable_user_delete = 0
 config_is_enable_postgres_schema_init = 1
 config_is_enable_signup = 1
@@ -134,7 +134,7 @@ config_api = {
 "/public/table-groupby": {"id": 18, "api_cache_sec": ["inmemory", 10]},
 "/public/jira-worklog-export": {"id": 19, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
 "/admin/cargowise-sync-users": {"id": 34, "user_role_check": ["token", [1]]},
-"/admin/cargowise-buyer-360": {"id": 32, "user_role_check": ["token", [1]], "api_cache_sec": ["redis", 1000]},
+"/admin/cargowise-buyer-360": {"id": 32, "user_role_check": ["token", [1]], "api_cache_sec": ["inmemory", 1000]},
 "/my/cargowise-profile": {"id": 24, "api_cache_sec": ["redis", 300]},
 "/my/cargowise-purchase-orders": {"id": 25, "api_cache_sec": ["redis", 300]},
 "/my/cargowise-purchase-orders-line-items": {"id": 33, "api_cache_sec": ["redis", 300]},
@@ -148,6 +148,9 @@ config_api = {
 
 config_column_int_mapping = {
 "worker_status": {None: "Pending", 1: "Processing", 2: "Completed", 3: "Failed", 4: "Dead"},
+"role": {
+"users": {1: "Admin", 2: "Buyer", 3: "CRM", 4: "Salesperson"},
+},
 "type": {
 "notification": {1: "Password Change", 2: "Job Status Change", 3: "Account Created"},
 "log_users_delete": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},

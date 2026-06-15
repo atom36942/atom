@@ -98,9 +98,10 @@ async def func_api_admin_postgres_export(*, request: Request):
     sql = ob["sql"]
     ql = sql.lower().strip().lstrip("(").strip()
     if not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("export restricted to select/with/explain/show/describe")
-    if not app_state.client_postgres_read: raise Exception("postgres read client not initialized")
+    client_postgres = app_state.client_postgres_read_fallback
+    if not client_postgres: raise Exception("postgres read client not initialized")
     async def _iter():
-        async with app_state.client_postgres_read.acquire() as conn:
+        async with client_postgres.acquire() as conn:
             async with conn.transaction():
                 is_first = 1
                 async for record in conn.cursor(sql):

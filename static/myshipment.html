@@ -87,6 +87,10 @@ body {
     transition: all 0.2s;
 }
 
+.nav-item[hidden] {
+    display: none !important;
+}
+
 .nav-item i {
     width: 20px;
     text-align: center;
@@ -269,6 +273,87 @@ body {
     font-size: 2.5rem;
     font-weight: 700;
     color: var(--text-dark);
+}
+
+.buyer-insights {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+    padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.buyer-insight-card {
+    --insight-color: #4F46E5;
+    --insight-soft: #EEF2FF;
+    position: relative;
+    min-width: 0;
+    padding: 1.15rem;
+    overflow: hidden;
+    border: 1px solid #E5E7EB;
+    border-radius: 14px;
+    background: linear-gradient(145deg, #FFFFFF 45%, var(--insight-soft) 140%);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+}
+
+.buyer-insight-card.orders { --insight-color: #D97706; --insight-soft: #FFFBEB; }
+.buyer-insight-card.shipments { --insight-color: #0284C7; --insight-soft: #F0F9FF; }
+.buyer-insight-card.invoices { --insight-color: #059669; --insight-soft: #ECFDF5; }
+
+.buyer-insight-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.buyer-insight-label {
+    color: #64748B;
+    font-size: 0.73rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.buyer-insight-icon {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    display: grid;
+    place-items: center;
+    color: var(--insight-color);
+    background: var(--insight-soft);
+    border-radius: 12px;
+    font-size: 1rem;
+}
+
+.buyer-insight-value {
+    margin-top: 0.55rem;
+    color: #0F172A;
+    font-size: clamp(1.75rem, 3vw, 2.35rem);
+    font-weight: 750;
+    line-height: 1;
+    letter-spacing: -0.04em;
+}
+
+.buyer-insight-detail {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.65rem;
+    color: #64748B;
+    font-size: 0.75rem;
+}
+
+.buyer-insight-detail i {
+    color: var(--insight-color);
+}
+
+@media (max-width: 1100px) {
+    .buyer-insights { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 620px) {
+    .buyer-insights { grid-template-columns: 1fr; padding: 0 1rem 1rem; }
 }
 
 /* Panels */
@@ -1940,31 +2025,37 @@ body.not-allowed .content-wrapper {
                 <h2>MyShipment</h2>
             </div>
             <nav class="nav-menu">
-                <a href="#profile" class="nav-item active" data-target="profile">
+                <a href="#users" class="nav-item" data-target="users" data-roles="1" hidden>
+                    <i class="fa-solid fa-users"></i> Users
+                </a>
+                <a href="#buyer-360" class="nav-item" data-target="buyer-360" data-roles="1" hidden>
+                    <i class="fa-solid fa-building-circle-check"></i> Buyer 360
+                </a>
+                <a href="#profile" class="nav-item active" data-target="profile" data-roles="2">
                     <i class="fa-solid fa-user"></i> My Profile
                 </a>
-                <a href="#purchase-orders" class="nav-item" data-target="purchase-orders">
+                <a href="#purchase-orders" class="nav-item" data-target="purchase-orders" data-roles="2">
                     <i class="fa-solid fa-file-invoice"></i> Purchase Orders
                 </a>
-                <a href="#shipments" class="nav-item" data-target="shipments">
+                <a href="#shipments" class="nav-item" data-target="shipments" data-roles="2">
                     <i class="fa-solid fa-ship"></i> Shipments
                 </a>
-                <a href="#containers" class="nav-item" data-target="containers">
+                <a href="#containers" class="nav-item" data-target="containers" data-roles="2">
                     <i class="fa-solid fa-boxes-stacked"></i> Containers
                 </a>
-                <a href="#tracking" class="nav-item" data-target="tracking">
+                <a href="#tracking" class="nav-item" data-target="tracking" data-roles="2">
                     <i class="fa-solid fa-route"></i> Tracking
                 </a>
-                <a href="#exceptions" class="nav-item" data-target="exceptions">
+                <a href="#exceptions" class="nav-item" data-target="exceptions" data-roles="2">
                     <i class="fa-solid fa-triangle-exclamation"></i> Exceptions
                 </a>
-                <a href="#documents" class="nav-item" data-target="documents">
+                <a href="#documents" class="nav-item" data-target="documents" data-roles="2">
                     <i class="fa-solid fa-folder-open"></i> Documents
                 </a>
-                <a href="#analytics" class="nav-item" data-target="analytics">
+                <a href="#analytics" class="nav-item" data-target="analytics" data-roles="2">
                     <i class="fa-solid fa-chart-line"></i> Analytics
                 </a>
-                <a href="#mghask" class="nav-item" data-target="mghask">
+                <a href="#mghask" class="nav-item" data-target="mghask" data-roles="2">
                     <i class="fa-solid fa-robot"></i> MGH ASK
                 </a>
             </nav>
@@ -2017,13 +2108,140 @@ body.not-allowed .content-wrapper {
                     </div>
                 </section>
 
-                <!-- Access Blocked Section (role != 2) -->
+                <!-- Access Blocked Section -->
                 <section id="blocked" class="blocked-section">
                     <div class="blocked-card">
                         <div class="lock"><i class="fa-solid fa-lock"></i></div>
                         <h2>Access not allowed</h2>
-                        <p>This portal is restricted to users with <strong>role = 2</strong>. Your account currently has <strong>role = <span id="blocked-current-role">-</span></strong>. Please contact your administrator if you believe this is a mistake.</p>
+                        <p>This portal is not configured for your account role. Your account currently has <strong>role = <span id="blocked-current-role">-</span></strong>. Please contact your administrator if you believe this is a mistake.</p>
                         <button class="btn btn-primary" id="blocked-logout-btn" type="button">Logout</button>
+                    </div>
+                </section>
+
+                <!-- Admin Users Section -->
+                <section id="users" class="view-section">
+                    <div class="panel po-panel">
+                        <div class="po-toolbar">
+                            <div class="po-heading">
+                                <h2>Users</h2>
+                                <p>View portal users and their assigned roles.</p>
+                            </div>
+                            <div class="po-toolbar-actions">
+                                <button class="btn btn-primary" id="users-export-btn" type="button">
+                                    <i class="fa-solid fa-download" aria-hidden="true"></i> Download CSV
+                                </button>
+                            </div>
+                        </div>
+                        <div class="po-summary-bar">
+                            <div class="po-result-count" id="users-result-count">Loading users...</div>
+                            <div class="po-pagination" aria-label="User pages">
+                                <button class="po-page-button" id="users-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
+                                <span id="users-page-display">Page 1</span>
+                                <button class="po-page-button" id="users-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+                        <div class="table-responsive po-table-wrap">
+                            <table class="data-table" id="users-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Created At</th>
+                                        <th>Username</th>
+                                        <th>Role</th>
+                                        <th>Active</th>
+                                    </tr>
+                                </thead>
+                                <tbody><tr><td colspan="5">Loading users...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Admin Buyer 360 Section -->
+                <section id="buyer-360" class="view-section">
+                    <div class="panel po-panel">
+                        <div class="po-toolbar">
+                            <div class="po-heading">
+                                <h2>Buyer 360</h2>
+                                <p>Search CargoWise buyers and review their operational activity in one place.</p>
+                            </div>
+                            <div class="po-toolbar-actions">
+                                <form class="po-search" id="buyer-search-form" role="search">
+                                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                                    <input type="search" id="buyer-search-input" placeholder="Buyer name or organization ID" aria-label="Buyer name or organization ID">
+                                    <button class="po-search-button" type="button" id="buyer-search-clear" aria-label="Clear buyer search" title="Clear" style="display: none;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                                    <button class="po-search-button primary" type="submit" id="buyer-search-submit" aria-label="Search buyers" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="buyer-insights" aria-label="Buyer 360 insights">
+                            <article class="buyer-insight-card buyers">
+                                <div class="buyer-insight-top">
+                                    <div>
+                                        <div class="buyer-insight-label">Buyers Matched</div>
+                                        <div class="buyer-insight-value" id="buyer-kpi-count">-</div>
+                                    </div>
+                                    <div class="buyer-insight-icon"><i class="fa-solid fa-building-user" aria-hidden="true"></i></div>
+                                </div>
+                                <div class="buyer-insight-detail"><i class="fa-solid fa-filter" aria-hidden="true"></i><span>Current search page</span></div>
+                            </article>
+                            <article class="buyer-insight-card orders">
+                                <div class="buyer-insight-top">
+                                    <div>
+                                        <div class="buyer-insight-label">Purchase Orders</div>
+                                        <div class="buyer-insight-value" id="buyer-kpi-pos">-</div>
+                                    </div>
+                                    <div class="buyer-insight-icon"><i class="fa-solid fa-file-circle-check" aria-hidden="true"></i></div>
+                                </div>
+                                <div class="buyer-insight-detail"><i class="fa-solid fa-cart-flatbed" aria-hidden="true"></i><span>Orders linked to results</span></div>
+                            </article>
+                            <article class="buyer-insight-card shipments">
+                                <div class="buyer-insight-top">
+                                    <div>
+                                        <div class="buyer-insight-label">Shipments</div>
+                                        <div class="buyer-insight-value" id="buyer-kpi-shipments">-</div>
+                                    </div>
+                                    <div class="buyer-insight-icon"><i class="fa-solid fa-ship" aria-hidden="true"></i></div>
+                                </div>
+                                <div class="buyer-insight-detail"><i class="fa-solid fa-route" aria-hidden="true"></i><span>Operational movements</span></div>
+                            </article>
+                            <article class="buyer-insight-card invoices">
+                                <div class="buyer-insight-top">
+                                    <div>
+                                        <div class="buyer-insight-label">Invoices</div>
+                                        <div class="buyer-insight-value" id="buyer-kpi-invoices">-</div>
+                                    </div>
+                                    <div class="buyer-insight-icon"><i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i></div>
+                                </div>
+                                <div class="buyer-insight-detail"><i class="fa-solid fa-chart-line" aria-hidden="true"></i><span>Financial documents</span></div>
+                            </article>
+                        </div>
+                        <div class="po-summary-bar">
+                            <div class="po-result-count" id="buyer-result-count">Search by buyer name or organization ID.</div>
+                            <div class="po-pagination" aria-label="Buyer pages">
+                                <button class="po-page-button" id="buyer-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
+                                <span id="buyer-page-display">Page 1</span>
+                                <button class="po-page-button" id="buyer-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+                        <div class="table-responsive po-table-wrap">
+                            <table class="data-table" id="buyer-table">
+                                <thead>
+                                    <tr>
+                                        <th>Buyer</th>
+                                        <th>Location</th>
+                                        <th>POs</th>
+                                        <th>Bookings</th>
+                                        <th>Shipments</th>
+                                        <th>Consols</th>
+                                        <th>Invoices</th>
+                                        <th>Last Activity</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody><tr><td colspan="9">Use the search above to load Buyer 360 data.</td></tr></tbody>
+                            </table>
+                        </div>
                     </div>
                 </section>
 
@@ -2560,7 +2778,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const STORAGE_KEY_USER = 'user';
     const API_BASE = location.origin && location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
     const LOGIN_PATH = '/auth/login-username-password';
+    const INFO_PATH = '/info';
     const CARGOWISE_PROFILE_PATH = '/my/cargowise-profile';
+    const ADMIN_USERS_PATH = '/admin/object-read';
+    const ADMIN_POSTGRES_EXPORT_PATH = '/admin/postgres-export';
+    const ADMIN_BUYER_360_PATH = '/admin/cargowise-buyer-360';
+    const ADMIN_ROLE = 1;
+    const BUYER_ROLE = 2;
+    const SUPPORTED_ROLES = [ADMIN_ROLE, BUYER_ROLE];
+    let roleLabels = {};
     const MODULE_ENDPOINTS = {
         'purchase-orders': '/my/cargowise-purchase-orders',
         shipments: '/my/cargowise-shipments',
@@ -2577,6 +2803,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let containerCurrentPage = 1;
     let exceptionCurrentPage = 1;
     let documentCurrentPage = 1;
+    let usersCurrentPage = 1;
+    let buyerCurrentPage = 1;
+    let buyerSearchQuery = '';
     let poSearchQuery = '';
     let poSearchTimeout;
     const moduleCache = {};
@@ -2617,6 +2846,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const body = await res.json().catch(() => ({}));
         if (!res.ok || body.status !== 1) throw new Error(body.message || body.detail || 'Request failed');
         return body;
+    };
+    const loadInfo = async () => {
+        try {
+            const payload = await api(INFO_PATH);
+            roleLabels = payload.message?.mapping?.role?.users || {};
+        } catch (err) {
+            roleLabels = {};
+        }
     };
     const accessToken = () => typeof authToken === 'object' ? authToken.access_token || authToken.token || '' : authToken || '';
     const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -2708,7 +2945,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('profile-username').textContent = rawValue(user.username);
         document.getElementById('profile-password').textContent = user.password ? '••••••••' : '-';
         document.getElementById('profile-type').textContent = rawValue(user.type);
-        document.getElementById('profile-role').textContent = rawValue(user.role);
+        document.getElementById('profile-role').textContent = roleLabels[String(user.role)] || rawValue(user.role);
     };
     const renderCargowiseProfile = profile => {
         const org = profile.org || {};
@@ -2981,6 +3218,155 @@ document.addEventListener('DOMContentLoaded', () => {
             </tr>
         `).join('') : '<tr><td colspan="7">No documents found.</td></tr>';
     };
+    const renderUsers = rows => {
+        const body = document.querySelector('#users-table tbody');
+        if (!body) return;
+        body.innerHTML = rows.length ? rows.map(row => {
+            const role = roleLabels[String(row.role)] || displayValue(row.role);
+            const isActive = !row.deactivated_at && !row.deleted_at;
+            return `
+                <tr>
+                    <td>${escapeHtml(displayValue(row.id))}</td>
+                    <td>${escapeHtml(formatDateTime(row.created_at))}</td>
+                    <td><strong>${escapeHtml(displayValue(row.username))}</strong></td>
+                    <td><span class="badge ${Number(row.role) === ADMIN_ROLE ? 'transit' : 'open'}">${escapeHtml(role)}</span></td>
+                    <td><span class="badge ${isActive ? 'delivered' : 'exception'}">${isActive ? 'Yes' : 'No'}</span></td>
+                </tr>
+            `;
+        }).join('') : '<tr><td colspan="5">No users found.</td></tr>';
+    };
+    const loadUsers = async () => {
+        if (!authToken || Number(authUser && authUser.role) !== ADMIN_ROLE) return;
+        setTableMessage('users-table', 5, 'Loading users...');
+        document.getElementById('users-result-count').textContent = 'Loading users...';
+        try {
+            const query = new URLSearchParams({ table: 'users', limit: '50', page: String(usersCurrentPage) });
+            const payload = await api(`${ADMIN_USERS_PATH}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const message = payload.message || {};
+            const rows = Array.isArray(message.obj_list) ? message.obj_list : [];
+            renderUsers(rows);
+            document.getElementById('users-result-count').innerHTML = `<strong>${rows.length}</strong> user${rows.length === 1 ? '' : 's'} on this page`;
+            document.getElementById('users-page-display').textContent = `Page ${usersCurrentPage}`;
+            document.getElementById('users-prev-btn').disabled = usersCurrentPage <= 1;
+            document.getElementById('users-next-btn').disabled = !message.has_next_page;
+        } catch (err) {
+            setTableMessage('users-table', 5, err.message || 'Unable to load users');
+            document.getElementById('users-result-count').textContent = 'Users could not be loaded';
+        }
+    };
+    const exportUsers = async () => {
+        if (!authToken || Number(authUser && authUser.role) !== ADMIN_ROLE) return;
+        const input = window.prompt('How many users should be exported?', '10000');
+        if (input === null) return;
+        const limit = Number(input.trim());
+        if (!Number.isSafeInteger(limit) || limit < 1) {
+            window.alert('Enter a positive whole-number limit.');
+            return;
+        }
+        const button = document.getElementById('users-export-btn');
+        const originalHtml = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i> Exporting...';
+        try {
+            const response = await fetch(API_BASE + ADMIN_POSTGRES_EXPORT_PATH, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
+                body: JSON.stringify({ sql: `select * from users limit ${limit};` })
+            });
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error.message || error.detail || 'Unable to export users');
+            }
+            const blob = await response.blob();
+            const disposition = response.headers.get('Content-Disposition') || '';
+            const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
+            const filename = filenameMatch ? filenameMatch[1] : 'users_export.csv';
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename === 'postgres_export.csv' ? 'users_export.csv' : filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            window.alert(err.message || 'Unable to export users');
+        } finally {
+            button.disabled = false;
+            button.innerHTML = originalHtml;
+        }
+    };
+    const buyerNumber = value => Number(value || 0).toLocaleString();
+    const renderBuyer360 = rows => {
+        const body = document.querySelector('#buyer-table tbody');
+        if (!body) return;
+        const totals = rows.reduce((result, row) => {
+            result.purchaseOrders += Number(row.total_purchase_orders || 0);
+            result.shipments += Number(row.total_shipments || 0);
+            result.invoices += Number(row.total_invoices || 0);
+            return result;
+        }, { purchaseOrders: 0, shipments: 0, invoices: 0 });
+        document.getElementById('buyer-kpi-count').textContent = buyerNumber(rows.length);
+        document.getElementById('buyer-kpi-pos').textContent = buyerNumber(totals.purchaseOrders);
+        document.getElementById('buyer-kpi-shipments').textContent = buyerNumber(totals.shipments);
+        document.getElementById('buyer-kpi-invoices').textContent = buyerNumber(totals.invoices);
+        body.innerHTML = rows.length ? rows.map(row => {
+            const location = [row.city, row.state, row.country_code].filter(Boolean).join(', ') || '-';
+            const isActive = row.is_active === true || Number(row.is_active) === 1;
+            const isValid = row.is_valid === true || Number(row.is_valid) === 1;
+            return `
+                <tr>
+                    <td>
+                        <strong>${escapeHtml(displayValue(row.name))}</strong>
+                        <div class="profile-status">${escapeHtml(displayValue(row.org_id))}</div>
+                    </td>
+                    <td>${escapeHtml(location)}<div class="profile-status">${escapeHtml(displayValue(row.closest_port))}</div></td>
+                    <td>${escapeHtml(buyerNumber(row.total_purchase_orders))}</td>
+                    <td>${escapeHtml(buyerNumber(row.total_bookings))}</td>
+                    <td>${escapeHtml(buyerNumber(row.total_shipments))}</td>
+                    <td>${escapeHtml(buyerNumber(row.total_consols))}</td>
+                    <td>${escapeHtml(buyerNumber(row.total_invoices))}</td>
+                    <td>${escapeHtml(formatDateTime(row.last_activity_date))}</td>
+                    <td>
+                        <span class="badge ${isActive && isValid ? 'delivered' : 'exception'}">${isActive && isValid ? 'Active' : 'Review'}</span>
+                        <div class="profile-status">${escapeHtml(displayValue(row.screening_status))}</div>
+                    </td>
+                </tr>
+            `;
+        }).join('') : '<tr><td colspan="9">No buyers found for this search.</td></tr>';
+    };
+    const resetBuyer360 = () => {
+        buyerCurrentPage = 1;
+        buyerSearchQuery = '';
+        document.getElementById('buyer-search-input').value = '';
+        document.getElementById('buyer-search-clear').style.display = 'none';
+        document.getElementById('buyer-result-count').textContent = 'Search by buyer name or organization ID.';
+        document.getElementById('buyer-page-display').textContent = 'Page 1';
+        document.getElementById('buyer-prev-btn').disabled = true;
+        document.getElementById('buyer-next-btn').disabled = true;
+        ['count', 'pos', 'shipments', 'invoices'].forEach(key => { document.getElementById(`buyer-kpi-${key}`).textContent = '-'; });
+        setTableMessage('buyer-table', 9, 'Use the search above to load Buyer 360 data.');
+    };
+    const loadBuyer360 = async () => {
+        if (!authToken || Number(authUser && authUser.role) !== ADMIN_ROLE || !buyerSearchQuery) return;
+        setTableMessage('buyer-table', 9, 'Loading Buyer 360 data...');
+        document.getElementById('buyer-result-count').textContent = 'Loading Buyer 360 data...';
+        const isOrgId = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(buyerSearchQuery);
+        const query = new URLSearchParams({ limit: '25', page: String(buyerCurrentPage), [isOrgId ? 'org_id' : 'name']: buyerSearchQuery });
+        try {
+            const payload = await api(`${ADMIN_BUYER_360_PATH}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const message = payload.message || {};
+            const rows = Array.isArray(message.obj_list) ? message.obj_list : [];
+            renderBuyer360(rows);
+            document.getElementById('buyer-result-count').innerHTML = `<strong>${rows.length}</strong> buyer${rows.length === 1 ? '' : 's'} on this page`;
+            document.getElementById('buyer-page-display').textContent = `Page ${buyerCurrentPage}`;
+            document.getElementById('buyer-prev-btn').disabled = buyerCurrentPage <= 1;
+            document.getElementById('buyer-next-btn').disabled = !message.has_next_page;
+        } catch (err) {
+            setTableMessage('buyer-table', 9, err.message || 'Unable to load Buyer 360 data');
+            document.getElementById('buyer-result-count').textContent = 'Buyer 360 data could not be loaded';
+        }
+    };
     const chartInstances = {};
     const renderChart = (id, config) => {
         const canvas = document.getElementById(id);
@@ -3079,7 +3465,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     };
-    const PORTAL_ALLOWED_ROLE = 2;
     const showBlocked = () => {
         document.querySelectorAll('.view-section, .blocked-section').forEach(sec => sec.classList.remove('active'));
         const blocked = document.getElementById('blocked');
@@ -3090,13 +3475,20 @@ document.addEventListener('DOMContentLoaded', () => {
             currentRoleEl.textContent = raw;
         }
     };
+    const applyRoleNavigation = userRole => {
+        document.querySelectorAll('.nav-item[data-roles]').forEach(item => {
+            const roles = item.dataset.roles.split(',').map(Number);
+            item.hidden = !roles.includes(userRole);
+        });
+    };
     const applyAuthState = () => {
         const loggedIn = Boolean(authToken && authUser);
         const userRole = authUser ? Number(authUser.role) : null;
-        const allowed = loggedIn && userRole === PORTAL_ALLOWED_ROLE;
+        const allowed = loggedIn && SUPPORTED_ROLES.includes(userRole);
         document.body.classList.toggle('logged-in', loggedIn);
         document.body.classList.toggle('logged-out', !loggedIn);
         document.body.classList.toggle('not-allowed', loggedIn && !allowed);
+        applyRoleNavigation(userRole);
         renderProfile();
         if (!loggedIn) {
             showSection('home');
@@ -3104,6 +3496,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (!allowed) {
             showBlocked();
+            return;
+        }
+        if (userRole === ADMIN_ROLE) {
+            showSection('users');
+            loadUsers();
             return;
         }
         showSection('profile');
@@ -3124,6 +3521,7 @@ document.addEventListener('DOMContentLoaded', () => {
         writeUser(null);
         cargowiseProfileLoaded = false;
         Object.keys(moduleCache).forEach(key => delete moduleCache[key]);
+        resetBuyer360();
         closeProfileMenu();
         closeModal('profile-modal');
         closeModal('login-modal');
@@ -3212,16 +3610,38 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('document-prev-btn')?.addEventListener('click', () => { if (documentCurrentPage > 1) { documentCurrentPage--; loadModule('documents'); } });
     document.getElementById('document-next-btn')?.addEventListener('click', () => { documentCurrentPage++; loadModule('documents'); });
+    document.getElementById('users-prev-btn')?.addEventListener('click', () => { if (usersCurrentPage > 1) { usersCurrentPage--; loadUsers(); } });
+    document.getElementById('users-next-btn')?.addEventListener('click', () => { usersCurrentPage++; loadUsers(); });
+    document.getElementById('users-export-btn')?.addEventListener('click', exportUsers);
+    const buyerSearchInput = document.getElementById('buyer-search-input');
+    const buyerSearchClear = document.getElementById('buyer-search-clear');
+    buyerSearchInput?.addEventListener('input', event => {
+        buyerSearchClear.style.display = event.target.value.trim() ? 'grid' : 'none';
+    });
+    document.getElementById('buyer-search-form')?.addEventListener('submit', event => {
+        event.preventDefault();
+        buyerSearchQuery = buyerSearchInput.value.trim();
+        buyerCurrentPage = 1;
+        if (!buyerSearchQuery) { resetBuyer360(); return; }
+        loadBuyer360();
+    });
+    buyerSearchClear?.addEventListener('click', resetBuyer360);
+    document.getElementById('buyer-prev-btn')?.addEventListener('click', () => { if (buyerCurrentPage > 1) { buyerCurrentPage--; loadBuyer360(); } });
+    document.getElementById('buyer-next-btn')?.addEventListener('click', () => { buyerCurrentPage++; loadBuyer360(); });
 
 
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
             if (!authToken || !authUser) return;
-            if (Number(authUser.role) !== PORTAL_ALLOWED_ROLE) { showBlocked(); return; }
+            const userRole = Number(authUser.role);
+            const allowedRoles = item.dataset.roles ? item.dataset.roles.split(',').map(Number) : [];
+            if (!SUPPORTED_ROLES.includes(userRole) || !allowedRoles.includes(userRole)) { showBlocked(); return; }
             const target = item.getAttribute('data-target');
             showSection(target);
-            if (target === 'profile') loadCargowiseProfile();
+            if (target === 'users') loadUsers();
+            else if (target === 'buyer-360') return;
+            else if (target === 'profile') loadCargowiseProfile();
             else loadModule(target);
         });
     });
@@ -3315,7 +3735,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    applyAuthState();
+    const initialize = async () => {
+        await loadInfo();
+        applyAuthState();
+    };
+    initialize();
 
 });
     </script>
