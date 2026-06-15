@@ -93,6 +93,9 @@ config_postgres = {
 {"name":"email","datatype":"text","unique":"email,type"},
 {"name":"mobile","datatype":"text","unique":"mobile,type"},
 {"name":"role","datatype":"smallint","is_mandatory":0,"in":(1,2,3,4,5),"index":"btree(role)"},
+{"name":"pricing_category","datatype":"text","default":"'B'","in":('A','B','C')},
+{"name":"allowed_origins","datatype":"text[]","index":"gin(allowed_origins)"},
+{"name":"freight_status","datatype":"text","default":"'active'","in":('active','disabled'),"index":"btree(freight_status)"},
 {"name":"last_active_at","datatype":"timestamptz"},
 {"name":"name","datatype":"text"},
 {"name":"country","datatype":"text"},
@@ -266,17 +269,6 @@ config_postgres = {
 {"name":"summary","datatype":"text"},
 {"name":"projects","datatype":"jsonb","index":"gin(projects)"},
 {"name":"industry","datatype":"text","index":"btree(industry)"}
-],
-"freight_user_access":[
-{"name":"id","datatype":"bigserial","is_primary":1},
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
-{"name":"created_by_id","datatype":"bigint"},
-{"name":"updated_at","datatype":"timestamptz"},
-{"name":"updated_by_id","datatype":"bigint"},
-{"name":"user_id","datatype":"bigint","is_mandatory":1,"unique":"user_id","index":"btree(user_id)"},
-{"name":"pricing_category","datatype":"text","default":"'B'","in":('A','B','C')},
-{"name":"allowed_origins","datatype":"text[]","index":"gin(allowed_origins)"},
-{"name":"status","datatype":"text","default":"'active'","in":('active','disabled'),"index":"btree(status)"}
 ],
 "freight_customer":[
 {"name":"id","datatype":"bigserial","is_primary":1},

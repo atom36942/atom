@@ -11,16 +11,15 @@ router = APIRouter()
 async def func_api_admin_quotation_bootstrap(*, request:Request):
     app_state, user_id = request.app.state, request.state.user["id"]
     async with app_state.client_postgres_read_fallback.acquire() as conn:
-        role = await conn.fetchval("SELECT role FROM users WHERE id=$1", user_id)
-        access_row = await conn.fetchrow("SELECT * FROM freight_user_access WHERE user_id=$1 AND status='active' ORDER BY id DESC LIMIT 1", user_id)
-        access = dict(access_row) if access_row else None
-        role = int(role)
-        if role != 1 and not access: raise Exception("freight access not configured")
+        access_row = await conn.fetchrow("SELECT id user_id,role,pricing_category,allowed_origins,freight_status status FROM users WHERE id=$1", user_id)
+        if not access_row: raise Exception("user not found")
+        access, role = dict(access_row), int(access_row["role"])
+        if role != 1 and access["status"] != "active": raise Exception("freight access disabled")
         customers = [dict(r) for r in await conn.fetch("SELECT id,code,name,cw_code,pricing_category,currency,kyc_status,credit_status,status FROM freight_customer WHERE status='active' ORDER BY name LIMIT 500")]
         rates = [dict(r) for r in await conn.fetch("SELECT id,created_at,created_by_id,mode,movement,origin,destination,carrier,service,currency,buy_rates,floor_rates,sell_rates_a,sell_rates_b,sell_rates_c,transit_time,valid_from,valid_to,source_reference,status FROM freight_rate WHERE status='draft' ORDER BY id DESC LIMIT 100")] if role in (1,3,4) else []
         exceptions = [dict(r) for r in await conn.fetch("SELECT e.*,q.reference,q.customer_id,q.origin,q.destination,q.total_sell FROM freight_quote_exception e JOIN freight_quote q ON q.id=e.quote_id WHERE e.status='pending' ORDER BY e.id DESC LIMIT 100")] if role in (1,5) else []
-        users = [dict(r) for r in await conn.fetch("SELECT id,username,email,name,role FROM users WHERE deleted_at IS NULL AND deactivated_at IS NULL ORDER BY id LIMIT 500")] if role == 1 else []
-        access_list = [dict(r) for r in await conn.fetch("SELECT a.*,u.username,u.email,u.name,u.role FROM freight_user_access a JOIN users u ON u.id=a.user_id ORDER BY a.id DESC LIMIT 500")] if role == 1 else []
+        users = [dict(r) for r in await conn.fetch("SELECT id,username,email,name,role,pricing_category,allowed_origins,freight_status FROM users WHERE deleted_at IS NULL AND deactivated_at IS NULL ORDER BY id LIMIT 500")] if role == 1 else []
+        access_list = [dict(r) for r in await conn.fetch("SELECT id user_id,username,email,name,role,pricing_category,allowed_origins,freight_status status FROM users WHERE role IS NOT NULL AND deleted_at IS NULL ORDER BY id LIMIT 500")] if role == 1 else []
     for row in rates:
         for key in ("buy_rates","floor_rates","sell_rates_a","sell_rates_b","sell_rates_c"):
             if isinstance(row.get(key), str): row[key] = orjson.loads(row[key])
@@ -32,10 +31,8 @@ async def func_api_admin_quotation_access_save(*, request:Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("user_id","int",1,None,None),("role","int",1,[2,3,4,5],None),("pricing_category","str",0,["A","B","C"],"B"),("allowed_origins","list",0,None,[]),("status","str",0,["active","disabled"],"active")])
     async with app_state.client_postgres.acquire() as conn:
-        async with conn.transaction():
-            if not await conn.fetchval("SELECT id FROM users WHERE id=$1", ob["user_id"]): raise Exception("user not found")
-            await conn.execute("UPDATE users SET role=$1,updated_by_id=$2 WHERE id=$3", ob["role"], request.state.user["id"], ob["user_id"])
-            row = await conn.fetchrow("INSERT INTO freight_user_access (created_by_id,user_id,pricing_category,allowed_origins,status) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (user_id) DO UPDATE SET pricing_category=EXCLUDED.pricing_category,allowed_origins=EXCLUDED.allowed_origins,status=EXCLUDED.status,updated_by_id=$1 RETURNING *", request.state.user["id"], ob["user_id"], ob["pricing_category"], ob["allowed_origins"], ob["status"])
+        row = await conn.fetchrow("UPDATE users SET role=$1,pricing_category=$2,allowed_origins=$3,freight_status=$4,updated_by_id=$5 WHERE id=$6 RETURNING id user_id,role,pricing_category,allowed_origins,freight_status status", ob["role"], ob["pricing_category"], ob["allowed_origins"], ob["status"], request.state.user["id"], ob["user_id"])
+        if not row: raise Exception("user not found")
     return {"status":1,"message":dict(row)}
 
 @router.post("/admin/quotation-customer-save")
@@ -84,7 +81,8 @@ async def func_api_admin_quotation_rate_create(*, request:Request):
     try: valid_from, valid_to = datetime.strptime(ob["valid_from"], "%Y-%m-%d").date(), datetime.strptime(ob["valid_to"], "%Y-%m-%d").date()
     except Exception: raise Exception("valid from/to must use YYYY-MM-DD")
     async with app_state.client_postgres.acquire() as conn:
-        access = await conn.fetchrow("SELECT * FROM freight_user_access WHERE user_id=$1 AND status='active'", user_id)
+        access = await conn.fetchrow("SELECT pricing_category,allowed_origins,freight_status status FROM users WHERE id=$1", user_id)
+        if not access or (request.state.user.get("role") != 1 and access["status"] != "active"): raise Exception("freight access disabled")
         if access and access["allowed_origins"] and ob["origin"].upper() not in access["allowed_origins"]: raise Exception("origin not permitted")
         rate_keys = set(ob["buy_rates"]) & set(ob["floor_rates"]) & set(ob["sell_rates_a"]) & set(ob["sell_rates_b"]) & set(ob["sell_rates_c"])
         if not rate_keys: raise Exception("at least one complete rate key is required")
@@ -122,8 +120,8 @@ async def func_api_admin_quotation_rate_search(*, request:Request):
     try: shipment_date = datetime.strptime(oq["shipment_date"], "%Y-%m-%d").date() if oq["shipment_date"] else datetime.now(timezone.utc).date()
     except Exception: raise Exception("shipment date must use YYYY-MM-DD")
     async with app_state.client_postgres_read_fallback.acquire() as conn:
-        access = await conn.fetchrow("SELECT * FROM freight_user_access WHERE user_id=$1 AND status='active'", user_id)
-        if request.state.user.get("role") != 1 and not access: raise Exception("freight access not configured")
+        access = await conn.fetchrow("SELECT pricing_category,allowed_origins,freight_status status FROM users WHERE id=$1", user_id)
+        if not access or (request.state.user.get("role") != 1 and access["status"] != "active"): raise Exception("freight access disabled")
         if access and access["allowed_origins"] and oq["origin"].upper() not in access["allowed_origins"]: raise Exception("origin not permitted")
         category = access["pricing_category"] if access else "A"
         rows = [dict(r) for r in await conn.fetch("SELECT * FROM freight_rate WHERE status='approved' AND mode=$1 AND origin=$2 AND destination=$3 AND valid_from<=$4 AND valid_to>=$4 ORDER BY carrier,service,id DESC LIMIT 200", oq["mode"], oq["origin"].upper(), oq["destination"].upper(), shipment_date)]
@@ -148,8 +146,8 @@ async def func_api_admin_quotation_quote_create(*, request:Request):
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("customer_id","int",1,None,None),("rate_id","int",1,None,None),("shipment","dict",1,None,None),("requested_sell_rate","float",0,None,None),("exception_justification","str",0,None,None),("metadata","dict",0,None,{})])
     async with app_state.client_postgres.acquire() as conn:
         async with conn.transaction():
-            access = await conn.fetchrow("SELECT * FROM freight_user_access WHERE user_id=$1 AND status='active'", user_id)
-            if request.state.user.get("role") != 1 and not access: raise Exception("freight access not configured")
+            access = await conn.fetchrow("SELECT pricing_category,allowed_origins,freight_status status FROM users WHERE id=$1", user_id)
+            if not access or (request.state.user.get("role") != 1 and access["status"] != "active"): raise Exception("freight access disabled")
             category = access["pricing_category"] if access else "A"
             customer = await conn.fetchrow("SELECT * FROM freight_customer WHERE id=$1 AND status='active'", ob["customer_id"])
             if not customer: raise Exception("customer not found")
@@ -202,8 +200,8 @@ async def func_api_admin_quotation_exception_decision(*, request:Request):
 async def func_api_admin_quotation_dashboard(*, request:Request):
     app_state, user_id = request.app.state, request.state.user["id"]
     async with app_state.client_postgres_read_fallback.acquire() as conn:
-        access = await conn.fetchrow("SELECT * FROM freight_user_access WHERE user_id=$1 AND status='active'", user_id)
-        if request.state.user.get("role") != 1 and not access: raise Exception("freight access not configured")
+        access = await conn.fetchrow("SELECT freight_status status FROM users WHERE id=$1", user_id)
+        if not access or (request.state.user.get("role") != 1 and access["status"] != "active"): raise Exception("freight access disabled")
         role = await conn.fetchval("SELECT role FROM users WHERE id=$1", user_id)
         own = role == 2
         counts = dict(await conn.fetchrow("SELECT (SELECT COUNT(*) FROM freight_rate WHERE status='approved' AND valid_to>=CURRENT_DATE) approved_rates,(SELECT COUNT(*) FROM freight_rate WHERE status='draft') pending_rates,(SELECT COUNT(*) FROM freight_quote WHERE ($1::boolean=false OR created_by_id=$2)) quotes,(SELECT COUNT(*) FROM freight_quote_exception WHERE status='pending') pending_exceptions,(SELECT COUNT(*) FROM freight_customer WHERE status='active') customers", own, user_id))

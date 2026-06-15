@@ -491,9 +491,9 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
             await conn.execute(query)
     return "database init done"
     
-async def func_middleware_check_auth(*, headers: dict, url_path: str, config_token_secret_key: str) -> dict:
+async def func_middleware_check_auth(*, headers: dict, url_path: str, config_token_secret_key: str, config_allowed_api_namespace_auth: list) -> dict:
     """Unified authentication: extracts Bearer token, validates presence for protected routes, and decodes JWT. Returns the decoded user dict or an empty dict."""
-    auth_namespaces = ["/my/", "/private/", "/admin/"]
+    auth_namespaces = config_allowed_api_namespace_auth or ["/my/", "/private/", "/admin/"]
     auth_header = headers.get("Authorization")
     token = auth_header.split("Bearer ", 1)[1] if auth_header and auth_header.startswith("Bearer ") else None
     if token:
@@ -581,9 +581,10 @@ async def func_middleware_check_user_deleted(*, user_dict: dict, url_path: str, 
     if deleted_status == "absent": raise Exception("missing deleted_at")
     if deleted_status is not None: raise Exception("user is deleted")
 
-async def func_middleware_check_admin(*, user_dict: dict, url_path: str, config_api: dict, client_postgres: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_role(*, user_dict: dict, url_path: str, config_api: dict, client_postgres: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int, config_allowed_api_namespace_role: list) -> None:
     """Ensure sufficient roles to access endpoints using a strictly configured mode from config_api."""
-    if not url_path.startswith("/admin"):
+    role_prefixes = config_allowed_api_namespace_role or ["/admin"]
+    if not url_path.startswith(tuple(role_prefixes)):
         return None
     cfg = config_api.get(url_path)
     if not cfg or "user_role_check" not in cfg:
@@ -660,11 +661,11 @@ async def func_middleware_check_ratelimiter(*, client_redis: any, config_api: di
         raise Exception(f"invalid ratelimiter mode: {mode}, allowed: redis, inmemory")
     return None
 
-async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, config_api: dict, client_redis: any = None, user_id: int = 0, cache_api_response: dict = None, response: any = None) -> any:
+async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, config_api: dict, client_redis: any = None, user_id: int = 0, cache_api_response: dict = None, response: any = None, config_allowed_api_namespace_cache_user: list = None) -> any:
     """Get or set middleware API cache for a request."""
     from fastapi import Response
     import gzip, base64, time
-    user_namespaces = ["/my/"]
+    user_namespaces = config_allowed_api_namespace_cache_user or ["/my/"]
     if mode not in ("get", "set"): raise Exception(f"invalid cache operation: {mode}, allowed: get, set")
     cfg = config_api.get(path, {}).get("api_cache_sec")
     cache_mode = cfg[0] if isinstance(cfg, list) else cfg

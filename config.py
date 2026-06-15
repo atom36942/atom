@@ -84,6 +84,9 @@ config_allowed_mobile_services = ["sns", "fast2sms"]
 config_allowed_user_storage_backends = ["token", "realtime", "redis", "inmemory"]
 config_allowed_api_storage_backends = ["redis", "inmemory"]
 config_allowed_api_namespace = ["/", "/auth/", "/my/", "/public/", "/private/", "/admin/"]
+config_allowed_api_namespace_auth = ["/my/", "/private/", "/admin/"]
+config_allowed_api_namespace_role = ["/admin"]
+config_allowed_api_namespace_cache_user = ["/my/"]
 config_users_ownership_column = ["created_by_id", "user_id"]
 
 # Dict
