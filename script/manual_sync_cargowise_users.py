@@ -21,7 +21,7 @@ from config import config_regex
 from config import config_table
 from config import config_buffer_limit_default
 config_seed_cargowise_user_type = 1
-config_seed_cargowise_user_role = 2
+config_seed_cargowise_user_role = 3
 config_seed_cargowise_user_password = "123456"
 
 # logic

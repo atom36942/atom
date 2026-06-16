@@ -2709,7 +2709,7 @@ body.not-allowed .content-wrapper {
                             <div class="po-toolbar-actions">
                                 <form class="po-search" id="buyer-search-form" role="search">
                                     <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-                                    <input type="search" id="buyer-search-input" placeholder="CW Org ID" aria-label="CargoWise organization ID">
+                                    <input type="text" id="buyer-search-input" placeholder="CW Org ID" aria-label="CargoWise organization ID">
                                     <button class="po-search-button" type="button" id="buyer-search-clear" aria-label="Clear buyer search" title="Clear" style="display: none;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
                                     <button class="po-search-button primary" type="submit" id="buyer-search-submit" aria-label="Search buyers" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
                                 </form>
@@ -2912,9 +2912,9 @@ body.not-allowed .content-wrapper {
                             <div class="po-toolbar-actions">
                                 <form class="po-search" id="po-search-form" role="search">
                                     <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-                                    <input type="search" id="po-search-input" placeholder="Search PO" aria-label="Search PO number">
+                                    <input type="text" id="po-search-input" placeholder="Search PO" aria-label="Search PO number">
                                     <button class="po-search-button" type="button" id="po-search-clear" aria-label="Clear search" title="Clear search" style="display: none;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-                                    <button class="po-search-button primary" type="submit" id="po-search-submit" aria-label="Search" title="Search" style="display: none;"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+                                    <button class="po-search-button primary" type="submit" id="po-search-submit" aria-label="Search" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
                                 </form>
                             </div>
                         </div>
@@ -4478,7 +4478,6 @@ document.addEventListener('DOMContentLoaded', () => {
     poSearchInput?.addEventListener('input', e => {
         const hasText = e.target.value.length > 0;
         if (poSearchClear) poSearchClear.style.display = hasText ? 'grid' : 'none';
-        if (poSearchSubmit) poSearchSubmit.style.display = hasText ? 'grid' : 'none';
     });
 
     document.getElementById('po-search-form')?.addEventListener('submit', e => {
@@ -4491,7 +4490,6 @@ document.addEventListener('DOMContentLoaded', () => {
     poSearchClear?.addEventListener('click', () => {
         poSearchInput.value = '';
         poSearchClear.style.display = 'none';
-        if (poSearchSubmit) poSearchSubmit.style.display = 'none';
         poSearchQuery = '';
         poCurrentPage = 1;
         loadModule('purchase-orders');

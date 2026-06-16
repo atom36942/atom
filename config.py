@@ -129,7 +129,7 @@ config_api = {
 "/admin/mssql-sql-runner": {"id": 21, "user_check_role": ["realtime", [1]]},
 "/admin/mssql-sql-runner-read": {"id": 23, "user_check_role": ["realtime", [1]]},
 "/public/object-read": {"id": 14, "is_token": 0, "api_cache_sec": ["inmemory", 100]},
-"/info": {"id": 17, "api_cache_sec": ["inmemory", 100]},
+"/info": {"id": 17, "api_cache_sec": ["inmemory", 300]},
 "/public/table-groupby": {"id": 18, "api_cache_sec": ["inmemory", 10]},
 "/public/jira-worklog-export": {"id": 19, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
 "/management/cargowise-buyer-360": {"id": 32, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["inmemory", 1000]},
@@ -147,7 +147,7 @@ config_api = {
 config_column_int_mapping = {
 "worker_status": {None: "Pending", 1: "Processing", 2: "Completed", 3: "Failed", 4: "Dead"},
 "role": {
-"users": {1: "admin", 2: "management", 3: "buyer", 4: "Procurement", 5: "Sales"},
+"users": {1: "Admin", 2: "Management", 3: "Buyer", 4: "Procurement", 5: "Sales"},
 },
 "type": {
 "log_users_delete": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
