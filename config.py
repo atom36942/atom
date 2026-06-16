@@ -96,8 +96,10 @@ config_sql = {
 
 config_table = {
 "test": {"buffer_limit": 10},
-"log_api": {"buffer_limit": 10},
-"notification": {"buffer_limit": 10},
+"log_api": {"retention_day": 30, "buffer_limit": 10},
+"log_users_password": {"retention_day": 90},
+"otp": {"retention_day": 30},
+"notification": {"retention_day": 30, "buffer_limit": 10},
 }
 
 config_regex = {
