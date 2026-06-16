@@ -235,7 +235,7 @@
                 ; showModal("infoModal"); renderAnalytics(); setupIcons()
             } if (e.key.toLowerCase() === "s") { e.preventDefault(); showModal("storageModal"); renderStorage(); setupIcons() } if (e.key.toLowerCase() === "e") { e.preventDefault(); exportCatalogCsv() }
           }
-        }); d.querySelectorAll(".namespace-filter").forEach(pill => { pill.addEventListener("click", () => { const prefix = pill.dataset.prefix; const searchInput = UI("apiInfoSearch"); if (searchInput.value === prefix) { searchInput.value = ""; UI("apiInfoSearchClear").style.display = "none"; renderApiInfoTags(); renderApiInfoTable("") } else { searchInput.value = prefix; UI("apiInfoSearchClear").style.display = "block"; renderApiInfoTags(); renderApiInfoTable(prefix); hideModal("tagFiltersModal") } }) })
+        }); d.addEventListener("click", e => { const pill = e.target.closest(".namespace-filter"); if (!pill) return; const prefix = pill.dataset.prefix; const searchInput = UI("apiInfoSearch"); if (searchInput.value === prefix) { searchInput.value = ""; UI("apiInfoSearchClear").style.display = "none"; renderApiInfoTags(); renderApiInfoTable("") } else { searchInput.value = prefix; UI("apiInfoSearchClear").style.display = "block"; renderApiInfoTags(); renderApiInfoTable(prefix); hideModal("tagFiltersModal") } })
         ; d.querySelectorAll(".type-filter").forEach(pill => { pill.addEventListener("click", () => { const filter = pill.dataset.filter; const searchInput = UI("apiInfoSearch"); if (searchInput.value === filter) { searchInput.value = ""; UI("apiInfoSearchClear").style.display = "none"; renderApiInfoTags(); renderApiInfoTable("") } else { searchInput.value = filter; UI("apiInfoSearchClear").style.display = "block"; renderApiInfoTags(); renderApiInfoTable(filter); hideModal("tagFiltersModal") } }) })
     }; var STORAGE_KEY_TOKEN = "token";
     var STORAGE_KEY_USER = "user";
@@ -774,6 +774,9 @@
         ; showModal("paramInfoModal")
     };
 // Main API table, filters, analytics, and storage views
+    const getNamespacePrefix = path => { const parts = String(path || "").split("/").filter(Boolean); return parts.length ? `/${parts[0]}/` : "/" }
+      ; const isNamespaceSearch = value => value === "/" || /^\/[^\/]+\/$/.test(value || "")
+      ; const isNamespaceMatch = (path, prefix) => getNamespacePrefix(path).toLowerCase() === String(prefix || "").toLowerCase()
     const renderApiInfoTags = () => {
       const counts = {}; COMMANDS.forEach(c => { getPathTags(c.p).forEach(t => { counts[t] = (counts[t] || 0) + 1 }) })
         ; const methodCounts = {}; COMMANDS.forEach(c => { methodCounts[c.m] = (methodCounts[c.m] || 0) + 1 })
@@ -790,13 +793,10 @@
             }).join("")}</div>`
             ; const nsContainer = d.querySelector(".namespace-filters")
         ; if (nsContainer) {
-          const nsPills = Array.from(nsContainer.querySelectorAll(".namespace-filter")); const nsData = nsPills.map(pill => {
-            const prefix = pill.dataset.prefix; let count = 0
-              ; if (prefix === "/") { count = COMMANDS.filter(c => !c.p.startsWith("/auth/") && !c.p.startsWith("/my/") && !c.p.startsWith("/public/") && !c.p.startsWith("/private/") && !c.p.startsWith("/admin/")).length } else { count = COMMANDS.filter(c => c.p.startsWith(prefix)).length }
-            ; pill.innerHTML = `${prefix}<span class="tag-filter-count">(${count})</span>`; return { pill, count, prefix }
-          })
-            ; nsData.sort((a, b) => b.count - a.count || a.prefix.localeCompare(b.prefix))
-            ; nsData.forEach(item => nsContainer.appendChild(item.pill))
+          const searchVal = UI("apiInfoSearch")?.value || ""; const nsCounts = {}
+            ; COMMANDS.forEach(c => { const prefix = getNamespacePrefix(c.p); nsCounts[prefix] = (nsCounts[prefix] || 0) + 1 })
+            ; const nsData = Object.entries(nsCounts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+            ; nsContainer.innerHTML = nsData.map(([prefix, count]) => `<span class="tag-filter namespace-filter ${searchVal === prefix ? "active" : ""}" data-prefix="${he(prefix)}" style="flex-shrink:0">${he(prefix)}<span class="tag-filter-count">(${count})</span></span>`).join("")
         }
       ; const typeContainer = d.querySelector(".type-filters")
         ; if (typeContainer) {
@@ -987,7 +987,7 @@
       }; const toggleTagCard = () => {
         UI("apiInfoTags").classList.toggle("collapsed"); UI("tagToggleIcon").classList.toggle("collapsed")
       }; const testNeedsToken = c => {
-        if (c.h && c.h.some(x => x.k.toLowerCase() === "authorization")) return 1; if (c.p.startsWith("/my/") || c.p.startsWith("/admin/")) return 1; return 0
+        if (c._needsAuth) return 1; if (c.h && c.h.some(x => x.k.toLowerCase() === "authorization")) return 1; return 0
       }
       ; const executeCurrentApi = async (isShowResponse, isAllowDownload) => {
         isShowResponse = isShowResponse ?? 1; isAllowDownload = isAllowDownload ?? 1; if (!curr) return alert("Select API")
@@ -1103,7 +1103,7 @@
           } testRunning = 0; testRunningPct = 0; updateTestSummary()
       }; const getMasterBaseIndexes = () => COMMANDS.reduce((acc, c, i) => {
         const searchQuery = UI("apiInfoSearch")?.value?.trim()?.toLowerCase() || ""; let matchesSearch = false; if (searchQuery === "is:override" || searchQuery === "is:overrides") { matchesSearch = Object.keys(PATH_OVERRIDES[c.p] || {}).length > 0 } else if (searchQuery === "is:query") { matchesSearch = c.q.length > 0 } else if (searchQuery === "is:header") { matchesSearch = c.h.length > 0 } else if (searchQuery === "is:form") { matchesSearch = c.f.length > 0 } else if (searchQuery === "is:body") { matchesSearch = c.j.length > 0 } else {
-          let matchesPath = false; if (searchQuery === "/") { const path = c.p.toLowerCase(); matchesPath = path.startsWith("/") && !path.startsWith("/auth/") && !path.startsWith("/my/") && !path.startsWith("/public/") && !path.startsWith("/private/") && !path.startsWith("/admin/") } else { matchesPath = !searchQuery || c.p.toLowerCase().includes(searchQuery) }
+          let matchesPath = false; if (isNamespaceSearch(searchQuery)) { matchesPath = isNamespaceMatch(c.p, searchQuery) } else { matchesPath = !searchQuery || c.p.toLowerCase().includes(searchQuery) }
           const matchesMethod = searchQuery && c.m.toLowerCase().includes(searchQuery); const allParams = [...c.h, ...c.q, ...c.u, ...c.j, ...c.f]
             ; const matchesParam = searchQuery && allParams.some(p => (p.k.toLowerCase().includes(searchQuery) || (p.v && String(p.v).toLowerCase().includes(searchQuery)))); const ovr = PATH_OVERRIDES[c.p] || {}; const matchesOvr = searchQuery && Object.entries(ovr).some(([ok, ov]) => ok.toLowerCase().includes(searchQuery) || String(ov).toLowerCase().includes(searchQuery))
             ; matchesSearch = matchesPath || matchesMethod || matchesParam || matchesOvr

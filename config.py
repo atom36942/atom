@@ -84,9 +84,6 @@ config_blob_services = ["s3", "azure"]
 config_email_services = ["ses", "resend", "azure"]
 config_mobile_services = ["sns", "fast2sms"]
 
-config_allowed_api_namespace_auth = ["/my/", "/private/", "/admin/"]
-config_allowed_api_namespace_role = ["/admin"]
-config_allowed_api_namespace_cache_user = ["/my/"]
 
 # Dict
 config_sql = {
@@ -109,6 +106,8 @@ config_regex = {
 }
 
 config_api = {
+# sample keys:
+# "/example/path": {"id": 100, "is_token": 1, "user_role_check": ["token", [1]], "user_deactivated_check": ["realtime", 1], "user_deleted_check": ["realtime", 1], "api_cache_sec": ["redis", 300, 1], "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
 "/admin/sync": {"id": 1, "user_role_check": ["realtime", [1]]},
 "/admin/object-create": {"id": 2, "user_role_check": ["token", [1]]},
 "/admin/object-update": {"id": 3, "user_role_check": ["token", [1]]},
@@ -125,20 +124,20 @@ config_api = {
 "/admin/blob-url-delete": {"id": 13, "user_role_check": ["token", [1]]},
 "/admin/mssql-sql-runner": {"id": 21, "user_role_check": ["realtime", [1]]},
 "/admin/mssql-sql-runner-read": {"id": 23, "user_role_check": ["realtime", [1]]},
-"/public/object-read": {"id": 14, "api_cache_sec": ["inmemory", 100]},
+"/public/object-read": {"id": 14, "is_token": 0, "api_cache_sec": ["inmemory", 100]},
 "/info": {"id": 17, "api_cache_sec": ["inmemory", 100]},
 "/public/table-groupby": {"id": 18, "api_cache_sec": ["inmemory", 10]},
 "/public/jira-worklog-export": {"id": 19, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
 "/admin/cargowise-buyer-360": {"id": 32, "user_role_check": ["token", [1]], "api_cache_sec": ["inmemory", 1000]},
-"/my/cargowise-profile": {"id": 24, "api_cache_sec": ["redis", 300]},
-"/my/cargowise-purchase-orders": {"id": 25, "api_cache_sec": ["redis", 300]},
-"/my/cargowise-purchase-orders-line-items": {"id": 33, "api_cache_sec": ["redis", 300]},
-"/my/cargowise-shipments": {"id": 26, "api_cache_sec": ["redis", 300]},
-"/my/cargowise-containers": {"id": 27, "api_cache_sec": ["redis", 300]},
-"/my/cargowise-tracking": {"id": 28, "api_cache_sec": ["redis", 300]},
-"/my/cargowise-exceptions": {"id": 29, "api_cache_sec": ["redis", 300]},
-"/my/cargowise-documents": {"id": 30, "api_cache_sec": ["redis", 300]},
-"/my/cargowise-analytics": {"id": 31, "api_cache_sec": ["redis", 300]},
+"/my/cargowise-profile": {"id": 24, "is_token": 1, "api_cache_sec": ["redis", 300, 1]},
+"/my/cargowise-purchase-orders": {"id": 25, "api_cache_sec": ["redis", 300, 1]},
+"/my/cargowise-purchase-orders-line-items": {"id": 33, "api_cache_sec": ["redis", 300, 1]},
+"/my/cargowise-shipments": {"id": 26, "api_cache_sec": ["redis", 300, 1]},
+"/my/cargowise-containers": {"id": 27, "api_cache_sec": ["redis", 300, 1]},
+"/my/cargowise-tracking": {"id": 28, "api_cache_sec": ["redis", 300, 1]},
+"/my/cargowise-exceptions": {"id": 29, "api_cache_sec": ["redis", 300, 1]},
+"/my/cargowise-documents": {"id": 30, "api_cache_sec": ["redis", 300, 1]},
+"/my/cargowise-analytics": {"id": 31, "api_cache_sec": ["redis", 300, 1]},
 }
 
 config_column_int_mapping = {
