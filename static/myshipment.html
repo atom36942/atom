@@ -3422,10 +3422,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_BASE = location.origin && location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
     const LOGIN_PATH = '/auth/login-username-password';
     const INFO_PATH = '/info';
-    const CARGOWISE_PROFILE_PATH = '/my/cargowise-profile';
+    const CARGOWISE_PROFILE_PATH = '/cargowise/my-profile';
     const ADMIN_USERS_PATH = '/admin/object-read';
     const ADMIN_POSTGRES_EXPORT_PATH = '/admin/postgres-export';
-    const MANAGEMENT_BUYER_360_PATH = '/management/cargowise-buyer-360';
+    const CARGOWISE_BUYER_360_PATH = '/cargowise/buyer-360';
     const FREIGHT_RATES_READ_PATH = '/admin/object-read';
     const MY_OBJECT_CREATE_PATH = '/my/object-create';
     const MY_OBJECT_UPDATE_PATH = '/my/object-update';
@@ -3438,13 +3438,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const SUPPORTED_ROLES = [ADMIN_ROLE, MANAGEMENT_ROLE, BUYER_ROLE, PROCUREMENT_ROLE, SALES_ROLE];
     let roleLabels = {};
     const MODULE_ENDPOINTS = {
-        'purchase-orders': '/my/cargowise-purchase-orders',
-        shipments: '/my/cargowise-shipments',
-        containers: '/my/cargowise-containers',
-        tracking: '/my/cargowise-tracking',
-        exceptions: '/my/cargowise-exceptions',
-        documents: '/my/cargowise-documents',
-        analytics: '/my/cargowise-analytics'
+        'purchase-orders': '/cargowise/my-purchase-orders',
+        shipments: '/cargowise/my-shipments',
+        containers: '/cargowise/my-containers',
+        tracking: '/cargowise/my-tracking',
+        exceptions: '/cargowise/my-exceptions',
+        documents: '/cargowise/my-documents',
+        analytics: '/cargowise/my-analytics'
     };
     let authUser = null;
     let cargowiseProfileLoaded = false;
@@ -3700,7 +3700,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ['count', 'quantity', 'weight', 'value'].forEach(key => { document.getElementById(`po-lines-${key}`).textContent = '-'; });
         
         try {
-            const payload = await api(`/my/cargowise-purchase-orders-line-items?po_id=${encodeURIComponent(poId)}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const payload = await api(`/cargowise/my-purchase-orders-line-items?po_id=${encodeURIComponent(poId)}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
             const rows = Array.isArray(payload.message) ? payload.message : [];
             const toNumber = value => {
                 const number = Number(value);
@@ -4247,7 +4247,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('buyer-result-count').textContent = 'Loading Buyer 360 data...';
         const query = new URLSearchParams({ org_id: buyerSearchQuery });
         try {
-            const payload = await api(`${MANAGEMENT_BUYER_360_PATH}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const payload = await api(`${CARGOWISE_BUYER_360_PATH}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
             const buyer = payload.message || null;
             renderBuyer360(buyer);
             document.getElementById('buyer-result-count').innerHTML = buyer ? '<strong>Buyer found</strong>' : 'No buyer found for this organization ID.';

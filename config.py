@@ -110,7 +110,6 @@ config_regex = {
 }
 
 config_api = {
-# sample keys:
 # "/example/path": {"id": 100, "is_token": 1, "user_check_type": ["token", [1]], "user_check_role": ["token", [1]], "user_check_deactivated": ["realtime", 1], "user_check_deleted": ["realtime", 1], "api_cache_sec": ["redis", 300, 1], "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
 "/admin/sync": {"id": 1, "user_check_role": ["realtime", [1]]},
 "/admin/object-create": {"id": 2, "user_check_role": ["token", [1]]},
@@ -132,16 +131,17 @@ config_api = {
 "/info": {"id": 17, "api_cache_sec": ["inmemory", 300]},
 "/public/table-groupby": {"id": 18, "api_cache_sec": ["inmemory", 10]},
 "/public/jira-worklog-export": {"id": 19, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
-"/management/cargowise-buyer-360": {"id": 32, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["inmemory", 1000]},
-"/my/cargowise-profile": {"id": 24, "is_token": 1, "api_cache_sec": ["redis", 300, 1]},
-"/my/cargowise-purchase-orders": {"id": 25, "api_cache_sec": ["redis", 300, 1]},
-"/my/cargowise-purchase-orders-line-items": {"id": 33, "api_cache_sec": ["redis", 300, 1]},
-"/my/cargowise-shipments": {"id": 26, "api_cache_sec": ["redis", 300, 1]},
-"/my/cargowise-containers": {"id": 27, "api_cache_sec": ["redis", 300, 1]},
-"/my/cargowise-tracking": {"id": 28, "api_cache_sec": ["redis", 300, 1]},
-"/my/cargowise-exceptions": {"id": 29, "api_cache_sec": ["redis", 300, 1]},
-"/my/cargowise-documents": {"id": 30, "api_cache_sec": ["redis", 300, 1]},
-"/my/cargowise-analytics": {"id": 31, "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/buyer-360": {"id": 32, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["inmemory", 1000]},
+"/cargowise/my-profile": {"id": 24, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-purchase-orders": {"id": 25, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-purchase-orders-line-items": {"id": 33, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-shipments": {"id": 26, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-containers": {"id": 27, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-tracking": {"id": 28, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-exceptions": {"id": 29, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-documents": {"id": 30, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-documents-download": {"id": 34, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-analytics": {"id": 31, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
 }
 
 config_column_int_mapping = {
