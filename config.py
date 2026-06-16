@@ -66,17 +66,19 @@ config_cors_allow_headers = ["*"]
 config_cors_expose_headers = ["*"]
 config_cors_allow_credentials = True
 
-#table/column
+# Table
 config_table_sensitive = ["spatial_ref_sys", "users", "log_users_delete", "jobseeker"]
 config_table_my_create_disable = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
-config_table_create_enable_public = ["test","jobseeker"]
-config_table_enable_read_public = ["*"]
-config_table_enable_delete_all_my = ["*"]
-config_table_enable_delete_all_my_user_id = ["message","notification"]
+config_table_my_delete_all_enable = ["*"]
+config_table_my_delete_all_received_enable = ["message","notification"]
+config_table_public_create_enable = ["test","jobseeker"]
+config_table_public_read_enable = ["*"]
+
+# Column
 config_column_token_encode = ["id", "type", "role", "username", "deactivated_at", "deleted_at"]
+config_column_ownership = ["created_by_id", "user_id"]
 config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id"]
 config_column_single_update = ["username", "password", "email", "mobile", "deleted_at"]
-config_column_ownership = ["created_by_id", "user_id"]
 
 # Services
 config_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
