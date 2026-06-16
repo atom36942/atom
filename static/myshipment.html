@@ -2468,40 +2468,37 @@ body.not-allowed .content-wrapper {
                 <h2>MyShipment</h2>
             </div>
             <nav class="nav-menu">
-                <a href="#freight-rates" class="nav-item" data-target="freight-rates" data-roles="1,2,3,4" hidden>
-                    <i class="fa-solid fa-sailboat"></i> Freight Rates
-                </a>
                 <a href="#users" class="nav-item" data-target="users" data-roles="1" hidden>
                     <i class="fa-solid fa-users"></i> Users
                 </a>
-                <a href="#buyer-360" class="nav-item" data-target="buyer-360" data-roles="1" hidden>
+                <a href="#buyer-360" class="nav-item" data-target="buyer-360" data-roles="1,2" hidden>
                     <i class="fa-solid fa-building-circle-check"></i> Buyer 360
                 </a>
-                <a href="#profile" class="nav-item active" data-target="profile" data-roles="2">
+                <a href="#profile" class="nav-item active" data-target="profile" data-roles="3">
                     <i class="fa-solid fa-user"></i> My Profile
                 </a>
-                <a href="#purchase-orders" class="nav-item" data-target="purchase-orders" data-roles="2">
+                <a href="#purchase-orders" class="nav-item" data-target="purchase-orders" data-roles="3">
                     <i class="fa-solid fa-file-invoice"></i> Purchase Orders
                 </a>
-                <a href="#shipments" class="nav-item" data-target="shipments" data-roles="2">
+                <a href="#shipments" class="nav-item" data-target="shipments" data-roles="3">
                     <i class="fa-solid fa-ship"></i> Shipments
                 </a>
-                <a href="#containers" class="nav-item" data-target="containers" data-roles="2">
+                <a href="#containers" class="nav-item" data-target="containers" data-roles="3">
                     <i class="fa-solid fa-boxes-stacked"></i> Containers
                 </a>
-                <a href="#tracking" class="nav-item" data-target="tracking" data-roles="2">
+                <a href="#tracking" class="nav-item" data-target="tracking" data-roles="3">
                     <i class="fa-solid fa-route"></i> Tracking
                 </a>
-                <a href="#exceptions" class="nav-item" data-target="exceptions" data-roles="2">
+                <a href="#exceptions" class="nav-item" data-target="exceptions" data-roles="3">
                     <i class="fa-solid fa-triangle-exclamation"></i> Exceptions
                 </a>
-                <a href="#documents" class="nav-item" data-target="documents" data-roles="2">
+                <a href="#documents" class="nav-item" data-target="documents" data-roles="3">
                     <i class="fa-solid fa-folder-open"></i> Documents
                 </a>
-                <a href="#analytics" class="nav-item" data-target="analytics" data-roles="2">
+                <a href="#analytics" class="nav-item" data-target="analytics" data-roles="3">
                     <i class="fa-solid fa-chart-line"></i> Analytics
                 </a>
-                <a href="#mghask" class="nav-item" data-target="mghask" data-roles="2">
+                <a href="#mghask" class="nav-item" data-target="mghask" data-roles="3">
                     <i class="fa-solid fa-robot"></i> MGH ASK
                 </a>
             </nav>
@@ -2665,6 +2662,12 @@ body.not-allowed .content-wrapper {
                                 <p>View portal users and their assigned roles.</p>
                             </div>
                             <div class="po-toolbar-actions">
+                                <form class="po-search" id="users-search-form" role="search">
+                                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                                    <input type="text" id="users-search-input" placeholder="Search username" aria-label="Search username">
+                                    <button class="po-search-button" type="button" id="users-search-clear" aria-label="Clear user search" title="Clear" style="display: none;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                                    <button class="po-search-button primary" type="submit" id="users-search-submit" aria-label="Search users" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+                                </form>
                                 <button class="btn btn-primary" id="users-export-btn" type="button">
                                     <i class="fa-solid fa-download" aria-hidden="true"></i> Download CSV
                                 </button>
@@ -2686,7 +2689,7 @@ body.not-allowed .content-wrapper {
                                         <th>Created At</th>
                                         <th>Username</th>
                                         <th>Role</th>
-                                        <th>Active</th>
+                                        <th>Deactivated</th>
                                     </tr>
                                 </thead>
                                 <tbody><tr><td colspan="5">Loading users...</td></tr></tbody>
@@ -2706,7 +2709,7 @@ body.not-allowed .content-wrapper {
                             <div class="po-toolbar-actions">
                                 <form class="po-search" id="buyer-search-form" role="search">
                                     <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-                                    <input type="search" id="buyer-search-input" placeholder="CargoWise organization ID" aria-label="CargoWise organization ID">
+                                    <input type="search" id="buyer-search-input" placeholder="CW Org ID" aria-label="CargoWise organization ID">
                                     <button class="po-search-button" type="button" id="buyer-search-clear" aria-label="Clear buyer search" title="Clear" style="display: none;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
                                     <button class="po-search-button primary" type="submit" id="buyer-search-submit" aria-label="Search buyers" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
                                 </form>
@@ -3422,16 +3425,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const CARGOWISE_PROFILE_PATH = '/my/cargowise-profile';
     const ADMIN_USERS_PATH = '/admin/object-read';
     const ADMIN_POSTGRES_EXPORT_PATH = '/admin/postgres-export';
-    const ADMIN_BUYER_360_PATH = '/admin/cargowise-buyer-360';
+    const MANAGEMENT_BUYER_360_PATH = '/management/cargowise-buyer-360';
     const FREIGHT_RATES_READ_PATH = '/admin/object-read';
     const MY_OBJECT_CREATE_PATH = '/my/object-create';
     const MY_OBJECT_UPDATE_PATH = '/my/object-update';
     const MY_OBJECT_DELETE_PATH = '/my/object-delete';
     const ADMIN_ROLE = 1;
-    const BUYER_ROLE = 2;
-    const PROCUREMENT_ROLE = 3;
-    const SALESPERSON_ROLE = 4;
-    const SUPPORTED_ROLES = [ADMIN_ROLE, BUYER_ROLE, PROCUREMENT_ROLE, SALESPERSON_ROLE];
+    const MANAGEMENT_ROLE = 2;
+    const BUYER_ROLE = 3;
+    const PROCUREMENT_ROLE = 4;
+    const SALES_ROLE = 5;
+    const SUPPORTED_ROLES = [ADMIN_ROLE, MANAGEMENT_ROLE, BUYER_ROLE, PROCUREMENT_ROLE, SALES_ROLE];
     let roleLabels = {};
     const MODULE_ENDPOINTS = {
         'purchase-orders': '/my/cargowise-purchase-orders',
@@ -3450,6 +3454,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let exceptionCurrentPage = 1;
     let documentCurrentPage = 1;
     let usersCurrentPage = 1;
+    let usersSearchQuery = '';
     let ratesCurrentPage = 1;
     let ratesRows = [];
     let ratesCsvMode = 'create';
@@ -3593,7 +3598,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (profileAvatar) profileAvatar.textContent = avatarTextFromUsername(user.username || user.name);
         const rawValue = value => value === null || value === undefined || value === '' ? '-' : String(value);
         const roleLabel = roleLabels[String(user.role)] || rawValue(user.role);
-        const roleIcon = Number(user.role) === ADMIN_ROLE ? 'fa-user-shield' : Number(user.role) === BUYER_ROLE ? 'fa-building-user' : Number(user.role) === PROCUREMENT_ROLE ? 'fa-cart-flatbed' : 'fa-user-tie';
+        const roleIcon = Number(user.role) === ADMIN_ROLE ? 'fa-user-shield' : Number(user.role) === MANAGEMENT_ROLE ? 'fa-briefcase' : Number(user.role) === BUYER_ROLE ? 'fa-building-user' : Number(user.role) === PROCUREMENT_ROLE ? 'fa-cart-flatbed' : 'fa-user-tie';
         document.getElementById('profile-username').textContent = rawValue(user.username);
         document.getElementById('profile-password').textContent = user.password ? '••••••••' : '-';
         document.getElementById('header-role-label').textContent = roleLabel;
@@ -4119,14 +4124,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!body) return;
         body.innerHTML = rows.length ? rows.map(row => {
             const role = roleLabels[String(row.role)] || displayValue(row.role);
-            const isActive = !row.deactivated_at && !row.deleted_at;
+            const isDeactivated = Boolean(row.deactivated_at);
             return `
                 <tr>
                     <td>${escapeHtml(displayValue(row.id))}</td>
                     <td>${escapeHtml(formatDateTime(row.created_at))}</td>
                     <td><strong>${escapeHtml(displayValue(row.username))}</strong></td>
                     <td><span class="badge ${Number(row.role) === ADMIN_ROLE ? 'transit' : 'open'}">${escapeHtml(role)}</span></td>
-                    <td><span class="badge ${isActive ? 'delivered' : 'exception'}">${isActive ? 'Yes' : 'No'}</span></td>
+                    <td><span class="badge ${isDeactivated ? 'exception' : 'delivered'}">${isDeactivated ? 'Yes' : 'No'}</span></td>
                 </tr>
             `;
         }).join('') : '<tr><td colspan="5">No users found.</td></tr>';
@@ -4137,6 +4142,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('users-result-count').textContent = 'Loading users...';
         try {
             const query = new URLSearchParams({ table: 'users', limit: '50', page: String(usersCurrentPage) });
+            if (usersSearchQuery) query.set('filter', JSON.stringify([{ username: `ilike,%${usersSearchQuery}%` }]));
             const payload = await api(`${ADMIN_USERS_PATH}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
             const message = payload.message || {};
             const rows = Array.isArray(message.obj_list) ? message.obj_list : [];
@@ -4236,12 +4242,12 @@ document.addEventListener('DOMContentLoaded', () => {
         setTableMessage('buyer-table', 9, 'Use the search above to load Buyer 360 data.');
     };
     const loadBuyer360 = async () => {
-        if (!authToken || Number(authUser && authUser.role) !== ADMIN_ROLE || !buyerSearchQuery) return;
+        if (!authToken || ![ADMIN_ROLE, 2].includes(Number(authUser && authUser.role)) || !buyerSearchQuery) return;
         setTableMessage('buyer-table', 9, 'Loading Buyer 360 data...');
         document.getElementById('buyer-result-count').textContent = 'Loading Buyer 360 data...';
         const query = new URLSearchParams({ org_id: buyerSearchQuery });
         try {
-            const payload = await api(`${ADMIN_BUYER_360_PATH}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const payload = await api(`${MANAGEMENT_BUYER_360_PATH}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
             const buyer = payload.message || null;
             renderBuyer360(buyer);
             document.getElementById('buyer-result-count').innerHTML = buyer ? '<strong>Buyer found</strong>' : 'No buyer found for this organization ID.';
@@ -4387,13 +4393,16 @@ document.addEventListener('DOMContentLoaded', () => {
             loadUsers();
             return;
         }
+        if (userRole === MANAGEMENT_ROLE) {
+            showSection('buyer-360');
+            return;
+        }
         if (userRole === BUYER_ROLE) {
             showSection('profile');
             loadCargowiseProfile();
             return;
         }
-        showSection('freight-rates');
-        loadFreightRates();
+        showSection('home');
     };
     const saveAuthPayload = payload => {
         const nextToken = extractToken(payload);
@@ -4508,6 +4517,25 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('users-prev-btn')?.addEventListener('click', () => { if (usersCurrentPage > 1) { usersCurrentPage--; loadUsers(); } });
     document.getElementById('users-next-btn')?.addEventListener('click', () => { usersCurrentPage++; loadUsers(); });
     document.getElementById('users-export-btn')?.addEventListener('click', exportUsers);
+    const usersSearchInput = document.getElementById('users-search-input');
+    const usersSearchClear = document.getElementById('users-search-clear');
+    document.getElementById('users-search-form')?.addEventListener('submit', event => {
+        event.preventDefault();
+        usersSearchQuery = (usersSearchInput?.value || '').trim();
+        usersCurrentPage = 1;
+        if (usersSearchClear) usersSearchClear.style.display = usersSearchQuery ? '' : 'none';
+        loadUsers();
+    });
+    usersSearchInput?.addEventListener('input', () => {
+        if (usersSearchClear) usersSearchClear.style.display = usersSearchInput.value.trim() ? '' : 'none';
+    });
+    usersSearchClear?.addEventListener('click', () => {
+        if (usersSearchInput) usersSearchInput.value = '';
+        usersSearchQuery = '';
+        usersCurrentPage = 1;
+        usersSearchClear.style.display = 'none';
+        loadUsers();
+    });
     document.getElementById('rates-template-btn')?.addEventListener('click', downloadRateTemplate);
     document.getElementById('rates-upload-btn')?.addEventListener('click', () => openRateCsvModal('create'));
     document.getElementById('rates-update-csv-btn')?.addEventListener('click', () => openRateCsvModal('update'));
@@ -4663,8 +4691,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!SUPPORTED_ROLES.includes(userRole) || !allowedRoles.includes(userRole)) { showBlocked(); return; }
             const target = item.getAttribute('data-target');
             showSection(target);
-            if (target === 'freight-rates') loadFreightRates();
-            else if (target === 'users') loadUsers();
+            if (target === 'users') loadUsers();
             else if (target === 'buyer-360') return;
             else if (target === 'profile') loadCargowiseProfile();
             else loadModule(target);

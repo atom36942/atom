@@ -86,6 +86,7 @@ async def func_lifespan(app:"FastAPI"):
         app.state.cache_postgres_table_list = cache_postgres_table_list
         app.state.cache_postgres_column_list = cache_postgres_column_list
         cache_openapi=app.state.func_openapi_spec_generate(app_routes=app.routes, app_state=app.state)
+        cache_users_type = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("users_type")) if client_postgres_read_fallback else {}
         cache_users_role = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("users_role")) if client_postgres_read_fallback else {}
         cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("users_deactivated")) if client_postgres_read_fallback else {}
         cache_users_deleted = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("users_deleted")) if client_postgres_read_fallback else {}
@@ -167,13 +168,15 @@ async def middleware(request, api_function):
         route_path = getattr(route, "path", None) or path
         api_cfg = app_state.config_api.get(route_path, {})
         is_token = api_cfg.get("is_token", 0)
+        user_check_type = api_cfg.get("user_check_type")
         user_check_role = api_cfg.get("user_check_role")
         user_check_deactivated = api_cfg.get("user_check_deactivated")
         user_check_deleted = api_cfg.get("user_check_deleted")
         api_cache_sec = api_cfg.get("api_cache_sec")
         api_ratelimiting_times_sec = api_cfg.get("api_ratelimiting_times_sec")
         request.state.user = await app_state.func_middleware_token_decode(headers=request.headers, config_token_secret_key=app_state.config_token_secret_key)
-        await app_state.func_middleware_check_auth(user_dict=request.state.user, url_path=path, is_token=is_token, user_check_role=user_check_role)
+        await app_state.func_middleware_check_auth(user_dict=request.state.user, url_path=path, is_token=is_token, user_check_type=user_check_type, user_check_role=user_check_role)
+        await app_state.func_middleware_check_type(user_dict=request.state.user, user_check_type=user_check_type, client_postgres=app_state.client_postgres_read_fallback, client_redis=app_state.client_redis, cache_users_type=app_state.cache_users_type, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role=user_check_role, client_postgres=app_state.client_postgres_read_fallback, client_redis=app_state.client_redis, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, user_check_deactivated=user_check_deactivated, client_postgres=app_state.client_postgres_read_fallback, client_redis=app_state.client_redis, cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, user_check_deleted=user_check_deleted, client_postgres=app_state.client_postgres_read_fallback, client_redis=app_state.client_redis, cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)

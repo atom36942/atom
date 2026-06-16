@@ -6,7 +6,7 @@ def func_config_check(*, app: any) -> None:
     api_ids = []
     user_mode_allowed = ("redis", "realtime", "inmemory", "token")
     api_mode_allowed = ("redis", "inmemory")
-    api_keys_allowed = ("id", "is_token", "user_check_role", "user_check_deactivated", "user_check_deleted", "api_cache_sec", "api_ratelimiting_times_sec")
+    api_keys_allowed = ("id", "is_token", "user_check_type", "user_check_role", "user_check_deactivated", "user_check_deleted", "api_cache_sec", "api_ratelimiting_times_sec")
     def flag_check(value, key):
         if value not in (0, 1, "0", "1", True, False): raise Exception(f"invalid {key}: expected 0/1")
     def int_check(value, key, min_value=0):
@@ -35,6 +35,10 @@ def func_config_check(*, app: any) -> None:
             if api_id in api_ids: raise Exception(f"duplicate api id: {api_id}")
             api_ids.append(api_id)
         if "is_token" in cfg: flag_check(cfg["is_token"], f"{path} is_token")
+        type_cfg = mode_list_check(path, cfg, "user_check_type", user_mode_allowed, 2, 2)
+        if type_cfg:
+            if not isinstance(type_cfg[1], list) or not type_cfg[1]: raise Exception(f"{path} invalid user_check_type types")
+            for user_type in type_cfg[1]: int_check(user_type, f"{path} user_check_type type", 1)
         role_cfg = mode_list_check(path, cfg, "user_check_role", user_mode_allowed, 2, 2)
         if role_cfg:
             if not isinstance(role_cfg[1], list) or not role_cfg[1]: raise Exception(f"{path} invalid user_check_role roles")
@@ -468,12 +472,55 @@ async def func_middleware_token_decode(*, headers: dict, config_token_secret_key
     decoded_payload = jwt.decode(token, str(config_token_secret_key), algorithms="HS256")
     return orjson.loads(decoded_payload["data"])
 
-async def func_middleware_check_auth(*, user_dict: dict, url_path: str, is_token: int = 0, user_check_role: list = None) -> None:
+async def func_middleware_check_auth(*, user_dict: dict, url_path: str, is_token: int = 0, user_check_type: list = None, user_check_role: list = None) -> None:
     """Check whether current API requires token-authenticated user."""
     auth_namespaces = ["/my/", "/private/", "/admin/"]
-    is_token_required = url_path.startswith(tuple(auth_namespaces)) or is_token in (1, "1", True, "true") or bool(user_check_role)
+    is_token_required = url_path.startswith(tuple(auth_namespaces)) or is_token in (1, "1", True, "true") or bool(user_check_type) or bool(user_check_role)
     if is_token_required and not user_dict: raise Exception("authorization token missing")
     return None
+
+async def func_middleware_check_type(*, user_dict: dict, user_check_type: list, client_postgres: any, client_redis: any, cache_users_type: dict, config_redis_cache_ttl_sec: int) -> None:
+    """Ensure sufficient user type to access endpoints using config_api."""
+    cfg = user_check_type
+    if not cfg: return None
+    if not user_dict: raise Exception("authorization token missing")
+    mode = cfg[0]
+    allowed_types = {int(user_type) for user_type in cfg[1]}
+    async def fetch_type(uid):
+        if not client_postgres: raise Exception("postgres client missing")
+        async with client_postgres.acquire() as conn:
+            rows = await conn.fetch("select type from users where id=$1", uid)
+        if not rows: raise Exception("user not found")
+        return rows[0]["type"]
+    if mode == "redis":
+        if not client_redis: raise Exception("redis client missing")
+        cache_key = f"""cache:user:type:{user_dict["id"]}"""
+        user_type = None
+        cached_val = await client_redis.get(cache_key)
+        if cached_val is not None:
+            user_type = int(cached_val)
+        else:
+            user_type = await fetch_type(user_dict["id"])
+            await client_redis.setex(cache_key, config_redis_cache_ttl_sec, str(user_type if user_type is not None else ""))
+    elif mode == "realtime":
+        user_type = await fetch_type(user_dict["id"])
+    elif mode == "inmemory":
+        user_type = cache_users_type.get(user_dict["id"])
+        if user_type is None:
+            user_type = await fetch_type(user_dict["id"])
+    elif mode == "token":
+        user_type = user_dict.get("type", "absent")
+    else:
+        raise Exception(f"invalid mode: {mode}, allowed: redis, realtime, inmemory, token")
+    if user_type == "absent": raise Exception("user type missing")
+    if user_type is None or user_type == "": raise Exception("user type is null")
+    if user_type == "type": raise Exception("user type is invalid")
+    if not isinstance(user_type, int):
+        try:
+            user_type = int(user_type)
+        except Exception:
+            raise Exception("invalid user type")
+    if user_type not in allowed_types: raise Exception("access denied")
 
 async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_deactivated: list, client_postgres: any, client_redis: any, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is deactivated using a strictly configured mode from config_api."""
@@ -885,7 +932,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: any) -> dict:
             tag = path.split("/")[1] if len(path.split("/")) > 1 and path.split("/")[1] else "system"
             op = {"tags": [tag], "parameters": [], "responses": {"200": {"description": "Successful Response"}}}
             api_cfg = config_api.get(path, {})
-            is_token_required = any(path.startswith(x) for x in auth_namespaces) or api_cfg.get("is_token") in (1, "1", True, "true") or "user_check_role" in api_cfg
+            is_token_required = any(path.startswith(x) for x in auth_namespaces) or api_cfg.get("is_token") in (1, "1", True, "true") or "user_check_type" in api_cfg or "user_check_role" in api_cfg
             if is_token_required:
                 op["security"] = [{"BearerAuth": []}]
                 op["parameters"].append({"name": "Authorization", "in": "header", "required": True, "schema": {"type": "string", "default": "Bearer {token}"}})

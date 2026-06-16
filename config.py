@@ -89,6 +89,7 @@ config_mobile_services = ["sns", "fast2sms"]
 # Dict
 config_sql = {
 "config": "select key,value from config order by id asc limit 1000",
+"users_type": "select id,type from users where type is not null order by id asc limit 1000",
 "users_role": "select id,role from users where role is not null order by id asc limit 1000",
 "users_deactivated": "select id, deactivated_at from users order by id asc limit 1000",
 "users_deleted": "select id, deleted_at from users order by id asc limit 1000",
@@ -110,11 +111,11 @@ config_regex = {
 
 config_api = {
 # sample keys:
-# "/example/path": {"id": 100, "is_token": 1, "user_check_role": ["token", [1]], "user_check_deactivated": ["realtime", 1], "user_check_deleted": ["realtime", 1], "api_cache_sec": ["redis", 300, 1], "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
+# "/example/path": {"id": 100, "is_token": 1, "user_check_type": ["token", [1]], "user_check_role": ["token", [1]], "user_check_deactivated": ["realtime", 1], "user_check_deleted": ["realtime", 1], "api_cache_sec": ["redis", 300, 1], "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
 "/admin/sync": {"id": 1, "user_check_role": ["realtime", [1]]},
 "/admin/object-create": {"id": 2, "user_check_role": ["token", [1]]},
 "/admin/object-update": {"id": 3, "user_check_role": ["token", [1]]},
-"/admin/object-read": {"id": 4, "user_check_role": ["token", [1,2,3,4]]},
+"/admin/object-read": {"id": 4, "user_check_role": ["token", [1]]},
 "/admin/object-delete": {"id": 5, "user_check_role": ["realtime", [1]], "user_check_deactivated": ["realtime"], "user_check_deleted": ["realtime"]},
 "/admin/postgres-sql-runner": {"id": 6, "user_check_role": ["realtime", [1]]},
 "/admin/postgres-sql-runner-read": {"id": 22, "user_check_role": ["realtime", [1]]},
@@ -131,7 +132,7 @@ config_api = {
 "/info": {"id": 17, "api_cache_sec": ["inmemory", 100]},
 "/public/table-groupby": {"id": 18, "api_cache_sec": ["inmemory", 10]},
 "/public/jira-worklog-export": {"id": 19, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
-"/admin/cargowise-buyer-360": {"id": 32, "user_check_role": ["token", [1]], "api_cache_sec": ["inmemory", 1000]},
+"/management/cargowise-buyer-360": {"id": 32, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["inmemory", 1000]},
 "/my/cargowise-profile": {"id": 24, "is_token": 1, "api_cache_sec": ["redis", 300, 1]},
 "/my/cargowise-purchase-orders": {"id": 25, "api_cache_sec": ["redis", 300, 1]},
 "/my/cargowise-purchase-orders-line-items": {"id": 33, "api_cache_sec": ["redis", 300, 1]},
@@ -146,7 +147,7 @@ config_api = {
 config_column_int_mapping = {
 "worker_status": {None: "Pending", 1: "Processing", 2: "Completed", 3: "Failed", 4: "Dead"},
 "role": {
-"users": {1: "Admin", 2: "Buyer", 3: "Procurement", 4: "Salesperson"},
+"users": {1: "admin", 2: "management", 3: "buyer", 4: "Procurement", 5: "Sales"},
 },
 "type": {
 "log_users_delete": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
