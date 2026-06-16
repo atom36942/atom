@@ -468,8 +468,6 @@ config_postgres = {
 },
 }
 
-
-
 def func_config_override_from_env(*, global_dict: dict) -> None:
     import orjson, os, ast, contextlib; from dotenv import load_dotenv
     load_dotenv(".env")
