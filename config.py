@@ -84,7 +84,6 @@ config_blob_services = ["s3", "azure"]
 config_email_services = ["ses", "resend", "azure"]
 config_mobile_services = ["sns", "fast2sms"]
 
-
 # Dict
 config_sql = {
 "config": "select key,value from config order by id asc limit 1000",
@@ -109,28 +108,28 @@ config_regex = {
 
 config_api = {
 # sample keys:
-# "/example/path": {"id": 100, "is_token": 1, "user_role_check": ["token", [1]], "user_deactivated_check": ["realtime", 1], "user_deleted_check": ["realtime", 1], "api_cache_sec": ["redis", 300, 1], "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
-"/admin/sync": {"id": 1, "user_role_check": ["realtime", [1]]},
-"/admin/object-create": {"id": 2, "user_role_check": ["token", [1]]},
-"/admin/object-update": {"id": 3, "user_role_check": ["token", [1]]},
-"/admin/object-read": {"id": 4, "user_role_check": ["token", [1,2,3,4]]},
-"/admin/object-delete": {"id": 5, "user_role_check": ["realtime", [1]], "user_deactivated_check": ["realtime"], "user_deleted_check": ["realtime"]},
-"/admin/postgres-sql-runner": {"id": 6, "user_role_check": ["realtime", [1]]},
-"/admin/postgres-sql-runner-read": {"id": 22, "user_role_check": ["realtime", [1]]},
-"/admin/postgres-export": {"id": 7, "user_role_check": ["inmemory", [1]]},
-"/admin/postgres-import": {"id": 8, "user_role_check": ["realtime", [1]]},
-"/admin/redis-import": {"id": 9, "user_role_check": ["token", [1]]},
-"/admin/blob-container-read": {"id": 10, "user_role_check": ["inmemory", [1]]},
-"/admin/mongodb-import": {"id": 11, "user_role_check": ["token", [1]]},
-"/admin/blob-container-ops": {"id": 12, "user_role_check": ["token", [1]]},
-"/admin/blob-url-delete": {"id": 13, "user_role_check": ["token", [1]]},
-"/admin/mssql-sql-runner": {"id": 21, "user_role_check": ["realtime", [1]]},
-"/admin/mssql-sql-runner-read": {"id": 23, "user_role_check": ["realtime", [1]]},
+# "/example/path": {"id": 100, "is_token": 1, "user_check_role": ["token", [1]], "user_check_deactivated": ["realtime", 1], "user_check_deleted": ["realtime", 1], "api_cache_sec": ["redis", 300, 1], "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
+"/admin/sync": {"id": 1, "user_check_role": ["realtime", [1]]},
+"/admin/object-create": {"id": 2, "user_check_role": ["token", [1]]},
+"/admin/object-update": {"id": 3, "user_check_role": ["token", [1]]},
+"/admin/object-read": {"id": 4, "user_check_role": ["token", [1,2,3,4]]},
+"/admin/object-delete": {"id": 5, "user_check_role": ["realtime", [1]], "user_check_deactivated": ["realtime"], "user_check_deleted": ["realtime"]},
+"/admin/postgres-sql-runner": {"id": 6, "user_check_role": ["realtime", [1]]},
+"/admin/postgres-sql-runner-read": {"id": 22, "user_check_role": ["realtime", [1]]},
+"/admin/postgres-export": {"id": 7, "user_check_role": ["inmemory", [1]]},
+"/admin/postgres-import": {"id": 8, "user_check_role": ["realtime", [1]]},
+"/admin/redis-import": {"id": 9, "user_check_role": ["token", [1]]},
+"/admin/blob-container-read": {"id": 10, "user_check_role": ["inmemory", [1]]},
+"/admin/mongodb-import": {"id": 11, "user_check_role": ["token", [1]]},
+"/admin/blob-container-ops": {"id": 12, "user_check_role": ["token", [1]]},
+"/admin/blob-url-delete": {"id": 13, "user_check_role": ["token", [1]]},
+"/admin/mssql-sql-runner": {"id": 21, "user_check_role": ["realtime", [1]]},
+"/admin/mssql-sql-runner-read": {"id": 23, "user_check_role": ["realtime", [1]]},
 "/public/object-read": {"id": 14, "is_token": 0, "api_cache_sec": ["inmemory", 100]},
 "/info": {"id": 17, "api_cache_sec": ["inmemory", 100]},
 "/public/table-groupby": {"id": 18, "api_cache_sec": ["inmemory", 10]},
 "/public/jira-worklog-export": {"id": 19, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
-"/admin/cargowise-buyer-360": {"id": 32, "user_role_check": ["token", [1]], "api_cache_sec": ["inmemory", 1000]},
+"/admin/cargowise-buyer-360": {"id": 32, "user_check_role": ["token", [1]], "api_cache_sec": ["inmemory", 1000]},
 "/my/cargowise-profile": {"id": 24, "is_token": 1, "api_cache_sec": ["redis", 300, 1]},
 "/my/cargowise-purchase-orders": {"id": 25, "api_cache_sec": ["redis", 300, 1]},
 "/my/cargowise-purchase-orders-line-items": {"id": 33, "api_cache_sec": ["redis", 300, 1]},

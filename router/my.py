@@ -34,16 +34,6 @@ async def func_api_my_api_usage(*, request: Request):
         obj_list = [dict(r) for r in records]
     return {"status": 1, "message": obj_list}
 
-@router.post("/my/object-create-mongodb")
-async def func_api_my_object_create_mongodb(*, request: Request):
-    app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("database", "str", 1, None, None), ("table", "str", 1, None, None)])
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
-    obj_list = ob.get("obj_list", [ob])
-    res = await app_state.client_mongodb[oq["database"]][oq["table"]].insert_many(obj_list)
-    output=[str(id) for id in res.inserted_ids]
-    return {"status": 1, "message": output}
-
 @router.post("/my/object-create")
 async def func_api_my_object_create(*, request: Request):
     app_state = request.app.state
@@ -112,31 +102,33 @@ async def func_api_my_object_delete_all(*, request: Request):
         result = await conn.execute(f"""DELETE FROM "{oq["table"]}" WHERE "created_by_id"=$1""", user_id)
     return {"status": 1, "message": f"{int(result.rsplit(' ', 1)[-1])} objects deleted"}
 
-@router.post("/my/object-delete-user-id")
-async def func_api_my_user_id_object_delete(*, request: Request):
+@router.post("/my/object-delete-received")
+async def func_api_my_received_ids_delete(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "list:int", 1, None, None)])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("col", "str", 0, ["user_id"], "user_id"), ("ids", "list:int", 1, None, None)])
     if app_state.config_batch_item_limit and len(ob["ids"]) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
     schema = app_state.cache_postgres_schema.get(ob["table"], {})
-    if ob["table"] == "users" or "id" not in schema or "user_id" not in schema: raise Exception("users delete disabled or missing 'id'/'user_id' column")
+    col = ob["col"]
+    if ob["table"] == "users" or "id" not in schema or col not in schema: raise Exception(f"users delete disabled or missing 'id'/'{col}' column")
     id_list, deleted_count = [int(x) for x in ob["ids"]], 0
     async with app_state.client_postgres.acquire() as conn:
         async with conn.transaction():
             for i in range(0, len(id_list), 5000):
-                result = await conn.fetchval(f"""WITH deleted AS (DELETE FROM "{ob["table"]}" WHERE id=ANY($1::bigint[]) AND "user_id"=$2 RETURNING 1) SELECT COUNT(*) FROM deleted""", id_list[i:i+5000], user_id)
+                result = await conn.fetchval(f"""WITH deleted AS (DELETE FROM "{ob["table"]}" WHERE id=ANY($1::bigint[]) AND "{col}"=$2 RETURNING 1) SELECT COUNT(*) FROM deleted""", id_list[i:i+5000], user_id)
                 deleted_count += result
     return {"status": 1, "message": f"{deleted_count} ids deleted"}
 
-@router.delete("/my/object-delete-user-id-all")
-async def func_api_my_user_id_object_delete_all(*, request: Request):
+@router.delete("/my/object-delete-received-all")
+async def func_api_my_received_object_delete_all(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("col", "str", 0, ["user_id"], "user_id")])
     if oq["table"] == "users": raise Exception("users received bulk delete disabled")
     enabled_delete_all_user_id = app_state.config_table_enable_delete_all_my_user_id or []
     if "*" not in enabled_delete_all_user_id and oq["table"] not in enabled_delete_all_user_id: raise Exception(f"received delete all disabled for table: {oq['table']}")
-    if "user_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'user_id' column for ownership tracking")
+    col = oq["col"]
+    if col not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required '{col}' column for ownership tracking")
     async with app_state.client_postgres.acquire() as conn:
-        result = await conn.execute(f"""DELETE FROM "{oq["table"]}" WHERE "user_id"=$1""", user_id)
+        result = await conn.execute(f"""DELETE FROM "{oq["table"]}" WHERE "{col}"=$1""", user_id)
     return {"status": 1, "message": f"{int(result.rsplit(' ', 1)[-1])} objects deleted"}
 
 @router.get("/my/message-inbox")
@@ -160,6 +152,16 @@ async def func_api_my_message_thread(*, request: Request):
         await conn.execute("UPDATE message SET read_at=now() WHERE created_by_id=$1 AND user_id=$2;", oq["user_id"], user_one_id)
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 
+@router.post("/my/object-create-mongodb")
+async def func_api_my_object_create_mongodb(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("database", "str", 1, None, None), ("table", "str", 1, None, None)])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
+    obj_list = ob.get("obj_list", [ob])
+    res = await app_state.client_mongodb[oq["database"]][oq["table"]].insert_many(obj_list)
+    output=[str(id) for id in res.inserted_ids]
+    return {"status": 1, "message": output}
+    
 @router.post("/my/object-blob-delete")
 async def func_api_my_object_blob_delete(*, request: Request):
     app_state = request.app.state

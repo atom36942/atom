@@ -6,6 +6,7 @@ def func_config_check(*, app: any) -> None:
     api_ids = []
     user_mode_allowed = ("redis", "realtime", "inmemory", "token")
     api_mode_allowed = ("redis", "inmemory")
+    api_keys_allowed = ("id", "is_token", "user_check_role", "user_check_deactivated", "user_check_deleted", "api_cache_sec", "api_ratelimiting_times_sec")
     def flag_check(value, key):
         if value not in (0, 1, "0", "1", True, False): raise Exception(f"invalid {key}: expected 0/1")
     def int_check(value, key, min_value=0):
@@ -27,16 +28,18 @@ def func_config_check(*, app: any) -> None:
         if not isinstance(path, str) or not path.startswith("/"): raise Exception(f"invalid config_api path: {path}")
         if path not in route_paths: raise Exception(f"unused configuration in config_api: {path} (route not found)")
         if not isinstance(cfg, dict): raise Exception(f"{path} config must be dict")
+        for key in cfg.keys():
+            if key not in api_keys_allowed: raise Exception(f"{path} invalid config key: {key}")
         if "id" in cfg:
             api_id = int_check(cfg["id"], f"{path} id", 1)
             if api_id in api_ids: raise Exception(f"duplicate api id: {api_id}")
             api_ids.append(api_id)
         if "is_token" in cfg: flag_check(cfg["is_token"], f"{path} is_token")
-        role_cfg = mode_list_check(path, cfg, "user_role_check", user_mode_allowed, 2, 2)
+        role_cfg = mode_list_check(path, cfg, "user_check_role", user_mode_allowed, 2, 2)
         if role_cfg:
-            if not isinstance(role_cfg[1], list) or not role_cfg[1]: raise Exception(f"{path} invalid user_role_check roles")
-            for role in role_cfg[1]: int_check(role, f"{path} user_role_check role", 1)
-        for key in ("user_deactivated_check", "user_deleted_check"):
+            if not isinstance(role_cfg[1], list) or not role_cfg[1]: raise Exception(f"{path} invalid user_check_role roles")
+            for role in role_cfg[1]: int_check(role, f"{path} user_check_role role", 1)
+        for key in ("user_check_deactivated", "user_check_deleted"):
             user_cfg = mode_list_check(path, cfg, key, user_mode_allowed, 1, 2)
             if user_cfg and len(user_cfg) > 1: flag_check(user_cfg[1], f"{path} {key} flag")
         cache_cfg = mode_list_check(path, cfg, "api_cache_sec", api_mode_allowed, 2, 3)
@@ -407,7 +410,6 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
                 catalog["tg"].add(upd_tg_name)
                 await conn.execute(f"DROP TRIGGER IF EXISTS {upd_tg_name} ON {table}")
                 await conn.execute(f"CREATE TRIGGER {upd_tg_name} BEFORE UPDATE ON {table} FOR EACH ROW EXECUTE FUNCTION func_set_updated_at();")
-
         if table_blocked == ["*"]:
             table_blocked = [t for t in db_tables if t != "spatial_ref_sys"]
         if bulk_blocked and bulk_blocked[0][0] == "*":
@@ -466,35 +468,19 @@ async def func_middleware_token_decode(*, headers: dict, config_token_secret_key
     decoded_payload = jwt.decode(token, str(config_token_secret_key), algorithms="HS256")
     return orjson.loads(decoded_payload["data"])
 
-async def func_middleware_check_auth(*, user_dict: dict, url_path: str, api_cfg: dict) -> None:
+async def func_middleware_check_auth(*, user_dict: dict, url_path: str, is_token: int = 0, user_check_role: list = None) -> None:
     """Check whether current API requires token-authenticated user."""
-    if api_cfg is None: api_cfg = {}
-    if not isinstance(api_cfg, dict): raise Exception("invalid api config")
     auth_namespaces = ["/my/", "/private/", "/admin/"]
-    is_token_required = url_path.startswith(tuple(auth_namespaces)) or api_cfg.get("is_token") in (1, "1", True, "true") or "user_role_check" in api_cfg
+    is_token_required = url_path.startswith(tuple(auth_namespaces)) or is_token in (1, "1", True, "true") or bool(user_check_role)
     if is_token_required and not user_dict: raise Exception("authorization token missing")
     return None
 
-def func_middleware_config_mode_read(*, api_cfg: dict, key: str, allowed_mode: tuple, min_len: int = 1, max_len: int = 2) -> tuple:
-    """Read and validate a middleware config value from api_cfg."""
-    if api_cfg is None: api_cfg = {}
-    if not isinstance(api_cfg, dict): raise Exception("invalid api config")
-    cfg = api_cfg.get(key)
-    if not cfg: return ()
-    if isinstance(cfg, str): cfg = [cfg]
-    if not isinstance(cfg, list): raise Exception(f"invalid {key}: expected list")
-    if len(cfg) < min_len or len(cfg) > max_len: raise Exception(f"invalid {key}: expected {min_len}-{max_len} values")
-    mode = cfg[0]
-    if mode not in allowed_mode: raise Exception(f"invalid {key} mode: {mode}, allowed: {', '.join(allowed_mode)}")
-    return tuple(cfg)
-
-async def func_middleware_check_user_deactivated(*, user_dict: dict, api_cfg: dict, client_postgres: any, client_redis: any, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_deactivated: list, client_postgres: any, client_redis: any, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is deactivated using a strictly configured mode from config_api."""
-    cfg = func_middleware_config_mode_read(api_cfg=api_cfg, key="user_deactivated_check", allowed_mode=("redis", "realtime", "inmemory", "token"), min_len=1, max_len=2)
+    cfg = user_check_deactivated
     if not cfg or not user_dict: return None
     mode = cfg[0]
     active_flag = cfg[1] if len(cfg) > 1 else 1
-    if active_flag not in (0, 1, "0", "1", True, False): raise Exception("invalid user_deactivated_check flag")
     if not mode: return None
     if str(active_flag) == "0": return None
     async def fetch_deactivated_status(uid):
@@ -526,13 +512,12 @@ async def func_middleware_check_user_deactivated(*, user_dict: dict, api_cfg: di
     if active_status == "absent": raise Exception("missing deactivated_at")
     if active_status is not None: raise Exception("user not active")
 
-async def func_middleware_check_user_deleted(*, user_dict: dict, api_cfg: dict, client_postgres: any, client_redis: any, cache_users_deleted: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_deleted: list, client_postgres: any, client_redis: any, cache_users_deleted: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is deleted using a strictly configured mode from config_api."""
-    cfg = func_middleware_config_mode_read(api_cfg=api_cfg, key="user_deleted_check", allowed_mode=("redis", "realtime", "inmemory", "token"), min_len=1, max_len=2)
+    cfg = user_check_deleted
     if not cfg or not user_dict: return None
     mode = cfg[0]
     deleted_flag = cfg[1] if len(cfg) > 1 else 1
-    if deleted_flag not in (0, 1, "0", "1", True, False): raise Exception("invalid user_deleted_check flag")
     if not mode: return None
     if str(deleted_flag) == "0": return None
     async def fetch_deleted(uid):
@@ -564,19 +549,13 @@ async def func_middleware_check_user_deleted(*, user_dict: dict, api_cfg: dict, 
     if deleted_status == "absent": raise Exception("missing deleted_at")
     if deleted_status is not None: raise Exception("user is deleted")
 
-async def func_middleware_check_role(*, user_dict: dict, api_cfg: dict, client_postgres: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_role(*, user_dict: dict, user_check_role: list, client_postgres: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
     """Ensure sufficient roles to access endpoints using a strictly configured mode from config_api."""
-    cfg = func_middleware_config_mode_read(api_cfg=api_cfg, key="user_role_check", allowed_mode=("redis", "realtime", "inmemory", "token"), min_len=2, max_len=2)
+    cfg = user_check_role
     if not cfg: return None
     if not user_dict: raise Exception("authorization token missing")
     mode = cfg[0]
-    if not isinstance(cfg[1], list) or not cfg[1]: raise Exception("invalid user_role_check roles")
-    roles = set()
-    for role in cfg[1]:
-        try:
-            roles.add(int(role))
-        except Exception:
-            raise Exception("invalid user_role_check role")
+    roles = {int(role) for role in cfg[1]}
     async def fetch_role(uid):
         if not client_postgres: raise Exception("postgres client missing")
         async with client_postgres.acquire() as conn:
@@ -613,16 +592,13 @@ async def func_middleware_check_role(*, user_dict: dict, api_cfg: dict, client_p
             raise Exception("invalid user role type")
     if user_role not in roles: raise Exception("access denied")
 
-async def func_middleware_check_ratelimiter(*, client_redis: any, api_cfg: dict, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
+async def func_middleware_check_ratelimiter(*, client_redis: any, api_ratelimiting_times_sec: list, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
     """Check and enforce API rate limits using either Redis or in-memory storage."""
     import time
-    rl_config = func_middleware_config_mode_read(api_cfg=api_cfg, key="api_ratelimiting_times_sec", allowed_mode=("redis", "inmemory"), min_len=3, max_len=3)
+    rl_config = api_ratelimiting_times_sec
     if not rl_config: return None
     mode, limit, window = rl_config
-    try:
-        limit, window = int(limit), int(window)
-    except Exception:
-        raise Exception("invalid api_ratelimiting_times_sec limit/window")
+    limit, window = int(limit), int(window)
     if limit <= 0 or window <= 0: return None
     cache_key = f"ratelimiter:{url_path}:{identifier}"
     if mode == "redis":
@@ -648,19 +624,15 @@ async def func_middleware_check_ratelimiter(*, client_redis: any, api_cfg: dict,
         raise Exception(f"invalid ratelimiter mode: {mode}, allowed: redis, inmemory")
     return None
 
-async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, api_cfg: dict, client_redis: any = None, user_id: int = 0, cache_api_response: dict = None, response: any = None) -> any:
+async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, api_cache_sec: list, client_redis: any = None, user_id: int = 0, cache_api_response: dict = None, response: any = None) -> any:
     """Get or set middleware API cache for a request."""
     from fastapi import Response
     import gzip, base64, time
     if mode not in ("get", "set"): raise Exception(f"invalid cache operation: {mode}, allowed: get, set")
-    cfg = func_middleware_config_mode_read(api_cfg=api_cfg, key="api_cache_sec", allowed_mode=("redis", "inmemory"), min_len=2, max_len=3)
+    cfg = api_cache_sec
     cache_mode = cfg[0] if cfg else None
-    try:
-        ttl = int(cfg[1]) if cfg else 0
-    except Exception:
-        raise Exception("invalid api_cache_sec ttl")
-    is_user_cache = cfg[2] if len(cfg) > 2 else 0
-    if is_user_cache not in (0, 1, "0", "1", True, False): raise Exception("invalid api_cache_sec user flag")
+    ttl = int(cfg[1]) if cfg else 0
+    is_user_cache = cfg[2] if cfg and len(cfg) > 2 else 0
     is_user_cache = str(is_user_cache) == "1" or is_user_cache is True
     is_enabled = query_params.get("is_disable_cache") != "1" and bool(cfg) and bool(cache_mode) and ttl > 0
     if mode == "set" and not is_enabled: return response
@@ -913,7 +885,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: any) -> dict:
             tag = path.split("/")[1] if len(path.split("/")) > 1 and path.split("/")[1] else "system"
             op = {"tags": [tag], "parameters": [], "responses": {"200": {"description": "Successful Response"}}}
             api_cfg = config_api.get(path, {})
-            is_token_required = any(path.startswith(x) for x in auth_namespaces) or api_cfg.get("is_token") in (1, "1", True, "true") or "user_role_check" in api_cfg
+            is_token_required = any(path.startswith(x) for x in auth_namespaces) or api_cfg.get("is_token") in (1, "1", True, "true") or "user_check_role" in api_cfg
             if is_token_required:
                 op["security"] = [{"BearerAuth": []}]
                 op["parameters"].append({"name": "Authorization", "in": "header", "required": True, "schema": {"type": "string", "default": "Bearer {token}"}})
