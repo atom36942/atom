@@ -1,4 +1,4 @@
-def func_config_check(*, app: any) -> None:
+def func_check(*, app: any) -> None:
     """Validate config_api entries against registered routes and middleware config formats."""
     config_api = getattr(app.state, "config_api", {})
     if not isinstance(config_api, dict): raise Exception("config_api must be dict")
@@ -24,6 +24,8 @@ def func_config_check(*, app: any) -> None:
         if len(value) < min_len or len(value) > max_len: raise Exception(f"{path} invalid {key}: expected {min_len}-{max_len} values")
         if value[0] not in allowed_mode: raise Exception(f"{path} invalid {key} mode: {value[0]}, allowed: {', '.join(allowed_mode)}")
         return value
+    requires_redis = False
+    requires_postgres = False
     for path, cfg in config_api.items():
         if not isinstance(path, str) or not path.startswith("/"): raise Exception(f"invalid config_api path: {path}")
         if path not in route_paths: raise Exception(f"unused configuration in config_api: {path} (route not found)")
@@ -39,21 +41,42 @@ def func_config_check(*, app: any) -> None:
         if type_cfg:
             if not isinstance(type_cfg[1], list) or not type_cfg[1]: raise Exception(f"{path} invalid user_check_type types")
             for user_type in type_cfg[1]: int_check(user_type, f"{path} user_check_type type", 1)
+            if type_cfg[0] == "redis": requires_redis = True
+            if type_cfg[0] == "realtime": requires_postgres = True
         role_cfg = mode_list_check(path, cfg, "user_check_role", user_mode_allowed, 2, 2)
         if role_cfg:
             if not isinstance(role_cfg[1], list) or not role_cfg[1]: raise Exception(f"{path} invalid user_check_role roles")
             for role in role_cfg[1]: int_check(role, f"{path} user_check_role role", 1)
+            if role_cfg[0] == "redis": requires_redis = True
+            if role_cfg[0] == "realtime": requires_postgres = True
         for key in ("user_check_deactivated", "user_check_deleted"):
             user_cfg = mode_list_check(path, cfg, key, user_mode_allowed, 1, 2)
             if user_cfg and len(user_cfg) > 1: flag_check(user_cfg[1], f"{path} {key} flag")
+            if user_cfg and user_cfg[0] == "redis": requires_redis = True
+            if user_cfg and user_cfg[0] == "realtime": requires_postgres = True
         cache_cfg = mode_list_check(path, cfg, "api_cache_sec", api_mode_allowed, 2, 3)
         if cache_cfg:
-            int_check(cache_cfg[1], f"{path} api_cache_sec ttl", 1)
+            ttl = int_check(cache_cfg[1], f"{path} api_cache_sec ttl", 1)
+            if ttl > 31536000: raise Exception(f"{path} api_cache_sec ttl exceeds 1 year")
             if len(cache_cfg) > 2: flag_check(cache_cfg[2], f"{path} api_cache_sec user flag")
+            if cache_cfg[0] == "redis": requires_redis = True
         rate_cfg = mode_list_check(path, cfg, "api_ratelimiting_times_sec", api_mode_allowed, 3, 3)
         if rate_cfg:
             int_check(rate_cfg[1], f"{path} api_ratelimiting_times_sec limit", 1)
-            int_check(rate_cfg[2], f"{path} api_ratelimiting_times_sec window", 1)
+            window = int_check(rate_cfg[2], f"{path} api_ratelimiting_times_sec window", 1)
+            if window > 86400: raise Exception(f"{path} api_ratelimiting_times_sec window exceeds 1 day")
+            if rate_cfg[0] == "redis": requires_redis = True
+    for path in route_paths:
+        if path not in config_api:
+            raise Exception(f"CRITICAL: Route '{path}' is missing from config_api. All routes must be explicitly configured.")
+        if path.startswith("/admin/"):
+            role_cfg = config_api[path].get("user_check_role", [])
+            if not isinstance(role_cfg, list) or len(role_cfg) < 2 or not isinstance(role_cfg[1], list) or 1 not in role_cfg[1]:
+                raise Exception(f"{path} must have user_check_role with at least role 1 allowed")
+    if requires_redis and not getattr(app.state, "config_redis_url", None):
+        raise Exception("config_api uses redis mode but config_redis_url is missing")
+    if requires_postgres and not getattr(app.state, "config_postgres_url", None):
+        raise Exception("config_api uses realtime mode but config_postgres_url is missing")
     return None
 
 async def func_postgres_schema_init(*, client_postgres: any, config_postgres: dict, root_user_password_hash: str = None) -> str:

@@ -110,38 +110,88 @@ config_regex = {
 }
 
 config_api = {
-# "/example/path": {"id": 100, "is_token": 1, "user_check_type": ["token", [1]], "user_check_role": ["token", [1]], "user_check_deactivated": ["realtime", 1], "user_check_deleted": ["realtime", 1], "api_cache_sec": ["redis", 300, 1], "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
-"/admin/sync": {"id": 1, "user_check_role": ["realtime", [1]]},
-"/admin/object-create": {"id": 2, "user_check_role": ["token", [1]]},
-"/admin/object-update": {"id": 3, "user_check_role": ["token", [1]]},
-"/admin/object-read": {"id": 4, "user_check_role": ["token", [1]]},
-"/admin/object-delete": {"id": 5, "user_check_role": ["realtime", [1]], "user_check_deactivated": ["realtime"], "user_check_deleted": ["realtime"]},
-"/admin/postgres-sql-runner": {"id": 6, "user_check_role": ["realtime", [1]]},
-"/admin/postgres-sql-runner-read": {"id": 22, "user_check_role": ["realtime", [1]]},
-"/admin/postgres-export": {"id": 7, "user_check_role": ["inmemory", [1]]},
-"/admin/postgres-import": {"id": 8, "user_check_role": ["realtime", [1]]},
-"/admin/redis-import": {"id": 9, "user_check_role": ["token", [1]]},
-"/admin/blob-container-read": {"id": 10, "user_check_role": ["inmemory", [1]]},
-"/admin/mongodb-import": {"id": 11, "user_check_role": ["token", [1]]},
-"/admin/blob-container-ops": {"id": 12, "user_check_role": ["token", [1]]},
-"/admin/blob-url-delete": {"id": 13, "user_check_role": ["token", [1]]},
-"/admin/mssql-sql-runner": {"id": 21, "user_check_role": ["realtime", [1]]},
-"/admin/mssql-sql-runner-read": {"id": 23, "user_check_role": ["realtime", [1]]},
+# INDEX ROUTER
+"/": {"id": 35, "is_token": 0},
+"/health": {"id": 36, "is_token": 0},
+"/info": {"id": 17, "is_token": 0, "api_cache_sec": ["inmemory", 300]},
+"/openapi.json": {"id": 37, "is_token": 0},
+"/static": {"id": 77, "is_token": 0},
+"/websocket": {"id": 38, "is_token": 0},
+# AUTH ROUTER
+"/auth/signup-username-password": {"id": 39, "is_token": 0},
+"/auth/login-username-password": {"id": 40, "is_token": 0},
+"/auth/login-email-password": {"id": 41, "is_token": 0},
+"/auth/login-mobile-password": {"id": 42, "is_token": 0},
+"/auth/login-email-otp": {"id": 43, "is_token": 0},
+"/auth/login-mobile-otp": {"id": 44, "is_token": 0},
+"/auth/login-google": {"id": 45, "is_token": 0},
+# MY ROUTER
+"/my/profile": {"id": 46, "is_token": 1},
+"/my/token-refresh": {"id": 47, "is_token": 1},
+"/my/api-usage": {"id": 48, "is_token": 1},
+"/my/object-create": {"id": 49, "is_token": 1},
+"/my/object-read": {"id": 50, "is_token": 1},
+"/my/object-update": {"id": 51, "is_token": 1},
+"/my/object-delete": {"id": 52, "is_token": 1},
+"/my/object-delete-all": {"id": 53, "is_token": 1},
+"/my/object-delete-received": {"id": 54, "is_token": 1},
+"/my/object-delete-received-all": {"id": 55, "is_token": 1},
+"/my/message-inbox": {"id": 56, "is_token": 1},
+"/my/message-thread": {"id": 57, "is_token": 1},
+"/my/object-create-mongodb": {"id": 58, "is_token": 1},
+"/my/object-blob-delete": {"id": 59, "is_token": 1},
+"/my/blob-url-delete": {"id": 60, "is_token": 1},
+# PRIVATE ROUTER
+"/private/send-email": {"id": 61, "is_token": 1},
+"/private/blob-upload-file": {"id": 62, "is_token": 1},
+"/private/blob-upload-url": {"id": 63, "is_token": 1},
+"/private/blob-container-sas": {"id": 64, "is_token": 1},
+"/private/blob-preview-urls": {"id": 65, "is_token": 1},
+# PUBLIC ROUTER
+"/public/object-create": {"id": 66, "is_token": 0},
 "/public/object-read": {"id": 14, "is_token": 0, "api_cache_sec": ["inmemory", 100]},
-"/info": {"id": 17, "api_cache_sec": ["inmemory", 300]},
-"/public/table-groupby": {"id": 18, "api_cache_sec": ["inmemory", 10]},
-"/public/jira-worklog-export": {"id": 19, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
-"/cargowise/buyer-360": {"id": 32, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["inmemory", 1000]},
-"/cargowise/my-profile": {"id": 24, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
-"/cargowise/my-purchase-orders": {"id": 25, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
-"/cargowise/my-purchase-orders-line-items": {"id": 33, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
-"/cargowise/my-shipments": {"id": 26, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
-"/cargowise/my-containers": {"id": 27, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
-"/cargowise/my-tracking": {"id": 28, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
-"/cargowise/my-exceptions": {"id": 29, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
-"/cargowise/my-documents": {"id": 30, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
-"/cargowise/my-documents-download": {"id": 34, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
-"/cargowise/my-analytics": {"id": 31, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/public/converter-number": {"id": 67, "is_token": 0},
+"/public/otp-verify": {"id": 68, "is_token": 0},
+"/public/otp-send-email": {"id": 69, "is_token": 0},
+"/public/otp-send-mobile": {"id": 70, "is_token": 0},
+"/public/otp-send-mobile-sns-template": {"id": 71, "is_token": 0},
+"/public/jira-worklog-export": {"id": 19, "is_token": 0, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
+"/public/table-groupby": {"id": 18, "is_token": 0, "api_cache_sec": ["inmemory", 10]},
+# ADMIN ROUTER
+"/admin/sync": {"id": 1, "is_token": 1, "user_check_role": ["realtime", [1]]},
+"/admin/object-create": {"id": 2, "is_token": 1, "user_check_role": ["token", [1]]},
+"/admin/object-update": {"id": 3, "is_token": 1, "user_check_role": ["token", [1]]},
+"/admin/object-read": {"id": 4, "is_token": 1, "user_check_role": ["token", [1]]},
+"/admin/object-delete": {"id": 5, "is_token": 1, "user_check_role": ["realtime", [1]], "user_check_deactivated": ["realtime"], "user_check_deleted": ["realtime"]},
+"/admin/postgres-sql-runner": {"id": 6, "is_token": 1, "user_check_role": ["realtime", [1]]},
+"/admin/postgres-sql-runner-read": {"id": 22, "is_token": 1, "user_check_role": ["realtime", [1]]},
+"/admin/postgres-export": {"id": 7, "is_token": 1, "user_check_role": ["inmemory", [1]]},
+"/admin/postgres-import": {"id": 8, "is_token": 1, "user_check_role": ["realtime", [1]]},
+"/admin/redis-import": {"id": 9, "is_token": 1, "user_check_role": ["token", [1]]},
+"/admin/mongodb-import": {"id": 11, "is_token": 1, "user_check_role": ["token", [1]]},
+"/admin/blob-container-read": {"id": 10, "is_token": 1, "user_check_role": ["inmemory", [1]]},
+"/admin/blob-container-ops": {"id": 12, "is_token": 1, "user_check_role": ["token", [1]]},
+"/admin/blob-url-delete": {"id": 13, "is_token": 1, "user_check_role": ["token", [1]]},
+"/admin/mssql-sql-runner": {"id": 21, "is_token": 1, "user_check_role": ["realtime", [1]]},
+"/admin/mssql-sql-runner-read": {"id": 23, "is_token": 1, "user_check_role": ["realtime", [1]]},
+# CARGOWISE ROUTER
+"/cargowise/buyer-360": {"id": 32, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["inmemory", 1000]},
+"/cargowise/my-profile": {"id": 24, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-purchase-orders": {"id": 25, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-purchase-orders-line-items": {"id": 33, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-shipments": {"id": 26, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-containers": {"id": 27, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-tracking": {"id": 28, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-exceptions": {"id": 29, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-documents": {"id": 30, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-documents-download": {"id": 34, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-analytics": {"id": 31, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+# RATES ROUTER
+"/rates": {"id": 72, "is_token": 1, "user_check_role": ["token", [4]]},
+"/rates/upload": {"id": 73, "is_token": 1, "user_check_role": ["token", [4]]},
+"/rates/update": {"id": 74, "is_token": 1, "user_check_role": ["token", [4]]},
+"/rates/delete": {"id": 75, "is_token": 1, "user_check_role": ["token", [4]]},
+"/rates/deactivate": {"id": 76, "is_token": 1, "user_check_role": ["token", [4]]},
 }
 
 config_column_int_mapping = {
@@ -374,7 +424,7 @@ config_postgres = {
 {"name":"projects","datatype":"jsonb","index":"gin(projects)"},
 {"name":"industry","datatype":"text","index":"btree(industry)"}
 ],
-"freight_rates":[
+"rates":[
 {"name":"id","datatype":"bigserial","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
@@ -382,7 +432,7 @@ config_postgres = {
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"deactivated_at","datatype":"timestamptz"},
 {"name":"deactivated_by_id","datatype":"bigint"},
-{"name":"carrier","datatype":"text","is_mandatory":1,"index":"btree(carrier)"},
+{"name":"carrier","datatype":"text","index":"btree(carrier)"},
 {"name":"pol","datatype":"text","is_mandatory":1,"index":"btree(pol,pod)"},
 {"name":"pod","datatype":"text","is_mandatory":1},
 {"name":"rate_validity","datatype":"date","index":"btree(rate_validity)"},
@@ -418,7 +468,8 @@ config_postgres = {
 },
 }
 
-# override
+
+
 def func_config_override_from_env(*, global_dict: dict) -> None:
     import orjson, os, ast, contextlib; from dotenv import load_dotenv
     load_dotenv(".env")

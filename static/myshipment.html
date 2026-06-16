@@ -1941,7 +1941,7 @@ body {
     background: #F9FAFB;
 }
 
-/* Freight Rates */
+/* Rates */
 .rate-toolbar-actions {
     display: flex;
     flex-wrap: wrap;
@@ -2468,6 +2468,9 @@ body.not-allowed .content-wrapper {
                 <h2>MyShipment</h2>
             </div>
             <nav class="nav-menu">
+                <a href="#rates" class="nav-item" data-target="rates" data-roles="4" hidden>
+                    <i class="fa-solid fa-sailboat"></i> Rates
+                </a>
                 <a href="#users" class="nav-item" data-target="users" data-roles="1" hidden>
                     <i class="fa-solid fa-users"></i> Users
                 </a>
@@ -2562,13 +2565,13 @@ body.not-allowed .content-wrapper {
                     </div>
                 </section>
 
-                <!-- Freight Rates Section -->
-                <section id="freight-rates" class="view-section">
+                <!-- Rates Section -->
+                <section id="rates" class="view-section">
                     <div class="panel po-panel">
                         <div class="po-toolbar">
                             <div class="po-heading">
-                                <h2>Freight Rates</h2>
-                                <p>Search current ocean freight rates by carrier, port of loading, and port of discharge.</p>
+                                <h2>Rates</h2>
+                                <p>Search current rates by carrier, port of loading, and port of discharge.</p>
                             </div>
                             <div class="rate-toolbar-actions">
                                 <button class="btn btn-secondary" id="rates-template-btn" type="button">
@@ -2614,7 +2617,7 @@ body.not-allowed .content-wrapper {
                             <div class="rate-kpi"><div class="rate-kpi-icon"><i class="fa-solid fa-user-pen"></i></div><div><div class="rate-kpi-label">My Uploads</div><div class="rate-kpi-value" id="rates-kpi-mine">-</div></div></div>
                         </div>
                         <div class="po-summary-bar">
-                            <div class="po-result-count" id="rates-result-count">Loading freight rates...</div>
+                            <div class="po-result-count" id="rates-result-count">Loading rates...</div>
                             <div class="rate-toolbar-actions">
                                 <button class="btn btn-secondary rate-manager-only" id="rates-deactivate-btn" type="button" hidden disabled><i class="fa-solid fa-ban"></i> Deactivate</button>
                                 <button class="btn btn-secondary rate-manager-only" id="rates-delete-btn" type="button" hidden disabled><i class="fa-solid fa-trash"></i> Delete</button>
@@ -2623,7 +2626,7 @@ body.not-allowed .content-wrapper {
                                     <option value="50">50 rows</option>
                                     <option value="100">100 rows</option>
                                 </select>
-                                <div class="po-pagination" aria-label="Freight rate pages">
+                                <div class="po-pagination" aria-label="Rate pages">
                                     <button class="po-page-button" id="rates-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left"></i><span>Previous</span></button>
                                     <span id="rates-page-display">Page 1</span>
                                     <button class="po-page-button" id="rates-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right"></i></button>
@@ -2647,7 +2650,7 @@ body.not-allowed .content-wrapper {
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody><tr><td colspan="11">Loading freight rates...</td></tr></tbody>
+                                <tbody><tr><td colspan="11">Loading rates...</td></tr></tbody>
                             </table>
                         </div>
                     </div>
@@ -3268,7 +3271,7 @@ body.not-allowed .content-wrapper {
                 <div class="modal-heading">
                     <div class="modal-heading-icon"><i class="fa-solid fa-file-csv" aria-hidden="true"></i></div>
                     <div>
-                        <h3 id="rate-csv-modal-title">Upload Freight Rates</h3>
+                        <h3 id="rate-csv-modal-title">Upload Rates</h3>
                         <p class="modal-subtitle" id="rate-csv-modal-subtitle">Create rate records from a CSV file</p>
                     </div>
                 </div>
@@ -3426,10 +3429,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const ADMIN_USERS_PATH = '/admin/object-read';
     const ADMIN_POSTGRES_EXPORT_PATH = '/admin/postgres-export';
     const CARGOWISE_BUYER_360_PATH = '/cargowise/buyer-360';
-    const FREIGHT_RATES_READ_PATH = '/admin/object-read';
-    const MY_OBJECT_CREATE_PATH = '/my/object-create';
-    const MY_OBJECT_UPDATE_PATH = '/my/object-update';
-    const MY_OBJECT_DELETE_PATH = '/my/object-delete';
+    const RATES_READ_PATH = '/rates';
+    const RATES_UPLOAD_PATH = '/rates/upload';
+    const RATES_UPDATE_PATH = '/rates/update';
+    const RATES_DELETE_PATH = '/rates/delete';
+    const RATES_DEACTIVATE_PATH = '/rates/deactivate';
     const ADMIN_ROLE = 1;
     const MANAGEMENT_ROLE = 2;
     const BUYER_ROLE = 3;
@@ -3903,6 +3907,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const rateManager = () => Number(authUser && authUser.role) === PROCUREMENT_ROLE;
     const formatAmount = value => value === null || value === undefined || value === '' ? '-' : Number(value).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
     const normalizeCsvHeader = value => String(value || '').replace(/^\uFEFF/, '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    const normalizeRateCsvHeader = value => {
+        const header = normalizeCsvHeader(value);
+        return header === 'pul' ? 'pol' : header;
+    };
     const parseCsvRows = text => {
         const rows = [];
         let row = [];
@@ -3933,13 +3941,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const rateObjectsFromCsv = (text, mode) => {
         const rows = parseCsvRows(text);
         if (rows.length < 2) throw new Error('CSV must contain a header and at least one data row.');
-        const headers = rows[0].map(normalizeCsvHeader);
+        const headers = rows[0].map(normalizeRateCsvHeader);
         const allowed = new Set(mode === 'update' ? ['id', ...RATE_COLUMNS] : RATE_COLUMNS);
         const unknown = headers.filter(header => header && !allowed.has(header));
         if (unknown.length) throw new Error(`Unknown CSV column${unknown.length === 1 ? '' : 's'}: ${unknown.join(', ')}`);
         if (new Set(headers).size !== headers.length) throw new Error('CSV contains duplicate column names.');
         if (mode === 'update' && !headers.includes('id')) throw new Error('Update CSV must include the id column.');
-        if (mode === 'create' && !['carrier', 'pol', 'pod'].every(column => headers.includes(column))) throw new Error('Upload CSV must include carrier, pol, and pod.');
+        if (mode === 'create' && !['pol', 'pod'].every(column => headers.includes(column))) throw new Error('Upload CSV must include pol and pod.');
         const objects = rows.slice(1).map((cells, rowIndex) => {
             const object = {};
             headers.forEach((header, columnIndex) => {
@@ -3960,7 +3968,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     object[header] = raw;
                 }
             });
-            if (mode === 'create' && ['carrier', 'pol', 'pod'].some(column => !object[column])) throw new Error(`Row ${rowIndex + 2}: carrier, pol, and pod are required.`);
+            if (mode === 'create' && ['pol', 'pod'].some(column => !object[column])) throw new Error(`Row ${rowIndex + 2}: pol and pod are required.`);
             if (mode === 'update' && (!object.id || Object.keys(object).length < 2)) throw new Error(`Row ${rowIndex + 2}: include id and at least one column to update.`);
             return object;
         });
@@ -3974,7 +3982,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'freight_rates_template.csv';
+        link.download = 'rates_template.csv';
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -4024,13 +4032,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>${owned ? `<div class="rate-actions"><button class="rate-icon-btn" type="button" data-rate-action="edit" data-rate-id="${Number(row.id)}" title="Edit rate"><i class="fa-solid fa-pen"></i></button><button class="rate-icon-btn danger" type="button" data-rate-action="delete" data-rate-id="${Number(row.id)}" title="Delete rate"><i class="fa-solid fa-trash"></i></button></div>` : '<span class="profile-status">View only</span>'}</td>
                 </tr>
             `;
-        }).join('') : '<tr><td colspan="11">No freight rates match these filters.</td></tr>';
+        }).join('') : '<tr><td colspan="11">No rates match these filters.</td></tr>';
         updateRateSelectionControls();
     };
     const loadFreightRates = async () => {
         if (!authToken || !authUser || !SUPPORTED_ROLES.includes(Number(authUser.role))) return;
-        setTableMessage('freight-rates-table', 11, 'Loading freight rates...');
-        document.getElementById('rates-result-count').textContent = 'Loading freight rates...';
+        setTableMessage('freight-rates-table', 11, 'Loading rates...');
+        document.getElementById('rates-result-count').textContent = 'Loading rates...';
         const filters = [];
         const carrier = document.getElementById('rates-carrier-filter').value.trim();
         const pol = document.getElementById('rates-pol-filter').value.trim();
@@ -4042,10 +4050,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (status === 'active') filters.push({ deactivated_at: 'is,null' });
         if (status === 'inactive') filters.push({ deactivated_at: 'is not,null' });
         const limit = document.getElementById('rates-page-size').value;
-        const query = new URLSearchParams({ table: 'freight_rates', limit, page: String(ratesCurrentPage) });
+        const query = new URLSearchParams({ limit, page: String(ratesCurrentPage) });
         if (filters.length) query.set('filter', JSON.stringify(filters));
         try {
-            const payload = await api(`${FREIGHT_RATES_READ_PATH}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const payload = await api(`${RATES_READ_PATH}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
             const message = payload.message || {};
             const rows = Array.isArray(message.obj_list) ? message.obj_list : [];
             renderFreightRates(rows);
@@ -4054,8 +4062,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('rates-prev-btn').disabled = ratesCurrentPage <= 1;
             document.getElementById('rates-next-btn').disabled = !message.has_next_page;
         } catch (err) {
-            setTableMessage('freight-rates-table', 11, err.message || 'Unable to load freight rates');
-            document.getElementById('rates-result-count').textContent = 'Freight rates could not be loaded';
+            setTableMessage('freight-rates-table', 11, err.message || 'Unable to load rates');
+            document.getElementById('rates-result-count').textContent = 'Rates could not be loaded';
         }
     };
     const openRateCsvModal = mode => {
@@ -4064,10 +4072,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('rate-csv-file').value = '';
         document.getElementById('rate-csv-status').textContent = 'No file selected.';
         document.getElementById('rate-csv-submit-btn').disabled = true;
-        document.getElementById('rate-csv-modal-title').textContent = mode === 'create' ? 'Upload Freight Rates' : 'Update Freight Rates';
+        document.getElementById('rate-csv-modal-title').textContent = mode === 'create' ? 'Upload Rates' : 'Update Rates';
         document.getElementById('rate-csv-modal-subtitle').textContent = mode === 'create' ? 'Create rate records from a CSV file' : 'Bulk update rates previously uploaded by you';
         document.getElementById('rate-csv-submit-btn').textContent = mode === 'create' ? 'Upload' : 'Update';
-        document.getElementById('rate-csv-help').textContent = mode === 'create' ? `Required columns: carrier, pol, pod. Optional columns: ${RATE_COLUMNS.slice(3).join(', ')}.` : `Required column: id. Add only the columns to change. Blank cells are skipped; use NULL to clear a value.`;
+        document.getElementById('rate-csv-help').textContent = mode === 'create' ? `Required columns: pol, pod. Optional columns: ${RATE_COLUMNS.filter(column => !['pol', 'pod'].includes(column)).join(', ')}.` : `Required column: id. Add only the columns to change. Blank cells are skipped; use NULL to clear a value.`;
         openModal('rate-csv-modal');
     };
     const submitRateCsv = async () => {
@@ -4077,8 +4085,8 @@ document.addEventListener('DOMContentLoaded', () => {
         button.disabled = true;
         button.textContent = ratesCsvMode === 'create' ? 'Uploading...' : 'Updating...';
         try {
-            const path = ratesCsvMode === 'create' ? MY_OBJECT_CREATE_PATH : MY_OBJECT_UPDATE_PATH;
-            await api(`${path}?table=freight_rates`, {
+            const path = ratesCsvMode === 'create' ? RATES_UPLOAD_PATH : RATES_UPDATE_PATH;
+            await api(path, {
                 method: ratesCsvMode === 'create' ? 'POST' : 'PUT',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
                 body: JSON.stringify({ obj_list: ratesCsvObjects })
@@ -4111,10 +4119,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const deleteFreightRates = async ids => {
         if (!rateManager() || !ids.length) return;
-        await api(MY_OBJECT_DELETE_PATH, {
+        await api(RATES_DELETE_PATH, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
-            body: JSON.stringify({ table: 'freight_rates', ids })
+            body: JSON.stringify({ ids })
         });
         selectedRateIds.clear();
         await loadFreightRates();
@@ -4402,6 +4410,11 @@ document.addEventListener('DOMContentLoaded', () => {
             loadCargowiseProfile();
             return;
         }
+        if (userRole === PROCUREMENT_ROLE) {
+            showSection('rates');
+            loadFreightRates();
+            return;
+        }
         showSection('home');
     };
     const saveAuthPayload = payload => {
@@ -4591,22 +4604,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!button) return;
         const id = Number(button.dataset.rateId);
         if (button.dataset.rateAction === 'edit') { openRateEditModal(id); return; }
-        if (button.dataset.rateAction === 'delete' && window.confirm('Delete this freight rate permanently?')) {
+        if (button.dataset.rateAction === 'delete' && window.confirm('Delete this rate permanently?')) {
             try { await deleteFreightRates([id]); }
-            catch (err) { window.alert(err.message || 'Unable to delete freight rate.'); }
+            catch (err) { window.alert(err.message || 'Unable to delete rate.'); }
         }
     });
     document.getElementById('rates-deactivate-btn')?.addEventListener('click', async () => {
         const ids = [...selectedRateIds];
-        if (!ids.length || !window.confirm(`Deactivate ${ids.length} selected freight rate${ids.length === 1 ? '' : 's'}?`)) return;
+        if (!ids.length || !window.confirm(`Deactivate ${ids.length} selected rate${ids.length === 1 ? '' : 's'}?`)) return;
         const button = document.getElementById('rates-deactivate-btn');
         button.disabled = true;
         try {
-            const deactivatedAt = new Date().toISOString();
-            await api(`${MY_OBJECT_UPDATE_PATH}?table=freight_rates`, {
+            await api(RATES_DEACTIVATE_PATH, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
-                body: JSON.stringify({ obj_list: ids.map(id => ({ id, deactivated_at: deactivatedAt })) })
+                body: JSON.stringify({ ids })
             });
             await loadFreightRates();
         } catch (err) {
@@ -4616,9 +4628,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('rates-delete-btn')?.addEventListener('click', async () => {
         const ids = [...selectedRateIds];
-        if (!ids.length || !window.confirm(`Delete ${ids.length} selected freight rate${ids.length === 1 ? '' : 's'} permanently?`)) return;
+        if (!ids.length || !window.confirm(`Delete ${ids.length} selected rate${ids.length === 1 ? '' : 's'} permanently?`)) return;
         try { await deleteFreightRates(ids); }
-        catch (err) { window.alert(err.message || 'Unable to delete selected freight rates.'); }
+        catch (err) { window.alert(err.message || 'Unable to delete selected rates.'); }
     });
     document.getElementById('rate-edit-modal-close')?.addEventListener('click', () => closeModal('rate-edit-modal'));
     document.getElementById('rate-edit-cancel-btn')?.addEventListener('click', () => closeModal('rate-edit-modal'));
@@ -4646,7 +4658,7 @@ document.addEventListener('DOMContentLoaded', () => {
         message.style.color = '#64748B';
         button.disabled = true;
         try {
-            await api(`${MY_OBJECT_UPDATE_PATH}?table=freight_rates`, {
+            await api(RATES_UPDATE_PATH, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
                 body: JSON.stringify({ obj_list: [object] })
@@ -4654,7 +4666,7 @@ document.addEventListener('DOMContentLoaded', () => {
             closeModal('rate-edit-modal');
             await loadFreightRates();
         } catch (err) {
-            message.textContent = err.message || 'Unable to update freight rate.';
+            message.textContent = err.message || 'Unable to update rate.';
             message.style.color = '#B91C1C';
         } finally {
             button.disabled = false;
@@ -4689,7 +4701,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!SUPPORTED_ROLES.includes(userRole) || !allowedRoles.includes(userRole)) { showBlocked(); return; }
             const target = item.getAttribute('data-target');
             showSection(target);
-            if (target === 'users') loadUsers();
+            if (target === 'rates') loadFreightRates();
+            else if (target === 'users') loadUsers();
             else if (target === 'buyer-360') return;
             else if (target === 'profile') loadCargowiseProfile();
             else loadModule(target);

@@ -44,7 +44,7 @@ async def func_lifespan(app:"FastAPI"):
         # start
         start_journey = time.perf_counter()
         # check
-        app.state.func_config_check(app=app)
+        app.state.func_check(app=app)
         # structure
         if os.path.isdir("tmp") and not os.path.islink("tmp"): shutil.rmtree("tmp")
         elif os.path.exists("tmp"): os.remove("tmp")
@@ -172,8 +172,8 @@ async def middleware(request, api_function):
         user_check_role = api_cfg.get("user_check_role")
         user_check_deactivated = api_cfg.get("user_check_deactivated")
         user_check_deleted = api_cfg.get("user_check_deleted")
-        api_cache_sec = api_cfg.get("api_cache_sec")
         api_ratelimiting_times_sec = api_cfg.get("api_ratelimiting_times_sec")
+        api_cache_sec = api_cfg.get("api_cache_sec")
         request.state.user = await app_state.func_middleware_token_decode(headers=request.headers, config_token_secret_key=app_state.config_token_secret_key)
         await app_state.func_middleware_check_auth(user_dict=request.state.user, url_path=path, is_token=is_token, user_check_type=user_check_type, user_check_role=user_check_role)
         await app_state.func_middleware_check_type(user_dict=request.state.user, user_check_type=user_check_type, client_postgres=app_state.client_postgres_read_fallback, client_redis=app_state.client_redis, cache_users_type=app_state.cache_users_type, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
