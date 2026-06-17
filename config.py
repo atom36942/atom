@@ -200,6 +200,13 @@ config_api = {
 "/rates/my-update": {"id": 74, "is_token": 1, "user_check_role": ["token", [4]]},
 "/rates/my-delete": {"id": 75, "is_token": 1, "user_check_role": ["token", [4]]},
 "/rates": {"id": 72, "is_token": 1, "user_check_role": ["token", [4, 5]]},
+# QUOTATIONS ROUTER
+"/quotations/my-create": {"id": 78, "is_token": 1, "user_check_role": ["token", [5]]},
+"/quotations/my-update": {"id": 79, "is_token": 1, "user_check_role": ["token", [5]]},
+"/quotations/my-delete": {"id": 82, "is_token": 1, "user_check_role": ["token", [5]]},
+"/quotations/my-read": {"id": 83, "is_token": 1, "user_check_role": ["token", [5]]},
+"/quotations/decision": {"id": 80, "is_token": 1, "user_check_role": ["token", [4]]},
+"/quotations": {"id": 81, "is_token": 1, "user_check_role": ["token", [4]]},
 }
 
 config_column_int_mapping = {
@@ -210,6 +217,9 @@ config_column_int_mapping = {
 "type": {
 "log_users_delete": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
 "blob": {1: "File", 2: "Presigned Url"},
+},
+"status": {
+"quotations": {1: "Draft", 2: "Approval Pending", 3: "Approved", 4: "Rejected"},
 },
 }
 
@@ -455,6 +465,23 @@ config_postgres = {
 {"name":"valid_to","datatype":"date","index":"btree(valid_to)"},
 {"name":"transit_days","datatype":"integer"},
 {"name":"remarks","datatype":"text"}
+],
+"quotations":[
+{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
+{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"rate_id","datatype":"bigint","is_mandatory":1,"index":"btree(rate_id)"},
+{"name":"customer_name","datatype":"text","is_mandatory":1,"index":"gin(customer_name)"},
+{"name":"customer_email","datatype":"text"},
+{"name":"customer_mobile","datatype":"text"},
+{"name":"quoted_rate","datatype":"numeric(12,2)","is_mandatory":1},
+{"name":"status","datatype":"smallint","default":1,"index":"btree(status)"},
+{"name":"remarks","datatype":"text"},
+{"name":"decision_remarks","datatype":"text"},
+{"name":"approved_at","datatype":"timestamptz"},
+{"name":"approved_by_id","datatype":"bigint"}
 ],
 },
 "control":{

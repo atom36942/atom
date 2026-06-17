@@ -1388,6 +1388,10 @@ body {
     width: 420px;
 }
 
+#app-message-modal .modal-content {
+    width: 430px;
+}
+
 .logout-confirmation {
     color: #475569;
     line-height: 1.55;
@@ -2563,8 +2567,129 @@ body {
     font-weight: 700;
 }
 
+.quote-create-btn {
+    justify-self: end;
+    padding: 0.55rem 0.8rem;
+}
+
+.quotation-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 1rem;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: #F8FAFC;
+}
+
+.quotation-filters input,
+.quotation-filters select {
+    min-height: 40px;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    background: #FFFFFF;
+    font: inherit;
+}
+
+.quotation-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.58rem;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 800;
+}
+
+.quotation-status.draft { background: #F1F5F9; color: #475569; }
+.quotation-status.submitted { background: #FEF3C7; color: #B45309; }
+.quotation-status.approved { background: #DCFCE7; color: #15803D; }
+.quotation-status.rejected { background: #FEE2E2; color: #B91C1C; }
+
+.quotation-actions {
+    display: flex;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+
+.quotation-view {
+    display: grid;
+    gap: 1rem;
+}
+
+.quote-document {
+    padding: 1.2rem;
+    border: 1px solid #DBEAFE;
+    border-radius: 14px;
+    background: #FFFFFF;
+}
+
+.quote-doc-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid #E2E8F0;
+    padding-bottom: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+.quote-logo {
+    max-height: 42px;
+    max-width: 160px;
+}
+
+.quote-doc-title {
+    text-align: right;
+}
+
+.quote-doc-title h3 {
+    margin: 0;
+    color: #0F172A;
+}
+
+.quote-doc-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.quote-doc-box {
+    padding: 0.8rem;
+    border-radius: 10px;
+    background: #F8FAFC;
+}
+
+.quote-doc-box span {
+    display: block;
+    color: #64748B;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.quote-doc-box strong {
+    display: block;
+    margin-top: 0.25rem;
+    color: #0F172A;
+}
+
+.quote-total-box {
+    background: #ECFDF5;
+}
+
+.quote-total-box strong {
+    color: #047857;
+    font-size: 1.35rem;
+}
+
 #rate-csv-modal .modal-content { width: 760px; }
 #rate-edit-modal .modal-content { width: 980px; }
+#quotation-create-modal .modal-content { width: 620px; }
+#quotation-view-modal .modal-content { width: 820px; }
+#quotation-decision-modal .modal-content { width: 560px; }
 
 .rate-edit-grid {
     display: grid;
@@ -2915,6 +3040,9 @@ body.not-allowed .content-wrapper {
                 <a href="#sales-rates" class="nav-item" data-target="sales-rates" data-roles="5" hidden>
                     <i class="fa-solid fa-magnifying-glass-dollar"></i> Rate Search
                 </a>
+                <a href="#quotations" class="nav-item" data-target="quotations" data-roles="4,5" hidden>
+                    <i class="fa-solid fa-file-signature"></i> Quotations
+                </a>
                 <a href="#rates" class="nav-item" data-target="rates" data-roles="4" hidden>
                     <i class="fa-solid fa-sailboat"></i> Rates
                 </a>
@@ -3123,6 +3251,56 @@ body.not-allowed .content-wrapper {
                             <div class="sales-rate-results" id="sales-rate-results">
                                 <div class="sales-rate-empty">Enter route details and search to view matching rates.</div>
                             </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Quotations Section -->
+                <section id="quotations" class="view-section">
+                    <div class="panel po-panel">
+                        <div class="po-toolbar">
+                            <div class="po-heading">
+                                <h2>Quotations</h2>
+                                <p>Track customer quotations, draft submissions, and procurement decisions.</p>
+                            </div>
+                        </div>
+                        <form class="quotation-filters" id="quotation-filter-form">
+                            <input id="quotation-customer-filter" placeholder="Customer name" aria-label="Filter by customer name">
+                            <select id="quotation-status-filter" aria-label="Filter by quotation status">
+                                <option value="">All status</option>
+                                <option value="1">Draft</option>
+                                <option value="2">Approval Pending</option>
+                                <option value="3">Approved</option>
+                                <option value="4">Rejected</option>
+                            </select>
+                            <button class="btn btn-primary" type="submit"><i class="fa-solid fa-filter" aria-hidden="true"></i> Apply</button>
+                            <button class="btn btn-secondary" id="quotation-reset-btn" type="button"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Clear</button>
+                        </form>
+                        <div class="rate-table-wrap">
+                            <div class="rate-table-toolbar">
+                                <div class="po-result-count" id="quotation-result-count">Loading quotations...</div>
+                                <div class="po-pagination">
+                                    <button class="po-page-button" id="quotation-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left"></i><span>Previous</span></button>
+                                    <span id="quotation-page-display">Page 1</span>
+                                    <button class="po-page-button" id="quotation-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right"></i></button>
+                                </div>
+                            </div>
+                            <table class="data-table" id="quotations-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Customer</th>
+                                        <th>Route</th>
+                                        <th>Carrier</th>
+                                        <th>Quoted</th>
+                                        <th>Total</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody><tr><td class="rate-message-cell" colspan="9">Loading quotations...</td></tr></tbody>
+                            </table>
                         </div>
                     </div>
                 </section>
@@ -3825,6 +4003,93 @@ body.not-allowed .content-wrapper {
     </div>
 
     <!-- Freight Rate CSV Modal -->
+    <div class="modal" id="quotation-create-modal" role="dialog" aria-modal="true" aria-labelledby="quotation-create-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-file-signature" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="quotation-create-title">Create Quotation</h3>
+                        <p class="modal-subtitle">Quote must be equal to or above minimum sell rate</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="quotation-create-close" type="button" aria-label="Close quotation form" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="quotation-create-form">
+                <div class="modal-body">
+                    <input id="quotation-rate-id" type="hidden">
+                    <div class="quote-doc-box" id="quotation-rate-summary">Select a rate first.</div>
+                    <div class="rate-edit-grid" style="margin-top:1rem;">
+                        <div class="form-field"><label for="quotation-customer-name">Customer Name</label><input id="quotation-customer-name" required></div>
+                        <div class="form-field"><label for="quotation-customer-email">Customer Email</label><input id="quotation-customer-email" type="email"></div>
+                        <div class="form-field"><label for="quotation-customer-mobile">Customer Mobile</label><input id="quotation-customer-mobile"></div>
+                        <div class="form-field"><label for="quotation-quoted-rate">Quoted Rate</label><input id="quotation-quoted-rate" type="number" min="0" step="0.01" required></div>
+                        <div class="form-field wide"><label for="quotation-remarks">Remarks</label><textarea id="quotation-remarks"></textarea></div>
+                    </div>
+                    <div class="auth-message" id="quotation-create-message"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" id="quotation-create-cancel">Cancel</button>
+                    <button class="btn btn-secondary" type="submit" data-quotation-status="1">Save Draft</button>
+                    <button class="btn btn-primary" type="submit" data-quotation-status="2">Send for Approval</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="quotation-view-modal" role="dialog" aria-modal="true" aria-labelledby="quotation-view-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="quotation-view-title">Quotation</h3>
+                        <p class="modal-subtitle">Customer quotation preview</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="quotation-view-close" type="button" aria-label="Close quotation preview" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="quotation-view" id="quotation-view-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" id="quotation-view-download"><i class="fa-solid fa-download" aria-hidden="true"></i> Download</button>
+                <button class="btn btn-secondary" type="button" id="quotation-view-cancel">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="quotation-decision-modal" role="dialog" aria-modal="true" aria-labelledby="quotation-decision-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="quotation-decision-title">Review Quotation</h3>
+                        <p class="modal-subtitle">Approve or reject the submitted quotation</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="quotation-decision-close" type="button" aria-label="Close quotation decision" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="quotation-decision-form">
+                <div class="modal-body">
+                    <input id="quotation-decision-id" type="hidden">
+                    <input id="quotation-decision-status" type="hidden">
+                    <div class="quote-doc-box" id="quotation-decision-summary">Select a quotation first.</div>
+                    <div class="form-field" style="margin-top:1rem;">
+                        <label for="quotation-decision-remarks">Remarks</label>
+                        <textarea id="quotation-decision-remarks" placeholder="Add approval or rejection remarks"></textarea>
+                    </div>
+                    <div class="auth-message" id="quotation-decision-message"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" id="quotation-decision-cancel">Cancel</button>
+                    <button class="btn btn-primary" type="submit" id="quotation-decision-submit">Confirm</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="modal" id="rate-csv-modal" role="dialog" aria-modal="true" aria-labelledby="rate-csv-modal-title" style="display: none;">
         <div class="modal-content" role="document">
             <div class="modal-header">
@@ -4031,6 +4296,26 @@ body.not-allowed .content-wrapper {
         </div>
     </div>
 
+    <div class="modal" id="app-message-modal" role="dialog" aria-modal="true" aria-labelledby="app-message-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <h3 id="app-message-title">Confirm</h3>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div class="logout-confirmation">
+                    <p id="app-message-text">Please confirm this action.</p>
+                </div>
+                <input id="app-message-input" style="display:none; margin-top:1rem; width:100%; box-sizing:border-box; padding:0.7rem 0.8rem; border:1px solid var(--border); border-radius:8px; font:inherit;">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" id="app-message-cancel-btn">Cancel</button>
+                <button class="btn btn-primary" type="button" id="app-message-submit-btn">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     <script>
 // App Logic
 document.addEventListener('DOMContentLoaded', () => {
@@ -4052,12 +4337,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const RATES_CREATE_PATH = '/rates/my-create';
     const RATES_UPDATE_PATH = '/rates/my-update';
     const RATES_DELETE_PATH = '/rates/my-delete';
+    const QUOTATIONS_READ_PATH = '/quotations';
+    const QUOTATIONS_MY_READ_PATH = '/quotations/my-read';
+    const QUOTATIONS_CREATE_PATH = '/quotations/my-create';
+    const QUOTATIONS_UPDATE_PATH = '/quotations/my-update';
+    const QUOTATIONS_DELETE_PATH = '/quotations/my-delete';
+    const QUOTATIONS_DECISION_PATH = '/quotations/decision';
     const STORAGE_KEY_RATE_GROUPBY = 'rates_groupby_options';
     const STORAGE_KEY_RATE_GROUPBY_AT = 'rates_groupby_cached_at';
     const RATE_GROUPBY_CACHE_MS = 5 * 60 * 1000;
     const RATE_GROUPBY_COLS = ['origin', 'destination', 'carrier', 'commodity'];
     let roleLabels = {};
     let typeLabels = {};
+    let quotationStatusLabels = {};
     const MODULE_ENDPOINTS = {
         'purchase-orders': '/cargowise/my-purchase-orders',
         shipments: '/cargowise/my-shipments',
@@ -4079,6 +4371,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let usersSearchQuery = '';
     let ratesCurrentPage = 1;
     let ratesRows = [];
+    let salesRateRows = [];
+    let quotationRows = [];
+    let quotationCurrentPage = 1;
+    let quotationSelectedRate = null;
+    let quotationSubmitStatus = 1;
+    let quotationViewRow = null;
+    let quotationDecisionRow = null;
+    let appMessageResolver = null;
     let ratesMyOnly = false;
     let ratesCsvMode = 'create';
     let ratesEditMode = 'update';
@@ -4130,6 +4430,7 @@ document.addEventListener('DOMContentLoaded', () => {
         appInfo = payload || {};
         roleLabels = appInfo?.mapping?.role?.users || {};
         typeLabels = appInfo?.mapping?.type?.users || {};
+        quotationStatusLabels = appInfo?.mapping?.status?.quotations || {};
         renderRateDropdowns();
     };
     const infoCacheFresh = () => {
@@ -4263,6 +4564,7 @@ document.addEventListener('DOMContentLoaded', () => {
             resetSalesRateSearch(false);
             loadRateGroupbyOptions();
         }
+        else if (target === 'quotations') loadQuotations();
         else if (target === 'rates') loadFreightRates();
         else if (target === 'users') loadUsers();
         else if (target === 'buyer-360') return;
@@ -4308,6 +4610,48 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const openModal = id => { document.getElementById(id).style.display = 'flex'; };
     const closeModal = id => { document.getElementById(id).style.display = 'none'; };
+    const closeAppMessage = result => {
+        closeModal('app-message-modal');
+        if (appMessageResolver) appMessageResolver(result);
+        appMessageResolver = null;
+    };
+    const showAppConfirm = ({ title = 'Confirm', message = 'Please confirm this action.', confirmText = 'Confirm', danger = false } = {}) => new Promise(resolve => {
+        appMessageResolver = resolve;
+        document.getElementById('app-message-title').textContent = title;
+        document.getElementById('app-message-text').textContent = message;
+        document.getElementById('app-message-cancel-btn').style.display = '';
+        document.getElementById('app-message-input').style.display = 'none';
+        const submit = document.getElementById('app-message-submit-btn');
+        submit.textContent = confirmText;
+        submit.className = danger ? 'btn btn-danger' : 'btn btn-primary';
+        openModal('app-message-modal');
+    });
+    const showAppAlert = ({ title = 'Notice', message = 'Request completed.', confirmText = 'OK', danger = false } = {}) => new Promise(resolve => {
+        appMessageResolver = resolve;
+        document.getElementById('app-message-title').textContent = title;
+        document.getElementById('app-message-text').textContent = message;
+        document.getElementById('app-message-cancel-btn').style.display = 'none';
+        document.getElementById('app-message-input').style.display = 'none';
+        const submit = document.getElementById('app-message-submit-btn');
+        submit.textContent = confirmText;
+        submit.className = danger ? 'btn btn-danger' : 'btn btn-primary';
+        openModal('app-message-modal');
+    });
+    const showAppPrompt = ({ title = 'Input Required', message = 'Enter a value.', defaultValue = '', confirmText = 'Submit' } = {}) => new Promise(resolve => {
+        appMessageResolver = resolve;
+        document.getElementById('app-message-title').textContent = title;
+        document.getElementById('app-message-text').textContent = message;
+        document.getElementById('app-message-cancel-btn').style.display = '';
+        const input = document.getElementById('app-message-input');
+        input.style.display = '';
+        input.value = defaultValue;
+        const submit = document.getElementById('app-message-submit-btn');
+        submit.textContent = confirmText;
+        submit.className = 'btn btn-primary';
+        openModal('app-message-modal');
+        input.focus();
+        input.select();
+    });
     const closeProfileMenu = () => {
         const menu = document.getElementById('profile-menu');
         const trigger = document.getElementById('user-profile-trigger');
@@ -4805,7 +5149,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadRateTemplate = (mode = ratesCsvMode) => {
         const isUpdate = mode === 'update';
         const columns = rateTemplateColumns(mode);
-        if (!columns.length) { window.alert('Rates schema is not loaded. Please refresh and try again.'); return; }
+        if (!columns.length) { showAppAlert({ title: 'Schema Missing', message: 'Rates schema is not loaded. Please refresh and try again.', danger: true }); return; }
         const headers = (isUpdate ? ['id', ...columns] : columns).join(',');
         const example = (isUpdate ? ['1', ...columns.map(column => rateTemplateValue(column, isUpdate))] : columns.map(column => rateTemplateValue(column, isUpdate))).join(',');
         const blob = new Blob([`${headers}\n${example}\n`], { type: 'text/csv;charset=utf-8' });
@@ -4823,7 +5167,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
     };
     const downloadRatesTableCsv = () => {
-        if (!ratesRows.length) { window.alert('No rates available to download.'); return; }
+        if (!ratesRows.length) { showAppAlert({ title: 'No Rates', message: 'No rates available to download.' }); return; }
         const columns = ['id', 'mode', 'origin', 'destination', 'carrier', 'commodity', 'charge_unit', 'currency', 'buy_rate', 'min_sell_rate', 'origin_charges', 'destination_charges', 'valid_from', 'valid_to', 'transit_days', 'status', 'created_by_id', 'created_at', 'remarks'];
         const rows = ratesRows.map(row => columns.map(column => csvValue(column === 'status' ? (row.deactivated_at ? 'Deactivated' : 'Active') : row[column])).join(','));
         const blob = new Blob([[columns.join(','), ...rows].join('\n') + '\n'], { type: 'text/csv;charset=utf-8' });
@@ -4907,6 +5251,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setSalesRateMessage('Enter route details and search to view matching rates.');
     };
     const renderSalesRateResults = rows => {
+        salesRateRows = rows;
         const results = document.getElementById('sales-rate-results');
         if (!results) return;
         if (!rows.length) {
@@ -4944,6 +5289,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <div class="sales-rate-charges">Origin charges: ${escapeHtml(formatAmount(row.origin_charges))}<br>Destination charges: ${escapeHtml(formatAmount(row.destination_charges))}</div>
                     </div>
+                    <button class="btn btn-primary quote-create-btn" type="button" data-quote-rate-id="${Number(row.id)}"><i class="fa-solid fa-file-signature" aria-hidden="true"></i> Create Quotation</button>
                 </div>
             `}).join('')}
         `;
@@ -5027,6 +5373,156 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             setRateTableMessage(err.message || 'Unable to load rates');
             document.getElementById('rates-result-count').textContent = 'Rates could not be loaded';
+        }
+    };
+    const quotationStatusLabel = status => quotationStatusLabels?.[String(status)] || quotationStatusLabels?.[Number(status)] || ({ 1: 'Draft', 2: 'Approval Pending', 3: 'Approved', 4: 'Rejected' }[Number(status)] || '-');
+    const quotationStatusClass = status => ({ 1: 'draft', 2: 'submitted', 3: 'approved', 4: 'rejected' }[Number(status)] || 'draft');
+    const quotationStatusHtml = status => `<span class="quotation-status ${quotationStatusClass(status)}"><i class="fa-solid ${Number(status) === 3 ? 'fa-circle-check' : Number(status) === 4 ? 'fa-circle-xmark' : Number(status) === 2 ? 'fa-paper-plane' : 'fa-pen'}" aria-hidden="true"></i>${escapeHtml(quotationStatusLabel(status))}</span>`;
+    const quoteFinalAmount = row => Number(row.final_quote_amount ?? (Number(row.quoted_rate || 0) + Number(row.origin_charges || 0) + Number(row.destination_charges || 0)));
+    const quoteRoute = row => `${displayValue(row.origin)} → ${displayValue(row.destination)}`;
+    const setQuotationTableMessage = message => {
+        const body = document.querySelector('#quotations-table tbody');
+        if (body) body.innerHTML = `<tr><td class="rate-message-cell" colspan="9">${escapeHtml(message)}</td></tr>`;
+    };
+    const renderQuotations = rows => {
+        quotationRows = rows;
+        const body = document.querySelector('#quotations-table tbody');
+        if (!body) return;
+        const isProcurement = Number(authUser?.role) === 4;
+        const isSales = Number(authUser?.role) === 5;
+        body.innerHTML = rows.length ? rows.map(row => {
+            const canDecide = isProcurement && Number(row.status) === 2;
+            const canDelete = isSales && Number(row.status) === 1;
+            const canSubmit = isSales && Number(row.status) === 1;
+            return `
+                <tr data-quotation-id="${Number(row.id)}">
+                    <td>#${Number(row.id)}</td>
+                    <td><strong>${escapeHtml(displayValue(row.customer_name))}</strong><br><span class="po-secondary">${escapeHtml(displayValue(row.customer_email || row.customer_mobile))}</span></td>
+                    <td>${escapeHtml(quoteRoute(row))}<br><span class="po-secondary">${escapeHtml(displayValue(row.mode))} · ${escapeHtml(displayValue(row.charge_unit))}</span></td>
+                    <td>${escapeHtml(displayValue(row.carrier))}</td>
+                    <td>${escapeHtml(displayValue(row.currency))} ${escapeHtml(formatAmount(row.quoted_rate))}</td>
+                    <td><strong>${escapeHtml(displayValue(row.currency))} ${escapeHtml(formatAmount(quoteFinalAmount(row)))}</strong></td>
+                    <td>${quotationStatusHtml(row.status)}</td>
+                    <td>${escapeHtml(formatDate(row.created_at))}</td>
+                    <td><div class="quotation-actions"><button class="rate-icon-btn edit" type="button" data-quotation-action="view" data-quotation-id="${Number(row.id)}" title="View quotation"><i class="fa-solid fa-eye"></i></button>${canSubmit ? `<button class="rate-icon-btn activate" type="button" data-quotation-action="submit" data-quotation-id="${Number(row.id)}" title="Send for approval"><i class="fa-solid fa-paper-plane"></i></button>` : ''}${canDelete ? `<button class="rate-icon-btn danger" type="button" data-quotation-action="delete" data-quotation-id="${Number(row.id)}" title="Delete draft quotation"><i class="fa-solid fa-trash"></i></button>` : ''}${canDecide ? `<button class="rate-icon-btn activate" type="button" data-quotation-action="approve" data-quotation-id="${Number(row.id)}" title="Approve"><i class="fa-solid fa-circle-check"></i></button><button class="rate-icon-btn danger" type="button" data-quotation-action="reject" data-quotation-id="${Number(row.id)}" title="Reject"><i class="fa-solid fa-circle-xmark"></i></button>` : ''}</div></td>
+                </tr>
+            `;
+        }).join('') : '<tr><td class="rate-message-cell" colspan="9">No quotations found.</td></tr>';
+    };
+    const loadQuotations = async () => {
+        if (!authToken || !authUser || !featureAllowed('quotations')) return;
+        setQuotationTableMessage('Loading quotations...');
+        const query = new URLSearchParams({ page: String(quotationCurrentPage) });
+        const status = document.getElementById('quotation-status-filter')?.value;
+        const customer = document.getElementById('quotation-customer-filter')?.value.trim();
+        if (status) query.set('status', status);
+        if (customer) query.set('customer_name', customer);
+        try {
+            const path = Number(authUser?.role) === 5 ? QUOTATIONS_MY_READ_PATH : QUOTATIONS_READ_PATH;
+            const payload = await api(`${path}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const message = payload.message || {};
+            const rows = Array.isArray(message.obj_list) ? message.obj_list : [];
+            renderQuotations(rows);
+            document.getElementById('quotation-result-count').innerHTML = `<strong>${rows.length}</strong> quotation${rows.length === 1 ? '' : 's'} on this page`;
+            document.getElementById('quotation-page-display').textContent = `Page ${quotationCurrentPage}`;
+            document.getElementById('quotation-prev-btn').disabled = quotationCurrentPage <= 1;
+            document.getElementById('quotation-next-btn').disabled = !message.has_next_page;
+        } catch (err) {
+            setQuotationTableMessage(err.message || 'Unable to load quotations');
+            document.getElementById('quotation-result-count').textContent = 'Quotations could not be loaded';
+        }
+    };
+    const openQuotationCreateModal = rateId => {
+        quotationSelectedRate = salesRateRows.find(row => Number(row.id) === Number(rateId));
+        if (!quotationSelectedRate) return;
+        document.getElementById('quotation-create-form').reset();
+        document.getElementById('quotation-rate-id').value = Number(quotationSelectedRate.id);
+        document.getElementById('quotation-quoted-rate').value = Number(quotationSelectedRate.min_sell_rate || 0);
+        document.getElementById('quotation-create-message').textContent = '';
+        document.getElementById('quotation-rate-summary').innerHTML = `<span>Selected Rate</span><strong>${escapeHtml(quoteRoute(quotationSelectedRate))}</strong><div class="po-secondary">${escapeHtml(displayValue(quotationSelectedRate.carrier))} · ${escapeHtml(displayValue(quotationSelectedRate.charge_unit))} · Minimum ${escapeHtml(displayValue(quotationSelectedRate.currency))} ${escapeHtml(formatAmount(quotationSelectedRate.min_sell_rate))}</div>`;
+        openModal('quotation-create-modal');
+    };
+    const renderQuotationDocument = row => `
+        <div class="quote-document">
+            <div class="quote-doc-header">
+                <img class="quote-logo" src="https://mghgroup.com/themes/custom/mgh/logo.svg" alt="MGH Group">
+                <div class="quote-doc-title">
+                    <h3>Freight Quotation #${Number(row.id)}</h3>
+                    <div class="po-secondary">${escapeHtml(quotationStatusLabel(row.status))} · ${escapeHtml(formatDate(row.created_at))}</div>
+                </div>
+            </div>
+            <div class="quote-doc-grid">
+                <div class="quote-doc-box"><span>Customer</span><strong>${escapeHtml(displayValue(row.customer_name))}</strong></div>
+                <div class="quote-doc-box"><span>Contact</span><strong>${escapeHtml(displayValue(row.customer_email || row.customer_mobile))}</strong></div>
+                <div class="quote-doc-box"><span>Route</span><strong>${escapeHtml(quoteRoute(row))}</strong></div>
+                <div class="quote-doc-box"><span>Carrier</span><strong>${escapeHtml(displayValue(row.carrier))}</strong></div>
+                <div class="quote-doc-box"><span>Mode / Unit</span><strong>${escapeHtml(displayValue(row.mode))} · ${escapeHtml(displayValue(row.charge_unit))}</strong></div>
+                <div class="quote-doc-box"><span>Commodity</span><strong>${escapeHtml(displayValue(row.commodity))}</strong></div>
+                <div class="quote-doc-box"><span>Quoted Freight Rate</span><strong>${escapeHtml(displayValue(row.currency))} ${escapeHtml(formatAmount(row.quoted_rate))}</strong></div>
+                <div class="quote-doc-box"><span>Local Charges</span><strong>Origin ${escapeHtml(formatAmount(row.origin_charges))} · Destination ${escapeHtml(formatAmount(row.destination_charges))}</strong></div>
+                <div class="quote-doc-box quote-total-box"><span>Final Quote Amount</span><strong>${escapeHtml(displayValue(row.currency))} ${escapeHtml(formatAmount(quoteFinalAmount(row)))}</strong></div>
+                <div class="quote-doc-box"><span>Transit</span><strong>${escapeHtml(row.transit_days ? `${row.transit_days} days` : '-')}</strong></div>
+            </div>
+            ${row.remarks ? `<div class="quote-doc-box" style="margin-top:0.75rem;"><span>Sales Remarks</span><strong>${escapeHtml(row.remarks)}</strong></div>` : ''}
+        </div>
+    `;
+    const openQuotationView = id => {
+        quotationViewRow = quotationRows.find(row => Number(row.id) === Number(id));
+        if (!quotationViewRow) return;
+        document.getElementById('quotation-view-title').textContent = `Quotation #${Number(quotationViewRow.id)}`;
+        document.getElementById('quotation-view-content').innerHTML = renderQuotationDocument(quotationViewRow);
+        openModal('quotation-view-modal');
+    };
+    const downloadQuotationHtml = () => {
+        if (!quotationViewRow) return;
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Quotation ${Number(quotationViewRow.id)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#0F172A}.quote-document{max-width:820px;margin:auto}.quote-doc-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #E2E8F0;padding-bottom:16px;margin-bottom:16px}.quote-logo{max-height:42px}.quote-doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.quote-doc-box{padding:12px;background:#F8FAFC;border-radius:10px}.quote-doc-box span{display:block;color:#64748B;font-size:11px;font-weight:700;text-transform:uppercase}.quote-doc-box strong{display:block;margin-top:4px}.quote-total-box{background:#ECFDF5}.quote-total-box strong{color:#047857;font-size:22px}</style></head><body>${renderQuotationDocument(quotationViewRow)}</body></html>`;
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+        link.download = `quotation_${Number(quotationViewRow.id)}.html`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+    };
+    const openQuotationDecisionModal = (id, status) => {
+        quotationDecisionRow = quotationRows.find(row => Number(row.id) === Number(id));
+        if (!quotationDecisionRow) return;
+        const isApprove = Number(status) === 3;
+        document.getElementById('quotation-decision-form').reset();
+        document.getElementById('quotation-decision-id').value = Number(id);
+        document.getElementById('quotation-decision-status').value = Number(status);
+        document.getElementById('quotation-decision-title').textContent = isApprove ? `Approve Quotation #${Number(id)}` : `Reject Quotation #${Number(id)}`;
+        document.getElementById('quotation-decision-submit').innerHTML = `<i class="fa-solid ${isApprove ? 'fa-circle-check' : 'fa-circle-xmark'}" aria-hidden="true"></i> ${isApprove ? 'Approve' : 'Reject'}`;
+        document.getElementById('quotation-decision-submit').className = isApprove ? 'btn btn-primary' : 'btn btn-danger';
+        document.getElementById('quotation-decision-message').textContent = '';
+        document.getElementById('quotation-decision-summary').innerHTML = `<span>Approval Pending</span><strong>${escapeHtml(displayValue(quotationDecisionRow.customer_name))} · ${escapeHtml(quoteRoute(quotationDecisionRow))}</strong><div class="po-secondary">${escapeHtml(displayValue(quotationDecisionRow.currency))} ${escapeHtml(formatAmount(quoteFinalAmount(quotationDecisionRow)))} final amount · ${escapeHtml(displayValue(quotationDecisionRow.carrier))}</div>`;
+        openModal('quotation-decision-modal');
+    };
+    const deleteQuotation = async id => {
+        const confirmed = await showAppConfirm({
+            title: 'Delete Quotation',
+            message: `Delete draft quotation #${id}? This cannot be undone.`,
+            confirmText: 'Delete',
+            danger: true
+        });
+        if (!confirmed) return;
+        try {
+            await api(QUOTATIONS_DELETE_PATH, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` }, body: JSON.stringify({ ids: [Number(id)] }) });
+            await loadQuotations();
+        } catch (err) {
+            await showAppAlert({ title: 'Delete Failed', message: err.message || 'Unable to delete quotation.', danger: true });
+        }
+    };
+    const submitQuotation = async id => {
+        const confirmed = await showAppConfirm({
+            title: 'Send for Approval',
+            message: `Send quotation #${id} to Procurement for approval?`,
+            confirmText: 'Submit'
+        });
+        if (!confirmed) return;
+        try {
+            await api(QUOTATIONS_UPDATE_PATH, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` }, body: JSON.stringify({ id: Number(id), status: 2 }) });
+            await loadQuotations();
+        } catch (err) {
+            await showAppAlert({ title: 'Submit Failed', message: err.message || 'Unable to submit quotation.', danger: true });
         }
     };
     const openRateCsvModal = mode => {
@@ -5160,11 +5656,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const exportUsers = async () => {
         if (!authToken || !featureAllowed('users')) return;
-        const input = window.prompt('How many users should be exported?', '10000');
+        const input = await showAppPrompt({ title: 'Export Users', message: 'How many users should be exported?', defaultValue: '10000', confirmText: 'Export' });
         if (input === null) return;
         const limit = Number(input.trim());
         if (!Number.isSafeInteger(limit) || limit < 1) {
-            window.alert('Enter a positive whole-number limit.');
+            await showAppAlert({ title: 'Invalid Limit', message: 'Enter a positive whole-number limit.', danger: true });
             return;
         }
         const button = document.getElementById('users-export-btn');
@@ -5194,7 +5690,7 @@ document.addEventListener('DOMContentLoaded', () => {
             link.remove();
             URL.revokeObjectURL(url);
         } catch (err) {
-            window.alert(err.message || 'Unable to export users');
+            await showAppAlert({ title: 'Export Failed', message: err.message || 'Unable to export users.', danger: true });
         } finally {
             button.disabled = false;
             button.innerHTML = originalHtml;
@@ -5440,7 +5936,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (featureAllowed('sales-rates')) await loadRateGroupbyOptions({ force: true });
             applyAuthShell();
         } catch (err) {
-            window.alert(err.message || 'Unable to refresh portal.');
+            await showAppAlert({ title: 'Refresh Failed', message: err.message || 'Unable to refresh portal.', danger: true });
         } finally {
             button?.classList.remove('is-loading');
             if (button) button.disabled = false;
@@ -5594,6 +6090,91 @@ document.addEventListener('DOMContentLoaded', () => {
         loadSalesRates();
     });
     document.getElementById('sales-rate-clear-btn')?.addEventListener('click', () => resetSalesRateSearch(true));
+    document.getElementById('sales-rate-results')?.addEventListener('click', event => {
+        const button = event.target.closest('[data-quote-rate-id]');
+        if (button) openQuotationCreateModal(button.dataset.quoteRateId);
+    });
+    document.getElementById('quotation-create-close')?.addEventListener('click', () => closeModal('quotation-create-modal'));
+    document.getElementById('quotation-create-cancel')?.addEventListener('click', () => closeModal('quotation-create-modal'));
+    document.querySelectorAll('#quotation-create-form [data-quotation-status]').forEach(button => {
+        button.addEventListener('click', () => { quotationSubmitStatus = Number(button.dataset.quotationStatus || 1); });
+    });
+    document.getElementById('quotation-create-form')?.addEventListener('submit', async event => {
+        event.preventDefault();
+        const message = document.getElementById('quotation-create-message');
+        const object = {
+            rate_id: Number(document.getElementById('quotation-rate-id').value),
+            customer_name: document.getElementById('quotation-customer-name').value.trim(),
+            customer_email: document.getElementById('quotation-customer-email').value.trim() || null,
+            customer_mobile: document.getElementById('quotation-customer-mobile').value.trim() || null,
+            quoted_rate: Number(document.getElementById('quotation-quoted-rate').value),
+            status: quotationSubmitStatus,
+            remarks: document.getElementById('quotation-remarks').value.trim() || null
+        };
+        if (!object.customer_name || !object.rate_id || !Number.isFinite(object.quoted_rate)) {
+            message.textContent = 'Customer, rate, and quoted rate are required.';
+            message.style.color = '#B91C1C';
+            return;
+        }
+        try {
+            await api(QUOTATIONS_CREATE_PATH, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` }, body: JSON.stringify(object) });
+            closeModal('quotation-create-modal');
+            quotationCurrentPage = 1;
+            if (featureAllowed('quotations')) loadFeature('quotations');
+        } catch (err) {
+            message.textContent = err.message || 'Unable to create quotation.';
+            message.style.color = '#B91C1C';
+        }
+    });
+    document.getElementById('quotation-filter-form')?.addEventListener('submit', event => {
+        event.preventDefault();
+        quotationCurrentPage = 1;
+        loadQuotations();
+    });
+    document.getElementById('quotation-reset-btn')?.addEventListener('click', () => {
+        document.getElementById('quotation-filter-form').reset();
+        quotationCurrentPage = 1;
+        loadQuotations();
+    });
+    document.getElementById('quotation-prev-btn')?.addEventListener('click', () => { if (quotationCurrentPage > 1) { quotationCurrentPage--; loadQuotations(); } });
+    document.getElementById('quotation-next-btn')?.addEventListener('click', () => { quotationCurrentPage++; loadQuotations(); });
+    document.querySelector('#quotations-table tbody')?.addEventListener('click', event => {
+        const button = event.target.closest('[data-quotation-action]');
+        if (!button) return;
+        const id = Number(button.dataset.quotationId);
+        if (button.dataset.quotationAction === 'view') openQuotationView(id);
+        if (button.dataset.quotationAction === 'submit') submitQuotation(id);
+        if (button.dataset.quotationAction === 'delete') deleteQuotation(id);
+        if (button.dataset.quotationAction === 'approve') openQuotationDecisionModal(id, 3);
+        if (button.dataset.quotationAction === 'reject') openQuotationDecisionModal(id, 4);
+    });
+    document.getElementById('quotation-view-close')?.addEventListener('click', () => closeModal('quotation-view-modal'));
+    document.getElementById('quotation-view-cancel')?.addEventListener('click', () => closeModal('quotation-view-modal'));
+    document.getElementById('quotation-view-download')?.addEventListener('click', downloadQuotationHtml);
+    document.getElementById('quotation-decision-close')?.addEventListener('click', () => closeModal('quotation-decision-modal'));
+    document.getElementById('quotation-decision-cancel')?.addEventListener('click', () => closeModal('quotation-decision-modal'));
+    document.getElementById('quotation-decision-form')?.addEventListener('submit', async event => {
+        event.preventDefault();
+        const message = document.getElementById('quotation-decision-message');
+        const object = {
+            id: Number(document.getElementById('quotation-decision-id').value),
+            status: Number(document.getElementById('quotation-decision-status').value),
+            decision_remarks: document.getElementById('quotation-decision-remarks').value.trim() || null
+        };
+        if (!object.id || ![3, 4].includes(object.status)) {
+            message.textContent = 'Quotation decision is invalid.';
+            message.style.color = '#B91C1C';
+            return;
+        }
+        try {
+            await api(QUOTATIONS_DECISION_PATH, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` }, body: JSON.stringify(object) });
+            closeModal('quotation-decision-modal');
+            await loadQuotations();
+        } catch (err) {
+            message.textContent = err.message || 'Unable to update quotation.';
+            message.style.color = '#B91C1C';
+        }
+    });
     RATE_GROUPBY_COLS.forEach(column => {
         const input = document.getElementById(`sales-rate-${column}`);
         if (!input) return;
@@ -5665,7 +6246,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!button) return;
         const id = Number(button.dataset.rateId);
         if (button.dataset.rateAction === 'edit') { openRateEditModal(id); return; }
-        if (button.dataset.rateAction === 'deactivate' && window.confirm('Deactivate this rate?')) {
+        if (button.dataset.rateAction === 'deactivate') {
+            const confirmed = await showAppConfirm({ title: 'Deactivate Rate', message: 'Deactivate this rate? It will no longer appear as an active rate.', confirmText: 'Deactivate' });
+            if (!confirmed) return;
             try {
                 await api(RATES_UPDATE_PATH, {
                     method: 'PUT',
@@ -5674,11 +6257,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 await loadFreightRates();
             } catch (err) {
-                window.alert(err.message || 'Unable to deactivate rate.');
+                await showAppAlert({ title: 'Deactivate Failed', message: err.message || 'Unable to deactivate rate.', danger: true });
             }
             return;
         }
-        if (button.dataset.rateAction === 'activate' && window.confirm('Activate this rate?')) {
+        if (button.dataset.rateAction === 'activate') {
+            const confirmed = await showAppConfirm({ title: 'Activate Rate', message: 'Activate this rate again?', confirmText: 'Activate' });
+            if (!confirmed) return;
             try {
                 await api(RATES_UPDATE_PATH, {
                     method: 'PUT',
@@ -5687,13 +6272,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 await loadFreightRates();
             } catch (err) {
-                window.alert(err.message || 'Unable to activate rate.');
+                await showAppAlert({ title: 'Activate Failed', message: err.message || 'Unable to activate rate.', danger: true });
             }
             return;
         }
-        if (button.dataset.rateAction === 'delete' && window.confirm('Delete this rate permanently?')) {
+        if (button.dataset.rateAction === 'delete') {
+            const confirmed = await showAppConfirm({ title: 'Delete Rate', message: 'Delete this rate permanently?', confirmText: 'Delete', danger: true });
+            if (!confirmed) return;
             try { await deleteFreightRates([id]); }
-            catch (err) { window.alert(err.message || 'Unable to delete rate.'); }
+            catch (err) { await showAppAlert({ title: 'Delete Failed', message: err.message || 'Unable to delete rate.', danger: true }); }
         }
     });
     document.getElementById('rate-edit-modal-close')?.addEventListener('click', () => closeModal('rate-edit-modal'));
@@ -5787,6 +6374,17 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('user-profile-close-btn').addEventListener('click', () => closeModal('user-profile-modal'));
     document.getElementById('rate-value-modal-close').addEventListener('click', () => closeModal('rate-value-modal'));
     document.getElementById('rate-value-close-btn').addEventListener('click', () => closeModal('rate-value-modal'));
+    document.getElementById('app-message-cancel-btn').addEventListener('click', () => closeAppMessage(null));
+    document.getElementById('app-message-submit-btn').addEventListener('click', () => {
+        const input = document.getElementById('app-message-input');
+        closeAppMessage(input.style.display === 'none' ? true : input.value);
+    });
+    document.getElementById('app-message-input').addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            closeAppMessage(event.target.value);
+        }
+    });
     document.getElementById('logout-cancel-btn').addEventListener('click', () => closeModal('logout-modal'));
     document.getElementById('logout-submit-btn').addEventListener('click', logout);
     document.getElementById('profile-menu-profile').addEventListener('click', () => {
