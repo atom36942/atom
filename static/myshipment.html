@@ -1350,12 +1350,21 @@ body {
     width: 100%;
     border: 0;
     background: transparent;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
     text-align: left;
     padding: 0.65rem 0.75rem;
     border-radius: 6px;
     color: var(--text-dark);
     font: inherit;
     cursor: pointer;
+}
+
+.profile-menu button i {
+    width: 16px;
+    text-align: center;
+    font-size: 0.85rem;
 }
 
 .profile-menu button:hover {
@@ -1370,7 +1379,8 @@ body {
     width: 420px;
 }
 
-#profile-modal .modal-content {
+#profile-modal .modal-content,
+#user-profile-modal .modal-content {
     width: 400px;
 }
 
@@ -1981,16 +1991,17 @@ body {
 }
 
 .rate-filters {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(140px, 1fr)) minmax(130px, 0.7fr) auto;
-    gap: 0.75rem;
-    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
     border-top: 1px solid var(--border);
     background: #F8FAFC;
 }
 
 .rate-filter-title {
-    grid-column: 1 / -1;
+    margin-right: 0.15rem;
     color: #334155;
     font-size: 0.78rem;
     font-weight: 700;
@@ -2001,6 +2012,12 @@ body {
 .rate-filter-field {
     position: relative;
 }
+
+.rate-filter-field.mode { width: 86px; }
+.rate-filter-field.carrier { width: 118px; }
+.rate-filter-field.origin,
+.rate-filter-field.destination { width: 124px; }
+.rate-filter-field.status { width: 122px; }
 
 .rate-filter-field i {
     position: absolute;
@@ -2015,9 +2032,9 @@ body {
 .rate-filter-field input,
 .rate-filter-field select {
     width: 100%;
-    min-height: 40px;
+    min-height: 34px;
     box-sizing: border-box;
-    padding: 0.65rem 0.8rem 0.65rem 2.2rem;
+    padding: 0.45rem 0.65rem 0.45rem 1.95rem;
     border: 1px solid #D8DEE9;
     border-radius: 8px;
     background: #FFFFFF;
@@ -2027,7 +2044,7 @@ body {
     outline: none;
 }
 
-.rate-filter-field select { padding-left: 0.8rem; }
+.rate-filter-field select { padding-left: 0.6rem; }
 
 .rate-filter-field input:focus,
 .rate-filter-field select:focus {
@@ -2038,7 +2055,15 @@ body {
 .rate-filter-actions {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.35rem;
+}
+
+.rate-filter-my {
+    display: flex;
+    align-items: center;
+    margin-left: 0.4rem;
+    padding-left: 0.65rem;
+    border-left: 1px solid #CBD5E1;
 }
 
 .rate-filter-toggle.active {
@@ -2054,7 +2079,28 @@ body {
     overflow: auto;
 }
 
-#freight-rates-table { min-width: 1380px; }
+.rate-table-toolbar {
+    width: 100%;
+    box-sizing: border-box;
+    position: sticky;
+    left: 0;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.65rem 0.85rem;
+    border-bottom: 1px solid #E2E8F0;
+    background: #F8FAFC;
+}
+
+.rate-table-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#freight-rates-table { min-width: 1580px; }
 
 #freight-rates-table th,
 #freight-rates-table td {
@@ -2062,24 +2108,33 @@ body {
     white-space: nowrap;
 }
 
-#freight-rates-table th:last-child,
-#freight-rates-table td:last-child {
+#freight-rates-table th:first-child,
+#freight-rates-table td:first-child {
     position: sticky;
-    right: 0;
+    left: 0;
     z-index: 2;
-    min-width: 124px;
+    width: 112px;
+    min-width: 112px;
+    text-align: center;
     background: #FFFFFF;
-    box-shadow: -8px 0 14px rgba(15, 23, 42, 0.06);
+    box-shadow: 8px 0 14px rgba(15, 23, 42, 0.06);
 }
 
-#freight-rates-table th:last-child {
+#freight-rates-table th:first-child {
     z-index: 3;
     background: #F8FAFC;
 }
 
 .rate-actions {
     display: flex;
+    justify-content: center;
     gap: 0.35rem;
+}
+
+.rate-message-cell {
+    text-align: center;
+    color: var(--text-muted);
+    font-weight: 600;
 }
 
 .rate-icon-btn {
@@ -2129,39 +2184,72 @@ body {
     font-size: 0.82rem;
 }
 
-#rate-csv-modal .modal-content,
-#rate-edit-modal .modal-content { width: 760px; }
+#rate-csv-modal .modal-content { width: 760px; }
+#rate-edit-modal .modal-content { width: 980px; }
 
 .rate-edit-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.9rem;
+}
+
+#rate-edit-modal .modal-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
 }
 
 .rate-edit-grid .wide { grid-column: 1 / -1; }
 
 .rate-edit-grid input,
+.rate-edit-grid select,
 .rate-edit-grid textarea {
     width: 100%;
     box-sizing: border-box;
     padding: 0.7rem 0.8rem;
+    min-height: 43px;
     border: 1px solid var(--border);
     border-radius: 8px;
     font: inherit;
     outline: none;
+    background: #FFFFFF;
 }
 
 .rate-edit-grid textarea { min-height: 82px; resize: vertical; }
 .rate-edit-grid input:focus,
+.rate-edit-grid select:focus,
 .rate-edit-grid textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
 
 @media (max-width: 900px) {
-    .rate-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .rate-filter-field.mode,
+    .rate-filter-field.carrier,
+    .rate-filter-field.origin,
+    .rate-filter-field.destination,
+    .rate-filter-field.status { width: calc(50% - 0.35rem); }
+    .rate-filter-actions,
+    .rate-filter-my,
+    .rate-table-toolbar,
+    .rate-table-tools { width: 100%; }
+    .rate-filter-my {
+        margin-left: 0;
+        padding-left: 0;
+        border-left: 0;
+    }
+    .rate-table-toolbar {
+        min-width: 0;
+        flex-wrap: wrap;
+    }
+    .rate-table-tools { justify-content: space-between; }
+    .rate-edit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 700px) {
-    .rate-filters,
     .rate-edit-grid { grid-template-columns: 1fr; }
+    .rate-filter-field.mode,
+    .rate-filter-field.carrier,
+    .rate-filter-field.origin,
+    .rate-filter-field.destination,
+    .rate-filter-field.status { width: 100%; }
     .rate-edit-grid .wide { grid-column: auto; }
     .rate-toolbar-actions { justify-content: stretch; }
     .rate-toolbar-actions .btn { flex: 1 1 auto; }
@@ -2438,10 +2526,10 @@ body.not-allowed .content-wrapper {
                 <h2>MyShipment</h2>
             </div>
             <nav class="nav-menu">
-                <a href="#rates" class="nav-item" data-target="rates" data-roles="4,5" hidden>
+                <a href="#rates" class="nav-item" data-target="rates" data-roles="4" hidden>
                     <i class="fa-solid fa-sailboat"></i> Rates
                 </a>
-                <a href="#users" class="nav-item" data-target="users" data-roles="1" hidden>
+                <a href="#users" class="nav-item" data-target="users" data-roles="1,2" hidden>
                     <i class="fa-solid fa-users"></i> Users
                 </a>
                 <a href="#buyer-360" class="nav-item" data-target="buyer-360" data-roles="1,2" hidden>
@@ -2496,8 +2584,9 @@ body.not-allowed .content-wrapper {
                             <div class="avatar">US</div>
                         </button>
                         <div class="profile-menu" id="profile-menu">
-                            <button type="button" id="profile-menu-profile">Login Details</button>
-                            <button type="button" class="danger" id="profile-menu-logout">Logout</button>
+                            <button type="button" id="profile-menu-profile"><i class="fa-regular fa-id-card" aria-hidden="true"></i> Login Details</button>
+                            <button type="button" id="profile-menu-user"><i class="fa-regular fa-user" aria-hidden="true"></i> Profile Details</button>
+                            <button type="button" class="danger" id="profile-menu-logout"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Logout</button>
                         </div>
                     </div>
                 </div>
@@ -2560,64 +2649,75 @@ body.not-allowed .content-wrapper {
                         </div>
                         <form class="rate-filters" id="rates-filter-form">
                             <div class="rate-filter-title">Filters</div>
-                            <div class="rate-filter-field">
+                            <div class="rate-filter-field mode">
+                                <select id="rates-mode-filter" aria-label="Filter by mode">
+                                    <option value="">Mode</option>
+                                    <option value="sea">Sea</option>
+                                    <option value="air">Air</option>
+                                </select>
+                            </div>
+                            <div class="rate-filter-field carrier">
                                 <i class="fa-solid fa-building" aria-hidden="true"></i>
-                                <input id="rates-carrier-filter" placeholder="Carrier, e.g. MAERSK" aria-label="Filter by carrier">
+                                <input id="rates-carrier-filter" placeholder="Carrier" aria-label="Filter by carrier">
                             </div>
-                            <div class="rate-filter-field">
+                            <div class="rate-filter-field origin">
                                 <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
-                                <input id="rates-pol-filter" placeholder="POL, e.g. NHAVASHAVA" aria-label="Filter by port of loading">
+                                <input id="rates-origin-filter" placeholder="Origin" aria-label="Filter by origin">
                             </div>
-                            <div class="rate-filter-field">
+                            <div class="rate-filter-field destination">
                                 <i class="fa-solid fa-anchor" aria-hidden="true"></i>
-                                <input id="rates-pod-filter" placeholder="POD, e.g. ROTTERDAM" aria-label="Filter by port of discharge">
+                                <input id="rates-destination-filter" placeholder="Destination" aria-label="Filter by destination">
                             </div>
-                            <div class="rate-filter-field">
+                            <div class="rate-filter-field status">
                                 <select id="rates-status-filter" aria-label="Filter by rate status">
-                                    <option value="">All statuses</option>
+                                    <option value="">Status</option>
                                     <option value="active">Active</option>
                                     <option value="inactive">Deactivated</option>
                                 </select>
                             </div>
                             <div class="rate-filter-actions">
-                                <button class="btn btn-secondary rate-filter-toggle" id="rates-my-filter-btn" type="button" aria-pressed="false"><i class="fa-solid fa-user" aria-hidden="true"></i> My Rates</button>
                                 <button class="btn btn-filter-submit" id="rates-filter-submit-btn" type="submit" disabled><i class="fa-solid fa-filter" aria-hidden="true"></i> Submit</button>
-                                <button class="btn btn-secondary" id="rates-reset-btn" type="button" title="Clear filters"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Clear</button>
+                                <button class="btn btn-secondary" id="rates-reset-btn" type="button" title="Clear filters" aria-label="Clear filters"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
+                            </div>
+                            <div class="rate-filter-my">
+                                <button class="btn btn-secondary rate-filter-toggle" id="rates-my-filter-btn" type="button" aria-pressed="false"><i class="fa-solid fa-user" aria-hidden="true"></i> My Rates</button>
                             </div>
                         </form>
-                        <div class="po-summary-bar">
-                            <div class="po-result-count" id="rates-result-count">Loading rates...</div>
-                            <div class="rate-toolbar-actions">
-                                <button class="btn btn-secondary" id="rates-download-btn" type="button" title="Download table CSV" aria-label="Download rates table CSV">
-                                    <i class="fa-solid fa-download" aria-hidden="true"></i>
-                                </button>
-                                <div class="po-pagination" aria-label="Rate pages">
-                                    <button class="po-page-button" id="rates-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left"></i><span>Previous</span></button>
-                                    <span id="rates-page-display">Page 1</span>
-                                    <button class="po-page-button" id="rates-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right"></i></button>
+                        <div class="rate-table-wrap">
+                            <div class="rate-table-toolbar">
+                                <div class="po-result-count" id="rates-result-count">Loading rates...</div>
+                                <div class="rate-table-tools">
+                                    <button class="btn btn-secondary" id="rates-download-btn" type="button" title="Download visible table CSV" aria-label="Download visible rates table CSV">
+                                        <i class="fa-solid fa-download" aria-hidden="true"></i>
+                                    </button>
+                                    <div class="po-pagination" aria-label="Rate pages">
+                                        <button class="po-page-button" id="rates-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left"></i><span>Previous</span></button>
+                                        <span id="rates-page-display">Page 1</span>
+                                        <button class="po-page-button" id="rates-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right"></i></button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="rate-table-wrap">
                             <table class="data-table" id="freight-rates-table">
                                 <thead>
                                     <tr>
-                                        <th>Carrier</th>
-                                        <th>POL</th>
-                                        <th>POD</th>
-                                        <th>Validity</th>
-                                        <th>20ft Freight USD</th>
-                                        <th>40ft Freight USD</th>
-                                        <th>Manifest USD</th>
-                                        <th>Seal USD</th>
-                                        <th>20ft THC INR</th>
-                                        <th>40ft THC INR</th>
-                                        <th>BL Fee INR</th>
-                                        <th>Status</th>
                                         <th>Actions</th>
+                                        <th>Mode</th>
+                                        <th>Origin</th>
+                                        <th>Destination</th>
+                                        <th>Carrier</th>
+                                        <th>Commodity</th>
+                                        <th>Unit</th>
+                                        <th>Currency</th>
+                                        <th>Buy Rate</th>
+                                        <th>Min Sell Rate</th>
+                                        <th>Origin Charges</th>
+                                        <th>Destination Charges</th>
+                                        <th>Validity</th>
+                                        <th>Transit</th>
+                                        <th>Status</th>
                                     </tr>
                                 </thead>
-                                <tbody><tr><td colspan="13">Loading rates...</td></tr></tbody>
+                                <tbody><tr><td></td><td class="rate-message-cell" colspan="14">Loading rates...</td></tr></tbody>
                             </table>
                         </div>
                     </div>
@@ -2659,7 +2759,7 @@ body.not-allowed .content-wrapper {
                                         <th>Created At</th>
                                         <th>Username</th>
                                         <th>Role</th>
-                                        <th>Deactivated</th>
+                                        <th>Status</th>
                                     </tr>
                                 </thead>
                                 <tbody><tr><td colspan="5">Loading users...</td></tr></tbody>
@@ -2917,13 +3017,6 @@ body.not-allowed .content-wrapper {
 
                 <!-- Shipments Section -->
                 <section id="shipments" class="view-section">
-                    <div class="section-header" style="justify-content: flex-end; margin-bottom: 1rem;">
-                        <div class="filters">
-                            <select><option>All Statuses</option><option>In Transit</option><option>Delivered</option></select>
-                            <select><option>All Origins</option><option>Shanghai</option><option>Shenzhen</option></select>
-                        </div>
-                    </div>
-                    
                     <div class="kpi-row">
                         <div class="kpi-card">
                             <h4>Active Shipments</h4>
@@ -3280,17 +3373,20 @@ body.not-allowed .content-wrapper {
                 <div class="modal-body">
                     <input id="rate-edit-id" type="hidden">
                     <div class="rate-edit-grid">
+                        <div class="form-field"><label for="rate-edit-mode">Mode</label><select id="rate-edit-mode" required><option value="sea">Sea</option><option value="air">Air</option></select></div>
+                        <div class="form-field"><label for="rate-edit-origin">Origin</label><input id="rate-edit-origin" required></div>
+                        <div class="form-field"><label for="rate-edit-destination">Destination</label><input id="rate-edit-destination" required></div>
                         <div class="form-field"><label for="rate-edit-carrier">Carrier</label><input id="rate-edit-carrier"></div>
-                        <div class="form-field"><label for="rate-edit-validity">Rate Validity</label><input id="rate-edit-validity" type="date"></div>
-                        <div class="form-field"><label for="rate-edit-pol">POL</label><input id="rate-edit-pol" required></div>
-                        <div class="form-field"><label for="rate-edit-pod">POD</label><input id="rate-edit-pod" required></div>
-                        <div class="form-field"><label for="rate-edit-freight-20">20ft Freight (USD)</label><input id="rate-edit-freight-20" type="number" min="0" step="0.01"></div>
-                        <div class="form-field"><label for="rate-edit-freight-40">40ft Freight (USD)</label><input id="rate-edit-freight-40" type="number" min="0" step="0.01"></div>
-                        <div class="form-field"><label for="rate-edit-manifest">Manifest / Shipment (USD)</label><input id="rate-edit-manifest" type="number" min="0" step="0.01"></div>
-                        <div class="form-field"><label for="rate-edit-seal">Seal / Container (USD)</label><input id="rate-edit-seal" type="number" min="0" step="0.01"></div>
-                        <div class="form-field"><label for="rate-edit-thc-20">20ft THC (INR)</label><input id="rate-edit-thc-20" type="number" min="0" step="0.01"></div>
-                        <div class="form-field"><label for="rate-edit-thc-40">40ft THC (INR)</label><input id="rate-edit-thc-40" type="number" min="0" step="0.01"></div>
-                        <div class="form-field"><label for="rate-edit-bl-fee">BL Fee / Shipment (INR)</label><input id="rate-edit-bl-fee" type="number" min="0" step="0.01"></div>
+                        <div class="form-field"><label for="rate-edit-commodity">Commodity</label><input id="rate-edit-commodity"></div>
+                        <div class="form-field"><label for="rate-edit-charge-unit">Charge Unit</label><select id="rate-edit-charge-unit" required><option value="20GP">20GP</option><option value="40GP">40GP</option><option value="40HC">40HC</option><option value="45HC">45HC</option><option value="CBM">CBM</option><option value="KG">KG</option></select></div>
+                        <div class="form-field"><label for="rate-edit-currency">Currency</label><input id="rate-edit-currency" value="USD" required></div>
+                        <div class="form-field"><label for="rate-edit-buy-rate">Buy Rate</label><input id="rate-edit-buy-rate" type="number" min="0" step="0.01" required></div>
+                        <div class="form-field"><label for="rate-edit-min-sell-rate">Min Sell Rate</label><input id="rate-edit-min-sell-rate" type="number" min="0" step="0.01" required></div>
+                        <div class="form-field"><label for="rate-edit-origin-charges">Origin Charges</label><input id="rate-edit-origin-charges" type="number" min="0" step="0.01"></div>
+                        <div class="form-field"><label for="rate-edit-destination-charges">Destination Charges</label><input id="rate-edit-destination-charges" type="number" min="0" step="0.01"></div>
+                        <div class="form-field"><label for="rate-edit-valid-from">Valid From</label><input id="rate-edit-valid-from" type="date"></div>
+                        <div class="form-field"><label for="rate-edit-valid-to">Valid To</label><input id="rate-edit-valid-to" type="date"></div>
+                        <div class="form-field"><label for="rate-edit-transit-days">Transit Days</label><input id="rate-edit-transit-days" type="number" min="0" step="1"></div>
                         <div class="form-field wide"><label for="rate-edit-remarks">Remarks</label><textarea id="rate-edit-remarks"></textarea></div>
                     </div>
                     <div class="auth-message" id="rate-edit-message"></div>
@@ -3349,19 +3445,47 @@ body.not-allowed .content-wrapper {
                     <div class="modal-heading-icon"><i class="fa-regular fa-id-card" aria-hidden="true"></i></div>
                     <div>
                         <h3 id="profile-modal-title">Login Details</h3>
-                        <p class="modal-subtitle">Portal account and access information</p>
+                        <p class="modal-subtitle">Credentials used for portal login</p>
                     </div>
                 </div>
                 <button class="close-modal" id="profile-modal-close" type="button" aria-label="Close login details" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
             <div class="modal-body">
                 <div class="profile-grid">
+                    <div class="profile-row"><span>Type</span><strong id="profile-type">-</strong></div>
                     <div class="profile-row"><span>Username</span><strong id="profile-username">-</strong></div>
                     <div class="profile-row"><span>Password</span><strong id="profile-password">-</strong></div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" type="button" id="profile-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="user-profile-modal" role="dialog" aria-modal="true" aria-labelledby="user-profile-modal-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-user" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="user-profile-modal-title">Profile Details</h3>
+                        <p class="modal-subtitle">User identity and access profile</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="user-profile-modal-close" type="button" aria-label="Close profile details" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="profile-grid">
+                    <div class="profile-row"><span>ID</span><strong id="user-profile-id">-</strong></div>
+                    <div class="profile-row"><span>Role</span><strong id="user-profile-role">-</strong></div>
+                    <div class="profile-row"><span>Name</span><strong id="user-profile-name">-</strong></div>
+                    <div class="profile-row"><span>Email</span><strong id="user-profile-email">-</strong></div>
+                    <div class="profile-row"><span>Mobile</span><strong id="user-profile-mobile">-</strong></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" id="user-profile-close-btn">Close</button>
             </div>
         </div>
     </div>
@@ -3406,13 +3530,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const RATES_CREATE_PATH = '/rates/my-create';
     const RATES_UPDATE_PATH = '/rates/my-update';
     const RATES_DELETE_PATH = '/rates/my-delete';
-    const ADMIN_ROLE = 1;
-    const MANAGEMENT_ROLE = 2;
-    const BUYER_ROLE = 3;
-    const PROCUREMENT_ROLE = 4;
-    const SALES_ROLE = 5;
-    const SUPPORTED_ROLES = [ADMIN_ROLE, MANAGEMENT_ROLE, BUYER_ROLE, PROCUREMENT_ROLE, SALES_ROLE];
     let roleLabels = {};
+    let typeLabels = {};
     const MODULE_ENDPOINTS = {
         'purchase-orders': '/cargowise/my-purchase-orders',
         shipments: '/cargowise/my-shipments',
@@ -3483,6 +3602,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const applyInfoPayload = payload => {
         appInfo = payload || {};
         roleLabels = appInfo?.mapping?.role?.users || {};
+        typeLabels = appInfo?.mapping?.type?.users || {};
     };
     const infoCacheFresh = () => {
         const cachedAt = Number(localStorage.getItem(STORAGE_KEY_INFO_AT) || 0);
@@ -3522,12 +3642,27 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!appInfo || !Object.keys(appInfo).length) {
                 appInfo = {};
                 roleLabels = {};
+                typeLabels = {};
             }
         }
     };
     const accessToken = () => typeof authToken === 'object' ? authToken.access_token || authToken.token || '' : authToken || '';
     const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
     const displayValue = value => value === null || value === undefined || value === '' ? '-' : String(value);
+    const supportedRoles = () => Object.keys(roleLabels || {}).map(Number).filter(Number.isFinite);
+    const roleSupported = role => supportedRoles().includes(Number(role));
+    const featureRolesFromItem = item => String(item?.dataset?.roles || '').split(',').map(Number).filter(Number.isFinite);
+    const featureItem = target => document.querySelector(`.nav-item[data-target="${target}"][data-roles]`);
+    const featureAllowed = (target, role = Number(authUser && authUser.role)) => roleSupported(role) && featureRolesFromItem(featureItem(target)).includes(Number(role));
+    const firstAllowedFeature = role => [...document.querySelectorAll('.nav-item[data-target][data-roles]')].find(item => roleSupported(role) && featureRolesFromItem(item).includes(Number(role)))?.dataset.target || null;
+    const loadFeature = target => {
+        showSection(target);
+        if (target === 'rates') loadFreightRates();
+        else if (target === 'users') loadUsers();
+        else if (target === 'buyer-360') return;
+        else if (target === 'profile') loadCargowiseProfile();
+        else loadModule(target);
+    };
     const formatDate = value => {
         if (!value) return '-';
         const date = new Date(value);
@@ -3551,6 +3686,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const setTableMessage = (tableId, colSpan, message) => {
         const body = document.querySelector(`#${tableId} tbody`);
         if (body) body.innerHTML = `<tr><td colspan="${colSpan}">${escapeHtml(message)}</td></tr>`;
+    };
+    const setRateTableMessage = message => {
+        const body = document.querySelector('#freight-rates-table tbody');
+        if (body) body.innerHTML = `<tr><td></td><td class="rate-message-cell" colspan="14">${escapeHtml(message)}</td></tr>`;
     };
     const setBlockMessage = (id, message) => {
         const element = document.getElementById(id);
@@ -3613,9 +3752,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (profileAvatar) profileAvatar.textContent = avatarTextFromUsername(user.username || user.name);
         const rawValue = value => value === null || value === undefined || value === '' ? '-' : String(value);
         const roleLabel = roleLabels[String(user.role)] || rawValue(user.role);
-        const roleIcon = Number(user.role) === ADMIN_ROLE ? 'fa-user-shield' : Number(user.role) === MANAGEMENT_ROLE ? 'fa-briefcase' : Number(user.role) === BUYER_ROLE ? 'fa-building-user' : Number(user.role) === PROCUREMENT_ROLE ? 'fa-cart-flatbed' : 'fa-user-tie';
+        const typeLabel = typeLabels[String(user.type)] || rawValue(user.type);
+        const roleText = String(roleLabel || '').toLowerCase();
+        const roleIcon = roleText.includes('admin') ? 'fa-user-shield' : roleText.includes('management') ? 'fa-briefcase' : roleText.includes('buyer') ? 'fa-building-user' : roleText.includes('procurement') ? 'fa-cart-flatbed' : 'fa-user-tie';
+        document.getElementById('profile-type').textContent = typeLabel;
         document.getElementById('profile-username').textContent = rawValue(user.username);
         document.getElementById('profile-password').textContent = user.password ? '••••••••' : '-';
+        document.getElementById('user-profile-role').textContent = roleLabel;
+        document.getElementById('user-profile-id').textContent = rawValue(user.id);
+        document.getElementById('user-profile-name').textContent = rawValue(user.name || user.full_name);
+        document.getElementById('user-profile-email').textContent = rawValue(user.email);
+        document.getElementById('user-profile-mobile').textContent = rawValue(user.mobile || user.phone);
         document.getElementById('header-role-label').textContent = roleLabel;
         document.querySelector('#header-role-badge i').className = `fa-solid ${roleIcon}`;
     };
@@ -3914,7 +4061,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `).join('') : '<tr><td colspan="7">No documents found.</td></tr>';
     };
     const RATE_TEMPLATE_SKIP_COLUMNS = new Set(['id', 'created_at', 'created_by_id', 'updated_at', 'updated_by_id', 'deactivated_at', 'deactivated_by_id']);
-    const rateManager = () => [PROCUREMENT_ROLE, SALES_ROLE].includes(Number(authUser && authUser.role));
+    const rateManager = () => featureAllowed('rates');
     const formatAmount = value => value === null || value === undefined || value === '' ? '-' : Number(value).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
     const rateSchema = () => appInfo?.postgres_schema?.rates || {};
     const rateSchemaColumns = () => Object.keys(rateSchema());
@@ -3922,22 +4069,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const rateColumnDatatype = column => String(rateSchema()[column]?.datatype || '').toLowerCase();
     const rateNumericColumn = column => /int|numeric|decimal|double|real|float|money/.test(rateColumnDatatype(column));
     const rateTemplateValue = (column, isUpdate) => ({
+        mode: 'sea',
+        origin: 'NHAVASHEVA',
+        destination: 'ROTTERDAM',
         carrier: 'MAERSK',
-        pol: 'NHAVASHAVA',
-        pod: 'ROTTERDAM',
-        freight_20ft_cntr_usd: isUpdate ? '2100' : '2000',
-        freight_40ft_cntr_usd: '3000',
-        manifest_shpt_usd: '35',
-        seal_cntr_usd: '10',
-        thc_20ft_cntr_inr: '18500',
-        thc_40ft_cntr_inr: '21500',
-        bl_fees_shpt_inr: '5000',
+        commodity: 'GARMENTS',
+        charge_unit: '20GP',
+        currency: 'USD',
+        buy_rate: isUpdate ? '2050' : '2000',
+        min_sell_rate: isUpdate ? '2250' : '2200',
+        origin_charges: '300',
+        destination_charges: '400',
+        valid_from: '2026-06-17',
+        valid_to: '2026-07-17',
+        transit_days: '22',
         remarks: isUpdate ? 'Updated rate' : ''
     }[column] ?? '');
     const normalizeCsvHeader = value => String(value || '').replace(/^\uFEFF/, '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
     const normalizeRateCsvHeader = value => {
         const header = normalizeCsvHeader(value);
-        return header === 'pul' ? 'pol' : header;
+        if (['pul', 'pol', 'origin_port', 'origin_airport'].includes(header)) return 'origin';
+        if (['pod', 'destination_port', 'destination_airport'].includes(header)) return 'destination';
+        if (['rate_unit', 'unit'].includes(header)) return 'charge_unit';
+        if (['sell_rate', 'minimum_sell_rate'].includes(header)) return 'min_sell_rate';
+        return header;
     };
     const parseCsvRows = text => {
         const rows = [];
@@ -4026,7 +4181,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const downloadRatesTableCsv = () => {
         if (!ratesRows.length) { window.alert('No rates available to download.'); return; }
-        const columns = ['id', 'carrier', 'pol', 'pod', 'rate_validity', 'freight_20ft_cntr_usd', 'freight_40ft_cntr_usd', 'manifest_shpt_usd', 'seal_cntr_usd', 'thc_20ft_cntr_inr', 'thc_40ft_cntr_inr', 'bl_fees_shpt_inr', 'status', 'created_by_id', 'created_at', 'remarks'];
+        const columns = ['id', 'mode', 'origin', 'destination', 'carrier', 'commodity', 'charge_unit', 'currency', 'buy_rate', 'min_sell_rate', 'origin_charges', 'destination_charges', 'valid_from', 'valid_to', 'transit_days', 'status', 'created_by_id', 'created_at', 'remarks'];
         const rows = ratesRows.map(row => columns.map(column => csvValue(column === 'status' ? (row.deactivated_at ? 'Deactivated' : 'Active') : row[column])).join(','));
         const blob = new Blob([[columns.join(','), ...rows].join('\n') + '\n'], { type: 'text/csv;charset=utf-8' });
         const url = URL.createObjectURL(blob);
@@ -4042,9 +4197,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.rate-manager-only').forEach(element => { element.hidden = !rateManager(); });
     };
     const rateFilterHasValue = () => Boolean(
+        document.getElementById('rates-mode-filter')?.value ||
         document.getElementById('rates-carrier-filter')?.value.trim() ||
-        document.getElementById('rates-pol-filter')?.value.trim() ||
-        document.getElementById('rates-pod-filter')?.value.trim() ||
+        document.getElementById('rates-origin-filter')?.value.trim() ||
+        document.getElementById('rates-destination-filter')?.value.trim() ||
         document.getElementById('rates-status-filter')?.value ||
         ratesMyOnly
     );
@@ -4067,35 +4223,39 @@ document.addEventListener('DOMContentLoaded', () => {
             const active = !row.deactivated_at;
             return `
                 <tr data-rate-id="${Number(row.id)}">
-                    <td><strong>${escapeHtml(displayValue(row.carrier))}</strong>${row.remarks ? `<div class="profile-status">${escapeHtml(row.remarks)}</div>` : ''}</td>
-                    <td>${escapeHtml(displayValue(row.pol))}</td>
-                    <td>${escapeHtml(displayValue(row.pod))}</td>
-                    <td>${escapeHtml(formatDate(row.rate_validity))}</td>
-                    <td>$${escapeHtml(formatAmount(row.freight_20ft_cntr_usd))}</td>
-                    <td>$${escapeHtml(formatAmount(row.freight_40ft_cntr_usd))}</td>
-                    <td>$${escapeHtml(formatAmount(row.manifest_shpt_usd))}</td>
-                    <td>$${escapeHtml(formatAmount(row.seal_cntr_usd))}</td>
-                    <td>₹${escapeHtml(formatAmount(row.thc_20ft_cntr_inr))}</td>
-                    <td>₹${escapeHtml(formatAmount(row.thc_40ft_cntr_inr))}</td>
-                    <td>₹${escapeHtml(formatAmount(row.bl_fees_shpt_inr))}</td>
-                    <td><span class="badge ${active ? 'delivered' : 'exception'}">${active ? 'Active' : 'Deactivated'}</span></td>
                     <td>${owned ? `<div class="rate-actions"><button class="rate-icon-btn" type="button" data-rate-action="edit" data-rate-id="${Number(row.id)}" title="Edit rate"><i class="fa-solid fa-pen"></i></button>${active ? `<button class="rate-icon-btn" type="button" data-rate-action="deactivate" data-rate-id="${Number(row.id)}" title="Deactivate rate"><i class="fa-solid fa-ban"></i></button>` : ''}<button class="rate-icon-btn danger" type="button" data-rate-action="delete" data-rate-id="${Number(row.id)}" title="Delete rate"><i class="fa-solid fa-trash"></i></button></div>` : '<span class="profile-status">View only</span>'}</td>
+                    <td>${escapeHtml(displayValue(row.mode))}</td>
+                    <td>${escapeHtml(displayValue(row.origin))}</td>
+                    <td>${escapeHtml(displayValue(row.destination))}</td>
+                    <td><strong>${escapeHtml(displayValue(row.carrier))}</strong>${row.remarks ? `<div class="profile-status">${escapeHtml(row.remarks)}</div>` : ''}</td>
+                    <td>${escapeHtml(displayValue(row.commodity))}</td>
+                    <td>${escapeHtml(displayValue(row.charge_unit))}</td>
+                    <td>${escapeHtml(displayValue(row.currency))}</td>
+                    <td>${escapeHtml(formatAmount(row.buy_rate))}</td>
+                    <td>${escapeHtml(formatAmount(row.min_sell_rate))}</td>
+                    <td>${escapeHtml(formatAmount(row.origin_charges))}</td>
+                    <td>${escapeHtml(formatAmount(row.destination_charges))}</td>
+                    <td>${escapeHtml([formatDate(row.valid_from), formatDate(row.valid_to)].filter(value => value !== '-').join(' to ') || '-')}</td>
+                    <td>${escapeHtml(row.transit_days ? `${row.transit_days} days` : '-')}</td>
+                    <td><span class="badge ${active ? 'delivered' : 'exception'}">${active ? 'Active' : 'Deactivated'}</span></td>
                 </tr>
             `;
-        }).join('') : '<tr><td colspan="13">No rates match these filters.</td></tr>';
+        }).join('') : '<tr><td></td><td class="rate-message-cell" colspan="14">No rates found. Upload or create a rate to see row actions.</td></tr>';
     };
     const loadFreightRates = async () => {
-        if (!authToken || !authUser || !SUPPORTED_ROLES.includes(Number(authUser.role))) return;
-        setTableMessage('freight-rates-table', 13, 'Loading rates...');
+        if (!authToken || !authUser || !featureAllowed('rates')) return;
+        setRateTableMessage('Loading rates...');
         document.getElementById('rates-result-count').textContent = 'Loading rates...';
         const filters = [];
+        const mode = document.getElementById('rates-mode-filter').value;
         const carrier = document.getElementById('rates-carrier-filter').value.trim();
-        const pol = document.getElementById('rates-pol-filter').value.trim();
-        const pod = document.getElementById('rates-pod-filter').value.trim();
+        const origin = document.getElementById('rates-origin-filter').value.trim();
+        const destination = document.getElementById('rates-destination-filter').value.trim();
         const status = document.getElementById('rates-status-filter').value;
+        if (mode) filters.push({ mode: `eq,${mode}` });
         if (carrier) filters.push({ carrier: `ilike,%${carrier}%` });
-        if (pol) filters.push({ pol: `ilike,%${pol}%` });
-        if (pod) filters.push({ pod: `ilike,%${pod}%` });
+        if (origin) filters.push({ origin: `ilike,%${origin}%` });
+        if (destination) filters.push({ destination: `ilike,%${destination}%` });
         if (status === 'active') filters.push({ deactivated_at: 'is,null' });
         if (status === 'inactive') filters.push({ deactivated_at: 'is not,null' });
         if (ratesMyOnly && authUser?.id) filters.push({ created_by_id: `eq,${Number(authUser.id)}` });
@@ -4111,7 +4271,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('rates-prev-btn').disabled = ratesCurrentPage <= 1;
             document.getElementById('rates-next-btn').disabled = !message.has_next_page;
         } catch (err) {
-            setTableMessage('freight-rates-table', 13, err.message || 'Unable to load rates');
+            setRateTableMessage(err.message || 'Unable to load rates');
             document.getElementById('rates-result-count').textContent = 'Rates could not be loaded';
         }
     };
@@ -4153,10 +4313,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const resetRateEditForm = () => {
         [
-            'rate-edit-id', 'rate-edit-carrier', 'rate-edit-validity', 'rate-edit-pol', 'rate-edit-pod',
-            'rate-edit-freight-20', 'rate-edit-freight-40', 'rate-edit-manifest', 'rate-edit-seal',
-            'rate-edit-thc-20', 'rate-edit-thc-40', 'rate-edit-bl-fee', 'rate-edit-remarks'
+            'rate-edit-id', 'rate-edit-mode', 'rate-edit-origin', 'rate-edit-destination', 'rate-edit-carrier',
+            'rate-edit-commodity', 'rate-edit-charge-unit', 'rate-edit-currency', 'rate-edit-buy-rate', 'rate-edit-min-sell-rate',
+            'rate-edit-origin-charges', 'rate-edit-destination-charges', 'rate-edit-valid-from', 'rate-edit-valid-to',
+            'rate-edit-transit-days', 'rate-edit-remarks'
         ].forEach(elementId => { document.getElementById(elementId).value = ''; });
+        document.getElementById('rate-edit-mode').value = 'sea';
+        document.getElementById('rate-edit-charge-unit').value = '20GP';
+        document.getElementById('rate-edit-currency').value = 'USD';
         document.getElementById('rate-edit-message').textContent = '';
     };
     const openRateCreateModal = () => {
@@ -4173,12 +4337,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!row || Number(row.created_by_id) !== Number(authUser && authUser.id) || !rateManager()) return;
         ratesEditMode = 'update';
         const values = {
-            'rate-edit-id': row.id, 'rate-edit-carrier': row.carrier, 'rate-edit-validity': row.rate_validity,
-            'rate-edit-pol': row.pol, 'rate-edit-pod': row.pod, 'rate-edit-freight-20': row.freight_20ft_cntr_usd,
-            'rate-edit-freight-40': row.freight_40ft_cntr_usd, 'rate-edit-manifest': row.manifest_shpt_usd,
-            'rate-edit-seal': row.seal_cntr_usd, 'rate-edit-thc-20': row.thc_20ft_cntr_inr,
-            'rate-edit-thc-40': row.thc_40ft_cntr_inr, 'rate-edit-bl-fee': row.bl_fees_shpt_inr,
-            'rate-edit-remarks': row.remarks
+            'rate-edit-id': row.id, 'rate-edit-mode': row.mode,
+            'rate-edit-origin': row.origin, 'rate-edit-destination': row.destination, 'rate-edit-carrier': row.carrier,
+            'rate-edit-commodity': row.commodity, 'rate-edit-charge-unit': row.charge_unit, 'rate-edit-currency': row.currency,
+            'rate-edit-buy-rate': row.buy_rate, 'rate-edit-min-sell-rate': row.min_sell_rate,
+            'rate-edit-origin-charges': row.origin_charges, 'rate-edit-destination-charges': row.destination_charges,
+            'rate-edit-valid-from': row.valid_from, 'rate-edit-valid-to': row.valid_to,
+            'rate-edit-transit-days': row.transit_days, 'rate-edit-remarks': row.remarks
         };
         Object.entries(values).forEach(([elementId, value]) => { document.getElementById(elementId).value = value ?? ''; });
         document.getElementById('rate-edit-message').textContent = '';
@@ -4199,22 +4364,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderUsers = rows => {
         const body = document.querySelector('#users-table tbody');
         if (!body) return;
+        const inactiveFlag = value => value === false || value === 0 || String(value).toLowerCase() === 'false';
+        const userStatus = row => {
+            const inactive = Boolean(row.deactivated_at || row.deleted_at) || inactiveFlag(row.cw_is_active) || inactiveFlag(row.cw_is_valid);
+            return inactive ? 'Inactive' : 'Active';
+        };
         body.innerHTML = rows.length ? rows.map(row => {
             const role = roleLabels[String(row.role)] || displayValue(row.role);
-            const isDeactivated = Boolean(row.deactivated_at);
+            const status = userStatus(row);
+            const isInactive = status === 'Inactive';
             return `
                 <tr>
                     <td>${escapeHtml(displayValue(row.id))}</td>
                     <td>${escapeHtml(formatDateTime(row.created_at))}</td>
                     <td><strong>${escapeHtml(displayValue(row.username))}</strong></td>
-                    <td><span class="badge ${Number(row.role) === ADMIN_ROLE ? 'transit' : 'open'}">${escapeHtml(role)}</span></td>
-                    <td><span class="badge ${isDeactivated ? 'exception' : 'delivered'}">${isDeactivated ? 'Yes' : 'No'}</span></td>
+                    <td><span class="badge ${String(role).toLowerCase().includes('admin') ? 'transit' : 'open'}">${escapeHtml(role)}</span></td>
+                    <td><span class="badge ${isInactive ? 'exception' : 'delivered'}">${status}</span></td>
                 </tr>
             `;
         }).join('') : '<tr><td colspan="5">No users found.</td></tr>';
     };
     const loadUsers = async () => {
-        if (!authToken || Number(authUser && authUser.role) !== ADMIN_ROLE) return;
+        if (!authToken || !featureAllowed('users')) return;
         setTableMessage('users-table', 5, 'Loading users...');
         document.getElementById('users-result-count').textContent = 'Loading users...';
         try {
@@ -4234,7 +4405,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     const exportUsers = async () => {
-        if (!authToken || Number(authUser && authUser.role) !== ADMIN_ROLE) return;
+        if (!authToken || !featureAllowed('users')) return;
         const input = window.prompt('How many users should be exported?', '10000');
         if (input === null) return;
         const limit = Number(input.trim());
@@ -4319,7 +4490,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setTableMessage('buyer-table', 9, 'Use the search above to load Buyer 360 data.');
     };
     const loadBuyer360 = async () => {
-        if (!authToken || ![ADMIN_ROLE, 2].includes(Number(authUser && authUser.role)) || !buyerSearchQuery) return;
+        if (!authToken || !featureAllowed('buyer-360') || !buyerSearchQuery) return;
         setTableMessage('buyer-table', 9, 'Loading Buyer 360 data...');
         document.getElementById('buyer-result-count').textContent = 'Loading Buyer 360 data...';
         const query = new URLSearchParams({ org_id: buyerSearchQuery });
@@ -4443,14 +4614,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const applyRoleNavigation = userRole => {
         document.querySelectorAll('.nav-item[data-roles]').forEach(item => {
-            const roles = item.dataset.roles.split(',').map(Number);
-            item.hidden = !roles.includes(userRole);
+            item.hidden = !roleSupported(userRole) || !featureRolesFromItem(item).includes(Number(userRole));
         });
     };
     const applyAuthShell = () => {
         const loggedIn = Boolean(authToken && authUser);
         const userRole = authUser ? Number(authUser.role) : null;
-        const allowed = loggedIn && SUPPORTED_ROLES.includes(userRole);
+        const allowed = loggedIn && roleSupported(userRole);
         document.body.classList.toggle('logged-in', loggedIn);
         document.body.classList.toggle('logged-out', !loggedIn);
         document.body.classList.toggle('not-allowed', loggedIn && !allowed);
@@ -4469,26 +4639,9 @@ document.addEventListener('DOMContentLoaded', () => {
             showBlocked();
             return;
         }
-        if (userRole === ADMIN_ROLE) {
-            showSection('users');
-            loadUsers();
-            return;
-        }
-        if (userRole === MANAGEMENT_ROLE) {
-            showSection('buyer-360');
-            return;
-        }
-        if (userRole === BUYER_ROLE) {
-            showSection('profile');
-            loadCargowiseProfile();
-            return;
-        }
-        if ([PROCUREMENT_ROLE, SALES_ROLE].includes(userRole)) {
-            showSection('rates');
-            loadFreightRates();
-            return;
-        }
-        showSection('home');
+        const target = firstAllowedFeature(userRole);
+        if (!target) { showBlocked(); return; }
+        loadFeature(target);
     };
     const saveAuthPayload = payload => {
         const nextToken = extractToken(payload);
@@ -4508,6 +4661,7 @@ document.addEventListener('DOMContentLoaded', () => {
         authUser = null;
         appInfo = {};
         roleLabels = {};
+        typeLabels = {};
         clearPortalStorage();
         cargowiseProfileLoaded = false;
         Object.keys(moduleCache).forEach(key => delete moduleCache[key]);
@@ -4685,7 +4839,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ratesCurrentPage = 1;
         loadFreightRates();
     });
-    ['rates-carrier-filter', 'rates-pol-filter', 'rates-pod-filter', 'rates-status-filter'].forEach(elementId => {
+    ['rates-mode-filter', 'rates-carrier-filter', 'rates-origin-filter', 'rates-destination-filter', 'rates-status-filter'].forEach(elementId => {
         const element = document.getElementById(elementId);
         element?.addEventListener('input', updateRateFilterSubmit);
         element?.addEventListener('change', updateRateFilterSubmit);
@@ -4724,17 +4878,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const button = document.getElementById('rate-edit-submit-btn');
         const numberOrNull = id => document.getElementById(id).value === '' ? null : Number(document.getElementById(id).value);
         const object = {
+            mode: document.getElementById('rate-edit-mode').value,
+            origin: document.getElementById('rate-edit-origin').value.trim(),
+            destination: document.getElementById('rate-edit-destination').value.trim(),
             carrier: document.getElementById('rate-edit-carrier').value.trim(),
-            pol: document.getElementById('rate-edit-pol').value.trim(),
-            pod: document.getElementById('rate-edit-pod').value.trim(),
-            rate_validity: document.getElementById('rate-edit-validity').value || null,
-            freight_20ft_cntr_usd: numberOrNull('rate-edit-freight-20'),
-            freight_40ft_cntr_usd: numberOrNull('rate-edit-freight-40'),
-            manifest_shpt_usd: numberOrNull('rate-edit-manifest'),
-            seal_cntr_usd: numberOrNull('rate-edit-seal'),
-            thc_20ft_cntr_inr: numberOrNull('rate-edit-thc-20'),
-            thc_40ft_cntr_inr: numberOrNull('rate-edit-thc-40'),
-            bl_fees_shpt_inr: numberOrNull('rate-edit-bl-fee'),
+            commodity: document.getElementById('rate-edit-commodity').value.trim(),
+            charge_unit: document.getElementById('rate-edit-charge-unit').value,
+            currency: document.getElementById('rate-edit-currency').value.trim() || 'USD',
+            buy_rate: numberOrNull('rate-edit-buy-rate'),
+            min_sell_rate: numberOrNull('rate-edit-min-sell-rate'),
+            origin_charges: numberOrNull('rate-edit-origin-charges') || 0,
+            destination_charges: numberOrNull('rate-edit-destination-charges') || 0,
+            valid_from: document.getElementById('rate-edit-valid-from').value || null,
+            valid_to: document.getElementById('rate-edit-valid-to').value || null,
+            transit_days: numberOrNull('rate-edit-transit-days'),
             remarks: document.getElementById('rate-edit-remarks').value.trim() || null
         };
         if (ratesEditMode === 'update') object.id = Number(document.getElementById('rate-edit-id').value);
@@ -4781,15 +4938,9 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             if (!authToken || !authUser) return;
             const userRole = Number(authUser.role);
-            const allowedRoles = item.dataset.roles ? item.dataset.roles.split(',').map(Number) : [];
-            if (!SUPPORTED_ROLES.includes(userRole) || !allowedRoles.includes(userRole)) { showBlocked(); return; }
             const target = item.getAttribute('data-target');
-            showSection(target);
-            if (target === 'rates') loadFreightRates();
-            else if (target === 'users') loadUsers();
-            else if (target === 'buyer-360') return;
-            else if (target === 'profile') loadCargowiseProfile();
-            else loadModule(target);
+            if (!featureAllowed(target, userRole)) { showBlocked(); return; }
+            loadFeature(target);
         });
     });
 
@@ -4799,12 +4950,19 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('login-cancel-btn').addEventListener('click', () => closeModal('login-modal'));
     document.getElementById('profile-modal-close').addEventListener('click', () => closeModal('profile-modal'));
     document.getElementById('profile-close-btn').addEventListener('click', () => closeModal('profile-modal'));
+    document.getElementById('user-profile-modal-close').addEventListener('click', () => closeModal('user-profile-modal'));
+    document.getElementById('user-profile-close-btn').addEventListener('click', () => closeModal('user-profile-modal'));
     document.getElementById('logout-cancel-btn').addEventListener('click', () => closeModal('logout-modal'));
     document.getElementById('logout-submit-btn').addEventListener('click', logout);
     document.getElementById('profile-menu-profile').addEventListener('click', () => {
         closeProfileMenu();
         renderProfile();
         openModal('profile-modal');
+    });
+    document.getElementById('profile-menu-user').addEventListener('click', () => {
+        closeProfileMenu();
+        renderProfile();
+        openModal('user-profile-modal');
     });
     document.getElementById('profile-menu-logout').addEventListener('click', requestLogout);
     document.getElementById('blocked-logout-btn').addEventListener('click', requestLogout);

@@ -78,6 +78,7 @@ config_table_public_read_enable = ["*"]
 config_column_token_encode = ["id", "type", "role", "username", "deactivated_at", "deleted_at"]
 config_column_ownership = ["created_by_id", "user_id"]
 config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id"]
+config_column_admin_users=["type","role"]
 config_column_single_update = ["username", "password", "email", "mobile", "deleted_at"]
 
 # Services
@@ -161,11 +162,11 @@ config_api = {
 "/admin/sync": {"id": 1, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/object-create": {"id": 2, "is_token": 1, "user_check_role": ["token", [1]]},
 "/admin/object-update": {"id": 3, "is_token": 1, "user_check_role": ["token", [1]]},
-"/admin/object-read": {"id": 4, "is_token": 1, "user_check_role": ["token", [1]]},
+"/admin/object-read": {"id": 4, "is_token": 1, "user_check_role": ["token", [1, 2]]},
 "/admin/object-delete": {"id": 5, "is_token": 1, "user_check_role": ["realtime", [1]], "user_check_deactivated": ["realtime"], "user_check_deleted": ["realtime"]},
 "/admin/postgres-sql-runner": {"id": 6, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/postgres-sql-runner-read": {"id": 22, "is_token": 1, "user_check_role": ["realtime", [1]]},
-"/admin/postgres-export": {"id": 7, "is_token": 1, "user_check_role": ["inmemory", [1]]},
+"/admin/postgres-export": {"id": 7, "is_token": 1, "user_check_role": ["inmemory", [1, 2]]},
 "/admin/postgres-import": {"id": 8, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/redis-import": {"id": 9, "is_token": 1, "user_check_role": ["token", [1]]},
 "/admin/mongodb-import": {"id": 11, "is_token": 1, "user_check_role": ["token", [1]]},
@@ -190,7 +191,7 @@ config_api = {
 "/rates/my-create": {"id": 73, "is_token": 1, "user_check_role": ["token", [4]]},
 "/rates/my-update": {"id": 74, "is_token": 1, "user_check_role": ["token", [4]]},
 "/rates/my-delete": {"id": 75, "is_token": 1, "user_check_role": ["token", [4]]},
-"/rates": {"id": 72, "is_token": 1, "user_check_role": ["token", [4, 5]]},
+"/rates": {"id": 72, "is_token": 1, "user_check_role": ["token", [4]]},
 }
 
 config_column_int_mapping = {
@@ -431,20 +432,20 @@ config_postgres = {
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"deactivated_at","datatype":"timestamptz","index":"btree(deactivated_at)"},
 {"name":"deactivated_by_id","datatype":"bigint"},
+{"name":"mode","datatype":"text","is_mandatory":1,"index":"btree(mode)"},
+{"name":"origin","datatype":"text","is_mandatory":1,"index":"btree(origin,destination)|gin(origin)"},
+{"name":"destination","datatype":"text","is_mandatory":1,"index":"gin(destination)"},
 {"name":"carrier","datatype":"text","index":"btree(carrier)|gin(carrier)"},
-{"name":"pol","datatype":"text","is_mandatory":1,"index":"btree(pol,pod)|gin(pol)"},
-{"name":"pod","datatype":"text","is_mandatory":1,"index":"gin(pod)"},
-{"name":"rate_validity","datatype":"date","index":"btree(rate_validity)"},
-{"name":"freight_20ft_cntr_usd","datatype":"numeric(12,2)"},
-{"name":"freight_40ft_cntr_usd","datatype":"numeric(12,2)"},
-{"name":"manifest_shpt_usd","datatype":"numeric(12,2)"},
-{"name":"seal_cntr_usd","datatype":"numeric(12,2)"},
-{"name":"locals_20_inr","datatype":"numeric(12,2)"},
-{"name":"locals_40_inr","datatype":"numeric(12,2)"},
-{"name":"thc_20ft_cntr_inr","datatype":"numeric(12,2)"},
-{"name":"thc_40ft_cntr_inr","datatype":"numeric(12,2)"},
-{"name":"bl_fees_shpt_inr","datatype":"numeric(12,2)"},
-{"name":"do_fees","datatype":"numeric(12,2)"},
+{"name":"commodity","datatype":"text","index":"gin(commodity)"},
+{"name":"charge_unit","datatype":"text","is_mandatory":1,"index":"btree(charge_unit)"},
+{"name":"currency","datatype":"text","is_mandatory":1,"default":"'USD'","index":"btree(currency)"},
+{"name":"buy_rate","datatype":"numeric(12,2)","is_mandatory":1},
+{"name":"min_sell_rate","datatype":"numeric(12,2)","is_mandatory":1},
+{"name":"origin_charges","datatype":"numeric(12,2)","default":0},
+{"name":"destination_charges","datatype":"numeric(12,2)","default":0},
+{"name":"valid_from","datatype":"date","index":"btree(valid_from)"},
+{"name":"valid_to","datatype":"date","index":"btree(valid_to)"},
+{"name":"transit_days","datatype":"integer"},
 {"name":"remarks","datatype":"text"}
 ],
 },

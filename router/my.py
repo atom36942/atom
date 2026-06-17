@@ -15,7 +15,7 @@ async def func_api_my_profile(*, request: Request):
     metadata = {k: [dict(r) for r in await app_state.client_postgres_read_fallback.fetch(v, user_id)] for k, v in app_state.config_sql.get("profile_metadata", {}).items()}
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_in_sec=app_state.config_access_token_expires_in_sec, config_refresh_token_expires_in_sec=app_state.config_refresh_token_expires_in_sec, config_column_token_encode=app_state.config_column_token_encode)
     asyncio.create_task(app_state.client_postgres.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id))
-    return {"status": 1, "message": {"user": user, "metadata": metadata, "token": token}}
+    return {"status": 1, "message": {"user": user, "token": token, "metadata": metadata}}
 
 @router.post("/my/token-refresh")
 async def func_api_my_token_refresh(*, request: Request):
@@ -42,7 +42,7 @@ async def func_api_my_object_create(*, request: Request):
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
     if app_state.config_batch_item_limit and len(obj_list) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
-    if restricted_key := next((key for item in obj_list for key in item if key == "deleted_at" or key in app_state.config_column_admin), None): raise Exception("deleted_at cannot be set on create; use deactivated_at for reversible inactive state" if restricted_key == "deleted_at" else f"unauthorized creation of restricted field: {restricted_key}")
+    if restricted_key := next((key for item in obj_list for key in item if key in app_state.config_column_admin), None): raise Exception(f"unauthorized update to restricted field: {restricted_key}")
     if "created_by_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'created_by_id' column for ownership tracking")
     if request.state.user.get("id"): obj_list = [dict(item, created_by_id=request.state.user["id"]) for item in obj_list]
     if oq["queue"]: return {"status": 1, "message": await app_state.func_producer(queue=oq["queue"], client_celery_producer=app_state.client_celery_producer, client_kafka_producer=app_state.client_kafka_producer, client_rabbitmq_producer=app_state.client_rabbitmq_producer, client_redis_producer=app_state.client_redis_producer, channel="func_postgres_create", payload={"mode": oq["mode"], "table": oq["table"], "obj_list": obj_list})}
@@ -67,6 +67,7 @@ async def func_api_my_object_update(*, request: Request):
     obj_list = ob.get("obj_list", [ob])
     if app_state.config_batch_item_limit and len(obj_list) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
     if restricted_key := next((key for item in obj_list for key in item if key in app_state.config_column_admin), None): raise Exception(f"unauthorized update to restricted field: {restricted_key}")
+    if oq["table"] == "users" and (restricted_user_key := next((key for item in obj_list for key in item if key in getattr(app_state, 'config_column_admin_users', [])), None)): raise Exception(f"unauthorized update to restricted user field: {restricted_user_key}")
     if oq["table"] == "users" and len(obj_list) > 1: raise Exception("multi-object user update restricted")
     if oq["table"] == "users" and str(obj_list[0].get("id")) != str(request.state.user["id"]): raise Exception("ownership issue: cannot update other users")
     if oq["table"] == "users" and any(key in app_state.config_column_single_update for key in obj_list[0]) and len(obj_list[0]) != 2: raise Exception("sensitive fields must be updated individually (item length 2 required)")
