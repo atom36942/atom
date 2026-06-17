@@ -15,7 +15,7 @@ async def func_api_my_profile(*, request: Request):
     metadata = {k: [dict(r) for r in await app_state.client_postgres_read_fallback.fetch(v, user_id)] for k, v in app_state.config_sql.get("profile_metadata", {}).items()}
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_in_sec=app_state.config_access_token_expires_in_sec, config_refresh_token_expires_in_sec=app_state.config_refresh_token_expires_in_sec, config_column_token_encode=app_state.config_column_token_encode)
     asyncio.create_task(app_state.client_postgres.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id))
-    return {"status": 1, "message": {**user, "metadata": metadata, "token": token}}
+    return {"status": 1, "message": {"user": user, "metadata": metadata, "token": token}}
 
 @router.post("/my/token-refresh")
 async def func_api_my_token_refresh(*, request: Request):
