@@ -2100,7 +2100,7 @@ body {
     gap: 0.5rem;
 }
 
-#freight-rates-table { min-width: 1580px; }
+#freight-rates-table { min-width: 1680px; }
 
 #freight-rates-table th,
 #freight-rates-table td {
@@ -2108,21 +2108,11 @@ body {
     white-space: nowrap;
 }
 
-#freight-rates-table th:first-child,
-#freight-rates-table td:first-child {
-    position: sticky;
-    left: 0;
-    z-index: 2;
+#freight-rates-table th:last-child,
+#freight-rates-table td:last-child {
     width: 112px;
     min-width: 112px;
     text-align: center;
-    background: #FFFFFF;
-    box-shadow: 8px 0 14px rgba(15, 23, 42, 0.06);
-}
-
-#freight-rates-table th:first-child {
-    z-index: 3;
-    background: #F8FAFC;
 }
 
 .rate-actions {
@@ -2137,6 +2127,27 @@ body {
     font-weight: 600;
 }
 
+.rate-click-cell {
+    display: inline-block;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+.rate-click-cell:hover {
+    color: var(--primary);
+    text-decoration: underline;
+}
+
+.rate-value-content {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: #334155;
+    line-height: 1.55;
+}
+
 .rate-icon-btn {
     width: 32px;
     height: 32px;
@@ -2149,8 +2160,11 @@ body {
     cursor: pointer;
 }
 
-.rate-icon-btn:hover { border-color: #A5B4FC; color: var(--primary); background: #EEF2FF; }
-.rate-icon-btn.danger:hover { border-color: #FCA5A5; color: #B91C1C; background: #FEF2F2; }
+.rate-icon-btn.edit { border-color: #BFDBFE; color: #1D4ED8; background: #EFF6FF; }
+.rate-icon-btn.deactivate { border-color: #FED7AA; color: #C2410C; background: #FFF7ED; }
+.rate-icon-btn.activate { border-color: #BBF7D0; color: #15803D; background: #F0FDF4; }
+.rate-icon-btn.danger { border-color: #FECACA; color: #B91C1C; background: #FEF2F2; }
+.rate-icon-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08); }
 .rate-icon-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .rate-checkbox {
@@ -2652,8 +2666,8 @@ body.not-allowed .content-wrapper {
                             <div class="rate-filter-field mode">
                                 <select id="rates-mode-filter" aria-label="Filter by mode">
                                     <option value="">Mode</option>
-                                    <option value="sea">Sea</option>
-                                    <option value="air">Air</option>
+                                    <option value="Sea">Sea</option>
+                                    <option value="Air">Air</option>
                                 </select>
                             </div>
                             <div class="rate-filter-field carrier">
@@ -2700,7 +2714,6 @@ body.not-allowed .content-wrapper {
                             <table class="data-table" id="freight-rates-table">
                                 <thead>
                                     <tr>
-                                        <th>Actions</th>
                                         <th>Mode</th>
                                         <th>Origin</th>
                                         <th>Destination</th>
@@ -2714,10 +2727,12 @@ body.not-allowed .content-wrapper {
                                         <th>Destination Charges</th>
                                         <th>Validity</th>
                                         <th>Transit</th>
+                                        <th>Remarks</th>
                                         <th>Status</th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody><tr><td></td><td class="rate-message-cell" colspan="14">Loading rates...</td></tr></tbody>
+                                <tbody><tr><td class="rate-message-cell" colspan="16">Loading rates...</td></tr></tbody>
                             </table>
                         </div>
                     </div>
@@ -3373,7 +3388,7 @@ body.not-allowed .content-wrapper {
                 <div class="modal-body">
                     <input id="rate-edit-id" type="hidden">
                     <div class="rate-edit-grid">
-                        <div class="form-field"><label for="rate-edit-mode">Mode</label><select id="rate-edit-mode" required><option value="sea">Sea</option><option value="air">Air</option></select></div>
+                        <div class="form-field"><label for="rate-edit-mode">Mode</label><select id="rate-edit-mode" required><option value="Sea">Sea</option><option value="Air">Air</option></select></div>
                         <div class="form-field"><label for="rate-edit-origin">Origin</label><input id="rate-edit-origin" required></div>
                         <div class="form-field"><label for="rate-edit-destination">Destination</label><input id="rate-edit-destination" required></div>
                         <div class="form-field"><label for="rate-edit-carrier">Carrier</label><input id="rate-edit-carrier"></div>
@@ -3486,6 +3501,27 @@ body.not-allowed .content-wrapper {
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" type="button" id="user-profile-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="rate-value-modal" role="dialog" aria-modal="true" aria-labelledby="rate-value-modal-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-align-left" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="rate-value-modal-title">Rate Detail</h3>
+                        <p class="modal-subtitle">Full cell value</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="rate-value-modal-close" type="button" aria-label="Close rate detail" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="rate-value-content" id="rate-value-modal-content">-</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" id="rate-value-close-btn">Close</button>
             </div>
         </div>
     </div>
@@ -3689,7 +3725,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const setRateTableMessage = message => {
         const body = document.querySelector('#freight-rates-table tbody');
-        if (body) body.innerHTML = `<tr><td></td><td class="rate-message-cell" colspan="14">${escapeHtml(message)}</td></tr>`;
+        if (body) body.innerHTML = `<tr><td class="rate-message-cell" colspan="16">${escapeHtml(message)}</td></tr>`;
+    };
+    const rateCell = (value, label, maxWidth = 150) => {
+        const text = displayValue(value);
+        if (text === '-') return '-';
+        return `<span class="rate-click-cell" style="max-width:${Number(maxWidth)}px" data-rate-cell-label="${escapeHtml(label)}" data-rate-cell-value="${escapeHtml(text)}" title="Click to view">${escapeHtml(text)}</span>`;
     };
     const setBlockMessage = (id, message) => {
         const element = document.getElementById(id);
@@ -4068,8 +4109,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const rateTemplateColumns = mode => rateSchemaColumns().filter(column => !RATE_TEMPLATE_SKIP_COLUMNS.has(column) || (mode === 'update' && column === 'deactivated_at'));
     const rateColumnDatatype = column => String(rateSchema()[column]?.datatype || '').toLowerCase();
     const rateNumericColumn = column => /int|numeric|decimal|double|real|float|money/.test(rateColumnDatatype(column));
+    const RATE_ALLOWED_VALUES = {
+        mode: ['Sea', 'Air'],
+        charge_unit: ['20GP', '40GP', '40HC', '45HC', 'CBM', 'KG']
+    };
+    const validateRateAllowedValues = (object, rowLabel = 'Rate') => {
+        Object.entries(RATE_ALLOWED_VALUES).forEach(([column, allowed]) => {
+            if (!(column in object) || object[column] === null || object[column] === undefined || object[column] === '') return;
+            if (!allowed.includes(String(object[column]))) throw new Error(`${rowLabel}: ${column} must be one of ${allowed.join(', ')}.`);
+        });
+        if ('currency' in object && object.currency) object.currency = String(object.currency).trim().toUpperCase();
+        if ('currency' in object && object.currency && !/^[A-Z]{3}$/.test(object.currency)) throw new Error(`${rowLabel}: currency must be a 3-letter code like USD.`);
+    };
     const rateTemplateValue = (column, isUpdate) => ({
-        mode: 'sea',
+        mode: 'Sea',
         origin: 'NHAVASHEVA',
         destination: 'ROTTERDAM',
         carrier: 'MAERSK',
@@ -4154,6 +4207,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             if (mode === 'update' && (!object.id || Object.keys(object).length < 2)) throw new Error(`Row ${rowIndex + 2}: include id and at least one column to update.`);
+            validateRateAllowedValues(object, `Row ${rowIndex + 2}`);
             return object;
         });
         if (objects.length > 5000) throw new Error('A CSV upload can contain a maximum of 5,000 data rows.');
@@ -4223,12 +4277,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const active = !row.deactivated_at;
             return `
                 <tr data-rate-id="${Number(row.id)}">
-                    <td>${owned ? `<div class="rate-actions"><button class="rate-icon-btn" type="button" data-rate-action="edit" data-rate-id="${Number(row.id)}" title="Edit rate"><i class="fa-solid fa-pen"></i></button>${active ? `<button class="rate-icon-btn" type="button" data-rate-action="deactivate" data-rate-id="${Number(row.id)}" title="Deactivate rate"><i class="fa-solid fa-ban"></i></button>` : ''}<button class="rate-icon-btn danger" type="button" data-rate-action="delete" data-rate-id="${Number(row.id)}" title="Delete rate"><i class="fa-solid fa-trash"></i></button></div>` : '<span class="profile-status">View only</span>'}</td>
                     <td>${escapeHtml(displayValue(row.mode))}</td>
                     <td>${escapeHtml(displayValue(row.origin))}</td>
                     <td>${escapeHtml(displayValue(row.destination))}</td>
-                    <td><strong>${escapeHtml(displayValue(row.carrier))}</strong>${row.remarks ? `<div class="profile-status">${escapeHtml(row.remarks)}</div>` : ''}</td>
-                    <td>${escapeHtml(displayValue(row.commodity))}</td>
+                    <td><strong>${rateCell(row.carrier, 'Carrier')}</strong></td>
+                    <td>${rateCell(row.commodity, 'Commodity')}</td>
                     <td>${escapeHtml(displayValue(row.charge_unit))}</td>
                     <td>${escapeHtml(displayValue(row.currency))}</td>
                     <td>${escapeHtml(formatAmount(row.buy_rate))}</td>
@@ -4237,10 +4290,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>${escapeHtml(formatAmount(row.destination_charges))}</td>
                     <td>${escapeHtml([formatDate(row.valid_from), formatDate(row.valid_to)].filter(value => value !== '-').join(' to ') || '-')}</td>
                     <td>${escapeHtml(row.transit_days ? `${row.transit_days} days` : '-')}</td>
+                    <td>${rateCell(row.remarks, 'Remarks', 180)}</td>
                     <td><span class="badge ${active ? 'delivered' : 'exception'}">${active ? 'Active' : 'Deactivated'}</span></td>
+                    <td>${owned ? `<div class="rate-actions"><button class="rate-icon-btn edit" type="button" data-rate-action="edit" data-rate-id="${Number(row.id)}" title="Edit rate"><i class="fa-solid fa-pen"></i></button>${active ? `<button class="rate-icon-btn deactivate" type="button" data-rate-action="deactivate" data-rate-id="${Number(row.id)}" title="Deactivate rate"><i class="fa-solid fa-ban"></i></button>` : `<button class="rate-icon-btn activate" type="button" data-rate-action="activate" data-rate-id="${Number(row.id)}" title="Activate rate"><i class="fa-solid fa-circle-check"></i></button>`}<button class="rate-icon-btn danger" type="button" data-rate-action="delete" data-rate-id="${Number(row.id)}" title="Delete rate"><i class="fa-solid fa-trash"></i></button></div>` : '<span class="profile-status">View only</span>'}</td>
                 </tr>
             `;
-        }).join('') : '<tr><td></td><td class="rate-message-cell" colspan="14">No rates found. Upload or create a rate to see row actions.</td></tr>';
+        }).join('') : '<tr><td class="rate-message-cell" colspan="16">No rates found. Upload or create a rate to see row actions.</td></tr>';
     };
     const loadFreightRates = async () => {
         if (!authToken || !authUser || !featureAllowed('rates')) return;
@@ -4318,7 +4373,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'rate-edit-origin-charges', 'rate-edit-destination-charges', 'rate-edit-valid-from', 'rate-edit-valid-to',
             'rate-edit-transit-days', 'rate-edit-remarks'
         ].forEach(elementId => { document.getElementById(elementId).value = ''; });
-        document.getElementById('rate-edit-mode').value = 'sea';
+        document.getElementById('rate-edit-mode').value = 'Sea';
         document.getElementById('rate-edit-charge-unit').value = '20GP';
         document.getElementById('rate-edit-currency').value = 'USD';
         document.getElementById('rate-edit-message').textContent = '';
@@ -4848,6 +4903,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('rates-prev-btn')?.addEventListener('click', () => { if (ratesCurrentPage > 1) { ratesCurrentPage--; loadFreightRates(); } });
     document.getElementById('rates-next-btn')?.addEventListener('click', () => { ratesCurrentPage++; loadFreightRates(); });
     document.querySelector('#freight-rates-table tbody')?.addEventListener('click', async event => {
+        const cell = event.target.closest('[data-rate-cell-value]');
+        if (cell) {
+            document.getElementById('rate-value-modal-title').textContent = cell.dataset.rateCellLabel || 'Rate Detail';
+            document.getElementById('rate-value-modal-content').textContent = cell.dataset.rateCellValue || '-';
+            openModal('rate-value-modal');
+            return;
+        }
         const button = event.target.closest('[data-rate-action]');
         if (!button) return;
         const id = Number(button.dataset.rateId);
@@ -4862,6 +4924,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 await loadFreightRates();
             } catch (err) {
                 window.alert(err.message || 'Unable to deactivate rate.');
+            }
+            return;
+        }
+        if (button.dataset.rateAction === 'activate' && window.confirm('Activate this rate?')) {
+            try {
+                await api(RATES_UPDATE_PATH, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
+                    body: JSON.stringify({ obj_list: [{ id, deactivated_at: null }] })
+                });
+                await loadFreightRates();
+            } catch (err) {
+                window.alert(err.message || 'Unable to activate rate.');
             }
             return;
         }
@@ -4895,6 +4970,13 @@ document.addEventListener('DOMContentLoaded', () => {
             remarks: document.getElementById('rate-edit-remarks').value.trim() || null
         };
         if (ratesEditMode === 'update') object.id = Number(document.getElementById('rate-edit-id').value);
+        try {
+            validateRateAllowedValues(object);
+        } catch (err) {
+            message.textContent = err.message || 'Invalid rate value.';
+            message.style.color = '#B91C1C';
+            return;
+        }
         message.textContent = 'Saving changes...';
         message.style.color = '#64748B';
         button.disabled = true;
@@ -4952,6 +5034,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('profile-close-btn').addEventListener('click', () => closeModal('profile-modal'));
     document.getElementById('user-profile-modal-close').addEventListener('click', () => closeModal('user-profile-modal'));
     document.getElementById('user-profile-close-btn').addEventListener('click', () => closeModal('user-profile-modal'));
+    document.getElementById('rate-value-modal-close').addEventListener('click', () => closeModal('rate-value-modal'));
+    document.getElementById('rate-value-close-btn').addEventListener('click', () => closeModal('rate-value-modal'));
     document.getElementById('logout-cancel-btn').addEventListener('click', () => closeModal('logout-modal'));
     document.getElementById('logout-submit-btn').addEventListener('click', logout);
     document.getElementById('profile-menu-profile').addEventListener('click', () => {
