@@ -55,6 +55,7 @@ async def func_lifespan(app:"FastAPI"):
         client_http = httpx.AsyncClient()
         client_postgres = await asyncpg.create_pool(dsn=app.state.config_postgres_url, min_size=5, max_size=20) if app.state.config_postgres_url else None
         client_postgres_read = await asyncpg.create_pool(dsn=app.state.config_postgres_url_read, min_size=5, max_size=20) if app.state.config_postgres_url_read else None
+        client_postgres_external = await asyncpg.create_pool(dsn=app.state.config_postgres_url_external, min_size=5, max_size=20) if app.state.config_postgres_url_external else None
         client_postgres_read_fallback = client_postgres_read or client_postgres
         client_redis = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url)) if app.state.config_redis_url else None
         client_redis_producer = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_queue)) if app.state.config_redis_url_queue else None

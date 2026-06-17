@@ -2198,6 +2198,371 @@ body {
     font-size: 0.82rem;
 }
 
+/* Sales Rate Search */
+.sales-rate-shell {
+    display: grid;
+    grid-template-columns: minmax(360px, 0.9fr) minmax(420px, 1.1fr);
+    align-items: start;
+    gap: 1rem;
+    padding: 1.25rem;
+}
+
+.sales-rate-card {
+    border: 1px solid #DCE7FF;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F8FBFF 100%);
+    box-shadow: 0 18px 42px rgba(30, 64, 175, 0.10);
+    overflow: visible;
+}
+
+.sales-rate-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.15rem;
+    border-bottom: 1px solid #BFDBFE;
+    background: linear-gradient(135deg, #EFF6FF 0%, #EEF2FF 55%, #ECFEFF 100%);
+}
+
+.sales-rate-card-header h3 {
+    margin: 0;
+    color: #0F172A;
+    font-size: 1rem;
+}
+
+.sales-rate-card-header span {
+    color: #64748B;
+    font-size: 0.8rem;
+}
+
+.sales-rate-form {
+    display: grid;
+    gap: 0.8rem;
+    padding: 1.1rem;
+}
+
+.sales-rate-section {
+    padding: 0.85rem;
+    border: 1px solid #DDE7FF;
+    border-radius: 12px;
+    background: #FFFFFF;
+}
+
+.sales-rate-section.location {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%);
+}
+
+.sales-rate-section.cargo {
+    background: linear-gradient(135deg, #FFFFFF 0%, #F0FDF4 100%);
+}
+
+.sales-rate-section.optional {
+    background: linear-gradient(135deg, #FFFFFF 0%, #FFF7ED 100%);
+}
+
+.sales-rate-section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+}
+
+.sales-rate-section-title h4 {
+    margin: 0;
+    color: #0F172A;
+    font-size: 0.9rem;
+}
+
+.sales-rate-section-title span {
+    color: #64748B;
+    font-size: 0.76rem;
+}
+
+.sales-rate-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.sales-rate-section.location .sales-rate-grid {
+    grid-template-columns: 110px repeat(2, minmax(0, 1fr));
+}
+
+.sales-rate-field label {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-bottom: 0.35rem;
+    color: #334155;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.sales-required-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 0.95rem;
+    height: 0.95rem;
+    border-radius: 999px;
+    background: #FEF2F2;
+    color: #DC2626;
+    font-size: 0.52rem;
+}
+
+.sales-suggest-field {
+    position: relative;
+}
+
+.sales-suggest-field input {
+    padding-right: 4rem;
+}
+
+.sales-suggest-clear {
+    position: absolute;
+    right: 2.15rem;
+    top: 2.05rem;
+    width: 1.6rem;
+    height: 1.6rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 999px;
+    background: #F1F5F9;
+    color: #64748B;
+    cursor: pointer;
+}
+
+.sales-suggest-clear:hover {
+    background: #E2E8F0;
+    color: #0F172A;
+}
+
+.sales-suggest-clear[hidden] {
+    display: none;
+}
+
+.sales-suggest-toggle {
+    position: absolute;
+    right: 0.45rem;
+    top: 2.05rem;
+    width: 1.6rem;
+    height: 1.6rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: #64748B;
+    cursor: pointer;
+}
+
+.sales-suggest-toggle:hover {
+    background: #EEF2FF;
+    color: var(--primary);
+}
+
+.sales-rate-field input,
+.sales-rate-field select {
+    width: 100%;
+    min-height: 42px;
+    box-sizing: border-box;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid #CBD5E1;
+    border-radius: 8px;
+    background: #FFFFFF;
+    color: #0F172A;
+    font: inherit;
+    outline: none;
+}
+
+.sales-rate-field input:focus,
+.sales-rate-field select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+.sales-suggest-menu {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    left: 0;
+    right: 0;
+    z-index: 25;
+    max-height: 180px;
+    overflow-y: auto;
+    padding: 0.35rem;
+    border: 1px solid #CBD5E1;
+    border-radius: 10px;
+    background: #FFFFFF;
+    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.15);
+}
+
+.sales-suggest-menu[hidden] {
+    display: none;
+}
+
+.sales-suggest-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.55rem 0.65rem;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #0F172A;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sales-suggest-option:hover {
+    background: #EEF2FF;
+    color: var(--primary);
+}
+
+.sales-suggest-empty {
+    padding: 0.55rem 0.65rem;
+    color: #94A3B8;
+    font-size: 0.82rem;
+}
+
+.sales-rate-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.6rem;
+}
+
+.sales-rate-results {
+    display: grid;
+    gap: 0.8rem;
+    align-content: start;
+    max-height: calc(100vh - 240px);
+    overflow: auto;
+    padding: 1rem;
+    border: 1px solid #DCE7FF;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F8FBFF 100%);
+    box-shadow: 0 18px 42px rgba(30, 64, 175, 0.08);
+}
+
+.sales-rate-info-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.65rem;
+    border: 1px solid #BAE6FD;
+    border-radius: 999px;
+    background: #F0F9FF;
+    color: #0369A1;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.sales-rate-result-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #64748B;
+    font-size: 0.85rem;
+}
+
+.sales-rate-result-card {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid #DBEAFE;
+    border-radius: 12px;
+    background: #FFFFFF;
+    box-shadow: 0 10px 24px rgba(30, 64, 175, 0.07);
+}
+
+.sales-rate-route {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.45rem;
+    color: #0F172A;
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.sales-rate-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.sales-rate-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.32rem;
+    padding: 0.28rem 0.55rem;
+    border-radius: 999px;
+    background: #F1F5F9;
+    color: #475569;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.sales-rate-chip i {
+    color: var(--primary);
+    font-size: 0.72rem;
+}
+
+.sales-rate-chip.carrier i { color: #0EA5E9; }
+.sales-rate-chip.commodity i { color: #D97706; }
+.sales-rate-chip.currency i { color: #059669; }
+.sales-rate-chip.transit i { color: #7C3AED; }
+
+.sales-rate-price {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: 10px;
+    background: #ECFDF5;
+    color: #065F46;
+}
+
+.sales-rate-price span {
+    display: block;
+    color: #047857;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.sales-rate-price strong {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 1.15rem;
+}
+
+.sales-rate-charges {
+    color: #64748B;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-align: right;
+}
+
+.sales-rate-empty {
+    padding: 1.2rem;
+    border: 1px dashed #CBD5E1;
+    border-radius: 12px;
+    background: #F8FAFC;
+    color: #64748B;
+    text-align: center;
+    font-weight: 700;
+}
+
 #rate-csv-modal .modal-content { width: 760px; }
 #rate-edit-modal .modal-content { width: 980px; }
 
@@ -2235,6 +2600,10 @@ body {
 .rate-edit-grid textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
 
 @media (max-width: 900px) {
+    .sales-rate-shell { grid-template-columns: 1fr; }
+    .sales-rate-form,
+    .sales-rate-section.location .sales-rate-grid { grid-template-columns: 1fr; }
+    .sales-rate-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .rate-filter-field.mode,
     .rate-filter-field.carrier,
     .rate-filter-field.origin,
@@ -2258,6 +2627,9 @@ body {
 }
 
 @media (max-width: 700px) {
+    .sales-rate-grid,
+    .sales-rate-result-card { grid-template-columns: 1fr; }
+    .sales-rate-price { text-align: left; }
     .rate-edit-grid { grid-template-columns: 1fr; }
     .rate-filter-field.mode,
     .rate-filter-field.carrier,
@@ -2540,6 +2912,9 @@ body.not-allowed .content-wrapper {
                 <h2>MyShipment</h2>
             </div>
             <nav class="nav-menu">
+                <a href="#sales-rates" class="nav-item" data-target="sales-rates" data-roles="5" hidden>
+                    <i class="fa-solid fa-magnifying-glass-dollar"></i> Rate Search
+                </a>
                 <a href="#rates" class="nav-item" data-target="rates" data-roles="4" hidden>
                     <i class="fa-solid fa-sailboat"></i> Rates
                 </a>
@@ -2639,6 +3014,116 @@ body.not-allowed .content-wrapper {
                         <h2>Access not allowed</h2>
                         <p>This portal is not configured for your account role. Your account currently has <strong>role = <span id="blocked-current-role">-</span></strong>. Please contact your administrator if you believe this is a mistake.</p>
                         <button class="btn btn-primary" id="blocked-logout-btn" type="button">Logout</button>
+                    </div>
+                </section>
+
+                <!-- Sales Rate Search Section -->
+                <section id="sales-rates" class="view-section">
+                    <div class="panel po-panel">
+                        <div class="po-toolbar">
+                            <div class="po-heading">
+                                <h2>Rate Search</h2>
+                                <p>Find approved freight rates and prepare a quote for the customer.</p>
+                            </div>
+                            <span class="sales-rate-info-pill"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Buy rate hidden</span>
+                        </div>
+                        <div class="sales-rate-shell">
+                            <div class="sales-rate-card">
+                                <div class="sales-rate-card-header">
+                                    <div>
+                                        <h3>Booking Details</h3>
+                                        <span>Enter route and cargo details to find matching rates</span>
+                                    </div>
+                                    <i class="fa-solid fa-route" aria-hidden="true"></i>
+                                </div>
+                                <form class="sales-rate-form" id="sales-rate-search-form">
+                                    <div class="sales-rate-section location">
+                                        <div class="sales-rate-section-title">
+                                            <h4>Location Details</h4>
+                                            <span>Where is the shipment moving?</span>
+                                        </div>
+                                        <div class="sales-rate-grid">
+                                            <div class="sales-rate-field">
+                                                <label for="sales-rate-mode">Mode <span class="sales-required-icon" title="Required"><i class="fa-solid fa-asterisk"></i></span></label>
+                                                <select id="sales-rate-mode" required>
+                                                    <option value="">Mode</option>
+                                                    <option value="Sea">Sea</option>
+                                                    <option value="Air">Air</option>
+                                                </select>
+                                            </div>
+                                            <div class="sales-rate-field sales-suggest-field">
+                                                <label for="sales-rate-origin">From <span class="sales-required-icon" title="Required"><i class="fa-solid fa-asterisk"></i></span></label>
+                                                <input id="sales-rate-origin" placeholder="Origin" autocomplete="off" required>
+                                                <button class="sales-suggest-clear" type="button" data-sales-clear="origin" aria-label="Clear origin" title="Clear" hidden><i class="fa-solid fa-xmark"></i></button>
+                                                <button class="sales-suggest-toggle" type="button" data-sales-toggle="origin" aria-label="Show origin options" title="Show options"><i class="fa-solid fa-chevron-down"></i></button>
+                                                <div class="sales-suggest-menu" id="sales-rate-origin-menu" hidden></div>
+                                            </div>
+                                            <div class="sales-rate-field sales-suggest-field">
+                                                <label for="sales-rate-destination">To <span class="sales-required-icon" title="Required"><i class="fa-solid fa-asterisk"></i></span></label>
+                                                <input id="sales-rate-destination" placeholder="Destination" autocomplete="off" required>
+                                                <button class="sales-suggest-clear" type="button" data-sales-clear="destination" aria-label="Clear destination" title="Clear" hidden><i class="fa-solid fa-xmark"></i></button>
+                                                <button class="sales-suggest-toggle" type="button" data-sales-toggle="destination" aria-label="Show destination options" title="Show options"><i class="fa-solid fa-chevron-down"></i></button>
+                                                <div class="sales-suggest-menu" id="sales-rate-destination-menu" hidden></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="sales-rate-section cargo">
+                                        <div class="sales-rate-section-title">
+                                            <h4>Cargo Details</h4>
+                                            <span>What do you want to ship?</span>
+                                        </div>
+                                        <div class="sales-rate-grid">
+                                            <div class="sales-rate-field">
+                                                <label for="sales-rate-charge-unit">Charge Unit <span class="sales-required-icon" title="Required"><i class="fa-solid fa-asterisk"></i></span></label>
+                                                <select id="sales-rate-charge-unit" required>
+                                                    <option value="">Charge Unit</option>
+                                                    <option value="20GP">20GP</option>
+                                                    <option value="40GP">40GP</option>
+                                                    <option value="40HC">40HC</option>
+                                                    <option value="45HC">45HC</option>
+                                                    <option value="CBM">CBM</option>
+                                                    <option value="KG">KG</option>
+                                                </select>
+                                            </div>
+                                            <div class="sales-rate-field sales-suggest-field">
+                                                <label for="sales-rate-commodity">Commodity</label>
+                                                <input id="sales-rate-commodity" placeholder="Commodity" autocomplete="off">
+                                                <button class="sales-suggest-clear" type="button" data-sales-clear="commodity" aria-label="Clear commodity" title="Clear" hidden><i class="fa-solid fa-xmark"></i></button>
+                                                <button class="sales-suggest-toggle" type="button" data-sales-toggle="commodity" aria-label="Show commodity options" title="Show options"><i class="fa-solid fa-chevron-down"></i></button>
+                                                <div class="sales-suggest-menu" id="sales-rate-commodity-menu" hidden></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="sales-rate-section optional">
+                                        <div class="sales-rate-section-title">
+                                            <h4>Optional Filters</h4>
+                                            <span>Use only if the client prefers a carrier</span>
+                                        </div>
+                                        <div class="sales-rate-grid">
+                                            <div class="sales-rate-field sales-suggest-field">
+                                                <label for="sales-rate-carrier">Carrier</label>
+                                                <input id="sales-rate-carrier" placeholder="Carrier" autocomplete="off">
+                                                <button class="sales-suggest-clear" type="button" data-sales-clear="carrier" aria-label="Clear carrier" title="Clear" hidden><i class="fa-solid fa-xmark"></i></button>
+                                                <button class="sales-suggest-toggle" type="button" data-sales-toggle="carrier" aria-label="Show carrier options" title="Show options"><i class="fa-solid fa-chevron-down"></i></button>
+                                                <div class="sales-suggest-menu" id="sales-rate-carrier-menu" hidden></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="auth-message" id="sales-rate-message"></div>
+                                    <div class="sales-rate-actions">
+                                        <button class="btn btn-secondary" id="sales-rate-clear-btn" type="button">
+                                            <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Clear
+                                        </button>
+                                        <button class="btn btn-primary" id="sales-rate-submit-btn" type="submit">
+                                            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Search Rates
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="sales-rate-results" id="sales-rate-results">
+                                <div class="sales-rate-empty">Enter route details and search to view matching rates.</div>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
@@ -3558,6 +4043,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const LOGIN_PATH = '/auth/login-username-password';
     const INFO_PATH = '/info';
     const MY_PROFILE_PATH = '/my/profile';
+    const TABLE_GROUPBY_PATH = '/public/table-groupby';
     const CARGOWISE_PROFILE_PATH = '/cargowise/my-profile';
     const ADMIN_USERS_PATH = '/admin/object-read';
     const ADMIN_POSTGRES_EXPORT_PATH = '/admin/postgres-export';
@@ -3566,6 +4052,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const RATES_CREATE_PATH = '/rates/my-create';
     const RATES_UPDATE_PATH = '/rates/my-update';
     const RATES_DELETE_PATH = '/rates/my-delete';
+    const STORAGE_KEY_RATE_GROUPBY = 'rates_groupby_options';
+    const STORAGE_KEY_RATE_GROUPBY_AT = 'rates_groupby_cached_at';
+    const RATE_GROUPBY_CACHE_MS = 5 * 60 * 1000;
+    const RATE_GROUPBY_COLS = ['origin', 'destination', 'carrier', 'commodity'];
     let roleLabels = {};
     let typeLabels = {};
     const MODULE_ENDPOINTS = {
@@ -3593,6 +4083,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let ratesCsvMode = 'create';
     let ratesEditMode = 'update';
     let ratesCsvObjects = [];
+    let rateGroupbyOptions = {};
     let buyerSearchQuery = '';
     let poSearchQuery = '';
     let poSearchTimeout;
@@ -3639,6 +4130,7 @@ document.addEventListener('DOMContentLoaded', () => {
         appInfo = payload || {};
         roleLabels = appInfo?.mapping?.role?.users || {};
         typeLabels = appInfo?.mapping?.type?.users || {};
+        renderRateDropdowns();
     };
     const infoCacheFresh = () => {
         const cachedAt = Number(localStorage.getItem(STORAGE_KEY_INFO_AT) || 0);
@@ -3664,6 +4156,8 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.removeItem(STORAGE_KEY_USER);
         localStorage.removeItem(STORAGE_KEY_INFO);
         localStorage.removeItem(STORAGE_KEY_INFO_AT);
+        localStorage.removeItem(STORAGE_KEY_RATE_GROUPBY);
+        localStorage.removeItem(STORAGE_KEY_RATE_GROUPBY_AT);
         localStorage.removeItem('profile');
         localStorage.removeItem('myshipment_profile');
     };
@@ -3685,6 +4179,78 @@ document.addEventListener('DOMContentLoaded', () => {
     const accessToken = () => typeof authToken === 'object' ? authToken.access_token || authToken.token || '' : authToken || '';
     const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
     const displayValue = value => value === null || value === undefined || value === '' ? '-' : String(value);
+    const rateGroupbyCacheFresh = () => {
+        const cachedAt = Number(localStorage.getItem(STORAGE_KEY_RATE_GROUPBY_AT) || 0);
+        return Boolean(localStorage.getItem(STORAGE_KEY_RATE_GROUPBY)) && cachedAt && Date.now() - cachedAt < RATE_GROUPBY_CACHE_MS;
+    };
+    const readCachedRateGroupby = () => {
+        try {
+            const cached = JSON.parse(localStorage.getItem(STORAGE_KEY_RATE_GROUPBY) || 'null');
+            return cached && typeof cached === 'object' ? cached : null;
+        } catch (err) {
+            localStorage.removeItem(STORAGE_KEY_RATE_GROUPBY);
+            localStorage.removeItem(STORAGE_KEY_RATE_GROUPBY_AT);
+            return null;
+        }
+    };
+    const writeCachedRateGroupby = options => {
+        localStorage.setItem(STORAGE_KEY_RATE_GROUPBY, JSON.stringify(options || {}));
+        localStorage.setItem(STORAGE_KEY_RATE_GROUPBY_AT, String(Date.now()));
+    };
+    const applyRateGroupbyOptions = options => {
+        rateGroupbyOptions = options || {};
+        RATE_GROUPBY_COLS.forEach(column => {
+            updateSalesSuggestClear(column);
+        });
+        closeSalesSuggestMenus();
+    };
+    const closeSalesSuggestMenus = () => {
+        document.querySelectorAll('.sales-suggest-menu').forEach(menu => { menu.hidden = true; });
+    };
+    const updateSalesSuggestClear = column => {
+        const input = document.getElementById(`sales-rate-${column}`);
+        const button = document.querySelector(`[data-sales-clear="${column}"]`);
+        if (button) button.hidden = !input?.value;
+    };
+    const renderSalesSuggestMenu = column => {
+        const input = document.getElementById(`sales-rate-${column}`);
+        const menu = document.getElementById(`sales-rate-${column}-menu`);
+        if (!input || !menu) return;
+        updateSalesSuggestClear(column);
+        const search = input.value.trim().toLowerCase();
+        const values = (Array.isArray(rateGroupbyOptions?.[column]) ? rateGroupbyOptions[column] : [])
+            .filter(Boolean)
+            .filter(value => !search || String(value).toLowerCase().includes(search))
+            .slice(0, 8);
+        if (!values.length) {
+            menu.innerHTML = '<div class="sales-suggest-empty">No suggestions</div>';
+            menu.hidden = false;
+            return;
+        }
+        menu.innerHTML = values.map(value => `<button class="sales-suggest-option" type="button" data-sales-suggest="${escapeHtml(column)}" data-sales-suggest-value="${escapeHtml(value)}">${escapeHtml(value)}</button>`).join('');
+        menu.hidden = false;
+    };
+    const loadRateGroupbyOptions = async ({ force = false } = {}) => {
+        if (!featureAllowed('sales-rates')) return;
+        const cached = readCachedRateGroupby();
+        if (!force && cached && rateGroupbyCacheFresh()) {
+            applyRateGroupbyOptions(cached);
+            return;
+        }
+        try {
+            const entries = await Promise.all(RATE_GROUPBY_COLS.map(async column => {
+                const query = new URLSearchParams({ table: 'rates', col: column, limit: '10000' });
+                const payload = await api(`${TABLE_GROUPBY_PATH}?${query}`);
+                const values = (payload.message?.obj_list || []).map(row => row.item).filter(Boolean);
+                return [column, values];
+            }));
+            const options = Object.fromEntries(entries);
+            writeCachedRateGroupby(options);
+            applyRateGroupbyOptions(options);
+        } catch (err) {
+            if (cached) applyRateGroupbyOptions(cached);
+        }
+    };
     const supportedRoles = () => Object.keys(roleLabels || {}).map(Number).filter(Number.isFinite);
     const roleSupported = role => supportedRoles().includes(Number(role));
     const featureRolesFromItem = item => String(item?.dataset?.roles || '').split(',').map(Number).filter(Number.isFinite);
@@ -3693,7 +4259,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const firstAllowedFeature = role => [...document.querySelectorAll('.nav-item[data-target][data-roles]')].find(item => roleSupported(role) && featureRolesFromItem(item).includes(Number(role)))?.dataset.target || null;
     const loadFeature = target => {
         showSection(target);
-        if (target === 'rates') loadFreightRates();
+        if (target === 'sales-rates') {
+            resetSalesRateSearch(false);
+            loadRateGroupbyOptions();
+        }
+        else if (target === 'rates') loadFreightRates();
         else if (target === 'users') loadUsers();
         else if (target === 'buyer-360') return;
         else if (target === 'profile') loadCargowiseProfile();
@@ -4109,12 +4679,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const rateTemplateColumns = mode => rateSchemaColumns().filter(column => !RATE_TEMPLATE_SKIP_COLUMNS.has(column) || (mode === 'update' && column === 'deactivated_at'));
     const rateColumnDatatype = column => String(rateSchema()[column]?.datatype || '').toLowerCase();
     const rateNumericColumn = column => /int|numeric|decimal|double|real|float|money/.test(rateColumnDatatype(column));
-    const RATE_ALLOWED_VALUES = {
+    const RATE_DROPDOWN_FALLBACKS = {
         mode: ['Sea', 'Air'],
         charge_unit: ['20GP', '40GP', '40HC', '45HC', 'CBM', 'KG']
     };
+    const rateDropdownOptions = column => {
+        const configured = appInfo?.dropdown?.rates?.[column];
+        return Array.isArray(configured) && configured.length ? configured : RATE_DROPDOWN_FALLBACKS[column] || [];
+    };
+    const setSelectOptions = (elementId, options, placeholder = '') => {
+        const select = document.getElementById(elementId);
+        if (!select) return;
+        const currentValue = select.value;
+        const placeholderHtml = placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : '';
+        select.innerHTML = placeholderHtml + options.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+        if (currentValue && options.includes(currentValue)) select.value = currentValue;
+    };
+    const renderRateDropdowns = () => {
+        setSelectOptions('sales-rate-mode', rateDropdownOptions('mode'), 'Mode');
+        setSelectOptions('sales-rate-charge-unit', rateDropdownOptions('charge_unit'), 'Charge Unit');
+        setSelectOptions('rate-edit-mode', rateDropdownOptions('mode'));
+        setSelectOptions('rate-edit-charge-unit', rateDropdownOptions('charge_unit'));
+    };
     const validateRateAllowedValues = (object, rowLabel = 'Rate') => {
-        Object.entries(RATE_ALLOWED_VALUES).forEach(([column, allowed]) => {
+        Object.keys(RATE_DROPDOWN_FALLBACKS).forEach(column => {
+            const allowed = rateDropdownOptions(column);
             if (!(column in object) || object[column] === null || object[column] === undefined || object[column] === '') return;
             if (!allowed.includes(String(object[column]))) throw new Error(`${rowLabel}: ${column} must be one of ${allowed.join(', ')}.`);
         });
@@ -4296,6 +4885,116 @@ document.addEventListener('DOMContentLoaded', () => {
                 </tr>
             `;
         }).join('') : '<tr><td class="rate-message-cell" colspan="16">No rates found. Upload or create a rate to see row actions.</td></tr>';
+    };
+    const setSalesRateMessage = message => {
+        const results = document.getElementById('sales-rate-results');
+        if (results) results.innerHTML = `<div class="sales-rate-empty">${escapeHtml(message)}</div>`;
+    };
+    const salesRatePayload = () => ({
+        mode: document.getElementById('sales-rate-mode').value,
+        origin: document.getElementById('sales-rate-origin').value.trim(),
+        destination: document.getElementById('sales-rate-destination').value.trim(),
+        charge_unit: document.getElementById('sales-rate-charge-unit').value,
+        commodity: document.getElementById('sales-rate-commodity').value.trim(),
+        carrier: document.getElementById('sales-rate-carrier').value.trim()
+    });
+    const resetSalesRateSearch = (clearForm = true) => {
+        if (clearForm) document.getElementById('sales-rate-search-form')?.reset();
+        RATE_GROUPBY_COLS.forEach(updateSalesSuggestClear);
+        closeSalesSuggestMenus();
+        const message = document.getElementById('sales-rate-message');
+        if (message) message.textContent = '';
+        setSalesRateMessage('Enter route details and search to view matching rates.');
+    };
+    const renderSalesRateResults = rows => {
+        const results = document.getElementById('sales-rate-results');
+        if (!results) return;
+        if (!rows.length) {
+            setSalesRateMessage('No matching rates found. Try a broader origin, destination, or unit.');
+            return;
+        }
+        results.innerHTML = `
+            <div class="sales-rate-result-head">
+                <strong>${rows.length} matching rate${rows.length === 1 ? '' : 's'}</strong>
+            </div>
+            ${rows.map(row => {
+                const modeIcon = String(row.mode || '').toLowerCase() === 'air' ? 'fa-plane-departure' : 'fa-ship';
+                return `
+                <div class="sales-rate-result-card">
+                    <div>
+                        <div class="sales-rate-route">
+                            <span>${escapeHtml(displayValue(row.origin))}</span>
+                            <i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i>
+                            <span>${escapeHtml(displayValue(row.destination))}</span>
+                        </div>
+                        <div class="sales-rate-meta">
+                            <span class="sales-rate-chip"><i class="fa-solid ${modeIcon}" aria-hidden="true"></i>${escapeHtml(displayValue(row.mode))}</span>
+                            <span class="sales-rate-chip"><i class="fa-solid fa-box" aria-hidden="true"></i>${escapeHtml(displayValue(row.charge_unit))}</span>
+                            <span class="sales-rate-chip currency"><i class="fa-solid fa-coins" aria-hidden="true"></i>Currency: ${escapeHtml(displayValue(row.currency))}</span>
+                            <span class="sales-rate-chip carrier"><i class="fa-solid fa-building" aria-hidden="true"></i>Carrier: ${escapeHtml(displayValue(row.carrier))}</span>
+                            <span class="sales-rate-chip commodity"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i>Commodity: ${escapeHtml(displayValue(row.commodity))}</span>
+                            <span class="sales-rate-chip transit"><i class="fa-regular fa-clock" aria-hidden="true"></i>Transit ${escapeHtml(row.transit_days ? `${row.transit_days} days` : '-')}</span>
+                        </div>
+                        ${row.remarks ? `<div class="profile-status" style="margin-top:0.55rem;">${escapeHtml(row.remarks)}</div>` : ''}
+                    </div>
+                    <div class="sales-rate-price">
+                        <div>
+                            <span>Minimum sell rate</span>
+                            <strong>${escapeHtml(displayValue(row.currency))} ${escapeHtml(formatAmount(row.min_sell_rate))}</strong>
+                        </div>
+                        <div class="sales-rate-charges">Origin charges: ${escapeHtml(formatAmount(row.origin_charges))}<br>Destination charges: ${escapeHtml(formatAmount(row.destination_charges))}</div>
+                    </div>
+                </div>
+            `}).join('')}
+        `;
+    };
+    const loadSalesRates = async () => {
+        if (!authToken || !authUser || !featureAllowed('sales-rates')) return;
+        const message = document.getElementById('sales-rate-message');
+        const ob = salesRatePayload();
+        try {
+            validateRateAllowedValues({ mode: ob.mode, charge_unit: ob.charge_unit });
+        } catch (err) {
+            if (message) {
+                message.textContent = err.message || 'Invalid search value.';
+                message.style.color = '#B91C1C';
+            }
+            return;
+        }
+        if (!ob.mode || !ob.origin || !ob.destination || !ob.charge_unit) {
+            if (message) {
+                message.textContent = 'Mode, origin, destination, and charge unit are required.';
+                message.style.color = '#B91C1C';
+            }
+            return;
+        }
+        if (message) {
+            message.textContent = 'Searching approved rates...';
+            message.style.color = '#64748B';
+        }
+        setSalesRateMessage('Searching rates...');
+        const filters = [
+            { mode: `eq,${ob.mode}` },
+            { origin: `ilike,%${ob.origin}%` },
+            { destination: `ilike,%${ob.destination}%` },
+            { charge_unit: `eq,${ob.charge_unit}` },
+            { deactivated_at: 'is,null' }
+        ];
+        if (ob.commodity) filters.push({ commodity: `ilike,%${ob.commodity}%` });
+        if (ob.carrier) filters.push({ carrier: `ilike,%${ob.carrier}%` });
+        const query = new URLSearchParams({ page: '1', filter: JSON.stringify(filters) });
+        try {
+            const payload = await api(`${RATES_READ_PATH}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const rows = Array.isArray(payload.message?.obj_list) ? payload.message.obj_list : [];
+            renderSalesRateResults(rows);
+            if (message) message.textContent = '';
+        } catch (err) {
+            setSalesRateMessage(err.message || 'Unable to search rates.');
+            if (message) {
+                message.textContent = err.message || 'Unable to search rates.';
+                message.style.color = '#B91C1C';
+            }
+        }
     };
     const loadFreightRates = async () => {
         if (!authToken || !authUser || !featureAllowed('rates')) return;
@@ -4738,6 +5437,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const payload = await api(MY_PROFILE_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
                 saveAuthPayload(payload);
             }
+            if (featureAllowed('sales-rates')) await loadRateGroupbyOptions({ force: true });
             applyAuthShell();
         } catch (err) {
             window.alert(err.message || 'Unable to refresh portal.');
@@ -4887,6 +5587,57 @@ document.addEventListener('DOMContentLoaded', () => {
         updateRateFilterSubmit();
         ratesCurrentPage = 1;
         loadFreightRates();
+    });
+    document.getElementById('sales-rate-search-form')?.addEventListener('submit', event => {
+        event.preventDefault();
+        closeSalesSuggestMenus();
+        loadSalesRates();
+    });
+    document.getElementById('sales-rate-clear-btn')?.addEventListener('click', () => resetSalesRateSearch(true));
+    RATE_GROUPBY_COLS.forEach(column => {
+        const input = document.getElementById(`sales-rate-${column}`);
+        if (!input) return;
+        input.addEventListener('input', () => renderSalesSuggestMenu(column));
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Escape') closeSalesSuggestMenus();
+        });
+    });
+    document.addEventListener('click', event => {
+        const option = event.target.closest('[data-sales-suggest]');
+        if (option) {
+            const column = option.dataset.salesSuggest;
+            const input = document.getElementById(`sales-rate-${column}`);
+            if (input) input.value = option.dataset.salesSuggestValue || '';
+            updateSalesSuggestClear(column);
+            closeSalesSuggestMenus();
+            return;
+        }
+        const clearButton = event.target.closest('[data-sales-clear]');
+        if (clearButton) {
+            const column = clearButton.dataset.salesClear;
+            const input = document.getElementById(`sales-rate-${column}`);
+            if (input) {
+                input.value = '';
+                input.focus();
+                updateSalesSuggestClear(column);
+                renderSalesSuggestMenu(column);
+            }
+            return;
+        }
+        const toggleButton = event.target.closest('[data-sales-toggle]');
+        if (toggleButton) {
+            const column = toggleButton.dataset.salesToggle;
+            const input = document.getElementById(`sales-rate-${column}`);
+            const menu = document.getElementById(`sales-rate-${column}-menu`);
+            if (input) input.focus();
+            if (menu && !menu.hidden) closeSalesSuggestMenus();
+            else {
+                closeSalesSuggestMenus();
+                renderSalesSuggestMenu(column);
+            }
+            return;
+        }
+        if (!event.target.closest('.sales-suggest-field')) closeSalesSuggestMenus();
     });
     document.getElementById('rates-my-filter-btn')?.addEventListener('click', () => {
         ratesMyOnly = !ratesMyOnly;
@@ -5132,6 +5883,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadInfo();
         applyAuthState();
         window.setInterval(() => loadInfo().then(renderProfile).catch(() => {}), INFO_CACHE_REFRESH_MS);
+        window.setInterval(() => loadRateGroupbyOptions({ force: true }).catch(() => {}), RATE_GROUPBY_CACHE_MS);
     };
     initialize();
 

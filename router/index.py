@@ -21,7 +21,8 @@ async def func_api_index_info(*, request:Request):
         "message": {
             "api_list": [route.path for route in request.app.routes if hasattr(route, "path")],
             "postgres_schema": app_state.cache_postgres_schema,
-            "mapping": app_state.config_column_int_mapping
+            "mapping": app_state.config_column_int_mapping,
+            "dropdown": app_state.config_dropdown
         }
     }
 

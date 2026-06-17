@@ -1,6 +1,7 @@
 # Integrations
 config_postgres_url = None
 config_postgres_url_read = None
+config_postgres_url_external = None
 config_redis_url = None
 config_redis_url_queue = None
 config_mongodb_url = None
@@ -110,6 +111,13 @@ config_regex = {
 "password": ["^(?=.{6,120}\\Z)\\S+\\Z", "Password must be 6-120 characters and contain no spaces"],
 }
 
+config_dropdown = {
+"rates": {
+"mode": ["Sea", "Air"],
+"charge_unit": ["20GP", "40GP", "40HC", "45HC", "CBM", "KG"],
+},
+}
+
 config_api = {
 # INDEX ROUTER
 "/": {"id": 35, "is_token": 0},
@@ -191,7 +199,7 @@ config_api = {
 "/rates/my-create": {"id": 73, "is_token": 1, "user_check_role": ["token", [4]]},
 "/rates/my-update": {"id": 74, "is_token": 1, "user_check_role": ["token", [4]]},
 "/rates/my-delete": {"id": 75, "is_token": 1, "user_check_role": ["token", [4]]},
-"/rates": {"id": 72, "is_token": 1, "user_check_role": ["token", [4]]},
+"/rates": {"id": 72, "is_token": 1, "user_check_role": ["token", [4, 5]]},
 }
 
 config_column_int_mapping = {
