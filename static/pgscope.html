@@ -1,0 +1,2205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PGScope</title>
+    <style>
+:root {
+    --bg-main: #F3F4F6;
+    --bg-surface: #FFFFFF;
+    --sidebar-bg: #111827;
+    --sidebar-text: #9CA3AF;
+    --sidebar-text-active: #FFFFFF;
+    --sidebar-active-bg: #1F2937;
+    --primary: #4F46E5;
+    --primary-hover: #4338CA;
+    --text-dark: #111827;
+    --text-muted: #6B7280;
+    --border: #E5E7EB;
+    --status-green: #D1FAE5;
+    --status-green-text: #065F46;
+    --status-blue: #DBEAFE;
+    --status-blue-text: #1E3A8A;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-dark);
+}
+
+.app-layout {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.sidebar {
+    width: 250px;
+    background-color: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    display: flex;
+    flex-direction: column;
+}
+
+.logo {
+    height: 64px;
+    padding: 0 1.5rem;
+    display: flex;
+    align-items: center;
+    color: #FFFFFF;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.logo h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.nav-menu {
+    padding: 1rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+}
+
+.nav-item {
+    padding: 0.875rem 1.5rem;
+    color: var(--sidebar-text);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+}
+
+.nav-item i {
+    width: 20px;
+    text-align: center;
+}
+
+.nav-item:hover {
+    color: var(--sidebar-text-active);
+    background-color: rgba(255,255,255,0.05);
+}
+
+.nav-item.active {
+    color: var(--sidebar-text-active);
+    background-color: var(--sidebar-active-bg);
+    border-left: 4px solid var(--primary);
+}
+
+.main-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.top-bar {
+    height: 64px;
+    min-height: 64px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 2rem;
+}
+
+.top-title {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.top-title strong {
+    font-size: 1rem;
+}
+
+.top-title span {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.user-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* Auth component: header controls, account menu, modals, and shared auth styling */
+.profile-actions {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.header-refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 34px;
+    padding: 0.45rem 0.75rem;
+}
+
+.user-profile {
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    padding: 0.25rem;
+    cursor: pointer;
+}
+
+.user-profile:hover {
+    border-color: var(--border);
+    background: var(--bg-main);
+}
+
+.avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.72rem;
+    line-height: 1;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.header-role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 30px;
+    padding: 0.35rem 0.7rem;
+    color: #3730A3;
+    background: #EEF2FF;
+    border: 1px solid #C7D2FE;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.header-role-badge i { font-size: 0.7rem; }
+
+.profile-menu {
+    position: absolute;
+    top: calc(100% + 0.65rem);
+    right: 0;
+    width: 168px;
+    background: #FFFFFF;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 18px 35px rgba(17, 24, 39, 0.14);
+    padding: 0.35rem;
+    display: none;
+    z-index: 200;
+}
+
+.profile-menu.open { display: block; }
+
+.profile-menu button {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    text-align: left;
+    padding: 0.65rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.86rem;
+    color: var(--text-dark);
+    font: inherit;
+    cursor: pointer;
+}
+
+.profile-menu button:hover { background: var(--bg-main); }
+.profile-menu button.danger { color: #B91C1C; }
+.profile-menu button i {
+    width: 16px;
+    text-align: center;
+    font-size: 0.85rem;
+}
+
+.header-refresh-btn.is-loading i {
+    animation: spin 0.8s linear infinite;
+}
+
+.section-refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.section-refresh-btn.is-loading i {
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.content-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    padding: 2rem;
+}
+
+.view-section { display: none; }
+.view-section.active { display: block; animation: fadeIn 0.22s ease; }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.home-section {
+    min-height: calc(100vh - 114px);
+    display: none;
+    align-items: center;
+}
+
+.home-section.active {
+    display: flex;
+}
+
+.home-hero {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+    gap: 2rem;
+    align-items: center;
+}
+
+.home-copy {
+    max-width: 700px;
+}
+
+.home-chip {
+    display: inline-block;
+    padding: 0.35rem 0.85rem;
+    background: #EEF2FF;
+    border: 1px solid #C7D2FE;
+    color: var(--primary);
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.home-copy h1 {
+    margin: 0;
+    font-size: clamp(2rem, 4vw, 3.7rem);
+    line-height: 1.04;
+    color: var(--text-dark);
+}
+
+.home-copy p {
+    margin: 1.25rem 0 1.5rem;
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    line-height: 1.7;
+}
+
+.home-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    box-shadow: 0 18px 40px rgba(17, 24, 39, 0.08);
+}
+
+.home-card-row {
+    display: grid;
+    grid-template-columns: 42px 1fr;
+    gap: 1rem;
+    padding: 0.8rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.home-card-row:last-child {
+    border-bottom: none;
+}
+
+.home-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: #EEF2FF;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.home-card-row strong {
+    display: block;
+    margin-bottom: 0.2rem;
+}
+
+.home-card-row span {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.section-header h1 {
+    margin: 0;
+    font-size: 1.45rem;
+}
+
+.section-header p {
+    margin: 0.35rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.kpi-card {
+    background: var(--bg-surface);
+    padding: 1.2rem;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    border-top: 4px solid var(--primary);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.kpi-card h4 {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin: 0 0 0.55rem;
+    color: var(--text-muted);
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.kpi-card h4 i {
+    width: 18px;
+    height: 18px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 6px;
+    background: #EEF2FF;
+    color: var(--primary);
+    font-size: 0.72rem;
+}
+
+.kpi-card .val {
+    color: var(--text-dark);
+    font-size: 1.7rem;
+    font-weight: 800;
+}
+
+.panel {
+    background: var(--bg-surface);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.panel-header h3 {
+    margin: 0;
+    font-size: 1.05rem;
+}
+
+.placeholder-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.placeholder-card {
+    min-height: 120px;
+    padding: 1rem;
+    border: 1px dashed #CBD5E1;
+    border-radius: 10px;
+    background: #F8FAFC;
+}
+
+.placeholder-card i {
+    color: var(--primary);
+    margin-bottom: 0.75rem;
+}
+
+.placeholder-card h4 {
+    margin: 0 0 0.4rem;
+    font-size: 0.95rem;
+}
+
+.placeholder-card p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    line-height: 1.55;
+}
+
+.schema-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.schema-filter-bar {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.6fr) repeat(3, minmax(140px, 1fr)) auto;
+    gap: 0.75rem;
+    align-items: end;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #F8FAFC;
+    margin-bottom: 1rem;
+}
+
+.schema-filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.schema-filter-field label {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.schema-filter-field input,
+.schema-filter-field select {
+    min-height: 38px;
+    width: 100%;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #FFFFFF;
+    color: var(--text-dark);
+    font: inherit;
+    font-size: 0.84rem;
+    outline: none;
+}
+
+.schema-filter-field input:focus,
+.schema-filter-field select:focus {
+    border-color: #A5B4FC;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.schema-filter-clear.is-active {
+    border-color: #F59E0B;
+    background: #FFFBEB;
+    color: #92400E;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14);
+}
+
+.schema-filter-clear.is-active:hover {
+    border-color: #D97706;
+    background: #FEF3C7;
+    color: #78350F;
+}
+
+.schema-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #F8FAFC;
+    margin-bottom: 1rem;
+}
+
+.schema-result-count {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+.schema-page-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+
+.schema-page-button {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: #FFFFFF;
+    color: var(--text-dark);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.schema-page-button:hover:not(:disabled) {
+    border-color: #A5B4FC;
+    color: var(--primary);
+}
+
+.schema-page-button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+#schema-page-display {
+    min-width: 64px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.schema-table {
+    width: max-content;
+    min-width: 100%;
+    table-layout: auto;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.schema-table th,
+.schema-table td {
+    padding: 0.75rem 0.85rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dark);
+    font-size: 0.8rem;
+    text-align: left;
+    vertical-align: top;
+    white-space: nowrap;
+}
+
+.schema-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #F9FAFB;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.schema-table th:nth-child(4),
+.schema-table th:nth-child(5),
+.schema-table th:nth-child(6),
+.schema-table th:nth-child(7),
+.schema-table th:nth-child(8),
+.schema-table th:nth-child(9),
+.schema-table th:nth-child(10),
+.schema-table th:nth-child(11),
+.schema-table th:nth-child(12),
+.schema-table td:nth-child(4),
+.schema-table td:nth-child(5),
+.schema-table td:nth-child(6),
+.schema-table td:nth-child(7),
+.schema-table td:nth-child(8),
+.schema-table td:nth-child(9),
+.schema-table td:nth-child(10),
+.schema-table td:nth-child(11),
+.schema-table td:nth-child(12) {
+    width: 1%;
+    text-align: center;
+}
+
+.schema-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.schema-cell-main {
+    color: var(--text-dark);
+    font-weight: 500;
+}
+
+.schema-cell-sub {
+    display: block;
+    margin-top: 0.18rem;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+
+.schema-flag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    padding: 0.22rem 0.45rem;
+    border: 1px solid #D1FAE5;
+    border-radius: 7px;
+    background: #ECFDF5;
+    color: #065F46;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.schema-flag.no {
+    border-color: #E5E7EB;
+    background: #FFFFFF;
+    color: #6B7280;
+}
+
+.schema-empty {
+    padding: 2rem 1rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.query-form {
+    display: grid;
+    gap: 1rem;
+}
+
+.query-editor {
+    min-height: 190px;
+    width: 100%;
+    resize: vertical;
+    padding: 1rem;
+    border: 1px solid #1E293B;
+    border-radius: 10px;
+    background: #0F172A;
+    color: #D1FAE5;
+    font: 0.86rem/1.6 "SF Mono", Menlo, Monaco, Consolas, monospace;
+    outline: none;
+}
+
+.query-editor:focus {
+    border-color: #818CF8;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.22);
+}
+
+.query-toolbar {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.query-limit-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.query-limit-field label {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.query-limit-field input {
+    width: 150px;
+    min-height: 38px;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-dark);
+    font: inherit;
+    outline: none;
+}
+
+.query-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.query-message {
+    min-height: 1.2rem;
+    color: var(--text-muted);
+    font-size: 0.84rem;
+}
+
+.query-result-panel {
+    margin-top: 1.5rem;
+}
+
+.query-table-wrap {
+    overflow: auto;
+    max-height: 520px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.query-table {
+    width: 100%;
+    min-width: 760px;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.query-table th,
+.query-table td {
+    max-width: 360px;
+    padding: 0.7rem 0.85rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dark);
+    font-size: 0.8rem;
+    text-align: left;
+    vertical-align: top;
+}
+
+.query-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #F9FAFB;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.query-cell {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.query-empty {
+    padding: 2rem 1rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 6px;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: #FFFFFF;
+}
+
+.btn-primary:hover { background: var(--primary-hover); }
+
+.btn-danger {
+    background: #DC2626;
+    color: #FFFFFF;
+}
+
+.btn-danger:hover {
+    background: #B91C1C;
+}
+
+.btn-secondary {
+    background: var(--bg-surface);
+    color: var(--text-dark);
+    border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+    border-color: #C7D2FE;
+    background: #EEF2FF;
+    color: #312E81;
+}
+
+.btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.auth-only { display: none; }
+body.logged-in .auth-only { display: flex; }
+body.logged-in .guest-only { display: none; }
+body.logged-out .sidebar,
+body.logged-out .auth-only { display: none !important; }
+body.logged-out .main-content { width: 100%; }
+body.logged-out .top-bar { justify-content: flex-end; }
+body.logged-out .top-title { display: none; }
+body.logged-out .content-wrapper {
+    padding: 1.5rem 3rem;
+    overflow: hidden;
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 1.25rem;
+    box-sizing: border-box;
+    background: rgba(17, 24, 39, 0.62);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    width: 650px;
+    max-width: 100%;
+    max-height: calc(100vh - 2.5rem);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg-surface);
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    border-radius: 14px;
+    box-shadow: 0 24px 60px rgba(17, 24, 39, 0.24);
+}
+
+.modal-header {
+    min-height: 76px;
+    box-sizing: border-box;
+    padding: 1rem 1.25rem 1rem 1.5rem;
+    border-bottom: 1px solid #C7D2FE;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    background: linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%);
+}
+
+.modal-heading {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.modal-heading-icon {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #C7D2FE;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.78);
+    color: var(--primary);
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #312E81;
+    font-size: 1.05rem;
+    line-height: 1.3;
+}
+
+.modal-subtitle {
+    margin: 0.18rem 0 0;
+    color: #6366A0;
+    font-size: 0.8rem;
+    line-height: 1.35;
+}
+
+.close-modal {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: transparent;
+    color: #6366A0;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.close-modal:hover {
+    border-color: #C7D2FE;
+    background: rgba(255, 255, 255, 0.78);
+    color: #312E81;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border);
+    background: #F9FAFB;
+}
+
+#login-modal .modal-content { width: 420px; }
+#profile-modal .modal-content,
+#user-profile-modal .modal-content { width: min(560px, calc(100vw - 2.5rem)); }
+#logout-modal .modal-content { width: 420px; }
+#login-modal .modal-body { padding: 1.25rem 1.5rem; }
+#login-modal .auth-form { gap: 0.75rem; }
+#login-modal .form-field { gap: 0.35rem; }
+#login-modal .auth-message { min-height: 1rem; }
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.form-field label {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.form-field input {
+    width: 100%;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    outline: none;
+}
+
+.form-field input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+.auth-form .modal-footer { margin: 0 -1.5rem -1.25rem; }
+
+.password-input-wrap {
+    position: relative;
+}
+
+.password-input-wrap input {
+    width: 100%;
+    padding-right: 3rem;
+    box-sizing: border-box;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 0.45rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 34px;
+    height: 34px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.password-toggle:hover {
+    background: var(--bg-main);
+    color: var(--text-dark);
+}
+
+.auth-message {
+    min-height: 1.2rem;
+    color: var(--text-muted);
+    font-size: 0.86rem;
+}
+
+.profile-grid {
+    display: grid;
+    gap: 0.8rem;
+}
+
+.profile-row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 1rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.profile-row:last-child { border-bottom: none; }
+
+.profile-row span {
+    color: var(--text-muted);
+}
+
+.profile-row strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+
+.logout-confirmation {
+    color: #475569;
+    line-height: 1.55;
+}
+
+.logout-confirmation p { margin: 0; }
+
+@media (max-width: 900px) {
+    .home-hero { grid-template-columns: 1fr; }
+    .sidebar { width: 210px; }
+    .top-bar { padding: 0 1rem; }
+    .content-wrapper { padding: 1rem; }
+    .kpi-row, .placeholder-grid { grid-template-columns: 1fr; }
+    .schema-filter-bar { grid-template-columns: 1fr; }
+    .schema-pagination { align-items: flex-start; flex-direction: column; }
+}
+
+@media (max-width: 700px) {
+    .app-layout { flex-direction: column; }
+    .sidebar {
+        width: 100%;
+        height: auto;
+    }
+    .nav-menu {
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 0.65rem;
+    }
+    .nav-item {
+        white-space: nowrap;
+        border-radius: 8px;
+        padding: 0.7rem 0.85rem;
+    }
+    .nav-item.active { border-left: 0; }
+    .top-title span { display: none; }
+}
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="logged-out">
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>PGScope</h2>
+            </div>
+            <nav class="nav-menu">
+                <a href="#database-info" class="nav-item active auth-only" data-target="database-info">
+                    <i class="fa-solid fa-database" aria-hidden="true"></i> Database Info
+                </a>
+                <a href="#schema" class="nav-item auth-only" data-target="schema">
+                    <i class="fa-solid fa-table-list" aria-hidden="true"></i> Schema
+                </a>
+                <a href="#query-runner" class="nav-item auth-only" data-target="query-runner">
+                    <i class="fa-solid fa-terminal" aria-hidden="true"></i> Query Runner
+                </a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="top-title">
+                    <strong id="page-title">PGScope</strong>
+                    <span id="page-subtitle">Lightweight PostgreSQL explorer</span>
+                </div>
+                <div class="user-controls">
+                    <button class="btn btn-primary login-btn guest-only" id="header-login-btn">Login</button>
+                    <div class="profile-actions auth-only">
+                        <button class="btn btn-secondary header-refresh-btn" id="header-refresh-btn" type="button" title="Refresh profile and PGScope info">
+                            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+                            <span>Refresh</span>
+                        </button>
+                        <button class="user-profile" id="user-profile-trigger" type="button" title="Account menu" aria-label="Account menu" aria-expanded="false">
+                            <div class="avatar">US</div>
+                        </button>
+                        <div class="profile-menu" id="profile-menu">
+                            <button type="button" id="profile-menu-profile"><i class="fa-regular fa-id-card" aria-hidden="true"></i> Login Details</button>
+                            <button type="button" id="profile-menu-user"><i class="fa-regular fa-user" aria-hidden="true"></i> My Profile</button>
+                            <button type="button" class="danger" id="profile-menu-logout"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Logout</button>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-wrapper">
+                <section id="home" class="view-section home-section active">
+                    <div class="home-hero">
+                        <div class="home-copy">
+                            <span class="home-chip">POSTGRES UI RUNNER</span>
+                            <h1>Welcome to PGScope</h1>
+                            <p>Inspect external PostgreSQL databases, browse schema details, and run analytics queries from one lightweight workspace.</p>
+                        </div>
+                        <div class="home-card">
+                            <div class="home-card-row">
+                                <div class="home-icon"><i class="fa-solid fa-database" aria-hidden="true"></i></div>
+                                <div><strong>Database info</strong><span>Review connection status, size, version, schemas, tables, and materialized views.</span></div>
+                            </div>
+                            <div class="home-card-row">
+                                <div class="home-icon"><i class="fa-solid fa-table-list" aria-hidden="true"></i></div>
+                                <div><strong>Schema explorer</strong><span>See columns, keys, nullable fields, index names, and index methods in one place.</span></div>
+                            </div>
+                            <div class="home-card-row">
+                                <div class="home-icon"><i class="fa-solid fa-terminal" aria-hidden="true"></i></div>
+                                <div><strong>Query runner</strong><span>Paste SQL, execute against the external read-only URL, and inspect result tables.</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="database-info" class="view-section">
+                    <div class="section-header">
+                        <div>
+                            <h1>Database Info</h1>
+                            <p>Connection and database health summary will load here.</p>
+                        </div>
+                        <button class="btn btn-secondary section-refresh-btn" id="database-info-refresh-btn" type="button" title="Refresh database info" aria-label="Refresh database info">
+                            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+                            <span>Refresh</span>
+                        </button>
+                    </div>
+                    <div class="kpi-row">
+                        <div class="kpi-card"><h4><i class="fa-solid fa-hard-drive" aria-hidden="true"></i> Database Size</h4><div class="val" id="pgscope-db-size">--</div></div>
+                        <div class="kpi-card"><h4><i class="fa-solid fa-folder-tree" aria-hidden="true"></i> Schemas</h4><div class="val" id="pgscope-db-schemas">--</div></div>
+                        <div class="kpi-card"><h4><i class="fa-solid fa-table" aria-hidden="true"></i> Tables</h4><div class="val" id="pgscope-db-tables">--</div></div>
+                        <div class="kpi-card"><h4><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Materialized Views</h4><div class="val" id="pgscope-db-materialized-views">--</div></div>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>External Postgres Connection</h3>
+                        </div>
+                        <div class="placeholder-grid">
+                            <div class="placeholder-card"><i class="fa-solid fa-server" aria-hidden="true"></i><h4>Server</h4><p id="pgscope-db-server">Server version, current database, current user, and connection status.</p></div>
+                            <div class="placeholder-card"><i class="fa-solid fa-hard-drive" aria-hidden="true"></i><h4>Storage</h4><p id="pgscope-db-storage">Database size and largest relation summary.</p></div>
+                            <div class="placeholder-card"><i class="fa-solid fa-chart-simple" aria-hidden="true"></i><h4>Objects</h4><p id="pgscope-db-objects">Tables, schemas, views, materialized views, and indexes.</p></div>
+                            <div class="placeholder-card"><i class="fa-solid fa-fingerprint" aria-hidden="true"></i><h4>Database</h4><p id="pgscope-db-identity">Owner, encoding, collation, and connection limit.</p></div>
+                            <div class="placeholder-card"><i class="fa-solid fa-plug" aria-hidden="true"></i><h4>Activity</h4><p id="pgscope-db-activity">Current connections and transaction activity.</p></div>
+                            <div class="placeholder-card"><i class="fa-solid fa-puzzle-piece" aria-hidden="true"></i><h4>Extensions</h4><p id="pgscope-db-extensions">Installed extension summary.</p></div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="schema" class="view-section">
+                    <div class="section-header">
+                        <div>
+                            <h1>Schema</h1>
+                            <p>Tables, columns, indexes, views, and materialized views will appear here.</p>
+                        </div>
+                        <button class="btn btn-secondary section-refresh-btn" id="schema-refresh-btn" type="button" title="Refresh schema" aria-label="Refresh schema">
+                            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+                            <span>Refresh</span>
+                        </button>
+                    </div>
+                    <div class="kpi-row">
+                        <div class="kpi-card"><h4><i class="fa-solid fa-table" aria-hidden="true"></i> Tables</h4><div class="val" id="pgscope-schema-tables">--</div></div>
+                        <div class="kpi-card"><h4><i class="fa-solid fa-table-columns" aria-hidden="true"></i> Columns</h4><div class="val" id="pgscope-schema-columns">--</div></div>
+                        <div class="kpi-card"><h4><i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Indexes</h4><div class="val" id="pgscope-schema-indexes">--</div></div>
+                        <div class="kpi-card"><h4><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Mat Views</h4><div class="val" id="pgscope-schema-materialized-views">--</div></div>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>Column Index Map</h3>
+                        </div>
+                        <div class="schema-filter-bar">
+                            <div class="schema-filter-field">
+                                <label for="schema-filter-search">Search</label>
+                                <input id="schema-filter-search" placeholder="Table, column, type, index">
+                            </div>
+                            <div class="schema-filter-field">
+                                <label for="schema-filter-relation">Relation</label>
+                                <select id="schema-filter-relation">
+                                    <option value="">All relations</option>
+                                    <option value="table">Tables</option>
+                                    <option value="partitioned_table">Partitioned tables</option>
+                                    <option value="view">Views</option>
+                                    <option value="materialized_view">Materialized views</option>
+                                    <option value="foreign_table">Foreign tables</option>
+                                </select>
+                            </div>
+                            <div class="schema-filter-field">
+                                <label for="schema-filter-index">Index</label>
+                                <select id="schema-filter-index">
+                                    <option value="">All columns</option>
+                                    <option value="any">Any index</option>
+                                    <option value="btree">B-tree</option>
+                                    <option value="gin">GIN</option>
+                                    <option value="gist">GiST</option>
+                                    <option value="brin">BRIN</option>
+                                    <option value="hash">Hash</option>
+                                    <option value="other">Other</option>
+                                    <option value="none">No index</option>
+                                </select>
+                            </div>
+                            <div class="schema-filter-field">
+                                <label for="schema-filter-key">Key</label>
+                                <select id="schema-filter-key">
+                                    <option value="">All keys</option>
+                                    <option value="primary">Primary</option>
+                                    <option value="unique">Unique</option>
+                                    <option value="nullable">Nullable</option>
+                                    <option value="not-null">Not nullable</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-secondary schema-filter-clear" id="schema-filter-clear-btn" type="button" title="Clear schema filters" aria-label="Clear schema filters">
+                                <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+                                <span>Clear</span>
+                            </button>
+                        </div>
+                        <div class="schema-pagination">
+                            <div class="schema-result-count" id="schema-result-count">Loading schema...</div>
+                            <div class="schema-page-controls">
+                                <button class="schema-page-button" id="schema-page-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
+                                <span id="schema-page-display">Page 1</span>
+                                <button class="schema-page-button" id="schema-page-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+                        <div class="schema-table-wrap">
+                            <table class="schema-table">
+                                <thead>
+                                    <tr>
+                                        <th>Table</th>
+                                        <th>Column</th>
+                                        <th>Datatype</th>
+                                        <th>Nullable</th>
+                                        <th>Primary</th>
+                                        <th>Unique</th>
+                                        <th>B-tree</th>
+                                        <th>GIN</th>
+                                        <th>GiST</th>
+                                        <th>BRIN</th>
+                                        <th>Hash</th>
+                                        <th title="Index methods other than B-tree, GIN, GiST, BRIN, and Hash">Other</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pgscope-schema-body">
+                                    <tr><td colspan="12"><div class="schema-empty">Schema has not been loaded.</div></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="query-runner" class="view-section">
+                    <div class="section-header">
+                        <div>
+                            <h1>Query Runner</h1>
+                            <p>Paste SQL and execute against the external read-only PostgreSQL URL.</p>
+                        </div>
+                    </div>
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>SQL Workspace</h3>
+                        </div>
+                        <form class="query-form" id="query-runner-form">
+                            <textarea class="query-editor" id="query-sql" spellcheck="false">SELECT *
+FROM your_table;</textarea>
+                            <div class="query-toolbar">
+                                <div class="query-limit-field">
+                                    <label for="query-limit">Limit</label>
+                                    <input id="query-limit" type="number" min="1" max="5000" value="500" required>
+                                </div>
+                                <div class="query-actions">
+                                    <button class="btn btn-primary" id="query-run-btn" type="submit"><i class="fa-solid fa-play" aria-hidden="true"></i> Run</button>
+                                    <button class="btn btn-secondary" id="query-download-btn" type="button" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> CSV</button>
+                                </div>
+                            </div>
+                            <div class="query-message" id="query-message">Maximum 5,000 rows per run or CSV download.</div>
+                        </form>
+                    </div>
+                    <div class="panel query-result-panel">
+                        <div class="panel-header">
+                            <h3>Result</h3>
+                            <span class="profile-status" id="query-result-count">No result</span>
+                        </div>
+                        <div class="query-table-wrap">
+                            <table class="query-table">
+                                <thead id="query-result-head"></thead>
+                                <tbody id="query-result-body">
+                                    <tr><td><div class="query-empty">Run a query to see results.</div></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Auth component: login, login details, profile details, logout -->
+    <div class="modal" id="login-modal" role="dialog" aria-modal="true" aria-labelledby="login-modal-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                    <div class="modal-heading">
+                        <div class="modal-heading-icon"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i></div>
+                        <div>
+                            <h3 id="login-modal-title">Login</h3>
+                            <p class="modal-subtitle">Enter your credentials to continue</p>
+                        </div>
+                    </div>
+                <button class="close-modal" id="login-modal-close" type="button" aria-label="Close login" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            </div>
+            <div class="modal-body">
+                <form class="auth-form" id="login-form">
+                    <input type="hidden" id="login-type" value="1">
+                    <div class="form-field">
+                        <label for="login-username">Username</label>
+                        <input id="login-username" autocomplete="username" placeholder="Enter username" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="login-password">Password</label>
+                        <div class="password-input-wrap">
+                            <input id="login-password" type="password" autocomplete="current-password" placeholder="Enter password" required>
+                            <button class="password-toggle" type="button" id="toggle-password" aria-label="Show password" title="Show password">
+                                <i class="fa-regular fa-eye" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="auth-message" id="login-message"></div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" type="button" id="login-cancel-btn">Cancel</button>
+                        <button class="btn btn-primary" type="submit" id="login-submit-btn">Login</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-regular fa-id-card" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="profile-modal-title">Login Details</h3>
+                        <p class="modal-subtitle">Credentials used for authentication</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="profile-modal-close" type="button" aria-label="Close login details" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="profile-grid">
+                    <div class="profile-row"><span>Type</span><strong id="profile-type">-</strong></div>
+                    <div class="profile-row"><span>Username</span><strong id="profile-username">-</strong></div>
+                    <div class="profile-row"><span>Password</span><strong id="profile-password">-</strong></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" id="profile-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="user-profile-modal" role="dialog" aria-modal="true" aria-labelledby="user-profile-modal-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-user" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="user-profile-modal-title">My Profile</h3>
+                        <p class="modal-subtitle">User identity and access details</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="user-profile-modal-close" type="button" aria-label="Close profile details" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="profile-grid">
+                    <div class="profile-row"><span>ID</span><strong id="user-profile-id">-</strong></div>
+                    <div class="profile-row"><span>Role</span><strong id="user-profile-role">-</strong></div>
+                    <div class="profile-row"><span>Name</span><strong id="user-profile-name">-</strong></div>
+                    <div class="profile-row"><span>Email</span><strong id="user-profile-email">-</strong></div>
+                    <div class="profile-row"><span>Mobile</span><strong id="user-profile-mobile">-</strong></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" id="user-profile-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="logout-modal" role="dialog" aria-modal="true" aria-labelledby="logout-modal-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="logout-modal-title">Logout</h3>
+                        <p class="modal-subtitle">End the current session</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="logout-modal-close" type="button" aria-label="Close logout" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="logout-confirmation">
+                    <p>Logout now?</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" id="logout-cancel-btn">Cancel</button>
+                <button class="btn btn-danger" type="button" id="logout-submit-btn">Logout</button>
+            </div>
+        </div>
+    </div>
+    <!-- Auth component end -->
+
+    <script>
+// Auth component config: storage keys, public info API, login, and profile refresh.
+const LOGIN_PATH = '/auth/login-username-password';
+const INFO_PATH = '/info';
+const PROFILE_PATH = '/my/profile';
+const PGSCOPE_DATABASE_INFO_PATH = '/pgscope/database-info';
+const PGSCOPE_SCHEMA_PATH = '/pgscope/schema';
+const PGSCOPE_QUERY_RUNNER_PATH = '/pgscope/query-runner';
+const PGSCOPE_QUERY_RUNNER_CSV_PATH = '/pgscope/query-runner-csv';
+const API_BASE = location.origin && location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
+const STORAGE_KEY_TOKEN = 'token';
+const STORAGE_KEY_USER = 'user';
+const STORAGE_KEY_INFO = 'info';
+const STORAGE_KEY_INFO_AT = 'info_cached_at';
+const INFO_CACHE_REFRESH_MS = 5 * 60 * 1000;
+const QUERY_LIMIT_MAX = 5000;
+const QUERY_LIMIT_DEFAULT = 500;
+
+let authToken = readToken();
+let authUser = readUser();
+let appInfo = {};
+let roleLabels = {};
+let typeLabels = {};
+let pgscopeDatabaseInfoLoaded = false;
+let pgscopeSchemaLoaded = false;
+let pgscopeSchemaRows = [];
+let pgscopeSchemaPage = 1;
+let pgscopeSchemaPagination = { page: 1, limit: 0, total_count: 0, has_prev_page: false, has_next_page: false, returned_count: 0 };
+let queryLastSql = '';
+let queryLastLimit = QUERY_LIMIT_DEFAULT;
+
+const $ = id => document.getElementById(id);
+const rawValue = value => value === undefined || value === null || value === '' ? '-' : String(value);
+const formatNumber = value => Number(value || 0).toLocaleString();
+const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+const accessToken = () => typeof authToken === 'object' ? authToken.access_token || authToken.token || '' : authToken || '';
+
+// Auth component helpers: token/user storage, /info caching, and shared API wrapper.
+function readToken() {
+    const raw = localStorage.getItem(STORAGE_KEY_TOKEN);
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch (err) { return raw; }
+}
+
+function readUser() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY_USER) || 'null'); } catch (err) { return null; }
+}
+
+function writeToken(token) {
+    authToken = token || null;
+    if (authToken) localStorage.setItem(STORAGE_KEY_TOKEN, typeof authToken === 'string' ? authToken : JSON.stringify(authToken));
+    else localStorage.removeItem(STORAGE_KEY_TOKEN);
+}
+
+function writeUser(user) {
+    authUser = user || null;
+    if (authUser) localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(authUser));
+    else localStorage.removeItem(STORAGE_KEY_USER);
+    localStorage.removeItem('profile');
+    localStorage.removeItem('myshipment_profile');
+}
+
+function extractToken(payload) {
+    const message = payload && payload.message ? payload.message : payload;
+    return message && message.token ? message.token : null;
+}
+
+function extractUser(payload) {
+    const message = payload && payload.message ? payload.message : payload;
+    const user = message && message.user ? message.user : message;
+    if (!user || typeof user !== 'object') return null;
+    const cleanUser = { ...user };
+    delete cleanUser.token;
+    return cleanUser;
+}
+
+function saveAuthPayload(payload) {
+    const token = extractToken(payload);
+    const user = extractUser(payload);
+    if (!token || !user) throw new Error('Login response missing token or user');
+    writeToken(token);
+    writeUser(user);
+}
+
+function applyInfoPayload(info) {
+    appInfo = info || {};
+    roleLabels = appInfo?.mapping?.role?.users || {};
+    typeLabels = appInfo?.mapping?.type?.users || {};
+}
+
+function infoCacheFresh() {
+    const cachedAt = Number(localStorage.getItem(STORAGE_KEY_INFO_AT) || 0);
+    return Boolean(localStorage.getItem(STORAGE_KEY_INFO)) && cachedAt && Date.now() - cachedAt < INFO_CACHE_REFRESH_MS;
+}
+
+function readCachedInfo() {
+    try {
+        const cached = JSON.parse(localStorage.getItem(STORAGE_KEY_INFO) || 'null');
+        if (cached && typeof cached === 'object') applyInfoPayload(cached);
+        return Boolean(cached && typeof cached === 'object');
+    } catch (err) {
+        localStorage.removeItem(STORAGE_KEY_INFO);
+        localStorage.removeItem(STORAGE_KEY_INFO_AT);
+        return false;
+    }
+}
+
+function writeCachedInfo(info) {
+    localStorage.setItem(STORAGE_KEY_INFO, JSON.stringify(info || {}));
+    localStorage.setItem(STORAGE_KEY_INFO_AT, String(Date.now()));
+}
+
+async function loadInfo({ force = false } = {}) {
+    if (!force && readCachedInfo() && infoCacheFresh()) return;
+    try {
+        const payload = await api(INFO_PATH);
+        applyInfoPayload(payload.message || {});
+        writeCachedInfo(appInfo);
+    } catch (err) {
+        if (!appInfo || !Object.keys(appInfo).length) readCachedInfo();
+        if (!appInfo || !Object.keys(appInfo).length) {
+            appInfo = {};
+            roleLabels = {};
+            typeLabels = {};
+        }
+    }
+}
+
+async function api(path, options = {}) {
+    const res = await fetch(API_BASE + path, options);
+    let payload = null;
+    try { payload = await res.json(); } catch (err) { payload = { status: 0, message: 'Invalid server response' }; }
+    if (!res.ok || payload.status === 0) throw new Error(payload.message || `Request failed (${res.status})`);
+    return payload;
+}
+
+async function refreshPortal() {
+    const btn = $('header-refresh-btn');
+    btn.classList.add('is-loading');
+    btn.disabled = true;
+    try {
+        await loadInfo({ force: true });
+        if (authToken && authUser) {
+            const payload = await api(PROFILE_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            saveAuthPayload(payload);
+        }
+        applyAuthState();
+    } catch (err) {
+        console.warn(err);
+    } finally {
+        btn.classList.remove('is-loading');
+        btn.disabled = false;
+    }
+}
+
+function openModal(id) {
+    const modal = $(id);
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeModal(id) {
+    const modal = $(id);
+    if (modal) modal.style.display = 'none';
+}
+
+function closeAllModals() {
+    document.querySelectorAll('.modal').forEach(modal => modal.style.display = 'none');
+}
+
+function avatarTextFromUsername(username) {
+    const cleaned = String(username || 'US').trim();
+    if (!cleaned) return 'US';
+    const parts = cleaned.split(/[\s._-]+/).filter(Boolean);
+    if (parts.length > 1) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return cleaned.slice(0, 2).toUpperCase();
+}
+
+function renderProfile() {
+    const user = readUser() || authUser || {};
+    authUser = user && Object.keys(user).length ? user : null;
+    const profileAvatar = document.querySelector('.avatar');
+    if (profileAvatar) profileAvatar.textContent = avatarTextFromUsername(user.username || user.name);
+    const roleValue = rawValue(user.role);
+    const mappedRole = roleLabels[String(user.role)];
+    const roleLabel = mappedRole ? `${roleValue} (${mappedRole})` : roleValue;
+    const typeLabel = typeLabels[String(user.type)] || rawValue(user.type);
+    $('profile-type').textContent = typeLabel;
+    $('profile-username').textContent = rawValue(user.username);
+    $('profile-password').textContent = user.password ? '••••••••' : '-';
+    $('user-profile-id').textContent = rawValue(user.id);
+    $('user-profile-role').textContent = roleLabel;
+    $('user-profile-name').textContent = rawValue(user.name || user.full_name);
+    $('user-profile-email').textContent = rawValue(user.email);
+    $('user-profile-mobile').textContent = rawValue(user.mobile || user.phone);
+}
+
+function applyAuthState() {
+    const loggedIn = Boolean(authToken && authUser);
+    document.body.classList.toggle('logged-in', loggedIn);
+    document.body.classList.toggle('logged-out', !loggedIn);
+    if (!loggedIn) {
+        showSection('home');
+        return;
+    }
+    const user = authUser || {};
+    document.querySelector('.avatar').textContent = avatarTextFromUsername(user.username || user.name);
+    renderProfile();
+    if ($('home').classList.contains('active')) showSection('database-info');
+}
+
+function renderDatabaseInfo(info = {}) {
+    $('pgscope-db-size').textContent = rawValue(info.database_size);
+    $('pgscope-db-schemas').textContent = formatNumber(info.schema_count);
+    $('pgscope-db-tables').textContent = formatNumber(info.table_count);
+    $('pgscope-db-materialized-views').textContent = formatNumber(info.materialized_view_count);
+    $('pgscope-db-server').textContent = `${rawValue(info.database_name)} as ${rawValue(info.current_user)} on PostgreSQL ${rawValue(info.server_version)}. Server ${rawValue(info.server_address)}:${rawValue(info.server_port)}, timezone ${rawValue(info.timezone)}.`;
+    const largest = Array.isArray(info.largest_relations) && info.largest_relations.length ? info.largest_relations[0] : null;
+    $('pgscope-db-storage').textContent = `${rawValue(info.database_size)} database, ${rawValue(info.table_size)} tables, ${rawValue(info.index_size)} indexes. ${largest ? `Largest: ${rawValue(largest.schema_name)}.${rawValue(largest.relation_name)} (${rawValue(largest.total_size)}).` : ''}`;
+    $('pgscope-db-objects').textContent = `${formatNumber(info.table_count)} tables, ${formatNumber(info.view_count)} views, ${formatNumber(info.materialized_view_count)} materialized views, ${formatNumber(info.index_count)} indexes across ${formatNumber(info.schema_count)} schemas.`;
+    $('pgscope-db-identity').textContent = `Owner ${rawValue(info.database_owner)}, encoding ${rawValue(info.database_encoding)}, collation ${rawValue(info.database_collation)}, connection limit ${Number(info.connection_limit) < 0 ? 'unlimited' : rawValue(info.connection_limit)}.`;
+    $('pgscope-db-activity').textContent = `${formatNumber(info.connection_count)} connections (${formatNumber(info.active_connection_count)} active, ${formatNumber(info.idle_connection_count)} idle). Cache hit ${info.cache_hit_ratio_pct ?? '-'}%, commits ${formatNumber(info.xact_commit)}, rollbacks ${formatNumber(info.xact_rollback)}.`;
+    const extensions = Array.isArray(info.extensions) ? info.extensions : [];
+    const extensionText = extensions.slice(0, 6).map(item => `${item.name}${item.version ? ` ${item.version}` : ''}`).join(', ');
+    $('pgscope-db-extensions').textContent = `${formatNumber(info.extension_count)} installed${extensionText ? `: ${extensionText}${extensions.length > 6 ? ', ...' : ''}` : '.'}`;
+}
+
+function renderDatabaseInfoError(message) {
+    $('pgscope-db-size').textContent = '--';
+    $('pgscope-db-schemas').textContent = '--';
+    $('pgscope-db-tables').textContent = '--';
+    $('pgscope-db-materialized-views').textContent = '--';
+    $('pgscope-db-server').textContent = message || 'Database info could not be loaded.';
+    $('pgscope-db-storage').textContent = 'Storage details unavailable.';
+    $('pgscope-db-objects').textContent = 'Object counts unavailable.';
+    $('pgscope-db-identity').textContent = 'Database identity unavailable.';
+    $('pgscope-db-activity').textContent = 'Activity details unavailable.';
+    $('pgscope-db-extensions').textContent = 'Extension details unavailable.';
+}
+
+async function loadDatabaseInfo({ force = false } = {}) {
+    if (!authToken || !authUser) return;
+    if (pgscopeDatabaseInfoLoaded && !force) return;
+    const btn = $('database-info-refresh-btn');
+    btn?.classList.add('is-loading');
+    if (btn) btn.disabled = true;
+    $('pgscope-db-server').textContent = 'Loading database info...';
+    try {
+        const payload = await api(PGSCOPE_DATABASE_INFO_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
+        renderDatabaseInfo(payload.message || {});
+        pgscopeDatabaseInfoLoaded = true;
+    } catch (err) {
+        renderDatabaseInfoError(err.message);
+    } finally {
+        btn?.classList.remove('is-loading');
+        if (btn) btn.disabled = false;
+    }
+}
+
+function schemaFlag(value) {
+    return value ? '<span class="schema-flag">Yes</span>' : '<span class="schema-flag no">No</span>';
+}
+
+function schemaIndexFlag(items) {
+    return schemaFlag(Array.isArray(items) && items.length > 0);
+}
+
+function rowHasIndex(row, method) {
+    if (method === 'any') return Number(row.index_count || 0) > 0;
+    if (method === 'none') return Number(row.index_count || 0) === 0;
+    const key = `${method}_indexes`;
+    return Array.isArray(row[key]) && row[key].length > 0;
+}
+
+function rowMatchesSchemaFilters(row, filters) {
+    if (filters.relation && row.relation_type !== filters.relation) return false;
+    if (filters.index && !rowHasIndex(row, filters.index)) return false;
+    if (filters.key === 'primary' && !row.is_primary) return false;
+    if (filters.key === 'unique' && !(row.is_unique_constraint || row.is_unique_index)) return false;
+    if (filters.key === 'nullable' && !row.is_nullable) return false;
+    if (filters.key === 'not-null' && row.is_nullable) return false;
+    if (!filters.search) return true;
+    const haystack = [
+        row.schema_name,
+        row.table_name,
+        row.relation_type,
+        row.column_name,
+        row.data_type,
+        row.column_default,
+        ...(row.btree_indexes || []),
+        ...(row.gin_indexes || []),
+        ...(row.gist_indexes || []),
+        ...(row.brin_indexes || []),
+        ...(row.hash_indexes || []),
+        ...(row.other_indexes || [])
+    ].join(' ').toLowerCase();
+    return haystack.includes(filters.search);
+}
+
+function schemaFilters() {
+    return {
+        search: $('schema-filter-search').value.trim().toLowerCase(),
+        relation: $('schema-filter-relation').value,
+        index: $('schema-filter-index').value,
+        key: $('schema-filter-key').value
+    };
+}
+
+function updateSchemaFilterState(filters = schemaFilters()) {
+    const active = Boolean(filters.search || filters.relation || filters.index || filters.key);
+    const clearBtn = $('schema-filter-clear-btn');
+    clearBtn.classList.toggle('is-active', active);
+    clearBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+}
+
+function renderSchemaRows(rows) {
+    $('pgscope-schema-body').innerHTML = rows.length ? rows.map(row => `
+        <tr>
+            <td>
+                <div class="schema-cell-main">${escapeHtml(row.table_name)}</div>
+            </td>
+            <td>
+                <div class="schema-cell-main">${escapeHtml(row.column_name)}</div>
+                ${row.column_default ? `<span class="schema-cell-sub">Default: ${escapeHtml(row.column_default)}</span>` : ''}
+            </td>
+            <td>${escapeHtml(rawValue(row.data_type))}</td>
+            <td>${schemaFlag(row.is_nullable)}</td>
+            <td>${schemaFlag(row.is_primary)}</td>
+            <td>${schemaFlag(row.is_unique_constraint || row.is_unique_index)}</td>
+            <td>${schemaIndexFlag(row.btree_indexes)}</td>
+            <td>${schemaIndexFlag(row.gin_indexes)}</td>
+            <td>${schemaIndexFlag(row.gist_indexes)}</td>
+            <td>${schemaIndexFlag(row.brin_indexes)}</td>
+            <td>${schemaIndexFlag(row.hash_indexes)}</td>
+            <td>${schemaIndexFlag(row.other_indexes)}</td>
+        </tr>
+    `).join('') : '<tr><td colspan="12"><div class="schema-empty">No schema columns match the current filters.</div></td></tr>';
+}
+
+function renderSchemaPagination(pagination = {}) {
+    pgscopeSchemaPagination = {
+        page: Number(pagination.page || pgscopeSchemaPage),
+        limit: Number(pagination.limit || 0),
+        total_count: Number(pagination.total_count || 0),
+        has_prev_page: Boolean(pagination.has_prev_page || pagination.has_prev),
+        has_next_page: Boolean(pagination.has_next_page || pagination.has_next),
+        returned_count: Number(pagination.returned_count || pgscopeSchemaRows.length)
+    };
+    pgscopeSchemaPage = pgscopeSchemaPagination.page;
+    const pageLimit = pgscopeSchemaPagination.limit || pgscopeSchemaPagination.returned_count;
+    const start = pgscopeSchemaPagination.returned_count ? ((pgscopeSchemaPage - 1) * pageLimit) + 1 : 0;
+    const end = pgscopeSchemaPagination.returned_count ? start + pgscopeSchemaPagination.returned_count - 1 : 0;
+    const totalText = pgscopeSchemaPagination.total_count ? ` of ${formatNumber(pgscopeSchemaPagination.total_count)} columns` : ' columns';
+    $('schema-page-display').textContent = `Page ${formatNumber(pgscopeSchemaPage)}`;
+    $('schema-result-count').textContent = pgscopeSchemaPagination.returned_count
+        ? `Showing ${formatNumber(start)}-${formatNumber(end)}${totalText}`
+        : 'No columns';
+    $('schema-page-prev-btn').disabled = !pgscopeSchemaPagination.has_prev_page;
+    $('schema-page-next-btn').disabled = !pgscopeSchemaPagination.has_next_page;
+}
+
+function applySchemaFilters() {
+    const filters = schemaFilters();
+    updateSchemaFilterState(filters);
+    if (!pgscopeSchemaRows.length) return;
+    renderSchemaRows(pgscopeSchemaRows.filter(row => rowMatchesSchemaFilters(row, filters)));
+}
+
+function renderSchema(payload = {}) {
+    $('pgscope-schema-tables').textContent = formatNumber(payload.table_count);
+    $('pgscope-schema-columns').textContent = formatNumber(payload.column_count);
+    $('pgscope-schema-indexes').textContent = formatNumber(payload.index_count);
+    $('pgscope-schema-materialized-views').textContent = formatNumber(payload.materialized_view_count);
+    pgscopeSchemaRows = Array.isArray(payload.columns) ? payload.columns : [];
+    renderSchemaPagination(payload.pagination || {});
+    if (!pgscopeSchemaRows.length) {
+        $('pgscope-schema-body').innerHTML = '<tr><td colspan="12"><div class="schema-empty">No schema columns found.</div></td></tr>';
+        return;
+    }
+    applySchemaFilters();
+}
+
+function renderSchemaError(message) {
+    $('pgscope-schema-tables').textContent = '--';
+    $('pgscope-schema-columns').textContent = '--';
+    $('pgscope-schema-indexes').textContent = '--';
+    $('pgscope-schema-materialized-views').textContent = '--';
+    $('schema-result-count').textContent = 'Schema unavailable';
+    $('schema-page-display').textContent = `Page ${formatNumber(pgscopeSchemaPage)}`;
+    $('schema-page-prev-btn').disabled = true;
+    $('schema-page-next-btn').disabled = true;
+    $('pgscope-schema-body').innerHTML = `<tr><td colspan="12"><div class="schema-empty">${escapeHtml(message || 'Schema could not be loaded.')}</div></td></tr>`;
+}
+
+async function loadSchema({ force = false } = {}) {
+    if (!authToken || !authUser) return;
+    if (pgscopeSchemaLoaded && !force) return;
+    const btn = $('schema-refresh-btn');
+    btn?.classList.add('is-loading');
+    if (btn) btn.disabled = true;
+    $('schema-page-prev-btn').disabled = true;
+    $('schema-page-next-btn').disabled = true;
+    $('schema-result-count').textContent = 'Loading schema...';
+    $('schema-page-display').textContent = `Page ${formatNumber(pgscopeSchemaPage)}`;
+    $('pgscope-schema-body').innerHTML = '<tr><td colspan="12"><div class="schema-empty">Loading schema...</div></td></tr>';
+    try {
+        const query = new URLSearchParams({ page: String(pgscopeSchemaPage) });
+        const payload = await api(`${PGSCOPE_SCHEMA_PATH}?${query.toString()}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+        renderSchema(payload.message || {});
+        pgscopeSchemaLoaded = true;
+    } catch (err) {
+        renderSchemaError(err.message);
+    } finally {
+        btn?.classList.remove('is-loading');
+        if (btn) btn.disabled = false;
+    }
+}
+
+function goSchemaPage(page) {
+    pgscopeSchemaPage = Math.max(1, Number(page || 1));
+    pgscopeSchemaLoaded = false;
+    loadSchema({ force: true });
+}
+
+function queryLimitValue() {
+    const raw = Number($('query-limit').value || QUERY_LIMIT_DEFAULT);
+    if (!Number.isFinite(raw)) return QUERY_LIMIT_DEFAULT;
+    return Math.max(1, Math.min(Math.trunc(raw), QUERY_LIMIT_MAX));
+}
+
+function validateQueryInput() {
+    const sql = $('query-sql').value.trim();
+    const limit = queryLimitValue();
+    $('query-limit').value = String(limit);
+    if (!sql) throw new Error('SQL is required.');
+    const normalized = sql.replace(/;\s*$/, '').trim().toLowerCase().replace(/^\(+/, '').trim();
+    if (!normalized.startsWith('select') && !normalized.startsWith('with')) throw new Error('Only SELECT/WITH queries are supported.');
+    return { sql, limit };
+}
+
+function renderQueryResult(result = {}) {
+    const columns = Array.isArray(result.columns) ? result.columns : [];
+    const rows = Array.isArray(result.rows) ? result.rows : [];
+    $('query-result-count').textContent = `${formatNumber(result.row_count || rows.length)} row${(result.row_count || rows.length) === 1 ? '' : 's'}${result.is_limited ? `, limited to ${formatNumber(result.limit)}` : ''}`;
+    if (!columns.length) {
+        $('query-result-head').innerHTML = '';
+        $('query-result-body').innerHTML = '<tr><td><div class="query-empty">Query returned no columns.</div></td></tr>';
+        return;
+    }
+    $('query-result-head').innerHTML = `<tr>${columns.map(col => `<th>${escapeHtml(col)}</th>`).join('')}</tr>`;
+    $('query-result-body').innerHTML = rows.length ? rows.map(row => `
+        <tr>${columns.map(col => `<td><div class="query-cell" title="${escapeHtml(rawValue(row[col]))}">${escapeHtml(rawValue(row[col]))}</div></td>`).join('')}</tr>
+    `).join('') : `<tr><td colspan="${columns.length}"><div class="query-empty">Query returned no rows.</div></td></tr>`;
+}
+
+function renderQueryError(message) {
+    $('query-result-count').textContent = 'No result';
+    $('query-result-head').innerHTML = '';
+    $('query-result-body').innerHTML = `<tr><td><div class="query-empty">${escapeHtml(message || 'Query failed.')}</div></td></tr>`;
+}
+
+async function runQuery(event) {
+    event.preventDefault();
+    if (!authToken || !authUser) return;
+    const btn = $('query-run-btn');
+    const downloadBtn = $('query-download-btn');
+    btn.disabled = true;
+    downloadBtn.disabled = true;
+    $('query-message').textContent = 'Running query...';
+    try {
+        const { sql, limit } = validateQueryInput();
+        const payload = await api(PGSCOPE_QUERY_RUNNER_PATH, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
+            body: JSON.stringify({ sql, limit })
+        });
+        queryLastSql = sql;
+        queryLastLimit = limit;
+        renderQueryResult(payload.message || {});
+        $('query-message').textContent = `Result limited to ${formatNumber(limit)} rows. Backend maximum is ${formatNumber(QUERY_LIMIT_MAX)} rows.`;
+        downloadBtn.disabled = false;
+    } catch (err) {
+        renderQueryError(err.message);
+        $('query-message').textContent = err.message || 'Query failed.';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function downloadQueryCsv() {
+    if (!authToken || !authUser) return;
+    const btn = $('query-download-btn');
+    btn.disabled = true;
+    $('query-message').textContent = 'Preparing CSV...';
+    try {
+        const sql = queryLastSql || $('query-sql').value.trim();
+        const limit = queryLastSql ? queryLastLimit : queryLimitValue();
+        if (!sql) throw new Error('Run or enter a query before downloading CSV.');
+        const response = await fetch(API_BASE + PGSCOPE_QUERY_RUNNER_CSV_PATH, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
+            body: JSON.stringify({ sql, limit })
+        });
+        if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.message || `CSV download failed (${response.status})`);
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'pgscope_query_result.csv';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        $('query-message').textContent = `CSV downloaded with limit ${formatNumber(limit)}.`;
+    } catch (err) {
+        $('query-message').textContent = err.message || 'CSV download failed.';
+    } finally {
+        btn.disabled = !queryLastSql;
+    }
+}
+
+function showSection(target) {
+    document.querySelectorAll('.view-section').forEach(section => section.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.target === target));
+    const section = $(target) || $('home');
+    section.classList.add('active');
+    const activeNav = document.querySelector(`.nav-item[data-target="${target}"]`);
+    $('page-title').textContent = target === 'home' ? 'PGScope' : activeNav ? activeNav.textContent.trim() : 'PGScope';
+    $('page-subtitle').textContent = target === 'query-runner' ? 'Run external PostgreSQL SQL' : target === 'schema' ? 'Inspect tables, columns, and indexes' : target === 'database-info' ? 'External database overview' : 'Lightweight PostgreSQL explorer';
+    if (target === 'database-info') loadDatabaseInfo();
+    if (target === 'schema') loadSchema();
+}
+
+function toggleProfileMenu() {
+    const menu = $('profile-menu');
+    const trigger = $('user-profile-trigger');
+    const isOpen = menu.classList.toggle('open');
+    trigger.setAttribute('aria-expanded', String(isOpen));
+}
+
+function closeProfileMenu() {
+    $('profile-menu').classList.remove('open');
+    $('user-profile-trigger').setAttribute('aria-expanded', 'false');
+}
+
+function requestLogout() {
+    closeProfileMenu();
+    openModal('logout-modal');
+}
+
+function logout() {
+    writeToken(null);
+    writeUser(null);
+    appInfo = {};
+    roleLabels = {};
+    typeLabels = {};
+    localStorage.removeItem(STORAGE_KEY_INFO);
+    localStorage.removeItem(STORAGE_KEY_INFO_AT);
+    pgscopeDatabaseInfoLoaded = false;
+    pgscopeSchemaLoaded = false;
+    pgscopeSchemaRows = [];
+    pgscopeSchemaPage = 1;
+    pgscopeSchemaPagination = { page: 1, limit: 0, total_count: 0, has_prev_page: false, has_next_page: false, returned_count: 0 };
+    closeAllModals();
+    closeProfileMenu();
+    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+    applyAuthState();
+}
+
+// Auth component events: login, login details, profile details, logout, refresh.
+function bindAuthComponentEvents() {
+    $('header-login-btn').addEventListener('click', () => openModal('login-modal'));
+    $('header-refresh-btn').addEventListener('click', refreshPortal);
+    $('login-modal-close').addEventListener('click', () => closeModal('login-modal'));
+    $('login-cancel-btn').addEventListener('click', () => closeModal('login-modal'));
+    $('profile-modal-close').addEventListener('click', () => closeModal('profile-modal'));
+    $('profile-close-btn').addEventListener('click', () => closeModal('profile-modal'));
+    $('user-profile-modal-close').addEventListener('click', () => closeModal('user-profile-modal'));
+    $('user-profile-close-btn').addEventListener('click', () => closeModal('user-profile-modal'));
+    $('logout-modal-close').addEventListener('click', () => closeModal('logout-modal'));
+    $('logout-cancel-btn').addEventListener('click', () => closeModal('logout-modal'));
+    $('logout-submit-btn').addEventListener('click', logout);
+    $('profile-menu-profile').addEventListener('click', () => {
+        closeProfileMenu();
+        renderProfile();
+        openModal('profile-modal');
+    });
+    $('profile-menu-user').addEventListener('click', () => {
+        closeProfileMenu();
+        renderProfile();
+        openModal('user-profile-modal');
+    });
+    $('profile-menu-logout').addEventListener('click', requestLogout);
+    $('user-profile-trigger').addEventListener('click', event => {
+        event.stopPropagation();
+        toggleProfileMenu();
+    });
+    $('user-profile-trigger').addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            toggleProfileMenu();
+        }
+    });
+    document.addEventListener('click', event => {
+        if (!event.target.closest('.profile-actions')) closeProfileMenu();
+    });
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', event => {
+            if (event.target === modal) closeModal(modal.id);
+        });
+    });
+    $('toggle-password').addEventListener('click', () => {
+        const input = $('login-password');
+        const icon = document.querySelector('#toggle-password i');
+        const shouldShow = input.type === 'password';
+        input.type = shouldShow ? 'text' : 'password';
+        icon.className = shouldShow ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+        $('toggle-password').setAttribute('aria-label', shouldShow ? 'Hide password' : 'Show password');
+        $('toggle-password').setAttribute('title', shouldShow ? 'Hide password' : 'Show password');
+    });
+    $('login-form').addEventListener('submit', async event => {
+        event.preventDefault();
+        const msg = $('login-message');
+        const btn = $('login-submit-btn');
+        msg.textContent = 'Logging in...';
+        msg.style.color = 'var(--text-muted)';
+        btn.disabled = true;
+        try {
+            const payload = await api(LOGIN_PATH, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: Number($('login-type').value || 1),
+                    username: $('login-username').value.trim(),
+                    password: $('login-password').value
+                })
+            });
+            saveAuthPayload(payload);
+            await loadInfo({ force: true });
+            msg.textContent = '';
+            closeModal('login-modal');
+            $('login-form').reset();
+            $('login-type').value = '1';
+            applyAuthState();
+        } catch (err) {
+            msg.textContent = err.message || 'Login failed';
+            msg.style.color = '#EF4444';
+        } finally {
+            btn.disabled = false;
+        }
+    });
+}
+
+function bindPageEvents() {
+    $('database-info-refresh-btn').addEventListener('click', () => loadDatabaseInfo({ force: true }));
+    $('schema-refresh-btn').addEventListener('click', () => loadSchema({ force: true }));
+    $('schema-page-prev-btn').addEventListener('click', () => {
+        if (pgscopeSchemaPagination.has_prev_page) goSchemaPage(pgscopeSchemaPage - 1);
+    });
+    $('schema-page-next-btn').addEventListener('click', () => {
+        if (pgscopeSchemaPagination.has_next_page) goSchemaPage(pgscopeSchemaPage + 1);
+    });
+    $('query-runner-form').addEventListener('submit', runQuery);
+    $('query-download-btn').addEventListener('click', downloadQueryCsv);
+    $('query-limit').addEventListener('change', () => {
+        $('query-limit').value = String(queryLimitValue());
+        if (queryLimitValue() !== queryLastLimit) {
+            queryLastSql = '';
+            $('query-download-btn').disabled = true;
+        }
+    });
+    $('query-sql').addEventListener('input', () => {
+        if ($('query-sql').value.trim() !== queryLastSql) {
+            queryLastSql = '';
+            $('query-download-btn').disabled = true;
+        }
+    });
+    ['schema-filter-search', 'schema-filter-relation', 'schema-filter-index', 'schema-filter-key'].forEach(id => {
+        $(id).addEventListener('input', applySchemaFilters);
+        $(id).addEventListener('change', applySchemaFilters);
+    });
+    $('schema-filter-clear-btn').addEventListener('click', () => {
+        $('schema-filter-search').value = '';
+        $('schema-filter-relation').value = '';
+        $('schema-filter-index').value = '';
+        $('schema-filter-key').value = '';
+        applySchemaFilters();
+    });
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', event => {
+            event.preventDefault();
+            if (!authToken || !authUser) return;
+            showSection(item.dataset.target);
+        });
+    });
+}
+
+bindAuthComponentEvents();
+bindPageEvents();
+const initialize = async () => {
+    await loadInfo();
+    applyAuthState();
+    window.setInterval(() => loadInfo().then(renderProfile).catch(() => {}), INFO_CACHE_REFRESH_MS);
+};
+initialize();
+    </script>
+</body>
+</html>

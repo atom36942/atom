@@ -184,17 +184,17 @@ config_api = {
 "/admin/mssql-sql-runner": {"id": 21, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/mssql-sql-runner-read": {"id": 23, "is_token": 1, "user_check_role": ["realtime", [1]]},
 # CARGOWISE ROUTER
-"/cargowise/buyer-360": {"id": 32, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["inmemory", 1000]},
-"/cargowise/my-profile": {"id": 24, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/buyer-360": {"id": 32, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["redis", 600]},
+"/cargowise/my-profile": {"id": 24, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 600, 1]},
 "/cargowise/my-purchase-orders": {"id": 25, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
 "/cargowise/my-purchase-orders-line-items": {"id": 33, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
 "/cargowise/my-shipments": {"id": 26, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
 "/cargowise/my-containers": {"id": 27, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
 "/cargowise/my-tracking": {"id": 28, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
-"/cargowise/my-exceptions": {"id": 29, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-alerts": {"id": 29, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
 "/cargowise/my-documents": {"id": 30, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
-"/cargowise/my-documents-download": {"id": 34, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
-"/cargowise/my-analytics": {"id": 31, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},
+"/cargowise/my-documents-download": {"id": 34, "is_token": 1, "user_check_role": ["token", [3]]},
+"/cargowise/my-analytics": {"id": 31, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 600, 1]},
 # RATES ROUTER
 "/rates/my-create": {"id": 73, "is_token": 1, "user_check_role": ["token", [4]]},
 "/rates/my-update": {"id": 74, "is_token": 1, "user_check_role": ["token", [4]]},
@@ -207,6 +207,11 @@ config_api = {
 "/quotations/my-read": {"id": 83, "is_token": 1, "user_check_role": ["token", [5]]},
 "/quotations/decision": {"id": 80, "is_token": 1, "user_check_role": ["token", [4]]},
 "/quotations": {"id": 81, "is_token": 1, "user_check_role": ["token", [4]]},
+# PGSCOPE ROUTER
+"/pgscope/database-info": {"id": 84, "is_token": 1, "api_cache_sec": ["inmemory", 60, 1]},
+"/pgscope/schema": {"id": 85, "is_token": 1, "api_cache_sec": ["inmemory", 300, 1]},
+"/pgscope/query-runner": {"id": 86, "is_token": 1},
+"/pgscope/query-runner-csv": {"id": 87, "is_token": 1},
 }
 
 config_column_int_mapping = {

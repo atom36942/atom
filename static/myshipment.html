@@ -487,6 +487,11 @@ body {
     box-shadow: 0 8px 24px rgba(17, 24, 39, 0.05);
 }
 
+.po-page-stack {
+    display: grid;
+    gap: 1rem;
+}
+
 .po-toolbar {
     display: flex;
     align-items: center;
@@ -513,11 +518,13 @@ body {
     align-items: center;
     justify-content: flex-end;
     gap: 0.75rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    min-width: 0;
 }
 
 .po-search {
-    width: min(330px, 100%);
+    width: min(300px, 100%);
+    flex: 1 1 260px;
     min-height: 42px;
     display: flex;
     align-items: center;
@@ -580,6 +587,41 @@ body {
     background: var(--primary-hover);
 }
 
+.po-refresh-button {
+    min-height: 42px;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: #FFFFFF;
+    color: var(--text-dark);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.po-refresh-button.compact {
+    width: 42px;
+    justify-content: center;
+    padding: 0;
+}
+
+.po-refresh-button.compact span {
+    display: none;
+}
+
+.po-refresh-button:hover {
+    border-color: #C7D2FE;
+    background: #EEF2FF;
+    color: var(--primary);
+}
+
+.po-refresh-button.is-loading i {
+    animation: spin 0.8s linear infinite;
+}
+
 .po-summary-bar {
     min-height: 48px;
     display: flex;
@@ -598,6 +640,44 @@ body {
 
 .po-result-count strong {
     color: var(--text-dark);
+}
+
+.po-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(120px, 1fr));
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+}
+
+.po-kpi-card {
+    padding: 0.85rem 0.95rem;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    background: #FFFFFF;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+}
+
+.po-kpi-label {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #64748B;
+    font-size: 0.74rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.po-kpi-label i {
+    color: var(--primary);
+}
+
+.po-kpi-value {
+    margin-top: 0.35rem;
+    color: #0F172A;
+    font-size: 1.45rem;
+    font-weight: 800;
 }
 
 .po-pagination {
@@ -645,7 +725,8 @@ body {
 }
 
 #purchase-order-table {
-    min-width: 940px;
+    min-width: 1120px;
+    table-layout: fixed;
 }
 
 #purchase-order-table th {
@@ -660,6 +741,104 @@ body {
     padding: 0.9rem 1rem;
     white-space: normal;
     vertical-align: middle;
+}
+
+#purchase-order-table th:nth-child(1),
+#purchase-order-table td:nth-child(1) { width: 14%; }
+
+#purchase-order-table th:nth-child(2),
+#purchase-order-table td:nth-child(2) { width: 13%; }
+
+#purchase-order-table th:nth-child(3),
+#purchase-order-table td:nth-child(3) { width: 18%; }
+
+#purchase-order-table th:nth-child(4),
+#purchase-order-table td:nth-child(4) { width: 18%; }
+
+#purchase-order-table th:nth-child(5),
+#purchase-order-table td:nth-child(5) { width: 20%; }
+
+#purchase-order-table th:nth-child(6),
+#purchase-order-table td:nth-child(6) { width: 13%; }
+
+#shipment-table {
+    min-width: 1120px;
+    table-layout: fixed;
+}
+
+#shipment-table th {
+    padding: 0.75rem 1rem;
+    color: #4B5563;
+    font-size: 0.72rem;
+    letter-spacing: 0.045em;
+    text-transform: uppercase;
+}
+
+#shipment-table td {
+    padding: 0.9rem 1rem;
+    white-space: normal;
+    vertical-align: middle;
+}
+
+#shipment-table th:nth-child(1),
+#shipment-table td:nth-child(1) { width: 16%; }
+
+#shipment-table th:nth-child(2),
+#shipment-table td:nth-child(2) { width: 10%; }
+
+#shipment-table th:nth-child(3),
+#shipment-table td:nth-child(3) { width: 14%; }
+
+#shipment-table th:nth-child(4),
+#shipment-table td:nth-child(4) { width: 14%; }
+
+#shipment-table th:nth-child(5),
+#shipment-table td:nth-child(5) { width: 13%; }
+
+#shipment-table th:nth-child(6),
+#shipment-table td:nth-child(6) { width: 12%; }
+
+#shipment-table th:nth-child(7),
+#shipment-table td:nth-child(7) { width: 21%; }
+
+.shipment-route {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr);
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.shipment-route-place {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--text-dark);
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.shipment-route-arrow {
+    color: #9CA3AF;
+    font-size: 0.72rem;
+    text-align: center;
+}
+
+.po-detail-chip.container {
+    border-color: #BBF7D0;
+    background: #F0FDF4;
+    color: #047857;
+}
+
+.po-detail-chip.tracking {
+    border-color: #FDE68A;
+    background: #FFFBEB;
+    color: #B45309;
+}
+
+.po-detail-chip.document {
+    border-color: #BAE6FD;
+    background: #F0F9FF;
+    color: #0369A1;
 }
 
 #purchase-order-table tbody tr {
@@ -699,6 +878,10 @@ body {
     line-height: 1.35;
 }
 
+.po-order-meta {
+    white-space: nowrap;
+}
+
 .po-party-flow {
     display: grid;
     grid-template-columns: minmax(120px, 1fr) 18px minmax(120px, 1fr);
@@ -732,6 +915,7 @@ body {
     color: var(--text-dark);
     font-size: 0.82rem;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 .po-date-range i {
@@ -763,6 +947,7 @@ body {
     margin-top: 0.28rem;
     color: var(--text-muted);
     font-size: 0.74rem;
+    white-space: nowrap;
 }
 
 .po-shipping-meta span + span::before {
@@ -771,50 +956,45 @@ body {
     color: #D1D5DB;
 }
 
-.po-line-count {
-    min-width: 30px;
+.po-detail-stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.po-detail-chip {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    padding: 0.28rem 0.55rem;
+    gap: 0.35rem;
+    min-height: 30px;
+    padding: 0.35rem 0.55rem;
+    border: 1px solid #C7D2FE;
     border-radius: 999px;
-    background: #F3F4F6;
-    color: #374151;
-    font-size: 0.78rem;
-    font-weight: 700;
-}
-
-.po-line-count.is-empty {
-    background: #F9FAFB;
-    color: #9CA3AF;
-}
-
-.po-row-action {
-    width: 34px;
-    height: 34px;
-    display: inline-grid;
-    place-items: center;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #FFFFFF;
-    color: var(--primary);
-}
-
-.po-row-action.is-disabled {
-    border-color: #E5E7EB;
-    background: #F9FAFB;
-    color: #C4C8D0;
-}
-
-#purchase-order-table tbody tr:hover .po-row-action,
-#purchase-order-table tbody tr:focus-visible .po-row-action {
-    border-color: #A5B4FC;
     background: #EEF2FF;
+    color: #3730A3;
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 800;
+    cursor: pointer;
 }
 
-#purchase-order-table tbody tr.po-row-disabled:hover .po-row-action.is-disabled {
+.po-detail-chip:hover:not(:disabled) {
+    border-color: #818CF8;
+    background: #E0E7FF;
+}
+
+.po-detail-chip.is-muted,
+.po-detail-chip:disabled {
     border-color: #E5E7EB;
-    background: #F9FAFB;
+    background: #F8FAFC;
+    color: #94A3B8;
+    cursor: default;
+}
+
+.po-detail-chip.shipment {
+    border-color: #BAE6FD;
+    background: #F0F9FF;
+    color: #0369A1;
 }
 
 .po-lines-message {
@@ -964,15 +1144,246 @@ body {
     font-size: 0.72rem;
 }
 
+.container-card-grid {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.container-summary {
+    gap: 0.55rem;
+    margin-bottom: 0.75rem;
+}
+
+.container-summary .po-lines-stat {
+    padding: 0.58rem 0.7rem;
+    border-radius: 10px;
+}
+
+.container-summary .po-lines-stat-label {
+    gap: 0.3rem;
+    font-size: 0.62rem;
+}
+
+.container-summary .po-lines-stat-label i {
+    color: #2563EB;
+}
+
+.container-summary .po-lines-stat-value {
+    margin-top: 0.22rem;
+    font-size: 1rem;
+}
+
+.container-card {
+    border: 1px solid #DDE7FF;
+    border-radius: 13px;
+    background: linear-gradient(135deg, #FFFFFF 0%, #F8FBFF 100%);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.045);
+    overflow: hidden;
+}
+
+.container-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.6rem;
+    padding: 0.72rem 0.85rem;
+    border-bottom: 1px solid #E5EDFF;
+    background: linear-gradient(135deg, #EEF2FF 0%, #EFF6FF 100%);
+}
+
+.container-card-title {
+    color: #0F172A;
+    font-size: 0.92rem;
+    font-weight: 850;
+    letter-spacing: 0.01em;
+}
+
+.container-card-head-stack {
+    display: grid;
+    gap: 0.34rem;
+    min-width: 0;
+}
+
+.container-card-head-label {
+    color: #64748B;
+    font-size: 0.58rem;
+    font-weight: 850;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.container-card-subtitle {
+    margin-top: 0.18rem;
+    color: #64748B;
+    font-size: 0.7rem;
+}
+
+.container-card-body {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+    padding: 0.7rem 0.85rem;
+}
+
+.container-card-field {
+    min-width: 0;
+    padding: 0.52rem 0.58rem;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    background: #FFFFFF;
+}
+
+.container-card-label {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: #64748B;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.container-card-label i {
+    color: #2563EB;
+}
+
+.container-card-value {
+    margin-top: 0.2rem;
+    color: #111827;
+    font-size: 0.78rem;
+    font-weight: 750;
+    overflow-wrap: anywhere;
+}
+
+.container-card-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    padding: 0.52rem 0.85rem 0.7rem;
+    color: #64748B;
+    font-size: 0.69rem;
+}
+
+.document-card-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 30px;
+    padding: 0.35rem 0.55rem;
+    border: 1px solid #BFDBFE;
+    border-radius: 999px;
+    background: #EFF6FF;
+    color: #1D4ED8;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.document-card-action:hover:not(:disabled) {
+    border-color: #60A5FA;
+    background: #DBEAFE;
+}
+
+.document-card-action:disabled {
+    border-color: #E5E7EB;
+    background: #F8FAFC;
+    color: #94A3B8;
+    cursor: default;
+}
+
+.container-card-empty {
+    display: grid;
+    place-items: center;
+    min-height: 180px;
+    padding: 2rem 1rem;
+    border: 1px dashed #CBD5E1;
+    border-radius: 16px;
+    color: #64748B;
+    text-align: center;
+}
+
+.container-card-empty i {
+    margin-bottom: 0.65rem;
+    color: #94A3B8;
+    font-size: 1.5rem;
+}
+
 @media (max-width: 700px) {
     .po-lines-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     #po-lines-table { min-width: 660px; }
+    .container-card-body { grid-template-columns: 1fr; }
 }
 
-.po-empty-row td {
+.po-empty-row td,
+.table-message-cell {
     padding: 3rem 1rem !important;
     color: var(--text-muted);
     text-align: center;
+}
+
+.table-loader-cell {
+    padding: 3.5rem 1rem !important;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+    text-align: center;
+}
+
+.table-message-cell,
+.table-loader-cell {
+    vertical-align: middle !important;
+}
+
+.table-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.85rem;
+    width: fit-content;
+    max-width: min(420px, calc(100vw - 4rem));
+    min-width: 260px;
+    margin: 0 auto;
+    padding: 0.95rem 1.15rem;
+    border: 1px solid #DDE7FF;
+    border-radius: 16px;
+    background: #FFFFFF;
+    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+    color: #334155;
+    text-align: left;
+}
+
+.table-loader-icon {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #EEF2FF 0%, #E0F2FE 100%);
+    color: var(--primary);
+}
+
+.table-loader-icon i {
+    font-size: 1.1rem;
+}
+
+.table-loader-title {
+    color: #0F172A;
+    font-size: 0.9rem;
+    font-weight: 800;
+}
+
+.table-loader-subtitle {
+    margin-top: 0.16rem;
+    color: #64748B;
+    font-size: 0.76rem;
+}
+
+.block-loader {
+    display: flex;
+    justify-content: center;
+    padding: 2.25rem 1rem;
 }
 
 /* MGH ASK Full View */
@@ -1261,7 +1672,7 @@ body {
     background: white;
 }
 
-/* Auth shell */
+/* Auth component: header controls, account menu, modals, and shared auth styling */
 .top-bar-left {
     display: flex;
     align-items: center;
@@ -1381,7 +1792,7 @@ body {
 
 #profile-modal .modal-content,
 #user-profile-modal .modal-content {
-    width: 400px;
+    width: min(560px, calc(100vw - 2.5rem));
 }
 
 #logout-modal .modal-content {
@@ -1587,7 +1998,8 @@ body {
 
 .profile-row strong {
     min-width: 0;
-    word-break: break-word;
+    overflow-wrap: anywhere;
+    word-break: normal;
 }
 
 .profile-status {
@@ -1726,6 +2138,35 @@ body {
 
 .profile-chip.is-negative::before {
     background: #FCA5A5;
+}
+
+.profile-refresh-chip {
+    width: 34px;
+    height: 34px;
+    justify-content: center;
+    display: inline-flex;
+    align-items: center;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.26);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    color: #FFFFFF;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.profile-refresh-chip span {
+    display: none;
+}
+
+.profile-refresh-chip:hover {
+    background: rgba(255, 255, 255, 0.24);
+}
+
+.profile-refresh-chip.is-loading i {
+    animation: spin 0.8s linear infinite;
 }
 
 .profile-tab-list {
@@ -1938,6 +2379,221 @@ body {
     box-shadow: 0 0 0 5px #FEF3C7;
 }
 
+.tracking-layout {
+    display: grid;
+    gap: 1rem;
+    padding: 1rem 1.5rem 1.5rem;
+}
+
+.tracking-journey-card {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) auto minmax(180px, 1fr);
+    align-items: center;
+    gap: 1rem;
+    padding: 1.15rem;
+    border: 1px solid #DDE7FF;
+    border-radius: 18px;
+    background: linear-gradient(135deg, #F8FBFF 0%, #EEF6FF 100%);
+    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
+}
+
+.tracking-place {
+    min-width: 0;
+    padding: 0.9rem;
+    border: 1px solid #E0E7FF;
+    border-radius: 15px;
+    background: #FFFFFF;
+}
+
+.tracking-place-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: #64748B;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tracking-place-label i {
+    color: #2563EB;
+}
+
+.tracking-place-value {
+    margin-top: 0.35rem;
+    color: #0F172A;
+    font-size: 1.25rem;
+    font-weight: 850;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tracking-route-line {
+    min-width: 130px;
+    color: #4F46E5;
+    text-align: center;
+}
+
+.tracking-route-line .route {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.tracking-route-line .route::before,
+.tracking-route-line .route::after {
+    content: '';
+    height: 2px;
+    flex: 1;
+    background: #A5B4FC;
+}
+
+.tracking-route-line i {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background: #EEF2FF;
+}
+
+.tracking-route-meta {
+    margin-top: 0.35rem;
+    color: #64748B;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.tracking-event-panel {
+    border: 1px solid #E2E8F0;
+    border-radius: 18px;
+    background: #FFFFFF;
+    overflow: hidden;
+}
+
+.tracking-event-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid #E2E8F0;
+    background: #F8FAFC;
+}
+
+.tracking-event-title {
+    color: #0F172A;
+    font-weight: 850;
+}
+
+.tracking-event-subtitle {
+    margin-top: 0.16rem;
+    color: #64748B;
+    font-size: 0.78rem;
+}
+
+.tracking-timeline {
+    position: relative;
+    display: grid;
+    gap: 0.7rem;
+    padding: 1rem;
+}
+
+.tracking-timeline::before {
+    content: '';
+    position: absolute;
+    top: 1.35rem;
+    bottom: 1.35rem;
+    left: 2.15rem;
+    width: 2px;
+    background: #E0E7FF;
+}
+
+.tracking-event-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 0.75rem;
+    padding: 0.85rem;
+    border: 1px solid #E5E7EB;
+    border-radius: 15px;
+    background: #FFFFFF;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.045);
+}
+
+.tracking-event-icon {
+    position: relative;
+    z-index: 1;
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background: #EEF2FF;
+    color: #4F46E5;
+}
+
+.tracking-event-card.exception .tracking-event-icon {
+    background: #FEE2E2;
+    color: #DC2626;
+}
+
+.tracking-event-card.estimate .tracking-event-icon {
+    background: #FEF3C7;
+    color: #B45309;
+}
+
+.tracking-event-main {
+    min-width: 0;
+}
+
+.tracking-event-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.tracking-event-name {
+    color: #0F172A;
+    font-size: 0.92rem;
+    font-weight: 850;
+}
+
+.tracking-event-time {
+    margin-top: 0.2rem;
+    color: #64748B;
+    font-size: 0.78rem;
+}
+
+.tracking-event-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.55rem;
+}
+
+.tracking-event-ref {
+    margin-top: 0.55rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 10px;
+    background: #F8FAFC;
+    color: #64748B;
+    font-size: 0.74rem;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+    .tracking-journey-card {
+        grid-template-columns: 1fr;
+    }
+    .tracking-route-line {
+        min-width: 0;
+    }
+}
+
 .event-head {
     display: flex;
     align-items: flex-start;
@@ -1979,11 +2635,15 @@ body {
 }
 
 .empty-state {
+    display: grid;
+    place-items: center;
+    min-height: 120px;
     padding: 1rem;
     border: 1px dashed var(--border);
     border-radius: 8px;
     color: var(--text-muted);
     background: #F9FAFB;
+    text-align: center;
 }
 
 /* Rates */
@@ -2848,6 +3508,10 @@ body.not-allowed .content-wrapper {
         grid-template-columns: 1fr;
     }
 
+    .po-kpi-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .profile-overview-grid {
         grid-template-columns: 1fr;
     }
@@ -2868,14 +3532,25 @@ body.not-allowed .content-wrapper {
     .po-toolbar-actions {
         align-items: stretch;
         justify-content: stretch;
+        flex-wrap: wrap;
     }
 
     .po-search {
+        width: 100%;
+        flex-basis: 100%;
+    }
+
+    .po-refresh-button.compact {
         width: 100%;
     }
 
     .po-summary-bar {
         padding: 0.65rem 1rem;
+    }
+
+    .po-kpi-strip {
+        padding: 0.85rem 1rem;
+        grid-template-columns: 1fr;
     }
 
     .po-page-button span {
@@ -3061,17 +3736,8 @@ body.not-allowed .content-wrapper {
                 <a href="#shipments" class="nav-item" data-target="shipments" data-roles="3">
                     <i class="fa-solid fa-ship"></i> Shipments
                 </a>
-                <a href="#containers" class="nav-item" data-target="containers" data-roles="3">
-                    <i class="fa-solid fa-boxes-stacked"></i> Containers
-                </a>
                 <a href="#tracking" class="nav-item" data-target="tracking" data-roles="3">
                     <i class="fa-solid fa-route"></i> Tracking
-                </a>
-                <a href="#exceptions" class="nav-item" data-target="exceptions" data-roles="3">
-                    <i class="fa-solid fa-triangle-exclamation"></i> Exceptions
-                </a>
-                <a href="#documents" class="nav-item" data-target="documents" data-roles="3">
-                    <i class="fa-solid fa-folder-open"></i> Documents
                 </a>
                 <a href="#analytics" class="nav-item" data-target="analytics" data-roles="3">
                     <i class="fa-solid fa-chart-line"></i> Analytics
@@ -3096,13 +3762,12 @@ body.not-allowed .content-wrapper {
                             <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
                             <span>Refresh</span>
                         </button>
-                        <span class="header-role-badge" id="header-role-badge"><i class="fa-solid fa-user-shield" aria-hidden="true"></i><span id="header-role-label">Role</span></span>
                         <button class="user-profile" id="user-profile-trigger" type="button" title="Account menu" aria-label="Account menu" aria-expanded="false">
                             <div class="avatar">US</div>
                         </button>
                         <div class="profile-menu" id="profile-menu">
                             <button type="button" id="profile-menu-profile"><i class="fa-regular fa-id-card" aria-hidden="true"></i> Login Details</button>
-                            <button type="button" id="profile-menu-user"><i class="fa-regular fa-user" aria-hidden="true"></i> Profile Details</button>
+                            <button type="button" id="profile-menu-user"><i class="fa-regular fa-user" aria-hidden="true"></i> My Profile</button>
                             <button type="button" class="danger" id="profile-menu-logout"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Logout</button>
                         </div>
                     </div>
@@ -3546,7 +4211,9 @@ body.not-allowed .content-wrapper {
                                     <div class="profile-code" id="cargowise-profile-code">Code unavailable</div>
                                 </div>
                             </div>
-                            <div class="profile-health" id="cargowise-profile-health"></div>
+                            <div class="profile-health" id="cargowise-profile-health">
+                                <button class="profile-refresh-chip" type="button" id="profile-refresh-btn" aria-label="Refresh profile" title="Refresh profile"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
+                            </div>
                         </div>
 
                         <div class="profile-tab-list" role="tablist" aria-label="Profile details">
@@ -3577,16 +4244,16 @@ body.not-allowed .content-wrapper {
                                 <div class="panel">
                                     <div class="panel-header">
                                         <div>
-                                            <h3>Roles &amp; classifications</h3>
-                                            <p class="profile-panel-subtitle">Operational roles and account classifications.</p>
+                                            <h3>Account roles &amp; type</h3>
+                                            <p class="profile-panel-subtitle">Buyer account roles and classifications.</p>
                                         </div>
                                     </div>
                                     <div class="profile-flag-group">
-                                        <span class="profile-flag-label">Operational roles</span>
+                                        <span class="profile-flag-label">Account roles</span>
                                         <div class="role-badges" id="cargowise-role-list"></div>
                                     </div>
                                     <div class="profile-flag-group" id="cargowise-classification-group" style="display: none;">
-                                        <span class="profile-flag-label">Account classifications</span>
+                                        <span class="profile-flag-label">Account type</span>
                                         <div class="role-badges" id="cargowise-classification-list"></div>
                                     </div>
                                 </div>
@@ -3651,89 +4318,145 @@ body.not-allowed .content-wrapper {
 
                 <!-- Purchase Orders Section -->
                 <section id="purchase-orders" class="view-section">
-                    <div class="panel po-panel">
-                        <div class="po-toolbar">
-                            <div class="po-heading">
-                                <h2>Purchase Orders</h2>
-                                <p>Review order status, parties, shipping windows, and line items.</p>
-                            </div>
-                            <div class="po-toolbar-actions">
-                                <form class="po-search" id="po-search-form" role="search">
-                                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-                                    <input type="text" id="po-search-input" placeholder="Search PO" aria-label="Search PO number">
-                                    <button class="po-search-button" type="button" id="po-search-clear" aria-label="Clear search" title="Clear search" style="display: none;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-                                    <button class="po-search-button primary" type="submit" id="po-search-submit" aria-label="Search" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
-                                </form>
-                            </div>
-                        </div>
-                        <div class="po-summary-bar">
-                            <div class="po-result-count" id="po-result-count">Loading purchase orders...</div>
-                            <div class="po-pagination" aria-label="Purchase order pages">
-                                <button class="po-page-button" id="po-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
-                                <span id="po-page-display">Page 1</span>
-                                <button class="po-page-button" id="po-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+                    <div class="po-page-stack">
+                        <div class="panel po-panel">
+                            <div class="po-toolbar">
+                                <div class="po-heading">
+                                    <h2>Purchase Orders</h2>
+                                    <p>Review order status, parties, shipping windows, and line items.</p>
+                                </div>
+                                <div class="po-toolbar-actions">
+                                    <form class="po-search" id="po-search-form" role="search">
+                                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                                        <input type="text" id="po-search-input" placeholder="Search PO" aria-label="Search PO number">
+                                        <button class="po-search-button" type="button" id="po-search-clear" aria-label="Clear search" title="Clear search" style="display: none;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                                        <button class="po-search-button primary" type="submit" id="po-search-submit" aria-label="Search" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+                                    </form>
+                                    <button class="po-refresh-button compact" type="button" id="po-refresh-btn" aria-label="Refresh purchase orders" title="Refresh purchase orders"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
+                                </div>
                             </div>
                         </div>
-                        <div class="table-responsive po-table-wrap">
-                            <table class="data-table" id="purchase-order-table">
-                                <thead>
-                                    <tr>
-                                        <th>Order</th>
-                                        <th>Status</th>
-                                        <th>Buyer / Supplier</th>
-                                        <th>Shipping Window</th>
-                                        <th>Shipment</th>
-                                        <th>Lines</th>
-                                        <th aria-label="Actions"></th>
-                                    </tr>
-                                </thead>
-                                <tbody><tr class="po-empty-row"><td colspan="7">Loading purchase orders...</td></tr></tbody>
-                            </table>
+                        <div class="panel po-panel">
+                            <div class="po-kpi-strip">
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> Total POs</div>
+                                    <div class="po-kpi-value" id="po-kpi-orders">-</div>
+                                </div>
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Total Lines</div>
+                                    <div class="po-kpi-value" id="po-kpi-lines">-</div>
+                                </div>
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Released</div>
+                                    <div class="po-kpi-value" id="po-kpi-released">-</div>
+                                </div>
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-bolt" aria-hidden="true"></i> Priority</div>
+                                    <div class="po-kpi-value" id="po-kpi-priority">-</div>
+                                </div>
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Cancelled</div>
+                                    <div class="po-kpi-value" id="po-kpi-cancelled">-</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="panel po-panel">
+                            <div class="po-summary-bar">
+                                <div class="po-result-count" id="po-result-count">Loading purchase orders...</div>
+                                <div class="po-pagination" aria-label="Purchase order pages">
+                                    <button class="po-page-button" id="po-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
+                                    <span id="po-page-display">Page 1</span>
+                                    <button class="po-page-button" id="po-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+                                </div>
+                            </div>
+                            <div class="table-responsive po-table-wrap">
+                                <table class="data-table" id="purchase-order-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Order</th>
+                                            <th>Status</th>
+                                            <th>Buyer</th>
+                                            <th>Supplier</th>
+                                            <th>Shipping Window</th>
+                                            <th>Details</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody><tr class="po-empty-row"><td class="table-message-cell" colspan="6">Loading purchase orders...</td></tr></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </section>
 
                 <!-- Shipments Section -->
                 <section id="shipments" class="view-section">
-                    <div class="kpi-row">
-                        <div class="kpi-card">
-                            <h4>Active Shipments</h4>
-                            <div class="val" id="shipment-total">-</div>
-                        </div>
-                        <div class="kpi-card">
-                            <h4>Open POs</h4>
-                            <div class="val" id="shipment-linked-pos">-</div>
-                        </div>
-                        <div class="kpi-card warning">
-                            <h4>Flagged / Exceptions</h4>
-                            <div class="val" id="shipment-exceptions" style="color: #EF4444;">-</div>
-                        </div>
-                    </div>
-
-                    <div class="panel">
-                        <div class="panel-header" style="justify-content: space-between; border-bottom: none; padding-bottom: 0;">
-                            <div class="pagination-controls" style="display: flex; gap: 0.5rem; align-items: center;">
-                                <button class="btn btn-sm" id="shipment-prev-btn" disabled>Previous</button>
-                                <span id="shipment-page-display" style="font-size: 0.9rem; font-weight: 500;">Page 1</span>
-                                <button class="btn btn-sm" id="shipment-next-btn" disabled>Next</button>
+                    <div class="po-page-stack">
+                        <div class="panel po-panel">
+                            <div class="po-toolbar">
+                                <div class="po-heading">
+                                    <h2>Shipments</h2>
+                                    <p>Track cargo movement, ETA, route, containers, and shipment documents.</p>
+                                </div>
+                                <div class="po-toolbar-actions">
+                                    <form class="po-search" id="shipment-search-form" role="search">
+                                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                                        <input type="text" id="shipment-search-input" placeholder="Search shipment" aria-label="Search shipment, job, booking, or house bill">
+                                        <button class="po-search-button" type="button" id="shipment-search-clear" aria-label="Clear search" title="Clear search" style="display: none;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                                        <button class="po-search-button primary" type="submit" id="shipment-search-submit" aria-label="Search" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+                                    </form>
+                                    <button class="po-refresh-button compact" type="button" id="shipment-refresh-btn" aria-label="Refresh shipments" title="Refresh shipments"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
+                                </div>
                             </div>
-                            <button class="btn btn-primary btn-sm">Export Data</button>
                         </div>
-                        <div class="table-responsive">
-                            <table class="data-table" id="shipment-table">
-                                <thead>
-                                    <tr>
-                                        <th>Shipment ID</th>
-                                        <th>Reference</th>
-                                        <th>Origin / Destination</th>
-                                        <th>Mode</th>
-                                        <th>ETA</th>
-                                        <th>Status</th>
-                                        <th>Linked POs</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
+                        <div class="panel po-panel">
+                            <div class="po-kpi-strip">
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-ship" aria-hidden="true"></i> Total Shipments</div>
+                                    <div class="po-kpi-value" id="shipment-kpi-total">-</div>
+                                </div>
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-route" aria-hidden="true"></i> Active</div>
+                                    <div class="po-kpi-value" id="shipment-kpi-active">-</div>
+                                </div>
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Arriving Soon (7 Days)</div>
+                                    <div class="po-kpi-value" id="shipment-kpi-arriving">-</div>
+                                </div>
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Delayed</div>
+                                    <div class="po-kpi-value" id="shipment-kpi-delayed">-</div>
+                                </div>
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i> Containers</div>
+                                    <div class="po-kpi-value" id="shipment-kpi-containers">-</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="panel po-panel">
+                            <div class="po-summary-bar">
+                                <div class="po-result-count" id="shipment-result-count">Loading shipments...</div>
+                                <div class="po-pagination" aria-label="Shipment pages">
+                                    <button class="po-page-button" id="shipment-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
+                                    <span id="shipment-page-display">Page 1</span>
+                                    <button class="po-page-button" id="shipment-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+                                </div>
+                            </div>
+                            <div class="table-responsive po-table-wrap">
+                                <table class="data-table" id="shipment-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Shipment</th>
+                                            <th>Mode</th>
+                                            <th>Origin</th>
+                                            <th>Destination</th>
+                                            <th>ETA</th>
+                                            <th>Status</th>
+                                            <th>Details</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody><tr class="po-empty-row"><td class="table-message-cell" colspan="7">Loading shipments...</td></tr></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -3769,26 +4492,80 @@ body.not-allowed .content-wrapper {
 
                 <!-- Tracking Section -->
                 <section id="tracking" class="view-section">
-                    <div class="kpi-row tracking-summary">
-                        <div class="kpi-card">
-                            <h4>Latest Event</h4>
-                            <div class="val" id="tracking-latest">-</div>
+                    <div class="po-page-stack">
+                        <div class="panel po-panel">
+                            <div class="po-toolbar">
+                                <div class="po-heading">
+                                    <h2>Tracking</h2>
+                                    <p>Follow one shipment journey from origin to destination.</p>
+                                </div>
+                                <div class="po-toolbar-actions">
+                                    <form class="po-search" id="tracking-search-form" role="search">
+                                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                                        <input type="text" id="tracking-search-input" placeholder="Search shipment" aria-label="Search shipment, job, booking, or house bill">
+                                        <button class="po-search-button" type="button" id="tracking-search-clear" aria-label="Clear search" title="Clear search" style="display: none;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                                        <button class="po-search-button primary" type="submit" aria-label="Search" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+                                    </form>
+                                    <button class="po-refresh-button compact" type="button" id="tracking-refresh-btn" aria-label="Refresh tracking" title="Refresh tracking"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="kpi-card">
-                            <h4>Actual Events</h4>
-                            <div class="val" id="tracking-actual">-</div>
+                        <div class="panel po-panel">
+                            <div class="po-kpi-strip">
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-clock" aria-hidden="true"></i> Latest Event</div>
+                                    <div class="po-kpi-value" id="tracking-latest">-</div>
+                                </div>
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Actual</div>
+                                    <div class="po-kpi-value" id="tracking-actual">-</div>
+                                </div>
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> Estimates</div>
+                                    <div class="po-kpi-value" id="tracking-estimated">-</div>
+                                </div>
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Exceptions</div>
+                                    <div class="po-kpi-value" id="tracking-exception">-</div>
+                                </div>
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Events</div>
+                                    <div class="po-kpi-value" id="tracking-total">-</div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="kpi-card">
-                            <h4>Estimated Events</h4>
-                            <div class="val" id="tracking-estimated">-</div>
+                        <div class="panel po-panel">
+                            <div class="po-summary-bar">
+                                <div class="po-result-count" id="tracking-result-count">Loading tracking events...</div>
+                                <div class="po-result-count" id="tracking-selected-label">Recent accessible shipments</div>
+                            </div>
+                            <div class="tracking-layout">
+                                <div class="tracking-journey-card">
+                                    <div class="tracking-place">
+                                        <div class="tracking-place-label"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> Origin</div>
+                                        <div class="tracking-place-value" id="tracking-origin">-</div>
+                                    </div>
+                                    <div class="tracking-route-line">
+                                        <div class="route"><i class="fa-solid fa-route" aria-hidden="true"></i></div>
+                                        <div class="tracking-route-meta" id="tracking-route-meta">Shipment journey</div>
+                                    </div>
+                                    <div class="tracking-place">
+                                        <div class="tracking-place-label"><i class="fa-solid fa-flag-checkered" aria-hidden="true"></i> Destination</div>
+                                        <div class="tracking-place-value" id="tracking-destination">-</div>
+                                    </div>
+                                </div>
+                                <div class="tracking-event-panel">
+                                    <div class="tracking-event-header">
+                                        <div>
+                                            <div class="tracking-event-title">Movement Timeline</div>
+                                            <div class="tracking-event-subtitle" id="tracking-timeline-subtitle">Events are loaded from CargoWise.</div>
+                                        </div>
+                                        <span class="badge transit" id="tracking-mode-badge">-</span>
+                                    </div>
+                                    <div class="tracking-timeline" id="tracking-timeline"></div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="kpi-card warning">
-                            <h4>Exceptions</h4>
-                            <div class="val" id="tracking-exception" style="color: #EF4444;">-</div>
-                        </div>
-                    </div>
-                    <div class="panel">
-                        <div class="event-timeline" id="tracking-timeline"></div>
                     </div>
                 </section>
 
@@ -3866,6 +4643,17 @@ body.not-allowed .content-wrapper {
 
                 <!-- Analytics Section -->
                 <section id="analytics" class="view-section">
+                    <div class="panel po-panel">
+                        <div class="po-toolbar">
+                            <div class="po-heading">
+                                <h2>Analytics</h2>
+                                <p>Summary view for purchase orders, shipments, containers, and shipment trends.</p>
+                            </div>
+                            <div class="po-toolbar-actions">
+                                <button class="po-refresh-button" type="button" id="analytics-refresh-btn" aria-label="Refresh analytics" title="Refresh analytics"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="kpi-row">
                         <div class="kpi-card">
                             <h4>Purchase Orders</h4>
@@ -3965,6 +4753,123 @@ body.not-allowed .content-wrapper {
                 </table>
             </div>
             <div class="po-lines-footnote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Quantity, weight and value summarize the CargoWise lines shown above.</span></div>
+        </div>
+    </div>
+
+    <!-- Slide-out Panel for Shipment Purchase Orders -->
+    <div class="side-panel-overlay" id="shipment-pos-overlay" onclick="closeShipmentPurchaseOrdersPanel()"></div>
+    <div class="side-panel" id="shipment-pos-panel" role="dialog" aria-modal="true" aria-labelledby="shipment-pos-title" aria-hidden="true">
+        <div class="side-panel-header">
+            <div class="modal-heading">
+                <div class="modal-heading-icon"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i></div>
+                <div>
+                    <h2 class="side-panel-title" id="shipment-pos-title">Purchase Orders</h2>
+                    <div class="side-panel-subtitle" id="shipment-pos-subtitle">Shipment #---</div>
+                </div>
+            </div>
+            <button class="side-panel-close" type="button" onclick="closeShipmentPurchaseOrdersPanel()" aria-label="Close purchase orders" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        </div>
+        <div class="side-panel-body">
+            <div class="po-lines-summary container-summary" id="shipment-pos-summary">
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> POs</div>
+                    <div class="po-lines-stat-value" id="shipment-pos-count">-</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Lines</div>
+                    <div class="po-lines-stat-value" id="shipment-pos-lines">-</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Released</div>
+                    <div class="po-lines-stat-value" id="shipment-pos-released">-</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-bolt" aria-hidden="true"></i> Priority</div>
+                    <div class="po-lines-stat-value" id="shipment-pos-priority">-</div>
+                </div>
+            </div>
+            <div class="container-card-grid" id="shipment-pos-list">
+                <div class="container-card-empty"><div><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><br>Loading purchase orders...</div></div>
+            </div>
+            <div class="po-lines-footnote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Purchase orders are loaded live from CargoWise for the selected shipment.</span></div>
+        </div>
+    </div>
+
+    <!-- Slide-out Panel for Shipment Containers -->
+    <div class="side-panel-overlay" id="shipment-containers-overlay" onclick="closeShipmentContainersPanel()"></div>
+    <div class="side-panel" id="shipment-containers-panel" role="dialog" aria-modal="true" aria-labelledby="shipment-containers-title" aria-hidden="true">
+        <div class="side-panel-header">
+            <div class="modal-heading">
+                <div class="modal-heading-icon"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i></div>
+                <div>
+                    <h2 class="side-panel-title" id="shipment-containers-title">Containers</h2>
+                    <div class="side-panel-subtitle" id="shipment-containers-subtitle">Shipment #---</div>
+                </div>
+            </div>
+            <button class="side-panel-close" type="button" onclick="closeShipmentContainersPanel()" aria-label="Close containers" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        </div>
+        <div class="side-panel-body">
+            <div class="po-lines-summary container-summary" id="shipment-containers-summary">
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-box" aria-hidden="true"></i> Containers</div>
+                    <div class="po-lines-stat-value" id="shipment-containers-count">-</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Gross Weight</div>
+                    <div class="po-lines-stat-value" id="shipment-containers-weight">-</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-cube" aria-hidden="true"></i> Gross Volume</div>
+                    <div class="po-lines-stat-value" id="shipment-containers-volume">-</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Available</div>
+                    <div class="po-lines-stat-value" id="shipment-containers-available">-</div>
+                </div>
+            </div>
+            <div class="container-card-grid" id="shipment-containers-list">
+                <div class="container-card-empty"><div><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><br>Loading containers...</div></div>
+            </div>
+            <div class="po-lines-footnote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Container details are loaded live from CargoWise for the selected shipment.</span></div>
+        </div>
+    </div>
+
+    <!-- Slide-out Panel for Shipment Documents -->
+    <div class="side-panel-overlay" id="shipment-documents-overlay" onclick="closeShipmentDocumentsPanel()"></div>
+    <div class="side-panel" id="shipment-documents-panel" role="dialog" aria-modal="true" aria-labelledby="shipment-documents-title" aria-hidden="true">
+        <div class="side-panel-header">
+            <div class="modal-heading">
+                <div class="modal-heading-icon"><i class="fa-solid fa-file-lines" aria-hidden="true"></i></div>
+                <div>
+                    <h2 class="side-panel-title" id="shipment-documents-title">Documents</h2>
+                    <div class="side-panel-subtitle" id="shipment-documents-subtitle">Shipment #---</div>
+                </div>
+            </div>
+            <button class="side-panel-close" type="button" onclick="closeShipmentDocumentsPanel()" aria-label="Close documents" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        </div>
+        <div class="side-panel-body">
+            <div class="po-lines-summary container-summary" id="shipment-documents-summary">
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-file-lines" aria-hidden="true"></i> Documents</div>
+                    <div class="po-lines-stat-value" id="shipment-documents-count">-</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i> Files</div>
+                    <div class="po-lines-stat-value" id="shipment-documents-files">-</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Received</div>
+                    <div class="po-lines-stat-value" id="shipment-documents-received">-</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> Pending</div>
+                    <div class="po-lines-stat-value" id="shipment-documents-pending">-</div>
+                </div>
+            </div>
+            <div class="container-card-grid" id="shipment-documents-list">
+                <div class="container-card-empty"><div><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><br>Loading documents...</div></div>
+            </div>
+            <div class="po-lines-footnote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Download is available only when CargoWise has an attached file for the document.</span></div>
         </div>
     </div>
 
@@ -4164,16 +5069,18 @@ body.not-allowed .content-wrapper {
         </div>
     </div>
 
+    <!-- Auth component: login, login details, profile details, logout -->
     <!-- Login Modal -->
     <div class="modal" id="login-modal" role="dialog" aria-modal="true" aria-labelledby="login-modal-title" style="display: none;">
         <div class="modal-content" role="document">
             <div class="modal-header">
-                <div class="modal-heading">
-                    <div class="modal-heading-icon"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i></div>
-                    <div>
-                        <h3 id="login-modal-title">Login to MyShipment</h3>
+                    <div class="modal-heading">
+                        <div class="modal-heading-icon"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i></div>
+                        <div>
+                            <h3 id="login-modal-title">Login</h3>
+                            <p class="modal-subtitle">Enter your credentials to continue</p>
+                        </div>
                     </div>
-                </div>
                 <button class="close-modal" id="login-modal-close" type="button" aria-label="Close login" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
             <div class="modal-body">
@@ -4210,7 +5117,7 @@ body.not-allowed .content-wrapper {
                     <div class="modal-heading-icon"><i class="fa-regular fa-id-card" aria-hidden="true"></i></div>
                     <div>
                         <h3 id="profile-modal-title">Login Details</h3>
-                        <p class="modal-subtitle">Credentials used for portal login</p>
+                        <p class="modal-subtitle">Credentials used for authentication</p>
                     </div>
                 </div>
                 <button class="close-modal" id="profile-modal-close" type="button" aria-label="Close login details" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
@@ -4234,8 +5141,8 @@ body.not-allowed .content-wrapper {
                 <div class="modal-heading">
                     <div class="modal-heading-icon"><i class="fa-solid fa-user" aria-hidden="true"></i></div>
                     <div>
-                        <h3 id="user-profile-modal-title">Profile Details</h3>
-                        <p class="modal-subtitle">User identity and access profile</p>
+                        <h3 id="user-profile-modal-title">My Profile</h3>
+                        <p class="modal-subtitle">User identity and access details</p>
                     </div>
                 </div>
                 <button class="close-modal" id="user-profile-modal-close" type="button" aria-label="Close profile details" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
@@ -4281,12 +5188,17 @@ body.not-allowed .content-wrapper {
         <div class="modal-content" role="document">
             <div class="modal-header">
                 <div class="modal-heading">
-                    <h3 id="logout-modal-title">Logout</h3>
+                    <div class="modal-heading-icon"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="logout-modal-title">Logout</h3>
+                        <p class="modal-subtitle">End the current session</p>
+                    </div>
                 </div>
+                <button class="close-modal" id="logout-modal-close" type="button" aria-label="Close logout" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
             <div class="modal-body">
                 <div class="logout-confirmation">
-                    <p>Are you sure you want to logout? You will need to enter your credentials again to access the portal.</p>
+                    <p>Logout now?</p>
                 </div>
             </div>
             <div class="modal-footer">
@@ -4295,6 +5207,7 @@ body.not-allowed .content-wrapper {
             </div>
         </div>
     </div>
+    <!-- Auth component end -->
 
     <div class="modal" id="app-message-modal" role="dialog" aria-modal="true" aria-labelledby="app-message-title" style="display: none;">
         <div class="modal-content" role="document">
@@ -4319,6 +5232,7 @@ body.not-allowed .content-wrapper {
     <script>
 // App Logic
 document.addEventListener('DOMContentLoaded', () => {
+    // Auth component config: storage keys, public info API, login, and profile refresh.
     const STORAGE_KEY_TOKEN = 'token';
     const STORAGE_KEY_USER = 'user';
     const STORAGE_KEY_INFO = 'info';
@@ -4355,7 +5269,7 @@ document.addEventListener('DOMContentLoaded', () => {
         shipments: '/cargowise/my-shipments',
         containers: '/cargowise/my-containers',
         tracking: '/cargowise/my-tracking',
-        exceptions: '/cargowise/my-exceptions',
+        exceptions: '/cargowise/my-alerts',
         documents: '/cargowise/my-documents',
         analytics: '/cargowise/my-analytics'
     };
@@ -4367,6 +5281,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let containerCurrentPage = 1;
     let exceptionCurrentPage = 1;
     let documentCurrentPage = 1;
+    let poSearchQuery = '';
+    let shipmentSearchQuery = '';
+    let containerShipmentId = '';
+    let trackingShipmentId = '';
+    let trackingSearchQuery = '';
+    let trackingSelectedShipment = null;
+    let documentShipmentId = '';
     let usersCurrentPage = 1;
     let usersSearchQuery = '';
     let ratesCurrentPage = 1;
@@ -4385,9 +5306,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let ratesCsvObjects = [];
     let rateGroupbyOptions = {};
     let buyerSearchQuery = '';
-    let poSearchQuery = '';
     let poSearchTimeout;
     const moduleCache = {};
+    // Auth component helpers: token/user storage, /info caching, and shared API wrapper.
     const readStoredToken = () => {
         const rawToken = localStorage.getItem(STORAGE_KEY_TOKEN);
         if (!rawToken) return '';
@@ -4569,6 +5490,15 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (target === 'users') loadUsers();
         else if (target === 'buyer-360') return;
         else if (target === 'profile') loadCargowiseProfile();
+        else if (target === 'containers') {
+            containerShipmentId = '';
+            loadModule(target);
+        }
+        else if (target === 'tracking') loadModule(target);
+        else if (target === 'documents') {
+            documentShipmentId = '';
+            loadModule(target);
+        }
         else loadModule(target);
     };
     const formatDate = value => {
@@ -4591,9 +5521,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (text.includes('deliver')) return 'delivered';
         return 'open';
     };
-    const setTableMessage = (tableId, colSpan, message) => {
+    const tableLoaderHtml = message => `
+        <div class="table-loader">
+            <div class="table-loader-icon"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i></div>
+            <div>
+                <div class="table-loader-title">${escapeHtml(message || 'Loading data...')}</div>
+                <div class="table-loader-subtitle">Please wait while we fetch the latest records.</div>
+            </div>
+        </div>
+    `;
+    const setTableMessage = (tableId, colSpan, message, loading = false) => {
         const body = document.querySelector(`#${tableId} tbody`);
-        if (body) body.innerHTML = `<tr><td colspan="${colSpan}">${escapeHtml(message)}</td></tr>`;
+        if (body) body.innerHTML = loading ? `<tr><td class="table-loader-cell" colspan="${colSpan}">${tableLoaderHtml(message)}</td></tr>` : `<tr><td class="table-message-cell" colspan="${colSpan}">${escapeHtml(message)}</td></tr>`;
     };
     const setRateTableMessage = message => {
         const body = document.querySelector('#freight-rates-table tbody');
@@ -4606,7 +5545,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const setBlockMessage = (id, message) => {
         const element = document.getElementById(id);
-        if (element) element.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
+        if (element) element.innerHTML = String(message || '').toLowerCase().includes('loading') ? `<div class="block-loader">${tableLoaderHtml(message)}</div>` : `<div class="empty-state">${escapeHtml(message)}</div>`;
     };
     const openModal = id => { document.getElementById(id).style.display = 'flex'; };
     const closeModal = id => { document.getElementById(id).style.display = 'none'; };
@@ -4706,20 +5645,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const profileAvatar = document.querySelector('.avatar');
         if (profileAvatar) profileAvatar.textContent = avatarTextFromUsername(user.username || user.name);
         const rawValue = value => value === null || value === undefined || value === '' ? '-' : String(value);
-        const roleLabel = roleLabels[String(user.role)] || rawValue(user.role);
+        const roleValue = rawValue(user.role);
+        const mappedRole = roleLabels[String(user.role)];
+        const roleProfileLabel = mappedRole ? `${roleValue} (${mappedRole})` : roleValue;
         const typeLabel = typeLabels[String(user.type)] || rawValue(user.type);
-        const roleText = String(roleLabel || '').toLowerCase();
-        const roleIcon = roleText.includes('admin') ? 'fa-user-shield' : roleText.includes('management') ? 'fa-briefcase' : roleText.includes('buyer') ? 'fa-building-user' : roleText.includes('procurement') ? 'fa-cart-flatbed' : 'fa-user-tie';
         document.getElementById('profile-type').textContent = typeLabel;
         document.getElementById('profile-username').textContent = rawValue(user.username);
         document.getElementById('profile-password').textContent = user.password ? '••••••••' : '-';
-        document.getElementById('user-profile-role').textContent = roleLabel;
+        document.getElementById('user-profile-role').textContent = roleProfileLabel;
         document.getElementById('user-profile-id').textContent = rawValue(user.id);
         document.getElementById('user-profile-name').textContent = rawValue(user.name || user.full_name);
         document.getElementById('user-profile-email').textContent = rawValue(user.email);
         document.getElementById('user-profile-mobile').textContent = rawValue(user.mobile || user.phone);
-        document.getElementById('header-role-label').textContent = roleLabel;
-        document.querySelector('#header-role-badge i').className = `fa-solid ${roleIcon}`;
     };
     const renderCargowiseProfile = profile => {
         const org = profile.org || {};
@@ -4734,6 +5671,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('cargowise-profile-health').innerHTML = `
             <span class="profile-chip${org.is_active ? '' : ' is-negative'}">${org.is_active ? 'Active' : 'Inactive'}</span>
             <span class="profile-chip${org.is_valid ? '' : ' is-negative'}">${org.is_valid ? 'Valid record' : 'Invalid record'}</span>
+            <button class="profile-refresh-chip" type="button" id="profile-refresh-btn" aria-label="Refresh profile" title="Refresh profile"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
         `;
         document.getElementById('cargowise-address-count').textContent = String(addresses.length);
         document.getElementById('cargowise-contact-count').textContent = String(contacts.length);
@@ -4741,8 +5679,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const summary = [
             ['Category', org.category],
             ['Language', org.language],
-            ['Closest Port', org.closest_port],
-            ['Screening', org.screening_status],
+            ['Nearest Port', org.closest_port],
+            ['Screening Status', org.screening_status],
             ['Created', formatDateTime(org.created_at)],
             ['Last Updated', formatDateTime(org.updated_at)],
             ['Org ID', org.org_id],
@@ -4804,18 +5742,18 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     };
-    
+
     const openPoLinesPanel = async (poId, poNumber) => {
         document.getElementById('po-lines-subtitle').textContent = `PO #${poNumber}`;
         document.getElementById('po-lines-overlay').classList.add('active');
         const panel = document.getElementById('po-lines-panel');
         panel.classList.add('active');
         panel.setAttribute('aria-hidden', 'false');
-        
+
         const tbody = document.querySelector('#po-lines-table tbody');
         tbody.innerHTML = '<tr><td class="po-lines-message" colspan="5"><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>Loading line items...</td></tr>';
         ['count', 'quantity', 'weight', 'value'].forEach(key => { document.getElementById(`po-lines-${key}`).textContent = '-'; });
-        
+
         try {
             const payload = await api(`/cargowise/my-purchase-orders-line-items?po_id=${encodeURIComponent(poId)}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
             const rows = Array.isArray(payload.message) ? payload.message : [];
@@ -4855,7 +5793,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tbody.innerHTML = '<tr><td class="po-lines-message" colspan="5"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>Line items could not be loaded. Please try again.</td></tr>';
         }
     };
-    
+
     const closePoLinesPanel = () => {
         document.getElementById('po-lines-overlay').classList.remove('active');
         const panel = document.getElementById('po-lines-panel');
@@ -4864,6 +5802,289 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     window.openPoLinesPanel = openPoLinesPanel;
     window.closePoLinesPanel = closePoLinesPanel;
+
+    const renderShipmentPurchaseOrderCards = rows => {
+        const list = document.getElementById('shipment-pos-list');
+        if (!list) return;
+        const toNumber = value => Number(value || 0);
+        const totals = rows.reduce((acc, row) => {
+            acc.lines += toNumber(row.line_count);
+            if (row.is_released) acc.released += 1;
+            if (row.is_priority) acc.priority += 1;
+            return acc;
+        }, { lines: 0, released: 0, priority: 0 });
+        document.getElementById('shipment-pos-count').textContent = rows.length.toLocaleString();
+        document.getElementById('shipment-pos-lines').textContent = totals.lines.toLocaleString();
+        document.getElementById('shipment-pos-released').textContent = totals.released.toLocaleString();
+        document.getElementById('shipment-pos-priority').textContent = totals.priority.toLocaleString();
+        list.innerHTML = rows.length ? rows.map(row => {
+            const status = row.is_cancelled ? 'Cancelled' : displayValue(row.status);
+            return `
+            <article class="container-card">
+                <div class="container-card-head">
+                    <div class="container-card-head-stack">
+                        <div>
+                            <div class="container-card-head-label">PO No.</div>
+                            <div class="container-card-title">${escapeHtml(displayValue(row.order_number))}${row.order_split ? `-${escapeHtml(row.order_split)}` : ''}</div>
+                        </div>
+                        <div>
+                            <div class="container-card-head-label">Customer Ref.</div>
+                            <div class="container-card-subtitle">${escapeHtml(displayValue(row.customer_reference))}</div>
+                        </div>
+                    </div>
+                    <span class="badge ${badgeClass(status)}">${escapeHtml(status)}</span>
+                </div>
+                <div class="container-card-body">
+                    <div class="container-card-field">
+                        <div class="container-card-label"><i class="fa-solid fa-user-tie" aria-hidden="true"></i> Buyer</div>
+                        <div class="container-card-value">${escapeHtml(displayValue(row.buyer_name || row.buyer_code))}</div>
+                    </div>
+                    <div class="container-card-field">
+                        <div class="container-card-label"><i class="fa-solid fa-industry" aria-hidden="true"></i> Supplier</div>
+                        <div class="container-card-value">${escapeHtml(displayValue(row.supplier_name || row.supplier_code))}</div>
+                    </div>
+                    <div class="container-card-field">
+                        <div class="container-card-label"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Shipping Window</div>
+                        <div class="container-card-value">${escapeHtml(formatDate(row.shipment_window_start))} - ${escapeHtml(formatDate(row.shipment_window_end))}</div>
+                    </div>
+                    <div class="container-card-field">
+                        <div class="container-card-label"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Lines</div>
+                        <div class="container-card-value">${escapeHtml(displayValue(row.line_count))}</div>
+                    </div>
+                    <div class="container-card-field">
+                        <div class="container-card-label"><i class="fa-solid fa-truck-ramp-box" aria-hidden="true"></i> Mode / Incoterm</div>
+                        <div class="container-card-value">${escapeHtml(displayValue(row.transport_mode))} / ${escapeHtml(displayValue(row.inco_term))}</div>
+                    </div>
+                    <div class="container-card-field">
+                        <div class="container-card-label"><i class="fa-solid fa-box-open" aria-hidden="true"></i> Goods</div>
+                        <div class="container-card-value">${escapeHtml(displayValue(row.goods_description))}</div>
+                    </div>
+                </div>
+                <div class="container-card-foot">
+                    <span><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> ${escapeHtml(displayValue(row.purchase_order_id))}</span>
+                    <span>${row.is_released ? 'Released' : 'Not released'}${row.is_priority ? ' · Priority' : ''}</span>
+                </div>
+            </article>
+        `}).join('') : '<div class="container-card-empty"><div><i class="fa-regular fa-folder-open" aria-hidden="true"></i><br>No purchase orders found for this shipment.</div></div>';
+    };
+
+    const openShipmentPurchaseOrdersPanel = async (shipmentId, shipmentNumber) => {
+        document.getElementById('shipment-pos-subtitle').textContent = `Shipment #${shipmentNumber || shipmentId}`;
+        document.getElementById('shipment-pos-overlay').classList.add('active');
+        const panel = document.getElementById('shipment-pos-panel');
+        panel.classList.add('active');
+        panel.setAttribute('aria-hidden', 'false');
+        ['count', 'lines', 'released', 'priority'].forEach(key => { document.getElementById(`shipment-pos-${key}`).textContent = '-'; });
+        document.getElementById('shipment-pos-list').innerHTML = '<div class="container-card-empty"><div><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><br>Loading purchase orders...</div></div>';
+        try {
+            const payload = await api(`${MODULE_ENDPOINTS['purchase-orders']}?limit=100&page=1&shipment_id=${encodeURIComponent(shipmentId)}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const rows = payload.message && Array.isArray(payload.message.obj_list) ? payload.message.obj_list : [];
+            renderShipmentPurchaseOrderCards(rows);
+        } catch (err) {
+            document.getElementById('shipment-pos-list').innerHTML = '<div class="container-card-empty"><div><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><br>Purchase orders could not be loaded. Please try again.</div></div>';
+        }
+    };
+
+    const closeShipmentPurchaseOrdersPanel = () => {
+        document.getElementById('shipment-pos-overlay').classList.remove('active');
+        const panel = document.getElementById('shipment-pos-panel');
+        panel.classList.remove('active');
+        panel.setAttribute('aria-hidden', 'true');
+    };
+    window.openShipmentPurchaseOrdersPanel = openShipmentPurchaseOrdersPanel;
+    window.closeShipmentPurchaseOrdersPanel = closeShipmentPurchaseOrdersPanel;
+
+    const renderShipmentContainerCards = rows => {
+        const list = document.getElementById('shipment-containers-list');
+        if (!list) return;
+        const toNumber = value => Number(value || 0);
+        const totals = rows.reduce((acc, row) => {
+            acc.weight += toNumber(row.gross_weight);
+            acc.volume += toNumber(row.gross_volume);
+            if (row.fcl_available) acc.available += 1;
+            return acc;
+        }, { weight: 0, volume: 0, available: 0 });
+        const numberFormat = value => Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+        document.getElementById('shipment-containers-count').textContent = rows.length.toLocaleString();
+        document.getElementById('shipment-containers-weight').textContent = `${numberFormat(totals.weight)} kg`;
+        document.getElementById('shipment-containers-volume').textContent = numberFormat(totals.volume);
+        document.getElementById('shipment-containers-available').textContent = totals.available.toLocaleString();
+        list.innerHTML = rows.length ? rows.map(row => `
+            <article class="container-card">
+                <div class="container-card-head">
+                    <div class="container-card-head-stack">
+                        <div>
+                            <div class="container-card-head-label">Container No.</div>
+                            <div class="container-card-title">${escapeHtml(displayValue(row.container_number))}</div>
+                        </div>
+                        <div>
+                            <div class="container-card-head-label">Linked Ref.</div>
+                            <div class="container-card-subtitle">${escapeHtml(displayValue(row.container_job_id || row.consol_reference || row.shipment_reference))}</div>
+                        </div>
+                    </div>
+                    <span class="badge ${badgeClass(row.status)}">Status: ${escapeHtml(displayValue(row.status))}</span>
+                </div>
+                <div class="container-card-body">
+                    <div class="container-card-field">
+                        <div class="container-card-label"><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Mode</div>
+                        <div class="container-card-value">${escapeHtml(displayValue(row.container_mode))}</div>
+                    </div>
+                    <div class="container-card-field">
+                        <div class="container-card-label"><i class="fa-solid fa-lock" aria-hidden="true"></i> Seal</div>
+                        <div class="container-card-value">${escapeHtml(displayValue(row.seal_number))}</div>
+                    </div>
+                    <div class="container-card-field">
+                        <div class="container-card-label"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> Gross Weight</div>
+                        <div class="container-card-value">${escapeHtml(displayValue(row.gross_weight))} ${escapeHtml(displayValue(row.gross_weight_unit))}</div>
+                    </div>
+                    <div class="container-card-field">
+                        <div class="container-card-label"><i class="fa-solid fa-cube" aria-hidden="true"></i> Gross Volume</div>
+                        <div class="container-card-value">${escapeHtml(displayValue(row.gross_volume))} ${escapeHtml(displayValue(row.gross_volume_unit))}</div>
+                    </div>
+                    <div class="container-card-field">
+                        <div class="container-card-label"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i> Available</div>
+                        <div class="container-card-value">${escapeHtml(formatDate(row.fcl_available))}</div>
+                    </div>
+                    <div class="container-card-field">
+                        <div class="container-card-label"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Gate Out</div>
+                        <div class="container-card-value">${escapeHtml(formatDate(row.fcl_wharf_gate_out))}</div>
+                    </div>
+                </div>
+                <div class="container-card-foot">
+                    <i class="fa-solid fa-ship" aria-hidden="true"></i>
+                    <span>Shipment: ${escapeHtml(displayValue(row.shipment_reference))}</span>
+                </div>
+            </article>
+        `).join('') : '<div class="container-card-empty"><div><i class="fa-regular fa-folder-open" aria-hidden="true"></i><br>No containers found for this shipment.</div></div>';
+    };
+
+    const openShipmentContainersPanel = async (shipmentId, shipmentNumber) => {
+        document.getElementById('shipment-containers-subtitle').textContent = `Shipment #${shipmentNumber || shipmentId}`;
+        document.getElementById('shipment-containers-overlay').classList.add('active');
+        const panel = document.getElementById('shipment-containers-panel');
+        panel.classList.add('active');
+        panel.setAttribute('aria-hidden', 'false');
+        ['count', 'weight', 'volume', 'available'].forEach(key => { document.getElementById(`shipment-containers-${key}`).textContent = '-'; });
+        document.getElementById('shipment-containers-list').innerHTML = '<div class="container-card-empty"><div><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><br>Loading containers...</div></div>';
+        try {
+            const payload = await api(`${MODULE_ENDPOINTS.containers}?limit=100&page=1&shipment_id=${encodeURIComponent(shipmentId)}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const rows = payload.message && Array.isArray(payload.message.obj_list) ? payload.message.obj_list : [];
+            renderShipmentContainerCards(rows);
+        } catch (err) {
+            document.getElementById('shipment-containers-list').innerHTML = '<div class="container-card-empty"><div><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><br>Containers could not be loaded. Please try again.</div></div>';
+        }
+    };
+
+    const closeShipmentContainersPanel = () => {
+        document.getElementById('shipment-containers-overlay').classList.remove('active');
+        const panel = document.getElementById('shipment-containers-panel');
+        panel.classList.remove('active');
+        panel.setAttribute('aria-hidden', 'true');
+    };
+    window.openShipmentContainersPanel = openShipmentContainersPanel;
+    window.closeShipmentContainersPanel = closeShipmentContainersPanel;
+
+    const downloadDocument = documentId => {
+        if (!documentId || documentId === '-') return;
+        const url = `${MODULE_ENDPOINTS.documents}-download?document_id=${encodeURIComponent(documentId)}`;
+        fetch(url, { headers: { Authorization: `Bearer ${accessToken()}` } })
+            .then(async response => {
+                if (!response.ok) throw new Error('Document download failed');
+                const blob = await response.blob();
+                const disposition = response.headers.get('content-disposition') || '';
+                const match = disposition.match(/filename="?([^"]+)"?/i);
+                const filename = match ? match[1] : 'document';
+                const objectUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = objectUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(objectUrl);
+            })
+            .catch(err => showAppAlert({ title: 'Download Failed', message: err.message || 'Unable to download document.', danger: true }));
+    };
+
+    const renderShipmentDocumentCards = rows => {
+        const list = document.getElementById('shipment-documents-list');
+        if (!list) return;
+        const files = rows.filter(row => Number(row.has_file || 0)).length;
+        const received = rows.filter(row => row.date_received).length;
+        document.getElementById('shipment-documents-count').textContent = rows.length.toLocaleString();
+        document.getElementById('shipment-documents-files').textContent = files.toLocaleString();
+        document.getElementById('shipment-documents-received').textContent = received.toLocaleString();
+        document.getElementById('shipment-documents-pending').textContent = Math.max(0, rows.length - received).toLocaleString();
+        list.innerHTML = rows.length ? rows.map(row => {
+            const hasFile = Number(row.has_file || 0) === 1;
+            const status = row.date_received ? 'Received' : row.date_required ? 'Pending' : displayValue(row.document_source);
+            return `
+            <article class="container-card">
+                <div class="container-card-head">
+                    <div>
+                        <div class="container-card-title">${escapeHtml(displayValue(row.name || row.document_number))}</div>
+                        <div class="container-card-subtitle">${escapeHtml(displayValue(row.document_source))}</div>
+                    </div>
+                    <span class="badge ${badgeClass(status)}">${escapeHtml(status)}</span>
+                </div>
+                <div class="container-card-body">
+                    <div class="container-card-field">
+                        <div class="container-card-label"><i class="fa-solid fa-tags" aria-hidden="true"></i> Type</div>
+                        <div class="container-card-value">${escapeHtml(displayValue(row.document_type || row.category))}</div>
+                    </div>
+                    <div class="container-card-field">
+                        <div class="container-card-label"><i class="fa-solid fa-link" aria-hidden="true"></i> Parent</div>
+                        <div class="container-card-value">${escapeHtml(displayValue(row.parent_type))}</div>
+                    </div>
+                    <div class="container-card-field">
+                        <div class="container-card-label"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Required</div>
+                        <div class="container-card-value">${escapeHtml(formatDate(row.date_required))}</div>
+                    </div>
+                    <div class="container-card-field">
+                        <div class="container-card-label"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Received</div>
+                        <div class="container-card-value">${escapeHtml(formatDate(row.date_received))}</div>
+                    </div>
+                    <div class="container-card-field">
+                        <div class="container-card-label"><i class="fa-solid fa-user" aria-hidden="true"></i> Owner</div>
+                        <div class="container-card-value">${escapeHtml(displayValue(row.owner_name || row.issued_by_name))}</div>
+                    </div>
+                    <div class="container-card-field">
+                        <div class="container-card-label"><i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i> File</div>
+                        <div class="container-card-value">${hasFile ? 'Available' : 'Not attached'}</div>
+                    </div>
+                </div>
+                <div class="container-card-foot">
+                    <span><i class="fa-solid fa-file-lines" aria-hidden="true"></i> ${escapeHtml(displayValue(row.document_number || row.document_id))}</span>
+                    <button class="document-card-action" type="button" data-document-download="${escapeHtml(displayValue(row.document_id))}" ${hasFile ? '' : 'disabled'}><i class="fa-solid fa-download" aria-hidden="true"></i>Download</button>
+                </div>
+            </article>
+        `}).join('') : '<div class="container-card-empty"><div><i class="fa-regular fa-folder-open" aria-hidden="true"></i><br>No documents found for this shipment.</div></div>';
+    };
+
+    const openShipmentDocumentsPanel = async (shipmentId, shipmentNumber) => {
+        document.getElementById('shipment-documents-subtitle').textContent = `Shipment #${shipmentNumber || shipmentId}`;
+        document.getElementById('shipment-documents-overlay').classList.add('active');
+        const panel = document.getElementById('shipment-documents-panel');
+        panel.classList.add('active');
+        panel.setAttribute('aria-hidden', 'false');
+        ['count', 'files', 'received', 'pending'].forEach(key => { document.getElementById(`shipment-documents-${key}`).textContent = '-'; });
+        document.getElementById('shipment-documents-list').innerHTML = '<div class="container-card-empty"><div><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><br>Loading documents...</div></div>';
+        try {
+            const payload = await api(`${MODULE_ENDPOINTS.documents}?limit=100&page=1&shipment_id=${encodeURIComponent(shipmentId)}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const rows = payload.message && Array.isArray(payload.message.obj_list) ? payload.message.obj_list : [];
+            renderShipmentDocumentCards(rows);
+        } catch (err) {
+            document.getElementById('shipment-documents-list').innerHTML = '<div class="container-card-empty"><div><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><br>Documents could not be loaded. Please try again.</div></div>';
+        }
+    };
+
+    const closeShipmentDocumentsPanel = () => {
+        document.getElementById('shipment-documents-overlay').classList.remove('active');
+        const panel = document.getElementById('shipment-documents-panel');
+        panel.classList.remove('active');
+        panel.setAttribute('aria-hidden', 'true');
+    };
+    window.closeShipmentDocumentsPanel = closeShipmentDocumentsPanel;
 
     const renderPurchaseOrders = rows => {
         const body = document.querySelector('#purchase-order-table tbody');
@@ -4874,14 +6095,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const searchContext = poSearchQuery ? ` matching “${poSearchQuery}”` : '';
             resultCount.innerHTML = `<strong>${rows.length}</strong> ${noun} on this page${escapeHtml(searchContext)}`;
         }
-        body.innerHTML = rows.length ? rows.map(row => {
-            const lineCount = Math.max(0, Number(row.line_count) || 0);
-            const hasLines = lineCount > 0;
-            return `
-            <tr class="${hasLines ? '' : 'po-row-disabled'}" data-po-id="${escapeHtml(displayValue(row.purchase_order_id))}" data-po-number="${escapeHtml(displayValue(row.order_number))}" data-has-lines="${hasLines ? 'true' : 'false'}"${hasLines ? ` tabindex="0" role="button" aria-label="View ${lineCount} line items for purchase order ${escapeHtml(displayValue(row.order_number))}"` : ` aria-label="Purchase order ${escapeHtml(displayValue(row.order_number))} has no line items"`}>
+            body.innerHTML = rows.length ? rows.map(row => {
+                const lineCount = Math.max(0, Number(row.line_count) || 0);
+                const hasLines = lineCount > 0;
+                const hasShipment = Number(row.has_shipment || 0) === 1 || Boolean(row.shipment_id);
+                return `
+            <tr class="${hasLines ? '' : 'po-row-disabled'}" data-po-id="${escapeHtml(displayValue(row.purchase_order_id))}" data-po-number="${escapeHtml(displayValue(row.order_number))}" data-shipment-id="${escapeHtml(displayValue(row.shipment_id))}" data-has-lines="${hasLines ? 'true' : 'false'}"${hasLines ? ` tabindex="0" role="button" aria-label="View ${lineCount} line items for purchase order ${escapeHtml(displayValue(row.order_number))}"` : ` aria-label="Purchase order ${escapeHtml(displayValue(row.order_number))} has no line items"`}>
                 <td>
                     <span class="po-primary">${escapeHtml(displayValue(row.order_number))}${row.order_split ? ` / ${escapeHtml(row.order_split)}` : ''}</span>
-                    <span class="po-secondary">${escapeHtml(row.customer_reference ? `Ref: ${row.customer_reference}` : `Created ${formatDate(row.created_at)}`)}</span>
+                    <span class="po-secondary po-order-meta">${escapeHtml(row.customer_reference ? `Ref: ${row.customer_reference}` : formatDate(row.created_at))}</span>
                 </td>
                 <td>
                     <div class="po-status-stack">
@@ -4890,44 +6112,130 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <span class="po-secondary">${row.is_released ? 'Released' : 'Not released'}</span>
                 </td>
-                <td>
-                    <div class="po-party-flow">
-                        <div class="po-party"><span class="po-primary" title="${escapeHtml(displayValue(row.buyer_name || row.buyer_code))}">${escapeHtml(displayValue(row.buyer_name || row.buyer_code))}</span><span class="po-secondary">Buyer</span></div>
-                        <i class="fa-solid fa-arrow-right po-party-arrow" aria-hidden="true"></i>
-                        <div class="po-party"><span class="po-primary" title="${escapeHtml(displayValue(row.supplier_name || row.supplier_code))}">${escapeHtml(displayValue(row.supplier_name || row.supplier_code))}</span><span class="po-secondary">Supplier</span></div>
-                    </div>
-                </td>
+                <td><span class="po-primary" title="${escapeHtml(displayValue(row.buyer_name || row.buyer_code))}">${escapeHtml(displayValue(row.buyer_name || row.buyer_code))}</span><span class="po-secondary">${escapeHtml(displayValue(row.buyer_code))}</span></td>
+                <td><span class="po-primary" title="${escapeHtml(displayValue(row.supplier_name || row.supplier_code))}">${escapeHtml(displayValue(row.supplier_name || row.supplier_code))}</span><span class="po-secondary">${escapeHtml(displayValue(row.supplier_code))}</span></td>
                 <td>
                     <div class="po-date-range"><i class="fa-regular fa-calendar" aria-hidden="true"></i><span>${escapeHtml(formatDate(row.shipment_window_start))} – ${escapeHtml(formatDate(row.shipment_window_end))}</span></div>
                     <div class="po-shipping-meta">${row.transport_mode ? `<span>${escapeHtml(row.transport_mode)}</span>` : ''}${row.inco_term ? `<span>${escapeHtml(row.inco_term)}</span>` : ''}</div>
                 </td>
                 <td>
-                    <span class="po-primary">${escapeHtml(displayValue(row.shipment_reference))}</span>
-                    <span class="po-secondary">${escapeHtml(displayValue(row.shipment_status))}</span>
+                    <div class="po-detail-stack">
+                        <button class="po-detail-chip${hasLines ? '' : ' is-muted'}" type="button" data-po-detail="lines" ${hasLines ? '' : 'disabled'} title="${hasLines ? 'View line items' : 'No line items'}"><i class="fa-solid fa-list-check" aria-hidden="true"></i>${lineCount} Lines</button>
+                        <button class="po-detail-chip shipment${hasShipment ? '' : ' is-muted'}" type="button" data-po-detail="shipment" ${hasShipment ? '' : 'disabled'} title="${hasShipment ? 'Open linked shipment' : 'No shipment linked'}"><i class="fa-solid fa-ship" aria-hidden="true"></i>${hasShipment ? 'Shipment' : 'No Shipment'}</button>
+                    </div>
                 </td>
-                <td><span class="po-line-count${hasLines ? '' : ' is-empty'}">${lineCount}</span></td>
-                <td><span class="po-row-action${hasLines ? '' : ' is-disabled'}" title="${hasLines ? 'View line items' : 'No line items'}" aria-hidden="true"><i class="fa-solid ${hasLines ? 'fa-chevron-right' : 'fa-minus'}"></i></span></td>
             </tr>
-        `}).join('') : '<tr class="po-empty-row"><td colspan="7"><i class="fa-regular fa-folder-open" aria-hidden="true"></i><br>No purchase orders found.</td></tr>';
+        `}).join('') : '<tr class="po-empty-row"><td colspan="6"><i class="fa-regular fa-folder-open" aria-hidden="true"></i><br>No purchase orders found.</td></tr>';
+        };
+    const renderPurchaseOrderKpis = kpis => {
+        document.getElementById('po-kpi-orders').textContent = Number(kpis.purchase_orders || 0).toLocaleString();
+        document.getElementById('po-kpi-lines').textContent = Number(kpis.purchase_order_lines || 0).toLocaleString();
+        document.getElementById('po-kpi-released').textContent = Number(kpis.released_purchase_orders || 0).toLocaleString();
+        document.getElementById('po-kpi-priority').textContent = Number(kpis.priority_purchase_orders || 0).toLocaleString();
+        document.getElementById('po-kpi-cancelled').textContent = Number(kpis.cancelled_purchase_orders || 0).toLocaleString();
+    };
+    const loadPurchaseOrderKpis = async (force = false) => {
+        if (!force && moduleCache['kpi:purchase-orders']) {
+            renderPurchaseOrderKpis(moduleCache['kpi:purchase-orders']);
+            return;
+        }
+        ['orders', 'lines', 'released', 'priority', 'cancelled'].forEach(key => {
+            const el = document.getElementById(`po-kpi-${key}`);
+            if (el) el.textContent = '-';
+        });
+        try {
+            const payload = await api(`${MODULE_ENDPOINTS.analytics}?module=purchase_orders`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const kpis = payload.message?.kpis || {};
+            moduleCache['kpi:purchase-orders'] = kpis;
+            renderPurchaseOrderKpis(kpis);
+        } catch (err) {
+            ['orders', 'lines', 'released', 'priority', 'cancelled'].forEach(key => {
+                const el = document.getElementById(`po-kpi-${key}`);
+                if (el) el.textContent = '-';
+            });
+        }
     };
     const renderShipments = rows => {
         const body = document.querySelector('#shipment-table tbody');
         if (!body) return;
-        const linkedPos = rows.reduce((sum, row) => sum + Number(row.linked_purchase_orders || 0), 0);
-        document.getElementById('shipment-total').textContent = rows.length;
-        document.getElementById('shipment-linked-pos').textContent = linkedPos;
-        document.getElementById('shipment-exceptions').textContent = rows.filter(row => row.is_cancelled).length;
-        body.innerHTML = rows.length ? rows.map(row => `
-            <tr>
-                <td><strong>${escapeHtml(displayValue(row.job_number || row.shipment_reference))}</strong></td>
-                <td>${escapeHtml(displayValue(row.shipment_reference))}</td>
-                <td>${escapeHtml(displayValue(row.origin))} / ${escapeHtml(displayValue(row.destination))}</td>
-                <td>${escapeHtml(displayValue(row.transport_mode))}</td>
-                <td>${escapeHtml(formatDate(row.eta || row.client_requested_eta || row.delivery_due_date))}</td>
-                <td><span class="badge ${badgeClass(row.status)}">${escapeHtml(displayValue(row.status))}</span></td>
-                <td>${escapeHtml(displayValue(row.linked_purchase_orders))}</td>
+        const resultCount = document.getElementById('shipment-result-count');
+        if (resultCount) {
+            const noun = rows.length === 1 ? 'shipment' : 'shipments';
+            const searchContext = shipmentSearchQuery ? ` matching “${shipmentSearchQuery}”` : '';
+            resultCount.innerHTML = `<strong>${rows.length}</strong> ${noun} on this page${escapeHtml(searchContext)}`;
+        }
+        body.innerHTML = rows.length ? rows.map(row => {
+            const shipmentId = displayValue(row.shipment_id);
+            const shipmentNo = displayValue(row.job_number || row.shipment_reference || row.booking_reference);
+            const refText = row.shipment_reference ? `Ref: ${row.shipment_reference}` : row.booking_reference ? `Booking: ${row.booking_reference}` : row.house_bill ? `HBL: ${row.house_bill}` : '';
+            const eta = row.eta || row.client_requested_eta || row.delivery_due_date || row.revised_delivery_due_date;
+            const etd = row.etd;
+            const hasContainers = Number(row.has_containers || 0) === 1;
+            const hasTracking = Number(row.has_tracking || 0) === 1;
+            const hasDocuments = Number(row.has_documents || 0) === 1;
+            const hasPurchaseOrders = Number(row.has_purchase_orders || 0) === 1;
+            return `
+            <tr data-shipment-id="${escapeHtml(shipmentId)}" data-shipment-number="${escapeHtml(shipmentNo)}" data-origin="${escapeHtml(displayValue(row.origin))}" data-destination="${escapeHtml(displayValue(row.destination))}" data-mode="${escapeHtml(displayValue(row.transport_mode))}" data-status="${escapeHtml(displayValue(row.status))}">
+                <td>
+                    <span class="po-primary">${escapeHtml(shipmentNo)}</span>
+                    <span class="po-secondary po-order-meta">${escapeHtml(refText || formatDate(row.created_at))}</span>
+                </td>
+                <td>
+                    <span class="badge ${badgeClass(row.transport_mode)}">${escapeHtml(displayValue(row.transport_mode))}</span>
+                    ${row.packing_mode ? `<span class="po-secondary">${escapeHtml(row.packing_mode)}</span>` : ''}
+                </td>
+                <td><span class="po-primary" title="${escapeHtml(displayValue(row.origin))}">${escapeHtml(displayValue(row.origin))}</span></td>
+                <td><span class="po-primary" title="${escapeHtml(displayValue(row.destination))}">${escapeHtml(displayValue(row.destination))}</span></td>
+                <td>
+                    <div class="po-date-range"><i class="fa-regular fa-calendar" aria-hidden="true"></i><span>${escapeHtml(formatDate(eta))}</span></div>
+                    ${etd ? `<span class="po-secondary">ETD: ${escapeHtml(formatDate(etd))}</span>` : ''}
+                </td>
+                <td>
+                    <div class="po-status-stack">
+                        <span class="badge ${badgeClass(row.is_cancelled ? 'cancelled' : row.status)}">${escapeHtml(row.is_cancelled ? 'Cancelled' : displayValue(row.status))}</span>
+                    </div>
+                    ${row.phase ? `<span class="po-secondary">Phase: ${escapeHtml(row.phase)}</span>` : row.is_booking ? '<span class="po-secondary">Booking</span>' : ''}
+                </td>
+                <td>
+                    <div class="po-detail-stack">
+                        <button class="po-detail-chip container${hasContainers ? '' : ' is-muted'}" type="button" data-shipment-detail="containers" ${hasContainers ? '' : 'disabled'} title="${hasContainers ? 'View containers' : 'No containers linked'}"><i class="fa-solid fa-box" aria-hidden="true"></i>Containers</button>
+                        <button class="po-detail-chip tracking${hasTracking ? '' : ' is-muted'}" type="button" data-shipment-detail="tracking" ${hasTracking ? '' : 'disabled'} title="${hasTracking ? 'View tracking' : 'No tracking events'}"><i class="fa-solid fa-location-dot" aria-hidden="true"></i>Tracking</button>
+                        <button class="po-detail-chip document${hasDocuments ? '' : ' is-muted'}" type="button" data-shipment-detail="documents" ${hasDocuments ? '' : 'disabled'} title="${hasDocuments ? 'View documents' : 'No documents linked'}"><i class="fa-solid fa-file-lines" aria-hidden="true"></i>Documents</button>
+                        <button class="po-detail-chip shipment${hasPurchaseOrders ? '' : ' is-muted'}" type="button" data-shipment-detail="purchase-orders" ${hasPurchaseOrders ? '' : 'disabled'} title="${hasPurchaseOrders ? 'View linked purchase orders' : 'No purchase order linked'}"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i>PO</button>
+                    </div>
+                </td>
             </tr>
-        `).join('') : '<tr><td colspan="7">No shipments found.</td></tr>';
+        `}).join('') : '<tr class="po-empty-row"><td colspan="7"><i class="fa-regular fa-folder-open" aria-hidden="true"></i><br>No shipments found.</td></tr>';
+    };
+    const renderShipmentKpis = kpis => {
+        const total = Number(kpis.shipments || 0);
+        const cancelled = Number(kpis.cancelled_shipments || 0);
+        document.getElementById('shipment-kpi-total').textContent = total.toLocaleString();
+        document.getElementById('shipment-kpi-active').textContent = Math.max(0, total - cancelled).toLocaleString();
+        document.getElementById('shipment-kpi-arriving').textContent = Number(kpis.arriving_soon_shipments || 0).toLocaleString();
+        document.getElementById('shipment-kpi-delayed').textContent = Number(kpis.delayed_shipments || 0).toLocaleString();
+        document.getElementById('shipment-kpi-containers').textContent = Number(kpis.containers || 0).toLocaleString();
+    };
+    const loadShipmentKpis = async (force = false) => {
+        if (!force && moduleCache['kpi:shipments']) {
+            renderShipmentKpis(moduleCache['kpi:shipments']);
+            return;
+        }
+        ['total', 'active', 'arriving', 'delayed', 'containers'].forEach(key => {
+            const el = document.getElementById(`shipment-kpi-${key}`);
+            if (el) el.textContent = '-';
+        });
+        try {
+            const payload = await api(`${MODULE_ENDPOINTS.analytics}?module=shipments`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const kpis = payload.message?.kpis || {};
+            moduleCache['kpi:shipments'] = kpis;
+            renderShipmentKpis(kpis);
+        } catch (err) {
+            ['total', 'active', 'arriving', 'delayed', 'containers'].forEach(key => {
+                const el = document.getElementById(`shipment-kpi-${key}`);
+                if (el) el.textContent = '-';
+            });
+        }
     };
     const renderContainers = rows => {
         const body = document.querySelector('#container-table tbody');
@@ -4944,41 +6252,67 @@ document.addEventListener('DOMContentLoaded', () => {
             </tr>
         `).join('') : '<tr><td colspan="7">No containers found.</td></tr>';
     };
+    const eventIcon = (category, name) => {
+        const text = `${category || ''} ${name || ''}`.toLowerCase();
+        if (text.includes('custom')) return 'fa-file-shield';
+        if (text.includes('arriv') || text.includes('arrival')) return 'fa-flag-checkered';
+        if (text.includes('depart') || text.includes('load')) return 'fa-ship';
+        if (text.includes('deliver')) return 'fa-truck-ramp-box';
+        if (text.includes('document')) return 'fa-file-lines';
+        if (text.includes('note')) return 'fa-note-sticky';
+        if (text.includes('address')) return 'fa-location-dot';
+        if (text.includes('export')) return 'fa-upload';
+        return 'fa-circle-check';
+    };
     const renderTracking = rows => {
         const timeline = document.getElementById('tracking-timeline');
         if (!timeline) return;
         const actualCount = rows.filter(row => row.is_estimate !== 'Y').length;
         const estimatedCount = rows.filter(row => row.is_estimate === 'Y').length;
         const exceptionCount = rows.filter(row => row.event_category === 'Exception' || String(row.event_code || '').startsWith('EX')).length;
+        const context = rows[0] || trackingSelectedShipment || {};
+        const shipmentRef = displayValue(context.shipment_reference || context.shipment_number || context.job_number);
+        const origin = displayValue(context.origin);
+        const destination = displayValue(context.destination);
+        const mode = displayValue(context.transport_mode || context.mode);
+        const status = displayValue(context.shipment_status || context.status);
+        document.getElementById('tracking-total').textContent = rows.length.toLocaleString();
         document.getElementById('tracking-latest').textContent = rows.length ? formatDate(rows[0].event_at) : '-';
-        document.getElementById('tracking-actual').textContent = actualCount;
-        document.getElementById('tracking-estimated').textContent = estimatedCount;
-        document.getElementById('tracking-exception').textContent = exceptionCount;
+        document.getElementById('tracking-actual').textContent = actualCount.toLocaleString();
+        document.getElementById('tracking-estimated').textContent = estimatedCount.toLocaleString();
+        document.getElementById('tracking-exception').textContent = exceptionCount.toLocaleString();
+        document.getElementById('tracking-origin').textContent = origin;
+        document.getElementById('tracking-destination').textContent = destination;
+        document.getElementById('tracking-mode-badge').textContent = mode;
+        document.getElementById('tracking-route-meta').textContent = [shipmentRef, mode, status].filter(item => item && item !== '-').join(' · ') || 'Shipment journey';
+        document.getElementById('tracking-selected-label').textContent = trackingShipmentId ? `Focused shipment: ${shipmentRef}` : 'Recent accessible shipments';
+        document.getElementById('tracking-result-count').innerHTML = `<strong>${rows.length}</strong> tracking event${rows.length === 1 ? '' : 's'}${trackingSearchQuery ? ` matching “${escapeHtml(trackingSearchQuery)}”` : ''}`;
+        document.getElementById('tracking-timeline-subtitle').textContent = rows.length ? 'Latest CargoWise events are shown first.' : 'No CargoWise tracking events found for this shipment.';
         timeline.innerHTML = rows.length ? rows.map(row => {
             const isException = row.event_category === 'Exception' || String(row.event_code || '').startsWith('EX');
             const isEstimate = row.is_estimate === 'Y';
             const itemClass = isException ? 'exception' : isEstimate ? 'estimate' : '';
             const eventType = isEstimate ? 'Estimate' : 'Actual';
+            const icon = isException ? 'fa-triangle-exclamation' : isEstimate ? 'fa-hourglass-half' : eventIcon(row.event_category, row.event_name);
             return `
-                <div class="event-item ${itemClass}">
-                    <div class="event-dot"></div>
-                    <div>
-                        <div class="event-head">
-                            <div class="event-title">
-                                <strong>${escapeHtml(displayValue(row.event_name))}</strong>
-                                <span>${escapeHtml(displayValue(row.shipment_reference))} · ${escapeHtml(displayValue(row.origin))} / ${escapeHtml(displayValue(row.destination))}</span>
+                <article class="tracking-event-card ${itemClass}">
+                    <div class="tracking-event-icon"><i class="fa-solid ${icon}" aria-hidden="true"></i></div>
+                    <div class="tracking-event-main">
+                        <div class="tracking-event-top">
+                            <div>
+                                <div class="tracking-event-name">${escapeHtml(displayValue(row.event_name))}</div>
+                                <div class="tracking-event-time">${escapeHtml(formatDateTime(row.event_at))}</div>
                             </div>
                             <span class="badge ${isException ? 'exception' : isEstimate ? 'open' : 'transit'}">${escapeHtml(displayValue(row.event_code))}</span>
                         </div>
-                        <div class="event-meta">
-                            <span>${escapeHtml(formatDateTime(row.event_at))}</span>
-                            <span>${escapeHtml(eventType)}</span>
-                            <span>${escapeHtml(displayValue(row.event_category))}</span>
-                            <span>Status: ${escapeHtml(displayValue(row.shipment_status))}</span>
+                        <div class="tracking-event-tags">
+                            <span class="role-badge">${escapeHtml(eventType)}</span>
+                            <span class="role-badge">${escapeHtml(displayValue(row.event_category))}</span>
+                            <span class="role-badge">Status: ${escapeHtml(displayValue(row.shipment_status))}</span>
                         </div>
-                        ${row.event_reference ? `<div class="event-reference">${escapeHtml(row.event_reference)}</div>` : ''}
+                        ${row.event_reference ? `<div class="tracking-event-ref">${escapeHtml(row.event_reference)}</div>` : ''}
                     </div>
-                </div>
+                </article>
             `;
         }).join('') : '<div class="empty-state">No tracking events found.</div>';
     };
@@ -5636,7 +6970,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const loadUsers = async () => {
         if (!authToken || !featureAllowed('users')) return;
-        setTableMessage('users-table', 5, 'Loading users...');
+        setTableMessage('users-table', 5, 'Loading users...', true);
         document.getElementById('users-result-count').textContent = 'Loading users...';
         try {
             const query = new URLSearchParams({ table: 'users', limit: '50', page: String(usersCurrentPage) });
@@ -5741,7 +7075,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const loadBuyer360 = async () => {
         if (!authToken || !featureAllowed('buyer-360') || !buyerSearchQuery) return;
-        setTableMessage('buyer-table', 9, 'Loading Buyer 360 data...');
+        setTableMessage('buyer-table', 9, 'Loading Buyer 360 data...', true);
         document.getElementById('buyer-result-count').textContent = 'Loading Buyer 360 data...';
         const query = new URLSearchParams({ org_id: buyerSearchQuery });
         try {
@@ -5793,62 +7127,133 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target === 'documents') renderDocuments(Array.isArray(data) ? data : []);
         if (target === 'analytics') renderAnalytics(data || {});
     };
-    const loadModule = async target => {
+    const moduleCacheKey = (target, endpointUrl) => `module:${target}:${endpointUrl}`;
+    const clearModuleCache = target => {
+        Object.keys(moduleCache).forEach(key => {
+            if (key.startsWith(`module:${target}:`) || key === `kpi:${target}`) delete moduleCache[key];
+        });
+    };
+    const moduleDataFromMessage = message => message && Array.isArray(message.obj_list) ? message.obj_list : message;
+    const updateModulePageState = (target, hasNextPage) => {
+        const stateMap = {
+            'purchase-orders': { page: poCurrentPage, prefix: 'po' },
+            'shipments': { page: shipmentCurrentPage, prefix: 'shipment' },
+            'containers': { page: containerCurrentPage, prefix: 'container' },
+            'exceptions': { page: exceptionCurrentPage, prefix: 'exception' },
+            'documents': { page: documentCurrentPage, prefix: 'document' }
+        };
+        if (!stateMap[target]) return;
+        const conf = stateMap[target];
+        document.getElementById(`${conf.prefix}-page-display`).textContent = `Page ${conf.page}`;
+        document.getElementById(`${conf.prefix}-prev-btn`).disabled = conf.page <= 1;
+        document.getElementById(`${conf.prefix}-next-btn`).disabled = !hasNextPage;
+    };
+    const applyModulePayload = (target, message, hasNextPage) => {
+        renderModule(target, moduleDataFromMessage(message));
+        updateModulePageState(target, hasNextPage);
+    };
+    const buildModuleEndpoint = (target, options = {}) => {
+        const endpoint = MODULE_ENDPOINTS[target];
+        if (!endpoint) return '';
+        const joiner = endpoint.includes('?') ? '&' : '?';
+        if (target === 'purchase-orders') {
+            const searchParam = poSearchQuery ? `&po_number=${encodeURIComponent(poSearchQuery)}` : '';
+            return `${endpoint}${joiner}limit=100&page=${poCurrentPage}${searchParam}`;
+        }
+        if (target === 'shipments') {
+            const searchParam = shipmentSearchQuery ? `&shipment_search=${encodeURIComponent(shipmentSearchQuery)}` : '';
+            const shipmentParam = options.shipmentId ? `&shipment_id=${encodeURIComponent(options.shipmentId)}` : '';
+            return `${endpoint}${joiner}limit=100&page=${shipmentCurrentPage}${searchParam}${shipmentParam}`;
+        }
+        if (target === 'containers') {
+            const shipmentParam = containerShipmentId ? `&shipment_id=${encodeURIComponent(containerShipmentId)}` : '';
+            return `${endpoint}${joiner}limit=100&page=${containerCurrentPage}${shipmentParam}`;
+        }
+        if (target === 'tracking') {
+            const shipmentParam = trackingShipmentId ? `&shipment_id=${encodeURIComponent(trackingShipmentId)}` : '';
+            return `${endpoint}${joiner}limit=100${shipmentParam}`;
+        }
+        if (target === 'exceptions') return `${endpoint}${joiner}limit=100&page=${exceptionCurrentPage}`;
+        if (target === 'documents') {
+            const shipmentParam = documentShipmentId ? `&shipment_id=${encodeURIComponent(documentShipmentId)}` : '';
+            return `${endpoint}${joiner}limit=100&page=${documentCurrentPage}${shipmentParam}`;
+        }
+        return `${endpoint}${joiner}limit=100`;
+    };
+    const loadModule = async (target, options = {}) => {
         const endpoint = MODULE_ENDPOINTS[target];
         if (!endpoint || !authToken || !authUser) return;
+        const endpointUrl = buildModuleEndpoint(target, options);
+        const cacheKey = moduleCacheKey(target, endpointUrl);
+        if (!options.force && moduleCache[cacheKey]) {
+            const cached = moduleCache[cacheKey];
+            applyModulePayload(target, cached.message, cached.hasNextPage);
+            if (target === 'purchase-orders') loadPurchaseOrderKpis();
+            if (target === 'shipments') loadShipmentKpis();
+            return;
+        }
         const loadingMap = {
-            'purchase-orders': ['purchase-order-table', 7],
+            'purchase-orders': ['purchase-order-table', 6],
             shipments: ['shipment-table', 7],
             containers: ['container-table', 7],
             exceptions: ['exception-table', 7],
             documents: ['document-table', 7]
         };
         if (target === 'tracking') setBlockMessage('tracking-timeline', 'Loading events...');
-        if (loadingMap[target]) setTableMessage(loadingMap[target][0], loadingMap[target][1], 'Loading...');
+        if (loadingMap[target]) setTableMessage(loadingMap[target][0], loadingMap[target][1], 'Loading data...', true);
         if (target === 'purchase-orders') {
             const resultCount = document.getElementById('po-result-count');
             if (resultCount) resultCount.textContent = 'Loading purchase orders...';
+            ['orders', 'lines', 'released', 'priority', 'cancelled'].forEach(key => {
+                const el = document.getElementById(`po-kpi-${key}`);
+                if (el) el.textContent = '-';
+            });
+            loadPurchaseOrderKpis(Boolean(options.force));
+        }
+        if (target === 'shipments') {
+            const resultCount = document.getElementById('shipment-result-count');
+            if (resultCount) resultCount.textContent = 'Loading shipments...';
+            ['total', 'active', 'arriving', 'delayed', 'containers'].forEach(key => {
+                const el = document.getElementById(`shipment-kpi-${key}`);
+                if (el) el.textContent = '-';
+            });
+            loadShipmentKpis(Boolean(options.force));
+        }
+        if (target === 'tracking') {
+            ['latest', 'actual', 'estimated', 'exception', 'total'].forEach(key => {
+                const el = document.getElementById(`tracking-${key}`);
+                if (el) el.textContent = '-';
+            });
+            ['origin', 'destination'].forEach(key => {
+                const el = document.getElementById(`tracking-${key}`);
+                if (el) el.textContent = '-';
+            });
+            document.getElementById('tracking-route-meta').textContent = 'Loading shipment journey';
+            document.getElementById('tracking-mode-badge').textContent = '-';
+            document.getElementById('tracking-result-count').textContent = 'Loading tracking events...';
+            document.getElementById('tracking-selected-label').textContent = trackingShipmentId ? 'Focused shipment' : 'Recent accessible shipments';
+            document.getElementById('tracking-timeline-subtitle').textContent = 'Fetching latest CargoWise events.';
         }
         try {
-            let endpointUrl = '';
-            const joiner = endpoint.includes('?') ? '&' : '?';
-            if (target === 'purchase-orders') {
-                const searchParam = poSearchQuery ? `&po_number=${encodeURIComponent(poSearchQuery)}` : '';
-                endpointUrl = `${endpoint}${joiner}limit=100&page=${poCurrentPage}${searchParam}`;
-            } else if (target === 'shipments') {
-                endpointUrl = `${endpoint}${joiner}limit=100&page=${shipmentCurrentPage}`;
-            } else if (target === 'containers') {
-                endpointUrl = `${endpoint}${joiner}limit=100&page=${containerCurrentPage}`;
-            } else if (target === 'exceptions') {
-                endpointUrl = `${endpoint}${joiner}limit=100&page=${exceptionCurrentPage}`;
-            } else if (target === 'documents') {
-                endpointUrl = `${endpoint}${joiner}limit=100&page=${documentCurrentPage}`;
-            } else {
-                endpointUrl = `${endpoint}${joiner}limit=100`;
-            }
             const payload = await api(endpointUrl, { headers: { Authorization: `Bearer ${accessToken()}` } });
             const message = payload.message;
             const hasNextPage = Boolean(message && message.has_next_page);
-            renderModule(target, message && Array.isArray(message.obj_list) ? message.obj_list : message);
-            const stateMap = {
-                'purchase-orders': { page: poCurrentPage, prefix: 'po' },
-                'shipments': { page: shipmentCurrentPage, prefix: 'shipment' },
-                'containers': { page: containerCurrentPage, prefix: 'container' },
-                'exceptions': { page: exceptionCurrentPage, prefix: 'exception' },
-                'documents': { page: documentCurrentPage, prefix: 'document' }
-            };
-            if (stateMap[target]) {
-                const conf = stateMap[target];
-                document.getElementById(`${conf.prefix}-page-display`).textContent = `Page ${conf.page}`;
-                document.getElementById(`${conf.prefix}-prev-btn`).disabled = conf.page <= 1;
-                document.getElementById(`${conf.prefix}-next-btn`).disabled = !hasNextPage;
-            }
+            moduleCache[cacheKey] = { message, hasNextPage };
+            applyModulePayload(target, message, hasNextPage);
         } catch (err) {
             if (target === 'tracking') setBlockMessage('tracking-timeline', err.message || 'Unable to load events');
             if (loadingMap[target]) setTableMessage(loadingMap[target][0], loadingMap[target][1], err.message || 'Unable to load data');
             if (target === 'purchase-orders') {
                 const resultCount = document.getElementById('po-result-count');
                 if (resultCount) resultCount.textContent = 'Purchase orders could not be loaded';
+            }
+            if (target === 'shipments') {
+                const resultCount = document.getElementById('shipment-result-count');
+                if (resultCount) resultCount.textContent = 'Shipments could not be loaded';
+            }
+            if (target === 'tracking') {
+                document.getElementById('tracking-result-count').textContent = 'Tracking could not be loaded';
+                document.getElementById('tracking-timeline-subtitle').textContent = err.message || 'Unable to load events';
             }
         }
     };
@@ -5942,6 +7347,29 @@ document.addEventListener('DOMContentLoaded', () => {
             if (button) button.disabled = false;
         }
     };
+    const refreshModule = async (target, buttonId) => {
+        const button = document.getElementById(buttonId);
+        button?.classList.add('is-loading');
+        if (button) button.disabled = true;
+        try {
+            clearModuleCache(target);
+            await loadModule(target, { force: true });
+        } finally {
+            button?.classList.remove('is-loading');
+            if (button) button.disabled = false;
+        }
+    };
+    const refreshCargowiseProfile = async () => {
+        const button = document.getElementById('profile-refresh-btn');
+        button?.classList.add('is-loading');
+        if (button) button.disabled = true;
+        try {
+            await loadCargowiseProfile(true);
+        } finally {
+            button?.classList.remove('is-loading');
+            if (button) button.disabled = false;
+        }
+    };
     let authToken = readStoredToken();
     authUser = readStoredUser();
 
@@ -5964,6 +7392,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     document.getElementById('cargowise-profile-retry').addEventListener('click', () => loadCargowiseProfile(true));
+    document.getElementById('profile')?.addEventListener('click', event => {
+        if (event.target.closest('#profile-refresh-btn')) refreshCargowiseProfile();
+    });
 
     // PO Pagination & Search Listeners
     const poSearchInput = document.getElementById('po-search-input');
@@ -5974,9 +7405,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!row || !row.dataset.poId || row.dataset.hasLines !== 'true') return;
         openPoLinesPanel(row.dataset.poId, row.dataset.poNumber || '-');
     };
+    const openPoShipment = row => {
+        if (!row || !row.dataset.shipmentId || row.dataset.shipmentId === '-') return;
+        shipmentSearchQuery = row.dataset.shipmentId;
+        shipmentCurrentPage = 1;
+        const input = document.getElementById('shipment-search-input');
+        const clear = document.getElementById('shipment-search-clear');
+        if (input) input.value = shipmentSearchQuery;
+        if (clear) clear.style.display = 'grid';
+        showSection('shipments');
+        loadModule('shipments');
+    };
 
     purchaseOrderBody?.addEventListener('click', event => {
-        openPurchaseOrderRow(event.target.closest('tr[data-po-id]'));
+        const detailButton = event.target.closest('[data-po-detail]');
+        if (detailButton?.dataset.poDetail === 'lines') openPurchaseOrderRow(detailButton.closest('tr[data-po-id]'));
+        if (detailButton?.dataset.poDetail === 'shipment') openPoShipment(detailButton.closest('tr[data-po-id]'));
     });
     purchaseOrderBody?.addEventListener('keydown', event => {
         if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -6005,12 +7449,133 @@ document.addEventListener('DOMContentLoaded', () => {
         poCurrentPage = 1;
         loadModule('purchase-orders');
     });
+    document.getElementById('po-refresh-btn')?.addEventListener('click', () => refreshModule('purchase-orders', 'po-refresh-btn'));
     document.getElementById('po-prev-btn')?.addEventListener('click', () => {
         if (poCurrentPage > 1) { poCurrentPage--; loadModule('purchase-orders'); }
     });
     document.getElementById('po-next-btn')?.addEventListener('click', () => {
         poCurrentPage++; loadModule('purchase-orders');
     });
+
+    // Shipment Pagination, Search & Detail Listeners
+    const shipmentSearchInput = document.getElementById('shipment-search-input');
+    const shipmentSearchClear = document.getElementById('shipment-search-clear');
+    const trackingSearchInput = document.getElementById('tracking-search-input');
+    const trackingSearchClear = document.getElementById('tracking-search-clear');
+    const shipmentBody = document.querySelector('#shipment-table tbody');
+    const openShipmentDetail = (target, shipmentId, shipmentNumber, row) => {
+        if (!shipmentId || shipmentId === '-') return;
+        if (target === 'containers') {
+            openShipmentContainersPanel(shipmentId, shipmentNumber);
+            return;
+        }
+        if (target === 'tracking') {
+            trackingShipmentId = shipmentId;
+            trackingSelectedShipment = {
+                shipment_id: shipmentId,
+                shipment_number: shipmentNumber,
+                shipment_reference: shipmentNumber,
+                origin: row?.dataset.origin,
+                destination: row?.dataset.destination,
+                transport_mode: row?.dataset.mode,
+                status: row?.dataset.status
+            };
+            trackingSearchQuery = shipmentNumber || '';
+            if (trackingSearchInput) trackingSearchInput.value = trackingSearchQuery;
+            if (trackingSearchClear) trackingSearchClear.style.display = trackingSearchQuery ? 'grid' : 'none';
+            showSection('tracking');
+            loadModule('tracking');
+            return;
+        }
+        if (target === 'documents') {
+            openShipmentDocumentsPanel(shipmentId, shipmentNumber);
+            return;
+        }
+        if (target === 'purchase-orders') {
+            openShipmentPurchaseOrdersPanel(shipmentId, shipmentNumber);
+        }
+    };
+
+    shipmentBody?.addEventListener('click', event => {
+        const detailButton = event.target.closest('[data-shipment-detail]');
+        if (!detailButton) return;
+        const row = detailButton.closest('tr[data-shipment-id]');
+        openShipmentDetail(detailButton.dataset.shipmentDetail, row?.dataset.shipmentId, row?.dataset.shipmentNumber, row);
+    });
+
+    document.getElementById('shipment-documents-list')?.addEventListener('click', event => {
+        const button = event.target.closest('[data-document-download]');
+        if (!button || button.disabled) return;
+        downloadDocument(button.dataset.documentDownload);
+    });
+
+    shipmentSearchInput?.addEventListener('input', e => {
+        const hasText = e.target.value.length > 0;
+        if (shipmentSearchClear) shipmentSearchClear.style.display = hasText ? 'grid' : 'none';
+    });
+
+    document.getElementById('shipment-search-form')?.addEventListener('submit', e => {
+        e.preventDefault();
+        shipmentSearchQuery = shipmentSearchInput.value.trim();
+        shipmentCurrentPage = 1;
+        loadModule('shipments');
+    });
+
+    shipmentSearchClear?.addEventListener('click', () => {
+        shipmentSearchInput.value = '';
+        shipmentSearchClear.style.display = 'none';
+        shipmentSearchQuery = '';
+        shipmentCurrentPage = 1;
+        loadModule('shipments');
+    });
+    document.getElementById('shipment-refresh-btn')?.addEventListener('click', () => refreshModule('shipments', 'shipment-refresh-btn'));
+
+    trackingSearchInput?.addEventListener('input', e => {
+        const hasText = e.target.value.length > 0;
+        if (trackingSearchClear) trackingSearchClear.style.display = hasText ? 'grid' : 'none';
+    });
+
+    document.getElementById('tracking-search-form')?.addEventListener('submit', async e => {
+        e.preventDefault();
+        const query = trackingSearchInput.value.trim();
+        trackingSearchQuery = query;
+        trackingSelectedShipment = null;
+        trackingShipmentId = '';
+        if (!query) {
+            loadModule('tracking');
+            return;
+        }
+        setBlockMessage('tracking-timeline', 'Searching shipment...');
+        document.getElementById('tracking-result-count').textContent = 'Searching shipment...';
+        try {
+            const payload = await api(`${MODULE_ENDPOINTS.shipments}?limit=1&page=1&shipment_search=${encodeURIComponent(query)}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const rows = payload.message && Array.isArray(payload.message.obj_list) ? payload.message.obj_list : [];
+            if (!rows.length) {
+                trackingSelectedShipment = { shipment_reference: query };
+                renderTracking([]);
+                document.getElementById('tracking-result-count').textContent = 'No matching shipment found';
+                return;
+            }
+            const shipment = rows[0];
+            trackingSelectedShipment = shipment;
+            trackingShipmentId = shipment.shipment_id;
+            loadModule('tracking');
+        } catch (err) {
+            setBlockMessage('tracking-timeline', err.message || 'Unable to search shipment');
+            document.getElementById('tracking-result-count').textContent = 'Shipment search failed';
+        }
+    });
+
+    trackingSearchClear?.addEventListener('click', () => {
+        trackingSearchInput.value = '';
+        trackingSearchClear.style.display = 'none';
+        trackingSearchQuery = '';
+        trackingShipmentId = '';
+        trackingSelectedShipment = null;
+        loadModule('tracking');
+    });
+    document.getElementById('tracking-refresh-btn')?.addEventListener('click', () => refreshModule('tracking', 'tracking-refresh-btn'));
+    document.getElementById('analytics-refresh-btn')?.addEventListener('click', () => refreshModule('analytics', 'analytics-refresh-btn'));
 
     document.getElementById('shipment-prev-btn')?.addEventListener('click', () => { if (shipmentCurrentPage > 1) { shipmentCurrentPage--; loadModule('shipments'); } });
     document.getElementById('shipment-next-btn')?.addEventListener('click', () => { shipmentCurrentPage++; loadModule('shipments'); });
@@ -6364,94 +7929,100 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    document.getElementById('header-login-btn').addEventListener('click', () => openModal('login-modal'));
-    document.getElementById('header-refresh-btn').addEventListener('click', refreshPortal);
-    document.getElementById('login-modal-close').addEventListener('click', () => closeModal('login-modal'));
-    document.getElementById('login-cancel-btn').addEventListener('click', () => closeModal('login-modal'));
-    document.getElementById('profile-modal-close').addEventListener('click', () => closeModal('profile-modal'));
-    document.getElementById('profile-close-btn').addEventListener('click', () => closeModal('profile-modal'));
-    document.getElementById('user-profile-modal-close').addEventListener('click', () => closeModal('user-profile-modal'));
-    document.getElementById('user-profile-close-btn').addEventListener('click', () => closeModal('user-profile-modal'));
+    // Auth component events: login, login details, profile details, logout, refresh.
+    const bindAuthComponentEvents = () => {
+        document.getElementById('header-login-btn').addEventListener('click', () => openModal('login-modal'));
+        document.getElementById('header-refresh-btn').addEventListener('click', refreshPortal);
+        document.getElementById('login-modal-close').addEventListener('click', () => closeModal('login-modal'));
+        document.getElementById('login-cancel-btn').addEventListener('click', () => closeModal('login-modal'));
+        document.getElementById('profile-modal-close').addEventListener('click', () => closeModal('profile-modal'));
+        document.getElementById('profile-close-btn').addEventListener('click', () => closeModal('profile-modal'));
+        document.getElementById('user-profile-modal-close').addEventListener('click', () => closeModal('user-profile-modal'));
+        document.getElementById('user-profile-close-btn').addEventListener('click', () => closeModal('user-profile-modal'));
+        document.getElementById('app-message-cancel-btn').addEventListener('click', () => closeAppMessage(null));
+        document.getElementById('app-message-submit-btn').addEventListener('click', () => {
+            const input = document.getElementById('app-message-input');
+            closeAppMessage(input.style.display === 'none' ? true : input.value);
+        });
+        document.getElementById('app-message-input').addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                closeAppMessage(event.target.value);
+            }
+        });
+        document.getElementById('logout-modal-close').addEventListener('click', () => closeModal('logout-modal'));
+        document.getElementById('logout-cancel-btn').addEventListener('click', () => closeModal('logout-modal'));
+        document.getElementById('logout-submit-btn').addEventListener('click', logout);
+        document.getElementById('profile-menu-profile').addEventListener('click', () => {
+            closeProfileMenu();
+            renderProfile();
+            openModal('profile-modal');
+        });
+        document.getElementById('profile-menu-user').addEventListener('click', () => {
+            closeProfileMenu();
+            renderProfile();
+            openModal('user-profile-modal');
+        });
+        document.getElementById('profile-menu-logout').addEventListener('click', requestLogout);
+        document.getElementById('blocked-logout-btn').addEventListener('click', requestLogout);
+        document.getElementById('toggle-password').addEventListener('click', () => {
+            const input = document.getElementById('login-password');
+            const icon = document.querySelector('#toggle-password i');
+            const shouldShow = input.type === 'password';
+            input.type = shouldShow ? 'text' : 'password';
+            icon.className = shouldShow ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+            document.getElementById('toggle-password').setAttribute('aria-label', shouldShow ? 'Hide password' : 'Show password');
+            document.getElementById('toggle-password').setAttribute('title', shouldShow ? 'Hide password' : 'Show password');
+        });
+        document.getElementById('user-profile-trigger').addEventListener('click', e => {
+            e.stopPropagation();
+            toggleProfileMenu();
+        });
+        document.getElementById('user-profile-trigger').addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                toggleProfileMenu();
+            }
+        });
+        document.addEventListener('click', e => {
+            if (!e.target.closest('.profile-actions')) closeProfileMenu();
+        });
+        document.getElementById('login-form').addEventListener('submit', async e => {
+            e.preventDefault();
+            const msg = document.getElementById('login-message');
+            const btn = document.getElementById('login-submit-btn');
+            msg.textContent = 'Logging in...';
+            msg.style.color = 'var(--text-muted)';
+            btn.disabled = true;
+            try {
+                const payload = await api(LOGIN_PATH, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: Number(document.getElementById('login-type').value || 1),
+                        username: document.getElementById('login-username').value.trim(),
+                        password: document.getElementById('login-password').value
+                    })
+                });
+                saveAuthPayload(payload);
+                await loadInfo({ force: true });
+                msg.textContent = '';
+                closeModal('login-modal');
+                document.getElementById('login-form').reset();
+                document.getElementById('login-type').value = '1';
+                applyAuthState();
+            } catch (err) {
+                msg.textContent = err.message || 'Login failed';
+                msg.style.color = '#EF4444';
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    };
+    bindAuthComponentEvents();
+
     document.getElementById('rate-value-modal-close').addEventListener('click', () => closeModal('rate-value-modal'));
     document.getElementById('rate-value-close-btn').addEventListener('click', () => closeModal('rate-value-modal'));
-    document.getElementById('app-message-cancel-btn').addEventListener('click', () => closeAppMessage(null));
-    document.getElementById('app-message-submit-btn').addEventListener('click', () => {
-        const input = document.getElementById('app-message-input');
-        closeAppMessage(input.style.display === 'none' ? true : input.value);
-    });
-    document.getElementById('app-message-input').addEventListener('keydown', event => {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            closeAppMessage(event.target.value);
-        }
-    });
-    document.getElementById('logout-cancel-btn').addEventListener('click', () => closeModal('logout-modal'));
-    document.getElementById('logout-submit-btn').addEventListener('click', logout);
-    document.getElementById('profile-menu-profile').addEventListener('click', () => {
-        closeProfileMenu();
-        renderProfile();
-        openModal('profile-modal');
-    });
-    document.getElementById('profile-menu-user').addEventListener('click', () => {
-        closeProfileMenu();
-        renderProfile();
-        openModal('user-profile-modal');
-    });
-    document.getElementById('profile-menu-logout').addEventListener('click', requestLogout);
-    document.getElementById('blocked-logout-btn').addEventListener('click', requestLogout);
-    document.getElementById('toggle-password').addEventListener('click', () => {
-        const input = document.getElementById('login-password');
-        const icon = document.querySelector('#toggle-password i');
-        const shouldShow = input.type === 'password';
-        input.type = shouldShow ? 'text' : 'password';
-        icon.className = shouldShow ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
-        document.getElementById('toggle-password').setAttribute('aria-label', shouldShow ? 'Hide password' : 'Show password');
-        document.getElementById('toggle-password').setAttribute('title', shouldShow ? 'Hide password' : 'Show password');
-    });
-    document.getElementById('user-profile-trigger').addEventListener('click', e => {
-        e.stopPropagation();
-        toggleProfileMenu();
-    });
-    document.getElementById('user-profile-trigger').addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            toggleProfileMenu();
-        }
-    });
-    document.addEventListener('click', e => {
-        if (!e.target.closest('.profile-actions')) closeProfileMenu();
-    });
-    document.getElementById('login-form').addEventListener('submit', async e => {
-        e.preventDefault();
-        const msg = document.getElementById('login-message');
-        const btn = document.getElementById('login-submit-btn');
-        msg.textContent = 'Logging in...';
-        msg.style.color = 'var(--text-muted)';
-        btn.disabled = true;
-        try {
-            const payload = await api(LOGIN_PATH, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: Number(document.getElementById('login-type').value || 1),
-                    username: document.getElementById('login-username').value.trim(),
-                    password: document.getElementById('login-password').value
-                })
-            });
-            saveAuthPayload(payload);
-            await loadInfo({ force: true });
-            msg.textContent = '';
-            closeModal('login-modal');
-            document.getElementById('login-form').reset();
-            document.getElementById('login-type').value = '1';
-            applyAuthState();
-        } catch (err) {
-            msg.textContent = err.message || 'Login failed';
-            msg.style.color = '#EF4444';
-        } finally {
-            btn.disabled = false;
-        }
-    });
 
     // 3. Modal logic
     const modal = document.getElementById('shipment-modal');
