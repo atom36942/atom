@@ -2458,6 +2458,24 @@ body {
     box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
 }
 
+.tracking-journey-card.general {
+    background: linear-gradient(135deg, #F0FDF4 0%, #EFF6FF 100%);
+}
+
+.tracking-journey-card.general .tracking-place {
+    border-color: #BBF7D0;
+}
+
+.tracking-journey-card.general .tracking-route-line i {
+    background: #DCFCE7;
+    color: #15803D;
+}
+
+.tracking-journey-card.general .tracking-route-line .route::before,
+.tracking-journey-card.general .tracking-route-line .route::after {
+    background: #86EFAC;
+}
+
 .tracking-place {
     min-width: 0;
     padding: 0.9rem;
@@ -3740,11 +3758,11 @@ body.not-allowed .content-wrapper {
     .side-panel-overlay.active { opacity: 1; pointer-events: all; }
     .side-panel {
         position: fixed; top: 0; right: 0; width: 100%; max-width: 820px; height: 100vh;
-        background: var(--bg-surface); box-shadow: -12px 0 40px rgba(17, 24, 39, 0.18);
+        background: var(--bg-surface); box-shadow: none; visibility: hidden;
         z-index: 1001; transform: translateX(100%);
-        display: flex; flex-direction: column; transition: transform 0.3s ease;
+        display: flex; flex-direction: column; transition: transform 0.3s ease, visibility 0.3s ease, box-shadow 0.3s ease;
     }
-    .side-panel.active { transform: translateX(0); }
+    .side-panel.active { transform: translateX(0); visibility: visible; box-shadow: -12px 0 40px rgba(17, 24, 39, 0.18); }
     .side-panel-header {
         min-height: 76px; box-sizing: border-box; padding: 1rem 1.25rem 1rem 1.5rem; border-bottom: 1px solid #C7D2FE;
         display: flex; align-items: center; justify-content: space-between;
@@ -4558,7 +4576,7 @@ body.not-allowed .content-wrapper {
                             <div class="po-toolbar">
                                 <div class="po-heading">
                                     <h2>Tracking</h2>
-                                    <p>Follow one shipment journey from origin to destination.</p>
+                                    <p>See latest CargoWise movement events, or search one shipment for its full journey.</p>
                                 </div>
                                 <div class="po-toolbar-actions">
                                     <form class="po-search" id="tracking-search-form" role="search">
@@ -4572,36 +4590,12 @@ body.not-allowed .content-wrapper {
                             </div>
                         </div>
                         <div class="panel po-panel">
-                            <div class="po-kpi-strip">
-                                <div class="po-kpi-card">
-                                    <div class="po-kpi-label"><i class="fa-solid fa-clock" aria-hidden="true"></i> Latest Event</div>
-                                    <div class="po-kpi-value" id="tracking-latest">-</div>
-                                </div>
-                                <div class="po-kpi-card">
-                                    <div class="po-kpi-label"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Actual</div>
-                                    <div class="po-kpi-value" id="tracking-actual">-</div>
-                                </div>
-                                <div class="po-kpi-card">
-                                    <div class="po-kpi-label"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> Estimates</div>
-                                    <div class="po-kpi-value" id="tracking-estimated">-</div>
-                                </div>
-                                <div class="po-kpi-card">
-                                    <div class="po-kpi-label"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Exceptions</div>
-                                    <div class="po-kpi-value" id="tracking-exception">-</div>
-                                </div>
-                                <div class="po-kpi-card">
-                                    <div class="po-kpi-label"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Events</div>
-                                    <div class="po-kpi-value" id="tracking-total">-</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="panel po-panel">
                             <div class="po-summary-bar">
                                 <div class="po-result-count" id="tracking-result-count">Loading tracking events...</div>
                                 <div class="po-result-count" id="tracking-selected-label">Recent accessible shipments</div>
                             </div>
                             <div class="tracking-layout">
-                                <div class="tracking-journey-card">
+                                <div class="tracking-journey-card" id="tracking-journey-card">
                                     <div class="tracking-place">
                                         <div class="tracking-place-label"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> Origin</div>
                                         <div class="tracking-place-value" id="tracking-origin">-</div>
@@ -5342,7 +5336,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const TABLE_GROUPBY_PATH = '/public/table-groupby';
     const CARGOWISE_PROFILE_PATH = '/cargowise/my-profile';
     const ADMIN_USERS_PATH = '/admin/object-read';
-    const ADMIN_POSTGRES_EXPORT_PATH = '/admin/postgres-export';
+    const ADMIN_POSTGRES_EXPORT_PATH = '/admin/postgres-query-runner-read-export';
     const CARGOWISE_BUYER_360_PATH = '/cargowise/buyer-360';
     const RATES_READ_PATH = '/rates';
     const RATES_CREATE_PATH = '/rates/my-create';
@@ -6532,33 +6526,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderTracking = rows => {
         const timeline = document.getElementById('tracking-timeline');
         if (!timeline) return;
-        const actualCount = rows.filter(row => row.is_estimate !== 'Y').length;
-        const estimatedCount = rows.filter(row => row.is_estimate === 'Y').length;
-        const exceptionCount = rows.filter(row => row.event_category === 'Exception' || String(row.event_code || '').startsWith('EX')).length;
-        const context = rows[0] || trackingSelectedShipment || {};
+        const focused = Boolean(trackingShipmentId);
+        const context = focused ? (trackingSelectedShipment || rows[0] || {}) : {};
         const shipmentRef = displayValue(context.shipment_reference || context.shipment_number || context.job_number);
-        const origin = displayValue(context.origin);
-        const destination = displayValue(context.destination);
-        const mode = displayValue(context.transport_mode || context.mode);
-        const status = displayValue(context.shipment_status || context.status);
-        document.getElementById('tracking-total').textContent = rows.length.toLocaleString();
-        document.getElementById('tracking-latest').textContent = rows.length ? formatDate(rows[0].event_at) : '-';
-        document.getElementById('tracking-actual').textContent = actualCount.toLocaleString();
-        document.getElementById('tracking-estimated').textContent = estimatedCount.toLocaleString();
-        document.getElementById('tracking-exception').textContent = exceptionCount.toLocaleString();
+        const origin = focused ? displayValue(context.origin) : 'All origins';
+        const destination = focused ? displayValue(context.destination) : 'All destinations';
+        const mode = focused ? displayValue(context.transport_mode || context.mode) : 'General feed';
+        const status = focused ? displayValue(context.shipment_status || context.status) : 'Multiple shipments';
+        const journeyCard = document.getElementById('tracking-journey-card');
+        if (journeyCard) journeyCard.classList.toggle('general', !focused);
         document.getElementById('tracking-origin').textContent = origin;
         document.getElementById('tracking-destination').textContent = destination;
         document.getElementById('tracking-mode-badge').textContent = mode;
-        document.getElementById('tracking-route-meta').textContent = [shipmentRef, mode, status].filter(item => item && item !== '-').join(' · ') || 'Shipment journey';
-        document.getElementById('tracking-selected-label').textContent = trackingShipmentId ? `Focused shipment: ${shipmentRef}` : 'Recent accessible shipments';
+        document.getElementById('tracking-route-meta').textContent = focused ? ([shipmentRef, mode, status].filter(item => item && item !== '-').join(' · ') || 'Shipment journey') : 'Latest movement events across accessible shipments';
+        document.getElementById('tracking-selected-label').textContent = focused ? `Focused shipment: ${shipmentRef}` : 'General tracking feed';
         document.getElementById('tracking-result-count').innerHTML = `<strong>${rows.length}</strong> tracking event${rows.length === 1 ? '' : 's'}${trackingSearchQuery ? ` matching “${escapeHtml(trackingSearchQuery)}”` : ''}`;
-        document.getElementById('tracking-timeline-subtitle').textContent = rows.length ? 'Latest CargoWise events are shown first.' : 'No CargoWise tracking events found for this shipment.';
+        document.getElementById('tracking-timeline-subtitle').textContent = rows.length ? (focused ? 'Focused shipment events are shown latest first.' : 'Latest events across accessible shipments are shown first. Search a shipment to see one journey.') : (focused ? 'No CargoWise tracking events found for this shipment.' : 'No recent CargoWise tracking events found.');
         timeline.innerHTML = rows.length ? rows.map(row => {
             const isException = row.event_category === 'Exception' || String(row.event_code || '').startsWith('EX');
             const isEstimate = row.is_estimate === 'Y';
             const itemClass = isException ? 'exception' : isEstimate ? 'estimate' : '';
             const eventType = isEstimate ? 'Estimate' : 'Actual';
             const icon = isException ? 'fa-triangle-exclamation' : isEstimate ? 'fa-hourglass-half' : eventIcon(row.event_category, row.event_name);
+            const rowShipmentRef = displayValue(row.shipment_reference || row.house_bill || row.shipment_id);
+            const rowRoute = [row.origin, row.destination].filter(Boolean).join(' to ');
+            const eventRef = row.event_reference ? `Ref: ${escapeHtml(row.event_reference)}` : '';
+            const generalRef = focused ? eventRef : `<strong>Shipment: ${escapeHtml(rowShipmentRef)}</strong>${rowRoute ? ` · ${escapeHtml(rowRoute)}` : ''}${eventRef ? `<br>${eventRef}` : ''}`;
             return `
                 <article class="tracking-event-card ${itemClass}">
                     <div class="tracking-event-icon"><i class="fa-solid ${icon}" aria-hidden="true"></i></div>
@@ -6575,7 +6568,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="role-badge">${escapeHtml(displayValue(row.event_category))}</span>
                             <span class="role-badge">Status: ${escapeHtml(displayValue(row.shipment_status))}</span>
                         </div>
-                        ${row.event_reference ? `<div class="tracking-event-ref">${escapeHtml(row.event_reference)}</div>` : ''}
+                        ${generalRef ? `<div class="tracking-event-ref">${generalRef}</div>` : ''}
                     </div>
                 </article>
             `;
@@ -7485,18 +7478,14 @@ document.addEventListener('DOMContentLoaded', () => {
             loadShipmentKpis(Boolean(options.force));
         }
         if (target === 'tracking') {
-            ['latest', 'actual', 'estimated', 'exception', 'total'].forEach(key => {
-                const el = document.getElementById(`tracking-${key}`);
-                if (el) el.textContent = '-';
-            });
             ['origin', 'destination'].forEach(key => {
                 const el = document.getElementById(`tracking-${key}`);
                 if (el) el.textContent = '-';
             });
-            document.getElementById('tracking-route-meta').textContent = 'Loading shipment journey';
+            document.getElementById('tracking-route-meta').textContent = trackingShipmentId ? 'Loading shipment journey' : 'Loading general tracking feed';
             document.getElementById('tracking-mode-badge').textContent = '-';
             document.getElementById('tracking-result-count').textContent = 'Loading tracking events...';
-            document.getElementById('tracking-selected-label').textContent = trackingShipmentId ? 'Focused shipment' : 'Recent accessible shipments';
+            document.getElementById('tracking-selected-label').textContent = trackingShipmentId ? 'Focused shipment' : 'General tracking feed';
             document.getElementById('tracking-timeline-subtitle').textContent = 'Fetching latest CargoWise events.';
         }
         try {

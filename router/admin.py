@@ -67,49 +67,6 @@ async def func_api_admin_object_delete(*, request: Request):
     deleted_count = await app_state.func_postgres_delete(client_postgres=app_state.client_postgres, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, table=ob["table"], ids=ob["ids"], created_by_id=created_by_id)
     return {"status": 1, "message": f"{deleted_count} ids deleted"}
 
-@router.post("/admin/postgres-query-runner")
-async def func_api_admin_postgres_query_runner(*, request: Request):
-    app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
-    ql = ob["sql"].lower().strip().lstrip("(").strip()
-    async with app_state.client_postgres.acquire() as conn:
-        if ql.startswith(("select", "with", "explain", "show", "describe")) or "returning" in ql:
-            result = [dict(r) for r in await conn.fetch(ob["sql"], timeout=15)]
-        else:
-            result = await conn.execute(ob["sql"], timeout=15)
-        return {"status": 1, "message": result}
-
-@router.post("/admin/postgres-query-runner-read")
-async def func_api_admin_postgres_query_runner_read(*, request: Request):
-    app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
-    ql = ob["sql"].lower().strip().lstrip("(").strip()
-    if not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("only read mode allowed")
-    if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
-    async with app_state.client_postgres_read_fallback.acquire() as conn:
-        async with conn.transaction(readonly=True):
-            return {"status": 1, "message": [dict(r) for r in await conn.fetch(ob["sql"], timeout=15)]}
-
-@router.post("/admin/postgres-export")
-async def func_api_admin_postgres_export(*, request: Request):
-    app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
-    sql = ob["sql"]
-    ql = sql.lower().strip().lstrip("(").strip()
-    if not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("export restricted to select/with/explain/show/describe")
-    client_postgres = app_state.client_postgres_read_fallback
-    if not client_postgres: raise Exception("postgres read client not initialized")
-    async def _iter():
-        async with client_postgres.acquire() as conn:
-            async with conn.transaction(readonly=True):
-                is_first = 1
-                async for record in conn.cursor(sql):
-                    if is_first == 1:
-                        yield ",".join(record.keys()) + "\n"
-                        is_first = 0
-                    yield ",".join([f"\"{str(v).replace(chr(34), chr(34)*2)}\"" if v is not None else "" for v in record.values()]) + "\n"
-    return StreamingResponse(_iter(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=postgres_export.csv"})
-
 @router.post("/admin/postgres-import")
 async def func_api_admin_postgres_import(*, request: Request):
     app_state = request.app.state
@@ -248,6 +205,49 @@ async def func_api_admin_blob_url_delete(*, request: Request):
     if tasks: await asyncio.gather(*tasks)
     return {"status": 1, "message": f"{len(urls)} {service} URLs processed"}
 
+@router.post("/admin/postgres-query-runner")
+async def func_api_admin_postgres_query_runner(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
+    ql = ob["sql"].lower().strip().lstrip("(").strip()
+    async with app_state.client_postgres.acquire() as conn:
+        if ql.startswith(("select", "with", "explain", "show", "describe")) or "returning" in ql:
+            result = [dict(r) for r in await conn.fetch(ob["sql"], timeout=15)]
+        else:
+            result = await conn.execute(ob["sql"], timeout=15)
+        return {"status": 1, "message": result}
+
+@router.post("/admin/postgres-query-runner-read")
+async def func_api_admin_postgres_query_runner_read(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
+    ql = ob["sql"].lower().strip().lstrip("(").strip()
+    if not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("only read mode allowed")
+    if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
+    async with app_state.client_postgres_read_fallback.acquire() as conn:
+        async with conn.transaction(readonly=True):
+            return {"status": 1, "message": [dict(r) for r in await conn.fetch(ob["sql"], timeout=15)]}
+
+@router.post("/admin/postgres-query-runner-read-export")
+async def func_api_admin_postgres_query_runner_read_export(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
+    sql = ob["sql"]
+    ql = sql.lower().strip().lstrip("(").strip()
+    if not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("export restricted to select/with/explain/show/describe")
+    client_postgres = app_state.client_postgres_read_fallback
+    if not client_postgres: raise Exception("postgres read client not initialized")
+    async def _iter():
+        async with client_postgres.acquire() as conn:
+            async with conn.transaction(readonly=True):
+                is_first = 1
+                async for record in conn.cursor(sql):
+                    if is_first == 1:
+                        yield ",".join(record.keys()) + "\n"
+                        is_first = 0
+                    yield ",".join([f"\"{str(v).replace(chr(34), chr(34)*2)}\"" if v is not None else "" for v in record.values()]) + "\n"
+    return StreamingResponse(_iter(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=postgres_query_runner_read_export.csv"})
+
 @router.post("/admin/mssql-query-runner")
 async def func_api_cargowise_mssql_query_runner(*, request: Request):
     app_state = request.app.state
@@ -294,3 +294,33 @@ async def func_api_cargowise_mssql_query_runner_read(*, request: Request):
                 await asyncio.sleep(0.5)
                 continue
             raise e
+
+@router.post("/admin/mssql-query-runner-read-export")
+async def func_api_cargowise_mssql_query_runner_read_export(*, request: Request):
+    app_state = request.app.state
+    if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
+    ql = ob["sql"].lower().strip().lstrip("(").strip()
+    if not ql.startswith(("select", "with")): raise Exception("read mode restricted")
+    if re.search(r"\b(insert|update|delete|merge|drop|alter|create|truncate|exec|execute|into)\b", ql): raise Exception("read mode restricted")
+    async def _iter():
+        for attempt in range(3):
+            try:
+                async with app_state.client_mssql_read.acquire() as conn:
+                    cursor = await conn.cursor()
+                    await cursor.execute(ob["sql"])
+                    columns = [column[0] for column in cursor.description]
+                    yield ",".join(columns) + "\n"
+                    while True:
+                        rows = await cursor.fetchmany(500)
+                        if not rows: break
+                        for row in rows:
+                            yield ",".join([f"\"{str(v).replace(chr(34), chr(34)*2)}\"" if v is not None else "" for v in row]) + "\n"
+                    return
+            except Exception as e:
+                if "08S01" in str(e) and attempt < 2:
+                    import asyncio
+                    await asyncio.sleep(0.5)
+                    continue
+                raise e
+    return StreamingResponse(_iter(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=mssql_query_runner_read_export.csv"})

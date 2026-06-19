@@ -320,6 +320,48 @@ async def func_api_pgscope_schema(*, request: Request):
         },
     }
 
+@router.post("/pgscope/query-runner")
+async def func_api_pgscope_query_runner(*, request: Request):
+    app_state = request.app.state
+    if not app_state.client_postgres_external: raise Exception("external postgres client not initialized")
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
+    sql = str(ob["sql"] or "").strip().rstrip(";").strip()
+    if not sql: raise Exception("SQL is required")
+    if ";" in sql: raise Exception("Only one SQL statement is allowed")
+    ql = sql.lower().lstrip("(").strip()
+    limit = 5000
+    timeout_sec = 30
+    def serialize(value):
+        if value is None: return None
+        if isinstance(value, (list, tuple)): return [serialize(item) for item in value]
+        if isinstance(value, dict): return {key: serialize(item) for key, item in value.items()}
+        if isinstance(value, (datetime, date, time)): return value.isoformat()
+        if isinstance(value, Decimal): return float(value)
+        if isinstance(value, UUID): return str(value)
+        if isinstance(value, bytes): return value.hex()
+        if isinstance(value, (str, int, float, bool)): return value
+        return str(value)
+    def query_output(columns, records):
+        return {"status": 1, "message": {"mode": "query", "columns": columns, "rows": [{key: serialize(value) for key, value in dict(row).items()} for row in records], "limit": limit, "max_limit": limit, "row_count": len(records), "is_limited": len(records) >= limit}}
+    async with app_state.client_postgres_external.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute(f"SET LOCAL statement_timeout = '{timeout_sec * 1000}ms'")
+            if ql.startswith(("select", "with")):
+                stmt = await conn.prepare(f"SELECT * FROM ({sql}) AS pgscope_query LIMIT $1")
+                columns = [attr.name for attr in stmt.get_attributes()]
+                records = await stmt.fetch(limit, timeout=timeout_sec)
+                return query_output(columns, records)
+            if not (ql.startswith(("explain", "show", "describe")) or "returning" in ql):
+                result = await conn.execute(sql, timeout=timeout_sec)
+                return {"status": 1, "message": {"mode": "execute", "result": result}}
+            stmt = await conn.prepare(sql)
+            columns = [attr.name for attr in stmt.get_attributes()]
+            records = []
+            async for record in stmt.cursor(prefetch=250, timeout=timeout_sec):
+                records.append(record)
+                if len(records) >= limit: break
+            return query_output(columns, records)
+
 @router.post("/pgscope/query-runner-read")
 async def func_api_pgscope_query_runner_read(*, request: Request):
     app_state = request.app.state
@@ -359,8 +401,8 @@ async def func_api_pgscope_query_runner_read(*, request: Request):
         },
     }
 
-@router.post("/pgscope/query-runner-read-csv")
-async def func_api_pgscope_query_runner_read_csv(*, request: Request):
+@router.post("/pgscope/query-runner-read-export")
+async def func_api_pgscope_query_runner_read_export(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres_external: raise Exception("external postgres client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
