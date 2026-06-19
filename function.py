@@ -518,8 +518,8 @@ async def func_token_decode(*, headers: dict, config_token_secret_key: str) -> d
 async def func_middleware_check_auth(*, user_dict: dict, url_path: str, is_token: int = 0, user_check_type: list = None, user_check_role: list = None, user_check_deactivated: list = None, user_check_deleted: list = None) -> None:
     """Check whether current API requires token-authenticated user."""
     is_token_required = is_token in (1, "1", True, "true") or bool(user_check_type) or bool(user_check_role) or bool(user_check_deactivated) or bool(user_check_deleted)
-    if is_token_required and not user_dict: raise Exception("authorization token missing")
     if is_token_required:
+        if not user_dict: raise Exception("authorization token missing")
         token_type = user_dict.get("_token_type") if isinstance(user_dict, dict) else None
         if url_path == "/my/token-refresh":
             if token_type != "refresh": raise Exception("refresh token required")
