@@ -485,16 +485,24 @@ body {
     border-radius: 10px;
 }
 
+.schema-control-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: stretch;
+    margin-bottom: 1rem;
+}
+
 .schema-filter-bar {
     display: grid;
-    grid-template-columns: minmax(220px, 1.6fr) repeat(3, minmax(140px, 1fr)) auto;
-    gap: 0.75rem;
+    grid-template-columns: minmax(150px, 1fr) repeat(2, minmax(100px, 0.8fr)) 38px;
+    gap: 0.55rem;
     align-items: end;
-    padding: 0.65rem 0.85rem;
+    padding: 0.8rem 0.9rem;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: #F8FAFC;
-    margin-bottom: 1rem;
+    min-width: 0;
 }
 
 .schema-filter-field {
@@ -513,7 +521,7 @@ body {
 
 .schema-filter-field input,
 .schema-filter-field select {
-    min-height: 38px;
+    min-height: 40px;
     width: 100%;
     padding: 0.5rem 0.65rem;
     border: 1px solid var(--border);
@@ -523,6 +531,17 @@ body {
     font: inherit;
     font-size: 0.84rem;
     outline: none;
+    min-width: 0;
+}
+
+.schema-filter-clear {
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .schema-filter-field input:focus,
@@ -553,10 +572,14 @@ body {
     border: 1px solid var(--border);
     border-radius: 8px;
     background: #F8FAFC;
-    margin-bottom: 1rem;
+    min-width: 0;
 }
 
 .schema-result-count {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     color: var(--text-muted);
     font-size: 0.82rem;
 }
@@ -603,22 +626,24 @@ body {
 }
 
 .schema-table {
-    width: max-content;
-    min-width: 100%;
-    table-layout: auto;
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
 }
 
 .schema-table th,
 .schema-table td {
-    padding: 0.75rem 0.85rem;
+    padding: 0.65rem 0.55rem;
     border-bottom: 1px solid var(--border);
     color: var(--text-dark);
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     text-align: left;
     vertical-align: top;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .schema-table th {
@@ -632,6 +657,21 @@ body {
     letter-spacing: 0.04em;
     text-transform: uppercase;
     white-space: nowrap;
+}
+
+.schema-table th:nth-child(1),
+.schema-table td:nth-child(1) {
+    width: 13%;
+}
+
+.schema-table th:nth-child(2),
+.schema-table td:nth-child(2) {
+    width: 13%;
+}
+
+.schema-table th:nth-child(3),
+.schema-table td:nth-child(3) {
+    width: 12%;
 }
 
 .schema-table th:nth-child(4),
@@ -652,7 +692,7 @@ body {
 .schema-table td:nth-child(10),
 .schema-table td:nth-child(11),
 .schema-table td:nth-child(12) {
-    width: 1%;
+    width: 6.2%;
     text-align: center;
 }
 
@@ -663,6 +703,9 @@ body {
 .schema-cell-main {
     color: var(--text-dark);
     font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .schema-cell-sub {
@@ -723,35 +766,10 @@ body {
 
 .query-toolbar {
     display: flex;
-    align-items: end;
-    justify-content: space-between;
+    align-items: center;
+    justify-content: flex-end;
     gap: 1rem;
     flex-wrap: wrap;
-}
-
-.query-limit-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-}
-
-.query-limit-field label {
-    color: var(--text-muted);
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-
-.query-limit-field input {
-    width: 150px;
-    min-height: 38px;
-    padding: 0.5rem 0.65rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text-dark);
-    font: inherit;
-    outline: none;
 }
 
 .query-actions {
@@ -1103,6 +1121,7 @@ body.logged-out .content-wrapper {
     .top-bar { padding: 0 1rem; }
     .content-wrapper { padding: 1rem; }
     .kpi-row, .placeholder-grid { grid-template-columns: 1fr; }
+    .schema-control-row { grid-template-columns: 1fr; }
     .schema-filter-bar { grid-template-columns: 1fr; }
     .schema-pagination { align-items: flex-start; flex-direction: column; }
 }
@@ -1252,57 +1271,52 @@ body.logged-out .content-wrapper {
                         <div class="panel-header">
                             <h3>Column Index Map</h3>
                         </div>
-                        <div class="schema-filter-bar">
-                            <div class="schema-filter-field">
-                                <label for="schema-filter-search">Search</label>
-                                <input id="schema-filter-search" placeholder="Table, column, type, index">
+                        <div class="schema-control-row">
+                            <div class="schema-filter-bar">
+                                <div class="schema-filter-field">
+                                    <label for="schema-filter-search">Search</label>
+                                    <input id="schema-filter-search" placeholder="Search">
+                                </div>
+                                <div class="schema-filter-field">
+                                    <label for="schema-filter-relation">Relation</label>
+                                    <select id="schema-filter-relation">
+                                        <option value="">All</option>
+                                        <option value="table">Tables</option>
+                                        <option value="partitioned_table">Partitioned tables</option>
+                                        <option value="view">Views</option>
+                                        <option value="materialized_view">Materialized views</option>
+                                        <option value="foreign_table">Foreign tables</option>
+                                    </select>
+                                </div>
+                                <div class="schema-filter-field">
+                                    <label for="schema-filter-key">Key</label>
+                                    <select id="schema-filter-key">
+                                        <option value="">All</option>
+                                        <option value="primary">Primary</option>
+                                        <option value="unique">Unique</option>
+                                        <option value="nullable">Nullable</option>
+                                        <option value="not-null">Not nullable</option>
+                                        <option value="any-index">Any index</option>
+                                        <option value="no-index">No index</option>
+                                        <option value="btree">B-tree</option>
+                                        <option value="gin">GIN</option>
+                                        <option value="gist">GiST</option>
+                                        <option value="brin">BRIN</option>
+                                        <option value="hash">Hash</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-secondary schema-filter-clear" id="schema-filter-clear-btn" type="button" title="Clear schema filters" aria-label="Clear schema filters">
+                                    <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+                                </button>
                             </div>
-                            <div class="schema-filter-field">
-                                <label for="schema-filter-relation">Relation</label>
-                                <select id="schema-filter-relation">
-                                    <option value="">All relations</option>
-                                    <option value="table">Tables</option>
-                                    <option value="partitioned_table">Partitioned tables</option>
-                                    <option value="view">Views</option>
-                                    <option value="materialized_view">Materialized views</option>
-                                    <option value="foreign_table">Foreign tables</option>
-                                </select>
-                            </div>
-                            <div class="schema-filter-field">
-                                <label for="schema-filter-index">Index</label>
-                                <select id="schema-filter-index">
-                                    <option value="">All columns</option>
-                                    <option value="any">Any index</option>
-                                    <option value="btree">B-tree</option>
-                                    <option value="gin">GIN</option>
-                                    <option value="gist">GiST</option>
-                                    <option value="brin">BRIN</option>
-                                    <option value="hash">Hash</option>
-                                    <option value="other">Other</option>
-                                    <option value="none">No index</option>
-                                </select>
-                            </div>
-                            <div class="schema-filter-field">
-                                <label for="schema-filter-key">Key</label>
-                                <select id="schema-filter-key">
-                                    <option value="">All keys</option>
-                                    <option value="primary">Primary</option>
-                                    <option value="unique">Unique</option>
-                                    <option value="nullable">Nullable</option>
-                                    <option value="not-null">Not nullable</option>
-                                </select>
-                            </div>
-                            <button class="btn btn-secondary schema-filter-clear" id="schema-filter-clear-btn" type="button" title="Clear schema filters" aria-label="Clear schema filters">
-                                <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
-                                <span>Clear</span>
-                            </button>
-                        </div>
-                        <div class="schema-pagination">
-                            <div class="schema-result-count" id="schema-result-count">Loading schema...</div>
-                            <div class="schema-page-controls">
-                                <button class="schema-page-button" id="schema-page-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
-                                <span id="schema-page-display">Page 1</span>
-                                <button class="schema-page-button" id="schema-page-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+                            <div class="schema-pagination">
+                                <div class="schema-result-count" id="schema-result-count">Loading schema...</div>
+                                <div class="schema-page-controls">
+                                    <button class="schema-page-button" id="schema-page-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
+                                    <span id="schema-page-display">Page 1</span>
+                                    <button class="schema-page-button" id="schema-page-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+                                </div>
                             </div>
                         </div>
                         <div class="schema-table-wrap">
@@ -1335,27 +1349,20 @@ body.logged-out .content-wrapper {
                     <div class="section-header">
                         <div>
                             <h1>Query Runner</h1>
-                            <p>Paste SQL and execute against the external read-only PostgreSQL URL.</p>
+                            <p>Maximum 5,000 rows will be returned.</p>
                         </div>
                     </div>
                     <div class="panel">
-                        <div class="panel-header">
-                            <h3>SQL Workspace</h3>
-                        </div>
                         <form class="query-form" id="query-runner-form">
                             <textarea class="query-editor" id="query-sql" spellcheck="false">SELECT *
 FROM your_table;</textarea>
                             <div class="query-toolbar">
-                                <div class="query-limit-field">
-                                    <label for="query-limit">Limit</label>
-                                    <input id="query-limit" type="number" min="1" max="5000" value="500" required>
-                                </div>
                                 <div class="query-actions">
                                     <button class="btn btn-primary" id="query-run-btn" type="submit"><i class="fa-solid fa-play" aria-hidden="true"></i> Run</button>
                                     <button class="btn btn-secondary" id="query-download-btn" type="button" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> CSV</button>
                                 </div>
                             </div>
-                            <div class="query-message" id="query-message">Maximum 5,000 rows per run or CSV download.</div>
+                            <div class="query-message" id="query-message"></div>
                         </form>
                     </div>
                     <div class="panel query-result-panel">
@@ -1500,16 +1507,14 @@ const INFO_PATH = '/info';
 const PROFILE_PATH = '/my/profile';
 const PGSCOPE_DATABASE_INFO_PATH = '/pgscope/database-info';
 const PGSCOPE_SCHEMA_PATH = '/pgscope/schema';
-const PGSCOPE_QUERY_RUNNER_PATH = '/pgscope/query-runner';
-const PGSCOPE_QUERY_RUNNER_CSV_PATH = '/pgscope/query-runner-csv';
+const PGSCOPE_QUERY_RUNNER_PATH = '/pgscope/query-runner-read';
+const PGSCOPE_QUERY_RUNNER_CSV_PATH = '/pgscope/query-runner-read-csv';
 const API_BASE = location.origin && location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
 const STORAGE_KEY_TOKEN = 'token';
 const STORAGE_KEY_USER = 'user';
 const STORAGE_KEY_INFO = 'info';
 const STORAGE_KEY_INFO_AT = 'info_cached_at';
 const INFO_CACHE_REFRESH_MS = 5 * 60 * 1000;
-const QUERY_LIMIT_MAX = 5000;
-const QUERY_LIMIT_DEFAULT = 500;
 
 let authToken = readToken();
 let authUser = readUser();
@@ -1522,7 +1527,6 @@ let pgscopeSchemaRows = [];
 let pgscopeSchemaPage = 1;
 let pgscopeSchemaPagination = { page: 1, limit: 0, total_count: 0, has_prev_page: false, has_next_page: false, returned_count: 0 };
 let queryLastSql = '';
-let queryLastLimit = QUERY_LIMIT_DEFAULT;
 
 const $ = id => document.getElementById(id);
 const rawValue = value => value === undefined || value === null || value === '' ? '-' : String(value);
@@ -1760,19 +1764,19 @@ function schemaIndexFlag(items) {
 }
 
 function rowHasIndex(row, method) {
-    if (method === 'any') return Number(row.index_count || 0) > 0;
-    if (method === 'none') return Number(row.index_count || 0) === 0;
+    if (method === 'any-index') return Number(row.index_count || 0) > 0;
+    if (method === 'no-index') return Number(row.index_count || 0) === 0;
     const key = `${method}_indexes`;
     return Array.isArray(row[key]) && row[key].length > 0;
 }
 
 function rowMatchesSchemaFilters(row, filters) {
     if (filters.relation && row.relation_type !== filters.relation) return false;
-    if (filters.index && !rowHasIndex(row, filters.index)) return false;
     if (filters.key === 'primary' && !row.is_primary) return false;
     if (filters.key === 'unique' && !(row.is_unique_constraint || row.is_unique_index)) return false;
     if (filters.key === 'nullable' && !row.is_nullable) return false;
     if (filters.key === 'not-null' && row.is_nullable) return false;
+    if (['any-index', 'no-index', 'btree', 'gin', 'gist', 'brin', 'hash', 'other'].includes(filters.key) && !rowHasIndex(row, filters.key)) return false;
     if (!filters.search) return true;
     const haystack = [
         row.schema_name,
@@ -1795,13 +1799,12 @@ function schemaFilters() {
     return {
         search: $('schema-filter-search').value.trim().toLowerCase(),
         relation: $('schema-filter-relation').value,
-        index: $('schema-filter-index').value,
         key: $('schema-filter-key').value
     };
 }
 
 function updateSchemaFilterState(filters = schemaFilters()) {
-    const active = Boolean(filters.search || filters.relation || filters.index || filters.key);
+    const active = Boolean(filters.search || filters.relation || filters.key);
     const clearBtn = $('schema-filter-clear-btn');
     clearBtn.classList.toggle('is-active', active);
     clearBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
@@ -1815,7 +1818,6 @@ function renderSchemaRows(rows) {
             </td>
             <td>
                 <div class="schema-cell-main">${escapeHtml(row.column_name)}</div>
-                ${row.column_default ? `<span class="schema-cell-sub">Default: ${escapeHtml(row.column_default)}</span>` : ''}
             </td>
             <td>${escapeHtml(rawValue(row.data_type))}</td>
             <td>${schemaFlag(row.is_nullable)}</td>
@@ -1916,20 +1918,12 @@ function goSchemaPage(page) {
     loadSchema({ force: true });
 }
 
-function queryLimitValue() {
-    const raw = Number($('query-limit').value || QUERY_LIMIT_DEFAULT);
-    if (!Number.isFinite(raw)) return QUERY_LIMIT_DEFAULT;
-    return Math.max(1, Math.min(Math.trunc(raw), QUERY_LIMIT_MAX));
-}
-
 function validateQueryInput() {
     const sql = $('query-sql').value.trim();
-    const limit = queryLimitValue();
-    $('query-limit').value = String(limit);
     if (!sql) throw new Error('SQL is required.');
     const normalized = sql.replace(/;\s*$/, '').trim().toLowerCase().replace(/^\(+/, '').trim();
     if (!normalized.startsWith('select') && !normalized.startsWith('with')) throw new Error('Only SELECT/WITH queries are supported.');
-    return { sql, limit };
+    return { sql };
 }
 
 function renderQueryResult(result = {}) {
@@ -1962,16 +1956,15 @@ async function runQuery(event) {
     downloadBtn.disabled = true;
     $('query-message').textContent = 'Running query...';
     try {
-        const { sql, limit } = validateQueryInput();
+        const { sql } = validateQueryInput();
         const payload = await api(PGSCOPE_QUERY_RUNNER_PATH, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
-            body: JSON.stringify({ sql, limit })
+            body: JSON.stringify({ sql })
         });
         queryLastSql = sql;
-        queryLastLimit = limit;
         renderQueryResult(payload.message || {});
-        $('query-message').textContent = `Result limited to ${formatNumber(limit)} rows. Backend maximum is ${formatNumber(QUERY_LIMIT_MAX)} rows.`;
+        $('query-message').textContent = `Maximum ${formatNumber((payload.message || {}).max_limit || 5000)} rows are returned.`;
         downloadBtn.disabled = false;
     } catch (err) {
         renderQueryError(err.message);
@@ -1988,12 +1981,11 @@ async function downloadQueryCsv() {
     $('query-message').textContent = 'Preparing CSV...';
     try {
         const sql = queryLastSql || $('query-sql').value.trim();
-        const limit = queryLastSql ? queryLastLimit : queryLimitValue();
         if (!sql) throw new Error('Run or enter a query before downloading CSV.');
         const response = await fetch(API_BASE + PGSCOPE_QUERY_RUNNER_CSV_PATH, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
-            body: JSON.stringify({ sql, limit })
+            body: JSON.stringify({ sql })
         });
         if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
@@ -2008,7 +2000,7 @@ async function downloadQueryCsv() {
         link.click();
         link.remove();
         URL.revokeObjectURL(url);
-        $('query-message').textContent = `CSV downloaded with limit ${formatNumber(limit)}.`;
+        $('query-message').textContent = 'CSV downloaded. Maximum 5,000 rows are returned.';
     } catch (err) {
         $('query-message').textContent = err.message || 'CSV download failed.';
     } finally {
@@ -2159,27 +2151,19 @@ function bindPageEvents() {
     });
     $('query-runner-form').addEventListener('submit', runQuery);
     $('query-download-btn').addEventListener('click', downloadQueryCsv);
-    $('query-limit').addEventListener('change', () => {
-        $('query-limit').value = String(queryLimitValue());
-        if (queryLimitValue() !== queryLastLimit) {
-            queryLastSql = '';
-            $('query-download-btn').disabled = true;
-        }
-    });
     $('query-sql').addEventListener('input', () => {
         if ($('query-sql').value.trim() !== queryLastSql) {
             queryLastSql = '';
             $('query-download-btn').disabled = true;
         }
     });
-    ['schema-filter-search', 'schema-filter-relation', 'schema-filter-index', 'schema-filter-key'].forEach(id => {
+    ['schema-filter-search', 'schema-filter-relation', 'schema-filter-key'].forEach(id => {
         $(id).addEventListener('input', applySchemaFilters);
         $(id).addEventListener('change', applySchemaFilters);
     });
     $('schema-filter-clear-btn').addEventListener('click', () => {
         $('schema-filter-search').value = '';
         $('schema-filter-relation').value = '';
-        $('schema-filter-index').value = '';
         $('schema-filter-key').value = '';
         applySchemaFilters();
     });

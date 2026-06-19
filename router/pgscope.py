@@ -320,18 +320,17 @@ async def func_api_pgscope_schema(*, request: Request):
         },
     }
 
-@router.post("/pgscope/query-runner")
-async def func_api_pgscope_query_runner(*, request: Request):
+@router.post("/pgscope/query-runner-read")
+async def func_api_pgscope_query_runner_read(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres_external: raise Exception("external postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None), ("limit", "int", 0, None, 500)])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
     sql = str(ob["sql"] or "").strip().rstrip(";").strip()
     if not sql: raise Exception("SQL is required")
     if ";" in sql: raise Exception("Only one SQL statement is allowed")
     if not sql.lower().lstrip("(").strip().startswith(("select", "with")): raise Exception("Only SELECT/WITH queries are supported")
-    limit = max(1, min(ob["limit"], 5000))
+    limit = 5000
     timeout_sec = 30
-
     def serialize(value):
         if value is None: return None
         if isinstance(value, (list, tuple)): return [serialize(item) for item in value]
@@ -342,7 +341,6 @@ async def func_api_pgscope_query_runner(*, request: Request):
         if isinstance(value, bytes): return value.hex()
         if isinstance(value, (str, int, float, bool)): return value
         return str(value)
-
     async with app_state.client_postgres_external.acquire() as conn:
         async with conn.transaction(readonly=True):
             await conn.execute(f"SET LOCAL statement_timeout = '{timeout_sec * 1000}ms'")
@@ -361,18 +359,17 @@ async def func_api_pgscope_query_runner(*, request: Request):
         },
     }
 
-@router.post("/pgscope/query-runner-csv")
-async def func_api_pgscope_query_runner_csv(*, request: Request):
+@router.post("/pgscope/query-runner-read-csv")
+async def func_api_pgscope_query_runner_read_csv(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres_external: raise Exception("external postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None), ("limit", "int", 0, None, 500)])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
     sql = str(ob["sql"] or "").strip().rstrip(";").strip()
     if not sql: raise Exception("SQL is required")
     if ";" in sql: raise Exception("Only one SQL statement is allowed")
     if not sql.lower().lstrip("(").strip().startswith(("select", "with")): raise Exception("Only SELECT/WITH queries are supported")
-    limit = max(1, min(ob["limit"], 5000))
+    limit = 5000
     timeout_sec = 30
-
     def csv_value(value):
         if value is None: return ""
         if isinstance(value, (datetime, date, time)): return value.isoformat()
@@ -381,7 +378,6 @@ async def func_api_pgscope_query_runner_csv(*, request: Request):
         if isinstance(value, bytes): return value.hex()
         if isinstance(value, (list, tuple, dict)): return str(value)
         return str(value)
-
     async def _iter():
         async with app_state.client_postgres_external.acquire() as conn:
             async with conn.transaction(readonly=True):
@@ -397,7 +393,6 @@ async def func_api_pgscope_query_runner_csv(*, request: Request):
                     writer.writerow([csv_value(record[column]) for column in columns])
                     yield buffer.getvalue()
                     buffer.seek(0); buffer.truncate(0)
-
     return StreamingResponse(
         _iter(),
         media_type="text/csv",

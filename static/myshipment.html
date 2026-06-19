@@ -997,6 +997,28 @@ body {
     color: #0369A1;
 }
 
+.po-detail-chip.shipment.is-muted,
+.po-detail-chip.shipment:disabled {
+    border-color: #E5E7EB;
+    background: #F8FAFC;
+    color: #94A3B8;
+}
+
+.po-detail-chip.shipment:disabled {
+    cursor: default;
+}
+
+.po-detail-chip.view {
+    border-color: #DDD6FE;
+    background: #F5F3FF;
+    color: #6D28D9;
+}
+
+.po-detail-chip.view:hover:not(:disabled) {
+    border-color: #A78BFA;
+    background: #EDE9FE;
+}
+
 .po-lines-message {
     padding: 2.5rem 1rem !important;
     color: var(--text-muted);
@@ -1264,6 +1286,45 @@ body {
     padding: 0.52rem 0.85rem 0.7rem;
     color: #64748B;
     font-size: 0.69rem;
+}
+
+.detail-view-card {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.detail-view-section {
+    border: 1px solid #DDE7FF;
+    border-radius: 14px;
+    background: #FFFFFF;
+    overflow: hidden;
+}
+
+.detail-view-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.7rem 0.85rem;
+    border-bottom: 1px solid #E5EDFF;
+    background: linear-gradient(135deg, #F8FAFF 0%, #EEF6FF 100%);
+    color: #1E3A8A;
+    font-size: 0.78rem;
+    font-weight: 850;
+}
+
+.detail-view-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+    padding: 0.75rem;
+}
+
+.detail-view-wide {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 700px) {
+    .detail-view-grid { grid-template-columns: 1fr; }
 }
 
 .document-card-action {
@@ -4756,6 +4817,24 @@ body.not-allowed .content-wrapper {
         </div>
     </div>
 
+    <!-- Slide-out Panel for Purchase Order View -->
+    <div class="side-panel-overlay" id="po-view-overlay" onclick="closePurchaseOrderViewPanel()"></div>
+    <div class="side-panel" id="po-view-panel" role="dialog" aria-modal="true" aria-labelledby="po-view-title" aria-hidden="true">
+        <div class="side-panel-header">
+            <div class="modal-heading">
+                <div class="modal-heading-icon"><i class="fa-solid fa-eye" aria-hidden="true"></i></div>
+                <div>
+                    <h2 class="side-panel-title" id="po-view-title">Purchase Order</h2>
+                    <div class="side-panel-subtitle" id="po-view-subtitle">PO #---</div>
+                </div>
+            </div>
+            <button class="side-panel-close" type="button" onclick="closePurchaseOrderViewPanel()" aria-label="Close purchase order detail" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        </div>
+        <div class="side-panel-body" id="po-view-body">
+            <div class="container-card-empty"><div><i class="fa-regular fa-folder-open" aria-hidden="true"></i><br>Select a purchase order to view details.</div></div>
+        </div>
+    </div>
+
     <!-- Slide-out Panel for Shipment Purchase Orders -->
     <div class="side-panel-overlay" id="shipment-pos-overlay" onclick="closeShipmentPurchaseOrdersPanel()"></div>
     <div class="side-panel" id="shipment-pos-panel" role="dialog" aria-modal="true" aria-labelledby="shipment-pos-title" aria-hidden="true">
@@ -4792,6 +4871,24 @@ body.not-allowed .content-wrapper {
                 <div class="container-card-empty"><div><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><br>Loading purchase orders...</div></div>
             </div>
             <div class="po-lines-footnote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Purchase orders are loaded live from CargoWise for the selected shipment.</span></div>
+        </div>
+    </div>
+
+    <!-- Slide-out Panel for Shipment View -->
+    <div class="side-panel-overlay" id="shipment-view-overlay" onclick="closeShipmentViewPanel()"></div>
+    <div class="side-panel" id="shipment-view-panel" role="dialog" aria-modal="true" aria-labelledby="shipment-view-title" aria-hidden="true">
+        <div class="side-panel-header">
+            <div class="modal-heading">
+                <div class="modal-heading-icon"><i class="fa-solid fa-eye" aria-hidden="true"></i></div>
+                <div>
+                    <h2 class="side-panel-title" id="shipment-view-title">Shipment</h2>
+                    <div class="side-panel-subtitle" id="shipment-view-subtitle">Shipment #---</div>
+                </div>
+            </div>
+            <button class="side-panel-close" type="button" onclick="closeShipmentViewPanel()" aria-label="Close shipment detail" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        </div>
+        <div class="side-panel-body" id="shipment-view-body">
+            <div class="container-card-empty"><div><i class="fa-regular fa-folder-open" aria-hidden="true"></i><br>Select a shipment to view details.</div></div>
         </div>
     </div>
 
@@ -5283,6 +5380,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let documentCurrentPage = 1;
     let poSearchQuery = '';
     let shipmentSearchQuery = '';
+    let purchaseOrderRowsById = {};
+    let shipmentRowsById = {};
     let containerShipmentId = '';
     let trackingShipmentId = '';
     let trackingSearchQuery = '';
@@ -6086,9 +6185,171 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     window.closeShipmentDocumentsPanel = closeShipmentDocumentsPanel;
 
+    const detailFieldHtml = (label, value, icon, wide = false) => `
+        <div class="container-card-field${wide ? ' detail-view-wide' : ''}">
+            <div class="container-card-label"><i class="fa-solid ${icon || 'fa-circle-info'}" aria-hidden="true"></i> ${escapeHtml(label)}</div>
+            <div class="container-card-value">${escapeHtml(displayValue(value))}</div>
+        </div>
+    `;
+
+    const detailSectionHtml = (title, icon, fields) => `
+        <section class="detail-view-section">
+            <div class="detail-view-section-title"><i class="fa-solid ${icon}" aria-hidden="true"></i>${escapeHtml(title)}</div>
+            <div class="detail-view-grid">${fields.join('')}</div>
+        </section>
+    `;
+
+    const openPurchaseOrderViewPanel = row => {
+        if (!row) return;
+        const status = row.is_cancelled ? 'Cancelled' : displayValue(row.status);
+        const orderNumber = displayValue(row.order_number);
+        document.getElementById('po-view-subtitle').textContent = `PO #${orderNumber}${row.order_split ? `-${row.order_split}` : ''}`;
+        document.getElementById('po-view-body').innerHTML = `
+            <div class="po-lines-summary container-summary">
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-signal" aria-hidden="true"></i> Status</div>
+                    <div class="po-lines-stat-value">${escapeHtml(status)}</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Lines</div>
+                    <div class="po-lines-stat-value">${escapeHtml(displayValue(row.line_count))}</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Released</div>
+                    <div class="po-lines-stat-value">${row.is_released ? 'Yes' : 'No'}</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-bolt" aria-hidden="true"></i> Priority</div>
+                    <div class="po-lines-stat-value">${row.is_priority ? 'Yes' : 'No'}</div>
+                </div>
+            </div>
+            <div class="detail-view-card">
+                ${detailSectionHtml('Order', 'fa-file-invoice', [
+                    detailFieldHtml('Order Number', `${orderNumber}${row.order_split ? ` / ${row.order_split}` : ''}`, 'fa-hashtag'),
+                    detailFieldHtml('Customer Ref', row.customer_reference, 'fa-tag'),
+                    detailFieldHtml('Order Date', formatDate(row.order_date), 'fa-calendar'),
+                    detailFieldHtml('Cargo Status', status, 'fa-signal')
+                ])}
+                ${detailSectionHtml('Parties', 'fa-users', [
+                    detailFieldHtml('Buyer', row.buyer_name || row.buyer_code, 'fa-user-tie'),
+                    detailFieldHtml('Buyer Code', row.buyer_code, 'fa-id-card'),
+                    detailFieldHtml('Supplier', row.supplier_name || row.supplier_code, 'fa-industry'),
+                    detailFieldHtml('Supplier Code', row.supplier_code, 'fa-id-card')
+                ])}
+                ${detailSectionHtml('Shipping', 'fa-route', [
+                    detailFieldHtml('Mode', row.transport_mode, 'fa-truck-ramp-box'),
+                    detailFieldHtml('Container Mode', row.container_mode, 'fa-box'),
+                    detailFieldHtml('Incoterm', row.inco_term, 'fa-handshake'),
+                    detailFieldHtml('Linked Shipment', row.shipment_id, 'fa-ship'),
+                    detailFieldHtml('Port of Loading', row.port_of_loading, 'fa-anchor'),
+                    detailFieldHtml('Port of Discharge', row.port_of_discharge, 'fa-location-dot'),
+                    detailFieldHtml('Shipping Window', `${formatDate(row.shipment_window_start)} to ${formatDate(row.shipment_window_end)}`, 'fa-calendar-days', true),
+                    detailFieldHtml('Ex Works Required', formatDate(row.ex_works_required_by), 'fa-warehouse'),
+                    detailFieldHtml('Delivery Required', formatDate(row.delivery_required_by), 'fa-truck')
+                ])}
+                ${detailSectionHtml('Metrics', 'fa-chart-simple', [
+                    detailFieldHtml('Total Quantity', row.total_quantity, 'fa-boxes-stacked'),
+                    detailFieldHtml('Total Weight', row.total_weight, 'fa-scale-balanced'),
+                    detailFieldHtml('Total Volume', row.total_volume, 'fa-cube'),
+                    detailFieldHtml('Total Value', row.total_value, 'fa-receipt'),
+                    detailFieldHtml('Goods', row.goods_description, 'fa-box-open', true),
+                    detailFieldHtml('Last Updated', formatDateTime(row.updated_at), 'fa-clock', true)
+                ])}
+            </div>
+        `;
+        document.getElementById('po-view-overlay').classList.add('active');
+        const panel = document.getElementById('po-view-panel');
+        panel.classList.add('active');
+        panel.setAttribute('aria-hidden', 'false');
+    };
+
+    const closePurchaseOrderViewPanel = () => {
+        document.getElementById('po-view-overlay').classList.remove('active');
+        const panel = document.getElementById('po-view-panel');
+        panel.classList.remove('active');
+        panel.setAttribute('aria-hidden', 'true');
+    };
+    window.closePurchaseOrderViewPanel = closePurchaseOrderViewPanel;
+
+    const openShipmentViewPanel = row => {
+        if (!row) return;
+        const shipmentNumber = displayValue(row.job_number || row.shipment_reference || row.booking_reference);
+        const status = row.is_cancelled ? 'Cancelled' : displayValue(row.status);
+        const eta = row.eta || row.client_requested_eta || row.delivery_due_date || row.revised_delivery_due_date;
+        document.getElementById('shipment-view-subtitle').textContent = `Shipment #${shipmentNumber}`;
+        document.getElementById('shipment-view-body').innerHTML = `
+            <div class="po-lines-summary container-summary">
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-truck-plane" aria-hidden="true"></i> Mode</div>
+                    <div class="po-lines-stat-value">${escapeHtml(displayValue(row.transport_mode))}</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-signal" aria-hidden="true"></i> Status</div>
+                    <div class="po-lines-stat-value">${escapeHtml(status)}</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i> ETA</div>
+                    <div class="po-lines-stat-value">${escapeHtml(formatDate(eta))}</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-box" aria-hidden="true"></i> Packing</div>
+                    <div class="po-lines-stat-value">${escapeHtml(displayValue(row.packing_mode))}</div>
+                </div>
+            </div>
+            <div class="detail-view-card">
+                ${detailSectionHtml('Shipment', 'fa-ship', [
+                    detailFieldHtml('Shipment No.', shipmentNumber, 'fa-hashtag'),
+                    detailFieldHtml('Unique Ref', row.shipment_reference, 'fa-tag'),
+                    detailFieldHtml('Booking Ref', row.booking_reference, 'fa-bookmark'),
+                    detailFieldHtml('House Bill', row.house_bill, 'fa-file-lines'),
+                    detailFieldHtml('Consol Ref', row.consol_reference, 'fa-layer-group'),
+                    detailFieldHtml('Phase', row.phase, 'fa-diagram-project')
+                ])}
+                ${detailSectionHtml('Route', 'fa-route', [
+                    detailFieldHtml('Mode', row.transport_mode, 'fa-truck-plane'),
+                    detailFieldHtml('Packing Mode', row.packing_mode, 'fa-box'),
+                    detailFieldHtml('Origin', row.origin, 'fa-location-dot'),
+                    detailFieldHtml('Destination', row.destination, 'fa-location-crosshairs'),
+                    detailFieldHtml('ETD', formatDate(row.etd), 'fa-calendar-minus'),
+                    detailFieldHtml('ETA', formatDate(eta), 'fa-calendar-check'),
+                    detailFieldHtml('Client ETA', formatDate(row.client_requested_eta), 'fa-user-clock'),
+                    detailFieldHtml('Delivery Due', formatDate(row.delivery_due_date), 'fa-truck')
+                ])}
+                ${detailSectionHtml('Cargo', 'fa-boxes-stacked', [
+                    detailFieldHtml('Goods', row.goods_description, 'fa-box-open', true),
+                    detailFieldHtml('Packages', row.package_count, 'fa-boxes-packing'),
+                    detailFieldHtml('Weight', row.documented_weight, 'fa-scale-balanced'),
+                    detailFieldHtml('Volume', row.documented_volume, 'fa-cube'),
+                    detailFieldHtml('Chargeable', row.documented_chargeable, 'fa-weight-hanging')
+                ])}
+                ${detailSectionHtml('Details', 'fa-link', [
+                    detailFieldHtml('Containers', Number(row.has_containers || 0) === 1 ? 'Available' : 'Not available', 'fa-box'),
+                    detailFieldHtml('Tracking', Number(row.has_tracking || 0) === 1 ? 'Available' : 'Not available', 'fa-location-dot'),
+                    detailFieldHtml('Documents', Number(row.has_documents || 0) === 1 ? 'Available' : 'Not available', 'fa-file-lines'),
+                    detailFieldHtml('PO', Number(row.has_purchase_orders || 0) === 1 ? 'Available' : 'Not available', 'fa-file-invoice'),
+                    detailFieldHtml('Last Updated', formatDateTime(row.updated_at), 'fa-clock', true)
+                ])}
+            </div>
+        `;
+        document.getElementById('shipment-view-overlay').classList.add('active');
+        const panel = document.getElementById('shipment-view-panel');
+        panel.classList.add('active');
+        panel.setAttribute('aria-hidden', 'false');
+    };
+
+    const closeShipmentViewPanel = () => {
+        document.getElementById('shipment-view-overlay').classList.remove('active');
+        const panel = document.getElementById('shipment-view-panel');
+        panel.classList.remove('active');
+        panel.setAttribute('aria-hidden', 'true');
+    };
+    window.closeShipmentViewPanel = closeShipmentViewPanel;
+
     const renderPurchaseOrders = rows => {
         const body = document.querySelector('#purchase-order-table tbody');
         if (!body) return;
+        purchaseOrderRowsById = {};
+        rows.forEach(row => { purchaseOrderRowsById[displayValue(row.purchase_order_id)] = row; });
         const resultCount = document.getElementById('po-result-count');
         if (resultCount) {
             const noun = rows.length === 1 ? 'order' : 'orders';
@@ -6120,6 +6381,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
                 <td>
                     <div class="po-detail-stack">
+                        <button class="po-detail-chip view" type="button" data-po-detail="view" title="View purchase order"><i class="fa-solid fa-eye" aria-hidden="true"></i>View</button>
                         <button class="po-detail-chip${hasLines ? '' : ' is-muted'}" type="button" data-po-detail="lines" ${hasLines ? '' : 'disabled'} title="${hasLines ? 'View line items' : 'No line items'}"><i class="fa-solid fa-list-check" aria-hidden="true"></i>${lineCount} Lines</button>
                         <button class="po-detail-chip shipment${hasShipment ? '' : ' is-muted'}" type="button" data-po-detail="shipment" ${hasShipment ? '' : 'disabled'} title="${hasShipment ? 'Open linked shipment' : 'No shipment linked'}"><i class="fa-solid fa-ship" aria-hidden="true"></i>${hasShipment ? 'Shipment' : 'No Shipment'}</button>
                     </div>
@@ -6158,6 +6420,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderShipments = rows => {
         const body = document.querySelector('#shipment-table tbody');
         if (!body) return;
+        shipmentRowsById = {};
+        rows.forEach(row => { shipmentRowsById[displayValue(row.shipment_id)] = row; });
         const resultCount = document.getElementById('shipment-result-count');
         if (resultCount) {
             const noun = rows.length === 1 ? 'shipment' : 'shipments';
@@ -6198,10 +6462,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
                 <td>
                     <div class="po-detail-stack">
+                        <button class="po-detail-chip view" type="button" data-shipment-detail="view" data-shipment-id="${escapeHtml(shipmentId)}" data-shipment-number="${escapeHtml(shipmentNo)}" title="View shipment"><i class="fa-solid fa-eye" aria-hidden="true"></i>View</button>
                         <button class="po-detail-chip container${hasContainers ? '' : ' is-muted'}" type="button" data-shipment-detail="containers" ${hasContainers ? '' : 'disabled'} title="${hasContainers ? 'View containers' : 'No containers linked'}"><i class="fa-solid fa-box" aria-hidden="true"></i>Containers</button>
                         <button class="po-detail-chip tracking${hasTracking ? '' : ' is-muted'}" type="button" data-shipment-detail="tracking" ${hasTracking ? '' : 'disabled'} title="${hasTracking ? 'View tracking' : 'No tracking events'}"><i class="fa-solid fa-location-dot" aria-hidden="true"></i>Tracking</button>
                         <button class="po-detail-chip document${hasDocuments ? '' : ' is-muted'}" type="button" data-shipment-detail="documents" ${hasDocuments ? '' : 'disabled'} title="${hasDocuments ? 'View documents' : 'No documents linked'}"><i class="fa-solid fa-file-lines" aria-hidden="true"></i>Documents</button>
-                        <button class="po-detail-chip shipment${hasPurchaseOrders ? '' : ' is-muted'}" type="button" data-shipment-detail="purchase-orders" ${hasPurchaseOrders ? '' : 'disabled'} title="${hasPurchaseOrders ? 'View linked purchase orders' : 'No purchase order linked'}"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i>PO</button>
+                        <button class="po-detail-chip shipment${hasPurchaseOrders ? '' : ' is-muted'}" type="button" data-shipment-detail="purchase-orders" data-shipment-id="${escapeHtml(shipmentId)}" data-shipment-number="${escapeHtml(shipmentNo)}" ${hasPurchaseOrders ? '' : 'disabled'} title="${hasPurchaseOrders ? 'View linked purchase orders' : 'No purchase order linked'}"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i>PO</button>
                     </div>
                 </td>
             </tr>
@@ -7419,8 +7684,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     purchaseOrderBody?.addEventListener('click', event => {
         const detailButton = event.target.closest('[data-po-detail]');
-        if (detailButton?.dataset.poDetail === 'lines') openPurchaseOrderRow(detailButton.closest('tr[data-po-id]'));
-        if (detailButton?.dataset.poDetail === 'shipment') openPoShipment(detailButton.closest('tr[data-po-id]'));
+        if (!detailButton || detailButton.disabled) return;
+        const row = detailButton.closest('tr[data-po-id]');
+        if (detailButton.dataset.poDetail === 'view') openPurchaseOrderViewPanel(purchaseOrderRowsById[row?.dataset.poId]);
+        if (detailButton.dataset.poDetail === 'lines') openPurchaseOrderRow(row);
+        if (detailButton.dataset.poDetail === 'shipment') openPoShipment(row);
     });
     purchaseOrderBody?.addEventListener('keydown', event => {
         if (event.key !== 'Enter' && event.key !== ' ') return;
@@ -7464,6 +7732,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const trackingSearchClear = document.getElementById('tracking-search-clear');
     const shipmentBody = document.querySelector('#shipment-table tbody');
     const openShipmentDetail = (target, shipmentId, shipmentNumber, row) => {
+        if (target === 'view') {
+            openShipmentViewPanel(shipmentRowsById[shipmentId]);
+            return;
+        }
+        if (target === 'purchase-orders') {
+            if (!shipmentId || shipmentId === '-') {
+                showAppAlert({ title: 'Shipment Missing', message: 'Shipment ID is not available for this row.', danger: true });
+                return;
+            }
+            openShipmentPurchaseOrdersPanel(shipmentId, shipmentNumber);
+            return;
+        }
         if (!shipmentId || shipmentId === '-') return;
         if (target === 'containers') {
             openShipmentContainersPanel(shipmentId, shipmentNumber);
@@ -7491,16 +7771,14 @@ document.addEventListener('DOMContentLoaded', () => {
             openShipmentDocumentsPanel(shipmentId, shipmentNumber);
             return;
         }
-        if (target === 'purchase-orders') {
-            openShipmentPurchaseOrdersPanel(shipmentId, shipmentNumber);
-        }
     };
 
     shipmentBody?.addEventListener('click', event => {
         const detailButton = event.target.closest('[data-shipment-detail]');
         if (!detailButton) return;
+        if (detailButton.disabled) return;
         const row = detailButton.closest('tr[data-shipment-id]');
-        openShipmentDetail(detailButton.dataset.shipmentDetail, row?.dataset.shipmentId, row?.dataset.shipmentNumber, row);
+        openShipmentDetail(detailButton.dataset.shipmentDetail, detailButton.dataset.shipmentId || row?.dataset.shipmentId, detailButton.dataset.shipmentNumber || row?.dataset.shipmentNumber, row);
     });
 
     document.getElementById('shipment-documents-list')?.addEventListener('click', event => {

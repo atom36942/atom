@@ -172,8 +172,8 @@ config_api = {
 "/admin/object-update": {"id": 3, "is_token": 1, "user_check_role": ["token", [1]]},
 "/admin/object-read": {"id": 4, "is_token": 1, "user_check_role": ["token", [1, 2]]},
 "/admin/object-delete": {"id": 5, "is_token": 1, "user_check_role": ["realtime", [1]], "user_check_deactivated": ["realtime"], "user_check_deleted": ["realtime"]},
-"/admin/postgres-sql-runner": {"id": 6, "is_token": 1, "user_check_role": ["realtime", [1]]},
-"/admin/postgres-sql-runner-read": {"id": 22, "is_token": 1, "user_check_role": ["realtime", [1]]},
+"/admin/postgres-query-runner": {"id": 6, "is_token": 1, "user_check_role": ["realtime", [1]]},
+"/admin/postgres-query-runner-read": {"id": 22, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/postgres-export": {"id": 7, "is_token": 1, "user_check_role": ["inmemory", [1, 2]]},
 "/admin/postgres-import": {"id": 8, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/redis-import": {"id": 9, "is_token": 1, "user_check_role": ["token", [1]]},
@@ -181,8 +181,8 @@ config_api = {
 "/admin/blob-container-read": {"id": 10, "is_token": 1, "user_check_role": ["inmemory", [1]]},
 "/admin/blob-container-ops": {"id": 12, "is_token": 1, "user_check_role": ["token", [1]]},
 "/admin/blob-url-delete": {"id": 13, "is_token": 1, "user_check_role": ["token", [1]]},
-"/admin/mssql-sql-runner": {"id": 21, "is_token": 1, "user_check_role": ["realtime", [1]]},
-"/admin/mssql-sql-runner-read": {"id": 23, "is_token": 1, "user_check_role": ["realtime", [1]]},
+"/admin/mssql-query-runner": {"id": 21, "is_token": 1, "user_check_role": ["realtime", [1]]},
+"/admin/mssql-query-runner-read": {"id": 23, "is_token": 1, "user_check_role": ["realtime", [1]]},
 # CARGOWISE ROUTER
 "/cargowise/buyer-360": {"id": 32, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["redis", 600]},
 "/cargowise/my-profile": {"id": 24, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 600, 1]},
@@ -210,8 +210,8 @@ config_api = {
 # PGSCOPE ROUTER
 "/pgscope/database-info": {"id": 84, "is_token": 1, "api_cache_sec": ["inmemory", 60, 1]},
 "/pgscope/schema": {"id": 85, "is_token": 1, "api_cache_sec": ["inmemory", 300, 1]},
-"/pgscope/query-runner": {"id": 86, "is_token": 1},
-"/pgscope/query-runner-csv": {"id": 87, "is_token": 1},
+"/pgscope/query-runner-read": {"id": 86, "is_token": 1},
+"/pgscope/query-runner-read-csv": {"id": 87, "is_token": 1},
 }
 
 config_column_int_mapping = {

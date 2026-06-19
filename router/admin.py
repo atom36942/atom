@@ -67,8 +67,8 @@ async def func_api_admin_object_delete(*, request: Request):
     deleted_count = await app_state.func_postgres_delete(client_postgres=app_state.client_postgres, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, table=ob["table"], ids=ob["ids"], created_by_id=created_by_id)
     return {"status": 1, "message": f"{deleted_count} ids deleted"}
 
-@router.post("/admin/postgres-sql-runner")
-async def func_api_admin_postgres_sql_runner(*, request: Request):
+@router.post("/admin/postgres-query-runner")
+async def func_api_admin_postgres_query_runner(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
     ql = ob["sql"].lower().strip().lstrip("(").strip()
@@ -79,15 +79,16 @@ async def func_api_admin_postgres_sql_runner(*, request: Request):
             result = await conn.execute(ob["sql"], timeout=15)
         return {"status": 1, "message": result}
 
-@router.post("/admin/postgres-sql-runner-read")
-async def func_api_admin_postgres_sql_runner_read(*, request: Request):
+@router.post("/admin/postgres-query-runner-read")
+async def func_api_admin_postgres_query_runner_read(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
     ql = ob["sql"].lower().strip().lstrip("(").strip()
     if not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("only read mode allowed")
-    if not app_state.client_postgres_read: raise Exception("postgres read client not initialized")
-    async with app_state.client_postgres_read.acquire() as conn:
-        return {"status": 1, "message": [dict(r) for r in await conn.fetch(ob["sql"], timeout=15)]}
+    if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
+    async with app_state.client_postgres_read_fallback.acquire() as conn:
+        async with conn.transaction(readonly=True):
+            return {"status": 1, "message": [dict(r) for r in await conn.fetch(ob["sql"], timeout=15)]}
 
 @router.post("/admin/postgres-export")
 async def func_api_admin_postgres_export(*, request: Request):
@@ -100,7 +101,7 @@ async def func_api_admin_postgres_export(*, request: Request):
     if not client_postgres: raise Exception("postgres read client not initialized")
     async def _iter():
         async with client_postgres.acquire() as conn:
-            async with conn.transaction():
+            async with conn.transaction(readonly=True):
                 is_first = 1
                 async for record in conn.cursor(sql):
                     if is_first == 1:
@@ -247,8 +248,8 @@ async def func_api_admin_blob_url_delete(*, request: Request):
     if tasks: await asyncio.gather(*tasks)
     return {"status": 1, "message": f"{len(urls)} {service} URLs processed"}
 
-@router.post("/admin/mssql-sql-runner")
-async def func_api_cargowise_mssql_sql_runner(*, request: Request):
+@router.post("/admin/mssql-query-runner")
+async def func_api_cargowise_mssql_query_runner(*, request: Request):
     app_state = request.app.state
     if not app_state.client_mssql: raise Exception("MSSQL client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
@@ -272,13 +273,14 @@ async def func_api_cargowise_mssql_sql_runner(*, request: Request):
                 continue
             raise e
 
-@router.post("/admin/mssql-sql-runner-read")
-async def func_api_cargowise_mssql_sql_runner_read(*, request: Request):
+@router.post("/admin/mssql-query-runner-read")
+async def func_api_cargowise_mssql_query_runner_read(*, request: Request):
     app_state = request.app.state
     if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
     ql = ob["sql"].lower().strip().lstrip("(").strip()
     if not ql.startswith(("select", "with")): raise Exception("read mode restricted")
+    if re.search(r"\b(insert|update|delete|merge|drop|alter|create|truncate|exec|execute|into)\b", ql): raise Exception("read mode restricted")
     for attempt in range(3):
         try:
             async with app_state.client_mssql_read.acquire() as conn:
