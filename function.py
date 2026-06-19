@@ -487,8 +487,23 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
         for query in iter_sql_queries(config_db.get("sql", {})):
             await conn.execute(query)
     return "database init done"
-    
-async def func_middleware_token_decode(*, headers: dict, config_token_secret_key: str) -> dict:
+
+async def func_token_encode(*, user: dict, config_token_secret_key: str, config_access_token_expires_sec: int, config_refresh_token_expires_sec: int, config_column_token_encode: list) -> dict:
+    """Generate access and refresh JWT tokens for a user object."""
+    import jwt, orjson, time
+    if user is None: return None
+    if config_token_secret_key in (None, ""): raise Exception("token secret key missing")
+    token_secret_key = str(config_token_secret_key)
+    payload_dict = {k: user.get(k) for k in config_column_token_encode} if config_column_token_encode else dict(user) if isinstance(user, dict) else user
+    serialized_payload = orjson.dumps(payload_dict, default=str).decode("utf-8")
+    now_ts = int(time.time())
+    access_token_expires_at = now_ts + config_access_token_expires_sec
+    refresh_token_expires_at = now_ts + config_refresh_token_expires_sec
+    access_token = jwt.encode({"exp": access_token_expires_at, "data": serialized_payload, "type": "access"}, token_secret_key)
+    refresh_token = jwt.encode({"exp": refresh_token_expires_at, "data": serialized_payload, "type": "refresh"}, token_secret_key)
+    return {"access_token": access_token, "refresh_token": refresh_token, "access_token_expires_at": access_token_expires_at, "refresh_token_expires_at": refresh_token_expires_at}
+
+async def func_token_decode(*, headers: dict, config_token_secret_key: str) -> dict:
     """Decode Bearer token if present; return decoded user dict or empty dict."""
     auth_header = headers.get("Authorization")
     token = auth_header.split("Bearer ", 1)[1] if auth_header and auth_header.startswith("Bearer ") else None
@@ -1656,21 +1671,6 @@ async def func_producer(*, queue: str, client_celery_producer: any, client_kafka
         if not client_redis_producer: raise Exception("redis producer not initialized")
         return await client_redis_producer.lpush(channel, orjson.dumps(payload).decode("utf-8"))
     return None
-
-async def func_token_encode(*, user: dict, config_token_secret_key: str, config_access_token_expires_in_sec: int, config_refresh_token_expires_in_sec: int, config_column_token_encode: list) -> dict:
-    """Generate access and refresh JWT tokens for a user object."""
-    import jwt, orjson, time
-    if user is None: return None
-    if config_token_secret_key in (None, ""): raise Exception("token secret key missing")
-    token_secret_key = str(config_token_secret_key)
-    payload_dict = {k: user.get(k) for k in config_column_token_encode} if config_column_token_encode else dict(user) if isinstance(user, dict) else user
-    serialized_payload = orjson.dumps(payload_dict, default=str).decode("utf-8")
-    now_ts = int(time.time())
-    access_expires_at = now_ts + config_access_token_expires_in_sec
-    refresh_expires_at = now_ts + config_refresh_token_expires_in_sec
-    access_token = jwt.encode({"exp": access_expires_at, "data": serialized_payload, "type": "access"}, token_secret_key)
-    refresh_token = jwt.encode({"exp": refresh_expires_at, "data": serialized_payload, "type": "refresh"}, token_secret_key)
-    return {"access_token": access_token, "refresh_token": refresh_token, "access_expires_at": access_expires_at, "refresh_expires_at": refresh_expires_at}
 
 async def func_otp_generate(*, client_postgres: any, email: str, mobile: str, config_otp_length: int) -> int:
     """Generate a random OTP and store it in PostgreSQL for a given email or mobile."""

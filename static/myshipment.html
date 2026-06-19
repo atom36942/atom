@@ -5406,6 +5406,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const STORAGE_KEY_INFO = 'info';
     const STORAGE_KEY_INFO_AT = 'info_cached_at';
     const STORAGE_KEY_PROFILE_AT = 'profile_cached_at';
+    const STORAGE_KEY_PROFILE_METADATA = 'profile_metadata';
     const INFO_CACHE_REFRESH_MS = 5 * 60 * 1000;
     const PROFILE_CACHE_REFRESH_MS = 5 * 60 * 1000;
     const TOKEN_REFRESH_BUFFER_SEC = 60;
@@ -5498,9 +5499,9 @@ document.addEventListener('DOMContentLoaded', () => {
         else {
             localStorage.removeItem(STORAGE_KEY_USER);
             localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
+            localStorage.removeItem(STORAGE_KEY_PROFILE_METADATA);
         }
         localStorage.removeItem('profile');
-        localStorage.removeItem('myshipment_profile');
     };
     const writeToken = token => {
         authToken = token || '';
@@ -5563,10 +5564,10 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.removeItem(STORAGE_KEY_INFO);
         localStorage.removeItem(STORAGE_KEY_INFO_AT);
         localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
+        localStorage.removeItem(STORAGE_KEY_PROFILE_METADATA);
         localStorage.removeItem(STORAGE_KEY_RATE_GROUPBY);
         localStorage.removeItem(STORAGE_KEY_RATE_GROUPBY_AT);
         localStorage.removeItem('profile');
-        localStorage.removeItem('myshipment_profile');
     };
     const loadInfo = async ({ force = false } = {}) => {
         if (!force && readCachedInfo() && infoCacheFresh()) return;
@@ -5593,12 +5594,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const accessTokenFresh = () => {
         if (!authToken || typeof authToken !== 'object') return Boolean(accessToken());
-        if (!authToken.access_expires_at) return !refreshToken() && Boolean(accessToken());
-        return Math.floor(Date.now() / 1000) < Number(authToken.access_expires_at) - TOKEN_REFRESH_BUFFER_SEC;
+        if (!authToken.access_token_expires_at) return !refreshToken() && Boolean(accessToken());
+        return Math.floor(Date.now() / 1000) < Number(authToken.access_token_expires_at) - TOKEN_REFRESH_BUFFER_SEC;
     };
     const refreshTokenFresh = () => {
-        if (!authToken || typeof authToken !== 'object' || !authToken.refresh_expires_at) return Boolean(refreshToken());
-        return Math.floor(Date.now() / 1000) < Number(authToken.refresh_expires_at) - TOKEN_REFRESH_BUFFER_SEC;
+        if (!authToken || typeof authToken !== 'object' || !authToken.refresh_token_expires_at) return Boolean(refreshToken());
+        return Math.floor(Date.now() / 1000) < Number(authToken.refresh_token_expires_at) - TOKEN_REFRESH_BUFFER_SEC;
     };
     const refreshAccessToken = async () => {
         if (!refreshTokenFresh()) {
@@ -7746,9 +7747,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveAuthPayload = payload => {
         const nextToken = extractToken(payload);
         const nextUser = extractUser(payload);
+        const message = payload && payload.message ? payload.message : payload;
         if (!nextToken || !nextUser) throw new Error('Login response missing token or user');
         writeToken(nextToken);
         writeUser(nextUser);
+        if (message && Object.prototype.hasOwnProperty.call(message, 'metadata')) localStorage.setItem(STORAGE_KEY_PROFILE_METADATA, JSON.stringify(message.metadata || {}));
         localStorage.setItem(STORAGE_KEY_PROFILE_AT, String(Date.now()));
         cargowiseProfileLoaded = false;
         Object.keys(moduleCache).forEach(key => delete moduleCache[key]);
@@ -8468,7 +8471,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     })
                 });
                 saveAuthPayload(payload);
-                await loadInfo({ force: true });
+                await loadInfo();
                 msg.textContent = '';
                 closeModal('login-modal');
                 document.getElementById('login-form').reset();

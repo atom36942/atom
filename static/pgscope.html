@@ -1600,6 +1600,7 @@ const STORAGE_KEY_USER = 'user';
 const STORAGE_KEY_INFO = 'info';
 const STORAGE_KEY_INFO_AT = 'info_cached_at';
 const STORAGE_KEY_PROFILE_AT = 'profile_cached_at';
+const STORAGE_KEY_PROFILE_METADATA = 'profile_metadata';
 const INFO_CACHE_REFRESH_MS = 5 * 60 * 1000;
 const PROFILE_CACHE_REFRESH_MS = 5 * 60 * 1000;
 const TOKEN_REFRESH_BUFFER_SEC = 60;
@@ -1657,9 +1658,9 @@ function writeUser(user) {
     else {
         localStorage.removeItem(STORAGE_KEY_USER);
         localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
+        localStorage.removeItem(STORAGE_KEY_PROFILE_METADATA);
     }
     localStorage.removeItem('profile');
-    localStorage.removeItem('myshipment_profile');
 }
 
 function extractToken(payload) {
@@ -1679,9 +1680,11 @@ function extractUser(payload) {
 function saveAuthPayload(payload) {
     const token = extractToken(payload);
     const user = extractUser(payload);
+    const message = payload && payload.message ? payload.message : payload;
     if (!token || !user) throw new Error('Login response missing token or user');
     writeToken(token);
     writeUser(user);
+    if (message && Object.prototype.hasOwnProperty.call(message, 'metadata')) localStorage.setItem(STORAGE_KEY_PROFILE_METADATA, JSON.stringify(message.metadata || {}));
     localStorage.setItem(STORAGE_KEY_PROFILE_AT, String(Date.now()));
 }
 
@@ -1712,6 +1715,16 @@ function readCachedInfo() {
 function writeCachedInfo(info) {
     localStorage.setItem(STORAGE_KEY_INFO, JSON.stringify(info || {}));
     localStorage.setItem(STORAGE_KEY_INFO_AT, String(Date.now()));
+}
+
+function clearPortalStorage() {
+    localStorage.removeItem(STORAGE_KEY_TOKEN);
+    localStorage.removeItem(STORAGE_KEY_USER);
+    localStorage.removeItem(STORAGE_KEY_INFO);
+    localStorage.removeItem(STORAGE_KEY_INFO_AT);
+    localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
+    localStorage.removeItem(STORAGE_KEY_PROFILE_METADATA);
+    localStorage.removeItem('profile');
 }
 
 async function loadInfo({ force = false } = {}) {
@@ -1757,13 +1770,13 @@ function clearAuthSession() {
 
 function accessTokenFresh() {
     if (!authToken || typeof authToken !== 'object') return Boolean(accessToken());
-    if (!authToken.access_expires_at) return !refreshToken() && Boolean(accessToken());
-    return Math.floor(Date.now() / 1000) < Number(authToken.access_expires_at) - TOKEN_REFRESH_BUFFER_SEC;
+    if (!authToken.access_token_expires_at) return !refreshToken() && Boolean(accessToken());
+    return Math.floor(Date.now() / 1000) < Number(authToken.access_token_expires_at) - TOKEN_REFRESH_BUFFER_SEC;
 }
 
 function refreshTokenFresh() {
-    if (!authToken || typeof authToken !== 'object' || !authToken.refresh_expires_at) return Boolean(refreshToken());
-    return Math.floor(Date.now() / 1000) < Number(authToken.refresh_expires_at) - TOKEN_REFRESH_BUFFER_SEC;
+    if (!authToken || typeof authToken !== 'object' || !authToken.refresh_token_expires_at) return Boolean(refreshToken());
+    return Math.floor(Date.now() / 1000) < Number(authToken.refresh_token_expires_at) - TOKEN_REFRESH_BUFFER_SEC;
 }
 
 async function refreshAccessToken() {
@@ -2284,13 +2297,12 @@ function requestLogout() {
 }
 
 function logout() {
-    writeToken(null);
-    writeUser(null);
+    authToken = null;
+    authUser = null;
     appInfo = {};
     roleLabels = {};
     typeLabels = {};
-    localStorage.removeItem(STORAGE_KEY_INFO);
-    localStorage.removeItem(STORAGE_KEY_INFO_AT);
+    clearPortalStorage();
     pgscopeDatabaseInfoLoaded = false;
     pgscopeSchemaLoaded = false;
     pgscopeSchemaRows = [];
@@ -2375,7 +2387,7 @@ function bindAuthComponentEvents() {
                 })
             });
             saveAuthPayload(payload);
-            await loadInfo({ force: true });
+            await loadInfo();
             msg.textContent = '';
             closeModal('login-modal');
             $('login-form').reset();
