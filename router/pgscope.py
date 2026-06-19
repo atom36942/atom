@@ -320,8 +320,8 @@ async def func_api_pgscope_schema(*, request: Request):
         },
     }
 
-@router.post("/pgscope/query-runner-execute")
-async def func_api_pgscope_query_runner_execute(*, request: Request):
+@router.post("/pgscope/query-runner-write")
+async def func_api_pgscope_query_runner_write(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres_external: raise Exception("external postgres client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
@@ -330,13 +330,13 @@ async def func_api_pgscope_query_runner_execute(*, request: Request):
     if ";" in sql: raise Exception("Only one SQL statement is allowed")
     ql = sql.lower().lstrip("(").strip()
     if ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("read SQL must use /pgscope/query-runner-read")
-    if "returning" in ql: raise Exception("RETURNING is not allowed in execute mode")
+    if "returning" in ql: raise Exception("RETURNING is not allowed in write mode")
     timeout_sec = 30
     async with app_state.client_postgres_external.acquire() as conn:
         async with conn.transaction():
             await conn.execute(f"SET LOCAL statement_timeout = '{timeout_sec * 1000}ms'")
             result = await conn.execute(sql, timeout=timeout_sec)
-    return {"status": 1, "message": {"mode": "execute", "result": result}}
+    return {"status": 1, "message": {"mode": "write", "result": result}}
 
 @router.post("/pgscope/query-runner-read")
 async def func_api_pgscope_query_runner_read(*, request: Request):

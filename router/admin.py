@@ -205,13 +205,13 @@ async def func_api_admin_blob_url_delete(*, request: Request):
     if tasks: await asyncio.gather(*tasks)
     return {"status": 1, "message": f"{len(urls)} {service} URLs processed"}
 
-@router.post("/admin/postgres-query-runner-execute")
-async def func_api_admin_postgres_query_runner_execute(*, request: Request):
+@router.post("/admin/postgres-query-runner-write")
+async def func_api_admin_postgres_query_runner_write(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
     ql = ob["sql"].lower().strip().lstrip("(").strip()
     if ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("read SQL must use /admin/postgres-query-runner-read")
-    if "returning" in ql: raise Exception("RETURNING is not allowed in execute mode")
+    if "returning" in ql: raise Exception("RETURNING is not allowed in write mode")
     async with app_state.client_postgres.acquire() as conn:
         result = await conn.execute(ob["sql"], timeout=15)
     return {"status": 1, "message": result}
@@ -256,8 +256,8 @@ async def func_api_admin_postgres_query_runner_read_export(*, request: Request):
                     if count >= limit: break
     return StreamingResponse(_iter(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=postgres_query_runner_read_export.csv"})
 
-@router.post("/admin/mssql-query-runner-execute")
-async def func_api_cargowise_mssql_query_runner_execute(*, request: Request):
+@router.post("/admin/mssql-query-runner-write")
+async def func_api_cargowise_mssql_query_runner_write(*, request: Request):
     app_state = request.app.state
     if not app_state.client_mssql: raise Exception("MSSQL client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
