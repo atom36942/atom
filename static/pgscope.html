@@ -111,7 +111,7 @@ body {
     background: var(--bg-surface);
     border-bottom: 1px solid var(--border);
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
     padding: 0 2rem;
 }
@@ -785,8 +785,80 @@ body {
     font-size: 0.84rem;
 }
 
+.query-mode-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.query-tabs {
+    display: inline-flex;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #F8FAFC;
+}
+
+.query-tab-button {
+    min-height: 36px;
+    padding: 0.45rem 0.85rem;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.query-tab-button.active {
+    background: #FFFFFF;
+    color: var(--primary);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+}
+
+.query-tab-panel[hidden] {
+    display: none;
+}
+
+.query-tab-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+}
+
+.query-tab-actions [hidden] {
+    display: none;
+}
+
 .query-result-panel {
     margin-top: 1.5rem;
+}
+
+.query-result-panel[hidden] {
+    display: none;
+}
+
+.query-result-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.query-download-icon {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .query-table-wrap {
@@ -1170,23 +1242,16 @@ body.logged-out .content-wrapper {
 
         <main class="main-content">
             <header class="top-bar">
-                <div class="top-title">
-                    <strong id="page-title">PGScope</strong>
-                    <span id="page-subtitle">Lightweight PostgreSQL explorer</span>
-                </div>
                 <div class="user-controls">
                     <button class="btn btn-primary login-btn guest-only" id="header-login-btn">Login</button>
                     <div class="profile-actions auth-only">
-                        <button class="btn btn-secondary header-refresh-btn" id="header-refresh-btn" type="button" title="Refresh profile and PGScope info">
-                            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
-                            <span>Refresh</span>
-                        </button>
                         <button class="user-profile" id="user-profile-trigger" type="button" title="Account menu" aria-label="Account menu" aria-expanded="false">
                             <div class="avatar">US</div>
                         </button>
                         <div class="profile-menu" id="profile-menu">
                             <button type="button" id="profile-menu-profile"><i class="fa-regular fa-id-card" aria-hidden="true"></i> Login Details</button>
                             <button type="button" id="profile-menu-user"><i class="fa-regular fa-user" aria-hidden="true"></i> My Profile</button>
+                            <button type="button" class="header-refresh-btn" id="header-refresh-btn" title="Refresh profile and PGScope info"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Refresh</button>
                             <button type="button" class="danger" id="profile-menu-logout"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Logout</button>
                         </div>
                     </div>
@@ -1349,34 +1414,53 @@ body.logged-out .content-wrapper {
                     <div class="section-header">
                         <div>
                             <h1>Query Runner</h1>
-                            <p>Maximum 5,000 rows will be returned.</p>
+                            <p class="query-message" id="query-message"></p>
+                            <p class="query-message" id="query-export-message" hidden></p>
                         </div>
                     </div>
-                    <div class="panel">
-                        <form class="query-form" id="query-runner-form">
-                            <textarea class="query-editor" id="query-sql" spellcheck="false">SELECT *
-FROM your_table;</textarea>
-                            <div class="query-toolbar">
-                                <div class="query-actions">
-                                    <button class="btn btn-primary" id="query-run-btn" type="submit"><i class="fa-solid fa-play" aria-hidden="true"></i> Run</button>
-                                    <button class="btn btn-secondary" id="query-download-btn" type="button" disabled><i class="fa-solid fa-download" aria-hidden="true"></i> CSV</button>
+                    <div class="query-mode-row">
+                        <div class="query-tabs" role="tablist" aria-label="Query runner mode">
+                            <button class="query-tab-button active" id="query-direct-tab" type="button" role="tab" aria-selected="true" aria-controls="query-direct-panel" data-query-tab="direct">Direct</button>
+                            <button class="query-tab-button" id="query-export-tab" type="button" role="tab" aria-selected="false" aria-controls="query-export-panel" data-query-tab="export">Export</button>
+                        </div>
+                        <div class="query-tab-actions">
+                            <button class="btn btn-primary" id="query-run-btn" type="submit" form="query-runner-form"><i class="fa-solid fa-play" aria-hidden="true"></i> Run</button>
+                            <button class="btn btn-primary" id="query-export-download-btn" type="submit" form="query-export-form" hidden><i class="fa-solid fa-download" aria-hidden="true"></i> Download</button>
+                        </div>
+                    </div>
+                    <div class="query-tab-panel" id="query-direct-panel" role="tabpanel" aria-labelledby="query-direct-tab">
+                        <div class="panel">
+                            <form class="query-form" id="query-runner-form">
+                                <textarea class="query-editor" id="query-sql" spellcheck="false">SELECT *
+FROM your_table
+LIMIT 10;</textarea>
+                            </form>
+                        </div>
+                        <div class="panel query-result-panel" id="query-result-panel" hidden>
+                            <div class="panel-header">
+                                <h3>Result</h3>
+                                <div class="query-result-meta">
+                                    <span class="profile-status" id="query-result-count">No result</span>
+                                    <button class="btn btn-secondary query-download-icon" id="query-download-btn" type="button" disabled title="Download CSV" aria-label="Download CSV"><i class="fa-solid fa-download" aria-hidden="true"></i></button>
                                 </div>
                             </div>
-                            <div class="query-message" id="query-message"></div>
-                        </form>
-                    </div>
-                    <div class="panel query-result-panel">
-                        <div class="panel-header">
-                            <h3>Result</h3>
-                            <span class="profile-status" id="query-result-count">No result</span>
+                            <div class="query-table-wrap">
+                                <table class="query-table">
+                                    <thead id="query-result-head"></thead>
+                                    <tbody id="query-result-body">
+                                        <tr><td><div class="query-empty">Run a query to see results.</div></td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div class="query-table-wrap">
-                            <table class="query-table">
-                                <thead id="query-result-head"></thead>
-                                <tbody id="query-result-body">
-                                    <tr><td><div class="query-empty">Run a query to see results.</div></td></tr>
-                                </tbody>
-                            </table>
+                    </div>
+                    <div class="query-tab-panel" id="query-export-panel" role="tabpanel" aria-labelledby="query-export-tab" hidden>
+                        <div class="panel">
+                            <form class="query-form" id="query-export-form">
+                                <textarea class="query-editor" id="query-export-sql" spellcheck="false">SELECT *
+FROM your_table
+LIMIT 10;</textarea>
+                            </form>
                         </div>
                     </div>
                 </section>
@@ -1514,7 +1598,9 @@ const STORAGE_KEY_TOKEN = 'token';
 const STORAGE_KEY_USER = 'user';
 const STORAGE_KEY_INFO = 'info';
 const STORAGE_KEY_INFO_AT = 'info_cached_at';
+const STORAGE_KEY_PROFILE_AT = 'profile_cached_at';
 const INFO_CACHE_REFRESH_MS = 5 * 60 * 1000;
+const PROFILE_CACHE_REFRESH_MS = 5 * 60 * 1000;
 
 let authToken = readToken();
 let authUser = readUser();
@@ -1527,12 +1613,23 @@ let pgscopeSchemaRows = [];
 let pgscopeSchemaPage = 1;
 let pgscopeSchemaPagination = { page: 1, limit: 0, total_count: 0, has_prev_page: false, has_next_page: false, returned_count: 0 };
 let queryLastSql = '';
+let queryResultColumns = [];
+let queryResultRows = [];
 
 const $ = id => document.getElementById(id);
 const rawValue = value => value === undefined || value === null || value === '' ? '-' : String(value);
 const formatNumber = value => Number(value || 0).toLocaleString();
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const accessToken = () => typeof authToken === 'object' ? authToken.access_token || authToken.token || '' : authToken || '';
+const queryRunnerReadLimit = () => Number(appInfo?.config?.config_query_runner_read_limit || 5000);
+const queryRunnerExportLimit = () => Number(appInfo?.config?.config_query_runner_export_limit || 50000);
+const queryRunnerReadLimitMessage = () => `Maximum ${formatNumber(queryRunnerReadLimit())} rows will be returned.`;
+const queryRunnerExportLimitMessage = () => `Maximum ${formatNumber(queryRunnerExportLimit())} rows will be downloaded.`;
+
+function renderQueryRunnerTabMessages() {
+    $('query-message').textContent = queryRunnerReadLimitMessage();
+    $('query-export-message').textContent = queryRunnerExportLimitMessage();
+}
 
 // Auth component helpers: token/user storage, /info caching, and shared API wrapper.
 function readToken() {
@@ -1554,7 +1651,10 @@ function writeToken(token) {
 function writeUser(user) {
     authUser = user || null;
     if (authUser) localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(authUser));
-    else localStorage.removeItem(STORAGE_KEY_USER);
+    else {
+        localStorage.removeItem(STORAGE_KEY_USER);
+        localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
+    }
     localStorage.removeItem('profile');
     localStorage.removeItem('myshipment_profile');
 }
@@ -1579,12 +1679,14 @@ function saveAuthPayload(payload) {
     if (!token || !user) throw new Error('Login response missing token or user');
     writeToken(token);
     writeUser(user);
+    localStorage.setItem(STORAGE_KEY_PROFILE_AT, String(Date.now()));
 }
 
 function applyInfoPayload(info) {
     appInfo = info || {};
     roleLabels = appInfo?.mapping?.role?.users || {};
     typeLabels = appInfo?.mapping?.type?.users || {};
+    renderQueryRunnerTabMessages();
 }
 
 function infoCacheFresh() {
@@ -1621,6 +1723,7 @@ async function loadInfo({ force = false } = {}) {
             appInfo = {};
             roleLabels = {};
             typeLabels = {};
+            renderQueryRunnerTabMessages();
         }
     }
 }
@@ -1629,8 +1732,43 @@ async function api(path, options = {}) {
     const res = await fetch(API_BASE + path, options);
     let payload = null;
     try { payload = await res.json(); } catch (err) { payload = { status: 0, message: 'Invalid server response' }; }
-    if (!res.ok || payload.status === 0) throw new Error(payload.message || `Request failed (${res.status})`);
+    if (!res.ok || payload.status === 0) {
+        const error = new Error(payload.message || `Request failed (${res.status})`);
+        error.status = res.status;
+        error.payload = payload;
+        throw error;
+    }
     return payload;
+}
+
+function isAuthError(err) {
+    return [401, 403].includes(Number(err?.status)) || /token|unauthori[sz]ed|forbidden|expired/i.test(err?.message || '');
+}
+
+function clearAuthSession() {
+    writeToken(null);
+    writeUser(null);
+    localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
+}
+
+function profileCacheFresh() {
+    const cachedAt = Number(localStorage.getItem(STORAGE_KEY_PROFILE_AT) || 0);
+    return Boolean(authToken && authUser) && cachedAt && Date.now() - cachedAt < PROFILE_CACHE_REFRESH_MS;
+}
+
+async function loadProfile({ force = false } = {}) {
+    if (!authToken || !authUser) return;
+    if (!force && profileCacheFresh()) return;
+    try {
+        const payload = await api(PROFILE_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
+        saveAuthPayload(payload);
+    } catch (err) {
+        if (isAuthError(err)) {
+            clearAuthSession();
+            return;
+        }
+        throw err;
+    }
 }
 
 async function refreshPortal() {
@@ -1638,11 +1776,9 @@ async function refreshPortal() {
     btn.classList.add('is-loading');
     btn.disabled = true;
     try {
-        await loadInfo({ force: true });
-        if (authToken && authUser) {
-            const payload = await api(PROFILE_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
-            saveAuthPayload(payload);
-        }
+        const refreshTasks = [loadInfo({ force: true })];
+        if (authToken && authUser) refreshTasks.push(loadProfile({ force: true }));
+        await Promise.all(refreshTasks);
         applyAuthState();
     } catch (err) {
         console.warn(err);
@@ -1918,18 +2054,38 @@ function goSchemaPage(page) {
     loadSchema({ force: true });
 }
 
-function validateQueryInput() {
-    const sql = $('query-sql').value.trim();
+function validateQuerySql(sql) {
     if (!sql) throw new Error('SQL is required.');
     const normalized = sql.replace(/;\s*$/, '').trim().toLowerCase().replace(/^\(+/, '').trim();
     if (!normalized.startsWith('select') && !normalized.startsWith('with')) throw new Error('Only SELECT/WITH queries are supported.');
     return { sql };
 }
 
+function validateQueryInput() {
+    return validateQuerySql($('query-sql').value.trim());
+}
+
+function validateExportQueryInput() {
+    return validateQuerySql($('query-export-sql').value.trim());
+}
+
+function resetQueryResult() {
+    $('query-result-panel').hidden = true;
+    $('query-result-count').textContent = 'No result';
+    $('query-result-head').innerHTML = '';
+    $('query-result-body').innerHTML = '<tr><td><div class="query-empty">Run a query to see results.</div></td></tr>';
+    queryResultColumns = [];
+    queryResultRows = [];
+}
+
 function renderQueryResult(result = {}) {
+    $('query-result-panel').hidden = false;
     const columns = Array.isArray(result.columns) ? result.columns : [];
     const rows = Array.isArray(result.rows) ? result.rows : [];
-    $('query-result-count').textContent = `${formatNumber(result.row_count || rows.length)} row${(result.row_count || rows.length) === 1 ? '' : 's'}${result.is_limited ? `, limited to ${formatNumber(result.limit)}` : ''}`;
+    queryResultColumns = columns;
+    queryResultRows = rows;
+    const rowCount = Number(result.row_count || rows.length);
+    $('query-result-count').textContent = `${formatNumber(rowCount)} row${rowCount === 1 ? '' : 's'}${result.is_limited ? `, limited to ${formatNumber(result.limit)}` : ''}`;
     if (!columns.length) {
         $('query-result-head').innerHTML = '';
         $('query-result-body').innerHTML = '<tr><td><div class="query-empty">Query returned no columns.</div></td></tr>';
@@ -1942,9 +2098,7 @@ function renderQueryResult(result = {}) {
 }
 
 function renderQueryError(message) {
-    $('query-result-count').textContent = 'No result';
-    $('query-result-head').innerHTML = '';
-    $('query-result-body').innerHTML = `<tr><td><div class="query-empty">${escapeHtml(message || 'Query failed.')}</div></td></tr>`;
+    resetQueryResult();
 }
 
 async function runQuery(event) {
@@ -1954,6 +2108,7 @@ async function runQuery(event) {
     const downloadBtn = $('query-download-btn');
     btn.disabled = true;
     downloadBtn.disabled = true;
+    resetQueryResult();
     $('query-message').textContent = 'Running query...';
     try {
         const { sql } = validateQueryInput();
@@ -1964,8 +2119,8 @@ async function runQuery(event) {
         });
         queryLastSql = sql;
         renderQueryResult(payload.message || {});
-        $('query-message').textContent = `Maximum ${formatNumber((payload.message || {}).max_limit || 5000)} rows are returned.`;
-        downloadBtn.disabled = false;
+        $('query-message').textContent = queryRunnerReadLimitMessage();
+        downloadBtn.disabled = !queryResultColumns.length;
     } catch (err) {
         renderQueryError(err.message);
         $('query-message').textContent = err.message || 'Query failed.';
@@ -1974,14 +2129,46 @@ async function runQuery(event) {
     }
 }
 
-async function downloadQueryCsv() {
+function csvCell(value) {
+    const text = value === undefined || value === null ? '' : String(value);
+    return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function downloadQueryCsv() {
     if (!authToken || !authUser) return;
     const btn = $('query-download-btn');
     btn.disabled = true;
-    $('query-message').textContent = 'Preparing CSV...';
     try {
-        const sql = queryLastSql || $('query-sql').value.trim();
-        if (!sql) throw new Error('Run or enter a query before downloading CSV.');
+        if (!queryResultColumns.length) throw new Error('Run a query before downloading CSV.');
+        const lines = [
+            queryResultColumns.map(csvCell).join(','),
+            ...queryResultRows.map(row => queryResultColumns.map(col => csvCell(row[col])).join(','))
+        ];
+        const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'pgscope_query_result.csv';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        $('query-message').textContent = `CSV downloaded with ${formatNumber(queryResultRows.length)} row${queryResultRows.length === 1 ? '' : 's'}.`;
+    } catch (err) {
+        $('query-message').textContent = err.message || 'CSV download failed.';
+    } finally {
+        btn.disabled = !queryResultColumns.length;
+    }
+}
+
+async function downloadQueryExport(event) {
+    event.preventDefault();
+    if (!authToken || !authUser) return;
+    const btn = $('query-export-download-btn');
+    btn.disabled = true;
+    $('query-export-message').textContent = 'Preparing CSV...';
+    try {
+        const { sql } = validateExportQueryInput();
         const response = await fetch(API_BASE + PGSCOPE_QUERY_RUNNER_CSV_PATH, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
@@ -1995,17 +2182,33 @@ async function downloadQueryCsv() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'pgscope_query_result.csv';
+        link.download = 'pgscope_query_export.csv';
         document.body.appendChild(link);
         link.click();
         link.remove();
         URL.revokeObjectURL(url);
-        $('query-message').textContent = 'CSV downloaded. Maximum 5,000 rows are returned.';
+        $('query-export-message').textContent = `CSV downloaded. ${queryRunnerExportLimitMessage()}`;
     } catch (err) {
-        $('query-message').textContent = err.message || 'CSV download failed.';
+        $('query-export-message').textContent = err.message || 'CSV download failed.';
     } finally {
-        btn.disabled = !queryLastSql;
+        btn.disabled = false;
     }
+}
+
+function switchQueryTab(target) {
+    document.querySelectorAll('.query-tab-button').forEach(button => {
+        const active = button.dataset.queryTab === target;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-selected', String(active));
+    });
+    $('query-direct-panel').hidden = target !== 'direct';
+    $('query-export-panel').hidden = target !== 'export';
+    $('query-run-btn').hidden = target !== 'direct';
+    $('query-export-download-btn').hidden = target !== 'export';
+    $('query-message').hidden = target !== 'direct';
+    $('query-export-message').hidden = target !== 'export';
+    if (target === 'direct') $('query-message').textContent = queryRunnerReadLimitMessage();
+    if (target === 'export') $('query-export-message').textContent = queryRunnerExportLimitMessage();
 }
 
 function showSection(target) {
@@ -2013,9 +2216,6 @@ function showSection(target) {
     document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.target === target));
     const section = $(target) || $('home');
     section.classList.add('active');
-    const activeNav = document.querySelector(`.nav-item[data-target="${target}"]`);
-    $('page-title').textContent = target === 'home' ? 'PGScope' : activeNav ? activeNav.textContent.trim() : 'PGScope';
-    $('page-subtitle').textContent = target === 'query-runner' ? 'Run external PostgreSQL SQL' : target === 'schema' ? 'Inspect tables, columns, and indexes' : target === 'database-info' ? 'External database overview' : 'Lightweight PostgreSQL explorer';
     if (target === 'database-info') loadDatabaseInfo();
     if (target === 'schema') loadSchema();
 }
@@ -2050,6 +2250,10 @@ function logout() {
     pgscopeSchemaRows = [];
     pgscopeSchemaPage = 1;
     pgscopeSchemaPagination = { page: 1, limit: 0, total_count: 0, has_prev_page: false, has_next_page: false, returned_count: 0 };
+    queryLastSql = '';
+    resetQueryResult();
+    $('query-download-btn').disabled = true;
+    renderQueryRunnerTabMessages();
     closeAllModals();
     closeProfileMenu();
     document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
@@ -2151,11 +2355,20 @@ function bindPageEvents() {
     });
     $('query-runner-form').addEventListener('submit', runQuery);
     $('query-download-btn').addEventListener('click', downloadQueryCsv);
+    $('query-export-form').addEventListener('submit', downloadQueryExport);
+    document.querySelectorAll('.query-tab-button').forEach(button => {
+        button.addEventListener('click', () => switchQueryTab(button.dataset.queryTab));
+    });
     $('query-sql').addEventListener('input', () => {
         if ($('query-sql').value.trim() !== queryLastSql) {
             queryLastSql = '';
             $('query-download-btn').disabled = true;
+            resetQueryResult();
+            $('query-message').textContent = queryRunnerReadLimitMessage();
         }
+    });
+    $('query-export-sql').addEventListener('input', () => {
+        $('query-export-message').textContent = queryRunnerExportLimitMessage();
     });
     ['schema-filter-search', 'schema-filter-relation', 'schema-filter-key'].forEach(id => {
         $(id).addEventListener('input', applySchemaFilters);
@@ -2178,10 +2391,11 @@ function bindPageEvents() {
 
 bindAuthComponentEvents();
 bindPageEvents();
+renderQueryRunnerTabMessages();
 const initialize = async () => {
     await loadInfo();
+    await loadProfile().catch(err => console.warn(err));
     applyAuthState();
-    window.setInterval(() => loadInfo().then(renderProfile).catch(() => {}), INFO_CACHE_REFRESH_MS);
 };
 initialize();
     </script>

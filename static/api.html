@@ -444,9 +444,9 @@
           datatype: "int", mode: "encode", x: "123"
         }, "/public/object-create": { table: "test", type: 1, title: "test", tag: ["tag1", "tag2"], tag_int: [1, 2], tag_bigint: [10000000000, 20000000000], rating: 4.5, coordinate: "POINT(80.0 15.0)", metadata: { role: "user", active: true } }, "/public/object-read": { table: "test", filter: JSON.stringify(["status = 1", "type == 1", "rating < 5", "status eq 1", "type neq 9", "rating lt 5", "status in 1|2|3", "type not in 4|5", "rating between 1|5", "title like %Title%", "email ilike %@example.com", "title ilike %Title% OR email ilike %@example.com", "code ~ ^CODE_", "slug ~* ^slug-", "tag contains tag1", "tag overlap tag1|tag2", "tag_int any 1", "metadata contains active|true|bool", "metadata exists active", "coordinate point 80.0|15.0|0|5000"]), relation: ["created_by_id,users,id,fetch|1,username,email", "id,comment_test,test_id,fetch|5,id,description,created_by_id", "id,comment_test,test_id,count,*", "id,comment_test,test_id,sum,id", "id,comment_test,test_id,avg,id", "id,comment_test,test_id,min,id", "id,comment_test,test_id,max,id"], is_disable_cache: 1 }, "/public/table-tag-read": {
           table: "test", column: "tag"
-        }, "/public/table-groupby": { table: "test", col: "tag", agg_func: "count", agg_col: "*", order: "count desc" }, "/admin/postgres-query-runner": {
+        }, "/public/table-groupby": { table: "test", col: "tag", agg_func: "count", agg_col: "*", order: "count desc" }, "/admin/postgres-query-runner-execute": {
           sql: "INSERT INTO test (type, title, code, slug, email, tag, tag_int, tag_bigint, rating, coordinate, description, status, address, metadata) \nSELECT \n    (i % 5 + 1)::smallint, 'Title ' || i, 'CODE_' || i || '_' || floor(random()*1000000)::text, 'slug-' || i || '_' || floor(random()*1000000)::text, \n  'user_' || i || '@example.com', \n  ARRAY['tag1', 'tag2', 'tag_' || i], ARRAY[1, 2, (i % 100)::integer], \n  ARRAY[10000000000::bigint, 20000000000::bigint, (30000000000 + i)::bigint], \n  (2.0 + (i % 30) * 0.1)::numeric(3,1), ST_SetSRID(ST_MakePoint(80.0 + (i * 0.0001), 15.0 + (i * 0.0001)), 4326)::geography, \n  'This is record number ' || i || ' with a detailed description.', \n  (i % 3 + 1)::smallint, 'Address Street ' || i, \n  jsonb_build_object('index', i, 'active', true, 'tags', jsonb_build_array('a', 'b')) \nFROM generate_series(1, 1000) AS s(i);"
-        }, "/admin/mssql-query-runner": { sql: "SELECT TOP 10 * FROM OrgHeader;" }, "/admin/mssql-query-runner-read": { sql: "SELECT TOP 10 * FROM OrgHeader;" }, "/admin/mssql-query-runner-read-export": { sql: "SELECT TOP 10 * FROM OrgHeader;" }, "/admin/postgres-query-runner-read": { sql: "SELECT * FROM test LIMIT 10;" }, "/admin/postgres-query-runner-read-export": { sql: "SELECT * FROM test limit 10;" }, "/admin/object-create": {
+        }, "/admin/mssql-query-runner-execute": { sql: "DECLARE @query_runner_execute_check int = 1;" }, "/admin/mssql-query-runner-read": { sql: "SELECT TOP 10 * FROM OrgHeader;" }, "/admin/mssql-query-runner-read-export": { sql: "SELECT TOP 10 * FROM OrgHeader;" }, "/admin/postgres-query-runner-read": { sql: "SELECT * FROM test LIMIT 10;" }, "/admin/postgres-query-runner-read-export": { sql: "SELECT * FROM test limit 10;" }, "/admin/object-create": {
           table: "test", obj_list: [{ type: 1, title: "Object 1" }, { type: 2, title: "Object 2" }, { type: 1, title: "Object 3" }, {
             type: 3,
             title: "Object 4"
@@ -456,7 +456,7 @@
           table: "users"
         }, "/admin/object-read": { table: "test" }, "/admin/object-delete": { table: "test", ids: [1, 2, 3, 4, 5] }, "/page-{name}": { name: "api" }
       };
-      PATH_OVERRIDES["/admin/postgres-query-runner"].sql = PATH_OVERRIDES["/admin/postgres-query-runner"].sql.replace("0::smallint, \n  (i % 5 + 1)::smallint", "NULL::boolean, \n  (i % 5 + 1)::smallint");
+      PATH_OVERRIDES["/admin/postgres-query-runner-execute"].sql = PATH_OVERRIDES["/admin/postgres-query-runner-execute"].sql.replace("0::smallint, \n  (i % 5 + 1)::smallint", "NULL::boolean, \n  (i % 5 + 1)::smallint");
 // Request parameter parsing and casting
     const ParamManager = {
       extract(container, isJson = false) {
@@ -559,6 +559,7 @@
         ; command._paramBadgeQ = command.q.length > 0; command._paramBadgeF = command._hf; command._paramBadgeB = command._hj
         ; const responseSchema = resolveSchema(op.responses?.["200"]?.content?.["application/json"]?.schema); if (responseSchema) command.res = responseSchema; command.r = op.pattern || null
         ; const security = op.security !== undefined ? op.security : SPEC.security || []; command._needsAuth = security.length > 0; if (command._needsAuth && !command.h.some(x => x.k.toLowerCase() === "authorization")) { command.h.push({ k: "Authorization", v: "", req: true, d: "Bearer token" }) } command.orig = { u: JSON.parse(JSON.stringify(command.u)), h: JSON.parse(JSON.stringify(command.h)), q: JSON.parse(JSON.stringify(command.q)), f: JSON.parse(JSON.stringify(command.f)), j: JSON.parse(JSON.stringify(command.j)) }; applyPathOverrides(command)
+        ; command._xAuth = !!op["x-auth-required"]; command._xRoles = op["x-roles-allowed"]; command._xTypes = op["x-types-allowed"]; command._xDeact = !!op["x-check-deactivated"]; command._xDel = !!op["x-check-deleted"]; command._xCache = op["x-cache"]; command._xLimit = op["x-rate-limit"]
         ; return command
     }; const resolveRef = (r, s) => { if (!r || !r.startsWith("#/")) return null; const parts = r.split("/").slice(1); return parts.reduce((o, i) => o?.[i], s) }
       ; const schemaToExample = (s, spec) => {
@@ -815,17 +816,29 @@
     }; const applyMasterTableLayout = () => {
       const root = d.documentElement
         ; const pathLengths = COMMANDS.map(c => c.p.length); const maxPathLength = pathLengths.length ? Math.max(...pathLengths) : 32; const pathWidth = Math.min(340, Math.max(220, maxPathLength * 6 + 18))
-        ; const fixedWidth = 32 + 52 + 74 + 66 + 56 * 2 + 36; const shellWidth = Math.min(1180, Math.max(920, pathWidth + fixedWidth + 48)); root.style.setProperty("--master-path-col", `${pathWidth}px`)
+        ; const fixedWidth = 32 + 52 + 74 + 246 + 56 + 56 + 36 + 336; const shellWidth = Math.min(1600, Math.max(1200, pathWidth + fixedWidth + 64)); root.style.setProperty("--master-path-col", `${pathWidth}px`)
         ; root.style.setProperty("--master-shell-width", `${shellWidth}px`); UI("apiInfoTbl").closest(".master-table-wrap").style.opacity = "1"
-    }; const renderApiInfoTable = (searchQuery = "") => {
-      const filteredIndexes = getVisibleMasterIndexes()
-        ; UI("apiInfoTbl").innerHTML = `<thead><tr><th class="col-id">#</th><th class="col-method">Method</th><th class="col-path">Path</th><th class="col-param">Param</th><th class="col-time">Status</th><th class="col-time">Time</th><th class="col-run">Run</th></tr></thead>` + `<tbody>${filteredIndexes.map(globalIndex => {
-          const c = COMMANDS[globalIndex]; const isWs = c.m === "WS"; const responseState = Store.getResponse(globalIndex); const hasRes = !!responseState
-            ; return `\n<tr data-i="${globalIndex}" class="clickable"><td class="col-id master-static-cell">${globalIndex + 1}</td><td class="col-method master-static-cell"><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td class="col-path master-static-cell" title="${c.p}">${c.p}</td><td class="col-param master-static-cell">${isWs ? "-" : renderParamBadges(c)}</td><td class="col-time master-status-cell" title="API Status">${isWs ? "-" : renderStatusBadge(responseState?.status)}</td><td class="col-time master-time-cell">${isWs ? "-" : responseState ? `${responseState.time}ms` : "-"}</td><td class="col-run run-btn clickable" title="Run">${ICON.play(16)}</td></tr>`
-        }).join("")}</tbody>`; clearIconTooltips(UI("apiInfoTbl")); updateTestSummary()
     }; const renderStatusBadge = status => {
       if (status == null) return '<span class="status-text neutral">-</span>'
         ; return `<span class="status-text ${getStatusClass(status)}">${status}</span>`
+    }; const renderRuleDot = (isActive, tooltip, label = "") => {
+      if (!isActive) return `<span style="opacity:0.2;color:var(--muted)">-</span>`
+      let content = `<span style="color:var(--primary)">●</span>`
+      if (label) content += `<span style="font-size:10px;color:var(--muted);margin-left:4px">${label}</span>`
+      return tooltip ? `<span data-tooltip="${tooltip.replace(/"/g, '&quot;')}">${content}</span>` : content
+    }; const getRoleCountText = (arr) => {
+      if (!Array.isArray(arr)) return arr ? "✓" : "";
+      if (Array.isArray(arr[1])) return `[${arr[1].length}]`;
+      return `[${arr.length}]`;
+    }; const getRoleTooltipText = (arr, label) => {
+      if (!Array.isArray(arr)) return label;
+      return `${label}: ` + (Array.isArray(arr[1]) ? JSON.stringify(arr[1]) : JSON.stringify(arr));
+    }; const renderApiInfoTable = (searchQuery = "") => {
+      const filteredIndexes = getVisibleMasterIndexes()
+        ; UI("apiInfoTbl").innerHTML = `<thead><tr><th class="col-id">#</th><th class="col-method">Method</th><th class="col-path">Path</th><th class="col-param">Param</th><th class="col-rule" title="Auth Required" style="width:28px;min-width:28px;text-align:center"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0110 0v4"></path></svg></th><th class="col-rule" title="Type Check" style="width:28px;min-width:28px;text-align:center"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"></path><circle cx="7" cy="7" r="2"></circle></svg></th><th class="col-rule" title="Role Check" style="width:28px;min-width:28px;text-align:center"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></th><th class="col-rule" title="Deactivated Check" style="width:28px;min-width:28px;text-align:center"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line></svg></th><th class="col-rule" title="Deleted Check" style="width:28px;min-width:28px;text-align:center"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path></svg></th><th class="col-rule" title="Cache" style="width:48px;min-width:48px;text-align:center"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg></th><th class="col-rule" title="Rate Limit" style="width:58px;min-width:58px;text-align:center"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></th><th class="col-time">Status</th><th class="col-time">Time</th><th class="col-run">Run</th></tr></thead>` + `<tbody>${filteredIndexes.map(globalIndex => {
+          const c = COMMANDS[globalIndex]; const isWs = c.m === "WS"; const responseState = Store.getResponse(globalIndex); const hasRes = !!responseState
+            ; return `\n<tr data-i="${globalIndex}" class="clickable"><td class="col-id master-static-cell">${globalIndex + 1}</td><td class="col-method master-static-cell"><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td class="col-path master-static-cell" title="${c.p}">${c.p}</td><td class="col-param master-static-cell">${isWs ? "-" : renderParamBadges(c)}</td><td class="col-rule master-static-cell" style="text-align:center">${renderRuleDot(c._xAuth, "Auth Required")}</td><td class="col-rule master-static-cell" style="text-align:center">${renderRuleDot(c._xTypes, getRoleTooltipText(c._xTypes, "Allowed Types"), getRoleCountText(c._xTypes))}</td><td class="col-rule master-static-cell" style="text-align:center">${renderRuleDot(c._xRoles, getRoleTooltipText(c._xRoles, "Allowed Roles"), getRoleCountText(c._xRoles))}</td><td class="col-rule master-static-cell" style="text-align:center">${renderRuleDot(c._xDeact, "Check Deactivated")}</td><td class="col-rule master-static-cell" style="text-align:center">${renderRuleDot(c._xDel, "Check Deleted")}</td><td class="col-rule master-static-cell" style="text-align:center;white-space:nowrap">${renderRuleDot(c._xCache, c._xCache ? `Cache: ${c._xCache[0]} | TTL: ${c._xCache[1]}s | Scope: ${c._xCache.length>2?'User':'Global'}` : "", c._xCache ? `${c._xCache[1]}s${c._xCache.length>2?' 👤':' 🌍'}` : "")}</td><td class="col-rule master-static-cell" style="text-align:center;white-space:nowrap">${renderRuleDot(c._xLimit, c._xLimit ? `Limit: ${c._xLimit[0]} | ${c._xLimit[1]} req / ${c._xLimit[2]}s` : "", c._xLimit ? `${c._xLimit[1]}/${c._xLimit[2]}s` : "")}</td><td class="col-time master-status-cell" title="API Status">${isWs ? "-" : renderStatusBadge(responseState?.status)}</td><td class="col-time master-time-cell">${isWs ? "-" : responseState ? `${responseState.time}ms` : "-"}</td><td class="col-run run-btn clickable" title="Run">${ICON.play(16)}</td></tr>`
+        }).join("")}</tbody>`; clearIconTooltips(UI("apiInfoTbl")); updateTestSummary()
     }; const renderParamBadges = command => {
       const mapping = [{
         k: "p", l: "P", t: "Path parameters (OpenAPI)",
@@ -1356,7 +1369,7 @@
           ; if (!runApi || UI("apiInfoSearch").value !== initialSearch) load(null); updateTestSummary(); setupIcons(); setupEventListeners(); updateAppLoader(100, "Ready")
       } catch (err) {
         updateAppLoader(100, "Error"); console.error("Failed to load API info", err)
-          ; d.getElementById("apiInfoTbl").innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--delete);padding:20px">Failed to load API info: ${err.message}. Click Refresh to try again.</td></tr>`
+          ; d.getElementById("apiInfoTbl").innerHTML = `<tr><td colspan="14" style="text-align:center;color:var(--delete);padding:20px">Failed to load API info: ${err.message}. Click Refresh to try again.</td></tr>`
           ; load(null); updateTestSummary()
       }
     } init();

@@ -26,6 +26,7 @@
     --status-red-text: #B91C1C;
     --status-blue: #DBEAFE;
     --status-blue-text: #1E3A8A;
+    --page-card-gap: 1rem;
 }
 
 body {
@@ -199,7 +200,7 @@ body {
 .content-wrapper {
     flex: 1;
     overflow-y: auto;
-    padding: 2rem;
+    padding: var(--page-card-gap) 2rem 2rem;
 }
 
 .view-section {
@@ -207,8 +208,18 @@ body {
 }
 
 .view-section.active {
-    display: block;
+    display: grid;
+    align-content: start;
+    gap: var(--page-card-gap);
     animation: fadeIn 0.3s ease;
+}
+
+.view-section.active > *,
+.po-page-stack > *,
+.profile-layout > *,
+.profile-overview-grid > * {
+    margin-top: 0;
+    margin-bottom: 0;
 }
 
 @keyframes fadeIn {
@@ -220,7 +231,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
+    margin-bottom: var(--page-card-gap);
 }
 
 .section-header h1 {
@@ -246,8 +257,8 @@ body {
 .kpi-row {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
+    gap: var(--page-card-gap);
+    margin-bottom: 0;
 }
 
 .kpi-card {
@@ -361,7 +372,7 @@ body {
     background: var(--bg-surface);
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    margin-bottom: 1.5rem;
+    margin-bottom: 0;
     padding: 1.5rem;
 }
 
@@ -489,7 +500,7 @@ body {
 
 .po-page-stack {
     display: grid;
-    gap: 1rem;
+    gap: var(--page-card-gap);
 }
 
 .po-toolbar {
@@ -2071,7 +2082,7 @@ body {
 
 .profile-layout {
     display: grid;
-    gap: 1.25rem;
+    gap: var(--page-card-gap);
 }
 
 .profile-feedback {
@@ -2297,7 +2308,7 @@ body {
 .profile-overview-grid {
     display: grid;
     grid-template-columns: minmax(0, 1.7fr) minmax(260px, 0.8fr);
-    gap: 1.25rem;
+    gap: var(--page-card-gap);
 }
 
 .profile-tab-panel .panel {
@@ -2446,105 +2457,6 @@ body {
     padding: 1rem 1.5rem 1.5rem;
 }
 
-.tracking-journey-card {
-    display: grid;
-    grid-template-columns: minmax(180px, 1fr) auto minmax(180px, 1fr);
-    align-items: center;
-    gap: 1rem;
-    padding: 1.15rem;
-    border: 1px solid #DDE7FF;
-    border-radius: 18px;
-    background: linear-gradient(135deg, #F8FBFF 0%, #EEF6FF 100%);
-    box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
-}
-
-.tracking-journey-card.general {
-    background: linear-gradient(135deg, #F0FDF4 0%, #EFF6FF 100%);
-}
-
-.tracking-journey-card.general .tracking-place {
-    border-color: #BBF7D0;
-}
-
-.tracking-journey-card.general .tracking-route-line i {
-    background: #DCFCE7;
-    color: #15803D;
-}
-
-.tracking-journey-card.general .tracking-route-line .route::before,
-.tracking-journey-card.general .tracking-route-line .route::after {
-    background: #86EFAC;
-}
-
-.tracking-place {
-    min-width: 0;
-    padding: 0.9rem;
-    border: 1px solid #E0E7FF;
-    border-radius: 15px;
-    background: #FFFFFF;
-}
-
-.tracking-place-label {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    color: #64748B;
-    font-size: 0.7rem;
-    font-weight: 800;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-}
-
-.tracking-place-label i {
-    color: #2563EB;
-}
-
-.tracking-place-value {
-    margin-top: 0.35rem;
-    color: #0F172A;
-    font-size: 1.25rem;
-    font-weight: 850;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.tracking-route-line {
-    min-width: 130px;
-    color: #4F46E5;
-    text-align: center;
-}
-
-.tracking-route-line .route {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-}
-
-.tracking-route-line .route::before,
-.tracking-route-line .route::after {
-    content: '';
-    height: 2px;
-    flex: 1;
-    background: #A5B4FC;
-}
-
-.tracking-route-line i {
-    width: 36px;
-    height: 36px;
-    display: grid;
-    place-items: center;
-    border-radius: 999px;
-    background: #EEF2FF;
-}
-
-.tracking-route-meta {
-    margin-top: 0.35rem;
-    color: #64748B;
-    font-size: 0.76rem;
-    font-weight: 700;
-}
-
 .tracking-event-panel {
     border: 1px solid #E2E8F0;
     border-radius: 18px;
@@ -2580,97 +2492,264 @@ body {
     padding: 1rem;
 }
 
-.tracking-timeline::before {
-    content: '';
-    position: absolute;
-    top: 1.35rem;
-    bottom: 1.35rem;
-    left: 2.15rem;
-    width: 2px;
-    background: #E0E7FF;
-}
-
 .tracking-event-card {
     position: relative;
-    display: grid;
-    grid-template-columns: 42px minmax(0, 1fr);
-    gap: 0.75rem;
-    padding: 0.85rem;
+    padding: 0.78rem 0.9rem;
     border: 1px solid #E5E7EB;
-    border-radius: 15px;
-    background: #FFFFFF;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #FFFFFF 0%, #F8FBFF 100%);
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.045);
 }
 
-.tracking-event-icon {
+.tracking-card-route {
+    display: grid;
+    grid-template-columns: minmax(92px, 0.42fr) minmax(340px, 3fr) minmax(92px, 0.42fr);
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.1rem 0;
+}
+
+.tracking-card-route-mid {
+    position: relative;
+    min-width: 0;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+}
+
+.tracking-card-place {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tracking-card-place-icon {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background: #F1F5F9;
+    color: #475569;
+}
+
+.tracking-card-label {
+    display: none;
+    color: #64748B;
+    font-size: 0.62rem;
+    font-weight: 850;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tracking-card-value {
+    color: #0F172A;
+    font-size: 0.96rem;
+    font-weight: 850;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tracking-card-route > .tracking-card-place:last-child {
+    justify-content: flex-end;
+}
+
+.tracking-card-route > .tracking-card-place:last-child .tracking-card-value,
+.tracking-card-route > .tracking-card-place:last-child .tracking-card-label {
+    text-align: right;
+}
+
+.tracking-card-route-mid::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 2px;
+    transform: translateY(-50%);
+    background-image: linear-gradient(to right, #94A3B8 45%, transparent 45%);
+    background-size: 8px 2px;
+}
+
+.tracking-card-line-label {
     position: relative;
     z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34rem;
+    max-width: 220px;
+    padding: 0.28rem 0.65rem;
+    border: 1px solid #CBD5E1;
+    border-radius: 999px;
+    background: #FFFFFF;
+    color: #334155;
+    font-size: 0.66rem;
+    font-weight: 850;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tracking-card-line-time {
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    transform: translateY(-50%);
+    max-width: 140px;
+    padding: 0.22rem 0.5rem;
+    border: 1px solid #E2E8F0;
+    border-radius: 999px;
+    background: #FFFFFF;
+    color: #64748B;
+    font-size: 0.62rem;
+    font-weight: 820;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tracking-card-line-time.start {
+    left: 0;
+}
+
+.tracking-card-line-time.end {
+    right: 0;
+}
+
+.tracking-card-shipment {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-top: 0.45rem;
+}
+
+.tracking-info-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.28rem 0.62rem;
+    border: 1px solid #E2E8F0;
+    border-radius: 999px;
+    background: #F8FAFC;
+    color: #475569;
+    font-size: 0.74rem;
+    font-weight: 760;
+}
+
+.tracking-info-chip.strong {
+    border-color: #DDD6FE;
+    background: #F5F3FF;
+    color: #5B21B6;
+}
+
+.tracking-info-chip.subtle {
+    border-color: #E5E7EB;
+    background: #FFFFFF;
+    color: #64748B;
+    font-weight: 720;
+}
+
+.tracking-info-chip i {
+    flex: 0 0 auto;
+}
+
+.alerts-list {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem 1.25rem;
+    background: #FFFFFF;
+}
+
+.alert-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.85rem 0.95rem;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    background: #FFFFFF;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+}
+
+.alert-card.high {
+    border-left: 4px solid #EF4444;
+}
+
+.alert-card.medium {
+    border-left: 4px solid #F59E0B;
+}
+
+.alert-icon {
     width: 34px;
     height: 34px;
     display: grid;
     place-items: center;
-    border-radius: 999px;
-    background: #EEF2FF;
-    color: #4F46E5;
-}
-
-.tracking-event-card.exception .tracking-event-icon {
-    background: #FEE2E2;
+    border-radius: 10px;
+    background: #FEF2F2;
     color: #DC2626;
 }
 
-.tracking-event-card.estimate .tracking-event-icon {
+.alert-card.medium .alert-icon {
     background: #FEF3C7;
     color: #B45309;
 }
 
-.tracking-event-main {
-    min-width: 0;
-}
-
-.tracking-event-top {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.75rem;
-}
-
-.tracking-event-name {
+.alert-title {
     color: #0F172A;
-    font-size: 0.92rem;
-    font-weight: 850;
+    font-size: 0.98rem;
+    font-weight: 880;
 }
 
-.tracking-event-time {
-    margin-top: 0.2rem;
-    color: #64748B;
-    font-size: 0.78rem;
-}
-
-.tracking-event-tags {
+.alert-meta {
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
-    margin-top: 0.55rem;
+    margin-top: 0.4rem;
 }
 
-.tracking-event-ref {
-    margin-top: 0.55rem;
-    padding: 0.55rem 0.65rem;
-    border-radius: 10px;
-    background: #F8FAFC;
+.alert-note {
+    margin-top: 0.35rem;
     color: #64748B;
-    font-size: 0.74rem;
-    overflow-wrap: anywhere;
+    font-size: 0.82rem;
+    font-weight: 650;
 }
 
-@media (max-width: 900px) {
-    .tracking-journey-card {
+.alert-action {
+    color: #64748B;
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-align: right;
+    white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+    .tracking-card-route {
+        grid-template-columns: 1fr;
+        align-items: start;
+    }
+
+    .tracking-card-route-mid {
+        justify-content: flex-start;
+    }
+
+    .alert-card {
         grid-template-columns: 1fr;
     }
-    .tracking-route-line {
-        min-width: 0;
+
+    .alert-action {
+        text-align: left;
     }
+}
+
+.tracking-event-main {
+    min-width: 0;
 }
 
 .event-head {
@@ -3818,6 +3897,9 @@ body.not-allowed .content-wrapper {
                 <a href="#tracking" class="nav-item" data-target="tracking" data-roles="3">
                     <i class="fa-solid fa-route"></i> Tracking
                 </a>
+                <a href="#alerts" class="nav-item" data-target="alerts" data-roles="3">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Alerts
+                </a>
                 <a href="#analytics" class="nav-item" data-target="analytics" data-roles="3">
                     <i class="fa-solid fa-chart-line"></i> Analytics
                 </a>
@@ -3837,16 +3919,13 @@ body.not-allowed .content-wrapper {
                 <div class="user-controls">
                     <button class="btn btn-primary login-btn guest-only" id="header-login-btn">Login</button>
                     <div class="profile-actions auth-only">
-                        <button class="btn btn-secondary header-refresh-btn" id="header-refresh-btn" type="button" title="Refresh profile and portal config">
-                            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
-                            <span>Refresh</span>
-                        </button>
                         <button class="user-profile" id="user-profile-trigger" type="button" title="Account menu" aria-label="Account menu" aria-expanded="false">
                             <div class="avatar">US</div>
                         </button>
                         <div class="profile-menu" id="profile-menu">
                             <button type="button" id="profile-menu-profile"><i class="fa-regular fa-id-card" aria-hidden="true"></i> Login Details</button>
                             <button type="button" id="profile-menu-user"><i class="fa-regular fa-user" aria-hidden="true"></i> My Profile</button>
+                            <button type="button" class="header-refresh-btn" id="header-refresh-btn" title="Refresh profile and portal config"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Refresh</button>
                             <button type="button" class="danger" id="profile-menu-logout"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Logout</button>
                         </div>
                     </div>
@@ -3860,7 +3939,7 @@ body.not-allowed .content-wrapper {
                         <div class="home-copy">
                             <span style="display: inline-block; padding: 0.35rem 0.85rem; background: #EEF2FF; border: 1px solid #C7D2FE; color: var(--primary); border-radius: 9999px; font-size: 0.75rem; font-weight: 700; margin-bottom: 1rem; letter-spacing: 0.05em; text-transform: uppercase; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">MGH GROUP</span>
                             <h1>Welcome to MyShipment</h1>
-                            <p>Track purchase orders, shipments, containers, milestones, exceptions, documents, and analytics from one workspace.</p>
+                            <p>Track purchase orders, shipments, containers, milestones, alerts, documents, and analytics from one workspace.</p>
                         </div>
                         <div class="home-card">
                             <div class="home-card-row">
@@ -4592,30 +4671,19 @@ body.not-allowed .content-wrapper {
                         <div class="panel po-panel">
                             <div class="po-summary-bar">
                                 <div class="po-result-count" id="tracking-result-count">Loading tracking events...</div>
-                                <div class="po-result-count" id="tracking-selected-label">Recent accessible shipments</div>
+                                <div class="po-pagination" aria-label="Tracking event pages">
+                                    <button class="po-page-button" id="tracking-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
+                                    <span id="tracking-page-display">Page 1</span>
+                                    <button class="po-page-button" id="tracking-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+                                </div>
                             </div>
                             <div class="tracking-layout">
-                                <div class="tracking-journey-card" id="tracking-journey-card">
-                                    <div class="tracking-place">
-                                        <div class="tracking-place-label"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> Origin</div>
-                                        <div class="tracking-place-value" id="tracking-origin">-</div>
-                                    </div>
-                                    <div class="tracking-route-line">
-                                        <div class="route"><i class="fa-solid fa-route" aria-hidden="true"></i></div>
-                                        <div class="tracking-route-meta" id="tracking-route-meta">Shipment journey</div>
-                                    </div>
-                                    <div class="tracking-place">
-                                        <div class="tracking-place-label"><i class="fa-solid fa-flag-checkered" aria-hidden="true"></i> Destination</div>
-                                        <div class="tracking-place-value" id="tracking-destination">-</div>
-                                    </div>
-                                </div>
                                 <div class="tracking-event-panel">
                                     <div class="tracking-event-header">
                                         <div>
-                                            <div class="tracking-event-title">Movement Timeline</div>
+                                            <div class="tracking-event-title" id="tracking-event-title">All Tracking Events</div>
                                             <div class="tracking-event-subtitle" id="tracking-timeline-subtitle">Events are loaded from CargoWise.</div>
                                         </div>
-                                        <span class="badge transit" id="tracking-mode-badge">-</span>
                                     </div>
                                     <div class="tracking-timeline" id="tracking-timeline"></div>
                                 </div>
@@ -4624,45 +4692,54 @@ body.not-allowed .content-wrapper {
                     </div>
                 </section>
 
-                <!-- Exceptions Section -->
-                <section id="exceptions" class="view-section">
-                    <div class="kpi-row">
-                        <div class="kpi-card warning">
-                            <h4>Active Exceptions</h4>
-                            <div class="val" id="exception-total" style="color: #EF4444;">-</div>
-                        </div>
-                        <div class="kpi-card warning">
-                            <h4>High Severity</h4>
-                            <div class="val" id="exception-high" style="color: #EF4444;">-</div>
-                        </div>
-                        <div class="kpi-card">
-                            <h4>Medium Severity</h4>
-                            <div class="val" id="exception-medium">-</div>
-                        </div>
-                    </div>
-                    <div class="panel">
-                        <div class="panel-header" style="justify-content: space-between; border-bottom: none; padding-bottom: 0;">
-                            <div class="pagination-controls" style="display: flex; gap: 0.5rem; align-items: center;">
-                                <button class="btn btn-sm" id="exception-prev-btn" disabled>Previous</button>
-                                <span id="exception-page-display" style="font-size: 0.9rem; font-weight: 500;">Page 1</span>
-                                <button class="btn btn-sm" id="exception-next-btn" disabled>Next</button>
+                <!-- Alerts Section -->
+                <section id="alerts" class="view-section">
+                    <div class="po-page-stack">
+                        <div class="panel po-panel">
+                            <div class="po-toolbar">
+                                <div class="po-heading">
+                                    <h2>Alerts</h2>
+                                    <p>Important shipment and purchase order issues that need attention.</p>
+                                </div>
+                                <div class="po-toolbar-actions">
+                                    <button class="po-refresh-button compact" type="button" id="alert-refresh-btn" aria-label="Refresh alerts" title="Refresh alerts"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
+                                </div>
                             </div>
                         </div>
-                        <div class="table-responsive">
-                            <table class="data-table" id="exception-table">
-                                <thead>
-                                    <tr>
-                                        <th>Source</th>
-                                        <th>Reference</th>
-                                        <th>Exception</th>
-                                        <th>Severity</th>
-                                        <th>Status</th>
-                                        <th>Date</th>
-                                        <th>Note</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
+                        <div class="panel po-panel">
+                            <div class="po-kpi-strip">
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Open Alerts</div>
+                                    <div class="po-kpi-value" id="alert-total">-</div>
+                                </div>
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> High Severity</div>
+                                    <div class="po-kpi-value" id="alert-high">-</div>
+                                </div>
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Medium Severity</div>
+                                    <div class="po-kpi-value" id="alert-medium">-</div>
+                                </div>
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-ship" aria-hidden="true"></i> Shipment Alerts</div>
+                                    <div class="po-kpi-value" id="alert-shipment">-</div>
+                                </div>
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> PO Alerts</div>
+                                    <div class="po-kpi-value" id="alert-po">-</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="panel po-panel">
+                            <div class="po-summary-bar">
+                                <div class="po-result-count" id="alert-result-count">Loading alerts...</div>
+                                <div class="po-pagination">
+                                    <button class="po-page-button" id="alert-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
+                                    <span id="alert-page-display">Page 1</span>
+                                    <button class="po-page-button" id="alert-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+                                </div>
+                            </div>
+                            <div class="alerts-list" id="alerts-list"></div>
                         </div>
                     </div>
                 </section>
@@ -5328,7 +5405,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const STORAGE_KEY_USER = 'user';
     const STORAGE_KEY_INFO = 'info';
     const STORAGE_KEY_INFO_AT = 'info_cached_at';
+    const STORAGE_KEY_PROFILE_AT = 'profile_cached_at';
     const INFO_CACHE_REFRESH_MS = 5 * 60 * 1000;
+    const PROFILE_CACHE_REFRESH_MS = 5 * 60 * 1000;
     const API_BASE = location.origin && location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
     const LOGIN_PATH = '/auth/login-username-password';
     const INFO_PATH = '/info';
@@ -5360,7 +5439,7 @@ document.addEventListener('DOMContentLoaded', () => {
         shipments: '/cargowise/my-shipments',
         containers: '/cargowise/my-containers',
         tracking: '/cargowise/my-tracking',
-        exceptions: '/cargowise/my-alerts',
+        alerts: '/cargowise/my-alerts',
         documents: '/cargowise/my-documents',
         analytics: '/cargowise/my-analytics'
     };
@@ -5370,7 +5449,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let poCurrentPage = 1;
     let shipmentCurrentPage = 1;
     let containerCurrentPage = 1;
-    let exceptionCurrentPage = 1;
+    let trackingCurrentPage = 1;
+    let alertCurrentPage = 1;
     let documentCurrentPage = 1;
     let poSearchQuery = '';
     let shipmentSearchQuery = '';
@@ -5413,7 +5493,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const writeUser = user => {
         authUser = user || null;
         if (authUser) localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(authUser));
-        else localStorage.removeItem(STORAGE_KEY_USER);
+        else {
+            localStorage.removeItem(STORAGE_KEY_USER);
+            localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
+        }
         localStorage.removeItem('profile');
         localStorage.removeItem('myshipment_profile');
     };
@@ -5437,7 +5520,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const api = async (path, options = {}) => {
         const res = await fetch(API_BASE + path, options);
         const body = await res.json().catch(() => ({}));
-        if (!res.ok || body.status !== 1) throw new Error(body.message || body.detail || 'Request failed');
+        if (!res.ok || body.status !== 1) {
+            const error = new Error(body.message || body.detail || 'Request failed');
+            error.status = res.status;
+            error.payload = body;
+            throw error;
+        }
         return body;
     };
     const applyInfoPayload = payload => {
@@ -5471,6 +5559,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.removeItem(STORAGE_KEY_USER);
         localStorage.removeItem(STORAGE_KEY_INFO);
         localStorage.removeItem(STORAGE_KEY_INFO_AT);
+        localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
         localStorage.removeItem(STORAGE_KEY_RATE_GROUPBY);
         localStorage.removeItem(STORAGE_KEY_RATE_GROUPBY_AT);
         localStorage.removeItem('profile');
@@ -5492,6 +5581,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     const accessToken = () => typeof authToken === 'object' ? authToken.access_token || authToken.token || '' : authToken || '';
+    const isAuthError = err => [401, 403].includes(Number(err?.status)) || /token|unauthori[sz]ed|forbidden|expired/i.test(err?.message || '');
+    const clearAuthSession = () => {
+        writeToken(null);
+        writeUser(null);
+        localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
+    };
+    const profileCacheFresh = () => {
+        const cachedAt = Number(localStorage.getItem(STORAGE_KEY_PROFILE_AT) || 0);
+        return Boolean(authToken && authUser) && cachedAt && Date.now() - cachedAt < PROFILE_CACHE_REFRESH_MS;
+    };
+    const loadProfile = async ({ force = false } = {}) => {
+        if (!authToken || !authUser) return;
+        if (!force && profileCacheFresh()) return;
+        try {
+            const payload = await api(MY_PROFILE_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            saveAuthPayload(payload);
+        } catch (err) {
+            if (isAuthError(err)) {
+                clearAuthSession();
+                return;
+            }
+            throw err;
+        }
+    };
     const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
     const displayValue = value => value === null || value === undefined || value === '' ? '-' : String(value);
     const rateGroupbyCacheFresh = () => {
@@ -5605,6 +5718,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const date = new Date(value);
         if (Number.isNaN(date.getTime())) return displayValue(value);
         return date.toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    };
+    const formatRelativeTime = value => {
+        if (!value) return '-';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return displayValue(value);
+        const seconds = Math.round((date.getTime() - Date.now()) / 1000);
+        const abs = Math.abs(seconds);
+        const units = [
+            ['year', 31536000],
+            ['month', 2592000],
+            ['day', 86400],
+            ['hour', 3600],
+            ['minute', 60]
+        ];
+        const [unit, size] = units.find(([, unitSeconds]) => abs >= unitSeconds) || ['second', 1];
+        const valueCount = Math.round(seconds / size);
+        return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(valueCount, unit);
     };
     const badgeClass = value => {
         const text = String(value || '').toLowerCase();
@@ -6511,86 +6641,100 @@ document.addEventListener('DOMContentLoaded', () => {
             </tr>
         `).join('') : '<tr><td colspan="7">No containers found.</td></tr>';
     };
-    const eventIcon = (category, name) => {
-        const text = `${category || ''} ${name || ''}`.toLowerCase();
-        if (text.includes('custom')) return 'fa-file-shield';
-        if (text.includes('arriv') || text.includes('arrival')) return 'fa-flag-checkered';
-        if (text.includes('depart') || text.includes('load')) return 'fa-ship';
-        if (text.includes('deliver')) return 'fa-truck-ramp-box';
-        if (text.includes('document')) return 'fa-file-lines';
-        if (text.includes('note')) return 'fa-note-sticky';
-        if (text.includes('address')) return 'fa-location-dot';
-        if (text.includes('export')) return 'fa-upload';
-        return 'fa-circle-check';
-    };
     const renderTracking = rows => {
         const timeline = document.getElementById('tracking-timeline');
         if (!timeline) return;
         const focused = Boolean(trackingShipmentId);
-        const context = focused ? (trackingSelectedShipment || rows[0] || {}) : {};
+        const context = trackingSelectedShipment || rows[0] || {};
         const shipmentRef = displayValue(context.shipment_reference || context.shipment_number || context.job_number);
-        const origin = focused ? displayValue(context.origin) : 'All origins';
-        const destination = focused ? displayValue(context.destination) : 'All destinations';
-        const mode = focused ? displayValue(context.transport_mode || context.mode) : 'General feed';
-        const status = focused ? displayValue(context.shipment_status || context.status) : 'Multiple shipments';
-        const journeyCard = document.getElementById('tracking-journey-card');
-        if (journeyCard) journeyCard.classList.toggle('general', !focused);
-        document.getElementById('tracking-origin').textContent = origin;
-        document.getElementById('tracking-destination').textContent = destination;
-        document.getElementById('tracking-mode-badge').textContent = mode;
-        document.getElementById('tracking-route-meta').textContent = focused ? ([shipmentRef, mode, status].filter(item => item && item !== '-').join(' · ') || 'Shipment journey') : 'Latest movement events across accessible shipments';
-        document.getElementById('tracking-selected-label').textContent = focused ? `Focused shipment: ${shipmentRef}` : 'General tracking feed';
+        document.getElementById('tracking-event-title').textContent = focused ? `Tracking Events - ${shipmentRef}` : 'All Tracking Events';
         document.getElementById('tracking-result-count').innerHTML = `<strong>${rows.length}</strong> tracking event${rows.length === 1 ? '' : 's'}${trackingSearchQuery ? ` matching “${escapeHtml(trackingSearchQuery)}”` : ''}`;
-        document.getElementById('tracking-timeline-subtitle').textContent = rows.length ? (focused ? 'Focused shipment events are shown latest first.' : 'Latest events across accessible shipments are shown first. Search a shipment to see one journey.') : (focused ? 'No CargoWise tracking events found for this shipment.' : 'No recent CargoWise tracking events found.');
+        document.getElementById('tracking-timeline-subtitle').textContent = rows.length ? (focused ? 'Shipment events are shown latest first.' : 'Latest events across accessible shipments are shown first.') : (focused ? 'No CargoWise tracking events found for this shipment.' : 'No recent CargoWise tracking events found.');
         timeline.innerHTML = rows.length ? rows.map(row => {
             const isException = row.event_category === 'Exception' || String(row.event_code || '').startsWith('EX');
             const isEstimate = row.is_estimate === 'Y';
             const itemClass = isException ? 'exception' : isEstimate ? 'estimate' : '';
-            const eventType = isEstimate ? 'Estimate' : 'Actual';
-            const icon = isException ? 'fa-triangle-exclamation' : isEstimate ? 'fa-hourglass-half' : eventIcon(row.event_category, row.event_name);
             const rowShipmentRef = displayValue(row.shipment_reference || row.house_bill || row.shipment_id);
-            const rowRoute = [row.origin, row.destination].filter(Boolean).join(' to ');
-            const eventRef = row.event_reference ? `Ref: ${escapeHtml(row.event_reference)}` : '';
-            const generalRef = focused ? eventRef : `<strong>Shipment: ${escapeHtml(rowShipmentRef)}</strong>${rowRoute ? ` · ${escapeHtml(rowRoute)}` : ''}${eventRef ? `<br>${eventRef}` : ''}`;
+            const rowOrigin = displayValue(row.origin);
+            const rowDestination = displayValue(row.destination);
+            const locationMatch = String(row.event_reference || '').match(/(?:^|[|\s])LOC=([^|\s]+)/i);
+            const eventLocation = locationMatch ? locationMatch[1] : '';
+            const eventName = displayValue(row.event_name || row.event_code);
+            const eventSummary = `${eventName}${eventLocation ? ` at ${eventLocation}` : ''}`;
             return `
                 <article class="tracking-event-card ${itemClass}">
-                    <div class="tracking-event-icon"><i class="fa-solid ${icon}" aria-hidden="true"></i></div>
                     <div class="tracking-event-main">
-                        <div class="tracking-event-top">
-                            <div>
-                                <div class="tracking-event-name">${escapeHtml(displayValue(row.event_name))}</div>
-                                <div class="tracking-event-time">${escapeHtml(formatDateTime(row.event_at))}</div>
+                        <div class="tracking-card-route">
+                            <div class="tracking-card-place">
+                                <div class="tracking-card-place-icon"><i class="fa-solid fa-location-dot" aria-hidden="true"></i></div>
+                                <div>
+                                    <div class="tracking-card-label">From</div>
+                                    <div class="tracking-card-value" title="${escapeHtml(rowOrigin)}">${escapeHtml(rowOrigin)}</div>
+                                </div>
                             </div>
-                            <span class="badge ${isException ? 'exception' : isEstimate ? 'open' : 'transit'}">${escapeHtml(displayValue(row.event_code))}</span>
+                            <div class="tracking-card-route-mid">
+                                ${row.etd ? `<div class="tracking-card-line-time start">ETD ${escapeHtml(formatDateTime(row.etd))}</div>` : ''}
+                                <div class="tracking-card-line-label"><i class="fa-solid fa-ship" aria-hidden="true"></i> ${escapeHtml(rowShipmentRef)} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></div>
+                                ${row.eta ? `<div class="tracking-card-line-time end">ETA ${escapeHtml(formatDateTime(row.eta))}</div>` : ''}
+                            </div>
+                            <div class="tracking-card-place">
+                                <div class="tracking-card-place-icon"><i class="fa-solid fa-flag-checkered" aria-hidden="true"></i></div>
+                                <div>
+                                    <div class="tracking-card-label">To</div>
+                                    <div class="tracking-card-value" title="${escapeHtml(rowDestination)}">${escapeHtml(rowDestination)}</div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="tracking-event-tags">
-                            <span class="role-badge">${escapeHtml(eventType)}</span>
-                            <span class="role-badge">${escapeHtml(displayValue(row.event_category))}</span>
-                            <span class="role-badge">Status: ${escapeHtml(displayValue(row.shipment_status))}</span>
+                        <div class="tracking-card-shipment">
+                            <span class="tracking-info-chip strong"><i class="fa-solid fa-circle-info" aria-hidden="true"></i>${escapeHtml(eventSummary)}</span>
+                            ${row.event_at ? `<span class="tracking-info-chip"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i>${escapeHtml(formatDateTime(row.event_at))}</span>` : ''}
+                            ${row.posted_at ? `<span class="tracking-info-chip subtle"><i class="fa-regular fa-clock" aria-hidden="true"></i>Updated in CargoWise ${escapeHtml(formatRelativeTime(row.posted_at))}</span>` : ''}
+                            <span class="tracking-info-chip">${escapeHtml(displayValue(row.transport_mode))}</span>
+                            <span class="tracking-info-chip">Status: ${escapeHtml(displayValue(row.shipment_status))}</span>
+                            <span class="tracking-info-chip">${escapeHtml(isEstimate ? 'Estimate' : 'Actual')}</span>
                         </div>
-                        ${generalRef ? `<div class="tracking-event-ref">${generalRef}</div>` : ''}
                     </div>
                 </article>
             `;
         }).join('') : '<div class="empty-state">No tracking events found.</div>';
     };
-    const renderExceptions = rows => {
-        const body = document.querySelector('#exception-table tbody');
-        if (!body) return;
-        document.getElementById('exception-total').textContent = rows.length;
-        document.getElementById('exception-high').textContent = rows.filter(row => row.severity === 'High').length;
-        document.getElementById('exception-medium').textContent = rows.filter(row => row.severity === 'Medium').length;
-        body.innerHTML = rows.length ? rows.map(row => `
-            <tr>
-                <td>${escapeHtml(displayValue(row.source_type))}</td>
-                <td><strong>${escapeHtml(displayValue(row.reference))}</strong></td>
-                <td>${escapeHtml(displayValue(row.exception_type))}</td>
-                <td><span class="badge ${badgeClass(row.severity)}">${escapeHtml(displayValue(row.severity))}</span></td>
-                <td>${escapeHtml(displayValue(row.status))}</td>
-                <td>${escapeHtml(formatDate(row.event_at))}</td>
-                <td>${escapeHtml(displayValue(row.note))}</td>
-            </tr>
-        `).join('') : '<tr><td colspan="7">No exceptions found.</td></tr>';
+    const renderAlerts = rows => {
+        const list = document.getElementById('alerts-list');
+        if (!list) return;
+        const highCount = rows.filter(row => String(row.severity || '').toLowerCase() === 'high').length;
+        const mediumCount = rows.filter(row => String(row.severity || '').toLowerCase() === 'medium').length;
+        const shipmentCount = rows.filter(row => String(row.source_type || '').toLowerCase() === 'shipment').length;
+        const poCount = rows.filter(row => String(row.source_type || '').toLowerCase() === 'purchase order').length;
+        document.getElementById('alert-total').textContent = rows.length.toLocaleString();
+        document.getElementById('alert-high').textContent = highCount.toLocaleString();
+        document.getElementById('alert-medium').textContent = mediumCount.toLocaleString();
+        document.getElementById('alert-shipment').textContent = shipmentCount.toLocaleString();
+        document.getElementById('alert-po').textContent = poCount.toLocaleString();
+        document.getElementById('alert-result-count').innerHTML = `<strong>${rows.length}</strong> alert${rows.length === 1 ? '' : 's'} on this page`;
+        list.innerHTML = rows.length ? rows.map(row => {
+            const severity = String(row.severity || '').toLowerCase();
+            const icon = severity === 'high' ? 'fa-circle-exclamation' : 'fa-triangle-exclamation';
+            const source = displayValue(row.source_type);
+            const reference = displayValue(row.reference);
+            return `
+                <article class="alert-card ${escapeHtml(severity)}">
+                    <div class="alert-icon"><i class="fa-solid ${icon}" aria-hidden="true"></i></div>
+                    <div>
+                        <div class="alert-title">${escapeHtml(displayValue(row.exception_type))}</div>
+                        <div class="alert-meta">
+                            <span class="tracking-info-chip strong">${escapeHtml(source)}</span>
+                            <span class="tracking-info-chip">${escapeHtml(reference)}</span>
+                            <span class="tracking-info-chip">${escapeHtml(displayValue(row.status))}</span>
+                            <span class="tracking-info-chip">${escapeHtml(formatDate(row.event_at))}</span>
+                        </div>
+                        <div class="alert-note">${escapeHtml(displayValue(row.note))}</div>
+                    </div>
+                    <div class="alert-action">
+                        <span class="badge ${badgeClass(row.severity)}">${escapeHtml(displayValue(row.severity))}</span>
+                    </div>
+                </article>
+            `;
+        }).join('') : '<div class="empty-state">No active alerts found.</div>';
     };
     const renderDocuments = rows => {
         const body = document.querySelector('#document-table tbody');
@@ -7381,7 +7525,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target === 'shipments') renderShipments(Array.isArray(data) ? data : []);
         if (target === 'containers') renderContainers(Array.isArray(data) ? data : []);
         if (target === 'tracking') renderTracking(Array.isArray(data) ? data : []);
-        if (target === 'exceptions') renderExceptions(Array.isArray(data) ? data : []);
+        if (target === 'alerts') renderAlerts(Array.isArray(data) ? data : []);
         if (target === 'documents') renderDocuments(Array.isArray(data) ? data : []);
         if (target === 'analytics') renderAnalytics(data || {});
     };
@@ -7397,7 +7541,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'purchase-orders': { page: poCurrentPage, prefix: 'po' },
             'shipments': { page: shipmentCurrentPage, prefix: 'shipment' },
             'containers': { page: containerCurrentPage, prefix: 'container' },
-            'exceptions': { page: exceptionCurrentPage, prefix: 'exception' },
+            tracking: { page: trackingCurrentPage, prefix: 'tracking' },
+            alerts: { page: alertCurrentPage, prefix: 'alert' },
             'documents': { page: documentCurrentPage, prefix: 'document' }
         };
         if (!stateMap[target]) return;
@@ -7429,9 +7574,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (target === 'tracking') {
             const shipmentParam = trackingShipmentId ? `&shipment_id=${encodeURIComponent(trackingShipmentId)}` : '';
-            return `${endpoint}${joiner}limit=100${shipmentParam}`;
+            return `${endpoint}${joiner}limit=100&page=${trackingCurrentPage}${shipmentParam}`;
         }
-        if (target === 'exceptions') return `${endpoint}${joiner}limit=100&page=${exceptionCurrentPage}`;
+        if (target === 'alerts') return `${endpoint}${joiner}limit=100&page=${alertCurrentPage}`;
         if (target === 'documents') {
             const shipmentParam = documentShipmentId ? `&shipment_id=${encodeURIComponent(documentShipmentId)}` : '';
             return `${endpoint}${joiner}limit=100&page=${documentCurrentPage}${shipmentParam}`;
@@ -7454,10 +7599,17 @@ document.addEventListener('DOMContentLoaded', () => {
             'purchase-orders': ['purchase-order-table', 6],
             shipments: ['shipment-table', 7],
             containers: ['container-table', 7],
-            exceptions: ['exception-table', 7],
             documents: ['document-table', 7]
         };
         if (target === 'tracking') setBlockMessage('tracking-timeline', 'Loading events...');
+        if (target === 'alerts') {
+            setBlockMessage('alerts-list', 'Loading alerts...');
+            document.getElementById('alert-result-count').textContent = 'Loading alerts...';
+            ['total', 'high', 'medium', 'shipment', 'po'].forEach(key => {
+                const el = document.getElementById(`alert-${key}`);
+                if (el) el.textContent = '-';
+            });
+        }
         if (loadingMap[target]) setTableMessage(loadingMap[target][0], loadingMap[target][1], 'Loading data...', true);
         if (target === 'purchase-orders') {
             const resultCount = document.getElementById('po-result-count');
@@ -7478,14 +7630,8 @@ document.addEventListener('DOMContentLoaded', () => {
             loadShipmentKpis(Boolean(options.force));
         }
         if (target === 'tracking') {
-            ['origin', 'destination'].forEach(key => {
-                const el = document.getElementById(`tracking-${key}`);
-                if (el) el.textContent = '-';
-            });
-            document.getElementById('tracking-route-meta').textContent = trackingShipmentId ? 'Loading shipment journey' : 'Loading general tracking feed';
-            document.getElementById('tracking-mode-badge').textContent = '-';
+            document.getElementById('tracking-event-title').textContent = trackingShipmentId ? 'Tracking Events' : 'All Tracking Events';
             document.getElementById('tracking-result-count').textContent = 'Loading tracking events...';
-            document.getElementById('tracking-selected-label').textContent = trackingShipmentId ? 'Focused shipment' : 'General tracking feed';
             document.getElementById('tracking-timeline-subtitle').textContent = 'Fetching latest CargoWise events.';
         }
         try {
@@ -7496,6 +7642,10 @@ document.addEventListener('DOMContentLoaded', () => {
             applyModulePayload(target, message, hasNextPage);
         } catch (err) {
             if (target === 'tracking') setBlockMessage('tracking-timeline', err.message || 'Unable to load events');
+            if (target === 'alerts') {
+                setBlockMessage('alerts-list', err.message || 'Unable to load alerts');
+                document.getElementById('alert-result-count').textContent = 'Alerts could not be loaded';
+            }
             if (loadingMap[target]) setTableMessage(loadingMap[target][0], loadingMap[target][1], err.message || 'Unable to load data');
             if (target === 'purchase-orders') {
                 const resultCount = document.getElementById('po-result-count');
@@ -7558,6 +7708,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!nextToken || !nextUser) throw new Error('Login response missing token or user');
         writeToken(nextToken);
         writeUser(nextUser);
+        localStorage.setItem(STORAGE_KEY_PROFILE_AT, String(Date.now()));
         cargowiseProfileLoaded = false;
         Object.keys(moduleCache).forEach(key => delete moduleCache[key]);
     };
@@ -7587,13 +7738,11 @@ document.addEventListener('DOMContentLoaded', () => {
         button?.classList.add('is-loading');
         if (button) button.disabled = true;
         try {
-            await loadInfo({ force: true });
-            if (authToken && authUser) {
-                const payload = await api(MY_PROFILE_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
-                saveAuthPayload(payload);
-            }
-            if (featureAllowed('sales-rates')) await loadRateGroupbyOptions({ force: true });
-            applyAuthShell();
+            const refreshTasks = [loadInfo({ force: true })];
+            if (authToken && authUser) refreshTasks.push(loadProfile({ force: true }));
+            await Promise.all(refreshTasks);
+            if (authToken && authUser) applyAuthShell();
+            else applyAuthState();
         } catch (err) {
             await showAppAlert({ title: 'Refresh Failed', message: err.message || 'Unable to refresh portal.', danger: true });
         } finally {
@@ -7750,6 +7899,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 status: row?.dataset.status
             };
             trackingSearchQuery = shipmentNumber || '';
+            trackingCurrentPage = 1;
             if (trackingSearchInput) trackingSearchInput.value = trackingSearchQuery;
             if (trackingSearchClear) trackingSearchClear.style.display = trackingSearchQuery ? 'grid' : 'none';
             showSection('tracking');
@@ -7808,6 +7958,7 @@ document.addEventListener('DOMContentLoaded', () => {
         trackingSearchQuery = query;
         trackingSelectedShipment = null;
         trackingShipmentId = '';
+        trackingCurrentPage = 1;
         if (!query) {
             loadModule('tracking');
             return;
@@ -7839,9 +7990,12 @@ document.addEventListener('DOMContentLoaded', () => {
         trackingSearchQuery = '';
         trackingShipmentId = '';
         trackingSelectedShipment = null;
+        trackingCurrentPage = 1;
         loadModule('tracking');
     });
     document.getElementById('tracking-refresh-btn')?.addEventListener('click', () => refreshModule('tracking', 'tracking-refresh-btn'));
+    document.getElementById('tracking-prev-btn')?.addEventListener('click', () => { if (trackingCurrentPage > 1) { trackingCurrentPage--; loadModule('tracking'); } });
+    document.getElementById('tracking-next-btn')?.addEventListener('click', () => { trackingCurrentPage++; loadModule('tracking'); });
     document.getElementById('analytics-refresh-btn')?.addEventListener('click', () => refreshModule('analytics', 'analytics-refresh-btn'));
 
     document.getElementById('shipment-prev-btn')?.addEventListener('click', () => { if (shipmentCurrentPage > 1) { shipmentCurrentPage--; loadModule('shipments'); } });
@@ -7850,8 +8004,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('container-prev-btn')?.addEventListener('click', () => { if (containerCurrentPage > 1) { containerCurrentPage--; loadModule('containers'); } });
     document.getElementById('container-next-btn')?.addEventListener('click', () => { containerCurrentPage++; loadModule('containers'); });
     
-    document.getElementById('exception-prev-btn')?.addEventListener('click', () => { if (exceptionCurrentPage > 1) { exceptionCurrentPage--; loadModule('exceptions'); } });
-    document.getElementById('exception-next-btn')?.addEventListener('click', () => { exceptionCurrentPage++; loadModule('exceptions'); });
+    document.getElementById('alert-refresh-btn')?.addEventListener('click', () => refreshModule('alerts', 'alert-refresh-btn'));
+    document.getElementById('alert-prev-btn')?.addEventListener('click', () => { if (alertCurrentPage > 1) { alertCurrentPage--; loadModule('alerts'); } });
+    document.getElementById('alert-next-btn')?.addEventListener('click', () => { alertCurrentPage++; loadModule('alerts'); });
     
     document.getElementById('document-prev-btn')?.addEventListener('click', () => { if (documentCurrentPage > 1) { documentCurrentPage--; loadModule('documents'); } });
     document.getElementById('document-next-btn')?.addEventListener('click', () => { documentCurrentPage++; loadModule('documents'); });
@@ -8317,8 +8472,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const initialize = async () => {
         await loadInfo();
+        await loadProfile().catch(err => console.warn(err));
         applyAuthState();
-        window.setInterval(() => loadInfo().then(renderProfile).catch(() => {}), INFO_CACHE_REFRESH_MS);
         window.setInterval(() => loadRateGroupbyOptions({ force: true }).catch(() => {}), RATE_GROUPBY_CACHE_MS);
     };
     initialize();

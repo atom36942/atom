@@ -22,7 +22,11 @@ async def func_api_index_info(*, request:Request):
             "api_list": [route.path for route in request.app.routes if hasattr(route, "path")],
             "postgres_schema": app_state.cache_postgres_schema,
             "mapping": app_state.config_column_int_mapping,
-            "dropdown": app_state.config_dropdown
+            "dropdown": app_state.config_dropdown,
+            "config": {
+                "config_query_runner_read_limit": app_state.config_query_runner_read_limit,
+                "config_query_runner_export_limit": app_state.config_query_runner_export_limit,
+            },
         }
     }
 

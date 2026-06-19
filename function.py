@@ -32,11 +32,12 @@ def func_check(*, app: any) -> None:
         if not isinstance(cfg, dict): raise Exception(f"{path} config must be dict")
         for key in cfg.keys():
             if key not in api_keys_allowed: raise Exception(f"{path} invalid config key: {key}")
-        if "id" in cfg:
-            api_id = int_check(cfg["id"], f"{path} id", 1)
-            if api_id in api_ids: raise Exception(f"duplicate api id: {api_id}")
-            api_ids.append(api_id)
-        if "is_token" in cfg: flag_check(cfg["is_token"], f"{path} is_token")
+        if "id" not in cfg: raise Exception(f"{path} missing required key: id")
+        api_id = int_check(cfg["id"], f"{path} id", 1)
+        if api_id in api_ids: raise Exception(f"duplicate api id: {api_id}")
+        api_ids.append(api_id)
+        if "is_token" not in cfg: raise Exception(f"{path} missing required key: is_token")
+        flag_check(cfg["is_token"], f"{path} is_token")
         type_cfg = mode_list_check(path, cfg, "user_check_type", user_mode_allowed, 2, 2)
         if type_cfg:
             if not isinstance(type_cfg[1], list) or not type_cfg[1]: raise Exception(f"{path} invalid user_check_type types")
@@ -57,26 +58,28 @@ def func_check(*, app: any) -> None:
         cache_cfg = mode_list_check(path, cfg, "api_cache_sec", api_mode_allowed, 2, 3)
         if cache_cfg:
             ttl = int_check(cache_cfg[1], f"{path} api_cache_sec ttl", 1)
-            if ttl > 31536000: raise Exception(f"{path} api_cache_sec ttl exceeds 1 year")
+            if ttl > 315360000: raise Exception(f"{path} api_cache_sec ttl exceeds 10 years")
             if len(cache_cfg) > 2: flag_check(cache_cfg[2], f"{path} api_cache_sec user flag")
             if cache_cfg[0] == "redis": requires_redis = True
         rate_cfg = mode_list_check(path, cfg, "api_ratelimiting_times_sec", api_mode_allowed, 3, 3)
         if rate_cfg:
             int_check(rate_cfg[1], f"{path} api_ratelimiting_times_sec limit", 1)
             window = int_check(rate_cfg[2], f"{path} api_ratelimiting_times_sec window", 1)
-            if window > 86400: raise Exception(f"{path} api_ratelimiting_times_sec window exceeds 1 day")
+            if window > 31536000: raise Exception(f"{path} api_ratelimiting_times_sec window exceeds 1 year")
             if rate_cfg[0] == "redis": requires_redis = True
     for path in route_paths:
         if path not in config_api:
             raise Exception(f"CRITICAL: Route '{path}' is missing from config_api. All routes must be explicitly configured.")
-        if path.startswith("/admin/"):
-            role_cfg = config_api[path].get("user_check_role", [])
-            if not isinstance(role_cfg, list) or len(role_cfg) < 2 or not isinstance(role_cfg[1], list) or 1 not in role_cfg[1]:
-                raise Exception(f"{path} must have user_check_role with at least role 1 allowed")
     if requires_redis and not getattr(app.state, "config_redis_url", None):
         raise Exception("config_api uses redis mode but config_redis_url is missing")
     if requires_postgres and not getattr(app.state, "config_postgres_url", None):
         raise Exception("config_api uses realtime mode but config_postgres_url is missing")
+        
+    buffer_limit = getattr(app.state, "config_buffer_limit_default", None)
+    if buffer_limit is not None:
+        if not isinstance(buffer_limit, int) or buffer_limit < 10 or buffer_limit > 5000:
+            raise Exception("config_buffer_limit_default must be an integer between 10 and 5000")
+            
     return None
 
 async def func_postgres_schema_init(*, client_postgres: any, config_postgres: dict, root_user_password_hash: str = None) -> str:
@@ -497,8 +500,7 @@ async def func_middleware_token_decode(*, headers: dict, config_token_secret_key
 
 async def func_middleware_check_auth(*, user_dict: dict, url_path: str, is_token: int = 0, user_check_type: list = None, user_check_role: list = None) -> None:
     """Check whether current API requires token-authenticated user."""
-    auth_namespaces = ["/my/", "/private/", "/admin/"]
-    is_token_required = url_path.startswith(tuple(auth_namespaces)) or is_token in (1, "1", True, "true") or bool(user_check_type) or bool(user_check_role)
+    is_token_required = is_token in (1, "1", True, "true") or bool(user_check_type) or bool(user_check_role)
     if is_token_required and not user_dict: raise Exception("authorization token missing")
     return None
 
@@ -878,7 +880,6 @@ async def func_request_param_read(*, request: any, mode: str, strict: int, confi
 def func_openapi_spec_generate(*, app_routes: list, app_state: any) -> dict:
     """Generate a standard OpenAPI 3.0.0 specification from FastAPI routes using source inspection."""
     import inspect, re, ast
-    auth_namespaces = ["/my/", "/private/", "/admin/"]
     config_api = getattr(app_state, "config_api", {}) or {}
     TYPE_MAP = {
         "int": "integer", "bigint": "integer", "smallint": "integer", "integer": "integer", "int4": "integer", "int8": "integer",
@@ -955,7 +956,14 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: any) -> dict:
             tag = path.split("/")[1] if len(path.split("/")) > 1 and path.split("/")[1] else "system"
             op = {"tags": [tag], "parameters": [], "responses": {"200": {"description": "Successful Response"}}}
             api_cfg = config_api.get(path, {})
-            is_token_required = any(path.startswith(x) for x in auth_namespaces) or api_cfg.get("is_token") in (1, "1", True, "true") or "user_check_type" in api_cfg or "user_check_role" in api_cfg
+            is_token_required = api_cfg.get("is_token") in (1, "1", True, "true") or "user_check_type" in api_cfg or "user_check_role" in api_cfg
+            op["x-auth-required"] = is_token_required
+            op["x-roles-allowed"] = api_cfg.get("user_check_role", None)
+            op["x-types-allowed"] = api_cfg.get("user_check_type", None)
+            op["x-check-deactivated"] = "user_check_deactivated" in api_cfg
+            op["x-check-deleted"] = "user_check_deleted" in api_cfg
+            op["x-cache"] = api_cfg.get("api_cache_sec", None)
+            op["x-rate-limit"] = api_cfg.get("api_ratelimiting_times_sec", None)
             if is_token_required:
                 op["security"] = [{"BearerAuth": []}]
                 op["parameters"].append({"name": "Authorization", "in": "header", "required": True, "schema": {"type": "string", "default": "Bearer {token}"}})

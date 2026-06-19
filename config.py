@@ -57,6 +57,8 @@ config_batch_item_limit = 1000
 config_sql_read_limit_default = 100
 config_sql_read_limit_max = 10000
 config_sql_read_relation_fetch_limit_max = 100
+config_query_runner_read_limit = 5000
+config_query_runner_export_limit = 50000
 config_allowed_auth_types = [1]
 config_redis_cache_ttl_sec = 3600
 config_users_delete_data_retention_day = 30
@@ -178,10 +180,10 @@ config_api = {
 "/admin/blob-container-read": {"id": 10, "is_token": 1, "user_check_role": ["inmemory", [1]]},
 "/admin/blob-container-ops": {"id": 12, "is_token": 1, "user_check_role": ["token", [1]]},
 "/admin/blob-url-delete": {"id": 13, "is_token": 1, "user_check_role": ["token", [1]]},
-"/admin/postgres-query-runner": {"id": 6, "is_token": 1, "user_check_role": ["realtime", [1]]},
+"/admin/postgres-query-runner-execute": {"id": 6, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/postgres-query-runner-read": {"id": 22, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/postgres-query-runner-read-export": {"id": 7, "is_token": 1, "user_check_role": ["inmemory", [1, 2]]},
-"/admin/mssql-query-runner": {"id": 21, "is_token": 1, "user_check_role": ["realtime", [1]]},
+"/admin/mssql-query-runner-execute": {"id": 21, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/mssql-query-runner-read": {"id": 23, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/mssql-query-runner-read-export": {"id": 89, "is_token": 1, "user_check_role": ["realtime", [1]]},
 # CARGOWISE ROUTER
@@ -211,7 +213,7 @@ config_api = {
 # PGSCOPE ROUTER
 "/pgscope/database-info": {"id": 84, "is_token": 1, "api_cache_sec": ["inmemory", 60, 1]},
 "/pgscope/schema": {"id": 85, "is_token": 1, "api_cache_sec": ["inmemory", 300, 1]},
-"/pgscope/query-runner": {"id": 88, "is_token": 1},
+"/pgscope/query-runner-execute": {"id": 88, "is_token": 1},
 "/pgscope/query-runner-read": {"id": 86, "is_token": 1},
 "/pgscope/query-runner-read-export": {"id": 87, "is_token": 1},
 }

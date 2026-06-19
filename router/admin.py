@@ -205,17 +205,16 @@ async def func_api_admin_blob_url_delete(*, request: Request):
     if tasks: await asyncio.gather(*tasks)
     return {"status": 1, "message": f"{len(urls)} {service} URLs processed"}
 
-@router.post("/admin/postgres-query-runner")
-async def func_api_admin_postgres_query_runner(*, request: Request):
+@router.post("/admin/postgres-query-runner-execute")
+async def func_api_admin_postgres_query_runner_execute(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
     ql = ob["sql"].lower().strip().lstrip("(").strip()
+    if ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("read SQL must use /admin/postgres-query-runner-read")
+    if "returning" in ql: raise Exception("RETURNING is not allowed in execute mode")
     async with app_state.client_postgres.acquire() as conn:
-        if ql.startswith(("select", "with", "explain", "show", "describe")) or "returning" in ql:
-            result = [dict(r) for r in await conn.fetch(ob["sql"], timeout=15)]
-        else:
-            result = await conn.execute(ob["sql"], timeout=15)
-        return {"status": 1, "message": result}
+        result = await conn.execute(ob["sql"], timeout=15)
+    return {"status": 1, "message": result}
 
 @router.post("/admin/postgres-query-runner-read")
 async def func_api_admin_postgres_query_runner_read(*, request: Request):
@@ -224,9 +223,14 @@ async def func_api_admin_postgres_query_runner_read(*, request: Request):
     ql = ob["sql"].lower().strip().lstrip("(").strip()
     if not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("only read mode allowed")
     if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
+    limit = app_state.config_query_runner_read_limit
     async with app_state.client_postgres_read_fallback.acquire() as conn:
         async with conn.transaction(readonly=True):
-            return {"status": 1, "message": [dict(r) for r in await conn.fetch(ob["sql"], timeout=15)]}
+            result = []
+            async for record in conn.cursor(ob["sql"], prefetch=250, timeout=15):
+                result.append(dict(record))
+                if len(result) >= limit: break
+            return {"status": 1, "message": result}
 
 @router.post("/admin/postgres-query-runner-read-export")
 async def func_api_admin_postgres_query_runner_read_export(*, request: Request):
@@ -237,34 +241,35 @@ async def func_api_admin_postgres_query_runner_read_export(*, request: Request):
     if not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("export restricted to select/with/explain/show/describe")
     client_postgres = app_state.client_postgres_read_fallback
     if not client_postgres: raise Exception("postgres read client not initialized")
+    limit = app_state.config_query_runner_export_limit
     async def _iter():
         async with client_postgres.acquire() as conn:
             async with conn.transaction(readonly=True):
                 is_first = 1
+                count = 0
                 async for record in conn.cursor(sql):
                     if is_first == 1:
                         yield ",".join(record.keys()) + "\n"
                         is_first = 0
                     yield ",".join([f"\"{str(v).replace(chr(34), chr(34)*2)}\"" if v is not None else "" for v in record.values()]) + "\n"
+                    count += 1
+                    if count >= limit: break
     return StreamingResponse(_iter(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=postgres_query_runner_read_export.csv"})
 
-@router.post("/admin/mssql-query-runner")
-async def func_api_cargowise_mssql_query_runner(*, request: Request):
+@router.post("/admin/mssql-query-runner-execute")
+async def func_api_cargowise_mssql_query_runner_execute(*, request: Request):
     app_state = request.app.state
     if not app_state.client_mssql: raise Exception("MSSQL client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
     ql = ob["sql"].lower().strip().lstrip("(").strip()
+    if ql.startswith(("select", "with")): raise Exception("read SQL must use /admin/mssql-query-runner-read")
     for attempt in range(3):
         try:
             async with app_state.client_mssql.acquire() as conn:
                 cursor = await conn.cursor()
                 await cursor.execute(ob["sql"])
-                if ql.startswith(("select", "with")):
-                    columns = [column[0] for column in cursor.description]
-                    result = [dict(zip(columns, row)) for row in await cursor.fetchall()]
-                else:
-                    await conn.commit()
-                    result = "done"
+                await conn.commit()
+                result = "done"
                 return {"status": 1, "message": result}
         except Exception as e:
             if "08S01" in str(e) and attempt < 2:
@@ -281,13 +286,19 @@ async def func_api_cargowise_mssql_query_runner_read(*, request: Request):
     ql = ob["sql"].lower().strip().lstrip("(").strip()
     if not ql.startswith(("select", "with")): raise Exception("read mode restricted")
     if re.search(r"\b(insert|update|delete|merge|drop|alter|create|truncate|exec|execute|into)\b", ql): raise Exception("read mode restricted")
+    limit = app_state.config_query_runner_read_limit
     for attempt in range(3):
         try:
             async with app_state.client_mssql_read.acquire() as conn:
                 cursor = await conn.cursor()
                 await cursor.execute(ob["sql"])
                 columns = [column[0] for column in cursor.description]
-                return {"status": 1, "message": [dict(zip(columns, row)) for row in await cursor.fetchall()]}
+                result = []
+                while len(result) < limit:
+                    rows = await cursor.fetchmany(min(500, limit - len(result)))
+                    if not rows: break
+                    result.extend(dict(zip(columns, row)) for row in rows)
+                return {"status": 1, "message": result}
         except Exception as e:
             if "08S01" in str(e) and attempt < 2:
                 import asyncio
@@ -303,6 +314,7 @@ async def func_api_cargowise_mssql_query_runner_read_export(*, request: Request)
     ql = ob["sql"].lower().strip().lstrip("(").strip()
     if not ql.startswith(("select", "with")): raise Exception("read mode restricted")
     if re.search(r"\b(insert|update|delete|merge|drop|alter|create|truncate|exec|execute|into)\b", ql): raise Exception("read mode restricted")
+    limit = app_state.config_query_runner_export_limit
     async def _iter():
         for attempt in range(3):
             try:
@@ -311,11 +323,14 @@ async def func_api_cargowise_mssql_query_runner_read_export(*, request: Request)
                     await cursor.execute(ob["sql"])
                     columns = [column[0] for column in cursor.description]
                     yield ",".join(columns) + "\n"
+                    count = 0
                     while True:
-                        rows = await cursor.fetchmany(500)
+                        rows = await cursor.fetchmany(min(500, limit - count))
                         if not rows: break
                         for row in rows:
                             yield ",".join([f"\"{str(v).replace(chr(34), chr(34)*2)}\"" if v is not None else "" for v in row]) + "\n"
+                        count += len(rows)
+                        if count >= limit: break
                     return
             except Exception as e:
                 if "08S01" in str(e) and attempt < 2:

@@ -735,6 +735,8 @@ async def func_api_my_cargowise_shipment_tracking(*, request: Request):
             JS.JS_TransportMode AS transport_mode,
             JS.JS_RL_NKOrigin AS origin,
             JS.JS_RL_NKDestination AS destination,
+            JS.JS_E_DEP AS etd,
+            JS.JS_E_ARV AS eta,
             JS.JS_ShipmentStatus AS shipment_status,
             AL.SL_SE_NKEvent AS event_code,
             COALESCE(SE.SE_Desc, AL.SL_SE_NKEvent) AS event_name,
@@ -899,7 +901,7 @@ async def func_api_my_cargowise_alerts(*, request: Request):
         )
         SELECT *
         FROM exception_rows
-        ORDER BY event_at DESC, reference_id DESC
+        ORDER BY event_at DESC, source_id DESC
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
