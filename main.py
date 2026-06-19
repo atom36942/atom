@@ -185,7 +185,7 @@ async def middleware(request, api_function):
         api_ratelimiting_times_sec = api_cfg.get("api_ratelimiting_times_sec")
         api_cache_sec = api_cfg.get("api_cache_sec")
         request.state.user = await app_state.func_token_decode(headers=request.headers, config_token_secret_key=app_state.config_token_secret_key)
-        await app_state.func_middleware_check_auth(user_dict=request.state.user, url_path=path, is_token=is_token, user_check_type=user_check_type, user_check_role=user_check_role)
+        await app_state.func_middleware_check_auth(user_dict=request.state.user, url_path=path, is_token=is_token, user_check_type=user_check_type, user_check_role=user_check_role, user_check_deactivated=user_check_deactivated, user_check_deleted=user_check_deleted)
         await app_state.func_middleware_check_type(user_dict=request.state.user, user_check_type=user_check_type, client_postgres=app_state.client_postgres_read_fallback, client_redis=app_state.client_redis, cache_users_type=app_state.cache_users_type, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role=user_check_role, client_postgres=app_state.client_postgres_read_fallback, client_redis=app_state.client_redis, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, user_check_deactivated=user_check_deactivated, client_postgres=app_state.client_postgres_read_fallback, client_redis=app_state.client_redis, cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
