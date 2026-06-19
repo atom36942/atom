@@ -1228,14 +1228,14 @@ body.logged-out .content-wrapper {
                 <h2>PGScope</h2>
             </div>
             <nav class="nav-menu">
-                <a href="#database-info" class="nav-item active auth-only" data-target="database-info">
+                <a href="#query-runner" class="nav-item active auth-only" data-target="query-runner">
+                    <i class="fa-solid fa-terminal" aria-hidden="true"></i> Query Runner
+                </a>
+                <a href="#database-info" class="nav-item auth-only" data-target="database-info">
                     <i class="fa-solid fa-database" aria-hidden="true"></i> Database Info
                 </a>
                 <a href="#schema" class="nav-item auth-only" data-target="schema">
                     <i class="fa-solid fa-table-list" aria-hidden="true"></i> Schema
-                </a>
-                <a href="#query-runner" class="nav-item auth-only" data-target="query-runner">
-                    <i class="fa-solid fa-terminal" aria-hidden="true"></i> Query Runner
                 </a>
             </nav>
         </aside>
@@ -1420,7 +1420,7 @@ body.logged-out .content-wrapper {
                     </div>
                     <div class="query-mode-row">
                         <div class="query-tabs" role="tablist" aria-label="Query runner mode">
-                            <button class="query-tab-button active" id="query-direct-tab" type="button" role="tab" aria-selected="true" aria-controls="query-direct-panel" data-query-tab="direct">Direct</button>
+                            <button class="query-tab-button active" id="query-direct-tab" type="button" role="tab" aria-selected="true" aria-controls="query-direct-panel" data-query-tab="direct">Table</button>
                             <button class="query-tab-button" id="query-export-tab" type="button" role="tab" aria-selected="false" aria-controls="query-export-panel" data-query-tab="export">Export</button>
                         </div>
                         <div class="query-tab-actions">
@@ -1589,6 +1589,7 @@ LIMIT 10;</textarea>
 const LOGIN_PATH = '/auth/login-username-password';
 const INFO_PATH = '/info';
 const PROFILE_PATH = '/my/profile';
+const TOKEN_REFRESH_PATH = '/my/token-refresh';
 const PGSCOPE_DATABASE_INFO_PATH = '/pgscope/database-info';
 const PGSCOPE_SCHEMA_PATH = '/pgscope/schema';
 const PGSCOPE_QUERY_RUNNER_PATH = '/pgscope/query-runner-read';
@@ -1601,6 +1602,7 @@ const STORAGE_KEY_INFO_AT = 'info_cached_at';
 const STORAGE_KEY_PROFILE_AT = 'profile_cached_at';
 const INFO_CACHE_REFRESH_MS = 5 * 60 * 1000;
 const PROFILE_CACHE_REFRESH_MS = 5 * 60 * 1000;
+const TOKEN_REFRESH_BUFFER_SEC = 60;
 
 let authToken = readToken();
 let authUser = readUser();
@@ -1621,6 +1623,7 @@ const rawValue = value => value === undefined || value === null || value === '' 
 const formatNumber = value => Number(value || 0).toLocaleString();
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const accessToken = () => typeof authToken === 'object' ? authToken.access_token || authToken.token || '' : authToken || '';
+const refreshToken = () => typeof authToken === 'object' ? authToken.refresh_token || '' : '';
 const queryRunnerReadLimit = () => Number(appInfo?.config?.config_query_runner_read_limit || 5000);
 const queryRunnerExportLimit = () => Number(appInfo?.config?.config_query_runner_export_limit || 50000);
 const queryRunnerReadLimitMessage = () => `Maximum ${formatNumber(queryRunnerReadLimit())} rows will be returned.`;
@@ -1729,6 +1732,7 @@ async function loadInfo({ force = false } = {}) {
 }
 
 async function api(path, options = {}) {
+    options = await withAuthOptions(options);
     const res = await fetch(API_BASE + path, options);
     let payload = null;
     try { payload = await res.json(); } catch (err) { payload = { status: 0, message: 'Invalid server response' }; }
@@ -1749,6 +1753,48 @@ function clearAuthSession() {
     writeToken(null);
     writeUser(null);
     localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
+}
+
+function accessTokenFresh() {
+    if (!authToken || typeof authToken !== 'object') return Boolean(accessToken());
+    if (!authToken.access_expires_at) return !refreshToken() && Boolean(accessToken());
+    return Math.floor(Date.now() / 1000) < Number(authToken.access_expires_at) - TOKEN_REFRESH_BUFFER_SEC;
+}
+
+function refreshTokenFresh() {
+    if (!authToken || typeof authToken !== 'object' || !authToken.refresh_expires_at) return Boolean(refreshToken());
+    return Math.floor(Date.now() / 1000) < Number(authToken.refresh_expires_at) - TOKEN_REFRESH_BUFFER_SEC;
+}
+
+async function refreshAccessToken() {
+    if (!refreshTokenFresh()) {
+        clearAuthSession();
+        throw new Error('Session expired. Please login again.');
+    }
+    const res = await fetch(API_BASE + TOKEN_REFRESH_PATH, { method: 'POST', headers: { Authorization: `Bearer ${refreshToken()}` } });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || payload.status === 0) {
+        clearAuthSession();
+        throw new Error(payload.message || `Token refresh failed (${res.status})`);
+    }
+    const nextToken = payload.message && payload.message.token ? payload.message.token : payload.message;
+    if (!nextToken || !nextToken.access_token) throw new Error('Token refresh response missing access token');
+    if (payload.message && payload.message.user) saveAuthPayload(payload);
+    else writeToken(nextToken);
+    return accessToken();
+}
+
+async function ensureAccessToken() {
+    if (!authToken) return '';
+    if (accessTokenFresh()) return accessToken();
+    return refreshAccessToken();
+}
+
+async function withAuthOptions(options = {}) {
+    const headers = { ...(options.headers || {}) };
+    if (headers.Authorization || headers.authorization) headers.Authorization = `Bearer ${await ensureAccessToken()}`;
+    delete headers.authorization;
+    return { ...options, headers };
 }
 
 function profileCacheFresh() {
@@ -1840,7 +1886,7 @@ function applyAuthState() {
     const user = authUser || {};
     document.querySelector('.avatar').textContent = avatarTextFromUsername(user.username || user.name);
     renderProfile();
-    if ($('home').classList.contains('active')) showSection('database-info');
+    if ($('home').classList.contains('active')) showSection('query-runner');
 }
 
 function renderDatabaseInfo(info = {}) {
@@ -2169,11 +2215,11 @@ async function downloadQueryExport(event) {
     $('query-export-message').textContent = 'Preparing CSV...';
     try {
         const { sql } = validateExportQueryInput();
-        const response = await fetch(API_BASE + PGSCOPE_QUERY_RUNNER_CSV_PATH, {
+        const response = await fetch(API_BASE + PGSCOPE_QUERY_RUNNER_CSV_PATH, await withAuthOptions({
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
             body: JSON.stringify({ sql })
-        });
+        }));
         if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
             throw new Error(payload.message || `CSV download failed (${response.status})`);

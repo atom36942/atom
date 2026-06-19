@@ -496,12 +496,20 @@ async def func_middleware_token_decode(*, headers: dict, config_token_secret_key
     import jwt, orjson
     if config_token_secret_key in (None, ""): raise Exception("token secret key missing")
     decoded_payload = jwt.decode(token, str(config_token_secret_key), algorithms="HS256")
-    return orjson.loads(decoded_payload["data"])
+    user = orjson.loads(decoded_payload["data"])
+    if isinstance(user, dict): user["_token_type"] = decoded_payload.get("type")
+    return user
 
 async def func_middleware_check_auth(*, user_dict: dict, url_path: str, is_token: int = 0, user_check_type: list = None, user_check_role: list = None) -> None:
     """Check whether current API requires token-authenticated user."""
     is_token_required = is_token in (1, "1", True, "true") or bool(user_check_type) or bool(user_check_role)
     if is_token_required and not user_dict: raise Exception("authorization token missing")
+    if is_token_required:
+        token_type = user_dict.get("_token_type") if isinstance(user_dict, dict) else None
+        if url_path == "/my/token-refresh":
+            if token_type != "refresh": raise Exception("refresh token required")
+        elif token_type != "access":
+            raise Exception("access token required")
     return None
 
 async def func_middleware_check_type(*, user_dict: dict, user_check_type: list, client_postgres: any, client_redis: any, cache_users_type: dict, config_redis_cache_ttl_sec: int) -> None:
@@ -1658,9 +1666,11 @@ async def func_token_encode(*, user: dict, config_token_secret_key: str, config_
     payload_dict = {k: user.get(k) for k in config_column_token_encode} if config_column_token_encode else dict(user) if isinstance(user, dict) else user
     serialized_payload = orjson.dumps(payload_dict, default=str).decode("utf-8")
     now_ts = int(time.time())
-    access_token = jwt.encode({"exp": now_ts + config_access_token_expires_in_sec, "data": serialized_payload, "type": "access"}, token_secret_key)
-    refresh_token = jwt.encode({"exp": now_ts + config_refresh_token_expires_in_sec, "data": serialized_payload, "type": "refresh"}, token_secret_key)
-    return {"access_token": access_token, "refresh_token": refresh_token, "expires_in": config_access_token_expires_in_sec, "refresh_expires_in": config_refresh_token_expires_in_sec}
+    access_expires_at = now_ts + config_access_token_expires_in_sec
+    refresh_expires_at = now_ts + config_refresh_token_expires_in_sec
+    access_token = jwt.encode({"exp": access_expires_at, "data": serialized_payload, "type": "access"}, token_secret_key)
+    refresh_token = jwt.encode({"exp": refresh_expires_at, "data": serialized_payload, "type": "refresh"}, token_secret_key)
+    return {"access_token": access_token, "refresh_token": refresh_token, "access_expires_at": access_expires_at, "refresh_expires_at": refresh_expires_at}
 
 async def func_otp_generate(*, client_postgres: any, email: str, mobile: str, config_otp_length: int) -> int:
     """Generate a random OTP and store it in PostgreSQL for a given email or mobile."""

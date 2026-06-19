@@ -22,7 +22,7 @@ async def func_api_my_token_refresh(*, request: Request):
     app_state = request.app.state
     user = await app_state.func_user_read_single(client_postgres=app_state.client_postgres_read_fallback, user_id=request.state.user["id"])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_in_sec=app_state.config_access_token_expires_in_sec, config_refresh_token_expires_in_sec=app_state.config_refresh_token_expires_in_sec, config_column_token_encode=app_state.config_column_token_encode)
-    return {"status": 1, "message": token}
+    return {"status": 1, "message": {"user": user, "token": token}}
 
 @router.get("/my/api-usage")
 async def func_api_my_api_usage(*, request: Request):
