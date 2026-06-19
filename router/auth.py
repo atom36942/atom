@@ -19,7 +19,7 @@ async def func_api_auth_signup_username_password(*, request:Request):
     async with app_state.client_postgres.acquire() as conn:
         user = dict((await conn.fetch("INSERT INTO users (type, username, password) VALUES ($1, $2, $3) RETURNING *;", ob["type"], ob["username"], app_state.client_password_hasher.hash(str(ob["password"]))))[0])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
-    return {"status":1,"message":{"user":user,"token":token}}
+    return {"status":1,"message":token}
 
 @router.post("/auth/login-username-password")
 async def func_api_auth_login_username_password(*, request:Request):
@@ -34,7 +34,7 @@ async def func_api_auth_login_username_password(*, request:Request):
         except Exception: raise Exception("incorrect password")
         user = dict(records[0])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
-    return {"status":1,"message":{"user":user,"token":token}}
+    return {"status":1,"message":token}
 
 @router.post("/auth/login-email-password")
 async def func_api_auth_login_email_password(*, request:Request):
@@ -49,7 +49,7 @@ async def func_api_auth_login_email_password(*, request:Request):
         except Exception: raise Exception("incorrect password")
         user = dict(records[0])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
-    return {"status":1,"message":{"user":user,"token":token}}
+    return {"status":1,"message":token}
 
 @router.post("/auth/login-mobile-password")
 async def func_api_auth_login_mobile_password(*, request:Request):
@@ -64,7 +64,7 @@ async def func_api_auth_login_mobile_password(*, request:Request):
         except Exception: raise Exception("incorrect password")
         user = dict(records[0])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
-    return {"status":1,"message":{"user":user,"token":token}}
+    return {"status":1,"message":token}
 
 @router.post("/auth/login-email-otp")
 async def func_api_auth_login_email_otp(*, request:Request):
@@ -78,7 +78,7 @@ async def func_api_auth_login_email_otp(*, request:Request):
         if not records and app_state.config_is_enable_signup == 0: raise Exception("signup disabled")
         user = dict(records[0]) if records else dict((await conn.fetch("INSERT INTO users (type, email) VALUES ($1, $2) RETURNING *;", ob["type"], ob["email"]))[0])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
-    return {"status":1,"message":{"user":user,"token":token}}
+    return {"status":1,"message":token}
 
 @router.post("/auth/login-mobile-otp")
 async def func_api_auth_login_mobile_otp(*, request:Request):
@@ -92,7 +92,7 @@ async def func_api_auth_login_mobile_otp(*, request:Request):
         if not records and app_state.config_is_enable_signup == 0: raise Exception("signup disabled")
         user = dict(records[0]) if records else dict((await conn.fetch("INSERT INTO users (type, mobile) VALUES ($1, $2) RETURNING *;", ob["type"], ob["mobile"]))[0])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
-    return {"status":1,"message":{"user":user,"token":token}}
+    return {"status":1,"message":token}
 
 @router.post("/auth/login-google")
 async def func_api_auth_login_google(*, request:Request):
@@ -105,4 +105,4 @@ async def func_api_auth_login_google(*, request:Request):
         if not records and app_state.config_is_enable_signup == 0: raise Exception("signup disabled")
         user = dict(records[0]) if records else dict((await conn.fetch("INSERT INTO users (type, google_login_id, email, name, google_login_metadata) VALUES ($1, $2, $3, $4, $5) RETURNING *;", ob["type"], id_info["sub"], id_info.get("email"), id_info.get("name"), orjson.dumps(id_info).decode("utf-8")))[0])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
-    return {"status":1,"message":{"user":user,"token":token}}
+    return {"status":1,"message":token}
