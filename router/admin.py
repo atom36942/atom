@@ -239,11 +239,10 @@ async def func_api_admin_postgres_query_runner_read_export(*, request: Request):
     sql = ob["sql"]
     ql = sql.lower().strip().lstrip("(").strip()
     if not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("export restricted to select/with/explain/show/describe")
-    client_postgres = app_state.client_postgres_read_fallback
-    if not client_postgres: raise Exception("postgres read client not initialized")
+    if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
     limit = app_state.config_query_runner_export_limit
     async def _iter():
-        async with client_postgres.acquire() as conn:
+        async with app_state.client_postgres_read_fallback.acquire() as conn:
             async with conn.transaction(readonly=True):
                 is_first = 1
                 count = 0
