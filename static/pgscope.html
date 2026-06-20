@@ -1600,10 +1600,9 @@ const STORAGE_KEY_USER = 'user';
 const STORAGE_KEY_INFO = 'info';
 const STORAGE_KEY_INFO_AT = 'info_cached_at';
 const STORAGE_KEY_PROFILE_AT = 'profile_cached_at';
-const STORAGE_KEY_PROFILE_METADATA = 'profile_metadata';
 const INFO_CACHE_REFRESH_MS = 5 * 60 * 1000;
 const PROFILE_CACHE_REFRESH_MS = 5 * 60 * 1000;
-const TOKEN_REFRESH_BUFFER_SEC = 60;
+const TOKEN_REFRESH_BUFFER_SEC = 24 * 60 * 60;
 
 let authToken = readToken();
 let authUser = readUser();
@@ -1658,33 +1657,36 @@ function writeUser(user) {
     else {
         localStorage.removeItem(STORAGE_KEY_USER);
         localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
-        localStorage.removeItem(STORAGE_KEY_PROFILE_METADATA);
     }
-    localStorage.removeItem('profile');
 }
 
 function extractToken(payload) {
     const message = payload && payload.message ? payload.message : payload;
-    return message && message.token ? message.token : null;
+    if (message && message.token) return message.token;
+    if (message && message.access_token) return message;
+    return null;
 }
 
 function extractUser(payload) {
     const message = payload && payload.message ? payload.message : payload;
     const user = message && message.user ? message.user : message;
     if (!user || typeof user !== 'object') return null;
+    if (user.access_token || user.refresh_token) return null;
     const cleanUser = { ...user };
     delete cleanUser.token;
     return cleanUser;
 }
 
-function saveAuthPayload(payload) {
+function saveTokenPayload(payload) {
     const token = extractToken(payload);
-    const user = extractUser(payload);
-    const message = payload && payload.message ? payload.message : payload;
-    if (!token || !user) throw new Error('Login response missing token or user');
+    if (!token) throw new Error('Token response missing token');
     writeToken(token);
+}
+
+function saveProfilePayload(payload) {
+    const user = extractUser(payload);
+    if (!user) throw new Error('Profile response missing user');
     writeUser(user);
-    if (message && Object.prototype.hasOwnProperty.call(message, 'metadata')) localStorage.setItem(STORAGE_KEY_PROFILE_METADATA, JSON.stringify(message.metadata || {}));
     localStorage.setItem(STORAGE_KEY_PROFILE_AT, String(Date.now()));
 }
 
@@ -1723,8 +1725,6 @@ function clearPortalStorage() {
     localStorage.removeItem(STORAGE_KEY_INFO);
     localStorage.removeItem(STORAGE_KEY_INFO_AT);
     localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
-    localStorage.removeItem(STORAGE_KEY_PROFILE_METADATA);
-    localStorage.removeItem('profile');
 }
 
 async function loadInfo({ force = false } = {}) {
@@ -1792,8 +1792,7 @@ async function refreshAccessToken() {
     }
     const nextToken = payload.message && payload.message.token ? payload.message.token : payload.message;
     if (!nextToken || !nextToken.access_token) throw new Error('Token refresh response missing access token');
-    if (payload.message && payload.message.user) saveAuthPayload(payload);
-    else writeToken(nextToken);
+    saveTokenPayload(payload);
     return accessToken();
 }
 
@@ -1816,11 +1815,11 @@ function profileCacheFresh() {
 }
 
 async function loadProfile({ force = false } = {}) {
-    if (!authToken || !authUser) return;
-    if (!force && profileCacheFresh()) return;
+    if (!authToken) return;
+    if (!force && authUser && profileCacheFresh()) return;
     try {
         const payload = await api(PROFILE_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
-        saveAuthPayload(payload);
+        saveProfilePayload(payload);
     } catch (err) {
         if (isAuthError(err)) {
             clearAuthSession();
@@ -1835,9 +1834,11 @@ async function refreshPortal() {
     btn.classList.add('is-loading');
     btn.disabled = true;
     try {
-        const refreshTasks = [loadInfo({ force: true })];
-        if (authToken && authUser) refreshTasks.push(loadProfile({ force: true }));
-        await Promise.all(refreshTasks);
+        await loadInfo({ force: true });
+        if (authToken) {
+            await refreshAccessToken();
+            await loadProfile({ force: true });
+        }
         applyAuthState();
     } catch (err) {
         console.warn(err);
@@ -2386,7 +2387,8 @@ function bindAuthComponentEvents() {
                     password: $('login-password').value
                 })
             });
-            saveAuthPayload(payload);
+            saveTokenPayload(payload);
+            await loadProfile({ force: true });
             await loadInfo();
             msg.textContent = '';
             closeModal('login-modal');

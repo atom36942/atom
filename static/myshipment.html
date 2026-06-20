@@ -5406,10 +5406,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const STORAGE_KEY_INFO = 'info';
     const STORAGE_KEY_INFO_AT = 'info_cached_at';
     const STORAGE_KEY_PROFILE_AT = 'profile_cached_at';
-    const STORAGE_KEY_PROFILE_METADATA = 'profile_metadata';
     const INFO_CACHE_REFRESH_MS = 5 * 60 * 1000;
     const PROFILE_CACHE_REFRESH_MS = 5 * 60 * 1000;
-    const TOKEN_REFRESH_BUFFER_SEC = 60;
+    const TOKEN_REFRESH_BUFFER_SEC = 24 * 60 * 60;
     const API_BASE = location.origin && location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
     const LOGIN_PATH = '/auth/login-username-password';
     const INFO_PATH = '/info';
@@ -5430,8 +5429,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const QUOTATIONS_UPDATE_PATH = '/quotations/my-update';
     const QUOTATIONS_DELETE_PATH = '/quotations/my-delete';
     const QUOTATIONS_DECISION_PATH = '/quotations/decision';
-    const STORAGE_KEY_RATE_GROUPBY = 'rates_groupby_options';
-    const STORAGE_KEY_RATE_GROUPBY_AT = 'rates_groupby_cached_at';
     const RATE_GROUPBY_CACHE_MS = 5 * 60 * 1000;
     const RATE_GROUPBY_COLS = ['origin', 'destination', 'carrier', 'commodity'];
     let roleLabels = {};
@@ -5481,6 +5478,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let ratesEditMode = 'update';
     let ratesCsvObjects = [];
     let rateGroupbyOptions = {};
+    let rateGroupbyCachedAt = 0;
     let buyerSearchQuery = '';
     let poSearchTimeout;
     const moduleCache = {};
@@ -5499,9 +5497,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else {
             localStorage.removeItem(STORAGE_KEY_USER);
             localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
-            localStorage.removeItem(STORAGE_KEY_PROFILE_METADATA);
         }
-        localStorage.removeItem('profile');
     };
     const writeToken = token => {
         authToken = token || '';
@@ -5510,12 +5506,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const extractToken = payload => {
         const msg = payload && payload.message ? payload.message : payload;
-        return msg && msg.token ? msg.token : null;
+        if (msg && msg.token) return msg.token;
+        if (msg && msg.access_token) return msg;
+        return null;
     };
     const extractUser = payload => {
         const msg = payload && payload.message ? payload.message : payload;
         const user = msg && msg.user ? msg.user : msg;
         if (!user || typeof user !== 'object') return null;
+        if (user.access_token || user.refresh_token) return null;
         const cleanUser = { ...user };
         delete cleanUser.token;
         return cleanUser;
@@ -5564,10 +5563,6 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.removeItem(STORAGE_KEY_INFO);
         localStorage.removeItem(STORAGE_KEY_INFO_AT);
         localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
-        localStorage.removeItem(STORAGE_KEY_PROFILE_METADATA);
-        localStorage.removeItem(STORAGE_KEY_RATE_GROUPBY);
-        localStorage.removeItem(STORAGE_KEY_RATE_GROUPBY_AT);
-        localStorage.removeItem('profile');
     };
     const loadInfo = async ({ force = false } = {}) => {
         if (!force && readCachedInfo() && infoCacheFresh()) return;
@@ -5614,8 +5609,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const nextToken = payload.message && payload.message.token ? payload.message.token : payload.message;
         if (!nextToken || !nextToken.access_token) throw new Error('Token refresh response missing access token');
-        if (payload.message && payload.message.user) saveAuthPayload(payload);
-        else writeToken(nextToken);
+        saveTokenPayload(payload);
         return accessToken();
     };
     const ensureAccessToken = async () => {
@@ -5634,11 +5628,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return Boolean(authToken && authUser) && cachedAt && Date.now() - cachedAt < PROFILE_CACHE_REFRESH_MS;
     };
     const loadProfile = async ({ force = false } = {}) => {
-        if (!authToken || !authUser) return;
-        if (!force && profileCacheFresh()) return;
+        if (!authToken) return;
+        if (!force && authUser && profileCacheFresh()) return;
         try {
             const payload = await api(MY_PROFILE_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
-            saveAuthPayload(payload);
+            saveProfilePayload(payload);
         } catch (err) {
             if (isAuthError(err)) {
                 clearAuthSession();
@@ -5650,22 +5644,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
     const displayValue = value => value === null || value === undefined || value === '' ? '-' : String(value);
     const rateGroupbyCacheFresh = () => {
-        const cachedAt = Number(localStorage.getItem(STORAGE_KEY_RATE_GROUPBY_AT) || 0);
-        return Boolean(localStorage.getItem(STORAGE_KEY_RATE_GROUPBY)) && cachedAt && Date.now() - cachedAt < RATE_GROUPBY_CACHE_MS;
+        return Boolean(Object.keys(rateGroupbyOptions || {}).length) && rateGroupbyCachedAt && Date.now() - rateGroupbyCachedAt < RATE_GROUPBY_CACHE_MS;
     };
     const readCachedRateGroupby = () => {
-        try {
-            const cached = JSON.parse(localStorage.getItem(STORAGE_KEY_RATE_GROUPBY) || 'null');
-            return cached && typeof cached === 'object' ? cached : null;
-        } catch (err) {
-            localStorage.removeItem(STORAGE_KEY_RATE_GROUPBY);
-            localStorage.removeItem(STORAGE_KEY_RATE_GROUPBY_AT);
-            return null;
-        }
+        return Object.keys(rateGroupbyOptions || {}).length ? rateGroupbyOptions : null;
     };
     const writeCachedRateGroupby = options => {
-        localStorage.setItem(STORAGE_KEY_RATE_GROUPBY, JSON.stringify(options || {}));
-        localStorage.setItem(STORAGE_KEY_RATE_GROUPBY_AT, String(Date.now()));
+        rateGroupbyOptions = options || {};
+        rateGroupbyCachedAt = Date.now();
     };
     const applyRateGroupbyOptions = options => {
         rateGroupbyOptions = options || {};
@@ -7744,14 +7730,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!target) { showBlocked(); return; }
         loadFeature(target);
     };
-    const saveAuthPayload = payload => {
+    const saveTokenPayload = payload => {
         const nextToken = extractToken(payload);
-        const nextUser = extractUser(payload);
-        const message = payload && payload.message ? payload.message : payload;
-        if (!nextToken || !nextUser) throw new Error('Login response missing token or user');
+        if (!nextToken) throw new Error('Token response missing token');
         writeToken(nextToken);
+    };
+    const saveProfilePayload = payload => {
+        const nextUser = extractUser(payload);
+        if (!nextUser) throw new Error('Profile response missing user');
         writeUser(nextUser);
-        if (message && Object.prototype.hasOwnProperty.call(message, 'metadata')) localStorage.setItem(STORAGE_KEY_PROFILE_METADATA, JSON.stringify(message.metadata || {}));
         localStorage.setItem(STORAGE_KEY_PROFILE_AT, String(Date.now()));
         cargowiseProfileLoaded = false;
         Object.keys(moduleCache).forEach(key => delete moduleCache[key]);
@@ -7782,9 +7769,11 @@ document.addEventListener('DOMContentLoaded', () => {
         button?.classList.add('is-loading');
         if (button) button.disabled = true;
         try {
-            const refreshTasks = [loadInfo({ force: true })];
-            if (authToken && authUser) refreshTasks.push(loadProfile({ force: true }));
-            await Promise.all(refreshTasks);
+            await loadInfo({ force: true });
+            if (authToken) {
+                await refreshAccessToken();
+                await loadProfile({ force: true });
+            }
             if (authToken && authUser) applyAuthShell();
             else applyAuthState();
         } catch (err) {
@@ -8470,7 +8459,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         password: document.getElementById('login-password').value
                     })
                 });
-                saveAuthPayload(payload);
+                saveTokenPayload(payload);
+                await loadProfile({ force: true });
                 await loadInfo();
                 msg.textContent = '';
                 closeModal('login-modal');
