@@ -1862,9 +1862,14 @@ body {
     width: 420px;
 }
 
-#profile-modal .modal-content,
+#profile-modal .modal-content {
+    width: min(var(--login-details-width, 420px), calc(100vw - 2.5rem));
+    min-width: min(420px, calc(100vw - 2.5rem));
+}
+
 #user-profile-modal .modal-content {
-    width: min(560px, calc(100vw - 2.5rem));
+    width: min(var(--user-profile-width, 420px), calc(100vw - 2.5rem));
+    min-width: min(420px, calc(100vw - 2.5rem));
 }
 
 #logout-modal .modal-content {
@@ -5320,8 +5325,6 @@ body.not-allowed .content-wrapper {
                     <div class="profile-row"><span>ID</span><strong id="user-profile-id">-</strong></div>
                     <div class="profile-row"><span>Role</span><strong id="user-profile-role">-</strong></div>
                     <div class="profile-row"><span>Name</span><strong id="user-profile-name">-</strong></div>
-                    <div class="profile-row"><span>Email</span><strong id="user-profile-email">-</strong></div>
-                    <div class="profile-row"><span>Mobile</span><strong id="user-profile-mobile">-</strong></div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -5858,6 +5861,63 @@ document.addEventListener('DOMContentLoaded', () => {
         const value = String(username || 'User').trim();
         return (value || 'U').slice(0, 3).toUpperCase();
     };
+    const setLoginDetailsModalWidth = username => {
+        const modalContent = document.querySelector('#profile-modal .modal-content');
+        const usernameNode = document.getElementById('profile-username');
+        if (!modalContent || !usernameNode) return;
+
+        const value = username === '-' ? '' : String(username || '');
+        const canvas = setLoginDetailsModalWidth.canvas || (setLoginDetailsModalWidth.canvas = document.createElement('canvas'));
+        const context = canvas.getContext('2d');
+        const usernameStyle = window.getComputedStyle(usernameNode);
+        context.font = usernameStyle.font || `${usernameStyle.fontWeight} ${usernameStyle.fontSize} ${usernameStyle.fontFamily}`;
+
+        const body = document.querySelector('#profile-modal .modal-body');
+        const bodyStyle = body ? window.getComputedStyle(body) : null;
+        const bodyPadding = bodyStyle
+            ? parseFloat(bodyStyle.paddingLeft) + parseFloat(bodyStyle.paddingRight)
+            : 48;
+        const labelWidth = window.matchMedia('(max-width: 600px)').matches ? 90 : 120;
+        const rowGap = 16;
+        const breathingRoom = 28;
+        const minWidth = 420;
+        const maxWidth = Math.min(720, Math.max(280, window.innerWidth - 40));
+        const usernameWidth = value ? Math.ceil(context.measureText(value).width) : 12;
+        const requestedWidth = usernameWidth + labelWidth + rowGap + bodyPadding + breathingRoom;
+        const modalWidth = Math.min(Math.max(requestedWidth, minWidth), maxWidth);
+
+        modalContent.style.setProperty('--login-details-width', `${modalWidth}px`);
+    };
+    const setUserProfileModalWidth = values => {
+        const modalContent = document.querySelector('#user-profile-modal .modal-content');
+        const valueNodes = ['user-profile-id', 'user-profile-role', 'user-profile-name']
+            .map(id => document.getElementById(id))
+            .filter(Boolean);
+        if (!modalContent || !valueNodes.length) return;
+
+        const canvas = setUserProfileModalWidth.canvas || (setUserProfileModalWidth.canvas = document.createElement('canvas'));
+        const context = canvas.getContext('2d');
+        const firstValueStyle = window.getComputedStyle(valueNodes[0]);
+        context.font = firstValueStyle.font || `${firstValueStyle.fontWeight} ${firstValueStyle.fontSize} ${firstValueStyle.fontFamily}`;
+
+        const body = document.querySelector('#user-profile-modal .modal-body');
+        const bodyStyle = body ? window.getComputedStyle(body) : null;
+        const bodyPadding = bodyStyle
+            ? parseFloat(bodyStyle.paddingLeft) + parseFloat(bodyStyle.paddingRight)
+            : 48;
+        const labelWidth = window.matchMedia('(max-width: 600px)').matches ? 90 : 120;
+        const rowGap = 16;
+        const breathingRoom = 28;
+        const minWidth = 420;
+        const maxWidth = Math.min(720, Math.max(280, window.innerWidth - 40));
+        const longestValueWidth = values
+            .map(value => value === '-' ? '' : String(value || ''))
+            .reduce((max, value) => Math.max(max, value ? Math.ceil(context.measureText(value).width) : 12), 12);
+        const requestedWidth = longestValueWidth + labelWidth + rowGap + bodyPadding + breathingRoom;
+        const modalWidth = Math.min(Math.max(requestedWidth, minWidth), maxWidth);
+
+        modalContent.style.setProperty('--user-profile-width', `${modalWidth}px`);
+    };
     const monogramFromName = name => {
         const words = String(name || '').trim().split(/\s+/).filter(Boolean);
         if (!words.length) return '--';
@@ -5900,14 +5960,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const mappedRole = roleLabels[String(user.role)];
         const roleProfileLabel = mappedRole ? `${roleValue} (${mappedRole})` : roleValue;
         const typeLabel = typeLabels[String(user.type)] || rawValue(user.type);
+        const usernameValue = rawValue(user.username);
+        const userIdValue = rawValue(user.id);
+        const userNameValue = rawValue(user.name || user.full_name);
         document.getElementById('profile-type').textContent = typeLabel;
-        document.getElementById('profile-username').textContent = rawValue(user.username);
+        document.getElementById('profile-username').textContent = usernameValue;
         document.getElementById('profile-password').textContent = user.password ? '••••••••' : '-';
+        setLoginDetailsModalWidth(usernameValue);
         document.getElementById('user-profile-role').textContent = roleProfileLabel;
-        document.getElementById('user-profile-id').textContent = rawValue(user.id);
-        document.getElementById('user-profile-name').textContent = rawValue(user.name || user.full_name);
-        document.getElementById('user-profile-email').textContent = rawValue(user.email);
-        document.getElementById('user-profile-mobile').textContent = rawValue(user.mobile || user.phone);
+        document.getElementById('user-profile-id').textContent = userIdValue;
+        document.getElementById('user-profile-name').textContent = userNameValue;
+        setUserProfileModalWidth([userIdValue, roleProfileLabel, userNameValue]);
     };
     const renderCargowiseProfile = profile => {
         const org = profile.org || {};

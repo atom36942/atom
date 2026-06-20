@@ -1078,8 +1078,14 @@ body.logged-out .content-wrapper {
 }
 
 #login-modal .modal-content { width: 420px; }
-#profile-modal .modal-content,
-#user-profile-modal .modal-content { width: min(560px, calc(100vw - 2.5rem)); }
+#profile-modal .modal-content {
+    width: min(var(--login-details-width, 420px), calc(100vw - 2.5rem));
+    min-width: min(420px, calc(100vw - 2.5rem));
+}
+#user-profile-modal .modal-content {
+    width: min(var(--user-profile-width, 420px), calc(100vw - 2.5rem));
+    min-width: min(420px, calc(100vw - 2.5rem));
+}
 #logout-modal .modal-content { width: 420px; }
 #login-modal .modal-body { padding: 1.25rem 1.5rem; }
 #login-modal .auth-form { gap: 0.75rem; }
@@ -1414,21 +1420,39 @@ body.logged-out .content-wrapper {
                     <div class="section-header">
                         <div>
                             <h1>Query Runner</h1>
-                            <p class="query-message" id="query-message"></p>
+                            <p class="query-message" id="query-write-message"></p>
+                            <p class="query-message" id="query-message" hidden></p>
                             <p class="query-message" id="query-export-message" hidden></p>
                         </div>
                     </div>
                     <div class="query-mode-row">
                         <div class="query-tabs" role="tablist" aria-label="Query runner mode">
-                            <button class="query-tab-button active" id="query-direct-tab" type="button" role="tab" aria-selected="true" aria-controls="query-direct-panel" data-query-tab="direct">Table</button>
+                            <button class="query-tab-button active" id="query-write-tab" type="button" role="tab" aria-selected="true" aria-controls="query-write-panel" data-query-tab="write">Write</button>
+                            <button class="query-tab-button" id="query-direct-tab" type="button" role="tab" aria-selected="false" aria-controls="query-direct-panel" data-query-tab="direct">Read</button>
                             <button class="query-tab-button" id="query-export-tab" type="button" role="tab" aria-selected="false" aria-controls="query-export-panel" data-query-tab="export">Export</button>
                         </div>
                         <div class="query-tab-actions">
-                            <button class="btn btn-primary" id="query-run-btn" type="submit" form="query-runner-form"><i class="fa-solid fa-play" aria-hidden="true"></i> Run</button>
+                            <button class="btn btn-primary" id="query-write-run-btn" type="submit" form="query-write-form"><i class="fa-solid fa-play" aria-hidden="true"></i> Run</button>
+                            <button class="btn btn-primary" id="query-run-btn" type="submit" form="query-runner-form" hidden><i class="fa-solid fa-play" aria-hidden="true"></i> Run</button>
                             <button class="btn btn-primary" id="query-export-download-btn" type="submit" form="query-export-form" hidden><i class="fa-solid fa-download" aria-hidden="true"></i> Download</button>
                         </div>
                     </div>
-                    <div class="query-tab-panel" id="query-direct-panel" role="tabpanel" aria-labelledby="query-direct-tab">
+                    <div class="query-tab-panel" id="query-write-panel" role="tabpanel" aria-labelledby="query-write-tab">
+                        <div class="panel">
+                            <form class="query-form" id="query-write-form">
+                                <textarea class="query-editor" id="query-write-sql" spellcheck="false">UPDATE your_table
+SET column_name = 'value'
+WHERE id = 1;</textarea>
+                            </form>
+                        </div>
+                        <div class="panel query-result-panel" id="query-write-result-panel" hidden>
+                            <div class="panel-header">
+                                <h3>Result</h3>
+                                <span class="profile-status" id="query-write-result">No result</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="query-tab-panel" id="query-direct-panel" role="tabpanel" aria-labelledby="query-direct-tab" hidden>
                         <div class="panel">
                             <form class="query-form" id="query-runner-form">
                                 <textarea class="query-editor" id="query-sql" spellcheck="false">SELECT *
@@ -1549,8 +1573,6 @@ LIMIT 10;</textarea>
                     <div class="profile-row"><span>ID</span><strong id="user-profile-id">-</strong></div>
                     <div class="profile-row"><span>Role</span><strong id="user-profile-role">-</strong></div>
                     <div class="profile-row"><span>Name</span><strong id="user-profile-name">-</strong></div>
-                    <div class="profile-row"><span>Email</span><strong id="user-profile-email">-</strong></div>
-                    <div class="profile-row"><span>Mobile</span><strong id="user-profile-mobile">-</strong></div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -1592,6 +1614,7 @@ const PROFILE_PATH = '/my/profile';
 const TOKEN_REFRESH_PATH = '/my/token-refresh';
 const PGSCOPE_DATABASE_INFO_PATH = '/pgscope/database-info';
 const PGSCOPE_SCHEMA_PATH = '/pgscope/schema';
+const PGSCOPE_QUERY_RUNNER_WRITE_PATH = '/pgscope/query-runner-write';
 const PGSCOPE_QUERY_RUNNER_PATH = '/pgscope/query-runner-read';
 const PGSCOPE_QUERY_RUNNER_CSV_PATH = '/pgscope/query-runner-read-export';
 const API_BASE = location.origin && location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
@@ -1630,6 +1653,7 @@ const queryRunnerReadLimitMessage = () => `Maximum ${formatNumber(queryRunnerRea
 const queryRunnerExportLimitMessage = () => `Maximum ${formatNumber(queryRunnerExportLimit())} rows will be downloaded.`;
 
 function renderQueryRunnerTabMessages() {
+    $('query-write-message').textContent = 'Write mode runs non-read SQL and returns execution status.';
     $('query-message').textContent = queryRunnerReadLimitMessage();
     $('query-export-message').textContent = queryRunnerExportLimitMessage();
 }
@@ -1870,6 +1894,65 @@ function avatarTextFromUsername(username) {
     return cleaned.slice(0, 2).toUpperCase();
 }
 
+function setLoginDetailsModalWidth(username) {
+    const modalContent = document.querySelector('#profile-modal .modal-content');
+    const usernameNode = $('profile-username');
+    if (!modalContent || !usernameNode) return;
+
+    const value = username === '-' ? '' : String(username || '');
+    const canvas = setLoginDetailsModalWidth.canvas || (setLoginDetailsModalWidth.canvas = document.createElement('canvas'));
+    const context = canvas.getContext('2d');
+    const usernameStyle = window.getComputedStyle(usernameNode);
+    context.font = usernameStyle.font || `${usernameStyle.fontWeight} ${usernameStyle.fontSize} ${usernameStyle.fontFamily}`;
+
+    const body = document.querySelector('#profile-modal .modal-body');
+    const bodyStyle = body ? window.getComputedStyle(body) : null;
+    const bodyPadding = bodyStyle
+        ? parseFloat(bodyStyle.paddingLeft) + parseFloat(bodyStyle.paddingRight)
+        : 48;
+    const labelWidth = window.matchMedia('(max-width: 600px)').matches ? 90 : 120;
+    const rowGap = 16;
+    const breathingRoom = 28;
+    const minWidth = 420;
+    const maxWidth = Math.min(720, Math.max(280, window.innerWidth - 40));
+    const usernameWidth = value ? Math.ceil(context.measureText(value).width) : 12;
+    const requestedWidth = usernameWidth + labelWidth + rowGap + bodyPadding + breathingRoom;
+    const modalWidth = Math.min(Math.max(requestedWidth, minWidth), maxWidth);
+
+    modalContent.style.setProperty('--login-details-width', `${modalWidth}px`);
+}
+
+function setUserProfileModalWidth(values) {
+    const modalContent = document.querySelector('#user-profile-modal .modal-content');
+    const valueNodes = ['user-profile-id', 'user-profile-role', 'user-profile-name']
+        .map(id => $(id))
+        .filter(Boolean);
+    if (!modalContent || !valueNodes.length) return;
+
+    const canvas = setUserProfileModalWidth.canvas || (setUserProfileModalWidth.canvas = document.createElement('canvas'));
+    const context = canvas.getContext('2d');
+    const firstValueStyle = window.getComputedStyle(valueNodes[0]);
+    context.font = firstValueStyle.font || `${firstValueStyle.fontWeight} ${firstValueStyle.fontSize} ${firstValueStyle.fontFamily}`;
+
+    const body = document.querySelector('#user-profile-modal .modal-body');
+    const bodyStyle = body ? window.getComputedStyle(body) : null;
+    const bodyPadding = bodyStyle
+        ? parseFloat(bodyStyle.paddingLeft) + parseFloat(bodyStyle.paddingRight)
+        : 48;
+    const labelWidth = window.matchMedia('(max-width: 600px)').matches ? 90 : 120;
+    const rowGap = 16;
+    const breathingRoom = 28;
+    const minWidth = 420;
+    const maxWidth = Math.min(720, Math.max(280, window.innerWidth - 40));
+    const longestValueWidth = values
+        .map(value => value === '-' ? '' : String(value || ''))
+        .reduce((max, value) => Math.max(max, value ? Math.ceil(context.measureText(value).width) : 12), 12);
+    const requestedWidth = longestValueWidth + labelWidth + rowGap + bodyPadding + breathingRoom;
+    const modalWidth = Math.min(Math.max(requestedWidth, minWidth), maxWidth);
+
+    modalContent.style.setProperty('--user-profile-width', `${modalWidth}px`);
+}
+
 function renderProfile() {
     const user = readUser() || authUser || {};
     authUser = user && Object.keys(user).length ? user : null;
@@ -1879,14 +1962,17 @@ function renderProfile() {
     const mappedRole = roleLabels[String(user.role)];
     const roleLabel = mappedRole ? `${roleValue} (${mappedRole})` : roleValue;
     const typeLabel = typeLabels[String(user.type)] || rawValue(user.type);
+    const usernameValue = rawValue(user.username);
+    const userIdValue = rawValue(user.id);
+    const userNameValue = rawValue(user.name || user.full_name);
     $('profile-type').textContent = typeLabel;
-    $('profile-username').textContent = rawValue(user.username);
+    $('profile-username').textContent = usernameValue;
     $('profile-password').textContent = user.password ? '••••••••' : '-';
-    $('user-profile-id').textContent = rawValue(user.id);
+    setLoginDetailsModalWidth(usernameValue);
+    $('user-profile-id').textContent = userIdValue;
     $('user-profile-role').textContent = roleLabel;
-    $('user-profile-name').textContent = rawValue(user.name || user.full_name);
-    $('user-profile-email').textContent = rawValue(user.email);
-    $('user-profile-mobile').textContent = rawValue(user.mobile || user.phone);
+    $('user-profile-name').textContent = userNameValue;
+    setUserProfileModalWidth([userIdValue, roleLabel, userNameValue]);
 }
 
 function applyAuthState() {
@@ -2121,6 +2207,12 @@ function validateQuerySql(sql) {
     return { sql };
 }
 
+function validateWriteQueryInput() {
+    const sql = $('query-write-sql').value.trim();
+    if (!sql) throw new Error('SQL is required.');
+    return { sql };
+}
+
 function validateQueryInput() {
     return validateQuerySql($('query-sql').value.trim());
 }
@@ -2159,6 +2251,37 @@ function renderQueryResult(result = {}) {
 
 function renderQueryError(message) {
     resetQueryResult();
+}
+
+function resetWriteResult() {
+    $('query-write-result-panel').hidden = true;
+    $('query-write-result').textContent = 'No result';
+}
+
+async function runWriteQuery(event) {
+    event.preventDefault();
+    if (!authToken || !authUser) return;
+    const btn = $('query-write-run-btn');
+    btn.disabled = true;
+    resetWriteResult();
+    $('query-write-message').textContent = 'Running query...';
+    try {
+        const { sql } = validateWriteQueryInput();
+        const payload = await api(PGSCOPE_QUERY_RUNNER_WRITE_PATH, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
+            body: JSON.stringify({ sql })
+        });
+        const result = payload.message?.result || 'Query executed.';
+        $('query-write-result-panel').hidden = false;
+        $('query-write-result').textContent = result;
+        $('query-write-message').textContent = 'Write query executed.';
+    } catch (err) {
+        resetWriteResult();
+        $('query-write-message').textContent = err.message || 'Query failed.';
+    } finally {
+        btn.disabled = false;
+    }
 }
 
 async function runQuery(event) {
@@ -2261,12 +2384,16 @@ function switchQueryTab(target) {
         button.classList.toggle('active', active);
         button.setAttribute('aria-selected', String(active));
     });
+    $('query-write-panel').hidden = target !== 'write';
     $('query-direct-panel').hidden = target !== 'direct';
     $('query-export-panel').hidden = target !== 'export';
+    $('query-write-run-btn').hidden = target !== 'write';
     $('query-run-btn').hidden = target !== 'direct';
     $('query-export-download-btn').hidden = target !== 'export';
+    $('query-write-message').hidden = target !== 'write';
     $('query-message').hidden = target !== 'direct';
     $('query-export-message').hidden = target !== 'export';
+    if (target === 'write') $('query-write-message').textContent = 'Write mode runs non-read SQL and returns execution status.';
     if (target === 'direct') $('query-message').textContent = queryRunnerReadLimitMessage();
     if (target === 'export') $('query-export-message').textContent = queryRunnerExportLimitMessage();
 }
@@ -2413,11 +2540,16 @@ function bindPageEvents() {
     $('schema-page-next-btn').addEventListener('click', () => {
         if (pgscopeSchemaPagination.has_next_page) goSchemaPage(pgscopeSchemaPage + 1);
     });
+    $('query-write-form').addEventListener('submit', runWriteQuery);
     $('query-runner-form').addEventListener('submit', runQuery);
     $('query-download-btn').addEventListener('click', downloadQueryCsv);
     $('query-export-form').addEventListener('submit', downloadQueryExport);
     document.querySelectorAll('.query-tab-button').forEach(button => {
         button.addEventListener('click', () => switchQueryTab(button.dataset.queryTab));
+    });
+    $('query-write-sql').addEventListener('input', () => {
+        resetWriteResult();
+        $('query-write-message').textContent = 'Write mode runs non-read SQL and returns execution status.';
     });
     $('query-sql').addEventListener('input', () => {
         if ($('query-sql').value.trim() !== queryLastSql) {

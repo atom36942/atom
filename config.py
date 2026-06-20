@@ -213,7 +213,7 @@ config_api = {
 # PGSCOPE ROUTER
 "/pgscope/database-info": {"id": 84, "is_token": 1, "api_cache_sec": ["inmemory", 60, 1]},
 "/pgscope/schema": {"id": 85, "is_token": 1, "api_cache_sec": ["inmemory", 300, 1]},
-"/pgscope/query-runner-write": {"id": 88, "is_token": 1},
+"/pgscope/query-runner-write": {"id": 88, "is_token": 1, "user_check_role": ["token", [1]]},
 "/pgscope/query-runner-read": {"id": 86, "is_token": 1},
 "/pgscope/query-runner-read-export": {"id": 87, "is_token": 1},
 }
@@ -443,7 +443,7 @@ config_postgres = {
 {"name":"remark","datatype":"text"},
 {"name":"rating","datatype":"numeric(3,1)"},
 {"name":"status","datatype":"smallint","default":1,"index":"btree(status)"},
-{"name":"phone","datatype":"text","index":"btree(phone)"},
+{"name":"mobile","datatype":"text","index":"btree(mobile)"},
 {"name":"work_authorization","datatype":"text"},
 {"name":"graduation_year","datatype":"integer","index":"btree(graduation_year)"},
 {"name":"certifications","datatype":"jsonb","index":"gin(certifications)"},
