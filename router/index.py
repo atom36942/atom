@@ -39,6 +39,7 @@ async def func_api_openapi_json(*, request:Request):
 async def func_api_websocket(*, websocket:WebSocket):
     await websocket.accept()
     app_state = websocket.app.state
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     try:
         while True:
             message = await websocket.receive_text()

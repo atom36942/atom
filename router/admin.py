@@ -30,6 +30,7 @@ async def func_api_admin_sync(*, request: Request):
 @router.post("/admin/object-create")
 async def func_api_admin_object_create(*, request: Request):
     app_state = request.app.state
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("mode", "str", 0, ["now", "buffer"], "now")])
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
@@ -40,6 +41,7 @@ async def func_api_admin_object_create(*, request: Request):
 @router.get("/admin/object-read")
 async def func_api_admin_object_read(*, request: Request):
     app_state = request.app.state
+    if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("relation", "list", 0, None, []), ("filter", "list", 0, None, [])])
     ol = await app_state.func_postgres_read(client_postgres=app_state.client_postgres_read_fallback, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
@@ -47,6 +49,7 @@ async def func_api_admin_object_read(*, request: Request):
 @router.put("/admin/object-update")
 async def func_api_admin_object_update(*, request: Request):
     app_state = request.app.state
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("otp", "int", 0, None, None)])
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
@@ -61,6 +64,7 @@ async def func_api_admin_object_update(*, request: Request):
 @router.post("/admin/object-delete")
 async def func_api_admin_object_delete(*, request: Request):
     app_state = request.app.state
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("ids", "list:int", 1, None, None)])
     if ob["table"] == "users" and app_state.config_is_enable_user_delete != 1: raise Exception("users hard delete disabled")
     created_by_id = None
@@ -70,6 +74,7 @@ async def func_api_admin_object_delete(*, request: Request):
 @router.post("/admin/postgres-import")
 async def func_api_admin_postgres_import(*, request: Request):
     app_state = request.app.state
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("mode", "str", 1, ["create", "update", "delete"], None), ("table", "str", 1, app_state.cache_postgres_table_list, None), ("file", "file", 1, None, None)])
     if of["mode"] == "delete" and of["table"] == "users" and app_state.config_is_enable_user_delete != 1: raise Exception("users hard delete disabled")
     count = 0
@@ -90,6 +95,7 @@ async def func_api_admin_postgres_import(*, request: Request):
 @router.post("/admin/redis-import")
 async def func_api_admin_redis_import(*, request: Request):
     app_state = request.app.state
+    if not app_state.client_redis: raise Exception("redis client not initialized")
     of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("mode", "str", 1, ["create", "delete"], None), ("file", "file", 1, None, None)])
     count = 0; limit_batch = 5000
     async for ol in app_state.func_api_file_to_chunks(upload_file=of["file"][-1], chunk_size=limit_batch):
@@ -112,6 +118,7 @@ async def func_api_admin_redis_import(*, request: Request):
 @router.post("/admin/mongodb-import")
 async def func_api_admin_mongodb_import(*, request: Request):
     app_state = request.app.state
+    if not app_state.client_mongodb: raise Exception("mongodb client not initialized")
     of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("mode", "str", 1, ["create", "update", "delete"], None), ("database", "str", 1, None, None), ("table", "str", 1, None, None), ("file", "file", 1, None, None)])
     count = 0; limit_batch = 5000
     collection = app_state.client_mongodb[of["database"]][of["table"]]
@@ -142,6 +149,7 @@ async def func_api_admin_mongodb_import(*, request: Request):
 async def func_api_admin_blob_container_read(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_blob_services, None)])
+    if (oq["service"] == "s3" and not app_state.client_s3) or (oq["service"] == "azure" and not app_state.client_azure_blob): raise Exception("blob client not initialized")
     if oq["service"] == "s3":
         res = await app_state.client_s3.list_buckets()
         output = [b["Name"] for b in res.get("Buckets", [])]
@@ -155,6 +163,7 @@ async def func_api_admin_blob_container_ops(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_blob_services, None), ("container", "str", 1, None, None), ("mode", "str", 1, ["create", "public", "empty", "delete"], None)])
     service, mode, container = oq["service"], oq["mode"], oq["container"]
+    if (service == "s3" and ((mode == "empty" and not app_state.client_s3_resource) or (mode != "empty" and not app_state.client_s3))) or (service == "azure" and not app_state.client_azure_blob): raise Exception("blob client not initialized")
     if service == "s3":
         if mode == "create": res = await app_state.client_s3.create_bucket(Bucket=container, CreateBucketConfiguration={"LocationConstraint": app_state.config_aws_s3_region_name})
         elif mode == "public":
@@ -189,6 +198,7 @@ async def func_api_admin_blob_url_delete(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("service", "str", 1, app_state.config_blob_services, None), ("url", "list", 1, None, None)])
     service, urls = ob["service"], ob["url"]
+    if (service == "s3" and not app_state.client_s3) or (service == "azure" and not app_state.client_azure_blob): raise Exception("blob client not initialized")
     tasks = []
     if service == "s3":
         batches = {}
@@ -208,6 +218,7 @@ async def func_api_admin_blob_url_delete(*, request: Request):
 @router.post("/admin/postgres-query-runner-write")
 async def func_api_admin_postgres_query_runner_write(*, request: Request):
     app_state = request.app.state
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
     ql = ob["sql"].lower().strip().lstrip("(").strip()
     if ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("read SQL must use /admin/postgres-query-runner-read")
@@ -272,7 +283,6 @@ async def func_api_cargowise_mssql_query_runner_write(*, request: Request):
                 return {"status": 1, "message": result}
         except Exception as e:
             if "08S01" in str(e) and attempt < 2:
-                import asyncio
                 await asyncio.sleep(0.5)
                 continue
             raise e
@@ -300,7 +310,6 @@ async def func_api_cargowise_mssql_query_runner_read(*, request: Request):
                 return {"status": 1, "message": result}
         except Exception as e:
             if "08S01" in str(e) and attempt < 2:
-                import asyncio
                 await asyncio.sleep(0.5)
                 continue
             raise e
@@ -333,7 +342,6 @@ async def func_api_cargowise_mssql_query_runner_read_export(*, request: Request)
                     return
             except Exception as e:
                 if "08S01" in str(e) and attempt < 2:
-                    import asyncio
                     await asyncio.sleep(0.5)
                     continue
                 raise e

@@ -7,6 +7,7 @@ router = APIRouter()
 @router.post("/rates/my-create")
 async def func_api_rates_create(*, request: Request):
     app_state = request.app.state
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     table = "rates"
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
@@ -26,6 +27,7 @@ async def func_api_rates_create(*, request: Request):
 @router.put("/rates/my-update")
 async def func_api_rates_update(*, request: Request):
     app_state = request.app.state
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     table = "rates"
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
     obj_list = ob.get("obj_list", [ob])
@@ -52,6 +54,7 @@ async def func_api_rates_update(*, request: Request):
 @router.post("/rates/my-delete")
 async def func_api_rates_delete(*, request: Request):
     app_state = request.app.state
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     table = "rates"
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("ids", "list:int", 1, None, None)])
     result = await app_state.func_postgres_delete(client_postgres=app_state.client_postgres, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, table=table, ids=ob["ids"], created_by_id=request.state.user["id"])
@@ -60,6 +63,7 @@ async def func_api_rates_delete(*, request: Request):
 @router.get("/rates")
 async def func_api_rates_read(*, request: Request):
     app_state = request.app.state
+    if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
     table = "rates"
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("filter", "list", 0, None, [])])
     ol = await app_state.func_postgres_read(client_postgres=app_state.client_postgres_read_fallback, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=table, filter=oq["filter"], limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column="*", relation=[])

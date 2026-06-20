@@ -12,6 +12,7 @@ router = APIRouter()
 @router.post("/auth/signup-username-password")
 async def func_api_auth_signup_username_password(*, request:Request):
     app_state = request.app.state
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("type","int",1,app_state.config_allowed_auth_types,None),("username","str",1,None,None),("password","str",1,None,None)])
     if ob.get("username"): ob["username"] = ob["username"].strip()
     await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
@@ -24,6 +25,7 @@ async def func_api_auth_signup_username_password(*, request:Request):
 @router.post("/auth/login-username-password")
 async def func_api_auth_login_username_password(*, request:Request):
     app_state = request.app.state
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[["type","int",1,app_state.config_allowed_auth_types,None],["username","str",1,None,None],["password","str",1,None,None]])
     if ob.get("username"): ob["username"] = ob["username"].strip()
     await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
@@ -39,6 +41,7 @@ async def func_api_auth_login_username_password(*, request:Request):
 @router.post("/auth/login-email-password")
 async def func_api_auth_login_email_password(*, request:Request):
     app_state = request.app.state
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("type","int",1,app_state.config_allowed_auth_types,None),("email","str",1,None,None),("password","str",1,None,None)])
     if ob.get("email"): ob["email"] = ob["email"].strip()
     await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
@@ -54,6 +57,7 @@ async def func_api_auth_login_email_password(*, request:Request):
 @router.post("/auth/login-mobile-password")
 async def func_api_auth_login_mobile_password(*, request:Request):
     app_state = request.app.state
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("type","int",1,app_state.config_allowed_auth_types,None),("mobile","str",1,None,None),("password","str",1,None,None)])
     if ob.get("mobile"): ob["mobile"] = ob["mobile"].strip()
     await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
@@ -69,6 +73,7 @@ async def func_api_auth_login_mobile_password(*, request:Request):
 @router.post("/auth/login-email-otp")
 async def func_api_auth_login_email_otp(*, request:Request):
     app_state = request.app.state
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("type","int",1,app_state.config_allowed_auth_types,None),("email","str",1,None,None),("otp","int",1,None,None)])
     if ob.get("email"): ob["email"] = ob["email"].strip()
     await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
@@ -83,6 +88,7 @@ async def func_api_auth_login_email_otp(*, request:Request):
 @router.post("/auth/login-mobile-otp")
 async def func_api_auth_login_mobile_otp(*, request:Request):
     app_state = request.app.state
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("type","int",1,app_state.config_allowed_auth_types,None),("mobile","str",1,None,None),("otp","int",1,None,None)])
     if ob.get("mobile"): ob["mobile"] = ob["mobile"].strip()
     await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
@@ -97,6 +103,7 @@ async def func_api_auth_login_mobile_otp(*, request:Request):
 @router.post("/auth/login-google")
 async def func_api_auth_login_google(*, request:Request):
     app_state = request.app.state
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("type","int",1,app_state.config_allowed_auth_types,None),("google_token","str",1,None,None)])
     id_info = id_token.verify_oauth2_token(id_token=ob["google_token"], request=requests.Request(), audience=app_state.config_google_login_client_id)
     if not id_info: raise Exception("invalid google token")

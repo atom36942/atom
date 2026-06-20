@@ -7,6 +7,7 @@ router = APIRouter()
 @router.post("/quotations/my-create")
 async def func_api_quotations_create(*, request: Request):
     app_state = request.app.state
+    if not app_state.client_postgres or not app_state.client_postgres_read_fallback: raise Exception("postgres client not initialized")
     table = "quotations"
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("rate_id", "bigint", 1, None, None), ("customer_name", "str", 1, None, None), ("customer_email", "str", 0, None, None), ("customer_mobile", "str", 0, None, None), ("quoted_rate", "numeric", 1, None, None), ("status", "int", 0, [1, 2], 1), ("remarks", "str", 0, None, None)])
     async with app_state.client_postgres_read_fallback.acquire() as conn:
@@ -30,6 +31,7 @@ async def func_api_quotations_create(*, request: Request):
 @router.put("/quotations/my-update")
 async def func_api_quotations_update(*, request: Request):
     app_state = request.app.state
+    if not app_state.client_postgres or not app_state.client_postgres_read_fallback: raise Exception("postgres client not initialized")
     table = "quotations"
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("id", "bigint", 1, None, None), ("rate_id", "bigint", 0, None, None), ("customer_name", "str", 0, None, None), ("customer_email", "str", 0, None, None), ("customer_mobile", "str", 0, None, None), ("quoted_rate", "numeric", 0, None, None), ("status", "int", 0, [1, 2], None), ("remarks", "str", 0, None, None)])
     async with app_state.client_postgres_read_fallback.acquire() as conn:
@@ -58,6 +60,7 @@ async def func_api_quotations_update(*, request: Request):
 @router.post("/quotations/my-delete")
 async def func_api_quotations_delete(*, request: Request):
     app_state = request.app.state
+    if not app_state.client_postgres or not app_state.client_postgres_read_fallback: raise Exception("postgres client not initialized")
     table = "quotations"
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("ids", "list:int", 1, None, None)])
     async with app_state.client_postgres_read_fallback.acquire() as conn:
@@ -70,6 +73,7 @@ async def func_api_quotations_delete(*, request: Request):
 @router.put("/quotations/decision")
 async def func_api_quotations_decision(*, request: Request):
     app_state = request.app.state
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("id", "bigint", 1, None, None), ("status", "int", 1, [3, 4], None), ("decision_remarks", "str", 0, None, None)])
     async with app_state.client_postgres.acquire() as conn:
         quote = await conn.fetchrow("select * from quotations where id=$1", int(ob["id"]))
@@ -84,6 +88,7 @@ async def func_api_quotations_decision(*, request: Request):
 @router.get("/quotations/my-read")
 async def func_api_quotations_my_read(*, request: Request):
     app_state = request.app.state
+    if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("status", "int", 0, [1, 2, 3, 4], None), ("customer_name", "str", 0, None, None)])
     values, where = [request.state.user["id"]], ["q.created_by_id=$1"]
     if oq.get("status"):
@@ -110,6 +115,7 @@ async def func_api_quotations_my_read(*, request: Request):
 @router.get("/quotations")
 async def func_api_quotations_read(*, request: Request):
     app_state = request.app.state
+    if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("status", "int", 0, [1, 2, 3, 4], None), ("customer_name", "str", 0, None, None)])
     values, where = [], []
     if oq.get("status"):

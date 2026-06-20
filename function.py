@@ -748,12 +748,23 @@ async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict,
 
 async def func_middleware_api_background(*, scope: dict, body_bytes: bytes, api_function: callable) -> any:
     """Delegate the request execution to a background task and return a standard acknowledgment."""
+    import asyncio
     from fastapi import Request, responses
-    from starlette.background import BackgroundTask
     async def receive(): return {"type": "http.request", "body": body_bytes}
-    async def task(): await api_function(Request(scope=scope, receive=receive))
+    async def task():
+        try:
+            await api_function(Request(scope=scope, receive=receive))
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            print(f"❌ background api error: {e}")
+    task_obj = asyncio.create_task(task())
+    app = scope.get("app")
+    task_set = getattr(getattr(app, "state", None), "runtime_background_tasks", None) if app else None
+    if task_set is not None:
+        task_set.add(task_obj)
+        task_obj.add_done_callback(task_set.discard)
     resp = responses.JSONResponse(status_code=200, content={"status": 1, "message": "added in background"})
-    resp.background = BackgroundTask(task)
     return resp
 
 async def func_middleware_api_response_error(*, exception: Exception, is_traceback: int, sentry_dsn: str) -> tuple:

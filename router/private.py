@@ -14,6 +14,7 @@ router = APIRouter()
 async def func_api_private_send_email(request:Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("service", "str", 1, app_state.config_email_services, None), ("sender", "str", 1, None, None), ("to", "list", 1, None, None), ("subject", "str", 1, None, None), ("text", "str", 1, None, None), ("cc", "list", 0, None, []), ("bcc", "list", 0, None, []), ("reply_to", "list", 0, None, [])])
+    if (ob["service"] == "ses" and not app_state.client_ses) or (ob["service"] == "resend" and not app_state.client_http) or (ob["service"] == "azure" and not app_state.client_azure_email): raise Exception("email client not initialized")
     message = None
     if ob["service"] == "ses":
         params = {"Source": ob["sender"], "Destination": {"ToAddresses": ob["to"], "CcAddresses": ob["cc"], "BccAddresses": ob["bcc"]}, "Message": {"Subject": {"Data": ob["subject"]}, "Body": {"Text": {"Data": ob["text"]}}}}
@@ -30,7 +31,6 @@ async def func_api_private_send_email(request:Request):
         if response.status_code not in (200, 201): raise Exception(f"failed to send email: {response.text}")
         message = response.json()
     elif ob["service"] == "azure":
-        if not app_state.client_azure_email: raise Exception("azure email client not configured")
         azure_message = {"senderAddress": ob["sender"], "recipients": {"to": [{"address": email} for email in ob["to"]]}, "content": {"subject": ob["subject"], "plainText": ob["text"]}}
         if ob["cc"]: azure_message["recipients"]["cc"] = [{"address": email} for email in ob["cc"]]
         if ob["bcc"]: azure_message["recipients"]["bcc"] = [{"address": email} for email in ob["bcc"]]
@@ -43,6 +43,7 @@ async def func_api_private_send_email(request:Request):
 async def func_api_private_blob_upload_file(request:Request):
     app_state = request.app.state
     of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[("service", "str", 1, app_state.config_blob_services, None), ("container", "str", 1, None, None), ("file", "file", 1, None, None)])
+    if not app_state.client_postgres or (of["service"] == "s3" and not app_state.client_s3) or (of["service"] == "azure" and not app_state.client_azure_blob): raise Exception("required postgres/blob client not initialized")
     container = of["container"]
     if len(of["file"]) > app_state.config_blob_limit_upload: raise Exception(f"maximum {app_state.config_blob_limit_upload} files allowed")
     output = {}; blob_list = []
@@ -69,6 +70,7 @@ async def func_api_private_blob_upload_file(request:Request):
 async def func_api_private_blob_upload_url(request:Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_blob_services, None), ("container", "str", 1, None, None), ("count", "int", 0, None, 1)])
+    if not app_state.client_postgres or (oq["service"] == "s3" and not app_state.client_s3): raise Exception("required postgres/blob client not initialized")
     container = oq["container"]
     if oq["count"] > app_state.config_blob_limit_upload: raise Exception(f"maximum {app_state.config_blob_limit_upload} allowed")
     output = []; blob_list = []
@@ -103,6 +105,7 @@ async def func_api_private_blob_container_sas(request:Request):
 async def func_api_private_blob_preview_urls(request:Request):
     app_state = request.app.state
     of = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("service", "str", 1, app_state.config_blob_services, None), ("urls", "list", 1, None, None)])
+    if of["service"] == "s3" and not app_state.client_s3: raise Exception("s3 client not initialized")
     output = {}
     if of["service"] == "s3":
         for file_url in of["urls"]:

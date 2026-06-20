@@ -92,7 +92,7 @@ async def func_lifespan(app:"FastAPI"):
         cache_users_role = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("users_role")) if client_postgres_read_fallback else {}
         cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("users_deactivated")) if client_postgres_read_fallback else {}
         cache_users_deleted = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("users_deleted")) if client_postgres_read_fallback else {}
-        cache_ratelimiter, cache_api_response, cache_postgres_buffer_create = {}, {}, {}
+        cache_ratelimiter, cache_api_response, cache_postgres_buffer_create, runtime_background_tasks = {}, {}, {}, set()
         # flush lock
         app.state.flush_lock, app.state.pulse_flush_task = asyncio.Lock(), None
         # app state add
@@ -115,6 +115,10 @@ async def func_lifespan(app:"FastAPI"):
     # shutdown
     yield
     try:
+        if app.state.runtime_background_tasks:
+            pending_tasks = set(app.state.runtime_background_tasks)
+            for task in pending_tasks: task.cancel()
+            await asyncio.wait(pending_tasks, timeout=5)
         # background task stop
         if app.state.pulse_flush_task:
             app.state.pulse_flush_task.cancel()
