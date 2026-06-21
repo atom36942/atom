@@ -10,8 +10,8 @@ from uuid import UUID
 router = APIRouter()
 
 # api
-@router.get("/pgscope/database-info")
-async def func_api_pgscope_database_info(*, request: Request):
+@router.get("/postgres/database-info")
+async def func_api_postgres_database_info(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres_external: raise Exception("external postgres client not initialized")
     async with app_state.client_postgres_external.acquire() as conn:
@@ -142,8 +142,8 @@ async def func_api_pgscope_database_info(*, request: Request):
         },
     }
 
-@router.get("/pgscope/schema")
-async def func_api_pgscope_schema(*, request: Request):
+@router.get("/postgres/schema")
+async def func_api_postgres_schema(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres_external: raise Exception("external postgres client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, 5000), ("page", "int", 0, None, 1)])
@@ -320,8 +320,8 @@ async def func_api_pgscope_schema(*, request: Request):
         },
     }
 
-@router.post("/pgscope/query-runner-write")
-async def func_api_pgscope_query_runner_write(*, request: Request):
+@router.post("/postgres/query-runner-write")
+async def func_api_postgres_query_runner_write(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres_external: raise Exception("external postgres client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
@@ -329,7 +329,7 @@ async def func_api_pgscope_query_runner_write(*, request: Request):
     if not sql: raise Exception("SQL is required")
     if ";" in sql: raise Exception("Only one SQL statement is allowed")
     ql = sql.lower().lstrip("(").strip()
-    if ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("read SQL must use /pgscope/query-runner-read")
+    if ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("read SQL must use /postgres/query-runner-read")
     if "returning" in ql: raise Exception("RETURNING is not allowed in write mode")
     timeout_sec = 30
     async with app_state.client_postgres_external.acquire() as conn:
@@ -338,8 +338,8 @@ async def func_api_pgscope_query_runner_write(*, request: Request):
             result = await conn.execute(sql, timeout=timeout_sec)
     return {"status": 1, "message": {"mode": "write", "result": result}}
 
-@router.post("/pgscope/query-runner-read")
-async def func_api_pgscope_query_runner_read(*, request: Request):
+@router.post("/postgres/query-runner-read")
+async def func_api_postgres_query_runner_read(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres_external: raise Exception("external postgres client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
@@ -362,7 +362,7 @@ async def func_api_pgscope_query_runner_read(*, request: Request):
     async with app_state.client_postgres_external.acquire() as conn:
         async with conn.transaction(readonly=True):
             await conn.execute(f"SET LOCAL statement_timeout = '{timeout_sec * 1000}ms'")
-            stmt = await conn.prepare(f"SELECT * FROM ({sql}) AS pgscope_query LIMIT $1")
+            stmt = await conn.prepare(f"SELECT * FROM ({sql}) AS postgres_query LIMIT $1")
             columns = [attr.name for attr in stmt.get_attributes()]
             records = await stmt.fetch(limit, timeout=timeout_sec)
     return {
@@ -377,8 +377,8 @@ async def func_api_pgscope_query_runner_read(*, request: Request):
         },
     }
 
-@router.post("/pgscope/query-runner-read-export")
-async def func_api_pgscope_query_runner_read_export(*, request: Request):
+@router.post("/postgres/query-runner-read-export")
+async def func_api_postgres_query_runner_read_export(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres_external: raise Exception("external postgres client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
@@ -400,7 +400,7 @@ async def func_api_pgscope_query_runner_read_export(*, request: Request):
         async with app_state.client_postgres_external.acquire() as conn:
             async with conn.transaction(readonly=True):
                 await conn.execute(f"SET LOCAL statement_timeout = '{timeout_sec * 1000}ms'")
-                stmt = await conn.prepare(f"SELECT * FROM ({sql}) AS pgscope_query LIMIT $1")
+                stmt = await conn.prepare(f"SELECT * FROM ({sql}) AS postgres_query LIMIT $1")
                 columns = [attr.name for attr in stmt.get_attributes()]
                 buffer = io.StringIO()
                 writer = csv.writer(buffer)
@@ -414,5 +414,5 @@ async def func_api_pgscope_query_runner_read_export(*, request: Request):
     return StreamingResponse(
         _iter(),
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=pgscope_query_result.csv"},
+        headers={"Content-Disposition": "attachment; filename=postgres_query_result.csv"},
     )

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PGScope</title>
+    <title>TradeLane</title>
     <style>
 :root {
     --bg-main: #F3F4F6;
@@ -113,6 +113,7 @@ body {
     display: flex;
     justify-content: flex-end;
     align-items: center;
+    gap: 1rem;
     padding: 0 2rem;
 }
 
@@ -135,6 +136,45 @@ body {
     display: flex;
     align-items: center;
     gap: 1rem;
+}
+
+.postgres-sync-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    color: #047857;
+}
+
+.postgres-sync-status[hidden] {
+    display: none;
+}
+
+.postgres-sync-ring {
+    --progress: 0deg;
+    position: relative;
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: conic-gradient(#10B981 var(--progress), #D1FAE5 0deg);
+}
+
+.postgres-sync-ring::before {
+    content: "";
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--bg-surface);
+}
+
+.postgres-sync-ring i {
+    position: absolute;
+    z-index: 1;
+    font-size: 0.55rem;
 }
 
 /* Auth component: header controls, account menu, modals, and shared auth styling */
@@ -626,9 +666,9 @@ body {
 }
 
 .schema-table {
-    width: 100%;
-    min-width: 0;
-    table-layout: fixed;
+    width: max-content;
+    min-width: 100%;
+    table-layout: auto;
     border-collapse: separate;
     border-spacing: 0;
 }
@@ -642,8 +682,8 @@ body {
     text-align: left;
     vertical-align: top;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: visible;
+    text-overflow: clip;
 }
 
 .schema-table th {
@@ -659,41 +699,28 @@ body {
     white-space: nowrap;
 }
 
-.schema-table th:nth-child(1),
-.schema-table td:nth-child(1) {
-    width: 13%;
-}
-
-.schema-table th:nth-child(2),
-.schema-table td:nth-child(2) {
-    width: 13%;
-}
-
-.schema-table th:nth-child(3),
-.schema-table td:nth-child(3) {
-    width: 12%;
-}
-
 .schema-table th:nth-child(4),
 .schema-table th:nth-child(5),
 .schema-table th:nth-child(6),
 .schema-table th:nth-child(7),
 .schema-table th:nth-child(8),
 .schema-table th:nth-child(9),
-.schema-table th:nth-child(10),
-.schema-table th:nth-child(11),
-.schema-table th:nth-child(12),
 .schema-table td:nth-child(4),
 .schema-table td:nth-child(5),
 .schema-table td:nth-child(6),
 .schema-table td:nth-child(7),
 .schema-table td:nth-child(8),
-.schema-table td:nth-child(9),
-.schema-table td:nth-child(10),
-.schema-table td:nth-child(11),
-.schema-table td:nth-child(12) {
-    width: 6.2%;
+.schema-table td:nth-child(9) {
+    width: 72px;
+    min-width: 72px;
     text-align: center;
+}
+
+.schema-table th:nth-child(1),
+.schema-table td:nth-child(1),
+.schema-table th:nth-child(2),
+.schema-table td:nth-child(2) {
+    width: max-content;
 }
 
 .schema-table tbody tr:last-child td {
@@ -703,8 +730,8 @@ body {
 .schema-cell-main {
     color: var(--text-dark);
     font-weight: 500;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow-wrap: normal;
+    word-break: normal;
     white-space: nowrap;
 }
 
@@ -746,6 +773,82 @@ body {
     gap: 1rem;
 }
 
+.query-builder-panel {
+    margin-bottom: 1rem;
+}
+
+.query-builder-grid {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(120px, 180px);
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.query-builder-field {
+    min-width: 0;
+    display: grid;
+    gap: 0.4rem;
+}
+
+.query-builder-field label,
+.query-builder-filter-label {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.query-builder-field input,
+.query-builder-field select,
+.query-builder-filter-row input,
+.query-builder-filter-row select {
+    width: 100%;
+    min-width: 0;
+    min-height: 38px;
+    padding: 0.5rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: #FFFFFF;
+    color: var(--text-dark);
+    font: inherit;
+    font-size: 0.84rem;
+}
+
+.query-builder-filters-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.65rem;
+}
+
+.query-builder-filter-list {
+    display: grid;
+    gap: 0.55rem;
+}
+
+.query-builder-filter-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 1.2fr) minmax(130px, 0.7fr) minmax(160px, 1fr) 36px;
+    gap: 0.55rem;
+    align-items: center;
+}
+
+.query-builder-remove {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0;
+}
+
+.query-builder-message {
+    min-height: 1.1rem;
+    margin: 0.75rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
 .query-editor {
     min-height: 190px;
     width: 100%;
@@ -775,66 +878,16 @@ body {
 .query-actions {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 0.75rem;
-    flex-wrap: wrap;
+    flex-shrink: 0;
+    margin-left: auto;
 }
 
 .query-message {
     min-height: 1.2rem;
     color: var(--text-muted);
     font-size: 0.84rem;
-}
-
-.query-mode-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    flex-wrap: wrap;
-}
-
-.query-tabs {
-    display: inline-flex;
-    gap: 0.25rem;
-    padding: 0.25rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #F8FAFC;
-}
-
-.query-tab-button {
-    min-height: 36px;
-    padding: 0.45rem 0.85rem;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--text-muted);
-    font: inherit;
-    font-size: 0.84rem;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.query-tab-button.active {
-    background: #FFFFFF;
-    color: var(--primary);
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
-}
-
-.query-tab-panel[hidden] {
-    display: none;
-}
-
-.query-tab-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.75rem;
-}
-
-.query-tab-actions [hidden] {
-    display: none;
 }
 
 .query-result-panel {
@@ -955,6 +1008,7 @@ body {
 
 .auth-only { display: none; }
 body.logged-in .auth-only { display: flex; }
+body.logged-in .postgres-sync-status[hidden] { display: none; }
 body.logged-in .guest-only { display: none; }
 body.logged-out .sidebar,
 body.logged-out .auth-only { display: none !important; }
@@ -1199,6 +1253,13 @@ body.logged-out .content-wrapper {
     .top-bar { padding: 0 1rem; }
     .content-wrapper { padding: 1rem; }
     .kpi-row, .placeholder-grid { grid-template-columns: 1fr; }
+    .query-builder-grid,
+    .query-builder-filter-row {
+        grid-template-columns: 1fr;
+    }
+    .query-builder-remove {
+        width: 100%;
+    }
     .schema-control-row { grid-template-columns: 1fr; }
     .schema-filter-bar { grid-template-columns: 1fr; }
     .schema-pagination { align-items: flex-start; flex-direction: column; }
@@ -1231,7 +1292,7 @@ body.logged-out .content-wrapper {
     <div class="app-layout">
         <aside class="sidebar">
             <div class="logo">
-                <h2>PGScope</h2>
+                <h2>TradeLane</h2>
             </div>
             <nav class="nav-menu">
                 <a href="#query-runner" class="nav-item active auth-only" data-target="query-runner">
@@ -1248,6 +1309,9 @@ body.logged-out .content-wrapper {
 
         <main class="main-content">
             <header class="top-bar">
+                <div class="postgres-sync-status auth-only" id="postgres-sync-status" role="status" aria-label="Syncing Postgres cache" title="Syncing Postgres cache" hidden>
+                    <span class="postgres-sync-ring" id="postgres-sync-ring"><i class="fa-solid fa-database" aria-hidden="true"></i></span>
+                </div>
                 <div class="user-controls">
                     <button class="btn btn-primary login-btn guest-only" id="header-login-btn">Login</button>
                     <div class="profile-actions auth-only">
@@ -1257,7 +1321,7 @@ body.logged-out .content-wrapper {
                         <div class="profile-menu" id="profile-menu">
                             <button type="button" id="profile-menu-profile"><i class="fa-regular fa-id-card" aria-hidden="true"></i> Login Details</button>
                             <button type="button" id="profile-menu-user"><i class="fa-regular fa-user" aria-hidden="true"></i> My Profile</button>
-                            <button type="button" class="header-refresh-btn" id="header-refresh-btn" title="Refresh profile and PGScope info"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Refresh</button>
+                            <button type="button" class="header-refresh-btn" id="header-refresh-btn" title="Refresh profile and TradeLane info"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Refresh</button>
                             <button type="button" class="danger" id="profile-menu-logout"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Logout</button>
                         </div>
                     </div>
@@ -1269,7 +1333,7 @@ body.logged-out .content-wrapper {
                     <div class="home-hero">
                         <div class="home-copy">
                             <span class="home-chip">POSTGRES UI RUNNER</span>
-                            <h1>Welcome to PGScope</h1>
+                            <h1>Welcome to TradeLane</h1>
                             <p>Inspect external PostgreSQL databases, browse schema details, and run analytics queries from one lightweight workspace.</p>
                         </div>
                         <div class="home-card">
@@ -1397,9 +1461,6 @@ body.logged-out .content-wrapper {
                                         <th>Table</th>
                                         <th>Column</th>
                                         <th>Datatype</th>
-                                        <th>Nullable</th>
-                                        <th>Primary</th>
-                                        <th>Unique</th>
                                         <th>B-tree</th>
                                         <th>GIN</th>
                                         <th>GiST</th>
@@ -1409,7 +1470,7 @@ body.logged-out .content-wrapper {
                                     </tr>
                                 </thead>
                                 <tbody id="pgscope-schema-body">
-                                    <tr><td colspan="12"><div class="schema-empty">Schema has not been loaded.</div></td></tr>
+                                    <tr><td colspan="9"><div class="schema-empty">Schema has not been loaded.</div></td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1420,71 +1481,57 @@ body.logged-out .content-wrapper {
                     <div class="section-header">
                         <div>
                             <h1>Query Runner</h1>
-                            <p class="query-message" id="query-write-message"></p>
-                            <p class="query-message" id="query-message" hidden></p>
-                            <p class="query-message" id="query-export-message" hidden></p>
+                            <p class="query-message" id="query-message"></p>
+                        </div>
+                        <div class="query-actions">
+                            <button class="btn btn-primary" id="query-run-btn" type="submit" form="query-runner-form"><i class="fa-solid fa-play" aria-hidden="true"></i> Run</button>
+                            <button class="btn btn-secondary" id="query-export-download-btn" type="button"><i class="fa-solid fa-download" aria-hidden="true"></i> Export</button>
                         </div>
                     </div>
-                    <div class="query-mode-row">
-                        <div class="query-tabs" role="tablist" aria-label="Query runner mode">
-                            <button class="query-tab-button active" id="query-write-tab" type="button" role="tab" aria-selected="true" aria-controls="query-write-panel" data-query-tab="write">Write</button>
-                            <button class="query-tab-button" id="query-direct-tab" type="button" role="tab" aria-selected="false" aria-controls="query-direct-panel" data-query-tab="direct">Read</button>
-                            <button class="query-tab-button" id="query-export-tab" type="button" role="tab" aria-selected="false" aria-controls="query-export-panel" data-query-tab="export">Export</button>
+                    <div class="panel query-builder-panel">
+                        <div class="panel-header">
+                            <h3>Query Builder</h3>
+                            <button class="btn btn-primary" id="query-builder-build-btn" type="button"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Build SQL</button>
                         </div>
-                        <div class="query-tab-actions">
-                            <button class="btn btn-primary" id="query-write-run-btn" type="submit" form="query-write-form"><i class="fa-solid fa-play" aria-hidden="true"></i> Run</button>
-                            <button class="btn btn-primary" id="query-run-btn" type="submit" form="query-runner-form" hidden><i class="fa-solid fa-play" aria-hidden="true"></i> Run</button>
-                            <button class="btn btn-primary" id="query-export-download-btn" type="submit" form="query-export-form" hidden><i class="fa-solid fa-download" aria-hidden="true"></i> Download</button>
-                        </div>
-                    </div>
-                    <div class="query-tab-panel" id="query-write-panel" role="tabpanel" aria-labelledby="query-write-tab">
-                        <div class="panel">
-                            <form class="query-form" id="query-write-form">
-                                <textarea class="query-editor" id="query-write-sql" spellcheck="false">UPDATE your_table
-SET column_name = 'value'
-WHERE id = 1;</textarea>
-                            </form>
-                        </div>
-                        <div class="panel query-result-panel" id="query-write-result-panel" hidden>
-                            <div class="panel-header">
-                                <h3>Result</h3>
-                                <span class="profile-status" id="query-write-result">No result</span>
+                        <div class="query-builder-grid">
+                            <div class="query-builder-field">
+                                <label for="query-builder-table">Table</label>
+                                <select id="query-builder-table"></select>
+                            </div>
+                            <div class="query-builder-field">
+                                <label for="query-builder-limit">Limit</label>
+                                <input id="query-builder-limit" type="number" min="1" step="1" value="100">
                             </div>
                         </div>
+                        <div class="query-builder-filters-head">
+                            <div class="query-builder-filter-label">Filters</div>
+                            <button class="btn btn-secondary" id="query-builder-add-filter-btn" type="button"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add Filter</button>
+                        </div>
+                        <div class="query-builder-filter-list" id="query-builder-filter-list"></div>
+                        <p class="query-builder-message" id="query-builder-message"></p>
                     </div>
-                    <div class="query-tab-panel" id="query-direct-panel" role="tabpanel" aria-labelledby="query-direct-tab" hidden>
-                        <div class="panel">
-                            <form class="query-form" id="query-runner-form">
-                                <textarea class="query-editor" id="query-sql" spellcheck="false">SELECT *
+                    <div class="panel">
+                        <form class="query-form" id="query-runner-form">
+                            <textarea class="query-editor" id="query-sql" spellcheck="false">SELECT *
 FROM your_table
 LIMIT 10;</textarea>
-                            </form>
-                        </div>
-                        <div class="panel query-result-panel" id="query-result-panel" hidden>
-                            <div class="panel-header">
-                                <h3>Result</h3>
-                                <div class="query-result-meta">
-                                    <span class="profile-status" id="query-result-count">No result</span>
-                                    <button class="btn btn-secondary query-download-icon" id="query-download-btn" type="button" disabled title="Download CSV" aria-label="Download CSV"><i class="fa-solid fa-download" aria-hidden="true"></i></button>
-                                </div>
-                            </div>
-                            <div class="query-table-wrap">
-                                <table class="query-table">
-                                    <thead id="query-result-head"></thead>
-                                    <tbody id="query-result-body">
-                                        <tr><td><div class="query-empty">Run a query to see results.</div></td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                        </form>
                     </div>
-                    <div class="query-tab-panel" id="query-export-panel" role="tabpanel" aria-labelledby="query-export-tab" hidden>
-                        <div class="panel">
-                            <form class="query-form" id="query-export-form">
-                                <textarea class="query-editor" id="query-export-sql" spellcheck="false">SELECT *
-FROM your_table
-LIMIT 10;</textarea>
-                            </form>
+                    <div class="panel query-result-panel" id="query-result-panel" hidden>
+                        <div class="panel-header">
+                            <h3>Result</h3>
+                            <div class="query-result-meta">
+                                <span class="profile-status" id="query-result-count">No result</span>
+                                <button class="btn btn-secondary query-download-icon" id="query-download-btn" type="button" disabled title="Download CSV" aria-label="Download CSV"><i class="fa-solid fa-download" aria-hidden="true"></i></button>
+                            </div>
+                        </div>
+                        <div class="query-table-wrap">
+                            <table class="query-table">
+                                <thead id="query-result-head"></thead>
+                                <tbody id="query-result-body">
+                                    <tr><td><div class="query-empty">Run a query to see results.</div></td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </section>
@@ -1612,19 +1659,23 @@ const LOGIN_PATH = '/auth/login-username-password';
 const INFO_PATH = '/info';
 const PROFILE_PATH = '/my/profile';
 const TOKEN_REFRESH_PATH = '/my/token-refresh';
-const PGSCOPE_DATABASE_INFO_PATH = '/pgscope/database-info';
-const PGSCOPE_SCHEMA_PATH = '/pgscope/schema';
-const PGSCOPE_QUERY_RUNNER_WRITE_PATH = '/pgscope/query-runner-write';
-const PGSCOPE_QUERY_RUNNER_PATH = '/pgscope/query-runner-read';
-const PGSCOPE_QUERY_RUNNER_CSV_PATH = '/pgscope/query-runner-read-export';
+const POSTGRES_DATABASE_INFO_PATH = '/postgres/database-info';
+const POSTGRES_SCHEMA_PATH = '/postgres/schema';
+const POSTGRES_QUERY_RUNNER_PATH = '/postgres/query-runner-read';
+const POSTGRES_QUERY_RUNNER_CSV_PATH = '/postgres/query-runner-read-export';
 const API_BASE = location.origin && location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
 const STORAGE_KEY_TOKEN = 'token';
 const STORAGE_KEY_USER = 'user';
 const STORAGE_KEY_INFO = 'info';
 const STORAGE_KEY_INFO_AT = 'info_cached_at';
 const STORAGE_KEY_PROFILE_AT = 'profile_cached_at';
+const STORAGE_KEY_POSTGRES_DATABASE_INFO = 'postgres_database_info';
+const STORAGE_KEY_POSTGRES_DATABASE_INFO_AT = 'postgres_database_info_cached_at';
+const STORAGE_KEY_POSTGRES_SCHEMA = 'postgres_schema';
+const STORAGE_KEY_POSTGRES_SCHEMA_AT = 'postgres_schema_cached_at';
 const INFO_CACHE_REFRESH_MS = 5 * 60 * 1000;
 const PROFILE_CACHE_REFRESH_MS = 5 * 60 * 1000;
+const POSTGRES_CACHE_REFRESH_MS = 24 * 60 * 60 * 1000;
 const TOKEN_REFRESH_BUFFER_SEC = 24 * 60 * 60;
 
 let authToken = readToken();
@@ -1640,6 +1691,8 @@ let pgscopeSchemaPagination = { page: 1, limit: 0, total_count: 0, has_prev_page
 let queryLastSql = '';
 let queryResultColumns = [];
 let queryResultRows = [];
+let postgresCacheWarmPromise = null;
+let queryBuilderFilterId = 0;
 
 const $ = id => document.getElementById(id);
 const rawValue = value => value === undefined || value === null || value === '' ? '-' : String(value);
@@ -1649,13 +1702,11 @@ const accessToken = () => typeof authToken === 'object' ? authToken.access_token
 const refreshToken = () => typeof authToken === 'object' ? authToken.refresh_token || '' : '';
 const queryRunnerReadLimit = () => Number(appInfo?.config?.config_query_runner_read_limit || 5000);
 const queryRunnerExportLimit = () => Number(appInfo?.config?.config_query_runner_export_limit || 50000);
-const queryRunnerReadLimitMessage = () => `Maximum ${formatNumber(queryRunnerReadLimit())} rows will be returned.`;
 const queryRunnerExportLimitMessage = () => `Maximum ${formatNumber(queryRunnerExportLimit())} rows will be downloaded.`;
+const queryRunnerLimitMessage = () => `Run returns up to ${formatNumber(queryRunnerReadLimit())} rows. Export downloads up to ${formatNumber(queryRunnerExportLimit())} rows.`;
 
 function renderQueryRunnerTabMessages() {
-    $('query-write-message').textContent = 'Write mode runs non-read SQL and returns execution status.';
-    $('query-message').textContent = queryRunnerReadLimitMessage();
-    $('query-export-message').textContent = queryRunnerExportLimitMessage();
+    $('query-message').textContent = queryRunnerLimitMessage();
 }
 
 // Auth component helpers: token/user storage, /info caching, and shared API wrapper.
@@ -1743,12 +1794,80 @@ function writeCachedInfo(info) {
     localStorage.setItem(STORAGE_KEY_INFO_AT, String(Date.now()));
 }
 
+function readStorageJson(key) {
+    try {
+        const value = JSON.parse(localStorage.getItem(key) || 'null');
+        return value && typeof value === 'object' ? value : null;
+    } catch (err) {
+        localStorage.removeItem(key);
+        return null;
+    }
+}
+
+function storageCacheFresh(dataKey, cachedAtKey) {
+    const cachedAt = Number(localStorage.getItem(cachedAtKey) || 0);
+    return Boolean(localStorage.getItem(dataKey)) && cachedAt && Date.now() - cachedAt < POSTGRES_CACHE_REFRESH_MS;
+}
+
+function postgresDatabaseInfoCacheFresh() {
+    return Boolean(readCachedPostgresDatabaseInfo()) && storageCacheFresh(STORAGE_KEY_POSTGRES_DATABASE_INFO, STORAGE_KEY_POSTGRES_DATABASE_INFO_AT);
+}
+
+function postgresSchemaCacheFresh() {
+    return Boolean(readCachedPostgresSchema()) && storageCacheFresh(STORAGE_KEY_POSTGRES_SCHEMA, STORAGE_KEY_POSTGRES_SCHEMA_AT);
+}
+
+function setPostgresSyncStatus({ visible = true, progress = 0, text = 'Syncing Postgres cache...' } = {}) {
+    const status = $('postgres-sync-status');
+    const ring = $('postgres-sync-ring');
+    if (!status || !ring) return;
+    status.hidden = !visible;
+    status.setAttribute('aria-label', text);
+    status.setAttribute('title', text);
+    const pct = Math.max(0, Math.min(100, Number(progress || 0)));
+    ring.style.setProperty('--progress', `${pct * 3.6}deg`);
+}
+
+function readCachedPostgresDatabaseInfo() {
+    const info = readStorageJson(STORAGE_KEY_POSTGRES_DATABASE_INFO);
+    if (!info) localStorage.removeItem(STORAGE_KEY_POSTGRES_DATABASE_INFO_AT);
+    return info;
+}
+
+function writeCachedPostgresDatabaseInfo(info) {
+    localStorage.setItem(STORAGE_KEY_POSTGRES_DATABASE_INFO, JSON.stringify(info || {}));
+    localStorage.setItem(STORAGE_KEY_POSTGRES_DATABASE_INFO_AT, String(Date.now()));
+}
+
+function readCachedPostgresSchema() {
+    const schema = readStorageJson(STORAGE_KEY_POSTGRES_SCHEMA);
+    if (!schema || !Array.isArray(schema.columns)) {
+        localStorage.removeItem(STORAGE_KEY_POSTGRES_SCHEMA);
+        localStorage.removeItem(STORAGE_KEY_POSTGRES_SCHEMA_AT);
+        return null;
+    }
+    return schema;
+}
+
+function writeCachedPostgresSchema(schema) {
+    localStorage.setItem(STORAGE_KEY_POSTGRES_SCHEMA, JSON.stringify(schema || {}));
+    localStorage.setItem(STORAGE_KEY_POSTGRES_SCHEMA_AT, String(Date.now()));
+}
+
+function clearPostgresCache() {
+    localStorage.removeItem(STORAGE_KEY_POSTGRES_DATABASE_INFO);
+    localStorage.removeItem(STORAGE_KEY_POSTGRES_DATABASE_INFO_AT);
+    localStorage.removeItem(STORAGE_KEY_POSTGRES_SCHEMA);
+    localStorage.removeItem(STORAGE_KEY_POSTGRES_SCHEMA_AT);
+}
+
 function clearPortalStorage() {
     localStorage.removeItem(STORAGE_KEY_TOKEN);
     localStorage.removeItem(STORAGE_KEY_USER);
     localStorage.removeItem(STORAGE_KEY_INFO);
     localStorage.removeItem(STORAGE_KEY_INFO_AT);
     localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
+    clearPostgresCache();
 }
 
 async function loadInfo({ force = false } = {}) {
@@ -1987,6 +2106,7 @@ function applyAuthState() {
     document.querySelector('.avatar').textContent = avatarTextFromUsername(user.username || user.name);
     renderProfile();
     if ($('home').classList.contains('active')) showSection('query-runner');
+    warmPostgresCache().catch(err => console.warn(err));
 }
 
 function renderDatabaseInfo(info = {}) {
@@ -2018,19 +2138,34 @@ function renderDatabaseInfoError(message) {
     $('pgscope-db-extensions').textContent = 'Extension details unavailable.';
 }
 
+async function fetchPostgresDatabaseInfo() {
+    const payload = await api(POSTGRES_DATABASE_INFO_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
+    return payload.message || {};
+}
+
 async function loadDatabaseInfo({ force = false } = {}) {
     if (!authToken || !authUser) return;
-    if (pgscopeDatabaseInfoLoaded && !force) return;
+    if (!force) {
+        const cached = readCachedPostgresDatabaseInfo();
+        if (cached) {
+            renderDatabaseInfo(cached);
+            pgscopeDatabaseInfoLoaded = true;
+            return;
+        }
+    }
     const btn = $('database-info-refresh-btn');
     btn?.classList.add('is-loading');
     if (btn) btn.disabled = true;
     $('pgscope-db-server').textContent = 'Loading database info...';
     try {
-        const payload = await api(PGSCOPE_DATABASE_INFO_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
-        renderDatabaseInfo(payload.message || {});
+        const info = await fetchPostgresDatabaseInfo();
+        writeCachedPostgresDatabaseInfo(info);
+        renderDatabaseInfo(info);
         pgscopeDatabaseInfoLoaded = true;
     } catch (err) {
-        renderDatabaseInfoError(err.message);
+        const cached = readCachedPostgresDatabaseInfo();
+        if (cached) renderDatabaseInfo(cached);
+        else renderDatabaseInfoError(err.message);
     } finally {
         btn?.classList.remove('is-loading');
         if (btn) btn.disabled = false;
@@ -2046,10 +2181,243 @@ function schemaIndexFlag(items) {
 }
 
 function rowHasIndex(row, method) {
+    if (!row) return false;
     if (method === 'any-index') return Number(row.index_count || 0) > 0;
     if (method === 'no-index') return Number(row.index_count || 0) === 0;
     const key = `${method}_indexes`;
     return Array.isArray(row[key]) && row[key].length > 0;
+}
+
+function queryBuilderSchemaRows() {
+    const cached = readCachedPostgresSchema();
+    return Array.isArray(cached?.columns) ? cached.columns : pgscopeSchemaRows;
+}
+
+function queryBuilderIndexedRows() {
+    return queryBuilderSchemaRows().filter(row => rowHasIndex(row, 'any-index'));
+}
+
+function queryBuilderTableKey(row) {
+    return JSON.stringify([row.schema_name || 'public', row.table_name]);
+}
+
+function queryBuilderParseTableKey(key) {
+    try {
+        const parsed = JSON.parse(key || '[]');
+        return [parsed[0] || 'public', parsed[1] || ''];
+    } catch (err) {
+        return ['public', ''];
+    }
+}
+
+function queryBuilderTableLabel(key) {
+    const [schema, table] = queryBuilderParseTableKey(key);
+    return schema && schema !== 'public' ? `${schema}.${table}` : table;
+}
+
+function queryBuilderQuoteIdentifier(value) {
+    return `"${String(value || '').replace(/"/g, '""')}"`;
+}
+
+function queryBuilderQualifiedTable(key) {
+    const [schema, table] = queryBuilderParseTableKey(key);
+    return `${queryBuilderQuoteIdentifier(schema || 'public')}.${queryBuilderQuoteIdentifier(table)}`;
+}
+
+function queryBuilderColumnRowsForTable(tableKey) {
+    const seen = new Map();
+    queryBuilderIndexedRows()
+        .filter(row => queryBuilderTableKey(row) === tableKey)
+        .forEach(row => {
+            if (!seen.has(row.column_name)) seen.set(row.column_name, row);
+        });
+    return Array.from(seen.values()).sort((a, b) => String(a.column_name).localeCompare(String(b.column_name)));
+}
+
+function queryBuilderDataKind(dataType = '') {
+    const type = String(dataType).toLowerCase();
+    if (type.includes('bool')) return 'boolean';
+    if (type.includes('date') || type.includes('time')) return 'date';
+    if (/(int|numeric|decimal|double|real|float|serial|money)/.test(type)) return 'number';
+    return 'text';
+}
+
+function queryBuilderOperatorsForColumn(row) {
+    const kind = queryBuilderDataKind(row?.data_type);
+    if (kind === 'boolean') return [
+        ['is_true', 'is true'],
+        ['is_false', 'is false']
+    ];
+    if (kind === 'number' || kind === 'date') {
+        const operators = [
+            ['=', '='],
+            ['in', 'in']
+        ];
+        if (rowHasIndex(row, 'btree') || rowHasIndex(row, 'brin')) operators.push(
+            ['>', '>'],
+            ['>=', '>='],
+            ['<', '<'],
+            ['<=', '<='],
+            ['between', 'between']
+        );
+        return operators;
+    }
+    const operators = [
+        ['=', '='],
+        ['in', 'in']
+    ];
+    if (rowHasIndex(row, 'btree')) operators.push(['starts_with', 'starts with']);
+    if (rowHasIndex(row, 'gin')) operators.push(['contains', 'contains']);
+    return operators;
+}
+
+function queryBuilderRenderOperatorOptions(rowEl, columnRow) {
+    const operatorSelect = rowEl.querySelector('.query-builder-operator');
+    const valueInput = rowEl.querySelector('.query-builder-value');
+    const current = operatorSelect.value;
+    const operators = queryBuilderOperatorsForColumn(columnRow);
+    operatorSelect.innerHTML = operators.map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`).join('');
+    operatorSelect.value = operators.some(([value]) => value === current) ? current : operators[0]?.[0] || '=';
+    const noValue = ['is_true', 'is_false'].includes(operatorSelect.value);
+    valueInput.disabled = noValue;
+    valueInput.placeholder = operatorSelect.value === 'between' ? 'start, end' : operatorSelect.value === 'in' ? 'value1, value2' : 'Value';
+    if (noValue) valueInput.value = '';
+}
+
+function queryBuilderPopulateFilterRow(rowEl) {
+    const tableKey = $('query-builder-table').value;
+    const columnSelect = rowEl.querySelector('.query-builder-column');
+    const currentColumn = columnSelect.value;
+    const columns = queryBuilderColumnRowsForTable(tableKey);
+    columnSelect.innerHTML = columns.map(row => `<option value="${escapeHtml(row.column_name)}">${escapeHtml(row.column_name)}</option>`).join('');
+    columnSelect.value = columns.some(row => row.column_name === currentColumn) ? currentColumn : columns[0]?.column_name || '';
+    const columnRow = columns.find(row => row.column_name === columnSelect.value);
+    queryBuilderRenderOperatorOptions(rowEl, columnRow);
+}
+
+function queryBuilderAddFilterRow() {
+    const list = $('query-builder-filter-list');
+    const rowEl = document.createElement('div');
+    rowEl.className = 'query-builder-filter-row';
+    rowEl.dataset.filterId = String(++queryBuilderFilterId);
+    rowEl.innerHTML = `
+        <select class="query-builder-column" aria-label="Filter column"></select>
+        <select class="query-builder-operator" aria-label="Filter operator"></select>
+        <input class="query-builder-value" aria-label="Filter value" placeholder="Value">
+        <button class="btn btn-secondary query-builder-remove" type="button" title="Remove filter" aria-label="Remove filter"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+    `;
+    list.appendChild(rowEl);
+    rowEl.querySelector('.query-builder-column').addEventListener('change', () => queryBuilderPopulateFilterRow(rowEl));
+    rowEl.querySelector('.query-builder-operator').addEventListener('change', () => {
+        const columnRow = queryBuilderColumnRowsForTable($('query-builder-table').value).find(row => row.column_name === rowEl.querySelector('.query-builder-column').value);
+        queryBuilderRenderOperatorOptions(rowEl, columnRow);
+    });
+    rowEl.querySelector('.query-builder-remove').addEventListener('click', () => {
+        rowEl.remove();
+        if (!$('query-builder-filter-list').children.length) queryBuilderAddFilterRow();
+    });
+    queryBuilderPopulateFilterRow(rowEl);
+}
+
+function renderQueryBuilder() {
+    const tableSelect = $('query-builder-table');
+    if (!tableSelect) return;
+    const currentTable = tableSelect.value;
+    const filterList = $('query-builder-filter-list');
+    const tableKeys = Array.from(new Set(queryBuilderIndexedRows().map(queryBuilderTableKey))).sort((a, b) => queryBuilderTableLabel(a).localeCompare(queryBuilderTableLabel(b)));
+    tableSelect.innerHTML = tableKeys.length
+        ? tableKeys.map(key => `<option value="${escapeHtml(key)}">${escapeHtml(queryBuilderTableLabel(key))}</option>`).join('')
+        : '<option value="">Schema cache syncing...</option>';
+    tableSelect.disabled = !tableKeys.length;
+    tableSelect.value = tableKeys.includes(currentTable) ? currentTable : tableKeys[0] || '';
+    $('query-builder-build-btn').disabled = !tableKeys.length;
+    $('query-builder-add-filter-btn').disabled = !tableKeys.length;
+    $('query-builder-limit').max = String(Math.max(1, queryRunnerExportLimit()));
+    $('query-builder-message').textContent = tableKeys.length
+        ? 'Only indexed columns are available.'
+        : 'Schema cache is syncing. Builder will be available shortly.';
+    const tableChanged = tableSelect.value !== currentTable;
+    if (!tableKeys.length) {
+        filterList.innerHTML = '';
+    } else if (!filterList.children.length || tableChanged) {
+        filterList.innerHTML = '';
+        queryBuilderAddFilterRow();
+    } else {
+        Array.from(filterList.children).forEach(queryBuilderPopulateFilterRow);
+    }
+}
+
+function queryBuilderSqlLiteral(value, kind) {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) throw new Error('Filter value is required.');
+    if (kind === 'number') {
+        if (!/^-?\d+(\.\d+)?$/.test(trimmed)) throw new Error('Number filters require numeric values.');
+        return trimmed;
+    }
+    return `'${trimmed.replace(/'/g, "''")}'`;
+}
+
+function queryBuilderBuildCondition(rowEl) {
+    const tableKey = $('query-builder-table').value;
+    const columnName = rowEl.querySelector('.query-builder-column').value;
+    const operator = rowEl.querySelector('.query-builder-operator').value;
+    const value = rowEl.querySelector('.query-builder-value').value;
+    const columnRow = queryBuilderColumnRowsForTable(tableKey).find(row => row.column_name === columnName);
+    if (!columnRow) throw new Error('Select an indexed column.');
+    const kind = queryBuilderDataKind(columnRow.data_type);
+    const columnSql = queryBuilderQuoteIdentifier(columnName);
+    if (operator === 'is_true') return `${columnSql} IS TRUE`;
+    if (operator === 'is_false') return `${columnSql} IS FALSE`;
+    if (operator === 'between') {
+        const parts = value.split(',').map(part => part.trim()).filter(Boolean);
+        if (parts.length !== 2) throw new Error('Between requires two comma-separated values.');
+        return `${columnSql} BETWEEN ${queryBuilderSqlLiteral(parts[0], kind)} AND ${queryBuilderSqlLiteral(parts[1], kind)}`;
+    }
+    if (operator === 'in') {
+        const parts = value.split(',').map(part => part.trim()).filter(Boolean);
+        if (!parts.length) throw new Error('In requires at least one value.');
+        return `${columnSql} IN (${parts.map(part => queryBuilderSqlLiteral(part, kind)).join(', ')})`;
+    }
+    if (operator === 'contains') {
+        if (!value.trim()) throw new Error('Contains requires a value.');
+        return `${columnSql} ILIKE ${queryBuilderSqlLiteral(`%${value.trim()}%`, 'text')}`;
+    }
+    if (operator === 'starts_with') {
+        if (!value.trim()) throw new Error('Starts with requires a value.');
+        return `${columnSql} ILIKE ${queryBuilderSqlLiteral(`${value.trim()}%`, 'text')}`;
+    }
+    return `${columnSql} ${operator} ${queryBuilderSqlLiteral(value, kind)}`;
+}
+
+function buildQueryBuilderSql() {
+    const tableKey = $('query-builder-table').value;
+    if (!tableKey) throw new Error('Schema cache is not ready.');
+    const filterRows = Array.from(document.querySelectorAll('.query-builder-filter-row'));
+    if (!filterRows.length) throw new Error('Add at least one filter.');
+    const conditions = filterRows.map(queryBuilderBuildCondition);
+    const limitMax = Math.max(1, queryRunnerExportLimit());
+    const limit = Math.max(1, Math.min(limitMax, Number($('query-builder-limit').value || 100)));
+    $('query-builder-limit').value = String(limit);
+    return [
+        'SELECT *',
+        `FROM ${queryBuilderQualifiedTable(tableKey)}`,
+        `WHERE ${conditions.join('\n  AND ')}`,
+        `LIMIT ${limit};`
+    ].join('\n');
+}
+
+function applyQueryBuilderSql() {
+    try {
+        const sql = buildQueryBuilderSql();
+        $('query-sql').value = sql;
+        queryLastSql = '';
+        $('query-download-btn').disabled = true;
+        resetQueryResult();
+        $('query-message').textContent = queryRunnerLimitMessage();
+        $('query-builder-message').textContent = 'SQL built in the editor.';
+    } catch (err) {
+        $('query-builder-message').textContent = err.message || 'Could not build SQL.';
+    }
 }
 
 function rowMatchesSchemaFilters(row, filters) {
@@ -2102,9 +2470,6 @@ function renderSchemaRows(rows) {
                 <div class="schema-cell-main">${escapeHtml(row.column_name)}</div>
             </td>
             <td>${escapeHtml(rawValue(row.data_type))}</td>
-            <td>${schemaFlag(row.is_nullable)}</td>
-            <td>${schemaFlag(row.is_primary)}</td>
-            <td>${schemaFlag(row.is_unique_constraint || row.is_unique_index)}</td>
             <td>${schemaIndexFlag(row.btree_indexes)}</td>
             <td>${schemaIndexFlag(row.gin_indexes)}</td>
             <td>${schemaIndexFlag(row.gist_indexes)}</td>
@@ -2112,7 +2477,7 @@ function renderSchemaRows(rows) {
             <td>${schemaIndexFlag(row.hash_indexes)}</td>
             <td>${schemaIndexFlag(row.other_indexes)}</td>
         </tr>
-    `).join('') : '<tr><td colspan="12"><div class="schema-empty">No schema columns match the current filters.</div></td></tr>';
+    `).join('') : '<tr><td colspan="9"><div class="schema-empty">No schema columns match the current filters.</div></td></tr>';
 }
 
 function renderSchemaPagination(pagination = {}) {
@@ -2152,10 +2517,41 @@ function renderSchema(payload = {}) {
     pgscopeSchemaRows = Array.isArray(payload.columns) ? payload.columns : [];
     renderSchemaPagination(payload.pagination || {});
     if (!pgscopeSchemaRows.length) {
-        $('pgscope-schema-body').innerHTML = '<tr><td colspan="12"><div class="schema-empty">No schema columns found.</div></td></tr>';
+        $('pgscope-schema-body').innerHTML = '<tr><td colspan="9"><div class="schema-empty">No schema columns found.</div></td></tr>';
+        renderQueryBuilder();
         return;
     }
     applySchemaFilters();
+    renderQueryBuilder();
+}
+
+async function fetchPostgresSchemaAllPages({ onProgress } = {}) {
+    let page = 1;
+    let schema = null;
+    const columns = [];
+    let hasNextPage = true;
+    while (hasNextPage) {
+        const query = new URLSearchParams({ page: String(page) });
+        const payload = await api(`${POSTGRES_SCHEMA_PATH}?${query.toString()}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+        const message = payload.message || {};
+        const pagination = message.pagination || {};
+        if (!schema) schema = { ...message };
+        if (Array.isArray(message.columns)) columns.push(...message.columns);
+        hasNextPage = Boolean(pagination.has_next_page);
+        if (onProgress) onProgress({ page, hasNextPage, columns });
+        page = Number(pagination.page || page) + 1;
+    }
+    schema = schema || {};
+    schema.columns = columns;
+    schema.pagination = {
+        page: 1,
+        limit: columns.length,
+        total_count: Number(schema.column_count || columns.length),
+        has_prev_page: false,
+        has_next_page: false,
+        returned_count: columns.length
+    };
+    return schema;
 }
 
 function renderSchemaError(message) {
@@ -2167,12 +2563,20 @@ function renderSchemaError(message) {
     $('schema-page-display').textContent = `Page ${formatNumber(pgscopeSchemaPage)}`;
     $('schema-page-prev-btn').disabled = true;
     $('schema-page-next-btn').disabled = true;
-    $('pgscope-schema-body').innerHTML = `<tr><td colspan="12"><div class="schema-empty">${escapeHtml(message || 'Schema could not be loaded.')}</div></td></tr>`;
+    $('pgscope-schema-body').innerHTML = `<tr><td colspan="9"><div class="schema-empty">${escapeHtml(message || 'Schema could not be loaded.')}</div></td></tr>`;
 }
 
 async function loadSchema({ force = false } = {}) {
     if (!authToken || !authUser) return;
-    if (pgscopeSchemaLoaded && !force) return;
+    if (!force) {
+        const cached = readCachedPostgresSchema();
+        if (cached) {
+            pgscopeSchemaPage = 1;
+            renderSchema(cached);
+            pgscopeSchemaLoaded = true;
+            return;
+        }
+    }
     const btn = $('schema-refresh-btn');
     btn?.classList.add('is-loading');
     if (btn) btn.disabled = true;
@@ -2180,14 +2584,17 @@ async function loadSchema({ force = false } = {}) {
     $('schema-page-next-btn').disabled = true;
     $('schema-result-count').textContent = 'Loading schema...';
     $('schema-page-display').textContent = `Page ${formatNumber(pgscopeSchemaPage)}`;
-    $('pgscope-schema-body').innerHTML = '<tr><td colspan="12"><div class="schema-empty">Loading schema...</div></td></tr>';
+    $('pgscope-schema-body').innerHTML = '<tr><td colspan="9"><div class="schema-empty">Loading schema...</div></td></tr>';
     try {
-        const query = new URLSearchParams({ page: String(pgscopeSchemaPage) });
-        const payload = await api(`${PGSCOPE_SCHEMA_PATH}?${query.toString()}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
-        renderSchema(payload.message || {});
+        const schema = await fetchPostgresSchemaAllPages();
+        writeCachedPostgresSchema(schema);
+        pgscopeSchemaPage = 1;
+        renderSchema(schema);
         pgscopeSchemaLoaded = true;
     } catch (err) {
-        renderSchemaError(err.message);
+        const cached = readCachedPostgresSchema();
+        if (cached) renderSchema(cached);
+        else renderSchemaError(err.message);
     } finally {
         btn?.classList.remove('is-loading');
         if (btn) btn.disabled = false;
@@ -2196,8 +2603,57 @@ async function loadSchema({ force = false } = {}) {
 
 function goSchemaPage(page) {
     pgscopeSchemaPage = Math.max(1, Number(page || 1));
-    pgscopeSchemaLoaded = false;
-    loadSchema({ force: true });
+    const cached = readCachedPostgresSchema();
+    if (cached) renderSchema(cached);
+}
+
+async function warmPostgresCache({ force = false } = {}) {
+    if (!authToken || !authUser) return;
+    if (postgresCacheWarmPromise && !force) return postgresCacheWarmPromise;
+    const shouldSync = force || !postgresDatabaseInfoCacheFresh() || !postgresSchemaCacheFresh();
+    if (!shouldSync) return;
+    postgresCacheWarmPromise = (async () => {
+        const errors = [];
+        setPostgresSyncStatus({ visible: true, progress: 5, text: 'Syncing Postgres cache...' });
+        try {
+            setPostgresSyncStatus({ visible: true, progress: 20, text: 'Syncing database info...' });
+            const info = await fetchPostgresDatabaseInfo();
+            writeCachedPostgresDatabaseInfo(info);
+            pgscopeDatabaseInfoLoaded = true;
+            if ($('database-info').classList.contains('active')) renderDatabaseInfo(info);
+            setPostgresSyncStatus({ visible: true, progress: 45, text: 'Database info cached.' });
+        } catch (err) {
+            errors.push(err);
+        }
+        try {
+            setPostgresSyncStatus({ visible: true, progress: 50, text: 'Syncing schema...' });
+            const schema = await fetchPostgresSchemaAllPages({
+                onProgress: ({ page }) => setPostgresSyncStatus({
+                    visible: true,
+                    progress: Math.min(95, 50 + (page * 20)),
+                    text: `Syncing schema page ${formatNumber(page)}...`
+                })
+            });
+            writeCachedPostgresSchema(schema);
+            pgscopeSchemaLoaded = true;
+            renderQueryBuilder();
+            if ($('schema').classList.contains('active')) {
+                pgscopeSchemaPage = 1;
+                renderSchema(schema);
+            }
+            setPostgresSyncStatus({ visible: true, progress: 100, text: 'Postgres cache synced.' });
+        } catch (err) {
+            errors.push(err);
+        }
+        if (errors.length) {
+            setPostgresSyncStatus({ visible: true, progress: 100, text: 'Postgres sync incomplete.' });
+            console.warn(...errors);
+        }
+        setTimeout(() => setPostgresSyncStatus({ visible: false }), 1800);
+    })().finally(() => {
+        postgresCacheWarmPromise = null;
+    });
+    return postgresCacheWarmPromise;
 }
 
 function validateQuerySql(sql) {
@@ -2207,18 +2663,8 @@ function validateQuerySql(sql) {
     return { sql };
 }
 
-function validateWriteQueryInput() {
-    const sql = $('query-write-sql').value.trim();
-    if (!sql) throw new Error('SQL is required.');
-    return { sql };
-}
-
 function validateQueryInput() {
     return validateQuerySql($('query-sql').value.trim());
-}
-
-function validateExportQueryInput() {
-    return validateQuerySql($('query-export-sql').value.trim());
 }
 
 function resetQueryResult() {
@@ -2253,37 +2699,6 @@ function renderQueryError(message) {
     resetQueryResult();
 }
 
-function resetWriteResult() {
-    $('query-write-result-panel').hidden = true;
-    $('query-write-result').textContent = 'No result';
-}
-
-async function runWriteQuery(event) {
-    event.preventDefault();
-    if (!authToken || !authUser) return;
-    const btn = $('query-write-run-btn');
-    btn.disabled = true;
-    resetWriteResult();
-    $('query-write-message').textContent = 'Running query...';
-    try {
-        const { sql } = validateWriteQueryInput();
-        const payload = await api(PGSCOPE_QUERY_RUNNER_WRITE_PATH, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
-            body: JSON.stringify({ sql })
-        });
-        const result = payload.message?.result || 'Query executed.';
-        $('query-write-result-panel').hidden = false;
-        $('query-write-result').textContent = result;
-        $('query-write-message').textContent = 'Write query executed.';
-    } catch (err) {
-        resetWriteResult();
-        $('query-write-message').textContent = err.message || 'Query failed.';
-    } finally {
-        btn.disabled = false;
-    }
-}
-
 async function runQuery(event) {
     event.preventDefault();
     if (!authToken || !authUser) return;
@@ -2295,14 +2710,14 @@ async function runQuery(event) {
     $('query-message').textContent = 'Running query...';
     try {
         const { sql } = validateQueryInput();
-        const payload = await api(PGSCOPE_QUERY_RUNNER_PATH, {
+        const payload = await api(POSTGRES_QUERY_RUNNER_PATH, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
             body: JSON.stringify({ sql })
         });
         queryLastSql = sql;
         renderQueryResult(payload.message || {});
-        $('query-message').textContent = queryRunnerReadLimitMessage();
+        $('query-message').textContent = queryRunnerLimitMessage();
         downloadBtn.disabled = !queryResultColumns.length;
     } catch (err) {
         renderQueryError(err.message);
@@ -2331,7 +2746,7 @@ function downloadQueryCsv() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'pgscope_query_result.csv';
+        link.download = 'postgres_query_result.csv';
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -2349,10 +2764,10 @@ async function downloadQueryExport(event) {
     if (!authToken || !authUser) return;
     const btn = $('query-export-download-btn');
     btn.disabled = true;
-    $('query-export-message').textContent = 'Preparing CSV...';
+    $('query-message').textContent = 'Preparing CSV...';
     try {
-        const { sql } = validateExportQueryInput();
-        const response = await fetch(API_BASE + PGSCOPE_QUERY_RUNNER_CSV_PATH, await withAuthOptions({
+        const { sql } = validateQueryInput();
+        const response = await fetch(API_BASE + POSTGRES_QUERY_RUNNER_CSV_PATH, await withAuthOptions({
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
             body: JSON.stringify({ sql })
@@ -2365,37 +2780,17 @@ async function downloadQueryExport(event) {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'pgscope_query_export.csv';
+        link.download = 'postgres_query_export.csv';
         document.body.appendChild(link);
         link.click();
         link.remove();
         URL.revokeObjectURL(url);
-        $('query-export-message').textContent = `CSV downloaded. ${queryRunnerExportLimitMessage()}`;
+        $('query-message').textContent = `CSV downloaded. ${queryRunnerExportLimitMessage()}`;
     } catch (err) {
-        $('query-export-message').textContent = err.message || 'CSV download failed.';
+        $('query-message').textContent = err.message || 'CSV download failed.';
     } finally {
         btn.disabled = false;
     }
-}
-
-function switchQueryTab(target) {
-    document.querySelectorAll('.query-tab-button').forEach(button => {
-        const active = button.dataset.queryTab === target;
-        button.classList.toggle('active', active);
-        button.setAttribute('aria-selected', String(active));
-    });
-    $('query-write-panel').hidden = target !== 'write';
-    $('query-direct-panel').hidden = target !== 'direct';
-    $('query-export-panel').hidden = target !== 'export';
-    $('query-write-run-btn').hidden = target !== 'write';
-    $('query-run-btn').hidden = target !== 'direct';
-    $('query-export-download-btn').hidden = target !== 'export';
-    $('query-write-message').hidden = target !== 'write';
-    $('query-message').hidden = target !== 'direct';
-    $('query-export-message').hidden = target !== 'export';
-    if (target === 'write') $('query-write-message').textContent = 'Write mode runs non-read SQL and returns execution status.';
-    if (target === 'direct') $('query-message').textContent = queryRunnerReadLimitMessage();
-    if (target === 'export') $('query-export-message').textContent = queryRunnerExportLimitMessage();
 }
 
 function showSection(target) {
@@ -2405,6 +2800,7 @@ function showSection(target) {
     section.classList.add('active');
     if (target === 'database-info') loadDatabaseInfo();
     if (target === 'schema') loadSchema();
+    if (target === 'query-runner') renderQueryBuilder();
 }
 
 function toggleProfileMenu() {
@@ -2436,9 +2832,11 @@ function logout() {
     pgscopeSchemaRows = [];
     pgscopeSchemaPage = 1;
     pgscopeSchemaPagination = { page: 1, limit: 0, total_count: 0, has_prev_page: false, has_next_page: false, returned_count: 0 };
+    postgresCacheWarmPromise = null;
     queryLastSql = '';
     resetQueryResult();
     $('query-download-btn').disabled = true;
+    setPostgresSyncStatus({ visible: false });
     renderQueryRunnerTabMessages();
     closeAllModals();
     closeProfileMenu();
@@ -2540,27 +2938,22 @@ function bindPageEvents() {
     $('schema-page-next-btn').addEventListener('click', () => {
         if (pgscopeSchemaPagination.has_next_page) goSchemaPage(pgscopeSchemaPage + 1);
     });
-    $('query-write-form').addEventListener('submit', runWriteQuery);
     $('query-runner-form').addEventListener('submit', runQuery);
     $('query-download-btn').addEventListener('click', downloadQueryCsv);
-    $('query-export-form').addEventListener('submit', downloadQueryExport);
-    document.querySelectorAll('.query-tab-button').forEach(button => {
-        button.addEventListener('click', () => switchQueryTab(button.dataset.queryTab));
+    $('query-export-download-btn').addEventListener('click', downloadQueryExport);
+    $('query-builder-table').addEventListener('change', () => {
+        $('query-builder-filter-list').innerHTML = '';
+        queryBuilderAddFilterRow();
     });
-    $('query-write-sql').addEventListener('input', () => {
-        resetWriteResult();
-        $('query-write-message').textContent = 'Write mode runs non-read SQL and returns execution status.';
-    });
+    $('query-builder-add-filter-btn').addEventListener('click', queryBuilderAddFilterRow);
+    $('query-builder-build-btn').addEventListener('click', applyQueryBuilderSql);
     $('query-sql').addEventListener('input', () => {
         if ($('query-sql').value.trim() !== queryLastSql) {
             queryLastSql = '';
             $('query-download-btn').disabled = true;
             resetQueryResult();
-            $('query-message').textContent = queryRunnerReadLimitMessage();
+            $('query-message').textContent = queryRunnerLimitMessage();
         }
-    });
-    $('query-export-sql').addEventListener('input', () => {
-        $('query-export-message').textContent = queryRunnerExportLimitMessage();
     });
     ['schema-filter-search', 'schema-filter-relation', 'schema-filter-key'].forEach(id => {
         $(id).addEventListener('input', applySchemaFilters);
@@ -2584,6 +2977,7 @@ function bindPageEvents() {
 bindAuthComponentEvents();
 bindPageEvents();
 renderQueryRunnerTabMessages();
+renderQueryBuilder();
 const initialize = async () => {
     await loadInfo();
     await loadProfile().catch(err => console.warn(err));
