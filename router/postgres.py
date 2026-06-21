@@ -149,58 +149,6 @@ async def func_api_postgres_schema(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, 5000), ("page", "int", 0, None, 1)])
     limit = max(1, min(oq["limit"], 10000))
     async with app_state.client_postgres_external.acquire() as conn:
-        summary = dict(await conn.fetchrow("""
-            WITH user_schemas AS (
-                SELECT oid, nspname
-                FROM pg_namespace
-                WHERE nspname NOT IN ('pg_catalog', 'information_schema')
-                  AND nspname NOT LIKE 'pg_%'
-            ),
-            column_base AS (
-                SELECT
-                    n.nspname AS schema_name,
-                    c.relname AS table_name,
-                    CASE c.relkind
-                        WHEN 'r' THEN 'table'
-                        WHEN 'p' THEN 'partitioned_table'
-                        WHEN 'v' THEN 'view'
-                        WHEN 'm' THEN 'materialized_view'
-                        WHEN 'f' THEN 'foreign_table'
-                        ELSE c.relkind::text
-                    END AS relation_type,
-                    c.oid AS relation_oid,
-                    a.attnum AS column_number
-                FROM pg_attribute a
-                JOIN pg_class c ON c.oid = a.attrelid
-                JOIN user_schemas n ON n.oid = c.relnamespace
-                WHERE a.attnum > 0
-                  AND NOT a.attisdropped
-                  AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
-            ),
-            relation_base AS (
-                SELECT DISTINCT schema_name, table_name, relation_type
-                FROM column_base
-            ),
-            index_columns AS (
-                SELECT DISTINCT
-                    i.indrelid AS relation_oid,
-                    key_att.attnum AS column_number,
-                    idx.relname AS index_name
-                FROM pg_index i
-                JOIN pg_class idx ON idx.oid = i.indexrelid
-                CROSS JOIN LATERAL UNNEST(i.indkey) AS key_att(attnum)
-                WHERE key_att.attnum > 0
-            )
-            SELECT
-                COUNT(DISTINCT (cb.relation_oid, cb.column_number))::int AS column_count,
-                COUNT(DISTINCT (cb.relation_oid, cb.column_number)) FILTER (WHERE ic.index_name IS NOT NULL)::int AS indexed_column_count,
-                COUNT(DISTINCT ic.index_name)::int AS index_count,
-                (SELECT COUNT(*)::int FROM relation_base WHERE relation_type IN ('table', 'partitioned_table', 'foreign_table')) AS table_count,
-                (SELECT COUNT(*)::int FROM relation_base WHERE relation_type = 'view') AS view_count,
-                (SELECT COUNT(*)::int FROM relation_base WHERE relation_type = 'materialized_view') AS materialized_view_count
-            FROM column_base cb
-            LEFT JOIN index_columns ic ON ic.relation_oid = cb.relation_oid AND ic.column_number = cb.column_number;
-        """))
         offset = (oq["page"] - 1) * limit
         rows = [dict(row) for row in await conn.fetch("""
             WITH user_schemas AS (
@@ -300,25 +248,7 @@ async def func_api_postgres_schema(*, request: Request):
             ORDER BY cb.schema_name, cb.table_name, cb.column_number
             LIMIT $1 OFFSET $2;
         """, limit + 1, offset)]
-        columns = rows[:limit]
-        has_next_page = len(rows) > limit
-    return {
-        "status": 1,
-        "message": {
-            **summary,
-            "has_next_page": has_next_page,
-            "pagination": {
-                "page": oq["page"],
-                "limit": limit,
-                "max_limit": 10000,
-                "total_count": int(summary.get("column_count") or 0),
-                "has_prev_page": oq["page"] > 1,
-                "has_next_page": has_next_page,
-                "returned_count": len(columns),
-            },
-            "columns": columns,
-        },
-    }
+    return {"status": 1, "message": {"obj_list": rows[:limit], "has_next_page": len(rows) > limit}}
 
 @router.post("/postgres/query-runner-write")
 async def func_api_postgres_query_runner_write(*, request: Request):
