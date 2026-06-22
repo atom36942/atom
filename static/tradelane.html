@@ -322,6 +322,45 @@ body {
     display: flex;
 }
 
+.access-blocked-section.active {
+    min-height: calc(100vh - 114px);
+    display: grid;
+    place-items: center;
+}
+
+.access-blocked-card {
+    width: min(560px, 100%);
+    padding: 2rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-surface);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    text-align: center;
+}
+
+.access-blocked-icon {
+    width: 44px;
+    height: 44px;
+    margin: 0 auto 1rem;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: #FEF3C7;
+    color: #92400E;
+    font-size: 1.1rem;
+}
+
+.access-blocked-card h1 {
+    margin: 0 0 0.5rem;
+    font-size: 1.45rem;
+}
+
+.access-blocked-card p {
+    margin: 0;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
 .home-hero {
     width: 100%;
     display: grid;
@@ -750,6 +789,35 @@ body {
     text-align: right;
 }
 
+.object-count-table th:nth-child(3),
+.object-count-table td:nth-child(3) {
+    width: 84px;
+    text-align: center;
+}
+
+.object-count-download {
+    width: 34px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0;
+}
+
+.object-count-download.is-large-export {
+    border-color: #F59E0B;
+    background: #FFFBEB;
+    color: #92400E;
+}
+
+.object-count-download.is-large-export:hover {
+    border-color: #D97706;
+    background: #FEF3C7;
+    color: #78350F;
+}
+
+#large-export-modal .modal-content {
+    width: min(460px, calc(100vw - 2.5rem));
+}
+
 .schema-cell-main {
     color: var(--text-dark);
     font-weight: 500;
@@ -1087,6 +1155,20 @@ body {
 body.logged-in .auth-only { display: flex; }
 body.logged-in .postgres-sync-status[hidden] { display: none; }
 body.logged-in .guest-only { display: none; }
+body.role-blocked .nav-menu {
+    cursor: not-allowed;
+}
+body.role-blocked .nav-item {
+    opacity: 0.42;
+    cursor: inherit;
+    filter: grayscale(0.2);
+    pointer-events: none;
+}
+body.role-blocked .nav-item.active {
+    background: transparent;
+    color: var(--text-muted);
+    border-left-color: transparent;
+}
 body.logged-out .sidebar,
 body.logged-out .auth-only { display: none !important; }
 body.logged-out .main-content { width: 100%; }
@@ -1378,14 +1460,14 @@ body.logged-out .content-wrapper {
                 <a href="#query-runner" class="nav-item active auth-only" data-target="query-runner">
                     <i class="fa-solid fa-terminal" aria-hidden="true"></i> Query Runner
                 </a>
+                <a href="#object-count" class="nav-item auth-only" data-target="object-count">
+                    <i class="fa-solid fa-list-ol" aria-hidden="true"></i> Object Count
+                </a>
                 <a href="#database-info" class="nav-item auth-only" data-target="database-info">
                     <i class="fa-solid fa-database" aria-hidden="true"></i> Database Info
                 </a>
                 <a href="#schema" class="nav-item auth-only" data-target="schema">
                     <i class="fa-solid fa-table-list" aria-hidden="true"></i> Schema
-                </a>
-                <a href="#object-count" class="nav-item auth-only" data-target="object-count">
-                    <i class="fa-solid fa-list-ol" aria-hidden="true"></i> Object Count
                 </a>
             </nav>
         </aside>
@@ -1433,6 +1515,14 @@ body.logged-out .content-wrapper {
                                 <div><strong>Query runner</strong><span>Paste SQL, execute against the external read-only URL, and inspect result tables.</span></div>
                             </div>
                         </div>
+                    </div>
+                </section>
+
+                <section id="access-blocked" class="view-section access-blocked-section">
+                    <div class="access-blocked-card">
+                        <div class="access-blocked-icon"><i class="fa-solid fa-lock" aria-hidden="true"></i></div>
+                        <h1>Portal Access Disabled</h1>
+                        <p>Role <strong id="access-blocked-role">-</strong> is not enabled for this portal. Please ask the admin to enable this role for TradeLane access.</p>
                     </div>
                 </section>
 
@@ -1589,10 +1679,11 @@ body.logged-out .content-wrapper {
                                     <tr>
                                         <th>Object</th>
                                         <th>Count</th>
+                                        <th>Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="object-count-body">
-                                    <tr><td colspan="2"><div class="schema-empty">Object counts have not been loaded.</div></td></tr>
+                                    <tr><td colspan="3"><div class="schema-empty">Object counts have not been loaded.</div></td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1785,6 +1876,32 @@ LIMIT 10;</textarea>
             </div>
         </div>
     </div>
+
+    <div class="modal" id="large-export-modal" role="dialog" aria-modal="true" aria-labelledby="large-export-modal-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="large-export-modal-title">Admin Export Required</h3>
+                        <p class="modal-subtitle">This object is above the portal export limit</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="large-export-modal-close" type="button" aria-label="Close large export notice" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="profile-grid">
+                    <div class="profile-row"><span>Object</span><strong id="large-export-object">-</strong></div>
+                    <div class="profile-row"><span>Rows</span><strong id="large-export-count">-</strong></div>
+                    <div class="profile-row"><span>Limit</span><strong id="large-export-limit">-</strong></div>
+                </div>
+                <p class="profile-status" style="margin: 1rem 0 0;">Please ask admin for exporting this data.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" id="large-export-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
     <!-- Auth component end -->
 
     <script>
@@ -1817,6 +1934,7 @@ const TOKEN_REFRESH_BUFFER_SEC = 24 * 60 * 60;
 const QUERY_EDITOR_PLACEHOLDER_SQL = 'SELECT *\nFROM your_table\nLIMIT 10;';
 const QUERY_BUILDER_DEFAULT_LIMIT = 10;
 const OBJECT_COUNT_PAGE_SIZE = 1000;
+const TRADELANE_ALLOWED_ROLES = new Set([1, 2]);
 
 let authToken = readToken();
 let authUser = readUser();
@@ -2032,6 +2150,32 @@ function clearPortalStorage() {
     localStorage.removeItem(STORAGE_KEY_INFO_AT);
     localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
     clearPostgresCache();
+}
+
+function tradeLaneRoleAllowed(user = authUser) {
+    return TRADELANE_ALLOWED_ROLES.has(Number(user?.role));
+}
+
+function tradeLaneRoleLabel(user = authUser) {
+    return rawValue(user?.role);
+}
+
+function setTradeLaneFeatureNavDisabled(isDisabled) {
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.setAttribute('aria-disabled', String(isDisabled));
+        if (isDisabled) item.setAttribute('tabindex', '-1');
+        else item.removeAttribute('tabindex');
+    });
+}
+
+function blockTradeLaneAccess() {
+    postgresCacheWarmPromise = null;
+    clearPostgresCache();
+    setPostgresSyncStatus({ visible: false });
+    $('access-blocked-role').textContent = tradeLaneRoleLabel();
+    setTradeLaneFeatureNavDisabled(true);
+    document.body.classList.add('role-blocked');
+    showSection('access-blocked');
 }
 
 async function loadInfo({ force = false } = {}) {
@@ -2262,6 +2406,8 @@ function applyAuthState() {
     const loggedIn = Boolean(authToken && authUser);
     document.body.classList.toggle('logged-in', loggedIn);
     document.body.classList.toggle('logged-out', !loggedIn);
+    document.body.classList.remove('role-blocked');
+    setTradeLaneFeatureNavDisabled(false);
     if (!loggedIn) {
         showSection('home');
         return;
@@ -2269,6 +2415,10 @@ function applyAuthState() {
     const user = authUser || {};
     document.querySelector('.avatar').textContent = avatarTextFromUsername(user.username || user.name);
     renderProfile();
+    if (!tradeLaneRoleAllowed()) {
+        blockTradeLaneAccess();
+        return;
+    }
     if ($('home').classList.contains('active')) showSection('query-runner');
     warmPostgresCache().catch(err => console.warn(err));
 }
@@ -3038,12 +3188,36 @@ function renderQueryError(message) {
 function objectCountSql(page = objectCountPage) {
     const offset = (Math.max(1, Number(page || 1)) - 1) * OBJECT_COUNT_PAGE_SIZE;
     return [
-        'SELECT object_name, row_count',
+        'SELECT schema_name, object_name, row_count',
         'FROM public.mv_object_count',
         'ORDER BY row_count DESC NULLS LAST, schema_name, object_name',
         `LIMIT ${OBJECT_COUNT_PAGE_SIZE + 1}`,
         `OFFSET ${offset};`
     ].join('\n');
+}
+
+function objectCountRowCount(row = {}) {
+    const count = Number(row.row_count ?? row.count);
+    return Number.isFinite(count) ? count : null;
+}
+
+function objectCountQualifiedObjectSql(schemaName, objectName) {
+    const schema = String(schemaName || 'public');
+    const object = String(objectName || '');
+    if (!object) throw new Error('Object name is required.');
+    if (!schema || schema === 'public') return queryBuilderQuoteIdentifier(object);
+    return `${queryBuilderQuoteIdentifier(schema)}.${queryBuilderQuoteIdentifier(object)}`;
+}
+
+function objectCountDownloadButton(row = {}) {
+    const count = objectCountRowCount(row);
+    const isLargeExport = count !== null && count > queryRunnerExportLimit();
+    const disabled = count === null;
+    const title = isLargeExport
+        ? `Ask admin to export ${rawValue(row.object_name)}`
+        : `Download ${rawValue(row.object_name)}`;
+    const icon = isLargeExport ? 'fa-solid fa-triangle-exclamation' : 'fa-solid fa-download';
+    return `<button class="btn btn-secondary object-count-download${isLargeExport ? ' is-large-export' : ''}" type="button" data-schema="${escapeHtml(row.schema_name || 'public')}" data-object="${escapeHtml(row.object_name || '')}" data-count="${escapeHtml(count ?? '')}" ${disabled ? 'disabled' : ''} title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><i class="${icon}" aria-hidden="true"></i></button>`;
 }
 
 function renderObjectCountRows(rows = []) {
@@ -3061,8 +3235,9 @@ function renderObjectCountRows(rows = []) {
         <tr>
             <td>${escapeHtml(rawValue(row.object_name))}</td>
             <td>${escapeHtml(rawValue(row.row_count))}</td>
+            <td>${objectCountDownloadButton(row)}</td>
         </tr>
-    `).join('') : '<tr><td colspan="2"><div class="schema-empty">No object counts found.</div></td></tr>';
+    `).join('') : '<tr><td colspan="3"><div class="schema-empty">No object counts found.</div></td></tr>';
 }
 
 function renderCachedObjectCountPage(rows = [], page = objectCountPage) {
@@ -3082,8 +3257,9 @@ function renderCachedObjectCountPage(rows = [], page = objectCountPage) {
         <tr>
             <td>${escapeHtml(rawValue(row.object_name))}</td>
             <td>${escapeHtml(rawValue(row.row_count))}</td>
+            <td>${objectCountDownloadButton(row)}</td>
         </tr>
-    `).join('') : '<tr><td colspan="2"><div class="schema-empty">No object counts found.</div></td></tr>';
+    `).join('') : '<tr><td colspan="3"><div class="schema-empty">No object counts found.</div></td></tr>';
 }
 
 function renderObjectCountError(message) {
@@ -3092,7 +3268,7 @@ function renderObjectCountError(message) {
     $('object-count-page-display').textContent = `Page ${formatNumber(objectCountPage)}`;
     $('object-count-prev-btn').disabled = objectCountPage <= 1;
     $('object-count-next-btn').disabled = true;
-    $('object-count-body').innerHTML = `<tr><td colspan="2"><div class="schema-empty">${escapeHtml(message || 'Create public.mv_object_count to see exact object counts.')}</div></td></tr>`;
+    $('object-count-body').innerHTML = `<tr><td colspan="3"><div class="schema-empty">${escapeHtml(message || 'Create public.mv_object_count to see exact object counts.')}</div></td></tr>`;
 }
 
 function objectCountRelationExists() {
@@ -3273,6 +3449,55 @@ async function downloadQueryExport(event) {
     }
 }
 
+function showLargeObjectExportModal({ schemaName, objectName, count }) {
+    const label = schemaName && schemaName !== 'public' ? `${schemaName}.${objectName}` : objectName;
+    $('large-export-object').textContent = rawValue(label);
+    $('large-export-count').textContent = formatNumber(count);
+    $('large-export-limit').textContent = formatNumber(queryRunnerExportLimit());
+    openModal('large-export-modal');
+}
+
+async function downloadObjectCountObject(event) {
+    const btn = event.target.closest('.object-count-download');
+    if (!btn || !authToken || !authUser || btn.disabled) return;
+    const schemaName = btn.dataset.schema || 'public';
+    const objectName = btn.dataset.object || '';
+    const count = Number(btn.dataset.count);
+    if (!Number.isFinite(count)) return;
+    if (count > queryRunnerExportLimit()) {
+        showLargeObjectExportModal({ schemaName, objectName, count });
+        return;
+    }
+    btn.disabled = true;
+    $('object-count-result-count').textContent = 'Preparing CSV...';
+    try {
+        const sql = `SELECT *\nFROM ${objectCountQualifiedObjectSql(schemaName, objectName)}`;
+        const response = await fetch(API_BASE + POSTGRES_QUERY_RUNNER_CSV_PATH, await withAuthOptions({
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
+            body: JSON.stringify({ sql })
+        }));
+        if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.message || `CSV download failed (${response.status})`);
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${objectName.replace(/[^A-Za-z0-9_.-]+/g, '_') || 'postgres_object'}_export.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        $('object-count-result-count').textContent = `CSV downloaded for ${rawValue(objectName)}.`;
+    } catch (err) {
+        $('object-count-result-count').textContent = err.message || 'CSV download failed.';
+    } finally {
+        btn.disabled = !Number.isFinite(count) || count > queryRunnerExportLimit();
+    }
+}
+
 function showSection(target) {
     document.querySelectorAll('.view-section').forEach(section => section.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.target === target));
@@ -3338,6 +3563,8 @@ function bindAuthComponentEvents() {
     $('logout-modal-close').addEventListener('click', () => closeModal('logout-modal'));
     $('logout-cancel-btn').addEventListener('click', () => closeModal('logout-modal'));
     $('logout-submit-btn').addEventListener('click', logout);
+    $('large-export-modal-close').addEventListener('click', () => closeModal('large-export-modal'));
+    $('large-export-close-btn').addEventListener('click', () => closeModal('large-export-modal'));
     $('profile-menu-profile').addEventListener('click', () => {
         closeProfileMenu();
         renderProfile();
@@ -3426,6 +3653,7 @@ function bindPageEvents() {
     $('object-count-next-btn').addEventListener('click', () => {
         if (objectCountHasNextPage) loadObjectCount({ page: objectCountPage + 1 });
     });
+    $('object-count-body').addEventListener('click', downloadObjectCountObject);
     $('query-runner-form').addEventListener('submit', runQuery);
     $('query-download-btn').addEventListener('click', downloadQueryCsv);
     $('query-export-download-btn').addEventListener('click', downloadQueryExport);
@@ -3470,6 +3698,10 @@ function bindPageEvents() {
         item.addEventListener('click', event => {
             event.preventDefault();
             if (!authToken || !authUser) return;
+            if (!tradeLaneRoleAllowed()) {
+                showSection('access-blocked');
+                return;
+            }
             showSection(item.dataset.target);
         });
     });

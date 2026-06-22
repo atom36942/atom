@@ -184,7 +184,7 @@ config_api = {
 "/admin/postgres-query-runner-read": {"id": 22, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/postgres-query-runner-read-export": {"id": 7, "is_token": 1, "user_check_role": ["inmemory", [1, 2]]},
 "/admin/mssql-query-runner-write": {"id": 21, "is_token": 1, "user_check_role": ["realtime", [1]]},
-"/admin/mssql-query-runner-read": {"id": 23, "is_token": 1, "user_check_role": ["realtime", [1]]},
+"/admin/mssql-query-runner-read": {"id": 23, "is_token": 1, "user_check_role": ["token", [1,2]]},
 "/admin/mssql-query-runner-read-export": {"id": 89, "is_token": 1, "user_check_role": ["realtime", [1]]},
 # CARGOWISE ROUTER
 "/cargowise/buyer-360": {"id": 32, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["redis", 600]},
@@ -211,12 +211,12 @@ config_api = {
 "/quotations/decision": {"id": 80, "is_token": 1, "user_check_role": ["token", [4]]},
 "/quotations": {"id": 81, "is_token": 1, "user_check_role": ["token", [4]]},
 # POSTGRES ROUTER
-"/postgres/database-info": {"id": 84, "is_token": 1, "user_check_role": ["token", [1]], "api_cache_sec": ["inmemory", 60, 1]},
-"/postgres/schema": {"id": 85, "is_token": 1, "user_check_role": ["token", [1]], "api_cache_sec": ["inmemory", 300, 1]},
-"/postgres/query-runner-write": {"id": 88, "is_token": 1, "user_check_role": ["token", [1]]},
-"/postgres/query-runner-read": {"id": 86, "is_token": 1, "user_check_role": ["token", [1]]},
-"/postgres/query-runner-read-export": {"id": 87, "is_token": 1, "user_check_role": ["token", [1]]},
-"/postgres/query-ai": {"id": 90, "is_token": 1, "user_check_role": ["token", [1]]},
+"/postgres/database-info": {"id": 84, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["inmemory", 60, 1]},
+"/postgres/schema": {"id": 85, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["inmemory", 300, 1]},
+"/postgres/query-runner-write": {"id": 88, "is_token": 1, "user_check_role": ["token", [1, 2]]},
+"/postgres/query-runner-read": {"id": 86, "is_token": 1, "user_check_role": ["token", [1, 2]]},
+"/postgres/query-runner-read-export": {"id": 87, "is_token": 1, "user_check_role": ["token", [1, 2]]},
+"/postgres/query-ai": {"id": 90, "is_token": 1, "user_check_role": ["token", [1, 2]]},
 }
 
 config_column_int_mapping = {
@@ -271,7 +271,7 @@ config_postgres = {
 {"name":"deleted_by_id","datatype":"bigint"},
 {"name":"is_protected","datatype":"boolean"},
 {"name":"type","datatype":"smallint","is_mandatory":1,"index":"btree(type)"},
-{"name":"username","datatype":"text","is_mandatory":1,"unique":"username,type"},
+{"name":"username","datatype":"text","is_mandatory":1,"unique":"username,type","index":"gin(username)"},
 {"name":"password","datatype":"text","index":"btree(password)"},
 {"name":"google_login_id","datatype":"text","unique":"google_login_id,type"},
 {"name":"google_login_metadata","datatype":"jsonb"},
@@ -279,8 +279,8 @@ config_postgres = {
 {"name":"mobile","datatype":"text","unique":"mobile,type"},
 {"name":"role","datatype":"smallint","is_mandatory":0,"index":"btree(role)"},
 {"name":"last_active_at","datatype":"timestamptz"},
-{"name":"name","datatype":"text"},
-{"name":"country","datatype":"text"},
+{"name":"name","datatype":"text","index":"gin(name)"},
+{"name":"country","datatype":"text","index":"gin(country)"},
 {"name":"state","datatype":"text"},
 {"name":"city","datatype":"text"},
 {"name":"email_secondary","datatype":"text",},

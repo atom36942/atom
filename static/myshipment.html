@@ -564,6 +564,104 @@ body {
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
 
+.users-filter-form {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    min-width: 0;
+    padding: 1rem 1.25rem;
+    box-sizing: border-box;
+}
+
+.users-filter-card {
+    overflow: visible;
+}
+
+.users-filter-title {
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding-right: 0.25rem;
+    color: #475569;
+    font-size: 0.78rem;
+    font-weight: 850;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.users-filter-title i {
+    color: var(--primary);
+}
+
+.users-filter-field {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    box-sizing: border-box;
+    padding: 0 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: #F9FAFB;
+    transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+
+.users-filter-field:focus-within {
+    border-color: #A5B4FC;
+    background: #FFFFFF;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.users-filter-field i {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.users-filter-field input,
+.users-filter-field select {
+    min-width: 0;
+    width: 100%;
+    padding: 0.58rem 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text-dark);
+    font: inherit;
+    font-size: 0.82rem;
+}
+
+.users-filter-field.username,
+.users-filter-field.name {
+    flex: 1 1 220px;
+    min-width: 160px;
+}
+
+.users-filter-field.country {
+    flex: 1 1 190px;
+    min-width: 150px;
+}
+
+.users-filter-field.role {
+    flex: 0 1 210px;
+    min-width: 160px;
+}
+
+.users-filter-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 0 0 auto;
+    margin-left: auto;
+}
+
+.users-filter-actions .btn {
+    min-height: 42px;
+    white-space: nowrap;
+}
+
 .po-search > i {
     color: var(--text-muted);
     font-size: 0.84rem;
@@ -1340,6 +1438,63 @@ body {
     gap: 0.75rem;
 }
 
+.user-detail-table-card {
+    border: 1px solid #DDE7FF;
+    border-radius: 16px;
+    background: #FFFFFF;
+    box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+}
+
+.user-detail-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.user-detail-table th {
+    padding: 0.85rem 1rem;
+    background: linear-gradient(135deg, #F8FAFF 0%, #EEF6FF 100%);
+    border-bottom: 1px solid #DDE7FF;
+    color: #334155;
+    font-size: 0.72rem;
+    font-weight: 850;
+    letter-spacing: 0.04em;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.user-detail-table td {
+    padding: 0.82rem 1rem;
+    border-bottom: 1px solid #EEF2F7;
+    color: #111827;
+    font-size: 0.84rem;
+    line-height: 1.45;
+    vertical-align: top;
+}
+
+.user-detail-table tr:last-child td {
+    border-bottom: 0;
+}
+
+.user-detail-table tr:nth-child(even) td {
+    background: #FAFCFF;
+}
+
+.user-detail-table-column {
+    width: 38%;
+    color: #475569 !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 0.78rem !important;
+    font-weight: 800;
+    overflow-wrap: anywhere;
+}
+
+.user-detail-table-value {
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
 .detail-view-section {
     border: 1px solid #DDE7FF;
     border-radius: 14px;
@@ -1826,25 +1981,6 @@ body {
 @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
-}
-
-.header-role-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    min-height: 30px;
-    padding: 0.35rem 0.7rem;
-    color: #3730A3;
-    background: #EEF2FF;
-    border: 1px solid #C7D2FE;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    white-space: nowrap;
-}
-
-.header-role-badge i {
-    font-size: 0.7rem;
 }
 
 .profile-menu {
@@ -3871,6 +4007,27 @@ body.not-allowed .content-wrapper {
         flex-basis: 100%;
     }
 
+    .users-filter-form {
+        width: 100%;
+    }
+
+    .users-filter-title {
+        width: 100%;
+    }
+
+    .users-filter-field.username,
+    .users-filter-field.name,
+    .users-filter-field.country,
+    .users-filter-field.role {
+        flex: 1 1 calc(50% - 0.35rem);
+    }
+
+    .users-filter-actions {
+        width: 100%;
+        margin-left: 0;
+        justify-content: flex-end;
+    }
+
     .po-refresh-button.compact {
         width: 100%;
     }
@@ -4406,17 +4563,43 @@ body.not-allowed .content-wrapper {
                                 <p>View portal users and their assigned roles.</p>
                             </div>
                             <div class="po-toolbar-actions">
-                                <form class="po-search" id="users-search-form" role="search">
-                                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-                                    <input type="text" id="users-search-input" placeholder="Search username" aria-label="Search username">
-                                    <button class="po-search-button" type="button" id="users-search-clear" aria-label="Clear user search" title="Clear" style="display: none;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-                                    <button class="po-search-button primary" type="submit" id="users-search-submit" aria-label="Search users" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
-                                </form>
                                 <button class="btn btn-primary" id="users-export-btn" type="button">
                                     <i class="fa-solid fa-download" aria-hidden="true"></i> Download CSV
                                 </button>
                             </div>
                         </div>
+                    </div>
+                    <div class="panel po-panel users-filter-card">
+                        <form class="users-filter-form" id="users-search-form" role="search" aria-label="Filter users">
+                            <div class="users-filter-title">
+                                <i class="fa-solid fa-filter" aria-hidden="true"></i>
+                                <span>Filters</span>
+                            </div>
+                            <label class="users-filter-field username" aria-label="Username">
+                                <i class="fa-solid fa-user" aria-hidden="true"></i>
+                                <input type="text" id="users-search-input" placeholder="Username">
+                            </label>
+                            <label class="users-filter-field name" aria-label="Name">
+                                <i class="fa-solid fa-id-card" aria-hidden="true"></i>
+                                <input type="text" id="users-name-input" placeholder="Name">
+                            </label>
+                            <label class="users-filter-field country" aria-label="Country">
+                                <i class="fa-solid fa-globe" aria-hidden="true"></i>
+                                <input type="text" id="users-country-input" placeholder="Country">
+                            </label>
+                            <label class="users-filter-field role" aria-label="Role">
+                                <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+                                <select id="users-role-select">
+                                    <option value="">Role</option>
+                                </select>
+                            </label>
+                            <div class="users-filter-actions">
+                                <button class="btn btn-secondary" type="button" id="users-search-clear" aria-label="Clear user filters" title="Clear" disabled><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Clear</button>
+                                <button class="btn btn-filter-submit" type="submit" id="users-search-submit" aria-label="Search users" disabled><i class="fa-solid fa-filter" aria-hidden="true"></i> Submit</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="panel po-panel">
                         <div class="po-summary-bar">
                             <div class="po-result-count" id="users-result-count">Loading users...</div>
                             <div class="po-pagination" aria-label="User pages">
@@ -4432,11 +4615,14 @@ body.not-allowed .content-wrapper {
                                         <th>ID</th>
                                         <th>Created At</th>
                                         <th>Username</th>
+                                        <th>Name</th>
+                                        <th>Country</th>
                                         <th>Role</th>
                                         <th>Status</th>
+                                        <th>Action</th>
                                     </tr>
                                 </thead>
-                                <tbody><tr><td colspan="5">Loading users...</td></tr></tbody>
+                                <tbody><tr><td colspan="8">Loading users...</td></tr></tbody>
                             </table>
                         </div>
                     </div>
@@ -5108,6 +5294,24 @@ body.not-allowed .content-wrapper {
         </div>
     </div>
 
+    <!-- Slide-out Panel for User View -->
+    <div class="side-panel-overlay" id="user-view-overlay" onclick="closeUserViewPanel()"></div>
+    <div class="side-panel" id="user-view-panel" role="dialog" aria-modal="true" aria-labelledby="user-view-title" aria-hidden="true">
+        <div class="side-panel-header">
+            <div class="modal-heading">
+                <div class="modal-heading-icon"><i class="fa-solid fa-user" aria-hidden="true"></i></div>
+                <div>
+                    <h2 class="side-panel-title" id="user-view-title">User</h2>
+                    <div class="side-panel-subtitle" id="user-view-subtitle">User #---</div>
+                </div>
+            </div>
+            <button class="side-panel-close" type="button" onclick="closeUserViewPanel()" aria-label="Close user detail" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        </div>
+        <div class="side-panel-body" id="user-view-body">
+            <div class="container-card-empty"><div><i class="fa-regular fa-folder-open" aria-hidden="true"></i><br>Select a user to view details.</div></div>
+        </div>
+    </div>
+
     <!-- Slide-out Panel for Shipment Purchase Orders -->
     <div class="side-panel-overlay" id="shipment-pos-overlay" onclick="closeShipmentPurchaseOrdersPanel()"></div>
     <div class="side-panel" id="shipment-pos-panel" role="dialog" aria-modal="true" aria-labelledby="shipment-pos-title" aria-hidden="true">
@@ -5663,6 +5867,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let documentShipmentId = '';
     let usersCurrentPage = 1;
     let usersSearchQuery = '';
+    let usersNameQuery = '';
+    let usersCountryQuery = '';
+    let usersRoleQuery = '';
+    let usersRows = [];
     let ratesCurrentPage = 1;
     let ratesRows = [];
     let salesRateRows = [];
@@ -5737,6 +5945,7 @@ document.addEventListener('DOMContentLoaded', () => {
         typeLabels = appInfo?.mapping?.type?.users || {};
         quotationStatusLabels = appInfo?.mapping?.status?.quotations || {};
         renderRateDropdowns();
+        renderUsersRoleFilter();
     };
     const infoCacheFresh = () => {
         const cachedAt = Number(localStorage.getItem(STORAGE_KEY_INFO_AT) || 0);
@@ -6611,6 +6820,57 @@ document.addEventListener('DOMContentLoaded', () => {
         </section>
     `;
 
+    const userInactiveFlag = value => value === false || value === 0 || String(value).toLowerCase() === 'false';
+    const getUserStatus = row => {
+        const inactive = Boolean(row.deactivated_at || row.deleted_at) || userInactiveFlag(row.cw_is_active) || userInactiveFlag(row.cw_is_valid);
+        return inactive ? 'Inactive' : 'Active';
+    };
+    const isSensitiveUserField = key => /password|token|secret|otp/i.test(key);
+
+    const openUserViewPanel = userId => {
+        const row = usersRows.find(item => String(item.id) === String(userId));
+        if (!row) return;
+        const role = roleLabels[String(row.role)] || displayValue(row.role);
+        const safeFields = Object.keys(row).filter(key => !isSensitiveUserField(key));
+        document.getElementById('user-view-title').textContent = displayValue(row.name || row.username);
+        document.getElementById('user-view-subtitle').textContent = `User #${displayValue(row.id)} · ${role}`;
+        document.getElementById('user-view-body').innerHTML = `
+            <div class="detail-view-card">
+                <div class="user-detail-table-card">
+                    <table class="user-detail-table">
+                        <thead>
+                            <tr>
+                                <th>Column</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${safeFields.length ? safeFields.map(key => `
+                                <tr>
+                                    <td class="user-detail-table-column">${escapeHtml(key)}</td>
+                                    <td class="user-detail-table-value">${escapeHtml(displayValue(row[key]))}</td>
+                                </tr>
+                            `).join('') : '<tr><td colspan="2">No details available.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="po-lines-footnote"><i class="fa-solid fa-lock" aria-hidden="true"></i><span>Sensitive fields like password, token, OTP, and secrets are hidden from this view.</span></div>
+        `;
+        document.getElementById('user-view-overlay').classList.add('active');
+        const panel = document.getElementById('user-view-panel');
+        panel.classList.add('active');
+        panel.setAttribute('aria-hidden', 'false');
+    };
+
+    const closeUserViewPanel = () => {
+        document.getElementById('user-view-overlay').classList.remove('active');
+        const panel = document.getElementById('user-view-panel');
+        panel.classList.remove('active');
+        panel.setAttribute('aria-hidden', 'true');
+    };
+    window.closeUserViewPanel = closeUserViewPanel;
+
     const openPurchaseOrderViewPanel = row => {
         if (!row) return;
         const status = row.is_cancelled ? 'Cancelled' : displayValue(row.status);
@@ -7083,6 +7343,17 @@ document.addEventListener('DOMContentLoaded', () => {
         setSelectOptions('sales-rate-charge-unit', rateDropdownOptions('charge_unit'), 'Charge Unit');
         setSelectOptions('rate-edit-mode', rateDropdownOptions('mode'));
         setSelectOptions('rate-edit-charge-unit', rateDropdownOptions('charge_unit'));
+    };
+    const renderUsersRoleFilter = () => {
+        const select = document.getElementById('users-role-select');
+        if (!select) return;
+        const currentValue = select.value;
+        const options = Object.entries(roleLabels || {})
+            .sort(([left], [right]) => Number(left) - Number(right))
+            .map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(value)} (${escapeHtml(label)})</option>`)
+            .join('');
+        select.innerHTML = `<option value="">Role</option>${options}`;
+        if (currentValue && roleLabels[String(currentValue)]) select.value = currentValue;
     };
     const validateRateAllowedValues = (object, rowLabel = 'Rate') => {
         Object.keys(RATE_DROPDOWN_FALLBACKS).forEach(column => {
@@ -7653,33 +7924,49 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderUsers = rows => {
         const body = document.querySelector('#users-table tbody');
         if (!body) return;
-        const inactiveFlag = value => value === false || value === 0 || String(value).toLowerCase() === 'false';
-        const userStatus = row => {
-            const inactive = Boolean(row.deactivated_at || row.deleted_at) || inactiveFlag(row.cw_is_active) || inactiveFlag(row.cw_is_valid);
-            return inactive ? 'Inactive' : 'Active';
-        };
+        usersRows = rows;
         body.innerHTML = rows.length ? rows.map(row => {
             const role = roleLabels[String(row.role)] || displayValue(row.role);
-            const status = userStatus(row);
+            const status = getUserStatus(row);
             const isInactive = status === 'Inactive';
             return `
                 <tr>
                     <td>${escapeHtml(displayValue(row.id))}</td>
                     <td>${escapeHtml(formatDateTime(row.created_at))}</td>
                     <td><strong>${escapeHtml(displayValue(row.username))}</strong></td>
+                    <td>${escapeHtml(displayValue(row.name || row.full_name))}</td>
+                    <td>${escapeHtml(displayValue(row.country))}</td>
                     <td><span class="badge ${String(role).toLowerCase().includes('admin') ? 'transit' : 'open'}">${escapeHtml(role)}</span></td>
                     <td><span class="badge ${isInactive ? 'exception' : 'delivered'}">${status}</span></td>
+                    <td><button class="po-detail-chip view" type="button" data-user-view-id="${escapeHtml(displayValue(row.id))}" title="View user"><i class="fa-solid fa-eye" aria-hidden="true"></i>View</button></td>
                 </tr>
             `;
-        }).join('') : '<tr><td colspan="5">No users found.</td></tr>';
+        }).join('') : '<tr><td colspan="8">No users found.</td></tr>';
+    };
+    const usersFilterList = () => {
+        const filters = [];
+        if (usersSearchQuery) filters.push({ username: `ilike,%${usersSearchQuery}%` });
+        if (usersNameQuery) filters.push({ name: `ilike,%${usersNameQuery}%` });
+        if (usersCountryQuery) filters.push({ country: `ilike,%${usersCountryQuery}%` });
+        if (usersRoleQuery) filters.push({ role: `=,${usersRoleQuery}` });
+        return filters;
+    };
+    const usersFilterHasValue = () => Boolean(usersSearchQuery || usersNameQuery || usersCountryQuery || usersRoleQuery);
+    const updateUsersFilterClear = () => {
+        const clear = document.getElementById('users-search-clear');
+        const submit = document.getElementById('users-search-submit');
+        const hasValue = usersFilterHasValue();
+        if (clear) clear.disabled = !hasValue;
+        if (submit) submit.disabled = !hasValue;
     };
     const loadUsers = async () => {
         if (!authToken || !featureAllowed('users')) return;
-        setTableMessage('users-table', 5, 'Loading users...', true);
+        setTableMessage('users-table', 8, 'Loading users...', true);
         document.getElementById('users-result-count').textContent = 'Loading users...';
         try {
             const query = new URLSearchParams({ table: 'users', limit: '50', page: String(usersCurrentPage) });
-            if (usersSearchQuery) query.set('filter', JSON.stringify([{ username: `ilike,%${usersSearchQuery}%` }]));
+            const filters = usersFilterList();
+            if (filters.length) query.set('filter', JSON.stringify(filters));
             const payload = await api(`${ADMIN_USERS_PATH}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
             const message = payload.message || {};
             const rows = Array.isArray(message.obj_list) ? message.obj_list : [];
@@ -7689,7 +7976,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('users-prev-btn').disabled = usersCurrentPage <= 1;
             document.getElementById('users-next-btn').disabled = !message.has_next_page;
         } catch (err) {
-            setTableMessage('users-table', 5, err.message || 'Unable to load users');
+            usersRows = [];
+            setTableMessage('users-table', 8, err.message || 'Unable to load users');
             document.getElementById('users-result-count').textContent = 'Users could not be loaded';
         }
     };
@@ -8372,23 +8660,54 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('users-prev-btn')?.addEventListener('click', () => { if (usersCurrentPage > 1) { usersCurrentPage--; loadUsers(); } });
     document.getElementById('users-next-btn')?.addEventListener('click', () => { usersCurrentPage++; loadUsers(); });
     document.getElementById('users-export-btn')?.addEventListener('click', exportUsers);
+    document.getElementById('users-table')?.addEventListener('click', event => {
+        const button = event.target.closest('[data-user-view-id]');
+        if (!button) return;
+        openUserViewPanel(button.dataset.userViewId);
+    });
     const usersSearchInput = document.getElementById('users-search-input');
+    const usersNameInput = document.getElementById('users-name-input');
+    const usersCountryInput = document.getElementById('users-country-input');
+    const usersRoleSelect = document.getElementById('users-role-select');
     const usersSearchClear = document.getElementById('users-search-clear');
     document.getElementById('users-search-form')?.addEventListener('submit', event => {
         event.preventDefault();
         usersSearchQuery = (usersSearchInput?.value || '').trim();
+        usersNameQuery = (usersNameInput?.value || '').trim();
+        usersCountryQuery = (usersCountryInput?.value || '').trim();
+        usersRoleQuery = (usersRoleSelect?.value || '').trim();
+        if (!usersFilterHasValue()) {
+            updateUsersFilterClear();
+            return;
+        }
         usersCurrentPage = 1;
-        if (usersSearchClear) usersSearchClear.style.display = usersSearchQuery ? '' : 'none';
+        updateUsersFilterClear();
         loadUsers();
     });
-    usersSearchInput?.addEventListener('input', () => {
-        if (usersSearchClear) usersSearchClear.style.display = usersSearchInput.value.trim() ? '' : 'none';
+    [usersSearchInput, usersNameInput, usersCountryInput].forEach(input => {
+        input?.addEventListener('input', () => {
+            usersSearchQuery = (usersSearchInput?.value || '').trim();
+            usersNameQuery = (usersNameInput?.value || '').trim();
+            usersCountryQuery = (usersCountryInput?.value || '').trim();
+            usersRoleQuery = (usersRoleSelect?.value || '').trim();
+            updateUsersFilterClear();
+        });
+    });
+    usersRoleSelect?.addEventListener('change', () => {
+        usersRoleQuery = (usersRoleSelect?.value || '').trim();
+        updateUsersFilterClear();
     });
     usersSearchClear?.addEventListener('click', () => {
         if (usersSearchInput) usersSearchInput.value = '';
+        if (usersNameInput) usersNameInput.value = '';
+        if (usersCountryInput) usersCountryInput.value = '';
+        if (usersRoleSelect) usersRoleSelect.value = '';
         usersSearchQuery = '';
+        usersNameQuery = '';
+        usersCountryQuery = '';
+        usersRoleQuery = '';
         usersCurrentPage = 1;
-        usersSearchClear.style.display = 'none';
+        updateUsersFilterClear();
         loadUsers();
     });
     document.getElementById('rates-create-btn')?.addEventListener('click', openRateCreateModal);

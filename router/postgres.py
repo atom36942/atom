@@ -362,8 +362,8 @@ async def func_api_postgres_query_ai(*, request: Request):
     max_limit = app_state.config_query_runner_read_limit
     POSTGRES_QUERY_AI_STOP_WORDS = {
         "a", "about", "all", "also", "an", "and", "any", "as", "by", "data", "for", "from", "get", "give", "in", "last", "latest", "limit",
-        "list", "me", "of", "on", "or", "record", "records", "recent", "row", "rows", "select", "show", "shipment", "shipments", "table",
-        "the", "to", "top", "with",
+        "list", "materialize", "materialized", "mat", "me", "mv", "of", "on", "or", "record", "records", "recent", "row", "rows", "select",
+        "show", "shipment", "shipments", "table", "the", "to", "top", "view", "views", "with",
     }
     def func_postgres_query_ai_schema_prompt(cache_postgres_external_schema: dict) -> list:
         output = []
@@ -380,7 +380,6 @@ async def func_api_postgres_query_ai(*, request: Request):
                 })
             output.append({"table": table_key, "relation_type": table.get("relation_type"), "columns": columns})
         return output
-
     def func_postgres_query_ai_schema_terms(cache_postgres_external_schema: dict) -> set:
         terms = set()
         for table_key, table in (cache_postgres_external_schema or {}).items():
@@ -389,7 +388,6 @@ async def func_api_postgres_query_ai(*, request: Request):
             for column_name in (table.get("columns") or {}).keys():
                 terms.update(re.findall(r"[a-z0-9]+", str(column_name or "").lower()))
         return terms
-
     def func_postgres_query_ai_question_value_terms(*, question: str, stop_words: set, cache_postgres_external_schema: dict) -> list:
         schema_terms = func_postgres_query_ai_schema_terms(cache_postgres_external_schema)
         terms = []
@@ -398,7 +396,27 @@ async def func_api_postgres_query_ai(*, request: Request):
             if word in stop_words or word in schema_terms: continue
             if word not in terms: terms.append(word)
         return terms
-
+    def func_postgres_query_ai_blocked_message(message: str) -> str:
+        message = str(message or "").strip()
+        if not message or re.search(r"\b(success|successfully|generated|done|created)\b", message, flags=re.IGNORECASE):
+            return "Could not generate a safe SQL query. Please mention a valid object. Filters must use indexed columns."
+        return message
+    def func_postgres_query_ai_quote_identifier(identifier: str) -> str:
+        return '"' + str(identifier).replace('"', '""') + '"'
+    def func_postgres_query_ai_explicit_table_limit_sql(*, question: str, default_limit: int, max_limit: int, stop_words: set, cache_postgres_external_schema: dict) -> str:
+        value_terms = func_postgres_query_ai_question_value_terms(question=question, stop_words=stop_words, cache_postgres_external_schema=cache_postgres_external_schema)
+        if value_terms: return ""
+        question_lower = question.lower()
+        for table_key, table in sorted((cache_postgres_external_schema or {}).items(), key=lambda item: len(item[0]), reverse=True):
+            if table.get("relation_type") not in {"table", "partitioned_table", "view", "materialized_view", "foreign_table"}: continue
+            table_name = str(table.get("table_name") or table_key.split(".")[-1])
+            schema_name = str(table.get("schema_name") or table_key.split(".")[0])
+            if not re.search(rf'\b{re.escape(table_name.lower())}\b', question_lower) and table_key.lower() not in question_lower: continue
+            limit_match = re.search(r'\blimit\s+(\d+)\b|\b(?:top|show|get|list)\s+(\d+)\b|\b(\d+)\s+(?:record|records|row|rows)\b', question_lower)
+            limit = max(1, min(int(next(item for item in limit_match.groups() if item)) if limit_match else default_limit, max_limit))
+            table_sql = func_postgres_query_ai_quote_identifier(table_name) if schema_name == "public" else f"{func_postgres_query_ai_quote_identifier(schema_name)}.{func_postgres_query_ai_quote_identifier(table_name)}"
+            return f"SELECT *\nFROM {table_sql}\nLIMIT {limit};"
+        return ""
     def func_postgres_query_ai_validate_sql(*, question: str, sql: str, default_limit: int, max_limit: int, stop_words: set, cache_postgres_external_schema: dict) -> str:
         sql = str(sql or "").strip().rstrip(";").strip()
         if not sql: raise Exception("AI did not generate SQL.")
@@ -412,7 +430,8 @@ async def func_api_postgres_query_ai(*, request: Request):
             table_key = ".".join(parts) if len(parts) > 1 else f"public.{parts[0]}"
             if table_key not in known_tables: raise Exception(f"AI generated SQL for unknown object: {table_key}")
             alias = raw_alias.strip().strip('"') if raw_alias else parts[-1]
-            if alias.lower() not in {"where", "join", "on", "group", "order", "limit"}: alias_to_table[alias] = table_key
+            if alias.lower() in {"where", "join", "on", "group", "order", "limit"}: alias = parts[-1]
+            alias_to_table[alias] = table_key
         where_match = re.search(r'\bwhere\b(.+?)(?:\bgroup\s+by\b|\border\s+by\b|\blimit\b|$)', sql, flags=re.IGNORECASE | re.DOTALL)
         if where_match:
             filters = re.findall(r'(?:(?:"([^"]+)"|(\w+))\s*\.\s*)?(?:"([^"]+)"|(\w+))\s*(=|<>|!=|>=|<=|>|<|\bILIKE\b|\bLIKE\b|\bIN\b|\bBETWEEN\b)', where_match.group(1), flags=re.IGNORECASE)
@@ -435,11 +454,13 @@ async def func_api_postgres_query_ai(*, request: Request):
         else:
             sql = f"{sql}\nLIMIT {default_limit}"
         return f"{sql.rstrip(';')};"
-
     cache_postgres_external_schema = getattr(app_state, "cache_postgres_external_schema", {}) or {}
     if not cache_postgres_external_schema:
         app_state.cache_postgres_external_schema = await app_state.func_postgres_ai_schema_read(client_postgres=app_state.client_postgres_external)
         cache_postgres_external_schema = app_state.cache_postgres_external_schema
+    explicit_table_limit_sql = func_postgres_query_ai_explicit_table_limit_sql(question=question, default_limit=default_limit, max_limit=max_limit, stop_words=POSTGRES_QUERY_AI_STOP_WORDS, cache_postgres_external_schema=cache_postgres_external_schema)
+    if explicit_table_limit_sql:
+        return {"status": 1, "message": {"status": "ok", "sql": explicit_table_limit_sql, "message": "SQL generated in the editor. Review before Run or Export.", "warnings": []}}
     prompt_schema = func_postgres_query_ai_schema_prompt(cache_postgres_external_schema)
     response_schema = {
         "type": "OBJECT",
@@ -463,8 +484,9 @@ async def func_api_postgres_query_ai(*, request: Request):
         "7. Do not drop user intent. If the user asks for a specific value, place, customer, port, country, status, date, or other filter, the SQL must include that filter.",
         "8. WHERE filters must use indexed columns. If the user's request requires filtering on a non-indexed column or no matching indexed column is clear, return blocked and ask admin to create an index or mention the indexed column.",
         "9. For text prefix search, use ILIKE 'value%'. Avoid broad contains search unless the column has a gin index.",
-        "10. Never return a broad SELECT just because a safe filter is unclear. Return blocked instead.",
-        "11. Do not use INSERT, UPDATE, DELETE, DROP, ALTER, CREATE, TRUNCATE, COPY, or multiple statements.",
+        "10. Limit-only SELECT from an explicitly named object is allowed and does not need an indexed filter.",
+        "11. Never return a broad SELECT when the user asked for a filter value but the safe indexed filter is unclear. Return blocked instead.",
+        "12. Do not use INSERT, UPDATE, DELETE, DROP, ALTER, CREATE, TRUNCATE, COPY, or multiple statements.",
         "",
         "User question:",
         question,
@@ -481,7 +503,7 @@ async def func_api_postgres_query_ai(*, request: Request):
     data = json.loads(response.text or "{}")
     status = str(data.get("status") or "").lower()
     if status != "ok":
-        return {"status": 1, "message": {"status": "blocked", "sql": None, "message": data.get("message") or "Could not generate a safe indexed query.", "warnings": data.get("warnings") or []}}
+        return {"status": 1, "message": {"status": "blocked", "sql": None, "message": func_postgres_query_ai_blocked_message(data.get("message")), "warnings": data.get("warnings") or []}}
     try:
         sql = func_postgres_query_ai_validate_sql(question=question, sql=data.get("sql"), default_limit=default_limit, max_limit=max_limit, stop_words=POSTGRES_QUERY_AI_STOP_WORDS, cache_postgres_external_schema=cache_postgres_external_schema)
     except Exception as e:
