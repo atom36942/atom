@@ -533,6 +533,16 @@ body {
     min-width: 0;
 }
 
+.po-toolbar-actions .btn {
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    white-space: nowrap;
+    flex: 0 0 auto;
+}
+
 .po-search {
     width: min(300px, 100%);
     flex: 1 1 260px;
@@ -811,6 +821,32 @@ body {
 
 #shipment-table th:nth-child(7),
 #shipment-table td:nth-child(7) { width: 21%; }
+
+.shipment-arrival-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.32rem;
+    margin-top: 0.35rem;
+    padding: 0.24rem 0.58rem;
+    border: 1px solid #CBD5E1;
+    border-radius: 999px;
+    background: #F8FAFC;
+    color: #475569;
+    font-size: 0.72rem;
+    font-weight: 760;
+}
+
+.shipment-arrival-pill.arrived {
+    border-color: #A7F3D0;
+    background: #ECFDF5;
+    color: #047857;
+}
+
+.shipment-arrival-pill.transit {
+    border-color: #FDE68A;
+    background: #FFFBEB;
+    color: #B45309;
+}
 
 .shipment-route {
     display: grid;
@@ -2660,6 +2696,24 @@ body {
     font-weight: 720;
 }
 
+.tracking-info-chip.arrived {
+    border-color: #A7F3D0;
+    background: #ECFDF5;
+    color: #047857;
+}
+
+.tracking-info-chip.estimated {
+    border-color: #FDE68A;
+    background: #FFFBEB;
+    color: #B45309;
+}
+
+.tracking-info-chip.pending {
+    border-color: #CBD5E1;
+    background: #F8FAFC;
+    color: #475569;
+}
+
 .tracking-info-chip i {
     flex: 0 0 auto;
 }
@@ -2734,6 +2788,114 @@ body {
     white-space: nowrap;
 }
 
+.analytics-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(150px, 1fr));
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+}
+
+.analytics-kpi-card {
+    min-width: 0;
+    padding: 0.95rem;
+    border: 1px solid #E2E8F0;
+    border-radius: 14px;
+    background: #FFFFFF;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+}
+
+.analytics-kpi-label {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #64748B;
+    font-size: 0.72rem;
+    font-weight: 850;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.analytics-kpi-label i {
+    color: var(--primary);
+}
+
+.analytics-kpi-value {
+    margin-top: 0.35rem;
+    color: #0F172A;
+    font-size: 1.55rem;
+    font-weight: 900;
+}
+
+.analytics-kpi-card.warning .analytics-kpi-label i,
+.analytics-kpi-card.warning .analytics-kpi-value {
+    color: #D97706;
+}
+
+.analytics-chart-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+    gap: var(--page-card-gap);
+}
+
+.analytics-chart-card {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.analytics-chart-body {
+    height: 280px;
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+.analytics-chart-body.compact {
+    height: 240px;
+}
+
+.analytics-chart-body canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.analytics-status-list {
+    display: grid;
+    gap: 0.65rem;
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+.analytics-status-row {
+    display: grid;
+    grid-template-columns: minmax(70px, 0.75fr) minmax(0, 1.8fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.analytics-status-name {
+    color: #334155;
+    font-size: 0.82rem;
+    font-weight: 820;
+}
+
+.analytics-status-bar {
+    height: 9px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #E2E8F0;
+}
+
+.analytics-status-fill {
+    height: 100%;
+    min-width: 4px;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #4F46E5 0%, #06B6D4 100%);
+}
+
+.analytics-status-count {
+    color: #0F172A;
+    font-size: 0.82rem;
+    font-weight: 850;
+}
+
 @media (max-width: 700px) {
     .tracking-card-route {
         grid-template-columns: 1fr;
@@ -2750,6 +2912,12 @@ body {
 
     .alert-action {
         text-align: left;
+    }
+
+    .analytics-kpi-strip,
+    .analytics-chart-grid,
+    .analytics-status-row {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -4726,12 +4894,12 @@ body.not-allowed .content-wrapper {
                                     <div class="po-kpi-value" id="alert-medium">-</div>
                                 </div>
                                 <div class="po-kpi-card">
-                                    <div class="po-kpi-label"><i class="fa-solid fa-ship" aria-hidden="true"></i> Shipment Alerts</div>
-                                    <div class="po-kpi-value" id="alert-shipment">-</div>
+                                    <div class="po-kpi-label"><i class="fa-solid fa-calendar-xmark" aria-hidden="true"></i> ETA Overdue</div>
+                                    <div class="po-kpi-value" id="alert-overdue">-</div>
                                 </div>
                                 <div class="po-kpi-card">
-                                    <div class="po-kpi-label"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> PO Alerts</div>
-                                    <div class="po-kpi-value" id="alert-po">-</div>
+                                    <div class="po-kpi-label"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Screening Review</div>
+                                    <div class="po-kpi-value" id="alert-screening">-</div>
                                 </div>
                             </div>
                         </div>
@@ -4780,45 +4948,74 @@ body.not-allowed .content-wrapper {
 
                 <!-- Analytics Section -->
                 <section id="analytics" class="view-section">
-                    <div class="panel po-panel">
-                        <div class="po-toolbar">
-                            <div class="po-heading">
-                                <h2>Analytics</h2>
-                                <p>Summary view for purchase orders, shipments, containers, and shipment trends.</p>
+                    <div class="po-page-stack">
+                        <div class="panel po-panel">
+                            <div class="po-toolbar">
+                                <div class="po-heading">
+                                    <h2>Analytics</h2>
+                                    <p>Quick operational health view for your purchase orders, shipments, and containers.</p>
+                                </div>
+                                <div class="po-toolbar-actions">
+                                    <button class="po-refresh-button compact" type="button" id="analytics-refresh-btn" aria-label="Refresh analytics" title="Refresh analytics"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
+                                </div>
                             </div>
-                            <div class="po-toolbar-actions">
-                                <button class="po-refresh-button" type="button" id="analytics-refresh-btn" aria-label="Refresh analytics" title="Refresh analytics"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
+                        </div>
+                        <div class="panel po-panel">
+                            <div class="analytics-kpi-strip">
+                                <div class="analytics-kpi-card">
+                                    <div class="analytics-kpi-label"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> Purchase Orders</div>
+                                    <div class="analytics-kpi-value" id="analytics-pos">-</div>
+                                </div>
+                                <div class="analytics-kpi-card">
+                                    <div class="analytics-kpi-label"><i class="fa-solid fa-ship" aria-hidden="true"></i> Shipments</div>
+                                    <div class="analytics-kpi-value" id="analytics-shipments">-</div>
+                                </div>
+                                <div class="analytics-kpi-card">
+                                    <div class="analytics-kpi-label"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i> Containers</div>
+                                    <div class="analytics-kpi-value" id="analytics-containers">-</div>
+                                </div>
+                                <div class="analytics-kpi-card warning">
+                                    <div class="analytics-kpi-label"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Delayed</div>
+                                    <div class="analytics-kpi-value" id="analytics-delayed">-</div>
+                                </div>
+                                <div class="analytics-kpi-card">
+                                    <div class="analytics-kpi-label"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Arriving 7 Days</div>
+                                    <div class="analytics-kpi-value" id="analytics-arriving">-</div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="kpi-row">
-                        <div class="kpi-card">
-                            <h4>Purchase Orders</h4>
-                            <div class="val" id="analytics-pos">-</div>
+                        <div class="analytics-chart-grid">
+                            <div class="panel po-panel analytics-chart-card">
+                                <div class="tracking-event-header">
+                                    <div>
+                                        <div class="tracking-event-title">Shipment Volume</div>
+                                        <div class="tracking-event-subtitle">Monthly shipment trend from CargoWise</div>
+                                    </div>
+                                </div>
+                                <div class="analytics-chart-body">
+                                    <canvas id="volumeChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="panel po-panel analytics-chart-card">
+                                <div class="tracking-event-header">
+                                    <div>
+                                        <div class="tracking-event-title">Transport Mode Mix</div>
+                                        <div class="tracking-event-subtitle">How shipments are moving</div>
+                                    </div>
+                                </div>
+                                <div class="analytics-chart-body compact">
+                                    <canvas id="spendChart"></canvas>
+                                </div>
+                            </div>
                         </div>
-                        <div class="kpi-card">
-                            <h4>Shipments</h4>
-                            <div class="val" id="analytics-shipments">-</div>
-                        </div>
-                        <div class="kpi-card">
-                            <h4>Containers</h4>
-                            <div class="val" id="analytics-containers">-</div>
-                        </div>
-                    </div>
-                    <div class="kpi-row">
-                        <div class="panel" style="flex: 1; margin-bottom: 0;">
-                            <div class="panel-header"><h3>Shipment Volume (Monthly)</h3></div>
-                            <canvas id="volumeChart" height="250"></canvas>
-                        </div>
-                        <div class="panel" style="flex: 1; margin-bottom: 0;">
-                            <div class="panel-header"><h3>Shipment Status</h3></div>
-                            <canvas id="carrierChart" height="250"></canvas>
-                        </div>
-                    </div>
-                    <div class="panel">
-                        <div class="panel-header"><h3>Transport Mode Mix</h3></div>
-                        <div style="width: 300px; margin: 0 auto;">
-                            <canvas id="spendChart"></canvas>
+                        <div class="panel po-panel analytics-chart-card">
+                            <div class="tracking-event-header">
+                                <div>
+                                    <div class="tracking-event-title">Shipment Status</div>
+                                    <div class="tracking-event-subtitle">Current status split across accessible shipments</div>
+                                </div>
+                            </div>
+                            <div class="analytics-status-list" id="analytics-status-list"></div>
                         </div>
                     </div>
                 </section>
@@ -6527,6 +6724,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     detailFieldHtml('Destination', row.destination, 'fa-location-crosshairs'),
                     detailFieldHtml('ETD', formatDate(row.etd), 'fa-calendar-minus'),
                     detailFieldHtml('ETA', formatDate(eta), 'fa-calendar-check'),
+                    detailFieldHtml('Arrival Status', row.arrival_status, 'fa-circle-check'),
                     detailFieldHtml('Client ETA', formatDate(row.client_requested_eta), 'fa-user-clock'),
                     detailFieldHtml('Delivery Due', formatDate(row.delivery_due_date), 'fa-truck')
                 ])}
@@ -6653,6 +6851,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasTracking = Number(row.has_tracking || 0) === 1;
             const hasDocuments = Number(row.has_documents || 0) === 1;
             const hasPurchaseOrders = Number(row.has_purchase_orders || 0) === 1;
+            const arrivalStatus = displayValue(row.arrival_status || 'Arrival Pending');
+            const arrivalClass = arrivalStatus === 'Arrived' ? 'arrived' : arrivalStatus === 'In Transit' ? 'transit' : '';
+            const arrivalIcon = arrivalStatus === 'Arrived' ? 'fa-circle-check' : arrivalStatus === 'In Transit' ? 'fa-route' : 'fa-hourglass-half';
             return `
             <tr data-shipment-id="${escapeHtml(shipmentId)}" data-shipment-number="${escapeHtml(shipmentNo)}" data-origin="${escapeHtml(displayValue(row.origin))}" data-destination="${escapeHtml(displayValue(row.destination))}" data-mode="${escapeHtml(displayValue(row.transport_mode))}" data-status="${escapeHtml(displayValue(row.status))}">
                 <td>
@@ -6667,6 +6868,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td><span class="po-primary" title="${escapeHtml(displayValue(row.destination))}">${escapeHtml(displayValue(row.destination))}</span></td>
                 <td>
                     <div class="po-date-range"><i class="fa-regular fa-calendar" aria-hidden="true"></i><span>${escapeHtml(formatDate(eta))}</span></div>
+                    <span class="shipment-arrival-pill ${arrivalClass}"><i class="fa-solid ${arrivalIcon}" aria-hidden="true"></i>${escapeHtml(arrivalStatus)}</span>
                     ${etd ? `<span class="po-secondary">ETD: ${escapeHtml(formatDate(etd))}</span>` : ''}
                 </td>
                 <td>
@@ -6752,6 +6954,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const eventLocation = locationMatch ? locationMatch[1] : '';
             const eventName = displayValue(row.event_name || row.event_code);
             const eventSummary = `${eventName}${eventLocation ? ` at ${eventLocation}` : ''}`;
+            const eventText = `${row.event_name || ''} ${row.event_code || ''}`.toLowerCase();
+            const isArrivalEvent = eventText.includes('arrival') || eventText.includes('arrived') || eventText.includes('arv');
+            const trackingPill = isArrivalEvent && !isEstimate
+                ? { label: 'Arrived', icon: 'fa-circle-check', className: 'arrived' }
+                : isArrivalEvent
+                    ? { label: 'Estimated Arrival', icon: 'fa-clock', className: 'estimated' }
+                    : row.eta
+                        ? { label: 'In Transit', icon: 'fa-route', className: 'pending' }
+                        : { label: 'Tracking Pending', icon: 'fa-hourglass-half', className: 'pending' };
             return `
                 <article class="tracking-event-card ${itemClass}">
                     <div class="tracking-event-main">
@@ -6778,6 +6989,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <div class="tracking-card-shipment">
                             <span class="tracking-info-chip strong"><i class="fa-solid fa-circle-info" aria-hidden="true"></i>${escapeHtml(eventSummary)}</span>
+                            <span class="tracking-info-chip ${trackingPill.className}"><i class="fa-solid ${trackingPill.icon}" aria-hidden="true"></i>${escapeHtml(trackingPill.label)}</span>
                             ${row.event_at ? `<span class="tracking-info-chip"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i>${escapeHtml(formatDateTime(row.event_at))}</span>` : ''}
                             ${row.posted_at ? `<span class="tracking-info-chip subtle"><i class="fa-regular fa-clock" aria-hidden="true"></i>Updated in CargoWise ${escapeHtml(formatRelativeTime(row.posted_at))}</span>` : ''}
                             <span class="tracking-info-chip">${escapeHtml(displayValue(row.transport_mode))}</span>
@@ -6794,13 +7006,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!list) return;
         const highCount = rows.filter(row => String(row.severity || '').toLowerCase() === 'high').length;
         const mediumCount = rows.filter(row => String(row.severity || '').toLowerCase() === 'medium').length;
-        const shipmentCount = rows.filter(row => String(row.source_type || '').toLowerCase() === 'shipment').length;
-        const poCount = rows.filter(row => String(row.source_type || '').toLowerCase() === 'purchase order').length;
+        const overdueCount = rows.filter(row => String(row.exception_type || '').toLowerCase() === 'eta overdue').length;
+        const screeningCount = rows.filter(row => String(row.exception_type || '').toLowerCase() === 'screening review').length;
         document.getElementById('alert-total').textContent = rows.length.toLocaleString();
         document.getElementById('alert-high').textContent = highCount.toLocaleString();
         document.getElementById('alert-medium').textContent = mediumCount.toLocaleString();
-        document.getElementById('alert-shipment').textContent = shipmentCount.toLocaleString();
-        document.getElementById('alert-po').textContent = poCount.toLocaleString();
+        document.getElementById('alert-overdue').textContent = overdueCount.toLocaleString();
+        document.getElementById('alert-screening').textContent = screeningCount.toLocaleString();
         document.getElementById('alert-result-count').innerHTML = `<strong>${rows.length}</strong> alert${rows.length === 1 ? '' : 's'} on this page`;
         list.innerHTML = rows.length ? rows.map(row => {
             const severity = String(row.severity || '').toLowerCase();
@@ -7590,26 +7802,77 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const renderAnalytics = data => {
         const kpis = data.kpis || {};
-        document.getElementById('analytics-pos').textContent = displayValue(kpis.purchase_orders);
-        document.getElementById('analytics-shipments').textContent = displayValue(kpis.shipments);
-        document.getElementById('analytics-containers').textContent = displayValue(kpis.containers);
+        document.getElementById('analytics-pos').textContent = Number(kpis.purchase_orders || 0).toLocaleString();
+        document.getElementById('analytics-shipments').textContent = Number(kpis.shipments || 0).toLocaleString();
+        document.getElementById('analytics-containers').textContent = Number(kpis.containers || 0).toLocaleString();
+        document.getElementById('analytics-delayed').textContent = Number(kpis.delayed_shipments || 0).toLocaleString();
+        document.getElementById('analytics-arriving').textContent = Number(kpis.arriving_soon_shipments || 0).toLocaleString();
         const monthly = [...(data.shipments_by_month || [])].reverse();
         const statuses = data.shipments_by_status || [];
         const modes = data.transport_modes || [];
+        const chartTextColor = '#64748B';
+        const chartGridColor = 'rgba(148, 163, 184, 0.18)';
         renderChart('volumeChart', {
             type: 'line',
-            data: { labels: monthly.map(item => item.month || '-'), datasets: [{ label: 'Shipments', data: monthly.map(item => item.count || 0), borderColor: '#4F46E5', tension: 0.2, fill: false }] },
-            options: { maintainAspectRatio: false }
-        });
-        renderChart('carrierChart', {
-            type: 'bar',
-            data: { labels: statuses.map(item => displayValue(item.status)), datasets: [{ label: 'Shipments', data: statuses.map(item => item.count || 0), backgroundColor: '#10B981' }] },
-            options: { maintainAspectRatio: false }
+            data: {
+                labels: monthly.map(item => item.month || '-'),
+                datasets: [{
+                    label: 'Shipments',
+                    data: monthly.map(item => Number(item.count || 0)),
+                    borderColor: '#4F46E5',
+                    backgroundColor: 'rgba(79, 70, 229, 0.12)',
+                    borderWidth: 3,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    tension: 0.35,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: chartTextColor, maxRotation: 0 } },
+                    y: { beginAtZero: true, grid: { color: chartGridColor }, ticks: { color: chartTextColor, precision: 0 } }
+                }
+            }
         });
         renderChart('spendChart', {
             type: 'doughnut',
-            data: { labels: modes.map(item => displayValue(item.transport_mode)), datasets: [{ data: modes.map(item => item.count || 0), backgroundColor: ['#4F46E5', '#F59E0B', '#10B981', '#EF4444', '#64748B'] }] }
+            data: {
+                labels: modes.map(item => displayValue(item.transport_mode)),
+                datasets: [{
+                    data: modes.map(item => Number(item.count || 0)),
+                    backgroundColor: ['#4F46E5', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#64748B'],
+                    borderWidth: 0,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '68%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: chartTextColor, boxWidth: 10, usePointStyle: true } }
+                }
+            }
         });
+        const statusList = document.getElementById('analytics-status-list');
+        if (statusList) {
+            const maxStatusCount = Math.max(...statuses.map(item => Number(item.count || 0)), 1);
+            statusList.innerHTML = statuses.length ? statuses.slice(0, 8).map(item => {
+                const count = Number(item.count || 0);
+                const width = Math.max(4, Math.round((count / maxStatusCount) * 100));
+                return `
+                    <div class="analytics-status-row">
+                        <div class="analytics-status-name">${escapeHtml(displayValue(item.status))}</div>
+                        <div class="analytics-status-bar"><div class="analytics-status-fill" style="width:${width}%"></div></div>
+                        <div class="analytics-status-count">${escapeHtml(count.toLocaleString())}</div>
+                    </div>
+                `;
+            }).join('') : '<div class="empty-state">No shipment status data available.</div>';
+        }
     };
     const renderModule = (target, data) => {
         if (target === 'purchase-orders') renderPurchaseOrders(Array.isArray(data) ? data : []);
@@ -7696,7 +7959,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target === 'alerts') {
             setBlockMessage('alerts-list', 'Loading alerts...');
             document.getElementById('alert-result-count').textContent = 'Loading alerts...';
-            ['total', 'high', 'medium', 'shipment', 'po'].forEach(key => {
+            ['total', 'high', 'medium', 'overdue', 'screening'].forEach(key => {
                 const el = document.getElementById(`alert-${key}`);
                 if (el) el.textContent = '-';
             });

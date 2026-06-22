@@ -520,6 +520,7 @@ async def func_api_my_cargowise_shipments(*, request: Request):
             Summary.has_containers,
             Summary.has_tracking,
             Summary.has_documents,
+            Summary.arrival_status,
             JS.JS_SystemCreateTimeUtc AS created_at,
             JS.JS_SystemLastEditTimeUtc AS updated_at
         FROM visible_shipments AS VS
@@ -549,6 +550,25 @@ async def func_api_my_cargowise_shipments(*, request: Request):
                       AND ALFlag.SL_EventTime IS NOT NULL
                       AND ISNULL(ALFlag.SL_IsCancelled, 'N') <> 'Y'
                 ) THEN 1 ELSE 0 END AS has_tracking,
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1
+                        FROM dbo.StmALog AS ALArrival
+                        LEFT JOIN dbo.StmEvent AS SEArrival ON SEArrival.SE_Code = ALArrival.SL_SE_NKEvent
+                        WHERE ALArrival.SL_Table = 'JobShipment'
+                          AND ALArrival.SL_Parent = JS.JS_PK
+                          AND ALArrival.SL_EventTime IS NOT NULL
+                          AND ISNULL(ALArrival.SL_IsCancelled, 'N') <> 'Y'
+                          AND ISNULL(ALArrival.SL_IsEstimate, 'N') <> 'Y'
+                          AND (
+                                LOWER(COALESCE(SEArrival.SE_Desc, '')) LIKE '%arrival%'
+                             OR LOWER(COALESCE(SEArrival.SE_Desc, '')) LIKE '%arrived%'
+                             OR LOWER(COALESCE(ALArrival.SL_SE_NKEvent, '')) LIKE '%arv%'
+                          )
+                    ) THEN 'Arrived'
+                    WHEN JS.JS_E_ARV IS NOT NULL THEN 'In Transit'
+                    ELSE 'Arrival Pending'
+                END AS arrival_status,
                 CASE WHEN EXISTS (
                     SELECT 1
                     FROM dbo.JobRequiredDocument AS EQFlag
@@ -788,21 +808,7 @@ async def func_api_my_cargowise_alerts(*, request: Request):
     sql = f"""
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
-        WITH visible_orders AS (
-            SELECT DISTINCT JD.JD_PK
-            FROM dbo.JobOrderHeader AS JD
-            LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
-            LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
-            WHERE JD.JD_IsValid = 1
-              AND (
-                    BuyerOA.OA_OH = @org
-                 OR SupplierOA.OA_OH = @org
-                 OR JD.JD_OH_Carrier = @org
-                 OR JD.JD_OH_SendingAgent = @org
-                 OR JD.JD_OH_ReceivingAgent = @org
-              )
-        ),
-        visible_shipments AS (
+        WITH visible_shipments AS (
             SELECT DISTINCT JS.JS_PK
             FROM dbo.JobShipment AS JS
             LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
@@ -826,47 +832,38 @@ async def func_api_my_cargowise_alerts(*, request: Request):
                  OR JD.JD_OH_ReceivingAgent = @org
               )
         ),
-        exception_rows AS (
-            SELECT
-                'Purchase Order' AS source_type,
-                CONVERT(varchar(36), JD.JD_PK) AS source_id,
-                JD.JD_OrderNumber AS reference,
-                'Order Cancelled' AS exception_type,
-                'High' AS severity,
-                JD.JD_OrderStatus AS status,
-                JD.JD_SystemLastEditTimeUtc AS event_at,
-                'Purchase order is marked cancelled.' AS note
-            FROM visible_orders AS VO
-            JOIN dbo.JobOrderHeader AS JD ON JD.JD_PK = VO.JD_PK
-            WHERE JD.JD_IsCancelled = 1
-            UNION ALL
-            SELECT
-                'Purchase Order',
-                CONVERT(varchar(36), JD.JD_PK),
-                JD.JD_OrderNumber,
-                'Delivery Date Overdue',
-                'Medium',
-                JD.JD_OrderStatus,
-                JD.JD_DeliveryRequiredBy,
-                'Required delivery date has passed.'
-            FROM visible_orders AS VO
-            JOIN dbo.JobOrderHeader AS JD ON JD.JD_PK = VO.JD_PK
-            WHERE JD.JD_IsCancelled = 0
-              AND JD.JD_OrderStatus NOT IN ('CLS', 'FIN', 'DEL', 'COM')
-              AND JD.JD_DeliveryRequiredBy IS NOT NULL
-              AND JD.JD_DeliveryRequiredBy < SYSUTCDATETIME()
-            UNION ALL
-            SELECT
-                'Shipment',
-                CONVERT(varchar(36), JS.JS_PK),
-                JS.JS_UniqueConsignRef,
-                'Shipment Cancelled',
-                'High',
-                JS.JS_ShipmentStatus,
-                JS.JS_SystemLastEditTimeUtc,
-                'Shipment is marked cancelled.'
+        pending_shipments AS (
+            SELECT VS.JS_PK
             FROM visible_shipments AS VS
             JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM dbo.StmALog AS ALArrival
+                LEFT JOIN dbo.StmEvent AS SEArrival ON SEArrival.SE_Code = ALArrival.SL_SE_NKEvent
+                WHERE ALArrival.SL_Table = 'JobShipment'
+                  AND ALArrival.SL_Parent = JS.JS_PK
+                  AND ALArrival.SL_EventTime IS NOT NULL
+                  AND ISNULL(ALArrival.SL_IsCancelled, 'N') <> 'Y'
+                  AND ISNULL(ALArrival.SL_IsEstimate, 'N') <> 'Y'
+                  AND (
+                        LOWER(COALESCE(SEArrival.SE_Desc, '')) LIKE '%arrival%'
+                     OR LOWER(COALESCE(SEArrival.SE_Desc, '')) LIKE '%arrived%'
+                     OR LOWER(COALESCE(ALArrival.SL_SE_NKEvent, '')) LIKE '%arv%'
+                  )
+            )
+        ),
+        exception_rows AS (
+            SELECT
+                'Shipment' AS source_type,
+                CONVERT(varchar(36), JS.JS_PK) AS source_id,
+                JS.JS_UniqueConsignRef AS reference,
+                'Shipment Cancelled' AS exception_type,
+                'High' AS severity,
+                JS.JS_ShipmentStatus AS status,
+                JS.JS_SystemLastEditTimeUtc AS event_at,
+                'Shipment is marked cancelled.' AS note
+            FROM pending_shipments AS PS
+            JOIN dbo.JobShipment AS JS ON JS.JS_PK = PS.JS_PK
             WHERE JS.JS_IsCancelled = 1
             UNION ALL
             SELECT
@@ -878,8 +875,8 @@ async def func_api_my_cargowise_alerts(*, request: Request):
                 JS.JS_ShipmentStatus,
                 JS.JS_E_ARV,
                 'Estimated arrival date has passed.'
-            FROM visible_shipments AS VS
-            JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
+            FROM pending_shipments AS PS
+            JOIN dbo.JobShipment AS JS ON JS.JS_PK = PS.JS_PK
             WHERE JS.JS_IsCancelled = 0
               AND JS.JS_ShipmentStatus NOT IN ('CLS', 'FIN', 'DEL', 'COM')
               AND JS.JS_E_ARV IS NOT NULL
@@ -894,8 +891,8 @@ async def func_api_my_cargowise_alerts(*, request: Request):
                 JS.JS_ScreeningStatus,
                 JS.JS_SystemLastEditTimeUtc,
                 'Screening status requires review.'
-            FROM visible_shipments AS VS
-            JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
+            FROM pending_shipments AS PS
+            JOIN dbo.JobShipment AS JS ON JS.JS_PK = PS.JS_PK
             WHERE JS.JS_ScreeningStatus IS NOT NULL
               AND JS.JS_ScreeningStatus NOT IN ('', 'NOT')
         )
