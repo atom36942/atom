@@ -1,13 +1,95 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
+import asyncio
 import csv
 import io
+import json
+import re
 from datetime import date, datetime, time
 from decimal import Decimal
 from uuid import UUID
+from google.genai import types
 
 # router
 router = APIRouter()
+
+# helper
+POSTGRES_QUERY_AI_STOP_WORDS = {
+    "a", "about", "all", "also", "an", "and", "any", "as", "by", "data", "for", "from", "get", "give", "in", "last", "latest", "limit",
+    "list", "me", "of", "on", "or", "record", "records", "recent", "row", "rows", "select", "show", "shipment", "shipments", "table",
+    "the", "to", "top", "with",
+}
+
+def func_postgres_query_ai_schema_prompt(cache_postgres_external_schema: dict) -> list:
+    output = []
+    for table_key, table in sorted((cache_postgres_external_schema or {}).items()):
+        columns = []
+        for column_name, column in sorted(table.get("columns", {}).items()):
+            columns.append({
+                "name": column_name,
+                "data_type": column.get("data_type"),
+                "is_indexed": bool(column.get("is_indexed")),
+                "index_methods": column.get("index_methods") or [],
+                "is_primary": bool(column.get("is_primary")),
+                "is_unique": bool(column.get("is_unique")),
+            })
+        output.append({"table": table_key, "relation_type": table.get("relation_type"), "columns": columns})
+    return output
+
+def func_postgres_query_ai_schema_terms(cache_postgres_external_schema: dict) -> set:
+    terms = set()
+    for table_key, table in (cache_postgres_external_schema or {}).items():
+        for item in [table_key, table.get("schema_name"), table.get("table_name"), table.get("relation_type")]:
+            terms.update(re.findall(r"[a-z0-9]+", str(item or "").lower()))
+        for column_name in (table.get("columns") or {}).keys():
+            terms.update(re.findall(r"[a-z0-9]+", str(column_name or "").lower()))
+    return terms
+
+def func_postgres_query_ai_question_value_terms(*, question: str, cache_postgres_external_schema: dict) -> list:
+    schema_terms = func_postgres_query_ai_schema_terms(cache_postgres_external_schema)
+    terms = []
+    for word in re.findall(r"[a-z0-9]+", str(question or "").lower()):
+        if len(word) < 3 or word.isdigit(): continue
+        if word in POSTGRES_QUERY_AI_STOP_WORDS or word in schema_terms: continue
+        if word not in terms: terms.append(word)
+    return terms
+
+def func_postgres_query_ai_validate_sql(*, question: str, sql: str, default_limit: int, max_limit: int, cache_postgres_external_schema: dict) -> str:
+    sql = str(sql or "").strip().rstrip(";").strip()
+    if not sql: raise Exception("AI did not generate SQL.")
+    if ";" in sql: raise Exception("AI generated multiple SQL statements.")
+    if not sql.lower().lstrip("(").strip().startswith(("select", "with")): raise Exception("AI generated non-read SQL.")
+    known_tables = set((cache_postgres_external_schema or {}).keys())
+    table_matches = re.findall(r'\b(?:from|join)\s+((?:"[^"]+"|\w+)(?:\s*\.\s*(?:"[^"]+"|\w+))?)(?:\s+(?:as\s+)?("[^"]+"|\w+))?', sql, flags=re.IGNORECASE)
+    alias_to_table = {}
+    for raw_table, raw_alias in table_matches:
+        parts = [part.strip().strip('"') for part in raw_table.split(".")]
+        table_key = ".".join(parts) if len(parts) > 1 else f"public.{parts[0]}"
+        if table_key not in known_tables: raise Exception(f"AI generated SQL for unknown object: {table_key}")
+        alias = raw_alias.strip().strip('"') if raw_alias else parts[-1]
+        if alias.lower() not in {"where", "join", "on", "group", "order", "limit"}: alias_to_table[alias] = table_key
+    where_match = re.search(r'\bwhere\b(.+?)(?:\bgroup\s+by\b|\border\s+by\b|\blimit\b|$)', sql, flags=re.IGNORECASE | re.DOTALL)
+    if where_match:
+        filters = re.findall(r'(?:(?:"([^"]+)"|(\w+))\s*\.\s*)?(?:"([^"]+)"|(\w+))\s*(=|<>|!=|>=|<=|>|<|\bILIKE\b|\bLIKE\b|\bIN\b|\bBETWEEN\b)', where_match.group(1), flags=re.IGNORECASE)
+        for quoted_alias, plain_alias, quoted_col, plain_col, _operator in filters:
+            alias = quoted_alias or plain_alias
+            column = quoted_col or plain_col
+            candidate_tables = [alias_to_table[alias]] if alias and alias in alias_to_table else list(alias_to_table.values())
+            column_matches = [cache_postgres_external_schema[table_key]["columns"].get(column) for table_key in candidate_tables if column in cache_postgres_external_schema.get(table_key, {}).get("columns", {})]
+            if column_matches and not any(col.get("is_indexed") for col in column_matches): raise Exception(f"AI generated filter on non-indexed column: {column}")
+    value_terms = func_postgres_query_ai_question_value_terms(question=question, cache_postgres_external_schema=cache_postgres_external_schema)
+    if value_terms:
+        sql_lower = sql.lower()
+        missing_terms = [term for term in value_terms if term not in sql_lower]
+        if missing_terms: raise Exception(f"AI skipped requested filter value: {', '.join(missing_terms[:3])}. Please ask with an indexed column name, or ask admin to create the required index.")
+        if not re.search(r"\b(where|having)\b", sql, flags=re.IGNORECASE): raise Exception("AI skipped the requested filter. Please ask with an indexed column name.")
+    limit_match = re.search(r'\blimit\s+(\d+)\s*$', sql, flags=re.IGNORECASE)
+    if limit_match:
+        limit = max(1, min(int(limit_match.group(1)), max_limit))
+        sql = re.sub(r'\blimit\s+\d+\s*$', f"LIMIT {limit}", sql, flags=re.IGNORECASE)
+    else:
+        sql = f"{sql}\nLIMIT {default_limit}"
+    return f"{sql.rstrip(';')};"
 
 # api
 @router.get("/postgres/database-info")
@@ -346,3 +428,64 @@ async def func_api_postgres_query_runner_read_export(*, request: Request):
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=postgres_query_result.csv"},
     )
+
+@router.post("/postgres/query-ai")
+async def func_api_postgres_query_ai(*, request: Request):
+    app_state = request.app.state
+    if not app_state.client_gemini: raise Exception("Gemini client not initialized")
+    if not app_state.client_postgres_external: raise Exception("external postgres client not initialized")
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("question", "str", 1, None, None)])
+    question = str(ob["question"] or "").strip()
+    default_limit = 10
+    max_limit = app_state.config_query_runner_read_limit
+    cache_postgres_external_schema = getattr(app_state, "cache_postgres_external_schema", {}) or {}
+    if not cache_postgres_external_schema:
+        app_state.cache_postgres_external_schema = await app_state.func_postgres_ai_schema_read(client_postgres=app_state.client_postgres_external)
+        cache_postgres_external_schema = app_state.cache_postgres_external_schema
+    prompt_schema = func_postgres_query_ai_schema_prompt(cache_postgres_external_schema)
+    response_schema = {
+        "type": "OBJECT",
+        "properties": {
+            "status": {"type": "STRING"},
+            "sql": {"type": "STRING", "nullable": True},
+            "message": {"type": "STRING"},
+            "warnings": {"type": "ARRAY", "items": {"type": "STRING"}},
+        },
+    }
+    prompt = "\n".join([
+        "You generate safe PostgreSQL SELECT SQL for an internal read-only query runner.",
+        "",
+        "Rules:",
+        "1. Return JSON only in the requested schema.",
+        '2. If the request cannot be answered safely, return status "blocked", sql null, and a short message.',
+        "3. Generate only SELECT or WITH SQL.",
+        "4. Use only objects and columns from the schema below.",
+        f"5. If the user asks for a limit, use that LIMIT up to {max_limit}. If the user does not ask for a limit, use LIMIT {default_limit}.",
+        "6. Prefer public schema objects without schema qualification when schema_name is public.",
+        "7. Do not drop user intent. If the user asks for a specific value, place, customer, port, country, status, date, or other filter, the SQL must include that filter.",
+        "8. WHERE filters must use indexed columns. If the user's request requires filtering on a non-indexed column or no matching indexed column is clear, return blocked and ask admin to create an index or mention the indexed column.",
+        "9. For text prefix search, use ILIKE 'value%'. Avoid broad contains search unless the column has a gin index.",
+        "10. Never return a broad SELECT just because a safe filter is unclear. Return blocked instead.",
+        "11. Do not use INSERT, UPDATE, DELETE, DROP, ALTER, CREATE, TRUNCATE, COPY, or multiple statements.",
+        "",
+        "User question:",
+        question,
+        "",
+        "Schema:",
+        json.dumps(prompt_schema, separators=(",", ":")),
+    ])
+    response = await asyncio.to_thread(
+        app_state.client_gemini.models.generate_content,
+        model="gemini-2.5-flash",
+        contents=prompt,
+        config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=response_schema, temperature=0.1),
+    )
+    data = json.loads(response.text or "{}")
+    status = str(data.get("status") or "").lower()
+    if status != "ok":
+        return {"status": 1, "message": {"status": "blocked", "sql": None, "message": data.get("message") or "Could not generate a safe indexed query.", "warnings": data.get("warnings") or []}}
+    try:
+        sql = func_postgres_query_ai_validate_sql(question=question, sql=data.get("sql"), default_limit=default_limit, max_limit=max_limit, cache_postgres_external_schema=cache_postgres_external_schema)
+    except Exception as e:
+        return {"status": 1, "message": {"status": "blocked", "sql": None, "message": str(e), "warnings": data.get("warnings") or []}}
+    return {"status": 1, "message": {"status": "ok", "sql": sql, "message": "SQL generated in the editor. Review before Run or Export.", "warnings": data.get("warnings") or []}}

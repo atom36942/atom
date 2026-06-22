@@ -211,11 +211,12 @@ config_api = {
 "/quotations/decision": {"id": 80, "is_token": 1, "user_check_role": ["token", [4]]},
 "/quotations": {"id": 81, "is_token": 1, "user_check_role": ["token", [4]]},
 # POSTGRES ROUTER
-"/postgres/database-info": {"id": 84, "is_token": 1, "api_cache_sec": ["inmemory", 60, 1]},
-"/postgres/schema": {"id": 85, "is_token": 1, "api_cache_sec": ["inmemory", 300, 1]},
+"/postgres/database-info": {"id": 84, "is_token": 1, "user_check_role": ["token", [1]], "api_cache_sec": ["inmemory", 60, 1]},
+"/postgres/schema": {"id": 85, "is_token": 1, "user_check_role": ["token", [1]], "api_cache_sec": ["inmemory", 300, 1]},
 "/postgres/query-runner-write": {"id": 88, "is_token": 1, "user_check_role": ["token", [1]]},
-"/postgres/query-runner-read": {"id": 86, "is_token": 1},
-"/postgres/query-runner-read-export": {"id": 87, "is_token": 1},
+"/postgres/query-runner-read": {"id": 86, "is_token": 1, "user_check_role": ["token", [1]]},
+"/postgres/query-runner-read-export": {"id": 87, "is_token": 1, "user_check_role": ["token", [1]]},
+"/postgres/query-ai": {"id": 90, "is_token": 1, "user_check_role": ["token", [1]]},
 }
 
 config_column_int_mapping = {

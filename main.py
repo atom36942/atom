@@ -41,6 +41,8 @@ if importlib.util.find_spec("config_extend"): from config_extend import *
 @asynccontextmanager
 async def func_lifespan(app:"FastAPI"):
     try:
+        app.state.runtime_background_tasks = set()
+        app.state.pulse_flush_task = None
         # start
         start_journey = time.perf_counter()
         # check
@@ -81,6 +83,10 @@ async def func_lifespan(app:"FastAPI"):
         if client_postgres and app.state.config_is_enable_postgres_schema_init: await app.state.func_postgres_schema_init(client_postgres=client_postgres, config_postgres=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(config_root_user_password) if config_root_user_password else None)
         # cache init
         cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres=client_postgres_read_fallback) if client_postgres_read_fallback else {}
+        try: cache_postgres_external_schema = await app.state.func_postgres_ai_schema_read(client_postgres=client_postgres_external) if client_postgres_external else {}
+        except Exception as e:
+            print(f"❌ external postgres AI schema cache init error: {e}")
+            cache_postgres_external_schema = {}
         cache_config = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("config"), is_json_value=1) if client_postgres_read_fallback and "config" in cache_postgres_schema else {}
         cache_postgres_table_list = list(cache_postgres_schema.keys())
         cache_postgres_column_list = sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
@@ -92,7 +98,7 @@ async def func_lifespan(app:"FastAPI"):
         cache_users_role = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("users_role")) if client_postgres_read_fallback else {}
         cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("users_deactivated")) if client_postgres_read_fallback else {}
         cache_users_deleted = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("users_deleted")) if client_postgres_read_fallback else {}
-        cache_ratelimiter, cache_api_response, cache_postgres_buffer_create, runtime_background_tasks = {}, {}, {}, set()
+        cache_ratelimiter, cache_api_response, cache_postgres_buffer_create, runtime_background_tasks = {}, {}, {}, app.state.runtime_background_tasks
         # flush lock
         app.state.flush_lock, app.state.pulse_flush_task = asyncio.Lock(), None
         # app state add
@@ -115,14 +121,16 @@ async def func_lifespan(app:"FastAPI"):
     # shutdown
     yield
     try:
-        if app.state.runtime_background_tasks:
-            pending_tasks = set(app.state.runtime_background_tasks)
+        runtime_background_tasks = getattr(app.state, "runtime_background_tasks", set())
+        if runtime_background_tasks:
+            pending_tasks = set(runtime_background_tasks)
             for task in pending_tasks: task.cancel()
             await asyncio.wait(pending_tasks, timeout=5)
         # background task stop
-        if app.state.pulse_flush_task:
-            app.state.pulse_flush_task.cancel()
-            try: await app.state.pulse_flush_task
+        pulse_flush_task = getattr(app.state, "pulse_flush_task", None)
+        if pulse_flush_task:
+            pulse_flush_task.cancel()
+            try: await pulse_flush_task
             except asyncio.CancelledError: pass
         # postgres buffer flush final
         if client_postgres:

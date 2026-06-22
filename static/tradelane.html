@@ -486,6 +486,7 @@ body {
 .panel-header h3 {
     margin: 0;
     font-size: 1.05rem;
+    line-height: 1.2;
 }
 
 .placeholder-grid {
@@ -799,11 +800,17 @@ body {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 1rem;
-    align-items: start;
+    align-items: stretch;
 }
 
-.query-builder-panel {
+.query-builder-panel,
+.query-ai-panel {
     margin: 0;
+    min-height: 230px;
+}
+
+.query-editor-panel {
+    margin-top: 1rem;
 }
 
 .query-builder-actions {
@@ -838,6 +845,7 @@ body {
 
 .query-builder-field input,
 .query-builder-field select,
+.query-ai-question,
 .query-builder-filter-row input,
 .query-builder-filter-row select {
     width: 100%;
@@ -850,6 +858,16 @@ body {
     color: var(--text-dark);
     font: inherit;
     font-size: 0.84rem;
+}
+
+.query-ai-form {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.query-ai-question {
+    min-height: 112px;
+    resize: vertical;
 }
 
 #query-builder-limit {
@@ -981,10 +999,9 @@ body {
     z-index: 1;
     background: #F9FAFB;
     color: var(--text-muted);
-    font-size: 0.72rem;
+    font-size: 0.8rem;
     font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    letter-spacing: 0;
 }
 
 .query-cell {
@@ -1612,16 +1629,26 @@ body.logged-out .content-wrapper {
                             <div class="query-builder-filter-list" id="query-builder-filter-list"></div>
                             <p class="query-builder-message" id="query-builder-message"></p>
                         </div>
-                        <div class="panel">
-                            <form class="query-form" id="query-runner-form">
-                                <textarea class="query-editor" id="query-sql" spellcheck="false">SELECT *
+                        <div class="panel query-ai-panel" id="query-ai-panel">
+                            <div class="panel-header">
+                                <h3>AI Builder</h3>
+                                <button class="btn btn-primary" id="query-ai-generate-btn" type="button"><i class="fa-solid fa-sparkles" aria-hidden="true"></i> Generate SQL</button>
+                            </div>
+                            <div class="query-ai-form">
+                                <textarea id="query-ai-question" class="query-ai-question" spellcheck="true" placeholder="Ask in English"></textarea>
+                            </div>
+                            <p class="query-builder-message" id="query-ai-message"></p>
+                        </div>
+                    </div>
+                    <div class="panel query-editor-panel">
+                        <form class="query-form" id="query-runner-form">
+                            <textarea class="query-editor" id="query-sql" spellcheck="false">SELECT *
 FROM your_table
 LIMIT 10;</textarea>
-                            </form>
-                            <div class="query-editor-actions">
-                                <button class="btn btn-primary" id="query-run-btn" type="submit" form="query-runner-form"><i class="fa-solid fa-play" aria-hidden="true"></i> Run</button>
-                                <button class="btn btn-secondary" id="query-export-download-btn" type="button"><i class="fa-solid fa-download" aria-hidden="true"></i> Export</button>
-                            </div>
+                        </form>
+                        <div class="query-editor-actions">
+                            <button class="btn btn-primary" id="query-run-btn" type="submit" form="query-runner-form"><i class="fa-solid fa-play" aria-hidden="true"></i> Run</button>
+                            <button class="btn btn-secondary" id="query-export-download-btn" type="button"><i class="fa-solid fa-download" aria-hidden="true"></i> Export</button>
                         </div>
                     </div>
                     <div class="panel query-result-panel" id="query-result-panel" hidden>
@@ -1768,6 +1795,7 @@ const PROFILE_PATH = '/my/profile';
 const TOKEN_REFRESH_PATH = '/my/token-refresh';
 const POSTGRES_DATABASE_INFO_PATH = '/postgres/database-info';
 const POSTGRES_SCHEMA_PATH = '/postgres/schema';
+const POSTGRES_QUERY_AI_PATH = '/postgres/query-ai';
 const POSTGRES_QUERY_RUNNER_PATH = '/postgres/query-runner-read';
 const POSTGRES_QUERY_RUNNER_CSV_PATH = '/postgres/query-runner-read-export';
 const API_BASE = location.origin && location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
@@ -2639,6 +2667,40 @@ function applyQueryBuilderSql() {
     }
 }
 
+async function generateAiSql() {
+    if (!authToken || !authUser) return;
+    const btn = $('query-ai-generate-btn');
+    const question = $('query-ai-question').value.trim();
+    if (!question) {
+        $('query-ai-message').textContent = 'Ask a question first.';
+        return;
+    }
+    btn.disabled = true;
+    $('query-ai-message').textContent = 'Generating SQL...';
+    try {
+        const payload = await api(POSTGRES_QUERY_AI_PATH, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
+            body: JSON.stringify({ question })
+        });
+        const result = payload.message || {};
+        if (result.status !== 'ok' || !result.sql) {
+            $('query-ai-message').textContent = result.message || 'Could not generate a safe SQL query.';
+            return;
+        }
+        $('query-sql').value = result.sql;
+        queryLastSql = '';
+        $('query-download-btn').disabled = true;
+        resetQueryResult();
+        $('query-message').textContent = queryRunnerLimitMessage();
+        $('query-ai-message').textContent = result.message || 'SQL generated in the editor.';
+    } catch (err) {
+        $('query-ai-message').textContent = err.message || 'AI SQL generation failed.';
+    } finally {
+        btn.disabled = false;
+    }
+}
+
 function rowMatchesSchemaFilters(row, filters) {
     if (filters.relation && row.relation_type !== filters.relation) return false;
     if (filters.key === 'primary' && !row.is_primary) return false;
@@ -3382,6 +3444,10 @@ function bindPageEvents() {
     $('query-builder-add-filter-btn').addEventListener('click', queryBuilderAddFilterRow);
     $('query-builder-reset-btn').addEventListener('click', resetQueryBuilder);
     $('query-builder-build-btn').addEventListener('click', applyQueryBuilderSql);
+    $('query-ai-generate-btn').addEventListener('click', generateAiSql);
+    $('query-ai-question').addEventListener('keydown', event => {
+        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') generateAiSql();
+    });
     $('query-sql').addEventListener('input', () => {
         if ($('query-sql').value.trim() !== queryLastSql) {
             queryLastSql = '';

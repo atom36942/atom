@@ -1168,6 +1168,103 @@ async def func_postgres_schema_read(*, client_postgres: any) -> dict:
         }
     return schema
 
+async def func_postgres_ai_schema_read(*, client_postgres: any) -> dict:
+    """Read compact external PostgreSQL schema/index metadata for AI SQL generation."""
+    sql = """
+        WITH user_schemas AS (
+            SELECT oid, nspname
+            FROM pg_namespace
+            WHERE nspname NOT IN ('pg_catalog', 'information_schema')
+              AND nspname NOT LIKE 'pg_%'
+        ),
+        column_base AS (
+            SELECT
+                n.nspname AS schema_name,
+                c.relname AS table_name,
+                CASE c.relkind
+                    WHEN 'r' THEN 'table'
+                    WHEN 'p' THEN 'partitioned_table'
+                    WHEN 'v' THEN 'view'
+                    WHEN 'm' THEN 'materialized_view'
+                    WHEN 'f' THEN 'foreign_table'
+                    ELSE c.relkind::text
+                END AS relation_type,
+                c.oid AS relation_oid,
+                a.attnum AS column_number,
+                a.attname AS column_name,
+                format_type(a.atttypid, a.atttypmod) AS data_type
+            FROM pg_attribute a
+            JOIN pg_class c ON c.oid = a.attrelid
+            JOIN user_schemas n ON n.oid = c.relnamespace
+            WHERE a.attnum > 0
+              AND NOT a.attisdropped
+              AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+        ),
+        constraints_by_column AS (
+            SELECT
+                con.conrelid AS relation_oid,
+                attnum AS column_number,
+                BOOL_OR(con.contype = 'p') AS is_primary,
+                BOOL_OR(con.contype = 'u') AS is_unique
+            FROM pg_constraint con
+            CROSS JOIN LATERAL UNNEST(con.conkey) AS attnum
+            WHERE con.contype IN ('p', 'u')
+            GROUP BY con.conrelid, attnum
+        ),
+        index_columns AS (
+            SELECT
+                i.indrelid AS relation_oid,
+                key_att.attnum AS column_number,
+                am.amname AS index_method,
+                i.indisunique AS is_unique_index
+            FROM pg_index i
+            JOIN pg_class idx ON idx.oid = i.indexrelid
+            JOIN pg_am am ON am.oid = idx.relam
+            CROSS JOIN LATERAL UNNEST(i.indkey) AS key_att(attnum)
+            WHERE key_att.attnum > 0
+        ),
+        indexes_by_column AS (
+            SELECT
+                relation_oid,
+                column_number,
+                BOOL_OR(is_unique_index) AS is_unique_index,
+                ARRAY_REMOVE(ARRAY_AGG(DISTINCT index_method ORDER BY index_method), NULL) AS index_methods
+            FROM index_columns
+            GROUP BY relation_oid, column_number
+        )
+        SELECT
+            cb.schema_name,
+            cb.table_name,
+            cb.relation_type,
+            cb.column_name,
+            cb.data_type,
+            COALESCE(cbc.is_primary, FALSE) AS is_primary,
+            COALESCE(cbc.is_unique, FALSE) AS is_unique,
+            COALESCE(ibc.is_unique_index, FALSE) AS is_unique_index,
+            COALESCE(ibc.index_methods, ARRAY[]::text[]) AS index_methods
+        FROM column_base cb
+        LEFT JOIN constraints_by_column cbc
+          ON cbc.relation_oid = cb.relation_oid AND cbc.column_number = cb.column_number
+        LEFT JOIN indexes_by_column ibc
+          ON ibc.relation_oid = cb.relation_oid AND ibc.column_number = cb.column_number
+        ORDER BY cb.schema_name, cb.table_name, cb.column_number;
+    """
+    async with client_postgres.acquire() as conn:
+        records = await conn.fetch(sql)
+    schema = {}
+    for r in records:
+        table_key = f"{r['schema_name']}.{r['table_name']}"
+        table = schema.setdefault(table_key, {"schema_name": r["schema_name"], "table_name": r["table_name"], "relation_type": r["relation_type"], "columns": {}})
+        index_methods = list(r["index_methods"] or [])
+        table["columns"][r["column_name"]] = {
+            "data_type": r["data_type"],
+            "is_indexed": bool(index_methods),
+            "index_methods": index_methods,
+            "is_primary": r["is_primary"],
+            "is_unique": bool(r["is_unique"] or r["is_unique_index"]),
+        }
+    return schema
+
 async def func_postgres_map_column(*, client_postgres: any, config_sql: str, is_json_value: int = 0) -> dict:
     """Execute a mapping SQL query and return a dictionary from the first two columns."""
     if not config_sql: return {}
