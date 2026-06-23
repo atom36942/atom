@@ -1,5 +1,7 @@
 import subprocess
 
+REPO_URL = "https://github.com/atom36942/atom.git"
+
 files_to_sync = [
     "main.py",
     "config.py",
@@ -15,14 +17,14 @@ files_to_sync = [
     "router/admin.py"
 ]
 
-print("Fetching latest changes from remote...\n")
-subprocess.run(["git", "fetch", "origin"])
+print(f"Fetching latest changes from {REPO_URL}...\n")
+subprocess.run(["git", "fetch", REPO_URL, "main"])
 
 print("\nSyncing the following files:")
 for file in files_to_sync:
     print(f" -> {file}")
 
-checkout_cmd = ["git", "checkout", "origin/main", "--"] + files_to_sync
+checkout_cmd = ["git", "checkout", "FETCH_HEAD", "--"] + files_to_sync
 subprocess.run(checkout_cmd)
 
 print("\nFiles synced successfully!")
