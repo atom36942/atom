@@ -5,9 +5,6 @@ import csv
 import io
 import json
 import re
-from datetime import date, datetime, time
-from decimal import Decimal
-from uuid import UUID
 from google.genai import types
 
 # router
@@ -254,24 +251,6 @@ async def func_api_postgres_schema(*, request: Request):
         """, limit + 1, offset)]
     return {"status": 1, "message": {"obj_list": rows[:limit], "has_next_page": len(rows) > limit}}
 
-@router.post("/postgres/query-runner-write")
-async def func_api_postgres_query_runner_write(*, request: Request):
-    app_state = request.app.state
-    if not app_state.client_postgres_external: raise Exception("external postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
-    sql = str(ob["sql"] or "").strip().rstrip(";").strip()
-    if not sql: raise Exception("SQL is required")
-    if ";" in sql: raise Exception("Only one SQL statement is allowed")
-    ql = sql.lower().lstrip("(").strip()
-    if ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("read SQL must use /postgres/query-runner-read")
-    if "returning" in ql: raise Exception("RETURNING is not allowed in write mode")
-    timeout_sec = 30
-    async with app_state.client_postgres_external.acquire() as conn:
-        async with conn.transaction():
-            await conn.execute(f"SET LOCAL statement_timeout = '{timeout_sec * 1000}ms'")
-            result = await conn.execute(sql, timeout=timeout_sec)
-    return {"status": 1, "message": {"mode": "write", "result": result}}
-
 @router.post("/postgres/query-runner-read")
 async def func_api_postgres_query_runner_read(*, request: Request):
     app_state = request.app.state
@@ -281,35 +260,13 @@ async def func_api_postgres_query_runner_read(*, request: Request):
     if not sql: raise Exception("SQL is required")
     if ";" in sql: raise Exception("Only one SQL statement is allowed")
     if not sql.lower().lstrip("(").strip().startswith(("select", "with")): raise Exception("Only SELECT/WITH queries are supported")
-    limit = app_state.config_query_runner_read_limit
     timeout_sec = 30
-    def serialize(value):
-        if value is None: return None
-        if isinstance(value, (list, tuple)): return [serialize(item) for item in value]
-        if isinstance(value, dict): return {key: serialize(item) for key, item in value.items()}
-        if isinstance(value, (datetime, date, time)): return value.isoformat()
-        if isinstance(value, Decimal): return float(value)
-        if isinstance(value, UUID): return str(value)
-        if isinstance(value, bytes): return value.hex()
-        if isinstance(value, (str, int, float, bool)): return value
-        return str(value)
     async with app_state.client_postgres_external.acquire() as conn:
         async with conn.transaction(readonly=True):
             await conn.execute(f"SET LOCAL statement_timeout = '{timeout_sec * 1000}ms'")
             stmt = await conn.prepare(f"SELECT * FROM ({sql}) AS postgres_query LIMIT $1")
-            columns = [attr.name for attr in stmt.get_attributes()]
-            records = await stmt.fetch(limit, timeout=timeout_sec)
-    return {
-        "status": 1,
-        "message": {
-            "columns": columns,
-            "rows": [{key: serialize(value) for key, value in dict(row).items()} for row in records],
-            "limit": limit,
-            "max_limit": limit,
-            "row_count": len(records),
-            "is_limited": len(records) >= limit,
-        },
-    }
+            records = await stmt.fetch(app_state.config_query_runner_read_limit, timeout=timeout_sec)
+    return {"status": 1, "message": [dict(row) for row in records]}
 
 @router.post("/postgres/query-runner-read-export")
 async def func_api_postgres_query_runner_read_export(*, request: Request):
@@ -320,16 +277,7 @@ async def func_api_postgres_query_runner_read_export(*, request: Request):
     if not sql: raise Exception("SQL is required")
     if ";" in sql: raise Exception("Only one SQL statement is allowed")
     if not sql.lower().lstrip("(").strip().startswith(("select", "with")): raise Exception("Only SELECT/WITH queries are supported")
-    limit = app_state.config_query_runner_export_limit
     timeout_sec = 30
-    def csv_value(value):
-        if value is None: return ""
-        if isinstance(value, (datetime, date, time)): return value.isoformat()
-        if isinstance(value, Decimal): return str(value)
-        if isinstance(value, UUID): return str(value)
-        if isinstance(value, bytes): return value.hex()
-        if isinstance(value, (list, tuple, dict)): return str(value)
-        return str(value)
     async def _iter():
         async with app_state.client_postgres_external.acquire() as conn:
             async with conn.transaction(readonly=True):
@@ -341,15 +289,11 @@ async def func_api_postgres_query_runner_read_export(*, request: Request):
                 writer.writerow(columns)
                 yield buffer.getvalue()
                 buffer.seek(0); buffer.truncate(0)
-                async for record in stmt.cursor(limit, prefetch=250, timeout=timeout_sec):
-                    writer.writerow([csv_value(record[column]) for column in columns])
+                async for record in stmt.cursor(app_state.config_query_runner_export_limit, prefetch=250, timeout=timeout_sec):
+                    writer.writerow([record[column] for column in columns])
                     yield buffer.getvalue()
                     buffer.seek(0); buffer.truncate(0)
-    return StreamingResponse(
-        _iter(),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=postgres_query_result.csv"},
-    )
+    return StreamingResponse(_iter(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=postgres_query_result.csv"})
 
 @router.post("/postgres/query-ai")
 async def func_api_postgres_query_ai(*, request: Request):

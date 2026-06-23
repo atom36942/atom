@@ -3342,14 +3342,18 @@ function resetQueryResult() {
     queryResultRows = [];
 }
 
-function renderQueryResult(result = {}) {
+function renderQueryResult(result = []) {
     $('query-result-panel').hidden = false;
-    const columns = Array.isArray(result.columns) ? result.columns : [];
-    const rows = Array.isArray(result.rows) ? result.rows : [];
+    const rows = Array.isArray(result) ? result : Array.isArray(result.rows) ? result.rows : [];
+    const columns = Array.isArray(result?.columns) ? result.columns : Array.from(rows.reduce((set, row) => {
+        Object.keys(row || {}).forEach(key => set.add(key));
+        return set;
+    }, new Set()));
     queryResultColumns = columns;
     queryResultRows = rows;
-    const rowCount = Number(result.row_count || rows.length);
-    $('query-result-count').textContent = `${formatNumber(rowCount)} row${rowCount === 1 ? '' : 's'}${result.is_limited ? `, limited to ${formatNumber(result.limit)}` : ''}`;
+    const rowCount = rows.length;
+    const readLimit = queryRunnerReadLimit();
+    $('query-result-count').textContent = `${formatNumber(rowCount)} row${rowCount === 1 ? '' : 's'}${rowCount >= readLimit ? `, limited to ${formatNumber(readLimit)}` : ''}`;
     if (!columns.length) {
         $('query-result-head').innerHTML = '';
         $('query-result-body').innerHTML = '<tr><td><div class="query-empty">Query returned no columns.</div></td></tr>';
@@ -3478,7 +3482,7 @@ async function fetchObjectCountPage(page = objectCountPage) {
         body: JSON.stringify({ sql: objectCountSql(page) })
     });
     const result = payload.message || {};
-    return Array.isArray(result.rows) ? result.rows : [];
+    return Array.isArray(result) ? result : Array.isArray(result.rows) ? result.rows : [];
 }
 
 async function fetchObjectCountAllPages({ onProgress } = {}) {

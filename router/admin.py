@@ -1,7 +1,8 @@
 # packages
 import asyncio
+import csv
+import io
 import re
-import uuid
 import orjson
 from azure.storage.blob import PublicAccess
 from fastapi import APIRouter, Request
@@ -232,40 +233,45 @@ async def func_api_admin_postgres_query_runner_write(*, request: Request):
 async def func_api_admin_postgres_query_runner_read(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
-    ql = ob["sql"].lower().strip().lstrip("(").strip()
-    if not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("only read mode allowed")
+    sql = str(ob["sql"] or "").strip().rstrip(";").strip()
+    if not sql: raise Exception("SQL is required")
+    if ";" in sql: raise Exception("Only one SQL statement is allowed")
+    if not sql.lower().lstrip("(").strip().startswith(("select", "with")): raise Exception("Only SELECT/WITH queries are supported")
     if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
-    limit = app_state.config_query_runner_read_limit
+    timeout_sec = 30
     async with app_state.client_postgres_read_fallback.acquire() as conn:
         async with conn.transaction(readonly=True):
-            result = []
-            async for record in conn.cursor(ob["sql"], prefetch=250, timeout=15):
-                result.append(dict(record))
-                if len(result) >= limit: break
-            return {"status": 1, "message": result}
+            await conn.execute(f"SET LOCAL statement_timeout = '{timeout_sec * 1000}ms'")
+            stmt = await conn.prepare(f"SELECT * FROM ({sql}) AS postgres_query LIMIT $1")
+            records = await stmt.fetch(app_state.config_query_runner_read_limit, timeout=timeout_sec)
+    return {"status": 1, "message": [dict(row) for row in records]}
 
 @router.post("/admin/postgres-query-runner-read-export")
 async def func_api_admin_postgres_query_runner_read_export(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
-    sql = ob["sql"]
-    ql = sql.lower().strip().lstrip("(").strip()
-    if not ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("export restricted to select/with/explain/show/describe")
+    sql = str(ob["sql"] or "").strip().rstrip(";").strip()
+    if not sql: raise Exception("SQL is required")
+    if ";" in sql: raise Exception("Only one SQL statement is allowed")
+    if not sql.lower().lstrip("(").strip().startswith(("select", "with")): raise Exception("Only SELECT/WITH queries are supported")
     if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
-    limit = app_state.config_query_runner_export_limit
+    timeout_sec = 30
     async def _iter():
         async with app_state.client_postgres_read_fallback.acquire() as conn:
             async with conn.transaction(readonly=True):
-                is_first = 1
-                count = 0
-                async for record in conn.cursor(sql):
-                    if is_first == 1:
-                        yield ",".join(record.keys()) + "\n"
-                        is_first = 0
-                    yield ",".join([f"\"{str(v).replace(chr(34), chr(34)*2)}\"" if v is not None else "" for v in record.values()]) + "\n"
-                    count += 1
-                    if count >= limit: break
-    return StreamingResponse(_iter(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=postgres_query_runner_read_export.csv"})
+                await conn.execute(f"SET LOCAL statement_timeout = '{timeout_sec * 1000}ms'")
+                stmt = await conn.prepare(f"SELECT * FROM ({sql}) AS postgres_query LIMIT $1")
+                columns = [attr.name for attr in stmt.get_attributes()]
+                buffer = io.StringIO()
+                writer = csv.writer(buffer)
+                writer.writerow(columns)
+                yield buffer.getvalue()
+                buffer.seek(0); buffer.truncate(0)
+                async for record in stmt.cursor(app_state.config_query_runner_export_limit, prefetch=250, timeout=timeout_sec):
+                    writer.writerow([record[column] for column in columns])
+                    yield buffer.getvalue()
+                    buffer.seek(0); buffer.truncate(0)
+    return StreamingResponse(_iter(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=postgres_query_result.csv"})
 
 @router.post("/admin/mssql-query-runner-write")
 async def func_api_cargowise_mssql_query_runner_write(*, request: Request):
