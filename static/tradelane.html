@@ -151,6 +151,15 @@ body {
     display: none;
 }
 
+.postgres-sync-btn {
+    min-height: 34px;
+    padding: 0.45rem 0.75rem;
+}
+
+.postgres-sync-btn.is-loading i {
+    animation: spin 0.8s linear infinite;
+}
+
 .postgres-sync-ring {
     --progress: 0deg;
     position: relative;
@@ -280,16 +289,6 @@ body {
 }
 
 .header-refresh-btn.is-loading i {
-    animation: spin 0.8s linear infinite;
-}
-
-.section-refresh-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-}
-
-.section-refresh-btn.is-loading i {
     animation: spin 0.8s linear infinite;
 }
 
@@ -573,10 +572,6 @@ body {
     margin-bottom: 1rem;
 }
 
-.object-count-control-row {
-    grid-template-columns: minmax(0, 1fr) minmax(360px, 0.8fr);
-}
-
 .schema-filter-bar {
     display: grid;
     grid-template-columns: minmax(150px, 1fr) repeat(2, minmax(100px, 0.8fr)) 38px;
@@ -800,6 +795,11 @@ body {
     height: 34px;
     min-height: 34px;
     padding: 0;
+}
+
+#object-count-result-count {
+    display: block;
+    margin-bottom: 0.75rem;
 }
 
 .object-count-download.is-large-export {
@@ -1169,6 +1169,10 @@ body.role-blocked .nav-item.active {
     color: var(--text-muted);
     border-left-color: transparent;
 }
+body.role-blocked .postgres-sync-btn,
+body.role-blocked .postgres-sync-status {
+    display: none !important;
+}
 body.logged-out .sidebar,
 body.logged-out .auth-only { display: none !important; }
 body.logged-out .main-content { width: 100%; }
@@ -1475,9 +1479,6 @@ body.logged-out .content-wrapper {
         gap: 0.75rem;
         margin-bottom: 0.75rem;
     }
-    .object-count-control-row {
-        grid-template-columns: minmax(0, 1fr) minmax(310px, 0.75fr);
-    }
     .schema-filter-bar {
         grid-template-columns: minmax(130px, 1fr) repeat(2, minmax(92px, 0.75fr)) 38px;
         gap: 0.45rem;
@@ -1640,14 +1641,14 @@ body.logged-out .content-wrapper {
                 <a href="#query-runner" class="nav-item active auth-only" data-target="query-runner">
                     <i class="fa-solid fa-terminal" aria-hidden="true"></i> Query Runner
                 </a>
-                <a href="#object-count" class="nav-item auth-only" data-target="object-count">
-                    <i class="fa-solid fa-list-ol" aria-hidden="true"></i> Object Count
-                </a>
                 <a href="#database-info" class="nav-item auth-only" data-target="database-info">
                     <i class="fa-solid fa-database" aria-hidden="true"></i> Database Info
                 </a>
                 <a href="#schema" class="nav-item auth-only" data-target="schema">
                     <i class="fa-solid fa-table-list" aria-hidden="true"></i> Schema
+                </a>
+                <a href="#object-count" class="nav-item auth-only" data-target="object-count">
+                    <i class="fa-solid fa-list-ol" aria-hidden="true"></i> Object Count
                 </a>
             </nav>
         </aside>
@@ -1657,6 +1658,10 @@ body.logged-out .content-wrapper {
                 <div class="postgres-sync-status auth-only" id="postgres-sync-status" role="status" aria-label="Syncing Postgres cache" title="Syncing Postgres cache" hidden>
                     <span class="postgres-sync-ring" id="postgres-sync-ring"><i class="fa-solid fa-database" aria-hidden="true"></i></span>
                 </div>
+                <button class="btn btn-secondary postgres-sync-btn auth-only" id="postgres-sync-btn" type="button" title="Sync Postgres data" aria-label="Sync Postgres data">
+                    <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+                    <span>Sync</span>
+                </button>
                 <div class="user-controls">
                     <button class="btn btn-primary login-btn guest-only" id="header-login-btn">Login</button>
                     <div class="profile-actions auth-only">
@@ -1712,10 +1717,6 @@ body.logged-out .content-wrapper {
                             <h1>Database Info</h1>
                             <p>Connection and database health summary will load here.</p>
                         </div>
-                        <button class="btn btn-secondary section-refresh-btn" id="database-info-refresh-btn" type="button" title="Refresh database info" aria-label="Refresh database info">
-                            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
-                            <span>Refresh</span>
-                        </button>
                     </div>
                     <div class="kpi-row">
                         <div class="kpi-card"><h4><i class="fa-solid fa-hard-drive" aria-hidden="true"></i> Database Size</h4><div class="val" id="pgscope-db-size">--</div></div>
@@ -1744,16 +1745,6 @@ body.logged-out .content-wrapper {
                             <h1>Schema</h1>
                             <p>Tables, columns, indexes, views, and materialized views will appear here.</p>
                         </div>
-                        <button class="btn btn-secondary section-refresh-btn" id="schema-refresh-btn" type="button" title="Refresh schema" aria-label="Refresh schema">
-                            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
-                            <span>Refresh</span>
-                        </button>
-                    </div>
-                    <div class="kpi-row">
-                        <div class="kpi-card"><h4><i class="fa-solid fa-table" aria-hidden="true"></i> Tables</h4><div class="val" id="pgscope-schema-tables">--</div></div>
-                        <div class="kpi-card"><h4><i class="fa-solid fa-table-columns" aria-hidden="true"></i> Columns</h4><div class="val" id="pgscope-schema-columns">--</div></div>
-                        <div class="kpi-card"><h4><i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Indexes</h4><div class="val" id="pgscope-schema-indexes">--</div></div>
-                        <div class="kpi-card"><h4><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Mat Views</h4><div class="val" id="pgscope-schema-materialized-views">--</div></div>
                     </div>
                     <div class="panel">
                         <div class="panel-header">
@@ -1836,23 +1827,9 @@ body.logged-out .content-wrapper {
                             <h1>Object Count</h1>
                             <p>Exact row counts from public.mv_object_count.</p>
                         </div>
-                        <button class="btn btn-secondary section-refresh-btn" id="object-count-refresh-btn" type="button" title="Refresh object count" aria-label="Refresh object count">
-                            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
-                            <span>Refresh</span>
-                        </button>
                     </div>
                     <div class="panel">
-                        <div class="schema-control-row object-count-control-row">
-                            <div></div>
-                            <div class="schema-pagination">
-                                <div class="schema-result-count" id="object-count-result-count">Not loaded</div>
-                                <div class="schema-page-controls">
-                                    <button class="schema-page-button" id="object-count-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
-                                    <span id="object-count-page-display">Page 1</span>
-                                    <button class="schema-page-button" id="object-count-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
-                                </div>
-                            </div>
-                        </div>
+                        <div class="schema-result-count" id="object-count-result-count">Not loaded</div>
                         <div class="schema-table-wrap">
                             <table class="schema-table object-count-table">
                                 <thead>
@@ -2132,8 +2109,6 @@ let queryResultColumns = [];
 let queryResultRows = [];
 let postgresCacheWarmPromise = null;
 let queryBuilderFilterId = 0;
-let objectCountPage = 1;
-let objectCountHasNextPage = false;
 
 const $ = id => document.getElementById(id);
 const rawValue = value => value === undefined || value === null || value === '' ? '-' : String(value);
@@ -2647,9 +2622,6 @@ async function loadDatabaseInfo({ force = false } = {}) {
             return;
         }
     }
-    const btn = $('database-info-refresh-btn');
-    btn?.classList.add('is-loading');
-    if (btn) btn.disabled = true;
     $('pgscope-db-server').textContent = 'Loading database info...';
     try {
         const info = await fetchPostgresDatabaseInfo();
@@ -2660,9 +2632,6 @@ async function loadDatabaseInfo({ force = false } = {}) {
         const cached = readCachedPostgresDatabaseInfo();
         if (cached) renderDatabaseInfo(cached);
         else renderDatabaseInfoError(err.message);
-    } finally {
-        btn?.classList.remove('is-loading');
-        if (btn) btn.disabled = false;
     }
 }
 
@@ -3121,10 +3090,6 @@ function applySchemaFilters() {
 }
 
 function renderSchema(payload = {}) {
-    $('pgscope-schema-tables').textContent = formatNumber(payload.table_count);
-    $('pgscope-schema-columns').textContent = formatNumber(payload.column_count);
-    $('pgscope-schema-indexes').textContent = formatNumber(payload.index_count);
-    $('pgscope-schema-materialized-views').textContent = formatNumber(payload.materialized_view_count);
     pgscopeSchemaRows = Array.isArray(payload.columns) ? payload.columns : [];
     renderSchemaPagination(payload.pagination || {});
     if (!pgscopeSchemaRows.length) {
@@ -3193,10 +3158,6 @@ async function fetchPostgresSchemaAllPages({ onProgress } = {}) {
 }
 
 function renderSchemaError(message) {
-    $('pgscope-schema-tables').textContent = '--';
-    $('pgscope-schema-columns').textContent = '--';
-    $('pgscope-schema-indexes').textContent = '--';
-    $('pgscope-schema-materialized-views').textContent = '--';
     $('schema-result-count').textContent = 'Schema unavailable';
     $('schema-page-display').textContent = `Page ${formatNumber(pgscopeSchemaPage)}`;
     $('schema-page-prev-btn').disabled = true;
@@ -3215,9 +3176,6 @@ async function loadSchema({ force = false } = {}) {
             return;
         }
     }
-    const btn = $('schema-refresh-btn');
-    btn?.classList.add('is-loading');
-    if (btn) btn.disabled = true;
     $('schema-page-prev-btn').disabled = true;
     $('schema-page-next-btn').disabled = true;
     $('schema-result-count').textContent = 'Loading schema...';
@@ -3233,9 +3191,6 @@ async function loadSchema({ force = false } = {}) {
         const cached = readCachedPostgresSchema();
         if (cached) renderSchema(cached);
         else renderSchemaError(err.message);
-    } finally {
-        btn?.classList.remove('is-loading');
-        if (btn) btn.disabled = false;
     }
 }
 
@@ -3247,7 +3202,7 @@ function goSchemaPage(page) {
 
 async function warmPostgresCache({ force = false } = {}) {
     if (!authToken || !authUser) return;
-    if (postgresCacheWarmPromise && !force) return postgresCacheWarmPromise;
+    if (postgresCacheWarmPromise) return postgresCacheWarmPromise;
     const shouldSyncDatabaseInfo = force || !postgresDatabaseInfoCacheFresh();
     const shouldSyncSchema = force || !postgresSchemaCacheFresh();
     const shouldSyncObjectCount = force || (objectCountRelationKnownExists() && !postgresObjectCountCacheFresh());
@@ -3303,7 +3258,7 @@ async function warmPostgresCache({ force = false } = {}) {
                     })
                 });
                 writeCachedPostgresObjectCount(rows);
-                if ($('object-count').classList.contains('active')) renderCachedObjectCountPage(rows, objectCountPage);
+                if ($('object-count').classList.contains('active')) renderObjectCountRows(rows);
                 setPostgresSyncStatus({ visible: true, progress: 100, text: 'Postgres cache synced.' });
             }
         } catch (err) {
@@ -3320,6 +3275,23 @@ async function warmPostgresCache({ force = false } = {}) {
         postgresCacheWarmPromise = null;
     });
     return postgresCacheWarmPromise;
+}
+
+async function syncPostgresCache({ force = true } = {}) {
+    if (!authToken || !authUser || !tradeLaneRoleAllowed()) return;
+    const btn = $('postgres-sync-btn');
+    btn?.classList.add('is-loading');
+    if (btn) btn.disabled = true;
+    try {
+        await warmPostgresCache({ force });
+    } catch (err) {
+        setPostgresSyncStatus({ visible: true, progress: 100, text: 'Postgres sync failed.' });
+        console.warn(err);
+        setTimeout(() => setPostgresSyncStatus({ visible: false }), 1800);
+    } finally {
+        btn?.classList.remove('is-loading');
+        if (btn) btn.disabled = false;
+    }
 }
 
 function validateQuerySql(sql) {
@@ -3369,10 +3341,10 @@ function renderQueryError(message) {
     resetQueryResult();
 }
 
-function objectCountSql(page = objectCountPage) {
+function objectCountSql(page = 1) {
     const offset = (Math.max(1, Number(page || 1)) - 1) * OBJECT_COUNT_PAGE_SIZE;
     return [
-        'SELECT schema_name, object_name, row_count',
+        'SELECT *',
         'FROM public.mv_object_count',
         'ORDER BY row_count DESC NULLS LAST, schema_name, object_name',
         `LIMIT ${OBJECT_COUNT_PAGE_SIZE + 1}`,
@@ -3405,39 +3377,10 @@ function objectCountDownloadButton(row = {}) {
 }
 
 function renderObjectCountRows(rows = []) {
-    const visibleRows = rows.slice(0, OBJECT_COUNT_PAGE_SIZE);
-    objectCountHasNextPage = rows.length > OBJECT_COUNT_PAGE_SIZE;
-    $('object-count-page-display').textContent = `Page ${formatNumber(objectCountPage)}`;
-    $('object-count-prev-btn').disabled = objectCountPage <= 1;
-    $('object-count-next-btn').disabled = !objectCountHasNextPage;
-    const start = visibleRows.length ? ((objectCountPage - 1) * OBJECT_COUNT_PAGE_SIZE) + 1 : 0;
-    const end = visibleRows.length ? start + visibleRows.length - 1 : 0;
-    $('object-count-result-count').textContent = visibleRows.length
-        ? `Showing ${formatNumber(start)}-${formatNumber(end)}`
+    $('object-count-result-count').textContent = rows.length
+        ? `Showing ${formatNumber(rows.length)} object${rows.length === 1 ? '' : 's'}`
         : 'No object counts';
-    $('object-count-body').innerHTML = visibleRows.length ? visibleRows.map(row => `
-        <tr>
-            <td>${escapeHtml(rawValue(row.object_name))}</td>
-            <td>${escapeHtml(rawValue(row.row_count))}</td>
-            <td>${objectCountDownloadButton(row)}</td>
-        </tr>
-    `).join('') : '<tr><td colspan="3"><div class="schema-empty">No object counts found.</div></td></tr>';
-}
-
-function renderCachedObjectCountPage(rows = [], page = objectCountPage) {
-    objectCountPage = Math.max(1, Number(page || 1));
-    const offset = (objectCountPage - 1) * OBJECT_COUNT_PAGE_SIZE;
-    const visibleRows = rows.slice(offset, offset + OBJECT_COUNT_PAGE_SIZE);
-    objectCountHasNextPage = rows.length > offset + OBJECT_COUNT_PAGE_SIZE;
-    $('object-count-page-display').textContent = `Page ${formatNumber(objectCountPage)}`;
-    $('object-count-prev-btn').disabled = objectCountPage <= 1;
-    $('object-count-next-btn').disabled = !objectCountHasNextPage;
-    const start = visibleRows.length ? offset + 1 : 0;
-    const end = visibleRows.length ? offset + visibleRows.length : 0;
-    $('object-count-result-count').textContent = visibleRows.length
-        ? `Showing ${formatNumber(start)}-${formatNumber(end)}`
-        : 'No object counts';
-    $('object-count-body').innerHTML = visibleRows.length ? visibleRows.map(row => `
+    $('object-count-body').innerHTML = rows.length ? rows.map(row => `
         <tr>
             <td>${escapeHtml(rawValue(row.object_name))}</td>
             <td>${escapeHtml(rawValue(row.row_count))}</td>
@@ -3447,11 +3390,7 @@ function renderCachedObjectCountPage(rows = [], page = objectCountPage) {
 }
 
 function renderObjectCountError(message) {
-    objectCountHasNextPage = false;
     $('object-count-result-count').textContent = 'Object counts unavailable';
-    $('object-count-page-display').textContent = `Page ${formatNumber(objectCountPage)}`;
-    $('object-count-prev-btn').disabled = objectCountPage <= 1;
-    $('object-count-next-btn').disabled = true;
     $('object-count-body').innerHTML = `<tr><td colspan="3"><div class="schema-empty">${escapeHtml(message || 'Create public.mv_object_count to see exact object counts.')}</div></td></tr>`;
 }
 
@@ -3475,7 +3414,7 @@ function objectCountRelationKnownExists() {
     );
 }
 
-async function fetchObjectCountPage(page = objectCountPage) {
+async function fetchObjectCountPage(page = 1) {
     const payload = await api(POSTGRES_QUERY_RUNNER_PATH, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
@@ -3499,9 +3438,8 @@ async function fetchObjectCountAllPages({ onProgress } = {}) {
     return rows;
 }
 
-async function loadObjectCount({ page = objectCountPage, force = false } = {}) {
+async function loadObjectCount({ force = false } = {}) {
     if (!authToken || !authUser) return;
-    objectCountPage = Math.max(1, Number(page || 1));
     if (!objectCountRelationExists()) {
         localStorage.removeItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT);
         localStorage.removeItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT_AT);
@@ -3511,31 +3449,22 @@ async function loadObjectCount({ page = objectCountPage, force = false } = {}) {
     if (!force) {
         const cached = readCachedPostgresObjectCount();
         if (cached && postgresObjectCountCacheFresh()) {
-            renderCachedObjectCountPage(cached.rows, objectCountPage);
+            renderObjectCountRows(cached.rows);
             return;
         }
     }
-    const btn = $('object-count-refresh-btn');
-    btn?.classList.add('is-loading');
-    if (btn) btn.disabled = true;
-    $('object-count-prev-btn').disabled = true;
-    $('object-count-next-btn').disabled = true;
     $('object-count-result-count').textContent = 'Loading object counts...';
-    $('object-count-page-display').textContent = `Page ${formatNumber(objectCountPage)}`;
     try {
         const rows = await fetchObjectCountAllPages();
         writeCachedPostgresObjectCount(rows);
-        renderCachedObjectCountPage(rows, objectCountPage);
+        renderObjectCountRows(rows);
     } catch (err) {
         const cached = readCachedPostgresObjectCount();
         if (cached) {
-            renderCachedObjectCountPage(cached.rows, objectCountPage);
+            renderObjectCountRows(cached.rows);
         } else {
             renderObjectCountError(err.message);
         }
-    } finally {
-        btn?.classList.remove('is-loading');
-        if (btn) btn.disabled = false;
     }
 }
 
@@ -3822,20 +3751,12 @@ function bindAuthComponentEvents() {
 }
 
 function bindPageEvents() {
-    $('database-info-refresh-btn').addEventListener('click', () => loadDatabaseInfo({ force: true }));
-    $('schema-refresh-btn').addEventListener('click', () => loadSchema({ force: true }));
+    $('postgres-sync-btn').addEventListener('click', () => syncPostgresCache({ force: true }));
     $('schema-page-prev-btn').addEventListener('click', () => {
         if (pgscopeSchemaPagination.has_prev_page) goSchemaPage(pgscopeSchemaPage - 1);
     });
     $('schema-page-next-btn').addEventListener('click', () => {
         if (pgscopeSchemaPagination.has_next_page) goSchemaPage(pgscopeSchemaPage + 1);
-    });
-    $('object-count-refresh-btn').addEventListener('click', () => loadObjectCount({ page: 1, force: true }));
-    $('object-count-prev-btn').addEventListener('click', () => {
-        if (objectCountPage > 1) loadObjectCount({ page: objectCountPage - 1 });
-    });
-    $('object-count-next-btn').addEventListener('click', () => {
-        if (objectCountHasNextPage) loadObjectCount({ page: objectCountPage + 1 });
     });
     $('object-count-body').addEventListener('click', downloadObjectCountObject);
     $('query-runner-form').addEventListener('submit', runQuery);
