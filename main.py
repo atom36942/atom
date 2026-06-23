@@ -29,13 +29,13 @@ from google import genai
 from posthog import Posthog
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 
-# function
-from function import *
-if importlib.util.find_spec("function_extend"): from function_extend import *
-
 # config
 from config import *
 if importlib.util.find_spec("config_extend"): from config_extend import *
+
+# function
+from function import *
+if importlib.util.find_spec("function_extend"): from function_extend import *
 
 # lifespan
 @asynccontextmanager
