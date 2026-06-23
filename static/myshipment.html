@@ -5847,6 +5847,8 @@ document.addEventListener('DOMContentLoaded', () => {
         documents: '/cargowise/my-documents',
         analytics: '/cargowise/my-analytics'
     };
+    const CARGOWISE_VIEW_AS = 'controlling_customer';
+    const CARGOWISE_VIEW_PARAM = `view_as=${encodeURIComponent(CARGOWISE_VIEW_AS)}`;
     let authUser = null;
     let appInfo = {};
     let cargowiseProfileLoaded = false;
@@ -6475,7 +6477,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ['count', 'quantity', 'weight', 'value'].forEach(key => { document.getElementById(`po-lines-${key}`).textContent = '-'; });
 
         try {
-            const payload = await api(`/cargowise/my-purchase-orders-line-items?po_id=${encodeURIComponent(poId)}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const payload = await api(`/cargowise/my-purchase-orders-line-items?po_id=${encodeURIComponent(poId)}&${CARGOWISE_VIEW_PARAM}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
             const rows = Array.isArray(payload.message) ? payload.message : [];
             const toNumber = value => {
                 const number = Number(value);
@@ -6597,7 +6599,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ['count', 'lines', 'released', 'priority'].forEach(key => { document.getElementById(`shipment-pos-${key}`).textContent = '-'; });
         document.getElementById('shipment-pos-list').innerHTML = '<div class="container-card-empty"><div><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><br>Loading purchase orders...</div></div>';
         try {
-            const payload = await api(`${MODULE_ENDPOINTS['purchase-orders']}?limit=100&page=1&shipment_id=${encodeURIComponent(shipmentId)}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const payload = await api(`${MODULE_ENDPOINTS['purchase-orders']}?limit=100&page=1&shipment_id=${encodeURIComponent(shipmentId)}&${CARGOWISE_VIEW_PARAM}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
             const rows = payload.message && Array.isArray(payload.message.obj_list) ? payload.message.obj_list : [];
             renderShipmentPurchaseOrderCards(rows);
         } catch (err) {
@@ -6687,7 +6689,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ['count', 'weight', 'volume', 'available'].forEach(key => { document.getElementById(`shipment-containers-${key}`).textContent = '-'; });
         document.getElementById('shipment-containers-list').innerHTML = '<div class="container-card-empty"><div><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><br>Loading containers...</div></div>';
         try {
-            const payload = await api(`${MODULE_ENDPOINTS.containers}?limit=100&page=1&shipment_id=${encodeURIComponent(shipmentId)}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const payload = await api(`${MODULE_ENDPOINTS.containers}?limit=100&page=1&shipment_id=${encodeURIComponent(shipmentId)}&${CARGOWISE_VIEW_PARAM}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
             const rows = payload.message && Array.isArray(payload.message.obj_list) ? payload.message.obj_list : [];
             renderShipmentContainerCards(rows);
         } catch (err) {
@@ -6790,7 +6792,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ['count', 'files', 'received', 'pending'].forEach(key => { document.getElementById(`shipment-documents-${key}`).textContent = '-'; });
         document.getElementById('shipment-documents-list').innerHTML = '<div class="container-card-empty"><div><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><br>Loading documents...</div></div>';
         try {
-            const payload = await api(`${MODULE_ENDPOINTS.documents}?limit=100&page=1&shipment_id=${encodeURIComponent(shipmentId)}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const payload = await api(`${MODULE_ENDPOINTS.documents}?limit=100&page=1&shipment_id=${encodeURIComponent(shipmentId)}&${CARGOWISE_VIEW_PARAM}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
             const rows = payload.message && Array.isArray(payload.message.obj_list) ? payload.message.obj_list : [];
             renderShipmentDocumentCards(rows);
         } catch (err) {
@@ -7079,7 +7081,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el) el.textContent = '-';
         });
         try {
-            const payload = await api(`${MODULE_ENDPOINTS.analytics}?module=purchase_orders`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const payload = await api(`${MODULE_ENDPOINTS.analytics}?module=purchase_orders&${CARGOWISE_VIEW_PARAM}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
             const kpis = payload.message?.kpis || {};
             moduleCache['kpi:purchase-orders'] = kpis;
             renderPurchaseOrderKpis(kpis);
@@ -7168,7 +7170,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el) el.textContent = '-';
         });
         try {
-            const payload = await api(`${MODULE_ENDPOINTS.analytics}?module=shipments`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const payload = await api(`${MODULE_ENDPOINTS.analytics}?module=shipments&${CARGOWISE_VIEW_PARAM}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
             const kpis = payload.message?.kpis || {};
             moduleCache['kpi:shipments'] = kpis;
             renderShipmentKpis(kpis);
@@ -8203,26 +8205,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const joiner = endpoint.includes('?') ? '&' : '?';
         if (target === 'purchase-orders') {
             const searchParam = poSearchQuery ? `&po_number=${encodeURIComponent(poSearchQuery)}` : '';
-            return `${endpoint}${joiner}limit=100&page=${poCurrentPage}${searchParam}`;
+            return `${endpoint}${joiner}limit=100&page=${poCurrentPage}${searchParam}&${CARGOWISE_VIEW_PARAM}`;
         }
         if (target === 'shipments') {
             const searchParam = shipmentSearchQuery ? `&shipment_search=${encodeURIComponent(shipmentSearchQuery)}` : '';
             const shipmentParam = options.shipmentId ? `&shipment_id=${encodeURIComponent(options.shipmentId)}` : '';
-            return `${endpoint}${joiner}limit=100&page=${shipmentCurrentPage}${searchParam}${shipmentParam}`;
+            return `${endpoint}${joiner}limit=100&page=${shipmentCurrentPage}${searchParam}${shipmentParam}&${CARGOWISE_VIEW_PARAM}`;
         }
         if (target === 'containers') {
             const shipmentParam = containerShipmentId ? `&shipment_id=${encodeURIComponent(containerShipmentId)}` : '';
-            return `${endpoint}${joiner}limit=100&page=${containerCurrentPage}${shipmentParam}`;
+            return `${endpoint}${joiner}limit=100&page=${containerCurrentPage}${shipmentParam}&${CARGOWISE_VIEW_PARAM}`;
         }
         if (target === 'tracking') {
             const shipmentParam = trackingShipmentId ? `&shipment_id=${encodeURIComponent(trackingShipmentId)}` : '';
-            return `${endpoint}${joiner}limit=100&page=${trackingCurrentPage}${shipmentParam}`;
+            return `${endpoint}${joiner}limit=100&page=${trackingCurrentPage}${shipmentParam}&${CARGOWISE_VIEW_PARAM}`;
         }
-        if (target === 'alerts') return `${endpoint}${joiner}limit=100&page=${alertCurrentPage}`;
+        if (target === 'alerts') return `${endpoint}${joiner}limit=100&page=${alertCurrentPage}&${CARGOWISE_VIEW_PARAM}`;
         if (target === 'documents') {
             const shipmentParam = documentShipmentId ? `&shipment_id=${encodeURIComponent(documentShipmentId)}` : '';
-            return `${endpoint}${joiner}limit=100&page=${documentCurrentPage}${shipmentParam}`;
+            return `${endpoint}${joiner}limit=100&page=${documentCurrentPage}${shipmentParam}&${CARGOWISE_VIEW_PARAM}`;
         }
+        if (target === 'analytics') return `${endpoint}${joiner}limit=100&${CARGOWISE_VIEW_PARAM}`;
         return `${endpoint}${joiner}limit=100`;
     };
     const loadModule = async (target, options = {}) => {
@@ -8613,7 +8616,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setBlockMessage('tracking-timeline', 'Searching shipment...');
         document.getElementById('tracking-result-count').textContent = 'Searching shipment...';
         try {
-            const payload = await api(`${MODULE_ENDPOINTS.shipments}?limit=1&page=1&shipment_search=${encodeURIComponent(query)}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const payload = await api(`${MODULE_ENDPOINTS.shipments}?limit=1&page=1&shipment_search=${encodeURIComponent(query)}&${CARGOWISE_VIEW_PARAM}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
             const rows = payload.message && Array.isArray(payload.message.obj_list) ? payload.message.obj_list : [];
             if (!rows.length) {
                 trackingSelectedShipment = { shipment_reference: query };

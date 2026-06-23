@@ -259,7 +259,7 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("po_number", "str", 0, None, ""), ("shipment_id", "str", 0, None, "")])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("po_number", "str", 0, None, ""), ("shipment_id", "str", 0, None, ""), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
     limit = max(1, limit)
@@ -268,34 +268,44 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
     sql_limit = limit + 1
     po_number = str(oq.get("po_number") or "").strip()
     shipment_id = str(oq.get("shipment_id") or "").strip()
+    view_as = str(oq.get("view_as") or "controlling_customer").strip()
     sql = f"""
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @po_number nvarchar(max) = ?;
         DECLARE @shipment_id_str nvarchar(max) = ?;
+        DECLARE @view_as nvarchar(40) = ?;
         DECLARE @shipment_id_requested bit = CASE WHEN @shipment_id_str <> '' THEN 1 ELSE 0 END;
         DECLARE @shipment_id uniqueidentifier = TRY_CONVERT(uniqueidentifier, @shipment_id_str);
         WITH visible_orders AS (
             SELECT DISTINCT JD.JD_PK
             FROM dbo.JobOrderHeader AS JD
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JD.JD_JS
             LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JD.JD_IsValid = 1
               { "AND JD.JD_OrderNumber = @po_number" if po_number else "" }
               AND (@shipment_id_requested = 0 OR JD.JD_JS = @shipment_id)
               AND (
-                    BuyerOA.OA_OH = @org
-                 OR SupplierOA.OA_OH = @org
-                 OR JD.JD_OH_Carrier = @org
-                 OR JD.JD_OH_SendingAgent = @org
-                 OR JD.JD_OH_ReceivingAgent = @org
-                 OR EXISTS (
-                        SELECT 1
-                        FROM dbo.JobOrderLine AS JO
-                        WHERE JO.JO_JD = JD.JD_PK
-                          AND JO.JO_IsValid = 1
-                          AND JO.JO_OH_Supplier = @org
+                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                 OR (
+                        @view_as = 'all'
+                    AND (
+                           JSO.ControllingCustomer_PK = @org
+                        OR BuyerOA.OA_OH = @org
+                        OR SupplierOA.OA_OH = @org
+                        OR JD.JD_OH_Carrier = @org
+                        OR JD.JD_OH_SendingAgent = @org
+                        OR JD.JD_OH_ReceivingAgent = @org
+                        OR EXISTS (
+                            SELECT 1
+                            FROM dbo.JobOrderLine AS JO
+                            WHERE JO.JO_JD = JD.JD_PK
+                              AND JO.JO_IsValid = 1
+                              AND JO.JO_OH_Supplier = @org
+                        )
                     )
+                 )
               )
         ),
         line_summary AS (
@@ -354,7 +364,7 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
-        await cursor.execute(sql, org_pk, po_number, shipment_id)
+        await cursor.execute(sql, org_pk, po_number, shipment_id, view_as)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
@@ -365,30 +375,40 @@ async def func_api_my_cargowise_purchase_order_lines(*, request: Request):
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("po_id", "str", 1, None, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("po_id", "str", 1, None, None), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
     po_id = str(oq.get("po_id") or "").strip()
+    view_as = str(oq.get("view_as") or "controlling_customer").strip()
     sql = """
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @po_id uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        DECLARE @view_as nvarchar(40) = ?;
 
         WITH visible_orders AS (
             SELECT DISTINCT JD.JD_PK
             FROM dbo.JobOrderHeader AS JD
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JD.JD_JS
             LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JD.JD_PK = @po_id
               AND JD.JD_IsValid = 1
               AND (
-                    BuyerOA.OA_OH = @org
-                 OR SupplierOA.OA_OH = @org
-                 OR JD.JD_OH_Carrier = @org
-                 OR JD.JD_OH_SendingAgent = @org
-                 OR JD.JD_OH_ReceivingAgent = @org
-                 OR EXISTS (
-                        SELECT 1 FROM dbo.JobOrderLine AS JO
-                        WHERE JO.JO_JD = JD.JD_PK AND JO.JO_IsValid = 1 AND JO.JO_OH_Supplier = @org
+                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                 OR (
+                        @view_as = 'all'
+                    AND (
+                           JSO.ControllingCustomer_PK = @org
+                        OR BuyerOA.OA_OH = @org
+                        OR SupplierOA.OA_OH = @org
+                        OR JD.JD_OH_Carrier = @org
+                        OR JD.JD_OH_SendingAgent = @org
+                        OR JD.JD_OH_ReceivingAgent = @org
+                        OR EXISTS (
+                            SELECT 1 FROM dbo.JobOrderLine AS JO
+                            WHERE JO.JO_JD = JD.JD_PK AND JO.JO_IsValid = 1 AND JO.JO_OH_Supplier = @org
+                        )
                     )
+                 )
               )
         )
         SELECT
@@ -411,7 +431,7 @@ async def func_api_my_cargowise_purchase_order_lines(*, request: Request):
     """
     async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
-        await cursor.execute(sql, org_pk, po_id)
+        await cursor.execute(sql, org_pk, po_id, view_as)
         if cursor.description:
             columns = [column[0] for column in cursor.description]
             obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
@@ -425,13 +445,14 @@ async def func_api_my_cargowise_shipments(*, request: Request):
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_search", "str", 0, None, ""), ("shipment_id", "str", 0, None, "")])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_search", "str", 0, None, ""), ("shipment_id", "str", 0, None, ""), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
     limit = max(1, limit)
     page = max(1, int(oq["page"] or 1))
     shipment_search = str(oq.get("shipment_search") or "").strip()
     shipment_id = str(oq.get("shipment_id") or "").strip()
+    view_as = str(oq.get("view_as") or "controlling_customer").strip()
     offset = (page - 1) * limit
     sql_limit = limit + 1
     sql = f"""
@@ -439,11 +460,13 @@ async def func_api_my_cargowise_shipments(*, request: Request):
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @shipment_search nvarchar(max) = ?;
         DECLARE @shipment_id_str nvarchar(max) = ?;
+        DECLARE @view_as nvarchar(40) = ?;
         DECLARE @shipment_id uniqueidentifier = NULL;
         IF @shipment_id_str <> '' SET @shipment_id = TRY_CONVERT(uniqueidentifier, @shipment_id_str);
         WITH visible_shipments AS (
             SELECT DISTINCT JS.JS_PK
             FROM dbo.JobShipment AS JS
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
             LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
             LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
             LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
@@ -453,26 +476,33 @@ async def func_api_my_cargowise_shipments(*, request: Request):
             WHERE JS.JS_IsValid = 1
               AND (@shipment_id IS NULL OR JS.JS_PK = @shipment_id)
               AND (
-                    JS.JS_OH_Creditor = @org
-                 OR JS.JS_OH_DeliveryAgent = @org
-                 OR JS.JS_OH_ExportBroker = @org
-                 OR JS.JS_OH_HandledOnBehalfOfForwarder = @org
-                 OR JS.JS_OH_ImportBroker = @org
-                 OR JS.JS_OH_TranshipAgent = @org
-                 OR E2OA.OA_OH = @org
-                 OR BuyerOA.OA_OH = @org
-                 OR SupplierOA.OA_OH = @org
-                 OR JD.JD_OH_Carrier = @org
-                 OR JD.JD_OH_SendingAgent = @org
-                 OR JD.JD_OH_ReceivingAgent = @org
-                 OR JE.JE_OH_Importer = @org
-                 OR JE.JE_OH_Supplier = @org
-                 OR JE.JE_OH_Buyer = @org
-                 OR JE.JE_OH_Consignee = @org
-                 OR JE.JE_OH_Exporter = @org
-                 OR JE.JE_OH_Forwarder = @org
-                 OR JE.JE_OH_ControllingCustomer = @org
-                 OR JE.JE_OH_ControllingAgent = @org
+                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                 OR (
+                        @view_as = 'all'
+                    AND (
+                           JSO.ControllingCustomer_PK = @org
+                        OR JS.JS_OH_Creditor = @org
+                        OR JS.JS_OH_DeliveryAgent = @org
+                        OR JS.JS_OH_ExportBroker = @org
+                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org
+                        OR JS.JS_OH_ImportBroker = @org
+                        OR JS.JS_OH_TranshipAgent = @org
+                        OR E2OA.OA_OH = @org
+                        OR BuyerOA.OA_OH = @org
+                        OR SupplierOA.OA_OH = @org
+                        OR JD.JD_OH_Carrier = @org
+                        OR JD.JD_OH_SendingAgent = @org
+                        OR JD.JD_OH_ReceivingAgent = @org
+                        OR JE.JE_OH_Importer = @org
+                        OR JE.JE_OH_Supplier = @org
+                        OR JE.JE_OH_Buyer = @org
+                        OR JE.JE_OH_Consignee = @org
+                        OR JE.JE_OH_Exporter = @org
+                        OR JE.JE_OH_Forwarder = @org
+                        OR JE.JE_OH_ControllingCustomer = @org
+                        OR JE.JE_OH_ControllingAgent = @org
+                    )
+                 )
               )
               AND (
                     @shipment_search = ''
@@ -590,7 +620,7 @@ async def func_api_my_cargowise_shipments(*, request: Request):
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
-        await cursor.execute(sql, org_pk, shipment_search, shipment_id)
+        await cursor.execute(sql, org_pk, shipment_search, shipment_id, view_as)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
@@ -601,23 +631,26 @@ async def func_api_my_cargowise_containers(*, request: Request):
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_id", "str", 0, None, "")])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_id", "str", 0, None, ""), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
     limit = max(1, limit)
     page = max(1, int(oq["page"] or 1))
     shipment_id = str(oq.get("shipment_id") or "").strip()
+    view_as = str(oq.get("view_as") or "controlling_customer").strip()
     offset = (page - 1) * limit
     sql_limit = limit + 1
     sql = f"""
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @shipment_id_str nvarchar(max) = ?;
+        DECLARE @view_as nvarchar(40) = ?;
         DECLARE @shipment_id uniqueidentifier = NULL;
         IF @shipment_id_str <> '' SET @shipment_id = TRY_CONVERT(uniqueidentifier, @shipment_id_str);
         WITH visible_shipments AS (
             SELECT DISTINCT JS.JS_PK
             FROM dbo.JobShipment AS JS
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
             LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
             LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
             LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
@@ -625,18 +658,25 @@ async def func_api_my_cargowise_containers(*, request: Request):
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JS.JS_IsValid = 1
               AND (
-                    JS.JS_OH_Creditor = @org
-                 OR JS.JS_OH_DeliveryAgent = @org
-                 OR JS.JS_OH_ExportBroker = @org
-                 OR JS.JS_OH_HandledOnBehalfOfForwarder = @org
-                 OR JS.JS_OH_ImportBroker = @org
-                 OR JS.JS_OH_TranshipAgent = @org
-                 OR E2OA.OA_OH = @org
-                 OR BuyerOA.OA_OH = @org
-                 OR SupplierOA.OA_OH = @org
-                 OR JD.JD_OH_Carrier = @org
-                 OR JD.JD_OH_SendingAgent = @org
-                 OR JD.JD_OH_ReceivingAgent = @org
+                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                 OR (
+                        @view_as = 'all'
+                    AND (
+                           JSO.ControllingCustomer_PK = @org
+                        OR JS.JS_OH_Creditor = @org
+                        OR JS.JS_OH_DeliveryAgent = @org
+                        OR JS.JS_OH_ExportBroker = @org
+                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org
+                        OR JS.JS_OH_ImportBroker = @org
+                        OR JS.JS_OH_TranshipAgent = @org
+                        OR E2OA.OA_OH = @org
+                        OR BuyerOA.OA_OH = @org
+                        OR SupplierOA.OA_OH = @org
+                        OR JD.JD_OH_Carrier = @org
+                        OR JD.JD_OH_SendingAgent = @org
+                        OR JD.JD_OH_ReceivingAgent = @org
+                    )
+                 )
               )
         ),
         visible_containers AS (
@@ -649,8 +689,7 @@ async def func_api_my_cargowise_containers(*, request: Request):
               AND (
                     VS1.JS_PK IS NOT NULL
                  OR VS2.JS_PK IS NOT NULL
-                 OR JC.JC_OH_CFSClient = @org
-                 OR JC.JC_OH_ShippingLine = @org
+                 OR (@view_as = 'all' AND (JC.JC_OH_CFSClient = @org OR JC.JC_OH_ShippingLine = @org))
               )
               AND (
                     @shipment_id IS NULL
@@ -698,7 +737,7 @@ async def func_api_my_cargowise_containers(*, request: Request):
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
-        await cursor.execute(sql, org_pk, shipment_id)
+        await cursor.execute(sql, org_pk, shipment_id, view_as)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
@@ -709,23 +748,26 @@ async def func_api_my_cargowise_shipment_tracking(*, request: Request):
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_id", "str", 0, None, "")])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_id", "str", 0, None, ""), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
     limit = max(1, limit)
     page = max(1, int(oq["page"] or 1))
     shipment_id = str(oq.get("shipment_id") or "").strip()
+    view_as = str(oq.get("view_as") or "controlling_customer").strip()
     offset = (page - 1) * limit
     sql_limit = limit + 1
     sql = f"""
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @shipment_id_str nvarchar(max) = ?;
+        DECLARE @view_as nvarchar(40) = ?;
         DECLARE @shipment_id uniqueidentifier = NULL;
         IF @shipment_id_str <> '' SET @shipment_id = TRY_CONVERT(uniqueidentifier, @shipment_id_str);
         WITH visible_shipments AS (
             SELECT DISTINCT JS.JS_PK
             FROM dbo.JobShipment AS JS
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
             LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
             LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
             LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
@@ -734,18 +776,25 @@ async def func_api_my_cargowise_shipment_tracking(*, request: Request):
             WHERE JS.JS_IsValid = 1
               AND (@shipment_id IS NULL OR JS.JS_PK = @shipment_id)
               AND (
-                    JS.JS_OH_Creditor = @org
-                 OR JS.JS_OH_DeliveryAgent = @org
-                 OR JS.JS_OH_ExportBroker = @org
-                 OR JS.JS_OH_HandledOnBehalfOfForwarder = @org
-                 OR JS.JS_OH_ImportBroker = @org
-                 OR JS.JS_OH_TranshipAgent = @org
-                 OR E2OA.OA_OH = @org
-                 OR BuyerOA.OA_OH = @org
-                 OR SupplierOA.OA_OH = @org
-                 OR JD.JD_OH_Carrier = @org
-                 OR JD.JD_OH_SendingAgent = @org
-                 OR JD.JD_OH_ReceivingAgent = @org
+                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                 OR (
+                        @view_as = 'all'
+                    AND (
+                           JSO.ControllingCustomer_PK = @org
+                        OR JS.JS_OH_Creditor = @org
+                        OR JS.JS_OH_DeliveryAgent = @org
+                        OR JS.JS_OH_ExportBroker = @org
+                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org
+                        OR JS.JS_OH_ImportBroker = @org
+                        OR JS.JS_OH_TranshipAgent = @org
+                        OR E2OA.OA_OH = @org
+                        OR BuyerOA.OA_OH = @org
+                        OR SupplierOA.OA_OH = @org
+                        OR JD.JD_OH_Carrier = @org
+                        OR JD.JD_OH_SendingAgent = @org
+                        OR JD.JD_OH_ReceivingAgent = @org
+                    )
+                 )
               )
         )
         SELECT
@@ -787,7 +836,7 @@ async def func_api_my_cargowise_shipment_tracking(*, request: Request):
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
-        await cursor.execute(sql, org_pk, shipment_id)
+        await cursor.execute(sql, org_pk, shipment_id, view_as)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
@@ -798,19 +847,22 @@ async def func_api_my_cargowise_alerts(*, request: Request):
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
     limit = max(1, limit)
     page = max(1, int(oq["page"] or 1))
+    view_as = str(oq.get("view_as") or "controlling_customer").strip()
     offset = (page - 1) * limit
     sql_limit = limit + 1
     sql = f"""
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        DECLARE @view_as nvarchar(40) = ?;
         WITH visible_shipments AS (
             SELECT DISTINCT JS.JS_PK
             FROM dbo.JobShipment AS JS
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
             LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
             LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
             LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
@@ -818,18 +870,25 @@ async def func_api_my_cargowise_alerts(*, request: Request):
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JS.JS_IsValid = 1
               AND (
-                    JS.JS_OH_Creditor = @org
-                 OR JS.JS_OH_DeliveryAgent = @org
-                 OR JS.JS_OH_ExportBroker = @org
-                 OR JS.JS_OH_HandledOnBehalfOfForwarder = @org
-                 OR JS.JS_OH_ImportBroker = @org
-                 OR JS.JS_OH_TranshipAgent = @org
-                 OR E2OA.OA_OH = @org
-                 OR BuyerOA.OA_OH = @org
-                 OR SupplierOA.OA_OH = @org
-                 OR JD.JD_OH_Carrier = @org
-                 OR JD.JD_OH_SendingAgent = @org
-                 OR JD.JD_OH_ReceivingAgent = @org
+                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                 OR (
+                        @view_as = 'all'
+                    AND (
+                           JSO.ControllingCustomer_PK = @org
+                        OR JS.JS_OH_Creditor = @org
+                        OR JS.JS_OH_DeliveryAgent = @org
+                        OR JS.JS_OH_ExportBroker = @org
+                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org
+                        OR JS.JS_OH_ImportBroker = @org
+                        OR JS.JS_OH_TranshipAgent = @org
+                        OR E2OA.OA_OH = @org
+                        OR BuyerOA.OA_OH = @org
+                        OR SupplierOA.OA_OH = @org
+                        OR JD.JD_OH_Carrier = @org
+                        OR JD.JD_OH_SendingAgent = @org
+                        OR JD.JD_OH_ReceivingAgent = @org
+                    )
+                 )
               )
         ),
         pending_shipments AS (
@@ -902,7 +961,7 @@ async def func_api_my_cargowise_alerts(*, request: Request):
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
-        await cursor.execute(sql, org_pk)
+        await cursor.execute(sql, org_pk, view_as)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
@@ -913,37 +972,48 @@ async def func_api_my_cargowise_documents(*, request: Request):
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_id", "str", 0, None, "")])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_id", "str", 0, None, ""), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
     limit = max(1, limit)
     page = max(1, int(oq["page"] or 1))
     shipment_id = str(oq.get("shipment_id") or "").strip()
+    view_as = str(oq.get("view_as") or "controlling_customer").strip()
     offset = (page - 1) * limit
     sql_limit = limit + 1
     sql = f"""
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @shipment_id_str nvarchar(max) = ?;
+        DECLARE @view_as nvarchar(40) = ?;
         DECLARE @shipment_id uniqueidentifier = NULL;
         IF @shipment_id_str <> '' SET @shipment_id = TRY_CONVERT(uniqueidentifier, @shipment_id_str);
         WITH visible_orders AS (
             SELECT DISTINCT JD.JD_PK
             FROM dbo.JobOrderHeader AS JD
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JD.JD_JS
             LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JD.JD_IsValid = 1
               AND (
-                    BuyerOA.OA_OH = @org
-                 OR SupplierOA.OA_OH = @org
-                 OR JD.JD_OH_Carrier = @org
-                 OR JD.JD_OH_SendingAgent = @org
-                 OR JD.JD_OH_ReceivingAgent = @org
+                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                 OR (
+                        @view_as = 'all'
+                    AND (
+                           JSO.ControllingCustomer_PK = @org
+                        OR BuyerOA.OA_OH = @org
+                        OR SupplierOA.OA_OH = @org
+                        OR JD.JD_OH_Carrier = @org
+                        OR JD.JD_OH_SendingAgent = @org
+                        OR JD.JD_OH_ReceivingAgent = @org
+                    )
+                 )
               )
         ),
         visible_shipments AS (
             SELECT DISTINCT JS.JS_PK
             FROM dbo.JobShipment AS JS
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
             LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
             LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
             LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
@@ -951,18 +1021,25 @@ async def func_api_my_cargowise_documents(*, request: Request):
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JS.JS_IsValid = 1
               AND (
-                    JS.JS_OH_Creditor = @org
-                 OR JS.JS_OH_DeliveryAgent = @org
-                 OR JS.JS_OH_ExportBroker = @org
-                 OR JS.JS_OH_HandledOnBehalfOfForwarder = @org
-                 OR JS.JS_OH_ImportBroker = @org
-                 OR JS.JS_OH_TranshipAgent = @org
-                 OR E2OA.OA_OH = @org
-                 OR BuyerOA.OA_OH = @org
-                 OR SupplierOA.OA_OH = @org
-                 OR JD.JD_OH_Carrier = @org
-                 OR JD.JD_OH_SendingAgent = @org
-                 OR JD.JD_OH_ReceivingAgent = @org
+                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                 OR (
+                        @view_as = 'all'
+                    AND (
+                           JSO.ControllingCustomer_PK = @org
+                        OR JS.JS_OH_Creditor = @org
+                        OR JS.JS_OH_DeliveryAgent = @org
+                        OR JS.JS_OH_ExportBroker = @org
+                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org
+                        OR JS.JS_OH_ImportBroker = @org
+                        OR JS.JS_OH_TranshipAgent = @org
+                        OR E2OA.OA_OH = @org
+                        OR BuyerOA.OA_OH = @org
+                        OR SupplierOA.OA_OH = @org
+                        OR JD.JD_OH_Carrier = @org
+                        OR JD.JD_OH_SendingAgent = @org
+                        OR JD.JD_OH_ReceivingAgent = @org
+                    )
+                 )
               )
         ),
         visible_consols AS (
@@ -997,11 +1074,10 @@ async def func_api_my_cargowise_documents(*, request: Request):
             LEFT JOIN visible_consols AS VC ON EQ.EQ_ParentTableCode = 'JK' AND VC.JN_JK = EQ.EQ_ParentID
             WHERE EQ.EQ_IsValid = 1
               AND (
-                    EQ.EQ_OH_DocumentOwner = @org
-                 OR EQ.EQ_OH_IssuedBy = @org
-                 OR VO.JD_PK IS NOT NULL
+                    VO.JD_PK IS NOT NULL
                  OR VS.JS_PK IS NOT NULL
                  OR VC.JN_JK IS NOT NULL
+                 OR (@view_as = 'all' AND (EQ.EQ_OH_DocumentOwner = @org OR EQ.EQ_OH_IssuedBy = @org))
               )
               AND (
                     @shipment_id IS NULL
@@ -1049,7 +1125,7 @@ async def func_api_my_cargowise_documents(*, request: Request):
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
-        await cursor.execute(sql, org_pk, shipment_id)
+        await cursor.execute(sql, org_pk, shipment_id, view_as)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
@@ -1069,34 +1145,45 @@ async def func_api_my_cargowise_analytics(*, request: Request):
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("module", "str", 0, ["master", "purchase_orders", "shipments", "containers"], "master")])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("module", "str", 0, ["master", "purchase_orders", "shipments", "containers"], "master"), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
+    view_as = str(oq.get("view_as") or "controlling_customer").strip()
     kpis_sql = """
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        DECLARE @view_as nvarchar(40) = ?;
         WITH visible_orders AS (
             SELECT DISTINCT JD.JD_PK
             FROM dbo.JobOrderHeader AS JD
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JD.JD_JS
             LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JD.JD_IsValid = 1
               AND (
-                    BuyerOA.OA_OH = @org
-                 OR SupplierOA.OA_OH = @org
-                 OR JD.JD_OH_Carrier = @org
-                 OR JD.JD_OH_SendingAgent = @org
-                 OR JD.JD_OH_ReceivingAgent = @org
-                 OR EXISTS (
-                        SELECT 1
-                        FROM dbo.JobOrderLine AS JO
-                        WHERE JO.JO_JD = JD.JD_PK
-                          AND JO.JO_IsValid = 1
-                          AND JO.JO_OH_Supplier = @org
+                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                 OR (
+                        @view_as = 'all'
+                    AND (
+                           JSO.ControllingCustomer_PK = @org
+                        OR BuyerOA.OA_OH = @org
+                        OR SupplierOA.OA_OH = @org
+                        OR JD.JD_OH_Carrier = @org
+                        OR JD.JD_OH_SendingAgent = @org
+                        OR JD.JD_OH_ReceivingAgent = @org
+                        OR EXISTS (
+                            SELECT 1
+                            FROM dbo.JobOrderLine AS JO
+                            WHERE JO.JO_JD = JD.JD_PK
+                              AND JO.JO_IsValid = 1
+                              AND JO.JO_OH_Supplier = @org
+                        )
                     )
+                 )
               )
         ),
         visible_shipments AS (
             SELECT DISTINCT JS.JS_PK
             FROM dbo.JobShipment AS JS
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
             LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
             LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
             LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
@@ -1104,10 +1191,17 @@ async def func_api_my_cargowise_analytics(*, request: Request):
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JS.JS_IsValid = 1
               AND (
-                    JS.JS_OH_Creditor = @org OR JS.JS_OH_DeliveryAgent = @org OR JS.JS_OH_ExportBroker = @org
-                 OR JS.JS_OH_HandledOnBehalfOfForwarder = @org OR JS.JS_OH_ImportBroker = @org OR JS.JS_OH_TranshipAgent = @org
-                 OR E2OA.OA_OH = @org OR BuyerOA.OA_OH = @org OR SupplierOA.OA_OH = @org
-                 OR JD.JD_OH_Carrier = @org OR JD.JD_OH_SendingAgent = @org OR JD.JD_OH_ReceivingAgent = @org
+                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                 OR (
+                        @view_as = 'all'
+                    AND (
+                           JSO.ControllingCustomer_PK = @org
+                        OR JS.JS_OH_Creditor = @org OR JS.JS_OH_DeliveryAgent = @org OR JS.JS_OH_ExportBroker = @org
+                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org OR JS.JS_OH_ImportBroker = @org OR JS.JS_OH_TranshipAgent = @org
+                        OR E2OA.OA_OH = @org OR BuyerOA.OA_OH = @org OR SupplierOA.OA_OH = @org
+                        OR JD.JD_OH_Carrier = @org OR JD.JD_OH_SendingAgent = @org OR JD.JD_OH_ReceivingAgent = @org
+                    )
+                 )
               )
         ),
         visible_containers AS (
@@ -1117,7 +1211,11 @@ async def func_api_my_cargowise_analytics(*, request: Request):
             LEFT JOIN visible_shipments AS VS1 ON VS1.JS_PK = JC.JC_JS_FCLBookingOnlyLink
             LEFT JOIN visible_shipments AS VS2 ON VS2.JS_PK = JN.JN_JS
             WHERE JC.JC_IsValid = 1
-              AND (VS1.JS_PK IS NOT NULL OR VS2.JS_PK IS NOT NULL OR JC.JC_OH_CFSClient = @org OR JC.JC_OH_ShippingLine = @org)
+              AND (
+                    VS1.JS_PK IS NOT NULL
+                 OR VS2.JS_PK IS NOT NULL
+                 OR (@view_as = 'all' AND (JC.JC_OH_CFSClient = @org OR JC.JC_OH_ShippingLine = @org))
+              )
         ),
         line_summary AS (
             SELECT JO.JO_JD AS order_pk, COUNT(1) AS line_count
@@ -1149,25 +1247,34 @@ async def func_api_my_cargowise_analytics(*, request: Request):
     purchase_orders_by_status_sql = """
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        DECLARE @view_as nvarchar(40) = ?;
         WITH visible_orders AS (
             SELECT DISTINCT JD.JD_PK
             FROM dbo.JobOrderHeader AS JD
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JD.JD_JS
             LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JD.JD_IsValid = 1
               AND (
-                    BuyerOA.OA_OH = @org
-                 OR SupplierOA.OA_OH = @org
-                 OR JD.JD_OH_Carrier = @org
-                 OR JD.JD_OH_SendingAgent = @org
-                 OR JD.JD_OH_ReceivingAgent = @org
-                 OR EXISTS (
-                        SELECT 1
-                        FROM dbo.JobOrderLine AS JO
-                        WHERE JO.JO_JD = JD.JD_PK
-                          AND JO.JO_IsValid = 1
-                          AND JO.JO_OH_Supplier = @org
+                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                 OR (
+                        @view_as = 'all'
+                    AND (
+                           JSO.ControllingCustomer_PK = @org
+                        OR BuyerOA.OA_OH = @org
+                        OR SupplierOA.OA_OH = @org
+                        OR JD.JD_OH_Carrier = @org
+                        OR JD.JD_OH_SendingAgent = @org
+                        OR JD.JD_OH_ReceivingAgent = @org
+                        OR EXISTS (
+                            SELECT 1
+                            FROM dbo.JobOrderLine AS JO
+                            WHERE JO.JO_JD = JD.JD_PK
+                              AND JO.JO_IsValid = 1
+                              AND JO.JO_OH_Supplier = @org
+                        )
                     )
+                 )
               )
         )
         SELECT JD.JD_OrderStatus AS status, COUNT(1) AS count
@@ -1178,9 +1285,11 @@ async def func_api_my_cargowise_analytics(*, request: Request):
     shipments_by_status_sql = """
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        DECLARE @view_as nvarchar(40) = ?;
         WITH visible_shipments AS (
             SELECT DISTINCT JS.JS_PK
             FROM dbo.JobShipment AS JS
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
             LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
             LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
             LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
@@ -1188,10 +1297,17 @@ async def func_api_my_cargowise_analytics(*, request: Request):
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JS.JS_IsValid = 1
               AND (
-                    JS.JS_OH_Creditor = @org OR JS.JS_OH_DeliveryAgent = @org OR JS.JS_OH_ExportBroker = @org
-                 OR JS.JS_OH_HandledOnBehalfOfForwarder = @org OR JS.JS_OH_ImportBroker = @org OR JS.JS_OH_TranshipAgent = @org
-                 OR E2OA.OA_OH = @org OR BuyerOA.OA_OH = @org OR SupplierOA.OA_OH = @org
-                 OR JD.JD_OH_Carrier = @org OR JD.JD_OH_SendingAgent = @org OR JD.JD_OH_ReceivingAgent = @org
+                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                 OR (
+                        @view_as = 'all'
+                    AND (
+                           JSO.ControllingCustomer_PK = @org
+                        OR JS.JS_OH_Creditor = @org OR JS.JS_OH_DeliveryAgent = @org OR JS.JS_OH_ExportBroker = @org
+                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org OR JS.JS_OH_ImportBroker = @org OR JS.JS_OH_TranshipAgent = @org
+                        OR E2OA.OA_OH = @org OR BuyerOA.OA_OH = @org OR SupplierOA.OA_OH = @org
+                        OR JD.JD_OH_Carrier = @org OR JD.JD_OH_SendingAgent = @org OR JD.JD_OH_ReceivingAgent = @org
+                    )
+                 )
               )
         )
         SELECT JS.JS_ShipmentStatus AS status, COUNT(1) AS count
@@ -1202,9 +1318,11 @@ async def func_api_my_cargowise_analytics(*, request: Request):
     shipments_by_month_sql = """
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        DECLARE @view_as nvarchar(40) = ?;
         WITH visible_shipments AS (
             SELECT DISTINCT JS.JS_PK
             FROM dbo.JobShipment AS JS
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
             LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
             LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
             LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
@@ -1212,10 +1330,17 @@ async def func_api_my_cargowise_analytics(*, request: Request):
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JS.JS_IsValid = 1
               AND (
-                    JS.JS_OH_Creditor = @org OR JS.JS_OH_DeliveryAgent = @org OR JS.JS_OH_ExportBroker = @org
-                 OR JS.JS_OH_HandledOnBehalfOfForwarder = @org OR JS.JS_OH_ImportBroker = @org OR JS.JS_OH_TranshipAgent = @org
-                 OR E2OA.OA_OH = @org OR BuyerOA.OA_OH = @org OR SupplierOA.OA_OH = @org
-                 OR JD.JD_OH_Carrier = @org OR JD.JD_OH_SendingAgent = @org OR JD.JD_OH_ReceivingAgent = @org
+                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                 OR (
+                        @view_as = 'all'
+                    AND (
+                           JSO.ControllingCustomer_PK = @org
+                        OR JS.JS_OH_Creditor = @org OR JS.JS_OH_DeliveryAgent = @org OR JS.JS_OH_ExportBroker = @org
+                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org OR JS.JS_OH_ImportBroker = @org OR JS.JS_OH_TranshipAgent = @org
+                        OR E2OA.OA_OH = @org OR BuyerOA.OA_OH = @org OR SupplierOA.OA_OH = @org
+                        OR JD.JD_OH_Carrier = @org OR JD.JD_OH_SendingAgent = @org OR JD.JD_OH_ReceivingAgent = @org
+                    )
+                 )
               )
         )
         SELECT TOP 12
@@ -1229,9 +1354,11 @@ async def func_api_my_cargowise_analytics(*, request: Request):
     transport_modes_sql = """
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        DECLARE @view_as nvarchar(40) = ?;
         WITH visible_shipments AS (
             SELECT DISTINCT JS.JS_PK
             FROM dbo.JobShipment AS JS
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
             LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
             LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
             LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
@@ -1239,10 +1366,17 @@ async def func_api_my_cargowise_analytics(*, request: Request):
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JS.JS_IsValid = 1
               AND (
-                    JS.JS_OH_Creditor = @org OR JS.JS_OH_DeliveryAgent = @org OR JS.JS_OH_ExportBroker = @org
-                 OR JS.JS_OH_HandledOnBehalfOfForwarder = @org OR JS.JS_OH_ImportBroker = @org OR JS.JS_OH_TranshipAgent = @org
-                 OR E2OA.OA_OH = @org OR BuyerOA.OA_OH = @org OR SupplierOA.OA_OH = @org
-                 OR JD.JD_OH_Carrier = @org OR JD.JD_OH_SendingAgent = @org OR JD.JD_OH_ReceivingAgent = @org
+                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                 OR (
+                        @view_as = 'all'
+                    AND (
+                           JSO.ControllingCustomer_PK = @org
+                        OR JS.JS_OH_Creditor = @org OR JS.JS_OH_DeliveryAgent = @org OR JS.JS_OH_ExportBroker = @org
+                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org OR JS.JS_OH_ImportBroker = @org OR JS.JS_OH_TranshipAgent = @org
+                        OR E2OA.OA_OH = @org OR BuyerOA.OA_OH = @org OR SupplierOA.OA_OH = @org
+                        OR JD.JD_OH_Carrier = @org OR JD.JD_OH_SendingAgent = @org OR JD.JD_OH_ReceivingAgent = @org
+                    )
+                 )
               )
         )
         SELECT JS.JS_TransportMode AS transport_mode, COUNT(1) AS count
@@ -1252,12 +1386,12 @@ async def func_api_my_cargowise_analytics(*, request: Request):
         ORDER BY COUNT(1) DESC;"""
     async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
-        await cursor.execute(kpis_sql, org_pk)
+        await cursor.execute(kpis_sql, org_pk, view_as)
         kpis_columns = [column[0] for column in cursor.description]
         kpis = [dict(zip(kpis_columns, row)) for row in await cursor.fetchall()]
         purchase_orders_by_status, shipments_by_status, shipments_by_month, transport_modes = [], [], [], []
         if oq["module"] in ("master", "purchase_orders"):
-            await cursor.execute(purchase_orders_by_status_sql, org_pk)
+            await cursor.execute(purchase_orders_by_status_sql, org_pk, view_as)
             purchase_orders_by_status_columns = [column[0] for column in cursor.description]
             purchase_orders_by_status = [dict(zip(purchase_orders_by_status_columns, row)) for row in await cursor.fetchall()]
         if oq["module"] == "purchase_orders":
@@ -1265,13 +1399,13 @@ async def func_api_my_cargowise_analytics(*, request: Request):
         if oq["module"] == "containers":
             return {"status": 1, "message": jsonable_encoder({"kpis": kpis[0] if kpis else {}})}
         if oq["module"] in ("master", "shipments"):
-            await cursor.execute(shipments_by_status_sql, org_pk)
+            await cursor.execute(shipments_by_status_sql, org_pk, view_as)
             shipments_by_status_columns = [column[0] for column in cursor.description]
             shipments_by_status = [dict(zip(shipments_by_status_columns, row)) for row in await cursor.fetchall()]
-            await cursor.execute(shipments_by_month_sql, org_pk)
+            await cursor.execute(shipments_by_month_sql, org_pk, view_as)
             shipments_by_month_columns = [column[0] for column in cursor.description]
             shipments_by_month = [dict(zip(shipments_by_month_columns, row)) for row in await cursor.fetchall()]
-            await cursor.execute(transport_modes_sql, org_pk)
+            await cursor.execute(transport_modes_sql, org_pk, view_as)
             transport_modes_columns = [column[0] for column in cursor.description]
             transport_modes = [dict(zip(transport_modes_columns, row)) for row in await cursor.fetchall()]
         if oq["module"] == "shipments":
