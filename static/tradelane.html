@@ -1406,6 +1406,186 @@ body.logged-out .content-wrapper {
 
 .logout-confirmation p { margin: 0; }
 
+@media (max-width: 1440px) {
+    .sidebar {
+        width: 220px;
+    }
+    .logo {
+        height: 58px;
+        padding: 0 1.15rem;
+    }
+    .logo h2 {
+        font-size: 1.12rem;
+    }
+    .nav-menu {
+        padding: 0.75rem 0;
+        gap: 0.15rem;
+    }
+    .nav-item {
+        gap: 0.75rem;
+        padding: 0.72rem 1.1rem;
+        font-size: 0.88rem;
+    }
+    .top-bar {
+        height: 58px;
+        min-height: 58px;
+        padding: 0 1.25rem;
+    }
+    .content-wrapper {
+        padding: 1.25rem 1.35rem;
+    }
+    .section-header {
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    .section-header h1 {
+        font-size: 1.3rem;
+    }
+    .section-header p {
+        font-size: 0.84rem;
+    }
+    .kpi-row {
+        grid-template-columns: repeat(4, minmax(125px, 1fr));
+        gap: 0.8rem;
+        margin-bottom: 1rem;
+    }
+    .kpi-card {
+        padding: 0.9rem 1rem;
+        border-radius: 10px;
+    }
+    .kpi-card h4 {
+        margin-bottom: 0.45rem;
+        font-size: 0.68rem;
+    }
+    .kpi-card .val {
+        font-size: 1.45rem;
+    }
+    .panel {
+        padding: 1.1rem;
+        margin-bottom: 1rem;
+        border-radius: 10px;
+    }
+    .panel-header {
+        margin-bottom: 0.85rem;
+    }
+    .panel-header h3 {
+        font-size: 1rem;
+    }
+    .schema-control-row {
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+    .object-count-control-row {
+        grid-template-columns: minmax(0, 1fr) minmax(310px, 0.75fr);
+    }
+    .schema-filter-bar {
+        grid-template-columns: minmax(130px, 1fr) repeat(2, minmax(92px, 0.75fr)) 38px;
+        gap: 0.45rem;
+        padding: 0.65rem 0.75rem;
+    }
+    .schema-pagination {
+        gap: 0.7rem;
+        padding: 0.55rem 0.7rem;
+    }
+    .schema-table th,
+    .schema-table td {
+        padding: 0.55rem 0.45rem;
+        font-size: 0.74rem;
+    }
+    .schema-table th {
+        font-size: 0.68rem;
+    }
+    .query-workspace {
+        gap: 0.85rem;
+    }
+    .query-builder-panel,
+    .query-ai-panel {
+        min-height: 205px;
+    }
+    .query-builder-grid {
+        grid-template-columns: minmax(150px, 1fr) 82px auto;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+    #query-builder-limit {
+        max-width: 82px;
+    }
+    .query-builder-filter-row {
+        grid-template-columns: minmax(130px, 1.05fr) minmax(100px, 0.7fr) minmax(125px, 1fr) 34px;
+        gap: 0.45rem;
+    }
+    .query-builder-field {
+        gap: 0.32rem;
+    }
+    .query-builder-field input,
+    .query-builder-field select,
+    .query-ai-question,
+    .query-builder-filter-row input,
+    .query-builder-filter-row select {
+        min-height: 36px;
+        padding: 0.46rem 0.55rem;
+        font-size: 0.8rem;
+    }
+    .query-ai-question {
+        min-height: 96px;
+    }
+    .query-editor {
+        min-height: 150px;
+        padding: 0.85rem;
+    }
+    .query-table-wrap {
+        max-height: 390px;
+    }
+    .query-table th,
+    .query-table td {
+        padding: 0.55rem 0.65rem;
+        font-size: 0.76rem;
+    }
+    .btn {
+        gap: 0.35rem;
+        padding: 0.46rem 0.75rem;
+        font-size: 0.88rem;
+    }
+    .query-builder-remove,
+    .query-builder-reset,
+    .query-download-icon,
+    .object-count-download {
+        width: 34px;
+        height: 34px;
+        min-height: 34px;
+    }
+}
+
+@media (max-height: 820px) and (min-width: 901px) {
+    .content-wrapper {
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+    }
+    .section-header {
+        margin-bottom: 0.85rem;
+    }
+    .kpi-row {
+        margin-bottom: 0.85rem;
+    }
+    .panel {
+        padding: 1rem;
+        margin-bottom: 0.85rem;
+    }
+    .query-builder-panel,
+    .query-ai-panel {
+        min-height: 190px;
+    }
+    .query-ai-question {
+        min-height: 86px;
+    }
+    .query-editor {
+        min-height: 130px;
+    }
+    .query-table-wrap {
+        max-height: 300px;
+    }
+}
+
 @media (max-width: 900px) {
     .home-hero { grid-template-columns: 1fr; }
     .sidebar { width: 210px; }

@@ -568,10 +568,10 @@ body {
     width: 100%;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.45rem;
     flex-wrap: wrap;
     min-width: 0;
-    padding: 1rem 1.25rem;
+    padding: 0.9rem 1rem;
     box-sizing: border-box;
 }
 
@@ -584,7 +584,7 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
-    padding-right: 0.25rem;
+    padding-right: 0.1rem;
     color: #475569;
     font-size: 0.78rem;
     font-weight: 850;
@@ -602,7 +602,7 @@ body {
     align-items: center;
     gap: 0.45rem;
     box-sizing: border-box;
-    padding: 0 0.65rem;
+    padding: 0 0.55rem;
     border: 1px solid var(--border);
     border-radius: 9px;
     background: #F9FAFB;
@@ -635,24 +635,29 @@ body {
 
 .users-filter-field.username,
 .users-filter-field.name {
-    flex: 1 1 220px;
-    min-width: 160px;
+    flex: 1 1 150px;
+    min-width: 125px;
 }
 
 .users-filter-field.country {
-    flex: 1 1 190px;
-    min-width: 150px;
+    flex: 1 1 135px;
+    min-width: 115px;
+}
+
+.users-filter-field.code {
+    flex: 0 1 105px;
+    min-width: 95px;
 }
 
 .users-filter-field.role {
-    flex: 0 1 210px;
-    min-width: 160px;
+    flex: 0 1 140px;
+    min-width: 120px;
 }
 
 .users-filter-actions {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
     flex: 0 0 auto;
     margin-left: auto;
 }
@@ -660,6 +665,8 @@ body {
 .users-filter-actions .btn {
     min-height: 42px;
     white-space: nowrap;
+    padding-left: 0.8rem;
+    padding-right: 0.8rem;
 }
 
 .po-search > i {
@@ -775,6 +782,22 @@ body {
     border-radius: 12px;
     background: #FFFFFF;
     box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+}
+
+.shipment-kpi-strip {
+    grid-template-columns: repeat(6, minmax(100px, 1fr));
+}
+
+.shipment-kpi-strip .po-kpi-card {
+    padding: 0.75rem 0.8rem;
+}
+
+.shipment-kpi-strip .po-kpi-label {
+    font-size: 0.68rem;
+}
+
+.shipment-kpi-strip .po-kpi-value {
+    font-size: 1.25rem;
 }
 
 .po-kpi-label {
@@ -4018,6 +4041,7 @@ body.not-allowed .content-wrapper {
     .users-filter-field.username,
     .users-filter-field.name,
     .users-filter-field.country,
+    .users-filter-field.code,
     .users-filter-field.role {
         flex: 1 1 calc(50% - 0.35rem);
     }
@@ -4587,6 +4611,10 @@ body.not-allowed .content-wrapper {
                                 <i class="fa-solid fa-globe" aria-hidden="true"></i>
                                 <input type="text" id="users-country-input" placeholder="Country">
                             </label>
+                            <label class="users-filter-field code" aria-label="Code">
+                                <i class="fa-solid fa-barcode" aria-hidden="true"></i>
+                                <input type="text" id="users-code-input" placeholder="Code">
+                            </label>
                             <label class="users-filter-field role" aria-label="Role">
                                 <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
                                 <select id="users-role-select">
@@ -4926,7 +4954,7 @@ body.not-allowed .content-wrapper {
                             </div>
                         </div>
                         <div class="panel po-panel">
-                            <div class="po-kpi-strip">
+                            <div class="po-kpi-strip shipment-kpi-strip">
                                 <div class="po-kpi-card">
                                     <div class="po-kpi-label"><i class="fa-solid fa-ship" aria-hidden="true"></i> Total Shipments</div>
                                     <div class="po-kpi-value" id="shipment-kpi-total">-</div>
@@ -4934,6 +4962,10 @@ body.not-allowed .content-wrapper {
                                 <div class="po-kpi-card">
                                     <div class="po-kpi-label"><i class="fa-solid fa-route" aria-hidden="true"></i> Active</div>
                                     <div class="po-kpi-value" id="shipment-kpi-active">-</div>
+                                </div>
+                                <div class="po-kpi-card">
+                                    <div class="po-kpi-label"><i class="fa-solid fa-ban" aria-hidden="true"></i> Cancelled</div>
+                                    <div class="po-kpi-value" id="shipment-kpi-cancelled">-</div>
                                 </div>
                                 <div class="po-kpi-card">
                                     <div class="po-kpi-label"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Arriving Soon (7 Days)</div>
@@ -5871,6 +5903,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let usersSearchQuery = '';
     let usersNameQuery = '';
     let usersCountryQuery = '';
+    let usersCodeQuery = '';
     let usersRoleQuery = '';
     let usersRows = [];
     let ratesCurrentPage = 1;
@@ -7156,6 +7189,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const cancelled = Number(kpis.cancelled_shipments || 0);
         document.getElementById('shipment-kpi-total').textContent = total.toLocaleString();
         document.getElementById('shipment-kpi-active').textContent = Math.max(0, total - cancelled).toLocaleString();
+        document.getElementById('shipment-kpi-cancelled').textContent = cancelled.toLocaleString();
         document.getElementById('shipment-kpi-arriving').textContent = Number(kpis.arriving_soon_shipments || 0).toLocaleString();
         document.getElementById('shipment-kpi-delayed').textContent = Number(kpis.delayed_shipments || 0).toLocaleString();
         document.getElementById('shipment-kpi-containers').textContent = Number(kpis.containers || 0).toLocaleString();
@@ -7165,7 +7199,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderShipmentKpis(moduleCache['kpi:shipments']);
             return;
         }
-        ['total', 'active', 'arriving', 'delayed', 'containers'].forEach(key => {
+        ['total', 'active', 'cancelled', 'arriving', 'delayed', 'containers'].forEach(key => {
             const el = document.getElementById(`shipment-kpi-${key}`);
             if (el) el.textContent = '-';
         });
@@ -7175,7 +7209,7 @@ document.addEventListener('DOMContentLoaded', () => {
             moduleCache['kpi:shipments'] = kpis;
             renderShipmentKpis(kpis);
         } catch (err) {
-            ['total', 'active', 'arriving', 'delayed', 'containers'].forEach(key => {
+            ['total', 'active', 'cancelled', 'arriving', 'delayed', 'containers'].forEach(key => {
                 const el = document.getElementById(`shipment-kpi-${key}`);
                 if (el) el.textContent = '-';
             });
@@ -7950,10 +7984,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (usersSearchQuery) filters.push({ username: `ilike,%${usersSearchQuery}%` });
         if (usersNameQuery) filters.push({ name: `ilike,%${usersNameQuery}%` });
         if (usersCountryQuery) filters.push({ country: `ilike,%${usersCountryQuery}%` });
+        if (usersCodeQuery) filters.push({ cw_code: `=,${usersCodeQuery}` });
         if (usersRoleQuery) filters.push({ role: `=,${usersRoleQuery}` });
         return filters;
     };
-    const usersFilterHasValue = () => Boolean(usersSearchQuery || usersNameQuery || usersCountryQuery || usersRoleQuery);
+    const usersFilterHasValue = () => Boolean(usersSearchQuery || usersNameQuery || usersCountryQuery || usersCodeQuery || usersRoleQuery);
     const updateUsersFilterClear = () => {
         const clear = document.getElementById('users-search-clear');
         const submit = document.getElementById('users-search-submit');
@@ -8268,7 +8303,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target === 'shipments') {
             const resultCount = document.getElementById('shipment-result-count');
             if (resultCount) resultCount.textContent = 'Loading shipments...';
-            ['total', 'active', 'arriving', 'delayed', 'containers'].forEach(key => {
+            ['total', 'active', 'cancelled', 'arriving', 'delayed', 'containers'].forEach(key => {
                 const el = document.getElementById(`shipment-kpi-${key}`);
                 if (el) el.textContent = '-';
             });
@@ -8671,6 +8706,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const usersSearchInput = document.getElementById('users-search-input');
     const usersNameInput = document.getElementById('users-name-input');
     const usersCountryInput = document.getElementById('users-country-input');
+    const usersCodeInput = document.getElementById('users-code-input');
     const usersRoleSelect = document.getElementById('users-role-select');
     const usersSearchClear = document.getElementById('users-search-clear');
     document.getElementById('users-search-form')?.addEventListener('submit', event => {
@@ -8678,6 +8714,7 @@ document.addEventListener('DOMContentLoaded', () => {
         usersSearchQuery = (usersSearchInput?.value || '').trim();
         usersNameQuery = (usersNameInput?.value || '').trim();
         usersCountryQuery = (usersCountryInput?.value || '').trim();
+        usersCodeQuery = (usersCodeInput?.value || '').trim();
         usersRoleQuery = (usersRoleSelect?.value || '').trim();
         if (!usersFilterHasValue()) {
             updateUsersFilterClear();
@@ -8687,11 +8724,12 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUsersFilterClear();
         loadUsers();
     });
-    [usersSearchInput, usersNameInput, usersCountryInput].forEach(input => {
+    [usersSearchInput, usersNameInput, usersCountryInput, usersCodeInput].forEach(input => {
         input?.addEventListener('input', () => {
             usersSearchQuery = (usersSearchInput?.value || '').trim();
             usersNameQuery = (usersNameInput?.value || '').trim();
             usersCountryQuery = (usersCountryInput?.value || '').trim();
+            usersCodeQuery = (usersCodeInput?.value || '').trim();
             usersRoleQuery = (usersRoleSelect?.value || '').trim();
             updateUsersFilterClear();
         });
@@ -8704,10 +8742,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (usersSearchInput) usersSearchInput.value = '';
         if (usersNameInput) usersNameInput.value = '';
         if (usersCountryInput) usersCountryInput.value = '';
+        if (usersCodeInput) usersCodeInput.value = '';
         if (usersRoleSelect) usersRoleSelect.value = '';
         usersSearchQuery = '';
         usersNameQuery = '';
         usersCountryQuery = '';
+        usersCodeQuery = '';
         usersRoleQuery = '';
         usersCurrentPage = 1;
         updateUsersFilterClear();
