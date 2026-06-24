@@ -152,12 +152,36 @@ body {
 }
 
 .postgres-sync-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
     min-height: 34px;
     padding: 0.45rem 0.75rem;
 }
 
-.postgres-sync-btn.is-loading i {
-    animation: spin 0.8s linear infinite;
+.postgres-sync-check {
+    display: none;
+    color: #059669;
+    font-size: 0.8rem;
+}
+
+.postgres-sync-btn.has-sync-state {
+    border-color: #E5E7EB;
+    background: #F9FAFB;
+}
+
+.postgres-sync-btn.has-sync-state .postgres-sync-check {
+    display: inline-flex;
+}
+
+.postgres-sync-btn.has-sync-state:hover {
+    border-color: #D1D5DB;
+    background: #F3F4F6;
+    color: var(--text-dark);
+}
+
+.postgres-sync-btn.is-loading {
+    opacity: 0.7;
 }
 
 .postgres-sync-ring {
@@ -505,6 +529,19 @@ body {
     font-weight: 800;
 }
 
+.health-kpi-row {
+    margin-top: -0.5rem;
+}
+
+.health-kpi-row .kpi-card {
+    border-top-color: #10B981;
+}
+
+.health-kpi-row .kpi-card h4 i {
+    background: #D1FAE5;
+    color: #047857;
+}
+
 .panel {
     background: var(--bg-surface);
     border-radius: 12px;
@@ -703,15 +740,16 @@ body {
 
 .object-count-table th:nth-child(3),
 .object-count-table td:nth-child(3) {
-    min-width: 150px;
-    padding-right: 1.35rem;
+    min-width: 190px;
+    padding-right: 2.6rem;
     text-align: right;
 }
 
 .object-count-table th:nth-child(4),
 .object-count-table td:nth-child(4) {
-    width: 116px;
-    min-width: 116px;
+    width: 170px;
+    min-width: 170px;
+    padding-left: 2rem;
     text-align: center;
 }
 
@@ -719,7 +757,7 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.4rem;
+    gap: 0.75rem;
 }
 
 .object-count-download,
@@ -799,11 +837,13 @@ body {
     align-items: stretch;
 }
 
-#query-runner {
+#query-runner,
+#object-count {
     position: relative;
 }
 
-.query-runner-overlay {
+.query-runner-overlay,
+.object-count-overlay {
     position: absolute;
     inset: 0;
     z-index: 20;
@@ -814,11 +854,13 @@ body {
     backdrop-filter: blur(2px);
 }
 
-.query-runner-overlay[hidden] {
+.query-runner-overlay[hidden],
+.object-count-overlay[hidden] {
     display: none;
 }
 
-.query-runner-loader {
+.query-runner-loader,
+.object-count-loader {
     display: inline-flex;
     align-items: center;
     gap: 0.75rem;
@@ -832,13 +874,23 @@ body {
     font-weight: 700;
 }
 
-.query-runner-spinner {
+.query-runner-spinner,
+.object-count-spinner {
     width: 24px;
     height: 24px;
     border: 3px solid #D1FAE5;
     border-top-color: #10B981;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
+}
+
+.busy-cancel-btn {
+    min-height: 32px;
+    padding: 0.38rem 0.65rem;
+}
+
+.busy-cancel-btn[hidden] {
+    display: none;
 }
 
 .query-builder-panel,
@@ -1615,8 +1667,8 @@ body.logged-out .content-wrapper {
                     <span class="postgres-sync-ring" id="postgres-sync-ring"><i class="fa-solid fa-database" aria-hidden="true"></i></span>
                 </div>
                 <button class="btn btn-secondary postgres-sync-btn auth-only" id="postgres-sync-btn" type="button" title="Sync Postgres data" aria-label="Sync Postgres data">
-                    <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
-                    <span>Sync</span>
+                    <i class="fa-solid fa-check postgres-sync-check" aria-hidden="true"></i>
+                    <span id="postgres-sync-btn-text">Sync</span>
                 </button>
                 <div class="user-controls">
                     <button class="btn btn-primary login-btn guest-only" id="header-login-btn">Login</button>
@@ -1680,9 +1732,15 @@ body.logged-out .content-wrapper {
                         <div class="kpi-card"><h4><i class="fa-solid fa-table" aria-hidden="true"></i> Tables</h4><div class="val" id="pgscope-db-tables">--</div></div>
                         <div class="kpi-card"><h4><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Materialized Views</h4><div class="val" id="pgscope-db-materialized-views">--</div></div>
                     </div>
+                    <div class="kpi-row health-kpi-row">
+                        <div class="kpi-card"><h4><i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Connection Used</h4><div class="val" id="pgscope-db-kpi-connections">--</div></div>
+                        <div class="kpi-card"><h4><i class="fa-solid fa-memory" aria-hidden="true"></i> DB Cache Hit</h4><div class="val" id="pgscope-db-kpi-cache">--</div></div>
+                        <div class="kpi-card"><h4><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> Waiting Sessions</h4><div class="val" id="pgscope-db-kpi-waits">--</div></div>
+                        <div class="kpi-card"><h4><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Deadlocks</h4><div class="val" id="pgscope-db-kpi-deadlocks">--</div></div>
+                    </div>
                     <div class="panel">
                         <div class="panel-header">
-                            <h3>External Postgres Connection</h3>
+                            <h3>Database Overview</h3>
                         </div>
                         <div class="placeholder-grid">
                             <div class="placeholder-card"><i class="fa-solid fa-server" aria-hidden="true"></i><h4>Server</h4><p id="pgscope-db-server">Server version, current database, current user, and connection status.</p></div>
@@ -1693,6 +1751,19 @@ body.logged-out .content-wrapper {
                             <div class="placeholder-card"><i class="fa-solid fa-puzzle-piece" aria-hidden="true"></i><h4>Extensions</h4><p id="pgscope-db-extensions">Installed extension summary.</p></div>
                         </div>
                     </div>
+                    <div class="panel">
+                        <div class="panel-header">
+                            <h3>Operational Health</h3>
+                        </div>
+                        <div class="placeholder-grid">
+                            <div class="placeholder-card"><i class="fa-solid fa-gauge-high" aria-hidden="true"></i><h4>Connection Pressure</h4><p id="pgscope-db-connections">Connection utilization and long-running session signals.</p></div>
+                            <div class="placeholder-card"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i><h4>Waits</h4><p id="pgscope-db-waits">Waiting sessions and lock waits.</p></div>
+                            <div class="placeholder-card"><i class="fa-solid fa-memory" aria-hidden="true"></i><h4>Cache / IO</h4><p id="pgscope-db-cache-io">Database, table, and index cache hit ratios.</p></div>
+                            <div class="placeholder-card"><i class="fa-solid fa-broom" aria-hidden="true"></i><h4>Vacuum Health</h4><p id="pgscope-db-vacuum">Tuple estimates and vacuum/analyze activity.</p></div>
+                            <div class="placeholder-card"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><h4>Write Pressure</h4><p id="pgscope-db-writes">Checkpoint and backend write counters.</p></div>
+                            <div class="placeholder-card"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><h4>Risk Signals</h4><p id="pgscope-db-risk">Deadlocks, temp files, and rollback ratio.</p></div>
+                        </div>
+                    </div>
                 </section>
 
                 <section id="schema" class="view-section">
@@ -1701,6 +1772,11 @@ body.logged-out .content-wrapper {
                             <h1>Schema</h1>
                             <p>Only table schema is shown.</p>
                         </div>
+                    </div>
+                    <div class="kpi-row schema-kpi-row" id="schema-kpi-row">
+                        <div class="kpi-card"><h4><i class="fa-solid fa-table" aria-hidden="true"></i> Tables</h4><div class="val">--</div></div>
+                        <div class="kpi-card"><h4><i class="fa-solid fa-table-columns" aria-hidden="true"></i> Columns</h4><div class="val">--</div></div>
+                        <div class="kpi-card"><h4><i class="fa-solid fa-key" aria-hidden="true"></i> Total Indexes</h4><div class="val">--</div></div>
                     </div>
                     <div class="panel">
                         <div class="panel-header">
@@ -1740,6 +1816,13 @@ body.logged-out .content-wrapper {
                 </section>
 
                 <section id="object-count" class="view-section">
+                    <div class="object-count-overlay" id="object-count-overlay" hidden aria-live="polite" aria-label="Object Count export busy">
+                        <div class="object-count-loader" role="status">
+                            <span class="object-count-spinner" aria-hidden="true"></span>
+                            <span id="object-count-loader-text">Preparing export...</span>
+                            <button class="btn btn-secondary busy-cancel-btn" id="object-count-cancel-btn" type="button" hidden>Cancel</button>
+                        </div>
+                    </div>
                     <div class="section-header">
                         <div>
                             <h1>Object Count</h1>
@@ -1758,9 +1841,9 @@ body.logged-out .content-wrapper {
                                 <thead>
                                     <tr>
                                         <th>#</th>
-                                        <th>object_name</th>
-                                        <th>row_count</th>
-                                        <th>action</th>
+                                        <th>Object name</th>
+                                        <th>Row count</th>
+                                        <th>Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="object-count-body">
@@ -1776,6 +1859,7 @@ body.logged-out .content-wrapper {
                         <div class="query-runner-loader" role="status">
                             <span class="query-runner-spinner" aria-hidden="true"></span>
                             <span id="query-runner-loader-text">Working...</span>
+                            <button class="btn btn-secondary busy-cancel-btn" id="query-runner-cancel-btn" type="button" hidden>Cancel</button>
                         </div>
                     </div>
                     <div class="section-header">
@@ -2041,16 +2125,97 @@ let queryResultRows = [];
 let postgresCacheWarmPromise = null;
 let queryBuilderFilterId = 0;
 let queryRunnerBusy = false;
+let queryRunnerAbortController = null;
+let objectCountExportBusy = false;
+let objectCountExportAbortController = null;
 
 const $ = id => document.getElementById(id);
 const rawValue = value => value === undefined || value === null || value === '' ? '-' : String(value);
+const formatNumber = value => Number(value || 0).toLocaleString();
+const formatOptionalNumber = value => value === undefined || value === null || value === '' ? '-' : formatNumber(value);
 
-function setQueryRunnerBusy(isBusy, message = 'Working...') {
+function formatDurationSeconds(value) {
+    const seconds = Math.max(0, Number(value || 0));
+    if (!seconds) return '0s';
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    const parts = [];
+    if (days) parts.push(`${days}d`);
+    if (hours) parts.push(`${hours}h`);
+    if (minutes && parts.length < 2) parts.push(`${minutes}m`);
+    if (!parts.length) parts.push(`${secs}s`);
+    return parts.join(' ');
+}
+
+function formatOptionalDurationSeconds(value) {
+    return value === undefined || value === null || value === '' ? '-' : formatDurationSeconds(value);
+}
+
+function formatRelativeTime(timestamp) {
+    const ageMs = Date.now() - Number(timestamp || 0);
+    if (!timestamp || ageMs < 0) return '';
+    const minutes = Math.floor(ageMs / 60000);
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+}
+
+function formatCompactRelativeTime(timestamp) {
+    const text = formatRelativeTime(timestamp);
+    if (!text) return '';
+    if (text === 'just now') return '0m ago';
+    return text;
+}
+
+function latestPostgresCacheTimestamp() {
+    return Math.max(
+        Number(localStorage.getItem(STORAGE_KEY_POSTGRES_DATABASE_INFO_AT) || 0),
+        Number(localStorage.getItem(STORAGE_KEY_POSTGRES_SCHEMA_AT) || 0),
+        Number(localStorage.getItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT_AT) || 0)
+    );
+}
+
+function updatePostgresSyncSummary() {
+    const text = $('postgres-sync-btn-text');
+    const syncBtn = $('postgres-sync-btn');
+    if (!text) return;
+    const timestamp = latestPostgresCacheTimestamp();
+    if (!timestamp) {
+        text.textContent = 'Sync';
+        if (syncBtn) syncBtn.classList.remove('has-sync-state');
+        if (syncBtn) {
+            syncBtn.title = 'Sync Postgres data';
+            syncBtn.setAttribute('aria-label', 'Sync Postgres data');
+        }
+        return;
+    }
+    const relative = formatCompactRelativeTime(timestamp);
+    const exact = new Date(timestamp).toLocaleString();
+    text.textContent = relative ? `Sync (${relative})` : 'Sync';
+    if (syncBtn) {
+        syncBtn.classList.add('has-sync-state');
+        syncBtn.title = `Sync Postgres data. Last synced ${exact}`;
+        syncBtn.setAttribute('aria-label', `Sync Postgres data. Last synced ${exact}`);
+    }
+}
+
+function isAbortError(err) {
+    return err?.name === 'AbortError';
+}
+
+function setQueryRunnerBusy(isBusy, message = 'Working...', { cancelable = false } = {}) {
     queryRunnerBusy = Boolean(isBusy);
     const overlay = $('query-runner-overlay');
     const loaderText = $('query-runner-loader-text');
+    const cancelBtn = $('query-runner-cancel-btn');
     if (loaderText) loaderText.textContent = message;
     if (overlay) overlay.hidden = !queryRunnerBusy;
+    if (cancelBtn) cancelBtn.hidden = !queryRunnerBusy || !cancelable;
 
     [
         'query-builder-build-btn',
@@ -2088,7 +2253,29 @@ function setQueryRunnerBusy(isBusy, message = 'Working...') {
         if (downloadBtn) downloadBtn.disabled = !queryResultColumns.length;
     }
 }
-const formatNumber = value => Number(value || 0).toLocaleString();
+
+function setObjectCountExportBusy(isBusy, message = 'Preparing export...', { cancelable = false } = {}) {
+    objectCountExportBusy = Boolean(isBusy);
+    const overlay = $('object-count-overlay');
+    const loaderText = $('object-count-loader-text');
+    const cancelBtn = $('object-count-cancel-btn');
+    if (loaderText) loaderText.textContent = message;
+    if (overlay) overlay.hidden = !objectCountExportBusy;
+    if (cancelBtn) cancelBtn.hidden = !objectCountExportBusy || !cancelable;
+    $('object-count-download-btn').disabled = objectCountExportBusy;
+    document.querySelectorAll('.object-count-download, .object-count-view').forEach(el => {
+        el.disabled = objectCountExportBusy;
+    });
+    if (!objectCountExportBusy) {
+        document.querySelectorAll('.object-count-download').forEach(el => {
+            const count = Number(el.dataset.count);
+            el.disabled = !Number.isFinite(count);
+        });
+        document.querySelectorAll('.object-count-view').forEach(el => {
+            el.disabled = false;
+        });
+    }
+}
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const accessToken = () => typeof authToken === 'object' ? authToken.access_token || authToken.token || '' : authToken || '';
 const refreshToken = () => typeof authToken === 'object' ? authToken.refresh_token || '' : '';
@@ -2221,6 +2408,7 @@ function setPostgresSyncStatus({ visible = true, progress = 0, text = 'Syncing P
     status.setAttribute('title', text);
     const pct = Math.max(0, Math.min(100, Number(progress || 0)));
     ring.style.setProperty('--progress', `${pct * 3.6}deg`);
+    if (!visible) updatePostgresSyncSummary();
 }
 
 function readCachedPostgresDatabaseInfo() {
@@ -2232,6 +2420,7 @@ function readCachedPostgresDatabaseInfo() {
 function writeCachedPostgresDatabaseInfo(info) {
     localStorage.setItem(STORAGE_KEY_POSTGRES_DATABASE_INFO, JSON.stringify(info || {}));
     localStorage.setItem(STORAGE_KEY_POSTGRES_DATABASE_INFO_AT, String(Date.now()));
+    updatePostgresSyncSummary();
 }
 
 function readCachedPostgresSchema() {
@@ -2247,6 +2436,7 @@ function readCachedPostgresSchema() {
 function writeCachedPostgresSchema(schema) {
     localStorage.setItem(STORAGE_KEY_POSTGRES_SCHEMA, JSON.stringify(schema || {}));
     localStorage.setItem(STORAGE_KEY_POSTGRES_SCHEMA_AT, String(Date.now()));
+    updatePostgresSyncSummary();
 }
 
 function readCachedPostgresObjectCount() {
@@ -2262,6 +2452,7 @@ function readCachedPostgresObjectCount() {
 function writeCachedPostgresObjectCount(rows) {
     localStorage.setItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT, JSON.stringify({ rows: Array.isArray(rows) ? rows : [] }));
     localStorage.setItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT_AT, String(Date.now()));
+    updatePostgresSyncSummary();
 }
 
 function clearPostgresCache() {
@@ -2271,6 +2462,7 @@ function clearPostgresCache() {
     localStorage.removeItem(STORAGE_KEY_POSTGRES_SCHEMA_AT);
     localStorage.removeItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT);
     localStorage.removeItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT_AT);
+    updatePostgresSyncSummary();
 }
 
 function clearPortalStorage() {
@@ -2538,6 +2730,7 @@ function applyAuthState() {
     document.body.classList.toggle('logged-out', !loggedIn);
     document.body.classList.remove('role-blocked');
     setTradeLaneFeatureNavDisabled(false);
+    updatePostgresSyncSummary();
     if (!loggedIn) {
         showSection('home');
         return;
@@ -2558,12 +2751,23 @@ function renderDatabaseInfo(info = {}) {
     $('pgscope-db-schemas').textContent = formatNumber(info.schema_count);
     $('pgscope-db-tables').textContent = formatNumber(info.table_count);
     $('pgscope-db-materialized-views').textContent = formatNumber(info.materialized_view_count);
+    $('pgscope-db-kpi-connections').textContent = info.connection_utilization_pct === undefined || info.connection_utilization_pct === null ? '--' : `${info.connection_utilization_pct}%`;
+    $('pgscope-db-kpi-cache').textContent = info.cache_hit_ratio_pct === undefined || info.cache_hit_ratio_pct === null ? '--' : `${info.cache_hit_ratio_pct}%`;
+    $('pgscope-db-kpi-waits').textContent = formatOptionalNumber(info.waiting_connection_count);
+    $('pgscope-db-kpi-deadlocks').textContent = formatOptionalNumber(info.deadlocks);
     $('pgscope-db-server').textContent = `${rawValue(info.database_name)} as ${rawValue(info.current_user)} on PostgreSQL ${rawValue(info.server_version)}. Server ${rawValue(info.server_address)}:${rawValue(info.server_port)}, timezone ${rawValue(info.timezone)}.`;
     const largest = Array.isArray(info.largest_relations) && info.largest_relations.length ? info.largest_relations[0] : null;
     $('pgscope-db-storage').textContent = `${rawValue(info.database_size)} database, ${rawValue(info.table_size)} tables, ${rawValue(info.index_size)} indexes. ${largest ? `Largest: ${rawValue(largest.schema_name)}.${rawValue(largest.relation_name)} (${rawValue(largest.total_size)}).` : ''}`;
     $('pgscope-db-objects').textContent = `${formatNumber(info.table_count)} tables, ${formatNumber(info.view_count)} views, ${formatNumber(info.materialized_view_count)} materialized views, ${formatNumber(info.index_count)} indexes across ${formatNumber(info.schema_count)} schemas.`;
     $('pgscope-db-identity').textContent = `Owner ${rawValue(info.database_owner)}, encoding ${rawValue(info.database_encoding)}, collation ${rawValue(info.database_collation)}, connection limit ${Number(info.connection_limit) < 0 ? 'unlimited' : rawValue(info.connection_limit)}.`;
     $('pgscope-db-activity').textContent = `${formatNumber(info.connection_count)} connections (${formatNumber(info.active_connection_count)} active, ${formatNumber(info.idle_connection_count)} idle). Cache hit ${info.cache_hit_ratio_pct ?? '-'}%, commits ${formatNumber(info.xact_commit)}, rollbacks ${formatNumber(info.xact_rollback)}.`;
+    $('pgscope-db-connections').textContent = `${info.connection_utilization_pct ?? '-'}% of max ${formatOptionalNumber(info.max_connections)} connections used. ${formatOptionalNumber(info.idle_transaction_count)} idle in transaction, ${formatOptionalNumber(info.active_over_5min_count)} active over 5 min, max active age ${formatOptionalDurationSeconds(info.max_active_query_age_seconds)}.`;
+    $('pgscope-db-waits').textContent = `${formatOptionalNumber(info.waiting_connection_count)} sessions waiting, ${formatOptionalNumber(info.lock_wait_connection_count)} lock waits. ${formatOptionalNumber(info.idle_transaction_over_5min_count)} idle transactions over 5 min, max idle transaction age ${formatOptionalDurationSeconds(info.max_idle_transaction_age_seconds)}.`;
+    $('pgscope-db-cache-io').textContent = `DB cache ${info.cache_hit_ratio_pct ?? '-'}%, table cache ${info.table_cache_hit_ratio_pct ?? '-'}%, index cache ${info.index_cache_hit_ratio_pct ?? '-'}%. Heap reads ${formatOptionalNumber(info.table_heap_blks_read)}, hits ${formatOptionalNumber(info.table_heap_blks_hit)}.`;
+    const topDead = Array.isArray(info.top_dead_tuple_relations) && info.top_dead_tuple_relations.length ? info.top_dead_tuple_relations[0] : null;
+    $('pgscope-db-vacuum').textContent = `${formatOptionalNumber(info.live_tuple_estimate)} live tuples, ${formatOptionalNumber(info.dead_tuple_estimate)} dead tuples (${info.dead_tuple_pct ?? '-'}%). Autovacuum ${formatOptionalNumber(info.autovacuum_count)}, autoanalyze ${formatOptionalNumber(info.autoanalyze_count)}.${topDead ? ` Most dead tuples: ${rawValue(topDead.schema_name)}.${rawValue(topDead.relation_name)} (${formatOptionalNumber(topDead.dead_tuple_estimate)}).` : ''}`;
+    $('pgscope-db-writes').textContent = `${formatOptionalNumber(info.checkpoints_req)} requested checkpoints, ${formatOptionalNumber(info.checkpoints_timed)} timed. Backend buffers ${formatOptionalNumber(info.buffers_backend)}, checkpoint buffers ${formatOptionalNumber(info.buffers_checkpoint)}, backend fsync ${formatOptionalNumber(info.buffers_backend_fsync)}.`;
+    $('pgscope-db-risk').textContent = `${formatOptionalNumber(info.deadlocks)} deadlocks, ${formatOptionalNumber(info.temp_files)} temp files (${rawValue(info.temp_size)}), rollback ratio ${info.rollback_ratio_pct ?? '-'}%, sequential scan ratio ${info.seq_scan_pct ?? '-'}%.`;
     const extensions = Array.isArray(info.extensions) ? info.extensions : [];
     const extensionText = extensions.slice(0, 6).map(item => `${item.name}${item.version ? ` ${item.version}` : ''}`).join(', ');
     $('pgscope-db-extensions').textContent = `${formatNumber(info.extension_count)} installed${extensionText ? `: ${extensionText}${extensions.length > 6 ? ', ...' : ''}` : '.'}`;
@@ -2574,11 +2778,21 @@ function renderDatabaseInfoError(message) {
     $('pgscope-db-schemas').textContent = '--';
     $('pgscope-db-tables').textContent = '--';
     $('pgscope-db-materialized-views').textContent = '--';
+    $('pgscope-db-kpi-connections').textContent = '--';
+    $('pgscope-db-kpi-cache').textContent = '--';
+    $('pgscope-db-kpi-waits').textContent = '--';
+    $('pgscope-db-kpi-deadlocks').textContent = '--';
     $('pgscope-db-server').textContent = message || 'Database info could not be loaded.';
     $('pgscope-db-storage').textContent = 'Storage details unavailable.';
     $('pgscope-db-objects').textContent = 'Object counts unavailable.';
     $('pgscope-db-identity').textContent = 'Database identity unavailable.';
     $('pgscope-db-activity').textContent = 'Activity details unavailable.';
+    $('pgscope-db-connections').textContent = 'Connection pressure unavailable.';
+    $('pgscope-db-waits').textContent = 'Wait details unavailable.';
+    $('pgscope-db-cache-io').textContent = 'Cache and IO details unavailable.';
+    $('pgscope-db-vacuum').textContent = 'Vacuum health unavailable.';
+    $('pgscope-db-writes').textContent = 'Write pressure unavailable.';
+    $('pgscope-db-risk').textContent = 'Risk signals unavailable.';
     $('pgscope-db-extensions').textContent = 'Extension details unavailable.';
 }
 
@@ -2616,6 +2830,46 @@ function schemaFlag(value) {
 
 function schemaIndexFlag(items) {
     return schemaFlag(Array.isArray(items) && items.length > 0);
+}
+
+const schemaIndexKpiConfig = [
+    { key: 'btree', field: 'btree_indexes', label: 'B-tree', icon: 'fa-solid fa-sitemap' },
+    { key: 'gin', field: 'gin_indexes', label: 'GIN', icon: 'fa-solid fa-magnifying-glass' },
+    { key: 'gist', field: 'gist_indexes', label: 'GiST', icon: 'fa-solid fa-diagram-project' },
+    { key: 'brin', field: 'brin_indexes', label: 'BRIN', icon: 'fa-solid fa-layer-group' },
+    { key: 'hash', field: 'hash_indexes', label: 'Hash', icon: 'fa-solid fa-hashtag' },
+    { key: 'other', field: 'other_indexes', label: 'Other', icon: 'fa-solid fa-ellipsis' }
+];
+
+function schemaKpiCard({ label, value, icon }) {
+    return `<div class="kpi-card"><h4><i class="${icon}" aria-hidden="true"></i> ${escapeHtml(label)}</h4><div class="val">${escapeHtml(formatNumber(value))}</div></div>`;
+}
+
+function renderSchemaKpis(rows = []) {
+    const tableKeys = new Set();
+    const totalIndexNames = new Set();
+    const indexCounts = Object.fromEntries(schemaIndexKpiConfig.map(item => [item.key, new Set()]));
+    rows.forEach(row => {
+        const tableKey = `${row.schema_name || 'public'}.${row.table_name || ''}`;
+        if (row.table_name) tableKeys.add(tableKey);
+        schemaIndexKpiConfig.forEach(item => {
+            const values = Array.isArray(row[item.field]) ? row[item.field] : [];
+            values.forEach(name => {
+                const indexKey = `${tableKey}.${name}`;
+                totalIndexNames.add(indexKey);
+                indexCounts[item.key].add(indexKey);
+            });
+        });
+    });
+    const cards = [
+        { label: 'Tables', value: tableKeys.size, icon: 'fa-solid fa-table' },
+        { label: 'Columns', value: rows.length, icon: 'fa-solid fa-table-columns' },
+        { label: 'Total Indexes', value: totalIndexNames.size, icon: 'fa-solid fa-key' },
+        ...schemaIndexKpiConfig
+            .map(item => ({ label: item.label, value: indexCounts[item.key].size, icon: item.icon }))
+            .filter(item => item.value > 0)
+    ];
+    $('schema-kpi-row').innerHTML = cards.map(schemaKpiCard).join('');
 }
 
 function rowHasIndex(row, method) {
@@ -2999,6 +3253,7 @@ function renderSchemaRows(rows) {
 function renderSchemaTable() {
     const rows = currentSchemaRows();
     const filter = $('schema-index-filter')?.value || '';
+    renderSchemaKpis(pgscopeSchemaRows);
     $('schema-index-clear-btn').hidden = !filter;
     $('schema-result-count').textContent = rows.length
         ? `Showing ${formatNumber(rows.length)}${filter ? ` of ${formatNumber(pgscopeSchemaRows.length)}` : ''} column${rows.length === 1 ? '' : 's'}`
@@ -3074,6 +3329,7 @@ async function fetchPostgresSchemaAllPages({ onProgress } = {}) {
 }
 
 function renderSchemaError(message) {
+    renderSchemaKpis([]);
     $('schema-result-count').textContent = 'Schema unavailable';
     $('pgscope-schema-body').innerHTML = `<tr><td colspan="6"><div class="schema-empty">${escapeHtml(message || 'Schema could not be loaded.')}</div></td></tr>`;
 }
@@ -3109,7 +3365,10 @@ async function warmPostgresCache({ force = false } = {}) {
     const shouldSyncSchema = force || !postgresSchemaCacheFresh();
     const shouldSyncObjectCount = force || (objectCountRelationKnownExists() && !postgresObjectCountCacheFresh());
     const shouldSync = shouldSyncDatabaseInfo || shouldSyncSchema || shouldSyncObjectCount;
-    if (!shouldSync) return;
+    if (!shouldSync) {
+        updatePostgresSyncSummary();
+        return;
+    }
     postgresCacheWarmPromise = (async () => {
         const errors = [];
         setPostgresSyncStatus({ visible: true, progress: 5, text: 'Syncing Postgres cache...' });
@@ -3267,8 +3526,8 @@ function objectCountQualifiedObjectSql(schemaName, objectName) {
 }
 
 function objectCountViewButton(row = {}) {
-    const title = `View ${rawValue(row.object_name)}`;
-    return `<button class="btn btn-secondary object-count-view" type="button" data-schema="${escapeHtml(row.schema_name || 'public')}" data-object="${escapeHtml(row.object_name || '')}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><i class="fa-regular fa-eye" aria-hidden="true"></i></button>`;
+    const title = `Run ${rawValue(row.object_name)}`;
+    return `<button class="btn btn-secondary object-count-view" type="button" data-schema="${escapeHtml(row.schema_name || 'public')}" data-object="${escapeHtml(row.object_name || '')}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><i class="fa-solid fa-play" aria-hidden="true"></i></button>`;
 }
 
 function objectCountDownloadButton(row = {}) {
@@ -3383,7 +3642,8 @@ async function runQuery(event) {
     event.preventDefault();
     if (!authToken || !authUser) return;
     if (queryRunnerBusy) return;
-    setQueryRunnerBusy(true, 'Running query...');
+    queryRunnerAbortController = new AbortController();
+    setQueryRunnerBusy(true, 'Running query...', { cancelable: true });
     resetQueryResult();
     $('query-message').textContent = 'Running query...';
     try {
@@ -3391,15 +3651,22 @@ async function runQuery(event) {
         const payload = await api(POSTGRES_QUERY_RUNNER_PATH, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
-            body: JSON.stringify({ sql })
+            body: JSON.stringify({ sql }),
+            signal: queryRunnerAbortController.signal
         });
         queryLastSql = sql;
         renderQueryResult(payload.message || {});
         $('query-message').textContent = queryRunnerLimitMessage();
     } catch (err) {
-        renderQueryError(err.message);
-        $('query-message').textContent = err.message || 'Query failed.';
+        if (isAbortError(err)) {
+            resetQueryResult();
+            $('query-message').textContent = 'Query cancelled.';
+        } else {
+            renderQueryError(err.message);
+            $('query-message').textContent = err.message || 'Query failed.';
+        }
     } finally {
+        queryRunnerAbortController = null;
         setQueryRunnerBusy(false);
     }
 }
@@ -3469,8 +3736,8 @@ function downloadObjectCountCsv() {
         filename: 'postgres_object_count.csv',
         columns: [
             { label: '#', value: (_row, index) => index + 1 },
-            { label: 'object_name', value: 'object_name' },
-            { label: 'row_count', value: 'row_count' }
+            { label: 'Object name', value: 'object_name' },
+            { label: 'Row count', value: 'row_count' }
         ],
         rows
     });
@@ -3480,14 +3747,16 @@ async function downloadQueryExport(event) {
     event.preventDefault();
     if (!authToken || !authUser) return;
     if (queryRunnerBusy) return;
-    setQueryRunnerBusy(true, 'Preparing export...');
+    queryRunnerAbortController = new AbortController();
+    setQueryRunnerBusy(true, 'Preparing export...', { cancelable: true });
     $('query-message').textContent = 'Preparing CSV...';
     try {
         const { sql } = validateQueryInput();
         const response = await fetch(API_BASE + POSTGRES_QUERY_RUNNER_CSV_PATH, await withAuthOptions({
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
-            body: JSON.stringify({ sql })
+            body: JSON.stringify({ sql }),
+            signal: queryRunnerAbortController.signal
         }));
         if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
@@ -3504,8 +3773,9 @@ async function downloadQueryExport(event) {
         URL.revokeObjectURL(url);
         $('query-message').textContent = `CSV downloaded. ${queryRunnerLimitMessage()}`;
     } catch (err) {
-        $('query-message').textContent = err.message || 'CSV download failed.';
+        $('query-message').textContent = isAbortError(err) ? 'Export cancelled.' : err.message || 'CSV download failed.';
     } finally {
+        queryRunnerAbortController = null;
         setQueryRunnerBusy(false);
     }
 }
@@ -3518,9 +3788,17 @@ function showLargeObjectExportModal({ schemaName, objectName, count }) {
     openModal('large-export-modal');
 }
 
+function cancelQueryRunnerRequest() {
+    if (queryRunnerAbortController) queryRunnerAbortController.abort();
+}
+
+function cancelObjectCountExport() {
+    if (objectCountExportAbortController) objectCountExportAbortController.abort();
+}
+
 function viewObjectCountObject(event) {
     const btn = event.target.closest('.object-count-view');
-    if (!btn || !authToken || !authUser) return;
+    if (!btn || !authToken || !authUser || objectCountExportBusy) return;
     const schemaName = btn.dataset.schema || 'public';
     const objectName = btn.dataset.object || '';
     try {
@@ -3535,15 +3813,15 @@ function viewObjectCountObject(event) {
         queryLastSql = '';
         resetQueryResult();
         $('query-download-btn').disabled = true;
-        $('query-message').textContent = `Preview SQL loaded for ${rawValue(objectName)}. ${queryRunnerLimitMessage()}`;
+        $('query-message').textContent = `Run SQL loaded for ${rawValue(objectName)}. ${queryRunnerLimitMessage()}`;
     } catch (err) {
-        $('object-count-result-count').textContent = err.message || 'Could not load preview SQL.';
+        $('object-count-result-count').textContent = err.message || 'Could not load run SQL.';
     }
 }
 
 async function downloadObjectCountObject(event) {
     const btn = event.target.closest('.object-count-download');
-    if (!btn || !authToken || !authUser || btn.disabled) return;
+    if (!btn || !authToken || !authUser || btn.disabled || objectCountExportBusy) return;
     const schemaName = btn.dataset.schema || 'public';
     const objectName = btn.dataset.object || '';
     const count = Number(btn.dataset.count);
@@ -3552,14 +3830,16 @@ async function downloadObjectCountObject(event) {
         showLargeObjectExportModal({ schemaName, objectName, count });
         return;
     }
-    btn.disabled = true;
+    objectCountExportAbortController = new AbortController();
+    setObjectCountExportBusy(true, 'Preparing export...', { cancelable: true });
     $('object-count-result-count').textContent = 'Preparing CSV...';
     try {
         const sql = `SELECT *\nFROM ${objectCountQualifiedObjectSql(schemaName, objectName)}`;
         const response = await fetch(API_BASE + POSTGRES_QUERY_RUNNER_CSV_PATH, await withAuthOptions({
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
-            body: JSON.stringify({ sql })
+            body: JSON.stringify({ sql }),
+            signal: objectCountExportAbortController.signal
         }));
         if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
@@ -3576,9 +3856,10 @@ async function downloadObjectCountObject(event) {
         URL.revokeObjectURL(url);
         $('object-count-result-count').textContent = `CSV downloaded for ${rawValue(objectName)}.`;
     } catch (err) {
-        $('object-count-result-count').textContent = err.message || 'CSV download failed.';
+        $('object-count-result-count').textContent = isAbortError(err) ? 'Export cancelled.' : err.message || 'CSV download failed.';
     } finally {
-        btn.disabled = !Number.isFinite(count) || count > queryRunnerExportLimit();
+        objectCountExportAbortController = null;
+        setObjectCountExportBusy(false);
     }
 }
 
@@ -3728,11 +4009,13 @@ function bindPageEvents() {
     });
     $('schema-download-btn').addEventListener('click', downloadSchemaCsv);
     $('object-count-download-btn').addEventListener('click', downloadObjectCountCsv);
+    $('object-count-cancel-btn').addEventListener('click', cancelObjectCountExport);
     $('object-count-body').addEventListener('click', viewObjectCountObject);
     $('object-count-body').addEventListener('click', downloadObjectCountObject);
     $('query-runner-form').addEventListener('submit', runQuery);
     $('query-download-btn').addEventListener('click', downloadQueryCsv);
     $('query-export-download-btn').addEventListener('click', downloadQueryExport);
+    $('query-runner-cancel-btn').addEventListener('click', cancelQueryRunnerRequest);
     $('query-builder-table').addEventListener('change', () => {
         $('query-builder-filter-list').innerHTML = '';
         renderQueryBuilder();
@@ -3777,6 +4060,7 @@ bindAuthComponentEvents();
 bindPageEvents();
 renderQueryRunnerTabMessages();
 renderQueryBuilder();
+setInterval(updatePostgresSyncSummary, 60000);
 const initialize = async () => {
     await loadInfo();
     await loadProfile().catch(err => console.warn(err));

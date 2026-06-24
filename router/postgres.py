@@ -26,6 +26,9 @@ async def func_api_postgres_database_info(*, request: Request):
                 current_setting('TimeZone') AS timezone,
                 current_setting('max_connections') AS max_connections,
                 current_setting('shared_buffers') AS shared_buffers,
+                current_setting('work_mem') AS work_mem,
+                current_setting('maintenance_work_mem') AS maintenance_work_mem,
+                current_setting('effective_cache_size', true) AS effective_cache_size,
                 pg_postmaster_start_time()::text AS server_started_at,
                 pg_get_userbyid(d.datdba) AS database_owner,
                 pg_encoding_to_char(d.encoding) AS database_encoding,
@@ -97,7 +100,13 @@ async def func_api_postgres_database_info(*, request: Request):
                 COUNT(*)::int AS connection_count,
                 COUNT(*) FILTER (WHERE state = 'active')::int AS active_connection_count,
                 COUNT(*) FILTER (WHERE state = 'idle')::int AS idle_connection_count,
-                COUNT(*) FILTER (WHERE state = 'idle in transaction')::int AS idle_transaction_count
+                COUNT(*) FILTER (WHERE state = 'idle in transaction')::int AS idle_transaction_count,
+                COUNT(*) FILTER (WHERE wait_event IS NOT NULL)::int AS waiting_connection_count,
+                COUNT(*) FILTER (WHERE wait_event_type = 'Lock')::int AS lock_wait_connection_count,
+                COUNT(*) FILTER (WHERE state = 'active' AND query_start < now() - interval '5 minutes')::int AS active_over_5min_count,
+                COUNT(*) FILTER (WHERE state = 'idle in transaction' AND xact_start < now() - interval '5 minutes')::int AS idle_transaction_over_5min_count,
+                COALESCE(EXTRACT(EPOCH FROM MAX(now() - query_start) FILTER (WHERE state = 'active' AND query_start IS NOT NULL))::bigint, 0) AS max_active_query_age_seconds,
+                COALESCE(EXTRACT(EPOCH FROM MAX(now() - xact_start) FILTER (WHERE state = 'idle in transaction' AND xact_start IS NOT NULL))::bigint, 0) AS max_idle_transaction_age_seconds
             FROM pg_stat_activity
             WHERE datname = current_database();
         """))
@@ -107,12 +116,19 @@ async def func_api_postgres_database_info(*, request: Request):
                 xact_rollback,
                 deadlocks,
                 temp_files,
+                temp_bytes,
                 pg_size_pretty(temp_bytes) AS temp_size,
                 tup_returned,
                 tup_fetched,
                 tup_inserted,
                 tup_updated,
                 tup_deleted,
+                blks_read,
+                blks_hit,
+                CASE
+                    WHEN xact_commit + xact_rollback = 0 THEN NULL
+                    ELSE ROUND((xact_rollback::numeric / (xact_commit + xact_rollback)) * 100, 2)::float8
+                END AS rollback_ratio_pct,
                 CASE
                     WHEN blks_hit + blks_read = 0 THEN NULL
                     ELSE ROUND((blks_hit::numeric / (blks_hit + blks_read)) * 100, 2)::float8
@@ -120,6 +136,93 @@ async def func_api_postgres_database_info(*, request: Request):
             FROM pg_stat_database
             WHERE datname = current_database();
         """))
+        stats_view_info = dict(await conn.fetchrow("SELECT to_regclass('pg_catalog.pg_stat_checkpointer') IS NOT NULL AS has_checkpointer_stats;"))
+        if stats_view_info["has_checkpointer_stats"]:
+            bgwriter_info = dict(await conn.fetchrow("""
+                SELECT
+                    cp.num_timed AS checkpoints_timed,
+                    cp.num_requested AS checkpoints_req,
+                    cp.write_time AS checkpoint_write_time,
+                    cp.sync_time AS checkpoint_sync_time,
+                    cp.buffers_written AS buffers_checkpoint,
+                    bg.buffers_clean,
+                    bg.maxwritten_clean,
+                    NULL::bigint AS buffers_backend,
+                    NULL::bigint AS buffers_backend_fsync,
+                    bg.buffers_alloc,
+                    cp.stats_reset::text AS bgwriter_stats_reset_at
+                FROM pg_stat_checkpointer cp
+                CROSS JOIN pg_stat_bgwriter bg;
+            """))
+        else:
+            bgwriter_info = dict(await conn.fetchrow("""
+                SELECT
+                    checkpoints_timed,
+                    checkpoints_req,
+                    checkpoint_write_time,
+                    checkpoint_sync_time,
+                    buffers_checkpoint,
+                    buffers_clean,
+                    maxwritten_clean,
+                    buffers_backend,
+                    buffers_backend_fsync,
+                    buffers_alloc,
+                    stats_reset::text AS bgwriter_stats_reset_at
+                FROM pg_stat_bgwriter;
+            """))
+        table_stats_info = dict(await conn.fetchrow("""
+            SELECT
+                COALESCE(SUM(n_live_tup), 0)::bigint AS live_tuple_estimate,
+                COALESCE(SUM(n_dead_tup), 0)::bigint AS dead_tuple_estimate,
+                CASE
+                    WHEN SUM(n_live_tup + n_dead_tup) = 0 THEN NULL
+                    ELSE ROUND((SUM(n_dead_tup)::numeric / SUM(n_live_tup + n_dead_tup)) * 100, 2)::float8
+                END AS dead_tuple_pct,
+                COALESCE(SUM(seq_scan), 0)::bigint AS seq_scan_count,
+                COALESCE(SUM(idx_scan), 0)::bigint AS idx_scan_count,
+                CASE
+                    WHEN SUM(seq_scan + idx_scan) = 0 THEN NULL
+                    ELSE ROUND((SUM(seq_scan)::numeric / SUM(seq_scan + idx_scan)) * 100, 2)::float8
+                END AS seq_scan_pct,
+                COALESCE(SUM(vacuum_count), 0)::bigint AS manual_vacuum_count,
+                COALESCE(SUM(autovacuum_count), 0)::bigint AS autovacuum_count,
+                COALESCE(SUM(analyze_count), 0)::bigint AS manual_analyze_count,
+                COALESCE(SUM(autoanalyze_count), 0)::bigint AS autoanalyze_count
+            FROM pg_stat_user_tables;
+        """))
+        table_io_info = dict(await conn.fetchrow("""
+            SELECT
+                COALESCE(SUM(heap_blks_read), 0)::bigint AS table_heap_blks_read,
+                COALESCE(SUM(heap_blks_hit), 0)::bigint AS table_heap_blks_hit,
+                COALESCE(SUM(idx_blks_read), 0)::bigint AS index_blks_read,
+                COALESCE(SUM(idx_blks_hit), 0)::bigint AS index_blks_hit,
+                CASE
+                    WHEN SUM(heap_blks_read + heap_blks_hit) = 0 THEN NULL
+                    ELSE ROUND((SUM(heap_blks_hit)::numeric / SUM(heap_blks_read + heap_blks_hit)) * 100, 2)::float8
+                END AS table_cache_hit_ratio_pct,
+                CASE
+                    WHEN SUM(idx_blks_read + idx_blks_hit) = 0 THEN NULL
+                    ELSE ROUND((SUM(idx_blks_hit)::numeric / SUM(idx_blks_read + idx_blks_hit)) * 100, 2)::float8
+                END AS index_cache_hit_ratio_pct
+            FROM pg_statio_user_tables;
+        """))
+        top_dead_tuple_relations = [dict(row) for row in await conn.fetch("""
+            SELECT
+                schemaname AS schema_name,
+                relname AS relation_name,
+                n_live_tup AS live_tuple_estimate,
+                n_dead_tup AS dead_tuple_estimate,
+                CASE
+                    WHEN n_live_tup + n_dead_tup = 0 THEN NULL
+                    ELSE ROUND((n_dead_tup::numeric / (n_live_tup + n_dead_tup)) * 100, 2)::float8
+                END AS dead_tuple_pct,
+                last_autovacuum::text AS last_autovacuum_at,
+                last_autoanalyze::text AS last_autoanalyze_at
+            FROM pg_stat_user_tables
+            WHERE n_dead_tup > 0
+            ORDER BY n_dead_tup DESC
+            LIMIT 5;
+        """)]
         extensions = [dict(row) for row in await conn.fetch("""
             SELECT
                 e.extname AS name,
@@ -129,6 +232,9 @@ async def func_api_postgres_database_info(*, request: Request):
             JOIN pg_namespace n ON n.oid = e.extnamespace
             ORDER BY e.extname;
         """)]
+    max_connections = int(database_info.get("max_connections") or 0)
+    connection_count = int(activity_info.get("connection_count") or 0)
+    activity_info["connection_utilization_pct"] = round((connection_count / max_connections) * 100, 2) if max_connections else None
     return {
         "status": 1,
         "message": {
@@ -137,9 +243,13 @@ async def func_api_postgres_database_info(*, request: Request):
             **storage_info,
             **activity_info,
             **stats_info,
+            **bgwriter_info,
+            **table_stats_info,
+            **table_io_info,
             "extension_count": len(extensions),
             "extensions": extensions,
             "largest_relations": largest_relations,
+            "top_dead_tuple_relations": top_dead_tuple_relations,
         },
     }
 
