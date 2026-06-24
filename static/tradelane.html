@@ -1787,8 +1787,10 @@ body.logged-out .content-wrapper {
                                 </button>
                                 <select class="schema-index-filter" id="schema-index-filter" aria-label="Index filter">
                                     <option value="">All</option>
-                                    <option value="btree">B-tree</option>
-                                    <option value="gin">GIN</option>
+                                    <option value="btree-yes">B3 yes</option>
+                                    <option value="gin-yes">GIN yes</option>
+                                    <option value="btree-no">B3 no</option>
+                                    <option value="gin-no">GIN no</option>
                                 </select>
                                 <button class="btn btn-secondary table-download-icon" id="schema-download-btn" type="button" title="Download schema CSV" aria-label="Download schema CSV">
                                     <i class="fa-solid fa-download" aria-hidden="true"></i>
@@ -2880,6 +2882,27 @@ function rowHasIndex(row, method) {
     return Array.isArray(row[key]) && row[key].length > 0;
 }
 
+function schemaIndexFilterLabel(filter) {
+    const labels = {
+        'btree-yes': 'B3 yes',
+        'gin-yes': 'GIN yes',
+        'btree-no': 'B3 no',
+        'gin-no': 'GIN no',
+        btree: 'B3 yes',
+        gin: 'GIN yes'
+    };
+    return labels[filter] || '';
+}
+
+function rowMatchesSchemaIndexFilter(row, filter) {
+    if (!filter) return true;
+    if (filter === 'btree' || filter === 'gin') return rowHasIndex(row, filter);
+    const [method, state] = filter.split('-');
+    if (!method || !state) return true;
+    const hasIndex = rowHasIndex(row, method);
+    return state === 'yes' ? hasIndex : !hasIndex;
+}
+
 function queryBuilderSchemaRows() {
     const cached = readCachedPostgresSchema();
     return Array.isArray(cached?.columns) ? cached.columns : pgscopeSchemaRows;
@@ -3257,13 +3280,13 @@ function renderSchemaTable() {
     $('schema-index-clear-btn').hidden = !filter;
     $('schema-result-count').textContent = rows.length
         ? `Showing ${formatNumber(rows.length)}${filter ? ` of ${formatNumber(pgscopeSchemaRows.length)}` : ''} column${rows.length === 1 ? '' : 's'}`
-        : `No ${filter ? `${filter === 'btree' ? 'B-tree' : 'GIN'} indexed ` : ''}table columns`;
+        : `No ${filter ? `${schemaIndexFilterLabel(filter)} ` : ''}table columns`;
     renderSchemaRows(rows);
 }
 
 function currentSchemaRows() {
     const filter = $('schema-index-filter')?.value || '';
-    return filter ? pgscopeSchemaRows.filter(row => rowHasIndex(row, filter)) : pgscopeSchemaRows;
+    return filter ? pgscopeSchemaRows.filter(row => rowMatchesSchemaIndexFilter(row, filter)) : pgscopeSchemaRows;
 }
 
 function renderSchema(payload = {}) {
