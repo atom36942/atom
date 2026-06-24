@@ -564,58 +564,14 @@ body {
     border-radius: 10px;
 }
 
-.schema-control-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 1rem;
-    align-items: stretch;
-    margin-bottom: 1rem;
+.schema-tab-table-wrap {
+    max-height: calc(100vh - 235px);
+    overflow: auto;
 }
 
-.schema-filter-bar {
-    display: grid;
-    grid-template-columns: minmax(150px, 1fr) repeat(2, minmax(100px, 0.8fr)) 38px;
-    gap: 0.55rem;
-    align-items: end;
-    padding: 0.8rem 0.9rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #F8FAFC;
-    min-width: 0;
-}
-
-.schema-filter-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-}
-
-.schema-filter-field label {
-    color: var(--text-muted);
-    font-size: 0.72rem;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-
-.schema-filter-field input,
-.schema-filter-field select {
-    min-height: 40px;
-    width: 100%;
-    padding: 0.5rem 0.65rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background-color: #FFFFFF;
-    color: var(--text-dark);
-    font: inherit;
-    font-size: 0.84rem;
-    outline: none;
-    min-width: 0;
-}
-
-.schema-filter-field select,
 .query-builder-field select,
-.query-builder-filter-row select {
+.query-builder-filter-row select,
+.schema-index-filter {
     appearance: none;
     -webkit-appearance: none;
     padding-right: 2.15rem;
@@ -623,47 +579,6 @@ body {
     background-repeat: no-repeat;
     background-position: right 0.7rem center;
     background-size: 16px 16px;
-}
-
-.schema-filter-clear {
-    width: 40px;
-    height: 40px;
-    min-height: 40px;
-    padding: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.schema-filter-field input:focus,
-.schema-filter-field select:focus {
-    border-color: #A5B4FC;
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-}
-
-.schema-filter-clear.is-active {
-    border-color: #F59E0B;
-    background: #FFFBEB;
-    color: #92400E;
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.14);
-}
-
-.schema-filter-clear.is-active:hover {
-    border-color: #D97706;
-    background: #FEF3C7;
-    color: #78350F;
-}
-
-.schema-pagination {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.65rem 0.85rem;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #F8FAFC;
-    min-width: 0;
 }
 
 .schema-result-count {
@@ -675,45 +590,48 @@ body {
     font-size: 0.82rem;
 }
 
-.schema-page-controls {
+.schema-panel-tools {
     display: flex;
     align-items: center;
-    gap: 0.45rem;
-    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    min-width: 0;
 }
 
-.schema-page-button {
+.schema-index-clear {
+    width: 34px;
+    height: 34px;
     min-height: 34px;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.4rem 0.65rem;
+    padding: 0;
+}
+
+.schema-index-clear[hidden] {
+    display: none;
+}
+
+.schema-index-filter {
+    min-height: 34px;
+    min-width: 110px;
+    padding: 0.4rem 2.15rem 0.4rem 0.65rem;
     border: 1px solid var(--border);
     border-radius: 7px;
     background-color: #FFFFFF;
     color: var(--text-dark);
     font: inherit;
-    font-size: 0.78rem;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.schema-page-button:hover:not(:disabled) {
-    border-color: #A5B4FC;
-    color: var(--primary);
-}
-
-.schema-page-button:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-}
-
-#schema-page-display {
-    min-width: 64px;
-    color: var(--text-muted);
     font-size: 0.8rem;
-    font-weight: 600;
-    text-align: center;
+    outline: none;
+}
+
+.schema-index-filter:focus {
+    border-color: #A5B4FC;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.table-download-icon {
+    width: 34px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0;
 }
 
 .schema-table {
@@ -750,27 +668,26 @@ body {
     white-space: nowrap;
 }
 
-.schema-table th:nth-child(4),
-.schema-table th:nth-child(5),
-.schema-table th:nth-child(6),
-.schema-table th:nth-child(7),
-.schema-table th:nth-child(8),
-.schema-table th:nth-child(9),
-.schema-table td:nth-child(4),
-.schema-table td:nth-child(5),
-.schema-table td:nth-child(6),
-.schema-table td:nth-child(7),
-.schema-table td:nth-child(8),
-.schema-table td:nth-child(9) {
-    width: 72px;
-    min-width: 72px;
+.schema-table th:nth-child(1),
+.schema-table td:nth-child(1) {
+    width: 56px;
+    min-width: 56px;
     text-align: center;
 }
 
-.schema-table th:nth-child(1),
-.schema-table td:nth-child(1),
+.schema-table th:nth-child(5),
+.schema-table th:nth-child(6),
+.schema-table td:nth-child(5),
+.schema-table td:nth-child(6) {
+    width: 96px;
+    min-width: 96px;
+    text-align: center;
+}
+
 .schema-table th:nth-child(2),
-.schema-table td:nth-child(2) {
+.schema-table td:nth-child(2),
+.schema-table th:nth-child(3),
+.schema-table td:nth-child(3) {
     width: max-content;
 }
 
@@ -780,26 +697,37 @@ body {
 
 .object-count-table th:nth-child(2),
 .object-count-table td:nth-child(2) {
-    min-width: 120px;
-    text-align: right;
+    width: max-content;
+    text-align: left;
 }
 
 .object-count-table th:nth-child(3),
 .object-count-table td:nth-child(3) {
-    width: 84px;
+    min-width: 150px;
+    padding-right: 1.35rem;
+    text-align: right;
+}
+
+.object-count-table th:nth-child(4),
+.object-count-table td:nth-child(4) {
+    width: 116px;
+    min-width: 116px;
     text-align: center;
 }
 
-.object-count-download {
+.object-count-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+}
+
+.object-count-download,
+.object-count-view {
     width: 34px;
     height: 34px;
     min-height: 34px;
     padding: 0;
-}
-
-#object-count-result-count {
-    display: block;
-    margin-bottom: 0.75rem;
 }
 
 .object-count-download.is-large-export {
@@ -871,10 +799,52 @@ body {
     align-items: stretch;
 }
 
+#query-runner {
+    position: relative;
+}
+
+.query-runner-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    background: rgba(243, 244, 246, 0.66);
+    backdrop-filter: blur(2px);
+}
+
+.query-runner-overlay[hidden] {
+    display: none;
+}
+
+.query-runner-loader {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #FFFFFF;
+    box-shadow: 0 14px 34px rgba(17, 24, 39, 0.16);
+    color: var(--text-dark);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.query-runner-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid #D1FAE5;
+    border-top-color: #10B981;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
 .query-builder-panel,
 .query-ai-panel {
     margin: 0;
-    min-height: 230px;
+    min-height: 195px;
 }
 
 .query-editor-panel {
@@ -907,8 +877,8 @@ body {
     color: var(--text-muted);
     font-size: 0.72rem;
     font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
+    letter-spacing: 0;
+    text-transform: none;
 }
 
 .query-builder-field input,
@@ -934,7 +904,7 @@ body {
 }
 
 .query-ai-question {
-    min-height: 112px;
+    min-height: 84px;
     resize: vertical;
 }
 
@@ -1003,9 +973,10 @@ body {
 
 .query-editor-actions {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
     gap: 0.75rem;
-    margin-top: 1rem;
+    margin-top: 0;
 }
 
 .query-message {
@@ -1044,8 +1015,8 @@ body {
 }
 
 .query-table {
-    width: 100%;
-    min-width: 760px;
+    width: max-content;
+    min-width: 100%;
     border-collapse: separate;
     border-spacing: 0;
 }
@@ -1053,12 +1024,13 @@ body {
 .query-table th,
 .query-table td {
     max-width: 360px;
-    padding: 0.7rem 0.85rem;
+    padding: 0.65rem 0.55rem;
     border-bottom: 1px solid var(--border);
     color: var(--text-dark);
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     text-align: left;
     vertical-align: top;
+    white-space: nowrap;
 }
 
 .query-table th {
@@ -1067,9 +1039,10 @@ body {
     z-index: 1;
     background: #F9FAFB;
     color: var(--text-muted);
-    font-size: 0.8rem;
+    font-size: 0.72rem;
     font-weight: 800;
     letter-spacing: 0;
+    text-transform: none;
 }
 
 .query-cell {
@@ -1102,7 +1075,6 @@ body {
 .btn i,
 .close-modal i,
 .password-toggle i,
-.schema-page-button i,
 .postgres-sync-ring i {
     display: block;
     line-height: 1;
@@ -1111,7 +1083,7 @@ body {
 .query-builder-remove,
 .query-builder-reset,
 .query-download-icon,
-.schema-filter-clear,
+.table-download-icon,
 .close-modal,
 .password-toggle {
     display: inline-grid;
@@ -1475,19 +1447,6 @@ body.logged-out .content-wrapper {
     .panel-header h3 {
         font-size: 1rem;
     }
-    .schema-control-row {
-        gap: 0.75rem;
-        margin-bottom: 0.75rem;
-    }
-    .schema-filter-bar {
-        grid-template-columns: minmax(130px, 1fr) repeat(2, minmax(92px, 0.75fr)) 38px;
-        gap: 0.45rem;
-        padding: 0.65rem 0.75rem;
-    }
-    .schema-pagination {
-        gap: 0.7rem;
-        padding: 0.55rem 0.7rem;
-    }
     .schema-table th,
     .schema-table td {
         padding: 0.55rem 0.45rem;
@@ -1501,7 +1460,7 @@ body.logged-out .content-wrapper {
     }
     .query-builder-panel,
     .query-ai-panel {
-        min-height: 205px;
+        min-height: 172px;
     }
     .query-builder-grid {
         grid-template-columns: minmax(150px, 1fr) 82px auto;
@@ -1528,7 +1487,7 @@ body.logged-out .content-wrapper {
         font-size: 0.8rem;
     }
     .query-ai-question {
-        min-height: 96px;
+        min-height: 72px;
     }
     .query-editor {
         min-height: 150px;
@@ -1574,10 +1533,10 @@ body.logged-out .content-wrapper {
     }
     .query-builder-panel,
     .query-ai-panel {
-        min-height: 190px;
+        min-height: 160px;
     }
     .query-ai-question {
-        min-height: 86px;
+        min-height: 64px;
     }
     .query-editor {
         min-height: 130px;
@@ -1603,9 +1562,6 @@ body.logged-out .content-wrapper {
     .query-builder-remove {
         width: 100%;
     }
-    .schema-control-row { grid-template-columns: 1fr; }
-    .schema-filter-bar { grid-template-columns: 1fr; }
-    .schema-pagination { align-items: flex-start; flex-direction: column; }
 }
 
 @media (max-width: 700px) {
@@ -1743,78 +1699,40 @@ body.logged-out .content-wrapper {
                     <div class="section-header">
                         <div>
                             <h1>Schema</h1>
-                            <p>Tables, columns, indexes, views, and materialized views will appear here.</p>
+                            <p>Only table schema is shown.</p>
                         </div>
                     </div>
                     <div class="panel">
                         <div class="panel-header">
-                            <h3>Column Index Map</h3>
-                        </div>
-                        <div class="schema-control-row">
-                            <div class="schema-filter-bar">
-                                <div class="schema-filter-field">
-                                    <label for="schema-filter-search">Search</label>
-                                    <input id="schema-filter-search" placeholder="Search">
-                                </div>
-                                <div class="schema-filter-field">
-                                    <label for="schema-filter-relation">Relation</label>
-                                    <select id="schema-filter-relation">
-                                        <option value="">All</option>
-                                        <option value="table">Tables</option>
-                                        <option value="partitioned_table">Partitioned tables</option>
-                                        <option value="view">Views</option>
-                                        <option value="materialized_view">Materialized views</option>
-                                        <option value="foreign_table">Foreign tables</option>
-                                    </select>
-                                </div>
-                                <div class="schema-filter-field">
-                                    <label for="schema-filter-key">Key</label>
-                                    <select id="schema-filter-key">
-                                        <option value="">All</option>
-                                        <option value="primary">Primary</option>
-                                        <option value="unique">Unique</option>
-                                        <option value="nullable">Nullable</option>
-                                        <option value="not-null">Not nullable</option>
-                                        <option value="any-index">Any index</option>
-                                        <option value="no-index">No index</option>
-                                        <option value="btree">B-tree</option>
-                                        <option value="gin">GIN</option>
-                                        <option value="gist">GiST</option>
-                                        <option value="brin">BRIN</option>
-                                        <option value="hash">Hash</option>
-                                        <option value="other">Other</option>
-                                    </select>
-                                </div>
-                                <button class="btn btn-secondary schema-filter-clear" id="schema-filter-clear-btn" type="button" title="Clear schema filters" aria-label="Clear schema filters">
+                            <span class="schema-result-count" id="schema-result-count">Loading schema...</span>
+                            <div class="schema-panel-tools">
+                                <button class="btn btn-secondary schema-index-clear" id="schema-index-clear-btn" type="button" hidden title="Clear index filter" aria-label="Clear index filter">
                                     <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
                                 </button>
-                            </div>
-                            <div class="schema-pagination">
-                                <div class="schema-result-count" id="schema-result-count">Loading schema...</div>
-                                <div class="schema-page-controls">
-                                    <button class="schema-page-button" id="schema-page-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
-                                    <span id="schema-page-display">Page 1</span>
-                                    <button class="schema-page-button" id="schema-page-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
-                                </div>
+                                <select class="schema-index-filter" id="schema-index-filter" aria-label="Index filter">
+                                    <option value="">All</option>
+                                    <option value="btree">B-tree</option>
+                                    <option value="gin">GIN</option>
+                                </select>
+                                <button class="btn btn-secondary table-download-icon" id="schema-download-btn" type="button" title="Download schema CSV" aria-label="Download schema CSV">
+                                    <i class="fa-solid fa-download" aria-hidden="true"></i>
+                                </button>
                             </div>
                         </div>
-                        <div class="schema-table-wrap">
+                        <div class="schema-table-wrap schema-tab-table-wrap">
                             <table class="schema-table">
                                 <thead>
                                     <tr>
+                                        <th>#</th>
                                         <th>Table</th>
                                         <th>Column</th>
                                         <th>Datatype</th>
                                         <th>B-tree</th>
                                         <th>GIN</th>
-                                        <th>GiST</th>
-                                        <th>BRIN</th>
-                                        <th>Hash</th>
-                                        <th title="Index methods other than B-tree, GIN, GiST, BRIN, and Hash">Other</th>
                                     </tr>
                                 </thead>
                                 <tbody id="pgscope-schema-body">
-                                    <tr><td colspan="9"><div class="schema-empty">Schema has not been loaded.</div></td></tr>
+                                    <tr><td colspan="6"><div class="schema-empty">Schema has not been loaded.</div></td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1829,18 +1747,24 @@ body.logged-out .content-wrapper {
                         </div>
                     </div>
                     <div class="panel">
-                        <div class="schema-result-count" id="object-count-result-count">Not loaded</div>
-                        <div class="schema-table-wrap">
+                        <div class="panel-header">
+                            <span class="schema-result-count" id="object-count-result-count">Not loaded</span>
+                            <button class="btn btn-secondary table-download-icon" id="object-count-download-btn" type="button" title="Download object count CSV" aria-label="Download object count CSV">
+                                <i class="fa-solid fa-download" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <div class="schema-table-wrap schema-tab-table-wrap">
                             <table class="schema-table object-count-table">
                                 <thead>
                                     <tr>
-                                        <th>Object</th>
-                                        <th>Count</th>
-                                        <th>Action</th>
+                                        <th>#</th>
+                                        <th>object_name</th>
+                                        <th>row_count</th>
+                                        <th>action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="object-count-body">
-                                    <tr><td colspan="3"><div class="schema-empty">Object counts have not been loaded.</div></td></tr>
+                                    <tr><td colspan="4"><div class="schema-empty">Object counts have not been loaded.</div></td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1848,6 +1772,12 @@ body.logged-out .content-wrapper {
                 </section>
 
                 <section id="query-runner" class="view-section">
+                    <div class="query-runner-overlay" id="query-runner-overlay" hidden aria-live="polite" aria-label="Query Runner busy">
+                        <div class="query-runner-loader" role="status">
+                            <span class="query-runner-spinner" aria-hidden="true"></span>
+                            <span id="query-runner-loader-text">Working...</span>
+                        </div>
+                    </div>
                     <div class="section-header">
                         <div>
                             <h1>Query Runner</h1>
@@ -1880,7 +1810,7 @@ body.logged-out .content-wrapper {
                         <div class="panel query-ai-panel" id="query-ai-panel">
                             <div class="panel-header">
                                 <h3>AI Builder</h3>
-                                <button class="btn btn-primary" id="query-ai-generate-btn" type="button"><i class="fa-solid fa-sparkles" aria-hidden="true"></i> Generate SQL</button>
+                                <button class="btn btn-primary" id="query-ai-generate-btn" type="button"><i class="fa-solid fa-sparkles" aria-hidden="true"></i> Build SQL</button>
                             </div>
                             <div class="query-ai-form">
                                 <textarea id="query-ai-question" class="query-ai-question" spellcheck="true" placeholder="Ask in English"></textarea>
@@ -1889,15 +1819,18 @@ body.logged-out .content-wrapper {
                         </div>
                     </div>
                     <div class="panel query-editor-panel">
+                        <div class="panel-header">
+                            <h3>SQL Editor</h3>
+                            <div class="query-editor-actions">
+                                <button class="btn btn-primary" id="query-run-btn" type="submit" form="query-runner-form"><i class="fa-solid fa-play" aria-hidden="true"></i> Run</button>
+                                <button class="btn btn-secondary" id="query-export-download-btn" type="button"><i class="fa-solid fa-download" aria-hidden="true"></i> Export</button>
+                            </div>
+                        </div>
                         <form class="query-form" id="query-runner-form">
                             <textarea class="query-editor" id="query-sql" spellcheck="false">SELECT *
 FROM your_table
 LIMIT 10;</textarea>
                         </form>
-                        <div class="query-editor-actions">
-                            <button class="btn btn-primary" id="query-run-btn" type="submit" form="query-runner-form"><i class="fa-solid fa-play" aria-hidden="true"></i> Run</button>
-                            <button class="btn btn-secondary" id="query-export-download-btn" type="button"><i class="fa-solid fa-download" aria-hidden="true"></i> Export</button>
-                        </div>
                     </div>
                     <div class="panel query-result-panel" id="query-result-panel" hidden>
                         <div class="panel-header">
@@ -2086,7 +2019,7 @@ const STORAGE_KEY_POSTGRES_OBJECT_COUNT = 'postgres_object_count';
 const STORAGE_KEY_POSTGRES_OBJECT_COUNT_AT = 'postgres_object_count_cached_at';
 const INFO_CACHE_REFRESH_MS = 5 * 60 * 1000;
 const PROFILE_CACHE_REFRESH_MS = 5 * 60 * 1000;
-const POSTGRES_CACHE_REFRESH_MS = 10 * 60 * 1000;
+const POSTGRES_CACHE_REFRESH_MS = 60 * 60 * 1000;
 const TOKEN_REFRESH_BUFFER_SEC = 24 * 60 * 60;
 const QUERY_EDITOR_PLACEHOLDER_SQL = 'SELECT *\nFROM your_table\nLIMIT 10;';
 const QUERY_BUILDER_DEFAULT_LIMIT = 10;
@@ -2101,25 +2034,67 @@ let typeLabels = {};
 let pgscopeDatabaseInfoLoaded = false;
 let pgscopeSchemaLoaded = false;
 let pgscopeSchemaRows = [];
-let pgscopeSchemaPage = 1;
-let pgscopeSchemaPagination = { page: 1, limit: 0, total_count: 0, has_prev_page: false, has_next_page: false, returned_count: 0 };
 let queryLastSql = '';
 let queryEditorDefaultSql = QUERY_EDITOR_PLACEHOLDER_SQL;
 let queryResultColumns = [];
 let queryResultRows = [];
 let postgresCacheWarmPromise = null;
 let queryBuilderFilterId = 0;
+let queryRunnerBusy = false;
 
 const $ = id => document.getElementById(id);
 const rawValue = value => value === undefined || value === null || value === '' ? '-' : String(value);
+
+function setQueryRunnerBusy(isBusy, message = 'Working...') {
+    queryRunnerBusy = Boolean(isBusy);
+    const overlay = $('query-runner-overlay');
+    const loaderText = $('query-runner-loader-text');
+    if (loaderText) loaderText.textContent = message;
+    if (overlay) overlay.hidden = !queryRunnerBusy;
+
+    [
+        'query-builder-build-btn',
+        'query-builder-reset-btn',
+        'query-builder-add-filter-btn',
+        'query-builder-table',
+        'query-builder-limit',
+        'query-ai-generate-btn',
+        'query-ai-question',
+        'query-sql',
+        'query-run-btn',
+        'query-export-download-btn',
+        'query-download-btn'
+    ].forEach(id => {
+        const el = $(id);
+        if (el) el.disabled = queryRunnerBusy;
+    });
+
+    document.querySelectorAll('.query-builder-column, .query-builder-operator, .query-builder-value, .query-builder-remove').forEach(el => {
+        el.disabled = queryRunnerBusy;
+    });
+
+    if (!queryRunnerBusy) {
+        Array.from(document.querySelectorAll('.query-builder-filter-row')).forEach(queryBuilderPopulateFilterRow);
+        const tableKeys = queryBuilderTableKeys();
+        const tableKey = $('query-builder-table')?.value || tableKeys[0] || '';
+        const indexedColumnCount = queryBuilderColumnRowsForTable(tableKey).length;
+        const buildBtn = $('query-builder-build-btn');
+        const addFilterBtn = $('query-builder-add-filter-btn');
+        const tableSelect = $('query-builder-table');
+        const downloadBtn = $('query-download-btn');
+        if (buildBtn) buildBtn.disabled = !tableKeys.length;
+        if (addFilterBtn) addFilterBtn.disabled = !tableKeys.length || indexedColumnCount === 0;
+        if (tableSelect) tableSelect.disabled = !tableKeys.length;
+        if (downloadBtn) downloadBtn.disabled = !queryResultColumns.length;
+    }
+}
 const formatNumber = value => Number(value || 0).toLocaleString();
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const accessToken = () => typeof authToken === 'object' ? authToken.access_token || authToken.token || '' : authToken || '';
 const refreshToken = () => typeof authToken === 'object' ? authToken.refresh_token || '' : '';
 const queryRunnerReadLimit = () => Number(appInfo?.config?.config_query_runner_read_limit || 5000);
 const queryRunnerExportLimit = () => Number(appInfo?.config?.config_query_runner_export_limit || 50000);
-const queryRunnerExportLimitMessage = () => `Maximum ${formatNumber(queryRunnerExportLimit())} rows will be downloaded.`;
-const queryRunnerLimitMessage = () => `Run returns up to ${formatNumber(queryRunnerReadLimit())} rows. Export downloads up to ${formatNumber(queryRunnerExportLimit())} rows.`;
+const queryRunnerLimitMessage = () => `Run returns max ${formatNumber(queryRunnerReadLimit())} rows. Export downloads max ${formatNumber(queryRunnerExportLimit())} rows.`;
 
 function renderQueryRunnerTabMessages() {
     $('query-message').textContent = queryRunnerLimitMessage();
@@ -2750,13 +2725,13 @@ function queryBuilderRenderOperatorOptions(rowEl, columnRow) {
         valueInput.placeholder = 'Value';
         return;
     }
-    operatorSelect.disabled = false;
+    operatorSelect.disabled = queryRunnerBusy;
     const current = operatorSelect.value;
     const operators = queryBuilderOperatorsForColumn(columnRow);
     operatorSelect.innerHTML = operators.map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`).join('');
     operatorSelect.value = operators.some(([value]) => value === current) ? current : operators[0]?.[0] || '=';
     const noValue = ['is_true', 'is_false'].includes(operatorSelect.value);
-    valueInput.disabled = noValue;
+    valueInput.disabled = queryRunnerBusy || noValue;
     valueInput.placeholder = operatorSelect.value === 'between' ? 'start, end' : operatorSelect.value === 'in' ? 'value1, value2' : 'Value';
     if (noValue) valueInput.value = '';
 }
@@ -2770,12 +2745,14 @@ function queryBuilderPopulateFilterRow(rowEl) {
         '<option value="">Column</option>',
         ...columns.map(row => `<option value="${escapeHtml(row.column_name)}">${escapeHtml(row.column_name)}</option>`)
     ].join('');
+    columnSelect.disabled = queryRunnerBusy;
     columnSelect.value = columns.some(row => row.column_name === currentColumn) ? currentColumn : '';
     const columnRow = columns.find(row => row.column_name === columnSelect.value);
     queryBuilderRenderOperatorOptions(rowEl, columnRow);
 }
 
 function queryBuilderAddFilterRow() {
+    if (queryRunnerBusy) return;
     const list = $('query-builder-filter-list');
     const rowEl = document.createElement('div');
     rowEl.className = 'query-builder-filter-row';
@@ -2818,10 +2795,10 @@ function renderQueryBuilder() {
     tableSelect.innerHTML = tableKeys.length
         ? tableKeys.map(key => `<option value="${escapeHtml(key)}">${escapeHtml(queryBuilderTableLabel(key))}</option>`).join('')
         : '<option value="">Schema cache syncing...</option>';
-    tableSelect.disabled = !tableKeys.length;
+    tableSelect.disabled = queryRunnerBusy || !tableKeys.length;
     tableSelect.value = tableKeys.includes(currentTable) ? currentTable : tableKeys[0] || '';
-    $('query-builder-build-btn').disabled = !tableKeys.length;
-    $('query-builder-add-filter-btn').disabled = !tableKeys.length || indexedColumnCount === 0;
+    $('query-builder-build-btn').disabled = queryRunnerBusy || !tableKeys.length;
+    $('query-builder-add-filter-btn').disabled = queryRunnerBusy || !tableKeys.length || indexedColumnCount === 0;
     $('query-builder-limit').max = String(Math.max(1, queryRunnerExportLimit()));
     $('query-builder-message').textContent = tableKeys.length
         ? indexedColumnCount ? '' : 'No indexed columns available for filters. You can still build a limit-only query.'
@@ -2853,6 +2830,7 @@ function updateQueryBuilderResetButton() {
 }
 
 function resetQueryBuilder() {
+    if (queryRunnerBusy) return;
     const defaultTable = queryBuilderDefaultTableKey();
     if (defaultTable) $('query-builder-table').value = defaultTable;
     $('query-builder-filter-list').innerHTML = '';
@@ -2953,6 +2931,7 @@ function syncQueryEditorDefaultSql() {
 }
 
 function applyQueryBuilderSql() {
+    if (queryRunnerBusy) return;
     try {
         const sql = buildQueryBuilderSql();
         $('query-sql').value = sql;
@@ -2968,13 +2947,13 @@ function applyQueryBuilderSql() {
 
 async function generateAiSql() {
     if (!authToken || !authUser) return;
-    const btn = $('query-ai-generate-btn');
+    if (queryRunnerBusy) return;
     const question = $('query-ai-question').value.trim();
     if (!question) {
         $('query-ai-message').textContent = 'Ask a question first.';
         return;
     }
-    btn.disabled = true;
+    setQueryRunnerBusy(true, 'Building SQL...');
     $('query-ai-message').textContent = 'Generating SQL...';
     try {
         const payload = await api(POSTGRES_QUERY_AI_PATH, {
@@ -2996,53 +2975,14 @@ async function generateAiSql() {
     } catch (err) {
         $('query-ai-message').textContent = err.message || 'AI SQL generation failed.';
     } finally {
-        btn.disabled = false;
+        setQueryRunnerBusy(false);
     }
 }
 
-function rowMatchesSchemaFilters(row, filters) {
-    if (filters.relation && row.relation_type !== filters.relation) return false;
-    if (filters.key === 'primary' && !row.is_primary) return false;
-    if (filters.key === 'unique' && !(row.is_unique_constraint || row.is_unique_index)) return false;
-    if (filters.key === 'nullable' && !row.is_nullable) return false;
-    if (filters.key === 'not-null' && row.is_nullable) return false;
-    if (['any-index', 'no-index', 'btree', 'gin', 'gist', 'brin', 'hash', 'other'].includes(filters.key) && !rowHasIndex(row, filters.key)) return false;
-    if (!filters.search) return true;
-    const haystack = [
-        row.schema_name,
-        row.table_name,
-        row.relation_type,
-        row.column_name,
-        row.data_type,
-        row.column_default,
-        ...(row.btree_indexes || []),
-        ...(row.gin_indexes || []),
-        ...(row.gist_indexes || []),
-        ...(row.brin_indexes || []),
-        ...(row.hash_indexes || []),
-        ...(row.other_indexes || [])
-    ].join(' ').toLowerCase();
-    return haystack.includes(filters.search);
-}
-
-function schemaFilters() {
-    return {
-        search: $('schema-filter-search').value.trim().toLowerCase(),
-        relation: $('schema-filter-relation').value,
-        key: $('schema-filter-key').value
-    };
-}
-
-function updateSchemaFilterState(filters = schemaFilters()) {
-    const active = Boolean(filters.search || filters.relation || filters.key);
-    const clearBtn = $('schema-filter-clear-btn');
-    clearBtn.classList.toggle('is-active', active);
-    clearBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
-}
-
 function renderSchemaRows(rows) {
-    $('pgscope-schema-body').innerHTML = rows.length ? rows.map(row => `
+    $('pgscope-schema-body').innerHTML = rows.length ? rows.map((row, index) => `
         <tr>
+            <td>${formatNumber(index + 1)}</td>
             <td>
                 <div class="schema-cell-main">${escapeHtml(row.table_name)}</div>
             </td>
@@ -3052,52 +2992,28 @@ function renderSchemaRows(rows) {
             <td>${escapeHtml(rawValue(row.data_type))}</td>
             <td>${schemaIndexFlag(row.btree_indexes)}</td>
             <td>${schemaIndexFlag(row.gin_indexes)}</td>
-            <td>${schemaIndexFlag(row.gist_indexes)}</td>
-            <td>${schemaIndexFlag(row.brin_indexes)}</td>
-            <td>${schemaIndexFlag(row.hash_indexes)}</td>
-            <td>${schemaIndexFlag(row.other_indexes)}</td>
         </tr>
-    `).join('') : '<tr><td colspan="9"><div class="schema-empty">No schema columns match the current filters.</div></td></tr>';
+    `).join('') : '<tr><td colspan="6"><div class="schema-empty">No table columns found.</div></td></tr>';
 }
 
-function renderSchemaPagination(pagination = {}) {
-    pgscopeSchemaPagination = {
-        page: Number(pagination.page || pgscopeSchemaPage),
-        limit: Number(pagination.limit || 0),
-        total_count: Number(pagination.total_count || 0),
-        has_prev_page: Boolean(pagination.has_prev_page || pagination.has_prev),
-        has_next_page: Boolean(pagination.has_next_page || pagination.has_next),
-        returned_count: Number(pagination.returned_count || pgscopeSchemaRows.length)
-    };
-    pgscopeSchemaPage = pgscopeSchemaPagination.page;
-    const pageLimit = pgscopeSchemaPagination.limit || pgscopeSchemaPagination.returned_count;
-    const start = pgscopeSchemaPagination.returned_count ? ((pgscopeSchemaPage - 1) * pageLimit) + 1 : 0;
-    const end = pgscopeSchemaPagination.returned_count ? start + pgscopeSchemaPagination.returned_count - 1 : 0;
-    const totalText = pgscopeSchemaPagination.total_count ? ` of ${formatNumber(pgscopeSchemaPagination.total_count)} columns` : ' columns';
-    $('schema-page-display').textContent = `Page ${formatNumber(pgscopeSchemaPage)}`;
-    $('schema-result-count').textContent = pgscopeSchemaPagination.returned_count
-        ? `Showing ${formatNumber(start)}-${formatNumber(end)}${totalText}`
-        : 'No columns';
-    $('schema-page-prev-btn').disabled = !pgscopeSchemaPagination.has_prev_page;
-    $('schema-page-next-btn').disabled = !pgscopeSchemaPagination.has_next_page;
+function renderSchemaTable() {
+    const rows = currentSchemaRows();
+    const filter = $('schema-index-filter')?.value || '';
+    $('schema-index-clear-btn').hidden = !filter;
+    $('schema-result-count').textContent = rows.length
+        ? `Showing ${formatNumber(rows.length)}${filter ? ` of ${formatNumber(pgscopeSchemaRows.length)}` : ''} column${rows.length === 1 ? '' : 's'}`
+        : `No ${filter ? `${filter === 'btree' ? 'B-tree' : 'GIN'} indexed ` : ''}table columns`;
+    renderSchemaRows(rows);
 }
 
-function applySchemaFilters() {
-    const filters = schemaFilters();
-    updateSchemaFilterState(filters);
-    if (!pgscopeSchemaRows.length) return;
-    renderSchemaRows(pgscopeSchemaRows.filter(row => rowMatchesSchemaFilters(row, filters)));
+function currentSchemaRows() {
+    const filter = $('schema-index-filter')?.value || '';
+    return filter ? pgscopeSchemaRows.filter(row => rowHasIndex(row, filter)) : pgscopeSchemaRows;
 }
 
 function renderSchema(payload = {}) {
-    pgscopeSchemaRows = Array.isArray(payload.columns) ? payload.columns : [];
-    renderSchemaPagination(payload.pagination || {});
-    if (!pgscopeSchemaRows.length) {
-        $('pgscope-schema-body').innerHTML = '<tr><td colspan="9"><div class="schema-empty">No schema columns found.</div></td></tr>';
-        renderQueryBuilder();
-        return;
-    }
-    applySchemaFilters();
+    pgscopeSchemaRows = Array.isArray(payload.columns) ? payload.columns.filter(row => row.relation_type === 'table') : [];
+    renderSchemaTable();
     renderQueryBuilder();
 }
 
@@ -3159,10 +3075,7 @@ async function fetchPostgresSchemaAllPages({ onProgress } = {}) {
 
 function renderSchemaError(message) {
     $('schema-result-count').textContent = 'Schema unavailable';
-    $('schema-page-display').textContent = `Page ${formatNumber(pgscopeSchemaPage)}`;
-    $('schema-page-prev-btn').disabled = true;
-    $('schema-page-next-btn').disabled = true;
-    $('pgscope-schema-body').innerHTML = `<tr><td colspan="9"><div class="schema-empty">${escapeHtml(message || 'Schema could not be loaded.')}</div></td></tr>`;
+    $('pgscope-schema-body').innerHTML = `<tr><td colspan="6"><div class="schema-empty">${escapeHtml(message || 'Schema could not be loaded.')}</div></td></tr>`;
 }
 
 async function loadSchema({ force = false } = {}) {
@@ -3170,21 +3083,16 @@ async function loadSchema({ force = false } = {}) {
     if (!force) {
         const cached = readCachedPostgresSchema();
         if (cached) {
-            pgscopeSchemaPage = 1;
             renderSchema(cached);
             pgscopeSchemaLoaded = true;
             return;
         }
     }
-    $('schema-page-prev-btn').disabled = true;
-    $('schema-page-next-btn').disabled = true;
     $('schema-result-count').textContent = 'Loading schema...';
-    $('schema-page-display').textContent = `Page ${formatNumber(pgscopeSchemaPage)}`;
-    $('pgscope-schema-body').innerHTML = '<tr><td colspan="9"><div class="schema-empty">Loading schema...</div></td></tr>';
+    $('pgscope-schema-body').innerHTML = '<tr><td colspan="6"><div class="schema-empty">Loading schema...</div></td></tr>';
     try {
         const schema = await fetchPostgresSchemaAllPages();
         writeCachedPostgresSchema(schema);
-        pgscopeSchemaPage = 1;
         renderSchema(schema);
         pgscopeSchemaLoaded = true;
     } catch (err) {
@@ -3192,12 +3100,6 @@ async function loadSchema({ force = false } = {}) {
         if (cached) renderSchema(cached);
         else renderSchemaError(err.message);
     }
-}
-
-function goSchemaPage(page) {
-    pgscopeSchemaPage = Math.max(1, Number(page || 1));
-    const cached = readCachedPostgresSchema();
-    if (cached) renderSchema(cached);
 }
 
 async function warmPostgresCache({ force = false } = {}) {
@@ -3234,7 +3136,6 @@ async function warmPostgresCache({ force = false } = {}) {
             pgscopeSchemaLoaded = true;
             renderQueryBuilder();
             if ($('schema').classList.contains('active')) {
-                pgscopeSchemaPage = 1;
                 renderSchema(schema);
             }
             setPostgresSyncStatus({ visible: true, progress: 75, text: 'Schema cached.' });
@@ -3365,6 +3266,11 @@ function objectCountQualifiedObjectSql(schemaName, objectName) {
     return `${queryBuilderQuoteIdentifier(schema)}.${queryBuilderQuoteIdentifier(object)}`;
 }
 
+function objectCountViewButton(row = {}) {
+    const title = `View ${rawValue(row.object_name)}`;
+    return `<button class="btn btn-secondary object-count-view" type="button" data-schema="${escapeHtml(row.schema_name || 'public')}" data-object="${escapeHtml(row.object_name || '')}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><i class="fa-regular fa-eye" aria-hidden="true"></i></button>`;
+}
+
 function objectCountDownloadButton(row = {}) {
     const count = objectCountRowCount(row);
     const isLargeExport = count !== null && count > queryRunnerExportLimit();
@@ -3376,22 +3282,27 @@ function objectCountDownloadButton(row = {}) {
     return `<button class="btn btn-secondary object-count-download${isLargeExport ? ' is-large-export' : ''}" type="button" data-schema="${escapeHtml(row.schema_name || 'public')}" data-object="${escapeHtml(row.object_name || '')}" data-count="${escapeHtml(count ?? '')}" ${disabled ? 'disabled' : ''} title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><i class="${icon}" aria-hidden="true"></i></button>`;
 }
 
+function objectCountActionButtons(row = {}) {
+    return `<div class="object-count-actions">${objectCountViewButton(row)}${objectCountDownloadButton(row)}</div>`;
+}
+
 function renderObjectCountRows(rows = []) {
     $('object-count-result-count').textContent = rows.length
         ? `Showing ${formatNumber(rows.length)} object${rows.length === 1 ? '' : 's'}`
         : 'No object counts';
-    $('object-count-body').innerHTML = rows.length ? rows.map(row => `
+    $('object-count-body').innerHTML = rows.length ? rows.map((row, index) => `
         <tr>
+            <td>${formatNumber(index + 1)}</td>
             <td>${escapeHtml(rawValue(row.object_name))}</td>
             <td>${escapeHtml(rawValue(row.row_count))}</td>
-            <td>${objectCountDownloadButton(row)}</td>
+            <td>${objectCountActionButtons(row)}</td>
         </tr>
-    `).join('') : '<tr><td colspan="3"><div class="schema-empty">No object counts found.</div></td></tr>';
+    `).join('') : '<tr><td colspan="4"><div class="schema-empty">No object counts found.</div></td></tr>';
 }
 
 function renderObjectCountError(message) {
     $('object-count-result-count').textContent = 'Object counts unavailable';
-    $('object-count-body').innerHTML = `<tr><td colspan="3"><div class="schema-empty">${escapeHtml(message || 'Create public.mv_object_count to see exact object counts.')}</div></td></tr>`;
+    $('object-count-body').innerHTML = `<tr><td colspan="4"><div class="schema-empty">${escapeHtml(message || 'Create public.mv_object_count to see exact object counts.')}</div></td></tr>`;
 }
 
 function objectCountRelationExists() {
@@ -3471,10 +3382,8 @@ async function loadObjectCount({ force = false } = {}) {
 async function runQuery(event) {
     event.preventDefault();
     if (!authToken || !authUser) return;
-    const btn = $('query-run-btn');
-    const downloadBtn = $('query-download-btn');
-    btn.disabled = true;
-    downloadBtn.disabled = true;
+    if (queryRunnerBusy) return;
+    setQueryRunnerBusy(true, 'Running query...');
     resetQueryResult();
     $('query-message').textContent = 'Running query...';
     try {
@@ -3487,12 +3396,11 @@ async function runQuery(event) {
         queryLastSql = sql;
         renderQueryResult(payload.message || {});
         $('query-message').textContent = queryRunnerLimitMessage();
-        downloadBtn.disabled = !queryResultColumns.length;
     } catch (err) {
         renderQueryError(err.message);
         $('query-message').textContent = err.message || 'Query failed.';
     } finally {
-        btn.disabled = false;
+        setQueryRunnerBusy(false);
     }
 }
 
@@ -3501,25 +3409,34 @@ function csvCell(value) {
     return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
+function downloadCsvFile({ filename, columns, rows }) {
+    const lines = [
+        columns.map(col => csvCell(col.label)).join(','),
+        ...rows.map((row, index) => columns.map(col => csvCell(typeof col.value === 'function' ? col.value(row, index) : row[col.value])).join(','))
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
 function downloadQueryCsv() {
     if (!authToken || !authUser) return;
+    if (queryRunnerBusy) return;
     const btn = $('query-download-btn');
     btn.disabled = true;
     try {
         if (!queryResultColumns.length) throw new Error('Run a query before downloading CSV.');
-        const lines = [
-            queryResultColumns.map(csvCell).join(','),
-            ...queryResultRows.map(row => queryResultColumns.map(col => csvCell(row[col])).join(','))
-        ];
-        const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'postgres_query_result.csv';
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
+        downloadCsvFile({
+            filename: 'postgres_query_result.csv',
+            columns: queryResultColumns.map(col => ({ label: col, value: col })),
+            rows: queryResultRows
+        });
         $('query-message').textContent = `CSV downloaded with ${formatNumber(queryResultRows.length)} row${queryResultRows.length === 1 ? '' : 's'}.`;
     } catch (err) {
         $('query-message').textContent = err.message || 'CSV download failed.';
@@ -3528,11 +3445,42 @@ function downloadQueryCsv() {
     }
 }
 
+function downloadSchemaCsv() {
+    const rows = currentSchemaRows();
+    if (!rows.length) return;
+    downloadCsvFile({
+        filename: 'postgres_table_schema.csv',
+        columns: [
+            { label: '#', value: (_row, index) => index + 1 },
+            { label: 'table', value: 'table_name' },
+            { label: 'column', value: 'column_name' },
+            { label: 'datatype', value: 'data_type' },
+            { label: 'btree', value: row => rowHasIndex(row, 'btree') ? 'Yes' : 'No' },
+            { label: 'gin', value: row => rowHasIndex(row, 'gin') ? 'Yes' : 'No' }
+        ],
+        rows
+    });
+}
+
+function downloadObjectCountCsv() {
+    const rows = readCachedPostgresObjectCount()?.rows || [];
+    if (!rows.length) return;
+    downloadCsvFile({
+        filename: 'postgres_object_count.csv',
+        columns: [
+            { label: '#', value: (_row, index) => index + 1 },
+            { label: 'object_name', value: 'object_name' },
+            { label: 'row_count', value: 'row_count' }
+        ],
+        rows
+    });
+}
+
 async function downloadQueryExport(event) {
     event.preventDefault();
     if (!authToken || !authUser) return;
-    const btn = $('query-export-download-btn');
-    btn.disabled = true;
+    if (queryRunnerBusy) return;
+    setQueryRunnerBusy(true, 'Preparing export...');
     $('query-message').textContent = 'Preparing CSV...';
     try {
         const { sql } = validateQueryInput();
@@ -3554,11 +3502,11 @@ async function downloadQueryExport(event) {
         link.click();
         link.remove();
         URL.revokeObjectURL(url);
-        $('query-message').textContent = `CSV downloaded. ${queryRunnerExportLimitMessage()}`;
+        $('query-message').textContent = `CSV downloaded. ${queryRunnerLimitMessage()}`;
     } catch (err) {
         $('query-message').textContent = err.message || 'CSV download failed.';
     } finally {
-        btn.disabled = false;
+        setQueryRunnerBusy(false);
     }
 }
 
@@ -3568,6 +3516,29 @@ function showLargeObjectExportModal({ schemaName, objectName, count }) {
     $('large-export-count').textContent = formatNumber(count);
     $('large-export-limit').textContent = formatNumber(queryRunnerExportLimit());
     openModal('large-export-modal');
+}
+
+function viewObjectCountObject(event) {
+    const btn = event.target.closest('.object-count-view');
+    if (!btn || !authToken || !authUser) return;
+    const schemaName = btn.dataset.schema || 'public';
+    const objectName = btn.dataset.object || '';
+    try {
+        const objectSql = objectCountQualifiedObjectSql(schemaName, objectName);
+        const sql = [
+            'SELECT *',
+            `FROM ${objectSql}`,
+            `LIMIT ${QUERY_BUILDER_DEFAULT_LIMIT};`
+        ].join('\n');
+        showSection('query-runner');
+        $('query-sql').value = sql;
+        queryLastSql = '';
+        resetQueryResult();
+        $('query-download-btn').disabled = true;
+        $('query-message').textContent = `Preview SQL loaded for ${rawValue(objectName)}. ${queryRunnerLimitMessage()}`;
+    } catch (err) {
+        $('object-count-result-count').textContent = err.message || 'Could not load preview SQL.';
+    }
 }
 
 async function downloadObjectCountObject(event) {
@@ -3649,8 +3620,6 @@ function logout() {
     pgscopeDatabaseInfoLoaded = false;
     pgscopeSchemaLoaded = false;
     pgscopeSchemaRows = [];
-    pgscopeSchemaPage = 1;
-    pgscopeSchemaPagination = { page: 1, limit: 0, total_count: 0, has_prev_page: false, has_next_page: false, returned_count: 0 };
     postgresCacheWarmPromise = null;
     queryLastSql = '';
     resetQueryResult();
@@ -3752,12 +3721,14 @@ function bindAuthComponentEvents() {
 
 function bindPageEvents() {
     $('postgres-sync-btn').addEventListener('click', () => syncPostgresCache({ force: true }));
-    $('schema-page-prev-btn').addEventListener('click', () => {
-        if (pgscopeSchemaPagination.has_prev_page) goSchemaPage(pgscopeSchemaPage - 1);
+    $('schema-index-filter').addEventListener('change', renderSchemaTable);
+    $('schema-index-clear-btn').addEventListener('click', () => {
+        $('schema-index-filter').value = '';
+        renderSchemaTable();
     });
-    $('schema-page-next-btn').addEventListener('click', () => {
-        if (pgscopeSchemaPagination.has_next_page) goSchemaPage(pgscopeSchemaPage + 1);
-    });
+    $('schema-download-btn').addEventListener('click', downloadSchemaCsv);
+    $('object-count-download-btn').addEventListener('click', downloadObjectCountCsv);
+    $('object-count-body').addEventListener('click', viewObjectCountObject);
     $('object-count-body').addEventListener('click', downloadObjectCountObject);
     $('query-runner-form').addEventListener('submit', runQuery);
     $('query-download-btn').addEventListener('click', downloadQueryCsv);
@@ -3788,16 +3759,6 @@ function bindPageEvents() {
             resetQueryResult();
             $('query-message').textContent = queryRunnerLimitMessage();
         }
-    });
-    ['schema-filter-search', 'schema-filter-relation', 'schema-filter-key'].forEach(id => {
-        $(id).addEventListener('input', applySchemaFilters);
-        $(id).addEventListener('change', applySchemaFilters);
-    });
-    $('schema-filter-clear-btn').addEventListener('click', () => {
-        $('schema-filter-search').value = '';
-        $('schema-filter-relation').value = '';
-        $('schema-filter-key').value = '';
-        applySchemaFilters();
     });
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', event => {
