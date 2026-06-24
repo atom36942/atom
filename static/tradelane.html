@@ -3152,7 +3152,7 @@ function queryBuilderBuildCondition(rowEl) {
     }
     if (operator === 'starts_with') {
         if (!value.trim()) throw new Error('Starts with requires a value.');
-        return `${columnSql} ILIKE ${queryBuilderSqlLiteral(`${value.trim()}%`, 'text')}`;
+        return `${columnSql} LIKE ${queryBuilderSqlLiteral(`${value.trim()}%`, 'text')}`;
     }
     return `${columnSql} ${operator} ${queryBuilderSqlLiteral(value, kind)}`;
 }

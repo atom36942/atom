@@ -193,6 +193,10 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
     import hashlib
     def get_hash(val: str) -> str:
         return hashlib.md5(str(val).encode()).hexdigest()[:4]
+    def clamp_identifier(name: str) -> str:
+        if len(name) <= 63:
+            return name
+        return f"{name[:58]}_{get_hash(name)}"
     def is_enabled_col_setting(col_cfg: dict, key: str) -> bool:
         return key in col_cfg and col_cfg.get(key) not in (None, "")
     async with client_postgres.acquire() as conn:
@@ -292,27 +296,17 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
                             index_type, cols_str = index_group[:-1].split("(", 1)
                             index_type = index_type.strip().lower()
                             index_cols = [c.strip() for c in cols_str.split(",")]
-                            idx_name = f"idx_{table_name}_{'_'.join(index_cols)}_{index_type}"
+                            idx_name = clamp_identifier(f"idx_{table_name}_{'_'.join(index_cols)}_{index_type}")
                             catalog["idx"].add(idx_name)
                             if idx_name not in existing_meta:
-                                old_index_cols = [renamed_cols.get(c, c) for c in index_cols]
-                                old_idx_name = f"idx_{table_name}_{'_'.join(old_index_cols)}_{index_type}"
-                                if old_idx_name in existing_meta and old_idx_name != idx_name:
-                                    await conn.execute(f'ALTER INDEX "{old_idx_name}" RENAME TO "{idx_name}"')
-                                    existing_meta.remove(old_idx_name)
-                                    existing_meta.add(idx_name)
+                                # access method + operator class derived from the explicit token
+                                access_method, opclass = ("gin", "gin_trgm_ops") if index_type == "gin_trgm" else (index_type, None)
+                                if opclass:
+                                    await conn.execute(f'CREATE INDEX IF NOT EXISTS "{idx_name}" ON "{table_name}" USING {access_method}("{index_cols[0]}" {opclass});')
                                 else:
-                                    ops = ""
-                                    if index_type == "gin" and len(index_cols) == 1:
-                                        if index_cols[0] == col_name and "text" in col_type.lower() and "[]" not in col_type.lower():
-                                            ops = "gin_trgm_ops"
-                                    cols_joined = ", ".join(index_cols)
-                                    if ops:
-                                        await conn.execute(f'CREATE INDEX IF NOT EXISTS "{idx_name}" ON "{table_name}" USING {index_type}("{index_cols[0]}" {ops});')
-                                    else:
-                                        cols_quoted = ", ".join([f'"{c}"' for c in index_cols])
-                                        await conn.execute(f'CREATE INDEX IF NOT EXISTS "{idx_name}" ON "{table_name}" USING {index_type}({cols_quoted});')
-                                    table_changed = True
+                                    cols_quoted = ", ".join([f'"{c}"' for c in index_cols])
+                                    await conn.execute(f'CREATE INDEX IF NOT EXISTS "{idx_name}" ON "{table_name}" USING {access_method}({cols_quoted});')
+                                table_changed = True
                 if is_enabled_col_setting(col_cfg, "in"):
                     chk_name = f"check_{table_name}_{col_name}_in_{get_hash(col_cfg['in'])}"
                     catalog["chk"].add(chk_name)
