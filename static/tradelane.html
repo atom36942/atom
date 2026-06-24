@@ -1787,10 +1787,10 @@ body.logged-out .content-wrapper {
                                 </button>
                                 <select class="schema-index-filter" id="schema-index-filter" aria-label="Index filter">
                                     <option value="">All</option>
-                                    <option value="btree-yes">B3 yes</option>
-                                    <option value="gin-yes">GIN yes</option>
-                                    <option value="btree-no">B3 no</option>
-                                    <option value="gin-no">GIN no</option>
+                                    <option value="btree-yes">Btree Yes</option>
+                                    <option value="btree-no">Btree No</option>
+                                    <option value="gin-yes">GIN Yes</option>
+                                    <option value="gin-no">GIN No</option>
                                 </select>
                                 <button class="btn btn-secondary table-download-icon" id="schema-download-btn" type="button" title="Download schema CSV" aria-label="Download schema CSV">
                                     <i class="fa-solid fa-download" aria-hidden="true"></i>
@@ -2884,12 +2884,12 @@ function rowHasIndex(row, method) {
 
 function schemaIndexFilterLabel(filter) {
     const labels = {
-        'btree-yes': 'B3 yes',
-        'gin-yes': 'GIN yes',
-        'btree-no': 'B3 no',
-        'gin-no': 'GIN no',
-        btree: 'B3 yes',
-        gin: 'GIN yes'
+        'btree-yes': 'Btree Yes',
+        'btree-no': 'Btree No',
+        'gin-yes': 'GIN Yes',
+        'gin-no': 'GIN No',
+        btree: 'Btree Yes',
+        gin: 'GIN Yes'
     };
     return labels[filter] || '';
 }
