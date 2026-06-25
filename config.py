@@ -185,7 +185,7 @@ config_api = {
 "/admin/postgres-query-runner-write": {"id": 6, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/postgres-query-runner-read": {"id": 22, "is_token": 1, "user_check_role": ["token", [1, 2]]},
 "/admin/postgres-query-runner-read-export": {"id": 7, "is_token": 1, "user_check_role": ["inmemory", [1, 2]]},
-"/admin/postgres-query-ai": {"id": 90, "is_token": 1, "user_check_role": ["token", [1, 2]]},
+"/admin/postgres-query-generator-ai": {"id": 90, "is_token": 1, "user_check_role": ["token", [1, 2]]},
 "/admin/mssql-query-runner-write": {"id": 21, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/mssql-query-runner-read": {"id": 23, "is_token": 1, "user_check_role": ["token", [1,2]]},
 "/admin/mssql-query-runner-read-export": {"id": 89, "is_token": 1, "user_check_role": ["realtime", [1]]},

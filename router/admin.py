@@ -522,7 +522,7 @@ async def func_api_admin_postgres_query_runner_read_export(*, request: Request):
                     buffer.seek(0); buffer.truncate(0)
     return StreamingResponse(_iter(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=postgres_query_result.csv"})
 
-@router.post("/admin/postgres-query-ai")
+@router.post("/admin/postgres-query-generator-ai")
 async def func_api_admin_postgres_query_ai(*, request: Request):
     app_state = request.app.state
     if not app_state.client_gemini: raise Exception("Gemini client not initialized")
