@@ -81,25 +81,29 @@ async def func_lifespan(app:"FastAPI"):
         client_azure_blob = BlobServiceClient.from_connection_string(f"DefaultEndpointsProtocol=https;AccountName={app.state.config_azure_account_name};AccountKey={app.state.config_azure_account_key};EndpointSuffix=core.windows.net") if (app.state.config_azure_account_name and app.state.config_azure_account_key) else None
         # postges schema init
         if client_postgres and app.state.config_is_enable_postgres_schema_init: await app.state.func_postgres_schema_init(client_postgres=client_postgres, config_postgres=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(config_root_user_password) if config_root_user_password else None)
-        # cache init
+        # cache init schema
         cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres=client_postgres_read_fallback) if client_postgres_read_fallback else {}
+        cache_postgres_schema_ai = await app.state.func_postgres_schema_read_ai(client_postgres=client_postgres_read_fallback) if client_postgres_read_fallback else {}
+        cache_postgres_schema_external = await app.state.func_postgres_schema_read(client_postgres=client_postgres_external) if client_postgres_external else {}
         cache_postgres_schema_external_ai = await app.state.func_postgres_schema_read_ai(client_postgres=client_postgres_external) if client_postgres_external else {}
+        cache_postgres_schema_table_list = list(cache_postgres_schema.keys())
+        cache_postgres_schema_column_list = sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
+        # cache init schema
         cache_config = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("config"), is_json_value=1) if client_postgres_read_fallback and "config" in cache_postgres_schema else {}
-        cache_postgres_table_list = list(cache_postgres_schema.keys())
-        cache_postgres_column_list = sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
-        app.state.cache_postgres_schema = cache_postgres_schema
-        app.state.cache_postgres_table_list = cache_postgres_table_list
-        app.state.cache_postgres_column_list = cache_postgres_column_list
-        cache_openapi=app.state.func_openapi_spec_generate(app_routes=app.routes, app_state=app.state)
         cache_users_type = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("users_type")) if client_postgres_read_fallback else {}
         cache_users_role = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("users_role")) if client_postgres_read_fallback else {}
         cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("users_deactivated")) if client_postgres_read_fallback else {}
         cache_users_deleted = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("users_deleted")) if client_postgres_read_fallback else {}
-        cache_ratelimiter, cache_api_response, cache_postgres_buffer_create, runtime_background_tasks = {}, {}, {}, app.state.runtime_background_tasks
+        # caches in-memory
+        cache_ratelimiter = {}
+        cache_api_response = {}
+        cache_postgres_buffer_create = {}
         # flush lock
         app.state.flush_lock, app.state.pulse_flush_task = asyncio.Lock(), None
         # app state add
         [setattr(app.state, k, v) for k, v in {**globals(), **locals()}.items() if k.startswith(("client_", "cache_"))]
+        # openapi spec generation
+        app.state.cache_openapi = app.state.func_openapi_spec_generate(app_routes=app.routes, app_state=app.state)
         # postgres buffer flush loop
         async def pulse_flush():
             buffer_flush_interval_sec = 60

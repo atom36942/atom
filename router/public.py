@@ -17,7 +17,7 @@ router = APIRouter()
 async def func_api_public_object_create(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("mode", "str", 0, ["now", "buffer"], "now")])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_table_list, None), ("mode", "str", 0, ["now", "buffer"], "now")])
     enabled_create_tables = app_state.config_table_public_create_enable or []
     if "*" not in enabled_create_tables and oq["table"] not in enabled_create_tables: raise Exception(f"creation disabled for table: {oq['table']}")
     ob=await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
@@ -31,7 +31,7 @@ async def func_api_public_object_create(*, request: Request):
 async def func_api_public_object_read(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("relation", "list", 0, None, []), ("filter", "list", 0, None, [])])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_table_list, None), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("relation", "list", 0, None, []), ("filter", "list", 0, None, [])])
     enabled_tables = app_state.config_table_public_read_enable or []
     if "*" not in enabled_tables and oq["table"] not in enabled_tables: raise Exception(f"read disabled for table: {oq['table']}")
     if (disabled_relation_table := next((parts[1] for rel in oq["relation"] for parts in ([p.strip() for p in rel.split(",", 4)],) if len(parts) >= 2 and "*" not in enabled_tables and parts[1] not in enabled_tables), None)) is not None: raise Exception(f"relation read disabled for table: {disabled_relation_table}")
@@ -146,7 +146,7 @@ async def func_api_public_jira_worklog_export(*, request: Request):
 async def func_api_public_table_groupby(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_table_list, None), ("col", "str", 1, app_state.cache_postgres_column_list, None), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("agg_func", "str", 0, ["count", "sum", "avg", "min", "max"], "count"), ("agg_col", "str", 0, ["*"] + list(app_state.cache_postgres_column_list), "*"), ("order", "str", 0, ["count desc", "count asc", "item asc", "item desc"], "count desc"), ("filter", "list", 0, None, [])])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_table_list, None), ("col", "str", 1, app_state.cache_postgres_schema_column_list, None), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("agg_func", "str", 0, ["count", "sum", "avg", "min", "max"], "count"), ("agg_col", "str", 0, ["*"] + list(app_state.cache_postgres_schema_column_list), "*"), ("order", "str", 0, ["count desc", "count asc", "item asc", "item desc"], "count desc"), ("filter", "list", 0, None, [])])
     enabled_tables = app_state.config_table_public_read_enable or []
     if "*" not in enabled_tables and oq["table"] not in enabled_tables: raise Exception(f"read disabled for table: {oq['table']}")
     table, col, limit, page, agg, a_col, order = oq["table"], oq["col"], oq["limit"], oq["page"], oq["agg_func"], oq["agg_col"], oq["order"]
