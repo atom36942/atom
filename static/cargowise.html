@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CargoWise Journey</title>
+    <style>
+        :root {
+            --bg: #f5f7fb;
+            --card: #ffffff;
+            --text: #101828;
+            --muted: #667085;
+            --line: #d9e2ef;
+            --primary: #4f46e5;
+            --primary-dark: #3730a3;
+            --primary-soft: #eef2ff;
+            --green-soft: #e8f8ef;
+            --orange-soft: #fff4df;
+            --blue-soft: #e9f5ff;
+            --purple-soft: #f3e8ff;
+            --shadow: 0 18px 45px rgba(16, 24, 40, 0.09);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(79, 70, 229, 0.13), transparent 34rem),
+                linear-gradient(180deg, #ffffff 0%, var(--bg) 42%);
+            color: var(--text);
+        }
+
+        .page {
+            max-width: 1380px;
+            margin: 0 auto;
+            padding: 30px 28px 46px;
+        }
+
+        .hero {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #e5eaf3;
+            border-radius: 28px;
+            box-shadow: var(--shadow);
+            padding: 28px;
+            margin-bottom: 18px;
+        }
+
+        .eyebrow {
+            color: var(--primary);
+            font-size: 13px;
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        h1 {
+            margin: 0 0 10px;
+            font-size: 36px;
+            letter-spacing: -0.045em;
+        }
+
+        .hero p {
+            max-width: 920px;
+            margin: 0;
+            color: var(--muted);
+            font-size: 17px;
+            line-height: 1.55;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 470px 1fr;
+            gap: 18px;
+            align-items: start;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid #e5eaf3;
+            border-radius: 28px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .panel-head {
+            padding: 22px 24px;
+            border-bottom: 1px solid #edf1f7;
+        }
+
+        .panel-head h2 {
+            margin: 0 0 6px;
+            font-size: 22px;
+            letter-spacing: -0.035em;
+        }
+
+        .panel-head p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.45;
+        }
+
+        .card-list {
+            padding: 16px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .journey-card {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 46px 1fr;
+            gap: 13px;
+            align-items: start;
+            border: 1px solid #dbe4f0;
+            border-radius: 20px;
+            background: #fff;
+            padding: 14px;
+            text-align: left;
+            color: inherit;
+            cursor: pointer;
+            transition: 180ms ease;
+            font: inherit;
+        }
+
+        .journey-card:hover,
+        .journey-card.active {
+            transform: translateY(-2px);
+            border-color: rgba(79, 70, 229, 0.55);
+            box-shadow: 0 14px 30px rgba(79, 70, 229, 0.13);
+        }
+
+        .journey-card.active {
+            outline: 3px solid rgba(79, 70, 229, 0.12);
+        }
+
+        .icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 16px;
+            display: grid;
+            place-items: center;
+            color: var(--primary-dark);
+            background: var(--primary-soft);
+            font-size: 20px;
+            font-weight: 900;
+        }
+
+        .journey-card.customer .icon { background: var(--primary-soft); }
+        .journey-card.order .icon { background: var(--orange-soft); color: #92400e; }
+        .journey-card.shipment .icon { background: var(--green-soft); color: #087f5b; }
+        .journey-card.output .icon { background: var(--blue-soft); color: #075985; }
+        .journey-card.docs .icon { background: var(--purple-soft); color: #6b21a8; }
+
+        .journey-card h3 {
+            margin: 0 0 5px;
+            font-size: 17px;
+            letter-spacing: -0.025em;
+        }
+
+        .journey-card p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .detail-panel {
+            position: sticky;
+            top: 22px;
+        }
+
+        .detail-hero {
+            padding: 26px;
+            background: linear-gradient(135deg, #eef2ff, #ffffff 62%);
+            border-bottom: 1px solid #edf1f7;
+        }
+
+        .detail-label {
+            display: inline-flex;
+            border-radius: 999px;
+            padding: 7px 11px;
+            background: #fff;
+            border: 1px solid #d8e0ee;
+            color: var(--primary-dark);
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .detail-hero h2 {
+            margin: 0 0 10px;
+            font-size: 30px;
+            letter-spacing: -0.045em;
+        }
+
+        .detail-hero p {
+            margin: 0;
+            color: #475467;
+            font-size: 16px;
+            line-height: 1.55;
+        }
+
+        .detail-body {
+            padding: 22px;
+            display: grid;
+            gap: 16px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .info-box {
+            border: 1px solid #e4e9f2;
+            background: #fff;
+            border-radius: 18px;
+            padding: 15px;
+        }
+
+        .info-box strong {
+            display: block;
+            color: #667085;
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .info-box span {
+            display: block;
+            color: #182230;
+            font-size: 14px;
+            font-weight: 650;
+            line-height: 1.45;
+        }
+
+        .wide {
+            grid-column: 1 / -1;
+        }
+
+        .flow {
+            display: grid;
+            gap: 10px;
+        }
+
+        .flow-step {
+            display: grid;
+            grid-template-columns: 34px 1fr;
+            gap: 12px;
+            align-items: center;
+            border: 1px solid #edf1f7;
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 11px;
+            color: #344054;
+            font-size: 14px;
+            font-weight: 750;
+        }
+
+        .dot {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: var(--primary-soft);
+            color: var(--primary-dark);
+            font-weight: 950;
+        }
+
+        .fields {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .field-pill {
+            border-radius: 999px;
+            padding: 8px 10px;
+            background: #f8fafc;
+            border: 1px solid #e4e9f2;
+            color: #344054;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        @media (max-width: 1050px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            .detail-panel {
+                position: static;
+            }
+        }
+
+        @media (max-width: 680px) {
+            .page {
+                padding: 18px;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <section class="hero">
+            <div class="eyebrow">CargoWise business map</div>
+            <h1>How CargoWise data connects inside MyShipment</h1>
+            <p>Click a card on the left. The right side explains the business meaning, CargoWise tables, important fields, and how that step connects to the next step.</p>
+        </section>
+
+        <section class="layout">
+            <aside class="panel">
+                <div class="panel-head">
+                    <h2>Journey Cards</h2>
+                    <p>Each card is one business step in the shipment lifecycle.</p>
+                </div>
+                <div class="card-list" id="card-list">
+                    <button class="journey-card customer active" type="button" data-node="customer">
+                        <span class="icon">1</span>
+                        <span><h3>Customer / Buyer</h3><p>Who owns, buys, ships, receives, or controls the shipment.</p></span>
+                    </button>
+                    <button class="journey-card order" type="button" data-node="po">
+                        <span class="icon">2</span>
+                        <span><h3>Purchase Order</h3><p>What the buyer ordered, supplier details, quantity, value and status.</p></span>
+                    </button>
+                    <button class="journey-card order" type="button" data-node="booking">
+                        <span class="icon">3</span>
+                        <span><h3>Supplier Booking</h3><p>PO lines move into booking lines before shipment planning.</p></span>
+                    </button>
+                    <button class="journey-card shipment" type="button" data-node="shipment">
+                        <span class="icon">4</span>
+                        <span><h3>Shipment / Segment</h3><p>Main buyer-visible movement record: mode, route, ETA, status.</p></span>
+                    </button>
+                    <button class="journey-card shipment" type="button" data-node="container">
+                        <span class="icon">5</span>
+                        <span><h3>Container / ULD</h3><p>Physical cargo unit: container number, seal, status, weight.</p></span>
+                    </button>
+                    <button class="journey-card output" type="button" data-node="consol">
+                        <span class="icon">6</span>
+                        <span><h3>Consol</h3><p>Master movement grouping for many shipments under vessel/flight.</p></span>
+                    </button>
+                    <button class="journey-card output" type="button" data-node="tracking">
+                        <span class="icon">7</span>
+                        <span><h3>Tracking</h3><p>Operational milestones: ETA, ETD, actual and estimated events.</p></span>
+                    </button>
+                    <button class="journey-card docs" type="button" data-node="documents">
+                        <span class="icon">8</span>
+                        <span><h3>Documents</h3><p>Files attached to shipment, PO, or consol.</p></span>
+                    </button>
+                </div>
+            </aside>
+
+            <section class="panel detail-panel">
+                <div class="detail-hero">
+                    <div class="detail-label" id="detail-label">Step 1</div>
+                    <h2 id="detail-title">Customer / Buyer</h2>
+                    <p id="detail-summary"></p>
+                </div>
+                <div class="detail-body">
+                    <div class="info-grid">
+                        <div class="info-box">
+                            <strong>Business Meaning</strong>
+                            <span id="detail-business"></span>
+                        </div>
+                        <div class="info-box">
+                            <strong>Main Tables</strong>
+                            <span id="detail-tables"></span>
+                        </div>
+                        <div class="info-box wide">
+                            <strong>How It Connects</strong>
+                            <span id="detail-connects"></span>
+                        </div>
+                        <div class="info-box wide">
+                            <strong>Portal Use</strong>
+                            <span id="detail-portal"></span>
+                        </div>
+                    </div>
+
+                    <div class="info-box wide">
+                        <strong>Important CargoWise Fields</strong>
+                        <div class="fields" id="detail-fields"></div>
+                    </div>
+
+                    <div class="info-box wide">
+                        <strong>Simple Relationship Path</strong>
+                        <div class="flow" id="detail-flow"></div>
+                    </div>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <script>
+        const journeyDetails = {
+            customer: {
+                label: 'Step 1',
+                title: 'Customer / Buyer',
+                summary: 'The customer record is the starting point. In CargoWise, the same organization master can act as buyer, supplier, consignee, consignor, carrier, agent, or controlling customer.',
+                business: 'Who the shipment belongs to or who participates in the movement.',
+                tables: 'OrgHeader, OrgAddress, cvw_JobShipmentOrgs',
+                fields: ['OH_PK', 'OH_Code', 'OH_FullName', 'OH_IsActive', 'OH_IsValid', 'OH_IsConsignee', 'OH_IsConsignor', 'OH_IsTransportClient', 'OA_PK', 'OA_OH'],
+                connects: 'OrgHeader connects to addresses through OrgAddress. Shipment-level visibility is understood through cvw_JobShipmentOrgs, especially ControllingCustomer_PK.',
+                portal: 'Used for buyer login, profile, controlling customer visibility, and deciding which shipments the buyer can see.',
+                flow: ['OrgHeader -> OrgAddress', 'OrgHeader -> cvw_JobShipmentOrgs', 'cvw_JobShipmentOrgs -> JobShipment']
+            },
+            po: {
+                label: 'Step 2',
+                title: 'Purchase Order',
+                summary: 'The PO is the buyer commercial instruction. It tells what was ordered, from which supplier, quantity, value, expected dates and current order status.',
+                business: 'What the buyer ordered before it becomes a shipment.',
+                tables: 'JobOrderHeader, JobOrderLine, OrgAddress',
+                fields: ['JD_PK', 'JD_OrderNumber', 'JD_OrderDate', 'JD_OrderStatus', 'JD_TransportMode', 'JD_OA_BuyerAddress', 'JD_OA_SupplierAddress', 'JO_PK', 'JO_Partno', 'JO_Quantity', 'JO_LinePrice'],
+                connects: 'JobOrderHeader has many JobOrderLine rows. Buyer and supplier details come through OrgAddress. PO lines connect forward to booking lines.',
+                portal: 'Used in Purchase Orders tab, PO search, PO KPIs, line item modal, and PO-to-shipment navigation.',
+                flow: ['JobOrderHeader -> JobOrderLine', 'JobOrderHeader -> OrgAddress buyer/supplier', 'JobOrderLine -> JobSupplierBookingLine']
+            },
+            booking: {
+                label: 'Step 3',
+                title: 'Supplier Booking',
+                summary: 'Supplier booking is the planning layer between ordered goods and shipment movement. It is where PO line quantities get booked and prepared for packing/shipment.',
+                business: 'How ordered goods move from commercial PO into logistics planning.',
+                tables: 'JobSupplierBooking, JobSupplierBookingLine, JobPackLines',
+                fields: ['JSB_PK', 'JSB_BookingId', 'JSB_Status', 'JSB_TransportMode', 'JSB_RL_NKLoadPort', 'JSB_RL_NKDischargePort', 'JSL_PK', 'JSL_JO_OrderLine', 'JSL_JSB_Booking', 'JL_JSL_BookingLine', 'JL_JS'],
+                connects: 'Booking line connects one PO line to supplier booking. Pack lines then connect booking lines to the shipment.',
+                portal: 'Mostly used behind the scenes to correctly find shipment links from purchase orders.',
+                flow: ['JobOrderLine -> JobSupplierBookingLine', 'JobSupplierBookingLine -> JobSupplierBooking', 'JobSupplierBookingLine -> JobPackLines -> JobShipment']
+            },
+            shipment: {
+                label: 'Step 4',
+                title: 'Shipment / Segment',
+                summary: 'Shipment is the main operational record buyers care about. It carries shipment number, mode, route, ETA/ETD, status, cancellation flag and house bill references.',
+                business: 'The actual logistics movement visible to the customer.',
+                tables: 'JobShipment, cvw_JobShipmentOrgs, JobHeader',
+                fields: ['JS_PK', 'JS_UniqueConsignRef', 'JS_HouseBill', 'JS_TransportMode', 'JS_ShipmentStatus', 'JS_IsCancelled', 'JS_IsValid', 'JS_BookingReference', 'ControllingCustomer_PK', 'ControllingCustomer_Code'],
+                connects: 'Shipment visibility is usually from cvw_JobShipmentOrgs. PO can connect directly via JD_JS or indirectly through booking and pack lines.',
+                portal: 'Used in Shipments tab, shipment cards, KPIs, tracking, alerts, documents and analytics.',
+                flow: ['cvw_JobShipmentOrgs -> JobShipment', 'JobPackLines -> JobShipment', 'JobShipment -> Containers / Tracking / Documents / Consol']
+            },
+            container: {
+                label: 'Step 5',
+                title: 'Container / ULD',
+                summary: 'Container records describe the physical cargo unit. For ocean it is usually container details; for air the equivalent operational unit can be ULD-style data.',
+                business: 'The physical unit carrying the cargo.',
+                tables: 'JobContainer',
+                fields: ['JC_PK', 'JC_ContainerNum', 'JC_SealNum', 'JC_ContainerMode', 'JC_ContainerStatus', 'JC_ContainerCount', 'JC_JS', 'JC_JSB_SupplierBooking', 'JC_JS_FCLBookingOnlyLink'],
+                connects: 'Usually linked to shipment by JC_JS. For FCL direct cases, JC_JS_FCLBookingOnlyLink can link booking/container to shipment.',
+                portal: 'Shown in container modal/card from shipment details.',
+                flow: ['JobShipment -> JobContainer', 'JobSupplierBooking -> JobContainer', 'JobContainer -> FCL shipment link']
+            },
+            consol: {
+                label: 'Step 6',
+                title: 'Consol',
+                summary: 'Consol means consolidation or master movement. It groups shipments under the same vessel, flight, master bill, or operational movement.',
+                business: 'The master operational movement behind one or many shipments.',
+                tables: 'JobConsol, JobConShipLink',
+                fields: ['JK_PK', 'JK_ConsolStatus', 'JK_TransportMode', 'JK_ConsolMode', 'JK_MasterBillNum', 'JK_BookingReference', 'JN_JS', 'JN_JK'],
+                connects: 'Shipment links to consol through JobConShipLink. A consol can contain many shipments, and the structure supports many-to-many.',
+                portal: 'Useful for master movement, vessel/flight grouping and consol-level documents.',
+                flow: ['JobShipment -> JobConShipLink', 'JobConShipLink -> JobConsol', 'JobConsol -> master bill / vessel / flight']
+            },
+            tracking: {
+                label: 'Step 7',
+                title: 'Tracking',
+                summary: 'Tracking records show shipment milestones: estimated departure, estimated arrival, actual event posting, location updates and operational status changes.',
+                business: 'Where the shipment is and what happened most recently.',
+                tables: 'StmLog, StmEvent, JobShipment',
+                fields: ['Shipment reference', 'Event code', 'Event time', 'Posted time', 'Location', 'Actual/Estimate flag', 'ETA', 'ETD'],
+                connects: 'Tracking events are read against the shipment and shown latest first. Event master gives meaning to event codes.',
+                portal: 'Used in Tracking tab and the tracking icon from shipment rows.',
+                flow: ['JobShipment -> StmLog', 'StmLog -> StmEvent', 'Events -> tracking timeline']
+            },
+            documents: {
+                label: 'Step 8',
+                title: 'Documents',
+                summary: 'Documents can be attached at different levels. A file may belong to a shipment, purchase order, or consol depending on parent table code and parent id.',
+                business: 'Operational files and customer-facing documents.',
+                tables: 'JobDocumentData and eDoc/document records',
+                fields: ['JDD_PK', 'JDD_ParentTableCode', 'JDD_ParentID', 'JDD_Name', 'JDD_Template', 'JDD_SystemCreateTimeUtc'],
+                connects: 'JDD_ParentTableCode tells whether the document belongs to JS shipment, JD purchase order, or JK consol.',
+                portal: 'Used in document modal and download action when file data exists.',
+                flow: ['JobShipment / JobOrderHeader / JobConsol', 'Parent table code + parent id', 'JobDocumentData -> document view/download']
+            }
+        };
+
+        function renderPills(fields) {
+            return fields.map(function(field) {
+                return '<span class="field-pill">' + field + '</span>';
+            }).join('');
+        }
+
+        function renderFlow(lines) {
+            return lines.map(function(line, index) {
+                return '<div class="flow-step"><span class="dot">' + (index + 1) + '</span><span>' + line + '</span></div>';
+            }).join('');
+        }
+
+        function setJourneyDetail(name) {
+            const item = journeyDetails[name] || journeyDetails.customer;
+            document.getElementById('detail-label').textContent = item.label;
+            document.getElementById('detail-title').textContent = item.title;
+            document.getElementById('detail-summary').textContent = item.summary;
+            document.getElementById('detail-business').textContent = item.business;
+            document.getElementById('detail-tables').textContent = item.tables;
+            document.getElementById('detail-connects').textContent = item.connects;
+            document.getElementById('detail-portal').textContent = item.portal;
+            document.getElementById('detail-fields').innerHTML = renderPills(item.fields);
+            document.getElementById('detail-flow').innerHTML = renderFlow(item.flow);
+            document.querySelectorAll('.journey-card').forEach(function(card) {
+                card.classList.toggle('active', card.dataset.node === name);
+            });
+        }
+
+        document.getElementById('card-list').addEventListener('click', function(event) {
+            const card = event.target.closest('.journey-card');
+            if (!card) return;
+            setJourneyDetail(card.dataset.node);
+        });
+
+        setJourneyDetail('customer');
+    </script>
+</body>
+</html>

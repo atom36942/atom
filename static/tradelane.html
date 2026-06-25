@@ -3387,7 +3387,7 @@ async function generateAiSql() {
             body: JSON.stringify({ question })
         });
         const result = payload.message || {};
-        if (result.status !== 'ok' || !result.sql) {
+        if (!result.sql) {
             $('query-ai-message').textContent = result.message || 'Could not generate a safe SQL query.';
             updateQueryAiResetButton();
             return;

@@ -277,7 +277,14 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
         DECLARE @view_as nvarchar(40) = ?;
         DECLARE @shipment_id_requested bit = CASE WHEN @shipment_id_str <> '' THEN 1 ELSE 0 END;
         DECLARE @shipment_id uniqueidentifier = TRY_CONVERT(uniqueidentifier, @shipment_id_str);
-        WITH visible_orders AS (
+        WITH visible_shipments AS (
+            SELECT DISTINCT JS.JS_PK
+            FROM dbo.JobShipment AS JS
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
+            WHERE JS.JS_IsValid = 1
+              AND JSO.ControllingCustomer_PK = @org
+        ),
+        visible_orders AS (
             SELECT DISTINCT JD.JD_PK
             FROM dbo.JobOrderHeader AS JD
             LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JD.JD_JS
@@ -285,9 +292,48 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JD.JD_IsValid = 1
               { "AND JD.JD_OrderNumber = @po_number" if po_number else "" }
-              AND (@shipment_id_requested = 0 OR JD.JD_JS = @shipment_id)
               AND (
-                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                    @shipment_id_requested = 0
+                 OR JD.JD_JS = @shipment_id
+                 OR EXISTS (
+                        SELECT 1
+                        FROM dbo.JobOrderLine AS JOShipment
+                        JOIN dbo.JobSupplierBookingLine AS JSLShipment ON JSLShipment.JSL_JO_OrderLine = JOShipment.JO_PK AND JSLShipment.JSL_IsValid = 1
+                        JOIN dbo.JobPackLines AS JLShipment ON JLShipment.JL_JSL_BookingLine = JSLShipment.JSL_PK AND JLShipment.JL_IsValid = 1
+                        WHERE JOShipment.JO_JD = JD.JD_PK
+                          AND JOShipment.JO_IsValid = 1
+                          AND JLShipment.JL_JS = @shipment_id
+                    )
+                 OR EXISTS (
+                        SELECT 1
+                        FROM dbo.JobOrderLine AS JOShipment
+                        JOIN dbo.JobSupplierBookingLine AS JSLShipment ON JSLShipment.JSL_JO_OrderLine = JOShipment.JO_PK AND JSLShipment.JSL_IsValid = 1
+                        JOIN dbo.JobContainer AS JCShipment ON JCShipment.JC_JSB_SupplierBooking = JSLShipment.JSL_JSB_Booking AND JCShipment.JC_IsValid = 1
+                        WHERE JOShipment.JO_JD = JD.JD_PK
+                          AND JOShipment.JO_IsValid = 1
+                          AND JCShipment.JC_JS_FCLBookingOnlyLink = @shipment_id
+                    )
+              )
+              AND (
+                    JD.JD_JS IN (SELECT JS_PK FROM visible_shipments)
+                 OR EXISTS (
+                        SELECT 1
+                        FROM dbo.JobOrderLine AS JOVisible
+                        JOIN dbo.JobSupplierBookingLine AS JSLVisible ON JSLVisible.JSL_JO_OrderLine = JOVisible.JO_PK AND JSLVisible.JSL_IsValid = 1
+                        JOIN dbo.JobPackLines AS JLVisible ON JLVisible.JL_JSL_BookingLine = JSLVisible.JSL_PK AND JLVisible.JL_IsValid = 1
+                        JOIN visible_shipments AS VSVisible ON VSVisible.JS_PK = JLVisible.JL_JS
+                        WHERE JOVisible.JO_JD = JD.JD_PK
+                          AND JOVisible.JO_IsValid = 1
+                    )
+                 OR EXISTS (
+                        SELECT 1
+                        FROM dbo.JobOrderLine AS JOVisible
+                        JOIN dbo.JobSupplierBookingLine AS JSLVisible ON JSLVisible.JSL_JO_OrderLine = JOVisible.JO_PK AND JSLVisible.JSL_IsValid = 1
+                        JOIN dbo.JobContainer AS JCVisible ON JCVisible.JC_JSB_SupplierBooking = JSLVisible.JSL_JSB_Booking AND JCVisible.JC_IsValid = 1
+                        JOIN visible_shipments AS VSVisible ON VSVisible.JS_PK = JCVisible.JC_JS_FCLBookingOnlyLink
+                        WHERE JOVisible.JO_JD = JD.JD_PK
+                          AND JOVisible.JO_IsValid = 1
+                    )
                  OR (
                         @view_as = 'all'
                     AND (
@@ -344,8 +390,8 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
             BuyerOH.OH_FullName AS buyer_name,
             SupplierOH.OH_Code AS supplier_code,
             SupplierOH.OH_FullName AS supplier_name,
-            CONVERT(varchar(36), JD.JD_JS) AS shipment_id,
-            CASE WHEN JD.JD_JS IS NULL THEN 0 ELSE 1 END AS has_shipment,
+            COALESCE(CONVERT(varchar(36), JD.JD_JS), CONVERT(varchar(36), LinkedShipment.JS_PK)) AS shipment_id,
+            CASE WHEN COALESCE(JD.JD_JS, LinkedShipment.JS_PK) IS NULL THEN 0 ELSE 1 END AS has_shipment,
             COALESCE(LS.line_count, 0) AS line_count,
             LS.total_quantity,
             LS.total_value,
@@ -360,6 +406,27 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
         LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
         LEFT JOIN dbo.OrgHeader AS SupplierOH ON SupplierOH.OH_PK = SupplierOA.OA_OH
         LEFT JOIN line_summary AS LS ON LS.order_pk = JD.JD_PK
+        OUTER APPLY (
+            SELECT TOP 1 LinkRows.JS_PK
+            FROM (
+                SELECT JL.JL_JS AS JS_PK, JL.JL_PK AS sort_key
+                FROM dbo.JobOrderLine AS JO
+                JOIN dbo.JobSupplierBookingLine AS JSL ON JSL.JSL_JO_OrderLine = JO.JO_PK AND JSL.JSL_IsValid = 1
+                JOIN dbo.JobPackLines AS JL ON JL.JL_JSL_BookingLine = JSL.JSL_PK AND JL.JL_IsValid = 1
+                WHERE JO.JO_JD = JD.JD_PK
+                  AND JO.JO_IsValid = 1
+                  AND JL.JL_JS IS NOT NULL
+                UNION ALL
+                SELECT JC.JC_JS_FCLBookingOnlyLink AS JS_PK, JC.JC_PK AS sort_key
+                FROM dbo.JobOrderLine AS JO
+                JOIN dbo.JobSupplierBookingLine AS JSL ON JSL.JSL_JO_OrderLine = JO.JO_PK AND JSL.JSL_IsValid = 1
+                JOIN dbo.JobContainer AS JC ON JC.JC_JSB_SupplierBooking = JSL.JSL_JSB_Booking AND JC.JC_IsValid = 1
+                WHERE JO.JO_JD = JD.JD_PK
+                  AND JO.JO_IsValid = 1
+                  AND JC.JC_JS_FCLBookingOnlyLink IS NOT NULL
+            ) AS LinkRows
+            ORDER BY LinkRows.sort_key
+        ) AS LinkedShipment
         ORDER BY COALESCE(JD.JD_SystemLastEditTimeUtc, JD.JD_SystemCreateTimeUtc) DESC, JD.JD_PK DESC
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read_fallback.acquire() as conn:
@@ -384,7 +451,14 @@ async def func_api_my_cargowise_purchase_order_lines(*, request: Request):
         DECLARE @po_id uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @view_as nvarchar(40) = ?;
 
-        WITH visible_orders AS (
+        WITH visible_shipments AS (
+            SELECT DISTINCT JS.JS_PK
+            FROM dbo.JobShipment AS JS
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
+            WHERE JS.JS_IsValid = 1
+              AND JSO.ControllingCustomer_PK = @org
+        ),
+        visible_orders AS (
             SELECT DISTINCT JD.JD_PK
             FROM dbo.JobOrderHeader AS JD
             LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JD.JD_JS
@@ -393,7 +467,25 @@ async def func_api_my_cargowise_purchase_order_lines(*, request: Request):
             WHERE JD.JD_PK = @po_id
               AND JD.JD_IsValid = 1
               AND (
-                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                    JD.JD_JS IN (SELECT JS_PK FROM visible_shipments)
+                 OR EXISTS (
+                        SELECT 1
+                        FROM dbo.JobOrderLine AS JOVisible
+                        JOIN dbo.JobSupplierBookingLine AS JSLVisible ON JSLVisible.JSL_JO_OrderLine = JOVisible.JO_PK AND JSLVisible.JSL_IsValid = 1
+                        JOIN dbo.JobPackLines AS JLVisible ON JLVisible.JL_JSL_BookingLine = JSLVisible.JSL_PK AND JLVisible.JL_IsValid = 1
+                        JOIN visible_shipments AS VSVisible ON VSVisible.JS_PK = JLVisible.JL_JS
+                        WHERE JOVisible.JO_JD = JD.JD_PK
+                          AND JOVisible.JO_IsValid = 1
+                    )
+                 OR EXISTS (
+                        SELECT 1
+                        FROM dbo.JobOrderLine AS JOVisible
+                        JOIN dbo.JobSupplierBookingLine AS JSLVisible ON JSLVisible.JSL_JO_OrderLine = JOVisible.JO_PK AND JSLVisible.JSL_IsValid = 1
+                        JOIN dbo.JobContainer AS JCVisible ON JCVisible.JC_JSB_SupplierBooking = JSLVisible.JSL_JSB_Booking AND JCVisible.JC_IsValid = 1
+                        JOIN visible_shipments AS VSVisible ON VSVisible.JS_PK = JCVisible.JC_JS_FCLBookingOnlyLink
+                        WHERE JOVisible.JO_JD = JD.JD_PK
+                          AND JOVisible.JO_IsValid = 1
+                    )
                  OR (
                         @view_as = 'all'
                     AND (
@@ -564,7 +656,28 @@ async def func_api_my_cargowise_shipments(*, request: Request):
         ) AS JH
         OUTER APPLY (
             SELECT
-                CASE WHEN EXISTS (SELECT 1 FROM dbo.JobOrderHeader AS JDFlag WHERE JDFlag.JD_JS = JS.JS_PK) THEN 1 ELSE 0 END AS has_purchase_orders,
+                CASE WHEN EXISTS (
+                    SELECT 1
+                    FROM dbo.JobOrderHeader AS JDFlag
+                    WHERE JDFlag.JD_IsValid = 1
+                      AND JDFlag.JD_JS = JS.JS_PK
+                ) OR EXISTS (
+                    SELECT 1
+                    FROM dbo.JobOrderHeader AS JDFlag
+                    JOIN dbo.JobOrderLine AS JOFlag ON JOFlag.JO_JD = JDFlag.JD_PK AND JOFlag.JO_IsValid = 1
+                    JOIN dbo.JobSupplierBookingLine AS JSLFlag ON JSLFlag.JSL_JO_OrderLine = JOFlag.JO_PK AND JSLFlag.JSL_IsValid = 1
+                    JOIN dbo.JobPackLines AS JLFlag ON JLFlag.JL_JSL_BookingLine = JSLFlag.JSL_PK AND JLFlag.JL_IsValid = 1
+                    WHERE JDFlag.JD_IsValid = 1
+                      AND JLFlag.JL_JS = JS.JS_PK
+                ) OR EXISTS (
+                    SELECT 1
+                    FROM dbo.JobOrderHeader AS JDFlag
+                    JOIN dbo.JobOrderLine AS JOFlag ON JOFlag.JO_JD = JDFlag.JD_PK AND JOFlag.JO_IsValid = 1
+                    JOIN dbo.JobSupplierBookingLine AS JSLFlag ON JSLFlag.JSL_JO_OrderLine = JOFlag.JO_PK AND JSLFlag.JSL_IsValid = 1
+                    JOIN dbo.JobContainer AS JCFlag ON JCFlag.JC_JSB_SupplierBooking = JSLFlag.JSL_JSB_Booking AND JCFlag.JC_IsValid = 1
+                    WHERE JDFlag.JD_IsValid = 1
+                      AND JCFlag.JC_JS_FCLBookingOnlyLink = JS.JS_PK
+                ) THEN 1 ELSE 0 END AS has_purchase_orders,
                 CASE WHEN EXISTS (
                     SELECT 1
                     FROM dbo.JobContainer AS JCFlag
@@ -605,14 +718,46 @@ async def func_api_my_cargowise_shipments(*, request: Request):
                     WHERE EQFlag.EQ_IsValid = 1
                       AND (
                             (EQFlag.EQ_ParentTableCode = 'JS' AND EQFlag.EQ_ParentID = JS.JS_PK)
-                         OR (EQFlag.EQ_ParentTableCode = 'JD' AND EQFlag.EQ_ParentID IN (SELECT JD_PK FROM dbo.JobOrderHeader WHERE JD_JS = JS.JS_PK))
+                         OR (EQFlag.EQ_ParentTableCode = 'JD' AND EQFlag.EQ_ParentID IN (
+                                SELECT JD_PK FROM dbo.JobOrderHeader WHERE JD_IsValid = 1 AND JD_JS = JS.JS_PK
+                                UNION
+                                SELECT JDLink.JD_PK
+                                FROM dbo.JobOrderHeader AS JDLink
+                                JOIN dbo.JobOrderLine AS JOLink ON JOLink.JO_JD = JDLink.JD_PK AND JOLink.JO_IsValid = 1
+                                JOIN dbo.JobSupplierBookingLine AS JSLLink ON JSLLink.JSL_JO_OrderLine = JOLink.JO_PK AND JSLLink.JSL_IsValid = 1
+                                JOIN dbo.JobPackLines AS JLLink ON JLLink.JL_JSL_BookingLine = JSLLink.JSL_PK AND JLLink.JL_IsValid = 1
+                                WHERE JDLink.JD_IsValid = 1 AND JLLink.JL_JS = JS.JS_PK
+                                UNION
+                                SELECT JDLink.JD_PK
+                                FROM dbo.JobOrderHeader AS JDLink
+                                JOIN dbo.JobOrderLine AS JOLink ON JOLink.JO_JD = JDLink.JD_PK AND JOLink.JO_IsValid = 1
+                                JOIN dbo.JobSupplierBookingLine AS JSLLink ON JSLLink.JSL_JO_OrderLine = JOLink.JO_PK AND JSLLink.JSL_IsValid = 1
+                                JOIN dbo.JobContainer AS JCLink ON JCLink.JC_JSB_SupplierBooking = JSLLink.JSL_JSB_Booking AND JCLink.JC_IsValid = 1
+                                WHERE JDLink.JD_IsValid = 1 AND JCLink.JC_JS_FCLBookingOnlyLink = JS.JS_PK
+                            ))
                          OR (EQFlag.EQ_ParentTableCode = 'JK' AND EQFlag.EQ_ParentID IN (SELECT JN_JK FROM dbo.JobConShipLink WHERE JN_JS = JS.JS_PK))
                       )
                 ) OR EXISTS (
                     SELECT 1
                     FROM dbo.JobDocumentData AS JDDFlag
                     WHERE (JDDFlag.JDD_ParentTableCode = 'JS' AND JDDFlag.JDD_ParentID = JS.JS_PK)
-                       OR (JDDFlag.JDD_ParentTableCode = 'JD' AND JDDFlag.JDD_ParentID IN (SELECT JD_PK FROM dbo.JobOrderHeader WHERE JD_JS = JS.JS_PK))
+                       OR (JDDFlag.JDD_ParentTableCode = 'JD' AND JDDFlag.JDD_ParentID IN (
+                            SELECT JD_PK FROM dbo.JobOrderHeader WHERE JD_IsValid = 1 AND JD_JS = JS.JS_PK
+                            UNION
+                            SELECT JDLink.JD_PK
+                            FROM dbo.JobOrderHeader AS JDLink
+                            JOIN dbo.JobOrderLine AS JOLink ON JOLink.JO_JD = JDLink.JD_PK AND JOLink.JO_IsValid = 1
+                            JOIN dbo.JobSupplierBookingLine AS JSLLink ON JSLLink.JSL_JO_OrderLine = JOLink.JO_PK AND JSLLink.JSL_IsValid = 1
+                            JOIN dbo.JobPackLines AS JLLink ON JLLink.JL_JSL_BookingLine = JSLLink.JSL_PK AND JLLink.JL_IsValid = 1
+                            WHERE JDLink.JD_IsValid = 1 AND JLLink.JL_JS = JS.JS_PK
+                            UNION
+                            SELECT JDLink.JD_PK
+                            FROM dbo.JobOrderHeader AS JDLink
+                            JOIN dbo.JobOrderLine AS JOLink ON JOLink.JO_JD = JDLink.JD_PK AND JOLink.JO_IsValid = 1
+                            JOIN dbo.JobSupplierBookingLine AS JSLLink ON JSLLink.JSL_JO_OrderLine = JOLink.JO_PK AND JSLLink.JSL_IsValid = 1
+                            JOIN dbo.JobContainer AS JCLink ON JCLink.JC_JSB_SupplierBooking = JSLLink.JSL_JSB_Booking AND JCLink.JC_IsValid = 1
+                            WHERE JDLink.JD_IsValid = 1 AND JCLink.JC_JS_FCLBookingOnlyLink = JS.JS_PK
+                        ))
                        OR (JDDFlag.JDD_ParentTableCode = 'JK' AND JDDFlag.JDD_ParentID IN (SELECT JN_JK FROM dbo.JobConShipLink WHERE JN_JS = JS.JS_PK))
                 ) THEN 1 ELSE 0 END AS has_documents
         ) AS Summary
@@ -988,7 +1133,14 @@ async def func_api_my_cargowise_documents(*, request: Request):
         DECLARE @view_as nvarchar(40) = ?;
         DECLARE @shipment_id uniqueidentifier = NULL;
         IF @shipment_id_str <> '' SET @shipment_id = TRY_CONVERT(uniqueidentifier, @shipment_id_str);
-        WITH visible_orders AS (
+        WITH visible_shipments_for_orders AS (
+            SELECT DISTINCT JS.JS_PK
+            FROM dbo.JobShipment AS JS
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
+            WHERE JS.JS_IsValid = 1
+              AND JSO.ControllingCustomer_PK = @org
+        ),
+        visible_orders AS (
             SELECT DISTINCT JD.JD_PK
             FROM dbo.JobOrderHeader AS JD
             LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JD.JD_JS
@@ -996,7 +1148,25 @@ async def func_api_my_cargowise_documents(*, request: Request):
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JD.JD_IsValid = 1
               AND (
-                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                    JD.JD_JS IN (SELECT JS_PK FROM visible_shipments_for_orders)
+                 OR EXISTS (
+                        SELECT 1
+                        FROM dbo.JobOrderLine AS JOVisible
+                        JOIN dbo.JobSupplierBookingLine AS JSLVisible ON JSLVisible.JSL_JO_OrderLine = JOVisible.JO_PK AND JSLVisible.JSL_IsValid = 1
+                        JOIN dbo.JobPackLines AS JLVisible ON JLVisible.JL_JSL_BookingLine = JSLVisible.JSL_PK AND JLVisible.JL_IsValid = 1
+                        JOIN visible_shipments_for_orders AS VSVisible ON VSVisible.JS_PK = JLVisible.JL_JS
+                        WHERE JOVisible.JO_JD = JD.JD_PK
+                          AND JOVisible.JO_IsValid = 1
+                    )
+                 OR EXISTS (
+                        SELECT 1
+                        FROM dbo.JobOrderLine AS JOVisible
+                        JOIN dbo.JobSupplierBookingLine AS JSLVisible ON JSLVisible.JSL_JO_OrderLine = JOVisible.JO_PK AND JSLVisible.JSL_IsValid = 1
+                        JOIN dbo.JobContainer AS JCVisible ON JCVisible.JC_JSB_SupplierBooking = JSLVisible.JSL_JSB_Booking AND JCVisible.JC_IsValid = 1
+                        JOIN visible_shipments_for_orders AS VSVisible ON VSVisible.JS_PK = JCVisible.JC_JS_FCLBookingOnlyLink
+                        WHERE JOVisible.JO_JD = JD.JD_PK
+                          AND JOVisible.JO_IsValid = 1
+                    )
                  OR (
                         @view_as = 'all'
                     AND (
@@ -1082,7 +1252,23 @@ async def func_api_my_cargowise_documents(*, request: Request):
               AND (
                     @shipment_id IS NULL
                  OR (EQ.EQ_ParentTableCode = 'JS' AND EQ.EQ_ParentID = @shipment_id)
-                 OR (EQ.EQ_ParentTableCode = 'JD' AND EQ.EQ_ParentID IN (SELECT JD_PK FROM dbo.JobOrderHeader WHERE JD_JS = @shipment_id))
+                 OR (EQ.EQ_ParentTableCode = 'JD' AND EQ.EQ_ParentID IN (
+                        SELECT JD_PK FROM dbo.JobOrderHeader WHERE JD_IsValid = 1 AND JD_JS = @shipment_id
+                        UNION
+                        SELECT JDLink.JD_PK
+                        FROM dbo.JobOrderHeader AS JDLink
+                        JOIN dbo.JobOrderLine AS JOLink ON JOLink.JO_JD = JDLink.JD_PK AND JOLink.JO_IsValid = 1
+                        JOIN dbo.JobSupplierBookingLine AS JSLLink ON JSLLink.JSL_JO_OrderLine = JOLink.JO_PK AND JSLLink.JSL_IsValid = 1
+                        JOIN dbo.JobPackLines AS JLLink ON JLLink.JL_JSL_BookingLine = JSLLink.JSL_PK AND JLLink.JL_IsValid = 1
+                        WHERE JDLink.JD_IsValid = 1 AND JLLink.JL_JS = @shipment_id
+                        UNION
+                        SELECT JDLink.JD_PK
+                        FROM dbo.JobOrderHeader AS JDLink
+                        JOIN dbo.JobOrderLine AS JOLink ON JOLink.JO_JD = JDLink.JD_PK AND JOLink.JO_IsValid = 1
+                        JOIN dbo.JobSupplierBookingLine AS JSLLink ON JSLLink.JSL_JO_OrderLine = JOLink.JO_PK AND JSLLink.JSL_IsValid = 1
+                        JOIN dbo.JobContainer AS JCLink ON JCLink.JC_JSB_SupplierBooking = JSLLink.JSL_JSB_Booking AND JCLink.JC_IsValid = 1
+                        WHERE JDLink.JD_IsValid = 1 AND JCLink.JC_JS_FCLBookingOnlyLink = @shipment_id
+                    ))
                  OR (EQ.EQ_ParentTableCode = 'JK' AND EQ.EQ_ParentID IN (SELECT JN_JK FROM dbo.JobConShipLink WHERE JN_JS = @shipment_id))
               )
             UNION ALL
@@ -1114,7 +1300,23 @@ async def func_api_my_cargowise_documents(*, request: Request):
               )
               AND (
                     @shipment_id IS NULL
-                 OR (JDD.JDD_ParentTableCode = 'JD' AND JDD.JDD_ParentID IN (SELECT JD_PK FROM dbo.JobOrderHeader WHERE JD_JS = @shipment_id))
+                 OR (JDD.JDD_ParentTableCode = 'JD' AND JDD.JDD_ParentID IN (
+                        SELECT JD_PK FROM dbo.JobOrderHeader WHERE JD_IsValid = 1 AND JD_JS = @shipment_id
+                        UNION
+                        SELECT JDLink.JD_PK
+                        FROM dbo.JobOrderHeader AS JDLink
+                        JOIN dbo.JobOrderLine AS JOLink ON JOLink.JO_JD = JDLink.JD_PK AND JOLink.JO_IsValid = 1
+                        JOIN dbo.JobSupplierBookingLine AS JSLLink ON JSLLink.JSL_JO_OrderLine = JOLink.JO_PK AND JSLLink.JSL_IsValid = 1
+                        JOIN dbo.JobPackLines AS JLLink ON JLLink.JL_JSL_BookingLine = JSLLink.JSL_PK AND JLLink.JL_IsValid = 1
+                        WHERE JDLink.JD_IsValid = 1 AND JLLink.JL_JS = @shipment_id
+                        UNION
+                        SELECT JDLink.JD_PK
+                        FROM dbo.JobOrderHeader AS JDLink
+                        JOIN dbo.JobOrderLine AS JOLink ON JOLink.JO_JD = JDLink.JD_PK AND JOLink.JO_IsValid = 1
+                        JOIN dbo.JobSupplierBookingLine AS JSLLink ON JSLLink.JSL_JO_OrderLine = JOLink.JO_PK AND JSLLink.JSL_IsValid = 1
+                        JOIN dbo.JobContainer AS JCLink ON JCLink.JC_JSB_SupplierBooking = JSLLink.JSL_JSB_Booking AND JCLink.JC_IsValid = 1
+                        WHERE JDLink.JD_IsValid = 1 AND JCLink.JC_JS_FCLBookingOnlyLink = @shipment_id
+                    ))
                  OR (JDD.JDD_ParentTableCode = 'JS' AND JDD.JDD_ParentID = @shipment_id)
                  OR (JDD.JDD_ParentTableCode = 'JK' AND JDD.JDD_ParentID IN (SELECT JN_JK FROM dbo.JobConShipLink WHERE JN_JS = @shipment_id))
               )
@@ -1151,7 +1353,14 @@ async def func_api_my_cargowise_analytics(*, request: Request):
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @view_as nvarchar(40) = ?;
-        WITH visible_orders AS (
+        WITH visible_shipments_for_orders AS (
+            SELECT DISTINCT JS.JS_PK
+            FROM dbo.JobShipment AS JS
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
+            WHERE JS.JS_IsValid = 1
+              AND JSO.ControllingCustomer_PK = @org
+        ),
+        visible_orders AS (
             SELECT DISTINCT JD.JD_PK
             FROM dbo.JobOrderHeader AS JD
             LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JD.JD_JS
@@ -1159,7 +1368,25 @@ async def func_api_my_cargowise_analytics(*, request: Request):
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JD.JD_IsValid = 1
               AND (
-                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                    JD.JD_JS IN (SELECT JS_PK FROM visible_shipments_for_orders)
+                 OR EXISTS (
+                        SELECT 1
+                        FROM dbo.JobOrderLine AS JOVisible
+                        JOIN dbo.JobSupplierBookingLine AS JSLVisible ON JSLVisible.JSL_JO_OrderLine = JOVisible.JO_PK AND JSLVisible.JSL_IsValid = 1
+                        JOIN dbo.JobPackLines AS JLVisible ON JLVisible.JL_JSL_BookingLine = JSLVisible.JSL_PK AND JLVisible.JL_IsValid = 1
+                        JOIN visible_shipments_for_orders AS VSVisible ON VSVisible.JS_PK = JLVisible.JL_JS
+                        WHERE JOVisible.JO_JD = JD.JD_PK
+                          AND JOVisible.JO_IsValid = 1
+                    )
+                 OR EXISTS (
+                        SELECT 1
+                        FROM dbo.JobOrderLine AS JOVisible
+                        JOIN dbo.JobSupplierBookingLine AS JSLVisible ON JSLVisible.JSL_JO_OrderLine = JOVisible.JO_PK AND JSLVisible.JSL_IsValid = 1
+                        JOIN dbo.JobContainer AS JCVisible ON JCVisible.JC_JSB_SupplierBooking = JSLVisible.JSL_JSB_Booking AND JCVisible.JC_IsValid = 1
+                        JOIN visible_shipments_for_orders AS VSVisible ON VSVisible.JS_PK = JCVisible.JC_JS_FCLBookingOnlyLink
+                        WHERE JOVisible.JO_JD = JD.JD_PK
+                          AND JOVisible.JO_IsValid = 1
+                    )
                  OR (
                         @view_as = 'all'
                     AND (
@@ -1248,7 +1475,14 @@ async def func_api_my_cargowise_analytics(*, request: Request):
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @view_as nvarchar(40) = ?;
-        WITH visible_orders AS (
+        WITH visible_shipments_for_orders AS (
+            SELECT DISTINCT JS.JS_PK
+            FROM dbo.JobShipment AS JS
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
+            WHERE JS.JS_IsValid = 1
+              AND JSO.ControllingCustomer_PK = @org
+        ),
+        visible_orders AS (
             SELECT DISTINCT JD.JD_PK
             FROM dbo.JobOrderHeader AS JD
             LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JD.JD_JS
@@ -1256,7 +1490,25 @@ async def func_api_my_cargowise_analytics(*, request: Request):
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JD.JD_IsValid = 1
               AND (
-                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                    JD.JD_JS IN (SELECT JS_PK FROM visible_shipments_for_orders)
+                 OR EXISTS (
+                        SELECT 1
+                        FROM dbo.JobOrderLine AS JOVisible
+                        JOIN dbo.JobSupplierBookingLine AS JSLVisible ON JSLVisible.JSL_JO_OrderLine = JOVisible.JO_PK AND JSLVisible.JSL_IsValid = 1
+                        JOIN dbo.JobPackLines AS JLVisible ON JLVisible.JL_JSL_BookingLine = JSLVisible.JSL_PK AND JLVisible.JL_IsValid = 1
+                        JOIN visible_shipments_for_orders AS VSVisible ON VSVisible.JS_PK = JLVisible.JL_JS
+                        WHERE JOVisible.JO_JD = JD.JD_PK
+                          AND JOVisible.JO_IsValid = 1
+                    )
+                 OR EXISTS (
+                        SELECT 1
+                        FROM dbo.JobOrderLine AS JOVisible
+                        JOIN dbo.JobSupplierBookingLine AS JSLVisible ON JSLVisible.JSL_JO_OrderLine = JOVisible.JO_PK AND JSLVisible.JSL_IsValid = 1
+                        JOIN dbo.JobContainer AS JCVisible ON JCVisible.JC_JSB_SupplierBooking = JSLVisible.JSL_JSB_Booking AND JCVisible.JC_IsValid = 1
+                        JOIN visible_shipments_for_orders AS VSVisible ON VSVisible.JS_PK = JCVisible.JC_JS_FCLBookingOnlyLink
+                        WHERE JOVisible.JO_JD = JD.JD_PK
+                          AND JOVisible.JO_IsValid = 1
+                    )
                  OR (
                         @view_as = 'all'
                     AND (
