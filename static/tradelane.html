@@ -542,6 +542,15 @@ body {
     color: #047857;
 }
 
+.schema-kpi-row {
+    display: flex;
+}
+
+.schema-kpi-row .kpi-card {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
 .panel {
     background: var(--bg-surface);
     border-radius: 12px;
@@ -832,9 +841,7 @@ body {
 
 .query-workspace {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 1rem;
-    align-items: stretch;
+    gap: 0.85rem;
 }
 
 #query-runner,
@@ -903,6 +910,14 @@ body {
     margin-top: 1rem;
 }
 
+.query-preview-panel {
+    margin-top: 1rem;
+}
+
+.query-preview-editor {
+    min-height: 150px;
+}
+
 .query-builder-actions {
     display: flex;
     align-items: center;
@@ -911,10 +926,9 @@ body {
 
 .query-builder-grid {
     display: grid;
-    grid-template-columns: minmax(180px, 1fr) 96px auto;
+    grid-template-columns: minmax(220px, 1fr) 120px minmax(160px, 200px);
     gap: 0.65rem;
     align-items: end;
-    justify-content: flex-start;
     margin-bottom: 1rem;
 }
 
@@ -961,7 +975,17 @@ body {
 }
 
 #query-builder-limit {
-    max-width: 96px;
+    max-width: none;
+}
+
+#query-builder-add-filter-btn {
+    min-height: 38px;
+    background-color: #F3F4F6;
+    border-color: var(--border);
+}
+
+#query-builder-add-filter-btn:hover {
+    background-color: #EDEFF3;
 }
 
 .query-builder-filter-list {
@@ -983,11 +1007,19 @@ body {
     padding: 0;
 }
 
-.query-builder-reset {
+.query-builder-reset,
+.query-runner-reset,
+.query-ai-reset {
     width: 36px;
     height: 36px;
     min-height: 36px;
     padding: 0;
+}
+
+.query-builder-reset[hidden],
+.query-runner-reset[hidden],
+.query-ai-reset[hidden] {
+    display: none;
 }
 
 .query-builder-message {
@@ -1134,6 +1166,8 @@ body {
 
 .query-builder-remove,
 .query-builder-reset,
+.query-runner-reset,
+.query-ai-reset,
 .query-download-icon,
 .table-download-icon,
 .close-modal,
@@ -1328,6 +1362,7 @@ body.logged-out .content-wrapper {
     min-width: min(420px, calc(100vw - 2.5rem));
 }
 #logout-modal .modal-content { width: 420px; }
+#sync-confirm-modal .modal-content { width: 420px; }
 #login-modal .modal-body { padding: 1.25rem 1.5rem; }
 #login-modal .auth-form { gap: 0.75rem; }
 #login-modal .form-field { gap: 0.35rem; }
@@ -1508,19 +1543,19 @@ body.logged-out .content-wrapper {
         font-size: 0.68rem;
     }
     .query-workspace {
-        gap: 0.85rem;
+        gap: 0.75rem;
     }
     .query-builder-panel,
     .query-ai-panel {
         min-height: 172px;
     }
     .query-builder-grid {
-        grid-template-columns: minmax(150px, 1fr) 82px auto;
+        grid-template-columns: minmax(180px, 1fr) 104px minmax(145px, 170px);
         gap: 0.5rem;
         margin-bottom: 0.75rem;
     }
     #query-builder-limit {
-        max-width: 82px;
+        max-width: none;
     }
     .query-builder-filter-row {
         grid-template-columns: minmax(130px, 1.05fr) minmax(100px, 0.7fr) minmax(125px, 1fr) 34px;
@@ -1560,6 +1595,8 @@ body.logged-out .content-wrapper {
     }
     .query-builder-remove,
     .query-builder-reset,
+    .query-runner-reset,
+    .query-ai-reset,
     .query-download-icon,
     .object-count-download {
         width: 34px;
@@ -1648,6 +1685,12 @@ body.logged-out .content-wrapper {
             <nav class="nav-menu">
                 <a href="#query-runner" class="nav-item active auth-only" data-target="query-runner">
                     <i class="fa-solid fa-terminal" aria-hidden="true"></i> Query Runner
+                </a>
+                <a href="#query-builder" class="nav-item auth-only" data-target="query-builder">
+                    <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Query Builder
+                </a>
+                <a href="#query-builder-ai" class="nav-item auth-only" data-target="query-builder-ai">
+                    <i class="fa-solid fa-robot" aria-hidden="true"></i> Query Builder AI
                 </a>
                 <a href="#database-info" class="nav-item auth-only" data-target="database-info">
                     <i class="fa-solid fa-database" aria-hidden="true"></i> Database Info
@@ -1870,44 +1913,11 @@ body.logged-out .content-wrapper {
                             <p class="query-message" id="query-message"></p>
                         </div>
                     </div>
-                    <div class="query-workspace">
-                        <div class="panel query-builder-panel" id="query-builder-panel">
-                            <div class="panel-header">
-                                <h3>Query Builder</h3>
-                                <div class="query-builder-actions">
-                                    <button class="btn btn-secondary query-builder-reset" id="query-builder-reset-btn" type="button" hidden title="Reset builder" aria-label="Reset builder"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
-                                    <button class="btn btn-primary" id="query-builder-build-btn" type="button"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Build SQL</button>
-                                </div>
-                            </div>
-                            <div class="query-builder-grid">
-                                <div class="query-builder-field">
-                                    <label for="query-builder-table">Table</label>
-                                    <select id="query-builder-table"></select>
-                                </div>
-                                <div class="query-builder-field">
-                                    <label for="query-builder-limit">Limit</label>
-                                    <input id="query-builder-limit" type="number" min="1" step="1" value="10">
-                                </div>
-                                <button class="btn btn-secondary" id="query-builder-add-filter-btn" type="button"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add Filter</button>
-                            </div>
-                            <div class="query-builder-filter-list" id="query-builder-filter-list"></div>
-                            <p class="query-builder-message" id="query-builder-message"></p>
-                        </div>
-                        <div class="panel query-ai-panel" id="query-ai-panel">
-                            <div class="panel-header">
-                                <h3>AI Builder</h3>
-                                <button class="btn btn-primary" id="query-ai-generate-btn" type="button"><i class="fa-solid fa-sparkles" aria-hidden="true"></i> Build SQL</button>
-                            </div>
-                            <div class="query-ai-form">
-                                <textarea id="query-ai-question" class="query-ai-question" spellcheck="true" placeholder="Ask in English"></textarea>
-                            </div>
-                            <p class="query-builder-message" id="query-ai-message"></p>
-                        </div>
-                    </div>
                     <div class="panel query-editor-panel">
                         <div class="panel-header">
                             <h3>SQL Editor</h3>
                             <div class="query-editor-actions">
+                                <button class="btn btn-secondary query-runner-reset" id="query-runner-reset-btn" type="button" hidden title="Reset query runner" aria-label="Reset query runner"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
                                 <button class="btn btn-primary" id="query-run-btn" type="submit" form="query-runner-form"><i class="fa-solid fa-play" aria-hidden="true"></i> Run</button>
                                 <button class="btn btn-secondary" id="query-export-download-btn" type="button"><i class="fa-solid fa-download" aria-hidden="true"></i> Export</button>
                             </div>
@@ -1934,6 +1944,73 @@ LIMIT 10;</textarea>
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+                </section>
+
+                <section id="query-builder" class="view-section">
+                    <div class="section-header">
+                        <div>
+                            <h1>Query Builder</h1>
+                            <p>Build SQL with table, indexed columns, operators, and filters.</p>
+                        </div>
+                    </div>
+                    <div class="panel query-builder-panel" id="query-builder-panel">
+                        <div class="panel-header">
+                            <h3>Query Builder</h3>
+                            <div class="query-builder-actions">
+                                <button class="btn btn-secondary query-builder-reset" id="query-builder-reset-btn" type="button" hidden title="Reset builder" aria-label="Reset builder"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
+                                <button class="btn btn-primary" id="query-builder-build-btn" type="button"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Build SQL</button>
+                            </div>
+                        </div>
+                        <div class="query-builder-grid">
+                            <div class="query-builder-field">
+                                <label for="query-builder-table">Table</label>
+                                <select id="query-builder-table"></select>
+                            </div>
+                            <div class="query-builder-field">
+                                <label for="query-builder-limit">Limit</label>
+                                <input id="query-builder-limit" type="number" min="1" step="1" value="10">
+                            </div>
+                            <button class="btn btn-secondary" id="query-builder-add-filter-btn" type="button"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add Filter</button>
+                        </div>
+                        <div class="query-builder-filter-list" id="query-builder-filter-list"></div>
+                        <p class="query-builder-message" id="query-builder-message"></p>
+                    </div>
+                    <div class="panel query-preview-panel" id="query-builder-preview-panel" hidden>
+                        <div class="panel-header">
+                            <h3>SQL Preview</h3>
+                            <button class="btn btn-primary query-preview-run-btn" id="query-builder-preview-run-btn" type="button" disabled><i class="fa-solid fa-play" aria-hidden="true"></i> Run</button>
+                        </div>
+                        <textarea class="query-editor query-preview-editor" id="query-builder-sql-preview" spellcheck="false"></textarea>
+                    </div>
+                </section>
+
+                <section id="query-builder-ai" class="view-section">
+                    <div class="section-header">
+                        <div>
+                            <h1>Query Builder AI</h1>
+                            <p>Build SQL from an English question.</p>
+                        </div>
+                    </div>
+                    <div class="panel query-ai-panel" id="query-ai-panel">
+                        <div class="panel-header">
+                            <h3>Query Builder AI</h3>
+                            <div class="query-builder-actions">
+                                <button class="btn btn-secondary query-ai-reset" id="query-ai-reset-btn" type="button" hidden title="Reset AI builder" aria-label="Reset AI builder"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
+                                <button class="btn btn-primary" id="query-ai-generate-btn" type="button"><i class="fa-solid fa-robot" aria-hidden="true"></i> Build SQL</button>
+                            </div>
+                        </div>
+                        <div class="query-ai-form">
+                            <textarea id="query-ai-question" class="query-ai-question" spellcheck="true" placeholder="Ask in English"></textarea>
+                        </div>
+                        <p class="query-builder-message" id="query-ai-message"></p>
+                    </div>
+                    <div class="panel query-preview-panel" id="query-ai-preview-panel" hidden>
+                        <div class="panel-header">
+                            <h3>SQL Preview</h3>
+                            <button class="btn btn-primary query-preview-run-btn" id="query-ai-preview-run-btn" type="button" disabled><i class="fa-solid fa-play" aria-hidden="true"></i> Run</button>
+                        </div>
+                        <textarea class="query-editor query-preview-editor" id="query-ai-sql-preview" spellcheck="false"></textarea>
                     </div>
                 </section>
             </div>
@@ -2053,6 +2130,30 @@ LIMIT 10;</textarea>
         </div>
     </div>
 
+    <div class="modal" id="sync-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="sync-confirm-modal-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-check" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="sync-confirm-modal-title">Sync Again?</h3>
+                        <p class="modal-subtitle">Recently synced</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="sync-confirm-modal-close" type="button" aria-label="Close sync confirmation" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="logout-confirmation">
+                    <p id="sync-confirm-message">Synced recently. Sync again?</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" id="sync-confirm-cancel-btn">Cancel</button>
+                <button class="btn btn-primary" type="button" id="sync-confirm-submit-btn">Sync</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal" id="large-export-modal" role="dialog" aria-modal="true" aria-labelledby="large-export-modal-title" style="display: none;">
         <div class="modal-content" role="document">
             <div class="modal-header">
@@ -2106,6 +2207,7 @@ const STORAGE_KEY_POSTGRES_OBJECT_COUNT_AT = 'postgres_object_count_cached_at';
 const INFO_CACHE_REFRESH_MS = 5 * 60 * 1000;
 const PROFILE_CACHE_REFRESH_MS = 5 * 60 * 1000;
 const POSTGRES_CACHE_REFRESH_MS = 60 * 60 * 1000;
+const POSTGRES_SYNC_CONFIRM_THRESHOLD_MS = 10 * 60 * 1000;
 const TOKEN_REFRESH_BUFFER_SEC = 24 * 60 * 60;
 const QUERY_EDITOR_PLACEHOLDER_SQL = 'SELECT *\nFROM your_table\nLIMIT 10;';
 const QUERY_BUILDER_DEFAULT_LIMIT = 10;
@@ -2225,6 +2327,8 @@ function setQueryRunnerBusy(isBusy, message = 'Working...', { cancelable = false
         'query-builder-add-filter-btn',
         'query-builder-table',
         'query-builder-limit',
+        'query-runner-reset-btn',
+        'query-ai-reset-btn',
         'query-ai-generate-btn',
         'query-ai-question',
         'query-sql',
@@ -2238,6 +2342,10 @@ function setQueryRunnerBusy(isBusy, message = 'Working...', { cancelable = false
 
     document.querySelectorAll('.query-builder-column, .query-builder-operator, .query-builder-value, .query-builder-remove').forEach(el => {
         el.disabled = queryRunnerBusy;
+    });
+    document.querySelectorAll('.query-preview-run-btn').forEach(btn => {
+        const editor = btn.id === 'query-ai-preview-run-btn' ? $('query-ai-sql-preview') : $('query-builder-sql-preview');
+        btn.disabled = queryRunnerBusy || !editor?.value.trim();
     });
 
     if (!queryRunnerBusy) {
@@ -2287,6 +2395,7 @@ const queryRunnerLimitMessage = () => `Run returns max ${formatNumber(queryRunne
 
 function renderQueryRunnerTabMessages() {
     $('query-message').textContent = queryRunnerLimitMessage();
+    updateQueryRunnerResetButton();
 }
 
 // Auth component helpers: token/user storage, /info caching, and shared API wrapper.
@@ -2869,7 +2978,7 @@ function renderSchemaKpis(rows = []) {
         { label: 'Total Indexes', value: totalIndexNames.size, icon: 'fa-solid fa-key' },
         ...schemaIndexKpiConfig
             .map(item => ({ label: item.label, value: indexCounts[item.key].size, icon: item.icon }))
-            .filter(item => item.value > 0)
+            .filter(item => item.value > 0 || item.label === 'GIN')
     ];
     $('schema-kpi-row').innerHTML = cards.map(schemaKpiCard).join('');
 }
@@ -3094,10 +3203,11 @@ function renderQueryBuilder() {
 
 function queryBuilderHasChanges() {
     const hasFilters = Boolean($('query-builder-filter-list')?.children.length);
+    const hasPreview = Boolean($('query-builder-sql-preview')?.value.trim());
     const limit = String($('query-builder-limit')?.value || '').trim();
     const table = $('query-builder-table')?.value || '';
     const defaultTable = queryBuilderDefaultTableKey();
-    return hasFilters || (limit && limit !== String(QUERY_BUILDER_DEFAULT_LIMIT)) || Boolean(table && defaultTable && table !== defaultTable);
+    return hasPreview || hasFilters || (limit && limit !== String(QUERY_BUILDER_DEFAULT_LIMIT)) || Boolean(table && defaultTable && table !== defaultTable);
 }
 
 function updateQueryBuilderResetButton() {
@@ -3112,6 +3222,10 @@ function resetQueryBuilder() {
     if (defaultTable) $('query-builder-table').value = defaultTable;
     $('query-builder-filter-list').innerHTML = '';
     $('query-builder-limit').value = String(QUERY_BUILDER_DEFAULT_LIMIT);
+    $('query-builder-sql-preview').value = '';
+    $('query-builder-preview-panel').hidden = true;
+    $('query-builder-preview-run-btn').disabled = true;
+    $('query-builder-message').textContent = '';
     renderQueryBuilder();
 }
 
@@ -3186,11 +3300,44 @@ function buildQueryBuilderDefaultSql() {
     ].join('\n');
 }
 
+function normalizeSqlText(value) {
+    return String(value || '').replace(/\r\n/g, '\n').trim();
+}
+
 function queryEditorHasDefaultSql() {
     const editor = $('query-sql');
     if (!editor) return false;
-    const sql = editor.value.trim();
-    return !sql || sql === QUERY_EDITOR_PLACEHOLDER_SQL || sql === queryEditorDefaultSql;
+    const sql = normalizeSqlText(editor.value);
+    return !sql
+        || sql === normalizeSqlText(QUERY_EDITOR_PLACEHOLDER_SQL)
+        || sql === normalizeSqlText(queryEditorDefaultSql);
+}
+
+function queryRunnerHasChanges() {
+    const resultPanel = $('query-result-panel');
+    return !queryEditorHasDefaultSql()
+        || Boolean(resultPanel && !resultPanel.hidden)
+        || Boolean(queryResultColumns.length || queryResultRows.length);
+}
+
+function updateQueryRunnerResetButton() {
+    const btn = $('query-runner-reset-btn');
+    if (!btn) return;
+    btn.hidden = !queryRunnerHasChanges();
+}
+
+function queryAiBuilderHasChanges() {
+    return Boolean(
+        $('query-ai-question')?.value.trim()
+        || $('query-ai-message')?.textContent.trim()
+        || $('query-ai-sql-preview')?.value.trim()
+    );
+}
+
+function updateQueryAiResetButton() {
+    const btn = $('query-ai-reset-btn');
+    if (!btn) return;
+    btn.hidden = !queryAiBuilderHasChanges();
 }
 
 function syncQueryEditorDefaultSql() {
@@ -3202,6 +3349,7 @@ function syncQueryEditorDefaultSql() {
         $('query-download-btn').disabled = true;
         resetQueryResult();
         $('query-message').textContent = queryRunnerLimitMessage();
+        updateQueryRunnerResetButton();
     } catch (err) {
         // Keep the static placeholder while schema cache is still warming.
     }
@@ -3211,14 +3359,12 @@ function applyQueryBuilderSql() {
     if (queryRunnerBusy) return;
     try {
         const sql = buildQueryBuilderSql();
-        $('query-sql').value = sql;
-        queryLastSql = '';
-        $('query-download-btn').disabled = true;
-        resetQueryResult();
-        $('query-message').textContent = queryRunnerLimitMessage();
-        $('query-builder-message').textContent = 'SQL built in the editor.';
+        setGeneratedSqlPreview('builder', sql);
+        $('query-builder-message').textContent = 'SQL built. Review below, then Run.';
+        updateQueryBuilderResetButton();
     } catch (err) {
         $('query-builder-message').textContent = err.message || 'Could not build SQL.';
+        updateQueryBuilderResetButton();
     }
 }
 
@@ -3228,10 +3374,12 @@ async function generateAiSql() {
     const question = $('query-ai-question').value.trim();
     if (!question) {
         $('query-ai-message').textContent = 'Ask a question first.';
+        updateQueryAiResetButton();
         return;
     }
     setQueryRunnerBusy(true, 'Building SQL...');
     $('query-ai-message').textContent = 'Generating SQL...';
+    updateQueryAiResetButton();
     try {
         const payload = await api(POSTGRES_QUERY_AI_PATH, {
             method: 'POST',
@@ -3241,16 +3389,15 @@ async function generateAiSql() {
         const result = payload.message || {};
         if (result.status !== 'ok' || !result.sql) {
             $('query-ai-message').textContent = result.message || 'Could not generate a safe SQL query.';
+            updateQueryAiResetButton();
             return;
         }
-        $('query-sql').value = result.sql;
-        queryLastSql = '';
-        $('query-download-btn').disabled = true;
-        resetQueryResult();
-        $('query-message').textContent = queryRunnerLimitMessage();
-        $('query-ai-message').textContent = result.message || 'SQL generated in the editor.';
+        setGeneratedSqlPreview('ai', result.sql);
+        $('query-ai-message').textContent = result.message || 'SQL generated. Review below, then Run.';
+        updateQueryAiResetButton();
     } catch (err) {
         $('query-ai-message').textContent = err.message || 'AI SQL generation failed.';
+        updateQueryAiResetButton();
     } finally {
         setQueryRunnerBusy(false);
     }
@@ -3477,6 +3624,33 @@ async function syncPostgresCache({ force = true } = {}) {
     }
 }
 
+function shouldConfirmPostgresSync() {
+    const timestamp = latestPostgresCacheTimestamp();
+    if (!timestamp) return false;
+    const ageMs = Date.now() - Number(timestamp);
+    return ageMs >= 0 && ageMs < POSTGRES_SYNC_CONFIRM_THRESHOLD_MS;
+}
+
+function openPostgresSyncConfirmModal() {
+    const relative = formatCompactRelativeTime(latestPostgresCacheTimestamp());
+    $('sync-confirm-message').textContent = relative ? `Synced ${relative}. Sync again?` : 'Synced recently. Sync again?';
+    openModal('sync-confirm-modal');
+}
+
+function handlePostgresSyncClick() {
+    if (!authToken || !authUser || !tradeLaneRoleAllowed()) return;
+    if (shouldConfirmPostgresSync()) {
+        openPostgresSyncConfirmModal();
+        return;
+    }
+    syncPostgresCache({ force: true });
+}
+
+function confirmPostgresSync() {
+    closeModal('sync-confirm-modal');
+    syncPostgresCache({ force: true });
+}
+
 function validateQuerySql(sql) {
     if (!sql) throw new Error('SQL is required.');
     const normalized = sql.replace(/;\s*$/, '').trim().toLowerCase().replace(/^\(+/, '').trim();
@@ -3488,6 +3662,39 @@ function validateQueryInput() {
     return validateQuerySql($('query-sql').value.trim());
 }
 
+function generatedSqlPreviewIds(source) {
+    return source === 'ai'
+        ? { panel: 'query-ai-preview-panel', editor: 'query-ai-sql-preview', run: 'query-ai-preview-run-btn' }
+        : { panel: 'query-builder-preview-panel', editor: 'query-builder-sql-preview', run: 'query-builder-preview-run-btn' };
+}
+
+function setGeneratedSqlPreview(source, sql) {
+    const ids = generatedSqlPreviewIds(source);
+    $(ids.editor).value = sql;
+    $(ids.panel).hidden = false;
+    $(ids.run).disabled = false;
+    if (source === 'builder') updateQueryBuilderResetButton();
+    if (source === 'ai') updateQueryAiResetButton();
+}
+
+function openGeneratedSqlInRunner(source) {
+    try {
+        const ids = generatedSqlPreviewIds(source);
+        const { sql } = validateQuerySql($(ids.editor).value.trim());
+        $('query-sql').value = sql;
+        queryLastSql = '';
+        resetQueryResult();
+        $('query-download-btn').disabled = true;
+        $('query-message').textContent = queryRunnerLimitMessage();
+        showSection('query-runner');
+        updateQueryRunnerResetButton();
+    } catch (err) {
+        $(source === 'ai' ? 'query-ai-message' : 'query-builder-message').textContent = err.message || 'SQL is not ready.';
+        if (source === 'ai') updateQueryAiResetButton();
+        else updateQueryBuilderResetButton();
+    }
+}
+
 function resetQueryResult() {
     $('query-result-panel').hidden = true;
     $('query-result-count').textContent = 'No result';
@@ -3495,6 +3702,45 @@ function resetQueryResult() {
     $('query-result-body').innerHTML = '<tr><td><div class="query-empty">Run a query to see results.</div></td></tr>';
     queryResultColumns = [];
     queryResultRows = [];
+    updateQueryRunnerResetButton();
+}
+
+function resetQueryRunnerTab() {
+    if (queryRunnerBusy) return;
+    $('query-sql').value = queryEditorDefaultSql || QUERY_EDITOR_PLACEHOLDER_SQL;
+    queryLastSql = '';
+    resetQueryResult();
+    $('query-download-btn').disabled = true;
+    $('query-message').textContent = queryRunnerLimitMessage();
+    updateQueryRunnerResetButton();
+}
+
+function resetQueryAiBuilder() {
+    if (queryRunnerBusy) return;
+    $('query-ai-question').value = '';
+    $('query-ai-message').textContent = '';
+    $('query-ai-sql-preview').value = '';
+    $('query-ai-preview-panel').hidden = true;
+    $('query-ai-preview-run-btn').disabled = true;
+    updateQueryAiResetButton();
+}
+
+function resetTransientQueryStateOnLoad() {
+    $('query-sql').value = queryEditorDefaultSql || QUERY_EDITOR_PLACEHOLDER_SQL;
+    queryLastSql = '';
+    $('query-download-btn').disabled = true;
+    $('query-builder-filter-list').innerHTML = '';
+    $('query-builder-limit').value = String(QUERY_BUILDER_DEFAULT_LIMIT);
+    $('query-builder-message').textContent = '';
+    $('query-builder-sql-preview').value = '';
+    $('query-builder-preview-panel').hidden = true;
+    $('query-builder-preview-run-btn').disabled = true;
+    $('query-ai-question').value = '';
+    $('query-ai-message').textContent = '';
+    $('query-ai-sql-preview').value = '';
+    $('query-ai-preview-panel').hidden = true;
+    $('query-ai-preview-run-btn').disabled = true;
+    resetQueryResult();
 }
 
 function renderQueryResult(result = []) {
@@ -3506,6 +3752,7 @@ function renderQueryResult(result = []) {
     }, new Set()));
     queryResultColumns = columns;
     queryResultRows = rows;
+    updateQueryRunnerResetButton();
     const rowCount = rows.length;
     const readLimit = queryRunnerReadLimit();
     $('query-result-count').textContent = `${formatNumber(rowCount)} row${rowCount === 1 ? '' : 's'}${rowCount >= readLimit ? `, limited to ${formatNumber(readLimit)}` : ''}`;
@@ -3691,6 +3938,7 @@ async function runQuery(event) {
     } finally {
         queryRunnerAbortController = null;
         setQueryRunnerBusy(false);
+        updateQueryRunnerResetButton();
     }
 }
 
@@ -3732,6 +3980,7 @@ function downloadQueryCsv() {
         $('query-message').textContent = err.message || 'CSV download failed.';
     } finally {
         btn.disabled = !queryResultColumns.length;
+        updateQueryRunnerResetButton();
     }
 }
 
@@ -3800,6 +4049,7 @@ async function downloadQueryExport(event) {
     } finally {
         queryRunnerAbortController = null;
         setQueryRunnerBusy(false);
+        updateQueryRunnerResetButton();
     }
 }
 
@@ -3894,7 +4144,7 @@ function showSection(target) {
     if (target === 'database-info') loadDatabaseInfo();
     if (target === 'schema') loadSchema();
     if (target === 'object-count') loadObjectCount();
-    if (target === 'query-runner') renderQueryBuilder();
+    if (target === 'query-builder' || target === 'query-builder-ai') renderQueryBuilder();
 }
 
 function toggleProfileMenu() {
@@ -3949,6 +4199,9 @@ function bindAuthComponentEvents() {
     $('logout-modal-close').addEventListener('click', () => closeModal('logout-modal'));
     $('logout-cancel-btn').addEventListener('click', () => closeModal('logout-modal'));
     $('logout-submit-btn').addEventListener('click', logout);
+    $('sync-confirm-modal-close').addEventListener('click', () => closeModal('sync-confirm-modal'));
+    $('sync-confirm-cancel-btn').addEventListener('click', () => closeModal('sync-confirm-modal'));
+    $('sync-confirm-submit-btn').addEventListener('click', confirmPostgresSync);
     $('large-export-modal-close').addEventListener('click', () => closeModal('large-export-modal'));
     $('large-export-close-btn').addEventListener('click', () => closeModal('large-export-modal'));
     $('profile-menu-profile').addEventListener('click', () => {
@@ -4024,7 +4277,7 @@ function bindAuthComponentEvents() {
 }
 
 function bindPageEvents() {
-    $('postgres-sync-btn').addEventListener('click', () => syncPostgresCache({ force: true }));
+    $('postgres-sync-btn').addEventListener('click', handlePostgresSyncClick);
     $('schema-index-filter').addEventListener('change', renderSchemaTable);
     $('schema-index-clear-btn').addEventListener('click', () => {
         $('schema-index-filter').value = '';
@@ -4039,6 +4292,7 @@ function bindPageEvents() {
     $('query-download-btn').addEventListener('click', downloadQueryCsv);
     $('query-export-download-btn').addEventListener('click', downloadQueryExport);
     $('query-runner-cancel-btn').addEventListener('click', cancelQueryRunnerRequest);
+    $('query-runner-reset-btn').addEventListener('click', resetQueryRunnerTab);
     $('query-builder-table').addEventListener('change', () => {
         $('query-builder-filter-list').innerHTML = '';
         renderQueryBuilder();
@@ -4054,7 +4308,19 @@ function bindPageEvents() {
     $('query-builder-add-filter-btn').addEventListener('click', queryBuilderAddFilterRow);
     $('query-builder-reset-btn').addEventListener('click', resetQueryBuilder);
     $('query-builder-build-btn').addEventListener('click', applyQueryBuilderSql);
+    $('query-builder-preview-run-btn').addEventListener('click', () => openGeneratedSqlInRunner('builder'));
+    $('query-builder-sql-preview').addEventListener('input', () => {
+        $('query-builder-preview-run-btn').disabled = queryRunnerBusy || !$('query-builder-sql-preview').value.trim();
+        updateQueryBuilderResetButton();
+    });
+    $('query-ai-reset-btn').addEventListener('click', resetQueryAiBuilder);
     $('query-ai-generate-btn').addEventListener('click', generateAiSql);
+    $('query-ai-preview-run-btn').addEventListener('click', () => openGeneratedSqlInRunner('ai'));
+    $('query-ai-sql-preview').addEventListener('input', () => {
+        $('query-ai-preview-run-btn').disabled = queryRunnerBusy || !$('query-ai-sql-preview').value.trim();
+        updateQueryAiResetButton();
+    });
+    $('query-ai-question').addEventListener('input', updateQueryAiResetButton);
     $('query-ai-question').addEventListener('keydown', event => {
         if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') generateAiSql();
     });
@@ -4065,6 +4331,7 @@ function bindPageEvents() {
             resetQueryResult();
             $('query-message').textContent = queryRunnerLimitMessage();
         }
+        updateQueryRunnerResetButton();
     });
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', event => {
@@ -4081,8 +4348,12 @@ function bindPageEvents() {
 
 bindAuthComponentEvents();
 bindPageEvents();
+resetTransientQueryStateOnLoad();
 renderQueryRunnerTabMessages();
 renderQueryBuilder();
+updateQueryRunnerResetButton();
+updateQueryBuilderResetButton();
+updateQueryAiResetButton();
 setInterval(updatePostgresSyncSummary, 60000);
 const initialize = async () => {
     await loadInfo();

@@ -943,6 +943,268 @@ body {
 #shipment-table th:nth-child(7),
 #shipment-table td:nth-child(7) { width: 21%; }
 
+.shipment-dashboard-head {
+    overflow: hidden;
+    border: 0;
+    background: linear-gradient(135deg, #0F2147 0%, #132D63 100%);
+    color: #FFFFFF;
+}
+
+.shipment-dashboard-head .po-toolbar {
+    border-bottom: 0;
+}
+
+.shipment-dashboard-head .po-heading h2,
+.shipment-dashboard-head .po-heading p {
+    color: #FFFFFF;
+}
+
+.shipment-dashboard-head .po-heading p {
+    opacity: 0.72;
+}
+
+.shipment-dashboard-meta {
+    color: #BFDBFE;
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.shipment-filter-card {
+    overflow: visible;
+}
+
+.shipment-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    padding: 0.9rem 1rem;
+}
+
+.shipment-filter-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 42px;
+    padding-right: 0.45rem;
+    border-right: 1px solid #CBD5E1;
+    color: #64748B;
+    font-size: 0.82rem;
+    font-weight: 850;
+}
+
+.shipment-filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 42px;
+    padding: 0 0.85rem;
+    border: 1px solid #D8E1EF;
+    border-radius: 10px;
+    background: #F8FAFC;
+    color: #1F2937;
+    font-size: 0.82rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.shipment-filter-pill i {
+    color: #64748B;
+}
+
+.shipment-filter-pill .fa-chevron-down {
+    font-size: 0.68rem;
+    color: #94A3B8;
+}
+
+.shipment-filter-search {
+    flex: 1 1 220px;
+    min-width: 190px;
+    max-width: 360px;
+    margin-left: auto;
+}
+
+.shipment-dashboard-kpis {
+    display: grid;
+    grid-template-columns: 1.15fr repeat(5, minmax(120px, 1fr));
+    gap: 0.75rem;
+}
+
+.shipment-dashboard-kpis .po-kpi-card {
+    min-height: 112px;
+}
+
+.shipment-dashboard-kpis .po-kpi-card.featured {
+    background: linear-gradient(135deg, #2556C7 0%, #1E40AF 100%);
+    color: #FFFFFF;
+    border-color: transparent;
+}
+
+.shipment-dashboard-kpis .po-kpi-card.featured .po-kpi-label,
+.shipment-dashboard-kpis .po-kpi-card.featured .po-kpi-label i,
+.shipment-dashboard-kpis .po-kpi-card.featured .po-kpi-value {
+    color: #FFFFFF;
+}
+
+.shipment-mini-status {
+    display: grid;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255,255,255,0.18);
+}
+
+.shipment-mini-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 0.45rem;
+    color: #DBEAFE;
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.shipment-mini-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #22C55E;
+}
+
+.shipment-mini-dot.cancelled {
+    background: #F87171;
+}
+
+.shipment-mini-bar {
+    height: 5px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.16);
+}
+
+.shipment-mini-fill {
+    height: 100%;
+    min-width: 2px;
+    border-radius: inherit;
+    background: #60A5FA;
+}
+
+.shipment-mini-fill.active {
+    background: #4ADE80;
+}
+
+.shipment-mini-fill.cancelled {
+    background: #F87171;
+}
+
+.shipment-chart-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+    gap: var(--page-card-gap);
+}
+
+.shipment-chart-body {
+    height: 260px;
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+.shipment-chart-body canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.shipment-origin-bars {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+.shipment-origin-row {
+    display: grid;
+    grid-template-columns: minmax(70px, 0.8fr) minmax(0, 1.8fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.shipment-origin-name {
+    color: #334155;
+    font-size: 0.82rem;
+    font-weight: 850;
+}
+
+.shipment-origin-track {
+    height: 12px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #E2E8F0;
+}
+
+.shipment-origin-fill {
+    height: 100%;
+    min-width: 6px;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #2556C7 0%, #06B6D4 100%);
+}
+
+.shipment-current-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #E5E7EB;
+}
+
+.shipment-current-heading h3 {
+    margin: 0;
+    color: #111827;
+    font-size: 1rem;
+}
+
+.shipment-current-heading p {
+    margin: 0.15rem 0 0;
+    color: #64748B;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+@media (max-width: 1250px) {
+    .shipment-dashboard-kpis {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .shipment-dashboard-kpis .po-kpi-card.featured {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 900px) {
+    .shipment-chart-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .shipment-filter-search {
+        flex-basis: 100%;
+        max-width: none;
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 700px) {
+    .shipment-dashboard-kpis {
+        grid-template-columns: 1fr;
+    }
+
+    .shipment-dashboard-kpis .po-kpi-card.featured {
+        grid-column: auto;
+    }
+
+    .shipment-current-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
 .shipment-arrival-pill {
     display: inline-flex;
     align-items: center;
@@ -4936,54 +5198,99 @@ body.not-allowed .content-wrapper {
                 <!-- Shipments Section -->
                 <section id="shipments" class="view-section">
                     <div class="po-page-stack">
-                        <div class="panel po-panel">
+                        <div class="panel po-panel shipment-dashboard-head">
                             <div class="po-toolbar">
                                 <div class="po-heading">
-                                    <h2>Shipments</h2>
+                                    <h2>Shipment Overview</h2>
                                     <p>Track cargo movement, ETA, route, containers, and shipment documents.</p>
                                 </div>
                                 <div class="po-toolbar-actions">
-                                    <form class="po-search" id="shipment-search-form" role="search">
-                                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-                                        <input type="text" id="shipment-search-input" placeholder="Search shipment" aria-label="Search shipment, job, booking, or house bill">
-                                        <button class="po-search-button" type="button" id="shipment-search-clear" aria-label="Clear search" title="Clear search" style="display: none;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-                                        <button class="po-search-button primary" type="submit" id="shipment-search-submit" aria-label="Search" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
-                                    </form>
+                                    <div class="shipment-dashboard-meta">Buyer view · Controlling customer</div>
                                     <button class="po-refresh-button compact" type="button" id="shipment-refresh-btn" aria-label="Refresh shipments" title="Refresh shipments"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
                                 </div>
                             </div>
                         </div>
-                        <div class="panel po-panel">
-                            <div class="po-kpi-strip shipment-kpi-strip">
-                                <div class="po-kpi-card">
-                                    <div class="po-kpi-label"><i class="fa-solid fa-ship" aria-hidden="true"></i> Total Shipments</div>
-                                    <div class="po-kpi-value" id="shipment-kpi-total">-</div>
+                        <div class="panel po-panel shipment-filter-card">
+                            <div class="shipment-filter-bar">
+                                <div class="shipment-filter-title"><i class="fa-solid fa-sliders" aria-hidden="true"></i><span>Filters</span></div>
+                                <button class="shipment-filter-pill" type="button"><i class="fa-solid fa-location-dot" aria-hidden="true"></i>Origin<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                <button class="shipment-filter-pill" type="button"><i class="fa-solid fa-flag" aria-hidden="true"></i>Destination<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                <button class="shipment-filter-pill" type="button"><i class="fa-solid fa-industry" aria-hidden="true"></i>Supplier / Shipper<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                <button class="shipment-filter-pill" type="button"><i class="fa-solid fa-box" aria-hidden="true"></i>Container Type<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                <button class="shipment-filter-pill" type="button"><i class="fa-solid fa-ship" aria-hidden="true"></i>Carrier / Liner<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                <button class="shipment-filter-pill" type="button"><i class="fa-regular fa-calendar" aria-hidden="true"></i>Period<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                <form class="po-search shipment-filter-search" id="shipment-search-form" role="search">
+                                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                                    <input type="text" id="shipment-search-input" placeholder="Search shipment" aria-label="Search shipment, job, booking, or house bill">
+                                    <button class="po-search-button" type="button" id="shipment-search-clear" aria-label="Clear search" title="Clear search" style="display: none;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                                    <button class="po-search-button primary" type="submit" id="shipment-search-submit" aria-label="Search" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="shipment-dashboard-kpis">
+                            <div class="po-kpi-card featured">
+                                <div class="po-kpi-label"><i class="fa-solid fa-ship" aria-hidden="true"></i> Total Shipments</div>
+                                <div class="po-kpi-value" id="shipment-kpi-total">-</div>
+                                <div class="shipment-mini-status">
+                                    <div class="shipment-mini-row">
+                                        <span class="shipment-mini-dot"></span><span>Active</span><span id="shipment-kpi-active-mini">-</span>
+                                        <div class="shipment-mini-bar" style="grid-column: 2 / 4;"><div class="shipment-mini-fill active" id="shipment-kpi-active-bar" style="width:0%"></div></div>
+                                    </div>
+                                    <div class="shipment-mini-row">
+                                        <span class="shipment-mini-dot cancelled"></span><span>Cancelled</span><span id="shipment-kpi-cancelled-mini">-</span>
+                                        <div class="shipment-mini-bar" style="grid-column: 2 / 4;"><div class="shipment-mini-fill cancelled" id="shipment-kpi-cancelled-bar" style="width:0%"></div></div>
+                                    </div>
                                 </div>
-                                <div class="po-kpi-card">
-                                    <div class="po-kpi-label"><i class="fa-solid fa-route" aria-hidden="true"></i> Active</div>
-                                    <div class="po-kpi-value" id="shipment-kpi-active">-</div>
+                            </div>
+                            <div class="po-kpi-card">
+                                <div class="po-kpi-label"><i class="fa-solid fa-route" aria-hidden="true"></i> Active</div>
+                                <div class="po-kpi-value" id="shipment-kpi-active">-</div>
+                            </div>
+                            <div class="po-kpi-card">
+                                <div class="po-kpi-label"><i class="fa-solid fa-ban" aria-hidden="true"></i> Cancelled</div>
+                                <div class="po-kpi-value" id="shipment-kpi-cancelled">-</div>
+                            </div>
+                            <div class="po-kpi-card">
+                                <div class="po-kpi-label"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Arriving 7D</div>
+                                <div class="po-kpi-value" id="shipment-kpi-arriving">-</div>
+                            </div>
+                            <div class="po-kpi-card">
+                                <div class="po-kpi-label"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Delayed</div>
+                                <div class="po-kpi-value" id="shipment-kpi-delayed">-</div>
+                            </div>
+                            <div class="po-kpi-card">
+                                <div class="po-kpi-label"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i> Containers</div>
+                                <div class="po-kpi-value" id="shipment-kpi-containers">-</div>
+                            </div>
+                        </div>
+                        <div class="shipment-chart-grid">
+                            <div class="panel po-panel analytics-chart-card">
+                                <div class="panel-header">
+                                    <div>
+                                        <h3>Monthly Shipment Trend</h3>
+                                        <p>Latest shipment volume from CargoWise.</p>
+                                    </div>
                                 </div>
-                                <div class="po-kpi-card">
-                                    <div class="po-kpi-label"><i class="fa-solid fa-ban" aria-hidden="true"></i> Cancelled</div>
-                                    <div class="po-kpi-value" id="shipment-kpi-cancelled">-</div>
+                                <div class="shipment-chart-body">
+                                    <canvas id="shipmentTrendChart"></canvas>
                                 </div>
-                                <div class="po-kpi-card">
-                                    <div class="po-kpi-label"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Arriving 7D</div>
-                                    <div class="po-kpi-value" id="shipment-kpi-arriving">-</div>
+                            </div>
+                            <div class="panel po-panel analytics-chart-card">
+                                <div class="panel-header">
+                                    <div>
+                                        <h3>Shipments By Origin</h3>
+                                        <p>Top origins from the current shipment page.</p>
+                                    </div>
                                 </div>
-                                <div class="po-kpi-card">
-                                    <div class="po-kpi-label"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Delayed</div>
-                                    <div class="po-kpi-value" id="shipment-kpi-delayed">-</div>
-                                </div>
-                                <div class="po-kpi-card">
-                                    <div class="po-kpi-label"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i> Containers</div>
-                                    <div class="po-kpi-value" id="shipment-kpi-containers">-</div>
-                                </div>
+                                <div class="shipment-origin-bars" id="shipment-origin-bars"></div>
                             </div>
                         </div>
                         <div class="panel po-panel">
-                            <div class="po-summary-bar">
-                                <div class="po-result-count" id="shipment-result-count">Loading shipments...</div>
+                            <div class="shipment-current-heading">
+                                <div>
+                                    <h3>Current Shipments</h3>
+                                    <p id="shipment-result-count">Loading shipments...</p>
+                                </div>
                                 <div class="po-pagination" aria-label="Shipment pages">
                                     <button class="po-page-button" id="shipment-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
                                     <span id="shipment-page-display">Page 1</span>
@@ -7125,6 +7432,28 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     };
+    const renderShipmentOriginBars = rows => {
+        const container = document.getElementById('shipment-origin-bars');
+        if (!container) return;
+        const counts = rows.reduce((result, row) => {
+            const origin = displayValue(row.origin);
+            if (!origin || origin === '-') return result;
+            result[origin] = (result[origin] || 0) + 1;
+            return result;
+        }, {});
+        const items = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 7);
+        const max = Math.max(...items.map(item => item[1]), 1);
+        container.innerHTML = items.length ? items.map(([origin, count]) => {
+            const width = Math.max(6, Math.round((count / max) * 100));
+            return `
+                <div class="shipment-origin-row">
+                    <div class="shipment-origin-name">${escapeHtml(origin)}</div>
+                    <div class="shipment-origin-track"><div class="shipment-origin-fill" style="width:${width}%"></div></div>
+                    <div class="analytics-status-count">${escapeHtml(count.toLocaleString())}</div>
+                </div>
+            `;
+        }).join('') : '<div class="empty-state">No origin data available for the current shipments.</div>';
+    };
     const renderShipments = rows => {
         const body = document.querySelector('#shipment-table tbody');
         if (!body) return;
@@ -7183,20 +7512,66 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
             </tr>
         `}).join('') : '<tr class="po-empty-row"><td colspan="7"><i class="fa-regular fa-folder-open" aria-hidden="true"></i><br>No shipments found.</td></tr>';
+        renderShipmentOriginBars(rows);
+    };
+    const renderShipmentTrend = data => {
+        const monthly = [...(data.shipments_by_month || [])].reverse();
+        if (typeof Chart === 'undefined') return;
+        renderChart('shipmentTrendChart', {
+            type: 'bar',
+            data: {
+                labels: monthly.map(item => item.month || '-'),
+                datasets: [{
+                    type: 'bar',
+                    label: 'Shipments',
+                    data: monthly.map(item => Number(item.count || 0)),
+                    backgroundColor: 'rgba(37, 86, 199, 0.68)',
+                    borderRadius: 8,
+                    maxBarThickness: 34
+                }, {
+                    type: 'line',
+                    label: 'Trend',
+                    data: monthly.map(item => Number(item.count || 0)),
+                    borderColor: '#06B6D4',
+                    backgroundColor: '#06B6D4',
+                    borderWidth: 3,
+                    pointRadius: 3,
+                    tension: 0.35
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { color: '#64748B', boxWidth: 12, usePointStyle: true } } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: '#94A3B8', maxRotation: 0 } },
+                    y: { beginAtZero: true, grid: { color: 'rgba(148, 163, 184, 0.18)' }, ticks: { color: '#94A3B8', precision: 0 } }
+                }
+            }
+        });
     };
     const renderShipmentKpis = kpis => {
         const total = Number(kpis.shipments || 0);
         const cancelled = Number(kpis.cancelled_shipments || 0);
+        const active = Math.max(0, total - cancelled);
+        const activePercent = total ? Math.round((active / total) * 100) : 0;
+        const cancelledPercent = total ? Math.round((cancelled / total) * 100) : 0;
         document.getElementById('shipment-kpi-total').textContent = total.toLocaleString();
-        document.getElementById('shipment-kpi-active').textContent = Math.max(0, total - cancelled).toLocaleString();
+        document.getElementById('shipment-kpi-active').textContent = active.toLocaleString();
         document.getElementById('shipment-kpi-cancelled').textContent = cancelled.toLocaleString();
         document.getElementById('shipment-kpi-arriving').textContent = Number(kpis.arriving_soon_shipments || 0).toLocaleString();
         document.getElementById('shipment-kpi-delayed').textContent = Number(kpis.delayed_shipments || 0).toLocaleString();
         document.getElementById('shipment-kpi-containers').textContent = Number(kpis.containers || 0).toLocaleString();
+        document.getElementById('shipment-kpi-active-mini').textContent = `${active.toLocaleString()} ${activePercent}%`;
+        document.getElementById('shipment-kpi-cancelled-mini').textContent = `${cancelled.toLocaleString()} ${cancelledPercent}%`;
+        document.getElementById('shipment-kpi-active-bar').style.width = `${activePercent}%`;
+        document.getElementById('shipment-kpi-cancelled-bar').style.width = `${cancelledPercent}%`;
     };
     const loadShipmentKpis = async (force = false) => {
         if (!force && moduleCache['kpi:shipments']) {
-            renderShipmentKpis(moduleCache['kpi:shipments']);
+            const cached = moduleCache['kpi:shipments'];
+            renderShipmentKpis(cached.kpis || cached);
+            renderShipmentTrend(cached);
             return;
         }
         ['total', 'active', 'cancelled', 'arriving', 'delayed', 'containers'].forEach(key => {
@@ -7205,9 +7580,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         try {
             const payload = await api(`${MODULE_ENDPOINTS.analytics}?module=shipments&${CARGOWISE_VIEW_PARAM}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
-            const kpis = payload.message?.kpis || {};
-            moduleCache['kpi:shipments'] = kpis;
+            const data = payload.message || {};
+            const kpis = data.kpis || {};
+            moduleCache['kpi:shipments'] = data;
             renderShipmentKpis(kpis);
+            renderShipmentTrend(data);
         } catch (err) {
             ['total', 'active', 'cancelled', 'arriving', 'delayed', 'containers'].forEach(key => {
                 const el = document.getElementById(`shipment-kpi-${key}`);
