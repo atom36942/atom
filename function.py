@@ -1162,7 +1162,7 @@ async def func_postgres_schema_read(*, client_postgres: any) -> dict:
         }
     return schema
 
-async def func_postgres_ai_schema_read(*, client_postgres: any) -> dict:
+async def func_postgres_schema_read_ai(*, client_postgres: any) -> dict:
     """Read compact external PostgreSQL schema/index metadata for AI SQL generation."""
     sql = """
         WITH user_schemas AS (

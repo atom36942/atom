@@ -2217,8 +2217,6 @@ const TRADELANE_ALLOWED_ROLES = new Set([1, 2]);
 let authToken = readToken();
 let authUser = readUser();
 let appInfo = {};
-let roleLabels = {};
-let typeLabels = {};
 let pgscopeDatabaseInfoLoaded = false;
 let pgscopeSchemaLoaded = false;
 let pgscopeSchemaRows = [];
@@ -2457,8 +2455,6 @@ function saveProfilePayload(payload) {
 
 function applyInfoPayload(info) {
     appInfo = info || {};
-    roleLabels = appInfo?.mapping?.role?.users || {};
-    typeLabels = appInfo?.mapping?.type?.users || {};
     renderQueryRunnerTabMessages();
 }
 
@@ -2622,8 +2618,6 @@ async function loadInfo({ force = false } = {}) {
         if (!appInfo || !Object.keys(appInfo).length) readCachedInfo();
         if (!appInfo || !Object.keys(appInfo).length) {
             appInfo = {};
-            roleLabels = {};
-            typeLabels = {};
             renderQueryRunnerTabMessages();
         }
     }
@@ -2820,20 +2814,18 @@ function renderProfile() {
     const profileAvatar = document.querySelector('.avatar');
     if (profileAvatar) profileAvatar.textContent = avatarTextFromUsername(user.username || user.name);
     const roleValue = rawValue(user.role);
-    const mappedRole = roleLabels[String(user.role)];
-    const roleLabel = mappedRole ? `${roleValue} (${mappedRole})` : roleValue;
-    const typeLabel = typeLabels[String(user.type)] || rawValue(user.type);
+    const typeValue = rawValue(user.type);
     const usernameValue = rawValue(user.username);
     const userIdValue = rawValue(user.id);
     const userNameValue = rawValue(user.name || user.full_name);
-    $('profile-type').textContent = typeLabel;
+    $('profile-type').textContent = typeValue;
     $('profile-username').textContent = usernameValue;
     $('profile-password').textContent = user.password ? '••••••••' : '-';
     setLoginDetailsModalWidth(usernameValue);
     $('user-profile-id').textContent = userIdValue;
-    $('user-profile-role').textContent = roleLabel;
+    $('user-profile-role').textContent = roleValue;
     $('user-profile-name').textContent = userNameValue;
-    setUserProfileModalWidth([userIdValue, roleLabel, userNameValue]);
+    setUserProfileModalWidth([userIdValue, roleValue, userNameValue]);
 }
 
 function applyAuthState() {
@@ -4177,8 +4169,6 @@ function logout() {
     authToken = null;
     authUser = null;
     appInfo = {};
-    roleLabels = {};
-    typeLabels = {};
     clearPortalStorage();
     pgscopeDatabaseInfoLoaded = false;
     pgscopeSchemaLoaded = false;

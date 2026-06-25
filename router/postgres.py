@@ -414,9 +414,9 @@ async def func_api_postgres_query_ai(*, request: Request):
     question = str(ob["question"] or "").strip()
     default_limit = 10
     max_limit = app_state.config_query_runner_read_limit
-    def func_postgres_query_ai_schema_prompt(cache_postgres_external_schema: dict) -> list:
+    def func_postgres_query_ai_schema_prompt(cache_postgres_schema_external_ai: dict) -> list:
         output = []
-        for table_key, table in sorted((cache_postgres_external_schema or {}).items()):
+        for table_key, table in sorted((cache_postgres_schema_external_ai or {}).items()):
             columns = []
             for column_name, column in sorted(table.get("columns", {}).items()):
                 columns.append({
@@ -436,31 +436,31 @@ async def func_api_postgres_query_ai(*, request: Request):
         return message
     def func_postgres_query_ai_clean_identifier(identifier: str) -> str:
         return str(identifier or "").strip().strip('"')
-    def func_postgres_query_ai_resolve_table_key(*, value: str, cache_postgres_external_schema: dict) -> str:
+    def func_postgres_query_ai_resolve_table_key(*, value: str, cache_postgres_schema_external_ai: dict) -> str:
         value = func_postgres_query_ai_clean_identifier(value)
         if not value: return ""
         value = re.sub(r"\s*\.\s*", ".", value)
-        lookup = {key.lower(): key for key in (cache_postgres_external_schema or {}).keys()}
-        lookup.update({str(table.get("table_name") or key.split(".")[-1]).lower(): key for key, table in (cache_postgres_external_schema or {}).items()})
+        lookup = {key.lower(): key for key in (cache_postgres_schema_external_ai or {}).keys()}
+        lookup.update({str(table.get("table_name") or key.split(".")[-1]).lower(): key for key, table in (cache_postgres_schema_external_ai or {}).items()})
         return lookup.get(value.lower(), "")
-    def func_postgres_query_ai_resolve_column_name(*, table_key: str, value: str, cache_postgres_external_schema: dict) -> str:
+    def func_postgres_query_ai_resolve_column_name(*, table_key: str, value: str, cache_postgres_schema_external_ai: dict) -> str:
         value = func_postgres_query_ai_clean_identifier(value)
         if not table_key or not value: return ""
-        columns = (cache_postgres_external_schema.get(table_key, {}).get("columns") or {})
+        columns = (cache_postgres_schema_external_ai.get(table_key, {}).get("columns") or {})
         lookup = {column.lower(): column for column in columns.keys()}
         return lookup.get(value.lower(), "")
-    def func_postgres_query_ai_validate_sql(*, sql: str, default_limit: int, max_limit: int, cache_postgres_external_schema: dict) -> str:
+    def func_postgres_query_ai_validate_sql(*, sql: str, default_limit: int, max_limit: int, cache_postgres_schema_external_ai: dict) -> str:
         sql = str(sql or "").strip().rstrip(";").strip()
         if not sql: raise Exception("AI did not generate SQL.")
         if ";" in sql: raise Exception("AI generated multiple SQL statements.")
         if not sql.lower().lstrip("(").strip().startswith(("select", "with")): raise Exception("AI generated non-read SQL.")
-        known_tables = set((cache_postgres_external_schema or {}).keys())
+        known_tables = set((cache_postgres_schema_external_ai or {}).keys())
         table_matches = re.findall(r'\b(?:from|join)\s+((?:"[^"]+"|\w+)(?:\s*\.\s*(?:"[^"]+"|\w+))?)(?:\s+(?:as\s+)?("[^"]+"|\w+))?', sql, flags=re.IGNORECASE)
         alias_to_table = {}
         for raw_table, raw_alias in table_matches:
             parts = [part.strip().strip('"') for part in raw_table.split(".")]
             table_key = ".".join(parts) if len(parts) > 1 else f"public.{parts[0]}"
-            table_key = func_postgres_query_ai_resolve_table_key(value=table_key, cache_postgres_external_schema=cache_postgres_external_schema) or table_key
+            table_key = func_postgres_query_ai_resolve_table_key(value=table_key, cache_postgres_schema_external_ai=cache_postgres_schema_external_ai) or table_key
             if table_key not in known_tables: raise Exception(f"AI generated SQL for unknown object: {table_key}")
             alias = raw_alias.strip().strip('"') if raw_alias else parts[-1]
             if alias.lower() in {"where", "join", "on", "group", "order", "limit"}: alias = parts[-1]
@@ -472,8 +472,8 @@ async def func_api_postgres_query_ai(*, request: Request):
                 alias = quoted_alias or plain_alias
                 column = quoted_col or plain_col
                 candidate_tables = [alias_to_table[alias]] if alias and alias in alias_to_table else list(alias_to_table.values())
-                column_names = [(table_key, func_postgres_query_ai_resolve_column_name(table_key=table_key, value=column, cache_postgres_external_schema=cache_postgres_external_schema)) for table_key in candidate_tables]
-                column_matches = [cache_postgres_external_schema[table_key]["columns"][column_name] for table_key, column_name in column_names if column_name]
+                column_names = [(table_key, func_postgres_query_ai_resolve_column_name(table_key=table_key, value=column, cache_postgres_schema_external_ai=cache_postgres_schema_external_ai)) for table_key in candidate_tables]
+                column_matches = [cache_postgres_schema_external_ai[table_key]["columns"][column_name] for table_key, column_name in column_names if column_name]
                 if not column_matches: raise Exception(f"AI generated filter on unknown column: {column}")
                 if column_matches and not any(col.get("is_indexed") for col in column_matches): raise Exception(f"AI generated filter on non-indexed column: {column}")
         limit_match = re.search(r'\blimit\s+(\d+)\s*$', sql, flags=re.IGNORECASE)
@@ -483,11 +483,11 @@ async def func_api_postgres_query_ai(*, request: Request):
         else:
             sql = f"{sql}\nLIMIT {default_limit}"
         return f"{sql.rstrip(';')};"
-    cache_postgres_external_schema = getattr(app_state, "cache_postgres_external_schema", {}) or {}
-    if not cache_postgres_external_schema:
-        app_state.cache_postgres_external_schema = await app_state.func_postgres_ai_schema_read(client_postgres=app_state.client_postgres_external)
-        cache_postgres_external_schema = app_state.cache_postgres_external_schema
-    prompt_schema = func_postgres_query_ai_schema_prompt(cache_postgres_external_schema)
+    cache_postgres_schema_external_ai = getattr(app_state, "cache_postgres_schema_external_ai", {}) or {}
+    if not cache_postgres_schema_external_ai:
+        app_state.cache_postgres_schema_external_ai = await app_state.func_postgres_schema_read_ai(client_postgres=app_state.client_postgres_external)
+        cache_postgres_schema_external_ai = app_state.cache_postgres_schema_external_ai
+    prompt_schema = func_postgres_query_ai_schema_prompt(cache_postgres_schema_external_ai)
     response_schema = {
         "type": "OBJECT",
         "properties": {
@@ -527,8 +527,5 @@ async def func_api_postgres_query_ai(*, request: Request):
     data = json.loads(response.text or "{}")
     if not data.get("sql"):
         return {"status": 1, "message": {"sql": None, "message": func_postgres_query_ai_blocked_message(data.get("message")), "warnings": data.get("warnings") or []}}
-    try:
-        sql = func_postgres_query_ai_validate_sql(sql=data.get("sql"), default_limit=default_limit, max_limit=max_limit, cache_postgres_external_schema=cache_postgres_external_schema)
-    except Exception as e:
-        return {"status": 1, "message": {"sql": None, "message": str(e), "warnings": data.get("warnings") or []}}
+    sql = func_postgres_query_ai_validate_sql(sql=data.get("sql"), default_limit=default_limit, max_limit=max_limit, cache_postgres_schema_external_ai=cache_postgres_schema_external_ai)
     return {"status": 1, "message": {"sql": sql, "message": "SQL generated in the editor. Review before Run or Export.", "warnings": data.get("warnings") or []}}

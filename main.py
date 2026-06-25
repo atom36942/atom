@@ -83,10 +83,7 @@ async def func_lifespan(app:"FastAPI"):
         if client_postgres and app.state.config_is_enable_postgres_schema_init: await app.state.func_postgres_schema_init(client_postgres=client_postgres, config_postgres=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(config_root_user_password) if config_root_user_password else None)
         # cache init
         cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres=client_postgres_read_fallback) if client_postgres_read_fallback else {}
-        try: cache_postgres_external_schema = await app.state.func_postgres_ai_schema_read(client_postgres=client_postgres_external) if client_postgres_external else {}
-        except Exception as e:
-            print(f"❌ external postgres AI schema cache init error: {e}")
-            cache_postgres_external_schema = {}
+        cache_postgres_schema_external_ai = await app.state.func_postgres_schema_read_ai(client_postgres=client_postgres_external) if client_postgres_external else {}
         cache_config = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("config"), is_json_value=1) if client_postgres_read_fallback and "config" in cache_postgres_schema else {}
         cache_postgres_table_list = list(cache_postgres_schema.keys())
         cache_postgres_column_list = sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))

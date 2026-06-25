@@ -6174,8 +6174,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const QUOTATIONS_DECISION_PATH = '/quotations/decision';
     const RATE_GROUPBY_CACHE_MS = 5 * 60 * 1000;
     const RATE_GROUPBY_COLS = ['origin', 'destination', 'carrier', 'commodity'];
-    let roleLabels = {};
-    let typeLabels = {};
     let quotationStatusLabels = {};
     const MODULE_ENDPOINTS = {
         'purchase-orders': '/cargowise/my-purchase-orders',
@@ -6283,8 +6281,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const applyInfoPayload = payload => {
         appInfo = payload || {};
-        roleLabels = appInfo?.mapping?.role?.users || {};
-        typeLabels = appInfo?.mapping?.type?.users || {};
         quotationStatusLabels = appInfo?.mapping?.status?.quotations || {};
         renderRateDropdowns();
         renderUsersRoleFilter();
@@ -6325,8 +6321,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!appInfo || !Object.keys(appInfo).length) readCachedInfo();
             if (!appInfo || !Object.keys(appInfo).length) {
                 appInfo = {};
-                roleLabels = {};
-                typeLabels = {};
             }
         }
     };
@@ -6458,7 +6452,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cached) applyRateGroupbyOptions(cached);
         }
     };
-    const supportedRoles = () => Object.keys(roleLabels || {}).map(Number).filter(Number.isFinite);
+    const supportedRoles = () => [...new Set([...document.querySelectorAll('.nav-item[data-roles]')]
+        .flatMap(item => String(item.dataset.roles || '').split(',').map(Number).filter(Number.isFinite)))]
+        .sort((left, right) => left - right);
     const roleSupported = role => supportedRoles().includes(Number(role));
     const featureRolesFromItem = item => String(item?.dataset?.roles || '').split(',').map(Number).filter(Number.isFinite);
     const featureItem = target => document.querySelector(`.nav-item[data-target="${target}"][data-roles]`);
@@ -6705,20 +6701,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (profileAvatar) profileAvatar.textContent = avatarTextFromUsername(user.username || user.name);
         const rawValue = value => value === null || value === undefined || value === '' ? '-' : String(value);
         const roleValue = rawValue(user.role);
-        const mappedRole = roleLabels[String(user.role)];
-        const roleProfileLabel = mappedRole ? `${roleValue} (${mappedRole})` : roleValue;
-        const typeLabel = typeLabels[String(user.type)] || rawValue(user.type);
+        const typeValue = rawValue(user.type);
         const usernameValue = rawValue(user.username);
         const userIdValue = rawValue(user.id);
         const userNameValue = rawValue(user.name || user.full_name);
-        document.getElementById('profile-type').textContent = typeLabel;
+        document.getElementById('profile-type').textContent = typeValue;
         document.getElementById('profile-username').textContent = usernameValue;
         document.getElementById('profile-password').textContent = user.password ? '••••••••' : '-';
         setLoginDetailsModalWidth(usernameValue);
-        document.getElementById('user-profile-role').textContent = roleProfileLabel;
+        document.getElementById('user-profile-role').textContent = roleValue;
         document.getElementById('user-profile-id').textContent = userIdValue;
         document.getElementById('user-profile-name').textContent = userNameValue;
-        setUserProfileModalWidth([userIdValue, roleProfileLabel, userNameValue]);
+        setUserProfileModalWidth([userIdValue, roleValue, userNameValue]);
     };
     const renderCargowiseProfile = profile => {
         const org = profile.org || {};
@@ -7172,7 +7166,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const openUserViewPanel = userId => {
         const row = usersRows.find(item => String(item.id) === String(userId));
         if (!row) return;
-        const role = roleLabels[String(row.role)] || displayValue(row.role);
+        const role = displayValue(row.role);
         const safeFields = Object.keys(row).filter(key => !isSensitiveUserField(key));
         document.getElementById('user-view-title').textContent = displayValue(row.name || row.username);
         document.getElementById('user-view-subtitle').textContent = `User #${displayValue(row.id)} · ${role}`;
@@ -7761,12 +7755,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const select = document.getElementById('users-role-select');
         if (!select) return;
         const currentValue = select.value;
-        const options = Object.entries(roleLabels || {})
-            .sort(([left], [right]) => Number(left) - Number(right))
-            .map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(value)} (${escapeHtml(label)})</option>`)
+        const options = supportedRoles()
+            .map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`)
             .join('');
         select.innerHTML = `<option value="">Role</option>${options}`;
-        if (currentValue && roleLabels[String(currentValue)]) select.value = currentValue;
+        if (currentValue && supportedRoles().includes(Number(currentValue))) select.value = currentValue;
     };
     const validateRateAllowedValues = (object, rowLabel = 'Rate') => {
         Object.keys(RATE_DROPDOWN_FALLBACKS).forEach(column => {
@@ -8339,9 +8332,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!body) return;
         usersRows = rows;
         body.innerHTML = rows.length ? rows.map(row => {
-            const role = roleLabels[String(row.role)] || displayValue(row.role);
+            const role = displayValue(row.role);
             const status = getUserStatus(row);
             const isInactive = status === 'Inactive';
+            const isAdminRole = [1, 2].includes(Number(row.role));
             return `
                 <tr>
                     <td>${escapeHtml(displayValue(row.id))}</td>
@@ -8349,7 +8343,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td><strong>${escapeHtml(displayValue(row.username))}</strong></td>
                     <td>${escapeHtml(displayValue(row.name || row.full_name))}</td>
                     <td>${escapeHtml(displayValue(row.country))}</td>
-                    <td><span class="badge ${String(role).toLowerCase().includes('admin') ? 'transit' : 'open'}">${escapeHtml(role)}</span></td>
+                    <td><span class="badge ${isAdminRole ? 'transit' : 'open'}">${escapeHtml(role)}</span></td>
                     <td><span class="badge ${isInactive ? 'exception' : 'delivered'}">${status}</span></td>
                     <td><button class="po-detail-chip view" type="button" data-user-view-id="${escapeHtml(displayValue(row.id))}" title="View user"><i class="fa-solid fa-eye" aria-hidden="true"></i>View</button></td>
                 </tr>
@@ -8780,8 +8774,6 @@ document.addEventListener('DOMContentLoaded', () => {
         authToken = '';
         authUser = null;
         appInfo = {};
-        roleLabels = {};
-        typeLabels = {};
         clearPortalStorage();
         cargowiseProfileLoaded = false;
         Object.keys(moduleCache).forEach(key => delete moduleCache[key]);

@@ -18,7 +18,7 @@ async def func_api_admin_sync(*, request: Request):
     app_state = request.app.state
     if app_state.client_postgres: await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, mode="flush", table="", obj_list=[], buffer_limit=0, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, func_regex_check=app_state.func_regex_check)
     app_state.cache_postgres_schema = await app_state.func_postgres_schema_read(client_postgres=app_state.client_postgres_read_fallback) if app_state.client_postgres_read_fallback else {}
-    app_state.cache_postgres_external_schema = await app_state.func_postgres_ai_schema_read(client_postgres=app_state.client_postgres_external) if app_state.client_postgres_external else {}
+    app_state.cache_postgres_schema_external_ai = await app_state.func_postgres_schema_read_ai(client_postgres=app_state.client_postgres_external) if app_state.client_postgres_external else {}
     app_state.cache_postgres_table_list = list(app_state.cache_postgres_schema.keys())
     app_state.cache_postgres_column_list = sorted(list(set(col for table in app_state.cache_postgres_schema.values() for col in table.keys())))
     app_state.cache_openapi = app_state.func_openapi_spec_generate(app_routes=request.app.routes, app_state=app_state)
