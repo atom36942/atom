@@ -4,17 +4,19 @@ REPO_URL = "https://github.com/atom36942/atom.git"
 
 files_to_sync = [
     "main.py",
-    "config.py",
     "function.py",
-    "readme.md",
-    ".gitignore",
-    "static/api.html",
+    "config.py",
     "router/index.py",
     "router/auth.py",
     "router/my.py",
     "router/public.py",
     "router/private.py",
-    "router/admin.py"
+    "router/admin.py",
+    "static/api.html",
+    "readme.md",
+    "Dockerfile",
+    ".gitignore",
+
 ]
 
 print(f"Fetching latest changes from {REPO_URL}...\n")
