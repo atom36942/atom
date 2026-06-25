@@ -523,8 +523,9 @@ async def func_api_admin_postgres_query_runner_read_export(*, request: Request):
 @router.post("/admin/postgres-query-generator-ai")
 async def func_api_admin_postgres_query_ai(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_gemini: raise Exception("Gemini client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("db", "str", 0, ["main", "external"], "main"), ("question", "str", 1, None, None)])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("db", "str", 0, ["main", "external"], "main"), ("ai", "str", 0, app_state.config_ai_services, "gemini"), ("question", "str", 1, None, None)])
+    if ob["ai"] == "gemini" and not app_state.client_gemini: raise Exception("Gemini client not initialized")
+    if ob["ai"] == "openai" and not app_state.client_openai: raise Exception("OpenAI client not initialized")
     client_postgres = app_state.client_postgres_read_fallback if ob["db"] == "main" else app_state.client_postgres_external
     cache_key = "cache_postgres_schema_ai" if ob["db"] == "main" else "cache_postgres_schema_external_ai"
     if not client_postgres: raise Exception(f"{ob['db']} postgres client not initialized")
@@ -613,6 +614,16 @@ async def func_api_admin_postgres_query_ai(*, request: Request):
             "warnings": {"type": "ARRAY", "items": {"type": "STRING"}},
         },
     }
+    response_json_schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "sql": {"type": ["string", "null"]},
+            "message": {"type": "string"},
+            "warnings": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["sql", "message", "warnings"],
+    }
     prompt = "\n".join([
         "You generate safe PostgreSQL SELECT SQL for an internal read-only query runner.",
         "",
@@ -635,13 +646,23 @@ async def func_api_admin_postgres_query_ai(*, request: Request):
         "Schema:",
         json.dumps(prompt_schema, separators=(",", ":")),
     ])
-    response = await asyncio.to_thread(
-        app_state.client_gemini.models.generate_content,
-        model="gemini-2.5-flash",
-        contents=prompt,
-        config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=response_schema, temperature=0.1),
-    )
-    data = json.loads(response.text or "{}")
+    if ob["ai"] == "gemini":
+        response = await asyncio.to_thread(
+            app_state.client_gemini.models.generate_content,
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=response_schema, temperature=0.1),
+        )
+        data = json.loads(response.text or "{}")
+    else:
+        response = await asyncio.to_thread(
+            app_state.client_openai.responses.create,
+            model="gpt-4.1-mini",
+            input=prompt,
+            text={"format": {"type": "json_schema", "name": "postgres_query_generator", "schema": response_json_schema, "strict": True}},
+            temperature=0.1,
+        )
+        data = json.loads(response.output_text or "{}")
     if not data.get("sql"):
         return {"status": 1, "message": {"sql": None, "message": func_postgres_query_ai_blocked_message(data.get("message")), "warnings": data.get("warnings") or []}}
     sql = func_postgres_query_ai_validate_sql(sql=data.get("sql"), default_limit=default_limit, max_limit=max_limit, cache_postgres_schema_ai=cache_postgres_schema_ai)

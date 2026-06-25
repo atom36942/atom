@@ -89,6 +89,7 @@ config_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
 config_blob_services = ["s3", "azure"]
 config_email_services = ["ses", "resend", "azure"]
 config_mobile_services = ["sns", "fast2sms"]
+config_ai_services = ["gemini", "openai"]
 
 # Dict
 config_sql = {
@@ -121,14 +122,14 @@ config_dropdown = {
 }
 
 config_api = {
-# INDEX ROUTER
+# index
 "/": {"id": 35, "is_token": 0},
 "/health": {"id": 36, "is_token": 0},
 "/info": {"id": 17, "is_token": 0, "api_cache_sec": ["inmemory", 300]},
 "/openapi.json": {"id": 37, "is_token": 0},
 "/static": {"id": 77, "is_token": 0},
 "/websocket": {"id": 38, "is_token": 0},
-# AUTH ROUTER
+# auth
 "/auth/signup-username-password": {"id": 39, "is_token": 0},
 "/auth/login-username-password": {"id": 40, "is_token": 0},
 "/auth/login-email-password": {"id": 41, "is_token": 0},
@@ -136,7 +137,7 @@ config_api = {
 "/auth/login-email-otp": {"id": 43, "is_token": 0},
 "/auth/login-mobile-otp": {"id": 44, "is_token": 0},
 "/auth/login-google": {"id": 45, "is_token": 0},
-# MY ROUTER
+# my
 "/my/profile": {"id": 46, "is_token": 1},
 "/my/token-refresh": {"id": 47, "is_token": 1},
 "/my/api-usage": {"id": 48, "is_token": 1},
@@ -152,13 +153,13 @@ config_api = {
 "/my/object-create-mongodb": {"id": 58, "is_token": 1},
 "/my/object-blob-delete": {"id": 59, "is_token": 1},
 "/my/blob-url-delete": {"id": 60, "is_token": 1},
-# PRIVATE ROUTER
+# private
 "/private/send-email": {"id": 61, "is_token": 1},
 "/private/blob-upload-file": {"id": 62, "is_token": 1},
 "/private/blob-upload-url": {"id": 63, "is_token": 1},
 "/private/blob-container-sas": {"id": 64, "is_token": 1},
 "/private/blob-preview-urls": {"id": 65, "is_token": 1},
-# PUBLIC ROUTER
+# public
 "/public/object-create": {"id": 66, "is_token": 0},
 "/public/object-read": {"id": 14, "is_token": 0, "api_cache_sec": ["inmemory", 100]},
 "/public/converter-number": {"id": 67, "is_token": 0},
@@ -168,7 +169,7 @@ config_api = {
 "/public/otp-send-mobile-sns-template": {"id": 71, "is_token": 0},
 "/public/jira-worklog-export": {"id": 19, "is_token": 0, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
 "/public/table-groupby": {"id": 18, "is_token": 0, "api_cache_sec": ["inmemory", 10]},
-# ADMIN ROUTER
+# admin
 "/admin/sync": {"id": 1, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/object-create": {"id": 2, "is_token": 1, "user_check_role": ["token", [1]]},
 "/admin/object-update": {"id": 3, "is_token": 1, "user_check_role": ["token", [1]]},
@@ -188,8 +189,8 @@ config_api = {
 "/admin/postgres-query-generator-ai": {"id": 90, "is_token": 1, "user_check_role": ["token", [1, 2]]},
 "/admin/mssql-query-runner-write": {"id": 21, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/mssql-query-runner-read": {"id": 23, "is_token": 1, "user_check_role": ["token", [1,2]]},
-"/admin/mssql-query-runner-read-export": {"id": 89, "is_token": 1, "user_check_role": ["realtime", [1]]},
-# CARGOWISE ROUTER
+"/admin/mssql-query-runner-read-export": {"id": 89, "is_token": 1, "user_check_role": ["realtime", [1,2]]},
+# cargowise
 "/cargowise/buyer-360": {"id": 32, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["redis", 600]},
 "/cargowise/my-profile": {"id": 24, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 600, 1]},
 "/cargowise/my-purchase-orders": {"id": 25, "is_token": 1, "user_check_role": ["token", [3]], "api_cache_sec": ["redis", 300, 1]},

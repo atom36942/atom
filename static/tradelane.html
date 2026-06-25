@@ -3427,7 +3427,7 @@ async function generateAiSql() {
         const payload = await api(POSTGRES_QUERY_AI_PATH, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
-            body: JSON.stringify({ db: 'external', question })
+            body: JSON.stringify({ db: 'external', ai: 'gemini', question })
         });
         const result = payload.message || {};
         if (!result.sql) {

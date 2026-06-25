@@ -11,13 +11,16 @@ from datetime import datetime, timedelta, timezone
 import aiohttp
 import asyncpg
 import boto3
+import openai
 from azure.storage.blob import BlobSasPermissions, generate_blob_sas
 from google import genai
 from google.genai import types
 
 # config
 from config import config_postgres_url
+from config import config_openai_key
 from config import config_gemini_key
+from config import config_ai_services
 from config import config_azure_account_name
 from config import config_azure_account_key
 from config import config_aws_access_key_id
@@ -25,16 +28,24 @@ from config import config_aws_secret_access_key
 
 # logic
 async def execute():
+    AI_SERVICE = "gemini"
     TABLE_NAME = "jobseeker"
     BASE_COLUMNS = {"id", "created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id", "deactivated_at", "deactivated_by_id", "verified_at", "verified_by_id", "resume_url", "resume_content", "status", "worker_status", "worker_last_error", "metadata", "worker_retry_count", "worker_next_retry_at", "worker_processed_at", "rating", "remark"}
     BATCH_LIMIT = 100
     worker_retry_delay_sec = [60, 300, 3600, 86400]
     CONCURRENCY_LIMIT = 20
-    if not config_gemini_key:
+    if AI_SERVICE not in config_ai_services:
+        print(f"Error: AI_SERVICE must be one of {config_ai_services}.")
+        return
+    client_openai = openai.OpenAI(api_key=config_openai_key) if config_openai_key else None
+    client_gemini = genai.Client(api_key=config_gemini_key) if config_gemini_key else None
+    if AI_SERVICE == "gemini" and not client_gemini:
         print("Error: config_gemini_key is not set. Worker requires Gemini.")
         return
-    print(f"Starting Dynamic Resume Parser Worker Script... batch_limit={BATCH_LIMIT} concurrency_limit={CONCURRENCY_LIMIT}")
-    client_gemini = genai.Client(api_key=config_gemini_key)
+    if AI_SERVICE == "openai" and not client_openai:
+        print("Error: config_openai_key is not set. Worker requires OpenAI.")
+        return
+    print(f"Starting Dynamic Resume Parser Worker Script... ai={AI_SERVICE} batch_limit={BATCH_LIMIT} concurrency_limit={CONCURRENCY_LIMIT}")
     pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=20, server_settings={"application_name": "atom-daemon-resume-parser"})
     async with pool.acquire() as conn:
         records = await conn.fetch(f"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1", TABLE_NAME)
