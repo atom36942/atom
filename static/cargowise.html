@@ -162,6 +162,21 @@
             letter-spacing: -0.025em;
         }
 
+        .card-table {
+            display: inline-flex;
+            max-width: 100%;
+            margin-bottom: 7px;
+            border-radius: 999px;
+            padding: 5px 8px;
+            background: #f8fafc;
+            border: 1px solid #e4e9f2;
+            color: #475467;
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
         .journey-card p {
             margin: 0;
             color: var(--muted);
@@ -205,6 +220,38 @@
             color: #475467;
             font-size: 16px;
             line-height: 1.55;
+        }
+
+        .hero-table-strip {
+            display: grid;
+            grid-template-columns: minmax(180px, 0.75fr) 1fr;
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .hero-table-box {
+            border: 1px solid #d8e0ee;
+            background: rgba(255, 255, 255, 0.82);
+            border-radius: 18px;
+            padding: 13px 14px;
+        }
+
+        .hero-table-box strong {
+            display: block;
+            margin-bottom: 6px;
+            color: #667085;
+            font-size: 11px;
+            font-weight: 950;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .hero-table-box span {
+            display: block;
+            color: #182230;
+            font-size: 14px;
+            font-weight: 800;
+            line-height: 1.4;
         }
 
         .detail-body {
@@ -312,6 +359,10 @@
             .info-grid {
                 grid-template-columns: 1fr;
             }
+
+            .hero-table-strip {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -332,35 +383,35 @@
                 <div class="card-list" id="card-list">
                     <button class="journey-card customer active" type="button" data-node="customer">
                         <span class="icon">1</span>
-                        <span><h3>Customer / Buyer</h3><p>Who owns, buys, ships, receives, or controls the shipment.</p></span>
+                        <div><span class="card-table">OrgHeader</span><h3>Customer / Buyer</h3><p>Who owns, buys, ships, receives, or controls the shipment.</p></div>
                     </button>
                     <button class="journey-card order" type="button" data-node="po">
                         <span class="icon">2</span>
-                        <span><h3>Purchase Order</h3><p>What the buyer ordered, supplier details, quantity, value and status.</p></span>
+                        <div><span class="card-table">JobOrderHeader</span><h3>Purchase Order</h3><p>What the buyer ordered, supplier details, quantity, value and status.</p></div>
                     </button>
                     <button class="journey-card order" type="button" data-node="booking">
                         <span class="icon">3</span>
-                        <span><h3>Supplier Booking</h3><p>PO lines move into booking lines before shipment planning.</p></span>
+                        <div><span class="card-table">JobSupplierBooking</span><h3>Supplier Booking</h3><p>PO lines move into booking lines before shipment planning.</p></div>
                     </button>
                     <button class="journey-card shipment" type="button" data-node="shipment">
                         <span class="icon">4</span>
-                        <span><h3>Shipment / Segment</h3><p>Main buyer-visible movement record: mode, route, ETA, status.</p></span>
+                        <div><span class="card-table">JobShipment</span><h3>Shipment / Segment</h3><p>Main buyer-visible movement record: mode, route, ETA, status.</p></div>
                     </button>
                     <button class="journey-card shipment" type="button" data-node="container">
                         <span class="icon">5</span>
-                        <span><h3>Container / ULD</h3><p>Physical cargo unit: container number, seal, status, weight.</p></span>
+                        <div><span class="card-table">JobContainer</span><h3>Container / ULD</h3><p>Physical cargo unit: container number, seal, status, weight.</p></div>
                     </button>
                     <button class="journey-card output" type="button" data-node="consol">
                         <span class="icon">6</span>
-                        <span><h3>Consol</h3><p>Master movement grouping for many shipments under vessel/flight.</p></span>
+                        <div><span class="card-table">JobConsol</span><h3>Consol</h3><p>Master movement grouping for many shipments under vessel/flight.</p></div>
                     </button>
                     <button class="journey-card output" type="button" data-node="tracking">
                         <span class="icon">7</span>
-                        <span><h3>Tracking</h3><p>Operational milestones: ETA, ETD, actual and estimated events.</p></span>
+                        <div><span class="card-table">StmLog / StmEvent</span><h3>Tracking</h3><p>Operational milestones: ETA, ETD, actual and estimated events.</p></div>
                     </button>
                     <button class="journey-card docs" type="button" data-node="documents">
                         <span class="icon">8</span>
-                        <span><h3>Documents</h3><p>Files attached to shipment, PO, or consol.</p></span>
+                        <div><span class="card-table">JobDocumentData</span><h3>Documents</h3><p>Files attached to shipment, PO, or consol.</p></div>
                     </button>
                 </div>
             </aside>
@@ -369,6 +420,16 @@
                 <div class="detail-hero">
                     <div class="detail-label" id="detail-label">Step 1</div>
                     <h2 id="detail-title">Customer / Buyer</h2>
+                    <div class="hero-table-strip">
+                        <div class="hero-table-box">
+                            <strong>Main table</strong>
+                            <span id="detail-main-table"></span>
+                        </div>
+                        <div class="hero-table-box">
+                            <strong>Use</strong>
+                            <span id="detail-table-use"></span>
+                        </div>
+                    </div>
                     <p id="detail-summary"></p>
                 </div>
                 <div class="detail-body">
@@ -411,6 +472,8 @@
                 label: 'Step 1',
                 title: 'Customer / Buyer',
                 summary: 'The customer record is the starting point. In CargoWise, the same organization master can act as buyer, supplier, consignee, consignor, carrier, agent, or controlling customer.',
+                mainTable: 'OrgHeader',
+                tableUse: 'Stores the organization master: buyer, supplier, consignee, consignor, carrier, agent, or controlling customer.',
                 business: 'Who the shipment belongs to or who participates in the movement.',
                 tables: 'OrgHeader, OrgAddress, cvw_JobShipmentOrgs',
                 fields: ['OH_PK', 'OH_Code', 'OH_FullName', 'OH_IsActive', 'OH_IsValid', 'OH_IsConsignee', 'OH_IsConsignor', 'OH_IsTransportClient', 'OA_PK', 'OA_OH'],
@@ -422,6 +485,8 @@
                 label: 'Step 2',
                 title: 'Purchase Order',
                 summary: 'The PO is the buyer commercial instruction. It tells what was ordered, from which supplier, quantity, value, expected dates and current order status.',
+                mainTable: 'JobOrderHeader',
+                tableUse: 'Stores purchase order header details like order number, buyer, supplier, dates, mode and status.',
                 business: 'What the buyer ordered before it becomes a shipment.',
                 tables: 'JobOrderHeader, JobOrderLine, OrgAddress',
                 fields: ['JD_PK', 'JD_OrderNumber', 'JD_OrderDate', 'JD_OrderStatus', 'JD_TransportMode', 'JD_OA_BuyerAddress', 'JD_OA_SupplierAddress', 'JO_PK', 'JO_Partno', 'JO_Quantity', 'JO_LinePrice'],
@@ -433,6 +498,8 @@
                 label: 'Step 3',
                 title: 'Supplier Booking',
                 summary: 'Supplier booking is the planning layer between ordered goods and shipment movement. It is where PO line quantities get booked and prepared for packing/shipment.',
+                mainTable: 'JobSupplierBooking',
+                tableUse: 'Stores supplier booking header; booking lines connect PO lines into shipment planning.',
                 business: 'How ordered goods move from commercial PO into logistics planning.',
                 tables: 'JobSupplierBooking, JobSupplierBookingLine, JobPackLines',
                 fields: ['JSB_PK', 'JSB_BookingId', 'JSB_Status', 'JSB_TransportMode', 'JSB_RL_NKLoadPort', 'JSB_RL_NKDischargePort', 'JSL_PK', 'JSL_JO_OrderLine', 'JSL_JSB_Booking', 'JL_JSL_BookingLine', 'JL_JS'],
@@ -444,6 +511,8 @@
                 label: 'Step 4',
                 title: 'Shipment / Segment',
                 summary: 'Shipment is the main operational record buyers care about. It carries shipment number, mode, route, ETA/ETD, status, cancellation flag and house bill references.',
+                mainTable: 'JobShipment',
+                tableUse: 'Stores the main shipment or segment movement shown to buyers in MyShipment.',
                 business: 'The actual logistics movement visible to the customer.',
                 tables: 'JobShipment, cvw_JobShipmentOrgs, JobHeader',
                 fields: ['JS_PK', 'JS_UniqueConsignRef', 'JS_HouseBill', 'JS_TransportMode', 'JS_ShipmentStatus', 'JS_IsCancelled', 'JS_IsValid', 'JS_BookingReference', 'ControllingCustomer_PK', 'ControllingCustomer_Code'],
@@ -455,6 +524,8 @@
                 label: 'Step 5',
                 title: 'Container / ULD',
                 summary: 'Container records describe the physical cargo unit. For ocean it is usually container details; for air the equivalent operational unit can be ULD-style data.',
+                mainTable: 'JobContainer',
+                tableUse: 'Stores container or unit details such as container number, seal, mode, status, count and shipment link.',
                 business: 'The physical unit carrying the cargo.',
                 tables: 'JobContainer',
                 fields: ['JC_PK', 'JC_ContainerNum', 'JC_SealNum', 'JC_ContainerMode', 'JC_ContainerStatus', 'JC_ContainerCount', 'JC_JS', 'JC_JSB_SupplierBooking', 'JC_JS_FCLBookingOnlyLink'],
@@ -466,6 +537,8 @@
                 label: 'Step 6',
                 title: 'Consol',
                 summary: 'Consol means consolidation or master movement. It groups shipments under the same vessel, flight, master bill, or operational movement.',
+                mainTable: 'JobConsol',
+                tableUse: 'Stores the master movement or consolidation record behind one or many shipments.',
                 business: 'The master operational movement behind one or many shipments.',
                 tables: 'JobConsol, JobConShipLink',
                 fields: ['JK_PK', 'JK_ConsolStatus', 'JK_TransportMode', 'JK_ConsolMode', 'JK_MasterBillNum', 'JK_BookingReference', 'JN_JS', 'JN_JK'],
@@ -477,6 +550,8 @@
                 label: 'Step 7',
                 title: 'Tracking',
                 summary: 'Tracking records show shipment milestones: estimated departure, estimated arrival, actual event posting, location updates and operational status changes.',
+                mainTable: 'StmLog / StmEvent',
+                tableUse: 'Stores shipment movement events and event definitions for tracking timeline display.',
                 business: 'Where the shipment is and what happened most recently.',
                 tables: 'StmLog, StmEvent, JobShipment',
                 fields: ['Shipment reference', 'Event code', 'Event time', 'Posted time', 'Location', 'Actual/Estimate flag', 'ETA', 'ETD'],
@@ -488,6 +563,8 @@
                 label: 'Step 8',
                 title: 'Documents',
                 summary: 'Documents can be attached at different levels. A file may belong to a shipment, purchase order, or consol depending on parent table code and parent id.',
+                mainTable: 'JobDocumentData',
+                tableUse: 'Stores document metadata and parent links to shipment, PO, or consol documents.',
                 business: 'Operational files and customer-facing documents.',
                 tables: 'JobDocumentData and eDoc/document records',
                 fields: ['JDD_PK', 'JDD_ParentTableCode', 'JDD_ParentID', 'JDD_Name', 'JDD_Template', 'JDD_SystemCreateTimeUtc'],
@@ -513,6 +590,8 @@
             const item = journeyDetails[name] || journeyDetails.customer;
             document.getElementById('detail-label').textContent = item.label;
             document.getElementById('detail-title').textContent = item.title;
+            document.getElementById('detail-main-table').textContent = item.mainTable;
+            document.getElementById('detail-table-use').textContent = item.tableUse;
             document.getElementById('detail-summary').textContent = item.summary;
             document.getElementById('detail-business').textContent = item.business;
             document.getElementById('detail-tables').textContent = item.tables;
