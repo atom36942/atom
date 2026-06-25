@@ -72,7 +72,7 @@ config_cors_allow_credentials = True
 # Table
 config_table_sensitive = ["spatial_ref_sys", "users", "log_users_delete", "jobseeker"]
 config_table_my_create_disable = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
-config_table_my_delete_all_enable = ["*"]
+config_table_my_delete_all_enable = ["test"]
 config_table_my_delete_all_received_enable = ["message","notification"]
 config_table_public_create_enable = ["test","jobseeker"]
 config_table_public_read_enable = ["*"]
@@ -180,9 +180,12 @@ config_api = {
 "/admin/blob-container-read": {"id": 10, "is_token": 1, "user_check_role": ["inmemory", [1]]},
 "/admin/blob-container-ops": {"id": 12, "is_token": 1, "user_check_role": ["token", [1]]},
 "/admin/blob-url-delete": {"id": 13, "is_token": 1, "user_check_role": ["token", [1]]},
+"/admin/postgres-info": {"id": 84, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["inmemory", 300, 1]},
+"/admin/postgres-schema": {"id": 85, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["inmemory", 300, 1]},
 "/admin/postgres-query-runner-write": {"id": 6, "is_token": 1, "user_check_role": ["realtime", [1]]},
-"/admin/postgres-query-runner-read": {"id": 22, "is_token": 1, "user_check_role": ["realtime", [1]]},
+"/admin/postgres-query-runner-read": {"id": 22, "is_token": 1, "user_check_role": ["token", [1, 2]]},
 "/admin/postgres-query-runner-read-export": {"id": 7, "is_token": 1, "user_check_role": ["inmemory", [1, 2]]},
+"/admin/postgres-query-ai": {"id": 90, "is_token": 1, "user_check_role": ["token", [1, 2]]},
 "/admin/mssql-query-runner-write": {"id": 21, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/mssql-query-runner-read": {"id": 23, "is_token": 1, "user_check_role": ["token", [1,2]]},
 "/admin/mssql-query-runner-read-export": {"id": 89, "is_token": 1, "user_check_role": ["realtime", [1]]},
@@ -210,12 +213,6 @@ config_api = {
 "/quotations/my-read": {"id": 83, "is_token": 1, "user_check_role": ["token", [5]]},
 "/quotations/decision": {"id": 80, "is_token": 1, "user_check_role": ["token", [4]]},
 "/quotations": {"id": 81, "is_token": 1, "user_check_role": ["token", [4]]},
-# POSTGRES ROUTER
-"/postgres/database-info": {"id": 84, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["inmemory", 300, 1]},
-"/postgres/schema": {"id": 85, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["inmemory", 300, 1]},
-"/postgres/query-runner-read": {"id": 86, "is_token": 1, "user_check_role": ["token", [1, 2]]},
-"/postgres/query-runner-read-export": {"id": 87, "is_token": 1, "user_check_role": ["token", [1, 2]]},
-"/postgres/query-ai": {"id": 90, "is_token": 1, "user_check_role": ["token", [1, 2]]},
 }
 
 config_column_int_mapping = {

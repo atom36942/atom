@@ -10,12 +10,13 @@ router = APIRouter()
 @router.get("/my/profile")
 async def func_api_my_profile(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres or not app_state.client_postgres_read_fallback: raise Exception("postgres client not initialized")
+    if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
     user_id = request.state.user["id"]
     user = await app_state.func_user_read_single(client_postgres=app_state.client_postgres_read_fallback, user_id=user_id)
     metadata = {k: [dict(r) for r in await app_state.client_postgres_read_fallback.fetch(v, user_id)] for k, v in app_state.config_sql.get("profile_metadata", {}).items()}
     user["metadata"] = metadata
-    asyncio.create_task(app_state.client_postgres.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id))
+    if app_state.client_postgres:
+        asyncio.create_task(app_state.client_postgres.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id))
     return {"status": 1, "message": user}
 
 @router.post("/my/token-refresh")

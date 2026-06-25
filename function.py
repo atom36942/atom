@@ -1076,89 +1076,152 @@ async def func_regex_check(*, config_regex: dict, obj_list: list) -> None:
                     raise Exception(error_msg)
     return None
 
-async def func_postgres_schema_read(*, client_postgres: any) -> dict:
-    """Read full PostgreSQL schema (including tables, views, materialized views, and per-column index info) from public namespace."""
+async def func_postgres_schema_read(*, client_postgres: any, mode: str = "table") -> dict:
+    """Read PostgreSQL schema with relation and per-column index info."""
     sql = """
-        SELECT
-            c.relname AS table_name,
-            a.attname AS column_name,
-            format_type(a.atttypid, a.atttypmod) AS data_type,
-            CASE WHEN a.attnotnull THEN 'NO' ELSE 'YES' END AS is_nullable,
-            pg_get_expr(d.adbin, d.adrelid) AS column_default,
-            idx.is_primary AS is_primary,
-            idx.is_unique AS is_unique,
-            idx.is_index AS is_index,
-            idx.index_names AS index_names,
-            idx.btree_cnt,
-            idx.gin_cnt,
-            idx.gist_cnt,
-            idx.brin_cnt,
-            idx.hash_cnt,
-            idx.spgist_cnt,
-            idx.total_index_cnt,
-            idx.usable_index_cnt,
-            idx.total_idx_scans,
-            s.n_distinct::float AS estimated_distinct_values,
-            round((s.null_frac * 100)::numeric, 2)::float AS percentage_null,
-            round((s.correlation)::numeric, 4)::float AS correlation,
-            s.avg_width AS avg_width_bytes
-        FROM pg_class c
-        JOIN pg_attribute a ON c.oid = a.attrelid
-        JOIN pg_namespace n ON c.relnamespace = n.oid
-        LEFT JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
-        LEFT JOIN pg_stats s ON s.schemaname = n.nspname AND s.tablename = c.relname AND s.attname = a.attname
-        LEFT JOIN LATERAL (
+        WITH user_schemas AS (
+            SELECT oid, nspname
+            FROM pg_namespace
+            WHERE nspname NOT IN ('pg_catalog', 'information_schema')
+              AND nspname NOT LIKE 'pg_%'
+              AND nspname = 'public'
+        ),
+        column_base AS (
             SELECT
-                COALESCE(bool_or(ix.indisprimary), false) AS is_primary,
-                COALESCE(bool_or(ix.indisunique), false) AS is_unique,
-                count(*) > 0 AS is_index,
-                COALESCE(array_agg(i.relname ORDER BY i.relname), '{}') AS index_names,
-                COUNT(ix.indexrelid) FILTER (WHERE am.amname='btree') AS btree_cnt,
-                COUNT(ix.indexrelid) FILTER (WHERE am.amname='gin') AS gin_cnt,
-                COUNT(ix.indexrelid) FILTER (WHERE am.amname='gist') AS gist_cnt,
-                COUNT(ix.indexrelid) FILTER (WHERE am.amname='brin') AS brin_cnt,
-                COUNT(ix.indexrelid) FILTER (WHERE am.amname='hash') AS hash_cnt,
-                COUNT(ix.indexrelid) FILTER (WHERE am.amname='spgist') AS spgist_cnt,
-                COUNT(ix.indexrelid) AS total_index_cnt,
-                COUNT(ix.indexrelid) FILTER (WHERE a.attnum = ix.indkey[0]) AS usable_index_cnt,
-                COALESCE(SUM(ui.idx_scan), 0) AS total_idx_scans
-            FROM pg_index ix
-            JOIN pg_class i ON i.oid = ix.indexrelid
-            LEFT JOIN pg_am am ON am.oid=i.relam
-            LEFT JOIN pg_stat_user_indexes ui ON ui.indexrelid = i.oid
-            WHERE ix.indrelid = c.oid AND a.attnum = ANY(ix.indkey)
-        ) idx ON true
-        WHERE n.nspname = 'public'
-          AND c.relkind IN ('r', 'v', 'm')
-          AND a.attnum > 0
-          AND NOT a.attisdropped
-        ORDER BY c.relname, a.attnum;
+                n.nspname AS schema_name,
+                c.relname AS table_name,
+                CASE c.relkind
+                    WHEN 'r' THEN 'table'
+                    WHEN 'p' THEN 'partitioned_table'
+                    WHEN 'v' THEN 'view'
+                    WHEN 'm' THEN 'materialized_view'
+                    WHEN 'f' THEN 'foreign_table'
+                    ELSE c.relkind::text
+                END AS relation_type,
+                c.oid AS relation_oid,
+                a.attnum AS column_number,
+                a.attname AS column_name,
+                format_type(a.atttypid, a.atttypmod) AS data_type,
+                NOT a.attnotnull AS is_nullable,
+                pg_get_expr(d.adbin, d.adrelid) AS column_default
+            FROM pg_attribute a
+            JOIN pg_class c ON c.oid = a.attrelid
+            JOIN user_schemas n ON n.oid = c.relnamespace
+            LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+            WHERE a.attnum > 0
+              AND NOT a.attisdropped
+              AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+        ),
+        constraints_by_column AS (
+            SELECT
+                con.conrelid AS relation_oid,
+                attnum AS column_number,
+                BOOL_OR(con.contype = 'p') AS is_primary,
+                BOOL_OR(con.contype = 'u') AS is_unique_constraint
+            FROM pg_constraint con
+            CROSS JOIN LATERAL UNNEST(con.conkey) AS attnum
+            WHERE con.contype IN ('p', 'u')
+            GROUP BY con.conrelid, attnum
+        ),
+        index_columns AS (
+            SELECT
+                i.indrelid AS relation_oid,
+                key_att.attnum AS column_number,
+                am.amname AS index_method,
+                idx.relname AS index_name,
+                i.indisunique AS is_unique_index
+            FROM pg_index i
+            JOIN pg_class idx ON idx.oid = i.indexrelid
+            JOIN pg_am am ON am.oid = idx.relam
+            CROSS JOIN LATERAL UNNEST(i.indkey) AS key_att(attnum)
+            WHERE key_att.attnum > 0
+        ),
+        indexes_by_column AS (
+            SELECT
+                relation_oid,
+                column_number,
+                BOOL_OR(is_unique_index) AS is_unique_index,
+                COUNT(*)::int AS index_count,
+                ARRAY_REMOVE(ARRAY_AGG(index_name ORDER BY index_name) FILTER (WHERE index_method = 'btree'), NULL) AS btree_indexes,
+                ARRAY_REMOVE(ARRAY_AGG(index_name ORDER BY index_name) FILTER (WHERE index_method = 'gin'), NULL) AS gin_indexes,
+                ARRAY_REMOVE(ARRAY_AGG(index_name ORDER BY index_name) FILTER (WHERE index_method = 'gist'), NULL) AS gist_indexes,
+                ARRAY_REMOVE(ARRAY_AGG(index_name ORDER BY index_name) FILTER (WHERE index_method = 'brin'), NULL) AS brin_indexes,
+                ARRAY_REMOVE(ARRAY_AGG(index_name ORDER BY index_name) FILTER (WHERE index_method = 'hash'), NULL) AS hash_indexes,
+                ARRAY_REMOVE(ARRAY_AGG(index_name || ' (' || index_method || ')' ORDER BY index_name) FILTER (WHERE index_method NOT IN ('btree', 'gin', 'gist', 'brin', 'hash')), NULL) AS other_indexes
+            FROM index_columns
+            GROUP BY relation_oid, column_number
+        )
+        SELECT
+            cb.schema_name,
+            cb.table_name,
+            cb.relation_type,
+            cb.column_number,
+            cb.column_name,
+            cb.data_type,
+            cb.is_nullable,
+            cb.column_default,
+            COALESCE(cbc.is_primary, FALSE) AS is_primary,
+            COALESCE(cbc.is_unique_constraint, FALSE) AS is_unique_constraint,
+            COALESCE(ibc.is_unique_index, FALSE) AS is_unique_index,
+            COALESCE(ibc.index_count, 0) AS index_count,
+            COALESCE(ibc.btree_indexes, ARRAY[]::text[]) AS btree_indexes,
+            COALESCE(ibc.gin_indexes, ARRAY[]::text[]) AS gin_indexes,
+            COALESCE(ibc.gist_indexes, ARRAY[]::text[]) AS gist_indexes,
+            COALESCE(ibc.brin_indexes, ARRAY[]::text[]) AS brin_indexes,
+            COALESCE(ibc.hash_indexes, ARRAY[]::text[]) AS hash_indexes,
+            COALESCE(ibc.other_indexes, ARRAY[]::text[]) AS other_indexes
+        FROM column_base cb
+        LEFT JOIN constraints_by_column cbc
+          ON cbc.relation_oid = cb.relation_oid AND cbc.column_number = cb.column_number
+        LEFT JOIN indexes_by_column ibc
+          ON ibc.relation_oid = cb.relation_oid AND ibc.column_number = cb.column_number
+        ORDER BY cb.schema_name, cb.table_name, cb.column_number;
     """
     async with client_postgres.acquire() as conn:
         records = await conn.fetch(sql)
+    rows = [dict(r) for r in records]
+    for row in rows:
+        for key in ("btree_indexes", "gin_indexes", "gist_indexes", "brin_indexes", "hash_indexes", "other_indexes"):
+            row[key] = list(row.get(key) or [])
+    if mode == "rows": return rows
     schema = {}
-    for r in records:
+    for r in rows:
+        index_names = []
+        for key in ("btree_indexes", "gin_indexes", "gist_indexes", "brin_indexes", "hash_indexes", "other_indexes"):
+            index_names.extend(r[key])
         schema.setdefault(r["table_name"], {})[r["column_name"]] = {
+            "schema_name": r["schema_name"],
+            "table_name": r["table_name"],
+            "relation_type": r["relation_type"],
+            "column_number": r["column_number"],
+            "column_name": r["column_name"],
+            "data_type": r["data_type"],
             "datatype": r["data_type"],
-            "is_nullable": r["is_nullable"],
+            "is_nullable": "YES" if r["is_nullable"] else "NO",
+            "column_default": r["column_default"],
             "default": r["column_default"],
             "is_primary": r["is_primary"],
-            "is_unique": r["is_unique"],
-            "is_index": r["is_index"],
-            "index_names": list(r["index_names"] or []),
-            "estimated_distinct_values": r["estimated_distinct_values"],
-            "percentage_null": r["percentage_null"],
-            "correlation": r["correlation"],
-            "avg_width_bytes": r["avg_width_bytes"],
-            "btree_cnt": r["btree_cnt"],
-            "gin_cnt": r["gin_cnt"],
-            "gist_cnt": r["gist_cnt"],
-            "brin_cnt": r["brin_cnt"],
-            "hash_cnt": r["hash_cnt"],
-            "spgist_cnt": r["spgist_cnt"],
-            "total_index_cnt": r["total_index_cnt"],
-            "usable_index_cnt": r["usable_index_cnt"],
-            "total_idx_scans": r["total_idx_scans"]
+            "is_unique_constraint": r["is_unique_constraint"],
+            "is_unique_index": r["is_unique_index"],
+            "is_unique": r["is_unique_constraint"] or r["is_unique_index"],
+            "is_index": r["index_count"] > 0,
+            "index_count": r["index_count"],
+            "index_names": index_names,
+            "btree_indexes": r["btree_indexes"],
+            "gin_indexes": r["gin_indexes"],
+            "gist_indexes": r["gist_indexes"],
+            "brin_indexes": r["brin_indexes"],
+            "hash_indexes": r["hash_indexes"],
+            "other_indexes": r["other_indexes"],
+            "btree_cnt": len(r["btree_indexes"]),
+            "gin_cnt": len(r["gin_indexes"]),
+            "gist_cnt": len(r["gist_indexes"]),
+            "brin_cnt": len(r["brin_indexes"]),
+            "hash_cnt": len(r["hash_indexes"]),
+            "spgist_cnt": 0,
+            "total_index_cnt": r["index_count"],
+            "usable_index_cnt": r["index_count"],
+            "total_idx_scans": None
         }
     return schema
 

@@ -6148,9 +6148,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const STORAGE_KEY_USER = 'user';
     const STORAGE_KEY_INFO = 'info';
     const STORAGE_KEY_INFO_AT = 'info_cached_at';
-    const STORAGE_KEY_PROFILE_AT = 'profile_cached_at';
-    const INFO_CACHE_REFRESH_MS = 5 * 60 * 1000;
-    const PROFILE_CACHE_REFRESH_MS = 5 * 60 * 1000;
+    const STORAGE_KEY_USER_AT = 'user_cached_at';
+    const INFO_CACHE_REFRESH_MS = 60 * 60 * 1000;
+    const USER_CACHE_REFRESH_MS = 60 * 60 * 1000;
     const TOKEN_REFRESH_BUFFER_SEC = 24 * 60 * 60;
     const API_BASE = location.origin && location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
     const LOGIN_PATH = '/auth/login-username-password';
@@ -6244,7 +6244,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (authUser) localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(authUser));
         else {
             localStorage.removeItem(STORAGE_KEY_USER);
-            localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
+            localStorage.removeItem(STORAGE_KEY_USER_AT);
         }
     };
     const writeToken = token => {
@@ -6309,7 +6309,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.removeItem(STORAGE_KEY_USER);
         localStorage.removeItem(STORAGE_KEY_INFO);
         localStorage.removeItem(STORAGE_KEY_INFO_AT);
-        localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
+        localStorage.removeItem(STORAGE_KEY_USER_AT);
     };
     const loadInfo = async ({ force = false } = {}) => {
         if (!force && readCachedInfo() && infoCacheFresh()) return;
@@ -6330,7 +6330,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const clearAuthSession = () => {
         writeToken(null);
         writeUser(null);
-        localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
+        localStorage.removeItem(STORAGE_KEY_USER_AT);
     };
     const accessTokenFresh = () => {
         if (!authToken || typeof authToken !== 'object') return Boolean(accessToken());
@@ -6368,13 +6368,13 @@ document.addEventListener('DOMContentLoaded', () => {
         delete headers.authorization;
         return { ...options, headers };
     };
-    const profileCacheFresh = () => {
-        const cachedAt = Number(localStorage.getItem(STORAGE_KEY_PROFILE_AT) || 0);
-        return Boolean(authToken && authUser) && cachedAt && Date.now() - cachedAt < PROFILE_CACHE_REFRESH_MS;
+    const userCacheFresh = () => {
+        const cachedAt = Number(localStorage.getItem(STORAGE_KEY_USER_AT) || 0);
+        return Boolean(authToken && authUser) && cachedAt && Date.now() - cachedAt < USER_CACHE_REFRESH_MS;
     };
     const loadProfile = async ({ force = false } = {}) => {
         if (!authToken) return;
-        if (!force && authUser && profileCacheFresh()) return;
+        if (!force && authUser && userCacheFresh()) return;
         try {
             const payload = await api(MY_PROFILE_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
             saveProfilePayload(payload);
@@ -8762,7 +8762,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const nextUser = extractUser(payload);
         if (!nextUser) throw new Error('Profile response missing user');
         writeUser(nextUser);
-        localStorage.setItem(STORAGE_KEY_PROFILE_AT, String(Date.now()));
+        localStorage.setItem(STORAGE_KEY_USER_AT, String(Date.now()));
         cargowiseProfileLoaded = false;
         Object.keys(moduleCache).forEach(key => delete moduleCache[key]);
     };

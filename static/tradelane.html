@@ -1706,12 +1706,12 @@ body.logged-out .content-wrapper {
 
         <main class="main-content">
             <header class="top-bar">
-                <div class="postgres-sync-status auth-only" id="postgres-sync-status" role="status" aria-label="Syncing Postgres cache" title="Syncing Postgres cache" hidden>
+                <div class="postgres-sync-status auth-only" id="postgres-sync-status" role="status" aria-label="Syncing database cache" title="Syncing database cache" hidden>
                     <span class="postgres-sync-ring" id="postgres-sync-ring"><i class="fa-solid fa-database" aria-hidden="true"></i></span>
                 </div>
-                <button class="btn btn-secondary postgres-sync-btn auth-only" id="postgres-sync-btn" type="button" title="Sync Postgres data" aria-label="Sync Postgres data">
+                <button class="btn btn-secondary postgres-sync-btn auth-only" id="postgres-sync-btn" type="button" title="Sync database cache" aria-label="Sync database cache">
                     <i class="fa-solid fa-check postgres-sync-check" aria-hidden="true"></i>
-                    <span id="postgres-sync-btn-text">Sync</span>
+                    <span id="postgres-sync-btn-text">Database Sync</span>
                 </button>
                 <div class="user-controls">
                     <button class="btn btn-primary login-btn guest-only" id="header-login-btn">Login</button>
@@ -2187,25 +2187,21 @@ const LOGIN_PATH = '/auth/login-username-password';
 const INFO_PATH = '/info';
 const PROFILE_PATH = '/my/profile';
 const TOKEN_REFRESH_PATH = '/my/token-refresh';
-const POSTGRES_DATABASE_INFO_PATH = '/postgres/database-info';
-const POSTGRES_SCHEMA_PATH = '/postgres/schema';
-const POSTGRES_QUERY_AI_PATH = '/postgres/query-ai';
-const POSTGRES_QUERY_RUNNER_PATH = '/postgres/query-runner-read';
-const POSTGRES_QUERY_RUNNER_CSV_PATH = '/postgres/query-runner-read-export';
+const POSTGRES_DATABASE_INFO_PATH = '/admin/postgres-info?db=external';
+const POSTGRES_SCHEMA_PATH = '/admin/postgres-schema';
+const POSTGRES_QUERY_AI_PATH = '/admin/postgres-query-ai?db=external';
+const POSTGRES_QUERY_RUNNER_PATH = '/admin/postgres-query-runner-read?db=external';
+const POSTGRES_QUERY_RUNNER_CSV_PATH = '/admin/postgres-query-runner-read-export?db=external';
 const API_BASE = location.origin && location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
 const STORAGE_KEY_TOKEN = 'token';
 const STORAGE_KEY_USER = 'user';
 const STORAGE_KEY_INFO = 'info';
 const STORAGE_KEY_INFO_AT = 'info_cached_at';
-const STORAGE_KEY_PROFILE_AT = 'profile_cached_at';
-const STORAGE_KEY_POSTGRES_DATABASE_INFO = 'postgres_database_info';
-const STORAGE_KEY_POSTGRES_DATABASE_INFO_AT = 'postgres_database_info_cached_at';
-const STORAGE_KEY_POSTGRES_SCHEMA = 'postgres_schema';
-const STORAGE_KEY_POSTGRES_SCHEMA_AT = 'postgres_schema_cached_at';
-const STORAGE_KEY_POSTGRES_OBJECT_COUNT = 'postgres_object_count';
-const STORAGE_KEY_POSTGRES_OBJECT_COUNT_AT = 'postgres_object_count_cached_at';
-const INFO_CACHE_REFRESH_MS = 5 * 60 * 1000;
-const PROFILE_CACHE_REFRESH_MS = 5 * 60 * 1000;
+const STORAGE_KEY_USER_AT = 'user_cached_at';
+const STORAGE_KEY_DATABASE = 'database';
+const STORAGE_KEY_DATABASE_AT = 'database_cached_at';
+const INFO_CACHE_REFRESH_MS = 10 * 60 * 1000;
+const USER_CACHE_REFRESH_MS = 10 * 60 * 1000;
 const POSTGRES_CACHE_REFRESH_MS = 60 * 60 * 1000;
 const POSTGRES_SYNC_CONFIRM_THRESHOLD_MS = 10 * 60 * 1000;
 const TOKEN_REFRESH_BUFFER_SEC = 24 * 60 * 60;
@@ -2275,12 +2271,7 @@ function formatCompactRelativeTime(timestamp) {
 }
 
 function latestPostgresCacheTimestamp() {
-    return Math.max(
-        Number(localStorage.getItem(STORAGE_KEY_INFO_AT) || 0),
-        Number(localStorage.getItem(STORAGE_KEY_POSTGRES_DATABASE_INFO_AT) || 0),
-        Number(localStorage.getItem(STORAGE_KEY_POSTGRES_SCHEMA_AT) || 0),
-        Number(localStorage.getItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT_AT) || 0)
-    );
+    return Number(localStorage.getItem(STORAGE_KEY_DATABASE_AT) || 0);
 }
 
 function updatePostgresSyncSummary() {
@@ -2289,21 +2280,20 @@ function updatePostgresSyncSummary() {
     if (!text) return;
     const timestamp = latestPostgresCacheTimestamp();
     if (!timestamp) {
-        text.textContent = 'Sync';
+        text.textContent = 'Database Sync';
         if (syncBtn) syncBtn.classList.remove('has-sync-state');
         if (syncBtn) {
-            syncBtn.title = 'Sync Postgres data';
-            syncBtn.setAttribute('aria-label', 'Sync Postgres data');
+            syncBtn.title = 'Sync database cache';
+            syncBtn.setAttribute('aria-label', 'Sync database cache');
         }
         return;
     }
-    const relative = formatCompactRelativeTime(timestamp);
     const exact = new Date(timestamp).toLocaleString();
-    text.textContent = relative ? `Sync (${relative})` : 'Sync';
+    text.textContent = 'Database Sync';
     if (syncBtn) {
         syncBtn.classList.add('has-sync-state');
-        syncBtn.title = `Sync Postgres data. Last synced ${exact}`;
-        syncBtn.setAttribute('aria-label', `Sync Postgres data. Last synced ${exact}`);
+        syncBtn.title = `Sync database cache. Last synced ${exact}`;
+        syncBtn.setAttribute('aria-label', `Sync database cache. Last synced ${exact}`);
     }
 }
 
@@ -2419,7 +2409,7 @@ function writeUser(user) {
     if (authUser) localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(authUser));
     else {
         localStorage.removeItem(STORAGE_KEY_USER);
-        localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
+        localStorage.removeItem(STORAGE_KEY_USER_AT);
     }
 }
 
@@ -2450,7 +2440,7 @@ function saveProfilePayload(payload) {
     const user = extractUser(payload);
     if (!user) throw new Error('Profile response missing user');
     writeUser(user);
-    localStorage.setItem(STORAGE_KEY_PROFILE_AT, String(Date.now()));
+    localStorage.setItem(STORAGE_KEY_USER_AT, String(Date.now()));
 }
 
 function applyInfoPayload(info) {
@@ -2490,24 +2480,7 @@ function readStorageJson(key) {
     }
 }
 
-function storageCacheFresh(dataKey, cachedAtKey) {
-    const cachedAt = Number(localStorage.getItem(cachedAtKey) || 0);
-    return Boolean(localStorage.getItem(dataKey)) && cachedAt && Date.now() - cachedAt < POSTGRES_CACHE_REFRESH_MS;
-}
-
-function postgresDatabaseInfoCacheFresh() {
-    return Boolean(readCachedPostgresDatabaseInfo()) && storageCacheFresh(STORAGE_KEY_POSTGRES_DATABASE_INFO, STORAGE_KEY_POSTGRES_DATABASE_INFO_AT);
-}
-
-function postgresSchemaCacheFresh() {
-    return Boolean(readCachedPostgresSchema()) && storageCacheFresh(STORAGE_KEY_POSTGRES_SCHEMA, STORAGE_KEY_POSTGRES_SCHEMA_AT);
-}
-
-function postgresObjectCountCacheFresh() {
-    return Boolean(readCachedPostgresObjectCount()) && storageCacheFresh(STORAGE_KEY_POSTGRES_OBJECT_COUNT, STORAGE_KEY_POSTGRES_OBJECT_COUNT_AT);
-}
-
-function setPostgresSyncStatus({ visible = true, progress = 0, text = 'Syncing Postgres cache...' } = {}) {
+function setPostgresSyncStatus({ visible = true, progress = 0, text = 'Syncing database cache...' } = {}) {
     const status = $('postgres-sync-status');
     const ring = $('postgres-sync-ring');
     if (!status || !ring) return;
@@ -2519,57 +2492,97 @@ function setPostgresSyncStatus({ visible = true, progress = 0, text = 'Syncing P
     if (!visible) updatePostgresSyncSummary();
 }
 
+function clearLegacyDatabaseCache() {
+    [
+        'postgres_database_info',
+        'postgres_database_info_cached_at',
+        'postgres_schema',
+        'postgres_schema_cached_at',
+        'postgres_object_count',
+        'postgres_object_count_cached_at'
+    ].forEach(key => localStorage.removeItem(key));
+}
+
+function readCachedDatabase() {
+    const database = readStorageJson(STORAGE_KEY_DATABASE);
+    if (!database) {
+        localStorage.removeItem(STORAGE_KEY_DATABASE_AT);
+        return null;
+    }
+    return database;
+}
+
+function writeCachedDatabase(database) {
+    clearLegacyDatabaseCache();
+    localStorage.setItem(STORAGE_KEY_DATABASE, JSON.stringify(database || {}));
+    localStorage.setItem(STORAGE_KEY_DATABASE_AT, String(Date.now()));
+    updatePostgresSyncSummary();
+}
+
+function writeCachedDatabasePart(key, value) {
+    const database = readCachedDatabase() || {};
+    database[key] = value;
+    writeCachedDatabase(database);
+}
+
+function databaseCacheFresh() {
+    const cachedAt = Number(localStorage.getItem(STORAGE_KEY_DATABASE_AT) || 0);
+    return Boolean(readCachedDatabase()) && cachedAt && Date.now() - cachedAt < POSTGRES_CACHE_REFRESH_MS;
+}
+
 function readCachedPostgresDatabaseInfo() {
-    const info = readStorageJson(STORAGE_KEY_POSTGRES_DATABASE_INFO);
-    if (!info) localStorage.removeItem(STORAGE_KEY_POSTGRES_DATABASE_INFO_AT);
-    return info;
+    return readCachedDatabase()?.info || null;
 }
 
 function writeCachedPostgresDatabaseInfo(info) {
-    localStorage.setItem(STORAGE_KEY_POSTGRES_DATABASE_INFO, JSON.stringify(info || {}));
-    localStorage.setItem(STORAGE_KEY_POSTGRES_DATABASE_INFO_AT, String(Date.now()));
-    updatePostgresSyncSummary();
+    writeCachedDatabasePart('info', info || {});
+}
+
+function postgresDatabaseInfoCacheFresh() {
+    return databaseCacheFresh() && Boolean(readCachedPostgresDatabaseInfo());
 }
 
 function readCachedPostgresSchema() {
-    const schema = readStorageJson(STORAGE_KEY_POSTGRES_SCHEMA);
-    if (!schema || !Array.isArray(schema.columns)) {
-        localStorage.removeItem(STORAGE_KEY_POSTGRES_SCHEMA);
-        localStorage.removeItem(STORAGE_KEY_POSTGRES_SCHEMA_AT);
-        return null;
-    }
-    return schema;
+    return readCachedDatabase()?.schema || null;
 }
 
 function writeCachedPostgresSchema(schema) {
-    localStorage.setItem(STORAGE_KEY_POSTGRES_SCHEMA, JSON.stringify(schema || {}));
-    localStorage.setItem(STORAGE_KEY_POSTGRES_SCHEMA_AT, String(Date.now()));
-    updatePostgresSyncSummary();
+    writeCachedDatabasePart('schema', schema || {});
+}
+
+function postgresSchemaCacheFresh() {
+    return databaseCacheFresh() && Boolean(readCachedPostgresSchema());
 }
 
 function readCachedPostgresObjectCount() {
-    const objectCount = readStorageJson(STORAGE_KEY_POSTGRES_OBJECT_COUNT);
-    if (!objectCount || !Array.isArray(objectCount.rows)) {
-        localStorage.removeItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT);
-        localStorage.removeItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT_AT);
+    const database = readCachedDatabase();
+    if (!database || !Object.prototype.hasOwnProperty.call(database, 'object_count')) return null;
+    if (!Array.isArray(database.object_count)) {
+        delete database.object_count;
+        writeCachedDatabase(database);
         return null;
     }
-    return objectCount;
+    return { rows: database.object_count };
 }
 
 function writeCachedPostgresObjectCount(rows) {
-    localStorage.setItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT, JSON.stringify({ rows: Array.isArray(rows) ? rows : [] }));
-    localStorage.setItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT_AT, String(Date.now()));
-    updatePostgresSyncSummary();
+    writeCachedDatabasePart('object_count', Array.isArray(rows) ? rows : []);
+}
+
+function clearCachedPostgresObjectCount() {
+    const database = readCachedDatabase() || {};
+    database.object_count = [];
+    writeCachedDatabase(database);
+}
+
+function postgresObjectCountCacheFresh() {
+    return databaseCacheFresh() && Boolean(readCachedPostgresObjectCount());
 }
 
 function clearPostgresCache() {
-    localStorage.removeItem(STORAGE_KEY_POSTGRES_DATABASE_INFO);
-    localStorage.removeItem(STORAGE_KEY_POSTGRES_DATABASE_INFO_AT);
-    localStorage.removeItem(STORAGE_KEY_POSTGRES_SCHEMA);
-    localStorage.removeItem(STORAGE_KEY_POSTGRES_SCHEMA_AT);
-    localStorage.removeItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT);
-    localStorage.removeItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT_AT);
+    localStorage.removeItem(STORAGE_KEY_DATABASE);
+    localStorage.removeItem(STORAGE_KEY_DATABASE_AT);
+    clearLegacyDatabaseCache();
     updatePostgresSyncSummary();
 }
 
@@ -2578,7 +2591,7 @@ function clearPortalStorage() {
     localStorage.removeItem(STORAGE_KEY_USER);
     localStorage.removeItem(STORAGE_KEY_INFO);
     localStorage.removeItem(STORAGE_KEY_INFO_AT);
-    localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
+    localStorage.removeItem(STORAGE_KEY_USER_AT);
     clearPostgresCache();
 }
 
@@ -2644,7 +2657,7 @@ function isAuthError(err) {
 function clearAuthSession() {
     writeToken(null);
     writeUser(null);
-    localStorage.removeItem(STORAGE_KEY_PROFILE_AT);
+    localStorage.removeItem(STORAGE_KEY_USER_AT);
 }
 
 function accessTokenFresh() {
@@ -2688,14 +2701,14 @@ async function withAuthOptions(options = {}) {
     return { ...options, headers };
 }
 
-function profileCacheFresh() {
-    const cachedAt = Number(localStorage.getItem(STORAGE_KEY_PROFILE_AT) || 0);
-    return Boolean(authToken && authUser) && cachedAt && Date.now() - cachedAt < PROFILE_CACHE_REFRESH_MS;
+function userCacheFresh() {
+    const cachedAt = Number(localStorage.getItem(STORAGE_KEY_USER_AT) || 0);
+    return Boolean(authToken && authUser) && cachedAt && Date.now() - cachedAt < USER_CACHE_REFRESH_MS;
 }
 
 async function loadProfile({ force = false } = {}) {
     if (!authToken) return;
-    if (!force && authUser && profileCacheFresh()) return;
+    if (!force && authUser && userCacheFresh()) return;
     try {
         const payload = await api(PROFILE_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
         saveProfilePayload(payload);
@@ -3005,9 +3018,46 @@ function rowMatchesSchemaIndexFilter(row, filter) {
     return state === 'yes' ? hasIndex : !hasIndex;
 }
 
+function postgresSchemaRows(schema) {
+    if (Array.isArray(schema?.columns)) return schema.columns;
+    const rows = [];
+    Object.entries(schema || {}).forEach(([tableName, columns]) => {
+        Object.entries(columns || {}).forEach(([columnName, column]) => {
+            const isNullable = column?.is_nullable;
+            rows.push({
+                schema_name: column?.schema_name || 'public',
+                table_name: column?.table_name || tableName,
+                relation_type: column?.relation_type || 'table',
+                column_name: column?.column_name || columnName,
+                data_type: column?.data_type || column?.datatype,
+                is_nullable: typeof isNullable === 'boolean' ? isNullable : String(isNullable).toUpperCase() === 'YES',
+                column_default: Object.prototype.hasOwnProperty.call(column || {}, 'column_default') ? column.column_default : column?.default,
+                is_primary: Boolean(column?.is_primary),
+                is_unique_constraint: Boolean(column?.is_unique_constraint ?? column?.is_unique),
+                is_unique_index: Boolean(column?.is_unique_index ?? column?.is_unique),
+                index_count: Number(column?.index_count ?? column?.total_index_cnt ?? 0),
+                btree_indexes: Array.isArray(column?.btree_indexes) ? column.btree_indexes : [],
+                gin_indexes: Array.isArray(column?.gin_indexes) ? column.gin_indexes : [],
+                gist_indexes: Array.isArray(column?.gist_indexes) ? column.gist_indexes : [],
+                brin_indexes: Array.isArray(column?.brin_indexes) ? column.brin_indexes : [],
+                hash_indexes: Array.isArray(column?.hash_indexes) ? column.hash_indexes : [],
+                other_indexes: Array.isArray(column?.other_indexes) ? column.other_indexes : [],
+                column_number: Number(column?.column_number || 0)
+            });
+        });
+    });
+    return rows.sort((a, b) =>
+        String(a.schema_name || '').localeCompare(String(b.schema_name || ''))
+        || String(a.table_name || '').localeCompare(String(b.table_name || ''))
+        || Number(a.column_number || 0) - Number(b.column_number || 0)
+        || String(a.column_name || '').localeCompare(String(b.column_name || ''))
+    );
+}
+
 function queryBuilderSchemaRows() {
     const cached = readCachedPostgresSchema();
-    return Array.isArray(cached?.columns) ? cached.columns : pgscopeSchemaRows;
+    const rows = postgresSchemaRows(cached);
+    return rows.length ? rows : pgscopeSchemaRows;
 }
 
 function queryBuilderIndexedRows() {
@@ -3430,65 +3480,15 @@ function currentSchemaRows() {
 }
 
 function renderSchema(payload = {}) {
-    pgscopeSchemaRows = Array.isArray(payload.columns) ? payload.columns.filter(row => row.relation_type === 'table') : [];
+    pgscopeSchemaRows = postgresSchemaRows(payload).filter(row => row.relation_type === 'table');
     renderSchemaTable();
     renderQueryBuilder();
 }
 
-function summarizeSchemaColumns(columns = []) {
-    const relationKeys = new Set();
-    const tableKeys = new Set();
-    const viewKeys = new Set();
-    const materializedViewKeys = new Set();
-    const indexNames = new Set();
-    columns.forEach(row => {
-        const key = `${row.schema_name || 'public'}.${row.table_name || ''}`;
-        if (row.table_name) relationKeys.add(key);
-        if (['table', 'partitioned_table', 'foreign_table'].includes(row.relation_type)) tableKeys.add(key);
-        if (row.relation_type === 'view') viewKeys.add(key);
-        if (row.relation_type === 'materialized_view') materializedViewKeys.add(key);
-        ['btree_indexes', 'gin_indexes', 'gist_indexes', 'brin_indexes', 'hash_indexes', 'other_indexes'].forEach(field => {
-            if (Array.isArray(row[field])) row[field].forEach(name => indexNames.add(`${key}.${name}`));
-        });
-    });
-    return {
-        column_count: columns.length,
-        indexed_column_count: columns.filter(row => Number(row.index_count || 0) > 0).length,
-        index_count: indexNames.size,
-        table_count: tableKeys.size,
-        view_count: viewKeys.size,
-        materialized_view_count: materializedViewKeys.size,
-        relation_count: relationKeys.size
-    };
-}
-
-async function fetchPostgresSchemaAllPages({ onProgress } = {}) {
-    let page = 1;
-    const columns = [];
-    let hasNextPage = true;
-    while (hasNextPage) {
-        const query = new URLSearchParams({ page: String(page) });
-        const payload = await api(`${POSTGRES_SCHEMA_PATH}?${query.toString()}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
-        const message = payload.message || {};
-        const pagination = message.pagination || {};
-        const pageRows = Array.isArray(message.obj_list) ? message.obj_list : Array.isArray(message.columns) ? message.columns : [];
-        columns.push(...pageRows);
-        hasNextPage = Boolean(message.has_next_page || pagination.has_next_page);
-        if (onProgress) onProgress({ page, hasNextPage, columns });
-        page = Number(pagination.page || page) + 1;
-    }
-    return {
-        ...summarizeSchemaColumns(columns),
-        columns,
-        pagination: {
-            page: 1,
-            limit: columns.length,
-            total_count: columns.length,
-            has_prev_page: false,
-            has_next_page: false,
-            returned_count: columns.length
-        }
-    };
+async function fetchPostgresSchema() {
+    const query = new URLSearchParams({ db: 'external' });
+    const payload = await api(`${POSTGRES_SCHEMA_PATH}?${query.toString()}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+    return payload.message || {};
 }
 
 function renderSchemaError(message) {
@@ -3510,7 +3510,7 @@ async function loadSchema({ force = false } = {}) {
     $('schema-result-count').textContent = 'Loading schema...';
     $('pgscope-schema-body').innerHTML = '<tr><td colspan="6"><div class="schema-empty">Loading schema...</div></td></tr>';
     try {
-        const schema = await fetchPostgresSchemaAllPages();
+        const schema = await fetchPostgresSchema();
         writeCachedPostgresSchema(schema);
         renderSchema(schema);
         pgscopeSchemaLoaded = true;
@@ -3524,25 +3524,17 @@ async function loadSchema({ force = false } = {}) {
 async function warmPostgresCache({ force = false } = {}) {
     if (!authToken || !authUser) return;
     if (postgresCacheWarmPromise) return postgresCacheWarmPromise;
-    const shouldSyncInfo = force || !infoCacheFresh();
     const shouldSyncDatabaseInfo = force || !postgresDatabaseInfoCacheFresh();
     const shouldSyncSchema = force || !postgresSchemaCacheFresh();
     const shouldSyncObjectCount = force || (objectCountRelationKnownExists() && !postgresObjectCountCacheFresh());
-    const shouldSync = shouldSyncInfo || shouldSyncDatabaseInfo || shouldSyncSchema || shouldSyncObjectCount;
+    const shouldSync = shouldSyncDatabaseInfo || shouldSyncSchema || shouldSyncObjectCount;
     if (!shouldSync) {
         updatePostgresSyncSummary();
         return;
     }
     postgresCacheWarmPromise = (async () => {
         const errors = [];
-        setPostgresSyncStatus({ visible: true, progress: 5, text: 'Syncing portal cache...' });
-        if (shouldSyncInfo) try {
-            setPostgresSyncStatus({ visible: true, progress: 12, text: 'Syncing portal info...' });
-            await loadInfo({ force: true });
-            setPostgresSyncStatus({ visible: true, progress: 20, text: 'Portal info cached.' });
-        } catch (err) {
-            errors.push(err);
-        }
+        setPostgresSyncStatus({ visible: true, progress: 5, text: 'Syncing database cache...' });
         if (shouldSyncDatabaseInfo) try {
             setPostgresSyncStatus({ visible: true, progress: 25, text: 'Syncing database info...' });
             const info = await fetchPostgresDatabaseInfo();
@@ -3555,13 +3547,7 @@ async function warmPostgresCache({ force = false } = {}) {
         }
         if (shouldSyncSchema) try {
             setPostgresSyncStatus({ visible: true, progress: 50, text: 'Syncing schema...' });
-            const schema = await fetchPostgresSchemaAllPages({
-                onProgress: ({ page }) => setPostgresSyncStatus({
-                    visible: true,
-                    progress: Math.min(75, 50 + (page * 20)),
-                    text: `Syncing schema page ${formatNumber(page)}...`
-                })
-            });
+            const schema = await fetchPostgresSchema();
             writeCachedPostgresSchema(schema);
             pgscopeSchemaLoaded = true;
             renderQueryBuilder();
@@ -3576,8 +3562,7 @@ async function warmPostgresCache({ force = false } = {}) {
             const schema = readCachedPostgresSchema();
             const hasObjectCountRelation = objectCountRelationKnownExists();
             if (schema && !hasObjectCountRelation) {
-                localStorage.removeItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT);
-                localStorage.removeItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT_AT);
+                clearCachedPostgresObjectCount();
                 if ($('object-count').classList.contains('active')) renderObjectCountError('public.mv_object_count was not found in schema cache. Create it, then refresh schema.');
             } else if (hasObjectCountRelation && (force || !postgresObjectCountCacheFresh())) {
                 setPostgresSyncStatus({ visible: true, progress: 80, text: 'Syncing object count...' });
@@ -3590,16 +3575,16 @@ async function warmPostgresCache({ force = false } = {}) {
                 });
                 writeCachedPostgresObjectCount(rows);
                 if ($('object-count').classList.contains('active')) renderObjectCountRows(rows);
-                setPostgresSyncStatus({ visible: true, progress: 100, text: 'Postgres cache synced.' });
+                setPostgresSyncStatus({ visible: true, progress: 100, text: 'Database cache synced.' });
             }
         } catch (err) {
             errors.push(err);
         }
         if (errors.length) {
-            setPostgresSyncStatus({ visible: true, progress: 100, text: 'Postgres sync incomplete.' });
+            setPostgresSyncStatus({ visible: true, progress: 100, text: 'Database sync incomplete.' });
             console.warn(...errors);
         } else {
-            setPostgresSyncStatus({ visible: true, progress: 100, text: 'Postgres cache synced.' });
+            setPostgresSyncStatus({ visible: true, progress: 100, text: 'Database cache synced.' });
         }
         setTimeout(() => setPostgresSyncStatus({ visible: false }), 1800);
     })().finally(() => {
@@ -3616,7 +3601,7 @@ async function syncPostgresCache({ force = true } = {}) {
     try {
         await warmPostgresCache({ force });
     } catch (err) {
-        setPostgresSyncStatus({ visible: true, progress: 100, text: 'Postgres sync failed.' });
+        setPostgresSyncStatus({ visible: true, progress: 100, text: 'Database sync failed.' });
         console.warn(err);
         setTimeout(() => setPostgresSyncStatus({ visible: false }), 1800);
     } finally {
@@ -3847,8 +3832,9 @@ function objectCountRelationExists() {
 
 function objectCountRelationKnownExists() {
     const schema = readCachedPostgresSchema();
-    if (!schema || !Array.isArray(schema.columns)) return false;
-    return schema.columns.some(row =>
+    const rows = postgresSchemaRows(schema);
+    if (!rows.length) return false;
+    return rows.some(row =>
         (row.schema_name || 'public') === 'public'
         && row.table_name === 'mv_object_count'
         && ['materialized_view', 'view', 'table'].includes(row.relation_type)
@@ -3882,8 +3868,7 @@ async function fetchObjectCountAllPages({ onProgress } = {}) {
 async function loadObjectCount({ force = false } = {}) {
     if (!authToken || !authUser) return;
     if (!objectCountRelationExists()) {
-        localStorage.removeItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT);
-        localStorage.removeItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT_AT);
+        clearCachedPostgresObjectCount();
         renderObjectCountError('public.mv_object_count was not found in schema cache. Create it, then refresh schema.');
         return;
     }
