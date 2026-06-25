@@ -2278,6 +2278,7 @@ function formatCompactRelativeTime(timestamp) {
 
 function latestPostgresCacheTimestamp() {
     return Math.max(
+        Number(localStorage.getItem(STORAGE_KEY_INFO_AT) || 0),
         Number(localStorage.getItem(STORAGE_KEY_POSTGRES_DATABASE_INFO_AT) || 0),
         Number(localStorage.getItem(STORAGE_KEY_POSTGRES_SCHEMA_AT) || 0),
         Number(localStorage.getItem(STORAGE_KEY_POSTGRES_OBJECT_COUNT_AT) || 0)
@@ -3531,19 +3532,27 @@ async function loadSchema({ force = false } = {}) {
 async function warmPostgresCache({ force = false } = {}) {
     if (!authToken || !authUser) return;
     if (postgresCacheWarmPromise) return postgresCacheWarmPromise;
+    const shouldSyncInfo = force || !infoCacheFresh();
     const shouldSyncDatabaseInfo = force || !postgresDatabaseInfoCacheFresh();
     const shouldSyncSchema = force || !postgresSchemaCacheFresh();
     const shouldSyncObjectCount = force || (objectCountRelationKnownExists() && !postgresObjectCountCacheFresh());
-    const shouldSync = shouldSyncDatabaseInfo || shouldSyncSchema || shouldSyncObjectCount;
+    const shouldSync = shouldSyncInfo || shouldSyncDatabaseInfo || shouldSyncSchema || shouldSyncObjectCount;
     if (!shouldSync) {
         updatePostgresSyncSummary();
         return;
     }
     postgresCacheWarmPromise = (async () => {
         const errors = [];
-        setPostgresSyncStatus({ visible: true, progress: 5, text: 'Syncing Postgres cache...' });
+        setPostgresSyncStatus({ visible: true, progress: 5, text: 'Syncing portal cache...' });
+        if (shouldSyncInfo) try {
+            setPostgresSyncStatus({ visible: true, progress: 12, text: 'Syncing portal info...' });
+            await loadInfo({ force: true });
+            setPostgresSyncStatus({ visible: true, progress: 20, text: 'Portal info cached.' });
+        } catch (err) {
+            errors.push(err);
+        }
         if (shouldSyncDatabaseInfo) try {
-            setPostgresSyncStatus({ visible: true, progress: 20, text: 'Syncing database info...' });
+            setPostgresSyncStatus({ visible: true, progress: 25, text: 'Syncing database info...' });
             const info = await fetchPostgresDatabaseInfo();
             writeCachedPostgresDatabaseInfo(info);
             pgscopeDatabaseInfoLoaded = true;
