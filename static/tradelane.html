@@ -2189,9 +2189,9 @@ const PROFILE_PATH = '/my/profile';
 const TOKEN_REFRESH_PATH = '/my/token-refresh';
 const POSTGRES_DATABASE_INFO_PATH = '/admin/postgres-info?db=external';
 const POSTGRES_SCHEMA_PATH = '/admin/postgres-schema';
-const POSTGRES_QUERY_AI_PATH = '/admin/postgres-query-generator-ai?db=external';
-const POSTGRES_QUERY_RUNNER_PATH = '/admin/postgres-query-runner-read?db=external';
-const POSTGRES_QUERY_RUNNER_CSV_PATH = '/admin/postgres-query-runner-read-export?db=external';
+const POSTGRES_QUERY_AI_PATH = '/admin/postgres-query-generator-ai';
+const POSTGRES_QUERY_RUNNER_PATH = '/admin/postgres-query-runner-read';
+const POSTGRES_QUERY_RUNNER_CSV_PATH = '/admin/postgres-query-runner-read-export';
 const API_BASE = location.origin && location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
 const STORAGE_KEY_TOKEN = 'token';
 const STORAGE_KEY_USER = 'user';
@@ -3427,7 +3427,7 @@ async function generateAiSql() {
         const payload = await api(POSTGRES_QUERY_AI_PATH, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
-            body: JSON.stringify({ question })
+            body: JSON.stringify({ db: 'external', question })
         });
         const result = payload.message || {};
         if (!result.sql) {
@@ -3845,7 +3845,7 @@ async function fetchObjectCountPage(page = 1) {
     const payload = await api(POSTGRES_QUERY_RUNNER_PATH, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
-        body: JSON.stringify({ sql: objectCountSql(page) })
+        body: JSON.stringify({ db: 'external', sql: objectCountSql(page) })
     });
     const result = payload.message || {};
     return Array.isArray(result) ? result : Array.isArray(result.rows) ? result.rows : [];
@@ -3907,7 +3907,7 @@ async function runQuery(event) {
         const payload = await api(POSTGRES_QUERY_RUNNER_PATH, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
-            body: JSON.stringify({ sql }),
+            body: JSON.stringify({ db: 'external', sql }),
             signal: queryRunnerAbortController.signal
         });
         queryLastSql = sql;
@@ -4013,7 +4013,7 @@ async function downloadQueryExport(event) {
         const response = await fetch(API_BASE + POSTGRES_QUERY_RUNNER_CSV_PATH, await withAuthOptions({
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
-            body: JSON.stringify({ sql }),
+            body: JSON.stringify({ db: 'external', sql }),
             signal: queryRunnerAbortController.signal
         }));
         if (!response.ok) {
@@ -4097,7 +4097,7 @@ async function downloadObjectCountObject(event) {
         const response = await fetch(API_BASE + POSTGRES_QUERY_RUNNER_CSV_PATH, await withAuthOptions({
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
-            body: JSON.stringify({ sql }),
+            body: JSON.stringify({ db: 'external', sql }),
             signal: objectCountExportAbortController.signal
         }));
         if (!response.ok) {

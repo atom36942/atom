@@ -477,14 +477,13 @@ async def func_api_admin_postgres_query_runner_write(*, request: Request):
 @router.post("/admin/postgres-query-runner-read")
 async def func_api_admin_postgres_query_runner_read(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("db", "str", 0, ["main", "external"], "main")])
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("db", "str", 0, ["main", "external"], "main"), ("sql", "str", 1, None, None)])
     sql = str(ob["sql"] or "").strip().rstrip(";").strip()
     if not sql: raise Exception("SQL is required")
     if ";" in sql: raise Exception("Only one SQL statement is allowed")
     if not sql.lower().lstrip("(").strip().startswith(("select", "with")): raise Exception("Only SELECT/WITH queries are supported")
-    client_postgres = app_state.client_postgres_read_fallback if oq["db"] == "main" else app_state.client_postgres_external
-    if not client_postgres: raise Exception(f"{oq['db']} postgres read client not initialized")
+    client_postgres = app_state.client_postgres_read_fallback if ob["db"] == "main" else app_state.client_postgres_external
+    if not client_postgres: raise Exception(f"{ob['db']} postgres read client not initialized")
     timeout_sec = 30
     async with client_postgres.acquire() as conn:
         async with conn.transaction(readonly=True):
@@ -496,14 +495,13 @@ async def func_api_admin_postgres_query_runner_read(*, request: Request):
 @router.post("/admin/postgres-query-runner-read-export")
 async def func_api_admin_postgres_query_runner_read_export(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("db", "str", 0, ["main", "external"], "main")])
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("db", "str", 0, ["main", "external"], "main"), ("sql", "str", 1, None, None)])
     sql = str(ob["sql"] or "").strip().rstrip(";").strip()
     if not sql: raise Exception("SQL is required")
     if ";" in sql: raise Exception("Only one SQL statement is allowed")
     if not sql.lower().lstrip("(").strip().startswith(("select", "with")): raise Exception("Only SELECT/WITH queries are supported")
-    client_postgres = app_state.client_postgres_read_fallback if oq["db"] == "main" else app_state.client_postgres_external
-    if not client_postgres: raise Exception(f"{oq['db']} postgres read client not initialized")
+    client_postgres = app_state.client_postgres_read_fallback if ob["db"] == "main" else app_state.client_postgres_external
+    if not client_postgres: raise Exception(f"{ob['db']} postgres read client not initialized")
     timeout_sec = 30
     async def _iter():
         async with client_postgres.acquire() as conn:
@@ -526,11 +524,10 @@ async def func_api_admin_postgres_query_runner_read_export(*, request: Request):
 async def func_api_admin_postgres_query_ai(*, request: Request):
     app_state = request.app.state
     if not app_state.client_gemini: raise Exception("Gemini client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("db", "str", 0, ["main", "external"], "main")])
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("question", "str", 1, None, None)])
-    client_postgres = app_state.client_postgres_read_fallback if oq["db"] == "main" else app_state.client_postgres_external
-    cache_key = "cache_postgres_schema_ai" if oq["db"] == "main" else "cache_postgres_schema_external_ai"
-    if not client_postgres: raise Exception(f"{oq['db']} postgres client not initialized")
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("db", "str", 0, ["main", "external"], "main"), ("question", "str", 1, None, None)])
+    client_postgres = app_state.client_postgres_read_fallback if ob["db"] == "main" else app_state.client_postgres_external
+    cache_key = "cache_postgres_schema_ai" if ob["db"] == "main" else "cache_postgres_schema_external_ai"
+    if not client_postgres: raise Exception(f"{ob['db']} postgres client not initialized")
     question = str(ob["question"] or "").strip()
     default_limit = 10
     max_limit = app_state.config_query_runner_read_limit
