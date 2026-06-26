@@ -4474,31 +4474,25 @@ body.not-allowed .content-wrapper {
                 <h2>MyShipment</h2>
             </div>
             <nav class="nav-menu">
-                <a href="#users" class="nav-item" data-target="users" data-roles="1,2" hidden>
-                    <i class="fa-solid fa-users"></i> Users
-                </a>
-                <a href="#buyer-360" class="nav-item" data-target="buyer-360" data-roles="1,2" hidden>
-                    <i class="fa-solid fa-building-circle-check"></i> Buyer 360
-                </a>
-                <a href="#profile" class="nav-item active" data-target="profile" data-roles="3">
+                <a href="#profile" class="nav-item active" data-target="profile" data-roles="1,2">
                     <i class="fa-solid fa-user"></i> My Profile
                 </a>
-                <a href="#purchase-orders" class="nav-item" data-target="purchase-orders" data-roles="3">
+                <a href="#purchase-orders" class="nav-item" data-target="purchase-orders" data-roles="1,2">
                     <i class="fa-solid fa-file-invoice"></i> Purchase Orders
                 </a>
-                <a href="#shipments" class="nav-item" data-target="shipments" data-roles="3">
+                <a href="#shipments" class="nav-item" data-target="shipments" data-roles="1,2">
                     <i class="fa-solid fa-ship"></i> Shipments
                 </a>
-                <a href="#tracking" class="nav-item" data-target="tracking" data-roles="3">
+                <a href="#tracking" class="nav-item" data-target="tracking" data-roles="1,2">
                     <i class="fa-solid fa-route"></i> Tracking
                 </a>
-                <a href="#alerts" class="nav-item" data-target="alerts" data-roles="3">
+                <a href="#alerts" class="nav-item" data-target="alerts" data-roles="1,2">
                     <i class="fa-solid fa-triangle-exclamation"></i> Alerts
                 </a>
-                <a href="#analytics" class="nav-item" data-target="analytics" data-roles="3">
+                <a href="#analytics" class="nav-item" data-target="analytics" data-roles="1,2">
                     <i class="fa-solid fa-chart-line"></i> Analytics
                 </a>
-                <a href="#mghask" class="nav-item" data-target="mghask" data-roles="3">
+                <a href="#mghask" class="nav-item" data-target="mghask" data-roles="1,2">
                     <i class="fa-solid fa-robot"></i> MGH ASK
                 </a>
             </nav>
@@ -4560,167 +4554,6 @@ body.not-allowed .content-wrapper {
                         <h2>Access not allowed</h2>
                         <p>This portal is not configured for your account role. Your account currently has <strong>role = <span id="blocked-current-role">-</span></strong>. Please contact your administrator if you believe this is a mistake.</p>
                         <button class="btn btn-primary" id="blocked-logout-btn" type="button">Logout</button>
-                    </div>
-                </section>
-
-                <!-- Admin Users Section -->
-                <section id="users" class="view-section">
-                    <div class="panel po-panel">
-                        <div class="po-toolbar">
-                            <div class="po-heading">
-                                <h2>Users</h2>
-                                <p>View portal users and their assigned roles.</p>
-                            </div>
-                            <div class="po-toolbar-actions">
-                                <button class="btn btn-primary" id="users-export-btn" type="button">
-                                    <i class="fa-solid fa-download" aria-hidden="true"></i> Download CSV
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="panel po-panel users-filter-card">
-                        <form class="users-filter-form" id="users-search-form" role="search" aria-label="Filter users">
-                            <div class="users-filter-title">
-                                <i class="fa-solid fa-filter" aria-hidden="true"></i>
-                                <span>Filters</span>
-                            </div>
-                            <label class="users-filter-field username" aria-label="Username">
-                                <i class="fa-solid fa-user" aria-hidden="true"></i>
-                                <input type="text" id="users-search-input" placeholder="Username">
-                            </label>
-                            <label class="users-filter-field name" aria-label="Name">
-                                <i class="fa-solid fa-id-card" aria-hidden="true"></i>
-                                <input type="text" id="users-name-input" placeholder="Name">
-                            </label>
-                            <label class="users-filter-field country" aria-label="Country">
-                                <i class="fa-solid fa-globe" aria-hidden="true"></i>
-                                <input type="text" id="users-country-input" placeholder="Country">
-                            </label>
-                            <label class="users-filter-field code" aria-label="Code">
-                                <i class="fa-solid fa-barcode" aria-hidden="true"></i>
-                                <input type="text" id="users-code-input" placeholder="Code">
-                            </label>
-                            <label class="users-filter-field role" aria-label="Role">
-                                <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
-                                <select id="users-role-select">
-                                    <option value="">Role</option>
-                                </select>
-                            </label>
-                            <div class="users-filter-actions">
-                                <button class="btn btn-secondary" type="button" id="users-search-clear" aria-label="Clear user filters" title="Clear" disabled><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Clear</button>
-                                <button class="btn btn-filter-submit" type="submit" id="users-search-submit" aria-label="Search users" disabled><i class="fa-solid fa-filter" aria-hidden="true"></i> Submit</button>
-                            </div>
-                        </form>
-                    </div>
-                    <div class="panel po-panel">
-                        <div class="po-summary-bar">
-                            <div class="po-result-count" id="users-result-count">Loading users...</div>
-                            <div class="po-pagination" aria-label="User pages">
-                                <button class="po-page-button" id="users-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
-                                <span id="users-page-display">Page 1</span>
-                                <button class="po-page-button" id="users-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
-                            </div>
-                        </div>
-                        <div class="table-responsive po-table-wrap">
-                            <table class="data-table" id="users-table">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Created At</th>
-                                        <th>Username</th>
-                                        <th>Name</th>
-                                        <th>Country</th>
-                                        <th>Role</th>
-                                        <th>Status</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody><tr><td colspan="8">Loading users...</td></tr></tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Admin Buyer 360 Section -->
-                <section id="buyer-360" class="view-section">
-                    <div class="panel po-panel">
-                        <div class="po-toolbar">
-                            <div class="po-heading">
-                                <h2>Buyer 360</h2>
-                                <p>Enter a CargoWise organization ID to review one buyer's operational activity.</p>
-                            </div>
-                            <div class="po-toolbar-actions">
-                                <form class="po-search" id="buyer-search-form" role="search">
-                                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-                                    <input type="text" id="buyer-search-input" placeholder="CW Org ID" aria-label="CargoWise organization ID">
-                                    <button class="po-search-button" type="button" id="buyer-search-clear" aria-label="Clear buyer search" title="Clear" style="display: none;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-                                    <button class="po-search-button primary" type="submit" id="buyer-search-submit" aria-label="Search buyers" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
-                                </form>
-                            </div>
-                        </div>
-                        <div class="buyer-insights" aria-label="Buyer 360 insights">
-                            <article class="buyer-insight-card buyers">
-                                <div class="buyer-insight-top">
-                                    <div>
-                                        <div class="buyer-insight-label">Buyers Matched</div>
-                                        <div class="buyer-insight-value" id="buyer-kpi-count">-</div>
-                                    </div>
-                                    <div class="buyer-insight-icon"><i class="fa-solid fa-building-user" aria-hidden="true"></i></div>
-                                </div>
-                                <div class="buyer-insight-detail"><i class="fa-solid fa-filter" aria-hidden="true"></i><span>Current search page</span></div>
-                            </article>
-                            <article class="buyer-insight-card orders">
-                                <div class="buyer-insight-top">
-                                    <div>
-                                        <div class="buyer-insight-label">Purchase Orders</div>
-                                        <div class="buyer-insight-value" id="buyer-kpi-pos">-</div>
-                                    </div>
-                                    <div class="buyer-insight-icon"><i class="fa-solid fa-file-circle-check" aria-hidden="true"></i></div>
-                                </div>
-                                <div class="buyer-insight-detail"><i class="fa-solid fa-cart-flatbed" aria-hidden="true"></i><span>Orders linked to results</span></div>
-                            </article>
-                            <article class="buyer-insight-card shipments">
-                                <div class="buyer-insight-top">
-                                    <div>
-                                        <div class="buyer-insight-label">Shipments</div>
-                                        <div class="buyer-insight-value" id="buyer-kpi-shipments">-</div>
-                                    </div>
-                                    <div class="buyer-insight-icon"><i class="fa-solid fa-ship" aria-hidden="true"></i></div>
-                                </div>
-                                <div class="buyer-insight-detail"><i class="fa-solid fa-route" aria-hidden="true"></i><span>Operational movements</span></div>
-                            </article>
-                            <article class="buyer-insight-card invoices">
-                                <div class="buyer-insight-top">
-                                    <div>
-                                        <div class="buyer-insight-label">Invoices</div>
-                                        <div class="buyer-insight-value" id="buyer-kpi-invoices">-</div>
-                                    </div>
-                                    <div class="buyer-insight-icon"><i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i></div>
-                                </div>
-                                <div class="buyer-insight-detail"><i class="fa-solid fa-chart-line" aria-hidden="true"></i><span>Financial documents</span></div>
-                            </article>
-                        </div>
-                        <div class="po-summary-bar">
-                            <div class="po-result-count" id="buyer-result-count">Enter a CargoWise organization ID.</div>
-                        </div>
-                        <div class="table-responsive po-table-wrap">
-                            <table class="data-table" id="buyer-table">
-                                <thead>
-                                    <tr>
-                                        <th>Buyer</th>
-                                        <th>Location</th>
-                                        <th>POs</th>
-                                        <th>Bookings</th>
-                                        <th>Shipments</th>
-                                        <th>Consols</th>
-                                        <th>Invoices</th>
-                                        <th>Last Activity</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody><tr><td colspan="9">Use the search above to load Buyer 360 data.</td></tr></tbody>
-                            </table>
-                        </div>
                     </div>
                 </section>
 
@@ -5356,24 +5189,6 @@ body.not-allowed .content-wrapper {
         </div>
     </div>
 
-    <!-- Slide-out Panel for User View -->
-    <div class="side-panel-overlay" id="user-view-overlay" onclick="closeUserViewPanel()"></div>
-    <div class="side-panel" id="user-view-panel" role="dialog" aria-modal="true" aria-labelledby="user-view-title" aria-hidden="true">
-        <div class="side-panel-header">
-            <div class="modal-heading">
-                <div class="modal-heading-icon"><i class="fa-solid fa-user" aria-hidden="true"></i></div>
-                <div>
-                    <h2 class="side-panel-title" id="user-view-title">User</h2>
-                    <div class="side-panel-subtitle" id="user-view-subtitle">User #---</div>
-                </div>
-            </div>
-            <button class="side-panel-close" type="button" onclick="closeUserViewPanel()" aria-label="Close user detail" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-        </div>
-        <div class="side-panel-body" id="user-view-body">
-            <div class="container-card-empty"><div><i class="fa-regular fa-folder-open" aria-hidden="true"></i><br>Select a user to view details.</div></div>
-        </div>
-    </div>
-
     <!-- Slide-out Panel for Shipment Purchase Orders -->
     <div class="side-panel-overlay" id="shipment-pos-overlay" onclick="closeShipmentPurchaseOrdersPanel()"></div>
     <div class="side-panel" id="shipment-pos-panel" role="dialog" aria-modal="true" aria-labelledby="shipment-pos-title" aria-hidden="true">
@@ -5698,9 +5513,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const TOKEN_REFRESH_PATH = '/my/token-refresh';
     const TABLE_GROUPBY_PATH = '/public/table-groupby';
     const MYSHIPMENT_PROFILE_PATH = '/myshipment/my-profile';
-    const ADMIN_USERS_PATH = '/admin/object-read';
-    const ADMIN_POSTGRES_EXPORT_PATH = '/admin/postgres-query-runner-read-export';
-    const MYSHIPMENT_BUYER_360_PATH = '/myshipment/buyer-360';
     const MODULE_ENDPOINTS = {
         'purchase-orders': '/myshipment/my-purchase-orders',
         shipments: '/myshipment/my-shipments',
@@ -5730,13 +5542,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let trackingSearchQuery = '';
     let trackingSelectedShipment = null;
     let documentShipmentId = '';
-    let usersCurrentPage = 1;
-    let usersSearchQuery = '';
-    let usersNameQuery = '';
-    let usersCountryQuery = '';
-    let usersCodeQuery = '';
-    let usersRoleQuery = '';
-    let usersRows = [];
     let ratesCurrentPage = 1;
     let ratesRows = [];
     let salesRateRows = [];
@@ -5751,7 +5556,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let ratesCsvMode = 'create';
     let ratesEditMode = 'update';
     let ratesCsvObjects = [];
-    let buyerSearchQuery = '';
     let poSearchTimeout;
     const moduleCache = {};
     // Auth component helpers: token/user storage, /info caching, and shared API wrapper.
@@ -5805,7 +5609,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const applyInfoPayload = payload => {
         appInfo = payload || {};
-        renderUsersRoleFilter();
     };
     const infoCacheFresh = () => {
         const cachedAt = Number(localStorage.getItem(STORAGE_KEY_INFO_AT) || 0);
@@ -5920,9 +5723,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const firstAllowedFeature = role => [...document.querySelectorAll('.nav-item[data-target][data-roles]')].find(item => roleSupported(role) && featureRolesFromItem(item).includes(Number(role)))?.dataset.target || null;
     const loadFeature = target => {
         showSection(target);
-        if (target === 'users') loadUsers();
-        else if (target === 'buyer-360') return;
-        else if (target === 'profile') loadCargowiseProfile();
+        if (target === 'profile') loadCargowiseProfile();
         else if (target === 'containers') {
             containerShipmentId = '';
             loadModule(target);
@@ -6608,57 +6409,6 @@ document.addEventListener('DOMContentLoaded', () => {
         </section>
     `;
 
-    const userInactiveFlag = value => value === false || value === 0 || String(value).toLowerCase() === 'false';
-    const getUserStatus = row => {
-        const inactive = Boolean(row.deactivated_at || row.deleted_at) || userInactiveFlag(row.cw_is_active) || userInactiveFlag(row.cw_is_valid);
-        return inactive ? 'Inactive' : 'Active';
-    };
-    const isSensitiveUserField = key => /password|token|secret|otp/i.test(key);
-
-    const openUserViewPanel = userId => {
-        const row = usersRows.find(item => String(item.id) === String(userId));
-        if (!row) return;
-        const role = displayValue(row.role);
-        const safeFields = Object.keys(row).filter(key => !isSensitiveUserField(key));
-        document.getElementById('user-view-title').textContent = displayValue(row.name || row.username);
-        document.getElementById('user-view-subtitle').textContent = `User #${displayValue(row.id)} · ${role}`;
-        document.getElementById('user-view-body').innerHTML = `
-            <div class="detail-view-card">
-                <div class="user-detail-table-card">
-                    <table class="user-detail-table">
-                        <thead>
-                            <tr>
-                                <th>Column</th>
-                                <th>Value</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${safeFields.length ? safeFields.map(key => `
-                                <tr>
-                                    <td class="user-detail-table-column">${escapeHtml(key)}</td>
-                                    <td class="user-detail-table-value">${escapeHtml(displayValue(row[key]))}</td>
-                                </tr>
-                            `).join('') : '<tr><td colspan="2">No details available.</td></tr>'}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="po-lines-footnote"><i class="fa-solid fa-lock" aria-hidden="true"></i><span>Sensitive fields like password, token, OTP, and secrets are hidden from this view.</span></div>
-        `;
-        document.getElementById('user-view-overlay').classList.add('active');
-        const panel = document.getElementById('user-view-panel');
-        panel.classList.add('active');
-        panel.setAttribute('aria-hidden', 'false');
-    };
-
-    const closeUserViewPanel = () => {
-        document.getElementById('user-view-overlay').classList.remove('active');
-        const panel = document.getElementById('user-view-panel');
-        panel.classList.remove('active');
-        panel.setAttribute('aria-hidden', 'true');
-    };
-    window.closeUserViewPanel = closeUserViewPanel;
-
     const openPurchaseOrderViewPanel = row => {
         if (!row) return;
         const status = row.is_cancelled ? 'Cancelled' : displayValue(row.status);
@@ -7173,178 +6923,6 @@ document.addEventListener('DOMContentLoaded', () => {
             </tr>
         `).join('') : '<tr><td colspan="7">No documents found.</td></tr>';
     };
-    const renderUsersRoleFilter = () => {
-        const select = document.getElementById('users-role-select');
-        if (!select) return;
-        const currentValue = select.value;
-        const options = supportedRoles()
-            .map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`)
-            .join('');
-        select.innerHTML = `<option value="">Role</option>${options}`;
-        if (currentValue && supportedRoles().includes(Number(currentValue))) select.value = currentValue;
-    };
-    const renderUsers = rows => {
-        const body = document.querySelector('#users-table tbody');
-        if (!body) return;
-        usersRows = rows;
-        body.innerHTML = rows.length ? rows.map(row => {
-            const role = displayValue(row.role);
-            const status = getUserStatus(row);
-            const isInactive = status === 'Inactive';
-            const isAdminRole = [1, 2].includes(Number(row.role));
-            return `
-                <tr>
-                    <td>${escapeHtml(displayValue(row.id))}</td>
-                    <td>${escapeHtml(formatDateTime(row.created_at))}</td>
-                    <td><strong>${escapeHtml(displayValue(row.username))}</strong></td>
-                    <td>${escapeHtml(displayValue(row.name || row.full_name))}</td>
-                    <td>${escapeHtml(displayValue(row.country))}</td>
-                    <td><span class="badge ${isAdminRole ? 'transit' : 'open'}">${escapeHtml(role)}</span></td>
-                    <td><span class="badge ${isInactive ? 'exception' : 'delivered'}">${status}</span></td>
-                    <td><button class="po-detail-chip view" type="button" data-user-view-id="${escapeHtml(displayValue(row.id))}" title="View user"><i class="fa-solid fa-eye" aria-hidden="true"></i>View</button></td>
-                </tr>
-            `;
-        }).join('') : '<tr><td colspan="8">No users found.</td></tr>';
-    };
-    const usersFilterList = () => {
-        const filters = [];
-        if (usersSearchQuery) filters.push({ username: `ilike,%${usersSearchQuery}%` });
-        if (usersNameQuery) filters.push({ name: `ilike,%${usersNameQuery}%` });
-        if (usersCountryQuery) filters.push({ country: `ilike,%${usersCountryQuery}%` });
-        if (usersCodeQuery) filters.push({ cw_code: `=,${usersCodeQuery}` });
-        if (usersRoleQuery) filters.push({ role: `=,${usersRoleQuery}` });
-        return filters;
-    };
-    const usersFilterHasValue = () => Boolean(usersSearchQuery || usersNameQuery || usersCountryQuery || usersCodeQuery || usersRoleQuery);
-    const updateUsersFilterClear = () => {
-        const clear = document.getElementById('users-search-clear');
-        const submit = document.getElementById('users-search-submit');
-        const hasValue = usersFilterHasValue();
-        if (clear) clear.disabled = !hasValue;
-        if (submit) submit.disabled = !hasValue;
-    };
-    const loadUsers = async () => {
-        if (!authToken || !featureAllowed('users')) return;
-        setTableMessage('users-table', 8, 'Loading users...', true);
-        document.getElementById('users-result-count').textContent = 'Loading users...';
-        try {
-            const query = new URLSearchParams({ table: 'users', limit: '50', page: String(usersCurrentPage) });
-            const filters = usersFilterList();
-            if (filters.length) query.set('filter', JSON.stringify(filters));
-            const payload = await api(`${ADMIN_USERS_PATH}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
-            const message = payload.message || {};
-            const rows = Array.isArray(message.obj_list) ? message.obj_list : [];
-            renderUsers(rows);
-            document.getElementById('users-result-count').innerHTML = `<strong>${rows.length}</strong> user${rows.length === 1 ? '' : 's'} on this page`;
-            document.getElementById('users-page-display').textContent = `Page ${usersCurrentPage}`;
-            document.getElementById('users-prev-btn').disabled = usersCurrentPage <= 1;
-            document.getElementById('users-next-btn').disabled = !message.has_next_page;
-        } catch (err) {
-            usersRows = [];
-            setTableMessage('users-table', 8, err.message || 'Unable to load users');
-            document.getElementById('users-result-count').textContent = 'Users could not be loaded';
-        }
-    };
-    const exportUsers = async () => {
-        if (!authToken || !featureAllowed('users')) return;
-        const input = await showAppPrompt({ title: 'Export Users', message: 'How many users should be exported?', defaultValue: '10000', confirmText: 'Export' });
-        if (input === null) return;
-        const limit = Number(input.trim());
-        if (!Number.isSafeInteger(limit) || limit < 1) {
-            await showAppAlert({ title: 'Invalid Limit', message: 'Enter a positive whole-number limit.', danger: true });
-            return;
-        }
-        const button = document.getElementById('users-export-btn');
-        const originalHtml = button.innerHTML;
-        button.disabled = true;
-        button.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i> Exporting...';
-        try {
-            const response = await fetch(API_BASE + ADMIN_POSTGRES_EXPORT_PATH, await withAuthOptions({
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
-                body: JSON.stringify({ sql: `select * from users limit ${limit};` })
-            }));
-            if (!response.ok) {
-                const error = await response.json().catch(() => ({}));
-                throw new Error(error.message || error.detail || 'Unable to export users');
-            }
-            const blob = await response.blob();
-            const disposition = response.headers.get('Content-Disposition') || '';
-            const filenameMatch = disposition.match(/filename="?([^";]+)"?/i);
-            const filename = filenameMatch ? filenameMatch[1] : 'users_export.csv';
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = filename === 'postgres_export.csv' ? 'users_export.csv' : filename;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            URL.revokeObjectURL(url);
-        } catch (err) {
-            await showAppAlert({ title: 'Export Failed', message: err.message || 'Unable to export users.', danger: true });
-        } finally {
-            button.disabled = false;
-            button.innerHTML = originalHtml;
-        }
-    };
-    const buyerNumber = value => Number(value || 0).toLocaleString();
-    const renderBuyer360 = buyer => {
-        const body = document.querySelector('#buyer-table tbody');
-        if (!body) return;
-        document.getElementById('buyer-kpi-count').textContent = buyer ? '1' : '0';
-        document.getElementById('buyer-kpi-pos').textContent = buyerNumber(buyer?.total_purchase_orders);
-        document.getElementById('buyer-kpi-shipments').textContent = buyerNumber(buyer?.total_shipments);
-        document.getElementById('buyer-kpi-invoices').textContent = buyerNumber(buyer?.total_invoices);
-        if (buyer) {
-            const location = [buyer.city, buyer.state, buyer.country_code].filter(Boolean).join(', ') || '-';
-            const isActive = buyer.is_active === true || Number(buyer.is_active) === 1;
-            const isValid = buyer.is_valid === true || Number(buyer.is_valid) === 1;
-            body.innerHTML = `
-                <tr>
-                    <td>
-                        <strong>${escapeHtml(displayValue(buyer.name))}</strong>
-                        <div class="profile-status">${escapeHtml(displayValue(buyer.org_id))}</div>
-                    </td>
-                    <td>${escapeHtml(location)}<div class="profile-status">${escapeHtml(displayValue(buyer.closest_port))}</div></td>
-                    <td>${escapeHtml(buyerNumber(buyer.total_purchase_orders))}</td>
-                    <td>${escapeHtml(buyerNumber(buyer.total_bookings))}</td>
-                    <td>${escapeHtml(buyerNumber(buyer.total_shipments))}</td>
-                    <td>${escapeHtml(buyerNumber(buyer.total_consols))}</td>
-                    <td>${escapeHtml(buyerNumber(buyer.total_invoices))}</td>
-                    <td>${escapeHtml(formatDateTime(buyer.last_activity_date))}</td>
-                    <td>
-                        <span class="badge ${isActive && isValid ? 'delivered' : 'exception'}">${isActive && isValid ? 'Active' : 'Review'}</span>
-                        <div class="profile-status">${escapeHtml(displayValue(buyer.screening_status))}</div>
-                    </td>
-                </tr>
-            `;
-        } else {
-            body.innerHTML = '<tr><td colspan="9">No buyer found for this organization ID.</td></tr>';
-        }
-    };
-    const resetBuyer360 = () => {
-        buyerSearchQuery = '';
-        document.getElementById('buyer-search-input').value = '';
-        document.getElementById('buyer-search-clear').style.display = 'none';
-        document.getElementById('buyer-result-count').textContent = 'Enter a CargoWise organization ID.';
-        ['count', 'pos', 'shipments', 'invoices'].forEach(key => { document.getElementById(`buyer-kpi-${key}`).textContent = '-'; });
-        setTableMessage('buyer-table', 9, 'Use the search above to load Buyer 360 data.');
-    };
-    const loadBuyer360 = async () => {
-        if (!authToken || !featureAllowed('buyer-360') || !buyerSearchQuery) return;
-        setTableMessage('buyer-table', 9, 'Loading Buyer 360 data...', true);
-        document.getElementById('buyer-result-count').textContent = 'Loading Buyer 360 data...';
-        const query = new URLSearchParams({ org_id: buyerSearchQuery });
-        try {
-            const payload = await api(`${MYSHIPMENT_BUYER_360_PATH}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
-            const buyer = payload.message || null;
-            renderBuyer360(buyer);
-            document.getElementById('buyer-result-count').innerHTML = buyer ? '<strong>Buyer found</strong>' : 'No buyer found for this organization ID.';
-        } catch (err) {
-            setTableMessage('buyer-table', 9, err.message || 'Unable to load Buyer 360 data');
-            document.getElementById('buyer-result-count').textContent = 'Buyer 360 data could not be loaded';
-        }
-    };
     const chartInstances = {};
     const renderChart = (id, config) => {
         const canvas = document.getElementById(id);
@@ -7632,7 +7210,6 @@ document.addEventListener('DOMContentLoaded', () => {
         clearPortalStorage();
         cargowiseProfileLoaded = false;
         Object.keys(moduleCache).forEach(key => delete moduleCache[key]);
-        resetBuyer360();
         closeProfileMenu();
         closeModal('profile-modal');
         closeModal('login-modal');
@@ -7918,83 +7495,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('document-prev-btn')?.addEventListener('click', () => { if (documentCurrentPage > 1) { documentCurrentPage--; loadModule('documents'); } });
     document.getElementById('document-next-btn')?.addEventListener('click', () => { documentCurrentPage++; loadModule('documents'); });
-    document.getElementById('users-prev-btn')?.addEventListener('click', () => { if (usersCurrentPage > 1) { usersCurrentPage--; loadUsers(); } });
-    document.getElementById('users-next-btn')?.addEventListener('click', () => { usersCurrentPage++; loadUsers(); });
-    document.getElementById('users-export-btn')?.addEventListener('click', exportUsers);
-    document.getElementById('users-table')?.addEventListener('click', event => {
-        const button = event.target.closest('[data-user-view-id]');
-        if (!button) return;
-        openUserViewPanel(button.dataset.userViewId);
-    });
-    const usersSearchInput = document.getElementById('users-search-input');
-    const usersNameInput = document.getElementById('users-name-input');
-    const usersCountryInput = document.getElementById('users-country-input');
-    const usersCodeInput = document.getElementById('users-code-input');
-    const usersRoleSelect = document.getElementById('users-role-select');
-    const usersSearchClear = document.getElementById('users-search-clear');
-    document.getElementById('users-search-form')?.addEventListener('submit', event => {
-        event.preventDefault();
-        usersSearchQuery = (usersSearchInput?.value || '').trim();
-        usersNameQuery = (usersNameInput?.value || '').trim();
-        usersCountryQuery = (usersCountryInput?.value || '').trim();
-        usersCodeQuery = (usersCodeInput?.value || '').trim();
-        usersRoleQuery = (usersRoleSelect?.value || '').trim();
-        if (!usersFilterHasValue()) {
-            updateUsersFilterClear();
-            return;
-        }
-        usersCurrentPage = 1;
-        updateUsersFilterClear();
-        loadUsers();
-    });
-    [usersSearchInput, usersNameInput, usersCountryInput, usersCodeInput].forEach(input => {
-        input?.addEventListener('input', () => {
-            usersSearchQuery = (usersSearchInput?.value || '').trim();
-            usersNameQuery = (usersNameInput?.value || '').trim();
-            usersCountryQuery = (usersCountryInput?.value || '').trim();
-            usersCodeQuery = (usersCodeInput?.value || '').trim();
-            usersRoleQuery = (usersRoleSelect?.value || '').trim();
-            updateUsersFilterClear();
-        });
-    });
-    usersRoleSelect?.addEventListener('change', () => {
-        usersRoleQuery = (usersRoleSelect?.value || '').trim();
-        updateUsersFilterClear();
-    });
-    usersSearchClear?.addEventListener('click', () => {
-        if (usersSearchInput) usersSearchInput.value = '';
-        if (usersNameInput) usersNameInput.value = '';
-        if (usersCountryInput) usersCountryInput.value = '';
-        if (usersCodeInput) usersCodeInput.value = '';
-        if (usersRoleSelect) usersRoleSelect.value = '';
-        usersSearchQuery = '';
-        usersNameQuery = '';
-        usersCountryQuery = '';
-        usersCodeQuery = '';
-        usersRoleQuery = '';
-        usersCurrentPage = 1;
-        updateUsersFilterClear();
-        loadUsers();
-    });
-    const buyerSearchInput = document.getElementById('buyer-search-input');
-    const buyerSearchClear = document.getElementById('buyer-search-clear');
-    buyerSearchInput?.addEventListener('input', event => {
-        buyerSearchClear.style.display = event.target.value.trim() ? 'grid' : 'none';
-    });
-    document.getElementById('buyer-search-form')?.addEventListener('submit', event => {
-        event.preventDefault();
-        buyerSearchQuery = buyerSearchInput.value.trim();
-        if (!buyerSearchQuery) { resetBuyer360(); return; }
-        const isOrgId = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(buyerSearchQuery);
-        if (!isOrgId) {
-            setTableMessage('buyer-table', 9, 'Enter a valid CargoWise organization ID.');
-            document.getElementById('buyer-result-count').textContent = 'Invalid organization ID format.';
-            return;
-        }
-        loadBuyer360();
-    });
-    buyerSearchClear?.addEventListener('click', resetBuyer360);
-
 
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
