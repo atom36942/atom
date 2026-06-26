@@ -1,11 +1,14 @@
 # packages
 import argparse
+import ast
 import asyncio
+import os
 import textwrap
 from datetime import datetime, timezone
 import aioodbc
 import asyncpg
 from argon2 import PasswordHasher
+from dotenv import load_dotenv
 
 # function
 from function import func_postgres_create
@@ -15,14 +18,15 @@ from function import func_regex_check
 from function import func_postgres_schema_read
 
 # config
+load_dotenv(".env")
 from config import config_mssql_url_read
 from config import config_postgres_url
 from config import config_regex
 from config import config_table
 from config import config_buffer_limit_default
-config_seed_cargowise_user_type = 1
-config_seed_cargowise_user_role = 3
-config_seed_cargowise_user_password = "123456"
+seed_cargowise_user_type = ast.literal_eval(os.getenv("seed_cargowise_user_type")) if os.getenv("seed_cargowise_user_type") else 1
+seed_cargowise_user_role = ast.literal_eval(os.getenv("seed_cargowise_user_role")) if os.getenv("seed_cargowise_user_role") else 2
+seed_cargowise_user_password = os.getenv("seed_cargowise_user_password") if os.getenv("seed_cargowise_user_password") else "123456"
 
 # logic
 async def execute():
@@ -31,9 +35,9 @@ async def execute():
         parser = argparse.ArgumentParser(description="Seed CargoWise orgs into Postgres users.")
         parser.add_argument("--postgres-url", default=config_postgres_url, help="PostgreSQL DSN. Defaults to config_postgres_url.")
         parser.add_argument("--mssql-url", default=config_mssql_url_read, help="MSSQL ODBC DSN. Defaults to config_mssql_url_read.")
-        parser.add_argument("--password", default=config_seed_cargowise_user_password, help="Default password for newly-created CargoWise users.")
-        parser.add_argument("--user-type", type=int, default=config_seed_cargowise_user_type, help="users.type value for CargoWise users.")
-        parser.add_argument("--role", type=int, default=config_seed_cargowise_user_role, help="users.role value for CargoWise users.")
+        parser.add_argument("--password", default=seed_cargowise_user_password, help="Default password for newly-created CargoWise users.")
+        parser.add_argument("--user-type", type=int, default=seed_cargowise_user_type, help="users.type value for CargoWise users.")
+        parser.add_argument("--role", type=int, default=seed_cargowise_user_role, help="users.role value for CargoWise users.")
         parser.add_argument("--dry-run", action="store_true", help="Print planned changes without writing to Postgres.")
         return parser.parse_args()
     def chunked(items, size):
