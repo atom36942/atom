@@ -5630,11 +5630,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(STORAGE_KEY_INFO_AT, String(Date.now()));
     };
     const clearPortalStorage = () => {
-        localStorage.removeItem(STORAGE_KEY_TOKEN);
-        localStorage.removeItem(STORAGE_KEY_USER);
-        localStorage.removeItem(STORAGE_KEY_INFO);
-        localStorage.removeItem(STORAGE_KEY_INFO_AT);
-        localStorage.removeItem(STORAGE_KEY_USER_AT);
+        localStorage.clear();
     };
     const loadInfo = async ({ force = false } = {}) => {
         if (!force && readCachedInfo() && infoCacheFresh()) return;

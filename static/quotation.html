@@ -3406,11 +3406,57 @@ body {
     gap: 0.55rem;
 }
 
+.rate-csv-menu-wrap {
+    position: relative;
+}
+
+.rate-csv-menu {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    right: 0;
+    width: 150px;
+    display: none;
+    padding: 0.35rem;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--bg-surface);
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.14);
+    z-index: 40;
+}
+
+.rate-csv-menu.open {
+    display: block;
+}
+
+.rate-csv-menu button {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.62rem 0.7rem;
+    border-radius: 7px;
+    color: var(--text-dark);
+    font: inherit;
+    cursor: pointer;
+    text-align: left;
+}
+
+.rate-csv-menu button:hover {
+    background: #F8FAFC;
+}
+
+#rates-csv-menu-btn .fa-chevron-down {
+    margin-left: 0.1rem;
+    font-size: 0.78rem;
+}
+
 .rate-filters {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    flex-wrap: nowrap;
+    gap: 0.65rem;
     padding: 0.75rem 1.25rem;
     border-top: 1px solid var(--border);
     background: #F8FAFC;
@@ -3427,13 +3473,15 @@ body {
 
 .rate-filter-field {
     position: relative;
+    flex: 1 1 150px;
+    min-width: 0;
 }
 
-.rate-filter-field.mode { width: 86px; }
-.rate-filter-field.carrier { width: 118px; }
+.rate-filter-field.mode { flex: 0 0 118px; }
+.rate-filter-field.carrier { flex: 1.1 1 150px; }
 .rate-filter-field.origin,
-.rate-filter-field.destination { width: 124px; }
-.rate-filter-field.status { width: 122px; }
+.rate-filter-field.destination { flex: 1.1 1 150px; }
+.rate-filter-field.status { flex: 0 0 150px; }
 
 .rate-filter-field i {
     position: absolute;
@@ -3460,7 +3508,23 @@ body {
     outline: none;
 }
 
-.rate-filter-field select { padding-left: 0.6rem; }
+.rate-filter-field select,
+.sales-rate-field select,
+.quotation-filters select,
+.rate-edit-grid select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 2.15rem;
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23111827' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 16px 16px;
+}
+
+.rate-filter-field select {
+    padding-left: 0.6rem;
+    padding-right: 2.15rem;
+}
 
 .rate-filter-field input:focus,
 .rate-filter-field select:focus {
@@ -3471,15 +3535,24 @@ body {
 .rate-filter-actions {
     display: flex;
     align-items: center;
-    gap: 0.35rem;
+    justify-content: flex-end;
+    gap: 0.45rem;
+    margin-left: auto;
+    flex: 0 0 auto;
+}
+
+.rate-filter-actions .btn {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
 }
 
 .rate-filter-my {
     display: flex;
     align-items: center;
-    margin-left: 0.4rem;
-    padding-left: 0.65rem;
-    border-left: 1px solid #CBD5E1;
+    flex: 0 0 auto;
 }
 
 .rate-filter-toggle.active {
@@ -3538,9 +3611,36 @@ body {
 }
 
 .rate-message-cell {
-    text-align: center;
+    padding: 0 !important;
+    text-align: left;
     color: var(--text-muted);
     font-weight: 600;
+}
+
+.rate-empty-state {
+    position: sticky;
+    left: 0;
+    width: min(calc(100vw - 360px), 100%);
+    min-height: 76px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 1rem;
+    color: #64748B;
+    background: #FFFFFF;
+    text-align: center;
+}
+
+.rate-empty-state i {
+    color: #94A3B8;
+}
+
+@media (max-width: 900px) {
+    .rate-empty-state {
+        width: calc(100vw - 3rem);
+    }
 }
 
 .rate-click-cell {
@@ -3987,9 +4087,9 @@ body {
 .quotation-filters {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: 0.55rem;
     align-items: center;
-    padding: 1rem;
+    padding: 0.75rem 1rem;
     border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
     background: #F8FAFC;
@@ -3997,12 +4097,64 @@ body {
 
 .quotation-filters input,
 .quotation-filters select {
-    min-height: 40px;
-    padding: 0.55rem 0.75rem;
+    min-height: 36px;
+    padding: 0.46rem 0.7rem;
     border: 1px solid #CBD5E1;
     border-radius: 8px;
     background: #FFFFFF;
     font: inherit;
+    font-size: 0.86rem;
+    outline: none;
+}
+
+.quotation-filters input:focus,
+.quotation-filters select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.quotation-filters input {
+    flex: 0 1 210px;
+    max-width: 230px;
+}
+
+.quotation-filters select {
+    flex: 0 0 180px;
+}
+
+.quotation-filters .btn:first-of-type {
+    margin-left: auto;
+}
+
+.quotation-filters .btn {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+}
+
+.quotation-empty-cell {
+    padding: 0 !important;
+    color: var(--text-muted);
+    text-align: left;
+}
+
+.quotation-empty-state {
+    min-height: 76px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 1rem;
+    color: #64748B;
+    background: #FFFFFF;
+    text-align: center;
+    font-weight: 700;
+}
+
+.quotation-empty-state i {
+    color: #94A3B8;
 }
 
 .quotation-status {
@@ -4136,16 +4288,34 @@ body {
 .rate-edit-grid select:focus,
 .rate-edit-grid textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
 
+.rate-filter-field select,
+.sales-rate-field select,
+.quotation-filters select,
+.rate-edit-grid select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 2.15rem;
+    background-color: #FFFFFF;
+    background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23111827' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 16px 16px;
+}
+
 @media (max-width: 900px) {
     .sales-rate-shell { grid-template-columns: 1fr; }
     .sales-rate-form,
     .sales-rate-section.location .sales-rate-grid { grid-template-columns: 1fr; }
     .sales-rate-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .rate-filters { flex-wrap: wrap; }
     .rate-filter-field.mode,
     .rate-filter-field.carrier,
     .rate-filter-field.origin,
     .rate-filter-field.destination,
-    .rate-filter-field.status { width: calc(50% - 0.35rem); }
+    .rate-filter-field.status {
+        flex: 1 1 calc(50% - 0.35rem);
+        width: auto;
+    }
     .rate-filter-actions,
     .rate-filter-my,
     .rate-table-toolbar,
@@ -4154,6 +4324,17 @@ body {
         margin-left: 0;
         padding-left: 0;
         border-left: 0;
+    }
+    .rate-filter-actions {
+        margin-left: 0;
+    }
+    .quotation-filters input,
+    .quotation-filters select {
+        flex: 1 1 calc(50% - 0.4rem);
+        max-width: none;
+    }
+    .quotation-filters .btn:first-of-type {
+        margin-left: 0;
     }
     .rate-table-toolbar {
         min-width: 0;
@@ -4172,7 +4353,23 @@ body {
     .rate-filter-field.carrier,
     .rate-filter-field.origin,
     .rate-filter-field.destination,
-    .rate-filter-field.status { width: 100%; }
+    .rate-filter-field.status {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+    .rate-filter-actions,
+    .rate-filter-my {
+        flex: 1 1 100%;
+    }
+    .rate-filter-actions .btn {
+        flex: 1 1 0;
+    }
+    .quotation-filters input,
+    .quotation-filters select,
+    .quotation-filters .btn {
+        flex: 1 1 100%;
+        width: 100%;
+    }
     .rate-edit-grid .wide { grid-column: auto; }
     .rate-toolbar-actions { justify-content: stretch; }
     .rate-toolbar-actions .btn { flex: 1 1 auto; }
@@ -4486,14 +4683,14 @@ body.not-allowed .content-wrapper {
                 <h2>Quotation</h2>
             </div>
             <nav class="nav-menu">
+                <a href="#rates" class="nav-item" data-target="rates" data-roles="1,2" hidden>
+                    <i class="fa-solid fa-sailboat"></i> Rates
+                </a>
                 <a href="#sales-rates" class="nav-item" data-target="sales-rates" data-roles="1,3" hidden>
                     <i class="fa-solid fa-magnifying-glass-dollar"></i> Rate Search
                 </a>
                 <a href="#quotations" class="nav-item" data-target="quotations" data-roles="1,2,3" hidden>
                     <i class="fa-solid fa-file-signature"></i> Quotations
-                </a>
-                <a href="#rates" class="nav-item" data-target="rates" data-roles="1,2" hidden>
-                    <i class="fa-solid fa-sailboat"></i> Rates
                 </a>
             </nav>
         </aside>
@@ -4685,8 +4882,8 @@ body.not-allowed .content-wrapper {
                                 <option value="3">Approved</option>
                                 <option value="4">Rejected</option>
                             </select>
-                            <button class="btn btn-primary" type="submit"><i class="fa-solid fa-filter" aria-hidden="true"></i> Apply</button>
-                            <button class="btn btn-secondary" id="quotation-reset-btn" type="button"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Clear</button>
+                            <button class="btn btn-primary" id="quotation-filter-submit-btn" type="submit" disabled><i class="fa-solid fa-filter" aria-hidden="true"></i> Apply</button>
+                            <button class="btn btn-secondary" id="quotation-reset-btn" type="button" disabled><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Clear</button>
                         </form>
                         <div class="rate-table-wrap">
                             <div class="rate-table-toolbar">
@@ -4711,7 +4908,7 @@ body.not-allowed .content-wrapper {
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody><tr><td class="rate-message-cell" colspan="9">Loading quotations...</td></tr></tbody>
+                                <tbody><tr><td class="quotation-empty-cell" colspan="9"><div class="quotation-empty-state"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Loading quotations...</span></div></td></tr></tbody>
                             </table>
                         </div>
                     </div>
@@ -4728,12 +4925,15 @@ body.not-allowed .content-wrapper {
                                 <button class="btn btn-secondary rate-manager-only" id="rates-create-btn" type="button" hidden>
                                     <i class="fa-solid fa-plus" aria-hidden="true"></i> Create Rate
                                 </button>
-                                <button class="btn btn-secondary rate-manager-only" id="rates-update-csv-btn" type="button" hidden>
-                                    <i class="fa-solid fa-file-pen" aria-hidden="true"></i> Update Rates
-                                </button>
-                                <button class="btn btn-primary rate-manager-only" id="rates-upload-btn" type="button" hidden>
-                                    <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> Upload Rates
-                                </button>
+                                <div class="rate-csv-menu-wrap rate-manager-only" hidden>
+                                    <button class="btn btn-primary" id="rates-csv-menu-btn" type="button" aria-expanded="false">
+                                        <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> Upload CSV <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+                                    </button>
+                                    <div class="rate-csv-menu" id="rates-csv-menu">
+                                        <button type="button" data-rate-csv-mode="create"><i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i> Create</button>
+                                        <button type="button" data-rate-csv-mode="update"><i class="fa-solid fa-file-pen" aria-hidden="true"></i> Update</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <form class="rate-filters" id="rates-filter-form">
@@ -4764,19 +4964,19 @@ body.not-allowed .content-wrapper {
                                     <option value="inactive">Deactivated</option>
                                 </select>
                             </div>
-                            <div class="rate-filter-actions">
-                                <button class="btn btn-filter-submit" id="rates-filter-submit-btn" type="submit" disabled><i class="fa-solid fa-filter" aria-hidden="true"></i> Submit</button>
-                                <button class="btn btn-secondary" id="rates-reset-btn" type="button" title="Clear filters" aria-label="Clear filters"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
-                            </div>
                             <div class="rate-filter-my">
                                 <button class="btn btn-secondary rate-filter-toggle" id="rates-my-filter-btn" type="button" aria-pressed="false"><i class="fa-solid fa-user" aria-hidden="true"></i> My Rates</button>
+                            </div>
+                            <div class="rate-filter-actions">
+                                <button class="btn btn-secondary" id="rates-reset-btn" type="button" title="Clear filters" aria-label="Clear filters" disabled><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
+                                <button class="btn btn-filter-submit" id="rates-filter-submit-btn" type="submit" disabled><i class="fa-solid fa-filter" aria-hidden="true"></i> Submit</button>
                             </div>
                         </form>
                         <div class="rate-table-wrap">
                             <div class="rate-table-toolbar">
                                 <div class="po-result-count" id="rates-result-count">Loading rates...</div>
                                 <div class="rate-table-tools">
-                                    <button class="btn btn-secondary" id="rates-download-btn" type="button" title="Download visible table CSV" aria-label="Download visible rates table CSV">
+                                    <button class="btn btn-secondary" id="rates-download-btn" type="button" title="Download visible table CSV" aria-label="Download visible rates table CSV" hidden disabled>
                                         <i class="fa-solid fa-download" aria-hidden="true"></i>
                                     </button>
                                     <div class="po-pagination" aria-label="Rate pages">
@@ -5260,11 +5460,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(STORAGE_KEY_INFO_AT, String(Date.now()));
     };
     const clearPortalStorage = () => {
-        localStorage.removeItem(STORAGE_KEY_TOKEN);
-        localStorage.removeItem(STORAGE_KEY_USER);
-        localStorage.removeItem(STORAGE_KEY_INFO);
-        localStorage.removeItem(STORAGE_KEY_INFO_AT);
-        localStorage.removeItem(STORAGE_KEY_USER_AT);
+        localStorage.clear();
     };
     const loadInfo = async ({ force = false } = {}) => {
         if (!force && readCachedInfo() && infoCacheFresh()) return;
@@ -5422,7 +5618,10 @@ document.addEventListener('DOMContentLoaded', () => {
             loadRateGroupbyOptions();
         }
         else if (target === 'quotations') loadQuotations();
-        else if (target === 'rates') loadFreightRates();
+        else if (target === 'rates') {
+            setRateManagerControls();
+            loadFreightRates();
+        }
     };
     const formatDate = value => {
         if (!value) return '-';
@@ -5474,9 +5673,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const body = document.querySelector(`#${tableId} tbody`);
         if (body) body.innerHTML = loading ? `<tr><td class="table-loader-cell" colspan="${colSpan}">${tableLoaderHtml(message)}</td></tr>` : `<tr><td class="table-message-cell" colspan="${colSpan}">${escapeHtml(message)}</td></tr>`;
     };
+    const rateTableMessageHtml = message => `<div class="rate-empty-state"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>${escapeHtml(message)}</span></div>`;
     const setRateTableMessage = message => {
+        setRatesDownloadVisible(false);
         const body = document.querySelector('#freight-rates-table tbody');
-        if (body) body.innerHTML = `<tr><td class="rate-message-cell" colspan="16">${escapeHtml(message)}</td></tr>`;
+        if (body) body.innerHTML = `<tr><td class="rate-message-cell" colspan="16">${rateTableMessageHtml(message)}</td></tr>`;
     };
     const rateCell = (value, label, maxWidth = 150) => {
         const text = displayValue(value);
@@ -5795,6 +5996,12 @@ document.addEventListener('DOMContentLoaded', () => {
         link.remove();
         URL.revokeObjectURL(url);
     };
+    const setRatesDownloadVisible = visible => {
+        const button = document.getElementById('rates-download-btn');
+        if (!button) return;
+        button.hidden = !visible;
+        button.disabled = !visible;
+    };
     const setRateManagerControls = () => {
         document.querySelectorAll('.rate-manager-only').forEach(element => { element.hidden = !rateManager(); });
     };
@@ -5807,16 +6014,31 @@ document.addEventListener('DOMContentLoaded', () => {
         ratesMyOnly
     );
     const updateRateFilterSubmit = () => {
+        const hasValue = rateFilterHasValue();
         const button = document.getElementById('rates-filter-submit-btn');
-        if (button) button.disabled = !rateFilterHasValue();
+        const clearButton = document.getElementById('rates-reset-btn');
+        if (button) button.disabled = !hasValue;
+        if (clearButton) clearButton.disabled = !hasValue;
         const myButton = document.getElementById('rates-my-filter-btn');
         if (myButton) {
             myButton.classList.toggle('active', ratesMyOnly);
             myButton.setAttribute('aria-pressed', String(ratesMyOnly));
         }
     };
+    const quotationFilterHasValue = () => Boolean(
+        document.getElementById('quotation-customer-filter')?.value.trim() ||
+        document.getElementById('quotation-status-filter')?.value
+    );
+    const updateQuotationFilterSubmit = () => {
+        const hasValue = quotationFilterHasValue();
+        const submitButton = document.getElementById('quotation-filter-submit-btn');
+        const clearButton = document.getElementById('quotation-reset-btn');
+        if (submitButton) submitButton.disabled = !hasValue;
+        if (clearButton) clearButton.disabled = !hasValue;
+    };
     const renderFreightRates = rows => {
         ratesRows = rows;
+        setRatesDownloadVisible(Boolean(rows.length));
         const body = document.querySelector('#freight-rates-table tbody');
         if (!body) return;
         const userId = Number(authUser && authUser.id);
@@ -5843,7 +6065,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>${owned ? `<div class="rate-actions"><button class="rate-icon-btn edit" type="button" data-rate-action="edit" data-rate-id="${Number(row.id)}" title="Edit rate"><i class="fa-solid fa-pen"></i></button>${active ? `<button class="rate-icon-btn deactivate" type="button" data-rate-action="deactivate" data-rate-id="${Number(row.id)}" title="Deactivate rate"><i class="fa-solid fa-ban"></i></button>` : `<button class="rate-icon-btn activate" type="button" data-rate-action="activate" data-rate-id="${Number(row.id)}" title="Activate rate"><i class="fa-solid fa-circle-check"></i></button>`}<button class="rate-icon-btn danger" type="button" data-rate-action="delete" data-rate-id="${Number(row.id)}" title="Delete rate"><i class="fa-solid fa-trash"></i></button></div>` : '<span class="profile-status">View only</span>'}</td>
                 </tr>
             `;
-        }).join('') : '<tr><td class="rate-message-cell" colspan="16">No rates found. Upload or create a rate to see row actions.</td></tr>';
+        }).join('') : `<tr><td class="rate-message-cell" colspan="16">${rateTableMessageHtml('No rates found. Upload or create a rate to see row actions.')}</td></tr>`;
     };
     const setSalesRateMessage = message => {
         const results = document.getElementById('sales-rate-results');
@@ -5959,6 +6181,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const loadFreightRates = async () => {
         if (!authToken || !authUser || !featureAllowed('rates')) return;
+        setRateManagerControls();
         setRateTableMessage('Loading rates...');
         document.getElementById('rates-result-count').textContent = 'Loading rates...';
         const filters = [];
@@ -5995,9 +6218,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const quotationStatusHtml = status => `<span class="quotation-status ${quotationStatusClass(status)}"><i class="fa-solid ${Number(status) === 3 ? 'fa-circle-check' : Number(status) === 4 ? 'fa-circle-xmark' : Number(status) === 2 ? 'fa-paper-plane' : 'fa-pen'}" aria-hidden="true"></i>${escapeHtml(quotationStatusLabel(status))}</span>`;
     const quoteFinalAmount = row => Number(row.final_quote_amount ?? (Number(row.quoted_rate || 0) + Number(row.origin_charges || 0) + Number(row.destination_charges || 0)));
     const quoteRoute = row => `${displayValue(row.origin)} → ${displayValue(row.destination)}`;
+    const quotationTableMessageHtml = message => `<div class="quotation-empty-state"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>${escapeHtml(message)}</span></div>`;
     const setQuotationTableMessage = message => {
         const body = document.querySelector('#quotations-table tbody');
-        if (body) body.innerHTML = `<tr><td class="rate-message-cell" colspan="9">${escapeHtml(message)}</td></tr>`;
+        if (body) body.innerHTML = `<tr><td class="quotation-empty-cell" colspan="9">${quotationTableMessageHtml(message)}</td></tr>`;
     };
     const renderQuotations = rows => {
         quotationRows = rows;
@@ -6022,7 +6246,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td><div class="quotation-actions"><button class="rate-icon-btn edit" type="button" data-quotation-action="view" data-quotation-id="${Number(row.id)}" title="View quotation"><i class="fa-solid fa-eye"></i></button>${canSubmit ? `<button class="rate-icon-btn activate" type="button" data-quotation-action="submit" data-quotation-id="${Number(row.id)}" title="Send for approval"><i class="fa-solid fa-paper-plane"></i></button>` : ''}${canDelete ? `<button class="rate-icon-btn danger" type="button" data-quotation-action="delete" data-quotation-id="${Number(row.id)}" title="Delete draft quotation"><i class="fa-solid fa-trash"></i></button>` : ''}${canDecide ? `<button class="rate-icon-btn activate" type="button" data-quotation-action="approve" data-quotation-id="${Number(row.id)}" title="Approve"><i class="fa-solid fa-circle-check"></i></button><button class="rate-icon-btn danger" type="button" data-quotation-action="reject" data-quotation-id="${Number(row.id)}" title="Reject"><i class="fa-solid fa-circle-xmark"></i></button>` : ''}</div></td>
                 </tr>
             `;
-        }).join('') : '<tr><td class="rate-message-cell" colspan="9">No quotations found.</td></tr>';
+        }).join('') : `<tr><td class="quotation-empty-cell" colspan="9">${quotationTableMessageHtml('No quotations found.')}</td></tr>`;
     };
     const loadQuotations = async () => {
         if (!authToken || !authUser || !featureAllowed('quotations')) return;
@@ -6229,11 +6453,121 @@ document.addEventListener('DOMContentLoaded', () => {
     let authToken = readStoredToken();
     authUser = readStoredUser();
 
+    const showBlocked = () => {
+        document.querySelectorAll('.view-section, .blocked-section').forEach(sec => sec.classList.remove('active'));
+        const blocked = document.getElementById('blocked');
+        if (blocked) blocked.classList.add('active');
+        const currentRoleEl = document.getElementById('blocked-current-role');
+        if (currentRoleEl) {
+            const raw = authUser && authUser.role !== undefined && authUser.role !== null && authUser.role !== '' ? String(authUser.role) : '-';
+            currentRoleEl.textContent = raw;
+        }
+    };
+    const applyRoleNavigation = userRole => {
+        document.querySelectorAll('.nav-item[data-roles]').forEach(item => {
+            item.hidden = !roleSupported(userRole) || !featureRolesFromItem(item).includes(Number(userRole));
+        });
+    };
+    const applyAuthShell = () => {
+        const loggedIn = Boolean(authToken && authUser);
+        const userRole = authUser ? Number(authUser.role) : null;
+        const allowed = loggedIn && roleSupported(userRole);
+        document.body.classList.toggle('logged-in', loggedIn);
+        document.body.classList.toggle('logged-out', !loggedIn);
+        document.body.classList.toggle('not-allowed', loggedIn && !allowed);
+        applyRoleNavigation(userRole);
+        renderProfile();
+        return { loggedIn, userRole, allowed };
+    };
+    const applyAuthState = () => {
+        const { loggedIn, userRole, allowed } = applyAuthShell();
+        if (!loggedIn) {
+            showSection('home');
+            return;
+        }
+        if (!allowed) {
+            showBlocked();
+            return;
+        }
+        const target = firstAllowedFeature(userRole);
+        if (!target) { showBlocked(); return; }
+        loadFeature(target);
+    };
+    const saveTokenPayload = payload => {
+        const nextToken = extractToken(payload);
+        if (!nextToken) throw new Error('Token response missing token');
+        writeToken(nextToken);
+    };
+    const saveProfilePayload = payload => {
+        const nextUser = extractUser(payload);
+        if (!nextUser) throw new Error('Profile response missing user');
+        writeUser(nextUser);
+        localStorage.setItem(STORAGE_KEY_USER_AT, String(Date.now()));
+        ratesRows = [];
+        salesRateRows = [];
+        quotationRows = [];
+    };
+    const requestLogout = () => {
+        closeProfileMenu();
+        openModal('logout-modal');
+    };
+    const logout = () => {
+        authToken = '';
+        authUser = null;
+        appInfo = {};
+        ratesRows = [];
+        salesRateRows = [];
+        quotationRows = [];
+        clearPortalStorage();
+        closeProfileMenu();
+        closeModal('profile-modal');
+        closeModal('user-profile-modal');
+        closeModal('login-modal');
+        closeModal('logout-modal');
+        applyAuthState();
+    };
+    const refreshPortal = async () => {
+        const button = document.getElementById('header-refresh-btn');
+        button?.classList.add('is-loading');
+        if (button) button.disabled = true;
+        try {
+            await loadInfo({ force: true });
+            if (authToken) {
+                await refreshAccessToken();
+                await loadProfile({ force: true });
+            }
+            if (authToken && authUser) applyAuthShell();
+            else applyAuthState();
+        } catch (err) {
+            await showAppAlert({ title: 'Refresh Failed', message: err.message || 'Unable to refresh portal.', danger: true });
+        } finally {
+            button?.classList.remove('is-loading');
+            if (button) button.disabled = false;
+        }
+    };
+
     // 1. Tab Routing
     const navItems = document.querySelectorAll('.nav-item');
     document.getElementById('rates-create-btn')?.addEventListener('click', openRateCreateModal);
-    document.getElementById('rates-upload-btn')?.addEventListener('click', () => openRateCsvModal('create'));
-    document.getElementById('rates-update-csv-btn')?.addEventListener('click', () => openRateCsvModal('update'));
+    document.getElementById('rates-csv-menu-btn')?.addEventListener('click', event => {
+        event.stopPropagation();
+        const menu = document.getElementById('rates-csv-menu');
+        const button = document.getElementById('rates-csv-menu-btn');
+        const isOpen = menu?.classList.toggle('open');
+        button?.setAttribute('aria-expanded', String(Boolean(isOpen)));
+    });
+    document.getElementById('rates-csv-menu')?.addEventListener('click', event => {
+        const option = event.target.closest('[data-rate-csv-mode]');
+        if (!option) return;
+        document.getElementById('rates-csv-menu')?.classList.remove('open');
+        document.getElementById('rates-csv-menu-btn')?.setAttribute('aria-expanded', 'false');
+        openRateCsvModal(option.dataset.rateCsvMode);
+    });
+    document.addEventListener('click', event => {
+        if (event.target.closest('.rate-csv-menu-wrap')) return;
+        document.getElementById('rates-csv-menu')?.classList.remove('open');
+        document.getElementById('rates-csv-menu-btn')?.setAttribute('aria-expanded', 'false');
+    });
     document.getElementById('rates-download-btn')?.addEventListener('click', downloadRatesTableCsv);
     document.getElementById('rate-csv-modal-close')?.addEventListener('click', () => closeModal('rate-csv-modal'));
     document.getElementById('rate-csv-cancel-btn')?.addEventListener('click', () => closeModal('rate-csv-modal'));
@@ -6314,14 +6648,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('quotation-filter-form')?.addEventListener('submit', event => {
         event.preventDefault();
+        if (!quotationFilterHasValue()) return;
         quotationCurrentPage = 1;
+        updateQuotationFilterSubmit();
         loadQuotations();
     });
     document.getElementById('quotation-reset-btn')?.addEventListener('click', () => {
         document.getElementById('quotation-filter-form').reset();
         quotationCurrentPage = 1;
+        updateQuotationFilterSubmit();
         loadQuotations();
     });
+    ['quotation-customer-filter', 'quotation-status-filter'].forEach(elementId => {
+        const element = document.getElementById(elementId);
+        element?.addEventListener('input', updateQuotationFilterSubmit);
+        element?.addEventListener('change', updateQuotationFilterSubmit);
+    });
+    updateQuotationFilterSubmit();
     document.getElementById('quotation-prev-btn')?.addEventListener('click', () => { if (quotationCurrentPage > 1) { quotationCurrentPage--; loadQuotations(); } });
     document.getElementById('quotation-next-btn')?.addEventListener('click', () => { quotationCurrentPage++; loadQuotations(); });
     document.querySelector('#quotations-table tbody')?.addEventListener('click', event => {

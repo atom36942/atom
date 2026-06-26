@@ -2865,11 +2865,7 @@ function clearPostgresCache({ waitForIndexedDb = false } = {}) {
 }
 
 function clearPortalStorage({ waitForIndexedDb = false } = {}) {
-    localStorage.removeItem(STORAGE_KEY_TOKEN);
-    localStorage.removeItem(STORAGE_KEY_USER);
-    localStorage.removeItem(STORAGE_KEY_INFO);
-    localStorage.removeItem(STORAGE_KEY_INFO_AT);
-    localStorage.removeItem(STORAGE_KEY_USER_AT);
+    localStorage.clear();
     return clearPostgresCache({ waitForIndexedDb });
 }
 
