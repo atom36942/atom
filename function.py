@@ -1135,6 +1135,8 @@ async def func_postgres_schema_read(*, client_postgres: any, mode: str = "table"
             JOIN pg_am am ON am.oid = idx.relam
             CROSS JOIN LATERAL UNNEST(i.indkey) AS key_att(attnum)
             WHERE key_att.attnum > 0
+              AND i.indisvalid
+              AND i.indisready
         ),
         indexes_by_column AS (
             SELECT
@@ -1279,6 +1281,8 @@ async def func_postgres_schema_read_ai(*, client_postgres: any) -> dict:
             JOIN pg_am am ON am.oid = idx.relam
             CROSS JOIN LATERAL UNNEST(i.indkey) AS key_att(attnum)
             WHERE key_att.attnum > 0
+              AND i.indisvalid
+              AND i.indisready
         ),
         indexes_by_column AS (
             SELECT
