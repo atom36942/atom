@@ -138,19 +138,6 @@ body {
     gap: 1rem;
 }
 
-.postgres-sync-status {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    color: #047857;
-}
-
-.postgres-sync-status[hidden] {
-    display: none;
-}
-
 .postgres-sync-btn {
     display: inline-flex;
     align-items: center;
@@ -159,10 +146,17 @@ body {
     padding: 0.45rem 0.75rem;
 }
 
-.postgres-sync-check {
+.postgres-sync-icon {
+    --progress: 0deg;
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
     display: none;
+    align-items: center;
+    justify-content: center;
     color: #059669;
     font-size: 0.8rem;
+    border-radius: 50%;
 }
 
 .postgres-sync-btn.has-sync-state {
@@ -170,8 +164,39 @@ body {
     background: #F9FAFB;
 }
 
-.postgres-sync-btn.has-sync-state .postgres-sync-check {
+.postgres-sync-btn.has-sync-state .postgres-sync-icon {
     display: inline-flex;
+}
+
+.postgres-sync-btn.is-syncing .postgres-sync-icon {
+    display: inline-flex;
+    position: relative;
+    overflow: hidden;
+    background: #D1FAE5;
+}
+
+.postgres-sync-btn.is-syncing .postgres-sync-icon::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: conic-gradient(from -90deg, #10B981 var(--progress), rgba(16, 185, 129, 0.18) 0deg);
+    animation: postgresSyncSpin 1s linear infinite;
+}
+
+.postgres-sync-btn.is-syncing .postgres-sync-icon::after {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    background: var(--bg-surface);
+}
+
+.postgres-sync-btn.is-syncing .postgres-sync-icon i {
+    position: absolute;
+    z-index: 2;
+    font-size: 0.55rem;
+    animation: postgresSyncPulse 0.9s ease-in-out infinite;
 }
 
 .postgres-sync-btn.has-sync-state:hover {
@@ -184,30 +209,13 @@ body {
     opacity: 0.7;
 }
 
-.postgres-sync-ring {
-    --progress: 0deg;
-    position: relative;
-    width: 22px;
-    height: 22px;
-    flex: 0 0 22px;
-    display: grid;
-    place-items: center;
-    border-radius: 50%;
-    background: conic-gradient(#10B981 var(--progress), #D1FAE5 0deg);
+@keyframes postgresSyncSpin {
+    to { transform: rotate(360deg); }
 }
 
-.postgres-sync-ring::before {
-    content: "";
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--bg-surface);
-}
-
-.postgres-sync-ring i {
-    position: absolute;
-    z-index: 1;
-    font-size: 0.55rem;
+@keyframes postgresSyncPulse {
+    0%, 100% { transform: scale(0.94); opacity: 0.72; }
+    50% { transform: scale(1.08); opacity: 1; }
 }
 
 /* Auth component: header controls, account menu, modals, and shared auth styling */
@@ -964,6 +972,14 @@ body {
     font-size: 0.84rem;
 }
 
+.query-builder-filter-row input:disabled,
+.query-builder-filter-row select:disabled {
+    background-color: #F3F4F6;
+    color: #9CA3AF;
+    border-color: #E5E7EB;
+    cursor: not-allowed;
+}
+
 .query-ai-form {
     display: grid;
     gap: 0.65rem;
@@ -980,12 +996,15 @@ body {
 
 #query-builder-add-filter-btn {
     min-height: 38px;
-    background-color: #F3F4F6;
-    border-color: var(--border);
+    background-color: #EEF2FF;
+    border-color: #C7D2FE;
+    color: #3730A3;
+    font-weight: 800;
 }
 
 #query-builder-add-filter-btn:hover {
-    background-color: #EDEFF3;
+    background-color: #E0E7FF;
+    border-color: #A5B4FC;
 }
 
 .query-builder-filter-list {
@@ -1000,11 +1019,94 @@ body {
     align-items: center;
 }
 
+.query-builder-column-wrap,
+.query-builder-value-wrap {
+    position: relative;
+    min-width: 0;
+}
+
+.query-builder-column-menu,
+.query-builder-value-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 80;
+    max-height: 230px;
+    overflow-y: auto;
+    padding: 0.25rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #FFFFFF;
+    box-shadow: 0 16px 30px rgba(17, 24, 39, 0.14);
+}
+
+.query-builder-column-menu[hidden],
+.query-builder-value-menu[hidden] {
+    display: none;
+}
+
+.query-builder-column-option,
+.query-builder-value-option {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.6rem;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-dark);
+    font: inherit;
+    font-size: 0.82rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.query-builder-column-option {
+    display: block;
+}
+
+.query-builder-value-option input {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    accent-color: var(--primary);
+    pointer-events: none;
+}
+
+.query-builder-value-option span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.query-builder-column-option:hover,
+.query-builder-value-option:hover {
+    background: #EEF2FF;
+    color: #3730A3;
+}
+
+.query-builder-column-empty,
+.query-builder-value-empty {
+    padding: 0.55rem 0.6rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
 .query-builder-remove {
     width: 36px;
     height: 36px;
     min-height: 36px;
     padding: 0;
+    background-color: #FEF2F2;
+    border-color: #FECACA;
+    color: #991B1B;
+}
+
+.query-builder-remove:hover {
+    background-color: #FEE2E2;
+    border-color: #FCA5A5;
 }
 
 .query-builder-reset,
@@ -1014,6 +1116,16 @@ body {
     height: 36px;
     min-height: 36px;
     padding: 0;
+    background-color: #F8FAFC;
+    border-color: #CBD5E1;
+    color: #334155;
+}
+
+.query-builder-reset:hover,
+.query-runner-reset:hover,
+.query-ai-reset:hover {
+    background-color: #E2E8F0;
+    border-color: #94A3B8;
 }
 
 .query-builder-reset[hidden],
@@ -1158,10 +1270,16 @@ body {
 
 .btn i,
 .close-modal i,
-.password-toggle i,
-.postgres-sync-ring i {
+.password-toggle i {
     display: block;
     line-height: 1;
+}
+
+.btn > i:not(:only-child) {
+    width: 1em;
+    min-width: 1em;
+    text-align: center;
+    font-size: 0.9em;
 }
 
 .query-builder-remove,
@@ -1211,7 +1329,6 @@ body {
 
 .auth-only { display: none; }
 body.logged-in .auth-only { display: flex; }
-body.logged-in .postgres-sync-status[hidden] { display: none; }
 body.logged-in .guest-only { display: none; }
 body.role-blocked .nav-menu {
     cursor: not-allowed;
@@ -1227,8 +1344,7 @@ body.role-blocked .nav-item.active {
     color: var(--text-muted);
     border-left-color: transparent;
 }
-body.role-blocked .postgres-sync-btn,
-body.role-blocked .postgres-sync-status {
+body.role-blocked .postgres-sync-btn {
     display: none !important;
 }
 body.logged-out .sidebar,
@@ -1706,11 +1822,8 @@ body.logged-out .content-wrapper {
 
         <main class="main-content">
             <header class="top-bar">
-                <div class="postgres-sync-status auth-only" id="postgres-sync-status" role="status" aria-label="Syncing database cache" title="Syncing database cache" hidden>
-                    <span class="postgres-sync-ring" id="postgres-sync-ring"><i class="fa-solid fa-database" aria-hidden="true"></i></span>
-                </div>
                 <button class="btn btn-secondary postgres-sync-btn auth-only" id="postgres-sync-btn" type="button" title="Sync database cache" aria-label="Sync database cache">
-                    <i class="fa-solid fa-check postgres-sync-check" aria-hidden="true"></i>
+                    <span class="postgres-sync-icon" id="postgres-sync-icon"><i class="fa-solid fa-check" aria-hidden="true"></i></span>
                     <span id="postgres-sync-btn-text">Database Sync</span>
                 </button>
                 <div class="user-controls">
@@ -2200,14 +2313,20 @@ const STORAGE_KEY_INFO_AT = 'info_cached_at';
 const STORAGE_KEY_USER_AT = 'user_cached_at';
 const STORAGE_KEY_DATABASE = 'database';
 const STORAGE_KEY_DATABASE_AT = 'database_cached_at';
+const DATABASE_IDB_NAME = 'tradelane';
+const DATABASE_IDB_VERSION = 1;
+const DATABASE_IDB_STORE = 'database_cache';
 const INFO_CACHE_REFRESH_MS = 10 * 60 * 1000;
 const USER_CACHE_REFRESH_MS = 10 * 60 * 1000;
-const POSTGRES_CACHE_REFRESH_MS = 60 * 60 * 1000;
+const POSTGRES_CACHE_REFRESH_MS = 24 * 60 * 60 * 1000;
 const POSTGRES_SYNC_CONFIRM_THRESHOLD_MS = 10 * 60 * 1000;
 const TOKEN_REFRESH_BUFFER_SEC = 24 * 60 * 60;
 const QUERY_EDITOR_PLACEHOLDER_SQL = 'SELECT *\nFROM your_table\nLIMIT 10;';
 const QUERY_BUILDER_DEFAULT_LIMIT = 10;
 const OBJECT_COUNT_PAGE_SIZE = 1000;
+const UNIQUE_VALUE_PAGE_SIZE = 1000;
+const UNIQUE_VALUE_MAX_ROWS = 10000;
+const UNIQUE_VALUE_MAX_OBJECTS = 100;
 const TRADELANE_ALLOWED_ROLES = new Set([1, 2]);
 
 let authToken = readToken();
@@ -2226,6 +2345,8 @@ let queryRunnerBusy = false;
 let queryRunnerAbortController = null;
 let objectCountExportBusy = false;
 let objectCountExportAbortController = null;
+let databaseCache = {};
+let databaseIdbPromise = null;
 
 const $ = id => document.getElementById(id);
 const rawValue = value => value === undefined || value === null || value === '' ? '-' : String(value);
@@ -2279,12 +2400,14 @@ function updatePostgresSyncSummary() {
     const syncBtn = $('postgres-sync-btn');
     if (!text) return;
     const timestamp = latestPostgresCacheTimestamp();
-    if (!timestamp) {
+    const isSynced = Boolean(timestamp && databaseCacheFresh() && databaseCacheComplete() && !postgresCacheWarmPromise);
+    if (!isSynced) {
         text.textContent = 'Database Sync';
         if (syncBtn) syncBtn.classList.remove('has-sync-state');
         if (syncBtn) {
-            syncBtn.title = 'Sync database cache';
-            syncBtn.setAttribute('aria-label', 'Sync database cache');
+            const exact = timestamp ? new Date(timestamp).toLocaleString() : '';
+            syncBtn.title = exact ? `Sync database cache. Last cache update ${exact}` : 'Sync database cache';
+            syncBtn.setAttribute('aria-label', syncBtn.title);
         }
         return;
     }
@@ -2481,14 +2604,18 @@ function readStorageJson(key) {
 }
 
 function setPostgresSyncStatus({ visible = true, progress = 0, text = 'Syncing database cache...' } = {}) {
-    const status = $('postgres-sync-status');
-    const ring = $('postgres-sync-ring');
-    if (!status || !ring) return;
-    status.hidden = !visible;
-    status.setAttribute('aria-label', text);
-    status.setAttribute('title', text);
+    const icon = $('postgres-sync-icon');
+    const syncBtn = $('postgres-sync-btn');
+    if (!icon || !syncBtn) return;
+    const syncing = Boolean(visible);
+    const iconEl = icon.querySelector('i');
+    syncBtn.classList.toggle('is-syncing', syncing);
+    syncBtn.disabled = syncing;
+    if (iconEl) iconEl.className = syncing ? 'fa-solid fa-database' : 'fa-solid fa-check';
+    syncBtn.setAttribute('aria-label', text);
+    syncBtn.setAttribute('title', text);
     const pct = Math.max(0, Math.min(100, Number(progress || 0)));
-    ring.style.setProperty('--progress', `${pct * 3.6}deg`);
+    icon.style.setProperty('--progress', `${pct * 3.6}deg`);
     if (!visible) updatePostgresSyncSummary();
 }
 
@@ -2503,8 +2630,108 @@ function clearLegacyDatabaseCache() {
     ].forEach(key => localStorage.removeItem(key));
 }
 
+function databaseIdbOpen() {
+    if (databaseIdbPromise) return databaseIdbPromise;
+    databaseIdbPromise = new Promise((resolve, reject) => {
+        if (!window.indexedDB) {
+            reject(new Error('IndexedDB is not available.'));
+            return;
+        }
+        const request = indexedDB.open(DATABASE_IDB_NAME, DATABASE_IDB_VERSION);
+        request.onupgradeneeded = () => {
+            const db = request.result;
+            if (!db.objectStoreNames.contains(DATABASE_IDB_STORE)) db.createObjectStore(DATABASE_IDB_STORE, { keyPath: 'key' });
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error('IndexedDB open failed.'));
+    });
+    return databaseIdbPromise;
+}
+
+async function databaseIdbGetAllRecords() {
+    const db = await databaseIdbOpen();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(DATABASE_IDB_STORE, 'readonly');
+        const request = tx.objectStore(DATABASE_IDB_STORE).getAll();
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error || new Error('IndexedDB read failed.'));
+    });
+}
+
+async function databaseIdbPutRecord(key, value) {
+    const db = await databaseIdbOpen();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(DATABASE_IDB_STORE, 'readwrite');
+        tx.objectStore(DATABASE_IDB_STORE).put({ key, value, cached_at: Date.now() });
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error || new Error('IndexedDB write failed.'));
+    });
+}
+
+async function databaseIdbClear() {
+    const db = await databaseIdbOpen();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(DATABASE_IDB_STORE, 'readwrite');
+        tx.objectStore(DATABASE_IDB_STORE).clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error || new Error('IndexedDB clear failed.'));
+    });
+}
+
+async function databaseIdbDeletePrefix(prefix) {
+    const db = await databaseIdbOpen();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(DATABASE_IDB_STORE, 'readwrite');
+        const store = tx.objectStore(DATABASE_IDB_STORE);
+        const request = store.openCursor();
+        request.onsuccess = event => {
+            const cursor = event.target.result;
+            if (!cursor) return;
+            if (String(cursor.key || '').startsWith(prefix)) cursor.delete();
+            cursor.continue();
+        };
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error || new Error('IndexedDB delete failed.'));
+    });
+}
+
+async function loadDatabaseCacheFromIndexedDb() {
+    const nextCache = {};
+    try {
+        const records = await databaseIdbGetAllRecords();
+        records.forEach(record => {
+            if (!record || !record.key) return;
+            if (String(record.key).startsWith('unique_values:')) {
+                nextCache.unique_values = nextCache.unique_values || {};
+                nextCache.unique_values[String(record.key).slice('unique_values:'.length)] = Array.isArray(record.value) ? record.value : [];
+            } else {
+                nextCache[record.key] = record.value;
+            }
+        });
+    } catch (err) {
+        console.warn(err);
+    }
+    const legacyDatabase = readStorageJson(STORAGE_KEY_DATABASE);
+    if (legacyDatabase && Object.keys(legacyDatabase).length && !Object.keys(nextCache).length) {
+        databaseCache = legacyDatabase;
+        localStorage.removeItem(STORAGE_KEY_DATABASE);
+        Object.entries(legacyDatabase).forEach(([key, value]) => {
+            if (key === 'unique_values' && value && typeof value === 'object') {
+                Object.entries(value).forEach(([uniqueKey, uniqueValues]) => {
+                    databaseIdbPutRecord(`unique_values:${uniqueKey}`, Array.isArray(uniqueValues) ? uniqueValues : []).catch(err => console.warn(err));
+                });
+            } else {
+                databaseIdbPutRecord(key, value).catch(err => console.warn(err));
+            }
+        });
+        return;
+    }
+    databaseCache = nextCache;
+    localStorage.removeItem(STORAGE_KEY_DATABASE);
+}
+
 function readCachedDatabase() {
-    const database = readStorageJson(STORAGE_KEY_DATABASE);
+    const database = databaseCache && Object.keys(databaseCache).length ? databaseCache : null;
     if (!database) {
         localStorage.removeItem(STORAGE_KEY_DATABASE_AT);
         return null;
@@ -2514,20 +2741,47 @@ function readCachedDatabase() {
 
 function writeCachedDatabase(database) {
     clearLegacyDatabaseCache();
-    localStorage.setItem(STORAGE_KEY_DATABASE, JSON.stringify(database || {}));
+    databaseCache = database || {};
     localStorage.setItem(STORAGE_KEY_DATABASE_AT, String(Date.now()));
+    localStorage.removeItem(STORAGE_KEY_DATABASE);
+    databaseIdbClear()
+        .then(() => Promise.all(Object.entries(databaseCache).flatMap(([key, value]) => {
+            if (key === 'unique_values' && value && typeof value === 'object') {
+                return Object.entries(value).map(([uniqueKey, uniqueValues]) => databaseIdbPutRecord(`unique_values:${uniqueKey}`, Array.isArray(uniqueValues) ? uniqueValues : []));
+            }
+            return [databaseIdbPutRecord(key, value)];
+        })))
+        .catch(err => console.warn(err));
     updatePostgresSyncSummary();
 }
 
 function writeCachedDatabasePart(key, value) {
-    const database = readCachedDatabase() || {};
-    database[key] = value;
-    writeCachedDatabase(database);
+    clearLegacyDatabaseCache();
+    databaseCache = databaseCache || {};
+    databaseCache[key] = value;
+    localStorage.setItem(STORAGE_KEY_DATABASE_AT, String(Date.now()));
+    localStorage.removeItem(STORAGE_KEY_DATABASE);
+    databaseIdbPutRecord(key, value).catch(err => console.warn(err));
+    updatePostgresSyncSummary();
 }
 
 function databaseCacheFresh() {
     const cachedAt = Number(localStorage.getItem(STORAGE_KEY_DATABASE_AT) || 0);
     return Boolean(readCachedDatabase()) && cachedAt && Date.now() - cachedAt < POSTGRES_CACHE_REFRESH_MS;
+}
+
+function databaseCacheComplete() {
+    const database = readCachedDatabase();
+    if (!database?.info || !database?.schema) return false;
+    const schemaRows = postgresSchemaRows(database.schema);
+    const hasObjectCountRelation = schemaRows.some(row =>
+        (row.schema_name || 'public') === 'public'
+        && row.table_name === 'mv_object_count'
+        && ['materialized_view', 'view', 'table'].includes(row.relation_type)
+    );
+    if (!hasObjectCountRelation) return true;
+    if (!Array.isArray(database.object_count)) return false;
+    return uniqueValuesCacheFresh();
 }
 
 function readCachedPostgresDatabaseInfo() {
@@ -2570,29 +2824,53 @@ function writeCachedPostgresObjectCount(rows) {
 }
 
 function clearCachedPostgresObjectCount() {
-    const database = readCachedDatabase() || {};
-    database.object_count = [];
-    writeCachedDatabase(database);
+    writeCachedDatabasePart('object_count', []);
 }
 
 function postgresObjectCountCacheFresh() {
     return databaseCacheFresh() && Boolean(readCachedPostgresObjectCount());
 }
 
-function clearPostgresCache() {
-    localStorage.removeItem(STORAGE_KEY_DATABASE);
-    localStorage.removeItem(STORAGE_KEY_DATABASE_AT);
+function readCachedPostgresUniqueValues(key) {
+    return readCachedDatabase()?.unique_values?.[key] || null;
+}
+
+function writeCachedPostgresUniqueValues(key, values) {
     clearLegacyDatabaseCache();
+    databaseCache = databaseCache || {};
+    databaseCache.unique_values = databaseCache.unique_values || {};
+    databaseCache.unique_values[key] = Array.isArray(values) ? values : [];
+    localStorage.setItem(STORAGE_KEY_DATABASE_AT, String(Date.now()));
+    localStorage.removeItem(STORAGE_KEY_DATABASE);
+    databaseIdbPutRecord(`unique_values:${key}`, databaseCache.unique_values[key]).catch(err => console.warn(err));
     updatePostgresSyncSummary();
 }
 
-function clearPortalStorage() {
+function clearCachedPostgresUniqueValues() {
+    databaseCache = databaseCache || {};
+    databaseCache.unique_values = {};
+    databaseIdbDeletePrefix('unique_values:').catch(err => console.warn(err));
+    localStorage.setItem(STORAGE_KEY_DATABASE_AT, String(Date.now()));
+    updatePostgresSyncSummary();
+}
+
+function clearPostgresCache({ waitForIndexedDb = false } = {}) {
+    databaseCache = {};
+    localStorage.removeItem(STORAGE_KEY_DATABASE);
+    localStorage.removeItem(STORAGE_KEY_DATABASE_AT);
+    clearLegacyDatabaseCache();
+    const clearPromise = databaseIdbClear().catch(err => console.warn(err));
+    updatePostgresSyncSummary();
+    return waitForIndexedDb ? clearPromise : undefined;
+}
+
+function clearPortalStorage({ waitForIndexedDb = false } = {}) {
     localStorage.removeItem(STORAGE_KEY_TOKEN);
     localStorage.removeItem(STORAGE_KEY_USER);
     localStorage.removeItem(STORAGE_KEY_INFO);
     localStorage.removeItem(STORAGE_KEY_INFO_AT);
     localStorage.removeItem(STORAGE_KEY_USER_AT);
-    clearPostgresCache();
+    return clearPostgresCache({ waitForIndexedDb });
 }
 
 function tradeLaneRoleAllowed(user = authUser) {
@@ -3118,7 +3396,9 @@ function queryBuilderOperatorsForColumn(row) {
     const kind = queryBuilderDataKind(row?.data_type);
     if (kind === 'boolean') return [
         ['is_true', 'is true'],
-        ['is_false', 'is false']
+        ['is_false', 'is false'],
+        ['is_null', 'is null'],
+        ['is_not_null', 'is not null']
     ];
     if (kind === 'number' || kind === 'date') {
         const operators = [
@@ -3143,14 +3423,152 @@ function queryBuilderOperatorsForColumn(row) {
     return operators;
 }
 
+function queryBuilderUniqueValuesForColumn(row) {
+    if (!row?.table_name || !row?.column_name) return [];
+    const values = readCachedPostgresUniqueValues(uniqueValueCacheKey(row.table_name, row.column_name));
+    return Array.isArray(values) ? values : [];
+}
+
+function queryBuilderReadInSelections(input) {
+    if (!input) return [];
+    try {
+        const values = JSON.parse(input.dataset.selectedValues || '[]');
+        return Array.isArray(values) ? values.map(value => String(value)).filter(Boolean) : [];
+    } catch (err) {
+        return [];
+    }
+}
+
+function queryBuilderWriteInSelections(input, values) {
+    const selected = Array.from(new Set((values || []).map(value => String(value)).filter(Boolean)));
+    input.dataset.selectedValues = JSON.stringify(selected);
+    input.value = selected.join(', ');
+    input.dataset.searchTerm = '';
+}
+
+function queryBuilderSetValueControl(rowEl, { useDropdown = false, values = [] } = {}) {
+    const current = rowEl.querySelector('.query-builder-value');
+    const currentValue = current?.value || '';
+    const selectedValues = current?.dataset.selectedValues || '';
+    const valueMenu = rowEl.querySelector('.query-builder-value-menu');
+    if (valueMenu) valueMenu.hidden = true;
+    const nextTag = useDropdown ? 'SELECT' : 'INPUT';
+    if (current && current.tagName === nextTag) {
+        if (useDropdown) {
+            current.innerHTML = [
+                '<option value="">Value</option>',
+                ...values.map(value => `<option value="${escapeHtml(String(value))}">${escapeHtml(String(value))}</option>`)
+            ].join('');
+            current.value = values.some(value => String(value) === currentValue) ? currentValue : '';
+        }
+        return current;
+    }
+    const next = document.createElement(useDropdown ? 'select' : 'input');
+    next.className = 'query-builder-value';
+    next.setAttribute('aria-label', 'Filter value');
+    if (useDropdown) {
+        next.innerHTML = [
+            '<option value="">Value</option>',
+            ...values.map(value => `<option value="${escapeHtml(String(value))}">${escapeHtml(String(value))}</option>`)
+        ].join('');
+        next.value = values.some(value => String(value) === currentValue) ? currentValue : '';
+    } else {
+        next.placeholder = 'Value';
+        next.value = currentValue;
+        if (selectedValues) next.dataset.selectedValues = selectedValues;
+    }
+    if (current) current.replaceWith(next);
+    return next;
+}
+
+function queryBuilderCloseValueMenus(exceptRow = null) {
+    document.querySelectorAll('.query-builder-filter-row').forEach(rowEl => {
+        if (exceptRow && rowEl === exceptRow) return;
+        const menu = rowEl.querySelector('.query-builder-value-menu');
+        if (menu) menu.hidden = true;
+    });
+}
+
+function queryBuilderSelectedColumnRow(rowEl) {
+    return queryBuilderColumnRowsForTable($('query-builder-table').value).find(row => row.column_name === rowEl.querySelector('.query-builder-column')?.value);
+}
+
+function queryBuilderRenderValueMenu(rowEl) {
+    const menu = rowEl.querySelector('.query-builder-value-menu');
+    const input = rowEl.querySelector('.query-builder-value');
+    const operator = rowEl.querySelector('.query-builder-operator')?.value;
+    const columnRow = queryBuilderSelectedColumnRow(rowEl);
+    if (!menu || !input || input.tagName !== 'INPUT' || operator !== 'in' || !columnRow || queryRunnerBusy) {
+        if (menu) menu.hidden = true;
+        return;
+    }
+    const values = queryBuilderUniqueValuesForColumn(columnRow);
+    if (!values.length) {
+        menu.hidden = true;
+        return;
+    }
+    const selectedValues = queryBuilderReadInSelections(input);
+    const selected = new Set(selectedValues.map(part => part.toLowerCase()));
+    const term = String(input.dataset.searchTerm || '').trim().toLowerCase();
+    const matches = values
+        .map(value => String(value))
+        .filter(value => !term || value.toLowerCase().includes(term))
+        .slice(0, 80);
+    menu.innerHTML = matches.length
+        ? matches.map(value => {
+            const checked = selected.has(value.toLowerCase()) ? ' checked' : '';
+            return `<button class="query-builder-value-option" type="button" data-value="${escapeHtml(value)}"><input type="checkbox" tabindex="-1"${checked}><span>${escapeHtml(value)}</span></button>`;
+        }).join('')
+        : '<div class="query-builder-value-empty">No values found</div>';
+    menu.hidden = false;
+}
+
+function queryBuilderAppendInValue(rowEl, value) {
+    const input = rowEl.querySelector('.query-builder-value');
+    if (!input || input.tagName !== 'INPUT') return;
+    const selectedValue = String(value);
+    const selected = queryBuilderReadInSelections(input);
+    const existingIndex = selected.findIndex(item => item.toLowerCase() === selectedValue.toLowerCase());
+    if (existingIndex >= 0) {
+        selected.splice(existingIndex, 1);
+    } else {
+        selected.push(selectedValue);
+    }
+    queryBuilderWriteInSelections(input, selected);
+    input.focus();
+    queryBuilderRenderValueMenu(rowEl);
+    updateQueryBuilderResetButton();
+}
+
+function queryBuilderHandleValueInput(rowEl) {
+    const input = rowEl.querySelector('.query-builder-value');
+    const operator = rowEl.querySelector('.query-builder-operator')?.value;
+    const columnRow = queryBuilderSelectedColumnRow(rowEl);
+    const hasUniqueValues = queryBuilderUniqueValuesForColumn(columnRow).length > 0;
+    if (input && input.tagName === 'INPUT' && operator === 'in' && hasUniqueValues) {
+        input.dataset.searchTerm = input.value;
+    }
+    queryBuilderRenderValueMenu(rowEl);
+}
+
+function queryBuilderRestoreInValueDisplay(rowEl) {
+    const input = rowEl.querySelector('.query-builder-value');
+    const operator = rowEl.querySelector('.query-builder-operator')?.value;
+    const columnRow = queryBuilderSelectedColumnRow(rowEl);
+    if (!input || input.tagName !== 'INPUT' || operator !== 'in' || !queryBuilderUniqueValuesForColumn(columnRow).length) return;
+    queryBuilderWriteInSelections(input, queryBuilderReadInSelections(input));
+}
+
 function queryBuilderRenderOperatorOptions(rowEl, columnRow) {
     const operatorSelect = rowEl.querySelector('.query-builder-operator');
-    const valueInput = rowEl.querySelector('.query-builder-value');
     if (!columnRow) {
         operatorSelect.innerHTML = '<option value="">Operator</option>';
         operatorSelect.disabled = true;
+        const valueInput = queryBuilderSetValueControl(rowEl);
         valueInput.disabled = true;
         valueInput.value = '';
+        delete valueInput.dataset.selectedValues;
+        delete valueInput.dataset.searchTerm;
         valueInput.placeholder = 'Value';
         return;
     }
@@ -3159,24 +3577,73 @@ function queryBuilderRenderOperatorOptions(rowEl, columnRow) {
     const operators = queryBuilderOperatorsForColumn(columnRow);
     operatorSelect.innerHTML = operators.map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`).join('');
     operatorSelect.value = operators.some(([value]) => value === current) ? current : operators[0]?.[0] || '=';
-    const noValue = ['is_true', 'is_false'].includes(operatorSelect.value);
+    const noValue = ['is_true', 'is_false', 'is_null', 'is_not_null'].includes(operatorSelect.value);
+    const uniqueValues = queryBuilderUniqueValuesForColumn(columnRow);
+    const valueInput = queryBuilderSetValueControl(rowEl, { useDropdown: !noValue && operatorSelect.value === '=' && uniqueValues.length > 0, values: uniqueValues });
     valueInput.disabled = queryRunnerBusy || noValue;
-    valueInput.placeholder = operatorSelect.value === 'between' ? 'start, end' : operatorSelect.value === 'in' ? 'value1, value2' : 'Value';
+    if (operatorSelect.value === 'in' && uniqueValues.length && valueInput.tagName === 'INPUT') {
+        const uniqueSet = new Set(uniqueValues.map(value => String(value).toLowerCase()));
+        const selected = queryBuilderReadInSelections(valueInput);
+        const initialSelected = selected.length
+            ? selected
+            : valueInput.value.split(',').map(part => part.trim()).filter(part => uniqueSet.has(part.toLowerCase()));
+        queryBuilderWriteInSelections(valueInput, initialSelected);
+    } else if (operatorSelect.value !== 'in') {
+        delete valueInput.dataset.selectedValues;
+        delete valueInput.dataset.searchTerm;
+    }
+    if (valueInput.tagName !== 'SELECT') valueInput.placeholder = operatorSelect.value === 'between' ? 'start, end' : operatorSelect.value === 'in' && uniqueValues.length ? 'Search values' : operatorSelect.value === 'in' ? 'value1, value2' : 'Value';
     if (noValue) valueInput.value = '';
+    queryBuilderRenderValueMenu(rowEl);
+}
+
+function queryBuilderCloseColumnMenus(exceptRow = null) {
+    document.querySelectorAll('.query-builder-filter-row').forEach(rowEl => {
+        if (exceptRow && rowEl === exceptRow) return;
+        const menu = rowEl.querySelector('.query-builder-column-menu');
+        if (menu) menu.hidden = true;
+    });
+}
+
+function queryBuilderRenderColumnMenu(rowEl) {
+    const menu = rowEl.querySelector('.query-builder-column-menu');
+    const input = rowEl.querySelector('.query-builder-column');
+    if (!menu || !input) return;
+    const term = input.value.trim().toLowerCase();
+    const columns = queryBuilderColumnRowsForTable($('query-builder-table').value)
+        .filter(row => !term || String(row.column_name).toLowerCase().includes(term))
+        .slice(0, 80);
+    menu.innerHTML = columns.length
+        ? columns.map(row => `<button class="query-builder-column-option" type="button" data-column="${escapeHtml(row.column_name)}">${escapeHtml(row.column_name)}</button>`).join('')
+        : '<div class="query-builder-column-empty">No columns found</div>';
+    menu.hidden = queryRunnerBusy;
+}
+
+function queryBuilderSelectColumn(rowEl, columnName) {
+    const input = rowEl.querySelector('.query-builder-column');
+    if (!input) return;
+    input.value = columnName || '';
+    queryBuilderCloseColumnMenus();
+    queryBuilderPopulateFilterRow(rowEl);
+    updateQueryBuilderResetButton();
 }
 
 function queryBuilderPopulateFilterRow(rowEl) {
     const tableKey = $('query-builder-table').value;
-    const columnSelect = rowEl.querySelector('.query-builder-column');
-    const currentColumn = columnSelect.value;
+    const columnInput = rowEl.querySelector('.query-builder-column');
     const columns = queryBuilderColumnRowsForTable(tableKey);
-    columnSelect.innerHTML = [
-        '<option value="">Column</option>',
-        ...columns.map(row => `<option value="${escapeHtml(row.column_name)}">${escapeHtml(row.column_name)}</option>`)
-    ].join('');
-    columnSelect.disabled = queryRunnerBusy;
-    columnSelect.value = columns.some(row => row.column_name === currentColumn) ? currentColumn : '';
-    const columnRow = columns.find(row => row.column_name === columnSelect.value);
+    columnInput.disabled = queryRunnerBusy;
+    const previousColumnName = rowEl.dataset.columnName || '';
+    if (previousColumnName && previousColumnName !== columnInput.value) {
+        const valueInput = rowEl.querySelector('.query-builder-value');
+        if (valueInput) {
+            valueInput.value = '';
+            delete valueInput.dataset.selectedValues;
+            delete valueInput.dataset.searchTerm;
+        }
+    }
+    rowEl.dataset.columnName = columnInput.value || '';
+    const columnRow = columns.find(row => row.column_name === columnInput.value);
     queryBuilderRenderOperatorOptions(rowEl, columnRow);
 }
 
@@ -3187,17 +3654,68 @@ function queryBuilderAddFilterRow() {
     rowEl.className = 'query-builder-filter-row';
     rowEl.dataset.filterId = String(++queryBuilderFilterId);
     rowEl.innerHTML = `
-        <select class="query-builder-column" aria-label="Filter column"></select>
+        <div class="query-builder-column-wrap">
+            <input class="query-builder-column" aria-label="Filter column" placeholder="Column" autocomplete="off">
+            <div class="query-builder-column-menu" hidden></div>
+        </div>
         <select class="query-builder-operator" aria-label="Filter operator"></select>
-        <input class="query-builder-value" aria-label="Filter value" placeholder="Value">
+        <div class="query-builder-value-wrap">
+            <input class="query-builder-value" aria-label="Filter value" placeholder="Value">
+            <div class="query-builder-value-menu" hidden></div>
+        </div>
         <button class="btn btn-secondary query-builder-remove" type="button" title="Remove filter" aria-label="Remove filter"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
     `;
     list.appendChild(rowEl);
+    rowEl.querySelector('.query-builder-column').addEventListener('focus', () => {
+        queryBuilderCloseColumnMenus(rowEl);
+        queryBuilderRenderColumnMenu(rowEl);
+    });
+    rowEl.querySelector('.query-builder-column').addEventListener('input', () => {
+        queryBuilderPopulateFilterRow(rowEl);
+        queryBuilderRenderColumnMenu(rowEl);
+    });
     rowEl.querySelector('.query-builder-column').addEventListener('change', () => queryBuilderPopulateFilterRow(rowEl));
+    rowEl.querySelector('.query-builder-column').addEventListener('blur', () => setTimeout(() => queryBuilderCloseColumnMenus(), 120));
+    rowEl.querySelector('.query-builder-column-menu').addEventListener('mousedown', event => event.preventDefault());
+    rowEl.querySelector('.query-builder-column-menu').addEventListener('click', event => {
+        const option = event.target.closest('.query-builder-column-option');
+        if (option) queryBuilderSelectColumn(rowEl, option.dataset.column || '');
+    });
     rowEl.querySelector('.query-builder-operator').addEventListener('change', () => {
-        const columnRow = queryBuilderColumnRowsForTable($('query-builder-table').value).find(row => row.column_name === rowEl.querySelector('.query-builder-column').value);
+        const columnRow = queryBuilderSelectedColumnRow(rowEl);
         queryBuilderRenderOperatorOptions(rowEl, columnRow);
     });
+    rowEl.querySelector('.query-builder-value').addEventListener('focus', () => {
+        queryBuilderCloseValueMenus(rowEl);
+        queryBuilderRenderValueMenu(rowEl);
+    });
+    rowEl.querySelector('.query-builder-value').addEventListener('input', () => queryBuilderHandleValueInput(rowEl));
+    rowEl.querySelector('.query-builder-value').addEventListener('blur', () => setTimeout(() => {
+        queryBuilderRestoreInValueDisplay(rowEl);
+        queryBuilderCloseValueMenus();
+    }, 120));
+    rowEl.querySelector('.query-builder-value-menu').addEventListener('mousedown', event => event.preventDefault());
+    rowEl.querySelector('.query-builder-value-menu').addEventListener('click', event => {
+        const option = event.target.closest('.query-builder-value-option');
+        if (option) queryBuilderAppendInValue(rowEl, option.dataset.value || '');
+    });
+    rowEl.addEventListener('focusin', event => {
+        if (event.target.closest('.query-builder-value')) {
+            queryBuilderCloseValueMenus(rowEl);
+            queryBuilderRenderValueMenu(rowEl);
+        }
+    });
+    rowEl.addEventListener('focusout', event => {
+        if (event.target.closest('.query-builder-value')) setTimeout(() => {
+            queryBuilderRestoreInValueDisplay(rowEl);
+            queryBuilderCloseValueMenus();
+        }, 120);
+    });
+    rowEl.addEventListener('input', updateQueryBuilderResetButton);
+    rowEl.addEventListener('input', event => {
+        if (event.target.closest('.query-builder-value')) queryBuilderHandleValueInput(rowEl);
+    });
+    rowEl.addEventListener('change', updateQueryBuilderResetButton);
     rowEl.querySelector('.query-builder-remove').addEventListener('click', () => {
         rowEl.remove();
         updateQueryBuilderResetButton();
@@ -3286,20 +3804,25 @@ function queryBuilderBuildCondition(rowEl) {
     const tableKey = $('query-builder-table').value;
     const columnName = rowEl.querySelector('.query-builder-column').value;
     const operator = rowEl.querySelector('.query-builder-operator').value;
-    const value = rowEl.querySelector('.query-builder-value').value;
+    const valueInput = rowEl.querySelector('.query-builder-value');
+    const value = valueInput.value;
     const columnRow = queryBuilderColumnRowsForTable(tableKey).find(row => row.column_name === columnName);
     if (!columnRow) throw new Error('Select an indexed column.');
     const kind = queryBuilderDataKind(columnRow.data_type);
     const columnSql = queryBuilderQuoteIdentifier(columnName);
     if (operator === 'is_true') return `${columnSql} IS TRUE`;
     if (operator === 'is_false') return `${columnSql} IS FALSE`;
+    if (operator === 'is_null') return `${columnSql} IS NULL`;
+    if (operator === 'is_not_null') return `${columnSql} IS NOT NULL`;
     if (operator === 'between') {
         const parts = value.split(',').map(part => part.trim()).filter(Boolean);
         if (parts.length !== 2) throw new Error('Between requires two comma-separated values.');
         return `${columnSql} BETWEEN ${queryBuilderSqlLiteral(parts[0], kind)} AND ${queryBuilderSqlLiteral(parts[1], kind)}`;
     }
     if (operator === 'in') {
-        const parts = value.split(',').map(part => part.trim()).filter(Boolean);
+        const uniqueValues = queryBuilderUniqueValuesForColumn(columnRow);
+        const selectedValues = uniqueValues.length ? queryBuilderReadInSelections(valueInput) : [];
+        const parts = selectedValues.length ? selectedValues : uniqueValues.length ? [] : value.split(',').map(part => part.trim()).filter(Boolean);
         if (!parts.length) throw new Error('In requires at least one value.');
         return `${columnSql} IN (${parts.map(part => queryBuilderSqlLiteral(part, kind)).join(', ')})`;
     }
@@ -3527,7 +4050,8 @@ async function warmPostgresCache({ force = false } = {}) {
     const shouldSyncDatabaseInfo = force || !postgresDatabaseInfoCacheFresh();
     const shouldSyncSchema = force || !postgresSchemaCacheFresh();
     const shouldSyncObjectCount = force || (objectCountRelationKnownExists() && !postgresObjectCountCacheFresh());
-    const shouldSync = shouldSyncDatabaseInfo || shouldSyncSchema || shouldSyncObjectCount;
+    const shouldSyncUniqueValues = force || (objectCountRelationKnownExists() && !uniqueValuesCacheFresh());
+    const shouldSync = shouldSyncDatabaseInfo || shouldSyncSchema || shouldSyncObjectCount || shouldSyncUniqueValues;
     if (!shouldSync) {
         updatePostgresSyncSummary();
         return;
@@ -3561,20 +4085,36 @@ async function warmPostgresCache({ force = false } = {}) {
         try {
             const schema = readCachedPostgresSchema();
             const hasObjectCountRelation = objectCountRelationKnownExists();
+            let objectCountRows = readCachedPostgresObjectCount()?.rows || [];
             if (schema && !hasObjectCountRelation) {
                 clearCachedPostgresObjectCount();
+                clearCachedPostgresUniqueValues();
                 if ($('object-count').classList.contains('active')) renderObjectCountError('public.mv_object_count was not found in schema cache. Create it, then refresh schema.');
             } else if (hasObjectCountRelation && (force || !postgresObjectCountCacheFresh())) {
                 setPostgresSyncStatus({ visible: true, progress: 80, text: 'Syncing object count...' });
-                const rows = await fetchObjectCountAllPages({
+                objectCountRows = await fetchObjectCountAllPages({
                     onProgress: ({ page }) => setPostgresSyncStatus({
                         visible: true,
                         progress: Math.min(98, 80 + (page * 3)),
                         text: `Syncing object count page ${formatNumber(page)}...`
                     })
                 });
-                writeCachedPostgresObjectCount(rows);
-                if ($('object-count').classList.contains('active')) renderObjectCountRows(rows);
+                writeCachedPostgresObjectCount(objectCountRows);
+                if ($('object-count').classList.contains('active')) renderObjectCountRows(objectCountRows);
+                setPostgresSyncStatus({ visible: true, progress: 88, text: 'Object count cached.' });
+            }
+            if (hasObjectCountRelation && (force || !uniqueValuesCacheFresh())) {
+                setPostgresSyncStatus({ visible: true, progress: 90, text: 'Syncing dropdown values...' });
+                await syncUniqueValueDropdowns(objectCountRows, {
+                    onProgress: ({ item, index, total, page }) => setPostgresSyncStatus({
+                        visible: true,
+                        progress: Math.min(99, 90 + Math.floor(((index + 1) / Math.max(1, total)) * 9)),
+                        text: page
+                            ? `Syncing ${item.cache_key} page ${formatNumber(page)}...`
+                            : `Syncing ${item.cache_key}...`
+                    })
+                });
+                renderQueryBuilder();
                 setPostgresSyncStatus({ visible: true, progress: 100, text: 'Database cache synced.' });
             }
         } catch (err) {
@@ -3606,7 +4146,7 @@ async function syncPostgresCache({ force = true } = {}) {
         setTimeout(() => setPostgresSyncStatus({ visible: false }), 1800);
     } finally {
         btn?.classList.remove('is-loading');
-        if (btn) btn.disabled = false;
+        if (btn && !btn.classList.contains('is-syncing')) btn.disabled = false;
     }
 }
 
@@ -3768,6 +4308,10 @@ function objectCountSql(page = 1) {
     ].join('\n');
 }
 
+function uniqueValueCacheKey(tableName, columnName) {
+    return `${tableName}.${columnName}`;
+}
+
 function objectCountRowCount(row = {}) {
     const count = Number(row.row_count ?? row.count);
     return Number.isFinite(count) ? count : null;
@@ -3863,6 +4407,131 @@ async function fetchObjectCountAllPages({ onProgress } = {}) {
         page += 1;
     }
     return rows;
+}
+
+function resolveUniqueValueObject(row = {}) {
+    const objectName = String(row.object_name || '');
+    if (!objectName.startsWith('mv_unique_')) return null;
+    const count = objectCountRowCount(row);
+    if (count === null || count > UNIQUE_VALUE_MAX_ROWS) return null;
+    const suffix = objectName.slice('mv_unique_'.length);
+    const tableNames = Array.from(new Set(queryBuilderSchemaRows()
+        .filter(schemaRow => schemaRow.relation_type === 'table' && schemaRow.table_name)
+        .map(schemaRow => schemaRow.table_name)))
+        .sort((a, b) => b.length - a.length);
+    for (const tableName of tableNames) {
+        const prefix = `${tableName}_`;
+        if (!suffix.startsWith(prefix)) continue;
+        const columnName = suffix.slice(prefix.length);
+        if (!columnName) continue;
+        const hasColumn = queryBuilderSchemaRows().some(schemaRow =>
+            schemaRow.relation_type === 'table'
+            && schemaRow.table_name === tableName
+            && schemaRow.column_name === columnName
+        );
+        if (!hasColumn) continue;
+        return {
+            schema_name: row.schema_name || 'public',
+            object_name: objectName,
+            table_name: tableName,
+            column_name: columnName,
+            row_count: count,
+            cache_key: uniqueValueCacheKey(tableName, columnName)
+        };
+    }
+    return null;
+}
+
+function uniqueValueObjectsFromObjectCount(rows = []) {
+    const seen = new Set();
+    const output = [];
+    rows.forEach(row => {
+        const item = resolveUniqueValueObject(row);
+        if (!item || seen.has(item.cache_key)) return;
+        seen.add(item.cache_key);
+        output.push(item);
+    });
+    return output
+        .sort((a, b) => (a.row_count - b.row_count) || a.cache_key.localeCompare(b.cache_key))
+        .slice(0, UNIQUE_VALUE_MAX_OBJECTS);
+}
+
+function uniqueValuesCacheFresh() {
+    const objectCount = readCachedPostgresObjectCount();
+    if (!objectCount) return false;
+    const items = uniqueValueObjectsFromObjectCount(objectCount.rows);
+    return items.every(item => Array.isArray(readCachedPostgresUniqueValues(item.cache_key)));
+}
+
+function uniqueValuesSql(item, page = 1) {
+    const offset = (Math.max(1, Number(page || 1)) - 1) * UNIQUE_VALUE_PAGE_SIZE;
+    return [
+        'SELECT *',
+        `FROM ${objectCountQualifiedObjectSql(item.schema_name, item.object_name)}`,
+        'ORDER BY 1',
+        `LIMIT ${UNIQUE_VALUE_PAGE_SIZE + 1}`,
+        `OFFSET ${offset};`
+    ].join('\n');
+}
+
+async function fetchUniqueValuePage(item, page = 1) {
+    const payload = await api(POSTGRES_QUERY_RUNNER_PATH, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
+        body: JSON.stringify({ db: 'external', sql: uniqueValuesSql(item, page) })
+    });
+    const result = payload.message || {};
+    return Array.isArray(result) ? result : Array.isArray(result.rows) ? result.rows : [];
+}
+
+function extractUniqueValue(row = {}, item = {}) {
+    if (Object.prototype.hasOwnProperty.call(row, item.column_name)) return row[item.column_name];
+    const valueKey = Object.keys(row).find(key => !/^(cnt|count|row_count|counted_at)$/i.test(key));
+    return valueKey ? row[valueKey] : null;
+}
+
+async function fetchUniqueValuesAllPages(item, { onProgress } = {}) {
+    let page = 1;
+    const values = [];
+    const seen = new Set();
+    let hasNextPage = true;
+    while (hasNextPage) {
+        const pageRows = await fetchUniqueValuePage(item, page);
+        pageRows.slice(0, UNIQUE_VALUE_PAGE_SIZE).forEach(row => {
+            const value = extractUniqueValue(row, item);
+            if (value === null || value === undefined || value === '') return;
+            const key = String(value);
+            if (seen.has(key)) return;
+            seen.add(key);
+            values.push(value);
+        });
+        hasNextPage = pageRows.length > UNIQUE_VALUE_PAGE_SIZE && values.length < UNIQUE_VALUE_MAX_ROWS;
+        if (onProgress) onProgress({ page, hasNextPage, values });
+        page += 1;
+    }
+    return values.sort((a, b) => String(a).localeCompare(String(b)));
+}
+
+async function syncUniqueValueDropdowns(rows = [], { onProgress } = {}) {
+    const items = uniqueValueObjectsFromObjectCount(rows);
+    clearCachedPostgresUniqueValues();
+    const errors = [];
+    for (let index = 0; index < items.length; index += 1) {
+        const item = items[index];
+        try {
+            if (onProgress) onProgress({ item, index, total: items.length, page: 0 });
+            const values = await fetchUniqueValuesAllPages(item, {
+                onProgress: ({ page }) => {
+                    if (onProgress) onProgress({ item, index, total: items.length, page });
+                }
+            });
+            writeCachedPostgresUniqueValues(item.cache_key, values);
+        } catch (err) {
+            errors.push(err);
+            console.warn(err);
+        }
+    }
+    return { count: items.length, errors };
 }
 
 async function loadObjectCount({ force = false } = {}) {
@@ -4150,11 +4819,11 @@ function requestLogout() {
     openModal('logout-modal');
 }
 
-function logout() {
+async function logout() {
     authToken = null;
     authUser = null;
     appInfo = {};
-    clearPortalStorage();
+    await clearPortalStorage({ waitForIndexedDb: true });
     pgscopeDatabaseInfoLoaded = false;
     pgscopeSchemaLoaded = false;
     pgscopeSchemaRows = [];
@@ -4211,6 +4880,8 @@ function bindAuthComponentEvents() {
     });
     document.addEventListener('click', event => {
         if (!event.target.closest('.profile-actions')) closeProfileMenu();
+        if (!event.target.closest('.query-builder-column-wrap')) queryBuilderCloseColumnMenus();
+        if (!event.target.closest('.query-builder-value-wrap')) queryBuilderCloseValueMenus();
     });
     document.querySelectorAll('.modal').forEach(modal => {
         modal.addEventListener('click', event => {
@@ -4334,14 +5005,15 @@ bindAuthComponentEvents();
 bindPageEvents();
 resetTransientQueryStateOnLoad();
 renderQueryRunnerTabMessages();
-renderQueryBuilder();
 updateQueryRunnerResetButton();
 updateQueryBuilderResetButton();
 updateQueryAiResetButton();
 setInterval(updatePostgresSyncSummary, 60000);
 const initialize = async () => {
+    await loadDatabaseCacheFromIndexedDb();
     await loadInfo();
     await loadProfile().catch(err => console.warn(err));
+    renderQueryBuilder();
     applyAuthState();
 };
 initialize();

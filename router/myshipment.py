@@ -7,8 +7,8 @@ import os
 router = APIRouter()
 
 # api
-@router.get("/cargowise/buyer-360")
-async def func_api_cargowise_buyer_360(*, request: Request):
+@router.get("/myshipment/buyer-360")
+async def func_api_myshipment_buyer_360(*, request: Request):
     app_state = request.app.state
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("org_id", "str", 1, None, None)])
@@ -97,8 +97,8 @@ async def func_api_cargowise_buyer_360(*, request: Request):
         row = await cursor.fetchone()
     return {"status": 1, "message": dict(zip(columns, row)) if row else None}
 
-@router.get("/cargowise/my-profile")
-async def func_api_my_cargowise_profile(*, request: Request):
+@router.get("/myshipment/my-profile")
+async def func_api_myshipment_my_profile(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
@@ -253,8 +253,8 @@ async def func_api_my_cargowise_profile(*, request: Request):
     profile_object = {"org": org, "roles": roles, "classifications": classifications, "addresses": addresses, "contacts": contacts}
     return {"status": 1, "message": jsonable_encoder(profile_object)}
 
-@router.get("/cargowise/my-purchase-orders")
-async def func_api_my_cargowise_purchase_orders(*, request: Request):
+@router.get("/myshipment/my-purchase-orders")
+async def func_api_myshipment_my_purchase_orders(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
@@ -436,8 +436,8 @@ async def func_api_my_cargowise_purchase_orders(*, request: Request):
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
-@router.get("/cargowise/my-purchase-orders-line-items")
-async def func_api_my_cargowise_purchase_order_lines(*, request: Request):
+@router.get("/myshipment/my-purchase-orders-line-items")
+async def func_api_myshipment_my_purchase_order_lines(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
@@ -531,8 +531,8 @@ async def func_api_my_cargowise_purchase_order_lines(*, request: Request):
             obj_list = []
     return {"status": 1, "message": jsonable_encoder(obj_list)}
 
-@router.get("/cargowise/my-shipments")
-async def func_api_my_cargowise_shipments(*, request: Request):
+@router.get("/myshipment/my-shipments")
+async def func_api_myshipment_my_shipments(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
@@ -770,8 +770,8 @@ async def func_api_my_cargowise_shipments(*, request: Request):
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
-@router.get("/cargowise/my-containers")
-async def func_api_my_cargowise_containers(*, request: Request):
+@router.get("/myshipment/my-containers")
+async def func_api_myshipment_my_containers(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
@@ -887,8 +887,8 @@ async def func_api_my_cargowise_containers(*, request: Request):
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
-@router.get("/cargowise/my-tracking")
-async def func_api_my_cargowise_shipment_tracking(*, request: Request):
+@router.get("/myshipment/my-tracking")
+async def func_api_myshipment_my_tracking(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
@@ -986,8 +986,8 @@ async def func_api_my_cargowise_shipment_tracking(*, request: Request):
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
-@router.get("/cargowise/my-alerts")
-async def func_api_my_cargowise_alerts(*, request: Request):
+@router.get("/myshipment/my-alerts")
+async def func_api_myshipment_my_alerts(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
@@ -1111,8 +1111,8 @@ async def func_api_my_cargowise_alerts(*, request: Request):
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
-@router.get("/cargowise/my-documents")
-async def func_api_my_cargowise_documents(*, request: Request):
+@router.get("/myshipment/my-documents")
+async def func_api_myshipment_my_documents(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
@@ -1332,8 +1332,8 @@ async def func_api_my_cargowise_documents(*, request: Request):
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
-@router.get("/cargowise/my-documents-download")
-async def func_api_my_cargowise_documents_download(*, request: Request):
+@router.get("/myshipment/my-documents-download")
+async def func_api_myshipment_my_documents_download(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
@@ -1341,8 +1341,8 @@ async def func_api_my_cargowise_documents_download(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("document_id", "str", 1, None, None)])
     raise Exception("Document download is not available from JobDocumentData in this CargoWise database. Document metadata can be viewed, but file storage mapping needs to be configured separately.")
 
-@router.get("/cargowise/my-analytics")
-async def func_api_my_cargowise_analytics(*, request: Request):
+@router.get("/myshipment/my-analytics")
+async def func_api_myshipment_my_analytics(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")

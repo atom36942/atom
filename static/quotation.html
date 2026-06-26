@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MyShipment</title>
+    <title>Quotation</title>
     <style>
 :root {
     --bg-main: #F3F4F6;
@@ -4097,10 +4097,22 @@ body {
     font-size: 1.35rem;
 }
 
+#rate-csv-modal .modal-content { width: 760px; }
+#rate-edit-modal .modal-content { width: 980px; }
+#quotation-create-modal .modal-content { width: 620px; }
+#quotation-view-modal .modal-content { width: 820px; }
+#quotation-decision-modal .modal-content { width: 560px; }
+
 .rate-edit-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.9rem;
+}
+
+#rate-edit-modal .modal-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
 }
 
 .rate-edit-grid .wide { grid-column: 1 / -1; }
@@ -4471,35 +4483,17 @@ body.not-allowed .content-wrapper {
     <div class="app-layout">
         <aside class="sidebar">
             <div class="logo">
-                <h2>MyShipment</h2>
+                <h2>Quotation</h2>
             </div>
             <nav class="nav-menu">
-                <a href="#users" class="nav-item" data-target="users" data-roles="1,2" hidden>
-                    <i class="fa-solid fa-users"></i> Users
+                <a href="#sales-rates" class="nav-item" data-target="sales-rates" data-roles="1,3" hidden>
+                    <i class="fa-solid fa-magnifying-glass-dollar"></i> Rate Search
                 </a>
-                <a href="#buyer-360" class="nav-item" data-target="buyer-360" data-roles="1,2" hidden>
-                    <i class="fa-solid fa-building-circle-check"></i> Buyer 360
+                <a href="#quotations" class="nav-item" data-target="quotations" data-roles="1,2,3" hidden>
+                    <i class="fa-solid fa-file-signature"></i> Quotations
                 </a>
-                <a href="#profile" class="nav-item active" data-target="profile" data-roles="3">
-                    <i class="fa-solid fa-user"></i> My Profile
-                </a>
-                <a href="#purchase-orders" class="nav-item" data-target="purchase-orders" data-roles="3">
-                    <i class="fa-solid fa-file-invoice"></i> Purchase Orders
-                </a>
-                <a href="#shipments" class="nav-item" data-target="shipments" data-roles="3">
-                    <i class="fa-solid fa-ship"></i> Shipments
-                </a>
-                <a href="#tracking" class="nav-item" data-target="tracking" data-roles="3">
-                    <i class="fa-solid fa-route"></i> Tracking
-                </a>
-                <a href="#alerts" class="nav-item" data-target="alerts" data-roles="3">
-                    <i class="fa-solid fa-triangle-exclamation"></i> Alerts
-                </a>
-                <a href="#analytics" class="nav-item" data-target="analytics" data-roles="3">
-                    <i class="fa-solid fa-chart-line"></i> Analytics
-                </a>
-                <a href="#mghask" class="nav-item" data-target="mghask" data-roles="3">
-                    <i class="fa-solid fa-robot"></i> MGH ASK
+                <a href="#rates" class="nav-item" data-target="rates" data-roles="1,2" hidden>
+                    <i class="fa-solid fa-sailboat"></i> Rates
                 </a>
             </nav>
         </aside>
@@ -4533,8 +4527,8 @@ body.not-allowed .content-wrapper {
                     <div class="home-hero">
                         <div class="home-copy">
                             <span style="display: inline-block; padding: 0.35rem 0.85rem; background: #EEF2FF; border: 1px solid #C7D2FE; color: var(--primary); border-radius: 9999px; font-size: 0.75rem; font-weight: 700; margin-bottom: 1rem; letter-spacing: 0.05em; text-transform: uppercase; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">MGH GROUP</span>
-                            <h1>Welcome to MyShipment</h1>
-                            <p>Track purchase orders, shipments, containers, milestones, alerts, documents, and analytics from one workspace.</p>
+                            <h1>Welcome to Quotation</h1>
+                            <p>Search freight rates, create quotations, and manage procurement approvals from one workspace.</p>
                         </div>
                         <div class="home-card">
                             <div class="home-card-row">
@@ -4560,6 +4554,262 @@ body.not-allowed .content-wrapper {
                         <h2>Access not allowed</h2>
                         <p>This portal is not configured for your account role. Your account currently has <strong>role = <span id="blocked-current-role">-</span></strong>. Please contact your administrator if you believe this is a mistake.</p>
                         <button class="btn btn-primary" id="blocked-logout-btn" type="button">Logout</button>
+                    </div>
+                </section>
+
+                <!-- Sales Rate Search Section -->
+                <section id="sales-rates" class="view-section">
+                    <div class="panel po-panel">
+                        <div class="po-toolbar">
+                            <div class="po-heading">
+                                <h2>Rate Search</h2>
+                                <p>Find approved freight rates and prepare a quote for the customer.</p>
+                            </div>
+                            <span class="sales-rate-info-pill"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Buy rate hidden</span>
+                        </div>
+                        <div class="sales-rate-shell">
+                            <div class="sales-rate-card">
+                                <div class="sales-rate-card-header">
+                                    <div>
+                                        <h3>Booking Details</h3>
+                                        <span>Enter route and cargo details to find matching rates</span>
+                                    </div>
+                                    <i class="fa-solid fa-route" aria-hidden="true"></i>
+                                </div>
+                                <form class="sales-rate-form" id="sales-rate-search-form">
+                                    <div class="sales-rate-section location">
+                                        <div class="sales-rate-section-title">
+                                            <h4>Location Details</h4>
+                                            <span>Where is the shipment moving?</span>
+                                        </div>
+                                        <div class="sales-rate-grid">
+                                            <div class="sales-rate-field">
+                                                <label for="sales-rate-mode">Mode <span class="sales-required-icon" title="Required"><i class="fa-solid fa-asterisk"></i></span></label>
+                                                <select id="sales-rate-mode" required>
+                                                    <option value="">Mode</option>
+                                                    <option value="Sea">Sea</option>
+                                                    <option value="Air">Air</option>
+                                                </select>
+                                            </div>
+                                            <div class="sales-rate-field sales-suggest-field">
+                                                <label for="sales-rate-origin">From <span class="sales-required-icon" title="Required"><i class="fa-solid fa-asterisk"></i></span></label>
+                                                <input id="sales-rate-origin" placeholder="Origin" autocomplete="off" required>
+                                                <button class="sales-suggest-clear" type="button" data-sales-clear="origin" aria-label="Clear origin" title="Clear" hidden><i class="fa-solid fa-xmark"></i></button>
+                                                <button class="sales-suggest-toggle" type="button" data-sales-toggle="origin" aria-label="Show origin options" title="Show options"><i class="fa-solid fa-chevron-down"></i></button>
+                                                <div class="sales-suggest-menu" id="sales-rate-origin-menu" hidden></div>
+                                            </div>
+                                            <div class="sales-rate-field sales-suggest-field">
+                                                <label for="sales-rate-destination">To <span class="sales-required-icon" title="Required"><i class="fa-solid fa-asterisk"></i></span></label>
+                                                <input id="sales-rate-destination" placeholder="Destination" autocomplete="off" required>
+                                                <button class="sales-suggest-clear" type="button" data-sales-clear="destination" aria-label="Clear destination" title="Clear" hidden><i class="fa-solid fa-xmark"></i></button>
+                                                <button class="sales-suggest-toggle" type="button" data-sales-toggle="destination" aria-label="Show destination options" title="Show options"><i class="fa-solid fa-chevron-down"></i></button>
+                                                <div class="sales-suggest-menu" id="sales-rate-destination-menu" hidden></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="sales-rate-section cargo">
+                                        <div class="sales-rate-section-title">
+                                            <h4>Cargo Details</h4>
+                                            <span>What do you want to ship?</span>
+                                        </div>
+                                        <div class="sales-rate-grid">
+                                            <div class="sales-rate-field">
+                                                <label for="sales-rate-charge-unit">Charge Unit <span class="sales-required-icon" title="Required"><i class="fa-solid fa-asterisk"></i></span></label>
+                                                <select id="sales-rate-charge-unit" required>
+                                                    <option value="">Charge Unit</option>
+                                                    <option value="20GP">20GP</option>
+                                                    <option value="40GP">40GP</option>
+                                                    <option value="40HC">40HC</option>
+                                                    <option value="45HC">45HC</option>
+                                                    <option value="CBM">CBM</option>
+                                                    <option value="KG">KG</option>
+                                                </select>
+                                            </div>
+                                            <div class="sales-rate-field sales-suggest-field">
+                                                <label for="sales-rate-commodity">Commodity</label>
+                                                <input id="sales-rate-commodity" placeholder="Commodity" autocomplete="off">
+                                                <button class="sales-suggest-clear" type="button" data-sales-clear="commodity" aria-label="Clear commodity" title="Clear" hidden><i class="fa-solid fa-xmark"></i></button>
+                                                <button class="sales-suggest-toggle" type="button" data-sales-toggle="commodity" aria-label="Show commodity options" title="Show options"><i class="fa-solid fa-chevron-down"></i></button>
+                                                <div class="sales-suggest-menu" id="sales-rate-commodity-menu" hidden></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="sales-rate-section optional">
+                                        <div class="sales-rate-section-title">
+                                            <h4>Optional Filters</h4>
+                                            <span>Use only if the client prefers a carrier</span>
+                                        </div>
+                                        <div class="sales-rate-grid">
+                                            <div class="sales-rate-field sales-suggest-field">
+                                                <label for="sales-rate-carrier">Carrier</label>
+                                                <input id="sales-rate-carrier" placeholder="Carrier" autocomplete="off">
+                                                <button class="sales-suggest-clear" type="button" data-sales-clear="carrier" aria-label="Clear carrier" title="Clear" hidden><i class="fa-solid fa-xmark"></i></button>
+                                                <button class="sales-suggest-toggle" type="button" data-sales-toggle="carrier" aria-label="Show carrier options" title="Show options"><i class="fa-solid fa-chevron-down"></i></button>
+                                                <div class="sales-suggest-menu" id="sales-rate-carrier-menu" hidden></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="auth-message" id="sales-rate-message"></div>
+                                    <div class="sales-rate-actions">
+                                        <button class="btn btn-secondary" id="sales-rate-clear-btn" type="button">
+                                            <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Clear
+                                        </button>
+                                        <button class="btn btn-primary" id="sales-rate-submit-btn" type="submit">
+                                            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Search Rates
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="sales-rate-results" id="sales-rate-results">
+                                <div class="sales-rate-empty">Enter route details and search to view matching rates.</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Quotations Section -->
+                <section id="quotations" class="view-section">
+                    <div class="panel po-panel">
+                        <div class="po-toolbar">
+                            <div class="po-heading">
+                                <h2>Quotations</h2>
+                                <p>Track customer quotations, draft submissions, and procurement decisions.</p>
+                            </div>
+                        </div>
+                        <form class="quotation-filters" id="quotation-filter-form">
+                            <input id="quotation-customer-filter" placeholder="Customer name" aria-label="Filter by customer name">
+                            <select id="quotation-status-filter" aria-label="Filter by quotation status">
+                                <option value="">All status</option>
+                                <option value="1">Draft</option>
+                                <option value="2">Approval Pending</option>
+                                <option value="3">Approved</option>
+                                <option value="4">Rejected</option>
+                            </select>
+                            <button class="btn btn-primary" type="submit"><i class="fa-solid fa-filter" aria-hidden="true"></i> Apply</button>
+                            <button class="btn btn-secondary" id="quotation-reset-btn" type="button"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Clear</button>
+                        </form>
+                        <div class="rate-table-wrap">
+                            <div class="rate-table-toolbar">
+                                <div class="po-result-count" id="quotation-result-count">Loading quotations...</div>
+                                <div class="po-pagination">
+                                    <button class="po-page-button" id="quotation-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left"></i><span>Previous</span></button>
+                                    <span id="quotation-page-display">Page 1</span>
+                                    <button class="po-page-button" id="quotation-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right"></i></button>
+                                </div>
+                            </div>
+                            <table class="data-table" id="quotations-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Customer</th>
+                                        <th>Route</th>
+                                        <th>Carrier</th>
+                                        <th>Quoted</th>
+                                        <th>Total</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody><tr><td class="rate-message-cell" colspan="9">Loading quotations...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Rates Section -->
+                <section id="rates" class="view-section">
+                    <div class="panel po-panel">
+                        <div class="po-toolbar">
+                            <div class="po-heading">
+                                <h2>Rates</h2>
+                            </div>
+                            <div class="rate-toolbar-actions">
+                                <button class="btn btn-secondary rate-manager-only" id="rates-create-btn" type="button" hidden>
+                                    <i class="fa-solid fa-plus" aria-hidden="true"></i> Create Rate
+                                </button>
+                                <button class="btn btn-secondary rate-manager-only" id="rates-update-csv-btn" type="button" hidden>
+                                    <i class="fa-solid fa-file-pen" aria-hidden="true"></i> Update Rates
+                                </button>
+                                <button class="btn btn-primary rate-manager-only" id="rates-upload-btn" type="button" hidden>
+                                    <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> Upload Rates
+                                </button>
+                            </div>
+                        </div>
+                        <form class="rate-filters" id="rates-filter-form">
+                            <div class="rate-filter-title">Filters</div>
+                            <div class="rate-filter-field mode">
+                                <select id="rates-mode-filter" aria-label="Filter by mode">
+                                    <option value="">Mode</option>
+                                    <option value="Sea">Sea</option>
+                                    <option value="Air">Air</option>
+                                </select>
+                            </div>
+                            <div class="rate-filter-field carrier">
+                                <i class="fa-solid fa-building" aria-hidden="true"></i>
+                                <input id="rates-carrier-filter" placeholder="Carrier" aria-label="Filter by carrier">
+                            </div>
+                            <div class="rate-filter-field origin">
+                                <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+                                <input id="rates-origin-filter" placeholder="Origin" aria-label="Filter by origin">
+                            </div>
+                            <div class="rate-filter-field destination">
+                                <i class="fa-solid fa-anchor" aria-hidden="true"></i>
+                                <input id="rates-destination-filter" placeholder="Destination" aria-label="Filter by destination">
+                            </div>
+                            <div class="rate-filter-field status">
+                                <select id="rates-status-filter" aria-label="Filter by rate status">
+                                    <option value="">Status</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Deactivated</option>
+                                </select>
+                            </div>
+                            <div class="rate-filter-actions">
+                                <button class="btn btn-filter-submit" id="rates-filter-submit-btn" type="submit" disabled><i class="fa-solid fa-filter" aria-hidden="true"></i> Submit</button>
+                                <button class="btn btn-secondary" id="rates-reset-btn" type="button" title="Clear filters" aria-label="Clear filters"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
+                            </div>
+                            <div class="rate-filter-my">
+                                <button class="btn btn-secondary rate-filter-toggle" id="rates-my-filter-btn" type="button" aria-pressed="false"><i class="fa-solid fa-user" aria-hidden="true"></i> My Rates</button>
+                            </div>
+                        </form>
+                        <div class="rate-table-wrap">
+                            <div class="rate-table-toolbar">
+                                <div class="po-result-count" id="rates-result-count">Loading rates...</div>
+                                <div class="rate-table-tools">
+                                    <button class="btn btn-secondary" id="rates-download-btn" type="button" title="Download visible table CSV" aria-label="Download visible rates table CSV">
+                                        <i class="fa-solid fa-download" aria-hidden="true"></i>
+                                    </button>
+                                    <div class="po-pagination" aria-label="Rate pages">
+                                        <button class="po-page-button" id="rates-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left"></i><span>Previous</span></button>
+                                        <span id="rates-page-display">Page 1</span>
+                                        <button class="po-page-button" id="rates-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <table class="data-table" id="freight-rates-table">
+                                <thead>
+                                    <tr>
+                                        <th>Mode</th>
+                                        <th>Origin</th>
+                                        <th>Destination</th>
+                                        <th>Carrier</th>
+                                        <th>Commodity</th>
+                                        <th>Unit</th>
+                                        <th>Currency</th>
+                                        <th>Buy Rate</th>
+                                        <th>Min Sell Rate</th>
+                                        <th>Origin Charges</th>
+                                        <th>Destination Charges</th>
+                                        <th>Validity</th>
+                                        <th>Transit</th>
+                                        <th>Remarks</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody><tr><td class="rate-message-cell" colspan="16">Loading rates...</td></tr></tbody>
+                            </table>
+                        </div>
                     </div>
                 </section>
 
@@ -5544,6 +5794,169 @@ body.not-allowed .content-wrapper {
     </div>
 
     <!-- Freight Rate CSV Modal -->
+    <div class="modal" id="quotation-create-modal" role="dialog" aria-modal="true" aria-labelledby="quotation-create-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-file-signature" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="quotation-create-title">Create Quotation</h3>
+                        <p class="modal-subtitle">Quote must be equal to or above minimum sell rate</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="quotation-create-close" type="button" aria-label="Close quotation form" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="quotation-create-form">
+                <div class="modal-body">
+                    <input id="quotation-rate-id" type="hidden">
+                    <div class="quote-doc-box" id="quotation-rate-summary">Select a rate first.</div>
+                    <div class="rate-edit-grid" style="margin-top:1rem;">
+                        <div class="form-field"><label for="quotation-customer-name">Customer Name</label><input id="quotation-customer-name" required></div>
+                        <div class="form-field"><label for="quotation-customer-email">Customer Email</label><input id="quotation-customer-email" type="email"></div>
+                        <div class="form-field"><label for="quotation-customer-mobile">Customer Mobile</label><input id="quotation-customer-mobile"></div>
+                        <div class="form-field"><label for="quotation-quoted-rate">Quoted Rate</label><input id="quotation-quoted-rate" type="number" min="0" step="0.01" required></div>
+                        <div class="form-field wide"><label for="quotation-remarks">Remarks</label><textarea id="quotation-remarks"></textarea></div>
+                    </div>
+                    <div class="auth-message" id="quotation-create-message"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" id="quotation-create-cancel">Cancel</button>
+                    <button class="btn btn-secondary" type="submit" data-quotation-status="1">Save Draft</button>
+                    <button class="btn btn-primary" type="submit" data-quotation-status="2">Send for Approval</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="quotation-view-modal" role="dialog" aria-modal="true" aria-labelledby="quotation-view-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-file-invoice-dollar" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="quotation-view-title">Quotation</h3>
+                        <p class="modal-subtitle">Customer quotation preview</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="quotation-view-close" type="button" aria-label="Close quotation preview" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="quotation-view" id="quotation-view-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" id="quotation-view-download"><i class="fa-solid fa-download" aria-hidden="true"></i> Download</button>
+                <button class="btn btn-secondary" type="button" id="quotation-view-cancel">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="quotation-decision-modal" role="dialog" aria-modal="true" aria-labelledby="quotation-decision-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="quotation-decision-title">Review Quotation</h3>
+                        <p class="modal-subtitle">Approve or reject the submitted quotation</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="quotation-decision-close" type="button" aria-label="Close quotation decision" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="quotation-decision-form">
+                <div class="modal-body">
+                    <input id="quotation-decision-id" type="hidden">
+                    <input id="quotation-decision-status" type="hidden">
+                    <div class="quote-doc-box" id="quotation-decision-summary">Select a quotation first.</div>
+                    <div class="form-field" style="margin-top:1rem;">
+                        <label for="quotation-decision-remarks">Remarks</label>
+                        <textarea id="quotation-decision-remarks" placeholder="Add approval or rejection remarks"></textarea>
+                    </div>
+                    <div class="auth-message" id="quotation-decision-message"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" id="quotation-decision-cancel">Cancel</button>
+                    <button class="btn btn-primary" type="submit" id="quotation-decision-submit">Confirm</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="rate-csv-modal" role="dialog" aria-modal="true" aria-labelledby="rate-csv-modal-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-file-csv" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="rate-csv-modal-title">Upload Rates</h3>
+                        <p class="modal-subtitle" id="rate-csv-modal-subtitle">Create rate records from a CSV file</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="rate-csv-modal-close" type="button" aria-label="Close CSV upload" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <button class="btn btn-secondary" id="rate-csv-template-btn" type="button">
+                    <i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i> Download CSV Template
+                </button>
+                <label class="rate-file-drop" for="rate-csv-file">
+                    <i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i>
+                    <strong>Choose a CSV file</strong>
+                    <span>Maximum 5,000 records per upload</span>
+                    <input id="rate-csv-file" type="file" accept=".csv,text/csv">
+                </label>
+                <div class="rate-csv-status" id="rate-csv-status">No file selected.</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="rate-csv-cancel-btn" type="button">Cancel</button>
+                <button class="btn btn-primary" id="rate-csv-submit-btn" type="button" disabled>Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Freight Rate Edit Modal -->
+    <div class="modal" id="rate-edit-modal" role="dialog" aria-modal="true" aria-labelledby="rate-edit-modal-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="rate-edit-modal-title">Update Freight Rate</h3>
+                        <p class="modal-subtitle" id="rate-edit-modal-subtitle">Only rates uploaded by you can be changed</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="rate-edit-modal-close" type="button" aria-label="Close rate editor" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="rate-edit-form">
+                <div class="modal-body">
+                    <input id="rate-edit-id" type="hidden">
+                    <div class="rate-edit-grid">
+                        <div class="form-field"><label for="rate-edit-mode">Mode</label><select id="rate-edit-mode" required><option value="Sea">Sea</option><option value="Air">Air</option></select></div>
+                        <div class="form-field"><label for="rate-edit-origin">Origin</label><input id="rate-edit-origin" required></div>
+                        <div class="form-field"><label for="rate-edit-destination">Destination</label><input id="rate-edit-destination" required></div>
+                        <div class="form-field"><label for="rate-edit-carrier">Carrier</label><input id="rate-edit-carrier"></div>
+                        <div class="form-field"><label for="rate-edit-commodity">Commodity</label><input id="rate-edit-commodity"></div>
+                        <div class="form-field"><label for="rate-edit-charge-unit">Charge Unit</label><select id="rate-edit-charge-unit" required><option value="20GP">20GP</option><option value="40GP">40GP</option><option value="40HC">40HC</option><option value="45HC">45HC</option><option value="CBM">CBM</option><option value="KG">KG</option></select></div>
+                        <div class="form-field"><label for="rate-edit-currency">Currency</label><input id="rate-edit-currency" value="USD" required></div>
+                        <div class="form-field"><label for="rate-edit-buy-rate">Buy Rate</label><input id="rate-edit-buy-rate" type="number" min="0" step="0.01" required></div>
+                        <div class="form-field"><label for="rate-edit-min-sell-rate">Min Sell Rate</label><input id="rate-edit-min-sell-rate" type="number" min="0" step="0.01" required></div>
+                        <div class="form-field"><label for="rate-edit-origin-charges">Origin Charges</label><input id="rate-edit-origin-charges" type="number" min="0" step="0.01"></div>
+                        <div class="form-field"><label for="rate-edit-destination-charges">Destination Charges</label><input id="rate-edit-destination-charges" type="number" min="0" step="0.01"></div>
+                        <div class="form-field"><label for="rate-edit-valid-from">Valid From</label><input id="rate-edit-valid-from" type="date"></div>
+                        <div class="form-field"><label for="rate-edit-valid-to">Valid To</label><input id="rate-edit-valid-to" type="date"></div>
+                        <div class="form-field"><label for="rate-edit-transit-days">Transit Days</label><input id="rate-edit-transit-days" type="number" min="0" step="1"></div>
+                        <div class="form-field wide"><label for="rate-edit-remarks">Remarks</label><textarea id="rate-edit-remarks"></textarea></div>
+                    </div>
+                    <div class="auth-message" id="rate-edit-message"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="rate-edit-cancel-btn" type="button">Cancel</button>
+                    <button class="btn btn-primary" id="rate-edit-submit-btn" type="submit">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Auth component: login, login details, profile details, logout -->
+    <!-- Login Modal -->
     <div class="modal" id="login-modal" role="dialog" aria-modal="true" aria-labelledby="login-modal-title" style="display: none;">
         <div class="modal-content" role="document">
             <div class="modal-header">
@@ -5633,6 +6046,27 @@ body.not-allowed .content-wrapper {
         </div>
     </div>
 
+    <div class="modal" id="rate-value-modal" role="dialog" aria-modal="true" aria-labelledby="rate-value-modal-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-align-left" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="rate-value-modal-title">Rate Detail</h3>
+                        <p class="modal-subtitle">Full cell value</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="rate-value-modal-close" type="button" aria-label="Close rate detail" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="rate-value-content" id="rate-value-modal-content">-</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" id="rate-value-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Logout Confirmation Modal -->
     <div class="modal" id="logout-modal" role="dialog" aria-modal="true" aria-labelledby="logout-modal-title" style="display: none;">
         <div class="modal-content" role="document">
@@ -5701,6 +6135,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const ADMIN_USERS_PATH = '/admin/object-read';
     const ADMIN_POSTGRES_EXPORT_PATH = '/admin/postgres-query-runner-read-export';
     const MYSHIPMENT_BUYER_360_PATH = '/myshipment/buyer-360';
+    const RATES_READ_PATH = '/quotation/rate-read';
+    const RATES_CREATE_PATH = '/quotation/my-rate-create';
+    const RATES_UPDATE_PATH = '/quotation/my-rate-update';
+    const RATES_DELETE_PATH = '/quotation/my-rate-delete';
+    const QUOTATIONS_READ_PATH = '/quotation/read';
+    const QUOTATIONS_MY_READ_PATH = '/quotation/my-read';
+    const QUOTATIONS_CREATE_PATH = '/quotation/my-create';
+    const QUOTATIONS_UPDATE_PATH = '/quotation/my-update';
+    const QUOTATIONS_DELETE_PATH = '/quotation/my-delete';
+    const QUOTATIONS_DECISION_PATH = '/quotation/decision';
+    const RATE_GROUPBY_CACHE_MS = 5 * 60 * 1000;
+    const RATE_GROUPBY_COLS = ['origin', 'destination', 'carrier', 'commodity'];
+    let quotationStatusLabels = {};
     const MODULE_ENDPOINTS = {
         'purchase-orders': '/myshipment/my-purchase-orders',
         shipments: '/myshipment/my-shipments',
@@ -5751,6 +6198,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let ratesCsvMode = 'create';
     let ratesEditMode = 'update';
     let ratesCsvObjects = [];
+    let rateGroupbyOptions = {};
+    let rateGroupbyCachedAt = 0;
     let buyerSearchQuery = '';
     let poSearchTimeout;
     const moduleCache = {};
@@ -5805,6 +6254,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const applyInfoPayload = payload => {
         appInfo = payload || {};
+        quotationStatusLabels = appInfo?.mapping?.status?.quotations || {};
+        renderRateDropdowns();
         renderUsersRoleFilter();
     };
     const infoCacheFresh = () => {
@@ -5910,6 +6361,70 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
     const displayValue = value => value === null || value === undefined || value === '' ? '-' : String(value);
+    const rateGroupbyCacheFresh = () => {
+        return Boolean(Object.keys(rateGroupbyOptions || {}).length) && rateGroupbyCachedAt && Date.now() - rateGroupbyCachedAt < RATE_GROUPBY_CACHE_MS;
+    };
+    const readCachedRateGroupby = () => {
+        return Object.keys(rateGroupbyOptions || {}).length ? rateGroupbyOptions : null;
+    };
+    const writeCachedRateGroupby = options => {
+        rateGroupbyOptions = options || {};
+        rateGroupbyCachedAt = Date.now();
+    };
+    const applyRateGroupbyOptions = options => {
+        rateGroupbyOptions = options || {};
+        RATE_GROUPBY_COLS.forEach(column => {
+            updateSalesSuggestClear(column);
+        });
+        closeSalesSuggestMenus();
+    };
+    const closeSalesSuggestMenus = () => {
+        document.querySelectorAll('.sales-suggest-menu').forEach(menu => { menu.hidden = true; });
+    };
+    const updateSalesSuggestClear = column => {
+        const input = document.getElementById(`sales-rate-${column}`);
+        const button = document.querySelector(`[data-sales-clear="${column}"]`);
+        if (button) button.hidden = !input?.value;
+    };
+    const renderSalesSuggestMenu = column => {
+        const input = document.getElementById(`sales-rate-${column}`);
+        const menu = document.getElementById(`sales-rate-${column}-menu`);
+        if (!input || !menu) return;
+        updateSalesSuggestClear(column);
+        const search = input.value.trim().toLowerCase();
+        const values = (Array.isArray(rateGroupbyOptions?.[column]) ? rateGroupbyOptions[column] : [])
+            .filter(Boolean)
+            .filter(value => !search || String(value).toLowerCase().includes(search))
+            .slice(0, 8);
+        if (!values.length) {
+            menu.innerHTML = '<div class="sales-suggest-empty">No suggestions</div>';
+            menu.hidden = false;
+            return;
+        }
+        menu.innerHTML = values.map(value => `<button class="sales-suggest-option" type="button" data-sales-suggest="${escapeHtml(column)}" data-sales-suggest-value="${escapeHtml(value)}">${escapeHtml(value)}</button>`).join('');
+        menu.hidden = false;
+    };
+    const loadRateGroupbyOptions = async ({ force = false } = {}) => {
+        if (!featureAllowed('sales-rates')) return;
+        const cached = readCachedRateGroupby();
+        if (!force && cached && rateGroupbyCacheFresh()) {
+            applyRateGroupbyOptions(cached);
+            return;
+        }
+        try {
+            const entries = await Promise.all(RATE_GROUPBY_COLS.map(async column => {
+                const query = new URLSearchParams({ table: 'rates', col: column, limit: '10000' });
+                const payload = await api(`${TABLE_GROUPBY_PATH}?${query}`);
+                const values = (payload.message?.obj_list || []).map(row => row.item).filter(Boolean);
+                return [column, values];
+            }));
+            const options = Object.fromEntries(entries);
+            writeCachedRateGroupby(options);
+            applyRateGroupbyOptions(options);
+        } catch (err) {
+            if (cached) applyRateGroupbyOptions(cached);
+        }
+    };
     const supportedRoles = () => [...new Set([...document.querySelectorAll('.nav-item[data-roles]')]
         .flatMap(item => String(item.dataset.roles || '').split(',').map(Number).filter(Number.isFinite)))]
         .sort((left, right) => left - right);
@@ -5920,7 +6435,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const firstAllowedFeature = role => [...document.querySelectorAll('.nav-item[data-target][data-roles]')].find(item => roleSupported(role) && featureRolesFromItem(item).includes(Number(role)))?.dataset.target || null;
     const loadFeature = target => {
         showSection(target);
-        if (target === 'users') loadUsers();
+        if (target === 'sales-rates') {
+            resetSalesRateSearch(false);
+            loadRateGroupbyOptions();
+        }
+        else if (target === 'quotations') loadQuotations();
+        else if (target === 'rates') loadFreightRates();
+        else if (target === 'users') loadUsers();
         else if (target === 'buyer-360') return;
         else if (target === 'profile') loadCargowiseProfile();
         else if (target === 'containers') {
@@ -7173,6 +7694,36 @@ document.addEventListener('DOMContentLoaded', () => {
             </tr>
         `).join('') : '<tr><td colspan="7">No documents found.</td></tr>';
     };
+    const RATE_TEMPLATE_SKIP_COLUMNS = new Set(['id', 'created_at', 'created_by_id', 'updated_at', 'updated_by_id', 'deactivated_at', 'deactivated_by_id']);
+    const rateManager = () => featureAllowed('rates');
+    const formatAmount = value => value === null || value === undefined || value === '' ? '-' : Number(value).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    const rateSchema = () => appInfo?.postgres_schema?.rates || {};
+    const rateSchemaColumns = () => Object.keys(rateSchema());
+    const rateTemplateColumns = mode => rateSchemaColumns().filter(column => !RATE_TEMPLATE_SKIP_COLUMNS.has(column) || (mode === 'update' && column === 'deactivated_at'));
+    const rateColumnDatatype = column => String(rateSchema()[column]?.datatype || '').toLowerCase();
+    const rateNumericColumn = column => /int|numeric|decimal|double|real|float|money/.test(rateColumnDatatype(column));
+    const RATE_DROPDOWN_FALLBACKS = {
+        mode: ['Sea', 'Air'],
+        charge_unit: ['20GP', '40GP', '40HC', '45HC', 'CBM', 'KG']
+    };
+    const rateDropdownOptions = column => {
+        const configured = appInfo?.dropdown?.rates?.[column];
+        return Array.isArray(configured) && configured.length ? configured : RATE_DROPDOWN_FALLBACKS[column] || [];
+    };
+    const setSelectOptions = (elementId, options, placeholder = '') => {
+        const select = document.getElementById(elementId);
+        if (!select) return;
+        const currentValue = select.value;
+        const placeholderHtml = placeholder ? `<option value="">${escapeHtml(placeholder)}</option>` : '';
+        select.innerHTML = placeholderHtml + options.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+        if (currentValue && options.includes(currentValue)) select.value = currentValue;
+    };
+    const renderRateDropdowns = () => {
+        setSelectOptions('sales-rate-mode', rateDropdownOptions('mode'), 'Mode');
+        setSelectOptions('sales-rate-charge-unit', rateDropdownOptions('charge_unit'), 'Charge Unit');
+        setSelectOptions('rate-edit-mode', rateDropdownOptions('mode'));
+        setSelectOptions('rate-edit-charge-unit', rateDropdownOptions('charge_unit'));
+    };
     const renderUsersRoleFilter = () => {
         const select = document.getElementById('users-role-select');
         if (!select) return;
@@ -7182,6 +7733,572 @@ document.addEventListener('DOMContentLoaded', () => {
             .join('');
         select.innerHTML = `<option value="">Role</option>${options}`;
         if (currentValue && supportedRoles().includes(Number(currentValue))) select.value = currentValue;
+    };
+    const validateRateAllowedValues = (object, rowLabel = 'Rate') => {
+        Object.keys(RATE_DROPDOWN_FALLBACKS).forEach(column => {
+            const allowed = rateDropdownOptions(column);
+            if (!(column in object) || object[column] === null || object[column] === undefined || object[column] === '') return;
+            if (!allowed.includes(String(object[column]))) throw new Error(`${rowLabel}: ${column} must be one of ${allowed.join(', ')}.`);
+        });
+        if ('currency' in object && object.currency) object.currency = String(object.currency).trim().toUpperCase();
+        if ('currency' in object && object.currency && !/^[A-Z]{3}$/.test(object.currency)) throw new Error(`${rowLabel}: currency must be a 3-letter code like USD.`);
+    };
+    const rateTemplateValue = (column, isUpdate) => ({
+        mode: 'Sea',
+        origin: 'NHAVASHEVA',
+        destination: 'ROTTERDAM',
+        carrier: 'MAERSK',
+        commodity: 'GARMENTS',
+        charge_unit: '20GP',
+        currency: 'USD',
+        buy_rate: isUpdate ? '2050' : '2000',
+        min_sell_rate: isUpdate ? '2250' : '2200',
+        origin_charges: '300',
+        destination_charges: '400',
+        valid_from: '2026-06-17',
+        valid_to: '2026-07-17',
+        transit_days: '22',
+        remarks: isUpdate ? 'Updated rate' : ''
+    }[column] ?? '');
+    const normalizeCsvHeader = value => String(value || '').replace(/^\uFEFF/, '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    const normalizeRateCsvHeader = value => {
+        const header = normalizeCsvHeader(value);
+        if (['pul', 'pol', 'origin_port', 'origin_airport'].includes(header)) return 'origin';
+        if (['pod', 'destination_port', 'destination_airport'].includes(header)) return 'destination';
+        if (['rate_unit', 'unit'].includes(header)) return 'charge_unit';
+        if (['sell_rate', 'minimum_sell_rate'].includes(header)) return 'min_sell_rate';
+        return header;
+    };
+    const parseCsvRows = text => {
+        const rows = [];
+        let row = [];
+        let value = '';
+        let quoted = false;
+        for (let index = 0; index < text.length; index++) {
+            const char = text[index];
+            if (char === '"') {
+                if (quoted && text[index + 1] === '"') { value += '"'; index++; }
+                else quoted = !quoted;
+            } else if (char === ',' && !quoted) {
+                row.push(value); value = '';
+            } else if ((char === '\n' || char === '\r') && !quoted) {
+                if (char === '\r' && text[index + 1] === '\n') index++;
+                row.push(value); value = '';
+                if (row.some(cell => String(cell).trim() !== '')) rows.push(row);
+                row = [];
+            } else {
+                value += char;
+            }
+        }
+        if (value || row.length) {
+            row.push(value);
+            if (row.some(cell => String(cell).trim() !== '')) rows.push(row);
+        }
+        return rows;
+    };
+    const rateObjectsFromCsv = (text, mode) => {
+        const rows = parseCsvRows(text);
+        if (rows.length < 2) throw new Error('CSV must contain a header and at least one data row.');
+        const schemaColumns = rateSchemaColumns();
+        if (!schemaColumns.length) throw new Error('Rates schema is not loaded. Please refresh and try again.');
+        const headers = rows[0].map(normalizeRateCsvHeader);
+        const schemaColumnSet = new Set(schemaColumns);
+        if (mode === 'create' && headers.includes('id')) throw new Error('Upload CSV cannot include the id column.');
+        const unknown = headers.filter(header => header && !schemaColumnSet.has(header) && !(mode === 'update' && header === 'id'));
+        if (unknown.length) throw new Error(`Unknown CSV column${unknown.length === 1 ? '' : 's'}: ${unknown.join(', ')}`);
+        if (new Set(headers).size !== headers.length) throw new Error('CSV contains duplicate column names.');
+        if (mode === 'update' && !headers.includes('id')) throw new Error('Update CSV must include the id column.');
+        const objects = rows.slice(1).map((cells, rowIndex) => {
+            const object = {};
+            headers.forEach((header, columnIndex) => {
+                if (!header) return;
+                const raw = String(cells[columnIndex] ?? '').trim();
+                if (!raw && mode === 'update') return;
+                if (raw.toUpperCase() === 'NULL') { object[header] = null; return; }
+                if (!raw) return;
+                if (header === 'id') {
+                    const id = Number(raw);
+                    if (!Number.isSafeInteger(id) || id < 1) throw new Error(`Row ${rowIndex + 2}: id must be a positive whole number.`);
+                    object.id = id;
+                } else if (rateNumericColumn(header)) {
+                    const number = Number(raw.replace(/,/g, ''));
+                    if (!Number.isFinite(number) || number < 0) throw new Error(`Row ${rowIndex + 2}: ${header} must be a non-negative number.`);
+                    object[header] = number;
+                } else {
+                    object[header] = raw;
+                }
+            });
+            if (mode === 'update' && (!object.id || Object.keys(object).length < 2)) throw new Error(`Row ${rowIndex + 2}: include id and at least one column to update.`);
+            validateRateAllowedValues(object, `Row ${rowIndex + 2}`);
+            return object;
+        });
+        if (objects.length > 5000) throw new Error('A CSV upload can contain a maximum of 5,000 data rows.');
+        return objects;
+    };
+    const downloadRateTemplate = (mode = ratesCsvMode) => {
+        const isUpdate = mode === 'update';
+        const columns = rateTemplateColumns(mode);
+        if (!columns.length) { showAppAlert({ title: 'Schema Missing', message: 'Rates schema is not loaded. Please refresh and try again.', danger: true }); return; }
+        const headers = (isUpdate ? ['id', ...columns] : columns).join(',');
+        const example = (isUpdate ? ['1', ...columns.map(column => rateTemplateValue(column, isUpdate))] : columns.map(column => rateTemplateValue(column, isUpdate))).join(',');
+        const blob = new Blob([`${headers}\n${example}\n`], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = isUpdate ? 'rates_update_template.csv' : 'rates_upload_template.csv';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    };
+    const csvValue = value => {
+        const text = value === null || value === undefined ? '' : String(value);
+        return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
+    const downloadRatesTableCsv = () => {
+        if (!ratesRows.length) { showAppAlert({ title: 'No Rates', message: 'No rates available to download.' }); return; }
+        const columns = ['id', 'mode', 'origin', 'destination', 'carrier', 'commodity', 'charge_unit', 'currency', 'buy_rate', 'min_sell_rate', 'origin_charges', 'destination_charges', 'valid_from', 'valid_to', 'transit_days', 'status', 'created_by_id', 'created_at', 'remarks'];
+        const rows = ratesRows.map(row => columns.map(column => csvValue(column === 'status' ? (row.deactivated_at ? 'Deactivated' : 'Active') : row[column])).join(','));
+        const blob = new Blob([[columns.join(','), ...rows].join('\n') + '\n'], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'rates_table.csv';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    };
+    const setRateManagerControls = () => {
+        document.querySelectorAll('.rate-manager-only').forEach(element => { element.hidden = !rateManager(); });
+    };
+    const rateFilterHasValue = () => Boolean(
+        document.getElementById('rates-mode-filter')?.value ||
+        document.getElementById('rates-carrier-filter')?.value.trim() ||
+        document.getElementById('rates-origin-filter')?.value.trim() ||
+        document.getElementById('rates-destination-filter')?.value.trim() ||
+        document.getElementById('rates-status-filter')?.value ||
+        ratesMyOnly
+    );
+    const updateRateFilterSubmit = () => {
+        const button = document.getElementById('rates-filter-submit-btn');
+        if (button) button.disabled = !rateFilterHasValue();
+        const myButton = document.getElementById('rates-my-filter-btn');
+        if (myButton) {
+            myButton.classList.toggle('active', ratesMyOnly);
+            myButton.setAttribute('aria-pressed', String(ratesMyOnly));
+        }
+    };
+    const renderFreightRates = rows => {
+        ratesRows = rows;
+        const body = document.querySelector('#freight-rates-table tbody');
+        if (!body) return;
+        const userId = Number(authUser && authUser.id);
+        body.innerHTML = rows.length ? rows.map(row => {
+            const owned = rateManager() && ([1].includes(Number(authUser?.role)) || Number(row.created_by_id) === userId);
+            const active = !row.deactivated_at;
+            return `
+                <tr data-rate-id="${Number(row.id)}">
+                    <td>${escapeHtml(displayValue(row.mode))}</td>
+                    <td>${escapeHtml(displayValue(row.origin))}</td>
+                    <td>${escapeHtml(displayValue(row.destination))}</td>
+                    <td><strong>${rateCell(row.carrier, 'Carrier')}</strong></td>
+                    <td>${rateCell(row.commodity, 'Commodity')}</td>
+                    <td>${escapeHtml(displayValue(row.charge_unit))}</td>
+                    <td>${escapeHtml(displayValue(row.currency))}</td>
+                    <td>${escapeHtml(formatAmount(row.buy_rate))}</td>
+                    <td>${escapeHtml(formatAmount(row.min_sell_rate))}</td>
+                    <td>${escapeHtml(formatAmount(row.origin_charges))}</td>
+                    <td>${escapeHtml(formatAmount(row.destination_charges))}</td>
+                    <td>${escapeHtml([formatDate(row.valid_from), formatDate(row.valid_to)].filter(value => value !== '-').join(' to ') || '-')}</td>
+                    <td>${escapeHtml(row.transit_days ? `${row.transit_days} days` : '-')}</td>
+                    <td>${rateCell(row.remarks, 'Remarks', 180)}</td>
+                    <td><span class="badge ${active ? 'delivered' : 'exception'}">${active ? 'Active' : 'Deactivated'}</span></td>
+                    <td>${owned ? `<div class="rate-actions"><button class="rate-icon-btn edit" type="button" data-rate-action="edit" data-rate-id="${Number(row.id)}" title="Edit rate"><i class="fa-solid fa-pen"></i></button>${active ? `<button class="rate-icon-btn deactivate" type="button" data-rate-action="deactivate" data-rate-id="${Number(row.id)}" title="Deactivate rate"><i class="fa-solid fa-ban"></i></button>` : `<button class="rate-icon-btn activate" type="button" data-rate-action="activate" data-rate-id="${Number(row.id)}" title="Activate rate"><i class="fa-solid fa-circle-check"></i></button>`}<button class="rate-icon-btn danger" type="button" data-rate-action="delete" data-rate-id="${Number(row.id)}" title="Delete rate"><i class="fa-solid fa-trash"></i></button></div>` : '<span class="profile-status">View only</span>'}</td>
+                </tr>
+            `;
+        }).join('') : '<tr><td class="rate-message-cell" colspan="16">No rates found. Upload or create a rate to see row actions.</td></tr>';
+    };
+    const setSalesRateMessage = message => {
+        const results = document.getElementById('sales-rate-results');
+        if (results) results.innerHTML = `<div class="sales-rate-empty">${escapeHtml(message)}</div>`;
+    };
+    const salesRatePayload = () => ({
+        mode: document.getElementById('sales-rate-mode').value,
+        origin: document.getElementById('sales-rate-origin').value.trim(),
+        destination: document.getElementById('sales-rate-destination').value.trim(),
+        charge_unit: document.getElementById('sales-rate-charge-unit').value,
+        commodity: document.getElementById('sales-rate-commodity').value.trim(),
+        carrier: document.getElementById('sales-rate-carrier').value.trim()
+    });
+    const resetSalesRateSearch = (clearForm = true) => {
+        if (clearForm) document.getElementById('sales-rate-search-form')?.reset();
+        RATE_GROUPBY_COLS.forEach(updateSalesSuggestClear);
+        closeSalesSuggestMenus();
+        const message = document.getElementById('sales-rate-message');
+        if (message) message.textContent = '';
+        setSalesRateMessage('Enter route details and search to view matching rates.');
+    };
+    const renderSalesRateResults = rows => {
+        salesRateRows = rows;
+        const results = document.getElementById('sales-rate-results');
+        if (!results) return;
+        if (!rows.length) {
+            setSalesRateMessage('No matching rates found. Try a broader origin, destination, or unit.');
+            return;
+        }
+        results.innerHTML = `
+            <div class="sales-rate-result-head">
+                <strong>${rows.length} matching rate${rows.length === 1 ? '' : 's'}</strong>
+            </div>
+            ${rows.map(row => {
+                const modeIcon = String(row.mode || '').toLowerCase() === 'air' ? 'fa-plane-departure' : 'fa-ship';
+                return `
+                <div class="sales-rate-result-card">
+                    <div>
+                        <div class="sales-rate-route">
+                            <span>${escapeHtml(displayValue(row.origin))}</span>
+                            <i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i>
+                            <span>${escapeHtml(displayValue(row.destination))}</span>
+                        </div>
+                        <div class="sales-rate-meta">
+                            <span class="sales-rate-chip"><i class="fa-solid ${modeIcon}" aria-hidden="true"></i>${escapeHtml(displayValue(row.mode))}</span>
+                            <span class="sales-rate-chip"><i class="fa-solid fa-box" aria-hidden="true"></i>${escapeHtml(displayValue(row.charge_unit))}</span>
+                            <span class="sales-rate-chip currency"><i class="fa-solid fa-coins" aria-hidden="true"></i>Currency: ${escapeHtml(displayValue(row.currency))}</span>
+                            <span class="sales-rate-chip carrier"><i class="fa-solid fa-building" aria-hidden="true"></i>Carrier: ${escapeHtml(displayValue(row.carrier))}</span>
+                            <span class="sales-rate-chip commodity"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i>Commodity: ${escapeHtml(displayValue(row.commodity))}</span>
+                            <span class="sales-rate-chip transit"><i class="fa-regular fa-clock" aria-hidden="true"></i>Transit ${escapeHtml(row.transit_days ? `${row.transit_days} days` : '-')}</span>
+                        </div>
+                        ${row.remarks ? `<div class="profile-status" style="margin-top:0.55rem;">${escapeHtml(row.remarks)}</div>` : ''}
+                    </div>
+                    <div class="sales-rate-price">
+                        <div>
+                            <span>Minimum sell rate</span>
+                            <strong>${escapeHtml(displayValue(row.currency))} ${escapeHtml(formatAmount(row.min_sell_rate))}</strong>
+                        </div>
+                        <div class="sales-rate-charges">Origin charges: ${escapeHtml(formatAmount(row.origin_charges))}<br>Destination charges: ${escapeHtml(formatAmount(row.destination_charges))}</div>
+                    </div>
+                    <button class="btn btn-primary quote-create-btn" type="button" data-quote-rate-id="${Number(row.id)}"><i class="fa-solid fa-file-signature" aria-hidden="true"></i> Create Quotation</button>
+                </div>
+            `}).join('')}
+        `;
+    };
+    const loadSalesRates = async () => {
+        if (!authToken || !authUser || !featureAllowed('sales-rates')) return;
+        const message = document.getElementById('sales-rate-message');
+        const ob = salesRatePayload();
+        try {
+            validateRateAllowedValues({ mode: ob.mode, charge_unit: ob.charge_unit });
+        } catch (err) {
+            if (message) {
+                message.textContent = err.message || 'Invalid search value.';
+                message.style.color = '#B91C1C';
+            }
+            return;
+        }
+        if (!ob.mode || !ob.origin || !ob.destination || !ob.charge_unit) {
+            if (message) {
+                message.textContent = 'Mode, origin, destination, and charge unit are required.';
+                message.style.color = '#B91C1C';
+            }
+            return;
+        }
+        if (message) {
+            message.textContent = 'Searching approved rates...';
+            message.style.color = '#64748B';
+        }
+        setSalesRateMessage('Searching rates...');
+        const filters = [
+            { mode: `eq,${ob.mode}` },
+            { origin: `ilike,%${ob.origin}%` },
+            { destination: `ilike,%${ob.destination}%` },
+            { charge_unit: `eq,${ob.charge_unit}` },
+            { deactivated_at: 'is,null' }
+        ];
+        if (ob.commodity) filters.push({ commodity: `ilike,%${ob.commodity}%` });
+        if (ob.carrier) filters.push({ carrier: `ilike,%${ob.carrier}%` });
+        const query = new URLSearchParams({ page: '1', filter: JSON.stringify(filters) });
+        try {
+            const payload = await api(`${RATES_READ_PATH}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const rows = Array.isArray(payload.message?.obj_list) ? payload.message.obj_list : [];
+            renderSalesRateResults(rows);
+            if (message) message.textContent = '';
+        } catch (err) {
+            setSalesRateMessage(err.message || 'Unable to search rates.');
+            if (message) {
+                message.textContent = err.message || 'Unable to search rates.';
+                message.style.color = '#B91C1C';
+            }
+        }
+    };
+    const loadFreightRates = async () => {
+        if (!authToken || !authUser || !featureAllowed('rates')) return;
+        setRateTableMessage('Loading rates...');
+        document.getElementById('rates-result-count').textContent = 'Loading rates...';
+        const filters = [];
+        const mode = document.getElementById('rates-mode-filter').value;
+        const carrier = document.getElementById('rates-carrier-filter').value.trim();
+        const origin = document.getElementById('rates-origin-filter').value.trim();
+        const destination = document.getElementById('rates-destination-filter').value.trim();
+        const status = document.getElementById('rates-status-filter').value;
+        if (mode) filters.push({ mode: `eq,${mode}` });
+        if (carrier) filters.push({ carrier: `ilike,%${carrier}%` });
+        if (origin) filters.push({ origin: `ilike,%${origin}%` });
+        if (destination) filters.push({ destination: `ilike,%${destination}%` });
+        if (status === 'active') filters.push({ deactivated_at: 'is,null' });
+        if (status === 'inactive') filters.push({ deactivated_at: 'is not,null' });
+        if (ratesMyOnly && authUser?.id) filters.push({ created_by_id: `eq,${Number(authUser.id)}` });
+        const query = new URLSearchParams({ page: String(ratesCurrentPage) });
+        if (filters.length) query.set('filter', JSON.stringify(filters));
+        try {
+            const payload = await api(`${RATES_READ_PATH}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const message = payload.message || {};
+            const rows = Array.isArray(message.obj_list) ? message.obj_list : [];
+            renderFreightRates(rows);
+            document.getElementById('rates-result-count').innerHTML = `<strong>${rows.length}</strong> rate${rows.length === 1 ? '' : 's'} on this page`;
+            document.getElementById('rates-page-display').textContent = `Page ${ratesCurrentPage}`;
+            document.getElementById('rates-prev-btn').disabled = ratesCurrentPage <= 1;
+            document.getElementById('rates-next-btn').disabled = !message.has_next_page;
+        } catch (err) {
+            setRateTableMessage(err.message || 'Unable to load rates');
+            document.getElementById('rates-result-count').textContent = 'Rates could not be loaded';
+        }
+    };
+    const quotationStatusLabel = status => quotationStatusLabels?.[String(status)] || quotationStatusLabels?.[Number(status)] || ({ 1: 'Draft', 2: 'Approval Pending', 3: 'Approved', 4: 'Rejected' }[Number(status)] || '-');
+    const quotationStatusClass = status => ({ 1: 'draft', 2: 'submitted', 3: 'approved', 4: 'rejected' }[Number(status)] || 'draft');
+    const quotationStatusHtml = status => `<span class="quotation-status ${quotationStatusClass(status)}"><i class="fa-solid ${Number(status) === 3 ? 'fa-circle-check' : Number(status) === 4 ? 'fa-circle-xmark' : Number(status) === 2 ? 'fa-paper-plane' : 'fa-pen'}" aria-hidden="true"></i>${escapeHtml(quotationStatusLabel(status))}</span>`;
+    const quoteFinalAmount = row => Number(row.final_quote_amount ?? (Number(row.quoted_rate || 0) + Number(row.origin_charges || 0) + Number(row.destination_charges || 0)));
+    const quoteRoute = row => `${displayValue(row.origin)} → ${displayValue(row.destination)}`;
+    const setQuotationTableMessage = message => {
+        const body = document.querySelector('#quotations-table tbody');
+        if (body) body.innerHTML = `<tr><td class="rate-message-cell" colspan="9">${escapeHtml(message)}</td></tr>`;
+    };
+    const renderQuotations = rows => {
+        quotationRows = rows;
+        const body = document.querySelector('#quotations-table tbody');
+        if (!body) return;
+        const isProcurement = [1, 2].includes(Number(authUser?.role));
+        const isSales = [1, 3].includes(Number(authUser?.role));
+        body.innerHTML = rows.length ? rows.map(row => {
+            const canDecide = isProcurement && Number(row.status) === 2;
+            const canDelete = isSales && Number(row.status) === 1;
+            const canSubmit = isSales && Number(row.status) === 1;
+            return `
+                <tr data-quotation-id="${Number(row.id)}">
+                    <td>#${Number(row.id)}</td>
+                    <td><strong>${escapeHtml(displayValue(row.customer_name))}</strong><br><span class="po-secondary">${escapeHtml(displayValue(row.customer_email || row.customer_mobile))}</span></td>
+                    <td>${escapeHtml(quoteRoute(row))}<br><span class="po-secondary">${escapeHtml(displayValue(row.mode))} · ${escapeHtml(displayValue(row.charge_unit))}</span></td>
+                    <td>${escapeHtml(displayValue(row.carrier))}</td>
+                    <td>${escapeHtml(displayValue(row.currency))} ${escapeHtml(formatAmount(row.quoted_rate))}</td>
+                    <td><strong>${escapeHtml(displayValue(row.currency))} ${escapeHtml(formatAmount(quoteFinalAmount(row)))}</strong></td>
+                    <td>${quotationStatusHtml(row.status)}</td>
+                    <td>${escapeHtml(formatDate(row.created_at))}</td>
+                    <td><div class="quotation-actions"><button class="rate-icon-btn edit" type="button" data-quotation-action="view" data-quotation-id="${Number(row.id)}" title="View quotation"><i class="fa-solid fa-eye"></i></button>${canSubmit ? `<button class="rate-icon-btn activate" type="button" data-quotation-action="submit" data-quotation-id="${Number(row.id)}" title="Send for approval"><i class="fa-solid fa-paper-plane"></i></button>` : ''}${canDelete ? `<button class="rate-icon-btn danger" type="button" data-quotation-action="delete" data-quotation-id="${Number(row.id)}" title="Delete draft quotation"><i class="fa-solid fa-trash"></i></button>` : ''}${canDecide ? `<button class="rate-icon-btn activate" type="button" data-quotation-action="approve" data-quotation-id="${Number(row.id)}" title="Approve"><i class="fa-solid fa-circle-check"></i></button><button class="rate-icon-btn danger" type="button" data-quotation-action="reject" data-quotation-id="${Number(row.id)}" title="Reject"><i class="fa-solid fa-circle-xmark"></i></button>` : ''}</div></td>
+                </tr>
+            `;
+        }).join('') : '<tr><td class="rate-message-cell" colspan="9">No quotations found.</td></tr>';
+    };
+    const loadQuotations = async () => {
+        if (!authToken || !authUser || !featureAllowed('quotations')) return;
+        setQuotationTableMessage('Loading quotations...');
+        const query = new URLSearchParams({ page: String(quotationCurrentPage) });
+        const status = document.getElementById('quotation-status-filter')?.value;
+        const customer = document.getElementById('quotation-customer-filter')?.value.trim();
+        if (status) query.set('status', status);
+        if (customer) query.set('customer_name', customer);
+        try {
+            const path = Number(authUser?.role) === 3 ? QUOTATIONS_MY_READ_PATH : QUOTATIONS_READ_PATH;
+            const payload = await api(`${path}?${query}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const message = payload.message || {};
+            const rows = Array.isArray(message.obj_list) ? message.obj_list : [];
+            renderQuotations(rows);
+            document.getElementById('quotation-result-count').innerHTML = `<strong>${rows.length}</strong> quotation${rows.length === 1 ? '' : 's'} on this page`;
+            document.getElementById('quotation-page-display').textContent = `Page ${quotationCurrentPage}`;
+            document.getElementById('quotation-prev-btn').disabled = quotationCurrentPage <= 1;
+            document.getElementById('quotation-next-btn').disabled = !message.has_next_page;
+        } catch (err) {
+            setQuotationTableMessage(err.message || 'Unable to load quotations');
+            document.getElementById('quotation-result-count').textContent = 'Quotations could not be loaded';
+        }
+    };
+    const openQuotationCreateModal = rateId => {
+        quotationSelectedRate = salesRateRows.find(row => Number(row.id) === Number(rateId));
+        if (!quotationSelectedRate) return;
+        document.getElementById('quotation-create-form').reset();
+        document.getElementById('quotation-rate-id').value = Number(quotationSelectedRate.id);
+        document.getElementById('quotation-quoted-rate').value = Number(quotationSelectedRate.min_sell_rate || 0);
+        document.getElementById('quotation-create-message').textContent = '';
+        document.getElementById('quotation-rate-summary').innerHTML = `<span>Selected Rate</span><strong>${escapeHtml(quoteRoute(quotationSelectedRate))}</strong><div class="po-secondary">${escapeHtml(displayValue(quotationSelectedRate.carrier))} · ${escapeHtml(displayValue(quotationSelectedRate.charge_unit))} · Minimum ${escapeHtml(displayValue(quotationSelectedRate.currency))} ${escapeHtml(formatAmount(quotationSelectedRate.min_sell_rate))}</div>`;
+        openModal('quotation-create-modal');
+    };
+    const renderQuotationDocument = row => `
+        <div class="quote-document">
+            <div class="quote-doc-header">
+                <img class="quote-logo" src="https://mghgroup.com/themes/custom/mgh/logo.svg" alt="MGH Group">
+                <div class="quote-doc-title">
+                    <h3>Freight Quotation #${Number(row.id)}</h3>
+                    <div class="po-secondary">${escapeHtml(quotationStatusLabel(row.status))} · ${escapeHtml(formatDate(row.created_at))}</div>
+                </div>
+            </div>
+            <div class="quote-doc-grid">
+                <div class="quote-doc-box"><span>Customer</span><strong>${escapeHtml(displayValue(row.customer_name))}</strong></div>
+                <div class="quote-doc-box"><span>Contact</span><strong>${escapeHtml(displayValue(row.customer_email || row.customer_mobile))}</strong></div>
+                <div class="quote-doc-box"><span>Route</span><strong>${escapeHtml(quoteRoute(row))}</strong></div>
+                <div class="quote-doc-box"><span>Carrier</span><strong>${escapeHtml(displayValue(row.carrier))}</strong></div>
+                <div class="quote-doc-box"><span>Mode / Unit</span><strong>${escapeHtml(displayValue(row.mode))} · ${escapeHtml(displayValue(row.charge_unit))}</strong></div>
+                <div class="quote-doc-box"><span>Commodity</span><strong>${escapeHtml(displayValue(row.commodity))}</strong></div>
+                <div class="quote-doc-box"><span>Quoted Freight Rate</span><strong>${escapeHtml(displayValue(row.currency))} ${escapeHtml(formatAmount(row.quoted_rate))}</strong></div>
+                <div class="quote-doc-box"><span>Local Charges</span><strong>Origin ${escapeHtml(formatAmount(row.origin_charges))} · Destination ${escapeHtml(formatAmount(row.destination_charges))}</strong></div>
+                <div class="quote-doc-box quote-total-box"><span>Final Quote Amount</span><strong>${escapeHtml(displayValue(row.currency))} ${escapeHtml(formatAmount(quoteFinalAmount(row)))}</strong></div>
+                <div class="quote-doc-box"><span>Transit</span><strong>${escapeHtml(row.transit_days ? `${row.transit_days} days` : '-')}</strong></div>
+            </div>
+            ${row.remarks ? `<div class="quote-doc-box" style="margin-top:0.75rem;"><span>Sales Remarks</span><strong>${escapeHtml(row.remarks)}</strong></div>` : ''}
+        </div>
+    `;
+    const openQuotationView = id => {
+        quotationViewRow = quotationRows.find(row => Number(row.id) === Number(id));
+        if (!quotationViewRow) return;
+        document.getElementById('quotation-view-title').textContent = `Quotation #${Number(quotationViewRow.id)}`;
+        document.getElementById('quotation-view-content').innerHTML = renderQuotationDocument(quotationViewRow);
+        openModal('quotation-view-modal');
+    };
+    const downloadQuotationHtml = () => {
+        if (!quotationViewRow) return;
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Quotation ${Number(quotationViewRow.id)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#0F172A}.quote-document{max-width:820px;margin:auto}.quote-doc-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #E2E8F0;padding-bottom:16px;margin-bottom:16px}.quote-logo{max-height:42px}.quote-doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.quote-doc-box{padding:12px;background:#F8FAFC;border-radius:10px}.quote-doc-box span{display:block;color:#64748B;font-size:11px;font-weight:700;text-transform:uppercase}.quote-doc-box strong{display:block;margin-top:4px}.quote-total-box{background:#ECFDF5}.quote-total-box strong{color:#047857;font-size:22px}</style></head><body>${renderQuotationDocument(quotationViewRow)}</body></html>`;
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+        link.download = `quotation_${Number(quotationViewRow.id)}.html`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+    };
+    const openQuotationDecisionModal = (id, status) => {
+        quotationDecisionRow = quotationRows.find(row => Number(row.id) === Number(id));
+        if (!quotationDecisionRow) return;
+        const isApprove = Number(status) === 3;
+        document.getElementById('quotation-decision-form').reset();
+        document.getElementById('quotation-decision-id').value = Number(id);
+        document.getElementById('quotation-decision-status').value = Number(status);
+        document.getElementById('quotation-decision-title').textContent = isApprove ? `Approve Quotation #${Number(id)}` : `Reject Quotation #${Number(id)}`;
+        document.getElementById('quotation-decision-submit').innerHTML = `<i class="fa-solid ${isApprove ? 'fa-circle-check' : 'fa-circle-xmark'}" aria-hidden="true"></i> ${isApprove ? 'Approve' : 'Reject'}`;
+        document.getElementById('quotation-decision-submit').className = isApprove ? 'btn btn-primary' : 'btn btn-danger';
+        document.getElementById('quotation-decision-message').textContent = '';
+        document.getElementById('quotation-decision-summary').innerHTML = `<span>Approval Pending</span><strong>${escapeHtml(displayValue(quotationDecisionRow.customer_name))} · ${escapeHtml(quoteRoute(quotationDecisionRow))}</strong><div class="po-secondary">${escapeHtml(displayValue(quotationDecisionRow.currency))} ${escapeHtml(formatAmount(quoteFinalAmount(quotationDecisionRow)))} final amount · ${escapeHtml(displayValue(quotationDecisionRow.carrier))}</div>`;
+        openModal('quotation-decision-modal');
+    };
+    const deleteQuotation = async id => {
+        const confirmed = await showAppConfirm({
+            title: 'Delete Quotation',
+            message: `Delete draft quotation #${id}? This cannot be undone.`,
+            confirmText: 'Delete',
+            danger: true
+        });
+        if (!confirmed) return;
+        try {
+            await api(QUOTATIONS_DELETE_PATH, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` }, body: JSON.stringify({ ids: [Number(id)] }) });
+            await loadQuotations();
+        } catch (err) {
+            await showAppAlert({ title: 'Delete Failed', message: err.message || 'Unable to delete quotation.', danger: true });
+        }
+    };
+    const submitQuotation = async id => {
+        const confirmed = await showAppConfirm({
+            title: 'Send for Approval',
+            message: `Send quotation #${id} to Procurement for approval?`,
+            confirmText: 'Submit'
+        });
+        if (!confirmed) return;
+        try {
+            await api(QUOTATIONS_UPDATE_PATH, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` }, body: JSON.stringify({ id: Number(id), status: 2 }) });
+            await loadQuotations();
+        } catch (err) {
+            await showAppAlert({ title: 'Submit Failed', message: err.message || 'Unable to submit quotation.', danger: true });
+        }
+    };
+    const openRateCsvModal = mode => {
+        ratesCsvMode = mode;
+        ratesCsvObjects = [];
+        document.getElementById('rate-csv-file').value = '';
+        document.getElementById('rate-csv-status').textContent = 'No file selected.';
+        document.getElementById('rate-csv-submit-btn').disabled = true;
+        document.getElementById('rate-csv-modal-title').textContent = mode === 'create' ? 'Upload Rates' : 'Update Rates';
+        document.getElementById('rate-csv-modal-subtitle').textContent = mode === 'create' ? 'Create rate records from a CSV file' : 'Bulk update rates previously uploaded by you';
+        document.getElementById('rate-csv-submit-btn').textContent = mode === 'create' ? 'Upload' : 'Update';
+        document.getElementById('rate-csv-template-btn').innerHTML = mode === 'create' ? '<i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i> Download Upload Template' : '<i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i> Download Update Template';
+        openModal('rate-csv-modal');
+    };
+    const submitRateCsv = async () => {
+        if (!rateManager() || !ratesCsvObjects.length) return;
+        const button = document.getElementById('rate-csv-submit-btn');
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = ratesCsvMode === 'create' ? 'Uploading...' : 'Updating...';
+        try {
+            const path = ratesCsvMode === 'create' ? RATES_CREATE_PATH : RATES_UPDATE_PATH;
+            await api(path, {
+                method: ratesCsvMode === 'create' ? 'POST' : 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
+                body: JSON.stringify({ obj_list: ratesCsvObjects })
+            });
+            closeModal('rate-csv-modal');
+            ratesCurrentPage = 1;
+            await loadFreightRates();
+        } catch (err) {
+            document.getElementById('rate-csv-status').textContent = err.message || 'CSV operation failed.';
+            document.getElementById('rate-csv-status').style.color = '#B91C1C';
+        } finally {
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    };
+    const resetRateEditForm = () => {
+        [
+            'rate-edit-id', 'rate-edit-mode', 'rate-edit-origin', 'rate-edit-destination', 'rate-edit-carrier',
+            'rate-edit-commodity', 'rate-edit-charge-unit', 'rate-edit-currency', 'rate-edit-buy-rate', 'rate-edit-min-sell-rate',
+            'rate-edit-origin-charges', 'rate-edit-destination-charges', 'rate-edit-valid-from', 'rate-edit-valid-to',
+            'rate-edit-transit-days', 'rate-edit-remarks'
+        ].forEach(elementId => { document.getElementById(elementId).value = ''; });
+        document.getElementById('rate-edit-mode').value = 'Sea';
+        document.getElementById('rate-edit-charge-unit').value = '20GP';
+        document.getElementById('rate-edit-currency').value = 'USD';
+        document.getElementById('rate-edit-message').textContent = '';
+    };
+    const openRateCreateModal = () => {
+        if (!rateManager()) return;
+        ratesEditMode = 'create';
+        resetRateEditForm();
+        document.getElementById('rate-edit-modal-title').textContent = 'Create Rate';
+        document.getElementById('rate-edit-modal-subtitle').textContent = 'Add one rate manually';
+        document.getElementById('rate-edit-submit-btn').textContent = 'Create Rate';
+        openModal('rate-edit-modal');
+    };
+    const openRateEditModal = id => {
+        const row = ratesRows.find(item => Number(item.id) === Number(id));
+        if (!row || !rateManager() || (Number(authUser?.role) !== 1 && Number(row.created_by_id) !== Number(authUser && authUser.id))) return;
+        ratesEditMode = 'update';
+        const values = {
+            'rate-edit-id': row.id, 'rate-edit-mode': row.mode,
+            'rate-edit-origin': row.origin, 'rate-edit-destination': row.destination, 'rate-edit-carrier': row.carrier,
+            'rate-edit-commodity': row.commodity, 'rate-edit-charge-unit': row.charge_unit, 'rate-edit-currency': row.currency,
+            'rate-edit-buy-rate': row.buy_rate, 'rate-edit-min-sell-rate': row.min_sell_rate,
+            'rate-edit-origin-charges': row.origin_charges, 'rate-edit-destination-charges': row.destination_charges,
+            'rate-edit-valid-from': row.valid_from, 'rate-edit-valid-to': row.valid_to,
+            'rate-edit-transit-days': row.transit_days, 'rate-edit-remarks': row.remarks
+        };
+        Object.entries(values).forEach(([elementId, value]) => { document.getElementById(elementId).value = value ?? ''; });
+        document.getElementById('rate-edit-message').textContent = '';
+        document.getElementById('rate-edit-modal-title').textContent = 'Update Rate';
+        document.getElementById('rate-edit-modal-subtitle').textContent = 'Only rates uploaded by you can be changed';
+        document.getElementById('rate-edit-submit-btn').textContent = 'Save Changes';
+        openModal('rate-edit-modal');
+    };
+    const deleteFreightRates = async ids => {
+        if (!rateManager() || !ids.length) return;
+        await api(RATES_DELETE_PATH, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
+            body: JSON.stringify({ ids })
+        });
+        await loadFreightRates();
     };
     const renderUsers = rows => {
         const body = document.querySelector('#users-table tbody');
@@ -7591,6 +8708,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.toggle('logged-out', !loggedIn);
         document.body.classList.toggle('not-allowed', loggedIn && !allowed);
         applyRoleNavigation(userRole);
+        setRateManagerControls();
         renderProfile();
         return { loggedIn, userRole, allowed };
     };
@@ -7632,6 +8750,7 @@ document.addEventListener('DOMContentLoaded', () => {
         clearPortalStorage();
         cargowiseProfileLoaded = false;
         Object.keys(moduleCache).forEach(key => delete moduleCache[key]);
+        ratesRows = [];
         resetBuyer360();
         closeProfileMenu();
         closeModal('profile-modal');
@@ -7976,6 +9095,294 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUsersFilterClear();
         loadUsers();
     });
+    document.getElementById('rates-create-btn')?.addEventListener('click', openRateCreateModal);
+    document.getElementById('rates-upload-btn')?.addEventListener('click', () => openRateCsvModal('create'));
+    document.getElementById('rates-update-csv-btn')?.addEventListener('click', () => openRateCsvModal('update'));
+    document.getElementById('rates-download-btn')?.addEventListener('click', downloadRatesTableCsv);
+    document.getElementById('rate-csv-modal-close')?.addEventListener('click', () => closeModal('rate-csv-modal'));
+    document.getElementById('rate-csv-cancel-btn')?.addEventListener('click', () => closeModal('rate-csv-modal'));
+    document.getElementById('rate-csv-template-btn')?.addEventListener('click', () => downloadRateTemplate(ratesCsvMode));
+    document.getElementById('rate-csv-submit-btn')?.addEventListener('click', submitRateCsv);
+    document.getElementById('rate-csv-file')?.addEventListener('change', async event => {
+        const file = event.target.files && event.target.files[0];
+        const status = document.getElementById('rate-csv-status');
+        const submit = document.getElementById('rate-csv-submit-btn');
+        ratesCsvObjects = [];
+        submit.disabled = true;
+        status.style.color = '#64748B';
+        if (!file) { status.textContent = 'No file selected.'; return; }
+        try {
+            ratesCsvObjects = rateObjectsFromCsv(await file.text(), ratesCsvMode);
+            status.textContent = `${file.name}: ${ratesCsvObjects.length} valid row${ratesCsvObjects.length === 1 ? '' : 's'} ready.`;
+            status.style.color = '#047857';
+            submit.disabled = false;
+        } catch (err) {
+            status.textContent = err.message || 'Unable to read CSV file.';
+            status.style.color = '#B91C1C';
+        }
+    });
+    document.getElementById('rates-filter-form')?.addEventListener('submit', event => {
+        event.preventDefault();
+        if (!rateFilterHasValue()) return;
+        ratesCurrentPage = 1;
+        loadFreightRates();
+    });
+    document.getElementById('rates-reset-btn')?.addEventListener('click', () => {
+        document.getElementById('rates-filter-form').reset();
+        ratesMyOnly = false;
+        updateRateFilterSubmit();
+        ratesCurrentPage = 1;
+        loadFreightRates();
+    });
+    document.getElementById('sales-rate-search-form')?.addEventListener('submit', event => {
+        event.preventDefault();
+        closeSalesSuggestMenus();
+        loadSalesRates();
+    });
+    document.getElementById('sales-rate-clear-btn')?.addEventListener('click', () => resetSalesRateSearch(true));
+    document.getElementById('sales-rate-results')?.addEventListener('click', event => {
+        const button = event.target.closest('[data-quote-rate-id]');
+        if (button) openQuotationCreateModal(button.dataset.quoteRateId);
+    });
+    document.getElementById('quotation-create-close')?.addEventListener('click', () => closeModal('quotation-create-modal'));
+    document.getElementById('quotation-create-cancel')?.addEventListener('click', () => closeModal('quotation-create-modal'));
+    document.querySelectorAll('#quotation-create-form [data-quotation-status]').forEach(button => {
+        button.addEventListener('click', () => { quotationSubmitStatus = Number(button.dataset.quotationStatus || 1); });
+    });
+    document.getElementById('quotation-create-form')?.addEventListener('submit', async event => {
+        event.preventDefault();
+        const message = document.getElementById('quotation-create-message');
+        const object = {
+            rate_id: Number(document.getElementById('quotation-rate-id').value),
+            customer_name: document.getElementById('quotation-customer-name').value.trim(),
+            customer_email: document.getElementById('quotation-customer-email').value.trim() || null,
+            customer_mobile: document.getElementById('quotation-customer-mobile').value.trim() || null,
+            quoted_rate: Number(document.getElementById('quotation-quoted-rate').value),
+            status: quotationSubmitStatus,
+            remarks: document.getElementById('quotation-remarks').value.trim() || null
+        };
+        if (!object.customer_name || !object.rate_id || !Number.isFinite(object.quoted_rate)) {
+            message.textContent = 'Customer, rate, and quoted rate are required.';
+            message.style.color = '#B91C1C';
+            return;
+        }
+        try {
+            await api(QUOTATIONS_CREATE_PATH, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` }, body: JSON.stringify(object) });
+            closeModal('quotation-create-modal');
+            quotationCurrentPage = 1;
+            if (featureAllowed('quotations')) loadFeature('quotations');
+        } catch (err) {
+            message.textContent = err.message || 'Unable to create quotation.';
+            message.style.color = '#B91C1C';
+        }
+    });
+    document.getElementById('quotation-filter-form')?.addEventListener('submit', event => {
+        event.preventDefault();
+        quotationCurrentPage = 1;
+        loadQuotations();
+    });
+    document.getElementById('quotation-reset-btn')?.addEventListener('click', () => {
+        document.getElementById('quotation-filter-form').reset();
+        quotationCurrentPage = 1;
+        loadQuotations();
+    });
+    document.getElementById('quotation-prev-btn')?.addEventListener('click', () => { if (quotationCurrentPage > 1) { quotationCurrentPage--; loadQuotations(); } });
+    document.getElementById('quotation-next-btn')?.addEventListener('click', () => { quotationCurrentPage++; loadQuotations(); });
+    document.querySelector('#quotations-table tbody')?.addEventListener('click', event => {
+        const button = event.target.closest('[data-quotation-action]');
+        if (!button) return;
+        const id = Number(button.dataset.quotationId);
+        if (button.dataset.quotationAction === 'view') openQuotationView(id);
+        if (button.dataset.quotationAction === 'submit') submitQuotation(id);
+        if (button.dataset.quotationAction === 'delete') deleteQuotation(id);
+        if (button.dataset.quotationAction === 'approve') openQuotationDecisionModal(id, 3);
+        if (button.dataset.quotationAction === 'reject') openQuotationDecisionModal(id, 4);
+    });
+    document.getElementById('quotation-view-close')?.addEventListener('click', () => closeModal('quotation-view-modal'));
+    document.getElementById('quotation-view-cancel')?.addEventListener('click', () => closeModal('quotation-view-modal'));
+    document.getElementById('quotation-view-download')?.addEventListener('click', downloadQuotationHtml);
+    document.getElementById('quotation-decision-close')?.addEventListener('click', () => closeModal('quotation-decision-modal'));
+    document.getElementById('quotation-decision-cancel')?.addEventListener('click', () => closeModal('quotation-decision-modal'));
+    document.getElementById('quotation-decision-form')?.addEventListener('submit', async event => {
+        event.preventDefault();
+        const message = document.getElementById('quotation-decision-message');
+        const object = {
+            id: Number(document.getElementById('quotation-decision-id').value),
+            status: Number(document.getElementById('quotation-decision-status').value),
+            decision_remarks: document.getElementById('quotation-decision-remarks').value.trim() || null
+        };
+        if (!object.id || ![3, 4].includes(object.status)) {
+            message.textContent = 'Quotation decision is invalid.';
+            message.style.color = '#B91C1C';
+            return;
+        }
+        try {
+            await api(QUOTATIONS_DECISION_PATH, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` }, body: JSON.stringify(object) });
+            closeModal('quotation-decision-modal');
+            await loadQuotations();
+        } catch (err) {
+            message.textContent = err.message || 'Unable to update quotation.';
+            message.style.color = '#B91C1C';
+        }
+    });
+    RATE_GROUPBY_COLS.forEach(column => {
+        const input = document.getElementById(`sales-rate-${column}`);
+        if (!input) return;
+        input.addEventListener('input', () => renderSalesSuggestMenu(column));
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Escape') closeSalesSuggestMenus();
+        });
+    });
+    document.addEventListener('click', event => {
+        const option = event.target.closest('[data-sales-suggest]');
+        if (option) {
+            const column = option.dataset.salesSuggest;
+            const input = document.getElementById(`sales-rate-${column}`);
+            if (input) input.value = option.dataset.salesSuggestValue || '';
+            updateSalesSuggestClear(column);
+            closeSalesSuggestMenus();
+            return;
+        }
+        const clearButton = event.target.closest('[data-sales-clear]');
+        if (clearButton) {
+            const column = clearButton.dataset.salesClear;
+            const input = document.getElementById(`sales-rate-${column}`);
+            if (input) {
+                input.value = '';
+                input.focus();
+                updateSalesSuggestClear(column);
+                renderSalesSuggestMenu(column);
+            }
+            return;
+        }
+        const toggleButton = event.target.closest('[data-sales-toggle]');
+        if (toggleButton) {
+            const column = toggleButton.dataset.salesToggle;
+            const input = document.getElementById(`sales-rate-${column}`);
+            const menu = document.getElementById(`sales-rate-${column}-menu`);
+            if (input) input.focus();
+            if (menu && !menu.hidden) closeSalesSuggestMenus();
+            else {
+                closeSalesSuggestMenus();
+                renderSalesSuggestMenu(column);
+            }
+            return;
+        }
+        if (!event.target.closest('.sales-suggest-field')) closeSalesSuggestMenus();
+    });
+    document.getElementById('rates-my-filter-btn')?.addEventListener('click', () => {
+        ratesMyOnly = !ratesMyOnly;
+        updateRateFilterSubmit();
+        ratesCurrentPage = 1;
+        loadFreightRates();
+    });
+    ['rates-mode-filter', 'rates-carrier-filter', 'rates-origin-filter', 'rates-destination-filter', 'rates-status-filter'].forEach(elementId => {
+        const element = document.getElementById(elementId);
+        element?.addEventListener('input', updateRateFilterSubmit);
+        element?.addEventListener('change', updateRateFilterSubmit);
+    });
+    updateRateFilterSubmit();
+    document.getElementById('rates-prev-btn')?.addEventListener('click', () => { if (ratesCurrentPage > 1) { ratesCurrentPage--; loadFreightRates(); } });
+    document.getElementById('rates-next-btn')?.addEventListener('click', () => { ratesCurrentPage++; loadFreightRates(); });
+    document.querySelector('#freight-rates-table tbody')?.addEventListener('click', async event => {
+        const cell = event.target.closest('[data-rate-cell-value]');
+        if (cell) {
+            document.getElementById('rate-value-modal-title').textContent = cell.dataset.rateCellLabel || 'Rate Detail';
+            document.getElementById('rate-value-modal-content').textContent = cell.dataset.rateCellValue || '-';
+            openModal('rate-value-modal');
+            return;
+        }
+        const button = event.target.closest('[data-rate-action]');
+        if (!button) return;
+        const id = Number(button.dataset.rateId);
+        if (button.dataset.rateAction === 'edit') { openRateEditModal(id); return; }
+        if (button.dataset.rateAction === 'deactivate') {
+            const confirmed = await showAppConfirm({ title: 'Deactivate Rate', message: 'Deactivate this rate? It will no longer appear as an active rate.', confirmText: 'Deactivate' });
+            if (!confirmed) return;
+            try {
+                await api(RATES_UPDATE_PATH, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
+                    body: JSON.stringify({ obj_list: [{ id, deactivated_at: new Date().toISOString() }] })
+                });
+                await loadFreightRates();
+            } catch (err) {
+                await showAppAlert({ title: 'Deactivate Failed', message: err.message || 'Unable to deactivate rate.', danger: true });
+            }
+            return;
+        }
+        if (button.dataset.rateAction === 'activate') {
+            const confirmed = await showAppConfirm({ title: 'Activate Rate', message: 'Activate this rate again?', confirmText: 'Activate' });
+            if (!confirmed) return;
+            try {
+                await api(RATES_UPDATE_PATH, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
+                    body: JSON.stringify({ obj_list: [{ id, deactivated_at: null }] })
+                });
+                await loadFreightRates();
+            } catch (err) {
+                await showAppAlert({ title: 'Activate Failed', message: err.message || 'Unable to activate rate.', danger: true });
+            }
+            return;
+        }
+        if (button.dataset.rateAction === 'delete') {
+            const confirmed = await showAppConfirm({ title: 'Delete Rate', message: 'Delete this rate permanently?', confirmText: 'Delete', danger: true });
+            if (!confirmed) return;
+            try { await deleteFreightRates([id]); }
+            catch (err) { await showAppAlert({ title: 'Delete Failed', message: err.message || 'Unable to delete rate.', danger: true }); }
+        }
+    });
+    document.getElementById('rate-edit-modal-close')?.addEventListener('click', () => closeModal('rate-edit-modal'));
+    document.getElementById('rate-edit-cancel-btn')?.addEventListener('click', () => closeModal('rate-edit-modal'));
+    document.getElementById('rate-edit-form')?.addEventListener('submit', async event => {
+        event.preventDefault();
+        const message = document.getElementById('rate-edit-message');
+        const button = document.getElementById('rate-edit-submit-btn');
+        const numberOrNull = id => document.getElementById(id).value === '' ? null : Number(document.getElementById(id).value);
+        const object = {
+            mode: document.getElementById('rate-edit-mode').value,
+            origin: document.getElementById('rate-edit-origin').value.trim(),
+            destination: document.getElementById('rate-edit-destination').value.trim(),
+            carrier: document.getElementById('rate-edit-carrier').value.trim(),
+            commodity: document.getElementById('rate-edit-commodity').value.trim(),
+            charge_unit: document.getElementById('rate-edit-charge-unit').value,
+            currency: document.getElementById('rate-edit-currency').value.trim() || 'USD',
+            buy_rate: numberOrNull('rate-edit-buy-rate'),
+            min_sell_rate: numberOrNull('rate-edit-min-sell-rate'),
+            origin_charges: numberOrNull('rate-edit-origin-charges') || 0,
+            destination_charges: numberOrNull('rate-edit-destination-charges') || 0,
+            valid_from: document.getElementById('rate-edit-valid-from').value || null,
+            valid_to: document.getElementById('rate-edit-valid-to').value || null,
+            transit_days: numberOrNull('rate-edit-transit-days'),
+            remarks: document.getElementById('rate-edit-remarks').value.trim() || null
+        };
+        if (ratesEditMode === 'update') object.id = Number(document.getElementById('rate-edit-id').value);
+        try {
+            validateRateAllowedValues(object);
+        } catch (err) {
+            message.textContent = err.message || 'Invalid rate value.';
+            message.style.color = '#B91C1C';
+            return;
+        }
+        message.textContent = 'Saving changes...';
+        message.style.color = '#64748B';
+        button.disabled = true;
+        try {
+            await api(ratesEditMode === 'create' ? RATES_CREATE_PATH : RATES_UPDATE_PATH, {
+                method: ratesEditMode === 'create' ? 'POST' : 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken()}` },
+                body: JSON.stringify({ obj_list: [object] })
+            });
+            closeModal('rate-edit-modal');
+            await loadFreightRates();
+        } catch (err) {
+            message.textContent = err.message || 'Unable to update rate.';
+            message.style.color = '#B91C1C';
+        } finally {
+            button.disabled = false;
+        }
+    });
     const buyerSearchInput = document.getElementById('buyer-search-input');
     const buyerSearchClear = document.getElementById('buyer-search-clear');
     buyerSearchInput?.addEventListener('input', event => {
@@ -8100,6 +9507,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     bindAuthComponentEvents();
 
+    document.getElementById('rate-value-modal-close').addEventListener('click', () => closeModal('rate-value-modal'));
+    document.getElementById('rate-value-close-btn').addEventListener('click', () => closeModal('rate-value-modal'));
+
     // 3. Modal logic
     const modal = document.getElementById('shipment-modal');
     const closeModalBtn = document.querySelector('#shipment-modal .close-modal');
@@ -8128,6 +9538,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadInfo();
         await loadProfile().catch(err => console.warn(err));
         applyAuthState();
+        window.setInterval(() => loadRateGroupbyOptions({ force: true }).catch(() => {}), RATE_GROUPBY_CACHE_MS);
     };
     initialize();
 
