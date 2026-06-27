@@ -144,6 +144,7 @@ body {
     gap: 0.45rem;
     min-height: 34px;
     padding: 0.45rem 0.75rem;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
 }
 
 .postgres-sync-icon {
@@ -168,37 +169,6 @@ body {
     display: inline-flex;
 }
 
-.postgres-sync-btn.is-syncing .postgres-sync-icon {
-    display: inline-flex;
-    position: relative;
-    overflow: hidden;
-    background: #D1FAE5;
-}
-
-.postgres-sync-btn.is-syncing .postgres-sync-icon::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    background: conic-gradient(from -90deg, #10B981 var(--progress), rgba(16, 185, 129, 0.18) 0deg);
-    animation: postgresSyncSpin 1s linear infinite;
-}
-
-.postgres-sync-btn.is-syncing .postgres-sync-icon::after {
-    content: "";
-    position: absolute;
-    inset: 4px;
-    border-radius: 50%;
-    background: var(--bg-surface);
-}
-
-.postgres-sync-btn.is-syncing .postgres-sync-icon i {
-    position: absolute;
-    z-index: 2;
-    font-size: 0.55rem;
-    animation: postgresSyncPulse 0.9s ease-in-out infinite;
-}
-
 .postgres-sync-btn.has-sync-state:hover {
     border-color: #D1D5DB;
     background: #F3F4F6;
@@ -209,14 +179,127 @@ body {
     opacity: 0.7;
 }
 
-@keyframes postgresSyncSpin {
-    to { transform: rotate(360deg); }
+/* Sync progress — inline in top-bar */
+.sync-progress-inline {
+    flex: 1;
+    min-width: 0;
+    max-width: 480px;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.45rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #F9FAFB;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
 }
 
-@keyframes postgresSyncPulse {
-    0%, 100% { transform: scale(0.94); opacity: 0.72; }
-    50% { transform: scale(1.08); opacity: 1; }
+.sync-progress-inline.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
 }
+
+.sync-progress-inline-icon {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 7px;
+    background: #EEF2FF;
+    color: var(--primary);
+    font-size: 0.78rem;
+}
+
+.sync-progress-inline-icon.is-error {
+    background: #FEE2E2;
+    color: #B91C1C;
+}
+
+.sync-progress-inline-icon.is-success {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.sync-progress-inline-body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.sync-progress-inline-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.sync-progress-bar-track {
+    height: 5px;
+    background: #F3F4F6;
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.sync-progress-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #6366F1, #10B981);
+    width: 0%;
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sync-progress-bar-fill.is-error {
+    background: #EF4444;
+}
+
+.sync-progress-bar-fill.is-done {
+    background: #10B981;
+}
+
+.sync-progress-inline-pct {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--primary);
+    min-width: 32px;
+    text-align: right;
+}
+
+.sync-progress-inline-pct.is-done { color: #059669; }
+.sync-progress-inline-pct.is-error { color: #B91C1C; }
+
+@keyframes syncDotBounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+    40% { transform: translateY(-4px); opacity: 1; }
+}
+
+.sync-working-dots {
+    display: inline-flex;
+    gap: 3px;
+    align-items: center;
+    margin-left: 2px;
+}
+
+.sync-working-dots span {
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.5;
+    animation: syncDotBounce 1.2s ease-in-out infinite;
+}
+
+.sync-working-dots span:nth-child(2) { animation-delay: 0.2s; }
+.sync-working-dots span:nth-child(3) { animation-delay: 0.4s; }
 
 /* Auth component: header controls, account menu, modals, and shared auth styling */
 .profile-actions {
@@ -1822,6 +1905,16 @@ body.logged-out .content-wrapper {
 
         <main class="main-content">
             <header class="top-bar">
+                <div class="sync-progress-inline auth-only" id="sync-progress-inline" role="status" aria-live="polite">
+                    <div class="sync-progress-inline-icon" id="sync-inline-icon"><i class="fa-solid fa-database" aria-hidden="true"></i></div>
+                    <div class="sync-progress-inline-body">
+                        <div class="sync-progress-inline-label" id="sync-inline-step">Starting</div>
+                        <div class="sync-progress-bar-track">
+                            <div class="sync-progress-bar-fill" id="sync-toast-bar"></div>
+                        </div>
+                    </div>
+                    <span class="sync-progress-inline-pct" id="sync-toast-pct">0%</span>
+                </div>
                 <button class="btn btn-secondary postgres-sync-btn auth-only" id="postgres-sync-btn" type="button" title="Sync database cache" aria-label="Sync database cache">
                     <span class="postgres-sync-icon" id="postgres-sync-icon"><i class="fa-solid fa-check" aria-hidden="true"></i></span>
                     <span id="postgres-sync-btn-text">Database Sync</span>
@@ -1990,9 +2083,14 @@ body.logged-out .content-wrapper {
                     <div class="panel">
                         <div class="panel-header">
                             <span class="schema-result-count" id="object-count-result-count">Not loaded</span>
-                            <button class="btn btn-secondary table-download-icon" id="object-count-download-btn" type="button" title="Download object count CSV" aria-label="Download object count CSV">
-                                <i class="fa-solid fa-download" aria-hidden="true"></i>
-                            </button>
+                            <div style="display:flex;align-items:center;gap:0.5rem;">
+                                <button class="btn btn-secondary" id="object-count-unique-btn" type="button" title="Show only objects with 'unique' in their name" aria-pressed="false">
+                                    Unique
+                                </button>
+                                <button class="btn btn-secondary table-download-icon" id="object-count-download-btn" type="button" title="Download object count CSV" aria-label="Download object count CSV">
+                                    <i class="fa-solid fa-download" aria-hidden="true"></i>
+                                </button>
+                            </div>
                         </div>
                         <div class="schema-table-wrap schema-tab-table-wrap">
                             <table class="schema-table object-count-table">
@@ -2242,6 +2340,7 @@ LIMIT 10;</textarea>
             </div>
         </div>
     </div>
+
 
     <div class="modal" id="sync-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="sync-confirm-modal-title" style="display: none;">
         <div class="modal-content" role="document">
@@ -2604,18 +2703,51 @@ function readStorageJson(key) {
 }
 
 function setPostgresSyncStatus({ visible = true, progress = 0, text = 'Syncing database cache...' } = {}) {
-    const icon = $('postgres-sync-icon');
     const syncBtn = $('postgres-sync-btn');
-    if (!icon || !syncBtn) return;
-    const syncing = Boolean(visible);
-    const iconEl = icon.querySelector('i');
-    syncBtn.classList.toggle('is-syncing', syncing);
-    syncBtn.disabled = syncing;
-    if (iconEl) iconEl.className = syncing ? 'fa-solid fa-database' : 'fa-solid fa-check';
-    syncBtn.setAttribute('aria-label', text);
-    syncBtn.setAttribute('title', text);
+    const btnText = $('postgres-sync-btn-text');
+    const inline = $('sync-progress-inline');
+    const inlineIcon = $('sync-inline-icon');
+    const inlinePct = $('sync-toast-pct');
+    const inlineStep = $('sync-inline-step');
+    const inlineBar = $('sync-toast-bar');
+
     const pct = Math.max(0, Math.min(100, Number(progress || 0)));
-    icon.style.setProperty('--progress', `${pct * 3.6}deg`);
+    const isDone = pct >= 100;
+    const isError = text && (text.toLowerCase().includes('fail') || text.toLowerCase().includes('incomplete'));
+    const syncing = Boolean(visible);
+
+    // Button
+    if (syncBtn) {
+        syncBtn.disabled = syncing;
+        syncBtn.setAttribute('aria-label', text);
+        syncBtn.setAttribute('title', text);
+    }
+    if (btnText) {
+        btnText.textContent = syncing ? 'Syncing…' : 'Database Sync';
+    }
+
+    // Inline header progress
+    if (inline) {
+        inline.classList.toggle('visible', syncing);
+        if (inlineBar) {
+            inlineBar.style.width = `${pct}%`;
+            inlineBar.className = 'sync-progress-bar-fill' + (isError ? ' is-error' : isDone ? ' is-done' : '');
+        }
+        if (inlinePct) {
+            inlinePct.textContent = `${pct}%`;
+            inlinePct.className = 'sync-progress-inline-pct' + (isError ? ' is-error' : isDone ? ' is-done' : '');
+        }
+        if (inlineIcon) {
+            const iconEl = inlineIcon.querySelector('i');
+            if (iconEl) iconEl.className = isDone ? (isError ? 'fa-solid fa-triangle-exclamation' : 'fa-solid fa-check') : 'fa-solid fa-database';
+            inlineIcon.className = 'sync-progress-inline-icon' + (isError ? ' is-error' : isDone ? ' is-success' : '');
+        }
+        if (inlineStep) {
+            const dots = isDone ? '' : '<span class="sync-working-dots"><span></span><span></span><span></span></span>';
+            inlineStep.innerHTML = (text || 'Working') + dots;
+        }
+    }
+
     if (!visible) updatePostgresSyncSummary();
 }
 
@@ -4341,11 +4473,23 @@ function objectCountActionButtons(row = {}) {
     return `<div class="object-count-actions">${objectCountViewButton(row)}${objectCountDownloadButton(row)}</div>`;
 }
 
+let objectCountUniqueFilter = false;
+
 function renderObjectCountRows(rows = []) {
-    $('object-count-result-count').textContent = rows.length
-        ? `Showing ${formatNumber(rows.length)} object${rows.length === 1 ? '' : 's'}`
+    const btn = $('object-count-unique-btn');
+    const filtered = objectCountUniqueFilter
+        ? rows.filter(r => String(rawValue(r.object_name)).toLowerCase().includes('unique'))
+        : rows;
+    if (btn) {
+        btn.setAttribute('aria-pressed', String(objectCountUniqueFilter));
+        btn.style.background = objectCountUniqueFilter ? '#EEF2FF' : '';
+        btn.style.borderColor = objectCountUniqueFilter ? '#C7D2FE' : '';
+        btn.style.color = objectCountUniqueFilter ? '#3730A3' : '';
+    }
+    $('object-count-result-count').textContent = filtered.length
+        ? `Showing ${formatNumber(filtered.length)} object${filtered.length === 1 ? '' : 's'}${objectCountUniqueFilter ? ' (unique)' : ''}`
         : 'No object counts';
-    $('object-count-body').innerHTML = rows.length ? rows.map((row, index) => `
+    $('object-count-body').innerHTML = filtered.length ? filtered.map((row, index) => `
         <tr>
             <td>${formatNumber(index + 1)}</td>
             <td>${escapeHtml(rawValue(row.object_name))}</td>
@@ -4939,6 +5083,11 @@ function bindPageEvents() {
     $('object-count-cancel-btn').addEventListener('click', cancelObjectCountExport);
     $('object-count-body').addEventListener('click', viewObjectCountObject);
     $('object-count-body').addEventListener('click', downloadObjectCountObject);
+    $('object-count-unique-btn').addEventListener('click', () => {
+        objectCountUniqueFilter = !objectCountUniqueFilter;
+        const cached = readCachedPostgresObjectCount();
+        renderObjectCountRows(cached?.rows || []);
+    });
     $('query-runner-form').addEventListener('submit', runQuery);
     $('query-download-btn').addEventListener('click', downloadQueryCsv);
     $('query-export-download-btn').addEventListener('click', downloadQueryExport);

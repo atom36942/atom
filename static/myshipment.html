@@ -388,6 +388,14 @@ body {
     font-size: 1.125rem;
 }
 
+.panel-header p {
+    margin: 0.2rem 0 0;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    font-weight: 400;
+    line-height: 1.4;
+}
+
 .btn {
     padding: 0.5rem 1rem;
     border: none;
@@ -997,15 +1005,23 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    min-height: 42px;
+    min-height: 36px;
     padding: 0 0.85rem;
     border: 1px solid #D8E1EF;
-    border-radius: 10px;
+    border-radius: 8px;
     background: #F8FAFC;
-    color: #1F2937;
+    color: #374151;
     font-size: 0.82rem;
-    font-weight: 800;
+    font-weight: 500;
     white-space: nowrap;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.shipment-filter-pill:hover {
+    border-color: #A5B4FC;
+    background: #F5F3FF;
+    color: var(--primary);
 }
 
 .shipment-filter-pill i {
@@ -1133,7 +1149,7 @@ body {
 }
 
 .shipment-origin-track {
-    height: 12px;
+    height: 8px;
     overflow: hidden;
     border-radius: 999px;
     background: #E2E8F0;
@@ -4875,29 +4891,43 @@ body.not-allowed .content-wrapper {
 
                 <!-- Containers Section -->
                 <section id="containers" class="view-section">
-                    <div class="panel">
-                        <div class="panel-header" style="justify-content: space-between; border-bottom: none; padding-bottom: 0;">
-                            <div class="pagination-controls" style="display: flex; gap: 0.5rem; align-items: center;">
-                                <button class="btn btn-sm" id="container-prev-btn" disabled>Previous</button>
-                                <span id="container-page-display" style="font-size: 0.9rem; font-weight: 500;">Page 1</span>
-                                <button class="btn btn-sm" id="container-next-btn" disabled>Next</button>
+                    <div class="po-page-stack">
+                        <div class="panel po-panel">
+                            <div class="po-toolbar">
+                                <div class="po-heading">
+                                    <h2>Containers</h2>
+                                    <p>Container status, availability, and gate-out details from CargoWise.</p>
+                                </div>
                             </div>
                         </div>
-                        <div class="table-responsive">
-                            <table class="data-table" id="container-table">
-                                <thead>
-                                    <tr>
-                                        <th>Container</th>
-                                        <th>Status</th>
-                                        <th>Mode</th>
-                                        <th>Shipment</th>
-                                        <th>Seal</th>
-                                        <th>Available</th>
-                                        <th>Gate Out</th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                            </table>
+                        <div class="panel po-panel">
+                            <div class="shipment-current-heading">
+                                <div>
+                                    <h3>Container List</h3>
+                                    <p id="container-result-count">Loading containers...</p>
+                                </div>
+                                <div class="po-pagination" aria-label="Container pages">
+                                    <button class="po-page-button" id="container-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
+                                    <span id="container-page-display">Page 1</span>
+                                    <button class="po-page-button" id="container-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+                                </div>
+                            </div>
+                            <div class="table-responsive po-table-wrap">
+                                <table class="data-table" id="container-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Container</th>
+                                            <th>Status</th>
+                                            <th>Mode</th>
+                                            <th>Shipment</th>
+                                            <th>Seal</th>
+                                            <th>Available</th>
+                                            <th>Gate Out</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </section>
