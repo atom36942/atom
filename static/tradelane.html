@@ -832,6 +832,12 @@ body {
     border-bottom: 0;
 }
 
+.schema-table tbody tr:hover td,
+.query-table tbody tr:hover td,
+.object-count-table tbody tr:hover td {
+    background: #F5F7FF;
+}
+
 .object-count-table th:nth-child(2),
 .object-count-table td:nth-child(2) {
     width: max-content;
@@ -1383,15 +1389,15 @@ body {
 }
 
 .btn-primary:hover { background: var(--primary-hover); }
+.btn-primary:active { background: #3730A3; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); }
 
 .btn-danger {
     background: #DC2626;
     color: #FFFFFF;
 }
 
-.btn-danger:hover {
-    background: #B91C1C;
-}
+.btn-danger:hover { background: #B91C1C; }
+.btn-danger:active { background: #991B1B; box-shadow: inset 0 2px 4px rgba(0,0,0,0.15); }
 
 .btn-secondary {
     background: var(--bg-surface);
@@ -1405,10 +1411,93 @@ body {
     color: #312E81;
 }
 
+.btn-secondary:active {
+    background: #E0E7FF;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+}
+
 .btn:disabled {
     opacity: 0.55;
     cursor: not-allowed;
 }
+
+/* Sortable column header */
+.sortable-th {
+    cursor: pointer;
+    user-select: none;
+}
+
+.sortable-th:hover { color: var(--text-dark); }
+
+.sort-icon {
+    margin-left: 0.3rem;
+    font-size: 0.62rem;
+    opacity: 0.4;
+}
+
+.sortable-th.sort-asc .sort-icon,
+.sortable-th.sort-desc .sort-icon {
+    opacity: 1;
+    color: var(--primary);
+}
+
+/* Nav filter dot badge */
+.nav-item {
+    position: relative;
+}
+
+.nav-filter-dot {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #F59E0B;
+    border: 1.5px solid var(--sidebar-bg);
+    display: none;
+}
+
+.nav-filter-dot.visible { display: block; }
+
+/* Last synced sub-label in sync button */
+.postgres-sync-sub {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 400;
+    color: var(--text-muted);
+    line-height: 1;
+    margin-top: 1px;
+}
+
+.postgres-sync-btn-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+}
+
+/* Object count search */
+.object-count-search {
+    min-height: 34px;
+    padding: 0.4rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: #FFFFFF;
+    color: var(--text-dark);
+    font: inherit;
+    font-size: 0.82rem;
+    width: 180px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.object-count-search:focus {
+    border-color: #A5B4FC;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.object-count-search::placeholder { color: #9CA3AF; }
 
 .auth-only { display: none; }
 body.logged-in .auth-only { display: flex; }
@@ -1899,6 +1988,7 @@ body.logged-out .content-wrapper {
                 </a>
                 <a href="#object-count" class="nav-item auth-only" data-target="object-count">
                     <i class="fa-solid fa-list-ol" aria-hidden="true"></i> Object Count
+                    <span class="nav-filter-dot" id="object-count-nav-dot" title="Filter active"></span>
                 </a>
             </nav>
         </aside>
@@ -1917,7 +2007,10 @@ body.logged-out .content-wrapper {
                 </div>
                 <button class="btn btn-secondary postgres-sync-btn auth-only" id="postgres-sync-btn" type="button" title="Sync database cache" aria-label="Sync database cache">
                     <span class="postgres-sync-icon" id="postgres-sync-icon"><i class="fa-solid fa-check" aria-hidden="true"></i></span>
-                    <span id="postgres-sync-btn-text">Database Sync</span>
+                    <span class="postgres-sync-btn-inner">
+                        <span id="postgres-sync-btn-text">Database Sync</span>
+                        <span class="postgres-sync-sub" id="postgres-sync-sub"></span>
+                    </span>
                 </button>
                 <div class="user-controls">
                     <button class="btn btn-primary login-btn guest-only" id="header-login-btn">Login</button>
@@ -2083,7 +2176,11 @@ body.logged-out .content-wrapper {
                     <div class="panel">
                         <div class="panel-header">
                             <span class="schema-result-count" id="object-count-result-count">Not loaded</span>
-                            <div style="display:flex;align-items:center;gap:0.5rem;">
+                            <div class="schema-panel-tools">
+                                <button class="btn btn-secondary schema-index-clear" id="object-count-clear-btn" type="button" title="Clear filters" aria-label="Clear filters" hidden>
+                                    <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+                                </button>
+                                <input class="object-count-search" id="object-count-search" type="search" placeholder="Search objects…" aria-label="Search objects">
                                 <button class="btn btn-secondary" id="object-count-unique-btn" type="button" title="Show only objects with 'unique' in their name" aria-pressed="false">
                                     Unique
                                 </button>
@@ -2098,7 +2195,7 @@ body.logged-out .content-wrapper {
                                     <tr>
                                         <th>#</th>
                                         <th>Object name</th>
-                                        <th>Row count</th>
+                                        <th class="sortable-th" id="object-count-sort-th" title="Sort by row count">Row count <i class="fa-solid fa-sort sort-icon" aria-hidden="true"></i></th>
                                         <th>Action</th>
                                     </tr>
                                 </thead>
@@ -2496,12 +2593,14 @@ function latestPostgresCacheTimestamp() {
 
 function updatePostgresSyncSummary() {
     const text = $('postgres-sync-btn-text');
+    const sub = $('postgres-sync-sub');
     const syncBtn = $('postgres-sync-btn');
     if (!text) return;
     const timestamp = latestPostgresCacheTimestamp();
     const isSynced = Boolean(timestamp && databaseCacheFresh() && databaseCacheComplete() && !postgresCacheWarmPromise);
     if (!isSynced) {
         text.textContent = 'Database Sync';
+        if (sub) sub.textContent = '';
         if (syncBtn) syncBtn.classList.remove('has-sync-state');
         if (syncBtn) {
             const exact = timestamp ? new Date(timestamp).toLocaleString() : '';
@@ -2511,7 +2610,9 @@ function updatePostgresSyncSummary() {
         return;
     }
     const exact = new Date(timestamp).toLocaleString();
+    const relative = formatCompactRelativeTime(timestamp);
     text.textContent = 'Database Sync';
+    if (sub) sub.textContent = relative ? `synced ${relative}` : '';
     if (syncBtn) {
         syncBtn.classList.add('has-sync-state');
         syncBtn.title = `Sync database cache. Last synced ${exact}`;
@@ -4474,21 +4575,60 @@ function objectCountActionButtons(row = {}) {
 }
 
 let objectCountUniqueFilter = false;
+let objectCountSortDir = null; // null | 'asc' | 'desc'
 
 function renderObjectCountRows(rows = []) {
-    const btn = $('object-count-unique-btn');
-    const filtered = objectCountUniqueFilter
-        ? rows.filter(r => String(rawValue(r.object_name)).toLowerCase().includes('unique'))
-        : rows;
-    if (btn) {
-        btn.setAttribute('aria-pressed', String(objectCountUniqueFilter));
-        btn.style.background = objectCountUniqueFilter ? '#EEF2FF' : '';
-        btn.style.borderColor = objectCountUniqueFilter ? '#C7D2FE' : '';
-        btn.style.color = objectCountUniqueFilter ? '#3730A3' : '';
+    const searchVal = ($('object-count-search')?.value || '').toLowerCase().trim();
+    const uniqueBtn = $('object-count-unique-btn');
+    const clearBtn = $('object-count-clear-btn');
+    const sortTh = $('object-count-sort-th');
+    const navDot = $('object-count-nav-dot');
+
+    const anyFilter = objectCountUniqueFilter || searchVal || objectCountSortDir;
+
+    // Apply search + unique filter
+    let filtered = rows.filter(r => {
+        const name = String(rawValue(r.object_name)).toLowerCase();
+        if (objectCountUniqueFilter && !name.includes('unique')) return false;
+        if (searchVal && !name.includes(searchVal)) return false;
+        return true;
+    });
+
+    // Apply sort
+    if (objectCountSortDir) {
+        filtered = [...filtered].sort((a, b) => {
+            const va = Number(rawValue(a.row_count)) || 0;
+            const vb = Number(rawValue(b.row_count)) || 0;
+            return objectCountSortDir === 'asc' ? va - vb : vb - va;
+        });
     }
+
+    // Update unique button state
+    if (uniqueBtn) {
+        uniqueBtn.setAttribute('aria-pressed', String(objectCountUniqueFilter));
+        uniqueBtn.style.background = objectCountUniqueFilter ? '#EEF2FF' : '';
+        uniqueBtn.style.borderColor = objectCountUniqueFilter ? '#C7D2FE' : '';
+        uniqueBtn.style.color = objectCountUniqueFilter ? '#3730A3' : '';
+    }
+
+    // Update sort header
+    if (sortTh) {
+        sortTh.classList.toggle('sort-asc', objectCountSortDir === 'asc');
+        sortTh.classList.toggle('sort-desc', objectCountSortDir === 'desc');
+        const icon = sortTh.querySelector('.sort-icon');
+        if (icon) icon.className = `fa-solid ${objectCountSortDir === 'asc' ? 'fa-sort-up' : objectCountSortDir === 'desc' ? 'fa-sort-down' : 'fa-sort'} sort-icon`;
+    }
+
+    // Show/hide clear button and nav dot
+    if (clearBtn) clearBtn.hidden = !anyFilter;
+    if (navDot) navDot.classList.toggle('visible', Boolean(anyFilter));
+
+    // Result count label
+    const labels = [searchVal ? `"${searchVal}"` : '', objectCountUniqueFilter ? 'unique' : ''].filter(Boolean).join(', ');
     $('object-count-result-count').textContent = filtered.length
-        ? `Showing ${formatNumber(filtered.length)} object${filtered.length === 1 ? '' : 's'}${objectCountUniqueFilter ? ' (unique)' : ''}`
-        : 'No object counts';
+        ? `Showing ${formatNumber(filtered.length)} of ${formatNumber(rows.length)} object${rows.length === 1 ? '' : 's'}${labels ? ` — ${labels}` : ''}`
+        : 'No objects match';
+
     $('object-count-body').innerHTML = filtered.length ? filtered.map((row, index) => `
         <tr>
             <td>${formatNumber(index + 1)}</td>
@@ -4496,7 +4636,7 @@ function renderObjectCountRows(rows = []) {
             <td>${escapeHtml(rawValue(row.row_count))}</td>
             <td>${objectCountActionButtons(row)}</td>
         </tr>
-    `).join('') : '<tr><td colspan="4"><div class="schema-empty">No object counts found.</div></td></tr>';
+    `).join('') : '<tr><td colspan="4"><div class="schema-empty">No objects match the current filter.</div></td></tr>';
 }
 
 function renderObjectCountError(message) {
@@ -5085,6 +5225,23 @@ function bindPageEvents() {
     $('object-count-body').addEventListener('click', downloadObjectCountObject);
     $('object-count-unique-btn').addEventListener('click', () => {
         objectCountUniqueFilter = !objectCountUniqueFilter;
+        const cached = readCachedPostgresObjectCount();
+        renderObjectCountRows(cached?.rows || []);
+    });
+    $('object-count-clear-btn').addEventListener('click', () => {
+        objectCountUniqueFilter = false;
+        objectCountSortDir = null;
+        const search = $('object-count-search');
+        if (search) search.value = '';
+        const cached = readCachedPostgresObjectCount();
+        renderObjectCountRows(cached?.rows || []);
+    });
+    $('object-count-search').addEventListener('input', () => {
+        const cached = readCachedPostgresObjectCount();
+        renderObjectCountRows(cached?.rows || []);
+    });
+    $('object-count-sort-th').addEventListener('click', () => {
+        objectCountSortDir = objectCountSortDir === 'desc' ? 'asc' : 'desc';
         const cached = readCachedPostgresObjectCount();
         renderObjectCountRows(cached?.rows || []);
     });

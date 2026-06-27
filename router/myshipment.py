@@ -1469,6 +1469,8 @@ async def func_api_myshipment_my_analytics(*, request: Request):
              FROM visible_shipments AS VS
              JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
              WHERE COALESCE(JS.JS_E_ARV, JS.JS_ClientRequestedETA, CAST(JS.JS_DeliveryDueDate AS datetime2), CAST(JS.JS_RevisedDeliveryDueDate AS datetime2)) < SYSUTCDATETIME()
+               AND JS.JS_E_DEP > DATEADD(day, -45, SYSUTCDATETIME())
+               AND JS.JS_E_DEP < SYSUTCDATETIME()
                AND ISNULL(JS.JS_IsCancelled, 0) = 0
                AND ISNULL(JS.JS_ShipmentStatus, '') NOT IN ('CLS', 'CMP', 'COM', 'FIN', 'DEL')) AS delayed_shipments;"""
     purchase_orders_by_status_sql = """
