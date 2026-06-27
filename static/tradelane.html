@@ -2124,9 +2124,10 @@ body.logged-out .content-wrapper {
                         <div class="panel-header">
                             <span class="schema-result-count" id="schema-result-count">Loading schema...</span>
                             <div class="schema-panel-tools">
-                                <button class="btn btn-secondary schema-index-clear" id="schema-index-clear-btn" type="button" hidden title="Clear index filter" aria-label="Clear index filter">
+                                <button class="btn btn-secondary schema-index-clear" id="schema-index-clear-btn" type="button" hidden title="Clear filters" aria-label="Clear filters">
                                     <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
                                 </button>
+                                <input class="object-count-search" id="schema-search" type="search" placeholder="Search tables…" aria-label="Search tables">
                                 <select class="schema-index-filter" id="schema-index-filter" aria-label="Index filter">
                                     <option value="">All</option>
                                     <option value="btree-yes">Btree Yes</option>
@@ -4218,17 +4219,28 @@ function renderSchemaRows(rows) {
 function renderSchemaTable() {
     const rows = currentSchemaRows();
     const filter = $('schema-index-filter')?.value || '';
+    const search = ($('schema-search')?.value || '').toLowerCase().trim();
+    const anyFilter = filter || search;
     renderSchemaKpis(pgscopeSchemaRows);
-    $('schema-index-clear-btn').hidden = !filter;
+    $('schema-index-clear-btn').hidden = !anyFilter;
     $('schema-result-count').textContent = rows.length
-        ? `Showing ${formatNumber(rows.length)}${filter ? ` of ${formatNumber(pgscopeSchemaRows.length)}` : ''} column${rows.length === 1 ? '' : 's'}`
-        : `No ${filter ? `${schemaIndexFilterLabel(filter)} ` : ''}table columns`;
+        ? `Showing ${formatNumber(rows.length)}${anyFilter ? ` of ${formatNumber(pgscopeSchemaRows.length)}` : ''} column${rows.length === 1 ? '' : 's'}`
+        : `No ${filter ? `${schemaIndexFilterLabel(filter)} ` : ''}table columns match`;
     renderSchemaRows(rows);
 }
 
 function currentSchemaRows() {
     const filter = $('schema-index-filter')?.value || '';
-    return filter ? pgscopeSchemaRows.filter(row => rowMatchesSchemaIndexFilter(row, filter)) : pgscopeSchemaRows;
+    const search = ($('schema-search')?.value || '').toLowerCase().trim();
+    return pgscopeSchemaRows.filter(row => {
+        if (filter && !rowMatchesSchemaIndexFilter(row, filter)) return false;
+        if (search) {
+            const table = String(row.table_name || '').toLowerCase();
+            const col = String(row.column_name || '').toLowerCase();
+            if (!table.includes(search) && !col.includes(search)) return false;
+        }
+        return true;
+    });
 }
 
 function renderSchema(payload = {}) {
@@ -4524,6 +4536,17 @@ function renderQueryResult(result = []) {
 
 function renderQueryError(message) {
     resetQueryResult();
+    const panel = $('query-result-panel');
+    const head = $('query-result-head');
+    const body = $('query-result-body');
+    const count = $('query-result-count');
+    if (!panel) return;
+    panel.hidden = false;
+    if (head) head.innerHTML = '';
+    if (count) count.textContent = 'Error';
+    if (body) body.innerHTML = `<tr><td><div class="query-empty" style="color:#B91C1C;padding:1.5rem 1rem;">
+        <i class="fa-solid fa-triangle-exclamation" style="margin-right:0.5rem;" aria-hidden="true"></i>${escapeHtml(message || 'Query failed.')}
+    </div></td></tr>`;
 }
 
 function objectCountSql(page = 1) {
@@ -4861,13 +4884,16 @@ async function runQuery(event) {
         });
         queryLastSql = sql;
         renderQueryResult(payload.message || {});
+        $('query-message').style.color = '';
         $('query-message').textContent = queryRunnerLimitMessage();
     } catch (err) {
         if (isAbortError(err)) {
             resetQueryResult();
+            $('query-message').style.color = '';
             $('query-message').textContent = 'Query cancelled.';
         } else {
             renderQueryError(err.message);
+            $('query-message').style.color = '#B91C1C';
             $('query-message').textContent = err.message || 'Query failed.';
         }
     } finally {
@@ -5214,8 +5240,10 @@ function bindAuthComponentEvents() {
 function bindPageEvents() {
     $('postgres-sync-btn').addEventListener('click', handlePostgresSyncClick);
     $('schema-index-filter').addEventListener('change', renderSchemaTable);
+    $('schema-search').addEventListener('input', renderSchemaTable);
     $('schema-index-clear-btn').addEventListener('click', () => {
         $('schema-index-filter').value = '';
+        $('schema-search').value = '';
         renderSchemaTable();
     });
     $('schema-download-btn').addEventListener('click', downloadSchemaCsv);
