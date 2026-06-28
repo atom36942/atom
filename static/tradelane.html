@@ -1650,7 +1650,7 @@ body.logged-out .content-wrapper {
     min-width: min(420px, calc(100vw - 2.5rem));
 }
 #logout-modal .modal-content { width: 420px; }
-#sync-confirm-modal .modal-content { width: 420px; }
+#sync-confirm-modal .modal-content { width: min(500px, calc(100vw - 2.5rem)); }
 #login-modal .modal-body { padding: 1.25rem 1.5rem; }
 #login-modal .auth-form { gap: 0.75rem; }
 #login-modal .form-field { gap: 0.35rem; }
@@ -1756,6 +1756,51 @@ body.logged-out .content-wrapper {
 }
 
 .logout-confirmation p { margin: 0; }
+
+.sync-info {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+}
+
+.sync-info-title {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin: 0 0 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+
+.sync-info-title i {
+    font-size: 0.78rem;
+    color: var(--primary);
+}
+
+.sync-info-list {
+    margin: 0;
+    padding-left: 1.1rem;
+    display: grid;
+    gap: 0.35rem;
+    color: #475569;
+    font-size: 0.84rem;
+    line-height: 1.5;
+}
+
+.sync-info-list code {
+    padding: 0.05rem 0.3rem;
+    border-radius: 5px;
+    background: #F3F4F6;
+    border: 1px solid var(--border);
+    font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+    font-size: 0.76rem;
+    color: var(--text-dark);
+}
 
 @media (max-width: 1440px) {
     .sidebar {
@@ -1960,9 +2005,382 @@ body.logged-out .content-wrapper {
     .nav-item.active { border-left: 0; }
     .top-title span { display: none; }
 }
+
+.cached-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #059669;
+    background: #D1FAE5;
+    padding: 0.15rem 0.45rem;
+    border-radius: 9999px;
+    margin-left: 0.5rem;
+    border: 1px solid #A7F3D0;
+    white-space: nowrap;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+}
+
+.dashboard-section-bar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.dashboard-section-heading {
+    min-width: 0;
+}
+
+.dashboard-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0;
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--text-dark);
+}
+
+.dashboard-section-title i {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.dashboard-section-sub {
+    margin: 0.3rem 0 0;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.dashboard-section-sub code {
+    padding: 0.1rem 0.35rem;
+    border-radius: 5px;
+    background: #F3F4F6;
+    border: 1px solid var(--border);
+    font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+    font-size: 0.74rem;
+    color: var(--text-dark);
+}
+
+.dashboard-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.dashboard-card:hover {
+    border-color: #D1D5DB;
+    box-shadow: 0 6px 16px -10px rgba(17, 24, 39, 0.2);
+}
+
+.dashboard-card-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.dashboard-card-icon {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    background: #F3F4F6;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.dashboard-card-headings {
+    min-width: 0;
+    flex: 1;
+}
+
+.dashboard-card-title {
+    margin: 0;
+    font-size: 1.02rem;
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--text-dark);
+    overflow-wrap: anywhere;
+}
+
+.dashboard-card-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.3rem;
+    font-size: 0.74rem;
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.dashboard-card-tools {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.dashboard-card-tool {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.dashboard-card-tool:hover {
+    border-color: #C7D2FE;
+    background: #EEF2FF;
+    color: var(--primary);
+}
+
+.dashboard-card-tool.is-active {
+    border-color: #C7D2FE;
+    background: #EEF2FF;
+    color: var(--primary);
+}
+
+.dashboard-card-searchbar {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.dashboard-card-searchbar[hidden] { display: none; }
+
+.dashboard-card-searchbar > i {
+    position: absolute;
+    left: 0.6rem;
+    color: var(--text-muted);
+    font-size: 0.74rem;
+    pointer-events: none;
+}
+
+.dashboard-card-search {
+    width: 100%;
+    min-height: 34px;
+    padding: 0.4rem 0.65rem 0.4rem 1.85rem;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: #FFFFFF;
+    color: var(--text-dark);
+    font: inherit;
+    font-size: 0.82rem;
+    outline: none;
+}
+
+.dashboard-card-search:focus {
+    border-color: #A5B4FC;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.dashboard-card-more {
+    margin-top: 0.75rem;
+    padding-top: 0.7rem;
+    border-top: 1px dashed var(--border);
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    text-align: center;
+}
+
+.dashboard-card-body {
+    max-height: 340px;
+    overflow-y: auto;
+    margin-right: -0.4rem;
+    padding-right: 0.4rem;
+}
+
+.dashboard-card-body::-webkit-scrollbar { width: 6px; }
+.dashboard-card-body::-webkit-scrollbar-thumb {
+    background: #E5E7EB;
+    border-radius: 99px;
+}
+
+.dashboard-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+
+.dashboard-chart-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.dashboard-chart-label-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+    font-size: 0.83rem;
+    color: var(--text-dark);
+}
+
+.dashboard-chart-label {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.dashboard-chart-value {
+    flex: 0 0 auto;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.78rem;
+}
+
+.dashboard-chart-bar-container {
+    height: 7px;
+    background: #F3F4F6;
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.dashboard-chart-bar-fill {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 4px;
+    width: 0%;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dashboard-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.dashboard-chip {
+    max-width: 100%;
+    font-size: 0.78rem;
+    color: var(--text-dark);
+    background: #F9FAFB;
+    border: 1px solid var(--border);
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dashboard-card-note {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    padding: 0.75rem 0;
+}
+
+.dashboard-empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 4rem 2rem;
+    background: var(--bg-surface);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    color: var(--text-muted);
+}
+
+.dashboard-empty-state i {
+    font-size: 3rem;
+    color: var(--primary);
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.dashboard-empty-state h3 {
+    margin: 0.5rem 0;
+    color: var(--text-dark);
+    font-size: 1.2rem;
+}
     </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+/* Font Awesome 6.4.0 Free (solid) — self-hosted subset, CC BY 4.0 */
+.fa-solid,.fa-regular,.fa-brands{display:inline-block;width:1em;height:1em;background-color:currentColor;vertical-align:-0.125em;-webkit-mask:var(--fa-svg) center/contain no-repeat;mask:var(--fa-svg) center/contain no-repeat}
+.fa-arrow-right-to-bracket{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M352 96l64 0c17.7 0 32 14.3 32 32l0 256c0 17.7-14.3 32-32 32l-64 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l64 0c53 0 96-43 96-96l0-256c0-53-43-96-96-96l-64 0c-17.7 0-32 14.3-32 32s14.3 32 32 32zm-9.4 182.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L242.7 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l210.7 0-73.4 73.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l128-128z'/%3E%3C/svg%3E")}
+.fa-broom{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath d='M566.6 54.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-192 192-34.7-34.7c-4.2-4.2-10-6.6-16-6.6c-12.5 0-22.6 10.1-22.6 22.6v29.1L364.3 320h29.1c12.5 0 22.6-10.1 22.6-22.6c0-6-2.4-11.8-6.6-16l-34.7-34.7 192-192zM341.1 353.4L222.6 234.9c-42.7-3.7-85.2 11.7-115.8 42.3l-8 8C76.5 307.5 64 337.7 64 369.2c0 6.8 7.1 11.2 13.2 8.2l51.1-25.5c5-2.5 9.5 4.1 5.4 7.9L7.3 473.4C2.7 477.6 0 483.6 0 489.9C0 502.1 9.9 512 22.1 512l173.3 0c38.8 0 75.9-15.4 103.4-42.8c30.6-30.6 45.9-73.1 42.3-115.8z'/%3E%3C/svg%3E")}
+.fa-chart-line{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M64 64c0-17.7-14.3-32-32-32S0 46.3 0 64V400c0 44.2 35.8 80 80 80H480c17.7 0 32-14.3 32-32s-14.3-32-32-32H80c-8.8 0-16-7.2-16-16V64zm406.6 86.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L320 210.7l-57.4-57.4c-12.5-12.5-32.8-12.5-45.3 0l-112 112c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L240 221.3l57.4 57.4c12.5 12.5 32.8 12.5 45.3 0l128-128z'/%3E%3C/svg%3E")}
+.fa-chart-pie{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath d='M304 240V16.6c0-9 7-16.6 16-16.6C443.7 0 544 100.3 544 224c0 9-7.6 16-16.6 16H304zM32 272C32 150.7 122.1 50.3 239 34.3c9.2-1.3 17 6.1 17 15.4V288L412.5 444.5c6.7 6.7 6.2 17.7-1.5 23.1C371.8 495.6 323.8 512 272 512C139.5 512 32 404.6 32 272zm526.4 16c9.3 0 16.6 7.8 15.4 17c-7.7 55.9-34.6 105.6-73.9 142.3c-6 5.6-15.4 5.2-21.2-.7L320 288H558.4z'/%3E%3C/svg%3E")}
+.fa-chart-simple{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath d='M160 80c0-26.5 21.5-48 48-48h32c26.5 0 48 21.5 48 48V432c0 26.5-21.5 48-48 48H208c-26.5 0-48-21.5-48-48V80zM0 272c0-26.5 21.5-48 48-48H80c26.5 0 48 21.5 48 48V432c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V272zM368 96h32c26.5 0 48 21.5 48 48V432c0 26.5-21.5 48-48 48H368c-26.5 0-48-21.5-48-48V144c0-26.5 21.5-48 48-48z'/%3E%3C/svg%3E")}
+.fa-check{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath d='M438.6 105.4c12.5 12.5 12.5 32.8 0 45.3l-256 256c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0L160 338.7 393.4 105.4c12.5-12.5 32.8-12.5 45.3 0z'/%3E%3C/svg%3E")}
+.fa-clock{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M256 0a256 256 0 1 1 0 512A256 256 0 1 1 256 0zM232 120V256c0 8 4 15.5 10.7 20l96 64c11 7.4 25.9 4.4 33.3-6.7s4.4-25.9-6.7-33.3L280 243.2V120c0-13.3-10.7-24-24-24s-24 10.7-24 24z'/%3E%3C/svg%3E")}
+.fa-cloud-arrow-down{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 640 512'%3E%3Cpath d='M144 480C64.5 480 0 415.5 0 336c0-62.8 40.2-116.2 96.2-135.9c-.1-2.7-.2-5.4-.2-8.1c0-88.4 71.6-160 160-160c59.3 0 111 32.2 138.7 80.2C409.9 102 428.3 96 448 96c53 0 96 43 96 96c0 12.2-2.3 23.8-6.4 34.6C596 238.4 640 290.1 640 352c0 70.7-57.3 128-128 128H144zm79-167l80 80c9.4 9.4 24.6 9.4 33.9 0l80-80c9.4-9.4 9.4-24.6 0-33.9s-24.6-9.4-33.9 0l-39 39V184c0-13.3-10.7-24-24-24s-24 10.7-24 24V318.1l-39-39c-9.4-9.4-24.6-9.4-33.9 0s-9.4 24.6 0 33.9z'/%3E%3C/svg%3E")}
+.fa-database{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath d='M448 80v48c0 44.2-100.3 80-224 80S0 172.2 0 128V80C0 35.8 100.3 0 224 0S448 35.8 448 80zM393.2 214.7c20.8-7.4 39.9-16.9 54.8-28.6V288c0 44.2-100.3 80-224 80S0 332.2 0 288V186.1c14.9 11.8 34 21.2 54.8 28.6C99.7 230.7 159.5 240 224 240s124.3-9.3 169.2-25.3zM0 346.1c14.9 11.8 34 21.2 54.8 28.6C99.7 390.7 159.5 400 224 400s124.3-9.3 169.2-25.3c20.8-7.4 39.9-16.9 54.8-28.6V432c0 44.2-100.3 80-224 80S0 476.2 0 432V346.1z'/%3E%3C/svg%3E")}
+.fa-diagram-project{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath d='M0 80C0 53.5 21.5 32 48 32h96c26.5 0 48 21.5 48 48V96H384V80c0-26.5 21.5-48 48-48h96c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48H432c-26.5 0-48-21.5-48-48V160H192v16c0 1.7-.1 3.4-.3 5L272 288h96c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48H272c-26.5 0-48-21.5-48-48V336c0-1.7 .1-3.4 .3-5L144 224H48c-26.5 0-48-21.5-48-48V80z'/%3E%3C/svg%3E")}
+.fa-download{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32V274.7l-73.4-73.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0l128-128c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L288 274.7V32zM64 352c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V416c0-35.3-28.7-64-64-64H346.5l-45.3 45.3c-25 25-65.5 25-90.5 0L165.5 352H64zm368 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48z'/%3E%3C/svg%3E")}
+.fa-ellipsis{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath d='M8 256a56 56 0 1 1 112 0A56 56 0 1 1 8 256zm160 0a56 56 0 1 1 112 0 56 56 0 1 1 -112 0zm216-56a56 56 0 1 1 0 112 56 56 0 1 1 0-112z'/%3E%3C/svg%3E")}
+.fa-eye{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath d='M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM144 256a144 144 0 1 1 288 0 144 144 0 1 1 -288 0zm144-64c0 35.3-28.7 64-64 64c-7.1 0-13.9-1.2-20.3-3.3c-5.5-1.8-11.9 1.6-11.7 7.4c.3 6.9 1.3 13.8 3.2 20.7c13.7 51.2 66.4 81.6 117.6 67.9s81.6-66.4 67.9-117.6c-11.1-41.5-47.8-69.4-88.6-71.1c-5.8-.2-9.2 6.1-7.4 11.7c2.1 6.4 3.3 13.2 3.3 20.3z'/%3E%3C/svg%3E")}
+.fa-eye-slash{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 640 512'%3E%3Cpath d='M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c8.4-19.3 10.6-41.4 4.8-63.3c-11.1-41.5-47.8-69.4-88.6-71.1c-5.8-.2-9.2 6.1-7.4 11.7c2.1 6.4 3.3 13.2 3.3 20.3c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zM373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5L373 389.9z'/%3E%3C/svg%3E")}
+.fa-fingerprint{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M48 256C48 141.1 141.1 48 256 48c63.1 0 119.6 28.1 157.8 72.5c8.6 10.1 23.8 11.2 33.8 2.6s11.2-23.8 2.6-33.8C403.3 34.6 333.7 0 256 0C114.6 0 0 114.6 0 256v40c0 13.3 10.7 24 24 24s24-10.7 24-24V256zm458.5-52.9c-2.7-13-15.5-21.3-28.4-18.5s-21.3 15.5-18.5 28.4c2.9 13.9 4.5 28.3 4.5 43.1v40c0 13.3 10.7 24 24 24s24-10.7 24-24V256c0-18.1-1.9-35.8-5.5-52.9zM256 80c-19 0-37.4 3-54.5 8.6c-15.2 5-18.7 23.7-8.3 35.9c7.1 8.3 18.8 10.8 29.4 7.9c10.6-2.9 21.8-4.4 33.4-4.4c70.7 0 128 57.3 128 128v24.9c0 25.2-1.5 50.3-4.4 75.3c-1.7 14.6 9.4 27.8 24.2 27.8c11.8 0 21.9-8.6 23.3-20.3c3.3-27.4 5-55 5-82.7V256c0-97.2-78.8-176-176-176zM150.7 148.7c-9.1-10.6-25.3-11.4-33.9-.4C93.7 178 80 215.4 80 256v24.9c0 24.2-2.6 48.4-7.8 71.9C68.8 368.4 80.1 384 96.1 384c10.5 0 19.9-7 22.2-17.3c6.4-28.1 9.7-56.8 9.7-85.8V256c0-27.2 8.5-52.4 22.9-73.1c7.2-10.4 8-24.6-.2-34.2zM256 160c-53 0-96 43-96 96v24.9c0 35.9-4.6 71.5-13.8 106.1c-3.8 14.3 6.7 29 21.5 29c9.5 0 17.9-6.2 20.4-15.4c10.5-39 15.9-79.2 15.9-119.7V256c0-28.7 23.3-52 52-52s52 23.3 52 52v24.9c0 36.3-3.5 72.4-10.4 107.9c-2.7 13.9 7.7 27.2 21.8 27.2c10.2 0 19-7 21-17c7.7-38.8 11.6-78.3 11.6-118.1V256c0-53-43-96-96-96zm24 96c0-13.3-10.7-24-24-24s-24 10.7-24 24v24.9c0 59.9-11 119.3-32.5 175.2l-5.9 15.3c-4.8 12.4 1.4 26.3 13.8 31s26.3-1.4 31-13.8l5.9-15.3C267.9 411.9 280 346.7 280 280.9V256z'/%3E%3C/svg%3E")}
+.fa-folder-tree{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath d='M64 32C64 14.3 49.7 0 32 0S0 14.3 0 32v96V384c0 35.3 28.7 64 64 64H256V384H64V160H256V96H64V32zM288 192c0 17.7 14.3 32 32 32H544c17.7 0 32-14.3 32-32V64c0-17.7-14.3-32-32-32H445.3c-8.5 0-16.6-3.4-22.6-9.4L409.4 9.4c-6-6-14.1-9.4-22.6-9.4H320c-17.7 0-32 14.3-32 32V192zm0 288c0 17.7 14.3 32 32 32H544c17.7 0 32-14.3 32-32V352c0-17.7-14.3-32-32-32H445.3c-8.5 0-16.6-3.4-22.6-9.4l-13.3-13.3c-6-6-14.1-9.4-22.6-9.4H320c-17.7 0-32 14.3-32 32V480z'/%3E%3C/svg%3E")}
+.fa-gauge-high{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zM288 96a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zM256 416c35.3 0 64-28.7 64-64c0-17.4-6.9-33.1-18.1-44.6L366 161.7c5.3-12.1-.2-26.3-12.3-31.6s-26.3 .2-31.6 12.3L257.9 288c-.6 0-1.3 0-1.9 0c-35.3 0-64 28.7-64 64s28.7 64 64 64zM176 144a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zM96 288a32 32 0 1 0 0-64 32 32 0 1 0 0 64zm352-32a32 32 0 1 0 -64 0 32 32 0 1 0 64 0z'/%3E%3C/svg%3E")}
+.fa-hard-drive{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M0 96C0 60.7 28.7 32 64 32H448c35.3 0 64 28.7 64 64V280.4c-17-15.2-39.4-24.4-64-24.4H64c-24.6 0-47 9.2-64 24.4V96zM64 288H448c35.3 0 64 28.7 64 64v64c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V352c0-35.3 28.7-64 64-64zM320 416a32 32 0 1 0 0-64 32 32 0 1 0 0 64zm128-32a32 32 0 1 0 -64 0 32 32 0 1 0 64 0z'/%3E%3C/svg%3E")}
+.fa-hashtag{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath d='M181.3 32.4c17.4 2.9 29.2 19.4 26.3 36.8L197.8 128h95.1l11.5-69.3c2.9-17.4 19.4-29.2 36.8-26.3s29.2 19.4 26.3 36.8L357.8 128H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H347.1L325.8 320H384c17.7 0 32 14.3 32 32s-14.3 32-32 32H315.1l-11.5 69.3c-2.9 17.4-19.4 29.2-36.8 26.3s-29.2-19.4-26.3-36.8l9.8-58.7H155.1l-11.5 69.3c-2.9 17.4-19.4 29.2-36.8 26.3s-29.2-19.4-26.3-36.8L90.2 384H32c-17.7 0-32-14.3-32-32s14.3-32 32-32h68.9l21.3-128H64c-17.7 0-32-14.3-32-32s14.3-32 32-32h68.9l11.5-69.3c2.9-17.4 19.4-29.2 36.8-26.3zM187.1 192L165.8 320h95.1l21.3-128H187.1z'/%3E%3C/svg%3E")}
+.fa-hourglass-half{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 384 512'%3E%3Cpath d='M32 0C14.3 0 0 14.3 0 32S14.3 64 32 64V75c0 42.4 16.9 83.1 46.9 113.1L146.7 256 78.9 323.9C48.9 353.9 32 394.6 32 437v11c-17.7 0-32 14.3-32 32s14.3 32 32 32H64 320h32c17.7 0 32-14.3 32-32s-14.3-32-32-32V437c0-42.4-16.9-83.1-46.9-113.1L237.3 256l67.9-67.9c30-30 46.9-70.7 46.9-113.1V64c17.7 0 32-14.3 32-32s-14.3-32-32-32H320 64 32zM96 75V64H288V75c0 19-5.6 37.4-16 53H112c-10.3-15.6-16-34-16-53zm16 309c3.5-5.3 7.6-10.3 12.1-14.9L192 301.3l67.9 67.9c4.6 4.6 8.6 9.6 12.1 14.9H112z'/%3E%3C/svg%3E")}
+.fa-id-card{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath d='M0 96l576 0c0-35.3-28.7-64-64-64H64C28.7 32 0 60.7 0 96zm0 32V416c0 35.3 28.7 64 64 64H512c35.3 0 64-28.7 64-64V128H0zM64 405.3c0-29.5 23.9-53.3 53.3-53.3H234.7c29.5 0 53.3 23.9 53.3 53.3c0 5.9-4.8 10.7-10.7 10.7H74.7c-5.9 0-10.7-4.8-10.7-10.7zM176 192a64 64 0 1 1 0 128 64 64 0 1 1 0-128zm176 16c0-8.8 7.2-16 16-16H496c8.8 0 16 7.2 16 16s-7.2 16-16 16H368c-8.8 0-16-7.2-16-16zm0 64c0-8.8 7.2-16 16-16H496c8.8 0 16 7.2 16 16s-7.2 16-16 16H368c-8.8 0-16-7.2-16-16zm0 64c0-8.8 7.2-16 16-16H496c8.8 0 16 7.2 16 16s-7.2 16-16 16H368c-8.8 0-16-7.2-16-16z'/%3E%3C/svg%3E")}
+.fa-key{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M336 352c97.2 0 176-78.8 176-176S433.2 0 336 0S160 78.8 160 176c0 18.7 2.9 36.8 8.3 53.7L7 391c-4.5 4.5-7 10.6-7 17v80c0 13.3 10.7 24 24 24h80c13.3 0 24-10.7 24-24V448h40c13.3 0 24-10.7 24-24V384h40c6.4 0 12.5-2.5 17-7l33.3-33.3c16.9 5.4 35 8.3 53.7 8.3zM376 96a40 40 0 1 1 0 80 40 40 0 1 1 0-80z'/%3E%3C/svg%3E")}
+.fa-layer-group{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath d='M264.5 5.2c14.9-6.9 32.1-6.9 47 0l218.6 101c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 149.8C37.4 145.8 32 137.3 32 128s5.4-17.9 13.9-21.8L264.5 5.2zM476.9 209.6l53.2 24.6c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 277.8C37.4 273.8 32 265.3 32 256s5.4-17.9 13.9-21.8l53.2-24.6 152 70.2c23.4 10.8 50.4 10.8 73.8 0l152-70.2zm-152 198.2l152-70.2 53.2 24.6c8.5 3.9 13.9 12.4 13.9 21.8s-5.4 17.9-13.9 21.8l-218.6 101c-14.9 6.9-32.1 6.9-47 0L45.9 405.8C37.4 401.8 32 393.3 32 384s5.4-17.9 13.9-21.8l53.2-24.6 152 70.2c23.4 10.8 50.4 10.8 73.8 0z'/%3E%3C/svg%3E")}
+.fa-list-ol{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M24 56c0-13.3 10.7-24 24-24H80c13.3 0 24 10.7 24 24V176h16c13.3 0 24 10.7 24 24s-10.7 24-24 24H40c-13.3 0-24-10.7-24-24s10.7-24 24-24H56V80H48C34.7 80 24 69.3 24 56zM86.7 341.2c-6.5-7.4-18.3-6.9-24 1.2L51.5 357.9c-7.7 10.8-22.7 13.3-33.5 5.6s-13.3-22.7-5.6-33.5l11.1-15.6c23.7-33.2 72.3-35.6 99.2-4.9c21.3 24.4 20.8 60.9-1.1 84.7L86.8 432H120c13.3 0 24 10.7 24 24s-10.7 24-24 24H32c-9.5 0-18.2-5.6-22-14.4s-2.1-18.9 4.3-25.9l72-78c5.3-5.8 5.4-14.6 .3-20.5zM224 64H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H224c-17.7 0-32-14.3-32-32s14.3-32 32-32zm0 160H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H224c-17.7 0-32-14.3-32-32s14.3-32 32-32zm0 160H480c17.7 0 32 14.3 32 32s-14.3 32-32 32H224c-17.7 0-32-14.3-32-32s14.3-32 32-32z'/%3E%3C/svg%3E")}
+.fa-lock{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath d='M144 144v48H304V144c0-44.2-35.8-80-80-80s-80 35.8-80 80zM80 192V144C80 64.5 144.5 0 224 0s144 64.5 144 144v48h16c35.3 0 64 28.7 64 64V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V256c0-35.3 28.7-64 64-64H80z'/%3E%3C/svg%3E")}
+.fa-magnifying-glass{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z'/%3E%3C/svg%3E")}
+.fa-memory{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath d='M64 64C28.7 64 0 92.7 0 128v7.4c0 6.8 4.4 12.6 10.1 16.3C23.3 160.3 32 175.1 32 192s-8.7 31.7-21.9 40.3C4.4 236 0 241.8 0 248.6V320H576V248.6c0-6.8-4.4-12.6-10.1-16.3C552.7 223.7 544 208.9 544 192s8.7-31.7 21.9-40.3c5.7-3.7 10.1-9.5 10.1-16.3V128c0-35.3-28.7-64-64-64H64zM576 352H0v64c0 17.7 14.3 32 32 32H80V416c0-8.8 7.2-16 16-16s16 7.2 16 16v32h96V416c0-8.8 7.2-16 16-16s16 7.2 16 16v32h96V416c0-8.8 7.2-16 16-16s16 7.2 16 16v32h96V416c0-8.8 7.2-16 16-16s16 7.2 16 16v32h48c17.7 0 32-14.3 32-32V352zM192 160v64c0 17.7-14.3 32-32 32s-32-14.3-32-32V160c0-17.7 14.3-32 32-32s32 14.3 32 32zm128 0v64c0 17.7-14.3 32-32 32s-32-14.3-32-32V160c0-17.7 14.3-32 32-32s32 14.3 32 32zm128 0v64c0 17.7-14.3 32-32 32s-32-14.3-32-32V160c0-17.7 14.3-32 32-32s32 14.3 32 32z'/%3E%3C/svg%3E")}
+.fa-pen-to-square{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M471.6 21.7c-21.9-21.9-57.3-21.9-79.2 0L362.3 51.7l97.9 97.9 30.1-30.1c21.9-21.9 21.9-57.3 0-79.2L471.6 21.7zm-299.2 220c-6.1 6.1-10.8 13.6-13.5 21.9l-29.6 88.8c-2.9 8.6-.6 18.1 5.8 24.6s15.9 8.7 24.6 5.8l88.8-29.6c8.2-2.7 15.7-7.4 21.9-13.5L437.7 172.3 339.7 74.3 172.4 241.7zM96 64C43 64 0 107 0 160V416c0 53 43 96 96 96H352c53 0 96-43 96-96V320c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7-14.3 32-32 32H96c-17.7 0-32-14.3-32-32V160c0-17.7 14.3-32 32-32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H96z'/%3E%3C/svg%3E")}
+.fa-play{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 384 512'%3E%3Cpath d='M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z'/%3E%3C/svg%3E")}
+.fa-plug{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 384 512'%3E%3Cpath d='M96 0C78.3 0 64 14.3 64 32v96h64V32c0-17.7-14.3-32-32-32zM288 0c-17.7 0-32 14.3-32 32v96h64V32c0-17.7-14.3-32-32-32zM32 160c-17.7 0-32 14.3-32 32s14.3 32 32 32v32c0 77.4 55 142 128 156.8V480c0 17.7 14.3 32 32 32s32-14.3 32-32V412.8C297 398 352 333.4 352 256V224c17.7 0 32-14.3 32-32s-14.3-32-32-32H32z'/%3E%3C/svg%3E")}
+.fa-plus{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath d='M256 80c0-17.7-14.3-32-32-32s-32 14.3-32 32V224H48c-17.7 0-32 14.3-32 32s14.3 32 32 32H192V432c0 17.7 14.3 32 32 32s32-14.3 32-32V288H400c17.7 0 32-14.3 32-32s-14.3-32-32-32H256V80z'/%3E%3C/svg%3E")}
+.fa-puzzle-piece{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M192 104.8c0-9.2-5.8-17.3-13.2-22.8C167.2 73.3 160 61.3 160 48c0-26.5 28.7-48 64-48s64 21.5 64 48c0 13.3-7.2 25.3-18.8 34c-7.4 5.5-13.2 13.6-13.2 22.8v0c0 12.8 10.4 23.2 23.2 23.2H336c26.5 0 48 21.5 48 48v56.8c0 12.8 10.4 23.2 23.2 23.2v0c9.2 0 17.3-5.8 22.8-13.2c8.7-11.6 20.7-18.8 34-18.8c26.5 0 48 28.7 48 64s-21.5 64-48 64c-13.3 0-25.3-7.2-34-18.8c-5.5-7.4-13.6-13.2-22.8-13.2v0c-12.8 0-23.2 10.4-23.2 23.2V464c0 26.5-21.5 48-48 48H279.2c-12.8 0-23.2-10.4-23.2-23.2v0c0-9.2 5.8-17.3 13.2-22.8c11.6-8.7 18.8-20.7 18.8-34c0-26.5-28.7-48-64-48s-64 21.5-64 48c0 13.3 7.2 25.3 18.8 34c7.4 5.5 13.2 13.6 13.2 22.8v0c0 12.8-10.4 23.2-23.2 23.2H48c-26.5 0-48-21.5-48-48V343.2C0 330.4 10.4 320 23.2 320v0c9.2 0 17.3 5.8 22.8 13.2C54.7 344.8 66.7 352 80 352c26.5 0 48-28.7 48-64s-21.5-64-48-64c-13.3 0-25.3 7.2-34 18.8C40.5 250.2 32.4 256 23.2 256v0C10.4 256 0 245.6 0 232.8V176c0-26.5 21.5-48 48-48H168.8c12.8 0 23.2-10.4 23.2-23.2v0z'/%3E%3C/svg%3E")}
+.fa-right-from-bracket{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M377.9 105.9L500.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L377.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1-128 0c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM160 96L96 96c-17.7 0-32 14.3-32 32l0 256c0 17.7 14.3 32 32 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-64 0c-53 0-96-43-96-96L0 128C0 75 43 32 96 32l64 0c17.7 0 32 14.3 32 32s-14.3 32-32 32z'/%3E%3C/svg%3E")}
+.fa-robot{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 640 512'%3E%3Cpath d='M320 0c17.7 0 32 14.3 32 32V96H472c39.8 0 72 32.2 72 72V440c0 39.8-32.2 72-72 72H168c-39.8 0-72-32.2-72-72V168c0-39.8 32.2-72 72-72H288V32c0-17.7 14.3-32 32-32zM208 384c-8.8 0-16 7.2-16 16s7.2 16 16 16h32c8.8 0 16-7.2 16-16s-7.2-16-16-16H208zm96 0c-8.8 0-16 7.2-16 16s7.2 16 16 16h32c8.8 0 16-7.2 16-16s-7.2-16-16-16H304zm96 0c-8.8 0-16 7.2-16 16s7.2 16 16 16h32c8.8 0 16-7.2 16-16s-7.2-16-16-16H400zM264 256a40 40 0 1 0 -80 0 40 40 0 1 0 80 0zm152 40a40 40 0 1 0 0-80 40 40 0 1 0 0 80zM48 224H64V416H48c-26.5 0-48-21.5-48-48V272c0-26.5 21.5-48 48-48zm544 0c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48H576V224h16z'/%3E%3C/svg%3E")}
+.fa-rotate{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M142.9 142.9c62.2-62.2 162.7-62.5 225.3-1L327 183c-6.9 6.9-8.9 17.2-5.2 26.2s12.5 14.8 22.2 14.8H463.5c0 0 0 0 0 0H472c13.3 0 24-10.7 24-24V72c0-9.7-5.8-18.5-14.8-22.2s-19.3-1.7-26.2 5.2L413.4 96.6c-87.6-86.5-228.7-86.2-315.8 1C73.2 122 55.6 150.7 44.8 181.4c-5.9 16.7 2.9 34.9 19.5 40.8s34.9-2.9 40.8-19.5c7.7-21.8 20.2-42.3 37.8-59.8zM16 312v7.6 .7V440c0 9.7 5.8 18.5 14.8 22.2s19.3 1.7 26.2-5.2l41.6-41.6c87.6 86.5 228.7 86.2 315.8-1c24.4-24.4 42.1-53.1 52.9-83.7c5.9-16.7-2.9-34.9-19.5-40.8s-34.9 2.9-40.8 19.5c-7.7 21.8-20.2 42.3-37.8 59.8c-62.2 62.2-162.7 62.5-225.3 1L185 329c6.9-6.9 8.9-17.2 5.2-26.2s-12.5-14.8-22.2-14.8H48.4h-.7H40c-13.3 0-24 10.7-24 24z'/%3E%3C/svg%3E")}
+.fa-rotate-left{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M48.5 224H40c-13.3 0-24-10.7-24-24V72c0-9.7 5.8-18.5 14.8-22.2s19.3-1.7 26.2 5.2L98.6 96.6c87.6-86.5 228.7-86.2 315.8 1c87.5 87.5 87.5 229.3 0 316.8s-229.3 87.5-316.8 0c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0c62.5 62.5 163.8 62.5 226.3 0s62.5-163.8 0-226.3c-62.2-62.2-162.7-62.5-225.3-1L185 183c6.9 6.9 8.9 17.2 5.2 26.2s-12.5 14.8-22.2 14.8H48.5z'/%3E%3C/svg%3E")}
+.fa-rotate-right{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M463.5 224H472c13.3 0 24-10.7 24-24V72c0-9.7-5.8-18.5-14.8-22.2s-19.3-1.7-26.2 5.2L413.4 96.6c-87.6-86.5-228.7-86.2-315.8 1c-87.5 87.5-87.5 229.3 0 316.8s229.3 87.5 316.8 0c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0c-62.5 62.5-163.8 62.5-226.3 0s-62.5-163.8 0-226.3c62.2-62.2 162.7-62.5 225.3-1L327 183c-6.9 6.9-8.9 17.2-5.2 26.2s12.5 14.8 22.2 14.8H463.5z'/%3E%3C/svg%3E")}
+.fa-server{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M64 32C28.7 32 0 60.7 0 96v64c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64zm280 72a24 24 0 1 1 0 48 24 24 0 1 1 0-48zm48 24a24 24 0 1 1 48 0 24 24 0 1 1 -48 0zM64 288c-35.3 0-64 28.7-64 64v64c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V352c0-35.3-28.7-64-64-64H64zm280 72a24 24 0 1 1 0 48 24 24 0 1 1 0-48zm56 24a24 24 0 1 1 48 0 24 24 0 1 1 -48 0z'/%3E%3C/svg%3E")}
+.fa-sitemap{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath d='M208 80c0-26.5 21.5-48 48-48h64c26.5 0 48 21.5 48 48v64c0 26.5-21.5 48-48 48h-8v40H464c30.9 0 56 25.1 56 56v32h8c26.5 0 48 21.5 48 48v64c0 26.5-21.5 48-48 48H464c-26.5 0-48-21.5-48-48V368c0-26.5 21.5-48 48-48h8V288c0-4.4-3.6-8-8-8H312v40h8c26.5 0 48 21.5 48 48v64c0 26.5-21.5 48-48 48H256c-26.5 0-48-21.5-48-48V368c0-26.5 21.5-48 48-48h8V280H112c-4.4 0-8 3.6-8 8v32h8c26.5 0 48 21.5 48 48v64c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V368c0-26.5 21.5-48 48-48h8V288c0-30.9 25.1-56 56-56H264V192h-8c-26.5 0-48-21.5-48-48V80z'/%3E%3C/svg%3E")}
+.fa-sort{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 512'%3E%3Cpath d='M137.4 41.4c12.5-12.5 32.8-12.5 45.3 0l128 128c9.2 9.2 11.9 22.9 6.9 34.9s-16.6 19.8-29.6 19.8H32c-12.9 0-24.6-7.8-29.6-19.8s-2.2-25.7 6.9-34.9l128-128zm0 429.3l-128-128c-9.2-9.2-11.9-22.9-6.9-34.9s16.6-19.8 29.6-19.8H288c12.9 0 24.6 7.8 29.6 19.8s2.2 25.7-6.9 34.9l-128 128c-12.5 12.5-32.8 12.5-45.3 0z'/%3E%3C/svg%3E")}
+.fa-table{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M64 256V160H224v96H64zm0 64H224v96H64V320zm224 96V320H448v96H288zM448 256H288V160H448v96zM64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64z'/%3E%3C/svg%3E")}
+.fa-table-cells-large{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M448 96V224H288V96H448zm0 192V416H288V288H448zM224 224H64V96H224V224zM64 288H224V416H64V288zM64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64z'/%3E%3C/svg%3E")}
+.fa-table-columns{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M0 96C0 60.7 28.7 32 64 32H448c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96zm64 64V416H224V160H64zm384 0H288V416H448V160z'/%3E%3C/svg%3E")}
+.fa-table-list{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M0 96C0 60.7 28.7 32 64 32H448c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96zm64 0v64h64V96H64zm384 0H192v64H448V96zM64 224v64h64V224H64zm384 0H192v64H448V224zM64 352v64h64V352H64zm384 0H192v64H448V352z'/%3E%3C/svg%3E")}
+.fa-terminal{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath d='M9.4 86.6C-3.1 74.1-3.1 53.9 9.4 41.4s32.8-12.5 45.3 0l192 192c12.5 12.5 12.5 32.8 0 45.3l-192 192c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L178.7 256 9.4 86.6zM256 416H544c17.7 0 32 14.3 32 32s-14.3 32-32 32H256c-17.7 0-32-14.3-32-32s14.3-32 32-32z'/%3E%3C/svg%3E")}
+.fa-triangle-exclamation{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M256 32c14.2 0 27.3 7.5 34.5 19.8l216 368c7.3 12.4 7.3 27.7 .2 40.1S486.3 480 472 480H40c-14.3 0-27.6-7.7-34.7-20.1s-7-27.8 .2-40.1l216-368C228.7 39.5 241.8 32 256 32zm0 128c-13.3 0-24 10.7-24 24V296c0 13.3 10.7 24 24 24s24-10.7 24-24V184c0-13.3-10.7-24-24-24zm32 224a32 32 0 1 0 -64 0 32 32 0 1 0 64 0z'/%3E%3C/svg%3E")}
+.fa-user{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath d='M224 256A128 128 0 1 0 224 0a128 128 0 1 0 0 256zm-45.7 48C79.8 304 0 383.8 0 482.3C0 498.7 13.3 512 29.7 512H418.3c16.4 0 29.7-13.3 29.7-29.7C448 383.8 368.2 304 269.7 304H178.3z'/%3E%3C/svg%3E")}
+.fa-wand-magic-sparkles{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath d='M234.7 42.7L197 56.8c-3 1.1-5 4-5 7.2s2 6.1 5 7.2l37.7 14.1L248.8 123c1.1 3 4 5 7.2 5s6.1-2 7.2-5l14.1-37.7L315 71.2c3-1.1 5-4 5-7.2s-2-6.1-5-7.2L277.3 42.7 263.2 5c-1.1-3-4-5-7.2-5s-6.1 2-7.2 5L234.7 42.7zM46.1 395.4c-18.7 18.7-18.7 49.1 0 67.9l34.6 34.6c18.7 18.7 49.1 18.7 67.9 0L529.9 116.5c18.7-18.7 18.7-49.1 0-67.9L495.3 14.1c-18.7-18.7-49.1-18.7-67.9 0L46.1 395.4zM484.6 82.6l-105 105-23.3-23.3 105-105 23.3 23.3zM7.5 117.2C3 118.9 0 123.2 0 128s3 9.1 7.5 10.8L64 160l21.2 56.5c1.7 4.5 6 7.5 10.8 7.5s9.1-3 10.8-7.5L128 160l56.5-21.2c4.5-1.7 7.5-6 7.5-10.8s-3-9.1-7.5-10.8L128 96 106.8 39.5C105.1 35 100.8 32 96 32s-9.1 3-10.8 7.5L64 96 7.5 117.2zm352 256c-4.5 1.7-7.5 6-7.5 10.8s3 9.1 7.5 10.8L416 416l21.2 56.5c1.7 4.5 6 7.5 10.8 7.5s9.1-3 10.8-7.5L480 416l56.5-21.2c4.5-1.7 7.5-6 7.5-10.8s-3-9.1-7.5-10.8L480 352l-21.2-56.5c-1.7-4.5-6-7.5-10.8-7.5s-9.1 3-10.8 7.5L416 352l-56.5 21.2z'/%3E%3C/svg%3E")}
+.fa-xmark{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 384 512'%3E%3Cpath d='M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z'/%3E%3C/svg%3E")}
+    </style>
 </head>
 <body class="logged-out">
     <div class="app-layout">
@@ -1989,6 +2407,9 @@ body.logged-out .content-wrapper {
                 <a href="#object-count" class="nav-item auth-only" data-target="object-count">
                     <i class="fa-solid fa-list-ol" aria-hidden="true"></i> Object Count
                     <span class="nav-filter-dot" id="object-count-nav-dot" title="Filter active"></span>
+                </a>
+                <a href="#dashboard" class="nav-item auth-only" data-target="dashboard">
+                    <i class="fa-solid fa-chart-line" aria-hidden="true"></i> Dashboard
                 </a>
             </nav>
         </aside>
@@ -2049,6 +2470,31 @@ body.logged-out .content-wrapper {
                                 <div class="home-icon"><i class="fa-solid fa-terminal" aria-hidden="true"></i></div>
                                 <div><strong>Query runner</strong><span>Paste SQL, execute against the external read-only URL, and inspect result tables.</span></div>
                             </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="dashboard" class="view-section">
+                    <div class="section-header">
+                        <div>
+                            <h1>Dashboard</h1>
+                            <p>An overview of your database at a glance.</p>
+                        </div>
+                    </div>
+                    <div class="dashboard-section-bar">
+                        <div class="dashboard-section-heading">
+                            <h2 class="dashboard-section-title">
+                                <i class="fa-solid fa-table-columns" aria-hidden="true"></i>
+                                Distribution of Unique Values
+                            </h2>
+                            <p class="dashboard-section-sub">All cached <code>mv_unique</code> views.</p>
+                        </div>
+                    </div>
+                    <div id="dashboard-content" class="dashboard-grid">
+                        <div class="dashboard-empty-state">
+                            <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                            <h3>No Data Available</h3>
+                            <p>Please sync the database cache first using the "Database Sync" button.</p>
                         </div>
                     </div>
                 </section>
@@ -2171,7 +2617,7 @@ body.logged-out .content-wrapper {
                     <div class="section-header">
                         <div>
                             <h1>Object Count</h1>
-                            <p>Exact row counts from public.mv_object_count.</p>
+                            <p>Exact row counts from mv_object_count.</p>
                         </div>
                     </div>
                     <div class="panel">
@@ -2182,9 +2628,9 @@ body.logged-out .content-wrapper {
                                     <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
                                 </button>
                                 <input class="object-count-search" id="object-count-search" type="search" placeholder="Search objects…" aria-label="Search objects">
-                                <button class="btn btn-secondary" id="object-count-unique-btn" type="button" title="Show only objects with 'unique' in their name" aria-pressed="false">
-                                    Unique
-                                </button>
+                                <select class="schema-index-filter" id="object-count-mv-filter" aria-label="Filter by MV type">
+                                    <option value="">All Types</option>
+                                </select>
                                 <button class="btn btn-secondary table-download-icon" id="object-count-download-btn" type="button" title="Download object count CSV" aria-label="Download object count CSV">
                                     <i class="fa-solid fa-download" aria-hidden="true"></i>
                                 </button>
@@ -2455,6 +2901,24 @@ LIMIT 10;</textarea>
             <div class="modal-body">
                 <div class="logout-confirmation">
                     <p id="sync-confirm-message">Synced recently. Sync again?</p>
+                </div>
+                <div class="sync-info">
+                    <div class="sync-info-group">
+                        <h4 class="sync-info-title"><i class="fa-solid fa-rotate" aria-hidden="true"></i> What gets synced</h4>
+                        <ul class="sync-info-list">
+                            <li>Database info — connections, cache hit ratio, size</li>
+                            <li>Schema — tables, columns, keys, indexes</li>
+                            <li>Object counts — from <code>mv_object_count</code></li>
+                            <li>Unique values — from <code>mv_unique_*</code> (dropdowns &amp; dashboard)</li>
+                        </ul>
+                    </div>
+                    <div class="sync-info-group">
+                        <h4 class="sync-info-title"><i class="fa-solid fa-clock" aria-hidden="true"></i> Cache &amp; TTL</h4>
+                        <ul class="sync-info-list">
+                            <li>Cached in your browser for <strong>24h</strong>, then auto-refreshes</li>
+                            <li>Re-confirms if synced under <strong>10 min</strong> ago</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -3656,7 +4120,8 @@ function queryBuilderOperatorsForColumn(row) {
 function queryBuilderUniqueValuesForColumn(row) {
     if (!row?.table_name || !row?.column_name) return [];
     const values = readCachedPostgresUniqueValues(uniqueValueCacheKey(row.table_name, row.column_name));
-    return Array.isArray(values) ? values : [];
+    if (!Array.isArray(values)) return [];
+    return values.map(item => item && typeof item === 'object' && 'value' in item ? item.value : item);
 }
 
 function queryBuilderReadInSelections(input) {
@@ -4330,7 +4795,7 @@ async function warmPostgresCache({ force = false } = {}) {
             if (schema && !hasObjectCountRelation) {
                 clearCachedPostgresObjectCount();
                 clearCachedPostgresUniqueValues();
-                if ($('object-count').classList.contains('active')) renderObjectCountError('public.mv_object_count was not found in schema cache. Create it, then refresh schema.');
+                if ($('object-count').classList.contains('active')) renderObjectCountError('mv_object_count was not found in schema cache. Create it, then refresh schema.');
             } else if (hasObjectCountRelation && (force || !postgresObjectCountCacheFresh())) {
                 setPostgresSyncStatus({ visible: true, progress: 80, text: 'Syncing object count...' });
                 objectCountRows = await fetchObjectCountAllPages({
@@ -4367,6 +4832,7 @@ async function warmPostgresCache({ force = false } = {}) {
         } else {
             setPostgresSyncStatus({ visible: true, progress: 100, text: 'Database cache synced.' });
         }
+        if ($('dashboard')?.classList.contains('active')) loadDashboard();
         setTimeout(() => setPostgresSyncStatus({ visible: false }), 1800);
     })().finally(() => {
         postgresCacheWarmPromise = null;
@@ -4553,7 +5019,7 @@ function objectCountSql(page = 1) {
     const offset = (Math.max(1, Number(page || 1)) - 1) * OBJECT_COUNT_PAGE_SIZE;
     return [
         'SELECT *',
-        'FROM public.mv_object_count',
+        'FROM mv_object_count',
         'ORDER BY row_count DESC NULLS LAST, schema_name, object_name',
         `LIMIT ${OBJECT_COUNT_PAGE_SIZE + 1}`,
         `OFFSET ${offset};`
@@ -4570,11 +5036,9 @@ function objectCountRowCount(row = {}) {
 }
 
 function objectCountQualifiedObjectSql(schemaName, objectName) {
-    const schema = String(schemaName || 'public');
     const object = String(objectName || '');
     if (!object) throw new Error('Object name is required.');
-    if (!schema || schema === 'public') return queryBuilderQuoteIdentifier(object);
-    return `${queryBuilderQuoteIdentifier(schema)}.${queryBuilderQuoteIdentifier(object)}`;
+    return queryBuilderQuoteIdentifier(object);
 }
 
 function objectCountViewButton(row = {}) {
@@ -4597,22 +5061,46 @@ function objectCountActionButtons(row = {}) {
     return `<div class="object-count-actions">${objectCountViewButton(row)}${objectCountDownloadButton(row)}</div>`;
 }
 
-let objectCountUniqueFilter = false;
+let objectCountMvFilter = '';
 let objectCountSortDir = null; // null | 'asc' | 'desc'
 
 function renderObjectCountRows(rows = []) {
     const searchVal = ($('object-count-search')?.value || '').toLowerCase().trim();
-    const uniqueBtn = $('object-count-unique-btn');
+    const mvFilterSelect = $('object-count-mv-filter');
     const clearBtn = $('object-count-clear-btn');
     const sortTh = $('object-count-sort-th');
     const navDot = $('object-count-nav-dot');
 
-    const anyFilter = objectCountUniqueFilter || searchVal || objectCountSortDir;
+    const anyFilter = objectCountMvFilter || searchVal || objectCountSortDir;
+
+    // Populate dropdown options once if it's currently empty
+    if (mvFilterSelect && mvFilterSelect.options.length <= 1 && rows.length > 0) {
+        const types = new Set();
+        rows.forEach(r => {
+            const name = String(r.object_name || '');
+            if (name.startsWith('mv_')) {
+                const parts = name.split('_');
+                if (parts.length > 1 && parts[1]) {
+                    types.add(parts[1]);
+                }
+            }
+        });
+        const sortedTypes = Array.from(types).sort();
+        mvFilterSelect.innerHTML = [
+            '<option value="">All Types</option>',
+            ...sortedTypes.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t.charAt(0).toUpperCase() + t.slice(1))}</option>`)
+        ].join('');
+        mvFilterSelect.value = objectCountMvFilter;
+    }
 
     // Apply search + unique filter
     let filtered = rows.filter(r => {
         const name = String(rawValue(r.object_name)).toLowerCase();
-        if (objectCountUniqueFilter && !name.includes('unique')) return false;
+        if (objectCountMvFilter) {
+            if (!name.startsWith('mv_')) return false;
+            const parts = name.split('_');
+            if (parts.length <= 1 || parts[1] !== objectCountMvFilter) return false;
+        }
         if (searchVal && !name.includes(searchVal)) return false;
         return true;
     });
@@ -4624,14 +5112,6 @@ function renderObjectCountRows(rows = []) {
             const vb = Number(rawValue(b.row_count)) || 0;
             return objectCountSortDir === 'asc' ? va - vb : vb - va;
         });
-    }
-
-    // Update unique button state
-    if (uniqueBtn) {
-        uniqueBtn.setAttribute('aria-pressed', String(objectCountUniqueFilter));
-        uniqueBtn.style.background = objectCountUniqueFilter ? '#EEF2FF' : '';
-        uniqueBtn.style.borderColor = objectCountUniqueFilter ? '#C7D2FE' : '';
-        uniqueBtn.style.color = objectCountUniqueFilter ? '#3730A3' : '';
     }
 
     // Update sort header
@@ -4647,24 +5127,29 @@ function renderObjectCountRows(rows = []) {
     if (navDot) navDot.classList.toggle('visible', Boolean(anyFilter));
 
     // Result count label
-    const labels = [searchVal ? `"${searchVal}"` : '', objectCountUniqueFilter ? 'unique' : ''].filter(Boolean).join(', ');
+    const labels = [searchVal ? `"${searchVal}"` : '', objectCountMvFilter ? `type: ${objectCountMvFilter}` : ''].filter(Boolean).join(', ');
     $('object-count-result-count').textContent = filtered.length
         ? `Showing ${formatNumber(filtered.length)} of ${formatNumber(rows.length)} object${rows.length === 1 ? '' : 's'}${labels ? ` — ${labels}` : ''}`
         : 'No objects match';
 
-    $('object-count-body').innerHTML = filtered.length ? filtered.map((row, index) => `
-        <tr>
-            <td>${formatNumber(index + 1)}</td>
-            <td>${escapeHtml(rawValue(row.object_name))}</td>
-            <td>${escapeHtml(rawValue(row.row_count))}</td>
-            <td>${objectCountActionButtons(row)}</td>
-        </tr>
-    `).join('') : '<tr><td colspan="4"><div class="schema-empty">No objects match the current filter.</div></td></tr>';
+    $('object-count-body').innerHTML = filtered.length ? filtered.map((row, index) => {
+        const item = resolveUniqueValueObject(row);
+        const isCached = item ? Array.isArray(readCachedPostgresUniqueValues(item.cache_key)) : false;
+        const badgeHtml = isCached ? '<span class="cached-badge" title="Values cached in IndexedDB"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i> Cached</span>' : '';
+        return `
+            <tr>
+                <td>${formatNumber(index + 1)}</td>
+                <td>${escapeHtml(rawValue(row.object_name))}${badgeHtml}</td>
+                <td>${escapeHtml(rawValue(row.row_count))}</td>
+                <td>${objectCountActionButtons(row)}</td>
+            </tr>
+        `;
+    }).join('') : '<tr><td colspan="4"><div class="schema-empty">No objects match the current filter.</div></td></tr>';
 }
 
 function renderObjectCountError(message) {
     $('object-count-result-count').textContent = 'Object counts unavailable';
-    $('object-count-body').innerHTML = `<tr><td colspan="4"><div class="schema-empty">${escapeHtml(message || 'Create public.mv_object_count to see exact object counts.')}</div></td></tr>`;
+    $('object-count-body').innerHTML = `<tr><td colspan="4"><div class="schema-empty">${escapeHtml(message || 'Create mv_object_count to see exact object counts.')}</div></td></tr>`;
 }
 
 function objectCountRelationExists() {
@@ -4787,10 +5272,17 @@ async function fetchUniqueValuePage(item, page = 1) {
     return Array.isArray(result) ? result : Array.isArray(result.rows) ? result.rows : [];
 }
 
+const UNIQUE_VALUE_COUNT_KEY_RE = /^(cnt|count|counts|row_count|rowcount|counted_at|n|num|total|frequency|freq|occurrences)$/i;
+
 function extractUniqueValue(row = {}, item = {}) {
-    if (Object.prototype.hasOwnProperty.call(row, item.column_name)) return row[item.column_name];
-    const valueKey = Object.keys(row).find(key => !/^(cnt|count|row_count|counted_at)$/i.test(key));
-    return valueKey ? row[valueKey] : null;
+    const named = row[item.column_name];
+    if (named !== null && named !== undefined && String(named).trim() !== '') return named;
+    const keys = Object.keys(row).filter(key => !UNIQUE_VALUE_COUNT_KEY_RE.test(key));
+    for (const key of keys) {
+        const value = row[key];
+        if (value !== null && value !== undefined && String(value).trim() !== '') return value;
+    }
+    return null;
 }
 
 async function fetchUniqueValuesAllPages(item, { onProgress } = {}) {
@@ -4806,13 +5298,15 @@ async function fetchUniqueValuesAllPages(item, { onProgress } = {}) {
             const key = String(value);
             if (seen.has(key)) return;
             seen.add(key);
-            values.push(value);
+            const countKey = Object.keys(row).find(k => UNIQUE_VALUE_COUNT_KEY_RE.test(k));
+            const count = countKey ? Number(row[countKey] || 0) : null;
+            values.push({ value, count });
         });
         hasNextPage = pageRows.length > UNIQUE_VALUE_PAGE_SIZE && values.length < UNIQUE_VALUE_MAX_ROWS;
         if (onProgress) onProgress({ page, hasNextPage, values });
         page += 1;
     }
-    return values.sort((a, b) => String(a).localeCompare(String(b)));
+    return values.sort((a, b) => String(a.value).localeCompare(String(b.value)));
 }
 
 async function syncUniqueValueDropdowns(rows = [], { onProgress } = {}) {
@@ -4839,9 +5333,11 @@ async function syncUniqueValueDropdowns(rows = [], { onProgress } = {}) {
 
 async function loadObjectCount({ force = false } = {}) {
     if (!authToken || !authUser) return;
+    const select = $('object-count-mv-filter');
+    if (select) select.innerHTML = '<option value="">All Types</option>';
     if (!objectCountRelationExists()) {
         clearCachedPostgresObjectCount();
-        renderObjectCountError('public.mv_object_count was not found in schema cache. Create it, then refresh schema.');
+        renderObjectCountError('mv_object_count was not found in schema cache. Create it, then refresh schema.');
         return;
     }
     if (!force) {
@@ -4864,6 +5360,196 @@ async function loadObjectCount({ force = false } = {}) {
             renderObjectCountError(err.message);
         }
     }
+}
+
+const DASHBOARD_CARD_RENDER_CAP = 100;
+const dashboardCardData = new Map();
+
+function loadDashboard() {
+    const container = $('dashboard-content');
+    if (!container) return;
+
+    const objectCount = readCachedPostgresObjectCount();
+    if (!objectCount || !Array.isArray(objectCount.rows)) {
+        container.innerHTML = `
+            <div class="dashboard-empty-state">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <h3>No Data Available</h3>
+                <p>Please sync the database cache first using the "Database Sync" button.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const dashboardItems = uniqueValueObjectsFromObjectCount(objectCount.rows);
+
+    if (!dashboardItems.length) {
+        container.innerHTML = `
+            <div class="dashboard-empty-state">
+                <i class="fa-solid fa-chart-pie"></i>
+                <h3>No dashboard cards available</h3>
+                <p>No cached <code>mv_unique</code> views were found to render.</p>
+            </div>
+        `;
+        return;
+    }
+
+    dashboardCardData.clear();
+
+    container.innerHTML = dashboardItems.map(item => {
+        const columnName = escapeHtml(prettifyColumnName(item.column_name));
+        const key = item.cache_key;
+
+        const values = readCachedPostgresUniqueValues(key);
+        const valid = Array.isArray(values)
+            ? values.filter(v => v && v.value !== null && v.value !== undefined && String(v.value).trim() !== '')
+            : [];
+        const count = valid.length || item.row_count;
+        const total = valid.reduce((sum, v) => sum + (Number(v.count) || 0), 0);
+        const mode = total > 0 ? 'bars' : 'chips';
+        const sorted = mode === 'bars'
+            ? [...valid].sort((a, b) => (Number(b.count) || 0) - (Number(a.count) || 0))
+            : [...valid].sort((a, b) => String(a.value).localeCompare(String(b.value)));
+
+        dashboardCardData.set(key, { name: prettifyColumnName(item.column_name), mode, total, values: sorted });
+
+        const head = `
+            <div class="dashboard-card-head">
+                <span class="dashboard-card-icon"><i class="fa-solid fa-table-cells-large"></i></span>
+                <div class="dashboard-card-headings">
+                    <h3 class="dashboard-card-title">${columnName}</h3>
+                    <span class="dashboard-card-count">${formatNumber(count)} distinct value${count === 1 ? '' : 's'}</span>
+                </div>
+                ${valid.length ? `
+                <div class="dashboard-card-tools">
+                    <button type="button" class="dashboard-card-tool dashboard-card-search-toggle" title="Search values" aria-label="Search values"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></button>
+                    <button type="button" class="dashboard-card-tool dashboard-card-download" title="Download CSV" aria-label="Download CSV"><i class="fa-solid fa-download" aria-hidden="true"></i></button>
+                </div>` : ''}
+            </div>
+        `;
+
+        if (!valid.length) {
+            return `
+                <div class="dashboard-card" data-key="${escapeHtml(key)}">
+                    ${head}
+                    <div class="dashboard-card-note">No cached values yet — run "Database Sync" to load them.</div>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="dashboard-card" data-key="${escapeHtml(key)}">
+                ${head}
+                <div class="dashboard-card-searchbar" hidden>
+                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                    <input type="search" class="dashboard-card-search" placeholder="Search ${columnName}…" autocomplete="off">
+                </div>
+                <div class="dashboard-card-body">${dashboardCardBodyHtml(key, '')}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function dashboardCardBodyHtml(key, filter = '') {
+    const data = dashboardCardData.get(key);
+    if (!data) return '';
+    const term = String(filter || '').trim().toLowerCase();
+    const matches = term
+        ? data.values.filter(v => String(v.value).toLowerCase().includes(term))
+        : data.values;
+
+    if (!matches.length) {
+        return `<div class="dashboard-card-more">No values match “${escapeHtml(term)}”.</div>`;
+    }
+
+    const shown = matches.slice(0, DASHBOARD_CARD_RENDER_CAP);
+    let body;
+    if (data.mode === 'bars') {
+        const rowsHtml = shown.map(v => {
+            const pct = data.total > 0 ? (Number(v.count) || 0) / data.total * 100 : 0;
+            return `
+                <div class="dashboard-chart-row">
+                    <div class="dashboard-chart-label-row">
+                        <span class="dashboard-chart-label" title="${escapeHtml(String(v.value))}">${escapeHtml(String(v.value))}</span>
+                        <span class="dashboard-chart-value">${formatNumber(v.count)} &middot; ${pct.toFixed(1)}%</span>
+                    </div>
+                    <div class="dashboard-chart-bar-container">
+                        <div class="dashboard-chart-bar-fill" style="width: ${pct}%"></div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        body = `<div class="dashboard-chart">${rowsHtml}</div>`;
+    } else {
+        const chipsHtml = shown.map(v =>
+            `<span class="dashboard-chip" title="${escapeHtml(String(v.value))}">${escapeHtml(String(v.value))}</span>`
+        ).join('');
+        body = `<div class="dashboard-chips">${chipsHtml}</div>`;
+    }
+
+    const moreHtml = matches.length > shown.length
+        ? `<div class="dashboard-card-more">Showing ${formatNumber(shown.length)} of ${formatNumber(matches.length)} — search to filter, or download for all.</div>`
+        : '';
+    return body + moreHtml;
+}
+
+function downloadDashboardCard(key) {
+    const data = dashboardCardData.get(key);
+    if (!data || !data.values.length) return;
+    const columns = data.total > 0
+        ? [
+            { label: 'Value', value: 'value' },
+            { label: 'Count', value: row => Number(row.count) || 0 },
+            { label: 'Percent', value: row => `${(data.total > 0 ? (Number(row.count) || 0) / data.total * 100 : 0).toFixed(2)}%` }
+        ]
+        : [{ label: 'Value', value: 'value' }];
+    const safeName = String(key).replace(/[^\w.-]+/g, '_');
+    downloadCsvFile({ filename: `${safeName}.csv`, columns, rows: data.values });
+}
+
+function setupDashboardInteractions() {
+    const container = $('dashboard-content');
+    if (!container || container.dataset.wired === '1') return;
+    container.dataset.wired = '1';
+
+    container.addEventListener('input', event => {
+        const input = event.target.closest('.dashboard-card-search');
+        if (!input) return;
+        const card = input.closest('.dashboard-card');
+        const key = card?.dataset.key;
+        const body = card?.querySelector('.dashboard-card-body');
+        if (key && body) body.innerHTML = dashboardCardBodyHtml(key, input.value);
+    });
+
+    container.addEventListener('click', event => {
+        const toggle = event.target.closest('.dashboard-card-search-toggle');
+        if (toggle) {
+            const card = toggle.closest('.dashboard-card');
+            const bar = card?.querySelector('.dashboard-card-searchbar');
+            const input = bar?.querySelector('.dashboard-card-search');
+            if (!bar) return;
+            bar.hidden = !bar.hidden;
+            toggle.classList.toggle('is-active', !bar.hidden);
+            if (!bar.hidden) {
+                input?.focus();
+            } else if (input) {
+                input.value = '';
+                const body = card.querySelector('.dashboard-card-body');
+                if (body) body.innerHTML = dashboardCardBodyHtml(card.dataset.key, '');
+            }
+            return;
+        }
+        const download = event.target.closest('.dashboard-card-download');
+        if (download) downloadDashboardCard(download.closest('.dashboard-card')?.dataset.key);
+    });
+}
+
+function prettifyColumnName(raw) {
+    return String(raw || '')
+        .split('_')
+        .filter(Boolean)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ') || String(raw || '');
 }
 
 async function runQuery(event) {
@@ -5106,6 +5792,7 @@ function showSection(target) {
     if (target === 'schema') loadSchema();
     if (target === 'object-count') loadObjectCount();
     if (target === 'query-builder' || target === 'query-builder-ai') renderQueryBuilder();
+    if (target === 'dashboard') loadDashboard();
 }
 
 function toggleProfileMenu() {
@@ -5161,6 +5848,7 @@ function bindAuthComponentEvents() {
     $('sync-confirm-modal-close').addEventListener('click', () => closeModal('sync-confirm-modal'));
     $('sync-confirm-cancel-btn').addEventListener('click', () => closeModal('sync-confirm-modal'));
     $('sync-confirm-submit-btn').addEventListener('click', confirmPostgresSync);
+    setupDashboardInteractions();
     $('large-export-modal-close').addEventListener('click', () => closeModal('large-export-modal'));
     $('large-export-close-btn').addEventListener('click', () => closeModal('large-export-modal'));
     $('profile-menu-profile').addEventListener('click', () => {
@@ -5251,13 +5939,18 @@ function bindPageEvents() {
     $('object-count-cancel-btn').addEventListener('click', cancelObjectCountExport);
     $('object-count-body').addEventListener('click', viewObjectCountObject);
     $('object-count-body').addEventListener('click', downloadObjectCountObject);
-    $('object-count-unique-btn').addEventListener('click', () => {
-        objectCountUniqueFilter = !objectCountUniqueFilter;
-        const cached = readCachedPostgresObjectCount();
-        renderObjectCountRows(cached?.rows || []);
-    });
+    const mvFilterSelect = $('object-count-mv-filter');
+    if (mvFilterSelect) {
+        mvFilterSelect.addEventListener('change', event => {
+            objectCountMvFilter = event.target.value;
+            const cached = readCachedPostgresObjectCount();
+            renderObjectCountRows(cached?.rows || []);
+        });
+    }
     $('object-count-clear-btn').addEventListener('click', () => {
-        objectCountUniqueFilter = false;
+        objectCountMvFilter = '';
+        const select = $('object-count-mv-filter');
+        if (select) select.value = '';
         objectCountSortDir = null;
         const search = $('object-count-search');
         if (search) search.value = '';
