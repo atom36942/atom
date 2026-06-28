@@ -603,15 +603,20 @@ body {
     letter-spacing: 0.05em;
 }
 
-.kpi-card h4 i {
-    width: 18px;
-    height: 18px;
+.kpi-icon {
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
     display: inline-grid;
     place-items: center;
     border-radius: 6px;
     background: #EEF2FF;
     color: var(--primary);
     font-size: 0.72rem;
+}
+
+.kpi-icon i {
+    display: block;
 }
 
 .kpi-card .val {
@@ -628,7 +633,7 @@ body {
     border-top-color: #10B981;
 }
 
-.health-kpi-row .kpi-card h4 i {
+.health-kpi-row .kpi-icon {
     background: #D1FAE5;
     color: #047857;
 }
@@ -871,7 +876,29 @@ body {
     width: 34px;
     height: 34px;
     min-height: 34px;
+    display: inline-grid;
+    place-items: center;
     padding: 0;
+}
+
+.object-count-action-icon {
+    width: 15px;
+    height: 15px;
+    display: block;
+    flex: 0 0 15px;
+    pointer-events: none;
+}
+
+.object-count-action-icon.is-stroke {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.object-count-action-icon.is-fill {
+    fill: currentColor;
 }
 
 .object-count-download.is-large-export {
@@ -1802,6 +1829,29 @@ body.logged-out .content-wrapper {
     color: var(--text-dark);
 }
 
+.sync-info-steps {
+    padding-left: 1.3rem;
+}
+
+.sync-info-steps li::marker {
+    color: var(--primary);
+    font-weight: 700;
+}
+
+.sync-dep {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 0.3rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 9999px;
+    background: #EEF2FF;
+    border: 1px solid #C7D2FE;
+    color: #3730A3;
+    font-size: 0.68rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
 @media (max-width: 1440px) {
     .sidebar {
         width: 220px;
@@ -2330,7 +2380,7 @@ body.logged-out .content-wrapper {
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
     <style>
 /* Font Awesome 6.4.0 Free (solid) — self-hosted subset, CC BY 4.0 */
-.fa-solid,.fa-regular,.fa-brands{display:inline-block;width:1em;height:1em;background-color:currentColor;vertical-align:-0.125em;-webkit-mask:var(--fa-svg) center/contain no-repeat;mask:var(--fa-svg) center/contain no-repeat}
+.fa-solid,.fa-regular,.fa-brands{display:inline-block;width:1em;height:1em;background-color:currentColor;vertical-align:-0.125em;-webkit-mask-image:var(--fa-svg);mask-image:var(--fa-svg);-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-size:contain;mask-size:contain}
 .fa-arrow-right-to-bracket{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M352 96l64 0c17.7 0 32 14.3 32 32l0 256c0 17.7-14.3 32-32 32l-64 0c-17.7 0-32 14.3-32 32s14.3 32 32 32l64 0c53 0 96-43 96-96l0-256c0-53-43-96-96-96l-64 0c-17.7 0-32 14.3-32 32s14.3 32 32 32zm-9.4 182.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L242.7 224 32 224c-17.7 0-32 14.3-32 32s14.3 32 32 32l210.7 0-73.4 73.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l128-128z'/%3E%3C/svg%3E")}
 .fa-broom{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath d='M566.6 54.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-192 192-34.7-34.7c-4.2-4.2-10-6.6-16-6.6c-12.5 0-22.6 10.1-22.6 22.6v29.1L364.3 320h29.1c12.5 0 22.6-10.1 22.6-22.6c0-6-2.4-11.8-6.6-16l-34.7-34.7 192-192zM341.1 353.4L222.6 234.9c-42.7-3.7-85.2 11.7-115.8 42.3l-8 8C76.5 307.5 64 337.7 64 369.2c0 6.8 7.1 11.2 13.2 8.2l51.1-25.5c5-2.5 9.5 4.1 5.4 7.9L7.3 473.4C2.7 477.6 0 483.6 0 489.9C0 502.1 9.9 512 22.1 512l173.3 0c38.8 0 75.9-15.4 103.4-42.8c30.6-30.6 45.9-73.1 42.3-115.8z'/%3E%3C/svg%3E")}
 .fa-chart-line{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M64 64c0-17.7-14.3-32-32-32S0 46.3 0 64V400c0 44.2 35.8 80 80 80H480c17.7 0 32-14.3 32-32s-14.3-32-32-32H80c-8.8 0-16-7.2-16-16V64zm406.6 86.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L320 210.7l-57.4-57.4c-12.5-12.5-32.8-12.5-45.3 0l-112 112c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L240 221.3l57.4 57.4c12.5 12.5 32.8 12.5 45.3 0l128-128z'/%3E%3C/svg%3E")}
@@ -2371,6 +2421,8 @@ body.logged-out .content-wrapper {
 .fa-server{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M64 32C28.7 32 0 60.7 0 96v64c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64zm280 72a24 24 0 1 1 0 48 24 24 0 1 1 0-48zm48 24a24 24 0 1 1 48 0 24 24 0 1 1 -48 0zM64 288c-35.3 0-64 28.7-64 64v64c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V352c0-35.3-28.7-64-64-64H64zm280 72a24 24 0 1 1 0 48 24 24 0 1 1 0-48zm56 24a24 24 0 1 1 48 0 24 24 0 1 1 -48 0z'/%3E%3C/svg%3E")}
 .fa-sitemap{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 576 512'%3E%3Cpath d='M208 80c0-26.5 21.5-48 48-48h64c26.5 0 48 21.5 48 48v64c0 26.5-21.5 48-48 48h-8v40H464c30.9 0 56 25.1 56 56v32h8c26.5 0 48 21.5 48 48v64c0 26.5-21.5 48-48 48H464c-26.5 0-48-21.5-48-48V368c0-26.5 21.5-48 48-48h8V288c0-4.4-3.6-8-8-8H312v40h8c26.5 0 48 21.5 48 48v64c0 26.5-21.5 48-48 48H256c-26.5 0-48-21.5-48-48V368c0-26.5 21.5-48 48-48h8V280H112c-4.4 0-8 3.6-8 8v32h8c26.5 0 48 21.5 48 48v64c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V368c0-26.5 21.5-48 48-48h8V288c0-30.9 25.1-56 56-56H264V192h-8c-26.5 0-48-21.5-48-48V80z'/%3E%3C/svg%3E")}
 .fa-sort{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 512'%3E%3Cpath d='M137.4 41.4c12.5-12.5 32.8-12.5 45.3 0l128 128c9.2 9.2 11.9 22.9 6.9 34.9s-16.6 19.8-29.6 19.8H32c-12.9 0-24.6-7.8-29.6-19.8s-2.2-25.7 6.9-34.9l128-128zm0 429.3l-128-128c-9.2-9.2-11.9-22.9-6.9-34.9s16.6-19.8 29.6-19.8H288c12.9 0 24.6 7.8 29.6 19.8s2.2 25.7-6.9 34.9l-128 128c-12.5 12.5-32.8 12.5-45.3 0z'/%3E%3C/svg%3E")}
+.fa-sort-up{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 512'%3E%3Cpath d='M182.6 41.4c-12.5-12.5-32.8-12.5-45.3 0l-128 128c-9.2 9.2-11.9 22.9-6.9 34.9s16.6 19.8 29.6 19.8H288c12.9 0 24.6-7.8 29.6-19.8s2.2-25.7-6.9-34.9l-128-128z'/%3E%3C/svg%3E")}
+.fa-sort-down{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 512'%3E%3Cpath d='M182.6 470.6c-12.5 12.5-32.8 12.5-45.3 0l-128-128c-9.2-9.2-11.9-22.9-6.9-34.9s16.6-19.8 29.6-19.8H288c12.9 0 24.6 7.8 29.6 19.8s2.2 25.7-6.9 34.9l-128 128z'/%3E%3C/svg%3E")}
 .fa-table{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M64 256V160H224v96H64zm0 64H224v96H64V320zm224 96V320H448v96H288zM448 256H288V160H448v96zM64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64z'/%3E%3C/svg%3E")}
 .fa-table-cells-large{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M448 96V224H288V96H448zm0 192V416H288V288H448zM224 224H64V96H224V224zM64 288H224V416H64V288zM64 32C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H64z'/%3E%3C/svg%3E")}
 .fa-table-columns{--fa-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath d='M0 96C0 60.7 28.7 32 64 32H448c35.3 0 64 28.7 64 64V416c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V96zm64 64V416H224V160H64zm384 0H288V416H448V160z'/%3E%3C/svg%3E")}
@@ -2515,16 +2567,16 @@ body.logged-out .content-wrapper {
                         </div>
                     </div>
                     <div class="kpi-row">
-                        <div class="kpi-card"><h4><i class="fa-solid fa-hard-drive" aria-hidden="true"></i> Database Size</h4><div class="val" id="pgscope-db-size">--</div></div>
-                        <div class="kpi-card"><h4><i class="fa-solid fa-folder-tree" aria-hidden="true"></i> Schemas</h4><div class="val" id="pgscope-db-schemas">--</div></div>
-                        <div class="kpi-card"><h4><i class="fa-solid fa-table" aria-hidden="true"></i> Tables</h4><div class="val" id="pgscope-db-tables">--</div></div>
-                        <div class="kpi-card"><h4><i class="fa-solid fa-layer-group" aria-hidden="true"></i> Materialized Views</h4><div class="val" id="pgscope-db-materialized-views">--</div></div>
+                        <div class="kpi-card"><h4><span class="kpi-icon"><i class="fa-solid fa-hard-drive" aria-hidden="true"></i></span> Database Size</h4><div class="val" id="pgscope-db-size">--</div></div>
+                        <div class="kpi-card"><h4><span class="kpi-icon"><i class="fa-solid fa-folder-tree" aria-hidden="true"></i></span> Schemas</h4><div class="val" id="pgscope-db-schemas">--</div></div>
+                        <div class="kpi-card"><h4><span class="kpi-icon"><i class="fa-solid fa-table" aria-hidden="true"></i></span> Tables</h4><div class="val" id="pgscope-db-tables">--</div></div>
+                        <div class="kpi-card"><h4><span class="kpi-icon"><i class="fa-solid fa-layer-group" aria-hidden="true"></i></span> Materialized Views</h4><div class="val" id="pgscope-db-materialized-views">--</div></div>
                     </div>
                     <div class="kpi-row health-kpi-row">
-                        <div class="kpi-card"><h4><i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Connection Used</h4><div class="val" id="pgscope-db-kpi-connections">--</div></div>
-                        <div class="kpi-card"><h4><i class="fa-solid fa-memory" aria-hidden="true"></i> DB Cache Hit</h4><div class="val" id="pgscope-db-kpi-cache">--</div></div>
-                        <div class="kpi-card"><h4><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> Waiting Sessions</h4><div class="val" id="pgscope-db-kpi-waits">--</div></div>
-                        <div class="kpi-card"><h4><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Deadlocks</h4><div class="val" id="pgscope-db-kpi-deadlocks">--</div></div>
+                        <div class="kpi-card"><h4><span class="kpi-icon"><i class="fa-solid fa-gauge-high" aria-hidden="true"></i></span> Connection Used</h4><div class="val" id="pgscope-db-kpi-connections">--</div></div>
+                        <div class="kpi-card"><h4><span class="kpi-icon"><i class="fa-solid fa-memory" aria-hidden="true"></i></span> DB Cache Hit</h4><div class="val" id="pgscope-db-kpi-cache">--</div></div>
+                        <div class="kpi-card"><h4><span class="kpi-icon"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i></span> Waiting Sessions</h4><div class="val" id="pgscope-db-kpi-waits">--</div></div>
+                        <div class="kpi-card"><h4><span class="kpi-icon"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span> Deadlocks</h4><div class="val" id="pgscope-db-kpi-deadlocks">--</div></div>
                     </div>
                     <div class="panel">
                         <div class="panel-header">
@@ -2562,9 +2614,9 @@ body.logged-out .content-wrapper {
                         </div>
                     </div>
                     <div class="kpi-row schema-kpi-row" id="schema-kpi-row">
-                        <div class="kpi-card"><h4><i class="fa-solid fa-table" aria-hidden="true"></i> Tables</h4><div class="val">--</div></div>
-                        <div class="kpi-card"><h4><i class="fa-solid fa-table-columns" aria-hidden="true"></i> Columns</h4><div class="val">--</div></div>
-                        <div class="kpi-card"><h4><i class="fa-solid fa-key" aria-hidden="true"></i> Total Indexes</h4><div class="val">--</div></div>
+                        <div class="kpi-card"><h4><span class="kpi-icon"><i class="fa-solid fa-table" aria-hidden="true"></i></span> Tables</h4><div class="val">--</div></div>
+                        <div class="kpi-card"><h4><span class="kpi-icon"><i class="fa-solid fa-table-columns" aria-hidden="true"></i></span> Columns</h4><div class="val">--</div></div>
+                        <div class="kpi-card"><h4><span class="kpi-icon"><i class="fa-solid fa-key" aria-hidden="true"></i></span> Total Indexes</h4><div class="val">--</div></div>
                     </div>
                     <div class="panel">
                         <div class="panel-header">
@@ -2617,7 +2669,7 @@ body.logged-out .content-wrapper {
                     <div class="section-header">
                         <div>
                             <h1>Object Count</h1>
-                            <p>Exact row counts from mv_object_count.</p>
+                            <p>Exact row counts from <code>mv_object_count</code>, served from cache.</p>
                         </div>
                     </div>
                     <div class="panel">
@@ -2905,12 +2957,12 @@ LIMIT 10;</textarea>
                 <div class="sync-info">
                     <div class="sync-info-group">
                         <h4 class="sync-info-title"><i class="fa-solid fa-rotate" aria-hidden="true"></i> What gets synced</h4>
-                        <ul class="sync-info-list">
+                        <ol class="sync-info-list sync-info-steps">
                             <li>Database info — connections, cache hit ratio, size</li>
                             <li>Schema — tables, columns, keys, indexes</li>
-                            <li>Object counts — from <code>mv_object_count</code></li>
-                            <li>Unique values — from <code>mv_unique_*</code> (dropdowns &amp; dashboard)</li>
-                        </ul>
+                            <li>Object counts — from <code>mv_object_count</code> <span class="sync-dep">needs step 2</span></li>
+                            <li>Unique values — discovered via <code>mv_object_count</code>, then read from each <code>mv_unique_*</code> view <span class="sync-dep">needs steps 2 &amp; 3</span></li>
+                        </ol>
                     </div>
                     <div class="sync-info-group">
                         <h4 class="sync-info-title"><i class="fa-solid fa-clock" aria-hidden="true"></i> Cache &amp; TTL</h4>
@@ -3931,7 +3983,7 @@ const schemaIndexKpiConfig = [
 ];
 
 function schemaKpiCard({ label, value, icon }) {
-    return `<div class="kpi-card"><h4><i class="${icon}" aria-hidden="true"></i> ${escapeHtml(label)}</h4><div class="val">${escapeHtml(formatNumber(value))}</div></div>`;
+    return `<div class="kpi-card"><h4><span class="kpi-icon"><i class="${escapeHtml(icon)}" aria-hidden="true"></i></span> ${escapeHtml(label)}</h4><div class="val">${escapeHtml(formatNumber(value))}</div></div>`;
 }
 
 function renderSchemaKpis(rows = []) {
@@ -5041,9 +5093,19 @@ function objectCountQualifiedObjectSql(schemaName, objectName) {
     return queryBuilderQuoteIdentifier(object);
 }
 
+function objectCountActionIcon(name) {
+    if (name === 'play') {
+        return '<svg class="object-count-action-icon is-fill" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 2.7v10.6L13 8 4.5 2.7z"></path></svg>';
+    }
+    if (name === 'warning') {
+        return '<svg class="object-count-action-icon is-stroke" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10.3 4.3 2.6 17.6A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.4L13.7 4.3a2 2 0 0 0-3.4 0z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>';
+    }
+    return '<svg class="object-count-action-icon is-stroke" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v11"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>';
+}
+
 function objectCountViewButton(row = {}) {
     const title = `Run ${rawValue(row.object_name)}`;
-    return `<button class="btn btn-secondary object-count-view" type="button" data-schema="${escapeHtml(row.schema_name || 'public')}" data-object="${escapeHtml(row.object_name || '')}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><i class="fa-solid fa-play" aria-hidden="true"></i></button>`;
+    return `<button class="btn btn-secondary object-count-view" type="button" data-schema="${escapeHtml(row.schema_name || 'public')}" data-object="${escapeHtml(row.object_name || '')}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${objectCountActionIcon('play')}</button>`;
 }
 
 function objectCountDownloadButton(row = {}) {
@@ -5053,8 +5115,8 @@ function objectCountDownloadButton(row = {}) {
     const title = isLargeExport
         ? `Ask admin to export ${rawValue(row.object_name)}`
         : `Download ${rawValue(row.object_name)}`;
-    const icon = isLargeExport ? 'fa-solid fa-triangle-exclamation' : 'fa-solid fa-download';
-    return `<button class="btn btn-secondary object-count-download${isLargeExport ? ' is-large-export' : ''}" type="button" data-schema="${escapeHtml(row.schema_name || 'public')}" data-object="${escapeHtml(row.object_name || '')}" data-count="${escapeHtml(count ?? '')}" ${disabled ? 'disabled' : ''} title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"><i class="${icon}" aria-hidden="true"></i></button>`;
+    const icon = objectCountActionIcon(isLargeExport ? 'warning' : 'download');
+    return `<button class="btn btn-secondary object-count-download${isLargeExport ? ' is-large-export' : ''}" type="button" data-schema="${escapeHtml(row.schema_name || 'public')}" data-object="${escapeHtml(row.object_name || '')}" data-count="${escapeHtml(count ?? '')}" ${disabled ? 'disabled' : ''} title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${icon}</button>`;
 }
 
 function objectCountActionButtons(row = {}) {
