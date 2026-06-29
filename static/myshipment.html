@@ -707,9 +707,27 @@ body {
     cursor: pointer;
 }
 
+.po-search-button:not(.primary) {
+    width: auto;
+    min-width: 54px;
+    padding: 0 0.6rem;
+    border: 1px solid #A5B4FC;
+    background: #E0E7FF;
+    color: #312E81;
+    font-size: 0.76rem;
+    font-weight: 800;
+    box-shadow: 0 1px 2px rgba(79, 70, 229, 0.16);
+}
+
 .po-search-button:hover {
     background: #EEF2FF;
     color: var(--primary);
+}
+
+.po-search-button:not(.primary):hover {
+    border-color: #818CF8;
+    background: #C7D2FE;
+    color: #1E1B4B;
 }
 
 .po-search-button.primary {
@@ -1011,6 +1029,12 @@ body {
 .tab-dark-header .po-search i,
 .tab-dark-header .po-search .po-search-button {
     color: rgba(255,255,255,0.65);
+}
+.tab-dark-header .po-search .po-search-button:not(.primary) {
+    border-color: rgba(255,255,255,0.38);
+    background: rgba(255,255,255,0.22);
+    color: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.18);
 }
 .tab-dark-header .po-search-button.primary {
     background: rgba(255,255,255,0.18);
@@ -4571,6 +4595,73 @@ body.not-allowed .content-wrapper {
     }
     .clickable-row { cursor: pointer; }
     .clickable-row:hover { background: #F8FAFC !important; }
+    /* shipment tracking timeline (per-shipment modal) */
+    .track-timeline { position: relative; padding: 6px 0 2px 8px; }
+    .track-item { position: relative; padding: 0 0 20px 28px; border-left: 2px solid var(--border); }
+    .track-item:last-child { border-left-color: transparent; padding-bottom: 4px; }
+    .track-dot { position: absolute; left: -10px; top: 0; width: 18px; height: 18px; border-radius: 50%; background: var(--primary); color: #fff; display: grid; place-items: center; font-size: 8px; box-shadow: 0 0 0 3px #fff; }
+    .track-item.latest .track-dot { background: #16A34A; }
+    .track-item.estimate .track-dot { background: #9CA3AF; }
+    .track-item.exception .track-dot { background: #EF4444; }
+    .track-title { font-weight: 600; font-size: 13px; color: var(--text-dark); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; line-height: 1.4; }
+    .track-meta { margin-top: 4px; font-size: 12px; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 12px; }
+    .track-meta .subtle { opacity: .8; }
+    .track-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; padding: 2px 8px; border-radius: 9999px; }
+    .track-badge.actual { background: #ECFDF5; color: #047857; }
+    .track-badge.estimate { background: #F3F4F6; color: #6B7280; }
+    .track-badge.exception { background: #FEF2F2; color: #B91C1C; }
+    .track-badge.cat { background: #EEF2FF; color: #4338CA; }
+
+    /* ===== Dashboard (demo prototype) ===== */
+    .dash-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+    .dash-demo-badge { display: inline-flex; align-items: center; gap: 6px; background: #FEF3C7; color: #92400E; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 6px 12px; border-radius: 9999px; border: 1px solid #FDE68A; }
+    .dash-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 18px; }
+    .dash-kpi-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+    .dash-kpi-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .dash-kpi-label { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
+    .dash-kpi-label .dot { width: 8px; height: 8px; border-radius: 50%; background: #14B8A6; }
+    .dash-kpi-label i { color: var(--text-dark); font-size: 14px; }
+    .dash-kpi-period { font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #9CA3AF; text-align: right; max-width: 90px; }
+    .dash-kpi-value { font-size: 34px; font-weight: 800; color: var(--primary); margin: 14px 0 6px; line-height: 1; letter-spacing: -.02em; }
+    .dash-kpi-sub { font-size: 12px; color: var(--text-muted); }
+    .dash-kpi-delta { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
+    .dash-kpi-delta.up { color: #059669; }
+    .dash-kpi-delta.down { color: #DC2626; }
+    .dash-main { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; margin-bottom: 18px; }
+    .dash-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+    .dash-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+    .dash-card-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--text-dark); }
+    .dash-card-title .dot { width: 8px; height: 8px; border-radius: 50%; background: #14B8A6; }
+    .dash-card-meta { font-size: 12px; color: var(--text-muted); }
+    .dash-map-wrap { position: relative; border-radius: 12px; overflow: hidden; background: #EEF2F7; }
+    .dash-map-wrap svg { display: block; width: 100%; height: auto; }
+    .dash-map-land { fill: #D9E1EC; }
+    .dash-map-graticule { stroke: #CBD5E1; stroke-width: .5; fill: none; opacity: .5; }
+    .dash-lane { stroke: #3B82F6; stroke-width: 1.4; stroke-dasharray: 5 4; fill: none; opacity: .65; }
+    .dash-node circle.glow { opacity: .25; }
+    .dash-stats-box { position: absolute; top: 12px; right: 12px; background: rgba(255,255,255,.95); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; box-shadow: 0 4px 12px rgba(16,24,40,.08); }
+    .dash-stats-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); }
+    .dash-stats-row b { font-size: 15px; color: var(--text-dark); min-width: 34px; }
+    .dash-stats-row.green b { color: #059669; }
+    .dash-stats-row.amber b { color: #D97706; }
+    .dash-legend { position: absolute; left: 12px; bottom: 12px; display: flex; gap: 14px; background: rgba(255,255,255,.92); border: 1px solid var(--border); border-radius: 9999px; padding: 6px 14px; font-size: 11px; color: var(--text-muted); }
+    .dash-legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .dash-legend i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .dash-action-list { display: flex; flex-direction: column; gap: 12px; max-height: 430px; overflow-y: auto; }
+    .dash-action-item { border-left: 3px solid #DC2626; background: #Fafafa; border-radius: 8px; padding: 12px 14px; }
+    .dash-action-item.warning { border-left-color: #D97706; }
+    .dash-action-item.info { border-left-color: #2563EB; }
+    .dash-action-tag { font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #B91C1C; }
+    .dash-action-item.warning .dash-action-tag { color: #B45309; }
+    .dash-action-item.info .dash-action-tag { color: #1D4ED8; }
+    .dash-action-title { font-size: 13.5px; font-weight: 700; color: var(--text-dark); margin: 5px 0 3px; }
+    .dash-action-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
+    .dash-action-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .dash-action-btn { font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 7px; border: 1px solid var(--border); background: #fff; color: var(--primary); cursor: pointer; }
+    .dash-action-btn.solid { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .dash-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .dash-chart-box { position: relative; height: 260px; }
+    @media (max-width: 1100px) { .dash-kpis { grid-template-columns: repeat(2, 1fr); } .dash-main, .dash-charts { grid-template-columns: 1fr; } }
     </style>
     <!-- Chart.js for Analytics/Sustainability -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -4585,7 +4676,10 @@ body.not-allowed .content-wrapper {
                 <h2>MyShipment</h2>
             </div>
             <nav class="nav-menu">
-                <a href="#profile" class="nav-item active" data-target="profile" data-roles="1,2">
+                <a href="#dashboard" class="nav-item active" data-target="dashboard" data-roles="1,2">
+                    <i class="fa-solid fa-house"></i> Home
+                </a>
+                <a href="#profile" class="nav-item" data-target="profile" data-roles="1,2">
                     <i class="fa-solid fa-user"></i> My Profile
                 </a>
                 <a href="#purchase-orders" class="nav-item" data-target="purchase-orders" data-roles="1,2">
@@ -4594,14 +4688,11 @@ body.not-allowed .content-wrapper {
                 <a href="#shipments" class="nav-item" data-target="shipments" data-roles="1,2">
                     <i class="fa-solid fa-ship"></i> Shipments
                 </a>
-                <a href="#tracking" class="nav-item" data-target="tracking" data-roles="1,2">
-                    <i class="fa-solid fa-route"></i> Tracking
-                </a>
                 <a href="#alerts" class="nav-item" data-target="alerts" data-roles="1,2">
                     <i class="fa-solid fa-triangle-exclamation"></i> Alerts
                 </a>
                 <a href="#analytics" class="nav-item" data-target="analytics" data-roles="1,2">
-                    <i class="fa-solid fa-chart-line"></i> Analytics
+                    <i class="fa-solid fa-chart-line"></i> Dashboard
                 </a>
                 <a href="#mghask" class="nav-item" data-target="mghask" data-roles="1,2">
                     <i class="fa-solid fa-robot"></i> MGH ASK
@@ -4669,6 +4760,151 @@ body.not-allowed .content-wrapper {
                 </section>
 
                 <!-- My Profile Section -->
+                <section id="dashboard" class="view-section">
+                    <div class="dash-head">
+                        <div>
+                            <h1 class="section-title" style="margin:0;">Home</h1>
+                            <p class="section-subtitle" id="dash-greeting" style="margin:4px 0 0;">Here's your supply chain at a glance</p>
+                        </div>
+                        <span class="dash-demo-badge"><i class="fa-solid fa-flask" aria-hidden="true"></i> Demo data &mdash; sample values for preview</span>
+                    </div>
+
+                    <div class="dash-kpis">
+                        <div class="dash-kpi-card">
+                            <div class="dash-kpi-head">
+                                <div class="dash-kpi-label"><span class="dot"></span><i class="fa-solid fa-ship" aria-hidden="true"></i> Active Shipments</div>
+                                <div class="dash-kpi-period">Current month</div>
+                            </div>
+                            <div class="dash-kpi-value">1,247</div>
+                            <div><span class="dash-kpi-delta up"><i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i> 12% vs last month</span></div>
+                            <div class="dash-kpi-sub" style="margin-top:8px;">842 Ocean &middot; 289 Air &middot; 116 Truck</div>
+                        </div>
+                        <div class="dash-kpi-card">
+                            <div class="dash-kpi-head">
+                                <div class="dash-kpi-label"><span class="dot"></span><i class="fa-solid fa-clock" aria-hidden="true"></i> On-Time Delivery</div>
+                                <div class="dash-kpi-period">Current month</div>
+                            </div>
+                            <div class="dash-kpi-value">94.2%</div>
+                            <div><span class="dash-kpi-delta up"><i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i> 2.1% vs last month</span></div>
+                            <div class="dash-kpi-sub" style="margin-top:8px;">Target: 95%</div>
+                        </div>
+                        <div class="dash-kpi-card">
+                            <div class="dash-kpi-head">
+                                <div class="dash-kpi-label"><span class="dot"></span><i class="fa-solid fa-box" aria-hidden="true"></i> POs in Transit</div>
+                                <div class="dash-kpi-period">Current month</div>
+                            </div>
+                            <div class="dash-kpi-value">3,891</div>
+                            <div><span class="dash-kpi-delta up"><i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i> 4.5% vs last month</span></div>
+                            <div class="dash-kpi-sub" style="margin-top:8px;">Worth $48.2M retail value</div>
+                        </div>
+                        <div class="dash-kpi-card">
+                            <div class="dash-kpi-head">
+                                <div class="dash-kpi-label"><span class="dot" style="background:#EF4444;"></span><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Exceptions Active</div>
+                                <div class="dash-kpi-period">Last 7 days</div>
+                            </div>
+                            <div class="dash-kpi-value" style="color:#DC2626;">23</div>
+                            <div><span class="dash-kpi-delta down"><i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i> 8 vs last week</span></div>
+                            <div class="dash-kpi-sub" style="margin-top:8px;">5 Critical &middot; 11 Warning &middot; 7 Info</div>
+                        </div>
+                    </div>
+
+                    <div class="dash-main">
+                        <div class="dash-card">
+                            <div class="dash-card-head">
+                                <div class="dash-card-title"><span class="dot"></span> Global Shipment Map</div>
+                                <div class="dash-card-meta">Live &middot; 1,247 active shipments</div>
+                            </div>
+                            <div class="dash-map-wrap">
+                                <svg viewBox="0 0 900 440" preserveAspectRatio="xMidYMid meet" aria-label="Global shipment map (illustrative)">
+                                    <g class="dash-map-graticule">
+                                        <line x1="0" y1="110" x2="900" y2="110"/><line x1="0" y1="220" x2="900" y2="220"/><line x1="0" y1="330" x2="900" y2="330"/>
+                                        <line x1="150" y1="0" x2="150" y2="440"/><line x1="300" y1="0" x2="300" y2="440"/><line x1="450" y1="0" x2="450" y2="440"/><line x1="600" y1="0" x2="600" y2="440"/><line x1="750" y1="0" x2="750" y2="440"/>
+                                    </g>
+                                    <g class="dash-map-land">
+                                        <path d="M70,90 q40,-30 90,-15 q30,10 25,45 q-5,40 -45,60 q-10,55 -45,95 q-30,25 -45,-10 q-15,-45 10,-90 q-25,-40 5,-75 q15,-20 50,-15 Z"/>
+                                        <path d="M250,250 q30,-20 55,5 q20,30 5,75 q-20,55 -50,70 q-25,10 -30,-25 q-8,-55 5,-95 q5,-25 15,-30 Z"/>
+                                        <path d="M420,80 q60,-25 95,0 q15,20 -5,40 q35,15 30,55 q-10,45 -55,50 q-50,5 -75,-25 q-30,-15 -20,-55 q5,-45 30,-60 Z"/>
+                                        <path d="M560,95 q90,-35 175,-10 q55,18 60,60 q3,40 -45,55 q-70,20 -140,5 q-55,-12 -65,-50 q-8,-40 15,-60 Z"/>
+                                        <path d="M730,300 q45,-18 80,5 q18,20 0,42 q-30,28 -70,22 q-30,-6 -32,-35 q-2,-25 22,-34 Z"/>
+                                    </g>
+                                    <g class="dash-lane">
+                                        <path d="M640,170 Q480,40 470,175"/>
+                                        <path d="M640,175 Q400,90 175,200"/>
+                                        <path d="M610,210 Q540,300 470,200"/>
+                                        <path d="M650,180 Q700,280 770,320"/>
+                                        <path d="M470,180 Q300,120 175,210"/>
+                                    </g>
+                                    <g class="dash-node">
+                                        <circle class="glow" cx="640" cy="172" r="16" fill="#22C55E"/><circle cx="640" cy="172" r="6" fill="#22C55E"/>
+                                        <circle class="glow" cx="470" cy="180" r="16" fill="#F59E0B"/><circle cx="470" cy="180" r="6" fill="#F59E0B"/>
+                                        <circle class="glow" cx="455" cy="190" r="16" fill="#EF4444"/><circle cx="455" cy="190" r="6" fill="#EF4444"/>
+                                        <circle class="glow" cx="175" cy="205" r="16" fill="#22C55E"/><circle cx="175" cy="205" r="6" fill="#22C55E"/>
+                                        <circle class="glow" cx="560" cy="250" r="16" fill="#22C55E"/><circle cx="560" cy="250" r="6" fill="#22C55E"/>
+                                        <circle class="glow" cx="610" cy="290" r="16" fill="#F59E0B"/><circle cx="610" cy="290" r="6" fill="#F59E0B"/>
+                                        <circle class="glow" cx="770" cy="320" r="16" fill="#EF4444"/><circle cx="770" cy="320" r="6" fill="#EF4444"/>
+                                    </g>
+                                    <g fill="#94A3B8" font-size="13" font-weight="600" font-family="inherit">
+                                        <text x="110" y="175">N. AMERICA</text><text x="250" y="330">S. AMERICA</text>
+                                        <text x="445" y="150">EUROPE</text><text x="600" y="170">ASIA</text><text x="745" y="350">AUSTRALIA</text>
+                                    </g>
+                                </svg>
+                                <div class="dash-stats-box">
+                                    <div class="dash-stats-row"><b>5</b> Trade lanes</div>
+                                    <div class="dash-stats-row green"><b>579</b> Total shipments</div>
+                                    <div class="dash-stats-row amber"><b>2</b> At-risk ports</div>
+                                </div>
+                                <div class="dash-legend">
+                                    <span><i style="background:#22C55E;"></i> On time</span>
+                                    <span><i style="background:#F59E0B;"></i> At risk</span>
+                                    <span><i style="background:#EF4444;"></i> Delayed</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="dash-card">
+                            <div class="dash-card-head">
+                                <div class="dash-card-title">Action Items</div>
+                            </div>
+                            <div class="dash-action-list">
+                                <div class="dash-action-item">
+                                    <div class="dash-action-tag">Critical</div>
+                                    <div class="dash-action-title">Vessel "MSC Olivia" delayed 6 days at Suez Canal</div>
+                                    <div class="dash-action-sub">Affects: 12 containers &middot; 3 POs &middot; Est. value $2.1M</div>
+                                    <div class="dash-action-actions"><button class="dash-action-btn" type="button">View Details</button><button class="dash-action-btn" type="button">See AI Recommendations</button></div>
+                                </div>
+                                <div class="dash-action-item">
+                                    <div class="dash-action-tag">Critical</div>
+                                    <div class="dash-action-title">Customs hold on container MSCU7294561 at Rotterdam</div>
+                                    <div class="dash-action-sub">Reason: Missing phytosanitary certificate</div>
+                                    <div class="dash-action-actions"><button class="dash-action-btn" type="button">Upload Document</button><button class="dash-action-btn" type="button">Contact Customs Broker</button></div>
+                                </div>
+                                <div class="dash-action-item warning">
+                                    <div class="dash-action-tag">Warning</div>
+                                    <div class="dash-action-title">ISF filing deadline in 48hrs for 5 US-bound shipments</div>
+                                    <div class="dash-action-sub">Booking refs: BK-2024-8812 through BK-2024-8816</div>
+                                    <div class="dash-action-actions"><button class="dash-action-btn solid" type="button">File Now</button></div>
+                                </div>
+                                <div class="dash-action-item info">
+                                    <div class="dash-action-tag">Info</div>
+                                    <div class="dash-action-title">7 shipments arriving within the next 7 days</div>
+                                    <div class="dash-action-sub">Review delivery appointments and final-mile readiness</div>
+                                    <div class="dash-action-actions"><button class="dash-action-btn" type="button">View Schedule</button></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dash-charts">
+                        <div class="dash-card">
+                            <div class="dash-card-head"><div class="dash-card-title">Freight Spend (Last 6 Months)</div></div>
+                            <div class="dash-chart-box"><canvas id="dashSpendChart"></canvas></div>
+                        </div>
+                        <div class="dash-card">
+                            <div class="dash-card-head"><div class="dash-card-title">On-Time Performance by Carrier</div></div>
+                            <div class="dash-chart-box"><canvas id="dashCarrierChart"></canvas></div>
+                        </div>
+                    </div>
+                </section>
+
                 <section id="profile" class="view-section">
                     <div class="profile-feedback" id="cargowise-profile-feedback">
                         <i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>
@@ -4803,7 +5039,7 @@ body.not-allowed .content-wrapper {
                                     <form class="po-search" id="po-search-form" role="search">
                                         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
                                         <input type="text" id="po-search-input" placeholder="Search PO" aria-label="Search PO number">
-                                        <button class="po-search-button" type="button" id="po-search-clear" aria-label="Clear search" title="Clear search" style="display: none;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                                        <button class="po-search-button" type="button" id="po-search-clear" aria-label="Clear search" title="Clear search" style="display: none;"><span>Clear</span></button>
                                         <button class="po-search-button primary" type="submit" id="po-search-submit" aria-label="Search" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
                                     </form>
                                     <button class="po-refresh-button compact" type="button" id="po-refresh-btn" aria-label="Refresh purchase orders" title="Refresh purchase orders"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
@@ -4889,7 +5125,7 @@ body.not-allowed .content-wrapper {
                                 <form class="po-search shipment-filter-search" id="shipment-search-form" role="search">
                                     <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
                                     <input type="text" id="shipment-search-input" placeholder="Search shipment" aria-label="Search shipment, job, booking, or house bill">
-                                    <button class="po-search-button" type="button" id="shipment-search-clear" aria-label="Clear search" title="Clear search" style="display: none;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                                    <button class="po-search-button" type="button" id="shipment-search-clear" aria-label="Clear search" title="Clear search" style="display: none;"><span>Clear</span></button>
                                     <button class="po-search-button primary" type="submit" id="shipment-search-submit" aria-label="Search" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
                                 </form>
                             </div>
@@ -4924,28 +5160,6 @@ body.not-allowed .content-wrapper {
                             <span id="shipment-kpi-cancelled-mini" style="display:none"></span>
                             <div id="shipment-kpi-active-bar" style="display:none"></div>
                             <div id="shipment-kpi-cancelled-bar" style="display:none"></div>
-                        </div>
-                        <div class="shipment-chart-grid">
-                            <div class="panel po-panel analytics-chart-card">
-                                <div class="panel-header">
-                                    <div>
-                                        <h3>Monthly Shipment Trend</h3>
-                                        <p>Latest shipment volume from CargoWise.</p>
-                                    </div>
-                                </div>
-                                <div class="shipment-chart-body">
-                                    <canvas id="shipmentTrendChart"></canvas>
-                                </div>
-                            </div>
-                            <div class="panel po-panel analytics-chart-card">
-                                <div class="panel-header">
-                                    <div>
-                                        <h3>Shipments By Origin</h3>
-                                        <p>Top origins from the current shipment page.</p>
-                                    </div>
-                                </div>
-                                <div class="shipment-origin-bars" id="shipment-origin-bars"></div>
-                            </div>
                         </div>
                         <div class="panel po-panel">
                             <div class="shipment-current-heading">
@@ -5035,7 +5249,7 @@ body.not-allowed .content-wrapper {
                                     <form class="po-search" id="tracking-search-form" role="search">
                                         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
                                         <input type="text" id="tracking-search-input" placeholder="Search shipment" aria-label="Search shipment, job, booking, or house bill">
-                                        <button class="po-search-button" type="button" id="tracking-search-clear" aria-label="Clear search" title="Clear search" style="display: none;"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+                                        <button class="po-search-button" type="button" id="tracking-search-clear" aria-label="Clear search" title="Clear search" style="display: none;"><span>Clear</span></button>
                                         <button class="po-search-button primary" type="submit" aria-label="Search" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
                                     </form>
                                     <button class="po-refresh-button compact" type="button" id="tracking-refresh-btn" aria-label="Refresh tracking" title="Refresh tracking"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
@@ -5153,7 +5367,7 @@ body.not-allowed .content-wrapper {
                         <div class="panel po-panel tab-dark-header">
                             <div class="po-toolbar">
                                 <div class="po-heading">
-                                    <h2>Analytics</h2>
+                                    <h2>Dashboard</h2>
                                     <p>Quick operational health view for your purchase orders, shipments, and containers.</p>
                                 </div>
                                 <div class="po-toolbar-actions">
@@ -5441,6 +5655,44 @@ body.not-allowed .content-wrapper {
                 <div class="container-card-empty"><div><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><br>Loading documents...</div></div>
             </div>
             <div class="po-lines-footnote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Download is available only when CargoWise has an attached file for the document.</span></div>
+        </div>
+    </div>
+
+    <div class="side-panel-overlay" id="shipment-tracking-overlay" onclick="closeShipmentTrackingPanel()"></div>
+    <div class="side-panel" id="shipment-tracking-panel" role="dialog" aria-modal="true" aria-labelledby="shipment-tracking-title" aria-hidden="true">
+        <div class="side-panel-header">
+            <div class="modal-heading">
+                <div class="modal-heading-icon"><i class="fa-solid fa-route" aria-hidden="true"></i></div>
+                <div>
+                    <h2 class="side-panel-title" id="shipment-tracking-title">Tracking</h2>
+                    <div class="side-panel-subtitle" id="shipment-tracking-subtitle">Shipment #---</div>
+                </div>
+            </div>
+            <button class="side-panel-close" type="button" onclick="closeShipmentTrackingPanel()" aria-label="Close tracking" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        </div>
+        <div class="side-panel-body">
+            <div class="po-lines-summary container-summary" id="shipment-tracking-summary">
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Events</div>
+                    <div class="po-lines-stat-value" id="shipment-tracking-count">-</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-route" aria-hidden="true"></i> Route</div>
+                    <div class="po-lines-stat-value" id="shipment-tracking-route">-</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-plane-departure" aria-hidden="true"></i> ETD</div>
+                    <div class="po-lines-stat-value" id="shipment-tracking-etd">-</div>
+                </div>
+                <div class="po-lines-stat">
+                    <div class="po-lines-stat-label"><i class="fa-solid fa-plane-arrival" aria-hidden="true"></i> ETA</div>
+                    <div class="po-lines-stat-value" id="shipment-tracking-eta">-</div>
+                </div>
+            </div>
+            <div class="track-timeline" id="shipment-tracking-list">
+                <div class="container-card-empty"><div><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><br>Loading tracking...</div></div>
+            </div>
+            <div class="po-lines-footnote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Events are shown latest first, as recorded in CargoWise.</span></div>
         </div>
     </div>
 
@@ -5839,7 +6091,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const firstAllowedFeature = role => [...document.querySelectorAll('.nav-item[data-target][data-roles]')].find(item => roleSupported(role) && featureRolesFromItem(item).includes(Number(role)))?.dataset.target || null;
     const loadFeature = target => {
         showSection(target);
-        if (target === 'profile') loadCargowiseProfile();
+        if (target === 'dashboard') renderDashboardDemo();
+        else if (target === 'profile') loadCargowiseProfile();
         else if (target === 'containers') {
             containerShipmentId = '';
             loadModule(target);
@@ -6102,6 +6355,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('cargowise-contact-count').textContent = String(contacts.length);
 
         const summary = [
+            ['Code', org.org_code],
             ['Category', org.category],
             ['Language', org.language],
             ['Nearest Port', org.closest_port],
@@ -6510,6 +6764,67 @@ document.addEventListener('DOMContentLoaded', () => {
         panel.setAttribute('aria-hidden', 'true');
     };
     window.closeShipmentDocumentsPanel = closeShipmentDocumentsPanel;
+
+    const TRACK_CAT_ICON = { Exception: 'fa-triangle-exclamation', Customs: 'fa-stamp', Air: 'fa-plane', Sea: 'fa-ship', Road: 'fa-truck', Rail: 'fa-train', Order: 'fa-box' };
+    const renderShipmentTrackingTimeline = (rows, context) => {
+        const list = document.getElementById('shipment-tracking-list');
+        if (!list) return;
+        const ctx = context || rows[0] || {};
+        document.getElementById('shipment-tracking-count').textContent = rows.length.toLocaleString();
+        document.getElementById('shipment-tracking-route').textContent = `${displayValue(ctx.origin)} → ${displayValue(ctx.destination)}`;
+        document.getElementById('shipment-tracking-etd').textContent = formatDate(ctx.etd);
+        document.getElementById('shipment-tracking-eta').textContent = formatDate(ctx.eta);
+        const sorted = [...rows].sort((a, b) => new Date(b.event_at || 0) - new Date(a.event_at || 0));
+        list.innerHTML = sorted.length ? sorted.map((row, idx) => {
+            const isException = row.event_category === 'Exception' || String(row.event_code || '').startsWith('EX');
+            const isEstimate = row.is_estimate === 'Y';
+            const cls = isException ? 'exception' : isEstimate ? 'estimate' : idx === 0 ? 'latest' : '';
+            const cat = displayValue(row.event_category);
+            const icon = TRACK_CAT_ICON[row.event_category] || 'fa-circle';
+            const loc = (String(row.event_reference || '').match(/LOC=([^|\s]+)/i) || [])[1];
+            return `
+                <div class="track-item ${cls}">
+                    <span class="track-dot"><i class="fa-solid ${icon}" aria-hidden="true"></i></span>
+                    <div class="track-title">${escapeHtml(displayValue(row.event_name || row.event_code))}
+                        <span class="track-badge ${isEstimate ? 'estimate' : 'actual'}">${isEstimate ? 'Estimated' : 'Actual'}</span>
+                        ${isException ? '<span class="track-badge exception">Exception</span>' : ''}
+                        ${cat && cat !== 'Operational' && cat !== 'Exception' && cat !== '-' ? `<span class="track-badge cat">${escapeHtml(cat)}</span>` : ''}
+                    </div>
+                    <div class="track-meta">
+                        ${row.event_at ? `<span><i class="fa-regular fa-calendar-check" aria-hidden="true"></i> ${escapeHtml(formatDateTime(row.event_at))}</span>` : ''}
+                        ${loc ? `<span><i class="fa-solid fa-location-dot" aria-hidden="true"></i> ${escapeHtml(loc)}</span>` : ''}
+                        ${row.posted_at ? `<span class="subtle"><i class="fa-regular fa-clock" aria-hidden="true"></i> Updated ${escapeHtml(formatRelativeTime(row.posted_at))}</span>` : ''}
+                    </div>
+                </div>`;
+        }).join('') : '<div class="container-card-empty"><div><i class="fa-regular fa-folder-open" aria-hidden="true"></i><br>No tracking events for this shipment yet.</div></div>';
+    };
+
+    const openShipmentTrackingPanel = async (shipmentId, shipmentNumber) => {
+        document.getElementById('shipment-tracking-subtitle').textContent = `Shipment #${shipmentNumber || shipmentId}`;
+        document.getElementById('shipment-tracking-overlay').classList.add('active');
+        const panel = document.getElementById('shipment-tracking-panel');
+        panel.classList.add('active');
+        panel.setAttribute('aria-hidden', 'false');
+        ['count', 'route', 'etd', 'eta'].forEach(key => { document.getElementById(`shipment-tracking-${key}`).textContent = '-'; });
+        document.getElementById('shipment-tracking-list').innerHTML = '<div class="container-card-empty"><div><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><br>Loading tracking...</div></div>';
+        try {
+            const payload = await api(`${MODULE_ENDPOINTS.tracking}?limit=100&page=1&shipment_id=${encodeURIComponent(shipmentId)}&${MYSHIPMENT_VIEW_PARAM}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const rows = payload.message && Array.isArray(payload.message.obj_list) ? payload.message.obj_list : [];
+            const ctx = (shipmentRowsById && shipmentRowsById[shipmentId]) || rows[0] || {};
+            renderShipmentTrackingTimeline(rows, ctx);
+        } catch (err) {
+            document.getElementById('shipment-tracking-list').innerHTML = '<div class="container-card-empty"><div><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><br>Tracking could not be loaded. Please try again.</div></div>';
+        }
+    };
+
+    const closeShipmentTrackingPanel = () => {
+        document.getElementById('shipment-tracking-overlay').classList.remove('active');
+        const panel = document.getElementById('shipment-tracking-panel');
+        panel.classList.remove('active');
+        panel.setAttribute('aria-hidden', 'true');
+    };
+    window.openShipmentTrackingPanel = openShipmentTrackingPanel;
+    window.closeShipmentTrackingPanel = closeShipmentTrackingPanel;
 
     const detailFieldHtml = (label, value, icon, wide = false) => `
         <div class="container-card-field${wide ? ' detail-view-wide' : ''}">
@@ -7042,6 +7357,40 @@ document.addEventListener('DOMContentLoaded', () => {
         if (chartInstances[id]) chartInstances[id].destroy();
         chartInstances[id] = new Chart(canvas, config);
     };
+    let dashboardRendered = false;
+    const renderDashboardDemo = () => {
+        const greet = document.getElementById('dash-greeting');
+        if (greet) {
+            const hour = new Date().getHours();
+            const part = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+            const name = (authUser && (authUser.name || authUser.username)) || 'there';
+            greet.textContent = `${part}, ${name} — here's your supply chain at a glance`;
+        }
+        if (dashboardRendered) return;
+        dashboardRendered = true;
+        renderChart('dashSpendChart', {
+            type: 'bar',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{ label: 'Freight Spend (USD)', data: [4.1, 3.8, 4.6, 5.0, 4.4, 5.2], backgroundColor: 'rgba(37, 86, 199, 0.68)', borderRadius: 8, maxBarThickness: 38 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `$${c.parsed.y}M` } } },
+                scales: { y: { beginAtZero: true, ticks: { callback: v => `$${v}M` }, grid: { color: 'rgba(0,0,0,.05)' } }, x: { grid: { display: false } } }
+            }
+        });
+        renderChart('dashCarrierChart', {
+            type: 'bar',
+            data: {
+                labels: ['Maersk', 'MSC', 'CMA CGM', 'Hapag-Lloyd', 'ONE'],
+                datasets: [{ label: 'On-Time %', data: [96, 91, 88, 93, 90], backgroundColor: ['#16A34A', '#22C55E', '#F59E0B', '#22C55E', '#22C55E'], borderRadius: 6, maxBarThickness: 24 }]
+            },
+            options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.parsed.x}% on time` } } },
+                scales: { x: { beginAtZero: true, max: 100, ticks: { callback: v => `${v}%` }, grid: { color: 'rgba(0,0,0,.05)' } }, y: { grid: { display: false } } }
+            }
+        });
+    };
     const renderAnalytics = data => {
         const kpis = data.kpis || {};
         document.getElementById('analytics-pos').textContent = Number(kpis.purchase_orders || 0).toLocaleString();
@@ -7485,22 +7834,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         if (target === 'tracking') {
-            trackingShipmentId = shipmentId;
-            trackingSelectedShipment = {
-                shipment_id: shipmentId,
-                shipment_number: shipmentNumber,
-                shipment_reference: shipmentNumber,
-                origin: row?.dataset.origin,
-                destination: row?.dataset.destination,
-                transport_mode: row?.dataset.mode,
-                status: row?.dataset.status
-            };
-            trackingSearchQuery = shipmentNumber || '';
-            trackingCurrentPage = 1;
-            if (trackingSearchInput) trackingSearchInput.value = trackingSearchQuery;
-            if (trackingSearchClear) trackingSearchClear.style.display = trackingSearchQuery ? 'grid' : 'none';
-            showSection('tracking');
-            loadModule('tracking');
+            openShipmentTrackingPanel(shipmentId, shipmentNumber);
             return;
         }
         if (target === 'documents') {

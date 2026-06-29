@@ -2157,6 +2157,24 @@ body {
     color: #312E81;
 }
 
+.clear-action-btn {
+    min-width: 62px;
+    min-height: 36px;
+    padding: 0.45rem 0.75rem;
+    border-color: #A5B4FC;
+    background: #E0E7FF;
+    color: #312E81;
+    font-size: 0.82rem;
+    font-weight: 700;
+    box-shadow: 0 1px 2px rgba(79, 70, 229, 0.16);
+}
+
+.clear-action-btn:hover:not(:disabled) {
+    border-color: #818CF8;
+    background: #C7D2FE;
+    color: #1E1B4B;
+}
+
 /* Milestone Tracker */
 .milestone-tracker {
     display: flex;
@@ -3834,28 +3852,34 @@ body {
 }
 
 .sales-suggest-field input {
-    padding-right: 4rem;
+    padding-right: 6rem;
 }
 
 .sales-suggest-clear {
     position: absolute;
-    right: 2.15rem;
+    right: 2rem;
     top: 2.05rem;
-    width: 1.6rem;
+    width: auto;
+    min-width: 3.35rem;
     height: 1.6rem;
+    padding: 0 0.45rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 0;
-    border-radius: 999px;
-    background: #F1F5F9;
-    color: #64748B;
+    border: 1px solid #A5B4FC;
+    border-radius: 7px;
+    background: #E0E7FF;
+    color: #312E81;
     cursor: pointer;
+    font-size: 0.68rem;
+    font-weight: 800;
+    box-shadow: 0 1px 2px rgba(79, 70, 229, 0.16);
 }
 
 .sales-suggest-clear:hover {
-    background: #E2E8F0;
-    color: #0F172A;
+    border-color: #818CF8;
+    background: #C7D2FE;
+    color: #1E1B4B;
 }
 
 .sales-suggest-clear[hidden] {
@@ -4791,14 +4815,14 @@ body.not-allowed .content-wrapper {
                                             <div class="sales-rate-field sales-suggest-field">
                                                 <label for="sales-rate-origin">From <span class="sales-required-icon" title="Required"><i class="fa-solid fa-asterisk"></i></span></label>
                                                 <input id="sales-rate-origin" placeholder="Origin" autocomplete="off" required>
-                                                <button class="sales-suggest-clear" type="button" data-sales-clear="origin" aria-label="Clear origin" title="Clear" hidden><i class="fa-solid fa-xmark"></i></button>
+                                                <button class="sales-suggest-clear" type="button" data-sales-clear="origin" aria-label="Clear origin" title="Clear" hidden><span>Clear</span></button>
                                                 <button class="sales-suggest-toggle" type="button" data-sales-toggle="origin" aria-label="Show origin options" title="Show options"><i class="fa-solid fa-chevron-down"></i></button>
                                                 <div class="sales-suggest-menu" id="sales-rate-origin-menu" hidden></div>
                                             </div>
                                             <div class="sales-rate-field sales-suggest-field">
                                                 <label for="sales-rate-destination">To <span class="sales-required-icon" title="Required"><i class="fa-solid fa-asterisk"></i></span></label>
                                                 <input id="sales-rate-destination" placeholder="Destination" autocomplete="off" required>
-                                                <button class="sales-suggest-clear" type="button" data-sales-clear="destination" aria-label="Clear destination" title="Clear" hidden><i class="fa-solid fa-xmark"></i></button>
+                                                <button class="sales-suggest-clear" type="button" data-sales-clear="destination" aria-label="Clear destination" title="Clear" hidden><span>Clear</span></button>
                                                 <button class="sales-suggest-toggle" type="button" data-sales-toggle="destination" aria-label="Show destination options" title="Show options"><i class="fa-solid fa-chevron-down"></i></button>
                                                 <div class="sales-suggest-menu" id="sales-rate-destination-menu" hidden></div>
                                             </div>
@@ -4825,7 +4849,7 @@ body.not-allowed .content-wrapper {
                                             <div class="sales-rate-field sales-suggest-field">
                                                 <label for="sales-rate-commodity">Commodity</label>
                                                 <input id="sales-rate-commodity" placeholder="Commodity" autocomplete="off">
-                                                <button class="sales-suggest-clear" type="button" data-sales-clear="commodity" aria-label="Clear commodity" title="Clear" hidden><i class="fa-solid fa-xmark"></i></button>
+                                                <button class="sales-suggest-clear" type="button" data-sales-clear="commodity" aria-label="Clear commodity" title="Clear" hidden><span>Clear</span></button>
                                                 <button class="sales-suggest-toggle" type="button" data-sales-toggle="commodity" aria-label="Show commodity options" title="Show options"><i class="fa-solid fa-chevron-down"></i></button>
                                                 <div class="sales-suggest-menu" id="sales-rate-commodity-menu" hidden></div>
                                             </div>
@@ -4840,7 +4864,7 @@ body.not-allowed .content-wrapper {
                                             <div class="sales-rate-field sales-suggest-field">
                                                 <label for="sales-rate-carrier">Carrier</label>
                                                 <input id="sales-rate-carrier" placeholder="Carrier" autocomplete="off">
-                                                <button class="sales-suggest-clear" type="button" data-sales-clear="carrier" aria-label="Clear carrier" title="Clear" hidden><i class="fa-solid fa-xmark"></i></button>
+                                                <button class="sales-suggest-clear" type="button" data-sales-clear="carrier" aria-label="Clear carrier" title="Clear" hidden><span>Clear</span></button>
                                                 <button class="sales-suggest-toggle" type="button" data-sales-toggle="carrier" aria-label="Show carrier options" title="Show options"><i class="fa-solid fa-chevron-down"></i></button>
                                                 <div class="sales-suggest-menu" id="sales-rate-carrier-menu" hidden></div>
                                             </div>
@@ -4848,8 +4872,8 @@ body.not-allowed .content-wrapper {
                                     </div>
                                     <div class="auth-message" id="sales-rate-message"></div>
                                     <div class="sales-rate-actions">
-                                        <button class="btn btn-secondary" id="sales-rate-clear-btn" type="button">
-                                            <i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Clear
+                                        <button class="btn btn-secondary clear-action-btn" id="sales-rate-clear-btn" type="button">
+                                            <span>Clear</span>
                                         </button>
                                         <button class="btn btn-primary" id="sales-rate-submit-btn" type="submit">
                                             <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Search Rates
@@ -4883,7 +4907,7 @@ body.not-allowed .content-wrapper {
                                 <option value="4">Rejected</option>
                             </select>
                             <button class="btn btn-primary" id="quotation-filter-submit-btn" type="submit" disabled><i class="fa-solid fa-filter" aria-hidden="true"></i> Apply</button>
-                            <button class="btn btn-secondary" id="quotation-reset-btn" type="button" disabled><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Clear</button>
+                            <button class="btn btn-secondary clear-action-btn" id="quotation-reset-btn" type="button" disabled><span>Clear</span></button>
                         </form>
                         <div class="rate-table-wrap">
                             <div class="rate-table-toolbar">
@@ -4968,7 +4992,7 @@ body.not-allowed .content-wrapper {
                                 <button class="btn btn-secondary rate-filter-toggle" id="rates-my-filter-btn" type="button" aria-pressed="false"><i class="fa-solid fa-user" aria-hidden="true"></i> My Rates</button>
                             </div>
                             <div class="rate-filter-actions">
-                                <button class="btn btn-secondary" id="rates-reset-btn" type="button" title="Clear filters" aria-label="Clear filters" disabled><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
+                                <button class="btn btn-secondary clear-action-btn" id="rates-reset-btn" type="button" title="Clear filters" aria-label="Clear filters" disabled><span>Clear</span></button>
                                 <button class="btn btn-filter-submit" id="rates-filter-submit-btn" type="submit" disabled><i class="fa-solid fa-filter" aria-hidden="true"></i> Submit</button>
                             </div>
                         </form>

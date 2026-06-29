@@ -740,15 +740,38 @@ body {
     min-width: 0;
 }
 
-.schema-index-clear {
-    width: 34px;
+.schema-index-clear,
+.query-builder-reset,
+.query-runner-reset,
+.query-ai-reset {
+    width: auto;
+    min-width: 62px;
     height: 34px;
     min-height: 34px;
-    padding: 0;
+    padding: 0.42rem 0.7rem;
+    flex: 0 0 auto;
+    border-color: #A5B4FC;
+    background: #E0E7FF;
+    color: #312E81;
+    font-size: 0.78rem;
+    font-weight: 700;
+    box-shadow: 0 1px 2px rgba(79, 70, 229, 0.16);
 }
 
-.schema-index-clear[hidden] {
+.schema-index-clear[hidden],
+.query-builder-reset[hidden],
+.query-runner-reset[hidden],
+.query-ai-reset[hidden] {
     display: none;
+}
+
+.schema-index-clear:hover,
+.query-builder-reset:hover,
+.query-runner-reset:hover,
+.query-ai-reset:hover {
+    border-color: #818CF8;
+    background: #C7D2FE;
+    color: #1E1B4B;
 }
 
 .schema-index-filter {
@@ -1228,26 +1251,8 @@ body {
 .query-builder-reset,
 .query-runner-reset,
 .query-ai-reset {
-    width: 36px;
     height: 36px;
     min-height: 36px;
-    padding: 0;
-    background-color: #F8FAFC;
-    border-color: #CBD5E1;
-    color: #334155;
-}
-
-.query-builder-reset:hover,
-.query-runner-reset:hover,
-.query-ai-reset:hover {
-    background-color: #E2E8F0;
-    border-color: #94A3B8;
-}
-
-.query-builder-reset[hidden],
-.query-runner-reset[hidden],
-.query-ai-reset[hidden] {
-    display: none;
 }
 
 .query-builder-message {
@@ -1838,6 +1843,13 @@ body.logged-out .content-wrapper {
     font-weight: 700;
 }
 
+.sync-step-note {
+    margin-top: 0.25rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
 .sync-dep {
     display: inline-flex;
     align-items: center;
@@ -1977,9 +1989,6 @@ body.logged-out .content-wrapper {
         font-size: 0.88rem;
     }
     .query-builder-remove,
-    .query-builder-reset,
-    .query-runner-reset,
-    .query-ai-reset,
     .query-download-icon,
     .object-count-download {
         width: 34px;
@@ -2073,9 +2082,15 @@ body.logged-out .content-wrapper {
 
 .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1.25rem;
     margin-bottom: 2rem;
+}
+
+@media (max-width: 1200px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .dashboard-section-bar {
@@ -2263,7 +2278,7 @@ body.logged-out .content-wrapper {
 }
 
 .dashboard-card-body {
-    max-height: 340px;
+    max-height: 420px;
     overflow-y: auto;
     margin-right: -0.4rem;
     padding-right: 0.4rem;
@@ -2281,6 +2296,68 @@ body.logged-out .content-wrapper {
     gap: 0.7rem;
 }
 
+.dashboard-pie-layout {
+    display: grid;
+    grid-template-columns: 138px minmax(0, 1fr);
+    gap: 1rem;
+    align-items: center;
+}
+
+.dashboard-pie {
+    width: 138px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--pie-gradient, #E5E7EB);
+    position: relative;
+    box-shadow: inset 0 0 0 1px rgba(17, 24, 39, 0.06);
+}
+
+.dashboard-pie::after {
+    content: "";
+    position: absolute;
+    inset: 32px;
+    border-radius: 50%;
+    background: var(--bg-surface);
+    box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.06);
+}
+
+.dashboard-pie-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    min-width: 0;
+}
+
+.dashboard-pie-row {
+    display: grid;
+    grid-template-columns: 0.6rem minmax(0, 1fr) auto;
+    gap: 0.45rem;
+    align-items: baseline;
+    color: var(--text-dark);
+    font-size: 0.82rem;
+}
+
+.dashboard-pie-dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    margin-top: 0.18rem;
+    border-radius: 50%;
+    background: var(--dot-color, var(--primary));
+}
+
+.dashboard-pie-label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    line-height: 1.3;
+}
+
+.dashboard-pie-value {
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
 .dashboard-chart-row {
     display: flex;
     flex-direction: column;
@@ -2289,7 +2366,7 @@ body.logged-out .content-wrapper {
 
 .dashboard-chart-label-row {
     display: flex;
-    align-items: baseline;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 0.6rem;
     font-size: 0.83rem;
@@ -2298,10 +2375,9 @@ body.logged-out .content-wrapper {
 
 .dashboard-chart-label {
     font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     min-width: 0;
+    overflow-wrap: anywhere;
+    line-height: 1.3;
 }
 
 .dashboard-chart-value {
@@ -2325,6 +2401,10 @@ body.logged-out .content-wrapper {
     border-radius: 4px;
     width: 0%;
     transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dashboard-chart-row.is-other .dashboard-chart-bar-fill {
+    background: #9CA3AF;
 }
 
 .dashboard-chips {
@@ -2539,7 +2619,7 @@ body.logged-out .content-wrapper {
                                 <i class="fa-solid fa-table-columns" aria-hidden="true"></i>
                                 Distribution of Unique Values
                             </h2>
-                            <p class="dashboard-section-sub">All cached <code>mv_unique</code> views.</p>
+                            <p class="dashboard-section-sub">Cached <code>mv_unique</code> views. Fields with fewer than 10 values use a pie chart; larger fields use a readable bar list.</p>
                         </div>
                     </div>
                     <div id="dashboard-content" class="dashboard-grid">
@@ -2623,7 +2703,7 @@ body.logged-out .content-wrapper {
                             <span class="schema-result-count" id="schema-result-count">Loading schema...</span>
                             <div class="schema-panel-tools">
                                 <button class="btn btn-secondary schema-index-clear" id="schema-index-clear-btn" type="button" hidden title="Clear filters" aria-label="Clear filters">
-                                    <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+                                    <span>Clear</span>
                                 </button>
                                 <input class="object-count-search" id="schema-search" type="search" placeholder="Search tables…" aria-label="Search tables">
                                 <select class="schema-index-filter" id="schema-index-filter" aria-label="Index filter">
@@ -2677,7 +2757,7 @@ body.logged-out .content-wrapper {
                             <span class="schema-result-count" id="object-count-result-count">Not loaded</span>
                             <div class="schema-panel-tools">
                                 <button class="btn btn-secondary schema-index-clear" id="object-count-clear-btn" type="button" title="Clear filters" aria-label="Clear filters" hidden>
-                                    <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+                                    <span>Clear</span>
                                 </button>
                                 <input class="object-count-search" id="object-count-search" type="search" placeholder="Search objects…" aria-label="Search objects">
                                 <select class="schema-index-filter" id="object-count-mv-filter" aria-label="Filter by MV type">
@@ -2724,7 +2804,7 @@ body.logged-out .content-wrapper {
                         <div class="panel-header">
                             <h3>SQL Editor</h3>
                             <div class="query-editor-actions">
-                                <button class="btn btn-secondary query-runner-reset" id="query-runner-reset-btn" type="button" hidden title="Reset query runner" aria-label="Reset query runner"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
+                                <button class="btn btn-secondary query-runner-reset" id="query-runner-reset-btn" type="button" hidden title="Reset query runner" aria-label="Reset query runner"><span>Clear</span></button>
                                 <button class="btn btn-primary" id="query-run-btn" type="submit" form="query-runner-form"><i class="fa-solid fa-play" aria-hidden="true"></i> Run</button>
                                 <button class="btn btn-secondary" id="query-export-download-btn" type="button"><i class="fa-solid fa-download" aria-hidden="true"></i> Export</button>
                             </div>
@@ -2765,7 +2845,7 @@ LIMIT 10;</textarea>
                         <div class="panel-header">
                             <h3>Query Builder</h3>
                             <div class="query-builder-actions">
-                                <button class="btn btn-secondary query-builder-reset" id="query-builder-reset-btn" type="button" hidden title="Reset builder" aria-label="Reset builder"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
+                                <button class="btn btn-secondary query-builder-reset" id="query-builder-reset-btn" type="button" hidden title="Reset builder" aria-label="Reset builder"><span>Clear</span></button>
                                 <button class="btn btn-primary" id="query-builder-build-btn" type="button"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Build SQL</button>
                             </div>
                         </div>
@@ -2803,7 +2883,7 @@ LIMIT 10;</textarea>
                         <div class="panel-header">
                             <h3>Query Builder AI</h3>
                             <div class="query-builder-actions">
-                                <button class="btn btn-secondary query-ai-reset" id="query-ai-reset-btn" type="button" hidden title="Reset AI builder" aria-label="Reset AI builder"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
+                                <button class="btn btn-secondary query-ai-reset" id="query-ai-reset-btn" type="button" hidden title="Reset AI builder" aria-label="Reset AI builder"><span>Clear</span></button>
                                 <button class="btn btn-primary" id="query-ai-generate-btn" type="button"><i class="fa-solid fa-robot" aria-hidden="true"></i> Build SQL</button>
                             </div>
                         </div>
@@ -2961,7 +3041,10 @@ LIMIT 10;</textarea>
                             <li>Database info — connections, cache hit ratio, size</li>
                             <li>Schema — tables, columns, keys, indexes</li>
                             <li>Object counts — from <code>mv_object_count</code> <span class="sync-dep">needs step 2</span></li>
-                            <li>Unique values — discovered via <code>mv_object_count</code>, then read from each <code>mv_unique_*</code> view <span class="sync-dep">needs steps 2 &amp; 3</span></li>
+                            <li>
+                                Unique values — discovered via <code>mv_object_count</code>, then read from each <code>mv_unique_*</code> view <span class="sync-dep">needs steps 2 &amp; 3</span>
+                                <div class="sync-step-note">Logic: keep up to 100 valid <code>mv_unique_*</code> views that map to schema columns and have 10k rows or fewer.</div>
+                            </li>
                         </ol>
                     </div>
                     <div class="sync-info-group">
@@ -5425,6 +5508,7 @@ async function loadObjectCount({ force = false } = {}) {
 }
 
 const DASHBOARD_CARD_RENDER_CAP = 100;
+const DASHBOARD_PIE_VALUE_LIMIT = 9;
 const dashboardCardData = new Map();
 
 function loadDashboard() {
@@ -5468,12 +5552,12 @@ function loadDashboard() {
             : [];
         const count = valid.length || item.row_count;
         const total = valid.reduce((sum, v) => sum + (Number(v.count) || 0), 0);
-        const mode = total > 0 ? 'bars' : 'chips';
-        const sorted = mode === 'bars'
+        const mode = dashboardCardMode(valid, total);
+        const sorted = total > 0
             ? [...valid].sort((a, b) => (Number(b.count) || 0) - (Number(a.count) || 0))
             : [...valid].sort((a, b) => String(a.value).localeCompare(String(b.value)));
 
-        dashboardCardData.set(key, { name: prettifyColumnName(item.column_name), mode, total, values: sorted });
+        dashboardCardData.set(key, { name: prettifyColumnName(item.column_name), mode, total, distinctCount: count, values: sorted });
 
         const head = `
             <div class="dashboard-card-head">
@@ -5512,6 +5596,52 @@ function loadDashboard() {
     }).join('');
 }
 
+function dashboardCardMode(values = [], total = 0) {
+    if (total <= 0) return 'chips';
+    return values.length <= DASHBOARD_PIE_VALUE_LIMIT ? 'pie' : 'bars';
+}
+
+function dashboardPct(value, total) {
+    return total > 0 ? value / total * 100 : 0;
+}
+
+function dashboardBarWidth(value, maxValue) {
+    if (!maxValue) return 0;
+    return Math.max(2, value / maxValue * 100);
+}
+
+function dashboardPieHtml(values = [], total = 0) {
+    if (total <= 0 || !values.length) return '';
+    const colors = ['#4F46E5', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#64748B', '#EC4899', '#14B8A6'];
+    let start = 0;
+    const stops = values.map((v, index) => {
+        const pct = dashboardPct(Number(v.count) || 0, total);
+        const end = start + pct;
+        const color = colors[index % colors.length];
+        const stop = `${color} ${start.toFixed(2)}% ${end.toFixed(2)}%`;
+        start = end;
+        return stop;
+    }).join(', ');
+    const legend = values.map((v, index) => {
+        const count = Number(v.count) || 0;
+        const pct = dashboardPct(count, total);
+        const color = colors[index % colors.length];
+        return `
+            <div class="dashboard-pie-row">
+                <span class="dashboard-pie-dot" style="--dot-color: ${color}"></span>
+                <span class="dashboard-pie-label" title="${escapeHtml(String(v.value))}">${escapeHtml(String(v.value))}</span>
+                <span class="dashboard-pie-value">${formatNumber(count)} &middot; ${pct.toFixed(1)}%</span>
+            </div>
+        `;
+    }).join('');
+    return `
+        <div class="dashboard-pie-layout">
+            <div class="dashboard-pie" style="--pie-gradient: conic-gradient(${stops})"></div>
+            <div class="dashboard-pie-legend">${legend}</div>
+        </div>
+    `;
+}
+
 function dashboardCardBodyHtml(key, filter = '') {
     const data = dashboardCardData.get(key);
     if (!data) return '';
@@ -5526,9 +5656,14 @@ function dashboardCardBodyHtml(key, filter = '') {
 
     const shown = matches.slice(0, DASHBOARD_CARD_RENDER_CAP);
     let body;
-    if (data.mode === 'bars') {
+    if (data.mode === 'pie') {
+        body = dashboardPieHtml(shown, data.total);
+    } else if (data.total > 0) {
+        const maxCount = shown.reduce((max, v) => Math.max(max, Number(v.count) || 0), 0);
         const rowsHtml = shown.map(v => {
-            const pct = data.total > 0 ? (Number(v.count) || 0) / data.total * 100 : 0;
+            const count = Number(v.count) || 0;
+            const pct = dashboardPct(count, data.total);
+            const width = dashboardBarWidth(count, maxCount);
             return `
                 <div class="dashboard-chart-row">
                     <div class="dashboard-chart-label-row">
@@ -5536,7 +5671,7 @@ function dashboardCardBodyHtml(key, filter = '') {
                         <span class="dashboard-chart-value">${formatNumber(v.count)} &middot; ${pct.toFixed(1)}%</span>
                     </div>
                     <div class="dashboard-chart-bar-container">
-                        <div class="dashboard-chart-bar-fill" style="width: ${pct}%"></div>
+                        <div class="dashboard-chart-bar-fill" style="width: ${width}%"></div>
                     </div>
                 </div>
             `;
