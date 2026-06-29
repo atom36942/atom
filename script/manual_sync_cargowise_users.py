@@ -55,6 +55,7 @@ async def execute():
                 OH.OH_IsGlobalAccount AS cw_is_global_account,
                 OH.OH_IsControllingAgent AS cw_is_controlling_agent,
                 OH.OH_IsControllingCustomer AS cw_is_controlling_customer,
+                COALESCE(CCCount.cnt, 0) AS cw_controlling_customer_shipment_count,
                 OH.OH_Category AS cw_category,
                 OH.OH_RL_NKClosestPort AS cw_closest_port,
                 OH.OH_Code AS cw_code,
@@ -74,6 +75,14 @@ async def execute():
                     OA.OA_RN_NKCountryCode
             ) AS OrgCountry
             LEFT JOIN dbo.RefCountry AS RN ON RN.RN_Code = OrgCountry.country_code
+            LEFT JOIN (
+                SELECT
+                    v.ControllingCustomer_PK AS oh_pk,
+                    COUNT(*) AS cnt
+                FROM dbo.cvw_JobShipmentOrgs AS v
+                WHERE v.ControllingCustomer_PK IS NOT NULL
+                GROUP BY v.ControllingCustomer_PK
+            ) AS CCCount ON CCCount.oh_pk = OH.OH_PK
             ORDER BY OH.OH_FullName;""")
     async def fetch_cargowise_orgs(mssql_url):
         pool = await aioodbc.create_pool(dsn=mssql_url, minsize=1, maxsize=3)
@@ -102,6 +111,7 @@ async def execute():
                 "cw_is_global_account": bool(item.get("cw_is_global_account")),
                 "cw_is_controlling_agent": bool(item.get("cw_is_controlling_agent")),
                 "cw_is_controlling_customer": bool(item.get("cw_is_controlling_customer")),
+                "cw_controlling_customer_shipment_count": int(item.get("cw_controlling_customer_shipment_count") or 0),
                 "cw_category": str(item.get("cw_category") or "").strip(),
                 "cw_closest_port": str(item.get("cw_closest_port") or "").strip(),
                 "cw_code": str(item.get("cw_code") or "").strip(),
@@ -118,7 +128,8 @@ async def execute():
                 id, type, username, name, role, deactivated_at, deleted_at,
                 cw_is_consignee, cw_is_consignor, cw_is_global_account, 
                 cw_is_controlling_agent, cw_is_controlling_customer,
-                cw_category, cw_closest_port, cw_is_valid, cw_is_active, 
+                cw_controlling_customer_shipment_count,
+                cw_category, cw_closest_port, cw_is_valid, cw_is_active,
                 cw_code, cw_screening_status, country
             FROM users
             WHERE username = ANY($1::text[])
@@ -152,6 +163,7 @@ async def execute():
                 "cw_is_global_account": org["cw_is_global_account"],
                 "cw_is_controlling_agent": org["cw_is_controlling_agent"],
                 "cw_is_controlling_customer": org["cw_is_controlling_customer"],
+                "cw_controlling_customer_shipment_count": org["cw_controlling_customer_shipment_count"],
                 "cw_category": org["cw_category"],
                 "cw_closest_port": org["cw_closest_port"],
                 "cw_code": org["cw_code"],

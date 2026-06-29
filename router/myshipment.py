@@ -6,6 +6,79 @@ import os
 # router
 router = APIRouter()
 
+# helper
+def helper_sql_visible_shipments_owned(name="visible_shipments"):
+    return f"""{name} AS (
+            SELECT DISTINCT JS.JS_PK
+            FROM dbo.JobShipment AS JS
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
+            WHERE JS.JS_IsValid = 1
+              AND JSO.ControllingCustomer_PK = @org
+        )"""
+
+def helper_sql_visible_shipments(name="visible_shipments", with_shipment_id=False, with_declaration=False, with_search=False):
+    je_join = "LEFT JOIN dbo.JobDeclaration AS JE ON JE.JE_JS = JS.JS_PK AND JE.JE_IsValid = 1" if with_declaration else ""
+    shipment_id_filter = "AND (@shipment_id IS NULL OR JS.JS_PK = @shipment_id)" if with_shipment_id else ""
+    je_org = ("""
+                        OR JE.JE_OH_Importer = @org
+                        OR JE.JE_OH_Supplier = @org
+                        OR JE.JE_OH_Buyer = @org
+                        OR JE.JE_OH_Consignee = @org
+                        OR JE.JE_OH_Exporter = @org
+                        OR JE.JE_OH_Forwarder = @org
+                        OR JE.JE_OH_ControllingCustomer = @org
+                        OR JE.JE_OH_ControllingAgent = @org""" if with_declaration else "")
+    search_filter = ("""
+            AND (
+                @shipment_search = ''
+                OR CONVERT(varchar(36), JS.JS_PK) = @shipment_search
+                OR JS.JS_UniqueConsignRef LIKE '%' + @shipment_search + '%'
+                OR JS.JS_BookingReference LIKE '%' + @shipment_search + '%'
+                OR JS.JS_HouseBill LIKE '%' + @shipment_search + '%'
+                OR JS.JS_ConsolReference LIKE '%' + @shipment_search + '%'
+                OR EXISTS (
+                    SELECT 1
+                    FROM dbo.JobHeader AS JHSearch
+                    WHERE JHSearch.JH_ParentID = JS.JS_PK
+                      AND JHSearch.JH_ParentTableCode = 'JS'
+                      AND JHSearch.JH_JobNum LIKE '%' + @shipment_search + '%'
+                )
+            )""" if with_search else "")
+    return f"""{name} AS (
+            SELECT DISTINCT JS.JS_PK
+            FROM dbo.JobShipment AS JS
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
+            LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
+            LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
+            LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
+            LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
+            LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
+            {je_join}
+            WHERE JS.JS_IsValid = 1
+            {shipment_id_filter}
+            AND (
+                (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
+                OR (
+                    @view_as = 'all'
+                    AND (
+                        JSO.ControllingCustomer_PK = @org
+                        OR JS.JS_OH_Creditor = @org
+                        OR JS.JS_OH_DeliveryAgent = @org
+                        OR JS.JS_OH_ExportBroker = @org
+                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org
+                        OR JS.JS_OH_ImportBroker = @org
+                        OR JS.JS_OH_TranshipAgent = @org
+                        OR E2OA.OA_OH = @org
+                        OR BuyerOA.OA_OH = @org
+                        OR SupplierOA.OA_OH = @org
+                        OR JD.JD_OH_Carrier = @org
+                        OR JD.JD_OH_SendingAgent = @org
+                        OR JD.JD_OH_ReceivingAgent = @org{je_org}
+                    )
+                )
+            ){search_filter}
+        )"""
+
 # api
 @router.get("/myshipment/buyer-360")
 async def func_api_myshipment_buyer_360(*, request: Request):
@@ -277,13 +350,7 @@ async def func_api_myshipment_my_purchase_orders(*, request: Request):
         DECLARE @view_as nvarchar(40) = ?;
         DECLARE @shipment_id_requested bit = CASE WHEN @shipment_id_str <> '' THEN 1 ELSE 0 END;
         DECLARE @shipment_id uniqueidentifier = TRY_CONVERT(uniqueidentifier, @shipment_id_str);
-        WITH visible_shipments AS (
-            SELECT DISTINCT JS.JS_PK
-            FROM dbo.JobShipment AS JS
-            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
-            WHERE JS.JS_IsValid = 1
-              AND JSO.ControllingCustomer_PK = @org
-        ),
+        WITH """ + helper_sql_visible_shipments_owned(name='visible_shipments') + f""",
         visible_orders AS (
             SELECT DISTINCT JD.JD_PK
             FROM dbo.JobOrderHeader AS JD
@@ -451,13 +518,7 @@ async def func_api_myshipment_my_purchase_order_lines(*, request: Request):
         DECLARE @po_id uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @view_as nvarchar(40) = ?;
 
-        WITH visible_shipments AS (
-            SELECT DISTINCT JS.JS_PK
-            FROM dbo.JobShipment AS JS
-            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
-            WHERE JS.JS_IsValid = 1
-              AND JSO.ControllingCustomer_PK = @org
-        ),
+        WITH """ + helper_sql_visible_shipments_owned(name='visible_shipments') + """,
         visible_orders AS (
             SELECT DISTINCT JD.JD_PK
             FROM dbo.JobOrderHeader AS JD
@@ -555,63 +616,7 @@ async def func_api_myshipment_my_shipments(*, request: Request):
         DECLARE @view_as nvarchar(40) = ?;
         DECLARE @shipment_id uniqueidentifier = NULL;
         IF @shipment_id_str <> '' SET @shipment_id = TRY_CONVERT(uniqueidentifier, @shipment_id_str);
-        WITH visible_shipments AS (
-            SELECT DISTINCT JS.JS_PK
-            FROM dbo.JobShipment AS JS
-            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
-            LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
-            LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
-            LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
-            LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
-            LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
-            LEFT JOIN dbo.JobDeclaration AS JE ON JE.JE_JS = JS.JS_PK AND JE.JE_IsValid = 1
-            WHERE JS.JS_IsValid = 1
-              AND (@shipment_id IS NULL OR JS.JS_PK = @shipment_id)
-              AND (
-                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
-                 OR (
-                        @view_as = 'all'
-                    AND (
-                           JSO.ControllingCustomer_PK = @org
-                        OR JS.JS_OH_Creditor = @org
-                        OR JS.JS_OH_DeliveryAgent = @org
-                        OR JS.JS_OH_ExportBroker = @org
-                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org
-                        OR JS.JS_OH_ImportBroker = @org
-                        OR JS.JS_OH_TranshipAgent = @org
-                        OR E2OA.OA_OH = @org
-                        OR BuyerOA.OA_OH = @org
-                        OR SupplierOA.OA_OH = @org
-                        OR JD.JD_OH_Carrier = @org
-                        OR JD.JD_OH_SendingAgent = @org
-                        OR JD.JD_OH_ReceivingAgent = @org
-                        OR JE.JE_OH_Importer = @org
-                        OR JE.JE_OH_Supplier = @org
-                        OR JE.JE_OH_Buyer = @org
-                        OR JE.JE_OH_Consignee = @org
-                        OR JE.JE_OH_Exporter = @org
-                        OR JE.JE_OH_Forwarder = @org
-                        OR JE.JE_OH_ControllingCustomer = @org
-                        OR JE.JE_OH_ControllingAgent = @org
-                    )
-                 )
-              )
-              AND (
-                    @shipment_search = ''
-                 OR CONVERT(varchar(36), JS.JS_PK) = @shipment_search
-                 OR JS.JS_UniqueConsignRef LIKE '%' + @shipment_search + '%'
-                 OR JS.JS_BookingReference LIKE '%' + @shipment_search + '%'
-                 OR JS.JS_HouseBill LIKE '%' + @shipment_search + '%'
-                 OR JS.JS_ConsolReference LIKE '%' + @shipment_search + '%'
-                 OR EXISTS (
-                        SELECT 1
-                        FROM dbo.JobHeader AS JHSearch
-                        WHERE JHSearch.JH_ParentID = JS.JS_PK
-                          AND JHSearch.JH_ParentTableCode = 'JS'
-                          AND JHSearch.JH_JobNum LIKE '%' + @shipment_search + '%'
-                    )
-              )
-        )
+        WITH """ + helper_sql_visible_shipments(name='visible_shipments', with_shipment_id=True, with_declaration=True, with_search=True) + f"""
         SELECT
             CONVERT(varchar(36), JS.JS_PK) AS shipment_id,
             JS.JS_UniqueConsignRef AS shipment_reference,
@@ -638,10 +643,6 @@ async def func_api_myshipment_my_shipments(*, request: Request):
             JS.JS_DocumentedVolume AS documented_volume,
             JS.JS_DocumentedChargeable AS documented_chargeable,
             JH.JH_JobNum AS job_number,
-            Summary.has_purchase_orders,
-            Summary.has_containers,
-            Summary.has_tracking,
-            Summary.has_documents,
             Summary.arrival_status,
             JS.JS_SystemCreateTimeUtc AS created_at,
             JS.JS_SystemLastEditTimeUtc AS updated_at
@@ -656,43 +657,6 @@ async def func_api_myshipment_my_shipments(*, request: Request):
         ) AS JH
         OUTER APPLY (
             SELECT
-                CASE WHEN EXISTS (
-                    SELECT 1
-                    FROM dbo.JobOrderHeader AS JDFlag
-                    WHERE JDFlag.JD_IsValid = 1
-                      AND JDFlag.JD_JS = JS.JS_PK
-                ) OR EXISTS (
-                    SELECT 1
-                    FROM dbo.JobOrderHeader AS JDFlag
-                    JOIN dbo.JobOrderLine AS JOFlag ON JOFlag.JO_JD = JDFlag.JD_PK AND JOFlag.JO_IsValid = 1
-                    JOIN dbo.JobSupplierBookingLine AS JSLFlag ON JSLFlag.JSL_JO_OrderLine = JOFlag.JO_PK AND JSLFlag.JSL_IsValid = 1
-                    JOIN dbo.JobPackLines AS JLFlag ON JLFlag.JL_JSL_BookingLine = JSLFlag.JSL_PK AND JLFlag.JL_IsValid = 1
-                    WHERE JDFlag.JD_IsValid = 1
-                      AND JLFlag.JL_JS = JS.JS_PK
-                ) OR EXISTS (
-                    SELECT 1
-                    FROM dbo.JobOrderHeader AS JDFlag
-                    JOIN dbo.JobOrderLine AS JOFlag ON JOFlag.JO_JD = JDFlag.JD_PK AND JOFlag.JO_IsValid = 1
-                    JOIN dbo.JobSupplierBookingLine AS JSLFlag ON JSLFlag.JSL_JO_OrderLine = JOFlag.JO_PK AND JSLFlag.JSL_IsValid = 1
-                    JOIN dbo.JobContainer AS JCFlag ON JCFlag.JC_JSB_SupplierBooking = JSLFlag.JSL_JSB_Booking AND JCFlag.JC_IsValid = 1
-                    WHERE JDFlag.JD_IsValid = 1
-                      AND JCFlag.JC_JS_FCLBookingOnlyLink = JS.JS_PK
-                ) THEN 1 ELSE 0 END AS has_purchase_orders,
-                CASE WHEN EXISTS (
-                    SELECT 1
-                    FROM dbo.JobContainer AS JCFlag
-                    LEFT JOIN dbo.JobConShipLink AS JNFlag ON JNFlag.JN_JK = JCFlag.JC_JK
-                    WHERE JCFlag.JC_JS_FCLBookingOnlyLink = JS.JS_PK
-                       OR JNFlag.JN_JS = JS.JS_PK
-                ) THEN 1 ELSE 0 END AS has_containers,
-                CASE WHEN EXISTS (
-                    SELECT 1
-                    FROM dbo.StmALog AS ALFlag
-                    WHERE ALFlag.SL_Table = 'JobShipment'
-                      AND ALFlag.SL_Parent = JS.JS_PK
-                      AND ALFlag.SL_EventTime IS NOT NULL
-                      AND ISNULL(ALFlag.SL_IsCancelled, 'N') <> 'Y'
-                ) THEN 1 ELSE 0 END AS has_tracking,
                 CASE
                     WHEN EXISTS (
                         SELECT 1
@@ -711,55 +675,7 @@ async def func_api_myshipment_my_shipments(*, request: Request):
                     ) THEN 'Arrived'
                     WHEN JS.JS_E_ARV IS NOT NULL THEN 'In Transit'
                     ELSE 'Arrival Pending'
-                END AS arrival_status,
-                CASE WHEN EXISTS (
-                    SELECT 1
-                    FROM dbo.JobRequiredDocument AS EQFlag
-                    WHERE EQFlag.EQ_IsValid = 1
-                      AND (
-                            (EQFlag.EQ_ParentTableCode = 'JS' AND EQFlag.EQ_ParentID = JS.JS_PK)
-                         OR (EQFlag.EQ_ParentTableCode = 'JD' AND EQFlag.EQ_ParentID IN (
-                                SELECT JD_PK FROM dbo.JobOrderHeader WHERE JD_IsValid = 1 AND JD_JS = JS.JS_PK
-                                UNION
-                                SELECT JDLink.JD_PK
-                                FROM dbo.JobOrderHeader AS JDLink
-                                JOIN dbo.JobOrderLine AS JOLink ON JOLink.JO_JD = JDLink.JD_PK AND JOLink.JO_IsValid = 1
-                                JOIN dbo.JobSupplierBookingLine AS JSLLink ON JSLLink.JSL_JO_OrderLine = JOLink.JO_PK AND JSLLink.JSL_IsValid = 1
-                                JOIN dbo.JobPackLines AS JLLink ON JLLink.JL_JSL_BookingLine = JSLLink.JSL_PK AND JLLink.JL_IsValid = 1
-                                WHERE JDLink.JD_IsValid = 1 AND JLLink.JL_JS = JS.JS_PK
-                                UNION
-                                SELECT JDLink.JD_PK
-                                FROM dbo.JobOrderHeader AS JDLink
-                                JOIN dbo.JobOrderLine AS JOLink ON JOLink.JO_JD = JDLink.JD_PK AND JOLink.JO_IsValid = 1
-                                JOIN dbo.JobSupplierBookingLine AS JSLLink ON JSLLink.JSL_JO_OrderLine = JOLink.JO_PK AND JSLLink.JSL_IsValid = 1
-                                JOIN dbo.JobContainer AS JCLink ON JCLink.JC_JSB_SupplierBooking = JSLLink.JSL_JSB_Booking AND JCLink.JC_IsValid = 1
-                                WHERE JDLink.JD_IsValid = 1 AND JCLink.JC_JS_FCLBookingOnlyLink = JS.JS_PK
-                            ))
-                         OR (EQFlag.EQ_ParentTableCode = 'JK' AND EQFlag.EQ_ParentID IN (SELECT JN_JK FROM dbo.JobConShipLink WHERE JN_JS = JS.JS_PK))
-                      )
-                ) OR EXISTS (
-                    SELECT 1
-                    FROM dbo.JobDocumentData AS JDDFlag
-                    WHERE (JDDFlag.JDD_ParentTableCode = 'JS' AND JDDFlag.JDD_ParentID = JS.JS_PK)
-                       OR (JDDFlag.JDD_ParentTableCode = 'JD' AND JDDFlag.JDD_ParentID IN (
-                            SELECT JD_PK FROM dbo.JobOrderHeader WHERE JD_IsValid = 1 AND JD_JS = JS.JS_PK
-                            UNION
-                            SELECT JDLink.JD_PK
-                            FROM dbo.JobOrderHeader AS JDLink
-                            JOIN dbo.JobOrderLine AS JOLink ON JOLink.JO_JD = JDLink.JD_PK AND JOLink.JO_IsValid = 1
-                            JOIN dbo.JobSupplierBookingLine AS JSLLink ON JSLLink.JSL_JO_OrderLine = JOLink.JO_PK AND JSLLink.JSL_IsValid = 1
-                            JOIN dbo.JobPackLines AS JLLink ON JLLink.JL_JSL_BookingLine = JSLLink.JSL_PK AND JLLink.JL_IsValid = 1
-                            WHERE JDLink.JD_IsValid = 1 AND JLLink.JL_JS = JS.JS_PK
-                            UNION
-                            SELECT JDLink.JD_PK
-                            FROM dbo.JobOrderHeader AS JDLink
-                            JOIN dbo.JobOrderLine AS JOLink ON JOLink.JO_JD = JDLink.JD_PK AND JOLink.JO_IsValid = 1
-                            JOIN dbo.JobSupplierBookingLine AS JSLLink ON JSLLink.JSL_JO_OrderLine = JOLink.JO_PK AND JSLLink.JSL_IsValid = 1
-                            JOIN dbo.JobContainer AS JCLink ON JCLink.JC_JSB_SupplierBooking = JSLLink.JSL_JSB_Booking AND JCLink.JC_IsValid = 1
-                            WHERE JDLink.JD_IsValid = 1 AND JCLink.JC_JS_FCLBookingOnlyLink = JS.JS_PK
-                        ))
-                       OR (JDDFlag.JDD_ParentTableCode = 'JK' AND JDDFlag.JDD_ParentID IN (SELECT JN_JK FROM dbo.JobConShipLink WHERE JN_JS = JS.JS_PK))
-                ) THEN 1 ELSE 0 END AS has_documents
+                END AS arrival_status
         ) AS Summary
         ORDER BY COALESCE(JS.JS_SystemLastEditTimeUtc, JS.JS_SystemCreateTimeUtc) DESC, JS.JS_PK DESC
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
@@ -792,38 +708,7 @@ async def func_api_myshipment_my_containers(*, request: Request):
         DECLARE @view_as nvarchar(40) = ?;
         DECLARE @shipment_id uniqueidentifier = NULL;
         IF @shipment_id_str <> '' SET @shipment_id = TRY_CONVERT(uniqueidentifier, @shipment_id_str);
-        WITH visible_shipments AS (
-            SELECT DISTINCT JS.JS_PK
-            FROM dbo.JobShipment AS JS
-            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
-            LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
-            LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
-            LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
-            LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
-            LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
-            WHERE JS.JS_IsValid = 1
-              AND (
-                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
-                 OR (
-                        @view_as = 'all'
-                    AND (
-                           JSO.ControllingCustomer_PK = @org
-                        OR JS.JS_OH_Creditor = @org
-                        OR JS.JS_OH_DeliveryAgent = @org
-                        OR JS.JS_OH_ExportBroker = @org
-                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org
-                        OR JS.JS_OH_ImportBroker = @org
-                        OR JS.JS_OH_TranshipAgent = @org
-                        OR E2OA.OA_OH = @org
-                        OR BuyerOA.OA_OH = @org
-                        OR SupplierOA.OA_OH = @org
-                        OR JD.JD_OH_Carrier = @org
-                        OR JD.JD_OH_SendingAgent = @org
-                        OR JD.JD_OH_ReceivingAgent = @org
-                    )
-                 )
-              )
-        ),
+        WITH """ + helper_sql_visible_shipments(name='visible_shipments') + f""",
         visible_containers AS (
             SELECT DISTINCT JC.JC_PK
             FROM dbo.JobContainer AS JC
@@ -909,39 +794,7 @@ async def func_api_myshipment_my_tracking(*, request: Request):
         DECLARE @view_as nvarchar(40) = ?;
         DECLARE @shipment_id uniqueidentifier = NULL;
         IF @shipment_id_str <> '' SET @shipment_id = TRY_CONVERT(uniqueidentifier, @shipment_id_str);
-        WITH visible_shipments AS (
-            SELECT DISTINCT JS.JS_PK
-            FROM dbo.JobShipment AS JS
-            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
-            LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
-            LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
-            LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
-            LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
-            LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
-            WHERE JS.JS_IsValid = 1
-              AND (@shipment_id IS NULL OR JS.JS_PK = @shipment_id)
-              AND (
-                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
-                 OR (
-                        @view_as = 'all'
-                    AND (
-                           JSO.ControllingCustomer_PK = @org
-                        OR JS.JS_OH_Creditor = @org
-                        OR JS.JS_OH_DeliveryAgent = @org
-                        OR JS.JS_OH_ExportBroker = @org
-                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org
-                        OR JS.JS_OH_ImportBroker = @org
-                        OR JS.JS_OH_TranshipAgent = @org
-                        OR E2OA.OA_OH = @org
-                        OR BuyerOA.OA_OH = @org
-                        OR SupplierOA.OA_OH = @org
-                        OR JD.JD_OH_Carrier = @org
-                        OR JD.JD_OH_SendingAgent = @org
-                        OR JD.JD_OH_ReceivingAgent = @org
-                    )
-                 )
-              )
-        )
+        WITH """ + helper_sql_visible_shipments(name='visible_shipments', with_shipment_id=True) + f"""
         SELECT
             CONVERT(varchar(36), JS.JS_PK) AS shipment_id,
             JS.JS_UniqueConsignRef AS shipment_reference,
@@ -1004,38 +857,7 @@ async def func_api_myshipment_my_alerts(*, request: Request):
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @view_as nvarchar(40) = ?;
-        WITH visible_shipments AS (
-            SELECT DISTINCT JS.JS_PK
-            FROM dbo.JobShipment AS JS
-            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
-            LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
-            LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
-            LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
-            LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
-            LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
-            WHERE JS.JS_IsValid = 1
-              AND (
-                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
-                 OR (
-                        @view_as = 'all'
-                    AND (
-                           JSO.ControllingCustomer_PK = @org
-                        OR JS.JS_OH_Creditor = @org
-                        OR JS.JS_OH_DeliveryAgent = @org
-                        OR JS.JS_OH_ExportBroker = @org
-                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org
-                        OR JS.JS_OH_ImportBroker = @org
-                        OR JS.JS_OH_TranshipAgent = @org
-                        OR E2OA.OA_OH = @org
-                        OR BuyerOA.OA_OH = @org
-                        OR SupplierOA.OA_OH = @org
-                        OR JD.JD_OH_Carrier = @org
-                        OR JD.JD_OH_SendingAgent = @org
-                        OR JD.JD_OH_ReceivingAgent = @org
-                    )
-                 )
-              )
-        ),
+        WITH """ + helper_sql_visible_shipments(name='visible_shipments') + f""",
         pending_shipments AS (
             SELECT VS.JS_PK
             FROM visible_shipments AS VS
@@ -1133,13 +955,7 @@ async def func_api_myshipment_my_documents(*, request: Request):
         DECLARE @view_as nvarchar(40) = ?;
         DECLARE @shipment_id uniqueidentifier = NULL;
         IF @shipment_id_str <> '' SET @shipment_id = TRY_CONVERT(uniqueidentifier, @shipment_id_str);
-        WITH visible_shipments_for_orders AS (
-            SELECT DISTINCT JS.JS_PK
-            FROM dbo.JobShipment AS JS
-            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
-            WHERE JS.JS_IsValid = 1
-              AND JSO.ControllingCustomer_PK = @org
-        ),
+        WITH """ + helper_sql_visible_shipments_owned(name='visible_shipments_for_orders') + f""",
         visible_orders AS (
             SELECT DISTINCT JD.JD_PK
             FROM dbo.JobOrderHeader AS JD
@@ -1180,38 +996,7 @@ async def func_api_myshipment_my_documents(*, request: Request):
                  )
               )
         ),
-        visible_shipments AS (
-            SELECT DISTINCT JS.JS_PK
-            FROM dbo.JobShipment AS JS
-            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
-            LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
-            LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
-            LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
-            LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
-            LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
-            WHERE JS.JS_IsValid = 1
-              AND (
-                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
-                 OR (
-                        @view_as = 'all'
-                    AND (
-                           JSO.ControllingCustomer_PK = @org
-                        OR JS.JS_OH_Creditor = @org
-                        OR JS.JS_OH_DeliveryAgent = @org
-                        OR JS.JS_OH_ExportBroker = @org
-                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org
-                        OR JS.JS_OH_ImportBroker = @org
-                        OR JS.JS_OH_TranshipAgent = @org
-                        OR E2OA.OA_OH = @org
-                        OR BuyerOA.OA_OH = @org
-                        OR SupplierOA.OA_OH = @org
-                        OR JD.JD_OH_Carrier = @org
-                        OR JD.JD_OH_SendingAgent = @org
-                        OR JD.JD_OH_ReceivingAgent = @org
-                    )
-                 )
-              )
-        ),
+        """ + helper_sql_visible_shipments(name='visible_shipments') + f""",
         visible_consols AS (
             SELECT DISTINCT JN.JN_JK
             FROM dbo.JobConShipLink AS JN
@@ -1353,13 +1138,7 @@ async def func_api_myshipment_my_analytics(*, request: Request):
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @view_as nvarchar(40) = ?;
-        WITH visible_shipments_for_orders AS (
-            SELECT DISTINCT JS.JS_PK
-            FROM dbo.JobShipment AS JS
-            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
-            WHERE JS.JS_IsValid = 1
-              AND JSO.ControllingCustomer_PK = @org
-        ),
+        WITH """ + helper_sql_visible_shipments_owned(name='visible_shipments_for_orders') + """,
         visible_orders AS (
             SELECT DISTINCT JD.JD_PK
             FROM dbo.JobOrderHeader AS JD
@@ -1407,30 +1186,7 @@ async def func_api_myshipment_my_analytics(*, request: Request):
                  )
               )
         ),
-        visible_shipments AS (
-            SELECT DISTINCT JS.JS_PK
-            FROM dbo.JobShipment AS JS
-            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
-            LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
-            LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
-            LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
-            LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
-            LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
-            WHERE JS.JS_IsValid = 1
-              AND (
-                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
-                 OR (
-                        @view_as = 'all'
-                    AND (
-                           JSO.ControllingCustomer_PK = @org
-                        OR JS.JS_OH_Creditor = @org OR JS.JS_OH_DeliveryAgent = @org OR JS.JS_OH_ExportBroker = @org
-                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org OR JS.JS_OH_ImportBroker = @org OR JS.JS_OH_TranshipAgent = @org
-                        OR E2OA.OA_OH = @org OR BuyerOA.OA_OH = @org OR SupplierOA.OA_OH = @org
-                        OR JD.JD_OH_Carrier = @org OR JD.JD_OH_SendingAgent = @org OR JD.JD_OH_ReceivingAgent = @org
-                    )
-                 )
-              )
-        ),
+        """ + helper_sql_visible_shipments(name='visible_shipments') + """,
         visible_containers AS (
             SELECT DISTINCT JC.JC_PK
             FROM dbo.JobContainer AS JC
@@ -1477,13 +1233,7 @@ async def func_api_myshipment_my_analytics(*, request: Request):
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @view_as nvarchar(40) = ?;
-        WITH visible_shipments_for_orders AS (
-            SELECT DISTINCT JS.JS_PK
-            FROM dbo.JobShipment AS JS
-            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
-            WHERE JS.JS_IsValid = 1
-              AND JSO.ControllingCustomer_PK = @org
-        ),
+        WITH """ + helper_sql_visible_shipments_owned(name='visible_shipments_for_orders') + """,
         visible_orders AS (
             SELECT DISTINCT JD.JD_PK
             FROM dbo.JobOrderHeader AS JD
@@ -1540,30 +1290,7 @@ async def func_api_myshipment_my_analytics(*, request: Request):
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @view_as nvarchar(40) = ?;
-        WITH visible_shipments AS (
-            SELECT DISTINCT JS.JS_PK
-            FROM dbo.JobShipment AS JS
-            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
-            LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
-            LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
-            LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
-            LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
-            LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
-            WHERE JS.JS_IsValid = 1
-              AND (
-                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
-                 OR (
-                        @view_as = 'all'
-                    AND (
-                           JSO.ControllingCustomer_PK = @org
-                        OR JS.JS_OH_Creditor = @org OR JS.JS_OH_DeliveryAgent = @org OR JS.JS_OH_ExportBroker = @org
-                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org OR JS.JS_OH_ImportBroker = @org OR JS.JS_OH_TranshipAgent = @org
-                        OR E2OA.OA_OH = @org OR BuyerOA.OA_OH = @org OR SupplierOA.OA_OH = @org
-                        OR JD.JD_OH_Carrier = @org OR JD.JD_OH_SendingAgent = @org OR JD.JD_OH_ReceivingAgent = @org
-                    )
-                 )
-              )
-        )
+        WITH """ + helper_sql_visible_shipments(name='visible_shipments') + """
         SELECT JS.JS_ShipmentStatus AS status, COUNT(1) AS count
         FROM visible_shipments AS VS
         JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
@@ -1573,30 +1300,7 @@ async def func_api_myshipment_my_analytics(*, request: Request):
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @view_as nvarchar(40) = ?;
-        WITH visible_shipments AS (
-            SELECT DISTINCT JS.JS_PK
-            FROM dbo.JobShipment AS JS
-            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
-            LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
-            LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
-            LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
-            LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
-            LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
-            WHERE JS.JS_IsValid = 1
-              AND (
-                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
-                 OR (
-                        @view_as = 'all'
-                    AND (
-                           JSO.ControllingCustomer_PK = @org
-                        OR JS.JS_OH_Creditor = @org OR JS.JS_OH_DeliveryAgent = @org OR JS.JS_OH_ExportBroker = @org
-                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org OR JS.JS_OH_ImportBroker = @org OR JS.JS_OH_TranshipAgent = @org
-                        OR E2OA.OA_OH = @org OR BuyerOA.OA_OH = @org OR SupplierOA.OA_OH = @org
-                        OR JD.JD_OH_Carrier = @org OR JD.JD_OH_SendingAgent = @org OR JD.JD_OH_ReceivingAgent = @org
-                    )
-                 )
-              )
-        )
+        WITH """ + helper_sql_visible_shipments(name='visible_shipments') + """
         SELECT TOP 12
             FORMAT(JS.JS_SystemCreateTimeUtc, 'yyyy-MM') AS month,
             COUNT(1) AS count
@@ -1609,30 +1313,7 @@ async def func_api_myshipment_my_analytics(*, request: Request):
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @view_as nvarchar(40) = ?;
-        WITH visible_shipments AS (
-            SELECT DISTINCT JS.JS_PK
-            FROM dbo.JobShipment AS JS
-            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JS.JS_PK
-            LEFT JOIN dbo.JobDocAddress AS E2 ON E2.E2_ParentTableCode = 'JS' AND E2.E2_ParentID = JS.JS_PK AND E2.E2_IsValid = 1
-            LEFT JOIN dbo.OrgAddress AS E2OA ON E2OA.OA_PK = E2.E2_OA_Address
-            LEFT JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
-            LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
-            LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
-            WHERE JS.JS_IsValid = 1
-              AND (
-                    (@view_as = 'controlling_customer' AND JSO.ControllingCustomer_PK = @org)
-                 OR (
-                        @view_as = 'all'
-                    AND (
-                           JSO.ControllingCustomer_PK = @org
-                        OR JS.JS_OH_Creditor = @org OR JS.JS_OH_DeliveryAgent = @org OR JS.JS_OH_ExportBroker = @org
-                        OR JS.JS_OH_HandledOnBehalfOfForwarder = @org OR JS.JS_OH_ImportBroker = @org OR JS.JS_OH_TranshipAgent = @org
-                        OR E2OA.OA_OH = @org OR BuyerOA.OA_OH = @org OR SupplierOA.OA_OH = @org
-                        OR JD.JD_OH_Carrier = @org OR JD.JD_OH_SendingAgent = @org OR JD.JD_OH_ReceivingAgent = @org
-                    )
-                 )
-              )
-        )
+        WITH """ + helper_sql_visible_shipments(name='visible_shipments') + """
         SELECT JS.JS_TransportMode AS transport_mode, COUNT(1) AS count
         FROM visible_shipments AS VS
         JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK

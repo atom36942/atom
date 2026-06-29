@@ -290,6 +290,7 @@ config_postgres = {
 {"name":"cw_is_global_account","datatype":"boolean"},
 {"name":"cw_is_controlling_agent","datatype":"boolean"},
 {"name":"cw_is_controlling_customer","datatype":"boolean"},
+{"name":"cw_controlling_customer_shipment_count","datatype":"integer","default":"0"},
 {"name":"cw_category","datatype":"text"},
 {"name":"cw_closest_port","datatype":"text"},
 {"name":"cw_code","datatype":"text"},

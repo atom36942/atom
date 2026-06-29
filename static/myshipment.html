@@ -6650,10 +6650,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     detailFieldHtml('Chargeable', row.documented_chargeable, 'fa-weight-hanging')
                 ])}
                 ${detailSectionHtml('Details', 'fa-link', [
-                    detailFieldHtml('Containers', Number(row.has_containers || 0) === 1 ? 'Available' : 'Not available', 'fa-box'),
-                    detailFieldHtml('Tracking', Number(row.has_tracking || 0) === 1 ? 'Available' : 'Not available', 'fa-location-dot'),
-                    detailFieldHtml('Documents', Number(row.has_documents || 0) === 1 ? 'Available' : 'Not available', 'fa-file-lines'),
-                    detailFieldHtml('PO', Number(row.has_purchase_orders || 0) === 1 ? 'Available' : 'Not available', 'fa-file-invoice'),
                     detailFieldHtml('Last Updated', formatDateTime(row.updated_at), 'fa-clock', true)
                 ])}
             </div>
@@ -6783,10 +6779,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const refText = row.shipment_reference ? `Ref: ${row.shipment_reference}` : row.booking_reference ? `Booking: ${row.booking_reference}` : row.house_bill ? `HBL: ${row.house_bill}` : '';
             const eta = row.eta || row.client_requested_eta || row.delivery_due_date || row.revised_delivery_due_date;
             const etd = row.etd;
-            const hasContainers = Number(row.has_containers || 0) === 1;
-            const hasTracking = Number(row.has_tracking || 0) === 1;
-            const hasDocuments = Number(row.has_documents || 0) === 1;
-            const hasPurchaseOrders = Number(row.has_purchase_orders || 0) === 1;
             const arrivalStatus = displayValue(row.arrival_status || 'Arrival Pending');
             const arrivalClass = arrivalStatus === 'Arrived' ? 'arrived' : arrivalStatus === 'In Transit' ? 'transit' : '';
             const arrivalIcon = arrivalStatus === 'Arrived' ? 'fa-circle-check' : arrivalStatus === 'In Transit' ? 'fa-route' : 'fa-hourglass-half';
@@ -6816,10 +6808,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>
                     <div class="po-detail-stack">
                         <button class="po-detail-chip view" type="button" data-shipment-detail="view" data-shipment-id="${escapeHtml(shipmentId)}" data-shipment-number="${escapeHtml(shipmentNo)}" title="View shipment"><i class="fa-solid fa-eye" aria-hidden="true"></i>View</button>
-                        <button class="po-detail-chip container${hasContainers ? '' : ' is-muted'}" type="button" data-shipment-detail="containers" ${hasContainers ? '' : 'disabled'} title="${hasContainers ? 'View containers' : 'No containers linked'}"><i class="fa-solid fa-box" aria-hidden="true"></i>Containers</button>
-                        <button class="po-detail-chip tracking${hasTracking ? '' : ' is-muted'}" type="button" data-shipment-detail="tracking" ${hasTracking ? '' : 'disabled'} title="${hasTracking ? 'View tracking' : 'No tracking events'}"><i class="fa-solid fa-location-dot" aria-hidden="true"></i>Tracking</button>
-                        <button class="po-detail-chip document${hasDocuments ? '' : ' is-muted'}" type="button" data-shipment-detail="documents" ${hasDocuments ? '' : 'disabled'} title="${hasDocuments ? 'View documents' : 'No documents linked'}"><i class="fa-solid fa-file-lines" aria-hidden="true"></i>Documents</button>
-                        <button class="po-detail-chip shipment${hasPurchaseOrders ? '' : ' is-muted'}" type="button" data-shipment-detail="purchase-orders" data-shipment-id="${escapeHtml(shipmentId)}" data-shipment-number="${escapeHtml(shipmentNo)}" ${hasPurchaseOrders ? '' : 'disabled'} title="${hasPurchaseOrders ? 'View linked purchase orders' : 'No purchase order linked'}"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i>PO</button>
+                        <button class="po-detail-chip container" type="button" data-shipment-detail="containers" title="View containers"><i class="fa-solid fa-box" aria-hidden="true"></i>Containers</button>
+                        <button class="po-detail-chip tracking" type="button" data-shipment-detail="tracking" title="View tracking"><i class="fa-solid fa-location-dot" aria-hidden="true"></i>Tracking</button>
+                        <button class="po-detail-chip document" type="button" data-shipment-detail="documents" title="View documents"><i class="fa-solid fa-file-lines" aria-hidden="true"></i>Documents</button>
+                        <button class="po-detail-chip shipment" type="button" data-shipment-detail="purchase-orders" data-shipment-id="${escapeHtml(shipmentId)}" data-shipment-number="${escapeHtml(shipmentNo)}" title="View linked purchase orders"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i>PO</button>
                     </div>
                 </td>
             </tr>
