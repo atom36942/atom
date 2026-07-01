@@ -1097,7 +1097,92 @@ body {
 
 .shipment-filter-card {
     overflow: visible;
+    position: relative;
 }
+
+/* Filter dropdown */
+.shipment-filter-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 9999;
+    background: #fff;
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    min-width: 200px;
+    max-width: 280px;
+    padding: 0.5rem 0;
+    display: none;
+}
+.shipment-filter-dropdown.open { display: block; }
+.shipment-filter-dropdown-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.875rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94A3B8;
+    border-bottom: 1px solid #F1F5F9;
+    margin-bottom: 0.25rem;
+}
+.shipment-filter-dropdown-header button {
+    background: none; border: none; cursor: pointer;
+    font-size: 0.72rem; color: var(--primary); font-weight: 600; padding: 0;
+}
+.shipment-filter-dropdown-option {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.4rem 0.875rem;
+    font-size: 0.82rem; color: #374151; cursor: pointer;
+    transition: background 0.1s;
+}
+.shipment-filter-dropdown-option:hover { background: #F8FAFC; }
+.shipment-filter-dropdown-option input[type="checkbox"] { accent-color: var(--primary); cursor: pointer; }
+.shipment-filter-dropdown-option.selected { color: var(--primary); font-weight: 600; }
+.shipment-filter-dropdown-footer {
+    border-top: 1px solid #F1F5F9;
+    padding: 0.5rem 0.875rem 0.25rem;
+    display: flex; gap: 0.5rem; justify-content: flex-end;
+    margin-top: 0.25rem;
+}
+.shipment-filter-dropdown-footer button {
+    font-size: 0.78rem; padding: 0.3rem 0.75rem;
+    border-radius: 6px; cursor: pointer; font-weight: 600; border: none;
+}
+.shipment-filter-dd-apply { background: var(--primary); color: #fff; }
+.shipment-filter-dd-clear { background: #F1F5F9; color: #374151; }
+.shipment-filter-pill.active {
+    border-color: var(--primary);
+    background: #EEF2FF;
+    color: var(--primary);
+}
+.shipment-filter-pill.active i { color: var(--primary); }
+.shipment-filter-pill-wrap { position: relative; flex-shrink: 0; }
+.shipment-filter-dd-search {
+    display: block;
+    width: calc(100% - 1.75rem);
+    margin: 0.25rem 0.875rem 0.25rem;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.8rem;
+    border: 1px solid #E2E8F0;
+    border-radius: 6px;
+    outline: none;
+}
+.shipment-filter-dd-search:focus { border-color: var(--primary); }
+.shipment-filter-options-scroll { max-height: 220px; overflow-y: auto; }
+.shipment-filter-sync-btn {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    font-size: 0.78rem; padding: 0.35rem 0.7rem;
+    border: 1px solid #D8E1EF; border-radius: 7px;
+    background: #F8FAFC; color: #64748B; cursor: pointer;
+    font-weight: 600; transition: all 0.15s; white-space: nowrap;
+}
+.shipment-filter-sync-btn:hover { border-color: var(--primary); color: var(--primary); background: #EEF2FF; }
+.shipment-filter-sync-btn.syncing i { animation: spin 1s linear infinite; }
+.shipment-filter-cache-info { font-size: 0.7rem; color: #94A3B8; white-space: nowrap; }
 
 .shipment-filter-bar {
     display: flex;
@@ -1105,8 +1190,21 @@ body {
     gap: 0.5rem;
     flex-wrap: nowrap;
     padding: 0.75rem 1rem;
-    overflow-x: auto;
+    overflow: visible;
+    min-width: 0;
 }
+.shipment-filter-bar-scroll {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1 1 0;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding-bottom: 2px; /* prevent clipping scrollbar on some OS */
+    scrollbar-width: none;
+}
+.shipment-filter-bar-scroll::-webkit-scrollbar { display: none; }
 
 .shipment-filter-title {
     display: inline-flex;
@@ -5109,6 +5207,8 @@ body.not-allowed .content-wrapper {
                                 </div>
                                 <div class="po-toolbar-actions">
                                     <div class="shipment-dashboard-meta">Buyer view · Controlling customer</div>
+                                    <span class="shipment-filter-cache-info" id="shipment-filter-cache-info"></span>
+                                    <button class="shipment-filter-sync-btn" type="button" id="shipment-filter-sync-btn" title="Sync filter options from CargoWise"><i class="fa-solid fa-rotate" aria-hidden="true"></i> Sync Filters</button>
                                     <button class="po-refresh-button compact" type="button" id="shipment-refresh-btn" aria-label="Refresh shipments" title="Refresh shipments"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
                                 </div>
                             </div>
@@ -5116,12 +5216,86 @@ body.not-allowed .content-wrapper {
                         <div class="panel po-panel shipment-filter-card">
                             <div class="shipment-filter-bar">
                                 <div class="shipment-filter-title"><i class="fa-solid fa-sliders" aria-hidden="true"></i><span>Filters</span></div>
-                                <button class="shipment-filter-pill" type="button"><i class="fa-solid fa-location-dot" aria-hidden="true"></i>Origin<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
-                                <button class="shipment-filter-pill" type="button"><i class="fa-solid fa-flag" aria-hidden="true"></i>Destination<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
-                                <button class="shipment-filter-pill" type="button"><i class="fa-solid fa-industry" aria-hidden="true"></i>Supplier / Shipper<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
-                                <button class="shipment-filter-pill" type="button"><i class="fa-solid fa-box" aria-hidden="true"></i>Container Type<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
-                                <button class="shipment-filter-pill" type="button"><i class="fa-solid fa-ship" aria-hidden="true"></i>Carrier / Liner<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
-                                <button class="shipment-filter-pill" type="button"><i class="fa-regular fa-calendar" aria-hidden="true"></i>Period<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                <div class="shipment-filter-bar-scroll">
+                                <!-- Mode -->
+                                <div class="shipment-filter-pill-wrap">
+                                    <button class="shipment-filter-pill" type="button" data-filter="mode"><i class="fa-solid fa-plane-departure" aria-hidden="true"></i><span id="shipment-filter-label-mode">Mode</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                    <div class="shipment-filter-dropdown" id="shipment-filter-dd-mode">
+                                        <div class="shipment-filter-dropdown-header"><span>Transport Mode</span><button type="button" data-dd-clear="mode">Clear</button></div>
+                                        <div id="shipment-filter-options-mode"></div>
+                                        <div class="shipment-filter-dropdown-footer"><button class="shipment-filter-dd-clear" type="button" data-dd-cancel="mode">Cancel</button><button class="shipment-filter-dd-apply" type="button" data-dd-apply="mode">Apply</button></div>
+                                    </div>
+                                </div>
+                                <!-- Packing -->
+                                <div class="shipment-filter-pill-wrap">
+                                    <button class="shipment-filter-pill" type="button" data-filter="packing"><i class="fa-solid fa-box" aria-hidden="true"></i><span id="shipment-filter-label-packing">Packing</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                    <div class="shipment-filter-dropdown" id="shipment-filter-dd-packing">
+                                        <div class="shipment-filter-dropdown-header"><span>Packing Mode</span><button type="button" data-dd-clear="packing">Clear</button></div>
+                                        <div id="shipment-filter-options-packing"></div>
+                                        <div class="shipment-filter-dropdown-footer"><button class="shipment-filter-dd-clear" type="button" data-dd-cancel="packing">Cancel</button><button class="shipment-filter-dd-apply" type="button" data-dd-apply="packing">Apply</button></div>
+                                    </div>
+                                </div>
+                                <!-- Origin -->
+                                <div class="shipment-filter-pill-wrap">
+                                    <button class="shipment-filter-pill" type="button" data-filter="origin"><i class="fa-solid fa-location-dot" aria-hidden="true"></i><span id="shipment-filter-label-origin">Origin</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                    <div class="shipment-filter-dropdown" id="shipment-filter-dd-origin">
+                                        <div class="shipment-filter-dropdown-header"><span>Origin</span><button type="button" data-dd-clear="origin">Clear</button></div>
+                                        <input class="shipment-filter-dd-search" type="text" placeholder="Search origin…" data-dd-search="origin">
+                                        <div id="shipment-filter-options-origin"></div>
+                                        <div class="shipment-filter-dropdown-footer"><button class="shipment-filter-dd-clear" type="button" data-dd-cancel="origin">Cancel</button><button class="shipment-filter-dd-apply" type="button" data-dd-apply="origin">Apply</button></div>
+                                    </div>
+                                </div>
+                                <!-- Destination -->
+                                <div class="shipment-filter-pill-wrap">
+                                    <button class="shipment-filter-pill" type="button" data-filter="destination"><i class="fa-solid fa-flag" aria-hidden="true"></i><span id="shipment-filter-label-destination">Destination</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                    <div class="shipment-filter-dropdown" id="shipment-filter-dd-destination">
+                                        <div class="shipment-filter-dropdown-header"><span>Destination</span><button type="button" data-dd-clear="destination">Clear</button></div>
+                                        <input class="shipment-filter-dd-search" type="text" placeholder="Search destination…" data-dd-search="destination">
+                                        <div id="shipment-filter-options-destination"></div>
+                                        <div class="shipment-filter-dropdown-footer"><button class="shipment-filter-dd-clear" type="button" data-dd-cancel="destination">Cancel</button><button class="shipment-filter-dd-apply" type="button" data-dd-apply="destination">Apply</button></div>
+                                    </div>
+                                </div>
+                                <!-- Inco -->
+                                <div class="shipment-filter-pill-wrap">
+                                    <button class="shipment-filter-pill" type="button" data-filter="inco"><i class="fa-solid fa-file-contract" aria-hidden="true"></i><span id="shipment-filter-label-inco">Inco Term</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                    <div class="shipment-filter-dropdown" id="shipment-filter-dd-inco">
+                                        <div class="shipment-filter-dropdown-header"><span>Inco Term</span><button type="button" data-dd-clear="inco">Clear</button></div>
+                                        <div id="shipment-filter-options-inco"></div>
+                                        <div class="shipment-filter-dropdown-footer"><button class="shipment-filter-dd-clear" type="button" data-dd-cancel="inco">Cancel</button><button class="shipment-filter-dd-apply" type="button" data-dd-apply="inco">Apply</button></div>
+                                    </div>
+                                </div>
+                                <!-- Carrier -->
+                                <div class="shipment-filter-pill-wrap">
+                                    <button class="shipment-filter-pill" type="button" data-filter="carrier"><i class="fa-solid fa-ship" aria-hidden="true"></i><span id="shipment-filter-label-carrier">Carrier</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                    <div class="shipment-filter-dropdown" id="shipment-filter-dd-carrier">
+                                        <div class="shipment-filter-dropdown-header"><span>Carrier</span><button type="button" data-dd-clear="carrier">Clear</button></div>
+                                        <div id="shipment-filter-options-carrier"></div>
+                                        <div class="shipment-filter-dropdown-footer"><button class="shipment-filter-dd-clear" type="button" data-dd-cancel="carrier">Cancel</button><button class="shipment-filter-dd-apply" type="button" data-dd-apply="carrier">Apply</button></div>
+                                    </div>
+                                </div>
+                                <!-- Supplier -->
+                                <div class="shipment-filter-pill-wrap">
+                                    <button class="shipment-filter-pill" type="button" data-filter="supplier"><i class="fa-solid fa-industry" aria-hidden="true"></i><span id="shipment-filter-label-supplier">Supplier</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                    <div class="shipment-filter-dropdown" id="shipment-filter-dd-supplier">
+                                        <div class="shipment-filter-dropdown-header"><span>Supplier</span><button type="button" data-dd-clear="supplier">Clear</button></div>
+                                        <input class="shipment-filter-dd-search" type="text" placeholder="Search supplier…" data-dd-search="supplier">
+                                        <div id="shipment-filter-options-supplier"></div>
+                                        <div class="shipment-filter-dropdown-footer"><button class="shipment-filter-dd-clear" type="button" data-dd-cancel="supplier">Cancel</button><button class="shipment-filter-dd-apply" type="button" data-dd-apply="supplier">Apply</button></div>
+                                    </div>
+                                </div>
+                                <!-- Period -->
+                                <div class="shipment-filter-pill-wrap">
+                                    <button class="shipment-filter-pill" type="button" data-filter="period"><i class="fa-regular fa-calendar" aria-hidden="true"></i><span id="shipment-filter-label-period">Period</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                    <div class="shipment-filter-dropdown" id="shipment-filter-dd-period">
+                                        <div class="shipment-filter-dropdown-header"><span>ETD Period</span><button type="button" data-dd-clear="period">Clear</button></div>
+                                        <label class="shipment-filter-dropdown-option"><input type="radio" name="shipment-period" value="7"> Last 7 days</label>
+                                        <label class="shipment-filter-dropdown-option"><input type="radio" name="shipment-period" value="30"> Last 30 days</label>
+                                        <label class="shipment-filter-dropdown-option"><input type="radio" name="shipment-period" value="90"> Last 90 days</label>
+                                        <label class="shipment-filter-dropdown-option"><input type="radio" name="shipment-period" value="180"> Last 180 days</label>
+                                        <div class="shipment-filter-dropdown-footer"><button class="shipment-filter-dd-clear" type="button" data-dd-cancel="period">Cancel</button><button class="shipment-filter-dd-apply" type="button" data-dd-apply="period">Apply</button></div>
+                                    </div>
+                                </div>
+                                </div><!-- /.shipment-filter-bar-scroll -->
                                 <form class="po-search shipment-filter-search" id="shipment-search-form" role="search">
                                     <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
                                     <input type="text" id="shipment-search-input" placeholder="Search shipment" aria-label="Search shipment, job, booking, or house bill">
@@ -5907,6 +6081,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let documentCurrentPage = 1;
     let poSearchQuery = '';
     let shipmentSearchQuery = '';
+    let shipmentFilters = { mode: [], packing: [], origin: [], destination: [], inco: [], carrier: [], supplier_id: [], period: '' };
     let purchaseOrderRowsById = {};
     let shipmentRowsById = {};
     let containerShipmentId = '';
@@ -7511,7 +7686,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target === 'shipments') {
             const searchParam = shipmentSearchQuery ? `&shipment_search=${encodeURIComponent(shipmentSearchQuery)}` : '';
             const shipmentParam = options.shipmentId ? `&shipment_id=${encodeURIComponent(options.shipmentId)}` : '';
-            return `${endpoint}${joiner}limit=100&page=${shipmentCurrentPage}${searchParam}${shipmentParam}&${MYSHIPMENT_VIEW_PARAM}`;
+            const f = shipmentFilters;
+            const fp = (k, v) => v && v.length ? `&${k}=${encodeURIComponent(Array.isArray(v) ? v.join(',') : v)}` : '';
+            return `${endpoint}${joiner}limit=100&page=${shipmentCurrentPage}${searchParam}${shipmentParam}${fp('mode',f.mode)}${fp('packing',f.packing)}${fp('origin',f.origin)}${fp('destination',f.destination)}${fp('inco',f.inco)}${fp('carrier',f.carrier)}${fp('supplier_id',f.supplier_id)}${fp('period_days',f.period)}&${MYSHIPMENT_VIEW_PARAM}`;
         }
         if (target === 'containers') {
             const shipmentParam = containerShipmentId ? `&shipment_id=${encodeURIComponent(containerShipmentId)}` : '';
@@ -7669,6 +7846,7 @@ document.addEventListener('DOMContentLoaded', () => {
         authUser = null;
         appInfo = {};
         clearPortalStorage();
+        myCacheClear();
         cargowiseProfileLoaded = false;
         Object.keys(moduleCache).forEach(key => delete moduleCache[key]);
         closeProfileMenu();
@@ -7878,6 +8056,252 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('shipment-refresh-btn')?.addEventListener('click', () => refreshModule('shipments', 'shipment-refresh-btn'));
 
+    // --- Shipment filter dropdowns + cache ---
+    const FILTER_KEYS = ['mode', 'packing', 'origin', 'destination', 'inco', 'carrier', 'supplier', 'period'];
+    const FILTER_LABELS = { mode: 'Mode', packing: 'Packing', origin: 'Origin', destination: 'Destination', inco: 'Inco Term', carrier: 'Carrier', supplier: 'Supplier', period: 'Period' };
+    // ── IndexedDB my-cache ────────────────────────────────────────────────────
+    const MY_CACHE_DB = 'myshipment_cache';
+    const MY_CACHE_STORE = 'cache';
+    const MY_CACHE_TTL = 4 * 60 * 60 * 1000; // 4 hours
+
+    const _idb = (() => {
+        let _db = null;
+        const open = () => new Promise((res, rej) => {
+            if (_db) return res(_db);
+            const req = indexedDB.open(MY_CACHE_DB, 1);
+            req.onupgradeneeded = e => e.target.result.createObjectStore(MY_CACHE_STORE, { keyPath: 'key' });
+            req.onsuccess = e => { _db = e.target.result; res(_db); };
+            req.onerror = e => rej(e.target.error);
+        });
+        return {
+            async get(key) {
+                const db = await open();
+                return new Promise((res, rej) => {
+                    const req = db.transaction(MY_CACHE_STORE).objectStore(MY_CACHE_STORE).get(key);
+                    req.onsuccess = () => res(req.result || null);
+                    req.onerror = e => rej(e.target.error);
+                });
+            },
+            async set(key, value) {
+                const db = await open();
+                return new Promise((res, rej) => {
+                    const req = db.transaction(MY_CACHE_STORE, 'readwrite').objectStore(MY_CACHE_STORE).put({ key, ...value });
+                    req.onsuccess = () => res();
+                    req.onerror = e => rej(e.target.error);
+                });
+            },
+            async del(key) {
+                const db = await open();
+                return new Promise((res, rej) => {
+                    const req = db.transaction(MY_CACHE_STORE, 'readwrite').objectStore(MY_CACHE_STORE).delete(key);
+                    req.onsuccess = () => res();
+                    req.onerror = e => rej(e.target.error);
+                });
+            }
+        };
+    })();
+
+    const myCacheKey = () => `my_cache_${(authUser && authUser.username) || 'default'}`;
+
+    async function myCacheLoad() {
+        try {
+            const rec = await _idb.get(myCacheKey());
+            if (!rec || !rec.ts || (Date.now() - rec.ts) > MY_CACHE_TTL) return null;
+            return rec;
+        } catch { return null; }
+    }
+    async function myCacheSave(payload) {
+        try { await _idb.set(myCacheKey(), { ts: Date.now(), ...payload }); } catch {}
+    }
+    async function myCacheClear() {
+        try { await _idb.del(myCacheKey()); } catch {}
+    }
+
+    function updateCacheInfo(ts) {
+        const el = document.getElementById('shipment-filter-cache-info');
+        if (!el) return;
+        if (!ts) { el.textContent = 'Filters not synced'; return; }
+        const mins = Math.floor((Date.now() - ts) / 60000);
+        el.textContent = mins < 2 ? 'Filters synced just now' : mins < 60 ? `Filters synced ${mins}m ago` : `Filters synced ${Math.floor(mins/60)}h ago`;
+    }
+
+    // Fetch /myshipment/my-cache and populate all cached data
+    async function loadMyCache(force = false) {
+        const syncBtn = document.getElementById('shipment-filter-sync-btn');
+        if (!force) {
+            const cached = await myCacheLoad();
+            if (cached) {
+                if (cached.filter_options) applyFilterOptions(cached.filter_options);
+                updateCacheInfo(cached.ts);
+                return;
+            }
+        }
+        if (syncBtn) syncBtn.classList.add('syncing');
+        try {
+            const payload = await api(`/myshipment/my-cache?${MYSHIPMENT_VIEW_PARAM}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            if (payload?.status === 1 && payload.message) {
+                await myCacheSave(payload.message);
+                if (payload.message.filter_options) applyFilterOptions(payload.message.filter_options);
+                updateCacheInfo(Date.now());
+            }
+        } catch (e) { console.warn('my-cache fetch failed', e); }
+        finally { if (syncBtn) syncBtn.classList.remove('syncing'); }
+    }
+
+    // keep old name as alias for sync button + tab-switch callers
+    const loadFilterOptions = (force = false) => loadMyCache(force);
+    // ─────────────────────────────────────────────────────────────────────────
+
+    let _lastFilterOptions = null;
+
+    // Populate all dropdown option lists from fetched data
+    function applyFilterOptions(data) {
+        _lastFilterOptions = data;
+        ['mode', 'packing', 'origin', 'destination', 'inco'].forEach(key => {
+            populateCheckboxOptions(key, data[key] || []);
+        });
+        populateIdNameOptions('carrier', data.carrier || []);
+        populateSupplierOptions(data.supplier || []);
+    }
+
+    function populateIdNameOptions(key, items) {
+        const container = document.getElementById(`shipment-filter-options-${key}`);
+        if (!container) return;
+        const selected = shipmentFilters[key] || [];
+        container.innerHTML = `<div class="shipment-filter-options-scroll">${
+            items.map(s => `<label class="shipment-filter-dropdown-option"><input type="checkbox" value="${s.id}"${selected.includes(s.id) ? ' checked' : ''}> ${s.name || s.id}</label>`).join('')
+        }</div>`;
+    }
+
+    function populateCheckboxOptions(key, values) {
+        const container = document.getElementById(`shipment-filter-options-${key}`);
+        if (!container) return;
+        const selected = shipmentFilters[key] || [];
+        container.innerHTML = `<div class="shipment-filter-options-scroll">${
+            values.map(v => `<label class="shipment-filter-dropdown-option"><input type="checkbox" value="${v}"${selected.includes(v) ? ' checked' : ''}> ${v}</label>`).join('')
+        }</div>`;
+    }
+
+    function populateSupplierOptions(items) {
+        const container = document.getElementById('shipment-filter-options-supplier');
+        if (!container) return;
+        const selected = shipmentFilters.supplier_id || [];
+        container.innerHTML = `<div class="shipment-filter-options-scroll">${
+            items.map(s => `<label class="shipment-filter-dropdown-option"><input type="checkbox" value="${s.id}"${selected.includes(s.id) ? ' checked' : ''}> ${s.name || s.id}</label>`).join('')
+        }</div>`;
+    }
+
+    function closeAllFilterDropdowns(except) {
+        FILTER_KEYS.forEach(k => {
+            if (k === except) return;
+            document.getElementById(`shipment-filter-dd-${k}`)?.classList.remove('open');
+        });
+    }
+
+    function updateFilterPill(key) {
+        const pill = document.querySelector(`[data-filter="${key}"]`);
+        const label = document.getElementById(`shipment-filter-label-${key}`);
+        if (!pill || !label) return;
+        const stateKey = key === 'supplier' ? 'supplier_id' : key;
+        const vals = shipmentFilters[stateKey];
+        const hasValue = Array.isArray(vals) ? vals.length > 0 : !!vals;
+        pill.classList.toggle('active', hasValue);
+        if (!hasValue) { label.textContent = FILTER_LABELS[key]; return; }
+        if (key === 'period') { label.textContent = `Last ${vals}d`; return; }
+        if (key === 'supplier' || key === 'carrier') {
+            // show name not id — use in-memory copy populated by applyFilterOptions
+            const list = _lastFilterOptions?.[key] || [];
+            const match = list.find(s => s.id === vals[0]);
+            const firstName = (match?.name || vals[0]).slice(0, key === 'carrier' ? 14 : 18);
+            label.textContent = vals.length === 1 ? firstName : `${firstName} +${vals.length-1}`;
+            return;
+        }
+        label.textContent = vals.length === 1 ? vals[0] : `${vals[0]} +${vals.length - 1}`;
+    }
+
+    document.querySelectorAll('.shipment-filter-pill[data-filter]').forEach(pill => {
+        pill.addEventListener('click', e => {
+            e.stopPropagation();
+            const key = pill.dataset.filter;
+            const dd = document.getElementById(`shipment-filter-dd-${key}`);
+            if (!dd) return;
+            const isOpen = dd.classList.contains('open');
+            closeAllFilterDropdowns(null);
+            if (isOpen) return;
+            // Re-sync checkbox states from current filter state
+            if (key !== 'period') {
+                const stateKey = key === 'supplier' ? 'supplier_id' : key;
+                const selected = shipmentFilters[stateKey] || [];
+                dd.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = selected.includes(cb.value); });
+                // Reset search
+                const searchInput = dd.querySelector(`[data-dd-search="${key}"]`);
+                if (searchInput) { searchInput.value = ''; dd.querySelectorAll('.shipment-filter-dropdown-option').forEach(o => o.style.display = ''); }
+            }
+            dd.classList.add('open');
+        });
+    });
+
+    // Delegate all dropdown interactions
+    document.querySelector('.shipment-filter-card')?.addEventListener('click', e => {
+        const applyBtn = e.target.closest('[data-dd-apply]');
+        const cancelBtn = e.target.closest('[data-dd-cancel]');
+        const clearBtn = e.target.closest('[data-dd-clear]');
+        if (applyBtn) {
+            const key = applyBtn.dataset.ddApply;
+            const dd = document.getElementById(`shipment-filter-dd-${key}`);
+            if (key === 'period') {
+                const sel = dd.querySelector('input[name="shipment-period"]:checked');
+                shipmentFilters.period = sel ? sel.value : '';
+            } else if (key === 'supplier') {
+                shipmentFilters.supplier_id = [...dd.querySelectorAll('input[type="checkbox"]:checked')].map(c => c.value);
+            } else {
+                shipmentFilters[key] = [...dd.querySelectorAll('input[type="checkbox"]:checked')].map(c => c.value);
+            }
+            dd.classList.remove('open');
+            updateFilterPill(key);
+            shipmentCurrentPage = 1;
+            loadModule('shipments');
+        }
+        if (clearBtn && !cancelBtn) {
+            const key = clearBtn.dataset.ddClear;
+            const dd = document.getElementById(`shipment-filter-dd-${key}`);
+            if (key === 'period') { dd.querySelectorAll('input[name="shipment-period"]').forEach(r => r.checked = false); shipmentFilters.period = ''; }
+            else if (key === 'supplier') { dd.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false); shipmentFilters.supplier_id = []; }
+            else { dd.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false); shipmentFilters[key] = []; }
+            updateFilterPill(key);
+            shipmentCurrentPage = 1;
+            loadModule('shipments');
+        }
+        if (cancelBtn) {
+            document.getElementById(`shipment-filter-dd-${cancelBtn.dataset.ddCancel}`)?.classList.remove('open');
+        }
+    });
+
+    // Search-within dropdown
+    document.querySelector('.shipment-filter-card')?.addEventListener('input', e => {
+        const searchInput = e.target.closest('[data-dd-search]');
+        if (!searchInput) return;
+        const q = searchInput.value.toLowerCase();
+        const dd = searchInput.closest('.shipment-filter-dropdown');
+        dd?.querySelectorAll('.shipment-filter-dropdown-option').forEach(opt => {
+            opt.style.display = opt.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+    });
+
+    // Close on outside click
+    document.addEventListener('click', e => {
+        if (!e.target.closest('.shipment-filter-pill-wrap')) closeAllFilterDropdowns(null);
+    });
+
+    // Sync button
+    document.getElementById('shipment-filter-sync-btn')?.addEventListener('click', () => loadFilterOptions(true));
+
+    // Async load on shipments tab show (non-blocking)
+    document.querySelectorAll('.nav-item[data-target="shipments"]').forEach(el =>
+        el.addEventListener('click', () => setTimeout(() => loadFilterOptions(false), 400))
+    );
+    // --- End filter dropdowns ---
+
     trackingSearchInput?.addEventListener('input', e => {
         const hasText = e.target.value.length > 0;
         if (trackingSearchClear) trackingSearchClear.style.display = hasText ? 'grid' : 'none';
@@ -8036,6 +8460,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('login-form').reset();
                 document.getElementById('login-type').value = '1';
                 applyAuthState();
+                loadMyCache(false); // warm cache after login (non-blocking)
             } catch (err) {
                 msg.textContent = err.message || 'Login failed';
                 msg.style.color = '#EF4444';
@@ -8074,6 +8499,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await loadInfo();
         await loadProfile().catch(err => console.warn(err));
         applyAuthState();
+        if (authToken && authUser) loadMyCache(false); // warm cache on page load if already logged in
     };
     initialize();
 

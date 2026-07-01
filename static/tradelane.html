@@ -841,9 +841,16 @@ body {
 }
 
 .schema-table th:nth-child(5),
+.schema-table td:nth-child(5) {
+    width: 110px;
+    min-width: 110px;
+    text-align: center;
+}
+
 .schema-table th:nth-child(6),
-.schema-table td:nth-child(5),
-.schema-table td:nth-child(6) {
+.schema-table th:nth-child(7),
+.schema-table td:nth-child(6),
+.schema-table td:nth-child(7) {
     width: 96px;
     min-width: 96px;
     text-align: center;
@@ -1683,6 +1690,7 @@ body.logged-out .content-wrapper {
 }
 #logout-modal .modal-content { width: 420px; }
 #sync-confirm-modal .modal-content { width: min(500px, calc(100vw - 2.5rem)); }
+#sync-confirm-modal .modal-header { border-bottom: none; }
 #login-modal .modal-body { padding: 1.25rem 1.5rem; }
 #login-modal .auth-form { gap: 0.75rem; }
 #login-modal .form-field { gap: 0.35rem; }
@@ -1792,16 +1800,13 @@ body.logged-out .content-wrapper {
 .sync-info {
     display: grid;
     gap: 1rem;
-    margin-top: 1.25rem;
-    padding-top: 1.25rem;
-    border-top: 1px solid var(--border);
 }
 
 .sync-info-title {
     display: flex;
     align-items: center;
     gap: 0.45rem;
-    margin: 0 0 0.5rem;
+    margin: 0 0 0.25rem;
     font-size: 0.78rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -2705,13 +2710,14 @@ body.logged-out .content-wrapper {
                                 <button class="btn btn-secondary schema-index-clear" id="schema-index-clear-btn" type="button" hidden title="Clear filters" aria-label="Clear filters">
                                     <span>Clear</span>
                                 </button>
-                                <input class="object-count-search" id="schema-search" type="search" placeholder="Search tables…" aria-label="Search tables">
+                                <input class="object-count-search" id="schema-search" type="search" placeholder="Search…" aria-label="Search tables">
                                 <select class="schema-index-filter" id="schema-index-filter" aria-label="Index filter">
                                     <option value="">All</option>
                                     <option value="btree-yes">Btree Yes</option>
                                     <option value="btree-no">Btree No</option>
                                     <option value="gin-yes">GIN Yes</option>
                                     <option value="gin-no">GIN No</option>
+                                    <option value="unique-count-yes">Unique Count Yes</option>
                                 </select>
                                 <button class="btn btn-secondary table-download-icon" id="schema-download-btn" type="button" title="Download schema CSV" aria-label="Download schema CSV">
                                     <i class="fa-solid fa-download" aria-hidden="true"></i>
@@ -2726,12 +2732,13 @@ body.logged-out .content-wrapper {
                                         <th>Table</th>
                                         <th>Column</th>
                                         <th>Datatype</th>
+                                        <th>Unique Count</th>
                                         <th>B-tree</th>
                                         <th>GIN</th>
                                     </tr>
                                 </thead>
                                 <tbody id="pgscope-schema-body">
-                                    <tr><td colspan="6"><div class="schema-empty">Schema has not been loaded.</div></td></tr>
+                                    <tr><td colspan="7"><div class="schema-empty">Schema has not been loaded.</div></td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -2759,9 +2766,11 @@ body.logged-out .content-wrapper {
                                 <button class="btn btn-secondary schema-index-clear" id="object-count-clear-btn" type="button" title="Clear filters" aria-label="Clear filters" hidden>
                                     <span>Clear</span>
                                 </button>
-                                <input class="object-count-search" id="object-count-search" type="search" placeholder="Search objects…" aria-label="Search objects">
-                                <select class="schema-index-filter" id="object-count-mv-filter" aria-label="Filter by MV type">
-                                    <option value="">All Types</option>
+                                <input class="object-count-search" id="object-count-search" type="search" placeholder="Search…" aria-label="Search objects">
+                                <select class="schema-index-filter" id="object-count-filter" aria-label="Object filter">
+                                    <option value="">All</option>
+                                    <option value="unique">Unique</option>
+                                    <option value="cached">Cached</option>
                                 </select>
                                 <button class="btn btn-secondary table-download-icon" id="object-count-download-btn" type="button" title="Download object count CSV" aria-label="Download object count CSV">
                                     <i class="fa-solid fa-download" aria-hidden="true"></i>
@@ -3025,34 +3034,23 @@ LIMIT 10;</textarea>
                     <div class="modal-heading-icon"><i class="fa-solid fa-check" aria-hidden="true"></i></div>
                     <div>
                         <h3 id="sync-confirm-modal-title">Sync Again?</h3>
-                        <p class="modal-subtitle">Recently synced</p>
+                        <p class="modal-subtitle" id="sync-confirm-message">Synced recently. Sync again?</p>
                     </div>
                 </div>
                 <button class="close-modal" id="sync-confirm-modal-close" type="button" aria-label="Close sync confirmation" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </div>
             <div class="modal-body">
-                <div class="logout-confirmation">
-                    <p id="sync-confirm-message">Synced recently. Sync again?</p>
-                </div>
                 <div class="sync-info">
                     <div class="sync-info-group">
-                        <h4 class="sync-info-title"><i class="fa-solid fa-rotate" aria-hidden="true"></i> What gets synced</h4>
+                        <h4 class="sync-info-title"><i class="fa-solid fa-rotate" aria-hidden="true"></i> What gets synced <span style="font-weight:400;text-transform:none;letter-spacing:0;">(cached 24h)</span></h4>
                         <ol class="sync-info-list sync-info-steps">
                             <li>Database info — connections, cache hit ratio, size</li>
                             <li>Schema — tables, columns, keys, indexes</li>
                             <li>Object counts — from <code>mv_object_count</code> <span class="sync-dep">needs step 2</span></li>
                             <li>
-                                Unique values — discovered via <code>mv_object_count</code>, then read from each <code>mv_unique_*</code> view <span class="sync-dep">needs steps 2 &amp; 3</span>
-                                <div class="sync-step-note">Logic: keep up to 100 valid <code>mv_unique_*</code> views that map to schema columns and have 10k rows or fewer.</div>
+                                Unique values — up to 150 <code>mv_unique_*</code> views, ≤10k rows each <span class="sync-dep">needs steps 2 &amp; 3</span>
                             </li>
                         </ol>
-                    </div>
-                    <div class="sync-info-group">
-                        <h4 class="sync-info-title"><i class="fa-solid fa-clock" aria-hidden="true"></i> Cache &amp; TTL</h4>
-                        <ul class="sync-info-list">
-                            <li>Cached in your browser for <strong>24h</strong>, then auto-refreshes</li>
-                            <li>Re-confirms if synced under <strong>10 min</strong> ago</li>
-                        </ul>
                     </div>
                 </div>
             </div>
@@ -3115,14 +3113,13 @@ const DATABASE_IDB_STORE = 'database_cache';
 const INFO_CACHE_REFRESH_MS = 10 * 60 * 1000;
 const USER_CACHE_REFRESH_MS = 10 * 60 * 1000;
 const POSTGRES_CACHE_REFRESH_MS = 24 * 60 * 60 * 1000;
-const POSTGRES_SYNC_CONFIRM_THRESHOLD_MS = 10 * 60 * 1000;
 const TOKEN_REFRESH_BUFFER_SEC = 24 * 60 * 60;
 const QUERY_EDITOR_PLACEHOLDER_SQL = 'SELECT *\nFROM your_table\nLIMIT 10;';
 const QUERY_BUILDER_DEFAULT_LIMIT = 10;
 const OBJECT_COUNT_PAGE_SIZE = 1000;
 const UNIQUE_VALUE_PAGE_SIZE = 1000;
 const UNIQUE_VALUE_MAX_ROWS = 10000;
-const UNIQUE_VALUE_MAX_OBJECTS = 100;
+const UNIQUE_VALUE_MAX_OBJECTS = 150;
 const TRADELANE_ALLOWED_ROLES = new Set([1, 2]);
 
 let authToken = readToken();
@@ -3171,11 +3168,14 @@ function formatOptionalDurationSeconds(value) {
 function formatRelativeTime(timestamp) {
     const ageMs = Date.now() - Number(timestamp || 0);
     if (!timestamp || ageMs < 0) return '';
-    const minutes = Math.floor(ageMs / 60000);
-    if (minutes < 1) return 'just now';
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
+    const secs = Math.floor(ageMs / 1000);
+    if (secs < 10) return 'just now';
+    if (secs < 60) return `${secs}s ago`;
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    const remMins = mins % 60;
+    if (hours < 24) return remMins ? `${hours}h ${remMins}m ago` : `${hours}h ago`;
     const days = Math.floor(hours / 24);
     return `${days}d ago`;
 }
@@ -3183,7 +3183,7 @@ function formatRelativeTime(timestamp) {
 function formatCompactRelativeTime(timestamp) {
     const text = formatRelativeTime(timestamp);
     if (!text) return '';
-    if (text === 'just now') return '0m ago';
+    if (text === 'just now') return 'just now';
     return text;
 }
 
@@ -3565,17 +3565,12 @@ async function loadDatabaseCacheFromIndexedDb() {
 
 function readCachedDatabase() {
     const database = databaseCache && Object.keys(databaseCache).length ? databaseCache : null;
-    if (!database) {
-        localStorage.removeItem(STORAGE_KEY_DATABASE_AT);
-        return null;
-    }
-    return database;
+    return database || null;
 }
 
 function writeCachedDatabase(database) {
     clearLegacyDatabaseCache();
     databaseCache = database || {};
-    localStorage.setItem(STORAGE_KEY_DATABASE_AT, String(Date.now()));
     localStorage.removeItem(STORAGE_KEY_DATABASE);
     databaseIdbClear()
         .then(() => Promise.all(Object.entries(databaseCache).flatMap(([key, value]) => {
@@ -3585,17 +3580,14 @@ function writeCachedDatabase(database) {
             return [databaseIdbPutRecord(key, value)];
         })))
         .catch(err => console.warn(err));
-    updatePostgresSyncSummary();
 }
 
 function writeCachedDatabasePart(key, value) {
     clearLegacyDatabaseCache();
     databaseCache = databaseCache || {};
     databaseCache[key] = value;
-    localStorage.setItem(STORAGE_KEY_DATABASE_AT, String(Date.now()));
     localStorage.removeItem(STORAGE_KEY_DATABASE);
     databaseIdbPutRecord(key, value).catch(err => console.warn(err));
-    updatePostgresSyncSummary();
 }
 
 function databaseCacheFresh() {
@@ -3673,10 +3665,8 @@ function writeCachedPostgresUniqueValues(key, values) {
     databaseCache = databaseCache || {};
     databaseCache.unique_values = databaseCache.unique_values || {};
     databaseCache.unique_values[key] = Array.isArray(values) ? values : [];
-    localStorage.setItem(STORAGE_KEY_DATABASE_AT, String(Date.now()));
     localStorage.removeItem(STORAGE_KEY_DATABASE);
     databaseIdbPutRecord(`unique_values:${key}`, databaseCache.unique_values[key]).catch(err => console.warn(err));
-    updatePostgresSyncSummary();
 }
 
 function clearCachedPostgresUniqueValues() {
@@ -4110,15 +4100,17 @@ function schemaIndexFilterLabel(filter) {
         'btree-no': 'Btree No',
         'gin-yes': 'GIN Yes',
         'gin-no': 'GIN No',
+        'unique-count-yes': 'Unique Count Yes',
         btree: 'Btree Yes',
         gin: 'GIN Yes'
     };
     return labels[filter] || '';
 }
 
-function rowMatchesSchemaIndexFilter(row, filter) {
+function rowMatchesSchemaIndexFilter(row, filter, uniqueCountLookup) {
     if (!filter) return true;
     if (filter === 'btree' || filter === 'gin') return rowHasIndex(row, filter);
+    if (filter === 'unique-count-yes') return schemaUniqueCount(row, uniqueCountLookup) !== null;
     const [method, state] = filter.split('-');
     if (!method || !state) return true;
     const hasIndex = rowHasIndex(row, method);
@@ -4800,6 +4792,7 @@ async function generateAiSql() {
 }
 
 function renderSchemaRows(rows) {
+    const uniqueCountLookup = schemaUniqueCountLookup();
     $('pgscope-schema-body').innerHTML = rows.length ? rows.map((row, index) => `
         <tr>
             <td>${formatNumber(index + 1)}</td>
@@ -4810,10 +4803,11 @@ function renderSchemaRows(rows) {
                 <div class="schema-cell-main">${escapeHtml(row.column_name)}</div>
             </td>
             <td>${escapeHtml(rawValue(row.data_type))}</td>
+            <td>${escapeHtml(formatOptionalNumber(schemaUniqueCount(row, uniqueCountLookup)))}</td>
             <td>${schemaIndexFlag(row.btree_indexes)}</td>
             <td>${schemaIndexFlag(row.gin_indexes)}</td>
         </tr>
-    `).join('') : '<tr><td colspan="6"><div class="schema-empty">No table columns found.</div></td></tr>';
+    `).join('') : '<tr><td colspan="7"><div class="schema-empty">No table columns found.</div></td></tr>';
 }
 
 function renderSchemaTable() {
@@ -4832,12 +4826,14 @@ function renderSchemaTable() {
 function currentSchemaRows() {
     const filter = $('schema-index-filter')?.value || '';
     const search = ($('schema-search')?.value || '').toLowerCase().trim();
+    const uniqueCountLookup = schemaUniqueCountLookup();
     return pgscopeSchemaRows.filter(row => {
-        if (filter && !rowMatchesSchemaIndexFilter(row, filter)) return false;
+        if (filter && !rowMatchesSchemaIndexFilter(row, filter, uniqueCountLookup)) return false;
         if (search) {
             const table = String(row.table_name || '').toLowerCase();
             const col = String(row.column_name || '').toLowerCase();
-            if (!table.includes(search) && !col.includes(search)) return false;
+            const dtype = String(row.data_type || '').toLowerCase();
+            if (!table.includes(search) && !col.includes(search) && !dtype.includes(search)) return false;
         }
         return true;
     });
@@ -4858,7 +4854,7 @@ async function fetchPostgresSchema() {
 function renderSchemaError(message) {
     renderSchemaKpis([]);
     $('schema-result-count').textContent = 'Schema unavailable';
-    $('pgscope-schema-body').innerHTML = `<tr><td colspan="6"><div class="schema-empty">${escapeHtml(message || 'Schema could not be loaded.')}</div></td></tr>`;
+    $('pgscope-schema-body').innerHTML = `<tr><td colspan="7"><div class="schema-empty">${escapeHtml(message || 'Schema could not be loaded.')}</div></td></tr>`;
 }
 
 async function loadSchema({ force = false } = {}) {
@@ -4872,7 +4868,7 @@ async function loadSchema({ force = false } = {}) {
         }
     }
     $('schema-result-count').textContent = 'Loading schema...';
-    $('pgscope-schema-body').innerHTML = '<tr><td colspan="6"><div class="schema-empty">Loading schema...</div></td></tr>';
+    $('pgscope-schema-body').innerHTML = '<tr><td colspan="7"><div class="schema-empty">Loading schema...</div></td></tr>';
     try {
         const schema = await fetchPostgresSchema();
         writeCachedPostgresSchema(schema);
@@ -4967,6 +4963,8 @@ async function warmPostgresCache({ force = false } = {}) {
         } else {
             setPostgresSyncStatus({ visible: true, progress: 100, text: 'Database cache synced.' });
         }
+        localStorage.setItem(STORAGE_KEY_DATABASE_AT, String(Date.now()));
+        updatePostgresSyncSummary();
         if ($('dashboard')?.classList.contains('active')) loadDashboard();
         setTimeout(() => setPostgresSyncStatus({ visible: false }), 1800);
     })().finally(() => {
@@ -4992,31 +4990,24 @@ async function syncPostgresCache({ force = true } = {}) {
     }
 }
 
-function shouldConfirmPostgresSync() {
-    const timestamp = latestPostgresCacheTimestamp();
-    if (!timestamp) return false;
-    const ageMs = Date.now() - Number(timestamp);
-    return ageMs >= 0 && ageMs < POSTGRES_SYNC_CONFIRM_THRESHOLD_MS;
-}
-
 function openPostgresSyncConfirmModal() {
-    const relative = formatCompactRelativeTime(latestPostgresCacheTimestamp());
-    $('sync-confirm-message').textContent = relative ? `Synced ${relative}. Sync again?` : 'Synced recently. Sync again?';
+    const timestamp = latestPostgresCacheTimestamp();
+    const relative = timestamp ? formatCompactRelativeTime(timestamp) : null;
+    const title = $('sync-confirm-modal-title');
+    const subtitle = $('sync-confirm-message');
+    if (title) title.textContent = timestamp ? 'Sync Again?' : 'Sync Database';
+    if (subtitle) subtitle.textContent = relative ? `Last synced ${relative}. Sync again?` : 'Database has not been synced yet.';
     openModal('sync-confirm-modal');
-}
-
-function handlePostgresSyncClick() {
-    if (!authToken || !authUser || !tradeLaneRoleAllowed()) return;
-    if (shouldConfirmPostgresSync()) {
-        openPostgresSyncConfirmModal();
-        return;
-    }
-    syncPostgresCache({ force: true });
 }
 
 function confirmPostgresSync() {
     closeModal('sync-confirm-modal');
     syncPostgresCache({ force: true });
+}
+
+function handlePostgresSyncClick() {
+    if (!authToken || !authUser || !tradeLaneRoleAllowed()) return;
+    openPostgresSyncConfirmModal();
 }
 
 function validateQuerySql(sql) {
@@ -5170,6 +5161,32 @@ function objectCountRowCount(row = {}) {
     return Number.isFinite(count) ? count : null;
 }
 
+function schemaUniqueObjectName(row = {}) {
+    const tableName = String(row.table_name || '').trim();
+    const columnName = String(row.column_name || '').trim();
+    return tableName && columnName ? `mv_unique_${tableName}_${columnName}` : '';
+}
+
+function schemaUniqueCountLookup() {
+    const lookup = new Map();
+    const rows = readCachedPostgresObjectCount()?.rows || [];
+    rows.forEach(item => {
+        const objectName = String(item.object_name || '');
+        const count = objectCountRowCount(item);
+        if (!objectName || count === null) return;
+        if (!lookup.has(objectName)) lookup.set(objectName, count);
+        const normalizedName = objectName.toLowerCase();
+        if (!lookup.has(normalizedName)) lookup.set(normalizedName, count);
+    });
+    return lookup;
+}
+
+function schemaUniqueCount(row = {}, lookup = schemaUniqueCountLookup()) {
+    const objectName = schemaUniqueObjectName(row);
+    if (!objectName) return null;
+    return lookup.get(objectName) ?? lookup.get(objectName.toLowerCase()) ?? null;
+}
+
 function objectCountQualifiedObjectSql(schemaName, objectName) {
     const object = String(objectName || '');
     if (!object) throw new Error('Object name is required.');
@@ -5206,47 +5223,26 @@ function objectCountActionButtons(row = {}) {
     return `<div class="object-count-actions">${objectCountViewButton(row)}${objectCountDownloadButton(row)}</div>`;
 }
 
-let objectCountMvFilter = '';
 let objectCountSortDir = null; // null | 'asc' | 'desc'
 
 function renderObjectCountRows(rows = []) {
     const searchVal = ($('object-count-search')?.value || '').toLowerCase().trim();
-    const mvFilterSelect = $('object-count-mv-filter');
+    const filterVal = $('object-count-filter')?.value || '';
     const clearBtn = $('object-count-clear-btn');
     const sortTh = $('object-count-sort-th');
     const navDot = $('object-count-nav-dot');
 
-    const anyFilter = objectCountMvFilter || searchVal || objectCountSortDir;
+    const anyFilter = filterVal || searchVal || objectCountSortDir;
 
-    // Populate dropdown options once if it's currently empty
-    if (mvFilterSelect && mvFilterSelect.options.length <= 1 && rows.length > 0) {
-        const types = new Set();
-        rows.forEach(r => {
-            const name = String(r.object_name || '');
-            if (name.startsWith('mv_')) {
-                const parts = name.split('_');
-                if (parts.length > 1 && parts[1]) {
-                    types.add(parts[1]);
-                }
-            }
-        });
-        const sortedTypes = Array.from(types).sort();
-        mvFilterSelect.innerHTML = [
-            '<option value="">All Types</option>',
-            ...sortedTypes.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t.charAt(0).toUpperCase() + t.slice(1))}</option>`)
-        ].join('');
-        mvFilterSelect.value = objectCountMvFilter;
-    }
-
-    // Apply search + unique filter
+    // Apply filters
     let filtered = rows.filter(r => {
         const name = String(rawValue(r.object_name)).toLowerCase();
-        if (objectCountMvFilter) {
-            if (!name.startsWith('mv_')) return false;
-            const parts = name.split('_');
-            if (parts.length <= 1 || parts[1] !== objectCountMvFilter) return false;
+        if (filterVal === 'unique' && !name.includes('unique')) return false;
+        if (filterVal === 'cached') {
+            const item = resolveUniqueValueObject(r);
+            if (!item || !Array.isArray(readCachedPostgresUniqueValues(item.cache_key))) return false;
         }
-        if (searchVal && !name.includes(searchVal)) return false;
+        if (searchVal && !name.includes(searchVal) && !String(rawValue(r.row_count) ?? '').includes(searchVal)) return false;
         return true;
     });
 
@@ -5272,7 +5268,7 @@ function renderObjectCountRows(rows = []) {
     if (navDot) navDot.classList.toggle('visible', Boolean(anyFilter));
 
     // Result count label
-    const labels = [searchVal ? `"${searchVal}"` : '', objectCountMvFilter ? `type: ${objectCountMvFilter}` : ''].filter(Boolean).join(', ');
+    const labels = [searchVal ? `"${searchVal}"` : '', filterVal || ''].filter(Boolean).join(', ');
     $('object-count-result-count').textContent = filtered.length
         ? `Showing ${formatNumber(filtered.length)} of ${formatNumber(rows.length)} object${rows.length === 1 ? '' : 's'}${labels ? ` — ${labels}` : ''}`
         : 'No objects match';
@@ -5478,8 +5474,8 @@ async function syncUniqueValueDropdowns(rows = [], { onProgress } = {}) {
 
 async function loadObjectCount({ force = false } = {}) {
     if (!authToken || !authUser) return;
-    const select = $('object-count-mv-filter');
-    if (select) select.innerHTML = '<option value="">All Types</option>';
+    const filterSel = $('object-count-filter');
+    if (filterSel) filterSel.value = '';
     if (!objectCountRelationExists()) {
         clearCachedPostgresObjectCount();
         renderObjectCountError('mv_object_count was not found in schema cache. Create it, then refresh schema.');
@@ -5831,6 +5827,7 @@ function downloadQueryCsv() {
 function downloadSchemaCsv() {
     const rows = currentSchemaRows();
     if (!rows.length) return;
+    const uniqueCountLookup = schemaUniqueCountLookup();
     downloadCsvFile({
         filename: 'postgres_table_schema.csv',
         columns: [
@@ -5838,6 +5835,7 @@ function downloadSchemaCsv() {
             { label: 'table', value: 'table_name' },
             { label: 'column', value: 'column_name' },
             { label: 'datatype', value: 'data_type' },
+            { label: 'unique', value: row => formatOptionalNumber(schemaUniqueCount(row, uniqueCountLookup)) },
             { label: 'btree', value: row => rowHasIndex(row, 'btree') ? 'Yes' : 'No' },
             { label: 'gin', value: row => rowHasIndex(row, 'gin') ? 'Yes' : 'No' }
         ],
@@ -6136,18 +6134,12 @@ function bindPageEvents() {
     $('object-count-cancel-btn').addEventListener('click', cancelObjectCountExport);
     $('object-count-body').addEventListener('click', viewObjectCountObject);
     $('object-count-body').addEventListener('click', downloadObjectCountObject);
-    const mvFilterSelect = $('object-count-mv-filter');
-    if (mvFilterSelect) {
-        mvFilterSelect.addEventListener('change', event => {
-            objectCountMvFilter = event.target.value;
-            const cached = readCachedPostgresObjectCount();
-            renderObjectCountRows(cached?.rows || []);
-        });
-    }
+    $('object-count-filter').addEventListener('change', () => {
+        const cached = readCachedPostgresObjectCount();
+        renderObjectCountRows(cached?.rows || []);
+    });
     $('object-count-clear-btn').addEventListener('click', () => {
-        objectCountMvFilter = '';
-        const select = $('object-count-mv-filter');
-        if (select) select.value = '';
+        $('object-count-filter').value = '';
         objectCountSortDir = null;
         const search = $('object-count-search');
         if (search) search.value = '';

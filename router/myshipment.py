@@ -598,7 +598,9 @@ async def func_api_myshipment_my_shipments(*, request: Request):
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_search", "str", 0, None, ""), ("shipment_id", "str", 0, None, ""), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
+    import re as _re
+    def _safe_list(raw): return [v.strip() for v in str(raw or "").split(",") if v.strip() and _re.match(r'^[A-Za-z0-9\-_/ ]+$', v.strip())]
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_search", "str", 0, None, ""), ("shipment_id", "str", 0, None, ""), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer"), ("mode", "str", 0, None, ""), ("packing", "str", 0, None, ""), ("origin", "str", 0, None, ""), ("destination", "str", 0, None, ""), ("inco", "str", 0, None, ""), ("carrier", "str", 0, None, ""), ("supplier_id", "str", 0, None, ""), ("period_days", "int", 0, None, 0)])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
     limit = max(1, limit)
@@ -606,6 +608,36 @@ async def func_api_myshipment_my_shipments(*, request: Request):
     shipment_search = str(oq.get("shipment_search") or "").strip()
     shipment_id = str(oq.get("shipment_id") or "").strip()
     view_as = str(oq.get("view_as") or "controlling_customer").strip()
+    period_days = max(0, int(oq.get("period_days") or 0))
+    mode_list = _safe_list(oq.get("mode"))
+    packing_list = _safe_list(oq.get("packing"))
+    origin_list = _safe_list(oq.get("origin"))
+    dest_list = _safe_list(oq.get("destination"))
+    inco_list = _safe_list(oq.get("inco"))
+    # carrier and supplier_id are UUIDs
+    _uuid_re = r'^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$'
+    carrier_list = [v.strip() for v in str(oq.get("carrier") or "").split(",") if _re.match(_uuid_re, v.strip())]
+    supplier_id_list = [v.strip() for v in str(oq.get("supplier_id") or "").split(",") if _re.match(_uuid_re, v.strip())]
+    # Build parameterised WHERE clauses
+    where_parts, filter_params = [], []
+    def _add_in(col, lst):
+        if lst:
+            where_parts.append(f"{col} IN ({','.join(['?' for _ in lst])})")
+            filter_params.extend(lst)
+    _add_in("JS.JS_TransportMode", mode_list)
+    _add_in("JS.JS_PackingMode", packing_list)
+    _add_in("JS.JS_RL_NKOrigin", origin_list)
+    _add_in("JS.JS_RL_NKDestination", dest_list)
+    _add_in("JS.JS_INCO", inco_list)
+    if carrier_list:
+        where_parts.append(f"EXISTS (SELECT 1 FROM dbo.OrgAddress OA2 JOIN dbo.OrgHeader OH2 ON OH2.OH_PK=OA2.OA_OH WHERE OA2.OA_PK=JS.JS_OA_BookedShippingLineAddress AND OH2.OH_PK IN ({','.join(['?' for _ in carrier_list])}))")
+        filter_params.extend(carrier_list)
+    if supplier_id_list:
+        where_parts.append(f"EXISTS (SELECT 1 FROM dbo.cvw_JobShipmentOrgs JSO2 WHERE JSO2.JS_PK=JS.JS_PK AND JSO2.ControllingCustomer_PK IN ({','.join(['?' for _ in supplier_id_list])}))")
+        filter_params.extend(supplier_id_list)
+    if period_days > 0:
+        where_parts.append(f"JS.JS_E_DEP >= DATEADD(day, -{period_days}, SYSUTCDATETIME())")
+    extra_where = ("        WHERE " + "\n          AND ".join(where_parts)) if where_parts else ""
     offset = (page - 1) * limit
     sql_limit = limit + 1
     sql = f"""
@@ -677,14 +709,59 @@ async def func_api_myshipment_my_shipments(*, request: Request):
                     ELSE 'Arrival Pending'
                 END AS arrival_status
         ) AS Summary
+        {extra_where}
         ORDER BY COALESCE(JS.JS_SystemLastEditTimeUtc, JS.JS_SystemCreateTimeUtc) DESC, JS.JS_PK DESC
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
-        await cursor.execute(sql, org_pk, shipment_search, shipment_id, view_as)
+        await cursor.execute(sql, org_pk, shipment_search, shipment_id, view_as, *filter_params)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
+
+@router.get("/myshipment/my-cache")
+async def func_api_myshipment_my_cache(*, request: Request):
+    app_state = request.app.state
+    org_pk = str(request.state.user.get("username") or "").strip()
+    if not org_pk: raise Exception("Organization id missing")
+    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
+    view_as = str(oq.get("view_as") or "controlling_customer").strip()
+    sql = f"""
+        SET NOCOUNT ON;
+        DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        DECLARE @view_as nvarchar(40) = ?;
+        WITH {helper_sql_visible_shipments_owned(name='visible_shipments')}
+        SELECT
+            (SELECT TOP (10000) v FROM (SELECT DISTINCT JS.JS_TransportMode AS v FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK WHERE JS.JS_TransportMode IS NOT NULL AND JS.JS_TransportMode<>'') x FOR JSON PATH) AS mode_json,
+            (SELECT TOP (10000) v FROM (SELECT DISTINCT JS.JS_PackingMode   AS v FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK WHERE JS.JS_PackingMode IS NOT NULL AND JS.JS_PackingMode<>'')   x FOR JSON PATH) AS packing_json,
+            (SELECT TOP (10000) v FROM (SELECT DISTINCT JS.JS_RL_NKOrigin   AS v FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK WHERE JS.JS_RL_NKOrigin IS NOT NULL AND JS.JS_RL_NKOrigin<>'')   x FOR JSON PATH) AS origin_json,
+            (SELECT TOP (10000) v FROM (SELECT DISTINCT JS.JS_RL_NKDestination AS v FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK WHERE JS.JS_RL_NKDestination IS NOT NULL AND JS.JS_RL_NKDestination<>'') x FOR JSON PATH) AS destination_json,
+            (SELECT TOP (10000) v FROM (SELECT DISTINCT JS.JS_INCO AS v FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK WHERE JS.JS_INCO IS NOT NULL AND JS.JS_INCO<>'') x FOR JSON PATH) AS inco_json,
+            (SELECT TOP (10000) id, name FROM (SELECT DISTINCT CONVERT(varchar(36),OH.OH_PK) AS id, OH.OH_FullName AS name FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK JOIN dbo.OrgAddress OA ON OA.OA_PK=JS.JS_OA_BookedShippingLineAddress JOIN dbo.OrgHeader OH ON OH.OH_PK=OA.OA_OH WHERE OH.OH_FullName IS NOT NULL) x ORDER BY name FOR JSON PATH) AS carrier_json,
+            (SELECT TOP (10000) id, name FROM (SELECT DISTINCT CONVERT(varchar(36),OH.OH_PK) AS id, OH.OH_FullName AS name FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK JOIN dbo.cvw_JobShipmentOrgs JSO ON JSO.JS_PK=JS.JS_PK JOIN dbo.OrgHeader OH ON OH.OH_PK=JSO.ControllingCustomer_PK WHERE OH.OH_FullName IS NOT NULL) x ORDER BY name FOR JSON PATH) AS supplier_json;"""
+    import json as _json
+    async with app_state.client_mssql_read_fallback.acquire() as conn:
+        cursor = await conn.cursor()
+        await cursor.execute(sql, org_pk, view_as)
+        row = await cursor.fetchone()
+    def _parse(raw):
+        if not raw: return []
+        data = _json.loads(raw)
+        if data and len(data[0]) == 1:
+            key = list(data[0].keys())[0]
+            return sorted([r[key] for r in data if r.get(key)])
+        return data
+    filter_options = {
+        "mode":        _parse(row[0]),
+        "packing":     _parse(row[1]),
+        "origin":      _parse(row[2]),
+        "destination": _parse(row[3]),
+        "inco":        _parse(row[4]),
+        "carrier":     _parse(row[5]),
+        "supplier":    _parse(row[6]) if row[6] else [],
+    }
+    return {"status": 1, "message": {"version": "1", "filter_options": filter_options}}
 
 @router.get("/myshipment/my-containers")
 async def func_api_myshipment_my_containers(*, request: Request):

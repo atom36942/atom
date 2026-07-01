@@ -195,6 +195,7 @@ config_api = {
 "/myshipment/my-profile": {"id": 24, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["redis", 600, 1]},
 "/myshipment/my-purchase-orders": {"id": 25, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["redis", 300, 1]},
 "/myshipment/my-purchase-orders-line-items": {"id": 33, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["redis", 300, 1]},
+"/myshipment/my-cache": {"id": 91, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["redis", 14400, 1]},
 "/myshipment/my-shipments": {"id": 26, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["redis", 300, 1]},
 "/myshipment/my-containers": {"id": 27, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["redis", 300, 1]},
 "/myshipment/my-tracking": {"id": 28, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["redis", 300, 1]},
