@@ -43,46 +43,16 @@ async def execute():
     def chunked(items, size):
         for i in range(0, len(items), size):
             yield items[i:i + size]
+    def clean_optional_text(value):
+        value = str(value or "").strip()
+        return value or None
     def cargowise_org_sql():
         return textwrap.dedent(f"""\
             SELECT
                 CONVERT(varchar(36), OH.OH_PK) AS username,
                 OH.OH_FullName AS name,
-                OH.OH_IsValid AS cw_is_valid,
-                OH.OH_IsActive AS cw_is_active,
-                OH.OH_IsConsignee AS cw_is_consignee,
-                OH.OH_IsConsignor AS cw_is_consignor,
-                OH.OH_IsGlobalAccount AS cw_is_global_account,
-                OH.OH_IsControllingAgent AS cw_is_controlling_agent,
-                OH.OH_IsControllingCustomer AS cw_is_controlling_customer,
-                COALESCE(CCCount.cnt, 0) AS cw_controlling_customer_shipment_count,
-                OH.OH_Category AS cw_category,
-                OH.OH_RL_NKClosestPort AS cw_closest_port,
-                OH.OH_Code AS cw_code,
-                OH.OH_ScreeningStatus AS cw_screening_status,
-                COALESCE(RN.RN_Desc, OrgCountry.country_code) AS country
+                OH.OH_Code AS code
             FROM dbo.OrgHeader AS OH
-            OUTER APPLY (
-                SELECT TOP 1
-                    OA.OA_RN_NKCountryCode AS country_code
-                FROM dbo.OrgAddress AS OA
-                WHERE OA.OA_OH = OH.OH_PK
-                  AND OA.OA_RN_NKCountryCode IS NOT NULL
-                  AND OA.OA_RN_NKCountryCode <> ''
-                ORDER BY
-                    CASE WHEN OA.OA_IsActive = 1 THEN 0 ELSE 1 END,
-                    CASE WHEN OA.OA_IsValid = 1 THEN 0 ELSE 1 END,
-                    OA.OA_RN_NKCountryCode
-            ) AS OrgCountry
-            LEFT JOIN dbo.RefCountry AS RN ON RN.RN_Code = OrgCountry.country_code
-            LEFT JOIN (
-                SELECT
-                    v.ControllingCustomer_PK AS oh_pk,
-                    COUNT(*) AS cnt
-                FROM dbo.cvw_JobShipmentOrgs AS v
-                WHERE v.ControllingCustomer_PK IS NOT NULL
-                GROUP BY v.ControllingCustomer_PK
-            ) AS CCCount ON CCCount.oh_pk = OH.OH_PK
             ORDER BY OH.OH_FullName;""")
     async def fetch_cargowise_orgs(mssql_url):
         pool = await aioodbc.create_pool(dsn=mssql_url, minsize=1, maxsize=3)
@@ -104,19 +74,7 @@ async def execute():
             orgs.append({
                 "username": username,
                 "name": str(item.get("name") or "").strip(),
-                "cw_is_valid": bool(item.get("cw_is_valid")),
-                "cw_is_active": bool(item.get("cw_is_active")),
-                "cw_is_consignee": bool(item.get("cw_is_consignee")),
-                "cw_is_consignor": bool(item.get("cw_is_consignor")),
-                "cw_is_global_account": bool(item.get("cw_is_global_account")),
-                "cw_is_controlling_agent": bool(item.get("cw_is_controlling_agent")),
-                "cw_is_controlling_customer": bool(item.get("cw_is_controlling_customer")),
-                "cw_controlling_customer_shipment_count": int(item.get("cw_controlling_customer_shipment_count") or 0),
-                "cw_category": str(item.get("cw_category") or "").strip(),
-                "cw_closest_port": str(item.get("cw_closest_port") or "").strip(),
-                "cw_code": str(item.get("cw_code") or "").strip(),
-                "cw_screening_status": str(item.get("cw_screening_status") or "").strip(),
-                "country": str(item.get("country") or "").strip()
+                "code": clean_optional_text(item.get("code"))
             })
         return orgs
     async def read_existing_users(client_postgres, orgs):
@@ -125,12 +83,7 @@ async def execute():
         usernames = [org["username"] for org in orgs]
         sql = textwrap.dedent("""\
             SELECT
-                id, type, username, name, role, deactivated_at, deleted_at,
-                cw_is_consignee, cw_is_consignor, cw_is_global_account, 
-                cw_is_controlling_agent, cw_is_controlling_customer,
-                cw_controlling_customer_shipment_count,
-                cw_category, cw_closest_port, cw_is_valid, cw_is_active,
-                cw_code, cw_screening_status, country
+                id, type, username, code, name, role, deactivated_at, deleted_at
             FROM users
             WHERE username = ANY($1::text[])
             ORDER BY username, deleted_at NULLS FIRST, deactivated_at NULLS FIRST, type;""")
@@ -156,19 +109,7 @@ async def execute():
                 "type": user_type,
                 "role": role,
                 "name": org["name"],
-                "cw_is_valid": org["cw_is_valid"],
-                "cw_is_active": org["cw_is_active"],
-                "cw_is_consignee": org["cw_is_consignee"],
-                "cw_is_consignor": org["cw_is_consignor"],
-                "cw_is_global_account": org["cw_is_global_account"],
-                "cw_is_controlling_agent": org["cw_is_controlling_agent"],
-                "cw_is_controlling_customer": org["cw_is_controlling_customer"],
-                "cw_controlling_customer_shipment_count": org["cw_controlling_customer_shipment_count"],
-                "cw_category": org["cw_category"],
-                "cw_closest_port": org["cw_closest_port"],
-                "cw_code": org["cw_code"],
-                "cw_screening_status": org["cw_screening_status"],
-                "country": org["country"]
+                "code": org["code"]
             }
             
             if not existing:

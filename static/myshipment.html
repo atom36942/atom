@@ -5197,6 +5197,16 @@ body.not-allowed .content-wrapper {
                             <div class="shipment-filter-bar">
                                 <div class="shipment-filter-title"><i class="fa-solid fa-sliders" aria-hidden="true"></i><span>Filters</span></div>
                                 <div class="shipment-filter-bar-scroll">
+                                <!-- Country -->
+                                <div class="shipment-filter-pill-wrap">
+                                    <button class="shipment-filter-pill" type="button" data-filter="country"><i class="fa-solid fa-globe" aria-hidden="true"></i><span id="shipment-filter-label-country">Country</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                    <div class="shipment-filter-dropdown" id="shipment-filter-dd-country">
+                                        <div class="shipment-filter-dropdown-header"><span>Country</span><button type="button" data-dd-clear="country">Clear</button></div>
+                                        <input class="shipment-filter-dd-search" type="text" placeholder="Search country…" data-dd-search="country">
+                                        <div id="shipment-filter-options-country"></div>
+                                        <div class="shipment-filter-dropdown-footer"><button class="shipment-filter-dd-clear" type="button" data-dd-cancel="country">Cancel</button><button class="shipment-filter-dd-apply" type="button" data-dd-apply="country">Apply</button></div>
+                                    </div>
+                                </div>
                                 <!-- Mode -->
                                 <div class="shipment-filter-pill-wrap">
                                     <button class="shipment-filter-pill" type="button" data-filter="mode"><i class="fa-solid fa-plane-departure" aria-hidden="true"></i><span id="shipment-filter-label-mode">Mode</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
@@ -5233,16 +5243,6 @@ body.not-allowed .content-wrapper {
                                         <input class="shipment-filter-dd-search" type="text" placeholder="Search destination…" data-dd-search="destination">
                                         <div id="shipment-filter-options-destination"></div>
                                         <div class="shipment-filter-dropdown-footer"><button class="shipment-filter-dd-clear" type="button" data-dd-cancel="destination">Cancel</button><button class="shipment-filter-dd-apply" type="button" data-dd-apply="destination">Apply</button></div>
-                                    </div>
-                                </div>
-                                <!-- Country -->
-                                <div class="shipment-filter-pill-wrap">
-                                    <button class="shipment-filter-pill" type="button" data-filter="country"><i class="fa-solid fa-globe" aria-hidden="true"></i><span id="shipment-filter-label-country">Country</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
-                                    <div class="shipment-filter-dropdown" id="shipment-filter-dd-country">
-                                        <div class="shipment-filter-dropdown-header"><span>Country</span><button type="button" data-dd-clear="country">Clear</button></div>
-                                        <input class="shipment-filter-dd-search" type="text" placeholder="Search country…" data-dd-search="country">
-                                        <div id="shipment-filter-options-country"></div>
-                                        <div class="shipment-filter-dropdown-footer"><button class="shipment-filter-dd-clear" type="button" data-dd-cancel="country">Cancel</button><button class="shipment-filter-dd-apply" type="button" data-dd-apply="country">Apply</button></div>
                                     </div>
                                 </div>
                                 <!-- Inco -->
@@ -8079,7 +8079,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('shipment-refresh-btn')?.addEventListener('click', () => refreshModule('shipments', 'shipment-refresh-btn'));
 
     // --- Shipment filter dropdowns + cache ---
-    const FILTER_KEYS = ['mode', 'packing', 'origin', 'destination', 'country', 'inco', 'carrier', 'supplier', 'period'];
+    const FILTER_KEYS = ['country', 'mode', 'packing', 'origin', 'destination', 'inco', 'carrier', 'supplier', 'period'];
     const FILTER_LABELS = { mode: 'Mode', packing: 'Packing', origin: 'Origin', destination: 'Destination', country: 'Country', inco: 'Inco Term', carrier: 'Carrier', supplier: 'Supplier', period: 'Period' };
     // ── IndexedDB my-cache ────────────────────────────────────────────────────
     const MY_CACHE_DB = 'myshipment';
