@@ -382,7 +382,9 @@ async def func_api_myshipment_my_purchase_orders(*, request: Request):
                     )
               )
               AND (
-                    JD.JD_JS IN (SELECT JS_PK FROM visible_shipments)
+                    -- Controlling-customer view: the buyer on the PO is the logged-in org
+                    BuyerOA.OA_OH = @org
+                 OR JD.JD_JS IN (SELECT JS_PK FROM visible_shipments)
                  OR EXISTS (
                         SELECT 1
                         FROM dbo.JobOrderLine AS JOVisible
@@ -528,7 +530,9 @@ async def func_api_myshipment_my_purchase_order_lines(*, request: Request):
             WHERE JD.JD_PK = @po_id
               AND JD.JD_IsValid = 1
               AND (
-                    JD.JD_JS IN (SELECT JS_PK FROM visible_shipments)
+                    -- Controlling-customer view: the buyer on the PO is the logged-in org
+                    BuyerOA.OA_OH = @org
+                 OR JD.JD_JS IN (SELECT JS_PK FROM visible_shipments)
                  OR EXISTS (
                         SELECT 1
                         FROM dbo.JobOrderLine AS JOVisible
@@ -1041,7 +1045,9 @@ async def func_api_myshipment_my_documents(*, request: Request):
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JD.JD_IsValid = 1
               AND (
-                    JD.JD_JS IN (SELECT JS_PK FROM visible_shipments_for_orders)
+                    -- Controlling-customer view: the buyer on the PO is the logged-in org
+                    BuyerOA.OA_OH = @org
+                 OR JD.JD_JS IN (SELECT JS_PK FROM visible_shipments_for_orders)
                  OR EXISTS (
                         SELECT 1
                         FROM dbo.JobOrderLine AS JOVisible
@@ -1224,7 +1230,9 @@ async def func_api_myshipment_my_analytics(*, request: Request):
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JD.JD_IsValid = 1
               AND (
-                    JD.JD_JS IN (SELECT JS_PK FROM visible_shipments_for_orders)
+                    -- Controlling-customer view: the buyer on the PO is the logged-in org
+                    BuyerOA.OA_OH = @org
+                 OR JD.JD_JS IN (SELECT JS_PK FROM visible_shipments_for_orders)
                  OR EXISTS (
                         SELECT 1
                         FROM dbo.JobOrderLine AS JOVisible
@@ -1319,7 +1327,9 @@ async def func_api_myshipment_my_analytics(*, request: Request):
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JD.JD_IsValid = 1
               AND (
-                    JD.JD_JS IN (SELECT JS_PK FROM visible_shipments_for_orders)
+                    -- Controlling-customer view: the buyer on the PO is the logged-in org
+                    BuyerOA.OA_OH = @org
+                 OR JD.JD_JS IN (SELECT JS_PK FROM visible_shipments_for_orders)
                  OR EXISTS (
                         SELECT 1
                         FROM dbo.JobOrderLine AS JOVisible

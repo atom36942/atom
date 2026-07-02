@@ -29,8 +29,12 @@
     --page-card-gap: 1rem;
 }
 
-body {
+html, body {
     margin: 0;
+    max-width: 100vw;
+    overflow-x: hidden;
+}
+body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-main);
     color: var(--text-dark);
@@ -200,6 +204,7 @@ body {
 .content-wrapper {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: var(--page-card-gap) 2rem 2rem;
 }
 
@@ -508,6 +513,7 @@ body {
 
 .po-page-stack {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--page-card-gap);
 }
 
@@ -1188,23 +1194,23 @@ body {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     padding: 0.75rem 1rem;
     overflow: visible;
-    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
 }
+/* pills wrap to a new line when they don't fit — never horizontally scroll,
+   otherwise overflow-x would force overflow-y:auto and clip the dropdowns */
 .shipment-filter-bar-scroll {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 0.5rem;
-    flex: 1 1 0;
+    flex: 1 1 auto;
     min-width: 0;
-    overflow-x: auto;
-    overflow-y: visible;
-    padding-bottom: 2px; /* prevent clipping scrollbar on some OS */
-    scrollbar-width: none;
+    overflow: visible;
 }
-.shipment-filter-bar-scroll::-webkit-scrollbar { display: none; }
 
 .shipment-filter-title {
     display: inline-flex;
@@ -2562,6 +2568,17 @@ body {
     min-width: min(420px, calc(100vw - 2.5rem));
 }
 
+.profile-modal-content { width: min(940px, calc(100vw - 2.5rem)); }
+/* Fixed body height so switching tabs (Overview/Addresses/Contacts) doesn't resize the modal */
+.profile-modal-content .modal-body { height: min(60vh, 460px); overflow-y: auto; overflow-x: hidden; }
+.profile-modal-content .profile-tab-panel { min-height: 0; }
+/* Keep all profile content within the modal width; tables scroll inside their own .table-responsive */
+.profile-modal-content .profile-layout,
+.profile-modal-content .profile-tab-list,
+.profile-modal-content .profile-tab-panel,
+.profile-modal-content .panel,
+.profile-modal-content .table-responsive { max-width: 100%; min-width: 0; box-sizing: border-box; }
+
 #logout-modal .modal-content {
     width: 420px;
 }
@@ -3083,6 +3100,19 @@ body {
 .profile-table td {
     vertical-align: top;
 }
+.profile-detail-table td { padding: 0.7rem 1rem; }
+.profile-detail-table .profile-detail-label { width: 40%; color: var(--text-muted); font-weight: 600; font-size: 0.8rem; white-space: nowrap; }
+.profile-detail-table .profile-detail-value { color: var(--text-dark); font-weight: 600; word-break: break-word; }
+
+/* Bordered, rounded tables inside the profile modal */
+.profile-bordered-table { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; overflow-x: auto; }
+.profile-bordered-table .data-table { border-spacing: 0; }
+.profile-bordered-table .data-table thead th { background: #F8FAFC; color: #64748B; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 0.7rem 1rem; border-bottom: 1px solid var(--border); }
+.profile-bordered-table .data-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+.profile-bordered-table .data-table tbody tr:last-child td { border-bottom: 0; }
+.profile-bordered-table .data-table tbody tr:hover { background: #F8FAFC; }
+/* Overview detail table: subtle zebra + no header row */
+.profile-detail-table.data-table td:first-child { border-right: 1px solid var(--border); }
 
 .profile-cell-main {
     display: block;
@@ -3441,6 +3471,11 @@ body {
     text-align: right;
     white-space: nowrap;
 }
+
+.coming-soon-block { text-align: center; padding: 3.5rem 1.5rem; }
+.coming-soon-icon { width: 68px; height: 68px; margin: 0 auto 1.1rem; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 1.7rem; color: var(--primary); background: linear-gradient(135deg, #EEF2FF 0%, #E0F2FE 100%); }
+.coming-soon-block h3 { margin: 0 0 0.5rem; font-size: 1.2rem; color: var(--text-dark); }
+.coming-soon-block p { margin: 0 auto; max-width: 520px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.55; }
 
 .analytics-kpi-strip {
     display: grid;
@@ -4710,8 +4745,41 @@ body.not-allowed .content-wrapper {
     .track-badge.exception { background: #FEF2F2; color: #B91C1C; }
     .track-badge.cat { background: #EEF2FF; color: #4338CA; }
 
+    /* ===== Home profile card ===== */
+    .home-profile-card { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; background: linear-gradient(135deg, #0F2147 0%, #132D63 100%); color: #fff; border-radius: 16px; padding: 22px 26px; margin-bottom: 16px; box-shadow: 0 6px 20px rgba(15,33,71,.18); }
+    .home-profile-main { display: flex; align-items: center; gap: 18px; min-width: 0; }
+    .home-profile-monogram { width: 58px; height: 58px; flex-shrink: 0; border-radius: 14px; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center; font-size: 1.35rem; font-weight: 700; letter-spacing: .02em; }
+    .home-profile-identity { min-width: 0; }
+    .home-profile-greeting { font-size: .78rem; font-weight: 600; color: rgba(255,255,255,.6); margin-bottom: 2px; }
+    .home-profile-identity h1 { margin: 0; font-size: 1.5rem; font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .home-profile-code { font-size: .82rem; color: rgba(255,255,255,.62); margin-top: 3px; }
+    .home-profile-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .home-profile-chips .hp-chip { display: inline-flex; align-items: center; gap: 5px; font-size: .72rem; font-weight: 600; padding: 3px 10px; border-radius: 9999px; background: rgba(255,255,255,.14); color: #fff; }
+    .home-profile-chips .hp-chip.is-negative { background: rgba(239,68,68,.28); }
+    .home-profile-chips .hp-chip.role { background: rgba(56,189,248,.22); }
+    .home-profile-side { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+    .home-profile-meta { font-size: .72rem; color: rgba(255,255,255,.55); white-space: nowrap; }
+    .home-profile-actions { display: flex; gap: 8px; }
+    .home-profile-btn { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; font-weight: 600; color: #fff; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.18); border-radius: 9px; padding: 7px 13px; cursor: pointer; transition: background .15s; }
+    .home-profile-btn:hover { background: rgba(255,255,255,.22); }
+    .home-profile-btn.icon-only { padding: 7px 10px; }
+    .hp-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: #22C55E; }
+    .home-profile-modal-status { display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 600; color: var(--text-muted); padding: 2px 10px; border: 1px solid var(--border); border-radius: 9999px; vertical-align: middle; margin-left: 6px; }
+    .app-toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 100000; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+    .app-toast { display: flex; align-items: center; gap: 10px; background: #0F2147; color: #fff; padding: 12px 16px; border-radius: 11px; box-shadow: 0 8px 24px rgba(15,33,71,.28); font-size: 0.88rem; font-weight: 600; min-width: 220px; max-width: 360px; opacity: 0; transform: translateY(10px); transition: opacity .25s, transform .25s; }
+    .app-toast.show { opacity: 1; transform: translateY(0); }
+    .app-toast i { font-size: 1rem; }
+    .app-toast.success i { color: #4ADE80; }
+    .app-toast.error { background: #7F1D1D; }
+    .app-toast.error i { color: #FCA5A5; }
+    .app-toast.info i { color: #7DD3FC; }
+    .home-summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 22px; }
+    .home-summary-item { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+    .home-summary-item span { display: block; font-size: .68rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #94A3B8; margin-bottom: 4px; }
+    .home-summary-item strong { font-size: .92rem; color: var(--text-dark); font-weight: 600; word-break: break-word; }
+
     /* ===== Dashboard (demo prototype) ===== */
-    .dash-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+    .dash-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
     .dash-demo-badge { display: inline-flex; align-items: center; gap: 6px; background: #FEF3C7; color: #92400E; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 6px 12px; border-radius: 9999px; border: 1px solid #FDE68A; }
     .dash-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 18px; }
     .dash-kpi-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
@@ -4777,9 +4845,6 @@ body.not-allowed .content-wrapper {
                 <a href="#dashboard" class="nav-item active" data-target="dashboard" data-roles="1,2">
                     <i class="fa-solid fa-house"></i> Home
                 </a>
-                <a href="#profile" class="nav-item" data-target="profile" data-roles="1,2">
-                    <i class="fa-solid fa-user"></i> My Profile
-                </a>
                 <a href="#purchase-orders" class="nav-item" data-target="purchase-orders" data-roles="1,2">
                     <i class="fa-solid fa-file-invoice"></i> Purchase Orders
                 </a>
@@ -4813,7 +4878,7 @@ body.not-allowed .content-wrapper {
                         </button>
                         <div class="profile-menu" id="profile-menu">
                             <button type="button" id="profile-menu-profile"><i class="fa-regular fa-id-card" aria-hidden="true"></i> Login Details</button>
-                            <button type="button" id="profile-menu-user"><i class="fa-regular fa-user" aria-hidden="true"></i> My Profile</button>
+                            <button type="button" id="profile-menu-user"><i class="fa-regular fa-user" aria-hidden="true"></i> Account</button>
                             <button type="button" class="header-refresh-btn" id="header-refresh-btn" title="Refresh profile and portal config"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Refresh</button>
                             <button type="button" class="danger" id="profile-menu-logout"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Logout</button>
                         </div>
@@ -4859,151 +4924,80 @@ body.not-allowed .content-wrapper {
 
                 <!-- My Profile Section -->
                 <section id="dashboard" class="view-section">
+                    <!-- Profile identity card -->
+                    <div class="home-profile-card">
+                        <div class="home-profile-main">
+                            <div class="home-profile-monogram" id="home-profile-monogram">--</div>
+                            <div class="home-profile-identity">
+                                <div class="home-profile-greeting" id="home-profile-greeting">Welcome</div>
+                                <h1 id="home-profile-name">Welcome</h1>
+                                <div class="home-profile-code" id="home-profile-code">&nbsp;</div>
+                            </div>
+                        </div>
+                        <div class="home-profile-side">
+                            <div class="home-profile-actions">
+                                <button class="home-profile-btn" type="button" id="home-profile-viewfull"><span class="hp-status-dot" id="home-profile-status-dot" aria-hidden="true"></span><i class="fa-regular fa-address-card" aria-hidden="true"></i> My Profile</button>
+                                <button class="home-profile-btn icon-only" type="button" id="home-profile-refresh" aria-label="Refresh profile" title="Refresh profile"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i></button>
+                            </div>
+                            <span class="home-profile-meta" id="home-profile-meta"></span>
+                        </div>
+                    </div>
+
                     <div class="dash-head">
-                        <div>
-                            <h1 class="section-title" style="margin:0;">Home</h1>
-                            <p class="section-subtitle" id="dash-greeting" style="margin:4px 0 0;">Here's your supply chain at a glance</p>
-                        </div>
-                        <span class="dash-demo-badge"><i class="fa-solid fa-flask" aria-hidden="true"></i> Demo data &mdash; sample values for preview</span>
+                        <h2 class="section-title" style="margin:0;font-size:1.15rem;">Supply chain at a glance</h2>
+                        <button class="po-refresh-button compact" type="button" id="home-analytics-refresh" aria-label="Refresh overview" title="Refresh overview"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
                     </div>
 
-                    <div class="dash-kpis">
-                        <div class="dash-kpi-card">
-                            <div class="dash-kpi-head">
-                                <div class="dash-kpi-label"><span class="dot"></span><i class="fa-solid fa-ship" aria-hidden="true"></i> Active Shipments</div>
-                                <div class="dash-kpi-period">Current month</div>
+                    <div class="panel po-panel">
+                        <div class="analytics-kpi-strip">
+                            <div class="analytics-kpi-card">
+                                <div class="analytics-kpi-label"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> Purchase Orders</div>
+                                <div class="analytics-kpi-value" id="analytics-pos">-</div>
                             </div>
-                            <div class="dash-kpi-value">1,247</div>
-                            <div><span class="dash-kpi-delta up"><i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i> 12% vs last month</span></div>
-                            <div class="dash-kpi-sub" style="margin-top:8px;">842 Ocean &middot; 289 Air &middot; 116 Truck</div>
-                        </div>
-                        <div class="dash-kpi-card">
-                            <div class="dash-kpi-head">
-                                <div class="dash-kpi-label"><span class="dot"></span><i class="fa-solid fa-clock" aria-hidden="true"></i> On-Time Delivery</div>
-                                <div class="dash-kpi-period">Current month</div>
+                            <div class="analytics-kpi-card">
+                                <div class="analytics-kpi-label"><i class="fa-solid fa-ship" aria-hidden="true"></i> Shipments</div>
+                                <div class="analytics-kpi-value" id="analytics-shipments">-</div>
                             </div>
-                            <div class="dash-kpi-value">94.2%</div>
-                            <div><span class="dash-kpi-delta up"><i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i> 2.1% vs last month</span></div>
-                            <div class="dash-kpi-sub" style="margin-top:8px;">Target: 95%</div>
-                        </div>
-                        <div class="dash-kpi-card">
-                            <div class="dash-kpi-head">
-                                <div class="dash-kpi-label"><span class="dot"></span><i class="fa-solid fa-box" aria-hidden="true"></i> POs in Transit</div>
-                                <div class="dash-kpi-period">Current month</div>
+                            <div class="analytics-kpi-card">
+                                <div class="analytics-kpi-label"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i> Containers</div>
+                                <div class="analytics-kpi-value" id="analytics-containers">-</div>
                             </div>
-                            <div class="dash-kpi-value">3,891</div>
-                            <div><span class="dash-kpi-delta up"><i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i> 4.5% vs last month</span></div>
-                            <div class="dash-kpi-sub" style="margin-top:8px;">Worth $48.2M retail value</div>
-                        </div>
-                        <div class="dash-kpi-card">
-                            <div class="dash-kpi-head">
-                                <div class="dash-kpi-label"><span class="dot" style="background:#EF4444;"></span><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Exceptions Active</div>
-                                <div class="dash-kpi-period">Last 7 days</div>
+                            <div class="analytics-kpi-card warning">
+                                <div class="analytics-kpi-label"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Delayed</div>
+                                <div class="analytics-kpi-value" id="analytics-delayed">-</div>
                             </div>
-                            <div class="dash-kpi-value" style="color:#DC2626;">23</div>
-                            <div><span class="dash-kpi-delta down"><i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i> 8 vs last week</span></div>
-                            <div class="dash-kpi-sub" style="margin-top:8px;">5 Critical &middot; 11 Warning &middot; 7 Info</div>
-                        </div>
-                    </div>
-
-                    <div class="dash-main">
-                        <div class="dash-card">
-                            <div class="dash-card-head">
-                                <div class="dash-card-title"><span class="dot"></span> Global Shipment Map</div>
-                                <div class="dash-card-meta">Live &middot; 1,247 active shipments</div>
-                            </div>
-                            <div class="dash-map-wrap">
-                                <svg viewBox="0 0 900 440" preserveAspectRatio="xMidYMid meet" aria-label="Global shipment map (illustrative)">
-                                    <g class="dash-map-graticule">
-                                        <line x1="0" y1="110" x2="900" y2="110"/><line x1="0" y1="220" x2="900" y2="220"/><line x1="0" y1="330" x2="900" y2="330"/>
-                                        <line x1="150" y1="0" x2="150" y2="440"/><line x1="300" y1="0" x2="300" y2="440"/><line x1="450" y1="0" x2="450" y2="440"/><line x1="600" y1="0" x2="600" y2="440"/><line x1="750" y1="0" x2="750" y2="440"/>
-                                    </g>
-                                    <g class="dash-map-land">
-                                        <path d="M70,90 q40,-30 90,-15 q30,10 25,45 q-5,40 -45,60 q-10,55 -45,95 q-30,25 -45,-10 q-15,-45 10,-90 q-25,-40 5,-75 q15,-20 50,-15 Z"/>
-                                        <path d="M250,250 q30,-20 55,5 q20,30 5,75 q-20,55 -50,70 q-25,10 -30,-25 q-8,-55 5,-95 q5,-25 15,-30 Z"/>
-                                        <path d="M420,80 q60,-25 95,0 q15,20 -5,40 q35,15 30,55 q-10,45 -55,50 q-50,5 -75,-25 q-30,-15 -20,-55 q5,-45 30,-60 Z"/>
-                                        <path d="M560,95 q90,-35 175,-10 q55,18 60,60 q3,40 -45,55 q-70,20 -140,5 q-55,-12 -65,-50 q-8,-40 15,-60 Z"/>
-                                        <path d="M730,300 q45,-18 80,5 q18,20 0,42 q-30,28 -70,22 q-30,-6 -32,-35 q-2,-25 22,-34 Z"/>
-                                    </g>
-                                    <g class="dash-lane">
-                                        <path d="M640,170 Q480,40 470,175"/>
-                                        <path d="M640,175 Q400,90 175,200"/>
-                                        <path d="M610,210 Q540,300 470,200"/>
-                                        <path d="M650,180 Q700,280 770,320"/>
-                                        <path d="M470,180 Q300,120 175,210"/>
-                                    </g>
-                                    <g class="dash-node">
-                                        <circle class="glow" cx="640" cy="172" r="16" fill="#22C55E"/><circle cx="640" cy="172" r="6" fill="#22C55E"/>
-                                        <circle class="glow" cx="470" cy="180" r="16" fill="#F59E0B"/><circle cx="470" cy="180" r="6" fill="#F59E0B"/>
-                                        <circle class="glow" cx="455" cy="190" r="16" fill="#EF4444"/><circle cx="455" cy="190" r="6" fill="#EF4444"/>
-                                        <circle class="glow" cx="175" cy="205" r="16" fill="#22C55E"/><circle cx="175" cy="205" r="6" fill="#22C55E"/>
-                                        <circle class="glow" cx="560" cy="250" r="16" fill="#22C55E"/><circle cx="560" cy="250" r="6" fill="#22C55E"/>
-                                        <circle class="glow" cx="610" cy="290" r="16" fill="#F59E0B"/><circle cx="610" cy="290" r="6" fill="#F59E0B"/>
-                                        <circle class="glow" cx="770" cy="320" r="16" fill="#EF4444"/><circle cx="770" cy="320" r="6" fill="#EF4444"/>
-                                    </g>
-                                    <g fill="#94A3B8" font-size="13" font-weight="600" font-family="inherit">
-                                        <text x="110" y="175">N. AMERICA</text><text x="250" y="330">S. AMERICA</text>
-                                        <text x="445" y="150">EUROPE</text><text x="600" y="170">ASIA</text><text x="745" y="350">AUSTRALIA</text>
-                                    </g>
-                                </svg>
-                                <div class="dash-stats-box">
-                                    <div class="dash-stats-row"><b>5</b> Trade lanes</div>
-                                    <div class="dash-stats-row green"><b>579</b> Total shipments</div>
-                                    <div class="dash-stats-row amber"><b>2</b> At-risk ports</div>
-                                </div>
-                                <div class="dash-legend">
-                                    <span><i style="background:#22C55E;"></i> On time</span>
-                                    <span><i style="background:#F59E0B;"></i> At risk</span>
-                                    <span><i style="background:#EF4444;"></i> Delayed</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="dash-card">
-                            <div class="dash-card-head">
-                                <div class="dash-card-title">Action Items</div>
-                            </div>
-                            <div class="dash-action-list">
-                                <div class="dash-action-item">
-                                    <div class="dash-action-tag">Critical</div>
-                                    <div class="dash-action-title">Vessel "MSC Olivia" delayed 6 days at Suez Canal</div>
-                                    <div class="dash-action-sub">Affects: 12 containers &middot; 3 POs &middot; Est. value $2.1M</div>
-                                    <div class="dash-action-actions"><button class="dash-action-btn" type="button">View Details</button><button class="dash-action-btn" type="button">See AI Recommendations</button></div>
-                                </div>
-                                <div class="dash-action-item">
-                                    <div class="dash-action-tag">Critical</div>
-                                    <div class="dash-action-title">Customs hold on container MSCU7294561 at Rotterdam</div>
-                                    <div class="dash-action-sub">Reason: Missing phytosanitary certificate</div>
-                                    <div class="dash-action-actions"><button class="dash-action-btn" type="button">Upload Document</button><button class="dash-action-btn" type="button">Contact Customs Broker</button></div>
-                                </div>
-                                <div class="dash-action-item warning">
-                                    <div class="dash-action-tag">Warning</div>
-                                    <div class="dash-action-title">ISF filing deadline in 48hrs for 5 US-bound shipments</div>
-                                    <div class="dash-action-sub">Booking refs: BK-2024-8812 through BK-2024-8816</div>
-                                    <div class="dash-action-actions"><button class="dash-action-btn solid" type="button">File Now</button></div>
-                                </div>
-                                <div class="dash-action-item info">
-                                    <div class="dash-action-tag">Info</div>
-                                    <div class="dash-action-title">7 shipments arriving within the next 7 days</div>
-                                    <div class="dash-action-sub">Review delivery appointments and final-mile readiness</div>
-                                    <div class="dash-action-actions"><button class="dash-action-btn" type="button">View Schedule</button></div>
-                                </div>
+                            <div class="analytics-kpi-card">
+                                <div class="analytics-kpi-label"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Arriving 7 Days</div>
+                                <div class="analytics-kpi-value" id="analytics-arriving">-</div>
                             </div>
                         </div>
                     </div>
-
-                    <div class="dash-charts">
-                        <div class="dash-card">
-                            <div class="dash-card-head"><div class="dash-card-title">Freight Spend (Last 6 Months)</div></div>
-                            <div class="dash-chart-box"><canvas id="dashSpendChart"></canvas></div>
+                    <div class="analytics-chart-grid">
+                        <div class="panel po-panel analytics-chart-card">
+                            <div class="tracking-event-header"><div>
+                                <div class="tracking-event-title">Shipment Volume</div>
+                                <div class="tracking-event-subtitle">Monthly shipment trend from CargoWise</div>
+                            </div></div>
+                            <div class="analytics-chart-body"><canvas id="volumeChart"></canvas></div>
                         </div>
-                        <div class="dash-card">
-                            <div class="dash-card-head"><div class="dash-card-title">On-Time Performance by Carrier</div></div>
-                            <div class="dash-chart-box"><canvas id="dashCarrierChart"></canvas></div>
+                        <div class="panel po-panel analytics-chart-card">
+                            <div class="tracking-event-header"><div>
+                                <div class="tracking-event-title">Transport Mode Mix</div>
+                                <div class="tracking-event-subtitle">How shipments are moving</div>
+                            </div></div>
+                            <div class="analytics-chart-body compact"><canvas id="spendChart"></canvas></div>
                         </div>
+                    </div>
+                    <div class="panel po-panel analytics-chart-card">
+                        <div class="tracking-event-header"><div>
+                            <div class="tracking-event-title">Shipment Status</div>
+                            <div class="tracking-event-subtitle">Current status split across accessible shipments</div>
+                        </div></div>
+                        <div class="analytics-status-list" id="analytics-status-list"></div>
                     </div>
                 </section>
 
-                <section id="profile" class="view-section">
+                <div id="profile-full-content" style="display: none;">
                     <div class="profile-feedback" id="cargowise-profile-feedback">
                         <i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i>
                         <strong id="cargowise-profile-feedback-title">Loading your organization profile</strong>
@@ -5011,19 +5005,6 @@ body.not-allowed .content-wrapper {
                         <button class="btn btn-primary" id="cargowise-profile-retry" type="button" style="display: none;">Try again</button>
                     </div>
                     <div class="profile-layout" id="cargowise-profile-content" style="display: none;">
-                        <div class="profile-hero">
-                            <div class="profile-identity">
-                                <div class="profile-monogram" id="cargowise-profile-monogram">--</div>
-                                <div>
-                                    <h1 id="cargowise-profile-name">Organization</h1>
-                                    <div class="profile-code" id="cargowise-profile-code">Code unavailable</div>
-                                </div>
-                            </div>
-                            <div class="profile-health" id="cargowise-profile-health">
-                                <button class="profile-refresh-chip" type="button" id="profile-refresh-btn" aria-label="Refresh profile" title="Refresh profile"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
-                            </div>
-                        </div>
-
                         <div class="profile-tab-list" role="tablist" aria-label="Profile details">
                             <button class="profile-tab active" id="profile-tab-overview" type="button" role="tab" aria-selected="true" aria-controls="profile-panel-overview" data-profile-tab="overview">
                                 <i class="fa-regular fa-building" aria-hidden="true"></i> Overview
@@ -5039,90 +5020,52 @@ body.not-allowed .content-wrapper {
                         </div>
 
                         <div class="profile-tab-panel active" id="profile-panel-overview" role="tabpanel" aria-labelledby="profile-tab-overview" data-profile-panel="overview">
-                            <div class="profile-overview-grid">
-                                <div class="panel">
-                                    <div class="panel-header">
-                                        <div>
-                                            <h3>Organization details</h3>
-                                            <p class="profile-panel-subtitle">Core identity and account status information.</p>
-                                        </div>
-                                    </div>
-                                    <div class="profile-summary-grid" id="cargowise-org-summary"></div>
-                                </div>
-                                <div class="panel">
-                                    <div class="panel-header">
-                                        <div>
-                                            <h3>Account roles &amp; type</h3>
-                                            <p class="profile-panel-subtitle">Buyer account roles and classifications.</p>
-                                        </div>
-                                    </div>
-                                    <div class="profile-flag-group">
-                                        <span class="profile-flag-label">Account roles</span>
-                                        <div class="role-badges" id="cargowise-role-list"></div>
-                                    </div>
-                                    <div class="profile-flag-group" id="cargowise-classification-group" style="display: none;">
-                                        <span class="profile-flag-label">Account type</span>
-                                        <div class="role-badges" id="cargowise-classification-list"></div>
-                                    </div>
-                                </div>
+                            <div class="table-responsive profile-bordered-table">
+                                <table class="data-table profile-table profile-detail-table">
+                                    <tbody id="cargowise-org-summary"></tbody>
+                                </table>
                             </div>
                         </div>
 
                         <div class="profile-tab-panel" id="profile-panel-addresses" role="tabpanel" aria-labelledby="profile-tab-addresses" data-profile-panel="addresses">
-                            <div class="panel">
-                                <div class="panel-header">
-                                    <div>
-                                        <h3>Active addresses</h3>
-                                        <p class="profile-panel-subtitle">Only active and valid addresses are shown.</p>
-                                    </div>
-                                </div>
-                                <div class="table-responsive">
-                                    <table class="data-table profile-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Code</th>
-                                                <th>Address</th>
-                                                <th>City / Region</th>
-                                                <th>Country</th>
-                                                <th>Contact</th>
-                                                <th>Validation</th>
-                                                <th>Last Updated</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="cargowise-address-list"></tbody>
-                                    </table>
-                                </div>
+                            <div class="table-responsive profile-bordered-table">
+                                <table class="data-table profile-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Code</th>
+                                            <th>Address</th>
+                                            <th>City / Region</th>
+                                            <th>Country</th>
+                                            <th>Contact</th>
+                                            <th>Validation</th>
+                                            <th>Last Updated</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cargowise-address-list"></tbody>
+                                </table>
                             </div>
                         </div>
 
                         <div class="profile-tab-panel" id="profile-panel-contacts" role="tabpanel" aria-labelledby="profile-tab-contacts" data-profile-panel="contacts">
-                            <div class="panel">
-                                <div class="panel-header">
-                                    <div>
-                                        <h3>Active contacts</h3>
-                                        <p class="profile-panel-subtitle">Contact and web-access details for your organization.</p>
-                                    </div>
-                                </div>
-                                <div class="table-responsive">
-                                    <table class="data-table profile-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Name</th>
-                                                <th>Phone</th>
-                                                <th>Mobile</th>
-                                                <th>Email</th>
-                                                <th>Address</th>
-                                                <th>Web Access</th>
-                                                <th>Last Updated</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="cargowise-contact-list"></tbody>
-                                    </table>
-                                </div>
+                            <div class="table-responsive profile-bordered-table">
+                                <table class="data-table profile-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Phone</th>
+                                            <th>Mobile</th>
+                                            <th>Email</th>
+                                            <th>Address</th>
+                                            <th>Web Access</th>
+                                            <th>Last Updated</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="cargowise-contact-list"></tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
-                </section>
+                </div>
 
                 <!-- Purchase Orders Section -->
                 <section id="purchase-orders" class="view-section">
@@ -5542,69 +5485,16 @@ body.not-allowed .content-wrapper {
                             <div class="po-toolbar">
                                 <div class="po-heading">
                                     <h2>Dashboard</h2>
-                                    <p>Quick operational health view for your purchase orders, shipments, and containers.</p>
-                                </div>
-                                <div class="po-toolbar-actions">
-                                    <button class="po-refresh-button compact" type="button" id="analytics-refresh-btn" aria-label="Refresh analytics" title="Refresh analytics"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
+                                    <p>Advanced analytics and insights for your supply chain.</p>
                                 </div>
                             </div>
                         </div>
                         <div class="panel po-panel">
-                            <div class="analytics-kpi-strip">
-                                <div class="analytics-kpi-card">
-                                    <div class="analytics-kpi-label"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> Purchase Orders</div>
-                                    <div class="analytics-kpi-value" id="analytics-pos">-</div>
-                                </div>
-                                <div class="analytics-kpi-card">
-                                    <div class="analytics-kpi-label"><i class="fa-solid fa-ship" aria-hidden="true"></i> Shipments</div>
-                                    <div class="analytics-kpi-value" id="analytics-shipments">-</div>
-                                </div>
-                                <div class="analytics-kpi-card">
-                                    <div class="analytics-kpi-label"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i> Containers</div>
-                                    <div class="analytics-kpi-value" id="analytics-containers">-</div>
-                                </div>
-                                <div class="analytics-kpi-card warning">
-                                    <div class="analytics-kpi-label"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Delayed</div>
-                                    <div class="analytics-kpi-value" id="analytics-delayed">-</div>
-                                </div>
-                                <div class="analytics-kpi-card">
-                                    <div class="analytics-kpi-label"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Arriving 7 Days</div>
-                                    <div class="analytics-kpi-value" id="analytics-arriving">-</div>
-                                </div>
+                            <div class="coming-soon-block">
+                                <div class="coming-soon-icon"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></div>
+                                <h3>More analytics coming soon</h3>
+                                <p>Deeper insights &mdash; freight spend, carrier performance, lane analytics, and emissions &mdash; are on the way. Your live KPIs and charts are on the <strong>Home</strong> page.</p>
                             </div>
-                        </div>
-                        <div class="analytics-chart-grid">
-                            <div class="panel po-panel analytics-chart-card">
-                                <div class="tracking-event-header">
-                                    <div>
-                                        <div class="tracking-event-title">Shipment Volume</div>
-                                        <div class="tracking-event-subtitle">Monthly shipment trend from CargoWise</div>
-                                    </div>
-                                </div>
-                                <div class="analytics-chart-body">
-                                    <canvas id="volumeChart"></canvas>
-                                </div>
-                            </div>
-                            <div class="panel po-panel analytics-chart-card">
-                                <div class="tracking-event-header">
-                                    <div>
-                                        <div class="tracking-event-title">Transport Mode Mix</div>
-                                        <div class="tracking-event-subtitle">How shipments are moving</div>
-                                    </div>
-                                </div>
-                                <div class="analytics-chart-body compact">
-                                    <canvas id="spendChart"></canvas>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="panel po-panel analytics-chart-card">
-                            <div class="tracking-event-header">
-                                <div>
-                                    <div class="tracking-event-title">Shipment Status</div>
-                                    <div class="tracking-event-subtitle">Current status split across accessible shipments</div>
-                                </div>
-                            </div>
-                            <div class="analytics-status-list" id="analytics-status-list"></div>
                         </div>
                     </div>
                 </section>
@@ -5975,8 +5865,8 @@ body.not-allowed .content-wrapper {
                 <div class="modal-heading">
                     <div class="modal-heading-icon"><i class="fa-solid fa-user" aria-hidden="true"></i></div>
                     <div>
-                        <h3 id="user-profile-modal-title">My Profile</h3>
-                        <p class="modal-subtitle">User identity and access details</p>
+                        <h3 id="user-profile-modal-title">Account</h3>
+                        <p class="modal-subtitle">Your login identity and access details</p>
                     </div>
                 </div>
                 <button class="close-modal" id="user-profile-modal-close" type="button" aria-label="Close profile details" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
@@ -5990,6 +5880,28 @@ body.not-allowed .content-wrapper {
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" type="button" id="user-profile-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- My Profile modal (full details) -->
+    <div class="modal" id="home-profile-modal" role="dialog" aria-modal="true" aria-labelledby="home-profile-modal-title" style="display: none;">
+        <div class="modal-content profile-modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-regular fa-address-card" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="home-profile-modal-title">My Profile <span class="home-profile-modal-status" id="home-profile-modal-status"></span></h3>
+                        <p class="modal-subtitle">Organization details, addresses, and contacts</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="home-profile-modal-close" type="button" aria-label="Close" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            </div>
+            <div class="modal-body">
+                <div id="home-profile-modal-slot"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" id="home-profile-modal-close-btn">Close</button>
             </div>
         </div>
     </div>
@@ -6266,7 +6178,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const firstAllowedFeature = role => [...document.querySelectorAll('.nav-item[data-target][data-roles]')].find(item => roleSupported(role) && featureRolesFromItem(item).includes(Number(role)))?.dataset.target || null;
     const loadFeature = target => {
         showSection(target);
-        if (target === 'dashboard') renderDashboardDemo();
+        if (target === 'dashboard') { loadCargowiseProfile(); loadHomeAnalytics(); }
+        else if (target === 'analytics') { /* Dashboard tab is a "coming soon" placeholder */ }
         else if (target === 'profile') loadCargowiseProfile();
         else if (target === 'containers') {
             containerShipmentId = '';
@@ -6517,37 +6430,37 @@ document.addEventListener('DOMContentLoaded', () => {
         const classifications = profile.classifications || [];
         const addresses = profile.addresses || [];
         const contacts = profile.contacts || [];
+        const byId = id => document.getElementById(id);
+        const setHtml = (id, html) => { const el = byId(id); if (el) el.innerHTML = html; };
+        const setTxt = (id, txt) => { const el = byId(id); if (el) el.textContent = txt; };
 
-        document.getElementById('cargowise-profile-monogram').textContent = monogramFromName(org.name);
-        document.getElementById('cargowise-profile-name').textContent = displayValue(org.name);
-        document.getElementById('cargowise-profile-code').textContent = org.org_code ? `Organization code ${org.org_code}` : 'Organization code unavailable';
-        document.getElementById('cargowise-profile-health').innerHTML = `
+        setTxt('cargowise-profile-monogram', monogramFromName(org.name));
+        setTxt('cargowise-profile-name', displayValue(org.name));
+        setTxt('cargowise-profile-code', org.org_code ? `Organization code ${org.org_code}` : 'Organization code unavailable');
+        setHtml('cargowise-profile-health', `
             <span class="profile-chip${org.is_active ? '' : ' is-negative'}">${org.is_active ? 'Active' : 'Inactive'}</span>
             <span class="profile-chip${org.is_valid ? '' : ' is-negative'}">${org.is_valid ? 'Valid record' : 'Invalid record'}</span>
-            <button class="profile-refresh-chip" type="button" id="profile-refresh-btn" aria-label="Refresh profile" title="Refresh profile"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
-        `;
-        document.getElementById('cargowise-address-count').textContent = String(addresses.length);
-        document.getElementById('cargowise-contact-count').textContent = String(contacts.length);
+        `);
+        setTxt('cargowise-address-count', String(addresses.length));
+        setTxt('cargowise-contact-count', String(contacts.length));
 
-        const summary = [
-            ['Code', org.org_code],
-            ['Category', org.category],
-            ['Language', org.language],
-            ['Nearest Port', org.closest_port],
-            ['Screening Status', org.screening_status],
-            ['Created', formatDateTime(org.created_at)],
-            ['Last Updated', formatDateTime(org.updated_at)],
-            ['Org ID', org.org_id],
+        const statusHtml = `<span class="hp-status-dot" style="background:${org.is_active ? '#22C55E' : '#EF4444'};margin-right:6px"></span>${org.is_active ? 'Active' : 'Inactive'}`;
+        const rows = [
+            ['Status', statusHtml, true],
+            ['Organization code', escapeHtml(displayValue(org.org_code))],
+            ['Category', escapeHtml(displayValue(org.category))],
+            ['Roles', escapeHtml(roles.length ? roles.join(', ') : '-')],
+            ['Language', escapeHtml(displayValue(org.language))],
+            ['Nearest Port', escapeHtml(displayValue(org.closest_port))],
+            ['Screening Status', escapeHtml(displayValue(org.screening_status))],
+            ['Record', org.is_valid ? 'Valid' : 'Invalid'],
+            ['Created', escapeHtml(formatDateTime(org.created_at))],
+            ['Last Updated', escapeHtml(formatDateTime(org.updated_at))],
+            ['Organization ID', escapeHtml(displayValue(org.org_id))],
         ];
-        document.getElementById('cargowise-org-summary').innerHTML = summary.map(([label, value]) => `
-            <div class="profile-summary-item">
-                <span>${escapeHtml(label)}</span>
-                <strong>${escapeHtml(displayValue(value))}</strong>
-            </div>
-        `).join('');
-        document.getElementById('cargowise-role-list').innerHTML = roles.length ? roles.map(role => `<span class="role-badge">${escapeHtml(role)}</span>`).join('') : '<span class="profile-status">No active roles found.</span>';
-        document.getElementById('cargowise-classification-list').innerHTML = classifications.map(item => `<span class="role-badge">${escapeHtml(item)}</span>`).join('');
-        document.getElementById('cargowise-classification-group').style.display = classifications.length ? 'block' : 'none';
+        setHtml('cargowise-org-summary', rows.map(([label, value]) => `
+            <tr><td class="profile-detail-label">${escapeHtml(label)}</td><td class="profile-detail-value">${value}</td></tr>
+        `).join(''));
         document.getElementById('cargowise-address-list').innerHTML = addresses.length ? addresses.map(address => `
             <tr>
                 <td><span class="profile-cell-main">${escapeHtml(displayValue(address.code))}</span>${address.related_port ? `<span class="profile-cell-sub">Port: ${escapeHtml(address.related_port)}</span>` : ''}</td>
@@ -6572,21 +6485,38 @@ document.addEventListener('DOMContentLoaded', () => {
         `).join('') : '<tr><td colspan="7">No active contacts found.</td></tr>';
         setProfileTab('overview');
     };
+    const applyCargowiseProfile = (profile, cachedAt) => {
+        renderCargowiseProfile(profile || {});
+        renderHomeProfileCard(profile || {}, cachedAt);
+        const content = document.getElementById('cargowise-profile-content');
+        const feedback = document.getElementById('cargowise-profile-feedback');
+        if (feedback) feedback.style.display = 'none';
+        if (content) content.style.display = 'grid';
+    };
     const loadCargowiseProfile = async (force = false) => {
         if (!authToken || !authUser) return;
         if (cargowiseProfileLoaded && !force) return;
+        // Serve from IndexedDB cache first (unless forced)
+        if (!force) {
+            const cached = await profileCacheLoad();
+            if (cached) {
+                applyCargowiseProfile(cached.data, cached.ts);
+                cargowiseProfileLoaded = true;
+                return;
+            }
+        }
         const content = document.getElementById('cargowise-profile-content');
-        content.style.display = 'none';
+        if (content) content.style.display = 'none';
         showProfileFeedback({
             title: 'Loading your organization profile',
             detail: 'Checking organization, address, and contact details.'
         });
         try {
             const payload = await api(MYSHIPMENT_PROFILE_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
-            renderCargowiseProfile(payload.message || {});
+            const profile = payload.message || {};
+            await profileCacheSave(profile);
+            applyCargowiseProfile(profile, Date.now());
             cargowiseProfileLoaded = true;
-            document.getElementById('cargowise-profile-feedback').style.display = 'none';
-            content.style.display = 'grid';
         } catch (err) {
             cargowiseProfileLoaded = false;
             showProfileFeedback({
@@ -6594,6 +6524,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 title: 'Profile could not be loaded',
                 detail: 'Please try again. If the problem continues, contact support.'
             });
+        }
+    };
+    const renderHomeProfileCard = (profile, cachedAt) => {
+        const org = profile.org || {};
+        const roles = profile.roles || [];
+        const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        setText('home-profile-greeting', 'Welcome 👋');
+        setText('home-profile-monogram', monogramFromName(org.name));
+        setText('home-profile-name', displayValue(org.name) === '-' ? (authUser?.name || 'Welcome') : org.name);
+        setText('home-profile-code', org.org_code ? `Organization code ${org.org_code}` : ' ');
+        // Active status → dot on the My Profile button + chip in the modal header
+        const statusColor = org.is_active ? '#22C55E' : '#EF4444';
+        const statusLabel = org.is_active ? 'Active' : 'Inactive';
+        const dot = document.getElementById('home-profile-status-dot');
+        if (dot) { dot.style.background = statusColor; dot.title = statusLabel; }
+        const modalStatus = document.getElementById('home-profile-modal-status');
+        if (modalStatus) modalStatus.innerHTML = `<span class="hp-status-dot" style="background:${statusColor}"></span> ${statusLabel}`;
+        const meta = document.getElementById('home-profile-meta');
+        if (meta && cachedAt) {
+            const mins = Math.floor((Date.now() - cachedAt) / 60000);
+            meta.textContent = mins < 2 ? 'Updated just now' : mins < 60 ? `Updated ${mins}m ago` : `Updated ${Math.floor(mins / 60)}h ago`;
         }
     };
 
@@ -7534,13 +7485,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     let dashboardRendered = false;
     const renderDashboardDemo = () => {
-        const greet = document.getElementById('dash-greeting');
-        if (greet) {
-            const hour = new Date().getHours();
-            const part = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-            const name = (authUser && (authUser.name || authUser.username)) || 'there';
-            greet.textContent = `${part}, ${name} — here's your supply chain at a glance`;
-        }
         if (dashboardRendered) return;
         dashboardRendered = true;
         renderChart('dashSpendChart', {
@@ -7639,6 +7583,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }).join('') : '<div class="empty-state">No shipment status data available.</div>';
         }
+    };
+    // Home page live KPIs + charts (real CargoWise analytics)
+    const loadHomeAnalytics = async (force = false) => {
+        const btn = document.getElementById('home-analytics-refresh');
+        if (!force && moduleCache['home:analytics']) { renderAnalytics(moduleCache['home:analytics']); return; }
+        if (btn) { btn.classList.add('is-loading'); btn.disabled = true; }
+        try {
+            const payload = await api(`${MODULE_ENDPOINTS.analytics}?module=master&${MYSHIPMENT_VIEW_PARAM}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const data = payload.message || {};
+            moduleCache['home:analytics'] = data;
+            renderAnalytics(data);
+        } catch (err) { console.warn('Home analytics failed', err); }
+        finally { if (btn) { btn.classList.remove('is-loading'); btn.disabled = false; } }
     };
     const renderModule = (target, data) => {
         if (target === 'purchase-orders') renderPurchaseOrders(Array.isArray(data) ? data : []);
@@ -7847,6 +7804,8 @@ document.addEventListener('DOMContentLoaded', () => {
         appInfo = {};
         clearPortalStorage();
         myCacheClear();
+        profileCacheClear();
+        cargowiseProfileLoaded = false;
         cargowiseProfileLoaded = false;
         Object.keys(moduleCache).forEach(key => delete moduleCache[key]);
         closeProfileMenu();
@@ -7854,6 +7813,18 @@ document.addEventListener('DOMContentLoaded', () => {
         closeModal('login-modal');
         closeModal('logout-modal');
         applyAuthState();
+    };
+    const MODULE_LABELS_TOAST = { 'purchase-orders': 'Purchase orders', shipments: 'Shipments', containers: 'Containers', tracking: 'Tracking', alerts: 'Alerts', documents: 'Documents' };
+    const showToast = (message, type = 'success') => {
+        let c = document.getElementById('app-toast-container');
+        if (!c) { c = document.createElement('div'); c.id = 'app-toast-container'; c.className = 'app-toast-container'; document.body.appendChild(c); }
+        const t = document.createElement('div');
+        t.className = `app-toast ${type}`;
+        const icon = type === 'error' ? 'fa-circle-exclamation' : type === 'info' ? 'fa-circle-info' : 'fa-circle-check';
+        t.innerHTML = `<i class="fa-solid ${icon}" aria-hidden="true"></i><span>${message}</span>`;
+        c.appendChild(t);
+        requestAnimationFrame(() => t.classList.add('show'));
+        setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 2800);
     };
     const refreshPortal = async () => {
         const button = document.getElementById('header-refresh-btn');
@@ -7867,7 +7838,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (authToken && authUser) applyAuthShell();
             else applyAuthState();
+            showToast('Profile & settings refreshed');
         } catch (err) {
+            showToast('Could not refresh profile', 'error');
             await showAppAlert({ title: 'Refresh Failed', message: err.message || 'Unable to refresh portal.', danger: true });
         } finally {
             button?.classList.remove('is-loading');
@@ -7881,6 +7854,9 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             clearModuleCache(target);
             await loadModule(target, { force: true });
+            showToast(`${MODULE_LABELS_TOAST[target] || 'Data'} refreshed`);
+        } catch (err) {
+            showToast(`Could not refresh ${MODULE_LABELS_TOAST[target] || 'data'}`, 'error');
         } finally {
             button?.classList.remove('is-loading');
             if (button) button.disabled = false;
@@ -8060,9 +8036,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const FILTER_KEYS = ['mode', 'packing', 'origin', 'destination', 'inco', 'carrier', 'supplier', 'period'];
     const FILTER_LABELS = { mode: 'Mode', packing: 'Packing', origin: 'Origin', destination: 'Destination', inco: 'Inco Term', carrier: 'Carrier', supplier: 'Supplier', period: 'Period' };
     // ── IndexedDB my-cache ────────────────────────────────────────────────────
-    const MY_CACHE_DB = 'myshipment_cache';
+    const MY_CACHE_DB = 'myshipment';
     const MY_CACHE_STORE = 'cache';
     const MY_CACHE_TTL = 4 * 60 * 60 * 1000; // 4 hours
+    try { indexedDB.deleteDatabase('myshipment_cache'); } catch {} // one-time cleanup of old DB name
 
     const _idb = (() => {
         let _db = null;
@@ -8115,6 +8092,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     async function myCacheClear() {
         try { await _idb.del(myCacheKey()); } catch {}
+    }
+
+    // ── Org profile cache (same IndexedDB, longer TTL — org profile rarely changes) ──
+    const PROFILE_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+    const profileCacheKey = () => `profile_${(authUser && authUser.username) || 'default'}`;
+    async function profileCacheLoad() {
+        try {
+            const rec = await _idb.get(profileCacheKey());
+            if (!rec || !rec.ts || (Date.now() - rec.ts) > PROFILE_CACHE_TTL) return null;
+            return { data: rec.data, ts: rec.ts };
+        } catch { return null; }
+    }
+    async function profileCacheSave(data) {
+        try { await _idb.set(profileCacheKey(), { ts: Date.now(), data }); } catch {}
+    }
+    async function profileCacheClear() {
+        try { await _idb.del(profileCacheKey()); } catch {}
     }
 
     function updateCacheInfo(ts) {
@@ -8294,7 +8288,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Sync button
-    document.getElementById('shipment-filter-sync-btn')?.addEventListener('click', () => loadFilterOptions(true));
+    document.getElementById('shipment-filter-sync-btn')?.addEventListener('click', async () => { await loadFilterOptions(true); showToast('Filter options synced'); });
 
     // Async load on shipments tab show (non-blocking)
     document.querySelectorAll('.nav-item[data-target="shipments"]').forEach(el =>
@@ -8351,7 +8345,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('tracking-refresh-btn')?.addEventListener('click', () => refreshModule('tracking', 'tracking-refresh-btn'));
     document.getElementById('tracking-prev-btn')?.addEventListener('click', () => { if (trackingCurrentPage > 1) { trackingCurrentPage--; loadModule('tracking'); } });
     document.getElementById('tracking-next-btn')?.addEventListener('click', () => { trackingCurrentPage++; loadModule('tracking'); });
-    document.getElementById('analytics-refresh-btn')?.addEventListener('click', () => refreshModule('analytics', 'analytics-refresh-btn'));
+    document.getElementById('home-analytics-refresh')?.addEventListener('click', async () => { await Promise.all([loadHomeAnalytics(true), loadCargowiseProfile(true)]); showToast('Overview refreshed'); });
 
     document.getElementById('shipment-prev-btn')?.addEventListener('click', () => { if (shipmentCurrentPage > 1) { shipmentCurrentPage--; loadModule('shipments'); } });
     document.getElementById('shipment-next-btn')?.addEventListener('click', () => { shipmentCurrentPage++; loadModule('shipments'); });
@@ -8406,10 +8400,26 @@ document.addEventListener('DOMContentLoaded', () => {
             renderProfile();
             openModal('profile-modal');
         });
+        // Relocate the full profile content into the modal (once)
+        const _pfHost = document.getElementById('profile-full-content');
+        const _pfSlot = document.getElementById('home-profile-modal-slot');
+        if (_pfHost && _pfSlot && _pfHost.parentElement !== _pfSlot) { _pfHost.style.display = ''; _pfSlot.appendChild(_pfHost); }
+        const openMyProfile = () => { openModal('home-profile-modal'); loadCargowiseProfile(); };
         document.getElementById('profile-menu-user').addEventListener('click', () => {
             closeProfileMenu();
             renderProfile();
             openModal('user-profile-modal');
+        });
+        document.getElementById('home-profile-viewfull')?.addEventListener('click', openMyProfile);
+        document.getElementById('home-profile-modal-close')?.addEventListener('click', () => closeModal('home-profile-modal'));
+        document.getElementById('home-profile-modal-close-btn')?.addEventListener('click', () => closeModal('home-profile-modal'));
+        document.getElementById('home-profile-refresh')?.addEventListener('click', async () => {
+            const btn = document.getElementById('home-profile-refresh');
+            btn?.classList.add('is-loading');
+            if (btn) btn.disabled = true;
+            try { await loadCargowiseProfile(true); showToast('Profile refreshed'); }
+            catch { showToast('Could not refresh profile', 'error'); }
+            finally { btn?.classList.remove('is-loading'); if (btn) btn.disabled = false; }
         });
         document.getElementById('profile-menu-logout').addEventListener('click', requestLogout);
         document.getElementById('blocked-logout-btn').addEventListener('click', requestLogout);
