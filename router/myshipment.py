@@ -80,98 +80,8 @@ def helper_sql_visible_shipments(name="visible_shipments", with_shipment_id=Fals
         )"""
 
 # api
-@router.get("/myshipment/buyer-360")
-async def func_api_myshipment_buyer_360(*, request: Request):
-    app_state = request.app.state
-    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("org_id", "str", 1, None, None)])
-    org_id = str(oq.get("org_id") or "").strip()
-    sql = """
-        SET NOCOUNT ON;
-        SELECT TOP 1
-            CONVERT(varchar(36), OH.OH_PK) AS org_id,
-            OH.OH_FullName AS name,
-            OH.OH_Category AS category,
-            OH.OH_IsActive AS is_active,
-            OH.OH_IsValid AS is_valid,
-            OH.OH_IsGlobalAccount AS is_global_account,
-            OH.OH_IsConsignee AS is_consignee,
-            OH.OH_IsConsignor AS is_consignor,
-            OH.OH_RL_NKClosestPort AS closest_port,
-            DefaultAddress.CountryCode AS country_code,
-            DefaultAddress.State AS state,
-            DefaultAddress.City AS city,
-            DefaultAddress.Address1 AS address_1,
-            DefaultAddress.Address2 AS address_2,
-            DefaultAddress.PostCode AS post_code,
-            OH.OH_ScreeningStatus AS screening_status,
-            ISNULL(POs.TotalPOs, 0) AS total_purchase_orders,
-            ISNULL(Shipments.TotalBookings, 0) AS total_bookings,
-            ISNULL(Shipments.TotalShipments, 0) AS total_shipments,
-            ISNULL(Consols.TotalConsols, 0) AS total_consols,
-            ISNULL(Finance.TotalInvoices, 0) AS total_invoices,
-            Shipments.LastActivityDate AS last_activity_date,
-            OH.OH_SystemCreateUser AS created_by,
-            CreateStaff.GS_FullName AS created_by_name,
-            CASE WHEN OH.OH_SystemCreateTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OH.OH_SystemCreateTimeUtc, 126) + 'Z' END AS created_at,
-            OH.OH_SystemLastEditUser AS updated_by,
-            UpdateStaff.GS_FullName AS updated_by_name,
-            CASE WHEN OH.OH_SystemLastEditTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OH.OH_SystemLastEditTimeUtc, 126) + 'Z' END AS updated_at
-        FROM dbo.OrgHeader OH
-        OUTER APPLY (
-            SELECT TOP 1 
-                OA.OA_RN_NKCountryCode AS CountryCode, 
-                OA.OA_State AS State,
-                OA.OA_City AS City,
-                OA.OA_Address1 AS Address1,
-                OA.OA_Address2 AS Address2,
-                OA.OA_PostCode AS PostCode
-            FROM dbo.OrgAddress OA
-            WHERE OA.OA_OH = OH.OH_PK AND OA.OA_IsValid = 1
-            ORDER BY OA.OA_SystemCreateTimeUtc ASC
-        ) DefaultAddress
-        OUTER APPLY (
-            SELECT COUNT(JD.JD_PK) AS TotalPOs
-            FROM dbo.JobOrderHeader JD
-            INNER JOIN dbo.OrgAddress OA ON JD.JD_OA_BuyerAddress = OA.OA_PK
-            WHERE OA.OA_OH = OH.OH_PK
-        ) POs
-        OUTER APPLY (
-            SELECT
-                COUNT(JS.JS_PK) AS TotalShipments,
-                SUM(CASE WHEN JS.JS_IsBooking = 1 THEN 1 ELSE 0 END) AS TotalBookings,
-                MAX(JS.JS_SystemCreateTimeUtc) AS LastActivityDate
-            FROM dbo.JobShipment JS
-            INNER JOIN dbo.cvw_JobShipmentOrgs JSO ON JS.JS_PK = JSO.JS_PK
-            WHERE JSO.JS_E2_OA_OH_Consignee = OH.OH_PK
-        ) Shipments
-        OUTER APPLY (
-            SELECT COUNT(JK.JK_PK) AS TotalConsols
-            FROM dbo.JobConsol JK
-            INNER JOIN dbo.OrgAddress OA ON JK.JK_OA_SendingForwarderAddress = OA.OA_PK
-            WHERE OA.OA_OH = OH.OH_PK
-        ) Consols
-        OUTER APPLY (
-            SELECT COUNT(AH.AH_PK) AS TotalInvoices
-            FROM dbo.AccTransactionHeader AH
-            WHERE AH.AH_OH = OH.OH_PK
-        ) Finance
-        LEFT JOIN dbo.GlbStaff CreateStaff ON CreateStaff.GS_Code = OH.OH_SystemCreateUser
-        LEFT JOIN dbo.GlbStaff UpdateStaff ON UpdateStaff.GS_Code = OH.OH_SystemLastEditUser
-        WHERE OH.OH_IsActive = 1 
-          AND OH.OH_IsValid = 1 
-          AND OH.OH_IsConsignee = 1
-          AND OH.OH_PK = TRY_CONVERT(uniqueidentifier, ?)
-        ORDER BY OH.OH_FullName ASC;"""
-    async with app_state.client_mssql_read_fallback.acquire() as conn:
-        cursor = await conn.cursor()
-        await cursor.execute(sql, org_id)
-        columns = [column[0] for column in cursor.description]
-        row = await cursor.fetchone()
-    return {"status": 1, "message": dict(zip(columns, row)) if row else None}
-
-@router.get("/myshipment/my-profile")
-async def func_api_myshipment_my_profile(*, request: Request):
+@router.get("/myshipment/my-account")
+async def func_api_myshipment_my_account(*, request: Request):
     app_state = request.app.state
     org_pk = str(request.state.user.get("username") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
@@ -604,7 +514,7 @@ async def func_api_myshipment_my_shipments(*, request: Request):
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     import re as _re
     def _safe_list(raw): return [v.strip() for v in str(raw or "").split(",") if v.strip() and _re.match(r'^[A-Za-z0-9\-_/ ]+$', v.strip())]
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_search", "str", 0, None, ""), ("shipment_id", "str", 0, None, ""), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer"), ("mode", "str", 0, None, ""), ("packing", "str", 0, None, ""), ("origin", "str", 0, None, ""), ("destination", "str", 0, None, ""), ("inco", "str", 0, None, ""), ("carrier", "str", 0, None, ""), ("supplier_id", "str", 0, None, ""), ("period_days", "int", 0, None, 0)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_search", "str", 0, None, ""), ("shipment_id", "str", 0, None, ""), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer"), ("mode", "str", 0, None, ""), ("packing", "str", 0, None, ""), ("origin", "str", 0, None, ""), ("destination", "str", 0, None, ""), ("country", "str", 0, None, ""), ("inco", "str", 0, None, ""), ("carrier", "str", 0, None, ""), ("supplier_id", "str", 0, None, ""), ("period_days", "int", 0, None, 0)])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
     limit = max(1, limit)
@@ -617,6 +527,7 @@ async def func_api_myshipment_my_shipments(*, request: Request):
     packing_list = _safe_list(oq.get("packing"))
     origin_list = _safe_list(oq.get("origin"))
     dest_list = _safe_list(oq.get("destination"))
+    country_list = [v.strip().upper() for v in str(oq.get("country") or "").split(",") if _re.match(r'^[A-Za-z]{2,3}$', v.strip())]
     inco_list = _safe_list(oq.get("inco"))
     # carrier and supplier_id are UUIDs
     _uuid_re = r'^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$'
@@ -632,6 +543,14 @@ async def func_api_myshipment_my_shipments(*, request: Request):
     _add_in("JS.JS_PackingMode", packing_list)
     _add_in("JS.JS_RL_NKOrigin", origin_list)
     _add_in("JS.JS_RL_NKDestination", dest_list)
+    if country_list:
+        where_parts.append(f"""EXISTS (
+            SELECT 1
+            FROM dbo.RefUNLOCO RL
+            WHERE RL.RL_Code IN (JS.JS_RL_NKOrigin, JS.JS_RL_NKDestination)
+              AND RL.RL_RN_NKCountryCode IN ({','.join(['?' for _ in country_list])})
+        )""")
+        filter_params.extend(country_list)
     _add_in("JS.JS_INCO", inco_list)
     if carrier_list:
         where_parts.append(f"EXISTS (SELECT 1 FROM dbo.OrgAddress OA2 JOIN dbo.OrgHeader OH2 ON OH2.OH_PK=OA2.OA_OH WHERE OA2.OA_PK=JS.JS_OA_BookedShippingLineAddress AND OH2.OH_PK IN ({','.join(['?' for _ in carrier_list])}))")
@@ -741,6 +660,14 @@ async def func_api_myshipment_my_cache(*, request: Request):
             (SELECT TOP (10000) v FROM (SELECT DISTINCT JS.JS_PackingMode   AS v FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK WHERE JS.JS_PackingMode IS NOT NULL AND JS.JS_PackingMode<>'')   x FOR JSON PATH) AS packing_json,
             (SELECT TOP (10000) v FROM (SELECT DISTINCT JS.JS_RL_NKOrigin   AS v FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK WHERE JS.JS_RL_NKOrigin IS NOT NULL AND JS.JS_RL_NKOrigin<>'')   x FOR JSON PATH) AS origin_json,
             (SELECT TOP (10000) v FROM (SELECT DISTINCT JS.JS_RL_NKDestination AS v FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK WHERE JS.JS_RL_NKDestination IS NOT NULL AND JS.JS_RL_NKDestination<>'') x FOR JSON PATH) AS destination_json,
+            (SELECT TOP (10000) id, name FROM (
+                SELECT DISTINCT RL.RL_RN_NKCountryCode AS id, COALESCE(RN.RN_Desc, RL.RL_RN_NKCountryCode) AS name
+                FROM dbo.JobShipment JS
+                JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK
+                JOIN dbo.RefUNLOCO RL ON RL.RL_Code IN (JS.JS_RL_NKOrigin, JS.JS_RL_NKDestination)
+                LEFT JOIN dbo.RefCountry RN ON RN.RN_Code=RL.RL_RN_NKCountryCode
+                WHERE RL.RL_RN_NKCountryCode IS NOT NULL AND RL.RL_RN_NKCountryCode<>''
+            ) x ORDER BY name FOR JSON PATH) AS country_json,
             (SELECT TOP (10000) v FROM (SELECT DISTINCT JS.JS_INCO AS v FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK WHERE JS.JS_INCO IS NOT NULL AND JS.JS_INCO<>'') x FOR JSON PATH) AS inco_json,
             (SELECT TOP (10000) id, name FROM (SELECT DISTINCT CONVERT(varchar(36),OH.OH_PK) AS id, OH.OH_FullName AS name FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK JOIN dbo.OrgAddress OA ON OA.OA_PK=JS.JS_OA_BookedShippingLineAddress JOIN dbo.OrgHeader OH ON OH.OH_PK=OA.OA_OH WHERE OH.OH_FullName IS NOT NULL) x ORDER BY name FOR JSON PATH) AS carrier_json,
             (SELECT TOP (10000) id, name FROM (SELECT DISTINCT CONVERT(varchar(36),OH.OH_PK) AS id, OH.OH_FullName AS name FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK JOIN dbo.cvw_JobShipmentOrgs JSO ON JSO.JS_PK=JS.JS_PK JOIN dbo.OrgHeader OH ON OH.OH_PK=JSO.ControllingCustomer_PK WHERE OH.OH_FullName IS NOT NULL) x ORDER BY name FOR JSON PATH) AS supplier_json;"""
@@ -761,11 +688,12 @@ async def func_api_myshipment_my_cache(*, request: Request):
         "packing":     _parse(row[1]),
         "origin":      _parse(row[2]),
         "destination": _parse(row[3]),
-        "inco":        _parse(row[4]),
-        "carrier":     _parse(row[5]),
-        "supplier":    _parse(row[6]) if row[6] else [],
+        "country":     _parse(row[4]),
+        "inco":        _parse(row[5]),
+        "carrier":     _parse(row[6]),
+        "supplier":    _parse(row[7]) if row[7] else [],
     }
-    return {"status": 1, "message": {"version": "1", "filter_options": filter_options}}
+    return {"status": 1, "message": {"version": "2", "filter_options": filter_options}}
 
 @router.get("/myshipment/my-containers")
 async def func_api_myshipment_my_containers(*, request: Request):
@@ -1434,3 +1362,93 @@ async def func_api_myshipment_my_analytics(*, request: Request):
             return {"status": 1, "message": jsonable_encoder({"kpis": kpis[0] if kpis else {}, "shipments_by_status": shipments_by_status, "shipments_by_month": shipments_by_month, "transport_modes": transport_modes})}
     analytics_object = {"kpis": kpis[0] if kpis else {}, "purchase_orders_by_status": purchase_orders_by_status, "shipments_by_status": shipments_by_status, "shipments_by_month": shipments_by_month, "transport_modes": transport_modes}
     return {"status": 1, "message": jsonable_encoder(analytics_object)}
+
+@router.get("/myshipment/buyer-360")
+async def func_api_myshipment_buyer_360(*, request: Request):
+    app_state = request.app.state
+    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("org_id", "str", 1, None, None)])
+    org_id = str(oq.get("org_id") or "").strip()
+    sql = """
+        SET NOCOUNT ON;
+        SELECT TOP 1
+            CONVERT(varchar(36), OH.OH_PK) AS org_id,
+            OH.OH_FullName AS name,
+            OH.OH_Category AS category,
+            OH.OH_IsActive AS is_active,
+            OH.OH_IsValid AS is_valid,
+            OH.OH_IsGlobalAccount AS is_global_account,
+            OH.OH_IsConsignee AS is_consignee,
+            OH.OH_IsConsignor AS is_consignor,
+            OH.OH_RL_NKClosestPort AS closest_port,
+            DefaultAddress.CountryCode AS country_code,
+            DefaultAddress.State AS state,
+            DefaultAddress.City AS city,
+            DefaultAddress.Address1 AS address_1,
+            DefaultAddress.Address2 AS address_2,
+            DefaultAddress.PostCode AS post_code,
+            OH.OH_ScreeningStatus AS screening_status,
+            ISNULL(POs.TotalPOs, 0) AS total_purchase_orders,
+            ISNULL(Shipments.TotalBookings, 0) AS total_bookings,
+            ISNULL(Shipments.TotalShipments, 0) AS total_shipments,
+            ISNULL(Consols.TotalConsols, 0) AS total_consols,
+            ISNULL(Finance.TotalInvoices, 0) AS total_invoices,
+            Shipments.LastActivityDate AS last_activity_date,
+            OH.OH_SystemCreateUser AS created_by,
+            CreateStaff.GS_FullName AS created_by_name,
+            CASE WHEN OH.OH_SystemCreateTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OH.OH_SystemCreateTimeUtc, 126) + 'Z' END AS created_at,
+            OH.OH_SystemLastEditUser AS updated_by,
+            UpdateStaff.GS_FullName AS updated_by_name,
+            CASE WHEN OH.OH_SystemLastEditTimeUtc IS NULL THEN NULL ELSE CONVERT(varchar(33), OH.OH_SystemLastEditTimeUtc, 126) + 'Z' END AS updated_at
+        FROM dbo.OrgHeader OH
+        OUTER APPLY (
+            SELECT TOP 1 
+                OA.OA_RN_NKCountryCode AS CountryCode, 
+                OA.OA_State AS State,
+                OA.OA_City AS City,
+                OA.OA_Address1 AS Address1,
+                OA.OA_Address2 AS Address2,
+                OA.OA_PostCode AS PostCode
+            FROM dbo.OrgAddress OA
+            WHERE OA.OA_OH = OH.OH_PK AND OA.OA_IsValid = 1
+            ORDER BY OA.OA_SystemCreateTimeUtc ASC
+        ) DefaultAddress
+        OUTER APPLY (
+            SELECT COUNT(JD.JD_PK) AS TotalPOs
+            FROM dbo.JobOrderHeader JD
+            INNER JOIN dbo.OrgAddress OA ON JD.JD_OA_BuyerAddress = OA.OA_PK
+            WHERE OA.OA_OH = OH.OH_PK
+        ) POs
+        OUTER APPLY (
+            SELECT
+                COUNT(JS.JS_PK) AS TotalShipments,
+                SUM(CASE WHEN JS.JS_IsBooking = 1 THEN 1 ELSE 0 END) AS TotalBookings,
+                MAX(JS.JS_SystemCreateTimeUtc) AS LastActivityDate
+            FROM dbo.JobShipment JS
+            INNER JOIN dbo.cvw_JobShipmentOrgs JSO ON JS.JS_PK = JSO.JS_PK
+            WHERE JSO.JS_E2_OA_OH_Consignee = OH.OH_PK
+        ) Shipments
+        OUTER APPLY (
+            SELECT COUNT(JK.JK_PK) AS TotalConsols
+            FROM dbo.JobConsol JK
+            INNER JOIN dbo.OrgAddress OA ON JK.JK_OA_SendingForwarderAddress = OA.OA_PK
+            WHERE OA.OA_OH = OH.OH_PK
+        ) Consols
+        OUTER APPLY (
+            SELECT COUNT(AH.AH_PK) AS TotalInvoices
+            FROM dbo.AccTransactionHeader AH
+            WHERE AH.AH_OH = OH.OH_PK
+        ) Finance
+        LEFT JOIN dbo.GlbStaff CreateStaff ON CreateStaff.GS_Code = OH.OH_SystemCreateUser
+        LEFT JOIN dbo.GlbStaff UpdateStaff ON UpdateStaff.GS_Code = OH.OH_SystemLastEditUser
+        WHERE OH.OH_IsActive = 1 
+          AND OH.OH_IsValid = 1 
+          AND OH.OH_IsConsignee = 1
+          AND OH.OH_PK = TRY_CONVERT(uniqueidentifier, ?)
+        ORDER BY OH.OH_FullName ASC;"""
+    async with app_state.client_mssql_read_fallback.acquire() as conn:
+        cursor = await conn.cursor()
+        await cursor.execute(sql, org_id)
+        columns = [column[0] for column in cursor.description]
+        row = await cursor.fetchone()
+    return {"status": 1, "message": dict(zip(columns, row)) if row else None}

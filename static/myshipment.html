@@ -975,27 +975,6 @@ body {
 #shipment-table th:nth-child(7),
 #shipment-table td:nth-child(7) { width: 21%; }
 
-.shipment-dashboard-head {
-    overflow: hidden;
-    border: 0;
-    background: linear-gradient(135deg, #0F2147 0%, #132D63 100%);
-    color: #FFFFFF;
-}
-
-.shipment-dashboard-head .po-toolbar {
-    border-bottom: 0;
-    background: transparent;
-}
-
-.shipment-dashboard-head .po-heading h2,
-.shipment-dashboard-head .po-heading p {
-    color: #FFFFFF;
-}
-
-.shipment-dashboard-head .po-heading p {
-    opacity: 0.72;
-}
-
 /* ── Unified dark tab header (applies to all sections) ── */
 .tab-dark-header {
     overflow: hidden;
@@ -1095,12 +1074,6 @@ body {
     margin-bottom: 0;
 }
 
-.shipment-dashboard-meta {
-    color: #BFDBFE;
-    font-size: 0.82rem;
-    font-weight: 800;
-}
-
 .shipment-filter-card {
     overflow: visible;
     position: relative;
@@ -1112,13 +1085,15 @@ body {
     top: calc(100% + 4px);
     left: 0;
     z-index: 9999;
+    box-sizing: border-box;
     background: #fff;
     border: 1px solid #E2E8F0;
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-    min-width: 200px;
-    max-width: 280px;
-    padding: 0.5rem 0;
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+    width: min(320px, calc(100vw - 2rem));
+    min-width: 240px;
+    padding: 0;
+    overflow: hidden;
     display: none;
 }
 .shipment-filter-dropdown.open { display: block; }
@@ -1126,37 +1101,50 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.5rem 0.875rem;
-    font-size: 0.72rem;
-    font-weight: 700;
+    gap: 0.75rem;
+    min-height: 46px;
+    padding: 0 1rem;
+    font-size: 0.74rem;
+    font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: #94A3B8;
     border-bottom: 1px solid #F1F5F9;
-    margin-bottom: 0.25rem;
 }
 .shipment-filter-dropdown-header button {
     background: none; border: none; cursor: pointer;
-    font-size: 0.72rem; color: var(--primary); font-weight: 600; padding: 0;
+    font-size: 0.74rem; color: var(--primary); font-weight: 800; padding: 0;
 }
 .shipment-filter-dropdown-option {
-    display: flex; align-items: center; gap: 0.5rem;
-    padding: 0.4rem 0.875rem;
-    font-size: 0.82rem; color: #374151; cursor: pointer;
+    display: flex; align-items: center; gap: 0.7rem;
+    min-height: 40px;
+    box-sizing: border-box;
+    padding: 0.48rem 1rem;
+    font-size: 0.88rem; color: #374151; cursor: pointer;
     transition: background 0.1s;
 }
 .shipment-filter-dropdown-option:hover { background: #F8FAFC; }
-.shipment-filter-dropdown-option input[type="checkbox"] { accent-color: var(--primary); cursor: pointer; }
+.shipment-filter-dropdown-option input[type="checkbox"],
+.shipment-filter-dropdown-option input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
 .shipment-filter-dropdown-option.selected { color: var(--primary); font-weight: 600; }
 .shipment-filter-dropdown-footer {
     border-top: 1px solid #F1F5F9;
-    padding: 0.5rem 0.875rem 0.25rem;
-    display: flex; gap: 0.5rem; justify-content: flex-end;
-    margin-top: 0.25rem;
+    padding: 0.75rem 1rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.55rem;
+    background: #FFFFFF;
 }
 .shipment-filter-dropdown-footer button {
-    font-size: 0.78rem; padding: 0.3rem 0.75rem;
-    border-radius: 6px; cursor: pointer; font-weight: 600; border: none;
+    min-height: 36px;
+    font-size: 0.82rem; padding: 0 0.8rem;
+    border-radius: 8px; cursor: pointer; font-weight: 800; border: none;
 }
 .shipment-filter-dd-apply { background: var(--primary); color: #fff; }
 .shipment-filter-dd-clear { background: #F1F5F9; color: #374151; }
@@ -1170,43 +1158,53 @@ body {
 .shipment-filter-dd-search {
     display: block;
     width: calc(100% - 1.75rem);
-    margin: 0.25rem 0.875rem 0.25rem;
-    padding: 0.35rem 0.6rem;
-    font-size: 0.8rem;
+    box-sizing: border-box;
+    margin: 0.65rem 0.875rem 0.45rem;
+    padding: 0.55rem 0.7rem;
+    font-size: 0.86rem;
     border: 1px solid #E2E8F0;
-    border-radius: 6px;
+    border-radius: 8px;
     outline: none;
 }
-.shipment-filter-dd-search:focus { border-color: var(--primary); }
-.shipment-filter-options-scroll { max-height: 220px; overflow-y: auto; }
+.shipment-filter-dd-search:focus {
+    border-color: #A5B4FC;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+.shipment-filter-options-scroll {
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 0.2rem 0 0.35rem;
+}
 .shipment-filter-sync-btn {
-    display: inline-flex; align-items: center; gap: 0.4rem;
-    font-size: 0.78rem; padding: 0.35rem 0.7rem;
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+    width: 36px;
+    min-height: 36px;
+    font-size: 0.78rem; padding: 0;
     border: 1px solid #D8E1EF; border-radius: 7px;
     background: #F8FAFC; color: #64748B; cursor: pointer;
     font-weight: 600; transition: all 0.15s; white-space: nowrap;
+    flex: 0 0 auto;
 }
+.shipment-filter-sync-btn span { display: none; }
 .shipment-filter-sync-btn:hover { border-color: var(--primary); color: var(--primary); background: #EEF2FF; }
 .shipment-filter-sync-btn.syncing i { animation: spin 1s linear infinite; }
-.shipment-filter-cache-info { font-size: 0.7rem; color: #94A3B8; white-space: nowrap; }
+.shipment-filter-cache-info { display: none; }
 
 .shipment-filter-bar {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     padding: 0.75rem 1rem;
     overflow: visible;
     width: 100%;
     box-sizing: border-box;
 }
-/* pills wrap to a new line when they don't fit — never horizontally scroll,
-   otherwise overflow-x would force overflow-y:auto and clip the dropdowns */
 .shipment-filter-bar-scroll {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    flex-wrap: nowrap;
+    gap: 0.42rem;
     flex: 1 1 auto;
     min-width: 0;
     overflow: visible;
@@ -1227,9 +1225,9 @@ body {
 .shipment-filter-pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.42rem;
     min-height: 36px;
-    padding: 0 0.85rem;
+    padding: 0 0.7rem;
     border: 1px solid #D8E1EF;
     border-radius: 8px;
     background: #F8FAFC;
@@ -1251,16 +1249,49 @@ body {
     color: #64748B;
 }
 
+.shipment-filter-pill > i:first-child {
+    display: none;
+}
+
 .shipment-filter-pill .fa-chevron-down {
     font-size: 0.68rem;
     color: #94A3B8;
 }
 
-.shipment-filter-search {
-    flex: 1 1 220px;
-    min-width: 190px;
-    max-width: 360px;
+.shipment-filter-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex: 0 0 auto;
     margin-left: auto;
+}
+
+.shipment-filter-clear-all {
+    min-height: 36px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0 0.78rem;
+    border: 1px solid #FECACA;
+    border-radius: 7px;
+    background: #FEF2F2;
+    color: #B91C1C;
+    font-size: 0.78rem;
+    font-weight: 750;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.shipment-filter-clear-all.is-visible {
+    display: inline-flex;
+}
+
+.shipment-filter-clear-all:hover {
+    border-color: #FCA5A5;
+    background: #FEE2E2;
+    color: #991B1B;
 }
 
 .shipment-dashboard-kpis {
@@ -1422,9 +1453,12 @@ body {
         grid-template-columns: 1fr;
     }
 
-    .shipment-filter-search {
-        flex-basis: 100%;
-        max-width: none;
+    .shipment-filter-bar,
+    .shipment-filter-bar-scroll {
+        flex-wrap: wrap;
+    }
+
+    .shipment-filter-actions {
         margin-left: 0;
     }
 }
@@ -4873,12 +4907,12 @@ body.not-allowed .content-wrapper {
                 <div class="user-controls">
                     <button class="btn btn-primary login-btn guest-only" id="header-login-btn">Login</button>
                     <div class="profile-actions auth-only">
-                        <button class="user-profile" id="user-profile-trigger" type="button" title="Account menu" aria-label="Account menu" aria-expanded="false">
+                        <button class="user-profile" id="user-profile-trigger" type="button" title="My profile menu" aria-label="My profile menu" aria-expanded="false">
                             <div class="avatar">US</div>
                         </button>
                         <div class="profile-menu" id="profile-menu">
                             <button type="button" id="profile-menu-profile"><i class="fa-regular fa-id-card" aria-hidden="true"></i> Login Details</button>
-                            <button type="button" id="profile-menu-user"><i class="fa-regular fa-user" aria-hidden="true"></i> Account</button>
+                            <button type="button" id="profile-menu-user"><i class="fa-regular fa-user" aria-hidden="true"></i> My Profile</button>
                             <button type="button" class="header-refresh-btn" id="header-refresh-btn" title="Refresh profile and portal config"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Refresh</button>
                             <button type="button" class="danger" id="profile-menu-logout"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Logout</button>
                         </div>
@@ -4922,7 +4956,7 @@ body.not-allowed .content-wrapper {
                     </div>
                 </section>
 
-                <!-- My Profile Section -->
+                <!-- Account Section -->
                 <section id="dashboard" class="view-section">
                     <!-- Profile identity card -->
                     <div class="home-profile-card">
@@ -4936,8 +4970,8 @@ body.not-allowed .content-wrapper {
                         </div>
                         <div class="home-profile-side">
                             <div class="home-profile-actions">
-                                <button class="home-profile-btn" type="button" id="home-profile-viewfull"><span class="hp-status-dot" id="home-profile-status-dot" aria-hidden="true"></span><i class="fa-regular fa-address-card" aria-hidden="true"></i> My Profile</button>
-                                <button class="home-profile-btn icon-only" type="button" id="home-profile-refresh" aria-label="Refresh profile" title="Refresh profile"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i></button>
+                                <button class="home-profile-btn" type="button" id="home-profile-viewfull"><span class="hp-status-dot" id="home-profile-status-dot" aria-hidden="true"></span><i class="fa-regular fa-address-card" aria-hidden="true"></i> Account</button>
+                                <button class="home-profile-btn icon-only" type="button" id="home-profile-refresh" aria-label="Refresh account" title="Refresh account"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i></button>
                             </div>
                             <span class="home-profile-meta" id="home-profile-meta"></span>
                         </div>
@@ -5142,16 +5176,19 @@ body.not-allowed .content-wrapper {
                 <!-- Shipments Section -->
                 <section id="shipments" class="view-section">
                     <div class="po-page-stack">
-                        <div class="panel po-panel shipment-dashboard-head">
+                        <div class="panel po-panel tab-dark-header">
                             <div class="po-toolbar">
                                 <div class="po-heading">
-                                    <h2>Shipment Overview</h2>
+                                    <h2>Shipments</h2>
                                     <p>Track cargo movement, ETA, route, containers, and shipment documents.</p>
                                 </div>
                                 <div class="po-toolbar-actions">
-                                    <div class="shipment-dashboard-meta">Buyer view · Controlling customer</div>
-                                    <span class="shipment-filter-cache-info" id="shipment-filter-cache-info"></span>
-                                    <button class="shipment-filter-sync-btn" type="button" id="shipment-filter-sync-btn" title="Sync filter options from CargoWise"><i class="fa-solid fa-rotate" aria-hidden="true"></i> Sync Filters</button>
+                                    <form class="po-search" id="shipment-search-form" role="search">
+                                        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                                        <input type="text" id="shipment-search-input" placeholder="Search shipment" aria-label="Search shipment, job, booking, or house bill">
+                                        <button class="po-search-button" type="button" id="shipment-search-clear" aria-label="Clear search" title="Clear search" style="display: none;"><span>Clear</span></button>
+                                        <button class="po-search-button primary" type="submit" id="shipment-search-submit" aria-label="Search" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+                                    </form>
                                     <button class="po-refresh-button compact" type="button" id="shipment-refresh-btn" aria-label="Refresh shipments" title="Refresh shipments"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
                                 </div>
                             </div>
@@ -5198,6 +5235,16 @@ body.not-allowed .content-wrapper {
                                         <div class="shipment-filter-dropdown-footer"><button class="shipment-filter-dd-clear" type="button" data-dd-cancel="destination">Cancel</button><button class="shipment-filter-dd-apply" type="button" data-dd-apply="destination">Apply</button></div>
                                     </div>
                                 </div>
+                                <!-- Country -->
+                                <div class="shipment-filter-pill-wrap">
+                                    <button class="shipment-filter-pill" type="button" data-filter="country"><i class="fa-solid fa-globe" aria-hidden="true"></i><span id="shipment-filter-label-country">Country</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                    <div class="shipment-filter-dropdown" id="shipment-filter-dd-country">
+                                        <div class="shipment-filter-dropdown-header"><span>Country</span><button type="button" data-dd-clear="country">Clear</button></div>
+                                        <input class="shipment-filter-dd-search" type="text" placeholder="Search country…" data-dd-search="country">
+                                        <div id="shipment-filter-options-country"></div>
+                                        <div class="shipment-filter-dropdown-footer"><button class="shipment-filter-dd-clear" type="button" data-dd-cancel="country">Cancel</button><button class="shipment-filter-dd-apply" type="button" data-dd-apply="country">Apply</button></div>
+                                    </div>
+                                </div>
                                 <!-- Inco -->
                                 <div class="shipment-filter-pill-wrap">
                                     <button class="shipment-filter-pill" type="button" data-filter="inco"><i class="fa-solid fa-file-contract" aria-hidden="true"></i><span id="shipment-filter-label-inco">Inco Term</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
@@ -5239,12 +5286,11 @@ body.not-allowed .content-wrapper {
                                     </div>
                                 </div>
                                 </div><!-- /.shipment-filter-bar-scroll -->
-                                <form class="po-search shipment-filter-search" id="shipment-search-form" role="search">
-                                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-                                    <input type="text" id="shipment-search-input" placeholder="Search shipment" aria-label="Search shipment, job, booking, or house bill">
-                                    <button class="po-search-button" type="button" id="shipment-search-clear" aria-label="Clear search" title="Clear search" style="display: none;"><span>Clear</span></button>
-                                    <button class="po-search-button primary" type="submit" id="shipment-search-submit" aria-label="Search" title="Search"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
-                                </form>
+                                <div class="shipment-filter-actions">
+                                    <button class="shipment-filter-clear-all" type="button" id="shipment-filter-clear-all" title="Clear all shipment filters"><i class="fa-solid fa-xmark" aria-hidden="true"></i><span>Clear</span></button>
+                                    <span class="shipment-filter-cache-info" id="shipment-filter-cache-info"></span>
+                                    <button class="shipment-filter-sync-btn" type="button" id="shipment-filter-sync-btn" title="Sync filter options from CargoWise"><i class="fa-solid fa-rotate" aria-hidden="true"></i><span>Sync</span></button>
+                                </div>
                             </div>
                         </div>
                         <div class="panel po-panel shipment-stat-bar">
@@ -5865,7 +5911,7 @@ body.not-allowed .content-wrapper {
                 <div class="modal-heading">
                     <div class="modal-heading-icon"><i class="fa-solid fa-user" aria-hidden="true"></i></div>
                     <div>
-                        <h3 id="user-profile-modal-title">Account</h3>
+                        <h3 id="user-profile-modal-title">My Profile</h3>
                         <p class="modal-subtitle">Your login identity and access details</p>
                     </div>
                 </div>
@@ -5884,14 +5930,14 @@ body.not-allowed .content-wrapper {
         </div>
     </div>
 
-    <!-- My Profile modal (full details) -->
+    <!-- Account modal (MyShipment organization details) -->
     <div class="modal" id="home-profile-modal" role="dialog" aria-modal="true" aria-labelledby="home-profile-modal-title" style="display: none;">
         <div class="modal-content profile-modal-content" role="document">
             <div class="modal-header">
                 <div class="modal-heading">
                     <div class="modal-heading-icon"><i class="fa-regular fa-address-card" aria-hidden="true"></i></div>
                     <div>
-                        <h3 id="home-profile-modal-title">My Profile <span class="home-profile-modal-status" id="home-profile-modal-status"></span></h3>
+                        <h3 id="home-profile-modal-title">Account <span class="home-profile-modal-status" id="home-profile-modal-status"></span></h3>
                         <p class="modal-subtitle">Organization details, addresses, and contacts</p>
                     </div>
                 </div>
@@ -5967,10 +6013,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_BASE = location.origin && location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
     const LOGIN_PATH = '/auth/login-username-password';
     const INFO_PATH = '/info';
-    const MY_PROFILE_PATH = '/my/profile';
+    const CORE_MY_PROFILE_PATH = '/my/profile';
     const TOKEN_REFRESH_PATH = '/my/token-refresh';
     const TABLE_GROUPBY_PATH = '/public/table-groupby';
-    const MYSHIPMENT_PROFILE_PATH = '/myshipment/my-profile';
+    const MYSHIPMENT_MY_ACCOUNT_PATH = '/myshipment/my-account';
     const MODULE_ENDPOINTS = {
         'purchase-orders': '/myshipment/my-purchase-orders',
         shipments: '/myshipment/my-shipments',
@@ -5993,7 +6039,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let documentCurrentPage = 1;
     let poSearchQuery = '';
     let shipmentSearchQuery = '';
-    let shipmentFilters = { mode: [], packing: [], origin: [], destination: [], inco: [], carrier: [], supplier_id: [], period: '' };
+    let shipmentFilters = { mode: [], packing: [], origin: [], destination: [], country: [], inco: [], carrier: [], supplier_id: [], period: '' };
     let purchaseOrderRowsById = {};
     let shipmentRowsById = {};
     let containerShipmentId = '';
@@ -6156,7 +6202,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!authToken) return;
         if (!force && authUser && userCacheFresh()) return;
         try {
-            const payload = await api(MY_PROFILE_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const payload = await api(CORE_MY_PROFILE_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
             saveProfilePayload(payload);
         } catch (err) {
             if (isAuthError(err)) {
@@ -6512,7 +6558,7 @@ document.addEventListener('DOMContentLoaded', () => {
             detail: 'Checking organization, address, and contact details.'
         });
         try {
-            const payload = await api(MYSHIPMENT_PROFILE_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
+            const payload = await api(MYSHIPMENT_MY_ACCOUNT_PATH, { headers: { Authorization: `Bearer ${accessToken()}` } });
             const profile = payload.message || {};
             await profileCacheSave(profile);
             applyCargowiseProfile(profile, Date.now());
@@ -6534,7 +6580,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setText('home-profile-monogram', monogramFromName(org.name));
         setText('home-profile-name', displayValue(org.name) === '-' ? (authUser?.name || 'Welcome') : org.name);
         setText('home-profile-code', org.org_code ? `Organization code ${org.org_code}` : ' ');
-        // Active status → dot on the My Profile button + chip in the modal header
+        // Active status drives the Account button dot and modal header chip.
         const statusColor = org.is_active ? '#22C55E' : '#EF4444';
         const statusLabel = org.is_active ? 'Active' : 'Inactive';
         const dot = document.getElementById('home-profile-status-dot');
@@ -7645,7 +7691,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const shipmentParam = options.shipmentId ? `&shipment_id=${encodeURIComponent(options.shipmentId)}` : '';
             const f = shipmentFilters;
             const fp = (k, v) => v && v.length ? `&${k}=${encodeURIComponent(Array.isArray(v) ? v.join(',') : v)}` : '';
-            return `${endpoint}${joiner}limit=100&page=${shipmentCurrentPage}${searchParam}${shipmentParam}${fp('mode',f.mode)}${fp('packing',f.packing)}${fp('origin',f.origin)}${fp('destination',f.destination)}${fp('inco',f.inco)}${fp('carrier',f.carrier)}${fp('supplier_id',f.supplier_id)}${fp('period_days',f.period)}&${MYSHIPMENT_VIEW_PARAM}`;
+            return `${endpoint}${joiner}limit=100&page=${shipmentCurrentPage}${searchParam}${shipmentParam}${fp('mode',f.mode)}${fp('packing',f.packing)}${fp('origin',f.origin)}${fp('destination',f.destination)}${fp('country',f.country)}${fp('inco',f.inco)}${fp('carrier',f.carrier)}${fp('supplier_id',f.supplier_id)}${fp('period_days',f.period)}&${MYSHIPMENT_VIEW_PARAM}`;
         }
         if (target === 'containers') {
             const shipmentParam = containerShipmentId ? `&shipment_id=${encodeURIComponent(containerShipmentId)}` : '';
@@ -8033,11 +8079,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('shipment-refresh-btn')?.addEventListener('click', () => refreshModule('shipments', 'shipment-refresh-btn'));
 
     // --- Shipment filter dropdowns + cache ---
-    const FILTER_KEYS = ['mode', 'packing', 'origin', 'destination', 'inco', 'carrier', 'supplier', 'period'];
-    const FILTER_LABELS = { mode: 'Mode', packing: 'Packing', origin: 'Origin', destination: 'Destination', inco: 'Inco Term', carrier: 'Carrier', supplier: 'Supplier', period: 'Period' };
+    const FILTER_KEYS = ['mode', 'packing', 'origin', 'destination', 'country', 'inco', 'carrier', 'supplier', 'period'];
+    const FILTER_LABELS = { mode: 'Mode', packing: 'Packing', origin: 'Origin', destination: 'Destination', country: 'Country', inco: 'Inco Term', carrier: 'Carrier', supplier: 'Supplier', period: 'Period' };
     // ── IndexedDB my-cache ────────────────────────────────────────────────────
     const MY_CACHE_DB = 'myshipment';
     const MY_CACHE_STORE = 'cache';
+    const MY_CACHE_VERSION = '2';
     const MY_CACHE_TTL = 4 * 60 * 60 * 1000; // 4 hours
     try { indexedDB.deleteDatabase('myshipment_cache'); } catch {} // one-time cleanup of old DB name
 
@@ -8084,6 +8131,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const rec = await _idb.get(myCacheKey());
             if (!rec || !rec.ts || (Date.now() - rec.ts) > MY_CACHE_TTL) return null;
+            if (rec.version !== MY_CACHE_VERSION) return null;
             return rec;
         } catch { return null; }
     }
@@ -8154,6 +8202,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ['mode', 'packing', 'origin', 'destination', 'inco'].forEach(key => {
             populateCheckboxOptions(key, data[key] || []);
         });
+        populateIdNameOptions('country', data.country || []);
         populateIdNameOptions('carrier', data.carrier || []);
         populateSupplierOptions(data.supplier || []);
     }
@@ -8192,6 +8241,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function shipmentHasActiveFilters() {
+        return FILTER_KEYS.some(key => {
+            const stateKey = key === 'supplier' ? 'supplier_id' : key;
+            const val = shipmentFilters[stateKey];
+            return Array.isArray(val) ? val.length > 0 : Boolean(val);
+        });
+    }
+
+    function updateShipmentFilterClearButton() {
+        document.getElementById('shipment-filter-clear-all')?.classList.toggle('is-visible', shipmentHasActiveFilters());
+    }
+
     function updateFilterPill(key) {
         const pill = document.querySelector(`[data-filter="${key}"]`);
         const label = document.getElementById(`shipment-filter-label-${key}`);
@@ -8200,9 +8261,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const vals = shipmentFilters[stateKey];
         const hasValue = Array.isArray(vals) ? vals.length > 0 : !!vals;
         pill.classList.toggle('active', hasValue);
+        updateShipmentFilterClearButton();
         if (!hasValue) { label.textContent = FILTER_LABELS[key]; return; }
         if (key === 'period') { label.textContent = `Last ${vals}d`; return; }
-        if (key === 'supplier' || key === 'carrier') {
+        if (key === 'supplier' || key === 'carrier' || key === 'country') {
             // show name not id — use in-memory copy populated by applyFilterOptions
             const list = _lastFilterOptions?.[key] || [];
             const match = list.find(s => s.id === vals[0]);
@@ -8211,6 +8273,17 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         label.textContent = vals.length === 1 ? vals[0] : `${vals[0]} +${vals.length - 1}`;
+    }
+
+    function resetShipmentFilters() {
+        shipmentFilters = { mode: [], packing: [], origin: [], destination: [], country: [], inco: [], carrier: [], supplier_id: [], period: '' };
+        FILTER_KEYS.forEach(key => {
+            const dd = document.getElementById(`shipment-filter-dd-${key}`);
+            dd?.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = false; });
+            dd?.querySelectorAll('input[name="shipment-period"]').forEach(r => { r.checked = false; });
+            updateFilterPill(key);
+        });
+        updateShipmentFilterClearButton();
     }
 
     document.querySelectorAll('.shipment-filter-pill[data-filter]').forEach(pill => {
@@ -8222,6 +8295,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const isOpen = dd.classList.contains('open');
             closeAllFilterDropdowns(null);
             if (isOpen) return;
+            dd.style.left = '0px';
+            dd.style.right = 'auto';
             // Re-sync checkbox states from current filter state
             if (key !== 'period') {
                 const stateKey = key === 'supplier' ? 'supplier_id' : key;
@@ -8232,6 +8307,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (searchInput) { searchInput.value = ''; dd.querySelectorAll('.shipment-filter-dropdown-option').forEach(o => o.style.display = ''); }
             }
             dd.classList.add('open');
+            const overflow = dd.getBoundingClientRect().right - window.innerWidth + 12;
+            if (overflow > 0) dd.style.left = `${-overflow}px`;
         });
     });
 
@@ -8240,6 +8317,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const applyBtn = e.target.closest('[data-dd-apply]');
         const cancelBtn = e.target.closest('[data-dd-cancel]');
         const clearBtn = e.target.closest('[data-dd-clear]');
+        const clearAllBtn = e.target.closest('#shipment-filter-clear-all');
+        if (clearAllBtn) {
+            closeAllFilterDropdowns(null);
+            resetShipmentFilters();
+            shipmentCurrentPage = 1;
+            loadModule('shipments');
+            return;
+        }
         if (applyBtn) {
             const key = applyBtn.dataset.ddApply;
             const dd = document.getElementById(`shipment-filter-dd-${key}`);
@@ -8417,8 +8502,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const btn = document.getElementById('home-profile-refresh');
             btn?.classList.add('is-loading');
             if (btn) btn.disabled = true;
-            try { await loadCargowiseProfile(true); showToast('Profile refreshed'); }
-            catch { showToast('Could not refresh profile', 'error'); }
+            try { await loadCargowiseProfile(true); showToast('Account refreshed'); }
+            catch { showToast('Could not refresh account', 'error'); }
             finally { btn?.classList.remove('is-loading'); if (btn) btn.disabled = false; }
         });
         document.getElementById('profile-menu-logout').addEventListener('click', requestLogout);
