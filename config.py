@@ -78,7 +78,7 @@ config_table_public_create_enable = ["test","jobseeker"]
 config_table_public_read_enable = ["*"]
 
 # Column
-config_column_token_encode = ["id", "type", "role", "username", "deactivated_at", "deleted_at"]
+config_column_token_encode = ["id", "type", "role", "username", "id_ext" ,"deactivated_at", "deleted_at"]
 config_column_ownership = ["created_by_id", "user_id"]
 config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id"]
 config_column_admin_users=["type","role"]
@@ -132,7 +132,6 @@ config_api = {
 # auth
 "/auth/signup-username-password": {"id": 39, "is_token": 0},
 "/auth/login-username-password": {"id": 40, "is_token": 0},
-"/auth/login-code-password": {"id": 92, "is_token": 0},
 "/auth/login-email-password": {"id": 41, "is_token": 0},
 "/auth/login-mobile-password": {"id": 42, "is_token": 0},
 "/auth/login-email-otp": {"id": 43, "is_token": 0},
@@ -267,13 +266,13 @@ config_postgres = {
 {"name":"is_protected","datatype":"boolean"},
 {"name":"type","datatype":"smallint","is_mandatory":1,"index":"btree(type)"},
 {"name":"username","datatype":"text","unique":"username,type"},
-{"name":"code","datatype":"text","unique":"code,type"},
+{"name":"email","datatype":"text","unique":"email,type"},
+{"name":"mobile","datatype":"text","unique":"mobile,type"},
+{"name":"id_ext","datatype":"text","unique":"id_ext,type"},
 {"name":"password","datatype":"text","index":"btree(password)"},
 {"name":"google_login_id","datatype":"text","unique":"google_login_id,type"},
 {"name":"google_login_metadata","datatype":"jsonb"},
-{"name":"email","datatype":"text","unique":"email,type"},
-{"name":"mobile","datatype":"text","unique":"mobile,type"},
-{"name":"role","datatype":"smallint","is_mandatory":0,"index":"btree(role)"},
+{"name":"role","datatype":"smallint","is_mandatory":1,"index":"btree(role)"},
 {"name":"last_active_at","datatype":"timestamptz"},
 {"name":"name","datatype":"text","index":"gin_trgm(name)"},
 {"name":"country","datatype":"text","index":"gin_trgm(country)"},
@@ -493,7 +492,7 @@ config_postgres = {
 "is_enable_root_user_create":1,
 "is_enable_root_user_delete_disable":1,
 "is_enable_users_role_delete_disable_hard":1,
-"is_enable_users_role_delete_disable_soft":0,
+"is_enable_users_role_delete_disable_soft":1,
 "table_row_delete_disable_all":[],
 "table_row_delete_disable_bulk":[],
 },
