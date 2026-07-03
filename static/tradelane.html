@@ -888,8 +888,8 @@ body {
 
 .object-count-table th:nth-child(4),
 .object-count-table td:nth-child(4) {
-    width: 170px;
-    min-width: 170px;
+    width: 215px;
+    min-width: 215px;
     padding-left: 2rem;
     text-align: center;
 }
@@ -902,13 +902,19 @@ body {
 }
 
 .object-count-download,
-.object-count-view {
+.object-count-view,
+.object-count-chart {
     width: 34px;
     height: 34px;
     min-height: 34px;
     display: inline-grid;
     place-items: center;
     padding: 0;
+}
+
+.object-count-chart:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 .object-count-action-icon {
@@ -945,6 +951,19 @@ body {
 
 #large-export-modal .modal-content {
     width: min(460px, calc(100vw - 2.5rem));
+}
+
+#object-count-chart-modal .modal-content {
+    width: min(760px, calc(100vw - 2.5rem));
+}
+
+.object-count-chart-content .dashboard-card {
+    box-shadow: none;
+}
+
+.object-count-chart-content .dashboard-card:hover {
+    border-color: var(--border);
+    box-shadow: none;
 }
 
 .schema-cell-main {
@@ -2615,23 +2634,14 @@ body.logged-out .content-wrapper {
                     <div class="section-header">
                         <div>
                             <h1>Dashboard</h1>
-                            <p>An overview of your database at a glance.</p>
-                        </div>
-                    </div>
-                    <div class="dashboard-section-bar">
-                        <div class="dashboard-section-heading">
-                            <h2 class="dashboard-section-title">
-                                <i class="fa-solid fa-table-columns" aria-hidden="true"></i>
-                                Distribution of Unique Values
-                            </h2>
-                            <p class="dashboard-section-sub">Cached <code>mv_unique</code> views. Fields with fewer than 10 values use a pie chart; larger fields use a readable bar list.</p>
+                            <p>Dashboards are being redesigned.</p>
                         </div>
                     </div>
                     <div id="dashboard-content" class="dashboard-grid">
                         <div class="dashboard-empty-state">
-                            <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
-                            <h3>No Data Available</h3>
-                            <p>Please sync the database cache first using the "Database Sync" button.</p>
+                            <i class="fa-solid fa-chart-simple" aria-hidden="true"></i>
+                            <h3>Dashboards Coming Soon</h3>
+                            <p>Use the chart action in Object Count for cached <code>mv_unique</code> views.</p>
                         </div>
                     </div>
                 </section>
@@ -3083,6 +3093,27 @@ LIMIT 10;</textarea>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" type="button" id="large-export-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="object-count-chart-modal" role="dialog" aria-modal="true" aria-labelledby="object-count-chart-modal-title" style="display: none;">
+        <div class="modal-content" role="document">
+            <div class="modal-header">
+                <div class="modal-heading">
+                    <div class="modal-heading-icon"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></div>
+                    <div>
+                        <h3 id="object-count-chart-modal-title">Cached Values Chart</h3>
+                        <p class="modal-subtitle" id="object-count-chart-modal-subtitle">Cached unique values</p>
+                    </div>
+                </div>
+                <button class="close-modal" id="object-count-chart-modal-close" type="button" aria-label="Close chart" title="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+            </div>
+            <div class="modal-body">
+                <div id="object-count-chart-content" class="object-count-chart-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" type="button" id="object-count-chart-close-btn">Close</button>
             </div>
         </div>
     </div>
@@ -5197,6 +5228,9 @@ function objectCountActionIcon(name) {
     if (name === 'play') {
         return '<svg class="object-count-action-icon is-fill" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 2.7v10.6L13 8 4.5 2.7z"></path></svg>';
     }
+    if (name === 'chart') {
+        return '<svg class="object-count-action-icon is-stroke" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 19V9"></path><path d="M12 19V5"></path><path d="M20 19v-7"></path><path d="M3 19h18"></path></svg>';
+    }
     if (name === 'warning') {
         return '<svg class="object-count-action-icon is-stroke" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M10.3 4.3 2.6 17.6A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.4L13.7 4.3a2 2 0 0 0-3.4 0z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>';
     }
@@ -5206,6 +5240,25 @@ function objectCountActionIcon(name) {
 function objectCountViewButton(row = {}) {
     const title = `Run ${rawValue(row.object_name)}`;
     return `<button class="btn btn-secondary object-count-view" type="button" data-schema="${escapeHtml(row.schema_name || 'public')}" data-object="${escapeHtml(row.object_name || '')}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${objectCountActionIcon('play')}</button>`;
+}
+
+function objectCountCachedUniqueItem(row = {}) {
+    const item = resolveUniqueValueObject(row);
+    if (!item || !Array.isArray(readCachedPostgresUniqueValues(item.cache_key))) return null;
+    return item;
+}
+
+function objectCountChartButton(row = {}) {
+    const objectName = String(row.object_name || '');
+    const item = objectCountCachedUniqueItem(row);
+    const isUniqueObject = objectName.startsWith('mv_unique_');
+    const enabled = Boolean(item);
+    const title = enabled
+        ? `Chart ${rawValue(objectName)}`
+        : isUniqueObject
+            ? `Chart available after ${rawValue(objectName)} is cached`
+            : 'Charts are available for cached mv_unique objects';
+    return `<button class="btn btn-secondary object-count-chart" type="button" data-schema="${escapeHtml(item?.schema_name || row.schema_name || 'public')}" data-object="${escapeHtml(item?.object_name || objectName)}" data-table="${escapeHtml(item?.table_name || '')}" data-column="${escapeHtml(item?.column_name || '')}" data-cache-key="${escapeHtml(item?.cache_key || '')}" data-count="${escapeHtml(item?.row_count ?? '')}" ${enabled ? '' : 'disabled'} title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${objectCountActionIcon('chart')}</button>`;
 }
 
 function objectCountDownloadButton(row = {}) {
@@ -5220,7 +5273,7 @@ function objectCountDownloadButton(row = {}) {
 }
 
 function objectCountActionButtons(row = {}) {
-    return `<div class="object-count-actions">${objectCountViewButton(row)}${objectCountDownloadButton(row)}</div>`;
+    return `<div class="object-count-actions">${objectCountViewButton(row)}${objectCountChartButton(row)}${objectCountDownloadButton(row)}</div>`;
 }
 
 let objectCountSortDir = null; // null | 'asc' | 'desc'
@@ -5239,8 +5292,7 @@ function renderObjectCountRows(rows = []) {
         const name = String(rawValue(r.object_name)).toLowerCase();
         if (filterVal === 'unique' && !name.includes('unique')) return false;
         if (filterVal === 'cached') {
-            const item = resolveUniqueValueObject(r);
-            if (!item || !Array.isArray(readCachedPostgresUniqueValues(item.cache_key))) return false;
+            if (!objectCountCachedUniqueItem(r)) return false;
         }
         if (searchVal && !name.includes(searchVal) && !String(rawValue(r.row_count) ?? '').includes(searchVal)) return false;
         return true;
@@ -5274,8 +5326,7 @@ function renderObjectCountRows(rows = []) {
         : 'No objects match';
 
     $('object-count-body').innerHTML = filtered.length ? filtered.map((row, index) => {
-        const item = resolveUniqueValueObject(row);
-        const isCached = item ? Array.isArray(readCachedPostgresUniqueValues(item.cache_key)) : false;
+        const isCached = Boolean(objectCountCachedUniqueItem(row));
         const badgeHtml = isCached ? '<span class="cached-badge" title="Values cached in IndexedDB"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i> Cached</span>' : '';
         return `
             <tr>
@@ -5507,89 +5558,72 @@ const DASHBOARD_CARD_RENDER_CAP = 100;
 const DASHBOARD_PIE_VALUE_LIMIT = 9;
 const dashboardCardData = new Map();
 
-function loadDashboard() {
-    const container = $('dashboard-content');
-    if (!container) return;
+function dashboardComingSoonHtml() {
+    return `
+        <div class="dashboard-empty-state">
+            <i class="fa-solid fa-chart-simple"></i>
+            <h3>Dashboards Coming Soon</h3>
+            <p>Use the chart action in Object Count for cached <code>mv_unique</code> views.</p>
+        </div>
+    `;
+}
 
-    const objectCount = readCachedPostgresObjectCount();
-    if (!objectCount || !Array.isArray(objectCount.rows)) {
-        container.innerHTML = `
-            <div class="dashboard-empty-state">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-                <h3>No Data Available</h3>
-                <p>Please sync the database cache first using the "Database Sync" button.</p>
+function dashboardCardHtml(item = {}) {
+    const columnName = escapeHtml(prettifyColumnName(item.column_name));
+    const key = item.cache_key;
+
+    const values = readCachedPostgresUniqueValues(key);
+    const valid = Array.isArray(values)
+        ? values.filter(v => v && v.value !== null && v.value !== undefined && String(v.value).trim() !== '')
+        : [];
+    const count = valid.length || item.row_count;
+    const total = valid.reduce((sum, v) => sum + (Number(v.count) || 0), 0);
+    const mode = dashboardCardMode(valid, total);
+    const sorted = total > 0
+        ? [...valid].sort((a, b) => (Number(b.count) || 0) - (Number(a.count) || 0))
+        : [...valid].sort((a, b) => String(a.value).localeCompare(String(b.value)));
+
+    dashboardCardData.set(key, { name: prettifyColumnName(item.column_name), mode, total, distinctCount: count, values: sorted });
+
+    const head = `
+        <div class="dashboard-card-head">
+            <span class="dashboard-card-icon"><i class="fa-solid fa-table-cells-large"></i></span>
+            <div class="dashboard-card-headings">
+                <h3 class="dashboard-card-title">${columnName}</h3>
+                <span class="dashboard-card-count">${formatNumber(count)} distinct value${count === 1 ? '' : 's'}</span>
             </div>
-        `;
-        return;
-    }
+            ${valid.length ? `
+            <div class="dashboard-card-tools">
+                <button type="button" class="dashboard-card-tool dashboard-card-search-toggle" title="Search values" aria-label="Search values"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></button>
+                <button type="button" class="dashboard-card-tool dashboard-card-download" title="Download CSV" aria-label="Download CSV"><i class="fa-solid fa-download" aria-hidden="true"></i></button>
+            </div>` : ''}
+        </div>
+    `;
 
-    const dashboardItems = uniqueValueObjectsFromObjectCount(objectCount.rows);
-
-    if (!dashboardItems.length) {
-        container.innerHTML = `
-            <div class="dashboard-empty-state">
-                <i class="fa-solid fa-chart-pie"></i>
-                <h3>No dashboard cards available</h3>
-                <p>No cached <code>mv_unique</code> views were found to render.</p>
-            </div>
-        `;
-        return;
-    }
-
-    dashboardCardData.clear();
-
-    container.innerHTML = dashboardItems.map(item => {
-        const columnName = escapeHtml(prettifyColumnName(item.column_name));
-        const key = item.cache_key;
-
-        const values = readCachedPostgresUniqueValues(key);
-        const valid = Array.isArray(values)
-            ? values.filter(v => v && v.value !== null && v.value !== undefined && String(v.value).trim() !== '')
-            : [];
-        const count = valid.length || item.row_count;
-        const total = valid.reduce((sum, v) => sum + (Number(v.count) || 0), 0);
-        const mode = dashboardCardMode(valid, total);
-        const sorted = total > 0
-            ? [...valid].sort((a, b) => (Number(b.count) || 0) - (Number(a.count) || 0))
-            : [...valid].sort((a, b) => String(a.value).localeCompare(String(b.value)));
-
-        dashboardCardData.set(key, { name: prettifyColumnName(item.column_name), mode, total, distinctCount: count, values: sorted });
-
-        const head = `
-            <div class="dashboard-card-head">
-                <span class="dashboard-card-icon"><i class="fa-solid fa-table-cells-large"></i></span>
-                <div class="dashboard-card-headings">
-                    <h3 class="dashboard-card-title">${columnName}</h3>
-                    <span class="dashboard-card-count">${formatNumber(count)} distinct value${count === 1 ? '' : 's'}</span>
-                </div>
-                ${valid.length ? `
-                <div class="dashboard-card-tools">
-                    <button type="button" class="dashboard-card-tool dashboard-card-search-toggle" title="Search values" aria-label="Search values"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></button>
-                    <button type="button" class="dashboard-card-tool dashboard-card-download" title="Download CSV" aria-label="Download CSV"><i class="fa-solid fa-download" aria-hidden="true"></i></button>
-                </div>` : ''}
-            </div>
-        `;
-
-        if (!valid.length) {
-            return `
-                <div class="dashboard-card" data-key="${escapeHtml(key)}">
-                    ${head}
-                    <div class="dashboard-card-note">No cached values yet — run "Database Sync" to load them.</div>
-                </div>
-            `;
-        }
-
+    if (!valid.length) {
         return `
             <div class="dashboard-card" data-key="${escapeHtml(key)}">
                 ${head}
-                <div class="dashboard-card-searchbar" hidden>
-                    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-                    <input type="search" class="dashboard-card-search" placeholder="Search ${columnName}…" autocomplete="off">
-                </div>
-                <div class="dashboard-card-body">${dashboardCardBodyHtml(key, '')}</div>
+                <div class="dashboard-card-note">No cached values yet - run "Database Sync" to load them.</div>
             </div>
         `;
-    }).join('');
+    }
+
+    return `
+        <div class="dashboard-card" data-key="${escapeHtml(key)}">
+            ${head}
+            <div class="dashboard-card-searchbar" hidden>
+                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+                <input type="search" class="dashboard-card-search" placeholder="Search ${columnName}..." autocomplete="off">
+            </div>
+            <div class="dashboard-card-body">${dashboardCardBodyHtml(key, '')}</div>
+        </div>
+    `;
+}
+
+function loadDashboard() {
+    const container = $('dashboard-content');
+    if (container) container.innerHTML = dashboardComingSoonHtml();
 }
 
 function dashboardCardMode(values = [], total = 0) {
@@ -5700,40 +5734,52 @@ function downloadDashboardCard(key) {
     downloadCsvFile({ filename: `${safeName}.csv`, columns, rows: data.values });
 }
 
+function showObjectCountChart(item = {}) {
+    const content = $('object-count-chart-content');
+    if (!content || !item.cache_key || !Array.isArray(readCachedPostgresUniqueValues(item.cache_key))) return;
+    dashboardCardData.clear();
+    content.innerHTML = dashboardCardHtml(item);
+    const subtitle = $('object-count-chart-modal-subtitle');
+    if (subtitle) subtitle.textContent = rawValue(item.object_name || item.cache_key);
+    openModal('object-count-chart-modal');
+}
+
 function setupDashboardInteractions() {
-    const container = $('dashboard-content');
-    if (!container || container.dataset.wired === '1') return;
-    container.dataset.wired = '1';
+    ['dashboard-content', 'object-count-chart-content'].forEach(id => {
+        const container = $(id);
+        if (!container || container.dataset.wired === '1') return;
+        container.dataset.wired = '1';
 
-    container.addEventListener('input', event => {
-        const input = event.target.closest('.dashboard-card-search');
-        if (!input) return;
-        const card = input.closest('.dashboard-card');
-        const key = card?.dataset.key;
-        const body = card?.querySelector('.dashboard-card-body');
-        if (key && body) body.innerHTML = dashboardCardBodyHtml(key, input.value);
-    });
+        container.addEventListener('input', event => {
+            const input = event.target.closest('.dashboard-card-search');
+            if (!input) return;
+            const card = input.closest('.dashboard-card');
+            const key = card?.dataset.key;
+            const body = card?.querySelector('.dashboard-card-body');
+            if (key && body) body.innerHTML = dashboardCardBodyHtml(key, input.value);
+        });
 
-    container.addEventListener('click', event => {
-        const toggle = event.target.closest('.dashboard-card-search-toggle');
-        if (toggle) {
-            const card = toggle.closest('.dashboard-card');
-            const bar = card?.querySelector('.dashboard-card-searchbar');
-            const input = bar?.querySelector('.dashboard-card-search');
-            if (!bar) return;
-            bar.hidden = !bar.hidden;
-            toggle.classList.toggle('is-active', !bar.hidden);
-            if (!bar.hidden) {
-                input?.focus();
-            } else if (input) {
-                input.value = '';
-                const body = card.querySelector('.dashboard-card-body');
-                if (body) body.innerHTML = dashboardCardBodyHtml(card.dataset.key, '');
+        container.addEventListener('click', event => {
+            const toggle = event.target.closest('.dashboard-card-search-toggle');
+            if (toggle) {
+                const card = toggle.closest('.dashboard-card');
+                const bar = card?.querySelector('.dashboard-card-searchbar');
+                const input = bar?.querySelector('.dashboard-card-search');
+                if (!bar) return;
+                bar.hidden = !bar.hidden;
+                toggle.classList.toggle('is-active', !bar.hidden);
+                if (!bar.hidden) {
+                    input?.focus();
+                } else if (input) {
+                    input.value = '';
+                    const body = card.querySelector('.dashboard-card-body');
+                    if (body) body.innerHTML = dashboardCardBodyHtml(card.dataset.key, '');
+                }
+                return;
             }
-            return;
-        }
-        const download = event.target.closest('.dashboard-card-download');
-        if (download) downloadDashboardCard(download.closest('.dashboard-card')?.dataset.key);
+            const download = event.target.closest('.dashboard-card-download');
+            if (download) downloadDashboardCard(download.closest('.dashboard-card')?.dataset.key);
+        });
     });
 }
 
@@ -5934,6 +5980,21 @@ function viewObjectCountObject(event) {
     }
 }
 
+function viewObjectCountChart(event) {
+    const btn = event.target.closest('.object-count-chart');
+    if (!btn || btn.disabled) return;
+    const count = Number(btn.dataset.count);
+    const item = {
+        schema_name: btn.dataset.schema || 'public',
+        object_name: btn.dataset.object || '',
+        table_name: btn.dataset.table || '',
+        column_name: btn.dataset.column || '',
+        row_count: Number.isFinite(count) ? count : 0,
+        cache_key: btn.dataset.cacheKey || ''
+    };
+    showObjectCountChart(item);
+}
+
 async function downloadObjectCountObject(event) {
     const btn = event.target.closest('.object-count-download');
     if (!btn || !authToken || !authUser || btn.disabled || objectCountExportBusy) return;
@@ -6046,6 +6107,8 @@ function bindAuthComponentEvents() {
     setupDashboardInteractions();
     $('large-export-modal-close').addEventListener('click', () => closeModal('large-export-modal'));
     $('large-export-close-btn').addEventListener('click', () => closeModal('large-export-modal'));
+    $('object-count-chart-modal-close').addEventListener('click', () => closeModal('object-count-chart-modal'));
+    $('object-count-chart-close-btn').addEventListener('click', () => closeModal('object-count-chart-modal'));
     $('profile-menu-profile').addEventListener('click', () => {
         closeProfileMenu();
         renderProfile();
@@ -6133,6 +6196,7 @@ function bindPageEvents() {
     $('object-count-download-btn').addEventListener('click', downloadObjectCountCsv);
     $('object-count-cancel-btn').addEventListener('click', cancelObjectCountExport);
     $('object-count-body').addEventListener('click', viewObjectCountObject);
+    $('object-count-body').addEventListener('click', viewObjectCountChart);
     $('object-count-body').addEventListener('click', downloadObjectCountObject);
     $('object-count-filter').addEventListener('change', () => {
         const cached = readCachedPostgresObjectCount();
