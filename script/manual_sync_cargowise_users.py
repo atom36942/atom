@@ -3,7 +3,7 @@
 # username=CargoWise OH_Code (upsert yes)
 # name=CargoWise OH_FullName (upsert yes)
 # type=1 (upsert yes)
-# role=4 (upsert yes)
+# role=2 (upsert yes)
 # password=123456 on create only (upsert no)
 
 # packages
@@ -32,7 +32,7 @@ from config import config_regex
 from config import config_table
 from config import config_buffer_limit_default
 seed_cargowise_user_type = ast.literal_eval(os.getenv("seed_cargowise_user_type")) if os.getenv("seed_cargowise_user_type") else 1
-seed_cargowise_user_role = ast.literal_eval(os.getenv("seed_cargowise_user_role")) if os.getenv("seed_cargowise_user_role") else 4
+seed_cargowise_user_role = ast.literal_eval(os.getenv("seed_cargowise_user_role")) if os.getenv("seed_cargowise_user_role") else 2
 seed_cargowise_user_password = os.getenv("seed_cargowise_user_password") if os.getenv("seed_cargowise_user_password") else "123456"
 
 # logic

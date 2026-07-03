@@ -6492,8 +6492,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const statusHtml = `<span class="hp-status-dot" style="background:${org.is_active ? '#22C55E' : '#EF4444'};margin-right:6px"></span>${org.is_active ? 'Active' : 'Inactive'}`;
         const rows = [
-            ['Status', statusHtml, true],
+            ['Organization name', escapeHtml(displayValue(org.name))],
+            ['Organization ID', escapeHtml(displayValue(org.org_id))],
             ['Organization code', escapeHtml(displayValue(org.org_code))],
+            ['Status', statusHtml, true],
             ['Category', escapeHtml(displayValue(org.category))],
             ['Roles', escapeHtml(roles.length ? roles.join(', ') : '-')],
             ['Language', escapeHtml(displayValue(org.language))],
@@ -6502,7 +6504,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ['Record', org.is_valid ? 'Valid' : 'Invalid'],
             ['Created', escapeHtml(formatDateTime(org.created_at))],
             ['Last Updated', escapeHtml(formatDateTime(org.updated_at))],
-            ['Organization ID', escapeHtml(displayValue(org.org_id))],
         ];
         setHtml('cargowise-org-summary', rows.map(([label, value]) => `
             <tr><td class="profile-detail-label">${escapeHtml(label)}</td><td class="profile-detail-value">${value}</td></tr>
