@@ -1,10 +1,17 @@
+# FAQ: synced users columns
+# id_ext=CargoWise OH_PK (upsert match)
+# username=CargoWise OH_Code (upsert yes)
+# name=CargoWise OH_FullName (upsert yes)
+# type=1 (upsert yes)
+# role=4 (upsert yes)
+# password=123456 on create only (upsert no)
+
 # packages
 import argparse
 import ast
 import asyncio
 import os
 import textwrap
-from datetime import datetime, timezone
 import aioodbc
 import asyncpg
 from argon2 import PasswordHasher
@@ -25,7 +32,7 @@ from config import config_regex
 from config import config_table
 from config import config_buffer_limit_default
 seed_cargowise_user_type = ast.literal_eval(os.getenv("seed_cargowise_user_type")) if os.getenv("seed_cargowise_user_type") else 1
-seed_cargowise_user_role = ast.literal_eval(os.getenv("seed_cargowise_user_role")) if os.getenv("seed_cargowise_user_role") else 2
+seed_cargowise_user_role = ast.literal_eval(os.getenv("seed_cargowise_user_role")) if os.getenv("seed_cargowise_user_role") else 4
 seed_cargowise_user_password = os.getenv("seed_cargowise_user_password") if os.getenv("seed_cargowise_user_password") else "123456"
 
 # logic
@@ -49,11 +56,11 @@ async def execute():
     def cargowise_org_sql():
         return textwrap.dedent(f"""\
             SELECT
-                CONVERT(varchar(36), OH.OH_PK) AS username,
-                OH.OH_FullName AS name,
-                OH.OH_Code AS code
+                CONVERT(varchar(36), OH.OH_PK) AS org_pk,
+                OH.OH_Code AS code,
+                OH.OH_FullName AS name
             FROM dbo.OrgHeader AS OH
-            ORDER BY OH.OH_FullName;""")
+            ORDER BY OH.OH_Code;""")
     async def fetch_cargowise_orgs(mssql_url):
         pool = await aioodbc.create_pool(dsn=mssql_url, minsize=1, maxsize=3)
         try:
@@ -68,59 +75,58 @@ async def execute():
         orgs = []
         for row in rows:
             item = dict(zip(columns, row))
-            username = str(item.get("username") or "").strip()
-            if not username:
+            org_pk = str(item.get("org_pk") or "").strip()
+            if not org_pk:
                 continue
             orgs.append({
-                "username": username,
-                "name": str(item.get("name") or "").strip(),
-                "code": clean_optional_text(item.get("code"))
+                "id_ext": org_pk,
+                "code": clean_optional_text(item.get("code")),
+                "name": clean_optional_text(item.get("name"))
             })
         return orgs
     async def read_existing_users(client_postgres, orgs):
         if not orgs:
             return []
-        usernames = [org["username"] for org in orgs]
+        id_ext_list = [org["id_ext"] for org in orgs]
         sql = textwrap.dedent("""\
             SELECT
-                id, type, username, code, name, role, deactivated_at, deleted_at
+                id, id_ext, type, username, name, role
             FROM users
-            WHERE username = ANY($1::text[])
-            ORDER BY username, deleted_at NULLS FIRST, deactivated_at NULLS FIRST, type;""")
+            WHERE id_ext = ANY($1::text[])
+            ORDER BY id_ext, type;""")
         async with client_postgres.acquire() as conn:
-            records = await conn.fetch(sql, usernames)
+            records = await conn.fetch(sql, id_ext_list)
         return [dict(record) for record in records]
     def plan_user_changes(orgs, existing_users, password, user_type, role):
-        existing_by_username = {}
+        existing_by_id_ext = {}
         duplicate_warnings = []
         for user in existing_users:
-            if user.get("username"):
-                if user["username"] in existing_by_username:
-                    duplicate_warnings.append(f"duplicate existing username skipped: {user['username']}")
+            if user.get("id_ext"):
+                if user["id_ext"] in existing_by_id_ext:
+                    duplicate_warnings.append(f"duplicate existing id_ext skipped: {user['id_ext']}")
                     continue
-                existing_by_username[user["username"]] = user
+                existing_by_id_ext[user["id_ext"]] = user
         create_list = []
         update_list = []
-        sync_time = datetime.now(timezone.utc)
         for org in orgs:
-            existing = existing_by_username.get(org["username"])
+            existing = existing_by_id_ext.get(org["id_ext"])
             
             desired = {
-                "type": user_type,
-                "role": role,
+                "id_ext": org["id_ext"],
+                "username": org["code"],
                 "name": org["name"],
-                "code": org["code"]
+                "type": user_type,
+                "role": role
             }
             
             if not existing:
                 create_list.append({
-                    "username": org["username"],
                     "password": password,
                     **desired
                 })
                 continue
             if any(existing.get(key) != value for key, value in desired.items()):
-                update_list.append({"id": existing["id"], **desired, "updated_at": sync_time})
+                update_list.append({"id": existing["id"], **desired})
         return create_list, update_list, duplicate_warnings
     async def create_users(client_postgres, cache_postgres_schema, client_password_hasher, obj_list):
         total = 0
@@ -135,6 +141,14 @@ async def execute():
             await func_postgres_update(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, config_regex=config_regex, table="users", obj_list=batch, created_by_id=None)
             total += len(batch)
         return total
+    def validate_users_schema(cache_postgres_schema):
+        required_columns = {"id", "id_ext", "username", "name", "type", "role", "password"}
+        users_schema = cache_postgres_schema.get("users")
+        if not users_schema:
+            raise Exception("users table not found in Postgres schema")
+        missing_columns = sorted(required_columns - set(users_schema))
+        if missing_columns:
+            raise Exception(f"users table missing required column(s): {', '.join(missing_columns)}")
     args = parse_args()
     if not args.postgres_url:
         print("Error: PostgreSQL URL is required. Set config_postgres_url or pass --postgres-url.")
@@ -150,8 +164,7 @@ async def execute():
     client_postgres = await asyncpg.create_pool(dsn=args.postgres_url, min_size=1, max_size=5)
     try:
         cache_postgres_schema = await func_postgres_schema_read(client_postgres=client_postgres)
-        if "users" not in cache_postgres_schema:
-            raise Exception("users table not found in Postgres schema")
+        validate_users_schema(cache_postgres_schema)
         client_password_hasher = PasswordHasher()
         existing_users = await read_existing_users(client_postgres, orgs)
         create_list, update_list, duplicate_warnings = plan_user_changes(orgs, existing_users, args.password, args.user_type, args.role)
