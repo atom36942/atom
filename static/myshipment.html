@@ -3747,6 +3747,39 @@ body {
     height: 100% !important;
 }
 
+.user-dashboard-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.user-dashboard-card {
+    overflow: hidden;
+}
+
+.user-dashboard-title {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: #0F172A;
+    font-size: 1rem;
+    font-weight: 850;
+}
+
+.user-dashboard-frame {
+    width: 100%;
+    aspect-ratio: 1280 / 612;
+    min-height: 380px;
+    background: #F8FAFC;
+    border-top: 1px solid #E5E7EB;
+}
+
+.user-dashboard-frame iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
 .analytics-status-list {
     display: grid;
     gap: 0.65rem;
@@ -3798,8 +3831,13 @@ body {
 
     .analytics-kpi-strip,
     .analytics-chart-grid,
+    .user-dashboard-list,
     .analytics-status-row {
         grid-template-columns: 1fr;
+    }
+
+    .user-dashboard-frame {
+        min-height: 280px;
     }
 }
 
@@ -5743,23 +5781,17 @@ body.not-allowed .content-wrapper {
                 <!-- Analytics Section -->
                 <section id="analytics" class="view-section">
                     <div class="po-page-stack">
-                        <div class="panel po-panel tab-dark-header">
-                            <div class="po-toolbar">
-                                <div class="po-heading">
-                                    <h2>Dashboard</h2>
-                                    <p>Advanced analytics and insights for your supply chain.</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="panel po-panel">
-                            <div class="coming-soon-block">
-                                <div class="coming-soon-icon"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></div>
-                                <h3>More analytics coming soon</h3>
-                                <p>Deeper insights &mdash; freight spend, carrier performance, lane analytics, and emissions &mdash; are on the way. Your live KPIs and charts are on the <strong>Home</strong> page.</p>
-                            </div>
-                        </div>
-                    </div>
-                </section>
+	                        <div class="panel po-panel tab-dark-header">
+	                            <div class="po-toolbar">
+	                                <div class="po-heading">
+	                                    <h2>Dashboard</h2>
+	                                    <p>Embedded dashboards configured for your account.</p>
+	                                </div>
+	                            </div>
+	                        </div>
+	                        <div class="user-dashboard-list" id="user-dashboard-list"></div>
+	                    </div>
+	                </section>
 
                 <!-- MGH ASK Section -->
                 <section id="mghask" class="view-section">
@@ -6455,12 +6487,92 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             throw err;
         }
-    };
-    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
-    const displayValue = value => value === null || value === undefined || value === '' ? '-' : String(value);
-    const supportedRoles = () => [...new Set([...document.querySelectorAll('.nav-item[data-roles]')]
-        .flatMap(item => String(item.dataset.roles || '').split(',').map(Number).filter(Number.isFinite)))]
-        .sort((left, right) => left - right);
+	    };
+	    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+	    const displayValue = value => value === null || value === undefined || value === '' ? '-' : String(value);
+	    const dashboardEntriesFromUser = () => {
+	        const raw = authUser?.dashboard || authUser?.dashbaord || {};
+	        const source = typeof raw === 'string' ? (() => { try { return JSON.parse(raw); } catch (err) { return {}; } })() : raw;
+	        if (Array.isArray(source)) return source.map((value, index) => [String(index + 1), value]);
+	        if (!source || typeof source !== 'object') return [];
+	        return Object.entries(source);
+	    };
+	    const buildDashboardIframeFromConfig = (config, fallbackTitle) => {
+	        const src = config?.src || '';
+	        let parsedSrc;
+	        try { parsedSrc = new URL(src, window.location.href); } catch (err) { return null; }
+	        if (!['https:', 'http:'].includes(parsedSrc.protocol)) return null;
+	        const iframe = document.createElement('iframe');
+	        iframe.src = parsedSrc.href;
+	        iframe.title = config.title || fallbackTitle || 'Dashboard';
+	        iframe.loading = 'lazy';
+	        iframe.width = '1280';
+	        iframe.height = '612';
+	        iframe.setAttribute('frameborder', '0');
+	        iframe.allow = 'fullscreen';
+	        iframe.setAttribute('allowfullscreen', 'true');
+	        return iframe;
+	    };
+	    const buildDashboardIframe = (iframeHtml, fallbackTitle) => {
+	        const template = document.createElement('template');
+	        template.innerHTML = String(iframeHtml || '').trim();
+	        const source = template.content.querySelector('iframe');
+	        if (!source) return null;
+	        return buildDashboardIframeFromConfig({
+	            src: source.getAttribute('src') || '',
+	            title: source.getAttribute('title') || fallbackTitle || 'Dashboard'
+	        }, fallbackTitle);
+	    };
+	    const renderUserDashboards = () => {
+	        const list = document.getElementById('user-dashboard-list');
+	        if (!list) return;
+	        list.innerHTML = '';
+	        const entries = dashboardEntriesFromUser()
+	            .map(([key, value]) => ({ key, value: typeof value === 'string' ? { title: key, iframe: value } : (value && typeof value === 'object' ? value : {}) }))
+	            .filter(item => item.value.src || item.value.iframe);
+	        if (!entries.length) {
+	            const empty = document.createElement('div');
+	            empty.className = 'panel po-panel';
+	            empty.innerHTML = `
+	                <div class="coming-soon-block">
+	                    <div class="coming-soon-icon"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></div>
+	                    <h3>No dashboards configured</h3>
+	                    <p>Your account does not have an embedded dashboard assigned yet.</p>
+	                </div>
+	            `;
+	            list.appendChild(empty);
+	            return;
+	        }
+	        entries.forEach(({ key, value }) => {
+	            const title = displayValue(value.title || key);
+	            const iframe = value.src ? buildDashboardIframeFromConfig({ ...value, title }, title) : buildDashboardIframe(value.iframe, title);
+	            const card = document.createElement('article');
+	            card.className = 'panel po-panel user-dashboard-card';
+	            const header = document.createElement('div');
+	            header.className = 'tracking-event-header';
+	            const titleEl = document.createElement('div');
+	            titleEl.className = 'user-dashboard-title';
+	            titleEl.innerHTML = '<i class="fa-solid fa-chart-simple" aria-hidden="true"></i>';
+	            titleEl.appendChild(document.createTextNode(title));
+	            header.appendChild(titleEl);
+	            const frame = document.createElement('div');
+	            frame.className = 'user-dashboard-frame';
+	            if (iframe) {
+	                frame.appendChild(iframe);
+	            } else {
+	                const empty = document.createElement('div');
+	                empty.className = 'empty-state';
+	                empty.textContent = 'Dashboard embed is not available.';
+	                frame.appendChild(empty);
+	            }
+	            card.appendChild(header);
+	            card.appendChild(frame);
+	            list.appendChild(card);
+	        });
+	    };
+	    const supportedRoles = () => [...new Set([...document.querySelectorAll('.nav-item[data-roles]')]
+	        .flatMap(item => String(item.dataset.roles || '').split(',').map(Number).filter(Number.isFinite)))]
+	        .sort((left, right) => left - right);
     const roleSupported = role => supportedRoles().includes(Number(role));
     const featureRolesFromItem = item => String(item?.dataset?.roles || '').split(',').map(Number).filter(Number.isFinite);
     const featureItem = target => document.querySelector(`.nav-item[data-target="${target}"][data-roles]`);
@@ -6469,7 +6581,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadFeature = target => {
         showSection(target);
 	        if (target === 'dashboard') { loadCargowiseProfile(); loadHomeAnalytics(); }
-	        else if (target === 'analytics') { /* Dashboard tab is a "coming soon" placeholder */ }
+		        else if (target === 'analytics') { renderUserDashboards(); }
 	        else if (target === 'purchase-orders') { loadModule(target); loadPurchaseOrderFilterOptions(); }
 	        else if (target === 'mghask') setTimeout(() => document.getElementById('mghask-input')?.focus(), 80);
         else if (target === 'profile') loadCargowiseProfile();
@@ -8223,10 +8335,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const nextUser = extractUser(payload);
         if (!nextUser) throw new Error('Profile response missing user');
         writeUser(nextUser);
-        localStorage.setItem(STORAGE_KEY_USER_AT, String(Date.now()));
-        cargowiseProfileLoaded = false;
-        Object.keys(moduleCache).forEach(key => delete moduleCache[key]);
-    };
+	        localStorage.setItem(STORAGE_KEY_USER_AT, String(Date.now()));
+	        cargowiseProfileLoaded = false;
+	        Object.keys(moduleCache).forEach(key => delete moduleCache[key]);
+	        renderUserDashboards();
+	    };
     const requestLogout = () => {
         closeProfileMenu();
         openModal('logout-modal');

@@ -285,7 +285,8 @@ config_postgres = {
 {"name":"title","datatype":"text"},
 {"name":"description","datatype":"text"},
 {"name":"gender","datatype":"text"},
-{"name":"date_of_birth","datatype":"date"}
+{"name":"date_of_birth","datatype":"date"},
+{"name":"dashboard","datatype":"jsonb"}
 ],
 "config":[
 {"name":"id","datatype":"bigserial","is_primary":1},

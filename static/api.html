@@ -732,7 +732,7 @@
         }
     }; const applyMasterTableLayout = () => {
       const root = d.documentElement
-        ; const visibleCommands = getVisibleMasterIndexes().map(i => COMMANDS[i]).filter(Boolean); const sourceCommands = visibleCommands.length ? visibleCommands : COMMANDS
+        ; const sourceCommands = COMMANDS
         ; const pathLengths = sourceCommands.map(c => c.p.length); const maxPathLength = pathLengths.length ? Math.max(...pathLengths) : 32
         ; const fixedWidth = 48 + 96 + 96 + 92 + 84; const viewportLimit = Math.max(700, Math.floor(window.innerWidth * 0.98) - 20)
         ; const contentPathWidth = Math.min(980, Math.max(320, Math.ceil(maxPathLength * 7.8 + 56))); const pathWidth = Math.max(260, Math.min(contentPathWidth, viewportLimit - fixedWidth))
