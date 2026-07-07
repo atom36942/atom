@@ -1055,6 +1055,11 @@ body {
 }
 .shipment-stat-item:last-child { border-right: 0; }
 .shipment-stat-item:hover { background: #F8FAFC; }
+.shipment-stat-item[data-shipment-kpi] { cursor: pointer; }
+.shipment-stat-item[data-shipment-kpi]:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+}
 .shipment-stat-label {
     font-size: 0.68rem;
     font-weight: 700;
@@ -1212,6 +1217,28 @@ body {
     min-width: 0;
     overflow: visible;
 }
+
+.shipment-filter-pill-wrap:has([data-filter="origin_country"]) { order: 1; }
+.shipment-filter-pill-wrap:has([data-filter="country"]) { order: 2; }
+.shipment-filter-pill-wrap:has([data-filter="origin"]) { order: 3; }
+.shipment-filter-pill-wrap:has([data-filter="load_port"]) { order: 4; }
+.shipment-filter-pill-wrap:has([data-filter="destination"]) { order: 5; }
+.shipment-filter-pill-wrap:has([data-filter="status"]) { order: 6; }
+.shipment-filter-pill-wrap:has([data-filter="mode"]) { order: 7; }
+.shipment-filter-pill-wrap:has([data-filter="packing"]) { order: 8; }
+.shipment-filter-pill-wrap:has([data-filter="inco"]) { order: 9; }
+.shipment-filter-pill-wrap:has([data-filter="carrier"]) { order: 10; }
+.shipment-filter-pill-wrap:has([data-filter="supplier"]) { order: 11; }
+.shipment-filter-pill-wrap:has([data-filter="period"]) { order: 12; }
+
+.po-filter-card .shipment-filter-pill-wrap:has([data-po-filter="supplier"]) { order: 1; }
+.po-filter-card .shipment-filter-pill-wrap:has([data-po-filter="status"]) { order: 2; }
+.po-filter-card .shipment-filter-pill-wrap:has([data-po-filter="released"]) { order: 3; }
+.po-filter-card .shipment-filter-pill-wrap:has([data-po-filter="priority"]) { order: 4; }
+.po-filter-card .shipment-filter-pill-wrap:has([data-po-filter="mode"]) { order: 5; }
+.po-filter-card .shipment-filter-pill-wrap:has([data-po-filter="container_mode"]) { order: 6; }
+.po-filter-card .shipment-filter-pill-wrap:has([data-po-filter="inco"]) { order: 7; }
+.po-filter-card .shipment-filter-pill-wrap:has([data-po-filter="period"]) { order: 8; }
 
 .shipment-filter-pill {
     display: inline-flex;
@@ -3597,116 +3624,7 @@ body {
     flex: 0 0 auto;
 }
 
-.alerts-list {
-    display: grid;
-    gap: 0.75rem;
-    padding: 1rem 1.5rem 1.25rem;
-    background: #FFFFFF;
-}
-
-.home-insights-list {
-    padding: 0.75rem 1rem 1rem;
-    gap: 0.5rem;
-}
-
-.home-insights-list .alert-card {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.7rem;
-    padding: 0.72rem 0.8rem;
-    border-radius: 8px;
-    box-shadow: none;
-}
-
-.home-insights-list .alert-icon {
-    display: none;
-}
-
-.home-insights-list .alert-title {
-    font-size: 0.9rem;
-    font-weight: 820;
-}
-
-.home-insights-list .alert-meta {
-    margin-top: 0.28rem;
-}
-
-.home-insights-list .alert-note {
-    margin-top: 0.32rem;
-    font-size: 0.76rem;
-    font-weight: 600;
-    line-height: 1.35;
-}
-
-.home-insights-list .tracking-info-chip {
-    padding: 0.12rem 0.45rem;
-    font-size: 0.7rem;
-}
-
-.alert-card {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 0.85rem;
-    padding: 0.85rem 0.95rem;
-    border: 1px solid #E5E7EB;
-    border-radius: 12px;
-    background: #FFFFFF;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
-}
-
-.alert-card.high {
-    border-left: 4px solid #EF4444;
-}
-
-.alert-card.medium {
-    border-left: 4px solid #F59E0B;
-}
-
-.alert-icon {
-    width: 34px;
-    height: 34px;
-    display: grid;
-    place-items: center;
-    border-radius: 10px;
-    background: #FEF2F2;
-    color: #DC2626;
-}
-
-.alert-card.medium .alert-icon {
-    background: #FEF3C7;
-    color: #B45309;
-}
-
-.alert-title {
-    color: #0F172A;
-    font-size: 0.98rem;
-    font-weight: 880;
-}
-
-.alert-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-top: 0.4rem;
-}
-
-.alert-note {
-    margin-top: 0.35rem;
-    color: #64748B;
-    font-size: 0.82rem;
-    font-weight: 650;
-}
-
-.alert-action {
-    color: #64748B;
-    font-size: 0.78rem;
-    font-weight: 800;
-    text-align: right;
-    white-space: nowrap;
-}
-
-.home-insight-view,
-.shipment-insight-clear {
+.shipment-kpi-clear {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
@@ -3721,13 +3639,12 @@ body {
     cursor: pointer;
 }
 
-.home-insight-view:hover,
-.shipment-insight-clear:hover {
+.shipment-kpi-clear:hover {
     border-color: var(--primary);
     background: #EEF2FF;
 }
 
-.shipment-insight-banner {
+.shipment-kpi-banner {
     display: none;
     align-items: center;
     justify-content: space-between;
@@ -3741,11 +3658,11 @@ body {
     font-weight: 750;
 }
 
-.shipment-insight-banner.is-visible {
+.shipment-kpi-banner.is-visible {
     display: flex;
 }
 
-.shipment-insight-banner span {
+.shipment-kpi-banner span {
     display: inline-flex;
     align-items: center;
     gap: 0.45rem;
@@ -3877,14 +3794,6 @@ body {
 
     .tracking-card-route-mid {
         justify-content: flex-start;
-    }
-
-    .alert-card {
-        grid-template-columns: 1fr;
-    }
-
-    .alert-action {
-        text-align: left;
     }
 
     .analytics-kpi-strip,
@@ -5045,6 +4954,7 @@ body.not-allowed .content-wrapper {
     .home-profile-actions { display: flex; gap: 8px; }
     .home-profile-btn { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; font-weight: 600; color: #fff; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.18); border-radius: 9px; padding: 7px 13px; cursor: pointer; transition: background .15s; }
     .home-profile-btn:hover { background: rgba(255,255,255,.22); }
+    .home-profile-btn.is-loading i { animation: spin .8s linear infinite; }
     .home-profile-btn.icon-only { padding: 7px 10px; }
     .hp-status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; background: #22C55E; }
     .home-profile-modal-status { display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 600; color: var(--text-muted); padding: 2px 10px; border: 1px solid var(--border); border-radius: 9999px; vertical-align: middle; margin-left: 6px; }
@@ -5174,7 +5084,7 @@ body.not-allowed .content-wrapper {
                         <div class="home-copy">
                             <span style="display: inline-block; padding: 0.35rem 0.85rem; background: #EEF2FF; border: 1px solid #C7D2FE; color: var(--primary); border-radius: 9999px; font-size: 0.75rem; font-weight: 700; margin-bottom: 1rem; letter-spacing: 0.05em; text-transform: uppercase; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">MGH GROUP</span>
                             <h1>Welcome to MyShipment</h1>
-                            <p>Track purchase orders, shipments, containers, milestones, alerts, documents, and analytics from one workspace.</p>
+	                            <p>Track purchase orders, shipments, containers, milestones, documents, and analytics from one workspace.</p>
                         </div>
                         <div class="home-card">
                             <div class="home-card-row">
@@ -5215,17 +5125,17 @@ body.not-allowed .content-wrapper {
                                 <div class="home-profile-code" id="home-profile-code">&nbsp;</div>
                             </div>
                         </div>
-                        <div class="home-profile-side">
-                        <div class="home-profile-actions">
-                            <button class="home-profile-btn" type="button" id="home-profile-viewfull"><span class="hp-status-dot" id="home-profile-status-dot" aria-hidden="true"></span><i class="fa-regular fa-address-card" aria-hidden="true"></i> Account</button>
-                        </div>
-                        </div>
-                    </div>
+	                        <div class="home-profile-side">
+	                        <div class="home-profile-actions">
+	                            <button class="home-profile-btn" type="button" id="home-profile-viewfull"><span class="hp-status-dot" id="home-profile-status-dot" aria-hidden="true"></span><i class="fa-regular fa-address-card" aria-hidden="true"></i> Account</button>
+	                            <button class="home-profile-btn icon-only" type="button" id="home-analytics-refresh" aria-label="Refresh overview" title="Refresh overview"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i></button>
+	                        </div>
+	                        </div>
+	                    </div>
 
-                    <div class="dash-head">
-                        <h2 class="section-title" style="margin:0;font-size:1.15rem;">Supply chain at a glance</h2>
-                        <button class="po-refresh-button compact" type="button" id="home-analytics-refresh" aria-label="Refresh overview" title="Refresh overview"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
-                    </div>
+	                    <div class="dash-head">
+	                        <h2 class="section-title" style="margin:0;font-size:1.15rem;">Supply chain at a glance</h2>
+	                    </div>
 
 	                    <div class="panel po-panel">
 	                        <div class="analytics-kpi-strip">
@@ -5269,7 +5179,7 @@ body.not-allowed .content-wrapper {
 	                        <div class="panel po-panel analytics-chart-card">
 	                            <div class="tracking-event-header"><div>
 	                                <div class="tracking-event-title">Shipment Volume</div>
-	                                <div class="tracking-event-subtitle">Monthly shipment trend from CargoWise</div>
+	                                <div class="tracking-event-subtitle">Monthly shipment trend from your shipment data</div>
 	                            </div></div>
 	                            <div class="analytics-chart-body"><canvas id="volumeChart"></canvas></div>
 	                        </div>
@@ -5287,17 +5197,8 @@ body.not-allowed .content-wrapper {
 	                            </div></div>
 	                            <div class="analytics-status-list" id="analytics-status-list"></div>
 	                        </div>
-	                        <div class="panel po-panel analytics-chart-card">
-	                            <div class="tracking-event-header"><div>
-	                                <div class="tracking-event-title">Shipment Insights</div>
-	                                <div class="tracking-event-subtitle">Active undelivered shipments that need buyer attention</div>
-	                            </div></div>
-	                            <div class="alerts-list home-insights-list" id="home-shipment-insights-list">
-	                                <div class="empty-state">Loading shipment insights...</div>
-	                            </div>
-	                        </div>
-	                    </div>
-	                </section>
+		                    </div>
+		                </section>
 
                 <div id="profile-full-content" style="display: none;">
                     <div class="profile-feedback" id="cargowise-profile-feedback">
@@ -5390,7 +5291,7 @@ body.not-allowed .content-wrapper {
                             </div>
                         </div>
 	                        <div class="panel po-panel shipment-stat-bar">
-	                            <div class="shipment-stat-item">
+		                            <div class="shipment-stat-item">
 	                                <span class="shipment-stat-label"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> Total POs</span>
 	                                <span class="shipment-stat-value" id="po-kpi-orders">-</span>
 	                            </div>
@@ -5537,32 +5438,32 @@ body.not-allowed .content-wrapper {
                                 </div>
 	                            </div>
 	                        </div>
-		                        <div class="shipment-insight-banner" id="shipment-insight-banner">
-		                            <span><i class="fa-solid fa-lightbulb" aria-hidden="true"></i><span id="shipment-insight-banner-text">Showing insight shipments</span></span>
-		                            <button class="shipment-insight-clear" type="button" id="shipment-insight-clear-btn"><i class="fa-solid fa-xmark" aria-hidden="true"></i> Clear</button>
+		                        <div class="shipment-kpi-banner" id="shipment-kpi-banner">
+		                            <span><i class="fa-solid fa-filter" aria-hidden="true"></i><span id="shipment-kpi-banner-text">Showing KPI shipments</span></span>
+		                            <button class="shipment-kpi-clear" type="button" id="shipment-kpi-clear-btn"><i class="fa-solid fa-xmark" aria-hidden="true"></i> Clear</button>
 		                        </div>
-	                        <div class="panel po-panel shipment-stat-bar">
-	                            <div class="shipment-stat-item">
+	                        <div class="panel po-panel shipment-stat-bar" id="shipment-kpi-bar">
+	                            <div class="shipment-stat-item" data-shipment-kpi="total" role="button" tabindex="0" title="Show all shipments">
 	                                <span class="shipment-stat-label"><i class="fa-solid fa-ship" aria-hidden="true"></i> Total Shipments</span>
 	                                <span class="shipment-stat-value" id="shipment-kpi-total">-</span>
 		                            </div>
-		                            <div class="shipment-stat-item">
+		                            <div class="shipment-stat-item" data-shipment-kpi="confirmed" role="button" tabindex="0" title="Show confirmed shipments">
 		                                <span class="shipment-stat-label"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Confirmed</span>
 		                                <span class="shipment-stat-value" id="shipment-kpi-confirmed">-</span>
 		                            </div>
-		                            <div class="shipment-stat-item">
+		                            <div class="shipment-stat-item" data-shipment-kpi="booked" role="button" tabindex="0" title="Show booked shipments">
 		                                <span class="shipment-stat-label"><i class="fa-solid fa-bookmark" aria-hidden="true"></i> Booked</span>
 		                                <span class="shipment-stat-value" id="shipment-kpi-booked">-</span>
 		                            </div>
-		                            <div class="shipment-stat-item stat-info">
+			                            <div class="shipment-stat-item stat-info" data-shipment-kpi="eta-next-7d" role="button" tabindex="0" title="Show shipments with ETA in next 7 days">
 		                                <span class="shipment-stat-label"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> ETA Next 7D</span>
 		                                <span class="shipment-stat-value" id="shipment-kpi-arriving">-</span>
 		                            </div>
-		                            <div class="shipment-stat-item stat-danger">
+			                            <div class="shipment-stat-item stat-danger" data-shipment-kpi="eta-past" role="button" tabindex="0" title="Show shipments with past ETA">
 		                                <span class="shipment-stat-label"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> ETA Past</span>
 		                                <span class="shipment-stat-value" id="shipment-kpi-eta-past">-</span>
 		                            </div>
-		                            <div class="shipment-stat-item">
+		                            <div class="shipment-stat-item" data-shipment-kpi="missing-eta" role="button" tabindex="0" title="Show shipments missing ETA">
 		                                <span class="shipment-stat-label"><i class="fa-solid fa-calendar-question" aria-hidden="true"></i> Missing ETA</span>
 		                                <span class="shipment-stat-value" id="shipment-kpi-missing-eta">-</span>
 		                            </div>
@@ -5730,7 +5631,7 @@ body.not-allowed .content-wrapper {
                             <div class="po-toolbar">
                                 <div class="po-heading">
                                     <h2>Containers</h2>
-                                    <p>Container status, availability, and gate-out details from CargoWise.</p>
+                                    <p>Container status, availability, and gate-out details for your shipments.</p>
                                 </div>
                             </div>
                         </div>
@@ -5773,7 +5674,7 @@ body.not-allowed .content-wrapper {
                             <div class="po-toolbar">
                                 <div class="po-heading">
                                     <h2>Tracking</h2>
-                                    <p>See latest CargoWise movement events, or search one shipment for its full journey.</p>
+                                    <p>See latest movement events, or search one shipment for its full journey.</p>
                                 </div>
                                 <div class="po-toolbar-actions">
                                     <form class="po-search" id="tracking-search-form" role="search">
@@ -5800,7 +5701,7 @@ body.not-allowed .content-wrapper {
                                     <div class="tracking-event-header">
                                         <div>
                                             <div class="tracking-event-title" id="tracking-event-title">All Tracking Events</div>
-                                            <div class="tracking-event-subtitle" id="tracking-timeline-subtitle">Events are loaded from CargoWise.</div>
+                                            <div class="tracking-event-subtitle" id="tracking-timeline-subtitle">Events are loaded from your shipment data.</div>
                                         </div>
                                     </div>
                                     <div class="tracking-timeline" id="tracking-timeline"></div>
@@ -5810,59 +5711,7 @@ body.not-allowed .content-wrapper {
                     </div>
                 </section>
 
-                <!-- Alerts Section -->
-                <section id="alerts" class="view-section">
-                    <div class="po-page-stack">
-                        <div class="panel po-panel tab-dark-header">
-                            <div class="po-toolbar">
-                                <div class="po-heading">
-                                    <h2>Alerts</h2>
-	                                    <p>Focused insights for active shipments that have not been delivered yet.</p>
-                                </div>
-                                <div class="po-toolbar-actions">
-                                    <button class="po-refresh-button compact" type="button" id="alert-refresh-btn" aria-label="Refresh alerts" title="Refresh alerts"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="panel po-panel">
-                            <div class="po-kpi-strip">
-                                <div class="po-kpi-card">
-	                                    <div class="po-kpi-label"><i class="fa-solid fa-lightbulb" aria-hidden="true"></i> Insight Cards</div>
-                                    <div class="po-kpi-value" id="alert-total">-</div>
-                                </div>
-                                <div class="po-kpi-card">
-	                                    <div class="po-kpi-label"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> High Priority</div>
-                                    <div class="po-kpi-value" id="alert-high">-</div>
-                                </div>
-                                <div class="po-kpi-card">
-	                                    <div class="po-kpi-label"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Watchlist</div>
-                                    <div class="po-kpi-value" id="alert-medium">-</div>
-                                </div>
-                                <div class="po-kpi-card">
-	                                    <div class="po-kpi-label"><i class="fa-solid fa-calendar-xmark" aria-hidden="true"></i> Overdue</div>
-                                    <div class="po-kpi-value" id="alert-overdue">-</div>
-                                </div>
-                                <div class="po-kpi-card">
-	                                    <div class="po-kpi-label"><i class="fa-solid fa-calendar-question" aria-hidden="true"></i> Missing ETA</div>
-	                                    <div class="po-kpi-value" id="alert-missing-eta">-</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="panel po-panel">
-                            <div class="po-summary-bar">
-                                <div class="po-result-count" id="alert-result-count">Loading alerts...</div>
-                                <div class="po-pagination">
-                                    <button class="po-page-button" id="alert-prev-btn" type="button" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i><span>Previous</span></button>
-                                    <span id="alert-page-display">Page 1</span>
-                                    <button class="po-page-button" id="alert-next-btn" type="button" disabled><span>Next</span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
-                                </div>
-                            </div>
-                            <div class="alerts-list" id="alerts-list"></div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- Documents Section -->
+	                <!-- Documents Section -->
                 <section id="documents" class="view-section">
                     <div class="panel">
                         <div class="panel-header" style="justify-content: space-between; border-bottom: none; padding-bottom: 0;">
@@ -5918,7 +5767,7 @@ body.not-allowed .content-wrapper {
                         <div class="chat-header">
                             <div>
                                 <h4><i class="fa-solid fa-robot" aria-hidden="true"></i> MGH ASK</h4>
-                                <p>Answers use CargoWise data scoped to your account.</p>
+                                <p>Answers use shipment data scoped to your account.</p>
                             </div>
                             <button type="button" id="mghask-clear-btn" aria-label="Clear chat" title="Clear chat"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
                         </div>
@@ -6000,7 +5849,7 @@ body.not-allowed .content-wrapper {
                     </tbody>
                 </table>
             </div>
-            <div class="po-lines-footnote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Quantity, weight and value summarize the CargoWise lines shown above.</span></div>
+            <div class="po-lines-footnote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Quantity, weight and value summarize the lines shown above.</span></div>
         </div>
     </div>
 
@@ -6057,7 +5906,7 @@ body.not-allowed .content-wrapper {
             <div class="container-card-grid" id="shipment-pos-list">
                 <div class="container-card-empty"><div><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><br>Loading purchase orders...</div></div>
             </div>
-            <div class="po-lines-footnote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Purchase orders are loaded live from CargoWise for the selected shipment.</span></div>
+            <div class="po-lines-footnote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Purchase orders are loaded live for the selected shipment.</span></div>
         </div>
     </div>
 
@@ -6114,7 +5963,7 @@ body.not-allowed .content-wrapper {
             <div class="container-card-grid" id="shipment-containers-list">
                 <div class="container-card-empty"><div><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><br>Loading containers...</div></div>
             </div>
-            <div class="po-lines-footnote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Container details are loaded live from CargoWise for the selected shipment.</span></div>
+            <div class="po-lines-footnote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Container details are loaded live for the selected shipment.</span></div>
         </div>
     </div>
 
@@ -6153,7 +6002,7 @@ body.not-allowed .content-wrapper {
             <div class="container-card-grid" id="shipment-documents-list">
                 <div class="container-card-empty"><div><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><br>Loading documents...</div></div>
             </div>
-            <div class="po-lines-footnote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Download is available only when CargoWise has an attached file for the document.</span></div>
+            <div class="po-lines-footnote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Download is available only when an attached file exists for the document.</span></div>
         </div>
     </div>
 
@@ -6191,7 +6040,7 @@ body.not-allowed .content-wrapper {
             <div class="track-timeline" id="shipment-tracking-list">
                 <div class="container-card-empty"><div><i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i><br>Loading tracking...</div></div>
             </div>
-            <div class="po-lines-footnote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Events are shown latest first, as recorded in CargoWise.</span></div>
+            <div class="po-lines-footnote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>Events are shown latest first.</span></div>
         </div>
     </div>
 
@@ -6411,15 +6260,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const MYSHIPMENT_MY_ACCOUNT_PATH = '/myshipment/my-account';
     const MYSHIPMENT_FILTER_OPTIONS_PATH = '/myshipment/my-filter-options';
     const MYSHIPMENT_MGH_ASK_PATH = '/myshipment/my-mgh-ask';
-    const MODULE_ENDPOINTS = {
-        'purchase-orders': '/myshipment/my-purchase-orders',
-        shipments: '/myshipment/my-shipments',
-        containers: '/myshipment/my-containers',
-        tracking: '/myshipment/my-tracking',
-        alerts: '/myshipment/my-alerts',
-        documents: '/myshipment/my-documents',
-        kpis: '/myshipment/my-kpi',
-        charts: '/myshipment/my-charts'
+	    const MODULE_ENDPOINTS = {
+	        'purchase-orders': '/myshipment/my-purchase-orders',
+	        shipments: '/myshipment/my-shipments',
+	        containers: '/myshipment/my-containers',
+	        tracking: '/myshipment/my-tracking',
+	        documents: '/myshipment/my-documents',
+	        kpis: '/myshipment/my-kpi',
+	        charts: '/myshipment/my-charts'
     };
     const MYSHIPMENT_VIEW_AS = 'controlling_customer';
     const MYSHIPMENT_VIEW_PARAM = `view_as=${encodeURIComponent(MYSHIPMENT_VIEW_AS)}`;
@@ -6427,16 +6275,15 @@ document.addEventListener('DOMContentLoaded', () => {
     let appInfo = {};
     let cargowiseProfileLoaded = false;
     let poCurrentPage = 1;
-    let shipmentCurrentPage = 1;
-    let containerCurrentPage = 1;
-    let trackingCurrentPage = 1;
-    let alertCurrentPage = 1;
-    let documentCurrentPage = 1;
+	    let shipmentCurrentPage = 1;
+	    let containerCurrentPage = 1;
+	    let trackingCurrentPage = 1;
+	    let documentCurrentPage = 1;
 	    let poSearchQuery = '';
 	    let shipmentSearchQuery = '';
 	    let poFilters = { status: [], released: '', priority: '', mode: [], container_mode: [], inco: [], supplier_id: [], period: '' };
 	    let shipmentFilters = { status: [], mode: [], packing: [], origin_country: [], origin: [], load_port: [], destination: [], country: [], inco: [], carrier: [], supplier_id: [], period: '' };
-    let shipmentInsightType = '';
+    let shipmentKpiFilter = '';
     let purchaseOrderRowsById = {};
     let shipmentRowsById = {};
     let containerShipmentId = '';
@@ -6621,7 +6468,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const firstAllowedFeature = role => [...document.querySelectorAll('.nav-item[data-target][data-roles]')].find(item => roleSupported(role) && featureRolesFromItem(item).includes(Number(role)))?.dataset.target || null;
     const loadFeature = target => {
         showSection(target);
-	        if (target === 'dashboard') { loadCargowiseProfile(); loadHomeAnalytics(); loadHomeShipmentInsights(); }
+	        if (target === 'dashboard') { loadCargowiseProfile(); loadHomeAnalytics(); }
 	        else if (target === 'analytics') { /* Dashboard tab is a "coming soon" placeholder */ }
 	        else if (target === 'purchase-orders') { loadModule(target); loadPurchaseOrderFilterOptions(); }
 	        else if (target === 'mghask') setTimeout(() => document.getElementById('mghask-input')?.focus(), 80);
@@ -7666,8 +7513,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         body.innerHTML = rows.length ? rows.map(row => {
             const shipmentId = displayValue(row.shipment_id);
-            const shipmentNo = displayValue(row.job_number || row.shipment_reference || row.booking_reference);
-            const refText = row.shipment_reference ? `Ref: ${row.shipment_reference}` : row.booking_reference ? `Booking: ${row.booking_reference}` : row.house_bill ? `HBL: ${row.house_bill}` : '';
+            const shipmentNo = displayValue(row.shipment_reference || row.job_number || row.booking_reference || row.house_bill);
+            const refText = row.house_bill ? `HBL: ${row.house_bill}` : row.booking_reference && row.booking_reference !== shipmentNo ? `Booking: ${row.booking_reference}` : row.job_number && row.job_number !== shipmentNo ? `Job: ${row.job_number}` : '';
             const eta = row.eta || row.client_requested_eta || row.delivery_due_date || row.revised_delivery_due_date;
             const etd = row.etd;
             const arrivalStatus = displayValue(row.arrival_status || 'Arrival Pending');
@@ -7807,7 +7654,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const shipmentRef = displayValue(context.shipment_reference || context.shipment_number || context.job_number);
         document.getElementById('tracking-event-title').textContent = focused ? `Tracking Events - ${shipmentRef}` : 'All Tracking Events';
         document.getElementById('tracking-result-count').innerHTML = `<strong>${rows.length}</strong> tracking event${rows.length === 1 ? '' : 's'}${trackingSearchQuery ? ` matching “${escapeHtml(trackingSearchQuery)}”` : ''}`;
-        document.getElementById('tracking-timeline-subtitle').textContent = rows.length ? (focused ? 'Shipment events are shown latest first.' : 'Latest events across accessible shipments are shown first.') : (focused ? 'No CargoWise tracking events found for this shipment.' : 'No recent CargoWise tracking events found.');
+        document.getElementById('tracking-timeline-subtitle').textContent = rows.length ? (focused ? 'Shipment events are shown latest first.' : 'Latest events across accessible shipments are shown first.') : (focused ? 'No tracking events found for this shipment.' : 'No recent tracking events found.');
         timeline.innerHTML = rows.length ? rows.map(row => {
             const isException = row.event_category === 'Exception' || String(row.event_code || '').startsWith('EX');
             const isEstimate = row.is_estimate === 'Y';
@@ -7856,7 +7703,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="tracking-info-chip strong"><i class="fa-solid fa-circle-info" aria-hidden="true"></i>${escapeHtml(eventSummary)}</span>
                             <span class="tracking-info-chip ${trackingPill.className}"><i class="fa-solid ${trackingPill.icon}" aria-hidden="true"></i>${escapeHtml(trackingPill.label)}</span>
                             ${row.event_at ? `<span class="tracking-info-chip"><i class="fa-regular fa-calendar-check" aria-hidden="true"></i>${escapeHtml(formatDateTime(row.event_at))}</span>` : ''}
-                            ${row.posted_at ? `<span class="tracking-info-chip subtle"><i class="fa-regular fa-clock" aria-hidden="true"></i>Updated in CargoWise ${escapeHtml(formatRelativeTime(row.posted_at))}</span>` : ''}
+                            ${row.posted_at ? `<span class="tracking-info-chip subtle"><i class="fa-regular fa-clock" aria-hidden="true"></i>Updated ${escapeHtml(formatRelativeTime(row.posted_at))}</span>` : ''}
                             <span class="tracking-info-chip">${escapeHtml(displayValue(row.transport_mode))}</span>
                             <span class="tracking-info-chip">Status: ${escapeHtml(displayValue(row.shipment_status))}</span>
                             <span class="tracking-info-chip">${escapeHtml(isEstimate ? 'Estimate' : 'Actual')}</span>
@@ -7866,107 +7713,47 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }).join('') : '<div class="empty-state">No tracking events found.</div>';
     };
-    const SHIPMENT_INSIGHT_LABELS = {
-        'overdue-arrival': 'Overdue Arrival',
-        'arriving-this-week': 'Arriving This Week',
-        'missing-eta': 'Missing ETA'
-    };
-    const renderInsightRows = (list, rows, { drilldown = false } = {}) => {
-        if (!list) return;
-        list.innerHTML = rows.length ? rows.map(row => {
-            const severity = String(row.severity || '').toLowerCase();
-            const icon = severity === 'high' ? 'fa-circle-exclamation' : 'fa-lightbulb';
-            const source = displayValue(row.source_type);
-            const reference = displayValue(row.reference);
-            const impactedCount = Number(row.impacted_count || 0);
-            const insightType = String(row.source_id || '');
-            const metaHtml = drilldown
-                ? (impactedCount ? `<span class="tracking-info-chip strong">${escapeHtml(impactedCount.toLocaleString())} shipments</span>` : '')
-                : `
-                    <span class="tracking-info-chip strong">${escapeHtml(source)}</span>
-                    <span class="tracking-info-chip">${escapeHtml(reference)}</span>
-                    ${impactedCount ? `<span class="tracking-info-chip">${escapeHtml(impactedCount.toLocaleString())} impacted</span>` : ''}
-                    <span class="tracking-info-chip">${escapeHtml(displayValue(row.status))}</span>
-                    <span class="tracking-info-chip">${escapeHtml(formatDate(row.event_at))}</span>
-                `;
-            return `
-                <article class="alert-card ${escapeHtml(severity)}">
-                    <div class="alert-icon"><i class="fa-solid ${icon}" aria-hidden="true"></i></div>
-                    <div>
-                        <div class="alert-title">${escapeHtml(displayValue(row.exception_type))}</div>
-                        <div class="alert-meta">
-                            ${metaHtml}
-                        </div>
-                        <div class="alert-note">${escapeHtml(displayValue(row.note))}</div>
-                    </div>
-                    <div class="alert-action">
-                        ${drilldown ? `<button class="home-insight-view" type="button" data-shipment-insight="${escapeHtml(insightType)}"><i class="fa-solid fa-table-list" aria-hidden="true"></i> View</button>` : `<span class="badge ${badgeClass(row.severity)}">${escapeHtml(displayValue(row.severity))}</span>`}
-                    </div>
-                </article>
-            `;
-        }).join('') : '<div class="empty-state">No active shipment insights found.</div>';
-    };
-    const renderAlerts = rows => {
-        const list = document.getElementById('alerts-list');
-        if (!list) return;
-        const highCount = rows.filter(row => String(row.severity || '').toLowerCase() === 'high').length;
-        const mediumCount = rows.filter(row => String(row.severity || '').toLowerCase() === 'medium').length;
-        const overdueCount = rows.filter(row => String(row.exception_type || '').toLowerCase() === 'overdue arrival').length;
-        const missingEtaCount = rows.filter(row => String(row.exception_type || '').toLowerCase() === 'missing eta').length;
-        document.getElementById('alert-total').textContent = rows.length.toLocaleString();
-        document.getElementById('alert-high').textContent = highCount.toLocaleString();
-        document.getElementById('alert-medium').textContent = mediumCount.toLocaleString();
-        document.getElementById('alert-overdue').textContent = overdueCount.toLocaleString();
-        document.getElementById('alert-missing-eta').textContent = missingEtaCount.toLocaleString();
-        document.getElementById('alert-result-count').innerHTML = `<strong>${rows.length}</strong> insight${rows.length === 1 ? '' : 's'} on this page`;
-        renderInsightRows(list, rows);
-    };
-    const renderHomeShipmentInsights = rows => {
-        renderInsightRows(document.getElementById('home-shipment-insights-list'), rows, { drilldown: true });
-    };
-    const loadHomeShipmentInsights = async (force = false) => {
-        const cacheKey = 'home:shipment-insights';
-        if (!force && moduleCache[cacheKey]) { renderHomeShipmentInsights(moduleCache[cacheKey]); return; }
-        const list = document.getElementById('home-shipment-insights-list');
-        if (list) list.innerHTML = '<div class="empty-state">Loading shipment insights...</div>';
-        try {
-            const payload = await api(`${MODULE_ENDPOINTS.alerts}?limit=10&page=1&${MYSHIPMENT_VIEW_PARAM}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
-            const rows = moduleDataFromMessage(payload.message);
-            moduleCache[cacheKey] = rows;
-            renderHomeShipmentInsights(rows);
-        } catch (err) {
-            if (list) list.innerHTML = `<div class="empty-state">${escapeHtml(err.message || 'Unable to load shipment insights.')}</div>`;
-        }
-    };
-    const updateShipmentInsightBanner = () => {
-        const banner = document.getElementById('shipment-insight-banner');
-        const label = document.getElementById('shipment-insight-banner-text');
-        if (!banner || !label) return;
-        const title = SHIPMENT_INSIGHT_LABELS[shipmentInsightType] || '';
-        banner.classList.toggle('is-visible', Boolean(title));
-        label.textContent = title ? `Showing shipments for insight: ${title}` : '';
-    };
-    const clearShipmentInsightFilter = ({ reload = true } = {}) => {
-        shipmentInsightType = '';
-        updateShipmentInsightBanner();
+	    const SHIPMENT_KPI_DRILLDOWN_LABELS = {
+	        total: 'All Shipments',
+	        confirmed: 'Confirmed Shipments',
+	        booked: 'Booked Shipments',
+		        'eta-next-7d': 'ETA Next 7D',
+		        'eta-past': 'ETA Past',
+		        'missing-eta': 'Missing ETA'
+		    };
+		    const updateShipmentKpiBanner = () => {
+		        const banner = document.getElementById('shipment-kpi-banner');
+		        const label = document.getElementById('shipment-kpi-banner-text');
+		        if (!banner || !label) return;
+		        const title = SHIPMENT_KPI_DRILLDOWN_LABELS[shipmentKpiFilter] || '';
+		        banner.classList.toggle('is-visible', Boolean(title));
+		        label.textContent = title ? `Showing shipments for KPI: ${title}` : '';
+		    };
+		    const clearShipmentKpiFilter = ({ reload = true } = {}) => {
+		        shipmentKpiFilter = '';
+		        updateShipmentKpiBanner();
         if (reload) {
             shipmentCurrentPage = 1;
-            loadModule('shipments', { force: true });
-        }
-    };
-    const openShipmentInsight = insightType => {
-        if (!SHIPMENT_INSIGHT_LABELS[insightType]) return;
-        shipmentInsightType = insightType;
-        shipmentCurrentPage = 1;
-        shipmentSearchQuery = '';
-        resetShipmentFilters();
-        const input = document.getElementById('shipment-search-input');
-        const clear = document.getElementById('shipment-search-clear');
-        if (input) input.value = '';
-        if (clear) clear.style.display = 'none';
-        updateShipmentInsightBanner();
-        showSection('shipments');
-        loadFilterOptions(false);
+	            loadModule('shipments', { force: true });
+	        }
+	    };
+	    const resetShipmentSearchUi = () => {
+	        shipmentCurrentPage = 1;
+	        shipmentSearchQuery = '';
+	        const input = document.getElementById('shipment-search-input');
+	        const clear = document.getElementById('shipment-search-clear');
+	        if (input) input.value = '';
+	        if (clear) clear.style.display = 'none';
+	    };
+	    const openShipmentKpiDrilldown = drilldown => {
+	        if (!SHIPMENT_KPI_DRILLDOWN_LABELS[drilldown]) return;
+		        resetShipmentSearchUi();
+		        resetShipmentFilters();
+		        shipmentKpiFilter = drilldown === 'total' ? '' : drilldown;
+		        FILTER_KEYS.forEach(updateFilterPill);
+		        updateShipmentKpiBanner();
+	        showSection('shipments');
+	        loadFilterOptions(false);
         loadModule('shipments', { force: true });
     };
     const renderDocuments = rows => {
@@ -8158,7 +7945,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }).join('') : '<div class="empty-state">No shipment status data available.</div>';
         }
     };
-    // Home page live KPIs + charts (real CargoWise analytics)
+    // Home page live KPIs + charts
     const loadHomeAnalytics = async (force = false) => {
         const btn = document.getElementById('home-analytics-refresh');
         if (!force && moduleCache['home:overview']) { renderAnalytics(moduleCache['home:overview']); return; }
@@ -8174,15 +7961,14 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) { console.warn('Home analytics failed', err); }
         finally { if (btn) { btn.classList.remove('is-loading'); btn.disabled = false; } }
     };
-    const renderModule = (target, data) => {
-        if (target === 'purchase-orders') renderPurchaseOrders(Array.isArray(data) ? data : []);
-        if (target === 'shipments') renderShipments(Array.isArray(data) ? data : []);
-        if (target === 'containers') renderContainers(Array.isArray(data) ? data : []);
-        if (target === 'tracking') renderTracking(Array.isArray(data) ? data : []);
-        if (target === 'alerts') renderAlerts(Array.isArray(data) ? data : []);
-        if (target === 'documents') renderDocuments(Array.isArray(data) ? data : []);
-        if (target === 'charts') renderAnalytics(data || {});
-    };
+	    const renderModule = (target, data) => {
+	        if (target === 'purchase-orders') renderPurchaseOrders(Array.isArray(data) ? data : []);
+	        if (target === 'shipments') renderShipments(Array.isArray(data) ? data : []);
+	        if (target === 'containers') renderContainers(Array.isArray(data) ? data : []);
+	        if (target === 'tracking') renderTracking(Array.isArray(data) ? data : []);
+	        if (target === 'documents') renderDocuments(Array.isArray(data) ? data : []);
+	        if (target === 'charts') renderAnalytics(data || {});
+	    };
     const mghAskState = { busy: false };
     const mghAskScrollToBottom = () => {
         const log = document.getElementById('mghask-chat-log');
@@ -8235,7 +8021,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const cleanQuestion = String(question || '').trim();
         if (!cleanQuestion || mghAskState.busy) return;
         mghAskAppendMessage('user', escapeHtml(cleanQuestion));
-        const thinking = mghAskAppendMessage('bot', '<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i> Checking CargoWise...', 'thinking');
+        const thinking = mghAskAppendMessage('bot', '<i class="fa-solid fa-circle-notch fa-spin" aria-hidden="true"></i> Checking shipment data...', 'thinking');
         mghAskSetBusy(true);
         try {
             const payload = await api(MYSHIPMENT_MGH_ASK_PATH, {
@@ -8272,14 +8058,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const moduleDataFromMessage = message => message && Array.isArray(message.obj_list) ? message.obj_list : message;
     const updateModulePageState = (target, hasNextPage) => {
-        const stateMap = {
-            'purchase-orders': { page: poCurrentPage, prefix: 'po' },
-            'shipments': { page: shipmentCurrentPage, prefix: 'shipment' },
-            'containers': { page: containerCurrentPage, prefix: 'container' },
-            tracking: { page: trackingCurrentPage, prefix: 'tracking' },
-            alerts: { page: alertCurrentPage, prefix: 'alert' },
-            'documents': { page: documentCurrentPage, prefix: 'document' }
-        };
+	        const stateMap = {
+	            'purchase-orders': { page: poCurrentPage, prefix: 'po' },
+	            'shipments': { page: shipmentCurrentPage, prefix: 'shipment' },
+	            'containers': { page: containerCurrentPage, prefix: 'container' },
+	            tracking: { page: trackingCurrentPage, prefix: 'tracking' },
+	            'documents': { page: documentCurrentPage, prefix: 'document' }
+	        };
         if (!stateMap[target]) return;
         const conf = stateMap[target];
         document.getElementById(`${conf.prefix}-page-display`).textContent = `Page ${conf.page}`;
@@ -8303,10 +8088,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	        if (target === 'shipments') {
 	            const searchParam = shipmentSearchQuery ? `&shipment_search=${encodeURIComponent(shipmentSearchQuery)}` : '';
 	            const shipmentParam = options.shipmentId ? `&shipment_id=${encodeURIComponent(options.shipmentId)}` : '';
-	            const insightParam = shipmentInsightType ? `&insight_type=${encodeURIComponent(shipmentInsightType)}` : '';
-		            const f = shipmentFilters;
-		            const fp = (k, v) => v && v.length ? `&${k}=${encodeURIComponent(Array.isArray(v) ? v.join(',') : v)}` : '';
-		            return `${endpoint}${joiner}limit=100&page=${shipmentCurrentPage}${searchParam}${shipmentParam}${insightParam}${fp('status',f.status)}${fp('mode',f.mode)}${fp('packing',f.packing)}${fp('origin_country',f.origin_country)}${fp('load_port',f.load_port)}${fp('origin',f.origin)}${fp('destination',f.destination)}${fp('country',f.country)}${fp('inco',f.inco)}${fp('carrier',f.carrier)}${fp('supplier_id',f.supplier_id)}${fp('period_days',f.period)}&${MYSHIPMENT_VIEW_PARAM}`;
+		            const kpiParam = shipmentKpiFilter ? `&kpi_filter=${encodeURIComponent(shipmentKpiFilter)}` : '';
+			            const f = shipmentFilters;
+			            const fp = (k, v) => v && v.length ? `&${k}=${encodeURIComponent(Array.isArray(v) ? v.join(',') : v)}` : '';
+			            return `${endpoint}${joiner}limit=100&page=${shipmentCurrentPage}${searchParam}${shipmentParam}${kpiParam}${fp('status',f.status)}${fp('mode',f.mode)}${fp('packing',f.packing)}${fp('origin_country',f.origin_country)}${fp('load_port',f.load_port)}${fp('origin',f.origin)}${fp('destination',f.destination)}${fp('country',f.country)}${fp('inco',f.inco)}${fp('carrier',f.carrier)}${fp('supplier_id',f.supplier_id)}${fp('period_days',f.period)}&${MYSHIPMENT_VIEW_PARAM}`;
 	        }
         if (target === 'containers') {
             const shipmentParam = containerShipmentId ? `&shipment_id=${encodeURIComponent(containerShipmentId)}` : '';
@@ -8316,8 +8101,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const shipmentParam = trackingShipmentId ? `&shipment_id=${encodeURIComponent(trackingShipmentId)}` : '';
             return `${endpoint}${joiner}limit=100&page=${trackingCurrentPage}${shipmentParam}&${MYSHIPMENT_VIEW_PARAM}`;
         }
-        if (target === 'alerts') return `${endpoint}${joiner}limit=100&page=${alertCurrentPage}&${MYSHIPMENT_VIEW_PARAM}`;
-        if (target === 'documents') {
+	        if (target === 'documents') {
             const shipmentParam = documentShipmentId ? `&shipment_id=${encodeURIComponent(documentShipmentId)}` : '';
             return `${endpoint}${joiner}limit=100&page=${documentCurrentPage}${shipmentParam}&${MYSHIPMENT_VIEW_PARAM}`;
         }
@@ -8342,15 +8126,7 @@ document.addEventListener('DOMContentLoaded', () => {
             documents: ['document-table', 7]
         };
         if (target === 'tracking') setBlockMessage('tracking-timeline', 'Loading events...');
-        if (target === 'alerts') {
-            setBlockMessage('alerts-list', 'Loading alerts...');
-            document.getElementById('alert-result-count').textContent = 'Loading alerts...';
-            ['total', 'high', 'medium', 'overdue', 'missing-eta'].forEach(key => {
-                const el = document.getElementById(`alert-${key}`);
-                if (el) el.textContent = '-';
-            });
-        }
-        if (loadingMap[target]) setTableMessage(loadingMap[target][0], loadingMap[target][1], 'Loading data...', true);
+	        if (loadingMap[target]) setTableMessage(loadingMap[target][0], loadingMap[target][1], 'Loading data...', true);
         if (target === 'purchase-orders') {
             const resultCount = document.getElementById('po-result-count');
             if (resultCount) resultCount.textContent = 'Loading purchase orders...';
@@ -8361,7 +8137,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadPurchaseOrderKpis(Boolean(options.force));
         }
         if (target === 'shipments') {
-            updateShipmentInsightBanner();
+	            updateShipmentKpiBanner();
             const resultCount = document.getElementById('shipment-result-count');
             if (resultCount) resultCount.textContent = 'Loading shipments...';
 	            ['total', 'confirmed', 'booked', 'arriving', 'eta-past', 'missing-eta'].forEach(key => {
@@ -8373,7 +8149,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target === 'tracking') {
             document.getElementById('tracking-event-title').textContent = trackingShipmentId ? 'Tracking Events' : 'All Tracking Events';
             document.getElementById('tracking-result-count').textContent = 'Loading tracking events...';
-            document.getElementById('tracking-timeline-subtitle').textContent = 'Fetching latest CargoWise events.';
+            document.getElementById('tracking-timeline-subtitle').textContent = 'Fetching latest shipment events.';
         }
         try {
             const payload = await api(endpointUrl, { headers: { Authorization: `Bearer ${accessToken()}` } });
@@ -8383,11 +8159,7 @@ document.addEventListener('DOMContentLoaded', () => {
             applyModulePayload(target, message, hasNextPage);
         } catch (err) {
             if (target === 'tracking') setBlockMessage('tracking-timeline', err.message || 'Unable to load events');
-            if (target === 'alerts') {
-                setBlockMessage('alerts-list', err.message || 'Unable to load alerts');
-                document.getElementById('alert-result-count').textContent = 'Alerts could not be loaded';
-            }
-            if (loadingMap[target]) setTableMessage(loadingMap[target][0], loadingMap[target][1], err.message || 'Unable to load data');
+	            if (loadingMap[target]) setTableMessage(loadingMap[target][0], loadingMap[target][1], err.message || 'Unable to load data');
             if (target === 'purchase-orders') {
                 const resultCount = document.getElementById('po-result-count');
                 if (resultCount) resultCount.textContent = 'Purchase orders could not be loaded';
@@ -8475,7 +8247,7 @@ document.addEventListener('DOMContentLoaded', () => {
         closeModal('logout-modal');
         applyAuthState();
     };
-    const MODULE_LABELS_TOAST = { 'purchase-orders': 'Purchase orders', shipments: 'Shipments', containers: 'Containers', tracking: 'Tracking', alerts: 'Alerts', documents: 'Documents' };
+	    const MODULE_LABELS_TOAST = { 'purchase-orders': 'Purchase orders', shipments: 'Shipments', containers: 'Containers', tracking: 'Tracking', documents: 'Documents' };
     const showToast = (message, type = 'success') => {
         let c = document.getElementById('app-toast-container');
         if (!c) { c = document.createElement('div'); c.id = 'app-toast-container'; c.className = 'app-toast-container'; document.body.appendChild(c); }
@@ -8563,7 +8335,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 	    // PO filters
-	    const PO_FILTER_KEYS = ['status', 'released', 'priority', 'mode', 'container_mode', 'inco', 'supplier', 'period'];
+	    const PO_FILTER_KEYS = ['supplier', 'status', 'released', 'priority', 'mode', 'container_mode', 'inco', 'period'];
 	    const PO_FILTER_LABELS = { status: 'Status', released: 'Released', priority: 'Priority', mode: 'Mode', container_mode: 'Container Mode', inco: 'Inco Term', supplier: 'Supplier', period: 'Period' };
 	    let _lastPoFilterOptions = {};
 	    const poHasActiveFilters = () => PO_FILTER_KEYS.some(key => {
@@ -8820,14 +8592,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('shipment-search-form')?.addEventListener('submit', e => {
         e.preventDefault();
-        clearShipmentInsightFilter({ reload: false });
+        clearShipmentKpiFilter({ reload: false });
         shipmentSearchQuery = shipmentSearchInput.value.trim();
         shipmentCurrentPage = 1;
         loadModule('shipments');
     });
 
     shipmentSearchClear?.addEventListener('click', () => {
-        clearShipmentInsightFilter({ reload: false });
+        clearShipmentKpiFilter({ reload: false });
         shipmentSearchInput.value = '';
         shipmentSearchClear.style.display = 'none';
         shipmentSearchQuery = '';
@@ -8837,7 +8609,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('shipment-refresh-btn')?.addEventListener('click', () => refreshModule('shipments', 'shipment-refresh-btn'));
 
     // --- Shipment filter dropdowns + cache ---
-	    const FILTER_KEYS = ['origin_country', 'country', 'status', 'mode', 'packing', 'load_port', 'origin', 'destination', 'inco', 'carrier', 'supplier', 'period'];
+		    const FILTER_KEYS = ['origin_country', 'country', 'origin', 'load_port', 'destination', 'status', 'mode', 'packing', 'inco', 'carrier', 'supplier', 'period'];
 	    const FILTER_LABELS = { status: 'Status', mode: 'Mode', packing: 'Packing', origin_country: 'Origin Country', origin: 'Origin', load_port: 'POL', destination: 'Destination', country: 'Destination Country', inco: 'Inco Term', carrier: 'Carrier', supplier: 'Supplier', period: 'Period' };
     // ── IndexedDB shipment filter options cache ───────────────────────────────
     const SHIPMENT_FILTER_OPTIONS_CACHE_DB = 'myshipment';
@@ -9077,7 +8849,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const clearAllBtn = e.target.closest('#shipment-filter-clear-all');
         if (clearAllBtn) {
             closeAllFilterDropdowns(null);
-            clearShipmentInsightFilter({ reload: false });
+	            clearShipmentKpiFilter({ reload: false });
             resetShipmentFilters();
             shipmentCurrentPage = 1;
             loadModule('shipments');
@@ -9185,13 +8957,19 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('tracking-refresh-btn')?.addEventListener('click', () => refreshModule('tracking', 'tracking-refresh-btn'));
     document.getElementById('tracking-prev-btn')?.addEventListener('click', () => { if (trackingCurrentPage > 1) { trackingCurrentPage--; loadModule('tracking'); } });
     document.getElementById('tracking-next-btn')?.addEventListener('click', () => { trackingCurrentPage++; loadModule('tracking'); });
-    document.getElementById('home-analytics-refresh')?.addEventListener('click', async () => { await Promise.all([loadHomeAnalytics(true), loadHomeShipmentInsights(true), loadCargowiseProfile(true)]); showToast('Overview refreshed'); });
-    document.getElementById('home-shipment-insights-list')?.addEventListener('click', event => {
-        const button = event.target.closest('[data-shipment-insight]');
-        if (!button) return;
-        openShipmentInsight(button.dataset.shipmentInsight || '');
-    });
-    document.getElementById('shipment-insight-clear-btn')?.addEventListener('click', () => clearShipmentInsightFilter());
+	    document.getElementById('home-analytics-refresh')?.addEventListener('click', async () => { await Promise.all([loadHomeAnalytics(true), loadCargowiseProfile(true)]); showToast('Overview refreshed'); });
+		    document.getElementById('shipment-kpi-clear-btn')?.addEventListener('click', () => clearShipmentKpiFilter());
+	    document.getElementById('shipment-kpi-bar')?.addEventListener('click', event => {
+	        const card = event.target.closest('[data-shipment-kpi]');
+	        if (card) openShipmentKpiDrilldown(card.dataset.shipmentKpi || '');
+	    });
+	    document.getElementById('shipment-kpi-bar')?.addEventListener('keydown', event => {
+	        if (!['Enter', ' '].includes(event.key)) return;
+	        const card = event.target.closest('[data-shipment-kpi]');
+	        if (!card) return;
+	        event.preventDefault();
+	        openShipmentKpiDrilldown(card.dataset.shipmentKpi || '');
+	    });
     document.getElementById('mghask-form')?.addEventListener('submit', event => {
         event.preventDefault();
         const input = document.getElementById('mghask-input');
@@ -9217,11 +8995,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('container-prev-btn')?.addEventListener('click', () => { if (containerCurrentPage > 1) { containerCurrentPage--; loadModule('containers'); } });
     document.getElementById('container-next-btn')?.addEventListener('click', () => { containerCurrentPage++; loadModule('containers'); });
     
-    document.getElementById('alert-refresh-btn')?.addEventListener('click', () => refreshModule('alerts', 'alert-refresh-btn'));
-    document.getElementById('alert-prev-btn')?.addEventListener('click', () => { if (alertCurrentPage > 1) { alertCurrentPage--; loadModule('alerts'); } });
-    document.getElementById('alert-next-btn')?.addEventListener('click', () => { alertCurrentPage++; loadModule('alerts'); });
-    
-    document.getElementById('document-prev-btn')?.addEventListener('click', () => { if (documentCurrentPage > 1) { documentCurrentPage--; loadModule('documents'); } });
+	    document.getElementById('document-prev-btn')?.addEventListener('click', () => { if (documentCurrentPage > 1) { documentCurrentPage--; loadModule('documents'); } });
     document.getElementById('document-next-btn')?.addEventListener('click', () => { documentCurrentPage++; loadModule('documents'); });
 
     navItems.forEach(item => {
@@ -9231,7 +9005,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const userRole = Number(authUser.role);
             const target = item.getAttribute('data-target');
             if (!featureAllowed(target, userRole)) { showBlocked(); return; }
-            if (target === 'shipments') clearShipmentInsightFilter({ reload: false });
+            if (target === 'shipments') clearShipmentKpiFilter({ reload: false });
             loadFeature(target);
         });
     });

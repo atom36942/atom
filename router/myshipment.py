@@ -546,7 +546,7 @@ async def func_api_myshipment_my_shipments(*, request: Request):
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     import re as _re
     def _safe_list(raw): return [v.strip() for v in str(raw or "").split(",") if v.strip() and _re.match(r'^[A-Za-z0-9\-_/ ]+$', v.strip())]
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_search", "str", 0, None, ""), ("shipment_id", "str", 0, None, ""), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer"), ("status", "str", 0, None, ""), ("mode", "str", 0, None, ""), ("packing", "str", 0, None, ""), ("origin_country", "str", 0, None, ""), ("origin", "str", 0, None, ""), ("load_port", "str", 0, None, ""), ("destination", "str", 0, None, ""), ("country", "str", 0, None, ""), ("inco", "str", 0, None, ""), ("carrier", "str", 0, None, ""), ("supplier_id", "str", 0, None, ""), ("period_days", "int", 0, None, 0), ("insight_type", "str", 0, None, "")])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_search", "str", 0, None, ""), ("shipment_id", "str", 0, None, ""), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer"), ("status", "str", 0, None, ""), ("mode", "str", 0, None, ""), ("packing", "str", 0, None, ""), ("origin_country", "str", 0, None, ""), ("origin", "str", 0, None, ""), ("load_port", "str", 0, None, ""), ("destination", "str", 0, None, ""), ("country", "str", 0, None, ""), ("inco", "str", 0, None, ""), ("carrier", "str", 0, None, ""), ("supplier_id", "str", 0, None, ""), ("period_days", "int", 0, None, 0), ("kpi_filter", "str", 0, None, "")])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
     limit = max(1, limit)
@@ -555,9 +555,9 @@ async def func_api_myshipment_my_shipments(*, request: Request):
     shipment_id = str(oq.get("shipment_id") or "").strip()
     view_as = str(oq.get("view_as") or "controlling_customer").strip()
     period_days = max(0, int(oq.get("period_days") or 0))
-    insight_type = str(oq.get("insight_type") or "").strip()
-    if insight_type and insight_type not in {"overdue-arrival", "arriving-this-week", "missing-eta"}:
-        raise Exception("Invalid insight_type")
+    kpi_filter = str(oq.get("kpi_filter") or "").strip()
+    if kpi_filter and kpi_filter not in {"confirmed", "booked", "eta-next-7d", "eta-past", "missing-eta"}:
+        raise Exception("Invalid kpi_filter")
     status_list = _safe_list(oq.get("status"))
     mode_list = _safe_list(oq.get("mode"))
     packing_list = _safe_list(oq.get("packing"))
@@ -630,39 +630,16 @@ async def func_api_myshipment_my_shipments(*, request: Request):
         filter_params.extend(supplier_id_list)
     if period_days > 0:
         where_parts.append(f"JS.JS_E_DEP >= DATEADD(day, -{period_days}, SYSUTCDATETIME())")
-    if insight_type:
-        target_arrival_expr = "COALESCE(JS.JS_E_ARV, JS.JS_ClientRequestedETA, CAST(JS.JS_RevisedDeliveryDueDate AS datetime2), CAST(JS.JS_DeliveryDueDate AS datetime2))"
-        last_activity_expr = "COALESCE(JS.JS_SystemLastEditTimeUtc, JS.JS_SystemCreateTimeUtc)"
-        active_undelivered_where = """
-            ISNULL(JS.JS_IsCancelled, 0) = 0
-            AND ISNULL(JS.JS_ShipmentStatus, '') NOT IN ('CLS', 'FIN', 'DEL', 'COM', 'CMP')
-            AND NOT EXISTS (
-                SELECT 1
-                FROM dbo.StmALog AS ALArrival
-                LEFT JOIN dbo.StmEvent AS SEArrival ON SEArrival.SE_Code = ALArrival.SL_SE_NKEvent
-                WHERE ALArrival.SL_Table = 'JobShipment'
-                  AND ALArrival.SL_Parent = JS.JS_PK
-                  AND ALArrival.SL_EventTime IS NOT NULL
-                  AND ISNULL(ALArrival.SL_IsCancelled, 'N') <> 'Y'
-                  AND ISNULL(ALArrival.SL_IsEstimate, 'N') <> 'Y'
-                  AND (
-                        LOWER(COALESCE(SEArrival.SE_Desc, '')) LIKE '%arrival%'
-                     OR LOWER(COALESCE(SEArrival.SE_Desc, '')) LIKE '%arrived%'
-                     OR LOWER(COALESCE(ALArrival.SL_SE_NKEvent, '')) LIKE '%arv%'
-                  )
-            )"""
-        if insight_type == "overdue-arrival":
-            where_parts.append(f"""{active_undelivered_where}
-            AND {target_arrival_expr} IS NOT NULL
-            AND {target_arrival_expr} < SYSUTCDATETIME()""")
-        elif insight_type == "arriving-this-week":
-            where_parts.append(f"""{active_undelivered_where}
-            AND {target_arrival_expr} >= SYSUTCDATETIME()
-            AND {target_arrival_expr} < DATEADD(day, 7, SYSUTCDATETIME())""")
-        elif insight_type == "missing-eta":
-            where_parts.append(f"""{active_undelivered_where}
-            AND {target_arrival_expr} IS NULL
-            AND {last_activity_expr} >= DATEADD(day, -30, SYSUTCDATETIME())""")
+    if kpi_filter == "confirmed":
+        where_parts.append("JS.JS_ShipmentStatus = 'CNF'")
+    elif kpi_filter == "booked":
+        where_parts.append("(JS.JS_IsBooking = 1 OR JS.JS_ShipmentStatus = 'BKD')")
+    elif kpi_filter == "eta-next-7d":
+        where_parts.append("ISNULL(JS.JS_IsCancelled, 0) = 0 AND JS.JS_E_ARV >= SYSUTCDATETIME() AND JS.JS_E_ARV < DATEADD(day, 7, SYSUTCDATETIME())")
+    elif kpi_filter == "eta-past":
+        where_parts.append("ISNULL(JS.JS_IsCancelled, 0) = 0 AND JS.JS_E_ARV < SYSUTCDATETIME()")
+    elif kpi_filter == "missing-eta":
+        where_parts.append("ISNULL(JS.JS_IsCancelled, 0) = 0 AND JS.JS_E_ARV IS NULL")
     extra_where = ("        WHERE " + "\n          AND ".join(where_parts)) if where_parts else ""
     offset = (page - 1) * limit
     sql_limit = limit + 1
@@ -1038,110 +1015,6 @@ async def func_api_myshipment_my_tracking(*, request: Request):
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
-@router.get("/myshipment/my-alerts")
-async def func_api_myshipment_my_alerts(*, request: Request):
-    app_state = request.app.state
-    org_pk = helper_user_org_pk(request.state.user)
-    if not org_pk: raise Exception("Organization id missing")
-    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
-    limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
-    if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
-    limit = max(1, limit)
-    page = max(1, int(oq["page"] or 1))
-    view_as = str(oq.get("view_as") or "controlling_customer").strip()
-    offset = (page - 1) * limit
-    sql_limit = limit + 1
-    sql = f"""
-        SET NOCOUNT ON;
-        DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
-        DECLARE @view_as nvarchar(40) = ?;
-        WITH """ + helper_sql_visible_shipments(name='visible_shipments') + f""",
-        active_undelivered_shipments AS (
-            SELECT
-                JS.JS_PK,
-                COALESCE(JS.JS_E_ARV, JS.JS_ClientRequestedETA, CAST(JS.JS_RevisedDeliveryDueDate AS datetime2), CAST(JS.JS_DeliveryDueDate AS datetime2)) AS target_arrival_at,
-                COALESCE(JS.JS_SystemLastEditTimeUtc, JS.JS_SystemCreateTimeUtc) AS last_activity_at
-            FROM visible_shipments AS VS
-            JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
-            WHERE ISNULL(JS.JS_IsCancelled, 0) = 0
-              AND ISNULL(JS.JS_ShipmentStatus, '') NOT IN ('CLS', 'FIN', 'DEL', 'COM', 'CMP')
-              AND NOT EXISTS (
-                SELECT 1
-                FROM dbo.StmALog AS ALArrival
-                LEFT JOIN dbo.StmEvent AS SEArrival ON SEArrival.SE_Code = ALArrival.SL_SE_NKEvent
-                WHERE ALArrival.SL_Table = 'JobShipment'
-                  AND ALArrival.SL_Parent = JS.JS_PK
-                  AND ALArrival.SL_EventTime IS NOT NULL
-                  AND ISNULL(ALArrival.SL_IsCancelled, 'N') <> 'Y'
-                  AND ISNULL(ALArrival.SL_IsEstimate, 'N') <> 'Y'
-                  AND (
-                        LOWER(COALESCE(SEArrival.SE_Desc, '')) LIKE '%arrival%'
-                     OR LOWER(COALESCE(SEArrival.SE_Desc, '')) LIKE '%arrived%'
-                     OR LOWER(COALESCE(ALArrival.SL_SE_NKEvent, '')) LIKE '%arv%'
-                  )
-              )
-        ),
-        insight_rows AS (
-            SELECT
-                1 AS sort_order,
-                'Shipment Insight' AS source_type,
-                'overdue-arrival' AS source_id,
-                CONCAT(COUNT_BIG(1), ' shipments') AS reference,
-                'Overdue Arrival' AS exception_type,
-                'High' AS severity,
-                'Active undelivered' AS status,
-                MIN(target_arrival_at) AS event_at,
-                'Active undelivered shipments have an ETA or delivery date in the past.' AS note,
-                COUNT_BIG(1) AS impacted_count
-            FROM active_undelivered_shipments
-            WHERE target_arrival_at IS NOT NULL
-              AND target_arrival_at < SYSUTCDATETIME()
-            HAVING COUNT_BIG(1) > 0
-            UNION ALL
-            SELECT
-                2,
-                'Shipment Insight',
-                'arriving-this-week',
-                CONCAT(COUNT_BIG(1), ' shipments'),
-                'Arriving This Week',
-                'Medium',
-                'Active undelivered',
-                MIN(target_arrival_at),
-                'Active undelivered shipments are expected to arrive in the next 7 days.',
-                COUNT_BIG(1)
-            FROM active_undelivered_shipments
-            WHERE target_arrival_at >= SYSUTCDATETIME()
-              AND target_arrival_at < DATEADD(day, 7, SYSUTCDATETIME())
-            HAVING COUNT_BIG(1) > 0
-            UNION ALL
-            SELECT
-                3,
-                'Shipment Insight',
-                'missing-eta',
-                CONCAT(COUNT_BIG(1), ' shipments'),
-                'Missing ETA',
-                'Medium',
-                'Needs visibility',
-                MAX(last_activity_at),
-                'Recently updated active shipments do not have an ETA or delivery date.',
-                COUNT_BIG(1)
-            FROM active_undelivered_shipments
-            WHERE target_arrival_at IS NULL
-              AND last_activity_at >= DATEADD(day, -30, SYSUTCDATETIME())
-            HAVING COUNT_BIG(1) > 0
-        )
-        SELECT source_type, source_id, reference, exception_type, severity, status, event_at, note, impacted_count
-        FROM insight_rows
-        ORDER BY sort_order
-        OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
-    async with app_state.client_mssql_read_fallback.acquire() as conn:
-        cursor = await conn.cursor()
-        await cursor.execute(sql, org_pk, view_as)
-        columns = [column[0] for column in cursor.description]
-        obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
-    return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
-
 @router.get("/myshipment/my-documents")
 async def func_api_myshipment_my_documents(*, request: Request):
     app_state = request.app.state
@@ -1335,7 +1208,7 @@ async def func_api_myshipment_my_documents_download(*, request: Request):
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("document_id", "str", 1, None, None)])
-    raise Exception("Document download is not available from JobDocumentData in this CargoWise database. Document metadata can be viewed, but file storage mapping needs to be configured separately.")
+    raise Exception("Document download is not available for this document yet. Document metadata can be viewed, but file storage mapping needs to be configured separately.")
 
 @router.get("/myshipment/my-kpi")
 async def func_api_myshipment_my_kpis(*, request: Request):
@@ -1713,7 +1586,7 @@ async def func_api_myshipment_my_mgh_ask(*, request: Request):
             "required": ["intent", "search_text", "limit"],
         }
         prompt = "\n".join([
-            "Classify the buyer's CargoWise question into one supported intent.",
+            "Classify the buyer's shipment-data question into one supported intent.",
             "Return JSON only. Do not generate SQL.",
             "Supported intents:",
             "overview, recent_shipments, delayed_shipments, arriving_this_week, missing_eta, shipments_by_origin_country, shipments_by_destination_country, top_suppliers, shipment_search, purchase_order_search, containers_pending.",
@@ -1947,7 +1820,7 @@ async def func_api_myshipment_my_mgh_ask(*, request: Request):
         top = rows[0]
         answer = f"{title}: {top.get('country') or '-'} is highest with {int(top.get('shipments') or 0):,} shipments."
     elif intent == "overview":
-        answer = "Here is the current CargoWise overview for your account."
+        answer = "Here is the current shipment overview for your account."
     else:
         answer = f"Found {count:,} result{'s' if count != 1 else ''} for {title.lower()}."
     suggestions = ["Delayed shipments", "Arriving this week", "Top origin countries", "Top suppliers"]
