@@ -245,7 +245,9 @@ async def func_api_myshipment_my_purchase_orders(*, request: Request):
     org_pk = helper_user_org_pk(request.state.user)
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("po_number", "str", 0, None, ""), ("shipment_id", "str", 0, None, ""), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
+    import re as _re
+    def _safe_list(raw): return [v.strip() for v in str(raw or "").split(",") if v.strip() and _re.match(r'^[A-Za-z0-9\-_/ ]+$', v.strip())]
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("po_number", "str", 0, None, ""), ("shipment_id", "str", 0, None, ""), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer"), ("status", "str", 0, None, ""), ("released", "str", 0, None, ""), ("priority", "str", 0, None, ""), ("mode", "str", 0, None, ""), ("container_mode", "str", 0, None, ""), ("inco", "str", 0, None, ""), ("supplier_id", "str", 0, None, ""), ("period_days", "int", 0, None, 0)])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
     limit = max(1, limit)
@@ -255,6 +257,32 @@ async def func_api_myshipment_my_purchase_orders(*, request: Request):
     po_number = str(oq.get("po_number") or "").strip()
     shipment_id = str(oq.get("shipment_id") or "").strip()
     view_as = str(oq.get("view_as") or "controlling_customer").strip()
+    status_list = _safe_list(oq.get("status"))
+    mode_list = _safe_list(oq.get("mode"))
+    container_mode_list = _safe_list(oq.get("container_mode"))
+    inco_list = _safe_list(oq.get("inco"))
+    supplier_id_list = [v.strip() for v in str(oq.get("supplier_id") or "").split(",") if _re.match(r'^[0-9A-Fa-f-]{36}$', v.strip())]
+    period_days = max(0, int(oq.get("period_days") or 0))
+    released = str(oq.get("released") or "").strip().lower()
+    priority = str(oq.get("priority") or "").strip().lower()
+    where_parts, filter_params = [], []
+    def _add_in(column, values):
+        if values:
+            where_parts.append(f"{column} IN ({','.join(['?' for _ in values])})")
+            filter_params.extend(values)
+    _add_in("JD.JD_OrderStatus", status_list)
+    _add_in("JD.JD_TransportMode", mode_list)
+    _add_in("JD.JD_ContainerMode", container_mode_list)
+    _add_in("JD.JD_IncoTerm", inco_list)
+    if supplier_id_list:
+        where_parts.append(f"SupplierOA.OA_OH IN ({','.join(['?' for _ in supplier_id_list])})")
+        filter_params.extend(supplier_id_list)
+    if released in {"yes", "true", "1"}: where_parts.append("JD.JD_IsReleased = 1")
+    if released in {"no", "false", "0"}: where_parts.append("ISNULL(JD.JD_IsReleased, 0) = 0")
+    if priority in {"yes", "true", "1"}: where_parts.append("JD.JD_IsPriority = 1")
+    if priority in {"no", "false", "0"}: where_parts.append("ISNULL(JD.JD_IsPriority, 0) = 0")
+    if period_days > 0: where_parts.append(f"JD.JD_OrderDate >= DATEADD(day, -{period_days}, SYSUTCDATETIME())")
+    extra_po_where = ("AND " + "\n              AND ".join(where_parts)) if where_parts else ""
     sql = f"""
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
@@ -272,6 +300,7 @@ async def func_api_myshipment_my_purchase_orders(*, request: Request):
             LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
             WHERE JD.JD_IsValid = 1
               { "AND JD.JD_OrderNumber = @po_number" if po_number else "" }
+              {extra_po_where}
               AND (
                     @shipment_id_requested = 0
                  OR JD.JD_JS = @shipment_id
@@ -413,7 +442,7 @@ async def func_api_myshipment_my_purchase_orders(*, request: Request):
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
-        await cursor.execute(sql, org_pk, po_number, shipment_id, view_as)
+        await cursor.execute(sql, org_pk, po_number, shipment_id, view_as, *filter_params)
         columns = [column[0] for column in cursor.description]
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
@@ -517,7 +546,7 @@ async def func_api_myshipment_my_shipments(*, request: Request):
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     import re as _re
     def _safe_list(raw): return [v.strip() for v in str(raw or "").split(",") if v.strip() and _re.match(r'^[A-Za-z0-9\-_/ ]+$', v.strip())]
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_search", "str", 0, None, ""), ("shipment_id", "str", 0, None, ""), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer"), ("mode", "str", 0, None, ""), ("packing", "str", 0, None, ""), ("origin", "str", 0, None, ""), ("destination", "str", 0, None, ""), ("country", "str", 0, None, ""), ("inco", "str", 0, None, ""), ("carrier", "str", 0, None, ""), ("supplier_id", "str", 0, None, ""), ("period_days", "int", 0, None, 0)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_search", "str", 0, None, ""), ("shipment_id", "str", 0, None, ""), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer"), ("status", "str", 0, None, ""), ("mode", "str", 0, None, ""), ("packing", "str", 0, None, ""), ("origin_country", "str", 0, None, ""), ("origin", "str", 0, None, ""), ("load_port", "str", 0, None, ""), ("destination", "str", 0, None, ""), ("country", "str", 0, None, ""), ("inco", "str", 0, None, ""), ("carrier", "str", 0, None, ""), ("supplier_id", "str", 0, None, ""), ("period_days", "int", 0, None, 0), ("insight_type", "str", 0, None, "")])
     limit = int(oq["limit"] or app_state.config_sql_read_limit_default)
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
     limit = max(1, limit)
@@ -526,9 +555,15 @@ async def func_api_myshipment_my_shipments(*, request: Request):
     shipment_id = str(oq.get("shipment_id") or "").strip()
     view_as = str(oq.get("view_as") or "controlling_customer").strip()
     period_days = max(0, int(oq.get("period_days") or 0))
+    insight_type = str(oq.get("insight_type") or "").strip()
+    if insight_type and insight_type not in {"overdue-arrival", "arriving-this-week", "missing-eta"}:
+        raise Exception("Invalid insight_type")
+    status_list = _safe_list(oq.get("status"))
     mode_list = _safe_list(oq.get("mode"))
     packing_list = _safe_list(oq.get("packing"))
+    origin_country_list = [v.strip().upper() for v in str(oq.get("origin_country") or "").split(",") if _re.match(r'^[A-Za-z]{2,3}$', v.strip())]
     origin_list = _safe_list(oq.get("origin"))
+    load_port_list = _safe_list(oq.get("load_port"))
     dest_list = _safe_list(oq.get("destination"))
     country_list = [v.strip().upper() for v in str(oq.get("country") or "").split(",") if _re.match(r'^[A-Za-z]{2,3}$', v.strip())]
     inco_list = _safe_list(oq.get("inco"))
@@ -542,27 +577,92 @@ async def func_api_myshipment_my_shipments(*, request: Request):
         if lst:
             where_parts.append(f"{col} IN ({','.join(['?' for _ in lst])})")
             filter_params.extend(lst)
+    _add_in("JS.JS_ShipmentStatus", status_list)
     _add_in("JS.JS_TransportMode", mode_list)
     _add_in("JS.JS_PackingMode", packing_list)
+    if origin_country_list:
+        where_parts.append(f"""EXISTS (
+            SELECT 1
+            FROM dbo.RefUNLOCO RL
+            WHERE RL.RL_Code = JS.JS_RL_NKOrigin
+              AND RL.RL_RN_NKCountryCode IN ({','.join(['?' for _ in origin_country_list])})
+        )""")
+        filter_params.extend(origin_country_list)
     _add_in("JS.JS_RL_NKOrigin", origin_list)
+    _add_in("JS.JS_RL_NKLoadPort", load_port_list)
     _add_in("JS.JS_RL_NKDestination", dest_list)
     if country_list:
         where_parts.append(f"""EXISTS (
             SELECT 1
             FROM dbo.RefUNLOCO RL
-            WHERE RL.RL_Code IN (JS.JS_RL_NKOrigin, JS.JS_RL_NKDestination)
+            WHERE RL.RL_Code = JS.JS_RL_NKDestination
               AND RL.RL_RN_NKCountryCode IN ({','.join(['?' for _ in country_list])})
         )""")
         filter_params.extend(country_list)
     _add_in("JS.JS_INCO", inco_list)
     if carrier_list:
-        where_parts.append(f"EXISTS (SELECT 1 FROM dbo.OrgAddress OA2 JOIN dbo.OrgHeader OH2 ON OH2.OH_PK=OA2.OA_OH WHERE OA2.OA_PK=JS.JS_OA_BookedShippingLineAddress AND OH2.OH_PK IN ({','.join(['?' for _ in carrier_list])}))")
-        filter_params.extend(carrier_list)
+        carrier_placeholders = ','.join(['?' for _ in carrier_list])
+        where_parts.append(f"""(
+            EXISTS (
+                SELECT 1
+                FROM dbo.OrgAddress CarrierOA
+                WHERE CarrierOA.OA_PK = JS.JS_OA_BookedShippingLineAddress
+                  AND CarrierOA.OA_OH IN ({carrier_placeholders})
+            )
+            OR EXISTS (
+                SELECT 1
+                FROM dbo.vw_JobShipmentDepartureConsol DC
+                JOIN dbo.OrgAddress CarrierOA ON CarrierOA.OA_PK = DC.JK_OA_ShippingLineAddress
+                WHERE DC.JS_PK = JS.JS_PK
+                  AND CarrierOA.OA_OH IN ({carrier_placeholders})
+            )
+            OR EXISTS (
+                SELECT 1
+                FROM dbo.vw_JobShipmentArrivalConsol AC
+                JOIN dbo.OrgAddress CarrierOA ON CarrierOA.OA_PK = AC.JK_OA_ShippingLineAddress
+                WHERE AC.JS_PK = JS.JS_PK
+                  AND CarrierOA.OA_OH IN ({carrier_placeholders})
+            )
+        )""")
+        filter_params.extend(carrier_list * 3)
     if supplier_id_list:
         where_parts.append(f"EXISTS (SELECT 1 FROM dbo.cvw_JobShipmentOrgs JSO2 WHERE JSO2.JS_PK=JS.JS_PK AND JSO2.ControllingCustomer_PK IN ({','.join(['?' for _ in supplier_id_list])}))")
         filter_params.extend(supplier_id_list)
     if period_days > 0:
         where_parts.append(f"JS.JS_E_DEP >= DATEADD(day, -{period_days}, SYSUTCDATETIME())")
+    if insight_type:
+        target_arrival_expr = "COALESCE(JS.JS_E_ARV, JS.JS_ClientRequestedETA, CAST(JS.JS_RevisedDeliveryDueDate AS datetime2), CAST(JS.JS_DeliveryDueDate AS datetime2))"
+        last_activity_expr = "COALESCE(JS.JS_SystemLastEditTimeUtc, JS.JS_SystemCreateTimeUtc)"
+        active_undelivered_where = """
+            ISNULL(JS.JS_IsCancelled, 0) = 0
+            AND ISNULL(JS.JS_ShipmentStatus, '') NOT IN ('CLS', 'FIN', 'DEL', 'COM', 'CMP')
+            AND NOT EXISTS (
+                SELECT 1
+                FROM dbo.StmALog AS ALArrival
+                LEFT JOIN dbo.StmEvent AS SEArrival ON SEArrival.SE_Code = ALArrival.SL_SE_NKEvent
+                WHERE ALArrival.SL_Table = 'JobShipment'
+                  AND ALArrival.SL_Parent = JS.JS_PK
+                  AND ALArrival.SL_EventTime IS NOT NULL
+                  AND ISNULL(ALArrival.SL_IsCancelled, 'N') <> 'Y'
+                  AND ISNULL(ALArrival.SL_IsEstimate, 'N') <> 'Y'
+                  AND (
+                        LOWER(COALESCE(SEArrival.SE_Desc, '')) LIKE '%arrival%'
+                     OR LOWER(COALESCE(SEArrival.SE_Desc, '')) LIKE '%arrived%'
+                     OR LOWER(COALESCE(ALArrival.SL_SE_NKEvent, '')) LIKE '%arv%'
+                  )
+            )"""
+        if insight_type == "overdue-arrival":
+            where_parts.append(f"""{active_undelivered_where}
+            AND {target_arrival_expr} IS NOT NULL
+            AND {target_arrival_expr} < SYSUTCDATETIME()""")
+        elif insight_type == "arriving-this-week":
+            where_parts.append(f"""{active_undelivered_where}
+            AND {target_arrival_expr} >= SYSUTCDATETIME()
+            AND {target_arrival_expr} < DATEADD(day, 7, SYSUTCDATETIME())""")
+        elif insight_type == "missing-eta":
+            where_parts.append(f"""{active_undelivered_where}
+            AND {target_arrival_expr} IS NULL
+            AND {last_activity_expr} >= DATEADD(day, -30, SYSUTCDATETIME())""")
     extra_where = ("        WHERE " + "\n          AND ".join(where_parts)) if where_parts else ""
     offset = (page - 1) * limit
     sql_limit = limit + 1
@@ -645,36 +745,120 @@ async def func_api_myshipment_my_shipments(*, request: Request):
         obj_list = [dict(zip(columns, row)) for row in await cursor.fetchall()]
     return {"status": 1, "message": {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}}
 
-@router.get("/myshipment/my-cache")
-async def func_api_myshipment_my_cache(*, request: Request):
+@router.get("/myshipment/my-filter-options")
+async def func_api_myshipment_my_filter_options(*, request: Request):
     app_state = request.app.state
     org_pk = helper_user_org_pk(request.state.user)
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("module", "str", 0, ["shipment", "purchase_orders"], "shipment"), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
     view_as = str(oq.get("view_as") or "controlling_customer").strip()
+    import json as _json
+    if oq["module"] == "purchase_orders":
+        sql = f"""
+        SET NOCOUNT ON;
+        DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        DECLARE @view_as nvarchar(40) = ?;
+        WITH {helper_sql_visible_shipments_owned(name='visible_shipments')},
+        visible_orders AS (
+            SELECT DISTINCT JD.JD_PK
+            FROM dbo.JobOrderHeader AS JD
+            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JD.JD_JS
+            LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
+            LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
+            WHERE JD.JD_IsValid = 1
+              AND (
+                    BuyerOA.OA_OH = @org
+                 OR JD.JD_JS IN (SELECT JS_PK FROM visible_shipments)
+                 OR (
+                        @view_as = 'all'
+                    AND (
+                           JSO.ControllingCustomer_PK = @org
+                        OR BuyerOA.OA_OH = @org
+                        OR SupplierOA.OA_OH = @org
+                        OR JD.JD_OH_Carrier = @org
+                        OR JD.JD_OH_SendingAgent = @org
+                        OR JD.JD_OH_ReceivingAgent = @org
+                    )
+                 )
+              )
+        )
+        SELECT
+            (SELECT TOP (10000) v FROM (SELECT DISTINCT JD.JD_OrderStatus AS v FROM dbo.JobOrderHeader JD JOIN visible_orders VO ON VO.JD_PK=JD.JD_PK WHERE JD.JD_OrderStatus IS NOT NULL AND JD.JD_OrderStatus<>'') x FOR JSON PATH) AS status_json,
+            (SELECT TOP (10000) v FROM (SELECT DISTINCT JD.JD_TransportMode AS v FROM dbo.JobOrderHeader JD JOIN visible_orders VO ON VO.JD_PK=JD.JD_PK WHERE JD.JD_TransportMode IS NOT NULL AND JD.JD_TransportMode<>'') x FOR JSON PATH) AS mode_json,
+            (SELECT TOP (10000) v FROM (SELECT DISTINCT JD.JD_ContainerMode AS v FROM dbo.JobOrderHeader JD JOIN visible_orders VO ON VO.JD_PK=JD.JD_PK WHERE JD.JD_ContainerMode IS NOT NULL AND JD.JD_ContainerMode<>'') x FOR JSON PATH) AS container_mode_json,
+            (SELECT TOP (10000) v FROM (SELECT DISTINCT JD.JD_IncoTerm AS v FROM dbo.JobOrderHeader JD JOIN visible_orders VO ON VO.JD_PK=JD.JD_PK WHERE JD.JD_IncoTerm IS NOT NULL AND JD.JD_IncoTerm<>'') x FOR JSON PATH) AS inco_json,
+            (SELECT TOP (10000) id, name FROM (
+                SELECT DISTINCT CONVERT(varchar(36), SupplierOH.OH_PK) AS id, SupplierOH.OH_FullName AS name
+                FROM dbo.JobOrderHeader JD
+                JOIN visible_orders VO ON VO.JD_PK=JD.JD_PK
+                LEFT JOIN dbo.OrgAddress SupplierOA ON SupplierOA.OA_PK=JD.JD_OA_SupplierAddress
+                LEFT JOIN dbo.OrgHeader SupplierOH ON SupplierOH.OH_PK=SupplierOA.OA_OH
+                WHERE SupplierOH.OH_FullName IS NOT NULL
+            ) x ORDER BY name FOR JSON PATH) AS supplier_json;"""
+        async with app_state.client_mssql_read_fallback.acquire() as conn:
+            cursor = await conn.cursor()
+            await cursor.execute(sql, org_pk, view_as)
+            row = await cursor.fetchone()
+        def _parse_po(raw):
+            if not raw: return []
+            data = _json.loads(raw)
+            if data and len(data[0]) == 1:
+                key = list(data[0].keys())[0]
+                return sorted([r[key] for r in data if r.get(key)])
+            return data
+        return {"status": 1, "message": {"module": oq["module"], "version": "7", "filter_options": {"status": _parse_po(row[0]), "mode": _parse_po(row[1]), "container_mode": _parse_po(row[2]), "inco": _parse_po(row[3]), "supplier": _parse_po(row[4]) if row[4] else []}}}
     sql = f"""
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @view_as nvarchar(40) = ?;
         WITH {helper_sql_visible_shipments_owned(name='visible_shipments')}
         SELECT
+            (SELECT TOP (10000) v FROM (SELECT DISTINCT JS.JS_ShipmentStatus AS v FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK WHERE JS.JS_ShipmentStatus IS NOT NULL AND JS.JS_ShipmentStatus<>'') x FOR JSON PATH) AS status_json,
             (SELECT TOP (10000) v FROM (SELECT DISTINCT JS.JS_TransportMode AS v FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK WHERE JS.JS_TransportMode IS NOT NULL AND JS.JS_TransportMode<>'') x FOR JSON PATH) AS mode_json,
             (SELECT TOP (10000) v FROM (SELECT DISTINCT JS.JS_PackingMode   AS v FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK WHERE JS.JS_PackingMode IS NOT NULL AND JS.JS_PackingMode<>'')   x FOR JSON PATH) AS packing_json,
             (SELECT TOP (10000) v FROM (SELECT DISTINCT JS.JS_RL_NKOrigin   AS v FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK WHERE JS.JS_RL_NKOrigin IS NOT NULL AND JS.JS_RL_NKOrigin<>'')   x FOR JSON PATH) AS origin_json,
+            (SELECT TOP (10000) v FROM (SELECT DISTINCT JS.JS_RL_NKLoadPort AS v FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK WHERE JS.JS_RL_NKLoadPort IS NOT NULL AND JS.JS_RL_NKLoadPort<>'') x FOR JSON PATH) AS load_port_json,
             (SELECT TOP (10000) v FROM (SELECT DISTINCT JS.JS_RL_NKDestination AS v FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK WHERE JS.JS_RL_NKDestination IS NOT NULL AND JS.JS_RL_NKDestination<>'') x FOR JSON PATH) AS destination_json,
             (SELECT TOP (10000) id, name FROM (
                 SELECT DISTINCT RL.RL_RN_NKCountryCode AS id, COALESCE(RN.RN_Desc, RL.RL_RN_NKCountryCode) AS name
                 FROM dbo.JobShipment JS
                 JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK
-                JOIN dbo.RefUNLOCO RL ON RL.RL_Code IN (JS.JS_RL_NKOrigin, JS.JS_RL_NKDestination)
+                JOIN dbo.RefUNLOCO RL ON RL.RL_Code = JS.JS_RL_NKOrigin
+                LEFT JOIN dbo.RefCountry RN ON RN.RN_Code=RL.RL_RN_NKCountryCode
+                WHERE RL.RL_RN_NKCountryCode IS NOT NULL AND RL.RL_RN_NKCountryCode<>''
+            ) x ORDER BY name FOR JSON PATH) AS origin_country_json,
+            (SELECT TOP (10000) id, name FROM (
+                SELECT DISTINCT RL.RL_RN_NKCountryCode AS id, COALESCE(RN.RN_Desc, RL.RL_RN_NKCountryCode) AS name
+                FROM dbo.JobShipment JS
+                JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK
+                JOIN dbo.RefUNLOCO RL ON RL.RL_Code = JS.JS_RL_NKDestination
                 LEFT JOIN dbo.RefCountry RN ON RN.RN_Code=RL.RL_RN_NKCountryCode
                 WHERE RL.RL_RN_NKCountryCode IS NOT NULL AND RL.RL_RN_NKCountryCode<>''
             ) x ORDER BY name FOR JSON PATH) AS country_json,
             (SELECT TOP (10000) v FROM (SELECT DISTINCT JS.JS_INCO AS v FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK WHERE JS.JS_INCO IS NOT NULL AND JS.JS_INCO<>'') x FOR JSON PATH) AS inco_json,
-            (SELECT TOP (10000) id, name FROM (SELECT DISTINCT CONVERT(varchar(36),OH.OH_PK) AS id, OH.OH_FullName AS name FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK JOIN dbo.OrgAddress OA ON OA.OA_PK=JS.JS_OA_BookedShippingLineAddress JOIN dbo.OrgHeader OH ON OH.OH_PK=OA.OA_OH WHERE OH.OH_FullName IS NOT NULL) x ORDER BY name FOR JSON PATH) AS carrier_json,
+            (SELECT TOP (10000) id, name FROM (
+                SELECT DISTINCT CONVERT(varchar(36), OH.OH_PK) AS id, OH.OH_FullName AS name
+                FROM (
+                    SELECT OA.OA_OH AS OH_PK
+                    FROM dbo.JobShipment JS
+                    JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK
+                    JOIN dbo.OrgAddress OA ON OA.OA_PK=JS.JS_OA_BookedShippingLineAddress
+                    UNION
+                    SELECT OA.OA_OH AS OH_PK
+                    FROM dbo.vw_JobShipmentDepartureConsol DC
+                    JOIN visible_shipments VS ON VS.JS_PK=DC.JS_PK
+                    JOIN dbo.OrgAddress OA ON OA.OA_PK=DC.JK_OA_ShippingLineAddress
+                    UNION
+                    SELECT OA.OA_OH AS OH_PK
+                    FROM dbo.vw_JobShipmentArrivalConsol AC
+                    JOIN visible_shipments VS ON VS.JS_PK=AC.JS_PK
+                    JOIN dbo.OrgAddress OA ON OA.OA_PK=AC.JK_OA_ShippingLineAddress
+                ) CarrierOrg
+                JOIN dbo.OrgHeader OH ON OH.OH_PK=CarrierOrg.OH_PK
+                WHERE OH.OH_FullName IS NOT NULL
+            ) x ORDER BY name FOR JSON PATH) AS carrier_json,
             (SELECT TOP (10000) id, name FROM (SELECT DISTINCT CONVERT(varchar(36),OH.OH_PK) AS id, OH.OH_FullName AS name FROM dbo.JobShipment JS JOIN visible_shipments VS ON VS.JS_PK=JS.JS_PK JOIN dbo.cvw_JobShipmentOrgs JSO ON JSO.JS_PK=JS.JS_PK JOIN dbo.OrgHeader OH ON OH.OH_PK=JSO.ControllingCustomer_PK WHERE OH.OH_FullName IS NOT NULL) x ORDER BY name FOR JSON PATH) AS supplier_json;"""
-    import json as _json
     async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(sql, org_pk, view_as)
@@ -687,16 +871,19 @@ async def func_api_myshipment_my_cache(*, request: Request):
             return sorted([r[key] for r in data if r.get(key)])
         return data
     filter_options = {
-        "mode":        _parse(row[0]),
-        "packing":     _parse(row[1]),
-        "origin":      _parse(row[2]),
-        "destination": _parse(row[3]),
-        "country":     _parse(row[4]),
-        "inco":        _parse(row[5]),
-        "carrier":     _parse(row[6]),
-        "supplier":    _parse(row[7]) if row[7] else [],
+        "status":      _parse(row[0]),
+        "mode":        _parse(row[1]),
+        "packing":     _parse(row[2]),
+        "origin":      _parse(row[3]),
+        "load_port":   _parse(row[4]),
+        "destination": _parse(row[5]),
+        "origin_country": _parse(row[6]),
+        "country":     _parse(row[7]),
+        "inco":        _parse(row[8]),
+        "carrier":     _parse(row[9]),
+        "supplier":    _parse(row[10]) if row[10] else [],
     }
-    return {"status": 1, "message": {"version": "2", "filter_options": filter_options}}
+    return {"status": 1, "message": {"module": oq["module"], "version": "8", "filter_options": filter_options}}
 
 @router.get("/myshipment/my-containers")
 async def func_api_myshipment_my_containers(*, request: Request):
@@ -870,11 +1057,16 @@ async def func_api_myshipment_my_alerts(*, request: Request):
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @view_as nvarchar(40) = ?;
         WITH """ + helper_sql_visible_shipments(name='visible_shipments') + f""",
-        pending_shipments AS (
-            SELECT VS.JS_PK
+        active_undelivered_shipments AS (
+            SELECT
+                JS.JS_PK,
+                COALESCE(JS.JS_E_ARV, JS.JS_ClientRequestedETA, CAST(JS.JS_RevisedDeliveryDueDate AS datetime2), CAST(JS.JS_DeliveryDueDate AS datetime2)) AS target_arrival_at,
+                COALESCE(JS.JS_SystemLastEditTimeUtc, JS.JS_SystemCreateTimeUtc) AS last_activity_at
             FROM visible_shipments AS VS
             JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
-            WHERE NOT EXISTS (
+            WHERE ISNULL(JS.JS_IsCancelled, 0) = 0
+              AND ISNULL(JS.JS_ShipmentStatus, '') NOT IN ('CLS', 'FIN', 'DEL', 'COM', 'CMP')
+              AND NOT EXISTS (
                 SELECT 1
                 FROM dbo.StmALog AS ALArrival
                 LEFT JOIN dbo.StmEvent AS SEArrival ON SEArrival.SE_Code = ALArrival.SL_SE_NKEvent
@@ -888,55 +1080,60 @@ async def func_api_myshipment_my_alerts(*, request: Request):
                      OR LOWER(COALESCE(SEArrival.SE_Desc, '')) LIKE '%arrived%'
                      OR LOWER(COALESCE(ALArrival.SL_SE_NKEvent, '')) LIKE '%arv%'
                   )
-            )
+              )
         ),
-        exception_rows AS (
+        insight_rows AS (
             SELECT
-                'Shipment' AS source_type,
-                CONVERT(varchar(36), JS.JS_PK) AS source_id,
-                JS.JS_UniqueConsignRef AS reference,
-                'Shipment Cancelled' AS exception_type,
+                1 AS sort_order,
+                'Shipment Insight' AS source_type,
+                'overdue-arrival' AS source_id,
+                CONCAT(COUNT_BIG(1), ' shipments') AS reference,
+                'Overdue Arrival' AS exception_type,
                 'High' AS severity,
-                JS.JS_ShipmentStatus AS status,
-                JS.JS_SystemLastEditTimeUtc AS event_at,
-                'Shipment is marked cancelled.' AS note
-            FROM pending_shipments AS PS
-            JOIN dbo.JobShipment AS JS ON JS.JS_PK = PS.JS_PK
-            WHERE JS.JS_IsCancelled = 1
+                'Active undelivered' AS status,
+                MIN(target_arrival_at) AS event_at,
+                'Active undelivered shipments have an ETA or delivery date in the past.' AS note,
+                COUNT_BIG(1) AS impacted_count
+            FROM active_undelivered_shipments
+            WHERE target_arrival_at IS NOT NULL
+              AND target_arrival_at < SYSUTCDATETIME()
+            HAVING COUNT_BIG(1) > 0
             UNION ALL
             SELECT
-                'Shipment',
-                CONVERT(varchar(36), JS.JS_PK),
-                JS.JS_UniqueConsignRef,
-                'ETA Overdue',
+                2,
+                'Shipment Insight',
+                'arriving-this-week',
+                CONCAT(COUNT_BIG(1), ' shipments'),
+                'Arriving This Week',
                 'Medium',
-                JS.JS_ShipmentStatus,
-                JS.JS_E_ARV,
-                'Estimated arrival date has passed.'
-            FROM pending_shipments AS PS
-            JOIN dbo.JobShipment AS JS ON JS.JS_PK = PS.JS_PK
-            WHERE JS.JS_IsCancelled = 0
-              AND JS.JS_ShipmentStatus NOT IN ('CLS', 'FIN', 'DEL', 'COM')
-              AND JS.JS_E_ARV IS NOT NULL
-              AND JS.JS_E_ARV < SYSUTCDATETIME()
+                'Active undelivered',
+                MIN(target_arrival_at),
+                'Active undelivered shipments are expected to arrive in the next 7 days.',
+                COUNT_BIG(1)
+            FROM active_undelivered_shipments
+            WHERE target_arrival_at >= SYSUTCDATETIME()
+              AND target_arrival_at < DATEADD(day, 7, SYSUTCDATETIME())
+            HAVING COUNT_BIG(1) > 0
             UNION ALL
             SELECT
-                'Shipment',
-                CONVERT(varchar(36), JS.JS_PK),
-                JS.JS_UniqueConsignRef,
-                'Screening Review',
+                3,
+                'Shipment Insight',
+                'missing-eta',
+                CONCAT(COUNT_BIG(1), ' shipments'),
+                'Missing ETA',
                 'Medium',
-                JS.JS_ScreeningStatus,
-                JS.JS_SystemLastEditTimeUtc,
-                'Screening status requires review.'
-            FROM pending_shipments AS PS
-            JOIN dbo.JobShipment AS JS ON JS.JS_PK = PS.JS_PK
-            WHERE JS.JS_ScreeningStatus IS NOT NULL
-              AND JS.JS_ScreeningStatus NOT IN ('', 'NOT')
+                'Needs visibility',
+                MAX(last_activity_at),
+                'Recently updated active shipments do not have an ETA or delivery date.',
+                COUNT_BIG(1)
+            FROM active_undelivered_shipments
+            WHERE target_arrival_at IS NULL
+              AND last_activity_at >= DATEADD(day, -30, SYSUTCDATETIME())
+            HAVING COUNT_BIG(1) > 0
         )
-        SELECT *
-        FROM exception_rows
-        ORDER BY event_at DESC, source_id DESC
+        SELECT source_type, source_id, reference, exception_type, severity, status, event_at, note, impacted_count
+        FROM insight_rows
+        ORDER BY sort_order
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
@@ -1140,14 +1337,35 @@ async def func_api_myshipment_my_documents_download(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("document_id", "str", 1, None, None)])
     raise Exception("Document download is not available from JobDocumentData in this CargoWise database. Document metadata can be viewed, but file storage mapping needs to be configured separately.")
 
-@router.get("/myshipment/my-analytics")
-async def func_api_myshipment_my_analytics(*, request: Request):
+@router.get("/myshipment/my-kpi")
+async def func_api_myshipment_my_kpis(*, request: Request):
     app_state = request.app.state
     org_pk = helper_user_org_pk(request.state.user)
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("module", "str", 0, ["master", "purchase_orders", "shipments", "containers"], "master"), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("module", "str", 0, ["master", "purchase_orders", "shipments"], "master"), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
     view_as = str(oq.get("view_as") or "controlling_customer").strip()
+    if oq["module"] == "shipments":
+        shipment_kpis_sql = """
+	        SET NOCOUNT ON;
+	        DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+	        DECLARE @view_as nvarchar(40) = ?;
+	        WITH """ + helper_sql_visible_shipments(name='visible_shipments') + """
+	        SELECT
+	            (SELECT COUNT(1) FROM visible_shipments) AS shipments,
+	            (SELECT COUNT(1) FROM visible_shipments AS VS JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK WHERE JS.JS_IsCancelled = 1 OR JS.JS_ShipmentStatus = 'SIJ') AS cancelled_shipments,
+	            (SELECT COUNT(1) FROM visible_shipments AS VS JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK WHERE JS.JS_ShipmentStatus = 'CNF') AS confirmed_shipments,
+	            (SELECT COUNT(1) FROM visible_shipments AS VS JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK WHERE JS.JS_IsBooking = 1 OR JS.JS_ShipmentStatus = 'BKD') AS booked_shipments,
+	            (SELECT COUNT(1) FROM visible_shipments AS VS JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK WHERE ISNULL(JS.JS_IsCancelled, 0) = 0 AND JS.JS_E_ARV >= SYSUTCDATETIME() AND JS.JS_E_ARV < DATEADD(day, 7, SYSUTCDATETIME())) AS arriving_soon_shipments,
+	            (SELECT COUNT(1) FROM visible_shipments AS VS JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK WHERE ISNULL(JS.JS_IsCancelled, 0) = 0 AND JS.JS_E_ARV < SYSUTCDATETIME()) AS eta_past_shipments,
+	            (SELECT COUNT(1) FROM visible_shipments AS VS JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK WHERE ISNULL(JS.JS_IsCancelled, 0) = 0 AND JS.JS_E_ARV IS NULL) AS missing_eta_shipments,
+	            (SELECT COUNT(1) FROM visible_shipments AS VS JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK WHERE ISNULL(JS.JS_IsCancelled, 0) = 0 AND JS.JS_E_ARV < SYSUTCDATETIME()) AS delayed_shipments;"""
+        async with app_state.client_mssql_read_fallback.acquire() as conn:
+            cursor = await conn.cursor()
+            await cursor.execute(shipment_kpis_sql, org_pk, view_as)
+            columns = [column[0] for column in cursor.description]
+            rows = [dict(zip(columns, row)) for row in await cursor.fetchall()]
+        return {"status": 1, "message": jsonable_encoder({"kpis": rows[0] if rows else {}})}
     kpis_sql = """
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
@@ -1216,35 +1434,42 @@ async def func_api_myshipment_my_analytics(*, request: Request):
                  OR (@view_as = 'all' AND (JC.JC_OH_CFSClient = @org OR JC.JC_OH_ShippingLine = @org))
               )
         ),
-        line_summary AS (
-            SELECT JO.JO_JD AS order_pk, COUNT(1) AS line_count
-            FROM dbo.JobOrderLine AS JO
-            WHERE JO.JO_IsValid = 1
-            GROUP BY JO.JO_JD
-        )
-        SELECT
-            (SELECT COUNT(1) FROM visible_orders) AS purchase_orders,
-            (SELECT COUNT(1) FROM visible_shipments) AS shipments,
-            (SELECT COUNT(1) FROM visible_containers) AS containers,
+	        line_summary AS (
+	            SELECT JO.JO_JD AS order_pk, COUNT(1) AS line_count
+	            FROM dbo.JobOrderLine AS JO
+	            WHERE JO.JO_IsValid = 1
+	            GROUP BY JO.JO_JD
+	        )
+	        SELECT
+	            (SELECT COUNT(1) FROM visible_orders) AS purchase_orders,
+	            (SELECT COUNT(1) FROM visible_shipments) AS shipments,
+	            (SELECT COUNT(1) FROM visible_containers) AS containers,
             (SELECT COALESCE(SUM(LS.line_count), 0) FROM visible_orders AS VO JOIN dbo.JobOrderHeader AS JD ON JD.JD_PK = VO.JD_PK LEFT JOIN line_summary AS LS ON LS.order_pk = JD.JD_PK) AS purchase_order_lines,
-            (SELECT COUNT(1) FROM visible_orders AS VO JOIN dbo.JobOrderHeader AS JD ON JD.JD_PK = VO.JD_PK WHERE JD.JD_IsReleased = 1) AS released_purchase_orders,
-            (SELECT COUNT(1) FROM visible_orders AS VO JOIN dbo.JobOrderHeader AS JD ON JD.JD_PK = VO.JD_PK WHERE JD.JD_IsPriority = 1) AS priority_purchase_orders,
-            (SELECT COUNT(1) FROM visible_orders AS VO JOIN dbo.JobOrderHeader AS JD ON JD.JD_PK = VO.JD_PK WHERE JD.JD_IsCancelled = 1) AS cancelled_purchase_orders,
-            (SELECT COUNT(1) FROM visible_shipments AS VS JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK WHERE JS.JS_IsCancelled = 1) AS cancelled_shipments,
-            (SELECT COUNT(1)
-             FROM visible_shipments AS VS
-             JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
-             WHERE COALESCE(JS.JS_E_ARV, JS.JS_ClientRequestedETA, CAST(JS.JS_DeliveryDueDate AS datetime2), CAST(JS.JS_RevisedDeliveryDueDate AS datetime2)) >= SYSUTCDATETIME()
-               AND COALESCE(JS.JS_E_ARV, JS.JS_ClientRequestedETA, CAST(JS.JS_DeliveryDueDate AS datetime2), CAST(JS.JS_RevisedDeliveryDueDate AS datetime2)) < DATEADD(day, 7, SYSUTCDATETIME())
-               AND ISNULL(JS.JS_IsCancelled, 0) = 0) AS arriving_soon_shipments,
-            (SELECT COUNT(1)
-             FROM visible_shipments AS VS
-             JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
-             WHERE COALESCE(JS.JS_E_ARV, JS.JS_ClientRequestedETA, CAST(JS.JS_DeliveryDueDate AS datetime2), CAST(JS.JS_RevisedDeliveryDueDate AS datetime2)) < SYSUTCDATETIME()
-               AND JS.JS_E_DEP > DATEADD(day, -45, SYSUTCDATETIME())
-               AND JS.JS_E_DEP < SYSUTCDATETIME()
-               AND ISNULL(JS.JS_IsCancelled, 0) = 0
-               AND ISNULL(JS.JS_ShipmentStatus, '') NOT IN ('CLS', 'CMP', 'COM', 'FIN', 'DEL')) AS delayed_shipments;"""
+		            (SELECT COUNT(1) FROM visible_orders AS VO JOIN dbo.JobOrderHeader AS JD ON JD.JD_PK = VO.JD_PK WHERE JD.JD_IsReleased = 1) AS released_purchase_orders,
+			            (SELECT COUNT(1) FROM visible_orders AS VO JOIN dbo.JobOrderHeader AS JD ON JD.JD_PK = VO.JD_PK WHERE JD.JD_IsPriority = 1) AS priority_purchase_orders,
+			            (SELECT COUNT(1) FROM visible_orders AS VO JOIN dbo.JobOrderHeader AS JD ON JD.JD_PK = VO.JD_PK WHERE JD.JD_IsCancelled = 1) AS cancelled_purchase_orders,
+			            (SELECT COUNT(1) FROM visible_shipments AS VS JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK WHERE JS.JS_IsCancelled = 1 OR JS.JS_ShipmentStatus = 'SIJ') AS cancelled_shipments,
+			            (SELECT COUNT(1) FROM visible_shipments AS VS JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK WHERE JS.JS_ShipmentStatus = 'CNF') AS confirmed_shipments,
+			            (SELECT COUNT(1) FROM visible_shipments AS VS JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK WHERE JS.JS_IsBooking = 1 OR JS.JS_ShipmentStatus = 'BKD') AS booked_shipments,
+			            (SELECT COUNT(1) FROM visible_shipments AS VS JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK WHERE ISNULL(JS.JS_IsCancelled, 0) = 0 AND JS.JS_E_ARV >= SYSUTCDATETIME() AND JS.JS_E_ARV < DATEADD(day, 7, SYSUTCDATETIME())) AS arriving_soon_shipments,
+			            (SELECT COUNT(1) FROM visible_shipments AS VS JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK WHERE ISNULL(JS.JS_IsCancelled, 0) = 0 AND JS.JS_E_ARV < SYSUTCDATETIME()) AS eta_past_shipments,
+	            (SELECT COUNT(1) FROM visible_shipments AS VS JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK WHERE ISNULL(JS.JS_IsCancelled, 0) = 0 AND JS.JS_E_ARV IS NULL) AS missing_eta_shipments,
+	            (SELECT COUNT(1) FROM visible_shipments AS VS JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK WHERE ISNULL(JS.JS_IsCancelled, 0) = 0 AND JS.JS_E_ARV < SYSUTCDATETIME()) AS delayed_shipments;"""
+    async with app_state.client_mssql_read_fallback.acquire() as conn:
+        cursor = await conn.cursor()
+        await cursor.execute(kpis_sql, org_pk, view_as)
+        kpis_columns = [column[0] for column in cursor.description]
+        kpis = [dict(zip(kpis_columns, row)) for row in await cursor.fetchall()]
+    return {"status": 1, "message": jsonable_encoder({"kpis": kpis[0] if kpis else {}})}
+
+@router.get("/myshipment/my-charts")
+async def func_api_myshipment_my_charts(*, request: Request):
+    app_state = request.app.state
+    org_pk = helper_user_org_pk(request.state.user)
+    if not org_pk: raise Exception("Organization id missing")
+    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("module", "str", 0, ["master", "purchase_orders", "shipments"], "master"), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
+    view_as = str(oq.get("view_as") or "controlling_customer").strip()
     purchase_orders_by_status_sql = """
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
@@ -1337,20 +1562,53 @@ async def func_api_myshipment_my_analytics(*, request: Request):
         JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
         GROUP BY JS.JS_TransportMode
         ORDER BY COUNT(1) DESC;"""
+    shipments_by_country_sql = """
+        SET NOCOUNT ON;
+        DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        DECLARE @view_as nvarchar(40) = ?;
+        WITH """ + helper_sql_visible_shipments(name='visible_shipments') + """
+        SELECT TOP 10
+            RL.RL_RN_NKCountryCode AS country_code,
+            COALESCE(RN.RN_Desc, RL.RL_RN_NKCountryCode) AS country_name,
+            COUNT(1) AS count
+        FROM visible_shipments AS VS
+        JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
+        JOIN dbo.RefUNLOCO AS RL ON RL.RL_Code = JS.JS_RL_NKDestination
+        LEFT JOIN dbo.RefCountry AS RN ON RN.RN_Code = RL.RL_RN_NKCountryCode
+        WHERE JS.JS_RL_NKDestination IS NOT NULL
+          AND JS.JS_RL_NKDestination <> ''
+          AND RL.RL_RN_NKCountryCode IS NOT NULL
+          AND RL.RL_RN_NKCountryCode <> ''
+        GROUP BY RL.RL_RN_NKCountryCode, RN.RN_Desc
+        ORDER BY COUNT(1) DESC;"""
+    shipments_by_origin_country_sql = """
+        SET NOCOUNT ON;
+        DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        DECLARE @view_as nvarchar(40) = ?;
+        WITH """ + helper_sql_visible_shipments(name='visible_shipments') + """
+        SELECT TOP 10
+            RL.RL_RN_NKCountryCode AS country_code,
+            COALESCE(RN.RN_Desc, RL.RL_RN_NKCountryCode) AS country_name,
+            COUNT(1) AS count
+        FROM visible_shipments AS VS
+        JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
+        JOIN dbo.RefUNLOCO AS RL ON RL.RL_Code = JS.JS_RL_NKOrigin
+        LEFT JOIN dbo.RefCountry AS RN ON RN.RN_Code = RL.RL_RN_NKCountryCode
+        WHERE JS.JS_RL_NKOrigin IS NOT NULL
+          AND JS.JS_RL_NKOrigin <> ''
+          AND RL.RL_RN_NKCountryCode IS NOT NULL
+          AND RL.RL_RN_NKCountryCode <> ''
+        GROUP BY RL.RL_RN_NKCountryCode, RN.RN_Desc
+        ORDER BY COUNT(1) DESC;"""
     async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
-        await cursor.execute(kpis_sql, org_pk, view_as)
-        kpis_columns = [column[0] for column in cursor.description]
-        kpis = [dict(zip(kpis_columns, row)) for row in await cursor.fetchall()]
-        purchase_orders_by_status, shipments_by_status, shipments_by_month, transport_modes = [], [], [], []
+        purchase_orders_by_status, shipments_by_status, shipments_by_month, transport_modes, shipments_by_country, shipments_by_origin_country = [], [], [], [], [], []
         if oq["module"] in ("master", "purchase_orders"):
             await cursor.execute(purchase_orders_by_status_sql, org_pk, view_as)
             purchase_orders_by_status_columns = [column[0] for column in cursor.description]
             purchase_orders_by_status = [dict(zip(purchase_orders_by_status_columns, row)) for row in await cursor.fetchall()]
         if oq["module"] == "purchase_orders":
-            return {"status": 1, "message": jsonable_encoder({"kpis": kpis[0] if kpis else {}, "purchase_orders_by_status": purchase_orders_by_status})}
-        if oq["module"] == "containers":
-            return {"status": 1, "message": jsonable_encoder({"kpis": kpis[0] if kpis else {}})}
+            return {"status": 1, "message": jsonable_encoder({"purchase_orders_by_status": purchase_orders_by_status})}
         if oq["module"] in ("master", "shipments"):
             await cursor.execute(shipments_by_status_sql, org_pk, view_as)
             shipments_by_status_columns = [column[0] for column in cursor.description]
@@ -1361,10 +1619,339 @@ async def func_api_myshipment_my_analytics(*, request: Request):
             await cursor.execute(transport_modes_sql, org_pk, view_as)
             transport_modes_columns = [column[0] for column in cursor.description]
             transport_modes = [dict(zip(transport_modes_columns, row)) for row in await cursor.fetchall()]
+            await cursor.execute(shipments_by_country_sql, org_pk, view_as)
+            shipments_by_country_columns = [column[0] for column in cursor.description]
+            shipments_by_country = [dict(zip(shipments_by_country_columns, row)) for row in await cursor.fetchall()]
+            await cursor.execute(shipments_by_origin_country_sql, org_pk, view_as)
+            shipments_by_origin_country_columns = [column[0] for column in cursor.description]
+            shipments_by_origin_country = [dict(zip(shipments_by_origin_country_columns, row)) for row in await cursor.fetchall()]
         if oq["module"] == "shipments":
-            return {"status": 1, "message": jsonable_encoder({"kpis": kpis[0] if kpis else {}, "shipments_by_status": shipments_by_status, "shipments_by_month": shipments_by_month, "transport_modes": transport_modes})}
-    analytics_object = {"kpis": kpis[0] if kpis else {}, "purchase_orders_by_status": purchase_orders_by_status, "shipments_by_status": shipments_by_status, "shipments_by_month": shipments_by_month, "transport_modes": transport_modes}
-    return {"status": 1, "message": jsonable_encoder(analytics_object)}
+            return {"status": 1, "message": jsonable_encoder({"shipments_by_status": shipments_by_status, "shipments_by_month": shipments_by_month, "transport_modes": transport_modes, "shipments_by_country": shipments_by_country, "shipments_by_origin_country": shipments_by_origin_country})}
+    charts_object = {"purchase_orders_by_status": purchase_orders_by_status, "shipments_by_status": shipments_by_status, "shipments_by_month": shipments_by_month, "transport_modes": transport_modes, "shipments_by_country": shipments_by_country, "shipments_by_origin_country": shipments_by_origin_country}
+    return {"status": 1, "message": jsonable_encoder(charts_object)}
+
+@router.post("/myshipment/my-mgh-ask")
+async def func_api_myshipment_my_mgh_ask(*, request: Request):
+    app_state = request.app.state
+    org_pk = helper_user_org_pk(request.state.user)
+    if not org_pk: raise Exception("Organization id missing")
+    if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("question", "str", 1, None, None), ("ai", "str", 0, None, "gemini"), ("limit", "int", 0, None, 20)])
+    import asyncio as _asyncio
+    import json as _json
+    import re as _re
+    question = str(ob.get("question") or "").strip()
+    if len(question) > 500: raise Exception("Question is too long")
+    requested_limit = max(1, min(int(ob.get("limit") or 20), 50))
+    view_as = "controlling_customer"
+    intent_meta = {
+        "overview": {"title": "Supply Chain Overview", "columns": ["metric", "value"]},
+        "recent_shipments": {"title": "Recent Shipments", "columns": ["shipment", "status", "origin", "destination", "eta", "updated"]},
+        "delayed_shipments": {"title": "Delayed Shipments", "columns": ["shipment", "status", "origin", "destination", "target_arrival", "updated"]},
+        "arriving_this_week": {"title": "Arriving This Week", "columns": ["shipment", "status", "origin", "destination", "target_arrival", "updated"]},
+        "missing_eta": {"title": "Missing ETA", "columns": ["shipment", "status", "origin", "destination", "updated"]},
+        "shipments_by_origin_country": {"title": "Top Origin Countries", "columns": ["country", "shipments"]},
+        "shipments_by_destination_country": {"title": "Top Destination Countries", "columns": ["country", "shipments"]},
+        "top_suppliers": {"title": "Top Suppliers", "columns": ["supplier", "purchase_orders", "shipments"]},
+        "shipment_search": {"title": "Shipment Lookup", "columns": ["shipment", "status", "origin", "destination", "eta", "job"]},
+        "purchase_order_search": {"title": "Purchase Order Lookup", "columns": ["order", "status", "supplier", "shipment", "window_start", "window_end"]},
+        "containers_pending": {"title": "Pending Containers", "columns": ["container", "status", "mode", "shipment", "available", "gate_out"]},
+    }
+    def _extract_search_text(text):
+        text = str(text or "").strip()
+        quoted = _re.findall(r'["“]([^"”]{2,80})["”]', text)
+        if quoted: return quoted[0].strip()
+        matches = _re.findall(r'\b(?:PO|SHP|JS|MBL|HBL)?[-_/]?[A-Z0-9]{2,}[-_/][A-Z0-9][A-Z0-9_-]*\b|\b[A-Z]{2,}\d[A-Z0-9_-]*\b', text.upper())
+        return matches[0].strip() if matches else ""
+    def _fallback_intent(text):
+        q = text.lower()
+        search_text = _extract_search_text(text)
+        if any(term in q for term in ("overview", "summary", "how many", "kpi", "total")) and not any(term in q for term in ("country", "supplier", "container")):
+            return {"intent": "overview", "search_text": "", "limit": requested_limit}
+        if "origin country" in q or ("origin" in q and "country" in q):
+            return {"intent": "shipments_by_origin_country", "search_text": "", "limit": requested_limit}
+        if "destination country" in q or "country" in q:
+            return {"intent": "shipments_by_destination_country", "search_text": "", "limit": requested_limit}
+        if "supplier" in q or "vendor" in q:
+            return {"intent": "top_suppliers", "search_text": "", "limit": requested_limit}
+        if "container" in q:
+            return {"intent": "containers_pending", "search_text": search_text, "limit": requested_limit}
+        if "missing" in q and "eta" in q:
+            return {"intent": "missing_eta", "search_text": "", "limit": requested_limit}
+        if "arriv" in q or "this week" in q or "next 7" in q:
+            return {"intent": "arriving_this_week", "search_text": "", "limit": requested_limit}
+        if "delay" in q or "overdue" in q or "late" in q:
+            return {"intent": "delayed_shipments", "search_text": "", "limit": requested_limit}
+        if "po" in q or "purchase order" in q or "order" in q:
+            return {"intent": "purchase_order_search", "search_text": search_text, "limit": requested_limit}
+        if search_text or "shipment" in q or "where" in q:
+            return {"intent": "shipment_search", "search_text": search_text, "limit": requested_limit}
+        return {"intent": "recent_shipments", "search_text": "", "limit": requested_limit}
+    async def _ai_intent():
+        ai = str(ob.get("ai") or "gemini").strip().lower()
+        if ai == "gemini" and not getattr(app_state, "client_gemini", None): return None
+        if ai == "openai" and not getattr(app_state, "client_openai", None): return None
+        if ai not in {"gemini", "openai"}: return None
+        allowed = list(intent_meta.keys())
+        response_schema = {
+            "type": "OBJECT",
+            "properties": {
+                "intent": {"type": "STRING", "enum": allowed},
+                "search_text": {"type": "STRING", "nullable": True},
+                "limit": {"type": "INTEGER"},
+            },
+            "required": ["intent", "search_text", "limit"],
+        }
+        response_json_schema = {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "intent": {"type": "string", "enum": allowed},
+                "search_text": {"type": ["string", "null"]},
+                "limit": {"type": "integer"},
+            },
+            "required": ["intent", "search_text", "limit"],
+        }
+        prompt = "\n".join([
+            "Classify the buyer's CargoWise question into one supported intent.",
+            "Return JSON only. Do not generate SQL.",
+            "Supported intents:",
+            "overview, recent_shipments, delayed_shipments, arriving_this_week, missing_eta, shipments_by_origin_country, shipments_by_destination_country, top_suppliers, shipment_search, purchase_order_search, containers_pending.",
+            "Use shipment_search for shipment/reference/job/booking/house bill lookup.",
+            "Use purchase_order_search for PO/order lookup.",
+            "search_text should contain only the lookup value when present, otherwise empty string.",
+            f"limit must be between 1 and {requested_limit}.",
+            "",
+            f"Question: {question}",
+        ])
+        try:
+            if ai == "gemini":
+                from google.genai import types as _types
+                response = await _asyncio.to_thread(
+                    app_state.client_gemini.models.generate_content,
+                    model="gemini-2.5-flash",
+                    contents=prompt,
+                    config=_types.GenerateContentConfig(response_mime_type="application/json", response_schema=response_schema, temperature=0.1),
+                )
+                data = _json.loads(response.text or "{}")
+            else:
+                response = await _asyncio.to_thread(
+                    app_state.client_openai.responses.create,
+                    model="gpt-4.1-mini",
+                    input=prompt,
+                    text={"format": {"type": "json_schema", "name": "mgh_ask_intent", "schema": response_json_schema, "strict": True}},
+                    temperature=0.1,
+                )
+                data = _json.loads(response.output_text or "{}")
+        except Exception:
+            return None
+        if data.get("intent") not in intent_meta: return None
+        data["limit"] = max(1, min(int(data.get("limit") or requested_limit), requested_limit))
+        data["search_text"] = str(data.get("search_text") or "").strip()
+        return data
+    plan = await _ai_intent() or _fallback_intent(question)
+    intent = plan.get("intent") if plan.get("intent") in intent_meta else "recent_shipments"
+    search_text = str(plan.get("search_text") or "").strip() or _extract_search_text(question)
+    limit = max(1, min(int(plan.get("limit") or requested_limit), 50))
+    active_undelivered_where = """
+        ISNULL(JS.JS_IsCancelled, 0) = 0
+        AND ISNULL(JS.JS_ShipmentStatus, '') NOT IN ('CLS', 'FIN', 'DEL', 'COM', 'CMP')
+        AND NOT EXISTS (
+            SELECT 1
+            FROM dbo.StmALog AS ALArrival
+            LEFT JOIN dbo.StmEvent AS SEArrival ON SEArrival.SE_Code = ALArrival.SL_SE_NKEvent
+            WHERE ALArrival.SL_Table = 'JobShipment'
+              AND ALArrival.SL_Parent = JS.JS_PK
+              AND ALArrival.SL_EventTime IS NOT NULL
+              AND ISNULL(ALArrival.SL_IsCancelled, 'N') <> 'Y'
+              AND ISNULL(ALArrival.SL_IsEstimate, 'N') <> 'Y'
+              AND (
+                    LOWER(COALESCE(SEArrival.SE_Desc, '')) LIKE '%arrival%'
+                 OR LOWER(COALESCE(SEArrival.SE_Desc, '')) LIKE '%arrived%'
+                 OR LOWER(COALESCE(ALArrival.SL_SE_NKEvent, '')) LIKE '%arv%'
+              )
+        )"""
+    target_arrival_expr = "COALESCE(JS.JS_E_ARV, JS.JS_ClientRequestedETA, CAST(JS.JS_RevisedDeliveryDueDate AS datetime2), CAST(JS.JS_DeliveryDueDate AS datetime2))"
+    common_shipments_select = """
+        SELECT TOP ({limit})
+            JS.JS_UniqueConsignRef AS shipment,
+            JS.JS_ShipmentStatus AS status,
+            JS.JS_RL_NKOrigin AS origin,
+            JS.JS_RL_NKDestination AS destination,
+            {target_arrival_expr} AS target_arrival,
+            JS.JS_E_ARV AS eta,
+            JH.JH_JobNum AS job,
+            COALESCE(JS.JS_SystemLastEditTimeUtc, JS.JS_SystemCreateTimeUtc) AS updated
+        FROM visible_shipments AS VS
+        JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
+        OUTER APPLY (
+            SELECT TOP 1 JH.JH_JobNum
+            FROM dbo.JobHeader AS JH
+            WHERE JH.JH_ParentID = JS.JS_PK
+              AND JH.JH_ParentTableCode = 'JS'
+            ORDER BY JH.JH_SystemLastEditTimeUtc DESC
+        ) AS JH
+    """
+    sql = ""
+    params = [org_pk, view_as]
+    if intent == "overview":
+        sql = f"""
+            SET NOCOUNT ON;
+            DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+            DECLARE @view_as nvarchar(40) = ?;
+            WITH {helper_sql_visible_shipments(name='visible_shipments')}
+            SELECT 'Shipments' AS metric, COUNT(1) AS value FROM visible_shipments
+            UNION ALL
+            SELECT 'Delayed', COUNT(1)
+            FROM visible_shipments VS JOIN dbo.JobShipment JS ON JS.JS_PK=VS.JS_PK
+            WHERE {target_arrival_expr} < SYSUTCDATETIME()
+              AND {active_undelivered_where}
+            UNION ALL
+            SELECT 'Arriving 7 Days', COUNT(1)
+            FROM visible_shipments VS JOIN dbo.JobShipment JS ON JS.JS_PK=VS.JS_PK
+            WHERE {target_arrival_expr} >= SYSUTCDATETIME()
+              AND {target_arrival_expr} < DATEADD(day, 7, SYSUTCDATETIME())
+              AND ISNULL(JS.JS_IsCancelled, 0) = 0;"""
+    elif intent in {"recent_shipments", "delayed_shipments", "arriving_this_week", "missing_eta"}:
+        where = ""
+        if intent == "delayed_shipments":
+            where = f"WHERE {target_arrival_expr} IS NOT NULL AND {target_arrival_expr} < SYSUTCDATETIME() AND {active_undelivered_where}"
+        elif intent == "arriving_this_week":
+            where = f"WHERE {target_arrival_expr} >= SYSUTCDATETIME() AND {target_arrival_expr} < DATEADD(day, 7, SYSUTCDATETIME()) AND {active_undelivered_where}"
+        elif intent == "missing_eta":
+            where = f"WHERE {target_arrival_expr} IS NULL AND COALESCE(JS.JS_SystemLastEditTimeUtc, JS.JS_SystemCreateTimeUtc) >= DATEADD(day, -30, SYSUTCDATETIME()) AND {active_undelivered_where}"
+        sql = f"""
+            SET NOCOUNT ON;
+            DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+            DECLARE @view_as nvarchar(40) = ?;
+            WITH {helper_sql_visible_shipments(name='visible_shipments')}
+            {common_shipments_select.format(limit=limit, target_arrival_expr=target_arrival_expr)}
+            {where}
+            ORDER BY COALESCE({target_arrival_expr}, JS.JS_SystemLastEditTimeUtc, JS.JS_SystemCreateTimeUtc) DESC;"""
+    elif intent in {"shipments_by_origin_country", "shipments_by_destination_country"}:
+        loc_col = "JS.JS_RL_NKOrigin" if intent == "shipments_by_origin_country" else "JS.JS_RL_NKDestination"
+        sql = f"""
+            SET NOCOUNT ON;
+            DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+            DECLARE @view_as nvarchar(40) = ?;
+            WITH {helper_sql_visible_shipments(name='visible_shipments')}
+            SELECT TOP ({limit})
+                COALESCE(RN.RN_Desc, RL.RL_RN_NKCountryCode) AS country,
+                COUNT(1) AS shipments
+            FROM visible_shipments AS VS
+            JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
+            JOIN dbo.RefUNLOCO AS RL ON RL.RL_Code = {loc_col}
+            LEFT JOIN dbo.RefCountry AS RN ON RN.RN_Code = RL.RL_RN_NKCountryCode
+            WHERE {loc_col} IS NOT NULL AND {loc_col} <> ''
+              AND RL.RL_RN_NKCountryCode IS NOT NULL AND RL.RL_RN_NKCountryCode <> ''
+            GROUP BY RL.RL_RN_NKCountryCode, RN.RN_Desc
+            ORDER BY COUNT(1) DESC;"""
+    elif intent == "top_suppliers":
+        sql = f"""
+            SET NOCOUNT ON;
+            DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+            DECLARE @view_as nvarchar(40) = ?;
+            WITH {helper_sql_visible_shipments(name='visible_shipments')}
+            SELECT TOP ({limit})
+                COALESCE(OH.OH_FullName, SupplierOA.OA_CompanyNameOverride, SupplierOA.OA_Code, '-') AS supplier,
+                COUNT(DISTINCT JD.JD_PK) AS purchase_orders,
+                COUNT(DISTINCT JS.JS_PK) AS shipments
+            FROM visible_shipments AS VS
+            JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
+            JOIN dbo.JobOrderHeader AS JD ON JD.JD_JS = JS.JS_PK AND JD.JD_IsValid = 1
+            LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
+            LEFT JOIN dbo.OrgHeader AS OH ON OH.OH_PK = SupplierOA.OA_OH
+            GROUP BY COALESCE(OH.OH_FullName, SupplierOA.OA_CompanyNameOverride, SupplierOA.OA_Code, '-')
+            ORDER BY COUNT(DISTINCT JS.JS_PK) DESC, COUNT(DISTINCT JD.JD_PK) DESC;"""
+    elif intent == "shipment_search":
+        params.append(search_text)
+        sql = f"""
+            SET NOCOUNT ON;
+            DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+            DECLARE @view_as nvarchar(40) = ?;
+            DECLARE @shipment_search nvarchar(max) = ?;
+            WITH {helper_sql_visible_shipments(name='visible_shipments', with_search=True)}
+            {common_shipments_select.format(limit=limit, target_arrival_expr=target_arrival_expr)}
+            ORDER BY COALESCE(JS.JS_SystemLastEditTimeUtc, JS.JS_SystemCreateTimeUtc) DESC;"""
+    elif intent == "purchase_order_search":
+        params = [org_pk, search_text]
+        sql = f"""
+            SET NOCOUNT ON;
+            DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+            DECLARE @search nvarchar(max) = ?;
+            WITH {helper_sql_visible_shipments_owned(name='visible_shipments_for_orders')},
+            visible_orders AS (
+                SELECT DISTINCT JD.JD_PK
+                FROM dbo.JobOrderHeader AS JD
+                LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JD.JD_JS
+                LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
+                WHERE JD.JD_IsValid = 1
+                  AND (BuyerOA.OA_OH = @org OR JD.JD_JS IN (SELECT JS_PK FROM visible_shipments_for_orders))
+                  AND (@search = '' OR JD.JD_OrderNumber LIKE '%' + @search + '%' OR JD.JD_CustomerReference LIKE '%' + @search + '%')
+            )
+            SELECT TOP ({limit})
+                JD.JD_OrderNumber AS [order],
+                JD.JD_OrderStatus AS status,
+                COALESCE(OH.OH_FullName, SupplierOA.OA_CompanyNameOverride, SupplierOA.OA_Code, '-') AS supplier,
+                JS.JS_UniqueConsignRef AS shipment,
+                JD.JD_ShipmentWindowStart AS window_start,
+                JD.JD_ShipmentWindowEnd AS window_end
+            FROM visible_orders AS VO
+            JOIN dbo.JobOrderHeader AS JD ON JD.JD_PK = VO.JD_PK
+            LEFT JOIN dbo.JobShipment AS JS ON JS.JS_PK = JD.JD_JS
+            LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
+            LEFT JOIN dbo.OrgHeader AS OH ON OH.OH_PK = SupplierOA.OA_OH
+            ORDER BY COALESCE(JD.JD_SystemLastEditTimeUtc, JD.JD_SystemCreateTimeUtc) DESC;"""
+    elif intent == "containers_pending":
+        sql = f"""
+            SET NOCOUNT ON;
+            DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+            DECLARE @view_as nvarchar(40) = ?;
+            WITH {helper_sql_visible_shipments(name='visible_shipments')},
+            visible_containers AS (
+                SELECT DISTINCT JC.JC_PK
+                FROM dbo.JobContainer AS JC
+                LEFT JOIN dbo.JobConShipLink AS JN ON JN.JN_JK = JC.JC_JK
+                LEFT JOIN visible_shipments AS VS1 ON VS1.JS_PK = JC.JC_JS_FCLBookingOnlyLink
+                LEFT JOIN visible_shipments AS VS2 ON VS2.JS_PK = JN.JN_JS
+                WHERE JC.JC_IsValid = 1 AND (VS1.JS_PK IS NOT NULL OR VS2.JS_PK IS NOT NULL)
+            )
+            SELECT TOP ({limit})
+                JC.JC_ContainerNum AS container,
+                JC.JC_ContainerStatus AS status,
+                JC.JC_ContainerMode AS mode,
+                JS.JS_UniqueConsignRef AS shipment,
+                JC.JC_FCLAvailable AS available,
+                JC.JC_FCLWharfGateOut AS gate_out
+            FROM visible_containers AS VC
+            JOIN dbo.JobContainer AS JC ON JC.JC_PK = VC.JC_PK
+            OUTER APPLY (
+                SELECT TOP 1 JS.*
+                FROM dbo.JobShipment AS JS
+                LEFT JOIN dbo.JobConShipLink AS JN ON JN.JN_JS = JS.JS_PK
+                WHERE JS.JS_PK = JC.JC_JS_FCLBookingOnlyLink OR JN.JN_JK = JC.JC_JK
+                ORDER BY JS.JS_SystemLastEditTimeUtc DESC
+            ) AS JS
+            WHERE JC.JC_FCLWharfGateOut IS NULL
+            ORDER BY COALESCE(JC.JC_FCLAvailable, JC.JC_SystemLastEditTimeUtc, JC.JC_SystemCreateTimeUtc) DESC;"""
+    async with app_state.client_mssql_read_fallback.acquire() as conn:
+        cursor = await conn.cursor()
+        await cursor.execute(sql, *params)
+        columns = [column[0] for column in cursor.description]
+        rows = [dict(zip(columns, row)) for row in await cursor.fetchall()]
+    count = len(rows)
+    title = intent_meta[intent]["title"]
+    if count == 0:
+        answer = f"No matching {title.lower()} found for your account."
+    elif intent in {"shipments_by_origin_country", "shipments_by_destination_country"}:
+        top = rows[0]
+        answer = f"{title}: {top.get('country') or '-'} is highest with {int(top.get('shipments') or 0):,} shipments."
+    elif intent == "overview":
+        answer = "Here is the current CargoWise overview for your account."
+    else:
+        answer = f"Found {count:,} result{'s' if count != 1 else ''} for {title.lower()}."
+    suggestions = ["Delayed shipments", "Arriving this week", "Top origin countries", "Top suppliers"]
+    return {"status": 1, "message": jsonable_encoder({"answer": answer, "title": title, "intent": intent, "search_text": search_text, "columns": intent_meta[intent]["columns"], "rows": rows, "row_count": count, "suggestions": suggestions})}
 
 @router.get("/myshipment/buyer-360")
 async def func_api_myshipment_buyer_360(*, request: Request):
