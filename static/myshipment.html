@@ -118,6 +118,7 @@ body {
 /* Main Content */
 .main-content {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -206,6 +207,7 @@ body {
 /* Views */
 .content-wrapper {
     flex: 1;
+    min-width: 0;
     overflow-y: auto;
     overflow-x: hidden;
     padding: var(--page-card-gap) 2rem 2rem;
@@ -213,6 +215,7 @@ body {
 
 .view-section {
     display: none;
+    min-width: 0;
 }
 
 .view-section.active {
@@ -3674,54 +3677,11 @@ body {
 .coming-soon-block h3 { margin: 0 0 0.5rem; font-size: 1.2rem; color: var(--text-dark); }
 .coming-soon-block p { margin: 0 auto; max-width: 520px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.55; }
 
-.analytics-kpi-strip {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(150px, 1fr));
-    gap: 0.75rem;
-    padding: 1rem 1.5rem;
-    background: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
-}
-
-.analytics-kpi-card {
-    min-width: 0;
-    padding: 0.95rem;
-    border: 1px solid #E2E8F0;
-    border-radius: 14px;
-    background: #FFFFFF;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
-}
-
-.analytics-kpi-label {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    color: #64748B;
-    font-size: 0.72rem;
-    font-weight: 850;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-
-.analytics-kpi-label i {
-    color: var(--primary);
-}
-
-.analytics-kpi-value {
-    margin-top: 0.35rem;
-    color: #0F172A;
-    font-size: 1.55rem;
-    font-weight: 900;
-}
-
-.analytics-kpi-card.warning .analytics-kpi-label i,
-.analytics-kpi-card.warning .analytics-kpi-value {
-    color: #D97706;
-}
-
 .analytics-chart-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
     gap: var(--page-card-gap);
+    min-width: 0;
 }
 
 .analytics-chart-card {
@@ -3780,45 +3740,6 @@ body {
     border: 0;
 }
 
-.analytics-status-list {
-    display: grid;
-    gap: 0.65rem;
-    padding: 1rem 1.25rem 1.25rem;
-}
-
-.analytics-status-row {
-    display: grid;
-    grid-template-columns: minmax(70px, 0.75fr) minmax(0, 1.8fr) auto;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.analytics-status-name {
-    color: #334155;
-    font-size: 0.82rem;
-    font-weight: 820;
-}
-
-.analytics-status-bar {
-    height: 9px;
-    overflow: hidden;
-    border-radius: 999px;
-    background: #E2E8F0;
-}
-
-.analytics-status-fill {
-    height: 100%;
-    min-width: 4px;
-    border-radius: inherit;
-    background: linear-gradient(90deg, #4F46E5 0%, #06B6D4 100%);
-}
-
-.analytics-status-count {
-    color: #0F172A;
-    font-size: 0.82rem;
-    font-weight: 850;
-}
-
 @media (max-width: 700px) {
     .tracking-card-route {
         grid-template-columns: 1fr;
@@ -3829,10 +3750,8 @@ body {
         justify-content: flex-start;
     }
 
-    .analytics-kpi-strip,
     .analytics-chart-grid,
-    .user-dashboard-list,
-    .analytics-status-row {
+    .user-dashboard-list {
         grid-template-columns: 1fr;
     }
 
@@ -5175,31 +5094,7 @@ body.not-allowed .content-wrapper {
 	                        <h2 class="section-title" style="margin:0;font-size:1.15rem;">Supply chain at a glance</h2>
 	                    </div>
 
-	                    <div class="panel po-panel">
-	                        <div class="analytics-kpi-strip">
-                            <div class="analytics-kpi-card">
-                                <div class="analytics-kpi-label"><i class="fa-solid fa-file-invoice" aria-hidden="true"></i> Purchase Orders</div>
-                                <div class="analytics-kpi-value" id="analytics-pos">-</div>
-                            </div>
-                            <div class="analytics-kpi-card">
-                                <div class="analytics-kpi-label"><i class="fa-solid fa-ship" aria-hidden="true"></i> Shipments</div>
-                                <div class="analytics-kpi-value" id="analytics-shipments">-</div>
-                            </div>
-                            <div class="analytics-kpi-card">
-                                <div class="analytics-kpi-label"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i> Containers</div>
-                                <div class="analytics-kpi-value" id="analytics-containers">-</div>
-                            </div>
-                            <div class="analytics-kpi-card warning">
-                                <div class="analytics-kpi-label"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Delayed</div>
-                                <div class="analytics-kpi-value" id="analytics-delayed">-</div>
-                            </div>
-                            <div class="analytics-kpi-card">
-                                <div class="analytics-kpi-label"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i> Arriving 7 Days</div>
-                                <div class="analytics-kpi-value" id="analytics-arriving">-</div>
-	                            </div>
-	                        </div>
-	                    </div>
-	                    <div class="analytics-chart-grid">
+		                    <div class="analytics-chart-grid">
 	                        <div class="panel po-panel analytics-chart-card">
 	                            <div class="tracking-event-header"><div>
 	                                <div class="tracking-event-title">Shipments by Origin Country</div>
@@ -5223,19 +5118,26 @@ body.not-allowed .content-wrapper {
 	                        </div>
 	                        <div class="panel po-panel analytics-chart-card">
 	                            <div class="tracking-event-header"><div>
-	                                <div class="tracking-event-title">Transport Mode Mix</div>
+		                                <div class="tracking-event-title">Transport Mode</div>
 	                                <div class="tracking-event-subtitle">How shipments are moving</div>
 	                            </div></div>
 	                            <div class="analytics-chart-body compact"><canvas id="spendChart"></canvas></div>
 	                        </div>
-	                        <div class="panel po-panel analytics-chart-card">
-	                            <div class="tracking-event-header"><div>
-	                                <div class="tracking-event-title">Shipment Status</div>
-	                                <div class="tracking-event-subtitle">Current status split across accessible shipments</div>
-	                            </div></div>
-	                            <div class="analytics-status-list" id="analytics-status-list"></div>
-	                        </div>
-		                    </div>
+			                        <div class="panel po-panel analytics-chart-card">
+			                            <div class="tracking-event-header"><div>
+			                                <div class="tracking-event-title">Shipment Status</div>
+			                                <div class="tracking-event-subtitle">Current status split across accessible shipments</div>
+			                            </div></div>
+			                            <div class="analytics-chart-body compact"><canvas id="statusChart"></canvas></div>
+			                        </div>
+			                        <div class="panel po-panel analytics-chart-card">
+			                            <div class="tracking-event-header"><div>
+			                                <div class="tracking-event-title">Carrier Split</div>
+			                                <div class="tracking-event-subtitle">Top carriers across accessible shipments</div>
+			                            </div></div>
+			                            <div class="analytics-chart-body"><canvas id="carrierChart"></canvas></div>
+			                        </div>
+			                    </div>
 		                </section>
 
                 <div id="profile-full-content" style="display: none;">
@@ -7917,18 +7819,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     };
-    const renderAnalytics = data => {
-        const kpis = data.kpis || {};
-        document.getElementById('analytics-pos').textContent = Number(kpis.purchase_orders || 0).toLocaleString();
-        document.getElementById('analytics-shipments').textContent = Number(kpis.shipments || 0).toLocaleString();
-        document.getElementById('analytics-containers').textContent = Number(kpis.containers || 0).toLocaleString();
-        document.getElementById('analytics-delayed').textContent = Number(kpis.delayed_shipments || 0).toLocaleString();
-        document.getElementById('analytics-arriving').textContent = Number(kpis.arriving_soon_shipments || 0).toLocaleString();
-        const monthly = [...(data.shipments_by_month || [])].reverse();
+	    const renderAnalytics = data => {
+	        const monthly = [...(data.shipments_by_month || [])].reverse();
         const statuses = data.shipments_by_status || [];
-        const modes = data.transport_modes || [];
-        const countries = data.shipments_by_country || [];
-        const originCountries = data.shipments_by_origin_country || [];
+	        const modes = data.transport_modes || [];
+	        const countries = data.shipments_by_country || [];
+	        const originCountries = data.shipments_by_origin_country || [];
+	        const carriers = data.shipments_by_carrier || [];
         const chartTextColor = '#64748B';
         const chartGridColor = 'rgba(148, 163, 184, 0.18)';
         renderChart('volumeChart', {
@@ -8041,33 +7938,68 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
-        const statusList = document.getElementById('analytics-status-list');
-        if (statusList) {
-            const maxStatusCount = Math.max(...statuses.map(item => Number(item.count || 0)), 1);
-            statusList.innerHTML = statuses.length ? statuses.slice(0, 8).map(item => {
-                const count = Number(item.count || 0);
-                const width = Math.max(4, Math.round((count / maxStatusCount) * 100));
-                return `
-                    <div class="analytics-status-row">
-                        <div class="analytics-status-name">${escapeHtml(displayValue(item.status))}</div>
-                        <div class="analytics-status-bar"><div class="analytics-status-fill" style="width:${width}%"></div></div>
-                        <div class="analytics-status-count">${escapeHtml(count.toLocaleString())}</div>
-                    </div>
-                `;
-            }).join('') : '<div class="empty-state">No shipment status data available.</div>';
-        }
-    };
-    // Home page live KPIs + charts
-    const loadHomeAnalytics = async (force = false) => {
-        const btn = document.getElementById('home-analytics-refresh');
-        if (!force && moduleCache['home:overview']) { renderAnalytics(moduleCache['home:overview']); return; }
-        if (btn) { btn.classList.add('is-loading'); btn.disabled = true; }
-        try {
-            const [kpiPayload, chartPayload] = await Promise.all([
-	                api(`${MODULE_ENDPOINTS.kpis}?module=master&${MYSHIPMENT_VIEW_PARAM}`, { headers: { Authorization: `Bearer ${accessToken()}` } }),
-                api(`${MODULE_ENDPOINTS.charts}?module=master&${MYSHIPMENT_VIEW_PARAM}`, { headers: { Authorization: `Bearer ${accessToken()}` } })
-            ]);
-            const data = { ...(chartPayload.message || {}), kpis: kpiPayload.message?.kpis || {} };
+	        renderChart('statusChart', {
+	            type: 'pie',
+	            data: {
+	                labels: statuses.map(item => displayValue(item.status)),
+	                datasets: [{
+	                    data: statuses.map(item => Number(item.count || 0)),
+	                    backgroundColor: ['#4F46E5', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#64748B', '#14B8A6'],
+	                    borderColor: '#FFFFFF',
+	                    borderWidth: 2,
+	                    hoverOffset: 8
+	                }]
+	            },
+	            options: {
+	                responsive: true,
+	                maintainAspectRatio: false,
+	                plugins: {
+	                    legend: { position: 'bottom', labels: { color: chartTextColor, boxWidth: 10, usePointStyle: true } }
+	                }
+	            }
+	        });
+	        renderChart('carrierChart', {
+	            type: 'bar',
+	            data: {
+	                labels: carriers.map(item => displayValue(item.carrier_name)),
+	                datasets: [{
+	                    label: 'Shipments',
+	                    data: carriers.map(item => Number(item.count || 0)),
+	                    backgroundColor: ['#0F766E', '#2563EB', '#F59E0B', '#7C3AED', '#DC2626', '#0891B2', '#65A30D', '#DB2777', '#475569', '#EA580C'],
+	                    borderRadius: 6,
+	                    maxBarThickness: 26
+	                }]
+	            },
+	            options: {
+	                indexAxis: 'y',
+	                responsive: true,
+	                maintainAspectRatio: false,
+	                plugins: {
+	                    legend: { display: false },
+	                    tooltip: {
+	                        callbacks: {
+	                            title: items => {
+	                                const item = carriers[items?.[0]?.dataIndex || 0] || {};
+	                                return displayValue(item.carrier_name);
+	                            }
+	                        }
+	                    }
+	                },
+	                scales: {
+	                    x: { beginAtZero: true, grid: { color: chartGridColor }, ticks: { color: chartTextColor, precision: 0 } },
+	                    y: { grid: { display: false }, ticks: { color: chartTextColor } }
+	                }
+	            }
+	        });
+	    };
+	    // Home page live charts
+	    const loadHomeAnalytics = async (force = false) => {
+	        const btn = document.getElementById('home-analytics-refresh');
+	        if (!force && moduleCache['home:overview']) { renderAnalytics(moduleCache['home:overview']); return; }
+	        if (btn) { btn.classList.add('is-loading'); btn.disabled = true; }
+	        try {
+	            const chartPayload = await api(`${MODULE_ENDPOINTS.charts}?${MYSHIPMENT_VIEW_PARAM}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
+	            const data = chartPayload.message || {};
             moduleCache['home:overview'] = data;
             renderAnalytics(data);
         } catch (err) { console.warn('Home analytics failed', err); }

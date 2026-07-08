@@ -204,7 +204,9 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
         if extensions:
             for extension in extensions:
                 try:
-                    await conn.execute(f'CREATE EXTENSION IF NOT EXISTS "{extension}";')
+                    is_extension_exists = await conn.fetchval("SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = $1)", extension)
+                    if not is_extension_exists:
+                        await conn.execute(f'CREATE EXTENSION "{extension}";')
                 except Exception as e:
                     if any(x in str(e).lower() for x in ("insufficient_privilege", "permission denied", "must be superuser")) or "pg_cron" in extension:
                         print(f"⚠️  {f'extension {extension}':<30} : ❌ skipped (insufficient privileges)")

@@ -1341,67 +1341,8 @@ async def func_api_myshipment_my_charts(*, request: Request):
     org_pk = helper_user_org_pk(request.state.user)
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("module", "str", 0, ["master", "purchase_orders", "shipments"], "master"), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
     view_as = str(oq.get("view_as") or "controlling_customer").strip()
-    purchase_orders_by_status_sql = """
-        SET NOCOUNT ON;
-        DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
-        DECLARE @view_as nvarchar(40) = ?;
-        WITH """ + helper_sql_visible_shipments_owned(name='visible_shipments_for_orders') + """,
-        visible_orders AS (
-            SELECT DISTINCT JD.JD_PK
-            FROM dbo.JobOrderHeader AS JD
-            LEFT JOIN dbo.cvw_JobShipmentOrgs AS JSO ON JSO.JS_PK = JD.JD_JS
-            LEFT JOIN dbo.OrgAddress AS BuyerOA ON BuyerOA.OA_PK = JD.JD_OA_BuyerAddress
-            LEFT JOIN dbo.OrgAddress AS SupplierOA ON SupplierOA.OA_PK = JD.JD_OA_SupplierAddress
-            WHERE JD.JD_IsValid = 1
-              AND (
-                    -- Controlling-customer view: the buyer on the PO is the logged-in org
-                    BuyerOA.OA_OH = @org
-                 OR JD.JD_JS IN (SELECT JS_PK FROM visible_shipments_for_orders)
-                 OR EXISTS (
-                        SELECT 1
-                        FROM dbo.JobOrderLine AS JOVisible
-                        JOIN dbo.JobSupplierBookingLine AS JSLVisible ON JSLVisible.JSL_JO_OrderLine = JOVisible.JO_PK AND JSLVisible.JSL_IsValid = 1
-                        JOIN dbo.JobPackLines AS JLVisible ON JLVisible.JL_JSL_BookingLine = JSLVisible.JSL_PK AND JLVisible.JL_IsValid = 1
-                        JOIN visible_shipments_for_orders AS VSVisible ON VSVisible.JS_PK = JLVisible.JL_JS
-                        WHERE JOVisible.JO_JD = JD.JD_PK
-                          AND JOVisible.JO_IsValid = 1
-                    )
-                 OR EXISTS (
-                        SELECT 1
-                        FROM dbo.JobOrderLine AS JOVisible
-                        JOIN dbo.JobSupplierBookingLine AS JSLVisible ON JSLVisible.JSL_JO_OrderLine = JOVisible.JO_PK AND JSLVisible.JSL_IsValid = 1
-                        JOIN dbo.JobContainer AS JCVisible ON JCVisible.JC_JSB_SupplierBooking = JSLVisible.JSL_JSB_Booking AND JCVisible.JC_IsValid = 1
-                        JOIN visible_shipments_for_orders AS VSVisible ON VSVisible.JS_PK = JCVisible.JC_JS_FCLBookingOnlyLink
-                        WHERE JOVisible.JO_JD = JD.JD_PK
-                          AND JOVisible.JO_IsValid = 1
-                    )
-                 OR (
-                        @view_as = 'all'
-                    AND (
-                           JSO.ControllingCustomer_PK = @org
-                        OR BuyerOA.OA_OH = @org
-                        OR SupplierOA.OA_OH = @org
-                        OR JD.JD_OH_Carrier = @org
-                        OR JD.JD_OH_SendingAgent = @org
-                        OR JD.JD_OH_ReceivingAgent = @org
-                        OR EXISTS (
-                            SELECT 1
-                            FROM dbo.JobOrderLine AS JO
-                            WHERE JO.JO_JD = JD.JD_PK
-                              AND JO.JO_IsValid = 1
-                              AND JO.JO_OH_Supplier = @org
-                        )
-                    )
-                 )
-              )
-        )
-        SELECT JD.JD_OrderStatus AS status, COUNT(1) AS count
-        FROM visible_orders AS VO
-        JOIN dbo.JobOrderHeader AS JD ON JD.JD_PK = VO.JD_PK
-        GROUP BY JD.JD_OrderStatus
-        ORDER BY COUNT(1) DESC;"""
     shipments_by_status_sql = """
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
@@ -1473,34 +1414,65 @@ async def func_api_myshipment_my_charts(*, request: Request):
           AND RL.RL_RN_NKCountryCode <> ''
         GROUP BY RL.RL_RN_NKCountryCode, RN.RN_Desc
         ORDER BY COUNT(1) DESC;"""
+    shipments_by_carrier_sql = """
+        SET NOCOUNT ON;
+        DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+        DECLARE @view_as nvarchar(40) = ?;
+        WITH """ + helper_sql_visible_shipments(name='visible_shipments') + """
+        SELECT TOP 10
+            CONVERT(varchar(36), Carrier.OH_PK) AS carrier_id,
+            Carrier.OH_FullName AS carrier_name,
+            COUNT(1) AS count
+        FROM visible_shipments AS VS
+        JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
+        OUTER APPLY (
+            SELECT TOP 1 CarrierChoice.OH_PK, CarrierChoice.OH_FullName
+            FROM (
+                SELECT 1 AS priority, OH.OH_PK, OH.OH_FullName
+                FROM dbo.OrgAddress OA
+                JOIN dbo.OrgHeader OH ON OH.OH_PK = OA.OA_OH
+                WHERE OA.OA_PK = JS.JS_OA_BookedShippingLineAddress
+                UNION ALL
+                SELECT 2, OH.OH_PK, OH.OH_FullName
+                FROM dbo.vw_JobShipmentDepartureConsol DC
+                JOIN dbo.OrgAddress OA ON OA.OA_PK = DC.JK_OA_ShippingLineAddress
+                JOIN dbo.OrgHeader OH ON OH.OH_PK = OA.OA_OH
+                WHERE DC.JS_PK = JS.JS_PK
+                UNION ALL
+                SELECT 3, OH.OH_PK, OH.OH_FullName
+                FROM dbo.vw_JobShipmentArrivalConsol AC
+                JOIN dbo.OrgAddress OA ON OA.OA_PK = AC.JK_OA_ShippingLineAddress
+                JOIN dbo.OrgHeader OH ON OH.OH_PK = OA.OA_OH
+                WHERE AC.JS_PK = JS.JS_PK
+            ) AS CarrierChoice
+            WHERE CarrierChoice.OH_FullName IS NOT NULL
+              AND CarrierChoice.OH_FullName <> ''
+            ORDER BY CarrierChoice.priority
+        ) AS Carrier
+        WHERE Carrier.OH_PK IS NOT NULL
+        GROUP BY Carrier.OH_PK, Carrier.OH_FullName
+        ORDER BY COUNT(1) DESC;"""
     async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
-        purchase_orders_by_status, shipments_by_status, shipments_by_month, transport_modes, shipments_by_country, shipments_by_origin_country = [], [], [], [], [], []
-        if oq["module"] in ("master", "purchase_orders"):
-            await cursor.execute(purchase_orders_by_status_sql, org_pk, view_as)
-            purchase_orders_by_status_columns = [column[0] for column in cursor.description]
-            purchase_orders_by_status = [dict(zip(purchase_orders_by_status_columns, row)) for row in await cursor.fetchall()]
-        if oq["module"] == "purchase_orders":
-            return {"status": 1, "message": jsonable_encoder({"purchase_orders_by_status": purchase_orders_by_status})}
-        if oq["module"] in ("master", "shipments"):
-            await cursor.execute(shipments_by_status_sql, org_pk, view_as)
-            shipments_by_status_columns = [column[0] for column in cursor.description]
-            shipments_by_status = [dict(zip(shipments_by_status_columns, row)) for row in await cursor.fetchall()]
-            await cursor.execute(shipments_by_month_sql, org_pk, view_as)
-            shipments_by_month_columns = [column[0] for column in cursor.description]
-            shipments_by_month = [dict(zip(shipments_by_month_columns, row)) for row in await cursor.fetchall()]
-            await cursor.execute(transport_modes_sql, org_pk, view_as)
-            transport_modes_columns = [column[0] for column in cursor.description]
-            transport_modes = [dict(zip(transport_modes_columns, row)) for row in await cursor.fetchall()]
-            await cursor.execute(shipments_by_country_sql, org_pk, view_as)
-            shipments_by_country_columns = [column[0] for column in cursor.description]
-            shipments_by_country = [dict(zip(shipments_by_country_columns, row)) for row in await cursor.fetchall()]
-            await cursor.execute(shipments_by_origin_country_sql, org_pk, view_as)
-            shipments_by_origin_country_columns = [column[0] for column in cursor.description]
-            shipments_by_origin_country = [dict(zip(shipments_by_origin_country_columns, row)) for row in await cursor.fetchall()]
-        if oq["module"] == "shipments":
-            return {"status": 1, "message": jsonable_encoder({"shipments_by_status": shipments_by_status, "shipments_by_month": shipments_by_month, "transport_modes": transport_modes, "shipments_by_country": shipments_by_country, "shipments_by_origin_country": shipments_by_origin_country})}
-    charts_object = {"purchase_orders_by_status": purchase_orders_by_status, "shipments_by_status": shipments_by_status, "shipments_by_month": shipments_by_month, "transport_modes": transport_modes, "shipments_by_country": shipments_by_country, "shipments_by_origin_country": shipments_by_origin_country}
+        await cursor.execute(shipments_by_status_sql, org_pk, view_as)
+        shipments_by_status_columns = [column[0] for column in cursor.description]
+        shipments_by_status = [dict(zip(shipments_by_status_columns, row)) for row in await cursor.fetchall()]
+        await cursor.execute(shipments_by_month_sql, org_pk, view_as)
+        shipments_by_month_columns = [column[0] for column in cursor.description]
+        shipments_by_month = [dict(zip(shipments_by_month_columns, row)) for row in await cursor.fetchall()]
+        await cursor.execute(transport_modes_sql, org_pk, view_as)
+        transport_modes_columns = [column[0] for column in cursor.description]
+        transport_modes = [dict(zip(transport_modes_columns, row)) for row in await cursor.fetchall()]
+        await cursor.execute(shipments_by_country_sql, org_pk, view_as)
+        shipments_by_country_columns = [column[0] for column in cursor.description]
+        shipments_by_country = [dict(zip(shipments_by_country_columns, row)) for row in await cursor.fetchall()]
+        await cursor.execute(shipments_by_origin_country_sql, org_pk, view_as)
+        shipments_by_origin_country_columns = [column[0] for column in cursor.description]
+        shipments_by_origin_country = [dict(zip(shipments_by_origin_country_columns, row)) for row in await cursor.fetchall()]
+        await cursor.execute(shipments_by_carrier_sql, org_pk, view_as)
+        shipments_by_carrier_columns = [column[0] for column in cursor.description]
+        shipments_by_carrier = [dict(zip(shipments_by_carrier_columns, row)) for row in await cursor.fetchall()]
+    charts_object = {"shipments_by_status": shipments_by_status, "shipments_by_month": shipments_by_month, "transport_modes": transport_modes, "shipments_by_country": shipments_by_country, "shipments_by_origin_country": shipments_by_origin_country, "shipments_by_carrier": shipments_by_carrier}
     return {"status": 1, "message": jsonable_encoder(charts_object)}
 
 @router.post("/myshipment/my-mgh-ask")

@@ -1,10 +1,10 @@
-# FAQ: synced users columns
+# logic
 # id_ext=CargoWise OH_PK (upsert match)
 # username=CargoWise OH_Code (upsert yes)
-# name=CargoWise OH_FullName (upsert yes)
+# password=123456 on create only (upsert no)
 # type=1 (upsert yes)
 # role=2 (upsert yes)
-# password=123456 on create only (upsert no)
+# name=CargoWise OH_FullName (upsert yes)
 
 # packages
 import argparse
