@@ -313,7 +313,7 @@ config_postgres = {
 {"name":"deleted_by_id","datatype":"bigint"},
 {"name":"type","datatype":"smallint","is_mandatory":1},
 {"name":"service","datatype":"text","is_mandatory":1},
-{"name":"file_url","datatype":"text","is_mandatory":1,"unique":"file_url"}
+{"name":"file_url","datatype":"text","is_mandatory":1}
 ],
 "message":[
 {"name":"id","datatype":"bigserial","is_primary":1},
