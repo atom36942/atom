@@ -4402,53 +4402,6 @@ body {
     padding: 0.55rem 0.8rem;
 }
 
-.quotation-filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    align-items: center;
-    padding: 1rem;
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-    background: #F8FAFC;
-}
-
-.quotation-filters input,
-.quotation-filters select {
-    min-height: 40px;
-    padding: 0.55rem 0.75rem;
-    border: 1px solid #CBD5E1;
-    border-radius: 8px;
-    background: #FFFFFF;
-    font: inherit;
-}
-
-.quotation-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.3rem 0.58rem;
-    border-radius: 999px;
-    font-size: 0.76rem;
-    font-weight: 800;
-}
-
-.quotation-status.draft { background: #F1F5F9; color: #475569; }
-.quotation-status.submitted { background: #FEF3C7; color: #B45309; }
-.quotation-status.approved { background: #DCFCE7; color: #15803D; }
-.quotation-status.rejected { background: #FEE2E2; color: #B91C1C; }
-
-.quotation-actions {
-    display: flex;
-    gap: 0.45rem;
-    flex-wrap: wrap;
-}
-
-.quotation-view {
-    display: grid;
-    gap: 1rem;
-}
-
 .quote-document {
     padding: 1.2rem;
     border: 1px solid #DBEAFE;
@@ -6226,12 +6179,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let ratesCurrentPage = 1;
     let ratesRows = [];
     let salesRateRows = [];
-    let quotationRows = [];
-    let quotationCurrentPage = 1;
-    let quotationSelectedRate = null;
-    let quotationSubmitStatus = 1;
-    let quotationViewRow = null;
-    let quotationDecisionRow = null;
     let appMessageResolver = null;
     let ratesMyOnly = false;
     let ratesCsvMode = 'create';

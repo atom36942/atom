@@ -45,15 +45,16 @@ def func_check(*, app: any) -> None:
             if role_cfg[0] == "redis": requires_redis = True
             if role_cfg[0] == "realtime": requires_postgres = True
         for key in ("user_check_deactivated", "user_check_deleted"):
-            user_cfg = mode_list_check(path, cfg, key, user_mode_allowed, 1, 2)
-            if user_cfg and len(user_cfg) > 1: flag_check(user_cfg[1], f"{path} {key} flag")
-            if user_cfg and user_cfg[0] == "redis": requires_redis = True
-            if user_cfg and user_cfg[0] == "realtime": requires_postgres = True
-        cache_cfg = mode_list_check(path, cfg, "api_cache_sec", api_mode_allowed, 2, 3)
+            user_cfg = mode_list_check(path, cfg, key, user_mode_allowed, 2, 2)
+            if user_cfg:
+                flag_check(user_cfg[1], f"{path} {key} flag")
+                if user_cfg[0] == "redis": requires_redis = True
+                if user_cfg[0] == "realtime": requires_postgres = True
+        cache_cfg = mode_list_check(path, cfg, "api_cache_sec", api_mode_allowed, 3, 3)
         if cache_cfg:
             ttl = int_check(cache_cfg[1], f"{path} api_cache_sec ttl", 1)
             if ttl > 315360000: raise Exception(f"{path} api_cache_sec ttl exceeds 10 years")
-            if len(cache_cfg) > 2: flag_check(cache_cfg[2], f"{path} api_cache_sec user flag")
+            flag_check(cache_cfg[2], f"{path} api_cache_sec user flag")
             if cache_cfg[0] == "redis": requires_redis = True
         rate_cfg = mode_list_check(path, cfg, "api_ratelimiting_times_sec", api_mode_allowed, 3, 3)
         if rate_cfg:
@@ -537,7 +538,7 @@ async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_
     cfg = user_check_deactivated
     if not cfg or not user_dict: return None
     mode = cfg[0]
-    active_flag = cfg[1] if len(cfg) > 1 else 1
+    active_flag = cfg[1]
     if not mode: return None
     if str(active_flag) == "0": return None
     async def fetch_deactivated_status(uid):
@@ -574,7 +575,7 @@ async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_dele
     cfg = user_check_deleted
     if not cfg or not user_dict: return None
     mode = cfg[0]
-    deleted_flag = cfg[1] if len(cfg) > 1 else 1
+    deleted_flag = cfg[1]
     if not mode: return None
     if str(deleted_flag) == "0": return None
     async def fetch_deleted(uid):
@@ -689,7 +690,7 @@ async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict,
     cfg = api_cache_sec
     cache_mode = cfg[0] if cfg else None
     ttl = int(cfg[1]) if cfg else 0
-    is_user_cache = cfg[2] if cfg and len(cfg) > 2 else 0
+    is_user_cache = cfg[2] if cfg else 0
     is_user_cache = str(is_user_cache) == "1" or is_user_cache is True
     is_enabled = query_params.get("is_disable_cache") != "1" and bool(cfg) and bool(cache_mode) and ttl > 0
     if mode == "set" and not is_enabled: return response
