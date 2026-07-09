@@ -2,7 +2,6 @@
 # id_ext=CargoWise OH_PK (upsert match)
 # username=CargoWise OH_Code (upsert yes)
 # password=123456 on create only (upsert no)
-# type=1 (upsert yes)
 # role=2 (upsert yes)
 # name=CargoWise OH_FullName (upsert yes)
 
@@ -31,7 +30,6 @@ from config import config_postgres_url
 from config import config_regex
 from config import config_table
 from config import config_buffer_limit_default
-seed_cargowise_user_type = ast.literal_eval(os.getenv("seed_cargowise_user_type")) if os.getenv("seed_cargowise_user_type") else 1
 seed_cargowise_user_role = ast.literal_eval(os.getenv("seed_cargowise_user_role")) if os.getenv("seed_cargowise_user_role") else 2
 seed_cargowise_user_password = os.getenv("seed_cargowise_user_password") if os.getenv("seed_cargowise_user_password") else "123456"
 
@@ -43,7 +41,6 @@ async def execute():
         parser.add_argument("--postgres-url", default=config_postgres_url, help="PostgreSQL DSN. Defaults to config_postgres_url.")
         parser.add_argument("--mssql-url", default=config_mssql_url_read, help="MSSQL ODBC DSN. Defaults to config_mssql_url_read.")
         parser.add_argument("--password", default=seed_cargowise_user_password, help="Default password for newly-created CargoWise users.")
-        parser.add_argument("--user-type", type=int, default=seed_cargowise_user_type, help="users.type value for CargoWise users.")
         parser.add_argument("--role", type=int, default=seed_cargowise_user_role, help="users.role value for CargoWise users.")
         parser.add_argument("--dry-run", action="store_true", help="Print planned changes without writing to Postgres.")
         return parser.parse_args()
@@ -90,14 +87,14 @@ async def execute():
         id_ext_list = [org["id_ext"] for org in orgs]
         sql = textwrap.dedent("""\
             SELECT
-                id, id_ext, type, username, name, role
+                id, id_ext, username, name, role
             FROM users
             WHERE id_ext = ANY($1::text[])
-            ORDER BY id_ext, type;""")
+            ORDER BY id_ext, role;""")
         async with client_postgres.acquire() as conn:
             records = await conn.fetch(sql, id_ext_list)
         return [dict(record) for record in records]
-    def plan_user_changes(orgs, existing_users, password, user_type, role):
+    def plan_user_changes(orgs, existing_users, password, role):
         existing_by_id_ext = {}
         duplicate_warnings = []
         for user in existing_users:
@@ -115,7 +112,6 @@ async def execute():
                 "id_ext": org["id_ext"],
                 "username": org["code"],
                 "name": org["name"],
-                "type": user_type,
                 "role": role
             }
             
@@ -142,7 +138,7 @@ async def execute():
             total += len(batch)
         return total
     def validate_users_schema(cache_postgres_schema):
-        required_columns = {"id", "id_ext", "username", "name", "type", "role", "password"}
+        required_columns = {"id", "id_ext", "username", "name", "role", "password"}
         users_schema = cache_postgres_schema.get("users")
         if not users_schema:
             raise Exception("users table not found in Postgres schema")
@@ -167,7 +163,7 @@ async def execute():
         validate_users_schema(cache_postgres_schema)
         client_password_hasher = PasswordHasher()
         existing_users = await read_existing_users(client_postgres, orgs)
-        create_list, update_list, duplicate_warnings = plan_user_changes(orgs, existing_users, args.password, args.user_type, args.role)
+        create_list, update_list, duplicate_warnings = plan_user_changes(orgs, existing_users, args.password, args.role)
         print(f"Existing matched user(s): {len(existing_users)}")
         print(f"Planned creates: {len(create_list)}")
         print(f"Planned updates: {len(update_list)}")

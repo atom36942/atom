@@ -6,7 +6,7 @@ def func_check(*, app: any) -> None:
     api_ids = []
     user_mode_allowed = ("redis", "realtime", "inmemory", "token")
     api_mode_allowed = ("redis", "inmemory")
-    api_keys_allowed = ("id", "is_token", "user_check_type", "user_check_role", "user_check_deactivated", "user_check_deleted", "api_cache_sec", "api_ratelimiting_times_sec")
+    api_keys_allowed = ("id", "is_token", "user_check_role", "user_check_deactivated", "user_check_deleted", "api_cache_sec", "api_ratelimiting_times_sec")
     def flag_check(value, key):
         if value not in (0, 1, "0", "1", True, False): raise Exception(f"invalid {key}: expected 0/1")
     def int_check(value, key, min_value=0):
@@ -38,12 +38,6 @@ def func_check(*, app: any) -> None:
         api_ids.append(api_id)
         if "is_token" not in cfg: raise Exception(f"{path} missing required key: is_token")
         flag_check(cfg["is_token"], f"{path} is_token")
-        type_cfg = mode_list_check(path, cfg, "user_check_type", user_mode_allowed, 2, 2)
-        if type_cfg:
-            if not isinstance(type_cfg[1], list) or not type_cfg[1]: raise Exception(f"{path} invalid user_check_type types")
-            for user_type in type_cfg[1]: int_check(user_type, f"{path} user_check_type type", 1)
-            if type_cfg[0] == "redis": requires_redis = True
-            if type_cfg[0] == "realtime": requires_postgres = True
         role_cfg = mode_list_check(path, cfg, "user_check_role", user_mode_allowed, 2, 2)
         if role_cfg:
             if not isinstance(role_cfg[1], list) or not role_cfg[1]: raise Exception(f"{path} invalid user_check_role roles")
@@ -375,11 +369,11 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
             if is_enable_root_user_delete_disable:
                 catalog["tg"].add("trigger_protect_root_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_protect_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'DELETE' THEN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; END IF; RETURN NULL; END; $$; DROP TRIGGER IF EXISTS trigger_protect_root_users ON users; CREATE TRIGGER trigger_protect_root_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_protect_root_users();")
-            if is_enable_root_user_create and all(c in users_cols for c in ("type", "username", "password", "role", "deleted_at", "deactivated_at")):
+            if is_enable_root_user_create and all(c in users_cols for c in ("username", "password", "role", "deleted_at", "deactivated_at")):
                 if not root_user_password_hash:
                     root_user_password_hash = "$argon2id$v=19$m=65536,t=3,p=4$XXabrpBeXx2PeIcUC7cxWA$CqF+8i+q+k62/6MkQMXFcyMGoTeWmDMvwf8u7WvnrG8"
-                await conn.execute("INSERT INTO users (type, username, password, role) VALUES (1, 'admin', $1, 1) ON CONFLICT (username, type) DO UPDATE SET type = 1, username = 'admin', password = COALESCE(users.password, EXCLUDED.password), role = 1, deleted_at = NULL, deactivated_at = NULL;", root_user_password_hash)
-                await conn.execute("UPDATE users SET type = 1, username = 'admin', password = COALESCE(users.password, $1), role = 1, deleted_at = NULL, deactivated_at = NULL WHERE id = 1;", root_user_password_hash)
+                await conn.execute("INSERT INTO users (username, password, role) VALUES ('admin', $1, 1) ON CONFLICT (username, role) DO UPDATE SET username = 'admin', password = COALESCE(users.password, EXCLUDED.password), role = 1, deleted_at = NULL, deactivated_at = NULL;", root_user_password_hash)
+                await conn.execute("UPDATE users SET username = 'admin', password = COALESCE(users.password, $1), role = 1, deleted_at = NULL, deactivated_at = NULL WHERE id = 1;", root_user_password_hash)
             if is_enable_log_users_password and "password" in users_cols and "log_users_password" in db_tables:
                 catalog["tg"].add("trigger_password_log_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_password_log_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password, created_by_id) VALUES (NEW.id, NEW.password, NEW.updated_by_id); END IF; RETURN NEW; END; $$;")
@@ -511,9 +505,9 @@ async def func_token_decode(*, headers: dict, config_token_secret_key: str) -> d
     if isinstance(user, dict): user["_token_type"] = decoded_payload.get("type")
     return user
 
-async def func_middleware_check_auth(*, user_dict: dict, url_path: str, is_token: int = 0, user_check_type: list = None, user_check_role: list = None, user_check_deactivated: list = None, user_check_deleted: list = None) -> None:
+async def func_middleware_check_auth(*, user_dict: dict, url_path: str, is_token: int = 0, user_check_role: list = None, user_check_deactivated: list = None, user_check_deleted: list = None) -> None:
     """Check whether current API requires token-authenticated user."""
-    is_token_required = is_token in (1, "1", True, "true") or bool(user_check_type) or bool(user_check_role) or bool(user_check_deactivated) or bool(user_check_deleted)
+    is_token_required = is_token in (1, "1", True, "true") or bool(user_check_role) or bool(user_check_deactivated) or bool(user_check_deleted)
     if is_token_required:
         if not user_dict: raise Exception("authorization token missing")
         token_type = user_dict.get("_token_type") if isinstance(user_dict, dict) else None
@@ -522,49 +516,6 @@ async def func_middleware_check_auth(*, user_dict: dict, url_path: str, is_token
         elif token_type != "access":
             raise Exception("access token required")
     return None
-
-async def func_middleware_check_type(*, user_dict: dict, user_check_type: list, client_postgres: any, client_redis: any, cache_users_type: dict, config_redis_cache_ttl_sec: int) -> None:
-    """Ensure sufficient user type to access endpoints using config_api."""
-    cfg = user_check_type
-    if not cfg: return None
-    if not user_dict: raise Exception("authorization token missing")
-    mode = cfg[0]
-    allowed_types = {int(user_type) for user_type in cfg[1]}
-    async def fetch_type(uid):
-        if not client_postgres: raise Exception("postgres client missing")
-        async with client_postgres.acquire() as conn:
-            rows = await conn.fetch("select type from users where id=$1", uid)
-        if not rows: raise Exception("user not found")
-        return rows[0]["type"]
-    if mode == "redis":
-        if not client_redis: raise Exception("redis client missing")
-        cache_key = f"""cache:user:type:{user_dict["id"]}"""
-        user_type = None
-        cached_val = await client_redis.get(cache_key)
-        if cached_val is not None:
-            user_type = int(cached_val)
-        else:
-            user_type = await fetch_type(user_dict["id"])
-            await client_redis.setex(cache_key, config_redis_cache_ttl_sec, str(user_type if user_type is not None else ""))
-    elif mode == "realtime":
-        user_type = await fetch_type(user_dict["id"])
-    elif mode == "inmemory":
-        user_type = cache_users_type.get(user_dict["id"])
-        if user_type is None:
-            user_type = await fetch_type(user_dict["id"])
-    elif mode == "token":
-        user_type = user_dict.get("type", "absent")
-    else:
-        raise Exception(f"invalid mode: {mode}, allowed: redis, realtime, inmemory, token")
-    if user_type == "absent": raise Exception("user type missing")
-    if user_type is None or user_type == "": raise Exception("user type is null")
-    if user_type == "type": raise Exception("user type is invalid")
-    if not isinstance(user_type, int):
-        try:
-            user_type = int(user_type)
-        except Exception:
-            raise Exception("invalid user type")
-    if user_type not in allowed_types: raise Exception("access denied")
 
 async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_deactivated: list, client_postgres: any, client_redis: any, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is deactivated using a strictly configured mode from config_api."""
@@ -986,10 +937,9 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: any) -> dict:
             tag = path.split("/")[1] if len(path.split("/")) > 1 and path.split("/")[1] else "system"
             op = {"tags": [tag], "parameters": [], "responses": {"200": {"description": "Successful Response"}}}
             api_cfg = config_api.get(path, {})
-            is_token_required = api_cfg.get("is_token") in (1, "1", True, "true") or "user_check_type" in api_cfg or "user_check_role" in api_cfg
+            is_token_required = api_cfg.get("is_token") in (1, "1", True, "true") or "user_check_role" in api_cfg
             op["x-auth-required"] = is_token_required
             op["x-roles-allowed"] = api_cfg.get("user_check_role", None)
-            op["x-types-allowed"] = api_cfg.get("user_check_type", None)
             op["x-check-deactivated"] = "user_check_deactivated" in api_cfg
             op["x-check-deleted"] = "user_check_deleted" in api_cfg
             op["x-cache"] = api_cfg.get("api_cache_sec", None)

@@ -27,7 +27,6 @@ async def func_api_admin_sync(*, request: Request):
     app_state.cache_postgres_schema_column_list = sorted(list(set(col for table in app_state.cache_postgres_schema.values() for col in table.keys())))
     app_state.cache_openapi = app_state.func_openapi_spec_generate(app_routes=request.app.routes, app_state=app_state)
     app_state.cache_config = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres_read_fallback, config_sql=app_state.config_sql.get("config"), is_json_value=1) if app_state.client_postgres_read_fallback and "config" in app_state.cache_postgres_schema else {}
-    app_state.cache_users_type = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres_read_fallback, config_sql=app_state.config_sql.get("users_type")) if app_state.client_postgres_read_fallback else {}
     app_state.cache_users_role = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres_read_fallback, config_sql=app_state.config_sql.get("users_role")) if app_state.client_postgres_read_fallback else {}
     app_state.cache_users_deactivated = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres_read_fallback, config_sql=app_state.config_sql.get("users_deactivated")) if app_state.client_postgres_read_fallback else {}
     app_state.cache_users_deleted = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres_read_fallback, config_sql=app_state.config_sql.get("users_deleted")) if app_state.client_postgres_read_fallback else {}

@@ -59,7 +59,7 @@ config_sql_read_limit_max = 10000
 config_sql_read_relation_fetch_limit_max = 100
 config_query_runner_read_limit = 5000
 config_query_runner_export_limit = 50000
-config_allowed_auth_types = [1]
+config_allowed_users_role = [1, 2, 3, 4, 5]
 config_redis_cache_ttl_sec = 3600
 config_users_delete_data_retention_day = 30
 config_cors_allow_origins = []
@@ -78,10 +78,10 @@ config_table_public_create_enable = ["test","jobseeker"]
 config_table_public_read_enable = ["*"]
 
 # Column
-config_column_token_encode = ["id", "type", "role", "username", "id_ext" ,"deactivated_at", "deleted_at"]
+config_column_token_encode = ["id", "role", "username", "id_ext" ,"deactivated_at", "deleted_at"]
 config_column_ownership = ["created_by_id", "user_id"]
 config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id"]
-config_column_admin_users=["type","role"]
+config_column_admin_users=["role"]
 config_column_single_update = ["username", "password", "email", "mobile", "deleted_at"]
 
 # Services
@@ -94,7 +94,6 @@ config_ai_services = ["gemini", "openai"]
 # Dict
 config_sql = {
 "config": "select key,value from config order by id asc limit 1000",
-"users_type": "select id,type from users where type is not null order by id asc limit 1000",
 "users_role": "select id,role from users where role is not null order by id asc limit 1000",
 "users_deactivated": "select id, deactivated_at from users order by id asc limit 1000",
 "users_deleted": "select id, deleted_at from users order by id asc limit 1000",
@@ -265,13 +264,12 @@ config_postgres = {
 {"name":"deleted_at","datatype":"timestamptz"},
 {"name":"deleted_by_id","datatype":"bigint"},
 {"name":"is_protected","datatype":"boolean"},
-{"name":"type","datatype":"smallint","is_mandatory":1,"index":"btree(type)"},
-{"name":"username","datatype":"text","unique":"username,type"},
-{"name":"email","datatype":"text","unique":"email,type"},
-{"name":"mobile","datatype":"text","unique":"mobile,type"},
-{"name":"id_ext","datatype":"text","unique":"id_ext,type"},
+{"name":"username","datatype":"text","unique":"username,role"},
+{"name":"email","datatype":"text","unique":"email,role"},
+{"name":"mobile","datatype":"text","unique":"mobile,role"},
+{"name":"id_ext","datatype":"text","unique":"id_ext,role"},
 {"name":"password","datatype":"text","index":"btree(password)"},
-{"name":"google_login_id","datatype":"text","unique":"google_login_id,type"},
+{"name":"google_login_id","datatype":"text","unique":"google_login_id,role"},
 {"name":"google_login_metadata","datatype":"jsonb"},
 {"name":"role","datatype":"smallint","is_mandatory":1,"index":"btree(role)"},
 {"name":"last_active_at","datatype":"timestamptz"},
