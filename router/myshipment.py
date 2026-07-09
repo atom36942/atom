@@ -1841,7 +1841,7 @@ async def func_api_myshipment_user_controlling_360(*, request: Request):
         ) DefaultAddress
         WHERE OH.OH_IsActive = 1
           AND OH.OH_IsValid = 1
-          AND (@search = '' OR OH.OH_FullName LIKE '%' + @search + '%' OR OH.OH_Code LIKE '%' + @search + '%')
+          AND (@search = '' OR OH.OH_FullName LIKE '%' + @search + '%')
         ORDER BY SA.total_shipments DESC, OH.OH_FullName ASC
         OFFSET {offset} ROWS FETCH NEXT {sql_limit} ROWS ONLY;"""
     async with app_state.client_mssql_read_fallback.acquire() as conn:

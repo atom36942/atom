@@ -95,9 +95,19 @@ body.authed .login-screen { display: none; }
 .nav-item:hover { color: var(--sidebar-text-active); background: rgba(255,255,255,0.04); }
 .nav-item.active { color: var(--sidebar-text-active); background: var(--sidebar-active-bg); border-left-color: var(--primary); border-radius: 0 8px 8px 0; }
 .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
-.sidebar-foot { padding: 1rem; border-top: 1px solid rgba(255,255,255,0.07); }
-.sidebar-foot .btn { width: 100%; background: rgba(255,255,255,0.06); color: #E5E7EB; }
-.sidebar-foot .btn:hover { background: rgba(255,255,255,0.12); }
+
+/* header profile menu (logout), matches myshipment */
+.user-controls { display: flex; align-items: center; gap: 1rem; }
+.user-profile { border: 1px solid transparent; border-radius: 999px; padding: 0.25rem; background: transparent; cursor: pointer; }
+.user-profile:hover { border-color: var(--border); background: var(--bg-main); }
+.avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.72rem; letter-spacing: 0.02em; }
+.profile-actions { position: relative; display: flex; align-items: center; gap: 0.65rem; }
+.profile-menu { position: absolute; top: calc(100% + 0.65rem); right: 0; width: 168px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 18px 35px rgba(17,24,39,0.14); padding: 0.35rem; display: none; z-index: 200; }
+.profile-menu.open { display: block; }
+.profile-menu button { width: 100%; border: 0; background: transparent; display: flex; align-items: center; gap: 0.55rem; text-align: left; padding: 0.65rem 0.75rem; border-radius: 6px; color: var(--text-dark); font: inherit; cursor: pointer; }
+.profile-menu button svg { width: 16px; height: 16px; }
+.profile-menu button:hover { background: var(--bg-main); }
+.profile-menu button.danger { color: #B91C1C; }
 
 .main { flex: 1; min-width: 0; height: 100vh; display: flex; flex-direction: column; overflow-y: auto; }
 .topbar {
@@ -114,10 +124,18 @@ body.authed .login-screen { display: none; }
 .panel { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .panel-head h3 { margin: 0; font-size: 1rem; }
-.search-box { position: relative; }
-.search-box svg { position: absolute; left: 0.7rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-muted); }
-.search-box input { height: 40px; padding: 0 0.9rem 0 2.2rem; border: 1px solid #CBD5E1; border-radius: 9px; font: inherit; min-width: 260px; background: #fff; }
-.search-box input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.13); }
+/* search form (submit + clear, matches myshipment .po-search) */
+.po-search { width: min(320px, 100%); min-height: 42px; display: flex; align-items: center; gap: 0.6rem; box-sizing: border-box; padding: 0 0.45rem 0 0.85rem; border: 1px solid var(--border); border-radius: 9px; background: #F9FAFB; transition: border-color .2s, box-shadow .2s, background-color .2s; }
+.po-search:focus-within { border-color: #A5B4FC; background: #FFFFFF; box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
+.po-search > svg { width: 16px; height: 16px; color: var(--text-muted); flex-shrink: 0; }
+.po-search input { min-width: 0; flex: 1; padding: 0.6rem 0; border: 0; outline: 0; background: transparent; color: var(--text-dark); font: inherit; font-size: 0.86rem; }
+.po-search-button { width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--text-muted); cursor: pointer; flex-shrink: 0; }
+.po-search-button svg { width: 15px; height: 15px; }
+.po-search-button:not(.primary) { width: auto; min-width: 54px; padding: 0 0.6rem; border: 1px solid #A5B4FC; background: #E0E7FF; color: #312E81; font-size: 0.76rem; font-weight: 800; }
+.po-search-button:hover { background: #EEF2FF; color: var(--primary); }
+.po-search-button:not(.primary):hover { border-color: #818CF8; background: #C7D2FE; color: #1E1B4B; }
+.po-search-button.primary { background: var(--primary); color: #FFFFFF; }
+.po-search-button.primary:hover { background: var(--primary-hover); }
 
 /* summary bar with result count + pagination */
 .po-summary-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.9rem 1.25rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
@@ -153,7 +171,7 @@ body.authed .login-screen { display: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @media (max-width: 720px) {
-    .search-box input { min-width: 0; width: 100%; }
+    .po-search { width: 100%; }
     .panel-head, .po-summary-bar { align-items: stretch; }
 }
 </style>
@@ -203,19 +221,26 @@ body.authed .login-screen { display: none; }
                 <span>Controlling Users</span>
             </button>
         </nav>
-        <div class="sidebar-foot">
-            <button class="btn" id="logout-btn" type="button">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                <span>Log out</span>
-            </button>
-        </div>
     </aside>
 
     <div class="main">
         <header class="topbar">
             <div>
                 <h1 id="tab-title">Controlling Users</h1>
-                <div class="topbar-sub" id="tab-sub">All controlling customers ranked by shipment volume</div>
+                <div class="topbar-sub" id="tab-sub">Ranked by shipment volume</div>
+            </div>
+            <div class="user-controls">
+                <div class="profile-actions">
+                    <button class="user-profile" id="user-profile-trigger" type="button" title="Menu" aria-label="Account menu" aria-expanded="false">
+                        <div class="avatar">MG</div>
+                    </button>
+                    <div class="profile-menu" id="profile-menu">
+                        <button type="button" class="danger" id="profile-menu-logout">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                            <span>Logout</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -223,16 +248,20 @@ body.authed .login-screen { display: none; }
             <section class="tab-panel" data-panel="controlling-users">
                 <div class="panel">
                     <div class="panel-head">
-                        <h3>Controlling Customers</h3>
-                        <div class="search-box">
+                        <h3>Users</h3>
+                        <form class="po-search" id="search-form" role="search">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                            <input id="search-input" type="search" placeholder="Search by name or code…">
-                        </div>
+                            <input id="search-input" type="text" placeholder="Search by name" aria-label="Search by name">
+                            <button class="po-search-button" type="button" id="search-clear" style="display:none;" aria-label="Clear search" title="Clear search"><span>Clear</span></button>
+                            <button class="po-search-button primary" type="submit" id="search-submit" aria-label="Search" title="Search">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                            </button>
+                        </form>
                     </div>
 
                     <div class="po-summary-bar">
-                        <div class="po-result-count" id="result-count">Loading controlling customers…</div>
-                        <div class="po-pagination" aria-label="Controlling customer pages">
+                        <div class="po-result-count" id="result-count">Loading users…</div>
+                        <div class="po-pagination" aria-label="User pages">
                             <button class="po-page-button" id="prev-btn" type="button" disabled>
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                                 <span>Previous</span>
@@ -246,7 +275,7 @@ body.authed .login-screen { display: none; }
                     </div>
 
                     <div id="table-slot">
-                        <div class="state"><div class="spinner"></div>Loading controlling customers…</div>
+                        <div class="state"><div class="spinner"></div>Loading users…</div>
                     </div>
                 </div>
             </section>
@@ -267,7 +296,6 @@ body.authed .login-screen { display: none; }
     let currentPage = 1;
     let hasNextPage = false;
     let searchQuery = '';
-    let searchTimer = null;
     let loading = false;
 
     // ---- helpers ----
@@ -282,7 +310,6 @@ body.authed .login-screen { display: none; }
 
     // ---- login gate ----
     const unlock = () => { document.body.classList.add('authed'); loadControllingUsers(); };
-    if (sessionStorage.getItem(AUTH_KEY) === '1') unlock();
 
     $('login-form').addEventListener('submit', e => {
         e.preventDefault();
@@ -299,7 +326,21 @@ body.authed .login-screen { display: none; }
         }
     });
 
-    $('logout-btn').addEventListener('click', () => {
+    // header account menu (avatar dropdown)
+    $('user-profile-trigger').addEventListener('click', e => {
+        e.stopPropagation();
+        const menu = $('profile-menu');
+        const open = menu.classList.toggle('open');
+        $('user-profile-trigger').setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    document.addEventListener('click', e => {
+        if (!e.target.closest('.profile-actions')) {
+            $('profile-menu').classList.remove('open');
+            $('user-profile-trigger').setAttribute('aria-expanded', 'false');
+        }
+    });
+    $('profile-menu-logout').addEventListener('click', () => {
+        $('profile-menu').classList.remove('open');
         sessionStorage.removeItem(AUTH_KEY);
         document.body.classList.remove('authed');
         $('login-password').value = '';
@@ -309,7 +350,7 @@ body.authed .login-screen { display: none; }
     // ---- render ----
     const renderRows = rows => {
         if (!rows.length) {
-            $('table-slot').innerHTML = '<div class="state">No controlling customers found' + (searchQuery ? ' for “' + esc(searchQuery) + '”' : '') + '.</div>';
+            $('table-slot').innerHTML = '<div class="state">No users found' + (searchQuery ? ' for “' + esc(searchQuery) + '”' : '') + '.</div>';
             return;
         }
         const startRank = (currentPage - 1) * PAGE_SIZE;
@@ -348,7 +389,7 @@ body.authed .login-screen { display: none; }
     const loadControllingUsers = async () => {
         if (loading) return;
         loading = true;
-        $('table-slot').innerHTML = '<div class="state"><div class="spinner"></div>Loading controlling customers…</div>';
+        $('table-slot').innerHTML = '<div class="state"><div class="spinner"></div>Loading users…</div>';
         if ($('prev-btn')) $('prev-btn').disabled = true;
         if ($('next-btn')) $('next-btn').disabled = true;
         try {
@@ -375,16 +416,28 @@ body.authed .login-screen { display: none; }
     // ---- pagination + search events ----
     $('prev-btn').addEventListener('click', () => { if (currentPage > 1 && !loading) { currentPage--; loadControllingUsers(); } });
     $('next-btn').addEventListener('click', () => { if (hasNextPage && !loading) { currentPage++; loadControllingUsers(); } });
+    // toggle the Clear button based on input content
     $('search-input').addEventListener('input', e => {
-        clearTimeout(searchTimer);
-        const val = e.target.value.trim();
-        searchTimer = setTimeout(() => {
-            if (val === searchQuery) return;
-            searchQuery = val;
-            currentPage = 1;
-            loadControllingUsers();
-        }, 350);
+        $('search-clear').style.display = e.target.value.length ? 'grid' : 'none';
     });
+    // search only on submit (Enter or the arrow button)
+    $('search-form').addEventListener('submit', e => {
+        e.preventDefault();
+        searchQuery = $('search-input').value.trim();
+        currentPage = 1;
+        loadControllingUsers();
+    });
+    // clear resets the search
+    $('search-clear').addEventListener('click', () => {
+        $('search-input').value = '';
+        $('search-clear').style.display = 'none';
+        searchQuery = '';
+        currentPage = 1;
+        loadControllingUsers();
+    });
+
+    // auto-unlock if already authed this session (runs last, after all definitions)
+    if (sessionStorage.getItem(AUTH_KEY) === '1') unlock();
 })();
 </script>
 </body>
