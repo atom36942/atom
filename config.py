@@ -202,7 +202,7 @@ config_api = {
 "/myshipment/my-kpi": {"id": 31, "is_token": 1, "user_check_role": ["token", [2]], "api_cache_sec": ["inmemory", 60, 1]},
 "/myshipment/my-charts": {"id": 93, "is_token": 1, "user_check_role": ["token", [2]], "api_cache_sec": ["inmemory", 60, 1]},
 "/myshipment/my-mgh-ask": {"id": 92, "is_token": 1, "user_check_role": ["token", [2]]},
-"/myshipment/buyer-360": {"id": 32, "is_token": 0, "api_cache_sec": ["inmemory", 1000, 0]},
+"/myshipment/user-controlling-360": {"id": 32, "is_token": 0, "api_cache_sec": ["inmemory", 60, 0]},
 }
 
 config_column_int_mapping = {
@@ -424,47 +424,6 @@ config_postgres = {
 {"name":"summary","datatype":"text"},
 {"name":"projects","datatype":"jsonb",},
 {"name":"industry","datatype":"text"}
-],
-"rates":[
-{"name":"id","datatype":"bigserial","is_primary":1},
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
-{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
-{"name":"updated_at","datatype":"timestamptz"},
-{"name":"updated_by_id","datatype":"bigint"},
-{"name":"deactivated_at","datatype":"timestamptz","index":"btree(deactivated_at)"},
-{"name":"deactivated_by_id","datatype":"bigint"},
-{"name":"mode","datatype":"text","is_mandatory":1,"index":"btree(mode)"},
-{"name":"origin","datatype":"text","is_mandatory":1,"index":"btree(origin,destination)|gin_trgm(origin)"},
-{"name":"destination","datatype":"text","is_mandatory":1,"index":"gin_trgm(destination)"},
-{"name":"carrier","datatype":"text","index":"btree(carrier)|gin_trgm(carrier)"},
-{"name":"commodity","datatype":"text","index":"gin_trgm(commodity)"},
-{"name":"charge_unit","datatype":"text","is_mandatory":1,"index":"btree(charge_unit)"},
-{"name":"currency","datatype":"text","is_mandatory":1,"default":"'USD'","index":"btree(currency)"},
-{"name":"buy_rate","datatype":"numeric(12,2)","is_mandatory":1},
-{"name":"min_sell_rate","datatype":"numeric(12,2)","is_mandatory":1},
-{"name":"origin_charges","datatype":"numeric(12,2)","default":0},
-{"name":"destination_charges","datatype":"numeric(12,2)","default":0},
-{"name":"valid_from","datatype":"date","index":"btree(valid_from)"},
-{"name":"valid_to","datatype":"date","index":"btree(valid_to)"},
-{"name":"transit_days","datatype":"integer"},
-{"name":"remarks","datatype":"text"}
-],
-"quotations":[
-{"name":"id","datatype":"bigserial","is_primary":1},
-{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
-{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
-{"name":"updated_at","datatype":"timestamptz"},
-{"name":"updated_by_id","datatype":"bigint"},
-{"name":"rate_id","datatype":"bigint","is_mandatory":1,"index":"btree(rate_id)"},
-{"name":"customer_name","datatype":"text","is_mandatory":1,"index":"gin_trgm(customer_name)"},
-{"name":"customer_email","datatype":"text"},
-{"name":"customer_mobile","datatype":"text"},
-{"name":"quoted_rate","datatype":"numeric(12,2)","is_mandatory":1},
-{"name":"status","datatype":"smallint","default":1,"index":"btree(status)"},
-{"name":"remarks","datatype":"text"},
-{"name":"decision_remarks","datatype":"text"},
-{"name":"approved_at","datatype":"timestamptz"},
-{"name":"approved_by_id","datatype":"bigint"}
 ],
 },
 "control":{

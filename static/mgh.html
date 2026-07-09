@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MGH Admin Console</title>
+<style>
+:root {
+    --bg-main: #F3F4F6;
+    --bg-surface: #FFFFFF;
+    --sidebar-bg: #111827;
+    --sidebar-text: #9CA3AF;
+    --sidebar-text-active: #FFFFFF;
+    --sidebar-active-bg: #1F2937;
+    --primary: #4F46E5;
+    --primary-hover: #4338CA;
+    --text-dark: #111827;
+    --text-muted: #6B7280;
+    --border: #E5E7EB;
+    --shell-header-height: 64px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; max-width: 100vw; overflow-x: hidden; }
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-dark);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Login gate ---------- */
+.login-screen {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(1200px 600px at 20% -10%, #312E81 0%, #111827 55%, #0B1120 100%);
+    padding: 1.5rem;
+}
+.login-card {
+    width: min(400px, 100%);
+    background: var(--bg-surface);
+    border-radius: 18px;
+    padding: 2.25rem 2rem;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+}
+.login-brand { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 1.5rem; }
+.login-brand .mark {
+    width: 42px; height: 42px; border-radius: 11px;
+    background: linear-gradient(135deg, var(--primary), #7C3AED);
+    display: grid; place-items: center; color: #fff;
+}
+.login-brand h1 { font-size: 1.15rem; margin: 0; letter-spacing: -0.01em; }
+.login-brand span { font-size: 0.78rem; color: var(--text-muted); }
+.login-card h2 { font-size: 1.05rem; margin: 0 0 0.35rem; }
+.login-card p.sub { margin: 0 0 1.4rem; color: var(--text-muted); font-size: 0.85rem; }
+.field label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.4rem; color: #374151; }
+.field input {
+    width: 100%; height: 46px; padding: 0 0.9rem;
+    border: 1px solid #CBD5E1; border-radius: 10px; font: inherit; background: #fff;
+}
+.field input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.15); }
+.login-error { color: #DC2626; font-size: 0.82rem; margin: 0.7rem 0 0; min-height: 1rem; }
+.btn {
+    border: none; border-radius: 10px; font: inherit; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+    padding: 0 1.1rem; height: 42px; transition: background .15s, color .15s, border-color .15s;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-ghost { background: transparent; color: var(--text-dark); border: 1px solid var(--border); }
+.btn-ghost:hover:not(:disabled) { background: #F9FAFB; }
+.btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
+.login-card .btn-primary { width: 100%; height: 46px; margin-top: 1.25rem; }
+
+/* ---------- App shell ---------- */
+.app { display: none; height: 100vh; overflow: hidden; }
+body.authed .app { display: flex; }
+body.authed .login-screen { display: none; }
+.sidebar {
+    width: 250px; flex-shrink: 0; height: 100vh;
+    background-color: var(--sidebar-bg); color: var(--sidebar-text);
+    display: flex; flex-direction: column;
+}
+.sidebar .logo { display: flex; align-items: center; gap: 0.7rem; padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.07); }
+.sidebar .logo .mark { width: 34px; height: 34px; border-radius: 9px; background: linear-gradient(135deg, var(--primary), #7C3AED); display: grid; place-items: center; color: #fff; }
+.sidebar .logo h2 { font-size: 1rem; color: #fff; margin: 0; letter-spacing: -0.01em; }
+.sidebar .logo span { font-size: 0.72rem; color: var(--sidebar-text); }
+.nav { padding: 0.75rem 0.6rem; flex: 1; }
+.nav-item {
+    display: flex; align-items: center; gap: 0.75rem; width: 100%;
+    padding: 0.7rem 0.9rem; margin-bottom: 0.15rem; border: none; border-left: 4px solid transparent;
+    background: transparent; color: var(--sidebar-text); font: inherit; font-size: 0.9rem;
+    text-align: left; border-radius: 8px; cursor: pointer;
+}
+.nav-item:hover { color: var(--sidebar-text-active); background: rgba(255,255,255,0.04); }
+.nav-item.active { color: var(--sidebar-text-active); background: var(--sidebar-active-bg); border-left-color: var(--primary); border-radius: 0 8px 8px 0; }
+.nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+.sidebar-foot { padding: 1rem; border-top: 1px solid rgba(255,255,255,0.07); }
+.sidebar-foot .btn { width: 100%; background: rgba(255,255,255,0.06); color: #E5E7EB; }
+.sidebar-foot .btn:hover { background: rgba(255,255,255,0.12); }
+
+.main { flex: 1; min-width: 0; height: 100vh; display: flex; flex-direction: column; overflow-y: auto; }
+.topbar {
+    height: var(--shell-header-height); flex-shrink: 0;
+    background: var(--bg-surface); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; padding: 0 1.75rem;
+    position: sticky; top: 0; z-index: 20;
+}
+.topbar h1 { font-size: 1.1rem; margin: 0; letter-spacing: -0.01em; }
+.topbar .topbar-sub { font-size: 0.78rem; color: var(--text-muted); }
+.content { padding: 1.75rem; flex: 1; }
+
+/* ---------- Panel + table (matches myshipment) ---------- */
+.panel { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.panel-head h3 { margin: 0; font-size: 1rem; }
+.search-box { position: relative; }
+.search-box svg { position: absolute; left: 0.7rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-muted); }
+.search-box input { height: 40px; padding: 0 0.9rem 0 2.2rem; border: 1px solid #CBD5E1; border-radius: 9px; font: inherit; min-width: 260px; background: #fff; }
+.search-box input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,0.13); }
+
+/* summary bar with result count + pagination */
+.po-summary-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.9rem 1.25rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.po-result-count { font-size: 0.82rem; color: var(--text-muted); font-weight: 600; }
+.po-pagination { display: flex; align-items: center; gap: 0.45rem; }
+.po-page-button {
+    min-height: 34px; display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.4rem 0.65rem; border: 1px solid var(--border); border-radius: 7px;
+    background: #FFFFFF; color: var(--text-dark); font: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer;
+}
+.po-page-button svg { width: 14px; height: 14px; }
+.po-page-button:hover:not(:disabled) { border-color: #A5B4FC; color: var(--primary); }
+.po-page-button:disabled { opacity: 0.45; cursor: not-allowed; }
+#page-display { min-width: 64px; color: var(--text-muted); font-size: 0.8rem; font-weight: 600; text-align: center; }
+
+.table-responsive { overflow-x: auto; max-height: 620px; }
+.data-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+.data-table th, .data-table td { padding: 1rem 1.25rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.875rem; white-space: nowrap; }
+.data-table th { background: #F9FAFB; font-weight: 600; color: var(--text-muted); position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 0 var(--border); }
+.data-table th.num, .data-table td.num { text-align: right; }
+.data-table tbody tr { transition: background-color 0.2s ease; }
+.data-table tbody tr:hover { background: #F3F4F6; }
+.data-table tbody tr:last-child td { border-bottom: none; }
+.rank { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; background: #EEF2FF; color: var(--primary); font-weight: 700; font-size: 0.78rem; }
+.org-name { font-weight: 600; color: var(--text-dark); }
+.org-code { color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
+.num-strong { font-weight: 700; font-variant-numeric: tabular-nums; }
+.muted { color: var(--text-muted); }
+
+.state { padding: 3rem 1.5rem; text-align: center; color: var(--text-muted); }
+.state.error { color: #DC2626; }
+.spinner { width: 34px; height: 34px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 0.9rem; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 720px) {
+    .search-box input { min-width: 0; width: 100%; }
+    .panel-head, .po-summary-bar { align-items: stretch; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN GATE ============ -->
+<div class="login-screen" id="login-screen">
+    <div class="login-card">
+        <div class="login-brand">
+            <div class="mark">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg>
+            </div>
+            <div>
+                <h1>MGH Console</h1>
+                <span>Administration portal</span>
+            </div>
+        </div>
+        <h2>Sign in</h2>
+        <p class="sub">Enter the console password to continue.</p>
+        <form id="login-form">
+            <div class="field">
+                <label for="login-password">Password</label>
+                <input id="login-password" type="password" placeholder="Enter password" autocomplete="current-password" autofocus>
+            </div>
+            <p class="login-error" id="login-error"></p>
+            <button class="btn btn-primary" type="submit">Unlock console</button>
+        </form>
+    </div>
+</div>
+
+<!-- ============ APP SHELL ============ -->
+<div class="app">
+    <aside class="sidebar">
+        <div class="logo">
+            <div class="mark">
+                <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg>
+            </div>
+            <div>
+                <h2>MGH Console</h2>
+                <span>Admin</span>
+            </div>
+        </div>
+        <nav class="nav">
+            <button class="nav-item active" data-tab="controlling-users" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span>Controlling Users</span>
+            </button>
+        </nav>
+        <div class="sidebar-foot">
+            <button class="btn" id="logout-btn" type="button">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span>Log out</span>
+            </button>
+        </div>
+    </aside>
+
+    <div class="main">
+        <header class="topbar">
+            <div>
+                <h1 id="tab-title">Controlling Users</h1>
+                <div class="topbar-sub" id="tab-sub">All controlling customers ranked by shipment volume</div>
+            </div>
+        </header>
+
+        <div class="content">
+            <section class="tab-panel" data-panel="controlling-users">
+                <div class="panel">
+                    <div class="panel-head">
+                        <h3>Controlling Customers</h3>
+                        <div class="search-box">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                            <input id="search-input" type="search" placeholder="Search by name or code…">
+                        </div>
+                    </div>
+
+                    <div class="po-summary-bar">
+                        <div class="po-result-count" id="result-count">Loading controlling customers…</div>
+                        <div class="po-pagination" aria-label="Controlling customer pages">
+                            <button class="po-page-button" id="prev-btn" type="button" disabled>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                                <span>Previous</span>
+                            </button>
+                            <span id="page-display">Page 1</span>
+                            <button class="po-page-button" id="next-btn" type="button" disabled>
+                                <span>Next</span>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="table-slot">
+                        <div class="state"><div class="spinner"></div>Loading controlling customers…</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    // ---- config ----
+    const MGH_PASSWORD = '123456';
+    const AUTH_KEY = 'mgh_authed';
+    const API_BASE = location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
+    const CONTROLLING_PATH = '/myshipment/user-controlling-360';
+    const PAGE_SIZE = 20;
+
+    // ---- state ----
+    let currentPage = 1;
+    let hasNextPage = false;
+    let searchQuery = '';
+    let searchTimer = null;
+    let loading = false;
+
+    // ---- helpers ----
+    const $ = id => document.getElementById(id);
+    const fmt = n => (Number(n) || 0).toLocaleString('en-US');
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const fmtDate = s => {
+        if (!s) return '<span class="muted">—</span>';
+        const d = new Date(s);
+        return isNaN(d) ? esc(s) : d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    };
+
+    // ---- login gate ----
+    const unlock = () => { document.body.classList.add('authed'); loadControllingUsers(); };
+    if (sessionStorage.getItem(AUTH_KEY) === '1') unlock();
+
+    $('login-form').addEventListener('submit', e => {
+        e.preventDefault();
+        const val = $('login-password').value;
+        const err = $('login-error');
+        if (val === MGH_PASSWORD) {
+            err.textContent = '';
+            sessionStorage.setItem(AUTH_KEY, '1');
+            $('login-password').value = '';
+            unlock();
+        } else {
+            err.textContent = 'Incorrect password. Please try again.';
+            $('login-password').select();
+        }
+    });
+
+    $('logout-btn').addEventListener('click', () => {
+        sessionStorage.removeItem(AUTH_KEY);
+        document.body.classList.remove('authed');
+        $('login-password').value = '';
+        setTimeout(() => $('login-password').focus(), 50);
+    });
+
+    // ---- render ----
+    const renderRows = rows => {
+        if (!rows.length) {
+            $('table-slot').innerHTML = '<div class="state">No controlling customers found' + (searchQuery ? ' for “' + esc(searchQuery) + '”' : '') + '.</div>';
+            return;
+        }
+        const startRank = (currentPage - 1) * PAGE_SIZE;
+        const body = rows.map((r, i) => `
+            <tr>
+                <td><span class="rank">${startRank + i + 1}</span></td>
+                <td><span class="org-name">${esc(r.name || '—')}</span></td>
+                <td><span class="org-code">${esc(r.org_code || '—')}</span></td>
+                <td>${r.category ? esc(r.category) : '<span class="muted">—</span>'}</td>
+                <td>${r.country_code ? esc(r.country_code) : '<span class="muted">—</span>'}${r.city ? ' <span class="muted">· ' + esc(r.city) + '</span>' : ''}</td>
+                <td class="num"><span class="num-strong">${fmt(r.total_shipments)}</span></td>
+                <td class="num">${fmt(r.total_bookings)}</td>
+                <td>${fmtDate(r.last_activity_date)}</td>
+            </tr>`).join('');
+        $('table-slot').innerHTML = `
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead><tr>
+                        <th>#</th><th>Organization</th><th>Code</th><th>Category</th><th>Location</th>
+                        <th class="num">Total Shipments</th><th class="num">Bookings</th><th>Last Activity</th>
+                    </tr></thead>
+                    <tbody>${body}</tbody>
+                </table>
+            </div>`;
+    };
+
+    const updatePager = count => {
+        $('page-display').textContent = `Page ${currentPage}`;
+        $('prev-btn').disabled = currentPage <= 1 || loading;
+        $('next-btn').disabled = !hasNextPage || loading;
+        const from = count ? (currentPage - 1) * PAGE_SIZE + 1 : 0;
+        $('result-count').textContent = count ? `Showing ${fmt(from)}–${fmt(from + count - 1)}` : 'No results';
+    };
+
+    // ---- data ----
+    const loadControllingUsers = async () => {
+        if (loading) return;
+        loading = true;
+        $('table-slot').innerHTML = '<div class="state"><div class="spinner"></div>Loading controlling customers…</div>';
+        if ($('prev-btn')) $('prev-btn').disabled = true;
+        if ($('next-btn')) $('next-btn').disabled = true;
+        try {
+            const params = new URLSearchParams({ page: currentPage, limit: PAGE_SIZE });
+            if (searchQuery) params.set('search', searchQuery);
+            const res = await fetch(`${API_BASE}${CONTROLLING_PATH}?${params.toString()}`);
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok || body.status !== 1) throw new Error(body.message || body.detail || 'Request failed');
+            const msg = body.message || {};
+            const rows = msg.obj_list || [];
+            hasNextPage = Boolean(msg.has_next_page);
+            loading = false;
+            renderRows(rows);
+            updatePager(rows.length);
+        } catch (err) {
+            loading = false;
+            $('table-slot').innerHTML = '<div class="state error">Failed to load: ' + esc(err.message || 'Unknown error') + '</div>';
+            $('result-count').textContent = 'Could not load data';
+            $('prev-btn').disabled = true;
+            $('next-btn').disabled = true;
+        }
+    };
+
+    // ---- pagination + search events ----
+    $('prev-btn').addEventListener('click', () => { if (currentPage > 1 && !loading) { currentPage--; loadControllingUsers(); } });
+    $('next-btn').addEventListener('click', () => { if (hasNextPage && !loading) { currentPage++; loadControllingUsers(); } });
+    $('search-input').addEventListener('input', e => {
+        clearTimeout(searchTimer);
+        const val = e.target.value.trim();
+        searchTimer = setTimeout(() => {
+            if (val === searchQuery) return;
+            searchQuery = val;
+            currentPage = 1;
+            loadControllingUsers();
+        }, 350);
+    });
+})();
+</script>
+</body>
+</html>
