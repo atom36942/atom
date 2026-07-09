@@ -202,7 +202,7 @@ config_api = {
 "/myshipment/my-kpi": {"id": 31, "is_token": 1, "user_check_role": ["token", [2]], "api_cache_sec": ["inmemory", 60, 1]},
 "/myshipment/my-charts": {"id": 93, "is_token": 1, "user_check_role": ["token", [2]], "api_cache_sec": ["inmemory", 60, 1]},
 "/myshipment/my-mgh-ask": {"id": 92, "is_token": 1, "user_check_role": ["token", [2]]},
-"/myshipment/buyer-360": {"id": 32, "is_token": 1, "user_check_role": ["token", [1]], "api_cache_sec": ["inmemory", 60]},
+"/myshipment/buyer-360": {"id": 32,},
 # quotation
 "/quotation/my-rate-create": {"id": 73, "is_token": 1, "user_check_role": ["token", [1, 2]]},
 "/quotation/my-rate-update": {"id": 74, "is_token": 1, "user_check_role": ["token", [1, 2]]},
