@@ -27,15 +27,13 @@ async def func_api_auth_signup_username_password(*, request:Request):
 async def func_api_auth_login_username_password(*, request:Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[["role","int",1,app_state.config_allowed_users_role,None],["username","str",1,None,None],["password","str",1,None,None]])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[["role","int",0,app_state.config_allowed_users_role,None],["username","str",1,None,None],["password","str",1,None,None]])
     if ob.get("username"): ob["username"] = ob["username"].strip()
     await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
     async with app_state.client_postgres.acquire() as conn:
-        records = await conn.fetch("SELECT * FROM users WHERE role=$1 AND username=$2 ORDER BY id DESC LIMIT 1;", ob["role"], ob["username"])
-        if not records: raise Exception("username not found")
-        try: app_state.client_password_hasher.verify(records[0]["password"], str(ob["password"]))
+        user = await app_state.func_auth_user_login_fetch(conn=conn, field="username", value=ob["username"], role=ob["role"])
+        try: app_state.client_password_hasher.verify(user["password"], str(ob["password"]))
         except Exception: raise Exception("incorrect password")
-        user = dict(records[0])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
     return {"status":1,"message":token}
 
@@ -43,15 +41,13 @@ async def func_api_auth_login_username_password(*, request:Request):
 async def func_api_auth_login_email_password(*, request:Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("role","int",1,app_state.config_allowed_users_role,None),("email","str",1,None,None),("password","str",1,None,None)])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("role","int",0,app_state.config_allowed_users_role,None),("email","str",1,None,None),("password","str",1,None,None)])
     if ob.get("email"): ob["email"] = ob["email"].strip()
     await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
     async with app_state.client_postgres.acquire() as conn:
-        records = await conn.fetch("SELECT * FROM users WHERE role=$1 AND email=$2 ORDER BY id DESC LIMIT 1;", ob["role"], ob["email"])
-        if not records: raise Exception("email not found")
-        try: app_state.client_password_hasher.verify(records[0]["password"], str(ob["password"]))
+        user = await app_state.func_auth_user_login_fetch(conn=conn, field="email", value=ob["email"], role=ob["role"])
+        try: app_state.client_password_hasher.verify(user["password"], str(ob["password"]))
         except Exception: raise Exception("incorrect password")
-        user = dict(records[0])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
     return {"status":1,"message":token}
 
@@ -59,15 +55,13 @@ async def func_api_auth_login_email_password(*, request:Request):
 async def func_api_auth_login_mobile_password(*, request:Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("role","int",1,app_state.config_allowed_users_role,None),("mobile","str",1,None,None),("password","str",1,None,None)])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("role","int",0,app_state.config_allowed_users_role,None),("mobile","str",1,None,None),("password","str",1,None,None)])
     if ob.get("mobile"): ob["mobile"] = ob["mobile"].strip()
     await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
     async with app_state.client_postgres.acquire() as conn:
-        records = await conn.fetch("SELECT * FROM users WHERE role=$1 AND mobile=$2 ORDER BY id DESC LIMIT 1;", ob["role"], ob["mobile"])
-        if not records: raise Exception("mobile not found")
-        try: app_state.client_password_hasher.verify(records[0]["password"], str(ob["password"]))
+        user = await app_state.func_auth_user_login_fetch(conn=conn, field="mobile", value=ob["mobile"], role=ob["role"])
+        try: app_state.client_password_hasher.verify(user["password"], str(ob["password"]))
         except Exception: raise Exception("incorrect password")
-        user = dict(records[0])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
     return {"status":1,"message":token}
 

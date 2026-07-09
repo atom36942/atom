@@ -478,6 +478,15 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
             await conn.execute(query)
     return "database init done"
 
+async def func_auth_user_login_fetch(*, conn: any, field: str, value: any, role: any) -> dict:
+    """Fetch a single login user by a unique-ish field with optional role. Raise on not-found or ambiguity (role omitted but multiple rows)."""
+    allowed_fields = ("username", "email", "mobile")
+    if field not in allowed_fields: raise Exception(f"invalid auth field: {field}")
+    records = await conn.fetch(f'SELECT * FROM users WHERE "{field}"=$2 AND ($1::smallint IS NULL OR role=$1) ORDER BY id DESC LIMIT 2;', role, value)
+    if not records: raise Exception(f"{field} not found")
+    if role is None and len(records) > 1: raise Exception("role is mandatory")
+    return dict(records[0])
+
 async def func_token_encode(*, user: dict, config_token_secret_key: str, config_access_token_expires_sec: int, config_refresh_token_expires_sec: int, config_column_token_encode: list) -> dict:
     """Generate access and refresh JWT tokens for a user object."""
     import jwt, orjson, time
