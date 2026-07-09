@@ -150,7 +150,13 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
                 raise Exception(f"{table_name} can only define one primary column")
             if col.get("name") == "id":
                 raise Exception(f"{table_name}.id must only be defined as the first primary column")
-        column_names = {col["name"] for col in column_configs if "name" in col}
+        column_names = set()
+        for col in column_configs:
+            col_name = col.get("name")
+            if col_name:
+                if col_name in column_names:
+                    raise Exception(f"Duplicate column '{col_name}' defined in table '{table_name}'")
+                column_names.add(col_name)
         for col in column_configs:
             name, dtype = col.get("name"), col.get("datatype")
             if not name or not dtype:
