@@ -1,8 +1,8 @@
 # logic
 # id_ext=CargoWise OH_PK (upsert match)
+# role=2 (upsert yes)
 # username=CargoWise OH_Code (upsert yes)
 # password=123456 on create only (upsert no)
-# role=2 (upsert yes)
 # name=CargoWise OH_FullName (upsert yes)
 
 # packages

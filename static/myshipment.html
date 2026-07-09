@@ -5065,7 +5065,7 @@ body.not-allowed .content-wrapper {
                     <div class="blocked-card">
                         <div class="lock"><i class="fa-solid fa-lock"></i></div>
                         <h2>Access not allowed</h2>
-                        <p>This portal is not configured for your account role. Your account currently has <strong>role = <span id="blocked-current-role">-</span></strong>. Please contact your administrator if you believe this is a mistake.</p>
+                        <p>This portal is only accessible to <strong>role = 2</strong>. Your account currently has <strong>role = <span id="blocked-current-role">-</span></strong>. Please contact your administrator if you believe this is a mistake.</p>
                         <button class="btn btn-primary" id="blocked-logout-btn" type="button">Logout</button>
                     </div>
                 </section>
@@ -6027,7 +6027,6 @@ body.not-allowed .content-wrapper {
             </div>
             <div class="modal-body">
                 <form class="auth-form" id="login-form">
-                    <input type="hidden" id="login-type" value="1">
                     <div class="form-field">
                         <label for="login-username">Username</label>
                         <input id="login-username" autocomplete="username" placeholder="Enter username" required>
@@ -6066,7 +6065,6 @@ body.not-allowed .content-wrapper {
             </div>
             <div class="modal-body">
                 <div class="profile-grid">
-                    <div class="profile-row"><span>Type</span><strong id="profile-type">-</strong></div>
                     <div class="profile-row"><span>Username</span><strong id="profile-username">-</strong></div>
                     <div class="profile-row"><span>Password</span><strong id="profile-password">-</strong></div>
                 </div>
@@ -6717,11 +6715,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (profileAvatar) profileAvatar.textContent = avatarTextFromUsername(user.username || user.name);
         const rawValue = value => value === null || value === undefined || value === '' ? '-' : String(value);
         const roleValue = rawValue(user.role);
-        const typeValue = rawValue(user.type);
         const usernameValue = rawValue(user.username);
         const userIdValue = rawValue(user.id);
         const userNameValue = rawValue(user.name || user.full_name);
-        document.getElementById('profile-type').textContent = typeValue;
         document.getElementById('profile-username').textContent = usernameValue;
         document.getElementById('profile-password').textContent = user.password ? '••••••••' : '-';
         setLoginDetailsModalWidth(usernameValue);
@@ -8236,7 +8232,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const applyAuthShell = () => {
         const loggedIn = Boolean(authToken && authUser);
         const userRole = authUser ? Number(authUser.role) : null;
-        const allowed = loggedIn && roleSupported(userRole);
+        const allowed = loggedIn && userRole === 2;
         document.body.classList.toggle('logged-in', loggedIn);
         document.body.classList.toggle('logged-out', !loggedIn);
         document.body.classList.toggle('not-allowed', loggedIn && !allowed);
@@ -9141,7 +9137,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        type: Number(document.getElementById('login-type').value || 1),
                         username: document.getElementById('login-username').value.trim(),
                         password: document.getElementById('login-password').value
                     })
@@ -9152,7 +9147,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 msg.textContent = '';
                 closeModal('login-modal');
                 document.getElementById('login-form').reset();
-                document.getElementById('login-type').value = '1';
                 applyAuthState();
                 loadShipmentFilterOptions(false); // warm cache after login (non-blocking)
             } catch (err) {

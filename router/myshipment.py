@@ -7,9 +7,6 @@ import os
 router = APIRouter()
 
 # helper
-def helper_user_org_pk(user):
-    return str((user or {}).get("id_ext") or "").strip()
-
 def helper_sql_visible_shipments_owned(name="visible_shipments"):
     return f"""{name} AS (
             SELECT DISTINCT JS.JS_PK
@@ -86,7 +83,7 @@ def helper_sql_visible_shipments(name="visible_shipments", with_shipment_id=Fals
 @router.get("/myshipment/my-account")
 async def func_api_myshipment_my_account(*, request: Request):
     app_state = request.app.state
-    org_pk = helper_user_org_pk(request.state.user)
+    org_pk = str((request.state.user or {}).get("id_ext") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     role_map = {
@@ -242,7 +239,7 @@ async def func_api_myshipment_my_account(*, request: Request):
 @router.get("/myshipment/my-purchase-orders")
 async def func_api_myshipment_my_purchase_orders(*, request: Request):
     app_state = request.app.state
-    org_pk = helper_user_org_pk(request.state.user)
+    org_pk = str((request.state.user or {}).get("id_ext") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     import re as _re
@@ -450,7 +447,7 @@ async def func_api_myshipment_my_purchase_orders(*, request: Request):
 @router.get("/myshipment/my-purchase-orders-line-items")
 async def func_api_myshipment_my_purchase_order_lines(*, request: Request):
     app_state = request.app.state
-    org_pk = helper_user_org_pk(request.state.user)
+    org_pk = str((request.state.user or {}).get("id_ext") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("po_id", "str", 1, None, None), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
@@ -541,7 +538,7 @@ async def func_api_myshipment_my_purchase_order_lines(*, request: Request):
 @router.get("/myshipment/my-shipments")
 async def func_api_myshipment_my_shipments(*, request: Request):
     app_state = request.app.state
-    org_pk = helper_user_org_pk(request.state.user)
+    org_pk = str((request.state.user or {}).get("id_ext") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     import re as _re
@@ -725,7 +722,7 @@ async def func_api_myshipment_my_shipments(*, request: Request):
 @router.get("/myshipment/my-filter-options")
 async def func_api_myshipment_my_filter_options(*, request: Request):
     app_state = request.app.state
-    org_pk = helper_user_org_pk(request.state.user)
+    org_pk = str((request.state.user or {}).get("id_ext") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("module", "str", 0, ["shipment", "purchase_orders"], "shipment"), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
@@ -865,7 +862,7 @@ async def func_api_myshipment_my_filter_options(*, request: Request):
 @router.get("/myshipment/my-containers")
 async def func_api_myshipment_my_containers(*, request: Request):
     app_state = request.app.state
-    org_pk = helper_user_org_pk(request.state.user)
+    org_pk = str((request.state.user or {}).get("id_ext") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_id", "str", 0, None, ""), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
@@ -951,7 +948,7 @@ async def func_api_myshipment_my_containers(*, request: Request):
 @router.get("/myshipment/my-tracking")
 async def func_api_myshipment_my_tracking(*, request: Request):
     app_state = request.app.state
-    org_pk = helper_user_org_pk(request.state.user)
+    org_pk = str((request.state.user or {}).get("id_ext") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_id", "str", 0, None, ""), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
@@ -1018,7 +1015,7 @@ async def func_api_myshipment_my_tracking(*, request: Request):
 @router.get("/myshipment/my-documents")
 async def func_api_myshipment_my_documents(*, request: Request):
     app_state = request.app.state
-    org_pk = helper_user_org_pk(request.state.user)
+    org_pk = str((request.state.user or {}).get("id_ext") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("shipment_id", "str", 0, None, ""), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
@@ -1204,7 +1201,7 @@ async def func_api_myshipment_my_documents(*, request: Request):
 @router.get("/myshipment/my-documents-download")
 async def func_api_myshipment_my_documents_download(*, request: Request):
     app_state = request.app.state
-    org_pk = helper_user_org_pk(request.state.user)
+    org_pk = str((request.state.user or {}).get("id_ext") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("document_id", "str", 1, None, None)])
@@ -1213,7 +1210,7 @@ async def func_api_myshipment_my_documents_download(*, request: Request):
 @router.get("/myshipment/my-kpi")
 async def func_api_myshipment_my_kpis(*, request: Request):
     app_state = request.app.state
-    org_pk = helper_user_org_pk(request.state.user)
+    org_pk = str((request.state.user or {}).get("id_ext") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("module", "str", 0, ["master", "purchase_orders", "shipments"], "master"), ("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
@@ -1338,7 +1335,7 @@ async def func_api_myshipment_my_kpis(*, request: Request):
 @router.get("/myshipment/my-charts")
 async def func_api_myshipment_my_charts(*, request: Request):
     app_state = request.app.state
-    org_pk = helper_user_org_pk(request.state.user)
+    org_pk = str((request.state.user or {}).get("id_ext") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("view_as", "str", 0, ["controlling_customer", "all"], "controlling_customer")])
@@ -1478,7 +1475,7 @@ async def func_api_myshipment_my_charts(*, request: Request):
 @router.post("/myshipment/my-mgh-ask")
 async def func_api_myshipment_my_mgh_ask(*, request: Request):
     app_state = request.app.state
-    org_pk = helper_user_org_pk(request.state.user)
+    org_pk = str((request.state.user or {}).get("id_ext") or "").strip()
     if not org_pk: raise Exception("Organization id missing")
     if not app_state.client_mssql_read_fallback: raise Exception("MSSQL client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("question", "str", 1, None, None), ("ai", "str", 0, None, "gemini"), ("limit", "int", 0, None, 20)])
