@@ -3,7 +3,8 @@
 git clone https://github.com/atom36942/atom.git
 cd atom
 rm -rf venv
-/opt/homebrew/bin/python3.11 -m venv venv
+/opt/homebrew/bin/python3.14 -m venv venv
+./venv/bin/python --version
 venv/bin/pip install --upgrade pip
 venv/bin/pip install -r requirements.txt
 venv/bin/python main.py
