@@ -113,12 +113,7 @@ config_regex = {
 "password": ["^(?=.{6,120}\\Z)\\S+\\Z", "Password must be 6-120 characters and contain no spaces"],
 }
 
-config_dropdown = {
-"rates": {
-"mode": ["Sea", "Air"],
-"charge_unit": ["20GP", "40GP", "40HC", "45HC", "CBM", "KG"],
-},
-}
+config_dropdown = {}
 
 config_api = {
 # index
@@ -166,14 +161,14 @@ config_api = {
 "/public/otp-send-email": {"id": 69, "is_token": 0},
 "/public/otp-send-mobile": {"id": 70, "is_token": 0},
 "/public/otp-send-mobile-sns-template": {"id": 71, "is_token": 0},
-"/public/jira-worklog-export": {"id": 19, "is_token": 0, "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
+"/public/jira-worklog-export": {"id": 19, "is_token": 0},
 "/public/table-groupby": {"id": 18, "is_token": 0, "api_cache_sec": ["inmemory", 10, 0]},
 # admin
 "/admin/sync": {"id": 1, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/object-create": {"id": 2, "is_token": 1, "user_check_role": ["token", [1]]},
 "/admin/object-update": {"id": 3, "is_token": 1, "user_check_role": ["token", [1]]},
 "/admin/object-read": {"id": 4, "is_token": 1, "user_check_role": ["token", [1, 2]]},
-"/admin/object-delete": {"id": 5, "is_token": 1, "user_check_role": ["realtime", [1]], "user_check_deactivated": ["realtime"], "user_check_deleted": ["realtime"]},
+"/admin/object-delete": {"id": 5, "is_token": 1, "user_check_role": ["realtime", [1]], "user_check_deactivated": ["realtime"], "user_check_deleted": ["realtime"], "api_ratelimiting_times_sec": ["inmemory", 10, 60]},
 "/admin/postgres-import": {"id": 8, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/redis-import": {"id": 9, "is_token": 1, "user_check_role": ["token", [1]]},
 "/admin/mongodb-import": {"id": 11, "is_token": 1, "user_check_role": ["token", [1]]},
@@ -210,9 +205,6 @@ config_column_int_mapping = {
 "type": {
 "log_users_delete": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
 "blob": {1: "File", 2: "Presigned Url"},
-},
-"status": {
-"quotations": {1: "Draft", 2: "Approval Pending", 3: "Approved", 4: "Rejected"},
 },
 }
 
