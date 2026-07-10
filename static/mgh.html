@@ -116,14 +116,42 @@ body.authed .login-screen { display: none; }
     display: flex; align-items: center; justify-content: space-between; padding: 0 1.75rem;
     position: sticky; top: 0; z-index: 20;
 }
-.topbar h1 { font-size: 1.1rem; margin: 0; letter-spacing: -0.01em; }
-.topbar .topbar-sub { font-size: 0.78rem; color: var(--text-muted); }
 .content { padding: 1.75rem; flex: 1; }
 
 /* ---------- Panel + table (matches myshipment) ---------- */
+.tab-panel { display: flex; flex-direction: column; gap: 1rem; }
 .panel { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
-.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.1rem 1.25rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-.panel-head h3 { margin: 0; font-size: 1rem; }
+.po-panel { padding: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 8px 24px rgba(17,24,39,0.05); }
+
+/* toolbar / heading (dark gradient header) */
+.po-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); background: var(--bg-surface); flex-wrap: wrap; }
+.po-heading h2 { margin: 0; font-size: 1.15rem; }
+.po-heading p { margin: 0.28rem 0 0; color: var(--text-muted); font-size: 0.84rem; }
+.po-toolbar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.75rem; flex-wrap: wrap; min-width: 0; }
+.po-refresh-button { min-height: 42px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem; padding: 0 0.85rem; border: 1px solid var(--border); border-radius: 9px; background: #FFFFFF; color: var(--text-dark); font: inherit; font-weight: 700; cursor: pointer; }
+.po-refresh-button.compact { width: 42px; padding: 0; }
+.po-refresh-button svg { width: 16px; height: 16px; }
+.po-refresh-button.is-loading svg { animation: spin 0.8s linear infinite; }
+
+.tab-dark-header { overflow: hidden; border: 0; background: linear-gradient(135deg, #0F2147 0%, #132D63 100%); color: #FFFFFF; }
+.tab-dark-header .po-toolbar { border-bottom: 0; background: transparent; }
+.tab-dark-header .po-heading h2, .tab-dark-header .po-heading p { color: #FFFFFF; }
+.tab-dark-header .po-heading p { opacity: 0.72; }
+.tab-dark-header .po-toolbar-actions { flex: 0 1 auto; flex-wrap: nowrap; }
+.tab-dark-header .po-search { width: clamp(280px, 42vw, 520px); flex: 0 1 520px; background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+.tab-dark-header .po-search:focus-within { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.45); box-shadow: 0 0 0 3px rgba(255,255,255,0.12); }
+.tab-dark-header .po-search input { color: #FFFFFF; }
+.tab-dark-header .po-search input::placeholder { color: rgba(255,255,255,0.5); }
+.tab-dark-header .po-search > svg,
+.tab-dark-header .po-search .po-search-button { color: rgba(255,255,255,0.65); }
+.tab-dark-header .po-search .po-search-button:not(.primary) { border-color: rgba(255,255,255,0.38); background: rgba(255,255,255,0.22); color: #FFFFFF; box-shadow: 0 1px 2px rgba(0,0,0,0.18); }
+.tab-dark-header .po-search-button.primary { background: rgba(255,255,255,0.18); color: #FFFFFF; }
+.tab-dark-header .po-search-button.primary:hover { background: rgba(255,255,255,0.3); }
+.tab-dark-header .po-refresh-button { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.22); color: rgba(255,255,255,0.9); }
+.tab-dark-header .po-refresh-button:hover:not(:disabled) { background: rgba(255,255,255,0.22); }
+.tab-dark-header .po-refresh-button:disabled { opacity: 0.55; cursor: progress; }
+.tab-dark-header .toolbar-hint { font-size: 0.72rem; color: rgba(255,255,255,0.55); white-space: nowrap; }
+
 /* search form (submit + clear, matches myshipment .po-search) */
 .po-search { width: min(320px, 100%); min-height: 42px; display: flex; align-items: center; gap: 0.6rem; box-sizing: border-box; padding: 0 0.45rem 0 0.85rem; border: 1px solid var(--border); border-radius: 9px; background: #F9FAFB; transition: border-color .2s, box-shadow .2s, background-color .2s; }
 .po-search:focus-within { border-color: #A5B4FC; background: #FFFFFF; box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
@@ -138,8 +166,8 @@ body.authed .login-screen { display: none; }
 .po-search-button.primary:hover { background: var(--primary-hover); }
 
 /* summary bar with result count + pagination */
-.po-summary-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.9rem 1.25rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-.po-result-count { font-size: 0.82rem; color: var(--text-muted); font-weight: 600; }
+.po-summary-bar { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.65rem 1.5rem; border-bottom: 1px solid var(--border); background: #F9FAFB; flex-wrap: wrap; }
+.po-result-count { font-size: 0.82rem; color: var(--text-muted); }
 .po-pagination { display: flex; align-items: center; gap: 0.45rem; }
 .po-page-button {
     min-height: 34px; display: inline-flex; align-items: center; gap: 0.4rem;
@@ -172,7 +200,9 @@ body.authed .login-screen { display: none; }
 
 @media (max-width: 720px) {
     .po-search { width: 100%; }
-    .panel-head, .po-summary-bar { align-items: stretch; }
+    .tab-dark-header .po-search { width: 100%; flex: 1 1 100%; }
+    .po-toolbar-actions { width: 100%; }
+    .po-toolbar, .po-summary-bar { align-items: stretch; }
 }
 </style>
 </head>
@@ -225,10 +255,7 @@ body.authed .login-screen { display: none; }
 
     <div class="main">
         <header class="topbar">
-            <div>
-                <h1 id="tab-title">Controlling Users</h1>
-                <div class="topbar-sub" id="tab-sub">Ranked by shipment volume</div>
-            </div>
+            <div class="top-bar-left"></div>
             <div class="user-controls">
                 <div class="profile-actions">
                     <button class="user-profile" id="user-profile-trigger" type="button" title="Menu" aria-label="Account menu" aria-expanded="false">
@@ -246,19 +273,34 @@ body.authed .login-screen { display: none; }
 
         <div class="content">
             <section class="tab-panel" data-panel="controlling-users">
-                <div class="panel">
-                    <div class="panel-head">
-                        <h3>Users</h3>
-                        <form class="po-search" id="search-form" role="search">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                            <input id="search-input" type="text" placeholder="Search by name" aria-label="Search by name">
-                            <button class="po-search-button" type="button" id="search-clear" style="display:none;" aria-label="Clear search" title="Clear search"><span>Clear</span></button>
-                            <button class="po-search-button primary" type="submit" id="search-submit" aria-label="Search" title="Search">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                <!-- dark gradient header: title + search + refresh -->
+                <div class="panel po-panel tab-dark-header">
+                    <div class="po-toolbar">
+                        <div class="po-heading">
+                            <h2>Controlling Users</h2>
+                            <p>All controlling customers ranked by shipment volume.</p>
+                        </div>
+                        <div class="po-toolbar-actions">
+                            <form class="po-search" id="search-form" role="search">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                <input id="search-input" type="text" placeholder="Search by name" aria-label="Search by name">
+                                <button class="po-search-button" type="button" id="search-clear" style="display:none;" aria-label="Clear search" title="Clear search"><span>Clear</span></button>
+                                <button class="po-search-button primary" type="submit" id="search-submit" aria-label="Search" title="Search">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                                </button>
+                            </form>
+                            <button class="po-refresh-button compact" type="button" id="download-btn" aria-label="Export to CSV" title="Export to CSV">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                             </button>
-                        </form>
+                            <button class="po-refresh-button compact" type="button" id="refresh-btn" aria-label="Refresh" title="Refresh">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                            </button>
+                        </div>
                     </div>
+                </div>
 
+                <!-- results: summary bar + table -->
+                <div class="panel po-panel">
                     <div class="po-summary-bar">
                         <div class="po-result-count" id="result-count">Loading users…</div>
                         <div class="po-pagination" aria-label="User pages">
@@ -291,11 +333,14 @@ body.authed .login-screen { display: none; }
     const API_BASE = location.protocol.startsWith('http') ? location.origin : 'http://127.0.0.1:8000';
     const CONTROLLING_PATH = '/myshipment/user-controlling-360';
     const PAGE_SIZE = 20;
+    const DOWNLOAD_MAX = 5000;
+    const DOWNLOAD_CHUNK = 1000;
 
     // ---- state ----
     let currentPage = 1;
     let hasNextPage = false;
     let searchQuery = '';
+    let searchTimer = null;
     let loading = false;
 
     // ---- helpers ----
@@ -359,7 +404,6 @@ body.authed .login-screen { display: none; }
                 <td><span class="rank">${startRank + i + 1}</span></td>
                 <td><span class="org-name">${esc(r.name || '—')}</span></td>
                 <td><span class="org-code">${esc(r.org_code || '—')}</span></td>
-                <td>${r.category ? esc(r.category) : '<span class="muted">—</span>'}</td>
                 <td>${r.country_code ? esc(r.country_code) : '<span class="muted">—</span>'}${r.city ? ' <span class="muted">· ' + esc(r.city) + '</span>' : ''}</td>
                 <td class="num"><span class="num-strong">${fmt(r.total_shipments)}</span></td>
                 <td class="num">${fmt(r.total_bookings)}</td>
@@ -369,7 +413,7 @@ body.authed .login-screen { display: none; }
             <div class="table-responsive">
                 <table class="data-table">
                     <thead><tr>
-                        <th>#</th><th>Organization</th><th>Code</th><th>Category</th><th>Location</th>
+                        <th>#</th><th>Organization</th><th>Code</th><th>Location</th>
                         <th class="num">Total Shipments</th><th class="num">Bookings</th><th>Last Activity</th>
                     </tr></thead>
                     <tbody>${body}</tbody>
@@ -416,19 +460,76 @@ body.authed .login-screen { display: none; }
     // ---- pagination + search events ----
     $('prev-btn').addEventListener('click', () => { if (currentPage > 1 && !loading) { currentPage--; loadControllingUsers(); } });
     $('next-btn').addEventListener('click', () => { if (hasNextPage && !loading) { currentPage++; loadControllingUsers(); } });
-    // toggle the Clear button based on input content
-    $('search-input').addEventListener('input', e => {
-        $('search-clear').style.display = e.target.value.length ? 'grid' : 'none';
+    // refresh reloads the current page
+    $('refresh-btn').addEventListener('click', async () => {
+        if (loading) return;
+        $('refresh-btn').classList.add('is-loading');
+        await loadControllingUsers();
+        $('refresh-btn').classList.remove('is-loading');
     });
-    // search only on submit (Enter or the arrow button)
-    $('search-form').addEventListener('submit', e => {
-        e.preventDefault();
-        searchQuery = $('search-input').value.trim();
+    // export: page through the data (up to DOWNLOAD_MAX) and download as CSV
+    const csvCell = v => { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    $('download-btn').addEventListener('click', async () => {
+        const btn = $('download-btn'), label = btn.querySelector('span');
+        if (btn.disabled) return;
+        btn.disabled = true;
+        const rows = [];
+        let more = true, page = 1;
+        try {
+            while (more && rows.length < DOWNLOAD_MAX) {
+                if (label) label.textContent = `Exporting ${fmt(rows.length)}…`;
+                const params = new URLSearchParams({ page, limit: DOWNLOAD_CHUNK });
+                if (searchQuery) params.set('search', searchQuery);
+                const res = await fetch(`${API_BASE}${CONTROLLING_PATH}?${params.toString()}`);
+                const body = await res.json().catch(() => ({}));
+                if (!res.ok || body.status !== 1) throw new Error(body.message || body.detail || 'Request failed');
+                const msg = body.message || {};
+                rows.push(...(msg.obj_list || []));
+                more = Boolean(msg.has_next_page);
+                page++;
+            }
+            const capped = more || rows.length > DOWNLOAD_MAX;
+            const out = rows.slice(0, DOWNLOAD_MAX);
+            if (!out.length) { alert('No rows to export.'); return; }
+            const headers = ['Rank', 'Organization', 'Code', 'Country', 'City', 'Total Shipments', 'Bookings', 'Last Activity'];
+            const lines = [headers.join(',')];
+            out.forEach((r, i) => lines.push([i + 1, r.name, r.org_code, r.country_code, r.city, r.total_shipments, r.total_bookings, r.last_activity_date].map(csvCell).join(',')));
+            const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'controlling-users.csv';
+            document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+            if (capped) alert(`Export is limited to ${fmt(DOWNLOAD_MAX)} rows — downloaded the first ${fmt(DOWNLOAD_MAX)}.`);
+        } catch (err) {
+            alert('Export failed: ' + (err.message || 'Unknown error'));
+        } finally {
+            btn.disabled = false;
+            if (label) label.textContent = 'Export';
+        }
+    });
+    const runSearch = () => {
+        const val = $('search-input').value.trim();
+        if (val === searchQuery) return;
+        searchQuery = val;
         currentPage = 1;
         loadControllingUsers();
+    };
+    // filter live as you type (debounced), and toggle the Clear button
+    $('search-input').addEventListener('input', e => {
+        $('search-clear').style.display = e.target.value.length ? 'grid' : 'none';
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(runSearch, 350);
+    });
+    // Enter / arrow button searches immediately
+    $('search-form').addEventListener('submit', e => {
+        e.preventDefault();
+        clearTimeout(searchTimer);
+        runSearch();
     });
     // clear resets the search
     $('search-clear').addEventListener('click', () => {
+        clearTimeout(searchTimer);
         $('search-input').value = '';
         $('search-clear').style.display = 'none';
         searchQuery = '';
