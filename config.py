@@ -113,7 +113,7 @@ config_regex = {
 "password": ["^(?=.{6,120}\\Z)\\S+\\Z", "Password must be 6-120 characters and contain no spaces"],
 }
 
-config_dropdown = {}
+config_dropdown = {"gender": ["male", "female"],}
 
 config_api = {
 # index
