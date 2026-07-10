@@ -18,6 +18,7 @@
 
 # misc
 !sync.py
+!env_set.sh
 !.vscode/
 !requirements.txt
 !Dockerfile

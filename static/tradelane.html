@@ -320,9 +320,8 @@ body {
 .user-profile {
     border: 1px solid transparent;
     border-radius: 999px;
-    background: transparent;
     padding: 0.25rem;
-    cursor: pointer;
+    background: transparent;
 }
 
 .user-profile:hover {
@@ -368,7 +367,7 @@ body {
     top: calc(100% + 0.65rem);
     right: 0;
     min-width: 180px;
-    background-color: #FFFFFF;
+    background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: 8px;
     box-shadow: 0 18px 35px rgba(17, 24, 39, 0.14);
@@ -389,7 +388,6 @@ body {
     text-align: left;
     padding: 0.65rem 0.75rem;
     border-radius: 6px;
-    font-size: 0.86rem;
     color: var(--text-dark);
     font: inherit;
     cursor: pointer;
@@ -2590,7 +2588,7 @@ body.logged-out .content-wrapper {
                 <div class="user-controls">
                     <button class="btn btn-primary login-btn guest-only" id="header-login-btn">Login</button>
                     <div class="profile-actions auth-only">
-                        <button class="user-profile" id="user-profile-trigger" type="button" title="Account menu" aria-label="Account menu" aria-expanded="false">
+                        <button class="user-profile" id="user-profile-trigger" type="button" title="My profile menu" aria-label="My profile menu" aria-expanded="false">
                             <div class="avatar">US</div>
                         </button>
                         <div class="profile-menu" id="profile-menu">
@@ -2974,7 +2972,6 @@ LIMIT 10;</textarea>
             </div>
             <div class="modal-body">
                 <div class="profile-grid">
-                    <div class="profile-row"><span>Type</span><strong id="profile-type">-</strong></div>
                     <div class="profile-row"><span>Username</span><strong id="profile-username">-</strong></div>
                     <div class="profile-row"><span>Password</span><strong id="profile-password">-</strong></div>
                 </div>
@@ -3994,11 +3991,9 @@ function renderProfile() {
     const profileAvatar = document.querySelector('.avatar');
     if (profileAvatar) profileAvatar.textContent = avatarTextFromUsername(user.username || user.name);
     const roleValue = rawValue(user.role);
-    const typeValue = rawValue(user.type);
     const usernameValue = rawValue(user.username);
     const userIdValue = rawValue(user.id);
     const userNameValue = rawValue(user.name || user.full_name);
-    $('profile-type').textContent = typeValue;
     $('profile-username').textContent = usernameValue;
     $('profile-password').textContent = user.password ? '••••••••' : '-';
     setLoginDetailsModalWidth(usernameValue);
