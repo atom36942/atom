@@ -204,7 +204,149 @@ body.authed .login-screen { display: none; }
     .po-toolbar-actions { width: 100%; }
     .po-toolbar, .po-summary-bar { align-items: stretch; }
 }
+
+/* ---------- Dialog Modal ---------- */
+.modal {
+    border: none;
+    border-radius: 18px;
+    padding: 0;
+    background: transparent;
+    max-width: min(480px, 90vw);
+    width: 100%;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    outline: none;
+}
+.modal::backdrop {
+    background-color: rgba(17, 24, 39, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.modal-card {
+    background: var(--bg-surface);
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.modal-header {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+}
+.modal-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 9px;
+    background: #EEF2FF;
+    color: var(--primary);
+    display: grid;
+    place-items: center;
+}
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+.modal-close-btn {
+    position: absolute;
+    right: 1.25rem;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+}
+.modal-close-btn:hover {
+    background: var(--bg-main);
+    color: var(--text-dark);
+}
+.modal-body {
+    padding: 1.5rem;
+    color: var(--text-dark);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+.modal-body p {
+    margin: 0 0 1rem 0;
+}
+.modal-body p:last-child {
+    margin-bottom: 0;
+}
+.modal-limit-info {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: #F5F3FF;
+    border: 1px solid #DDD6FE;
+    color: #5B21B6;
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    margin: 1rem 0;
+    font-size: 0.88rem;
+}
+.modal-limit-info svg {
+    color: #7C3AED;
+    flex-shrink: 0;
+}
+.muted-small {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+.modal-progress-loading {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 0.5rem 0;
+}
+.modal-progress-loading .spinner {
+    margin: 0;
+    flex-shrink: 0;
+}
+.progress-details {
+    flex: 1;
+}
+.progress-status {
+    font-weight: 600;
+    font-size: 0.88rem;
+    margin-bottom: 0.5rem;
+    color: var(--text-dark);
+}
+.progress-bar-container {
+    height: 6px;
+    background: #E5E7EB;
+    border-radius: 999px;
+    overflow: hidden;
+    position: relative;
+}
+.progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), #7C3AED);
+    border-radius: 999px;
+    transition: width 0.3s ease;
+}
+.modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1.25rem 1.5rem;
+    background: #F9FAFB;
+    border-top: 1px solid var(--border);
+}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -289,6 +431,9 @@ body.authed .login-screen { display: none; }
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                                 </button>
                             </form>
+                            <button class="po-refresh-button compact" type="button" id="chart-btn" aria-label="Show Chart" title="Show Chart">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                            </button>
                             <button class="po-refresh-button compact" type="button" id="download-btn" aria-label="Export to CSV" title="Export to CSV">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                             </button>
@@ -325,6 +470,67 @@ body.authed .login-screen { display: none; }
     </div>
 </div>
 
+<!-- ============ DOWNLOAD MODAL ============ -->
+<dialog id="download-modal" class="modal">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div class="modal-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </div>
+            <h3>Export Controlling Users</h3>
+            <button type="button" class="modal-close-btn" id="modal-close-icon" aria-label="Close modal">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div id="modal-info-state">
+                <p>Export controlling customers ranked by shipment volume. Please note that the export is limited to a maximum of <strong>5,000 records</strong>.</p>
+            </div>
+            <div id="modal-progress-state" style="display: none;">
+                <div class="modal-progress-loading">
+                    <div class="spinner" style="margin: 0;"></div>
+                    <div class="progress-details">
+                        <div class="progress-status" id="export-progress-text">Preparing export...</div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar" id="export-progress-bar" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer" id="modal-footer-actions">
+            <button type="button" class="btn btn-ghost" id="modal-cancel-btn">Cancel</button>
+            <button type="button" class="btn btn-primary" id="modal-confirm-btn">Export CSV</button>
+        </div>
+    </div>
+</dialog>
+
+<!-- ============ CHART MODAL ============ -->
+<dialog id="chart-modal" class="modal" style="max-width: min(720px, 95vw);">
+    <div class="modal-card">
+        <div class="modal-header" style="display: flex; align-items: center; gap: 0.85rem; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); position: relative;">
+            <div class="modal-icon">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            </div>
+            <div style="display: flex; flex-direction: column; justify-content: center; min-width: 0; flex: 1;">
+                <h3 style="margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--text-dark); line-height: 1.2;">Shipment Volume Chart</h3>
+                <p id="chart-header-subtext" style="margin: 2px 0 0; font-size: 0.8rem; color: var(--text-muted); font-weight: 500; line-height: 1.2;"></p>
+            </div>
+            <button type="button" class="modal-close-btn" id="chart-modal-close-icon" aria-label="Close modal">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="modal-body" style="padding: 1.5rem 1.75rem;">
+            <div class="chart-container" style="position: relative; height: 350px; width: 100%;">
+                <canvas id="shipment-chart"></canvas>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" id="chart-modal-close-btn" style="min-width: 100px;">Close</button>
+        </div>
+    </div>
+</dialog>
+
 <script>
 (function () {
     // ---- config ----
@@ -342,6 +548,8 @@ body.authed .login-screen { display: none; }
     let searchQuery = '';
     let searchTimer = null;
     let loading = false;
+    let currentRows = [];
+    let shipmentChartInstance = null;
 
     // ---- helpers ----
     const $ = id => document.getElementById(id);
@@ -413,7 +621,7 @@ body.authed .login-screen { display: none; }
             <div class="table-responsive">
                 <table class="data-table">
                     <thead><tr>
-                        <th>#</th><th>Organization</th><th>Code</th><th>Location</th>
+                        <th>#</th><th>Name</th><th>Code</th><th>Location</th>
                         <th class="num">Total Shipments</th><th class="num">Bookings</th><th>Last Activity</th>
                     </tr></thead>
                     <tbody>${body}</tbody>
@@ -444,12 +652,24 @@ body.authed .login-screen { display: none; }
             if (!res.ok || body.status !== 1) throw new Error(body.message || body.detail || 'Request failed');
             const msg = body.message || {};
             const rows = msg.obj_list || [];
+            currentRows = rows;
+            
+            // Update header subtext with current page count
+            const headerSubtext = $('header-subtext');
+            if (headerSubtext) {
+                headerSubtext.textContent = `All controlling customers ranked by shipment volume. Total count: ${rows.length}`;
+            }
+            
             hasNextPage = Boolean(msg.has_next_page);
             loading = false;
             renderRows(rows);
             updatePager(rows.length);
         } catch (err) {
             loading = false;
+            const headerSubtext = $('header-subtext');
+            if (headerSubtext) {
+                headerSubtext.textContent = 'All controlling customers ranked by shipment volume.';
+            }
             $('table-slot').innerHTML = '<div class="state error">Failed to load: ' + esc(err.message || 'Unknown error') + '</div>';
             $('result-count').textContent = 'Could not load data';
             $('prev-btn').disabled = true;
@@ -467,17 +687,191 @@ body.authed .login-screen { display: none; }
         await loadControllingUsers();
         $('refresh-btn').classList.remove('is-loading');
     });
+    // chart modal logic
+    const chartModal = $('chart-modal');
+    const chartModalCloseIcon = $('chart-modal-close-icon');
+    const chartModalCloseBtn = $('chart-modal-close-btn');
+
+    const openChartModal = () => {
+        if (!currentRows || !currentRows.length) {
+            alert('No data available on the current page to display as a chart.');
+            return;
+        }
+        
+        chartModal.showModal();
+        
+        // Update chart modal header subtext
+        const chartHeaderSubtext = $('chart-header-subtext');
+        if (chartHeaderSubtext) {
+            chartHeaderSubtext.textContent = 'Showing Page ' + currentPage + ' data: ' + currentRows.length;
+        }
+        
+        // Render Chart.js chart
+        const ctx = $('shipment-chart').getContext('2d');
+        
+        // Destroy existing chart instance to avoid rendering overlaps
+        if (shipmentChartInstance) {
+            shipmentChartInstance.destroy();
+        }
+        
+        const labels = currentRows.map(r => r.name || '—');
+        const data = currentRows.map(r => r.total_shipments || 0);
+        
+        shipmentChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Total Shipments',
+                    data: data,
+                    backgroundColor: 'rgba(79, 70, 229, 0.85)',
+                    hoverBackgroundColor: '#4338CA',
+                    borderWidth: 0,
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        padding: 10,
+                        backgroundColor: '#1F2937',
+                        titleColor: '#FFFFFF',
+                        bodyColor: '#D1D5DB',
+                        borderColor: '#E5E7EB',
+                        borderWidth: 1,
+                        displayColors: false
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: {
+                            color: '#E5E7EB',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: '#4B5563',
+                            font: {
+                                family: "'Inter', sans-serif",
+                                size: 10,
+                                weight: '500'
+                            },
+                            precision: 0
+                        }
+                    },
+                    y: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#4B5563',
+                            font: {
+                                family: "'Inter', sans-serif",
+                                size: 10,
+                                weight: '500'
+                            },
+                            callback: function(value) {
+                                const label = this.getLabelForValue(value);
+                                return label.length > 20 ? label.substring(0, 20) + '...' : label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    };
+
+    const closeChartModal = () => {
+        chartModal.close();
+    };
+
+    $('chart-btn').addEventListener('click', openChartModal);
+    chartModalCloseIcon.addEventListener('click', closeChartModal);
+    chartModalCloseBtn.addEventListener('click', closeChartModal);
+
+    chartModal.addEventListener('click', e => {
+        const rect = chartModal.getBoundingClientRect();
+        const isInDialog = (rect.top <= e.clientY && e.clientY <= rect.top + rect.height &&
+                            rect.left <= e.clientX && e.clientX <= rect.left + rect.width);
+        if (!isInDialog) {
+            chartModal.close();
+        }
+    });
+
     // export: page through the data (up to DOWNLOAD_MAX) and download as CSV
     const csvCell = v => { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-    $('download-btn').addEventListener('click', async () => {
-        const btn = $('download-btn'), label = btn.querySelector('span');
-        if (btn.disabled) return;
-        btn.disabled = true;
+
+    // download modal logic
+    const modal = $('download-modal');
+    const modalInfoState = $('modal-info-state');
+    const modalProgressState = $('modal-progress-state');
+    const modalFooterActions = $('modal-footer-actions');
+    const modalCancelBtn = $('modal-cancel-btn');
+    const modalConfirmBtn = $('modal-confirm-btn');
+    const modalCloseIcon = $('modal-close-icon');
+    const exportProgressText = $('export-progress-text');
+    const exportProgressBar = $('export-progress-bar');
+    
+    let downloadInProgress = false;
+
+    const openDownloadModal = () => {
+        if (downloadInProgress) return;
+        modalInfoState.style.display = 'block';
+        modalProgressState.style.display = 'none';
+        modalFooterActions.style.display = 'flex';
+        exportProgressBar.style.width = '0%';
+        exportProgressText.textContent = 'Preparing export...';
+        modal.showModal();
+    };
+
+    const closeDownloadModal = () => {
+        if (downloadInProgress) return;
+        modal.close();
+    };
+
+    $('download-btn').addEventListener('click', openDownloadModal);
+    modalCancelBtn.addEventListener('click', closeDownloadModal);
+    modalCloseIcon.addEventListener('click', closeDownloadModal);
+
+    modal.addEventListener('click', e => {
+        if (downloadInProgress) return;
+        const rect = modal.getBoundingClientRect();
+        const isInDialog = (rect.top <= e.clientY && e.clientY <= rect.top + rect.height &&
+                            rect.left <= e.clientX && e.clientX <= rect.left + rect.width);
+        if (!isInDialog) {
+            modal.close();
+        }
+    });
+
+    modal.addEventListener('cancel', e => {
+        if (downloadInProgress) {
+            e.preventDefault();
+        }
+    });
+
+    modalConfirmBtn.addEventListener('click', async () => {
+        if (downloadInProgress) return;
+        downloadInProgress = true;
+        
+        modalInfoState.style.display = 'none';
+        modalProgressState.style.display = 'block';
+        modalFooterActions.style.display = 'none';
+        
         const rows = [];
         let more = true, page = 1;
         try {
             while (more && rows.length < DOWNLOAD_MAX) {
-                if (label) label.textContent = `Exporting ${fmt(rows.length)}…`;
+                const currentCount = rows.length;
+                exportProgressText.textContent = `Fetching records... (${fmt(currentCount)} / ${fmt(DOWNLOAD_MAX)})`;
+                const percent = Math.min((currentCount / DOWNLOAD_MAX) * 100, 100);
+                exportProgressBar.style.width = `${percent}%`;
+                
                 const params = new URLSearchParams({ page, limit: DOWNLOAD_CHUNK });
                 if (searchQuery) params.set('search', searchQuery);
                 const res = await fetch(`${API_BASE}${CONTROLLING_PATH}?${params.toString()}`);
@@ -488,10 +882,21 @@ body.authed .login-screen { display: none; }
                 more = Boolean(msg.has_next_page);
                 page++;
             }
+            
+            const finalCount = Math.min(rows.length, DOWNLOAD_MAX);
+            exportProgressText.textContent = `Generating CSV for ${fmt(finalCount)} records...`;
+            exportProgressBar.style.width = '100%';
+            
             const capped = more || rows.length > DOWNLOAD_MAX;
             const out = rows.slice(0, DOWNLOAD_MAX);
-            if (!out.length) { alert('No rows to export.'); return; }
-            const headers = ['Rank', 'Organization', 'Code', 'Country', 'City', 'Total Shipments', 'Bookings', 'Last Activity'];
+            if (!out.length) {
+                alert('No rows to export.');
+                downloadInProgress = false;
+                modal.close();
+                return;
+            }
+            
+            const headers = ['Rank', 'Name', 'Code', 'Country', 'City', 'Total Shipments', 'Bookings', 'Last Activity'];
             const lines = [headers.join(',')];
             out.forEach((r, i) => lines.push([i + 1, r.name, r.org_code, r.country_code, r.city, r.total_shipments, r.total_bookings, r.last_activity_date].map(csvCell).join(',')));
             const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
@@ -500,12 +905,22 @@ body.authed .login-screen { display: none; }
             a.href = url; a.download = 'controlling-users.csv';
             document.body.appendChild(a); a.click(); a.remove();
             URL.revokeObjectURL(url);
-            if (capped) alert(`Export is limited to ${fmt(DOWNLOAD_MAX)} rows — downloaded the first ${fmt(DOWNLOAD_MAX)}.`);
+            
+            await new Promise(resolve => setTimeout(resolve, 600));
+            
+            downloadInProgress = false;
+            modal.close();
+            if (capped) {
+                setTimeout(() => {
+                    alert(`Export is limited to ${fmt(DOWNLOAD_MAX)} rows — downloaded the first ${fmt(DOWNLOAD_MAX)}.`);
+                }, 100);
+            }
         } catch (err) {
+            downloadInProgress = false;
             alert('Export failed: ' + (err.message || 'Unknown error'));
-        } finally {
-            btn.disabled = false;
-            if (label) label.textContent = 'Export';
+            modalInfoState.style.display = 'block';
+            modalProgressState.style.display = 'none';
+            modalFooterActions.style.display = 'flex';
         }
     });
     const runSearch = () => {

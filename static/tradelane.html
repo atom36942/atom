@@ -367,7 +367,7 @@ body {
     position: absolute;
     top: calc(100% + 0.65rem);
     right: 0;
-    width: 168px;
+    min-width: 180px;
     background-color: #FFFFFF;
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -393,6 +393,7 @@ body {
     color: var(--text-dark);
     font: inherit;
     cursor: pointer;
+    white-space: nowrap;
 }
 
 .profile-menu button:hover { background: var(--bg-main); }
@@ -438,39 +439,42 @@ body {
 
 .access-blocked-section.active {
     min-height: calc(100vh - 114px);
-    display: grid;
-    place-items: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .access-blocked-card {
-    width: min(560px, 100%);
-    padding: 2rem;
+    background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: 12px;
-    background: var(--bg-surface);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    padding: 2.5rem;
     text-align: center;
+    max-width: 480px;
+    width: min(480px, 100%);
+    box-shadow: 0 18px 40px rgba(17, 24, 39, 0.08);
 }
 
 .access-blocked-icon {
-    width: 44px;
-    height: 44px;
-    margin: 0 auto 1rem;
-    display: grid;
-    place-items: center;
-    border-radius: 10px;
-    background: #FEF3C7;
-    color: #92400E;
-    font-size: 1.1rem;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: #FEE2E2;
+    color: #B91C1C;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    margin: 0 auto 1.25rem;
 }
 
 .access-blocked-card h1 {
     margin: 0 0 0.5rem;
-    font-size: 1.45rem;
+    font-size: 1.4rem;
 }
 
 .access-blocked-card p {
-    margin: 0;
+    margin: 0 0 1.5rem;
     color: var(--text-muted);
     line-height: 1.6;
 }
@@ -1560,22 +1564,16 @@ body {
 .auth-only { display: none; }
 body.logged-in .auth-only { display: flex; }
 body.logged-in .guest-only { display: none; }
-body.role-blocked .nav-menu {
-    cursor: not-allowed;
-}
-body.role-blocked .nav-item {
-    opacity: 0.42;
-    cursor: inherit;
-    filter: grayscale(0.2);
-    pointer-events: none;
-}
-body.role-blocked .nav-item.active {
-    background: transparent;
-    color: var(--text-muted);
-    border-left-color: transparent;
-}
-body.role-blocked .postgres-sync-btn {
+body.role-blocked .sidebar,
+body.role-blocked .top-bar {
     display: none !important;
+}
+body.role-blocked .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+}
+body.role-blocked .content-wrapper {
+    padding: 0 !important;
 }
 body.logged-out .sidebar,
 body.logged-out .auth-only { display: none !important; }
@@ -2598,7 +2596,7 @@ body.logged-out .content-wrapper {
                         <div class="profile-menu" id="profile-menu">
                             <button type="button" id="profile-menu-profile"><i class="fa-regular fa-id-card" aria-hidden="true"></i> Login Details</button>
                             <button type="button" id="profile-menu-user"><i class="fa-regular fa-user" aria-hidden="true"></i> My Profile</button>
-                            <button type="button" class="header-refresh-btn" id="header-refresh-btn" title="Refresh profile and TradeLane info"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Refresh</button>
+                            <button type="button" class="header-refresh-btn" id="header-refresh-btn" title="Refresh profile and TradeLane info"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Refresh Profile</button>
                             <button type="button" class="danger" id="profile-menu-logout"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Logout</button>
                         </div>
                     </div>
@@ -2649,8 +2647,9 @@ body.logged-out .content-wrapper {
                 <section id="access-blocked" class="view-section access-blocked-section">
                     <div class="access-blocked-card">
                         <div class="access-blocked-icon"><i class="fa-solid fa-lock" aria-hidden="true"></i></div>
-                        <h1>Portal Access Disabled</h1>
-                        <p>Role <strong id="access-blocked-role">-</strong> is not enabled for this portal. Please ask the admin to enable this role for TradeLane access.</p>
+                        <h1>Access not allowed</h1>
+                        <p>This portal is only accessible to <strong>role = 2</strong>. Your account currently has <strong>role = <span id="access-blocked-role">-</span></strong>. Please contact your administrator if you believe this is a mistake.</p>
+                        <button class="btn btn-primary" id="blocked-logout-btn" type="button">Logout</button>
                     </div>
                 </section>
 
@@ -2938,7 +2937,6 @@ LIMIT 10;</textarea>
             </div>
             <div class="modal-body">
                 <form class="auth-form" id="login-form">
-                    <input type="hidden" id="login-type" value="1">
                     <div class="form-field">
                         <label for="login-username">Username</label>
                         <input id="login-username" autocomplete="username" placeholder="Enter username" required>
@@ -3140,7 +3138,7 @@ const STORAGE_KEY_DATABASE = 'database';
 const STORAGE_KEY_DATABASE_AT = 'database_cached_at';
 const DATABASE_IDB_NAME = 'tradelane';
 const DATABASE_IDB_VERSION = 1;
-const DATABASE_IDB_STORE = 'database_cache';
+const DATABASE_IDB_STORE = 'cache';
 const INFO_CACHE_REFRESH_MS = 10 * 60 * 1000;
 const USER_CACHE_REFRESH_MS = 10 * 60 * 1000;
 const POSTGRES_CACHE_REFRESH_MS = 24 * 60 * 60 * 1000;
@@ -3151,7 +3149,7 @@ const OBJECT_COUNT_PAGE_SIZE = 1000;
 const UNIQUE_VALUE_PAGE_SIZE = 1000;
 const UNIQUE_VALUE_MAX_ROWS = 10000;
 const UNIQUE_VALUE_MAX_OBJECTS = 150;
-const TRADELANE_ALLOWED_ROLES = new Set([1, 2]);
+const TRADELANE_ALLOWED_ROLES = new Set([2]);
 
 let authToken = readToken();
 let authUser = readUser();
@@ -3219,7 +3217,7 @@ function formatCompactRelativeTime(timestamp) {
 }
 
 function latestPostgresCacheTimestamp() {
-    return Number(localStorage.getItem(STORAGE_KEY_DATABASE_AT) || 0);
+    return Number(getTradeLaneValue(STORAGE_KEY_DATABASE_AT) || 0);
 }
 
 function updatePostgresSyncSummary() {
@@ -3342,28 +3340,54 @@ function renderQueryRunnerTabMessages() {
 }
 
 // Auth component helpers: token/user storage, /info caching, and shared API wrapper.
+function getTradeLaneStorage() {
+    try { return JSON.parse(localStorage.getItem('tradelane') || '{}'); }
+    catch (err) { return {}; }
+}
+function getTradeLaneValue(key) {
+    const store = getTradeLaneStorage();
+    return store[key] !== undefined ? store[key] : null;
+}
+function setTradeLaneValue(key, value) {
+    const rawStore = localStorage.getItem('tradelane');
+    if (!rawStore && (value === null || value === undefined)) return;
+    const store = rawStore ? JSON.parse(rawStore) : {};
+    if (value === null || value === undefined) {
+        delete store[key];
+    } else {
+        store[key] = value;
+    }
+    if (Object.keys(store).length === 0) {
+        localStorage.removeItem('tradelane');
+    } else {
+        localStorage.setItem('tradelane', JSON.stringify(store));
+    }
+}
+function removeTradeLaneKey(key) {
+    setTradeLaneValue(key, null);
+}
 function readToken() {
-    const raw = localStorage.getItem(STORAGE_KEY_TOKEN);
+    const raw = getTradeLaneValue(STORAGE_KEY_TOKEN);
     if (!raw) return null;
     try { return JSON.parse(raw); } catch (err) { return raw; }
 }
 
 function readUser() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY_USER) || 'null'); } catch (err) { return null; }
+    try { return JSON.parse(getTradeLaneValue(STORAGE_KEY_USER) || 'null'); } catch (err) { return null; }
 }
 
 function writeToken(token) {
     authToken = token || null;
-    if (authToken) localStorage.setItem(STORAGE_KEY_TOKEN, typeof authToken === 'string' ? authToken : JSON.stringify(authToken));
-    else localStorage.removeItem(STORAGE_KEY_TOKEN);
+    if (authToken) setTradeLaneValue(STORAGE_KEY_TOKEN, typeof authToken === 'string' ? authToken : JSON.stringify(authToken));
+    else removeTradeLaneKey(STORAGE_KEY_TOKEN);
 }
 
 function writeUser(user) {
     authUser = user || null;
-    if (authUser) localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(authUser));
+    if (authUser) setTradeLaneValue(STORAGE_KEY_USER, JSON.stringify(authUser));
     else {
-        localStorage.removeItem(STORAGE_KEY_USER);
-        localStorage.removeItem(STORAGE_KEY_USER_AT);
+        removeTradeLaneKey(STORAGE_KEY_USER);
+        removeTradeLaneKey(STORAGE_KEY_USER_AT);
     }
 }
 
@@ -3394,7 +3418,7 @@ function saveProfilePayload(payload) {
     const user = extractUser(payload);
     if (!user) throw new Error('Profile response missing user');
     writeUser(user);
-    localStorage.setItem(STORAGE_KEY_USER_AT, String(Date.now()));
+    setTradeLaneValue(STORAGE_KEY_USER_AT, String(Date.now()));
 }
 
 function applyInfoPayload(info) {
@@ -3403,33 +3427,33 @@ function applyInfoPayload(info) {
 }
 
 function infoCacheFresh() {
-    const cachedAt = Number(localStorage.getItem(STORAGE_KEY_INFO_AT) || 0);
-    return Boolean(localStorage.getItem(STORAGE_KEY_INFO)) && cachedAt && Date.now() - cachedAt < INFO_CACHE_REFRESH_MS;
+    const cachedAt = Number(getTradeLaneValue(STORAGE_KEY_INFO_AT) || 0);
+    return Boolean(getTradeLaneValue(STORAGE_KEY_INFO)) && cachedAt && Date.now() - cachedAt < INFO_CACHE_REFRESH_MS;
 }
 
 function readCachedInfo() {
     try {
-        const cached = JSON.parse(localStorage.getItem(STORAGE_KEY_INFO) || 'null');
+        const cached = JSON.parse(getTradeLaneValue(STORAGE_KEY_INFO) || 'null');
         if (cached && typeof cached === 'object') applyInfoPayload(cached);
         return Boolean(cached && typeof cached === 'object');
     } catch (err) {
-        localStorage.removeItem(STORAGE_KEY_INFO);
-        localStorage.removeItem(STORAGE_KEY_INFO_AT);
+        removeTradeLaneKey(STORAGE_KEY_INFO);
+        removeTradeLaneKey(STORAGE_KEY_INFO_AT);
         return false;
     }
 }
 
 function writeCachedInfo(info) {
-    localStorage.setItem(STORAGE_KEY_INFO, JSON.stringify(info || {}));
-    localStorage.setItem(STORAGE_KEY_INFO_AT, String(Date.now()));
+    setTradeLaneValue(STORAGE_KEY_INFO, JSON.stringify(info || {}));
+    setTradeLaneValue(STORAGE_KEY_INFO_AT, String(Date.now()));
 }
 
 function readStorageJson(key) {
     try {
-        const value = JSON.parse(localStorage.getItem(key) || 'null');
+        const value = JSON.parse(getTradeLaneValue(key) || 'null');
         return value && typeof value === 'object' ? value : null;
     } catch (err) {
-        localStorage.removeItem(key);
+        removeTradeLaneKey(key);
         return null;
     }
 }
@@ -3578,7 +3602,7 @@ async function loadDatabaseCacheFromIndexedDb() {
     const legacyDatabase = readStorageJson(STORAGE_KEY_DATABASE);
     if (legacyDatabase && Object.keys(legacyDatabase).length && !Object.keys(nextCache).length) {
         databaseCache = legacyDatabase;
-        localStorage.removeItem(STORAGE_KEY_DATABASE);
+        removeTradeLaneKey(STORAGE_KEY_DATABASE);
         Object.entries(legacyDatabase).forEach(([key, value]) => {
             if (key === 'unique_values' && value && typeof value === 'object') {
                 Object.entries(value).forEach(([uniqueKey, uniqueValues]) => {
@@ -3591,7 +3615,7 @@ async function loadDatabaseCacheFromIndexedDb() {
         return;
     }
     databaseCache = nextCache;
-    localStorage.removeItem(STORAGE_KEY_DATABASE);
+    removeTradeLaneKey(STORAGE_KEY_DATABASE);
 }
 
 function readCachedDatabase() {
@@ -3602,7 +3626,7 @@ function readCachedDatabase() {
 function writeCachedDatabase(database) {
     clearLegacyDatabaseCache();
     databaseCache = database || {};
-    localStorage.removeItem(STORAGE_KEY_DATABASE);
+    removeTradeLaneKey(STORAGE_KEY_DATABASE);
     databaseIdbClear()
         .then(() => Promise.all(Object.entries(databaseCache).flatMap(([key, value]) => {
             if (key === 'unique_values' && value && typeof value === 'object') {
@@ -3617,12 +3641,12 @@ function writeCachedDatabasePart(key, value) {
     clearLegacyDatabaseCache();
     databaseCache = databaseCache || {};
     databaseCache[key] = value;
-    localStorage.removeItem(STORAGE_KEY_DATABASE);
+    removeTradeLaneKey(STORAGE_KEY_DATABASE);
     databaseIdbPutRecord(key, value).catch(err => console.warn(err));
 }
 
 function databaseCacheFresh() {
-    const cachedAt = Number(localStorage.getItem(STORAGE_KEY_DATABASE_AT) || 0);
+    const cachedAt = Number(getTradeLaneValue(STORAGE_KEY_DATABASE_AT) || 0);
     return Boolean(readCachedDatabase()) && cachedAt && Date.now() - cachedAt < POSTGRES_CACHE_REFRESH_MS;
 }
 
@@ -3696,7 +3720,7 @@ function writeCachedPostgresUniqueValues(key, values) {
     databaseCache = databaseCache || {};
     databaseCache.unique_values = databaseCache.unique_values || {};
     databaseCache.unique_values[key] = Array.isArray(values) ? values : [];
-    localStorage.removeItem(STORAGE_KEY_DATABASE);
+    removeTradeLaneKey(STORAGE_KEY_DATABASE);
     databaseIdbPutRecord(`unique_values:${key}`, databaseCache.unique_values[key]).catch(err => console.warn(err));
 }
 
@@ -3704,23 +3728,32 @@ function clearCachedPostgresUniqueValues() {
     databaseCache = databaseCache || {};
     databaseCache.unique_values = {};
     databaseIdbDeletePrefix('unique_values:').catch(err => console.warn(err));
-    localStorage.setItem(STORAGE_KEY_DATABASE_AT, String(Date.now()));
+    setTradeLaneValue(STORAGE_KEY_DATABASE_AT, String(Date.now()));
     updatePostgresSyncSummary();
 }
 
-function clearPostgresCache({ waitForIndexedDb = false } = {}) {
+function clearPostgresCache() {
     databaseCache = {};
-    localStorage.removeItem(STORAGE_KEY_DATABASE);
-    localStorage.removeItem(STORAGE_KEY_DATABASE_AT);
+    removeTradeLaneKey(STORAGE_KEY_DATABASE);
+    removeTradeLaneKey(STORAGE_KEY_DATABASE_AT);
     clearLegacyDatabaseCache();
-    const clearPromise = databaseIdbClear().catch(err => console.warn(err));
+    databaseIdbClear().catch(err => console.warn(err));
     updatePostgresSyncSummary();
-    return waitForIndexedDb ? clearPromise : undefined;
 }
 
-function clearPortalStorage({ waitForIndexedDb = false } = {}) {
-    localStorage.clear();
-    return clearPostgresCache({ waitForIndexedDb });
+function databaseIdbClose() {
+    if (databaseIdbPromise) {
+        databaseIdbPromise.then(db => {
+            try { db.close(); } catch (err) {}
+        });
+        databaseIdbPromise = null;
+    }
+}
+
+function clearPortalStorage() {
+    localStorage.removeItem('tradelane');
+    databaseIdbClose();
+    try { indexedDB.deleteDatabase('tradelane'); } catch (err) {}
 }
 
 function tradeLaneRoleAllowed(user = authUser) {
@@ -3764,6 +3797,13 @@ async function loadInfo({ force = false } = {}) {
     }
 }
 
+async function loadSessionData({ force = false } = {}) {
+    await loadInfo({ force });
+    if (authToken) {
+        await loadProfile({ force });
+    }
+}
+
 async function api(path, options = {}) {
     options = await withAuthOptions(options);
     const res = await fetch(API_BASE + path, options);
@@ -3785,7 +3825,7 @@ function isAuthError(err) {
 function clearAuthSession() {
     writeToken(null);
     writeUser(null);
-    localStorage.removeItem(STORAGE_KEY_USER_AT);
+    removeTradeLaneKey(STORAGE_KEY_USER_AT);
 }
 
 function accessTokenFresh() {
@@ -3830,7 +3870,7 @@ async function withAuthOptions(options = {}) {
 }
 
 function userCacheFresh() {
-    const cachedAt = Number(localStorage.getItem(STORAGE_KEY_USER_AT) || 0);
+    const cachedAt = Number(getTradeLaneValue(STORAGE_KEY_USER_AT) || 0);
     return Boolean(authToken && authUser) && cachedAt && Date.now() - cachedAt < USER_CACHE_REFRESH_MS;
 }
 
@@ -3854,11 +3894,10 @@ async function refreshPortal() {
     btn.classList.add('is-loading');
     btn.disabled = true;
     try {
-        await loadInfo({ force: true });
         if (authToken) {
             await refreshAccessToken();
-            await loadProfile({ force: true });
         }
+        await loadSessionData({ force: true });
         applyAuthState();
     } catch (err) {
         console.warn(err);
@@ -4994,7 +5033,7 @@ async function warmPostgresCache({ force = false } = {}) {
         } else {
             setPostgresSyncStatus({ visible: true, progress: 100, text: 'Database cache synced.' });
         }
-        localStorage.setItem(STORAGE_KEY_DATABASE_AT, String(Date.now()));
+        setTradeLaneValue(STORAGE_KEY_DATABASE_AT, String(Date.now()));
         updatePostgresSyncSummary();
         if ($('dashboard')?.classList.contains('active')) loadDashboard();
         setTimeout(() => setPostgresSyncStatus({ visible: false }), 1800);
@@ -6072,7 +6111,7 @@ async function logout() {
     authToken = null;
     authUser = null;
     appInfo = {};
-    await clearPortalStorage({ waitForIndexedDb: true });
+    clearPortalStorage();
     pgscopeDatabaseInfoLoaded = false;
     pgscopeSchemaLoaded = false;
     pgscopeSchemaRows = [];
@@ -6090,6 +6129,7 @@ async function logout() {
 
 // Auth component events: login, login details, profile details, logout, refresh.
 function bindAuthComponentEvents() {
+    $('blocked-logout-btn')?.addEventListener('click', logout);
     $('header-login-btn').addEventListener('click', () => openModal('login-modal'));
     $('header-refresh-btn').addEventListener('click', refreshPortal);
     $('login-modal-close').addEventListener('click', () => closeModal('login-modal'));
@@ -6161,18 +6201,16 @@ function bindAuthComponentEvents() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    type: Number($('login-type').value || 1),
                     username: $('login-username').value.trim(),
                     password: $('login-password').value
                 })
             });
             saveTokenPayload(payload);
-            await loadProfile({ force: true });
-            await loadInfo();
+            await loadDatabaseCacheFromIndexedDb();
+            await loadSessionData({ force: true });
             msg.textContent = '';
             closeModal('login-modal');
             $('login-form').reset();
-            $('login-type').value = '1';
             applyAuthState();
         } catch (err) {
             msg.textContent = err.message || 'Login failed';
@@ -6286,9 +6324,10 @@ updateQueryBuilderResetButton();
 updateQueryAiResetButton();
 setInterval(updatePostgresSyncSummary, 60000);
 const initialize = async () => {
-    await loadDatabaseCacheFromIndexedDb();
-    await loadInfo();
-    await loadProfile().catch(err => console.warn(err));
+    if (authToken) {
+        await loadDatabaseCacheFromIndexedDb();
+        await loadSessionData().catch(err => console.warn(err));
+    }
     renderQueryBuilder();
     applyAuthState();
 };

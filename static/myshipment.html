@@ -2736,7 +2736,7 @@ body {
     position: absolute;
     top: calc(100% + 0.65rem);
     right: 0;
-    width: 168px;
+    min-width: 180px;
     background: var(--bg-surface);
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -2763,6 +2763,7 @@ body {
     color: var(--text-dark);
     font: inherit;
     cursor: pointer;
+    white-space: nowrap;
 }
 
 .profile-menu button i {
@@ -4980,7 +4981,7 @@ body.not-allowed .content-wrapper {
                         <div class="profile-menu" id="profile-menu">
                             <button type="button" id="profile-menu-profile"><i class="fa-regular fa-id-card" aria-hidden="true"></i> Login Details</button>
                             <button type="button" id="profile-menu-user"><i class="fa-regular fa-user" aria-hidden="true"></i> My Profile</button>
-                            <button type="button" class="header-refresh-btn" id="header-refresh-btn" title="Refresh profile and portal config"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Refresh</button>
+                            <button type="button" class="header-refresh-btn" id="header-refresh-btn" title="Refresh profile and portal config"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Refresh Profile</button>
                             <button type="button" class="danger" id="profile-menu-logout"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Logout</button>
                         </div>
                     </div>
@@ -6187,26 +6188,53 @@ document.addEventListener('DOMContentLoaded', () => {
     let poSearchTimeout;
     const moduleCache = {};
     // Auth component helpers: token/user storage, /info caching, and shared API wrapper.
+    const getMyShipmentStorage = () => {
+        try { return JSON.parse(localStorage.getItem('myshipment') || '{}'); }
+        catch (err) { return {}; }
+    };
+    const getMyShipmentValue = (key) => {
+        const store = getMyShipmentStorage();
+        return store[key] !== undefined ? store[key] : null;
+    };
+    const setMyShipmentValue = (key, value) => {
+        const rawStore = localStorage.getItem('myshipment');
+        if (!rawStore && (value === null || value === undefined)) return;
+        const store = rawStore ? JSON.parse(rawStore) : {};
+        if (value === null || value === undefined) {
+            delete store[key];
+        } else {
+            store[key] = value;
+        }
+        if (Object.keys(store).length === 0) {
+            localStorage.removeItem('myshipment');
+        } else {
+            localStorage.setItem('myshipment', JSON.stringify(store));
+        }
+    };
+    const removeMyShipmentKey = (key) => {
+        setMyShipmentValue(key, null);
+    };
+
     const readStoredToken = () => {
-        const rawToken = localStorage.getItem(STORAGE_KEY_TOKEN);
+        const rawToken = getMyShipmentValue(STORAGE_KEY_TOKEN);
         if (!rawToken) return '';
         try { return JSON.parse(rawToken); } catch (err) { return rawToken; }
     };
     const readStoredUser = () => {
-        try { return JSON.parse(localStorage.getItem(STORAGE_KEY_USER) || 'null'); } catch (err) { return null; }
+        try { return JSON.parse(getMyShipmentValue(STORAGE_KEY_USER) || 'null'); } catch (err) { return null; }
     };
     const writeUser = user => {
         authUser = user || null;
-        if (authUser) localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(authUser));
+        if (authUser) setMyShipmentValue(STORAGE_KEY_USER, JSON.stringify(authUser));
         else {
-            localStorage.removeItem(STORAGE_KEY_USER);
-            localStorage.removeItem(STORAGE_KEY_USER_AT);
+            removeMyShipmentKey(STORAGE_KEY_USER);
+            removeMyShipmentKey(STORAGE_KEY_USER_AT);
         }
     };
     const writeToken = token => {
         authToken = token || '';
-        if (authToken) localStorage.setItem(STORAGE_KEY_TOKEN, typeof authToken === 'string' ? authToken : JSON.stringify(authToken));
-        else localStorage.removeItem(STORAGE_KEY_TOKEN);
+        if (authToken) setMyShipmentValue(STORAGE_KEY_TOKEN, typeof authToken === 'string' ? authToken : JSON.stringify(authToken));
+        else removeMyShipmentKey(STORAGE_KEY_TOKEN);
     };
     const extractToken = payload => {
         const msg = payload && payload.message ? payload.message : payload;
@@ -6239,26 +6267,28 @@ document.addEventListener('DOMContentLoaded', () => {
         appInfo = payload || {};
     };
     const infoCacheFresh = () => {
-        const cachedAt = Number(localStorage.getItem(STORAGE_KEY_INFO_AT) || 0);
-        return Boolean(localStorage.getItem(STORAGE_KEY_INFO)) && cachedAt && Date.now() - cachedAt < INFO_CACHE_REFRESH_MS;
+        const cachedAt = Number(getMyShipmentValue(STORAGE_KEY_INFO_AT) || 0);
+        return Boolean(getMyShipmentValue(STORAGE_KEY_INFO)) && cachedAt && Date.now() - cachedAt < INFO_CACHE_REFRESH_MS;
     };
     const readCachedInfo = () => {
         try {
-            const cached = JSON.parse(localStorage.getItem(STORAGE_KEY_INFO) || 'null');
+            const cached = JSON.parse(getMyShipmentValue(STORAGE_KEY_INFO) || 'null');
             if (cached && typeof cached === 'object') applyInfoPayload(cached);
             return Boolean(cached && typeof cached === 'object');
         } catch (err) {
-            localStorage.removeItem(STORAGE_KEY_INFO);
-            localStorage.removeItem(STORAGE_KEY_INFO_AT);
+            removeMyShipmentKey(STORAGE_KEY_INFO);
+            removeMyShipmentKey(STORAGE_KEY_INFO_AT);
             return false;
         }
     };
     const writeCachedInfo = info => {
-        localStorage.setItem(STORAGE_KEY_INFO, JSON.stringify(info || {}));
-        localStorage.setItem(STORAGE_KEY_INFO_AT, String(Date.now()));
+        setMyShipmentValue(STORAGE_KEY_INFO, JSON.stringify(info || {}));
+        setMyShipmentValue(STORAGE_KEY_INFO_AT, String(Date.now()));
     };
     const clearPortalStorage = () => {
-        localStorage.clear();
+        localStorage.removeItem('myshipment');
+        _idb.close();
+        try { indexedDB.deleteDatabase('myshipment'); } catch (err) {}
     };
     const loadInfo = async ({ force = false } = {}) => {
         if (!force && readCachedInfo() && infoCacheFresh()) return;
@@ -6273,13 +6303,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     };
+    const loadSessionData = async ({ force = false } = {}) => {
+        await loadInfo({ force });
+        if (authToken) {
+            await loadProfile({ force });
+        }
+    };
     const accessToken = () => typeof authToken === 'object' ? authToken.access_token || authToken.token || '' : authToken || '';
     const refreshToken = () => typeof authToken === 'object' ? authToken.refresh_token || '' : '';
     const isAuthError = err => [401, 403].includes(Number(err?.status)) || /token|unauthori[sz]ed|forbidden|expired/i.test(err?.message || '');
     const clearAuthSession = () => {
         writeToken(null);
         writeUser(null);
-        localStorage.removeItem(STORAGE_KEY_USER_AT);
+        removeMyShipmentKey(STORAGE_KEY_USER_AT);
     };
     const accessTokenFresh = () => {
         if (!authToken || typeof authToken !== 'object') return Boolean(accessToken());
@@ -6318,7 +6354,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return { ...options, headers };
     };
     const userCacheFresh = () => {
-        const cachedAt = Number(localStorage.getItem(STORAGE_KEY_USER_AT) || 0);
+        const cachedAt = Number(getMyShipmentValue(STORAGE_KEY_USER_AT) || 0);
         return Boolean(authToken && authUser) && cachedAt && Date.now() - cachedAt < USER_CACHE_REFRESH_MS;
     };
     const loadProfile = async ({ force = false } = {}) => {
@@ -7421,7 +7457,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         ['orders', 'lines', 'released', 'priority', 'cancelled'].forEach(key => {
             const el = document.getElementById(`po-kpi-${key}`);
-            if (el) el.textContent = '-';
+            if (el) el.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" style="font-size: 1.2rem; opacity: 0.5;"></i>';
         });
         try {
 	            const payload = await api(`${MODULE_ENDPOINTS.kpis}?module=purchase_orders&${MYSHIPMENT_VIEW_PARAM}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
@@ -7572,7 +7608,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         ['total', 'confirmed', 'booked', 'arriving', 'eta-past', 'missing-eta'].forEach(key => {
             const el = document.getElementById(`shipment-kpi-${key}`);
-            if (el) el.textContent = '-';
+            if (el) el.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" style="font-size: 1.2rem; opacity: 0.5;"></i>';
         });
         try {
             const payload = await api(`${MODULE_ENDPOINTS.kpis}?module=shipments&${MYSHIPMENT_VIEW_PARAM}`, { headers: { Authorization: `Bearer ${accessToken()}` } });
@@ -8210,7 +8246,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const nextUser = extractUser(payload);
         if (!nextUser) throw new Error('Profile response missing user');
         writeUser(nextUser);
-	        localStorage.setItem(STORAGE_KEY_USER_AT, String(Date.now()));
+	        setMyShipmentValue(STORAGE_KEY_USER_AT, String(Date.now()));
 	        cargowiseProfileLoaded = false;
 	        Object.keys(moduleCache).forEach(key => delete moduleCache[key]);
 	        renderUserDashboards();
@@ -8224,8 +8260,6 @@ document.addEventListener('DOMContentLoaded', () => {
         authUser = null;
         appInfo = {};
         clearPortalStorage();
-        shipmentFilterOptionsCacheClear();
-        profileCacheClear();
         cargowiseProfileLoaded = false;
         cargowiseProfileLoaded = false;
         Object.keys(moduleCache).forEach(key => delete moduleCache[key]);
@@ -8252,11 +8286,10 @@ document.addEventListener('DOMContentLoaded', () => {
         button?.classList.add('is-loading');
         if (button) button.disabled = true;
         try {
-            await loadInfo({ force: true });
             if (authToken) {
                 await refreshAccessToken();
-                await loadProfile({ force: true });
             }
+            await loadSessionData({ force: true });
             if (authToken && authUser) applyAuthShell();
             else applyAuthState();
             showToast('Profile & settings refreshed');
@@ -8639,6 +8672,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     req.onsuccess = () => res();
                     req.onerror = e => rej(e.target.error);
                 });
+            },
+            close() {
+                if (_db) {
+                    _db.close();
+                    _db = null;
+                }
             }
         };
     })();
@@ -9089,8 +9128,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     })
                 });
                 saveTokenPayload(payload);
-                await loadProfile({ force: true });
-                await loadInfo();
+                await loadSessionData({ force: true });
                 msg.textContent = '';
                 closeModal('login-modal');
                 document.getElementById('login-form').reset();
@@ -9131,8 +9169,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const initialize = async () => {
-        await loadInfo();
-        await loadProfile().catch(err => console.warn(err));
+        if (authToken) {
+            await loadSessionData().catch(err => console.warn(err));
+        }
         applyAuthState();
         if (authToken && authUser) loadShipmentFilterOptions(false); // warm cache on page load if already logged in
     };
