@@ -173,7 +173,7 @@ config_api = {
 "/admin/object-create": {"id": 2, "is_token": 1, "user_check_role": ["token", [1]]},
 "/admin/object-update": {"id": 3, "is_token": 1, "user_check_role": ["token", [1]]},
 "/admin/object-read": {"id": 4, "is_token": 1, "user_check_role": ["token", [1, 2]]},
-"/admin/object-delete": {"id": 5, "is_token": 1, "user_check_role": ["realtime", [1]], "user_check_deactivated": ["realtime", 1], "user_check_deleted": ["realtime", 1]},
+"/admin/object-delete": {"id": 5, "is_token": 1, "user_check_role": ["realtime", [1]], "user_check_deactivated": ["realtime"], "user_check_deleted": ["realtime"]},
 "/admin/postgres-import": {"id": 8, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/redis-import": {"id": 9, "is_token": 1, "user_check_role": ["token", [1]]},
 "/admin/mongodb-import": {"id": 11, "is_token": 1, "user_check_role": ["token", [1]]},
