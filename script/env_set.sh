@@ -1,6 +1,6 @@
-# Run using: bash env_set.sh
-
 #!/usr/bin/env bash
+
+# Run from anywhere using: bash script/env_set.sh
 
 set -euo pipefail
 
@@ -9,7 +9,7 @@ APP_NAME="app-mgh-atom-stg"
 RESTART_APP="false" # Set to "true" to force an explicit restart (App Settings updates already auto-restart the app)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/.env"
+ENV_FILE="${ENV_FILE:-$SCRIPT_DIR/../.env}"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "Error: .env file not found at $ENV_FILE"
@@ -34,7 +34,7 @@ while IFS= read -r LINE || [[ -n "$LINE" ]]; do
 done < "$ENV_FILE"
 
 if (( ${#ENV_VARS[@]} == 0 )); then
-  echo "Error: No config_* variables found in .env"
+  echo "Error: No config_* variables found in $ENV_FILE"
   exit 1
 fi
 
