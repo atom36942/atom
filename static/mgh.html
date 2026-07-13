@@ -616,13 +616,14 @@ body.authed .login-screen { display: none; }
                 <td class="num"><span class="num-strong">${fmt(r.total_shipments)}</span></td>
                 <td class="num">${fmt(r.total_bookings)}</td>
                 <td>${fmtDate(r.last_activity_date)}</td>
+                <td>${r.org_id != null && r.org_id !== '' ? esc(r.org_id) : '<span class="muted">—</span>'}</td>
             </tr>`).join('');
         $('table-slot').innerHTML = `
             <div class="table-responsive">
                 <table class="data-table">
                     <thead><tr>
                         <th>#</th><th>Name</th><th>Code</th><th>Location</th>
-                        <th class="num">Total Shipments</th><th class="num">Bookings</th><th>Last Activity</th>
+                        <th class="num">Total Shipments</th><th class="num">Bookings</th><th>Last Activity</th><th>Org ID</th>
                     </tr></thead>
                     <tbody>${body}</tbody>
                 </table>
