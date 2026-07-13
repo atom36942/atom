@@ -5052,42 +5052,42 @@ body.not-allowed .content-wrapper {
 	                        <div class="panel po-panel analytics-chart-card">
 	                            <div class="tracking-event-header"><div>
 	                                <div class="tracking-event-title">Shipments by Origin Country</div>
-	                                <div class="tracking-event-subtitle">Top origin countries across accessible shipments</div>
+	                                <div class="tracking-event-subtitle">Shipment count grouped by origin country</div>
 	                            </div></div>
 	                            <div class="analytics-chart-body"><canvas id="originCountryChart"></canvas></div>
 	                        </div>
 	                        <div class="panel po-panel analytics-chart-card">
 	                            <div class="tracking-event-header"><div>
 	                                <div class="tracking-event-title">Shipments by Destination Country</div>
-	                                <div class="tracking-event-subtitle">Top destination countries across accessible shipments</div>
+	                                <div class="tracking-event-subtitle">Shipment count grouped by destination country</div>
 	                            </div></div>
 	                            <div class="analytics-chart-body"><canvas id="countryChart"></canvas></div>
 	                        </div>
 	                        <div class="panel po-panel analytics-chart-card">
 	                            <div class="tracking-event-header"><div>
 	                                <div class="tracking-event-title">Shipment Volume</div>
-	                                <div class="tracking-event-subtitle">Monthly shipment trend from your shipment data</div>
+	                                <div class="tracking-event-subtitle">Shipment count grouped by creation month</div>
 	                            </div></div>
 	                            <div class="analytics-chart-body"><canvas id="volumeChart"></canvas></div>
 	                        </div>
 	                        <div class="panel po-panel analytics-chart-card">
 	                            <div class="tracking-event-header"><div>
 		                                <div class="tracking-event-title">Transport Mode</div>
-	                                <div class="tracking-event-subtitle">How shipments are moving</div>
+	                                <div class="tracking-event-subtitle">Shipment count grouped by transport mode</div>
 	                            </div></div>
 	                            <div class="analytics-chart-body compact"><canvas id="spendChart"></canvas></div>
 	                        </div>
 			                        <div class="panel po-panel analytics-chart-card">
 			                            <div class="tracking-event-header"><div>
 			                                <div class="tracking-event-title">Shipment Status</div>
-			                                <div class="tracking-event-subtitle">Current status split across accessible shipments</div>
+			                                <div class="tracking-event-subtitle">Shipment count grouped by current status</div>
 			                            </div></div>
 			                            <div class="analytics-chart-body compact"><canvas id="statusChart"></canvas></div>
 			                        </div>
 			                        <div class="panel po-panel analytics-chart-card">
 			                            <div class="tracking-event-header"><div>
 			                                <div class="tracking-event-title">Carrier Split</div>
-			                                <div class="tracking-event-subtitle">Top carriers across accessible shipments</div>
+			                                <div class="tracking-event-subtitle">Shipment count grouped by carrier</div>
 			                            </div></div>
 			                            <div class="analytics-chart-body"><canvas id="carrierChart"></canvas></div>
 			                        </div>
@@ -7834,22 +7834,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         renderChart('spendChart', {
-            type: 'doughnut',
+            type: 'bar',
             data: {
                 labels: modes.map(item => displayValue(item.transport_mode)),
                 datasets: [{
+                    label: 'Shipments',
                     data: modes.map(item => Number(item.count || 0)),
                     backgroundColor: ['#4F46E5', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#64748B'],
-                    borderWidth: 0,
-                    hoverOffset: 8
+                    borderRadius: 6,
+                    maxBarThickness: 38
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                cutout: '68%',
                 plugins: {
-                    legend: { position: 'bottom', labels: { color: chartTextColor, boxWidth: 10, usePointStyle: true } }
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: chartTextColor, maxRotation: 0 } },
+                    y: { beginAtZero: true, grid: { color: chartGridColor }, ticks: { color: chartTextColor, precision: 0 } }
                 }
             }
         });

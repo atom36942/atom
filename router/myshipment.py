@@ -1378,7 +1378,7 @@ async def func_api_myshipment_my_charts(*, request: Request):
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @view_as nvarchar(40) = ?;
         WITH """ + helper_sql_visible_shipments(name='visible_shipments') + """
-        SELECT TOP 10
+        SELECT TOP 100
             RL.RL_RN_NKCountryCode AS country_code,
             COALESCE(RN.RN_Desc, RL.RL_RN_NKCountryCode) AS country_name,
             COUNT(1) AS count
@@ -1397,7 +1397,7 @@ async def func_api_myshipment_my_charts(*, request: Request):
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @view_as nvarchar(40) = ?;
         WITH """ + helper_sql_visible_shipments(name='visible_shipments') + """
-        SELECT TOP 10
+        SELECT TOP 100
             RL.RL_RN_NKCountryCode AS country_code,
             COALESCE(RN.RN_Desc, RL.RL_RN_NKCountryCode) AS country_name,
             COUNT(1) AS count
@@ -1416,7 +1416,7 @@ async def func_api_myshipment_my_charts(*, request: Request):
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @view_as nvarchar(40) = ?;
         WITH """ + helper_sql_visible_shipments(name='visible_shipments') + """
-        SELECT TOP 10
+        SELECT TOP 100
             CONVERT(varchar(36), Carrier.OH_PK) AS carrier_id,
             Carrier.OH_FullName AS carrier_name,
             COUNT(1) AS count
