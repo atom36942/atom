@@ -1415,40 +1415,51 @@ async def func_api_myshipment_my_charts(*, request: Request):
         SET NOCOUNT ON;
         DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
         DECLARE @view_as nvarchar(40) = ?;
-        WITH """ + helper_sql_visible_shipments(name='visible_shipments') + """
-        SELECT TOP 100
-            CONVERT(varchar(36), Carrier.OH_PK) AS carrier_id,
-            Carrier.OH_FullName AS carrier_name,
-            COUNT(1) AS count
-        FROM visible_shipments AS VS
-        JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
-        OUTER APPLY (
-            SELECT TOP 1 CarrierChoice.OH_PK, CarrierChoice.OH_FullName
-            FROM (
-                SELECT 1 AS priority, OH.OH_PK, OH.OH_FullName
-                FROM dbo.OrgAddress OA
-                JOIN dbo.OrgHeader OH ON OH.OH_PK = OA.OA_OH
-                WHERE OA.OA_PK = JS.JS_OA_BookedShippingLineAddress
-                UNION ALL
-                SELECT 2, OH.OH_PK, OH.OH_FullName
-                FROM dbo.vw_JobShipmentDepartureConsol DC
-                JOIN dbo.OrgAddress OA ON OA.OA_PK = DC.JK_OA_ShippingLineAddress
-                JOIN dbo.OrgHeader OH ON OH.OH_PK = OA.OA_OH
-                WHERE DC.JS_PK = JS.JS_PK
-                UNION ALL
-                SELECT 3, OH.OH_PK, OH.OH_FullName
-                FROM dbo.vw_JobShipmentArrivalConsol AC
-                JOIN dbo.OrgAddress OA ON OA.OA_PK = AC.JK_OA_ShippingLineAddress
-                JOIN dbo.OrgHeader OH ON OH.OH_PK = OA.OA_OH
-                WHERE AC.JS_PK = JS.JS_PK
-            ) AS CarrierChoice
-            WHERE CarrierChoice.OH_FullName IS NOT NULL
-              AND CarrierChoice.OH_FullName <> ''
-            ORDER BY CarrierChoice.priority
-        ) AS Carrier
-        WHERE Carrier.OH_PK IS NOT NULL
-        GROUP BY Carrier.OH_PK, Carrier.OH_FullName
-        ORDER BY COUNT(1) DESC;"""
+        WITH """ + helper_sql_visible_shipments(name='visible_shipments') + """,
+        carrier_counts AS (
+            SELECT
+                CONVERT(varchar(36), Carrier.OH_PK) AS carrier_id,
+                Carrier.OH_FullName AS carrier_name,
+                JS.JS_TransportMode AS transport_mode,
+                COUNT(1) AS count
+            FROM visible_shipments AS VS
+            JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
+            OUTER APPLY (
+                SELECT TOP 1 CarrierChoice.OH_PK, CarrierChoice.OH_FullName
+                FROM (
+                    SELECT 1 AS priority, OH.OH_PK, OH.OH_FullName
+                    FROM dbo.OrgAddress OA
+                    JOIN dbo.OrgHeader OH ON OH.OH_PK = OA.OA_OH
+                    WHERE OA.OA_PK = JS.JS_OA_BookedShippingLineAddress
+                    UNION ALL
+                    SELECT 2, OH.OH_PK, OH.OH_FullName
+                    FROM dbo.vw_JobShipmentDepartureConsol DC
+                    JOIN dbo.OrgAddress OA ON OA.OA_PK = DC.JK_OA_ShippingLineAddress
+                    JOIN dbo.OrgHeader OH ON OH.OH_PK = OA.OA_OH
+                    WHERE DC.JS_PK = JS.JS_PK
+                    UNION ALL
+                    SELECT 3, OH.OH_PK, OH.OH_FullName
+                    FROM dbo.vw_JobShipmentArrivalConsol AC
+                    JOIN dbo.OrgAddress OA ON OA.OA_PK = AC.JK_OA_ShippingLineAddress
+                    JOIN dbo.OrgHeader OH ON OH.OH_PK = OA.OA_OH
+                    WHERE AC.JS_PK = JS.JS_PK
+                ) AS CarrierChoice
+                WHERE CarrierChoice.OH_FullName IS NOT NULL
+                  AND CarrierChoice.OH_FullName <> ''
+                ORDER BY CarrierChoice.priority
+            ) AS Carrier
+            WHERE Carrier.OH_PK IS NOT NULL
+              AND JS.JS_TransportMode IN ('SEA', 'AIR')
+            GROUP BY Carrier.OH_PK, Carrier.OH_FullName, JS.JS_TransportMode
+        ),
+        ranked_carriers AS (
+            SELECT *, ROW_NUMBER() OVER (PARTITION BY transport_mode ORDER BY count DESC, carrier_name) AS mode_rank
+            FROM carrier_counts
+        )
+        SELECT carrier_id, carrier_name, transport_mode, count
+        FROM ranked_carriers
+        WHERE mode_rank <= 100
+        ORDER BY transport_mode, mode_rank;"""
     async with app_state.client_mssql_read_fallback.acquire() as conn:
         cursor = await conn.cursor()
         await cursor.execute(shipments_by_status_sql, org_pk, view_as)
@@ -1495,6 +1506,7 @@ async def func_api_myshipment_my_mgh_ask(*, request: Request):
         "shipments_by_origin_country": {"title": "Top Origin Countries", "columns": ["country", "shipments"]},
         "shipments_by_destination_country": {"title": "Top Destination Countries", "columns": ["country", "shipments"]},
         "top_suppliers": {"title": "Top Suppliers", "columns": ["supplier", "purchase_orders", "shipments"]},
+        "carriers_by_mode": {"title": "Carriers by Transport Mode", "columns": ["transport_mode", "carrier", "shipments"]},
         "shipment_search": {"title": "Shipment Lookup", "columns": ["shipment", "status", "origin", "destination", "eta", "job"]},
         "purchase_order_search": {"title": "Purchase Order Lookup", "columns": ["order", "status", "supplier", "shipment", "window_start", "window_end"]},
         "containers_pending": {"title": "Pending Containers", "columns": ["container", "status", "mode", "shipment", "available", "gate_out"]},
@@ -1516,6 +1528,8 @@ async def func_api_myshipment_my_mgh_ask(*, request: Request):
             return {"intent": "shipments_by_destination_country", "search_text": "", "limit": requested_limit}
         if "supplier" in q or "vendor" in q:
             return {"intent": "top_suppliers", "search_text": "", "limit": requested_limit}
+        if "carrier" in q and "mode" in q:
+            return {"intent": "carriers_by_mode", "search_text": "", "limit": requested_limit}
         if "container" in q:
             return {"intent": "containers_pending", "search_text": search_text, "limit": requested_limit}
         if "missing" in q and "eta" in q:
@@ -1558,7 +1572,7 @@ async def func_api_myshipment_my_mgh_ask(*, request: Request):
             "Classify the buyer's shipment-data question into one supported intent.",
             "Return JSON only. Do not generate SQL.",
             "Supported intents:",
-            "overview, recent_shipments, delayed_shipments, arriving_this_week, missing_eta, shipments_by_origin_country, shipments_by_destination_country, top_suppliers, shipment_search, purchase_order_search, containers_pending.",
+            ", ".join(allowed) + ".",
             "Use shipment_search for shipment/reference/job/booking/house bill lookup.",
             "Use purchase_order_search for PO/order lookup.",
             "search_text should contain only the lookup value when present, otherwise empty string.",
@@ -1705,6 +1719,43 @@ async def func_api_myshipment_my_mgh_ask(*, request: Request):
             LEFT JOIN dbo.OrgHeader AS OH ON OH.OH_PK = SupplierOA.OA_OH
             GROUP BY COALESCE(OH.OH_FullName, SupplierOA.OA_CompanyNameOverride, SupplierOA.OA_Code, '-')
             ORDER BY COUNT(DISTINCT JS.JS_PK) DESC, COUNT(DISTINCT JD.JD_PK) DESC;"""
+    elif intent == "carriers_by_mode":
+        sql = f"""
+            SET NOCOUNT ON;
+            DECLARE @org uniqueidentifier = TRY_CONVERT(uniqueidentifier, ?);
+            DECLARE @view_as nvarchar(40) = ?;
+            WITH {helper_sql_visible_shipments(name='visible_shipments')}
+            SELECT TOP ({limit})
+                JS.JS_TransportMode AS transport_mode,
+                Carrier.OH_FullName AS carrier,
+                COUNT(1) AS shipments
+            FROM visible_shipments AS VS
+            JOIN dbo.JobShipment AS JS ON JS.JS_PK = VS.JS_PK
+            OUTER APPLY (
+                SELECT TOP 1 CarrierChoice.OH_FullName
+                FROM (
+                    SELECT 1 AS priority, OH.OH_FullName
+                    FROM dbo.OrgAddress OA JOIN dbo.OrgHeader OH ON OH.OH_PK = OA.OA_OH
+                    WHERE OA.OA_PK = JS.JS_OA_BookedShippingLineAddress
+                    UNION ALL
+                    SELECT 2, OH.OH_FullName
+                    FROM dbo.vw_JobShipmentDepartureConsol DC
+                    JOIN dbo.OrgAddress OA ON OA.OA_PK = DC.JK_OA_ShippingLineAddress
+                    JOIN dbo.OrgHeader OH ON OH.OH_PK = OA.OA_OH
+                    WHERE DC.JS_PK = JS.JS_PK
+                    UNION ALL
+                    SELECT 3, OH.OH_FullName
+                    FROM dbo.vw_JobShipmentArrivalConsol AC
+                    JOIN dbo.OrgAddress OA ON OA.OA_PK = AC.JK_OA_ShippingLineAddress
+                    JOIN dbo.OrgHeader OH ON OH.OH_PK = OA.OA_OH
+                    WHERE AC.JS_PK = JS.JS_PK
+                ) AS CarrierChoice
+                WHERE CarrierChoice.OH_FullName IS NOT NULL AND CarrierChoice.OH_FullName <> ''
+                ORDER BY CarrierChoice.priority
+            ) AS Carrier
+            WHERE JS.JS_TransportMode IN ('SEA', 'AIR') AND Carrier.OH_FullName IS NOT NULL
+            GROUP BY JS.JS_TransportMode, Carrier.OH_FullName
+            ORDER BY COUNT(1) DESC, JS.JS_TransportMode, Carrier.OH_FullName;"""
     elif intent == "shipment_search":
         params.append(search_text)
         sql = f"""
