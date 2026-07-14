@@ -3047,7 +3047,7 @@ LIMIT 10;</textarea>
             <div class="modal-body">
                 <div class="sync-info">
                     <div class="sync-info-group">
-                        <h4 class="sync-info-title"><i class="fa-solid fa-rotate" aria-hidden="true"></i> What gets synced <span style="font-weight:400;text-transform:none;letter-spacing:0;">(cached 24h)</span></h4>
+                        <h4 class="sync-info-title"><i class="fa-solid fa-rotate" aria-hidden="true"></i> What gets synced <span style="font-weight:400;text-transform:none;letter-spacing:0;">(cached 1 week)</span></h4>
                         <ol class="sync-info-list sync-info-steps">
                             <li>Database info — connections, cache hit ratio, size</li>
                             <li>Schema — tables, columns, keys, indexes</li>
@@ -3138,7 +3138,7 @@ const DATABASE_IDB_VERSION = 1;
 const DATABASE_IDB_STORE = 'cache';
 const INFO_CACHE_REFRESH_MS = 10 * 60 * 1000;
 const USER_CACHE_REFRESH_MS = 10 * 60 * 1000;
-const POSTGRES_CACHE_REFRESH_MS = 24 * 60 * 60 * 1000;
+const POSTGRES_CACHE_REFRESH_MS = 7 * 24 * 60 * 60 * 1000;
 const TOKEN_REFRESH_BUFFER_SEC = 24 * 60 * 60;
 const QUERY_EDITOR_PLACEHOLDER_SQL = 'SELECT *\nFROM your_table\nLIMIT 10;';
 const QUERY_BUILDER_DEFAULT_LIMIT = 10;
