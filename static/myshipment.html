@@ -5021,6 +5021,9 @@ body.not-allowed .content-wrapper {
                 <a href="#dashboard" class="nav-item active" data-target="dashboard" data-roles="1,2">
                     <i class="fa-solid fa-house"></i> Home
                 </a>
+                <a href="#account" class="nav-item" data-target="account" data-roles="1,2">
+                    <i class="fa-regular fa-building"></i> Account
+                </a>
                 <a href="#shipments" class="nav-item" data-target="shipments" data-roles="1,2">
                     <i class="fa-solid fa-ship"></i> Shipments
                 </a>
@@ -5096,7 +5099,7 @@ body.not-allowed .content-wrapper {
                 </section>
 
                 <!-- Account Section -->
-                <section id="dashboard" class="view-section">
+                <section id="account" class="view-section">
                     <!-- Profile identity card -->
                     <div class="home-profile-card">
                         <div class="home-profile-main">
@@ -5106,17 +5109,32 @@ body.not-allowed .content-wrapper {
                                 <h1 id="home-profile-name">Welcome</h1>
                                 <div class="home-profile-code" id="home-profile-code">&nbsp;</div>
                             </div>
-                        </div>
-	                        <div class="home-profile-side">
+	                    </div>
+	                    <div class="home-profile-side">
 	                        <div class="home-profile-actions">
-	                            <button class="home-profile-btn" type="button" id="home-profile-viewfull"><span class="hp-status-dot" id="home-profile-status-dot" aria-hidden="true"></span><i class="fa-regular fa-address-card" aria-hidden="true"></i> Account</button>
-	                            <button class="home-profile-btn icon-only" type="button" id="home-analytics-refresh" aria-label="Refresh overview" title="Refresh overview"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i></button>
-	                        </div>
+	                            <button class="po-refresh-button compact" type="button" id="account-refresh-btn" aria-label="Refresh account" title="Refresh account"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
 	                        </div>
 	                    </div>
+	                    </div>
+	                    <div id="account-profile-slot"></div>
+	                </section>
 
-	                    <div class="dash-head">
-	                        <h2 class="section-title" style="margin:0;font-size:1.15rem;">Supply chain at a glance</h2>
+                <!-- Home Analytics Section -->
+                <section id="dashboard" class="view-section">
+	                    <div class="home-profile-card">
+	                        <div class="home-profile-main">
+	                            <div class="home-profile-monogram"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></div>
+	                            <div class="home-profile-identity">
+	                                <div class="home-profile-greeting">Welcome 👋</div>
+	                                <h1 id="home-welcome-name">MyShipment</h1>
+	                                <div class="home-profile-code">Your supply chain at a glance.</div>
+	                            </div>
+	                        </div>
+	                        <div class="home-profile-side">
+	                            <div class="home-profile-actions">
+	                                <button class="po-refresh-button compact" type="button" id="home-analytics-refresh" aria-label="Refresh charts" title="Refresh charts"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Refresh</span></button>
+	                            </div>
+	                        </div>
 	                    </div>
 
 		                    <div class="analytics-chart-grid">
@@ -6545,13 +6563,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const featureItem = target => document.querySelector(`.nav-item[data-target="${target}"][data-roles]`);
     const featureAllowed = (target, role = Number(authUser && authUser.role)) => roleSupported(role) && featureRolesFromItem(featureItem(target)).includes(Number(role));
     const firstAllowedFeature = role => [...document.querySelectorAll('.nav-item[data-target][data-roles]')].find(item => roleSupported(role) && featureRolesFromItem(item).includes(Number(role)))?.dataset.target || null;
+    const updateHomeWelcome = () => {
+        const user = readStoredUser() || {};
+        const name = String(user.name || '').trim();
+        const heading = document.getElementById('home-welcome-name');
+        if (heading) heading.textContent = name || 'MyShipment';
+    };
     const loadFeature = target => {
         showSection(target);
-	        if (target === 'dashboard') { loadCargowiseProfile(); loadHomeAnalytics(); }
+	        if (target === 'dashboard') { updateHomeWelcome(); loadHomeAnalytics(); }
+	        else if (target === 'account') loadCargowiseProfile();
 		        else if (target === 'analytics') { renderUserDashboards(); }
 	        else if (target === 'purchase-orders') { loadModule(target); loadPurchaseOrderFilterOptions(); }
 	        else if (target === 'mghask') setTimeout(() => document.getElementById('mghask-input')?.focus(), 80);
-        else if (target === 'profile') loadCargowiseProfile();
         else if (target === 'containers') {
             containerShipmentId = '';
             loadModule(target);
@@ -8422,17 +8446,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (button) button.disabled = false;
         }
     };
-    const refreshCargowiseProfile = async () => {
-        const button = document.getElementById('profile-refresh-btn');
-        button?.classList.add('is-loading');
-        if (button) button.disabled = true;
-        try {
-            await loadCargowiseProfile(true);
-        } finally {
-            button?.classList.remove('is-loading');
-            if (button) button.disabled = false;
-        }
-    };
     let authToken = readStoredToken();
     authUser = readStoredUser();
 
@@ -8455,9 +8468,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     document.getElementById('cargowise-profile-retry').addEventListener('click', () => loadCargowiseProfile(true));
-    document.getElementById('profile')?.addEventListener('click', event => {
-        if (event.target.closest('#profile-refresh-btn')) refreshCargowiseProfile();
-    });
 
 	    // PO filters
 	    const PO_FILTER_KEYS = ['supplier', 'status', 'released', 'priority', 'mode', 'container_mode', 'inco', 'period'];
@@ -9088,7 +9098,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('tracking-refresh-btn')?.addEventListener('click', () => refreshModule('tracking', 'tracking-refresh-btn'));
     document.getElementById('tracking-prev-btn')?.addEventListener('click', () => { if (trackingCurrentPage > 1) { trackingCurrentPage--; loadModule('tracking'); } });
     document.getElementById('tracking-next-btn')?.addEventListener('click', () => { trackingCurrentPage++; loadModule('tracking'); });
-	    document.getElementById('home-analytics-refresh')?.addEventListener('click', async () => { await Promise.all([loadHomeAnalytics(true), loadCargowiseProfile(true)]); showToast('Overview refreshed'); });
+	    document.getElementById('home-analytics-refresh')?.addEventListener('click', async () => { await loadHomeAnalytics(true); showToast('Charts refreshed'); });
 		    document.getElementById('shipment-kpi-clear-btn')?.addEventListener('click', () => clearShipmentKpiFilter());
 	    document.getElementById('shipment-kpi-bar')?.addEventListener('click', event => {
 	        const card = event.target.closest('[data-shipment-kpi]');
@@ -9197,27 +9207,25 @@ document.addEventListener('DOMContentLoaded', () => {
             renderProfile();
             openModal('profile-modal');
         });
-        // Relocate the full profile content into the modal (once)
+        // Show the full CargoWise organization profile directly in the Account tab.
         const _pfHost = document.getElementById('profile-full-content');
-        const _pfSlot = document.getElementById('home-profile-modal-slot');
+        const _pfSlot = document.getElementById('account-profile-slot');
         if (_pfHost && _pfSlot && _pfHost.parentElement !== _pfSlot) { _pfHost.style.display = ''; _pfSlot.appendChild(_pfHost); }
-        const openMyProfile = () => { openModal('home-profile-modal'); loadCargowiseProfile(); };
         document.getElementById('profile-menu-user').addEventListener('click', () => {
             closeProfileMenu();
             renderProfile();
             openModal('user-profile-modal');
         });
-        document.getElementById('home-profile-viewfull')?.addEventListener('click', openMyProfile);
-        document.getElementById('home-profile-modal-close')?.addEventListener('click', () => closeModal('home-profile-modal'));
-        document.getElementById('home-profile-modal-close-btn')?.addEventListener('click', () => closeModal('home-profile-modal'));
-        document.getElementById('home-profile-modal-refresh')?.addEventListener('click', async () => {
-            const btn = document.getElementById('home-profile-modal-refresh');
+        document.getElementById('account-refresh-btn')?.addEventListener('click', async () => {
+            const btn = document.getElementById('account-refresh-btn');
             btn?.classList.add('is-loading');
             if (btn) btn.disabled = true;
             try { await loadCargowiseProfile(true); showToast('Account refreshed'); }
             catch { showToast('Could not refresh account', 'error'); }
             finally { btn?.classList.remove('is-loading'); if (btn) btn.disabled = false; }
         });
+        document.getElementById('home-profile-modal-close')?.addEventListener('click', () => closeModal('home-profile-modal'));
+        document.getElementById('home-profile-modal-close-btn')?.addEventListener('click', () => closeModal('home-profile-modal'));
         document.getElementById('profile-menu-logout').addEventListener('click', requestLogout);
         document.getElementById('blocked-logout-btn').addEventListener('click', requestLogout);
         document.getElementById('toggle-password').addEventListener('click', () => {
