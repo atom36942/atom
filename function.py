@@ -1717,6 +1717,107 @@ async def func_postgres_query_generator_ai(*, app_state: any, db: str, ai: str, 
     sql = func_postgres_query_ai_validate_sql(sql=data.get("sql"), default_limit=default_limit, max_limit=max_limit, cache_postgres_schema_ai=cache_postgres_schema_ai)
     return {"sql": sql, "message": "SQL generated in the editor. Review before Run or Export.", "warnings": data.get("warnings") or []}
 
+async def func_jira_worklog_export(*, url: str, email: str, api_token: str, start_date: str, end_date: str) -> str:
+    """Exports Jira worklogs within a date range to a CSV file and returns the file path."""
+    import os
+    import uuid
+    import asyncio
+    import pandas as pd
+    from jira import JIRA
+
+    os.makedirs("tmp", exist_ok=True)
+    output_path = f"tmp/{uuid.uuid4().hex}.csv"
+
+    def _export():
+        jira = JIRA(server=url, basic_auth=(email, api_token))
+        log_rows, people = [], set()
+        for issue in jira.enhanced_search_issues(f"worklogDate >= '{start_date}' AND worklogDate <= '{end_date}'", maxResults=0):
+            if getattr(issue.fields, "assignee", None): people.add(issue.fields.assignee.displayName)
+            for w in jira.worklogs(issue.id):
+                if start_date <= w.started[:10] <= end_date:
+                    people.add(w.author.displayName)
+                    log_rows.append((w.author.displayName, w.started[:10], w.timeSpentSeconds / 3600))
+        cols = pd.date_range(start_date, end_date).strftime("%Y-%m-%d").tolist()
+        df = pd.DataFrame(log_rows, columns=["author", "date", "hours"])
+        if not df.empty: df = df.pivot_table(index="author", columns="date", values="hours", aggfunc="sum", fill_value=0)
+        df.reindex(index=sorted(people), columns=cols, fill_value=0).round(0).astype(int).to_csv(output_path)
+        return output_path
+
+    await asyncio.to_thread(_export)
+    return output_path
+
+async def func_otp_send_email(*, app_state: any, service: str, sender: str, email: str, otp: int) -> str:
+    """Sends OTP code via configured email service (ses, resend, azure)."""
+    import httpx
+    import orjson
+    import asyncio
+
+    if service == "ses":
+        if not app_state.client_ses: raise Exception("SES client not initialized")
+        app_state.client_ses.send_email(Source=sender, Destination={"ToAddresses": [email]}, Message={"Subject": {"Data": "your otp code"}, "Body": {"Html": {"Data": str(otp)}}})
+    elif service == "resend":
+        headers = {"Authorization": f"Bearer {app_state.config_resend_key}", "Content-Type": "application/json"}
+        payload = {"from": sender, "to": [email], "subject": "your otp code", "html": f"<p>Your OTP code is <strong>{otp}</strong>. It is valid for 10 minutes.</p>"}
+        async with httpx.AsyncClient() as client:
+            response = await client.post(app_state.config_resend_url, headers=headers, data=orjson.dumps(payload).decode("utf-8"))
+            if response.status_code != 200: raise Exception(f"failed to send email: {response.text}")
+    elif service == "azure":
+        if not app_state.client_azure_email: raise Exception("azure email client not configured")
+        message = {"senderAddress": sender, "recipients": {"to": [{"address": email}]}, "content": {"subject": "your otp code", "plainText": str(otp)}}
+        await asyncio.to_thread(lambda: app_state.client_azure_email.begin_send(message).result())
+    else:
+        raise Exception(f"email service {service} not supported")
+    return "done"
+
+async def func_otp_send_mobile(*, app_state: any, service: str, mobile: str, otp: int, sns_template: dict = None) -> any:
+    """Sends OTP code via configured mobile service (sns, fast2sms)."""
+    import httpx
+
+    if service == "sns":
+        if not app_state.client_sns: raise Exception("SNS client not initialized")
+        if sns_template:
+            app_state.client_sns.publish(
+                PhoneNumber=mobile,
+                Message=sns_template["message"].replace("{otp}", str(otp)),
+                MessageAttributes={
+                    "AWS.SNS.SMS.SenderID": {"DataType": "String", "StringValue": sns_template["sender_id"]},
+                    "AWS.MM.SMS.TemplateId": {"DataType": "String", "StringValue": sns_template["template_id"]},
+                    "AWS.MM.SMS.EntityId": {"DataType": "String", "StringValue": sns_template["entity_id"]},
+                    "AWS.SNS.SMS.SMSType": {"DataType": "String", "StringValue": "Transactional"}
+                }
+            )
+            return "done"
+        else:
+            app_state.client_sns.publish(PhoneNumber=mobile, Message=str(otp))
+            return "done"
+    elif service == "fast2sms":
+        params = {"authorization": app_state.config_fast2sms_key, "route": "otp", "variables_values": str(otp), "numbers": mobile}
+        async with httpx.AsyncClient() as client:
+            response = await client.get(app_state.config_fast2sms_url, params=params)
+            return response.json()
+    else:
+        raise Exception(f"mobile service {service} not supported")
+
+async def func_postgres_groupby_read(*, app_state: any, table: str, col: str, limit: int, page: int, agg: str, a_col: str, order: str, filter: list) -> dict:
+    """Executes a PostgreSQL GROUP BY query dynamically and returns the paginated results."""
+    import re
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)) or not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(col)) or (a_col != "*" and not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(a_col))):
+        raise Exception("invalid identifier")
+    
+    where_clause, values = await app_state.func_postgres_where_build(client_postgres=app_state.client_postgres_read_fallback, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, table=table, filter=filter, prefix="x.")
+    bind_idx = len(values) + 1
+    is_array = "[]" in (dt := app_state.cache_postgres_schema.get(table, {}).get(col, {}).get("datatype", "text").lower()) or "array" in dt
+    agg_sql = f'{agg}(*)' if agg == "count" and a_col == "*" else f'{agg}("{a_col}")'
+    order_sql = (("agg_val" if agg != "count" else "count(*)") if "count" in order else "item_col") + (" DESC" if "desc" in order else " ASC")
+    q_col = f'"{col}"'
+    sql = f'SELECT {"item_col" if is_array else "x."+q_col+" AS item_col"}, {agg_sql} AS agg_val FROM "{table}" x {f"CROSS JOIN LATERAL unnest(x."+q_col+") item_col" if is_array else ""} {where_clause} GROUP BY item_col ORDER BY {order_sql} LIMIT ${bind_idx} OFFSET ${bind_idx+1}'
+    values.extend([limit + 1, (page - 1) * limit])
+    
+    async with app_state.client_postgres_read_fallback.acquire() as conn:
+        rows = await conn.fetch(sql, *values)
+        ol = [{"item": row["item_col"], "value": row["agg_val"]} for row in rows]
+        return {"obj_list": ol[:limit], "has_next_page": len(ol) > limit}
+
 async def func_postgres_map_column(*, client_postgres: any, config_sql: str, is_json_value: int = 0) -> dict:
     """Execute a mapping SQL query and return a dictionary from the first two columns."""
     if not config_sql: return {}

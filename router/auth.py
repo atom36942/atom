@@ -102,7 +102,7 @@ async def func_api_auth_login_google(*, request:Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("role","int",1,app_state.config_allowed_users_role,None),("google_token","str",1,None,None),("source","int",0,None,None)])
-    id_info = id_token.verify_oauth2_token(id_token=ob["google_token"], request=requests.Request(), audience=app_state.config_google_login_client_id)
+    id_info = await asyncio.to_thread(id_token.verify_oauth2_token, id_token=ob["google_token"], request=requests.Request(), audience=app_state.config_google_login_client_id)
     if not id_info: raise Exception("invalid google token")
     async with app_state.client_postgres.acquire() as conn:
         records = await conn.fetch("SELECT * FROM users WHERE google_login_id=$1 AND role=$2;", id_info["sub"], ob["role"])
