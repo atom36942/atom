@@ -225,6 +225,7 @@ async def func_api_admin_blob_url_delete(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("service", "str", 1, app_state.config_blob_services, None), ("url", "list", 1, None, None)])
     service, urls = ob["service"], ob["url"]
+    if len(urls) > 500: raise Exception("maximum 500 URLs allowed per request")
     await app_state.func_blob_url_delete(app_state=app_state, service=service, urls=urls, user_id=None)
     return {"status": 1, "message": f"{len(urls)} {service} URLs processed"}
 
