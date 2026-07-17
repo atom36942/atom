@@ -1289,6 +1289,276 @@ async def func_postgres_schema_read_ai(*, client_postgres: any) -> dict:
         }
     return schema
 
+async def func_postgres_info_read(*, client_postgres: any) -> dict:
+    """Read comprehensive PostgreSQL database statistics, storage, activity, and schema information."""
+    async with client_postgres.acquire() as conn:
+        database_info = dict(await conn.fetchrow("""
+            SELECT
+                current_database() AS database_name,
+                current_user AS current_user,
+                inet_server_addr()::text AS server_address,
+                inet_server_port() AS server_port,
+                current_setting('server_version') AS server_version,
+                current_setting('TimeZone') AS timezone,
+                current_setting('max_connections') AS max_connections,
+                current_setting('shared_buffers') AS shared_buffers,
+                current_setting('work_mem') AS work_mem,
+                current_setting('maintenance_work_mem') AS maintenance_work_mem,
+                current_setting('effective_cache_size', true) AS effective_cache_size,
+                pg_postmaster_start_time()::text AS server_started_at,
+                pg_get_userbyid(d.datdba) AS database_owner,
+                pg_encoding_to_char(d.encoding) AS database_encoding,
+                d.datcollate AS database_collation,
+                d.datctype AS database_ctype,
+                d.datallowconn AS allow_connections,
+                d.datconnlimit AS connection_limit,
+                pg_database_size(current_database()) AS database_size_bytes,
+                pg_size_pretty(pg_database_size(current_database())) AS database_size,
+                now()::text AS checked_at
+            FROM pg_database d
+            WHERE d.datname = current_database();
+        """))
+        relation_counts = dict(await conn.fetchrow("""
+            WITH user_schemas AS (
+                SELECT oid
+                FROM pg_namespace
+                WHERE nspname NOT IN ('pg_catalog', 'information_schema')
+                  AND nspname NOT LIKE 'pg_%'
+            ),
+            user_relations AS (
+                SELECT c.relkind
+                FROM pg_class c
+                JOIN user_schemas n ON n.oid = c.relnamespace
+            )
+            SELECT
+                (SELECT COUNT(*)::int FROM user_schemas) AS schema_count,
+                COUNT(*) FILTER (WHERE relkind IN ('r', 'p'))::int AS table_count,
+                COUNT(*) FILTER (WHERE relkind = 'v')::int AS view_count,
+                COUNT(*) FILTER (WHERE relkind = 'm')::int AS materialized_view_count,
+                COUNT(*) FILTER (WHERE relkind = 'i')::int AS index_count
+            FROM user_relations;
+        """))
+        largest_relations = [dict(row) for row in await conn.fetch("""
+            SELECT
+                n.nspname AS schema_name,
+                c.relname AS relation_name,
+                CASE c.relkind
+                    WHEN 'r' THEN 'table'
+                    WHEN 'p' THEN 'partitioned_table'
+                    WHEN 'm' THEN 'materialized_view'
+                    WHEN 'i' THEN 'index'
+                    WHEN 'v' THEN 'view'
+                    ELSE c.relkind::text
+                END AS relation_type,
+                pg_total_relation_size(c.oid) AS total_size_bytes,
+                pg_size_pretty(pg_total_relation_size(c.oid)) AS total_size
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+              AND n.nspname NOT LIKE 'pg_%'
+              AND c.relkind IN ('r', 'p', 'm', 'i')
+            ORDER BY pg_total_relation_size(c.oid) DESC
+            LIMIT 10;
+        """)]
+        storage_info = dict(await conn.fetchrow("""
+            SELECT
+                pg_size_pretty(COALESCE(SUM(pg_table_size(c.oid)), 0)::bigint) AS table_size,
+                pg_size_pretty(COALESCE(SUM(pg_indexes_size(c.oid)), 0)::bigint) AS index_size,
+                pg_size_pretty(COALESCE(SUM(pg_total_relation_size(c.oid)), 0)::bigint) AS relation_total_size
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+              AND n.nspname NOT LIKE 'pg_%'
+              AND c.relkind IN ('r', 'p', 'm');
+        """))
+        activity_info = dict(await conn.fetchrow("""
+            SELECT
+                COUNT(*)::int AS connection_count,
+                COUNT(*) FILTER (WHERE state = 'active')::int AS active_connection_count,
+                COUNT(*) FILTER (WHERE state = 'idle')::int AS idle_connection_count,
+                COUNT(*) FILTER (WHERE state = 'idle in transaction')::int AS idle_transaction_count,
+                COUNT(*) FILTER (WHERE wait_event IS NOT NULL)::int AS waiting_connection_count,
+                COUNT(*) FILTER (WHERE wait_event_type = 'Lock')::int AS lock_wait_connection_count,
+                COUNT(*) FILTER (WHERE state = 'active' AND query_start < now() - interval '5 minutes')::int AS active_over_5min_count,
+                COUNT(*) FILTER (WHERE state = 'idle in transaction' AND xact_start < now() - interval '5 minutes')::int AS idle_transaction_over_5min_count,
+                COALESCE(EXTRACT(EPOCH FROM MAX(now() - query_start) FILTER (WHERE state = 'active' AND query_start IS NOT NULL))::bigint, 0) AS max_active_query_age_seconds,
+                COALESCE(EXTRACT(EPOCH FROM MAX(now() - xact_start) FILTER (WHERE state = 'idle in transaction' AND xact_start IS NOT NULL))::bigint, 0) AS max_idle_transaction_age_seconds
+            FROM pg_stat_activity
+            WHERE datname = current_database();
+        """))
+        stats_info = dict(await conn.fetchrow("""
+            SELECT
+                xact_commit,
+                xact_rollback,
+                deadlocks,
+                temp_files,
+                temp_bytes,
+                pg_size_pretty(temp_bytes) AS temp_size,
+                tup_returned,
+                tup_fetched,
+                tup_inserted,
+                tup_updated,
+                tup_deleted,
+                blks_read,
+                blks_hit,
+                CASE
+                    WHEN xact_commit + xact_rollback = 0 THEN NULL
+                    ELSE ROUND((xact_rollback::numeric / (xact_commit + xact_rollback)) * 100, 2)::float8
+                END AS rollback_ratio_pct,
+                CASE
+                    WHEN blks_hit + blks_read = 0 THEN NULL
+                    ELSE ROUND((blks_hit::numeric / (blks_hit + blks_read)) * 100, 2)::float8
+                END AS cache_hit_ratio_pct
+            FROM pg_stat_database
+            WHERE datname = current_database();
+        """))
+        stats_view_info = dict(await conn.fetchrow("SELECT to_regclass('pg_catalog.pg_stat_checkpointer') IS NOT NULL AS has_checkpointer_stats;"))
+        if stats_view_info["has_checkpointer_stats"]:
+            bgwriter_info = dict(await conn.fetchrow("""
+                SELECT
+                    cp.num_timed AS checkpoints_timed,
+                    cp.num_requested AS checkpoints_req,
+                    cp.write_time AS checkpoint_write_time,
+                    cp.sync_time AS checkpoint_sync_time,
+                    cp.buffers_written AS buffers_checkpoint,
+                    bg.buffers_clean,
+                    bg.maxwritten_clean,
+                    NULL::bigint AS buffers_backend,
+                    NULL::bigint AS buffers_backend_fsync,
+                    bg.buffers_alloc,
+                    cp.stats_reset::text AS bgwriter_stats_reset_at
+                FROM pg_stat_checkpointer cp
+                CROSS JOIN pg_stat_bgwriter bg;
+            """))
+        else:
+            bgwriter_info = dict(await conn.fetchrow("""
+                SELECT
+                    checkpoints_timed,
+                    checkpoints_req,
+                    checkpoint_write_time,
+                    checkpoint_sync_time,
+                    buffers_checkpoint,
+                    buffers_clean,
+                    maxwritten_clean,
+                    buffers_backend,
+                    buffers_backend_fsync,
+                    buffers_alloc,
+                    stats_reset::text AS bgwriter_stats_reset_at
+                FROM pg_stat_bgwriter;
+            """))
+        table_stats_info = dict(await conn.fetchrow("""
+            SELECT
+                COALESCE(SUM(n_live_tup), 0)::bigint AS live_tuple_estimate,
+                COALESCE(SUM(n_dead_tup), 0)::bigint AS dead_tuple_estimate,
+                CASE
+                    WHEN SUM(n_live_tup + n_dead_tup) = 0 THEN NULL
+                    ELSE ROUND((SUM(n_dead_tup)::numeric / SUM(n_live_tup + n_dead_tup)) * 100, 2)::float8
+                END AS dead_tuple_pct,
+                COALESCE(SUM(seq_scan), 0)::bigint AS seq_scan_count,
+                COALESCE(SUM(idx_scan), 0)::bigint AS idx_scan_count,
+                CASE
+                    WHEN SUM(seq_scan + idx_scan) = 0 THEN NULL
+                    ELSE ROUND((SUM(seq_scan)::numeric / SUM(seq_scan + idx_scan)) * 100, 2)::float8
+                END AS seq_scan_pct,
+                COALESCE(SUM(vacuum_count), 0)::bigint AS manual_vacuum_count,
+                COALESCE(SUM(autovacuum_count), 0)::bigint AS autovacuum_count,
+                COALESCE(SUM(analyze_count), 0)::bigint AS manual_analyze_count,
+                COALESCE(SUM(autoanalyze_count), 0)::bigint AS autoanalyze_count
+            FROM pg_stat_user_tables;
+        """))
+        table_io_info = dict(await conn.fetchrow("""
+            SELECT
+                COALESCE(SUM(heap_blks_read), 0)::bigint AS table_heap_blks_read,
+                COALESCE(SUM(heap_blks_hit), 0)::bigint AS table_heap_blks_hit,
+                COALESCE(SUM(idx_blks_read), 0)::bigint AS index_blks_read,
+                COALESCE(SUM(idx_blks_hit), 0)::bigint AS index_blks_hit,
+                CASE
+                    WHEN SUM(heap_blks_read + heap_blks_hit) = 0 THEN NULL
+                    ELSE ROUND((SUM(heap_blks_hit)::numeric / SUM(heap_blks_read + heap_blks_hit)) * 100, 2)::float8
+                END AS table_cache_hit_ratio_pct,
+                CASE
+                    WHEN SUM(idx_blks_read + idx_blks_hit) = 0 THEN NULL
+                    ELSE ROUND((SUM(idx_blks_hit)::numeric / SUM(idx_blks_read + idx_blks_hit)) * 100, 2)::float8
+                END AS index_cache_hit_ratio_pct
+            FROM pg_statio_user_tables;
+        """))
+        top_dead_tuple_relations = [dict(row) for row in await conn.fetch("""
+            SELECT
+                schemaname AS schema_name,
+                relname AS relation_name,
+                n_live_tup AS live_tuple_estimate,
+                n_dead_tup AS dead_tuple_estimate,
+                CASE
+                    WHEN n_live_tup + n_dead_tup = 0 THEN NULL
+                    ELSE ROUND((n_dead_tup::numeric / (n_live_tup + n_dead_tup)) * 100, 2)::float8
+                END AS dead_tuple_pct,
+                last_autovacuum::text AS last_autovacuum_at,
+                last_autoanalyze::text AS last_autoanalyze_at
+            FROM pg_stat_user_tables
+            WHERE n_dead_tup > 0
+            ORDER BY n_dead_tup DESC
+            LIMIT 5;
+        """)]
+        extensions = [dict(row) for row in await conn.fetch("""
+            SELECT
+                e.extname AS name,
+                e.extversion AS version,
+                n.nspname AS schema_name
+            FROM pg_extension e
+            JOIN pg_namespace n ON n.oid = e.extnamespace
+            ORDER BY e.extname;
+        """)]
+    max_connections = int(database_info.get("max_connections") or 0)
+    connection_count = int(activity_info.get("connection_count") or 0)
+    activity_info["connection_utilization_pct"] = round((connection_count / max_connections) * 100, 2) if max_connections else None
+    return {**database_info, **relation_counts, **storage_info, **activity_info, **stats_info, **bgwriter_info, **table_stats_info, **table_io_info, "extension_count": len(extensions), "extensions": extensions, "largest_relations": largest_relations, "top_dead_tuple_relations": top_dead_tuple_relations}
+
+async def func_blob_url_delete(*, app_state: any, service: str, urls: list, user_id: int = None) -> list:
+    """Deletes S3 or Azure blobs by their URLs, optionally enforcing user ownership."""
+    import urllib.parse
+    import asyncio
+    if (service == "s3" and not app_state.client_s3) or (service == "azure" and not app_state.client_azure_blob):
+        raise Exception("blob client not initialized")
+    tasks = []
+    deleted_urls = []
+    if service == "s3":
+        s3_batches = {}
+        for url in urls:
+            if not url: continue
+            parsed = urllib.parse.urlparse(url)
+            host_parts = parsed.netloc.split(".")
+            if host_parts[0] != "s3":
+                bucket = host_parts[0]
+                key = parsed.path.lstrip("/")
+            else:
+                parts = parsed.path.lstrip("/").split("/", 1)
+                if len(parts) != 2: continue
+                bucket, key = parts[0], parts[1]
+            decoded_key = urllib.parse.unquote(key)
+            if user_id is not None and not decoded_key.startswith(f"user_{user_id}/"): continue
+            s3_batches.setdefault(bucket, []).append({"Key": decoded_key})
+            deleted_urls.append(url)
+        for bucket, keys in s3_batches.items():
+            for i in range(0, len(keys), 1000):
+                tasks.append(app_state.client_s3.delete_objects(Bucket=bucket, Delete={"Objects": keys[i:i+1000], "Quiet": True}))
+    elif service == "azure":
+        for url in urls:
+            if not url: continue
+            parsed = urllib.parse.urlparse(url)
+            parts = parsed.path.lstrip("/").split("/", 1)
+            if len(parts) != 2: continue
+            container, key = parts[0], parts[1]
+            decoded_key = urllib.parse.unquote(key)
+            if user_id is not None and not decoded_key.startswith(f"user_{user_id}/"): continue
+            tasks.append(app_state.client_azure_blob.get_blob_client(container=container, blob=decoded_key).delete_blob())
+            deleted_urls.append(url)
+    if tasks:
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for res in results:
+            if isinstance(res, Exception):
+                if type(res).__name__ != "ResourceNotFoundError": raise res
+    return deleted_urls
+
 async def func_postgres_map_column(*, client_postgres: any, config_sql: str, is_json_value: int = 0) -> dict:
     """Execute a mapping SQL query and return a dictionary from the first two columns."""
     if not config_sql: return {}

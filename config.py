@@ -146,7 +146,7 @@ config_api = {
 "/my/message-thread": {"id": 57, "is_token": 1},
 "/my/object-create-mongodb": {"id": 58, "is_token": 1},
 "/my/object-blob-delete": {"id": 59, "is_token": 1},
-"/my/blob-url-delete": {"id": 60, "is_token": 1},
+"/my/blob-delete-url": {"id": 60, "is_token": 1},
 # private
 "/private/send-email": {"id": 61, "is_token": 1},
 "/private/blob-upload-file": {"id": 62, "is_token": 1},
@@ -174,7 +174,7 @@ config_api = {
 "/admin/mongodb-import": {"id": 11, "is_token": 1, "user_check_role": ["token", [1]]},
 "/admin/blob-container-read": {"id": 10, "is_token": 1, "user_check_role": ["inmemory", [1]]},
 "/admin/blob-container-ops": {"id": 12, "is_token": 1, "user_check_role": ["token", [1]]},
-"/admin/blob-url-delete": {"id": 13, "is_token": 1, "user_check_role": ["token", [1]]},
+"/admin/blob-delete-url": {"id": 13, "is_token": 1, "user_check_role": ["token", [1]]},
 "/admin/postgres-info": {"id": 84, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["inmemory", 300, 0]},
 "/admin/postgres-schema": {"id": 85, "is_token": 1, "user_check_role": ["token", [1, 2]], "api_cache_sec": ["inmemory", 300, 0]},
 "/admin/postgres-query-runner-write": {"id": 6, "is_token": 1, "user_check_role": ["realtime", [1]]},
