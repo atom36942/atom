@@ -185,30 +185,21 @@ async def func_api_my_blob_url_delete(*, request: Request):
     await app_state.func_blob_url_delete(app_state=app_state, service=service, urls=urls, user_id=user_id)
     return {"status": 1, "message": f"{len(urls)} {service} URLs processed"}
 
-@router.post("/my/object-blob-delete")
-async def func_api_my_object_blob_delete(*, request: Request):
+@router.post("/my/blob-delete-all")
+async def func_api_my_blob_delete_all(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_table_list, None), ("cols", "list:str", 1, None, None), ("ids", "list:int", 1, None, None)])
-    if app_state.config_batch_item_limit and len(ob["ids"]) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
-    schema = app_state.cache_postgres_schema.get(ob["table"], {})
-    if "created_by_id" not in schema: raise Exception(f"table '{ob['table']}' lacks required 'created_by_id' column for ownership tracking")
-    for col in ob["cols"]:
-        if col not in schema: raise Exception(f"column '{col}' not found in table '{ob['table']}'")
-    id_list, user_id = [int(x) for x in ob["ids"]], request.state.user["id"]
-    cols_query = ", ".join(f'"{c}"' for c in ob["cols"])
+    user_id = request.state.user["id"]
+    limit = 500
     async with app_state.client_postgres.acquire() as conn:
-        rows = await conn.fetch(f"""SELECT "id", {cols_query} FROM "{ob['table']}" WHERE "id"=ANY($1::bigint[]) AND "created_by_id"=$2""", id_list, user_id)
-    if not rows: return {"status": 1, "message": "0 ids deleted"}
-    s3_urls, azure_urls = [], []
-    for row in rows:
-        for col in ob["cols"]:
-            if not (url := row[col]): continue
-            if "blob.core.windows.net" in url: azure_urls.append(url)
-            elif "amazonaws.com" in url: s3_urls.append(url)
-    if s3_urls: await app_state.func_blob_url_delete(app_state=app_state, service="s3", urls=s3_urls, user_id=None)
-    if azure_urls: await app_state.func_blob_url_delete(app_state=app_state, service="azure", urls=azure_urls, user_id=None)
-    set_clause = ", ".join(f'"{c}"=NULL' for c in ob["cols"])
-    async with app_state.client_postgres.acquire() as conn:
-        await conn.execute(f"""UPDATE "{ob['table']}" SET {set_clause} WHERE "id"=ANY($1::bigint[]) AND "created_by_id"=$2""", [r["id"] for r in rows], user_id)
-    return {"status": 1, "message": f"{len(rows)} ids deleted"}
+        records = await conn.fetch("SELECT id, file_url, service FROM blob WHERE created_by_id = $1 AND deleted_at IS NULL LIMIT $2", user_id, limit + 1)
+        if not records: return {"status": 1, "message": {"deleted_count": 0, "has_more": False}}
+        has_more = len(records) > limit
+        process_records = records[:limit]
+        s3_urls = [r["file_url"] for r in process_records if r["service"] == "s3"]
+        azure_urls = [r["file_url"] for r in process_records if r["service"] == "azure"]
+        if s3_urls: await app_state.func_blob_url_delete(app_state=app_state, service="s3", urls=s3_urls, user_id=user_id)
+        if azure_urls: await app_state.func_blob_url_delete(app_state=app_state, service="azure", urls=azure_urls, user_id=user_id)
+        ids_to_update = [r["id"] for r in process_records]
+        await conn.execute("UPDATE blob SET deleted_at = NOW(), deleted_by_id = $1 WHERE id = ANY($2::bigint[])", user_id, ids_to_update)
+    return {"status": 1, "message": {"deleted_count": len(process_records), "has_more": has_more}}

@@ -145,7 +145,7 @@ config_api = {
 "/my/message-inbox": {"id": 56, "is_token": 1},
 "/my/message-thread": {"id": 57, "is_token": 1},
 "/my/object-create-mongodb": {"id": 58, "is_token": 1},
-"/my/object-blob-delete": {"id": 59, "is_token": 1},
+"/my/blob-delete-all": {"id": 59, "is_token": 1},
 "/my/blob-delete-url": {"id": 60, "is_token": 1},
 # private
 "/private/send-email": {"id": 61, "is_token": 1},
