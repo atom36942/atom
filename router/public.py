@@ -42,26 +42,8 @@ async def func_api_public_object_read(*, request: Request):
 async def func_api_public_converter_number(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("datatype", "str", 1, ["smallint", "int", "bigint"], None), ("mode", "str", 1, ["encode", "decode"], None), ("x", "str", 1, None, None)])
-    type_limits = {"smallint": 2, "int": 5, "bigint": 11}; charset = "abcdefghijklmnopqrstuvwxyz0123456789_-.@#"
-    if oq["datatype"] not in type_limits: raise ValueError(f"invalid type: {oq['datatype']}, allowed: {list(type_limits.keys())}")
-    base = len(charset); max_len = type_limits[oq["datatype"]]
-    if oq["mode"] == "encode":
-        val_str = str(oq["x"]); val_len = len(val_str)
-        if val_len > max_len: raise ValueError(f"input too long {val_len} > {max_len}")
-        result_num = val_len
-        for char in val_str:
-            char_idx = charset.find(char)
-            if char_idx == -1: raise ValueError("invalid character in input")
-            result_num = result_num * base + char_idx
-        return {"status": 1, "message": result_num}
-    if oq["mode"] == "decode":
-        try: num_val = int(oq["x"])
-        except Exception: raise ValueError("invalid integer for decoding")
-        decoded_chars = []
-        while num_val > 0:
-            num_val, reminder = divmod(num_val, base)
-            decoded_chars.append(charset[reminder])
-        return {"status": 1, "message": "".join(decoded_chars[::-1][1:]) if decoded_chars else ""}
+    res = await app_state.func_converter_number(datatype=oq["datatype"], mode=oq["mode"], x=oq["x"])
+    return {"status": 1, "message": res}
 
 @router.get("/public/otp-verify")
 async def func_api_public_otp_verify(*, request: Request):
