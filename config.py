@@ -184,20 +184,6 @@ config_api = {
 "/admin/mssql-query-runner-write": {"id": 21, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/mssql-query-runner-read": {"id": 23, "is_token": 1, "user_check_role": ["token", [1,2]]},
 "/admin/mssql-query-runner-read-export": {"id": 89, "is_token": 1, "user_check_role": ["realtime", [1,2]]},
-# myshipment
-"/myshipment/my-account": {"id": 24, "is_token": 1, "user_check_role": ["token", [2]], "api_cache_sec": ["inmemory", 60, 1]},
-"/myshipment/my-purchase-orders": {"id": 25, "is_token": 1, "user_check_role": ["token", [2]], "api_cache_sec": ["inmemory", 60, 1]},
-"/myshipment/my-purchase-orders-line-items": {"id": 33, "is_token": 1, "user_check_role": ["token", [2]], "api_cache_sec": ["inmemory", 60, 1]},
-"/myshipment/my-filter-options": {"id": 91, "is_token": 1, "user_check_role": ["token", [2]], "api_cache_sec": ["inmemory", 60, 1]},
-"/myshipment/my-shipments": {"id": 26, "is_token": 1, "user_check_role": ["token", [2]], "api_cache_sec": ["inmemory", 60, 1]},
-"/myshipment/my-containers": {"id": 27, "is_token": 1, "user_check_role": ["token", [2]], "api_cache_sec": ["inmemory", 60, 1]},
-"/myshipment/my-tracking": {"id": 28, "is_token": 1, "user_check_role": ["token", [2]], "api_cache_sec": ["inmemory", 60, 1]},
-"/myshipment/my-documents": {"id": 30, "is_token": 1, "user_check_role": ["token", [2]], "api_cache_sec": ["inmemory", 60, 1]},
-"/myshipment/my-documents-download": {"id": 34, "is_token": 1, "user_check_role": ["token", [2]]},
-"/myshipment/my-kpi": {"id": 31, "is_token": 1, "user_check_role": ["token", [2]], "api_cache_sec": ["inmemory", 60, 1]},
-"/myshipment/my-charts": {"id": 93, "is_token": 1, "user_check_role": ["token", [2]], "api_cache_sec": ["inmemory", 60, 1]},
-"/myshipment/my-mgh-ask": {"id": 92, "is_token": 1, "user_check_role": ["token", [2]]},
-"/myshipment/user-controlling-360": {"id": 32, "is_token": 0, "api_cache_sec": ["inmemory", 60, 0]},
 }
 
 config_column_int_mapping = {
