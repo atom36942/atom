@@ -141,8 +141,10 @@ async def func_api_admin_blob_url_delete(*, request: Request):
 @router.post("/admin/postgres-query-runner-write")
 async def func_api_admin_postgres_query_runner_write(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
-    res = await app_state.func_postgres_query_runner_write(client_postgres=app_state.client_postgres, sql=ob["sql"])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("db", "str", 0, ["main", "external"], "main"), ("sql", "str", 1, None, None)])
+    client_postgres = app_state.client_postgres_read_fallback if ob["db"] == "main" else app_state.client_postgres_external
+    if ob["db"] == "external": raise Exception("write is not allowed on external postgres URL")
+    res = await app_state.func_postgres_query_runner_write(client_postgres=client_postgres, sql=ob["sql"])
     return {"status": 1, "message": res}
 
 @router.post("/admin/postgres-query-runner-read")
