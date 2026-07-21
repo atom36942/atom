@@ -1,4 +1,5 @@
 import subprocess
+import os
 
 REPO_URL = "https://github.com/atom36942/atom.git"
 
@@ -18,6 +19,9 @@ files_to_sync = [
     ".gitignore",
 
 ]
+
+if not os.path.exists("requirements.txt"):
+    files_to_sync.append("requirements.txt")
 
 print(f"Fetching latest changes from {REPO_URL}...\n")
 subprocess.run(["git", "fetch", REPO_URL, "main"])
