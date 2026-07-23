@@ -1,35 +1,29 @@
 # deny
 *
 
-# flow
+# files
 !function.py
-!config.py
-!config_extend.py
 !function_extend.py
+!config_extend.py
+!config.py
 !main.py
-!router/
-!router/**
-!script/
-!script/**
-!static/
-!static/**
-!drive/
-!drive/**
-
-# misc
 !sync.py
-!.vscode/
 !requirements.txt
 !Dockerfile
 !readme.md
-!/.gitignore
-!.dockerignore
-!.vscode/settings.json
-!.vscode/launch.json
-!.github/
-!.github/**
-!infra/
-!infra/**
+!.gitignore.md
+
+# folder
+!router/
+!router/**
+!static/
+!static/**
+!script/
+!script/**
+!.vscode/
+!.vscode/**
+!drive/
+!drive/**
 
 # ignore
 __pycache__/
