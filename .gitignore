@@ -24,6 +24,8 @@
 !.vscode/**
 !drive/
 !drive/**
+!docs/
+!docs/**
 
 # ignore
 __pycache__/
