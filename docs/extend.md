@@ -144,4 +144,6 @@ venv/bin/pip install -r requirements.txt
 | Enable a service | Set its `config_*_url` / key (in `.env` or `config_extend.py`) |
 | Update Atom | `python sync.py` — extensions are preserved |
 
-See [about.md](about.md) for the architecture and [setup.md](setup.md) for installation.
+---
+
+📚 [Back to README](../readme.md)

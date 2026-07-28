@@ -1,4 +1,13 @@
-# Direct Deployment
+# Documentation
+
+- [about.md](docs/about.md) — Architecture overview: components, request lifecycle, and key features.
+- [lifespan.md](docs/lifespan.md) — Startup & shutdown internals: client init, caches, schema, flush loop.
+- [middleware.md](docs/middleware.md) — The request pipeline: token, auth/role checks, rate-limit, cache, logging.
+- [setup.md](docs/setup.md) — Install, configure, run (local & Docker), workers, and the secrets to override.
+- [config.md](docs/config.md) — Full reference for every `config.py` key, grouped by purpose.
+- [extend.md](docs/extend.md) — Add routes, logic, tables, and workers without editing core files; updating via `sync.py`.
+
+# Deployment
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom
@@ -11,15 +20,7 @@ venv/bin/python main.py
 venv/bin/uvicorn main:app --reload
 ```
 
-# Docker Deployment
-```bash
-git clone https://github.com/atom36942/atom.git
-cd atom
-docker build -t atom .
-docker run --rm -p 8000:8000 atom
-```
-
-# Sample Local Env
+# Sample Env
 ```bash
 config_postgres_url=postgresql://atom:123456@127.0.0.1:5432/postgres?sslmode=disable
 config_postgres_url_read=postgresql://user_read:123456@127.0.0.1:5432/postgres?sslmode=disable

@@ -132,3 +132,7 @@ Atom is built to be extended without editing core files, so framework updates vi
 - **Enable an integration** simply by supplying its config — no code changes required.
 
 See [extend.md](extend.md) for the full guide, including adding tables, workers, and updating the framework with `sync.py`.
+
+---
+
+📚 [Back to README](../readme.md)

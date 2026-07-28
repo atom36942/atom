@@ -133,3 +133,7 @@ It fetches `main`, then checks out the core files (`main.py`, `function.py`, `co
 ## Next Steps
 
 See [about.md](about.md) for the architecture and how to extend Atom with your own routes and logic.
+
+---
+
+📚 [Back to README](../readme.md)

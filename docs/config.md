@@ -176,24 +176,26 @@ Names of the interchangeable providers Atom supports for each capability. Used t
 
 ## Structured config (dicts)
 
-### `config_sql`
+The remaining settings are dictionaries. Each is documented as its own section below.
+
+## `config_sql`
 Named SQL snippets loaded into caches at startup — e.g. `users_role`, `users_deactivated`, `users_deleted` feed the in-memory maps the middleware checks against, and `config` loads the `config` table into `cache_config`.
 
-### `config_table`
+## `config_table`
 Per-table operational settings, keyed by table name:
 - `buffer_limit` — override the default flush threshold for high-write tables.
 - `retention_day` — how long log/otp rows are kept before cleanup scripts purge them.
 
-### `config_regex`
+## `config_regex`
 Validation patterns applied by `func_regex_check` on write. Each entry is `[pattern, error_message]` — e.g. `username` and `password` rules. Column-level `regex` in `config_postgres` complements this.
 
-### `config_dropdown`
+## `config_dropdown`
 Enumerated value lists (e.g. `gender`) surfaced via `/info` for front-end dropdowns.
 
-### `config_column_int_mapping`
+## `config_column_int_mapping`
 Human-readable labels for integer-coded columns (e.g. `worker_status`: `1 → Processing`), surfaced via `/info`.
 
-### `config_api`
+## `config_api`
 The **per-endpoint policy table**. It maps each route path to a dict of policy fields; the middleware in `main.py` looks up the current path and enforces them **in order** before the handler runs. A path with no entry is treated as open (no token, no checks).
 
 **Fields (each key of an entry):**
@@ -232,14 +234,14 @@ Compare the cached public read — no token, response cached 100s:
 "/public/object-read": {"id": 14, "is_token": 0, "api_cache_sec": ["inmemory", 100, 0]},
 ```
 
-### `config_postgres`
+## `config_postgres`
 The **declarative database schema**, applied by `func_postgres_schema_init` at startup when `config_is_enable_postgres_schema_init = 1`. It has four top-level keys: `extension`, `table`, `control`, `sql`.
 
-#### `extension`
+### `extension`
 List of Postgres extensions to ensure exist (created if missing; skipped with a warning if the DB user lacks privileges):
 `postgis` (spatial types/indexes), `pg_trgm` (trigram/fuzzy text search), `btree_gin` (GIN indexes over scalar columns).
 
-#### `table`
+### `table`
 A dict of `table_name → [column specs]`. **Rules enforced at init:** the first column of every table must be exactly `{"name":"id","datatype":"bigserial","is_primary":1}`; only one primary column; no duplicate or reserved-word column names.
 
 Each column spec is a dict. Supported keys:
@@ -258,7 +260,7 @@ Each column spec is a dict. Supported keys:
 | `in` | Allowed value set (e.g. `(1,2,3,4)` for status enums). |
 | `old` | Previous column name — enables a **safe rename** instead of drop+create. |
 
-#### `control`
+### `control`
 Toggles that decide **how aggressive the auto-migration is** and which safety guards apply. All are read in `func_postgres_schema_init`; defaults shown are what applies if the key is omitted.
 
 | Control key | Default | What it does |
@@ -282,15 +284,13 @@ Toggles that decide **how aggressive the auto-migration is** and which safety gu
 
 > Several keys also accept legacy aliases (e.g. `is_disable_drop_table`) for backward compatibility, but prefer the names above.
 
-#### `sql`
+### `sql`
 A dict of extra raw SQL run during init (e.g. custom indexes/constraints named `index_*`, `unique_*`, `check_*`, which init registers so it won't duplicate them). Empty by default.
 
 **Shipped tables:** `users`, `test`, `config`, `otp`, `blob`, `message`, `notification`, `comment_test`, `log_api`, `log_users_password`, `log_users_delete`, `jobseeker`. See [extend.md](extend.md#4-add-or-change-database-tables) for adding your own.
 
 ---
 
-## See also
+---
 
-- [about.md](about.md) — architecture overview
-- [setup.md](setup.md) — installation & the secrets to override
-- [extend.md](extend.md) — extending config without editing core files
+📚 [Back to README](../readme.md)
