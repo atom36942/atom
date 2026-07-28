@@ -1,11 +1,30 @@
 # Documentation
 
+**Getting started**
 - [about.md](docs/about.md) — Architecture overview: components, request lifecycle, and key features.
-- [lifespan.md](docs/lifespan.md) — Startup & shutdown internals: client init, caches, schema, flush loop.
-- [middleware.md](docs/middleware.md) — The request pipeline: token, auth/role checks, rate-limit, cache, logging.
 - [setup.md](docs/setup.md) — Install, configure, run (local & Docker), workers, and the secrets to override.
 - [config.md](docs/config.md) — Full reference for every `config.py` key, grouped by purpose.
+
+**Internals**
+- [lifespan.md](docs/lifespan.md) — Startup & shutdown internals: client init, caches, schema, flush loop.
+- [middleware.md](docs/middleware.md) — The request pipeline: token, auth/role checks, rate-limit, cache, logging.
+
+**Features**
+- [auth.md](docs/auth.md) — Authentication: signup, the login methods, JWT tokens, roles, and OTP.
+- [crud.md](docs/crud.md) — Generic CRUD: create/read/update/delete any table, filters, relations, group-by.
+- [messaging.md](docs/messaging.md) — In-app direct messages and notifications: inbox, threads, read state.
+- [blob.md](docs/blob.md) — File storage over S3 / Azure: upload, presigned URLs, preview, delete.
+- [comms.md](docs/comms.md) — Send email (SES/Resend/Azure) and SMS (SNS/Fast2SMS) via pluggable providers.
+- [admin.md](docs/admin.md) — Admin toolkit: query runners, AI SQL, imports, schema info, cache refresh.
+- [workers.md](docs/workers.md) — Background workers: queue consumers, the worker-status retry pattern, cleanup jobs.
+- [security.md](docs/security.md) — The layered security model and a production hardening checklist.
+
+**Building on Atom**
+- [router.md](docs/router.md) — How to add an API: naming, param reading, thin routes, and response structure.
 - [extend.md](docs/extend.md) — Add routes, logic, tables, and workers without editing core files; updating via `sync.py`.
+
+**Help**
+- [faq.md](docs/faq.md) — Short answers to common "how do I…" questions.
 
 # Deployment
 ```bash
