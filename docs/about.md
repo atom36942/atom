@@ -39,6 +39,8 @@ One file for all settings, organized in sections:
 - **Table / Column / SQL** — declarative table definitions, column rules, and reusable SQL.
 - **Per-tier API rules** — for each route: whether a token is required, role/deactivation/deletion checks, rate limits, and cache TTLs.
 
+See [config.md](config.md) for a full, grouped reference of every key.
+
 ### `router/` — API endpoints
 Endpoints are split by access tier and loaded in a fixed order:
 
@@ -51,14 +53,18 @@ Endpoints are split by access tier and loaded in a fixed order:
 | `private` | Server-side actions — send email, blob upload / SAS |
 | `admin` | Privileged ops — DB/schema info, query runner, imports, AI query generation, sync |
 
-### `static/`, `script/`, `sync.py`
-- **`static/`** serves HTML and assets at `/static`, including the built-in API console.
-- **`script/`** holds standalone processes run outside the request cycle — queue consumers, batch ingestion/cleanup, resume parsing, user-deletion workers.
-- **`sync.py`** fetches the latest core files from the upstream repo (`git fetch` + `checkout FETCH_HEAD`), updating the framework while leaving your extension files untouched.
+### `static/` — Served assets
+Serves HTML and static files at `/static`, including the built-in API console rendered at `/`.
+
+### `script/` — Workers & jobs
+Standalone processes run outside the request cycle — queue consumers, batch ingestion/cleanup, resume parsing, and user-deletion workers. Started as separate processes when needed.
+
+### `sync.py` — Framework updater
+Fetches the latest core files from the upstream repo (`git fetch` + `checkout FETCH_HEAD`), updating the framework while leaving your extension files (`config_extend.py`, `function_extend.py`, `.env`) untouched.
 
 ## Request Lifecycle
 
-Every request flows through a single middleware before reaching its handler:
+Every request flows through a single HTTP middleware — defined in [`main.py`](../main.py) (`@app.middleware("http")`) — before reaching its handler. The middleware only orchestrates; each step's logic lives in [`function.py`](../function.py):
 
 ```
 Request
@@ -73,17 +79,32 @@ Request
   → Response
 ```
 
+| Step | Defined in (`function.py`) |
+|------|----------------------------|
+| Decode token | `func_token_decode` |
+| Auth check | `func_middleware_check_auth` |
+| Role check | `func_middleware_check_role` |
+| Deactivation check | `func_middleware_check_user_deactivated` |
+| Deletion check | `func_middleware_check_user_deleted` |
+| Rate-limit | `func_middleware_check_ratelimiter` |
+| Cache get/set | `func_middleware_api_cache` |
+| Background dispatch | `func_middleware_api_background` |
+| Error handling | `func_middleware_api_response_error` |
+| API log buffer | `func_postgres_create` (`mode="buffer"`, `table="log_api"`) |
+
+The interval flush of buffered logs/writes runs in the `pulse_flush` loop started by the lifespan in `main.py`.
+
 ## Key Features
 
-- **Generic CRUD** — create/read/update/delete over any table without hand-writing endpoints, with relation fetching, group-by reads, and where-clause building.
-- **Flexible auth** — JWT tokens with signup/login by password, email/mobile OTP, or Google; Argon2 password hashing; role, deactivation, and deletion checks enforced in middleware.
-- **Read/write pool split** — separate Postgres read-replica and external pools, with automatic fallback to the primary when a replica isn't configured.
-- **Buffered logging & writes** — API logs and high-volume inserts are buffered in memory and flushed to Postgres on an interval, keeping the request path fast.
-- **Built-in caching & rate-limiting** — per-endpoint response caching and rate limits driven entirely by config.
-- **Background execution** — any request can be dispatched to a background task, plus standalone queue consumers/workers via Kafka, RabbitMQ, Redis, or Celery.
-- **Query runners & AI** — safe read/write query runners with CSV export, and OpenAI/Gemini-backed SQL generation.
-- **WebSocket support** — a `/websocket` endpoint demonstrates real-time writes through the same CRUD layer.
-- **Self-documenting** — OpenAPI spec generated at startup, plus a served API console at `/`.
+- **Generic CRUD** — create/read/update/delete over any table without hand-writing endpoints, with relation fetching, group-by reads, and where-clause building. *(`func_postgres_create` / `_read` / `_update` / `_delete`, `func_postgres_relation`, `func_postgres_groupby_read`, `func_postgres_where_build` in `function.py`)*
+- **Flexible auth** — JWT tokens with signup/login by password, email/mobile OTP, or Google; Argon2 password hashing; role, deactivation, and deletion checks enforced in middleware. *(`func_token_encode` / `_decode`, `func_auth_user_login_fetch`, `func_middleware_check_*` in `function.py`; endpoints in `router/auth.py`)*
+- **Read/write pool split** — separate Postgres read-replica and external pools, with automatic fallback to the primary when a replica isn't configured. *(`client_postgres_read_fallback` in `main.py`)*
+- **Buffered logging & writes** — API logs and high-volume inserts are buffered in memory and flushed to Postgres on an interval, keeping the request path fast. *(`pulse_flush` loop in `main.py`, `func_postgres_create` buffer mode)*
+- **Built-in caching & rate-limiting** — per-endpoint response caching and rate limits driven entirely by config. *(`func_middleware_api_cache`, `func_middleware_check_ratelimiter`; rules in `config.py`)*
+- **Background execution** — any request can be dispatched to a background task, plus standalone queue consumers/workers via Kafka, RabbitMQ, Redis, or Celery. *(`func_middleware_api_background`, `func_producer`, `func_run_broker`; workers in `script/`)*
+- **Query runners & AI** — safe read/write query runners with CSV export, and OpenAI/Gemini-backed SQL generation. *(`func_postgres_query_runner_*`, `func_mssql_query_runner_*`, `func_postgres_query_generator_ai` in `function.py`)*
+- **WebSocket support** — a `/websocket` endpoint demonstrates real-time writes through the same CRUD layer. *(`router/index.py`)*
+- **Self-documenting** — OpenAPI spec generated at startup, plus a served API console at `/`. *(`func_openapi_spec_generate` in `function.py`)*
 
 ## Tech Stack
 
@@ -103,7 +124,11 @@ Provide only the integration config you need (e.g. `config_postgres_url`, `confi
 
 ## Extending Atom
 
-- **Add endpoints** in `router/` — they're auto-registered by tier.
+Atom is built to be extended without editing core files, so framework updates via `sync.py` never clobber your work:
+
+- **Add endpoints** in `router/` — auto-registered on startup.
 - **Add or override logic** via `function_extend.py`.
 - **Add or override settings** via `config_extend.py`.
 - **Enable an integration** simply by supplying its config — no code changes required.
+
+See [extend.md](extend.md) for the full guide, including adding tables, workers, and updating the framework with `sync.py`.

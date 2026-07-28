@@ -42,6 +42,26 @@ All settings live in `config.py` and default to safe values (integrations defaul
 
 2. **`config_extend.py`** — a git-ignored, drop-in module for overriding or adding any config value in code. Add `function_extend.py` the same way to override or extend logic. Both are auto-loaded if present, so framework updates via `sync.py` never clobber your customizations.
 
+### ⚠️ Secrets to override in production
+
+All integration keys default to `None` (off), but two system values ship with **insecure defaults** in `config.py`. Override both before any real deployment — add them to your `.env`:
+
+```bash
+config_token_secret_key=<a-long-random-string>
+config_root_user_password=<a-strong-password>
+```
+
+| Key | Default in `config.py` | Why it matters |
+|-----|------------------------|----------------|
+| `config_token_secret_key` | `mysecretkey-mysecretkey-mysecretkey` | Signs every JWT — if left default, anyone can forge auth tokens. |
+| `config_root_user_password` | `123456` | Password for the seeded root (role 1) admin user. |
+
+Generate a strong token secret with:
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
 ### Common config keys
 
 | Key | Purpose |
@@ -57,7 +77,7 @@ All settings live in `config.py` and default to safe values (integrations defaul
 | `config_is_enable_signup` | Toggle public signup |
 | `config_is_debug` | Debug mode |
 
-See the **Integrations** and **System** sections at the top of `config.py` for the complete list.
+See [config.md](config.md) for a full, grouped reference of every config key and how it's used.
 
 ## Running
 
