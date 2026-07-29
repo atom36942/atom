@@ -1,4 +1,4 @@
-# Routers & Adding APIs
+# 🛣️ Routers & Adding APIs
 
 This guide shows how Atom's endpoints are structured and how to add your own the idiomatic way.
 

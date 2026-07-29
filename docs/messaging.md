@@ -1,4 +1,4 @@
-# Messaging & Notifications
+# 💬 Messaging & Notifications
 
 Atom ships two related in-app features backed by dedicated tables: **direct messages** between users and **notifications** to a user. Both are ordinary tables, so they also work with the generic CRUD engine — the endpoints below add the conversation-specific logic on top.
 

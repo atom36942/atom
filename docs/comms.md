@@ -1,4 +1,4 @@
-# Email & SMS
+# 📨 Email & SMS
 
 Atom sends **email** and **SMS** through pluggable providers, chosen per-request with a `service` param. This page covers the sending side; for the OTP login *flow* that builds on it, see [auth.md](auth.md).
 

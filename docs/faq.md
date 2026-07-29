@@ -1,4 +1,4 @@
-# FAQ
+# ❓ FAQ
 
 Short answers to common "how do I…" questions. Follow the links for detail.
 

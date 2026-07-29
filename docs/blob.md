@@ -1,4 +1,4 @@
-# Blob Storage
+# 🗄️ Blob Storage
 
 Atom provides file storage over pluggable backends — **AWS S3** and **Azure Blob** — behind one API. Uploads can be done directly through the server or via presigned URLs, and every stored object is tracked in the `blob` table so it can be previewed and cleaned up.
 

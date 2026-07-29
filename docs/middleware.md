@@ -1,4 +1,4 @@
-# HTTP Middleware
+# 🚦 HTTP Middleware
 
 Every request to Atom passes through **one** HTTP middleware defined in [`main.py`](../main.py) (`@app.middleware("http")`) before it reaches a route handler. The middleware only **orchestrates** — the actual logic for each step lives in `func_middleware_*` functions in [`function.py`](../function.py). A separate `CORSMiddleware` wraps it for cross-origin handling.
 

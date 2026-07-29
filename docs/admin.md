@@ -1,4 +1,4 @@
-# Admin Toolkit
+# 🛠️ Admin Toolkit
 
 The `/admin/*` endpoints ([`router/admin.py`](../router/admin.py)) are the operator's control panel: run SQL, generate queries with AI, import data, inspect schema, manage storage, and refresh caches. **All are role-restricted** (mostly role `1`, some `1`+`2`) via `config_api` — see [security.md](security.md).
 

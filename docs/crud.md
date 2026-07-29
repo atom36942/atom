@@ -1,4 +1,4 @@
-# Generic CRUD
+# 🗃️ Generic CRUD
 
 Atom's biggest feature: **create / read / update / delete on any table without writing per-table endpoints**. You pass a `table` name plus data or query params, and the framework validates against the live schema, builds SQL safely, and returns results.
 

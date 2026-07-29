@@ -1,4 +1,4 @@
-# Background Workers
+# 📦 Background Workers
 
 Work that shouldn't run inside a request — heavy processing, retries, scheduled cleanup, bulk ingestion — lives in [`script/`](../script) as standalone processes. They import the same `function.py` / `config.py` and run as separate OS processes (not part of the API server).
 

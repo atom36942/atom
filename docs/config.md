@@ -1,4 +1,4 @@
-# Configuration Reference
+# ⚙️ Configuration Reference
 
 Everything Atom does is driven by `config.py` — a single file of plain Python values. This page explains every key, grouped by purpose, and how it's used across the codebase.
 

@@ -1,4 +1,4 @@
-# About Atom
+# 🧭 About Atom
 
 This page is the architecture deep-dive: how Atom is put together, component by component, and how a request flows through it. For what Atom is, how to install it, and its feature highlights, start at the [README](../readme.md).
 

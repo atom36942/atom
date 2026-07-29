@@ -1,4 +1,4 @@
-# Application Lifespan
+# 🔄 Application Lifespan
 
 Atom wires up all its state in a single FastAPI **lifespan** context manager (`func_lifespan` in [`main.py`](../main.py)). It runs once on **startup** (everything before `yield`) and once on **shutdown** (everything after). This page walks through each phase, grouped by concern.
 

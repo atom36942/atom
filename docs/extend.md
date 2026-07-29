@@ -1,4 +1,4 @@
-# Extending Atom
+# 🧩 Extending Atom
 
 Atom is opinionated but not closed. You extend it **without editing core files**, so you can pull framework updates (via `sync.py`) at any time without losing your work.
 

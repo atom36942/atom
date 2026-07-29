@@ -1,4 +1,4 @@
-# Security Model
+# 🛡️ Security Model
 
 Atom's security is **layered and config-driven**. Each layer is enforced in one place and configured as data, so protections are uniform across every endpoint rather than re-implemented per handler.
 

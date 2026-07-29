@@ -1,4 +1,4 @@
-# Authentication
+# 🔐 Authentication
 
 Atom uses **stateless JWT** authentication. Clients log in once, receive an access + refresh token, and send the access token as a `Bearer` header on every protected request. The middleware decodes it into `request.state.user`; nothing is stored server-side.
 
