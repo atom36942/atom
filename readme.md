@@ -1,19 +1,48 @@
-# Atom
+<div align="center">
 
-**Batteries-included, opinionated FastAPI framework for shipping production backends fast.**
+# ⚛️ Atom
+
+### Batteries-included, opinionated FastAPI framework for shipping production backends fast.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-22c55e.svg?style=flat-square)](LICENSE)
+![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?style=flat-square&logo=fastapi&logoColor=white)
+![Status](https://img.shields.io/badge/status-active-22c55e?style=flat-square)
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-6366f1?style=flat-square)
+
+<br>
+
+**Built with**
+
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat-square&logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-DC382D?style=flat-square&logo=redis&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=flat-square&logo=mongodb&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS_S3/SNS/SES-232F3E?style=flat-square&logo=amazonwebservices&logoColor=white)
+![Azure](https://img.shields.io/badge/Azure-0078D4?style=flat-square&logo=microsoftazure&logoColor=white)
+![Kafka](https://img.shields.io/badge/Kafka-231F20?style=flat-square&logo=apachekafka&logoColor=white)
+![RabbitMQ](https://img.shields.io/badge/RabbitMQ-FF6600?style=flat-square&logo=rabbitmq&logoColor=white)
+![Celery](https://img.shields.io/badge/Celery-37814A?style=flat-square&logo=celery&logoColor=white)
+![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=flat-square&logo=openai&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+
+<br>
+
+[**Quickstart**](#quickstart) · [**Documentation**](#documentation) · [**Configuration**](#configuration) · [**Contributing**](#contributing)
+
+</div>
+
+---
 
 Atom gives you authentication, generic CRUD over any table, caching, rate-limiting, background workers, blob storage, and a dozen pluggable integrations (Postgres, Redis, Mongo, S3/Azure, Kafka/RabbitMQ/Celery, OpenAI/Gemini) out of the box — while staying fully extensible, so you keep complete freedom to add your own logic. Every integration is optional (it activates only when its config is set), behavior is driven by data in `config.py`, and you extend the framework via drop-in modules so updates never clobber your code.
 
 ## Highlights
 
-- 🔐 **Auth built in** — JWT tokens, signup/login by password, email/mobile OTP, or Google; role-based access.
-- 🗃️ **Generic CRUD** — create/read/update/delete any table with filters, relations, and pagination — no per-table code.
-- ⚡ **Fast by default** — per-endpoint response caching, rate-limiting, and buffered writes off the hot path.
-- 🧩 **Pluggable everything** — swap Postgres/Redis/Mongo/S3/Azure/Kafka/RabbitMQ/Celery/OpenAI/Gemini by setting config.
-- 🛠️ **Admin toolkit** — SQL query runners, AI-generated SQL, data imports, schema introspection.
-- 📦 **Background workers** — queue consumers and a durable retry pattern using just Postgres.
-- 🧾 **Self-documenting** — OpenAPI spec + a built-in API console at `/`.
-- 🔧 **Extend without forking** — drop-in `config_extend.py` / `function_extend.py`; pull updates with `sync.py`.
+|  |  |
+|---|---|
+| 🔐 **Auth built in** — JWT tokens; login by password, email/mobile OTP, or Google; role-based access. | 🗃️ **Generic CRUD** — create/read/update/delete any table with filters, relations & pagination — no per-table code. |
+| ⚡ **Fast by default** — per-endpoint response caching, rate-limiting, and buffered writes off the hot path. | 🧩 **Pluggable everything** — swap Postgres/Redis/Mongo/S3/Azure/Kafka/RabbitMQ/Celery/OpenAI/Gemini via config. |
+| 🛠️ **Admin toolkit** — SQL query runners, AI-generated SQL, data imports, schema introspection. | 📦 **Background workers** — queue consumers and a durable retry pattern using just Postgres. |
+| 🧾 **Self-documenting** — OpenAPI spec + a built-in API console at `/`. | 🔧 **Extend without forking** — drop-in `config_extend.py` / `function_extend.py`; update with `sync.py`. |
 
 ## Contents
 
@@ -202,30 +231,40 @@ It fetches `main`, then checks out the core files (`main.py`, `function.py`, `co
 
 ## Documentation
 
-**Getting started**
-- [about.md](docs/about.md) — Architecture overview: components, request lifecycle, and key features.
-- [config.md](docs/config.md) — Full reference for every `config.py` key, grouped by purpose.
+📖 **Getting started**
 
-**Internals**
-- [lifespan.md](docs/lifespan.md) — Startup & shutdown internals: client init, caches, schema, flush loop.
-- [middleware.md](docs/middleware.md) — The request pipeline: token, auth/role checks, rate-limit, cache, logging.
+| Page | What's inside |
+|------|---------------|
+| [about.md](docs/about.md) | Architecture overview: components, request lifecycle, key features. |
+| [config.md](docs/config.md) | Full reference for every `config.py` key, grouped by purpose. |
 
-**Features**
-- [auth.md](docs/auth.md) — Authentication: signup, the login methods, JWT tokens, roles, and OTP.
-- [crud.md](docs/crud.md) — Generic CRUD: create/read/update/delete any table, filters, relations, group-by.
-- [messaging.md](docs/messaging.md) — In-app direct messages and notifications: inbox, threads, read state.
-- [blob.md](docs/blob.md) — File storage over S3 / Azure: upload, presigned URLs, preview, delete.
-- [comms.md](docs/comms.md) — Send email (SES/Resend/Azure) and SMS (SNS/Fast2SMS) via pluggable providers.
-- [admin.md](docs/admin.md) — Admin toolkit: query runners, AI SQL, imports, schema info, cache refresh.
-- [workers.md](docs/workers.md) — Background workers: queue consumers, the worker-status retry pattern, cleanup jobs.
-- [security.md](docs/security.md) — The layered security model and a production hardening checklist.
+⚙️ **Internals**
 
-**Building on Atom**
-- [router.md](docs/router.md) — How to add an API: naming, param reading, thin routes, and response structure.
-- [extend.md](docs/extend.md) — Add routes, logic, tables, and workers without editing core files; updating via `sync.py`.
+| Page | What's inside |
+|------|---------------|
+| [lifespan.md](docs/lifespan.md) | Startup & shutdown: client init, caches, schema, flush loop. |
+| [middleware.md](docs/middleware.md) | The request pipeline: token, auth/role checks, rate-limit, cache, logging. |
 
-**Help**
-- [faq.md](docs/faq.md) — Short answers to common "how do I…" questions.
+🚀 **Features**
+
+| Page | What's inside |
+|------|---------------|
+| [auth.md](docs/auth.md) | Signup, the login methods, JWT tokens, roles, and OTP. |
+| [crud.md](docs/crud.md) | Generic CRUD on any table — filters, relations, group-by. |
+| [messaging.md](docs/messaging.md) | In-app direct messages and notifications: inbox, threads, read state. |
+| [blob.md](docs/blob.md) | File storage over S3 / Azure: upload, presigned URLs, preview, delete. |
+| [comms.md](docs/comms.md) | Send email (SES/Resend/Azure) and SMS (SNS/Fast2SMS) via pluggable providers. |
+| [admin.md](docs/admin.md) | Admin toolkit: query runners, AI SQL, imports, schema info, cache refresh. |
+| [workers.md](docs/workers.md) | Background workers: queue consumers, the worker-status retry pattern. |
+| [security.md](docs/security.md) | The layered security model and a production hardening checklist. |
+
+🧱 **Building on Atom**
+
+| Page | What's inside |
+|------|---------------|
+| [router.md](docs/router.md) | How to add an API: naming, param reading, thin routes, responses. |
+| [extend.md](docs/extend.md) | Add routes, logic, tables, workers without editing core files. |
+| [faq.md](docs/faq.md) | Short answers to common "how do I…" questions. |
 
 ## Contributing
 
