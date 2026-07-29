@@ -74,12 +74,12 @@ Atom needs **no service to boot** — every integration is optional. A bare clon
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom
-python3 -m venv venv
+python3 -m venv venv                    # create a virtual environment
 venv/bin/pip install --upgrade pip
-venv/bin/pip install -r requirements.txt
+venv/bin/pip install -r requirements.txt   # install dependencies
 ```
 
-<details>
+<details open>
 <summary><b>macOS + Homebrew (pinned Python)</b></summary>
 
 Using a specific Homebrew Python and starting from a clean venv:
@@ -100,16 +100,9 @@ Adjust `python3.14` to the Homebrew version you have (`brew install python@3.12`
 
 ### Run
 
-Development (auto-reload):
-
 ```bash
-venv/bin/uvicorn main:app --reload
-```
-
-Directly with Python (reads `PORT`, defaults to 8000):
-
-```bash
-venv/bin/python main.py
+venv/bin/uvicorn main:app --reload   # development, auto-reload on file changes
+venv/bin/python main.py              # or run directly (reads PORT, defaults to 8000)
 ```
 
 The server starts on **http://localhost:8000**. Useful endpoints:
@@ -122,8 +115,8 @@ The server starts on **http://localhost:8000**. Useful endpoints:
 ### Docker
 
 ```bash
-docker build -t atom .
-docker run --rm -p 8000:8000 --env-file .env atom
+docker build -t atom .                              # build the image
+docker run --rm -p 8000:8000 --env-file .env atom   # run it, injecting your .env config
 ```
 
 The image installs ODBC drivers and all dependencies, then runs `python main.py` on port 8000.
@@ -216,8 +209,8 @@ See [about.md](docs/about.md) for how these fit together.
 Standalone processes in `script/` run outside the API — start them as separate processes when you need queue consumers or batch jobs:
 
 ```bash
-venv/bin/python script/consumer_postgres_create.py
-venv/bin/python script/worker_resume_parser.py
+venv/bin/python script/consumer_postgres_create.py   # queue consumer: applies queued creates
+venv/bin/python script/worker_resume_parser.py        # table-poller worker with retries
 ```
 
 These rely on a configured queue backend (`config_redis_url_queue`, `config_rabbitmq_url`, `config_kafka_url`, or `config_celery_url`). See [workers.md](docs/workers.md).

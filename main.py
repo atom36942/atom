@@ -29,9 +29,11 @@ from google import genai
 from posthog import Posthog
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 
-# import custom
+# import custom files
 from function import *
 from config import *
+
+#import extend files
 if importlib.util.find_spec("function_extend"): from function_extend import *
 if importlib.util.find_spec("config_extend"): from config_extend import *
 

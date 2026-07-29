@@ -85,9 +85,9 @@ Run these on a schedule (cron/systemd timer) or on demand.
 Workers are separate processes — start them alongside the API (e.g. in their own containers or supervised services):
 
 ```bash
-venv/bin/python script/consumer_postgres_create.py redis postgres_create
-venv/bin/python script/worker_resume_parser.py
-venv/bin/python script/worker_users_delete.py
+venv/bin/python script/consumer_postgres_create.py redis postgres_create   # queue consumer
+venv/bin/python script/worker_resume_parser.py                             # table-poller worker
+venv/bin/python script/worker_users_delete.py                              # scheduled cleanup job
 ```
 
 They read the same `.env` / `config.py`, so a configured queue backend (`config_redis_url_queue`, `config_rabbitmq_url`, `config_kafka_url`, or `config_celery_url`) must be present for the consumers. Add your own workers in `script/` — see [extend.md](extend.md).
