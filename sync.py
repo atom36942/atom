@@ -32,6 +32,11 @@ files_to_sync = [
     "Dockerfile",
     ".gitignore",
     "docs",
+    "script/consumer_postgres_create.py",
+    "script/consumer_postgres_update.py",
+    "script/manual_postgres_cleaner.py",
+    "script/manual_postgres_ingestion.py",
+    "script/worker_users_delete.py",
 ]
 if not os.path.exists("requirements.txt"):
     files_to_sync.append("requirements.txt")
