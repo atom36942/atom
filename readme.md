@@ -79,10 +79,7 @@ venv/bin/pip install --upgrade pip
 venv/bin/pip install -r requirements.txt   # install dependencies
 ```
 
-<details open>
-<summary><b>macOS + Homebrew (pinned Python)</b></summary>
-
-Using a specific Homebrew Python and starting from a clean venv:
+**macOS + Homebrew (pinned Python)** — using a specific Homebrew Python and starting from a clean venv:
 
 ```bash
 git clone https://github.com/atom36942/atom.git
@@ -96,7 +93,6 @@ venv/bin/python main.py               # or: venv/bin/uvicorn main:app --reload
 ```
 
 Adjust `python3.14` to the Homebrew version you have (`brew install python@3.12`, etc.).
-</details>
 
 ### Run
 
