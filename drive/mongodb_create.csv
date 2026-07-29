@@ -1,3 +1,0 @@
-name,age,email,metadata
-Alice,30,alice@example.com,"{""hobbies"": [""reading"", ""running""]}"
-Bob,25,bob@example.com,"{""hobbies"": [""gaming""]}"
