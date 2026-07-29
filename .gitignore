@@ -21,8 +21,6 @@
 !static/**
 !script/
 !script/**
-!.vscode/
-!.vscode/**
 !drive/
 !drive/**
 !docs/
