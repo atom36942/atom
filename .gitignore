@@ -33,6 +33,7 @@ __pycache__/
 Thumbs.db
 .idea/
 .vscode/
+drive/
 *.swp
 *.bak
 tmp/
