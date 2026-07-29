@@ -1,3 +1,5 @@
+# command: venv/bin/python -m script.consumer_postgres_update
+
 # packages
 import sys
 import asyncpg

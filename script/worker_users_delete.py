@@ -1,3 +1,5 @@
+# command: venv/bin/python -m script.worker_users_delete
+
 # packages
 import asyncio
 import asyncpg

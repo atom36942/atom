@@ -1,3 +1,5 @@
+# command: venv/bin/python -m script.worker_resume_parser
+
 # packages
 import asyncio
 import json

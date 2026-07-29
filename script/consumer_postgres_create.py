@@ -1,3 +1,5 @@
+# command: venv/bin/python -m script.consumer_postgres_create
+
 # packages
 import sys
 import asyncpg

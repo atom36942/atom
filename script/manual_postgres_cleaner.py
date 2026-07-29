@@ -1,3 +1,5 @@
+# command: venv/bin/python -m script.manual_postgres_cleaner
+
 # packages
 import asyncio
 import time

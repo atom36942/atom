@@ -1,3 +1,5 @@
+# command: venv/bin/python -m script.manual_postgres_ingestion
+
 # packages
 import ast
 import asyncio
