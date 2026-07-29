@@ -12,7 +12,7 @@
 !Dockerfile
 !readme.md
 !.gitignore.md
-!.LICENSE
+!LICENSE
 
 # folder
 !router/

@@ -38,12 +38,14 @@ Atom gives you authentication, generic CRUD over any table, caching, rate-limiti
 
 ## Highlights
 
-|  |  |
-|---|---|
-| 🔐 **Auth built in** — JWT tokens; login by password, email/mobile OTP, or Google; role-based access. | 🗃️ **Generic CRUD** — create/read/update/delete any table with filters, relations & pagination — no per-table code. |
-| ⚡ **Fast by default** — per-endpoint response caching, rate-limiting, and buffered writes off the hot path. | 🧩 **Pluggable everything** — swap Postgres/Redis/Mongo/S3/Azure/Kafka/RabbitMQ/Celery/OpenAI/Gemini via config. |
-| 🛠️ **Admin toolkit** — SQL query runners, AI-generated SQL, data imports, schema introspection. | 📦 **Background workers** — queue consumers and a durable retry pattern using just Postgres. |
-| 🧾 **Self-documenting** — OpenAPI spec + a built-in API console at `/`. | 🔧 **Extend without forking** — drop-in `config_extend.py` / `function_extend.py`; update with `sync.py`. |
+- 🔐 **Auth built in** — JWT tokens; login by password, email/mobile OTP, or Google; role-based access.
+- 🗃️ **Generic CRUD** — create/read/update/delete any table with filters, relations & pagination — no per-table code.
+- ⚡ **Fast by default** — per-endpoint response caching, rate-limiting, and buffered writes off the hot path.
+- 🧩 **Pluggable everything** — swap Postgres/Redis/Mongo/S3/Azure/Kafka/RabbitMQ/Celery/OpenAI/Gemini via config.
+- 🛠️ **Admin toolkit** — SQL query runners, AI-generated SQL, data imports, schema introspection.
+- 📦 **Background workers** — queue consumers and a durable retry pattern using just Postgres.
+- 🧾 **Self-documenting** — OpenAPI spec + a built-in API console at `/`.
+- 🔧 **Extend without forking** — drop-in `config_extend.py` / `function_extend.py`; update with `sync.py`.
 
 ## Contents
 
