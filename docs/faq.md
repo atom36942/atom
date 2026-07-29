@@ -27,7 +27,7 @@ Role **`1`** is admin. The root user is seeded at startup from `config_root_user
 `config_access_token_expires_sec` / `config_refresh_token_expires_sec`. Rotate with `POST /my/token-refresh`.
 
 ### An integration (Redis, S3, …) isn't working — why?
-Its client is `None` unless the matching `config_*` is set. Provide it via `.env`. See [setup.md](setup.md).
+Its client is `None` unless the matching `config_*` is set. Provide it via `.env`. See the [README](../readme.md#configuration).
 
 ### How do I add a new table?
 Add it to `config_postgres["table"]` (via `config_extend.py`) — created on startup. See [extend.md](extend.md#4-add-or-change-database-tables).

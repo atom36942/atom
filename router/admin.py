@@ -171,21 +171,21 @@ async def func_api_admin_postgres_query_ai(*, request: Request):
     return {"status": 1, "message": res}
 
 @router.post("/admin/mssql-query-runner-write")
-async def func_api_cargowise_mssql_query_runner_write(*, request: Request):
+async def func_api_admin_mssql_query_runner_write(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
     res = await app_state.func_mssql_query_runner_write(client_mssql=app_state.client_mssql, sql=ob["sql"])
     return {"status": 1, "message": res}
 
 @router.post("/admin/mssql-query-runner-read")
-async def func_api_cargowise_mssql_query_runner_read(*, request: Request):
+async def func_api_admin_mssql_query_runner_read(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
     res = await app_state.func_mssql_query_runner_read(client_mssql_read=app_state.client_mssql_read, config_query_runner_read_limit=app_state.config_query_runner_read_limit, sql=ob["sql"])
     return {"status": 1, "message": res}
 
 @router.post("/admin/mssql-query-runner-read-export")
-async def func_api_cargowise_mssql_query_runner_read_export(*, request: Request):
+async def func_api_admin_mssql_query_runner_read_export(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("sql", "str", 1, None, None)])
     generator = await app_state.func_mssql_query_runner_read_export(client_mssql_read=app_state.client_mssql_read, config_query_runner_export_limit=app_state.config_query_runner_export_limit, sql=ob["sql"])

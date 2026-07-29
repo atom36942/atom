@@ -2,7 +2,7 @@
 
 Atom provides file storage over pluggable backends — **AWS S3** and **Azure Blob** — behind one API. Uploads can be done directly through the server or via presigned URLs, and every stored object is tracked in the `blob` table so it can be previewed and cleaned up.
 
-Backends are chosen per-request with a `service` param, validated against `config_blob_services` (`["s3", "azure"]`). The relevant client (`client_s3` / `client_azure_blob`) must be configured (see [setup.md](setup.md)) or the call errors.
+Backends are chosen per-request with a `service` param, validated against `config_blob_services` (`["s3", "azure"]`). The relevant client (`client_s3` / `client_azure_blob`) must be configured (see the [README](../readme.md#configuration)) or the call errors.
 
 Logic lives in `func_blob_*` functions in [`function.py`](../function.py); endpoints span `router/private.py`, `router/my.py`, and `router/admin.py`.
 
@@ -58,7 +58,7 @@ Given stored object URLs, returns time-limited **preview/read** URLs (`func_blob
 | `POST /my/blob-delete-all` | Delete all of the caller's blobs (batched, `func_blob_delete_all`). |
 | `POST /admin/blob-delete-url` | Admin delete of any URLs (role 1). |
 
-Deletes remove the object from the backend and mark the `blob` row deleted. Rows past `config_users_delete_data_retention_day` are purged from storage by the user-deletion worker (`script/worker_users_delete.py`) — see [workers](setup.md#background-workers).
+Deletes remove the object from the backend and mark the `blob` row deleted. Rows past `config_users_delete_data_retention_day` are purged from storage by the user-deletion worker (`script/worker_users_delete.py`) — see [workers.md](workers.md).
 
 ---
 

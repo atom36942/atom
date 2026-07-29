@@ -1,6 +1,6 @@
 # About Atom
 
-Atom is an open-source, **opinionated FastAPI framework** for shipping production backends fast. It comes with authentication, generic CRUD, caching, rate-limiting, background jobs, blob storage, and a dozen pluggable integrations out of the box — while staying fully extensible, so developers keep complete freedom to add their own logic.
+This page is the architecture deep-dive: how Atom is put together, component by component, and how a request flows through it. For what Atom is, how to install it, and its feature highlights, start at the [README](../readme.md).
 
 ## Design Principles
 
@@ -9,22 +9,9 @@ Atom is an open-source, **opinionated FastAPI framework** for shipping productio
 - **Everything optional** — each integration (Postgres, Redis, Mongo, S3, OpenAI, Kafka, …) activates only when its config is provided. No config, no client.
 - **Extend without forking** — drop-in `function_extend.py` / `config_extend.py` modules override or add behavior without editing core files, so you can pull framework updates cleanly.
 
-## Project Layout
-
-```
-atom/
-├── main.py         # FastAPI app: lifespan, client init, middleware, routing
-├── function.py     # All business/helper logic as pure functions
-├── config.py       # Single source of configuration
-├── router/         # API endpoints, grouped by access tier
-├── static/         # Served HTML/assets (incl. built-in API console)
-├── script/         # Standalone workers & jobs (queue consumers, batch tasks)
-├── sync.py         # Pulls latest framework files from upstream
-├── requirements.txt
-└── Dockerfile
-```
-
 ## Core Components
+
+The repo is deliberately flat ([layout in the README](../readme.md#project-structure)). Each top-level piece has one job:
 
 ### `main.py` — Application core
 Assembles and runs the app. On **startup** (lifespan) it initializes every configured client — Postgres (read/write pools), Redis, MongoDB, MSSQL, S3/SNS/SES, OpenAI, Gemini, Kafka, RabbitMQ, Celery, SFTP, Azure Blob/Email — builds in-memory caches (DB schema, user roles, config), runs optional schema init, and starts a background buffer-flush loop. It defines the single **HTTP middleware** (see lifecycle below), CORS, Sentry, static mounting, and auto-registers routers. On **shutdown** every client is closed and buffered writes are flushed.
@@ -94,44 +81,15 @@ Request
 
 The interval flush of buffered logs/writes runs in the `pulse_flush` loop started by the lifespan in `main.py`.
 
-## Key Features
-
-- **Generic CRUD** — create/read/update/delete over any table without hand-writing endpoints, with relation fetching, group-by reads, and where-clause building. *(`func_postgres_create` / `_read` / `_update` / `_delete`, `func_postgres_relation`, `func_postgres_groupby_read`, `func_postgres_where_build` in `function.py`)*
-- **Flexible auth** — JWT tokens with signup/login by password, email/mobile OTP, or Google; Argon2 password hashing; role, deactivation, and deletion checks enforced in middleware. *(`func_token_encode` / `_decode`, `func_auth_user_login_fetch`, `func_middleware_check_*` in `function.py`; endpoints in `router/auth.py`)*
-- **Read/write pool split** — separate Postgres read-replica and external pools, with automatic fallback to the primary when a replica isn't configured. *(`client_postgres_read_fallback` in `main.py`)*
-- **Buffered logging & writes** — API logs and high-volume inserts are buffered in memory and flushed to Postgres on an interval, keeping the request path fast. *(`pulse_flush` loop in `main.py`, `func_postgres_create` buffer mode)*
-- **Built-in caching & rate-limiting** — per-endpoint response caching and rate limits driven entirely by config. *(`func_middleware_api_cache`, `func_middleware_check_ratelimiter`; rules in `config.py`)*
-- **Background execution** — any request can be dispatched to a background task, plus standalone queue consumers/workers via Kafka, RabbitMQ, Redis, or Celery. *(`func_middleware_api_background`, `func_producer`, `func_run_broker`; workers in `script/`)*
-- **Query runners & AI** — safe read/write query runners with CSV export, and OpenAI/Gemini-backed SQL generation. *(`func_postgres_query_runner_*`, `func_mssql_query_runner_*`, `func_postgres_query_generator_ai` in `function.py`)*
-- **WebSocket support** — a `/websocket` endpoint demonstrates real-time writes through the same CRUD layer. *(`router/index.py`)*
-- **Self-documenting** — OpenAPI spec generated at startup, plus a served API console at `/`. *(`func_openapi_spec_generate` in `function.py`)*
-
 ## Tech Stack
 
 FastAPI + Starlette + Uvicorn, async throughout. Postgres/MSSQL via `asyncpg`/`aioodbc`, Redis, MongoDB (Motor), object storage on AWS S3 / Azure Blob, messaging via Kafka / RabbitMQ / Celery, AI via OpenAI & Gemini, plus PyJWT, Argon2, PostHog, and Sentry.
 
-## Getting Started
+## Where to next
 
-See [setup.md](setup.md) for full installation, configuration, running, Docker, workers, and update instructions. In short:
-
-```bash
-git clone https://github.com/atom36942/atom.git && cd atom
-python3 -m venv venv && venv/bin/pip install -r requirements.txt
-venv/bin/uvicorn main:app --reload
-```
-
-Provide only the integration config you need (e.g. `config_postgres_url`, `config_redis_url`); everything else stays dormant.
-
-## Extending Atom
-
-Atom is built to be extended without editing core files, so framework updates via `sync.py` never clobber your work:
-
-- **Add endpoints** in `router/` — auto-registered on startup.
-- **Add or override logic** via `function_extend.py`.
-- **Add or override settings** via `config_extend.py`.
-- **Enable an integration** simply by supplying its config — no code changes required.
-
-See [extend.md](extend.md) for the full guide, including adding tables, workers, and updating the framework with `sync.py`.
+- **Feature guides** — [auth.md](auth.md), [crud.md](crud.md), [blob.md](blob.md), [comms.md](comms.md), [messaging.md](messaging.md), [admin.md](admin.md), [workers.md](workers.md).
+- **Deep internals** — [lifespan.md](lifespan.md), [middleware.md](middleware.md).
+- **Building on Atom** — [router.md](router.md), [extend.md](extend.md), [config.md](config.md), [security.md](security.md).
 
 ---
 
