@@ -817,13 +817,14 @@ async def func_request_param_read(*, request: any, mode: str, strict: int, param
         "list": smart_list
     }
     output_dict = params_dict.copy() if not strict else {}
-    for param in param_specs:
-        if not isinstance(param, (list, tuple)): raise Exception(f"invalid configuration format: expected list or tuple, got {type(param)}")
-        param_len = len(param)
-        if param_len < 5:
-            param_key = param[0] if param_len > 0 else "unknown"
-            raise Exception(f"invalid config tuple length {param_len} for '{param_key}': (key, dtype, is_mandatory, allowed_values, default_value) are required")
-        key, dtype, is_mandatory, allowed_values, default_value = param[0], param[1], int(param[2]), param[3], param[4]
+    for param_spec in param_specs:
+        if not isinstance(param_spec, dict): raise Exception(f"invalid parameter specification: expected dict, got {type(param_spec)}")
+        if "name" not in param_spec or "type" not in param_spec: raise Exception("parameter specification requires 'name' and 'type'")
+        key = param_spec["name"]
+        dtype = param_spec["type"]
+        is_mandatory = int(param_spec.get("required", False))
+        allowed_values = param_spec.get("allowed")
+        default_value = param_spec.get("default")
         if dtype not in TYPE_MAP and not dtype.startswith("list:"): raise Exception(f"parameter '{key}' has invalid dtype '{dtype}'")
         if is_mandatory == 1 and default_value is not None: raise Exception(f"parameter '{key}' is mandatory, default_value must be None")
         if default_value is not None and allowed_values is not None and default_value not in allowed_values:
@@ -879,6 +880,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: any) -> dict:
         if hasattr(ast, "Num") and isinstance(n, ast.Num): return n.n
         if hasattr(ast, "NameConstant") and isinstance(n, ast.NameConstant): return n.value
         if isinstance(n, (ast.List, ast.Tuple)): return [eval_node(e) for e in n.elts]
+        if isinstance(n, ast.Dict): return {eval_node(k): eval_node(v) for k, v in zip(n.keys, n.values)}
         if isinstance(n, ast.Attribute) and hasattr(n.value, "id") and n.value.id == "app_state" and app_state: return getattr(app_state, n.attr, None)
         if isinstance(n, ast.IfExp): return eval_node(n.body) if eval_node(n.test) else eval_node(n.orelse)
         if isinstance(n, ast.Compare):
@@ -981,27 +983,29 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: any) -> dict:
                         if p_list is None and len(node.args) > 2: p_list = eval_node(node.args[2])
                         if p_list is not None and p_loc in ["header", "query"]:
                             for p in p_list:
-                                if not p or not isinstance(p, (list, tuple)) or len(p) < 1: continue
-                                op["parameters"] = [x for x in op["parameters"] if x["name"] != p[0]]
-                                dt = p[1] if len(p) > 1 else "str"
+                                if not isinstance(p, dict) or "name" not in p: continue
+                                p_name = p["name"]
+                                dt = p.get("type", "str")
+                                op["parameters"] = [x for x in op["parameters"] if x["name"] != p_name]
                                 tp = TYPE_MAP.get(dt.split(":")[0], "string")
                                 itms = {"type": TYPE_MAP.get(dt.split(":")[1], "string")} if ":" in dt else None
-                                reg_info = getattr(app_state, "config_regex", {}).get(p[0]) if is_regex_enabled else None
+                                reg_info = getattr(app_state, "config_regex", {}).get(p_name) if is_regex_enabled else None
                                 op["parameters"].append({
-                                    "name": p[0], "in": p_loc, "required": bool(p[2]) if len(p) > 2 else False,
+                                    "name": p_name, "in": p_loc, "required": bool(p.get("required", False)),
                                     "description": reg_info[1] if reg_info and len(reg_info) > 1 else None,
-                                    "schema": {"type": tp, "format": "binary" if dt == "file" else None, **({"items": itms} if itms else {}), "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None, "default": p[4] if len(p) > 4 else None, "pattern": reg_info[0] if reg_info and len(reg_info) > 0 else None}
+                                    "schema": {"type": tp, "format": "binary" if dt == "file" else None, **({"items": itms} if itms else {}), "enum": p.get("allowed") if isinstance(p.get("allowed"), (list, tuple)) else None, "default": p.get("default"), "pattern": reg_info[0] if reg_info and len(reg_info) > 0 else None}
                                 })
                         elif p_list is not None and p_loc in ["body", "form"]:
                             media_type = "application/json" if p_loc == "body" else "multipart/form-data"
                             if "requestBody" not in op: op["requestBody"] = {"content": {media_type: {"schema": {"type": "object", "properties": {}, "required": []}}}}
                             props, reqs = op["requestBody"]["content"][media_type]["schema"]["properties"], op["requestBody"]["content"][media_type]["schema"]["required"]
                             for p in p_list:
-                                if not p or not isinstance(p, (list, tuple)) or len(p) < 1: continue
-                                reg_info = getattr(app_state, "config_regex", {}).get(p[0]) if is_regex_enabled else None
-                                dt = p[1] if len(p) > 1 else "str"
-                                props[p[0]] = {"type": TYPE_MAP.get(dt.split(":")[0], "string"), "format": "binary" if dt == "file" else None, **({"items": {"type": TYPE_MAP.get(dt.split(":")[1], "string")}} if ":" in dt else {}), "enum": p[3] if len(p) > 3 and isinstance(p[3], (list, tuple)) else None, "default": p[4] if len(p) > 4 else None, "pattern": reg_info[0] if reg_info and len(reg_info) > 0 else None, "description": reg_info[1] if reg_info and len(reg_info) > 1 else None}
-                                if len(p) > 2 and bool(p[2]): reqs.append(p[0])
+                                if not isinstance(p, dict) or "name" not in p: continue
+                                p_name = p["name"]
+                                reg_info = getattr(app_state, "config_regex", {}).get(p_name) if is_regex_enabled else None
+                                dt = p.get("type", "str")
+                                props[p_name] = {"type": TYPE_MAP.get(dt.split(":")[0], "string"), "format": "binary" if dt == "file" else None, **({"items": {"type": TYPE_MAP.get(dt.split(":")[1], "string")}} if ":" in dt else {}), "enum": p.get("allowed") if isinstance(p.get("allowed"), (list, tuple)) else None, "default": p.get("default"), "pattern": reg_info[0] if reg_info and len(reg_info) > 0 else None, "description": reg_info[1] if reg_info and len(reg_info) > 1 else None}
+                                if bool(p.get("required", False)): reqs.append(p_name)
                     except: pass
             except: pass
             spec["paths"][path][m_lower] = op

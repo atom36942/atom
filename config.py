@@ -37,6 +37,7 @@ config_celery_url = None
 
 # System
 config_root_user_password = "123456"
+config_login_password = "123456"
 config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
 config_root_html_path = "static/api.html"
 config_is_enable_user_delete = 0
@@ -124,6 +125,7 @@ config_api = {
 "/static": {"id": 77, "is_token": 0},
 "/websocket": {"id": 38, "is_token": 0},
 # auth
+"/auth/login-password": {"id": 91, "is_token": 0},
 "/auth/signup-username-password": {"id": 39, "is_token": 0},
 "/auth/login-username-password": {"id": 40, "is_token": 0},
 "/auth/login-email-password": {"id": 41, "is_token": 0},
