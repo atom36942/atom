@@ -167,7 +167,9 @@ async def func_api_admin_postgres_query_runner_read_export(*, request: Request):
 async def func_api_admin_postgres_query_ai(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "db", "type": "str", "allowed": ["main", "external"], "default": "main"}, {"name": "ai", "type": "str", "allowed": app_state.config_ai_services, "default": "gemini"}, {"name": "question", "type": "str", "required": 1}])
-    res = await app_state.func_postgres_query_generator_ai(app_state=app_state, db=ob["db"], ai=ob["ai"], question=ob["question"])
+    client_postgres = app_state.client_postgres if ob["db"] == "main" else app_state.client_postgres_external
+    cache_postgres_schema_ai = app_state.cache_postgres_schema_ai if ob["db"] == "main" else app_state.cache_postgres_schema_external_ai
+    res = await app_state.func_postgres_query_generator_ai(client_postgres=client_postgres, client_gemini=app_state.client_gemini, client_openai=app_state.client_openai, func_postgres_schema_read_ai=app_state.func_postgres_schema_read_ai, cache_postgres_schema_ai=cache_postgres_schema_ai, config_query_runner_read_limit=app_state.config_query_runner_read_limit, ai=ob["ai"], question=ob["question"])
     return {"status": 1, "message": res}
 
 @router.post("/admin/mssql-query-runner-write")

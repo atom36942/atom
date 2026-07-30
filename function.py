@@ -1561,22 +1561,18 @@ async def func_blob_url_delete(*, app_state: any, service: str, urls: list, user
                 if type(res).__name__ != "ResourceNotFoundError": raise res
         return deleted_urls
 
-async def func_postgres_query_generator_ai(*, app_state: any, db: str, ai: str, question: str) -> dict:
+async def func_postgres_query_generator_ai(*, client_postgres: any, client_gemini: any, client_openai: any, func_postgres_schema_read_ai: callable, cache_postgres_schema_ai: dict, config_query_runner_read_limit: int, ai: str, question: str) -> dict:
     """Generates and validates safe PostgreSQL SELECT queries using LLM (Gemini/OpenAI) based on the database schema."""
     import re
     import json
     import asyncio
     from google.genai import types
-
-    if ai == "gemini" and not app_state.client_gemini: raise Exception("Gemini client not initialized")
-    if ai == "openai" and not app_state.client_openai: raise Exception("OpenAI client not initialized")
-    client_postgres = app_state.client_postgres if db == "main" else app_state.client_postgres_external
-    cache_key = "cache_postgres_schema_ai" if db == "main" else "cache_postgres_schema_external_ai"
-    if not client_postgres: raise Exception(f"{db} postgres client not initialized")
+    if ai == "gemini" and not client_gemini: raise Exception("Gemini client not initialized")
+    if ai == "openai" and not client_openai: raise Exception("OpenAI client not initialized")
+    if not client_postgres: raise Exception("postgres client not initialized")
     question = str(question or "").strip()
     default_limit = 10
-    max_limit = app_state.config_query_runner_read_limit
-
+    max_limit = config_query_runner_read_limit
     def func_postgres_query_ai_schema_prompt(cache_postgres_schema_ai: dict) -> list:
         output = []
         for table_key, table in sorted((cache_postgres_schema_ai or {}).items()):
@@ -1592,16 +1588,13 @@ async def func_postgres_query_generator_ai(*, app_state: any, db: str, ai: str, 
                 })
             output.append({"table": table_key, "relation_type": table.get("relation_type"), "columns": columns})
         return output
-
     def func_postgres_query_ai_blocked_message(message: str) -> str:
         message = str(message or "").strip()
         if not message or re.search(r"\b(success|successfully|generated|done|created)\b", message, flags=re.IGNORECASE):
             return "Could not generate a safe SQL query. Please mention a valid object. Filters must use indexed columns."
         return message
-
     def func_postgres_query_ai_clean_identifier(identifier: str) -> str:
         return str(identifier or "").strip().strip('"')
-
     def func_postgres_query_ai_resolve_table_key(*, value: str, cache_postgres_schema_ai: dict) -> str:
         value = func_postgres_query_ai_clean_identifier(value)
         if not value: return ""
@@ -1609,14 +1602,12 @@ async def func_postgres_query_generator_ai(*, app_state: any, db: str, ai: str, 
         lookup = {key.lower(): key for key in (cache_postgres_schema_ai or {}).keys()}
         lookup.update({str(table.get("table_name") or key.split(".")[-1]).lower(): key for key, table in (cache_postgres_schema_ai or {}).items()})
         return lookup.get(value.lower(), "")
-
     def func_postgres_query_ai_resolve_column_name(*, table_key: str, value: str, cache_postgres_schema_ai: dict) -> str:
         value = func_postgres_query_ai_clean_identifier(value)
         if not table_key or not value: return ""
         columns = (cache_postgres_schema_ai.get(table_key, {}).get("columns") or {})
         lookup = {column.lower(): column for column in columns.keys()}
         return lookup.get(value.lower(), "")
-
     def func_postgres_query_ai_validate_sql(*, sql: str, default_limit: int, max_limit: int, cache_postgres_schema_ai: dict) -> str:
         sql = str(sql or "").strip().rstrip(";").strip()
         if not sql: raise Exception("AI did not generate SQL.")
@@ -1651,11 +1642,9 @@ async def func_postgres_query_generator_ai(*, app_state: any, db: str, ai: str, 
         else:
             sql = f"{sql}\nLIMIT {default_limit}"
         return f"{sql.rstrip(';')};"
-
-    cache_postgres_schema_ai = getattr(app_state, cache_key, {}) or {}
+    cache_postgres_schema_ai = cache_postgres_schema_ai or {}
     if not cache_postgres_schema_ai:
-        cache_postgres_schema_ai = await app_state.func_postgres_schema_read_ai(client_postgres=client_postgres)
-        setattr(app_state, cache_key, cache_postgres_schema_ai)
+        cache_postgres_schema_ai = await func_postgres_schema_read_ai(client_postgres=client_postgres)
     prompt_schema = func_postgres_query_ai_schema_prompt(cache_postgres_schema_ai)
     response_schema = {
         "type": "OBJECT",
@@ -1699,7 +1688,7 @@ async def func_postgres_query_generator_ai(*, app_state: any, db: str, ai: str, 
     ])
     if ai == "gemini":
         response = await asyncio.to_thread(
-            app_state.client_gemini.models.generate_content,
+            client_gemini.models.generate_content,
             model="gemini-2.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=response_schema, temperature=0.1),
@@ -1707,7 +1696,7 @@ async def func_postgres_query_generator_ai(*, app_state: any, db: str, ai: str, 
         data = json.loads(response.text or "{}")
     else:
         response = await asyncio.to_thread(
-            app_state.client_openai.responses.create,
+            client_openai.responses.create,
             model="gpt-4.1-mini",
             input=prompt,
             text={"format": {"type": "json_schema", "name": "postgres_query_generator", "schema": response_json_schema, "strict": True}},
