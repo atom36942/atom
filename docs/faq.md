@@ -81,9 +81,6 @@ The identity + **role** pair must match an existing user, and the password must 
 ### How do I change the OTP length or expiry?
 `config_otp_length` (digits) and `config_otp_expiry_sec` (validity window). See [config.md](config.md#otp).
 
-### How do I run against a read replica?
-Set `config_postgres_url_read`. Read endpoints use it automatically and fall back to the primary if unset.
-
 ### How do I read/write a second (external) database?
 Set `config_postgres_url_external`, then pass `db=external` to the admin query runners / schema endpoints.
 

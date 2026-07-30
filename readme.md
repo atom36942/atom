@@ -149,7 +149,6 @@ All settings live in `config.py` and default to safe values (integrations defaul
 
    ```bash
    config_postgres_url=postgresql://atom:123456@127.0.0.1:5432/postgres?sslmode=disable
-   config_postgres_url_read=postgresql://user_read:123456@127.0.0.1:5432/postgres?sslmode=disable
    config_redis_url=redis://localhost:6379
    config_redis_url_ratelimiter=redis://localhost:6379/1
    config_redis_url_queue=redis://localhost:6379

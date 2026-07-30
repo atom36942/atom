@@ -81,7 +81,7 @@ See [config.md](config.md#control).
 - [ ] Review `config_table_public_*_enable` — expose only what's intended.
 - [ ] Set rate limits on auth and write endpoints.
 - [ ] Configure `config_sentry_dsn` for monitoring.
-- [ ] Point writes at a primary and reads at `config_postgres_url_read`.
+- [ ] Point `config_postgres_url` at the primary database used for all reads and writes.
 
 ---
 

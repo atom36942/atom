@@ -14,12 +14,12 @@ Every existing handler follows the same shape. Here's `/my/api-usage` annotated:
 @router.get("/my/api-usage")                     # 1. path + method
 async def func_api_my_api_usage(*, request: Request):   # 2. naming convention
     app_state = request.app.state                # 3. grab app.state once
-    if not app_state.client_postgres_read_fallback:     # 4. guard needed clients
-        raise Exception("postgres read client not initialized")
+    if not app_state.client_postgres:     # 4. guard needed clients
+        raise Exception("postgres client not initialized")
     oq = await app_state.func_request_param_read(       # 5. read & validate params
         request=request, mode="query", strict=0,
         param_specs=[{"name": "days", "type": "int", "required": 1}])
-    async with app_state.client_postgres_read_fallback.acquire() as conn:
+    async with app_state.client_postgres.acquire() as conn:
         records = await conn.fetch(sql, oq["days"], request.state.user["id"])  # 6. use request.state.user
         obj_list = [dict(r) for r in records]
     return {"status": 1, "message": obj_list}    # 7. standard response
@@ -129,7 +129,7 @@ async def func_api_my_report(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0,
         param_specs=[{"name": "days", "type": "int", "default": 7}])
     data = await app_state.func_report_generate(
-        client_postgres=app_state.client_postgres_read_fallback,
+        client_postgres=app_state.client_postgres,
         user_id=request.state.user["id"], days=oq["days"])
     return {"status": 1, "message": data}
 ```

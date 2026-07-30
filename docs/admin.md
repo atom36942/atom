@@ -22,7 +22,7 @@ curl -X POST http://localhost:8000/admin/postgres-query-runner-read \
   -d '{"sql": "SELECT role, count(*) FROM users GROUP BY role"}'
 ```
 
-Read runners target `client_postgres_read_fallback` (or the external pool); writes require the primary. Export endpoints return a `StreamingResponse` (`text/csv`), so results never fully materialize in memory.
+Read and write runners target `client_postgres` for the main database (or the external pool when selected). Export endpoints return a `StreamingResponse` (`text/csv`), so results never fully materialize in memory.
 
 > These execute raw SQL — they are powerful and intentionally admin-only. Keep them behind `realtime` role checks in production.
 

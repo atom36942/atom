@@ -80,7 +80,7 @@ async def func_api_custom_hello(*, request: Request):
     app_state = request.app.state
     # reuse core logic via app.state
     data = await app_state.func_postgres_read(
-        client_postgres=app_state.client_postgres_read_fallback,
+        client_postgres=app_state.client_postgres,
         table="test", filter=[], limit=10, page=1, order="id desc", column="*", relation=[],
         client_password_hasher=app_state.client_password_hasher,
         func_postgres_serialize=app_state.func_postgres_serialize,

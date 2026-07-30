@@ -19,24 +19,24 @@ router = APIRouter()
 async def func_api_admin_sync(*, request: Request):
     app_state = request.app.state
     if app_state.client_postgres: await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, mode="flush", table="", obj_list=[], buffer_limit=0, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, func_regex_check=app_state.func_regex_check)
-    app_state.cache_postgres_schema = await app_state.func_postgres_schema_read(client_postgres=app_state.client_postgres_read_fallback) if app_state.client_postgres_read_fallback else {}
-    app_state.cache_postgres_schema_ai = await app_state.func_postgres_schema_read_ai(client_postgres=app_state.client_postgres_read_fallback) if app_state.client_postgres_read_fallback else {}
+    app_state.cache_postgres_schema = await app_state.func_postgres_schema_read(client_postgres=app_state.client_postgres) if app_state.client_postgres else {}
+    app_state.cache_postgres_schema_ai = await app_state.func_postgres_schema_read_ai(client_postgres=app_state.client_postgres) if app_state.client_postgres else {}
     app_state.cache_postgres_schema_external = await app_state.func_postgres_schema_read(client_postgres=app_state.client_postgres_external) if app_state.client_postgres_external else {}
     app_state.cache_postgres_schema_external_ai = await app_state.func_postgres_schema_read_ai(client_postgres=app_state.client_postgres_external) if app_state.client_postgres_external else {}
     app_state.cache_postgres_schema_table_list = list(app_state.cache_postgres_schema.keys())
     app_state.cache_postgres_schema_column_list = sorted(list(set(col for table in app_state.cache_postgres_schema.values() for col in table.keys())))
     app_state.cache_openapi = app_state.func_openapi_spec_generate(app_routes=request.app.routes, app_state=app_state)
-    app_state.cache_config = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres_read_fallback, config_sql=app_state.config_sql.get("config"), is_json_value=1) if app_state.client_postgres_read_fallback and "config" in app_state.cache_postgres_schema else {}
-    app_state.cache_users_role = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres_read_fallback, config_sql=app_state.config_sql.get("users_role")) if app_state.client_postgres_read_fallback else {}
-    app_state.cache_users_deactivated = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres_read_fallback, config_sql=app_state.config_sql.get("users_deactivated")) if app_state.client_postgres_read_fallback else {}
-    app_state.cache_users_deleted = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres_read_fallback, config_sql=app_state.config_sql.get("users_deleted")) if app_state.client_postgres_read_fallback else {}
+    app_state.cache_config = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres, config_sql=app_state.config_sql.get("config"), is_json_value=1) if app_state.client_postgres and "config" in app_state.cache_postgres_schema else {}
+    app_state.cache_users_role = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres, config_sql=app_state.config_sql.get("users_role")) if app_state.client_postgres else {}
+    app_state.cache_users_deactivated = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres, config_sql=app_state.config_sql.get("users_deactivated")) if app_state.client_postgres else {}
+    app_state.cache_users_deleted = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres, config_sql=app_state.config_sql.get("users_deleted")) if app_state.client_postgres else {}
     return {"status": 1, "message": "done"}
 
 @router.get("/admin/postgres-info")
 async def func_api_admin_postgres_info(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "allowed": ["main", "external"], "default": "main"}])
-    client_postgres = app_state.client_postgres_read_fallback if oq["db"] == "main" else app_state.client_postgres_external
+    client_postgres = app_state.client_postgres if oq["db"] == "main" else app_state.client_postgres_external
     if not client_postgres: raise Exception(f"{oq['db']} postgres client not initialized")
     info = await app_state.func_postgres_info_read(client_postgres=client_postgres)
     return {"status": 1, "message": info}
@@ -45,7 +45,7 @@ async def func_api_admin_postgres_info(*, request: Request):
 async def func_api_admin_postgres_schema(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "allowed": ["main", "external"], "default": "main"}])
-    client_postgres = app_state.client_postgres_read_fallback if oq["db"] == "main" else app_state.client_postgres_external
+    client_postgres = app_state.client_postgres if oq["db"] == "main" else app_state.client_postgres_external
     if not client_postgres: raise Exception(f"{oq['db']} postgres client not initialized")
     schema = await app_state.func_postgres_schema_read(client_postgres=client_postgres)
     return {"status": 1, "message": schema}
@@ -64,9 +64,9 @@ async def func_api_admin_object_create(*, request: Request):
 @router.get("/admin/object-read")
 async def func_api_admin_object_read(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": app_state.cache_postgres_schema_table_list}, {"name": "limit", "type": "int", "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "default": 1}, {"name": "order", "type": "str", "default": "id desc"}, {"name": "column", "type": "str", "default": "*"}, {"name": "relation", "type": "list", "default": []}, {"name": "filter", "type": "list", "default": []}])
-    ol = await app_state.func_postgres_read(client_postgres=app_state.client_postgres_read_fallback, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
+    ol = await app_state.func_postgres_read(client_postgres=app_state.client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 
 @router.put("/admin/object-update")
@@ -142,7 +142,7 @@ async def func_api_admin_blob_url_delete(*, request: Request):
 async def func_api_admin_postgres_query_runner_write(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "db", "type": "str", "allowed": ["main", "external"], "default": "main"}, {"name": "sql", "type": "str", "required": 1}])
-    client_postgres = app_state.client_postgres_read_fallback if ob["db"] == "main" else app_state.client_postgres_external
+    client_postgres = app_state.client_postgres if ob["db"] == "main" else app_state.client_postgres_external
     if ob["db"] == "external": raise Exception("write is not allowed on external postgres URL")
     res = await app_state.func_postgres_query_runner_write(client_postgres=client_postgres, sql=ob["sql"])
     return {"status": 1, "message": res}
@@ -151,7 +151,7 @@ async def func_api_admin_postgres_query_runner_write(*, request: Request):
 async def func_api_admin_postgres_query_runner_read(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "db", "type": "str", "allowed": ["main", "external"], "default": "main"}, {"name": "sql", "type": "str", "required": 1}])
-    client_postgres = app_state.client_postgres_read_fallback if ob["db"] == "main" else app_state.client_postgres_external
+    client_postgres = app_state.client_postgres if ob["db"] == "main" else app_state.client_postgres_external
     res = await app_state.func_postgres_query_runner_read(client_postgres=client_postgres, config_query_runner_read_limit=app_state.config_query_runner_read_limit, sql=ob["sql"])
     return {"status": 1, "message": res}
 
@@ -159,7 +159,7 @@ async def func_api_admin_postgres_query_runner_read(*, request: Request):
 async def func_api_admin_postgres_query_runner_read_export(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "db", "type": "str", "allowed": ["main", "external"], "default": "main"}, {"name": "sql", "type": "str", "required": 1}])
-    client_postgres = app_state.client_postgres_read_fallback if ob["db"] == "main" else app_state.client_postgres_external
+    client_postgres = app_state.client_postgres if ob["db"] == "main" else app_state.client_postgres_external
     generator = await app_state.func_postgres_query_runner_read_export(client_postgres=client_postgres, config_query_runner_export_limit=app_state.config_query_runner_export_limit, sql=ob["sql"])
     return StreamingResponse(generator, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=postgres_query_result.csv"})
 

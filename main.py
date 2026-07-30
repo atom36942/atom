@@ -56,8 +56,6 @@ async def func_lifespan(app:"FastAPI"):
         client_password_hasher = PasswordHasher()
         client_http = httpx.AsyncClient()
         client_postgres = await asyncpg.create_pool(dsn=app.state.config_postgres_url, min_size=5, max_size=20) if app.state.config_postgres_url else None
-        client_postgres_read = await asyncpg.create_pool(dsn=app.state.config_postgres_url_read, min_size=5, max_size=20) if app.state.config_postgres_url_read else None
-        client_postgres_read_fallback = client_postgres_read or client_postgres
         client_postgres_external = await asyncpg.create_pool(dsn=app.state.config_postgres_url_external, min_size=5, max_size=20) if app.state.config_postgres_url_external else None
         client_redis = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url)) if app.state.config_redis_url else None
         client_redis_ratelimiter = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_ratelimiter)) if app.state.config_redis_url_ratelimiter else None
@@ -81,17 +79,17 @@ async def func_lifespan(app:"FastAPI"):
         # postges schema init
         if client_postgres and app.state.config_is_enable_postgres_schema_init: await app.state.func_postgres_schema_init(client_postgres=client_postgres, config_postgres=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(config_root_user_password) if config_root_user_password else None)
         # cache schema init
-        cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres=client_postgres_read_fallback) if client_postgres_read_fallback else {}
-        cache_postgres_schema_ai = await app.state.func_postgres_schema_read_ai(client_postgres=client_postgres_read_fallback) if client_postgres_read_fallback else {}
+        cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres=client_postgres) if client_postgres else {}
+        cache_postgres_schema_ai = await app.state.func_postgres_schema_read_ai(client_postgres=client_postgres) if client_postgres else {}
         cache_postgres_schema_external = await app.state.func_postgres_schema_read(client_postgres=client_postgres_external) if client_postgres_external else {}
         cache_postgres_schema_external_ai = await app.state.func_postgres_schema_read_ai(client_postgres=client_postgres_external) if client_postgres_external else {}
         cache_postgres_schema_table_list = list(cache_postgres_schema.keys())
         cache_postgres_schema_column_list = sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
         # cache data init
-        cache_config = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("config"), is_json_value=1) if client_postgres_read_fallback and "config" in cache_postgres_schema else {}
-        cache_users_role = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("users_role")) if client_postgres_read_fallback else {}
-        cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("users_deactivated")) if client_postgres_read_fallback else {}
-        cache_users_deleted = await app.state.func_postgres_map_column(client_postgres=client_postgres_read_fallback, config_sql=app.state.config_sql.get("users_deleted")) if client_postgres_read_fallback else {}
+        cache_config = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("config"), is_json_value=1) if client_postgres and "config" in cache_postgres_schema else {}
+        cache_users_role = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("users_role")) if client_postgres else {}
+        cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("users_deactivated")) if client_postgres else {}
+        cache_users_deleted = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("users_deleted")) if client_postgres else {}
         # caches in-memory
         cache_ratelimiter = {}
         cache_api_response = {}
@@ -138,7 +136,6 @@ async def func_lifespan(app:"FastAPI"):
         # client disconnect
         if client_http: await client_http.aclose()
         if client_postgres: await client_postgres.close()
-        if client_postgres_read: await client_postgres_read.close()
         if client_postgres_external: await client_postgres_external.close()
         if client_redis: await client_redis.aclose()
         if client_redis_ratelimiter: await client_redis_ratelimiter.aclose()
@@ -196,9 +193,9 @@ async def middleware(request, api_function):
         api_cache_sec = api_cfg.get("api_cache_sec")
         request.state.user = await app_state.func_token_decode(headers=request.headers, config_token_secret_key=app_state.config_token_secret_key)
         await app_state.func_middleware_check_auth(user_dict=request.state.user, url_path=path, is_token=is_token, user_check_role=user_check_role, user_check_deactivated=user_check_deactivated, user_check_deleted=user_check_deleted)
-        await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role=user_check_role, client_postgres=app_state.client_postgres_read_fallback, client_redis=app_state.client_redis, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
-        await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, user_check_deactivated=user_check_deactivated, client_postgres=app_state.client_postgres_read_fallback, client_redis=app_state.client_redis, cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
-        await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, user_check_deleted=user_check_deleted, client_postgres=app_state.client_postgres_read_fallback, client_redis=app_state.client_redis, cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
+        await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role=user_check_role, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
+        await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, user_check_deactivated=user_check_deactivated, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis, cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
+        await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, user_check_deleted=user_check_deleted, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis, cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_ratelimiter(client_redis=app_state.client_redis_ratelimiter, api_ratelimiting_times_sec=api_ratelimiting_times_sec, url_path=path, identifier=request.state.user.get("id") if request.state.user else request.client.host, cache_ratelimiter=app_state.cache_ratelimiter)
         user_id, query_params = (request.state.user.get("id") if request.state.user else 0), dict(request.query_params)
         response = await app_state.func_middleware_api_cache(mode="get", path=path, query_params=query_params, api_cache_sec=api_cache_sec, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response)

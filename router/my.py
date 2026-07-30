@@ -9,10 +9,10 @@ router = APIRouter()
 @router.get("/my/profile")
 async def func_api_my_profile(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     user_id = request.state.user["id"]
-    user = await app_state.func_user_read_single(client_postgres=app_state.client_postgres_read_fallback, user_id=user_id)
-    metadata = {k: [dict(r) for r in await app_state.client_postgres_read_fallback.fetch(v, user_id)] for k, v in app_state.config_sql.get("profile_metadata", {}).items()}
+    user = await app_state.func_user_read_single(client_postgres=app_state.client_postgres, user_id=user_id)
+    metadata = {k: [dict(r) for r in await app_state.client_postgres.fetch(v, user_id)] for k, v in app_state.config_sql.get("profile_metadata", {}).items()}
     user["metadata"] = metadata
     return {"status": 1, "message": user}
 
@@ -26,18 +26,18 @@ async def func_api_my_ping(*, request: Request):
 @router.post("/my/token-refresh")
 async def func_api_my_token_refresh(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
-    user = await app_state.func_user_read_single(client_postgres=app_state.client_postgres_read_fallback, user_id=request.state.user["id"])
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
+    user = await app_state.func_user_read_single(client_postgres=app_state.client_postgres, user_id=request.state.user["id"])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
     return {"status": 1, "message": token}
 
 @router.get("/my/api-usage")
 async def func_api_my_api_usage(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "days", "type": "int", "required": 1}])
     sql = "SELECT path AS api, count(*) FROM log_api WHERE created_at >= NOW() - ($1 * INTERVAL '1 day') AND created_by_id=$2 GROUP BY path LIMIT 1000;"
-    async with app_state.client_postgres_read_fallback.acquire() as conn:
+    async with app_state.client_postgres.acquire() as conn:
         records = await conn.fetch(sql, oq["days"], request.state.user["id"])
         obj_list = [dict(r) for r in records]
     return {"status": 1, "message": obj_list}
@@ -60,13 +60,13 @@ async def func_api_my_object_create(*, request: Request):
 @router.get("/my/object-read")
 async def func_api_my_object_read(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": app_state.cache_postgres_schema_table_list}, {"name": "ownership_column", "type": "str", "allowed": app_state.config_column_ownership, "default": "created_by_id"}, {"name": "limit", "type": "int", "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "default": 1}, {"name": "order", "type": "str", "default": "id desc"}, {"name": "column", "type": "str", "default": "*"}, {"name": "relation", "type": "list", "default": []}, {"name": "filter", "type": "list", "default": []}])
     schema_cols = app_state.cache_postgres_schema.get(oq["table"], {})
     if oq["ownership_column"] == "user_id" and "id" in schema_cols and "read_at" in schema_cols and not app_state.client_postgres: raise Exception("postgres client not initialized")
     if oq["ownership_column"] not in schema_cols: raise Exception(f"table '{oq['table']}' lacks ownership column '{oq['ownership_column']}'")
     filters = oq["filter"] + [f"""{oq["ownership_column"]} = {request.state.user["id"]}"""]
-    ol = await app_state.func_postgres_read(client_postgres=app_state.client_postgres_read_fallback, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
+    ol = await app_state.func_postgres_read(client_postgres=app_state.client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
     if oq["ownership_column"] == "user_id" and "id" in schema_cols and "read_at" in schema_cols: app_state.func_postgres_mark_read(client_postgres=app_state.client_postgres, table=oq["table"], ownership_column=oq["ownership_column"], user_id=request.state.user["id"], ids=[r.get("id") for r in ol if isinstance(r, dict)])
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 
@@ -150,11 +150,11 @@ async def func_api_my_received_object_delete_all(*, request: Request):
 @router.get("/my/message-inbox")
 async def func_api_my_message_inbox(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "mode", "type": "str", "required": 1, "allowed": ["all", "unread", "read"]}, {"name": "order", "type": "str", "default": "id desc"}, {"name": "limit", "type": "int", "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "default": 1}])
     where_clause = {"read": "user_id=$1 AND read_at IS NOT NULL", "unread": "user_id=$1 AND read_at IS NULL"}.get(oq["mode"], "1=1")
     sql = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
-    async with app_state.client_postgres_read_fallback.acquire() as conn:
+    async with app_state.client_postgres.acquire() as conn:
         ol = [dict(r) for r in await conn.fetch(sql, request.state.user["id"])]
         return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 

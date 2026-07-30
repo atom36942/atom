@@ -27,7 +27,6 @@ All default to `None`, meaning **off** — the matching client in `main.py` is o
 | Key | Enables |
 |-----|---------|
 | `config_postgres_url` | Primary Postgres pool (main datastore) |
-| `config_postgres_url_read` | Read-replica pool; falls back to primary if unset |
 | `config_postgres_url_external` | Second/external Postgres (e.g. reporting) |
 | `config_redis_url` | Redis for response caching, role/status lookups, and admin imports |
 | `config_redis_url_queue` | Redis used as a background-job queue producer |

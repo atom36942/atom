@@ -25,7 +25,7 @@ Resets the working `tmp/` directory (removed if stale, then recreated) and ensur
 Creates one client per configured integration. **Each is conditional** — if the relevant `config_*` value is unset, the client is `None` and that feature stays dormant. Highlights:
 
 - **Password hasher & HTTP** — Argon2 `PasswordHasher` and a shared `httpx.AsyncClient` are always created.
-- **Postgres** — write pool (`client_postgres`), optional read replica (`client_postgres_read`), and `client_postgres_read_fallback` = replica **or** primary, so read paths always work. Optional external Postgres pool too.
+- **Postgres** — one primary pool (`client_postgres`) is shared by all main-database reads and writes. An optional external Postgres pool is created separately.
 - **Redis** — cache/rate-limit client and a separate queue-producer client.
 - **Other datastores** — MongoDB (Motor), MSSQL write/read pools (with fallback).
 - **Cloud/storage** — AWS S3 (async client + boto3 resource), SNS, SES; Azure Blob and Email.
