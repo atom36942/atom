@@ -9,10 +9,12 @@ router = APIRouter()
 @router.get("/my/profile")
 async def func_api_my_profile(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": app_state.cache_postgres_db_name_list, "default": None}])
+    client_postgres = app_state.client_postgres if oq["db"] is None else app_state.client_postgres_dict[oq["db"]]
+    if not client_postgres: raise Exception("postgres client not initialized")
     user_id = request.state.user["id"]
-    user = await app_state.func_user_read_single(client_postgres=app_state.client_postgres, user_id=user_id)
-    metadata = {k: [dict(r) for r in await app_state.client_postgres.fetch(v, user_id)] for k, v in app_state.config_sql.get("profile_metadata", {}).items()}
+    user = await app_state.func_user_read_single(client_postgres=client_postgres, user_id=user_id)
+    metadata = {k: [dict(r) for r in await client_postgres.fetch(v, user_id)] for k, v in app_state.config_sql.get("profile_metadata", {}).items()}
     user["metadata"] = metadata
     return {"status": 1, "message": user}
 

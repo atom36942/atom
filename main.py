@@ -56,7 +56,7 @@ async def func_lifespan(app:"FastAPI"):
         client_password_hasher = PasswordHasher()
         client_http = httpx.AsyncClient()
         client_postgres = await asyncpg.create_pool(dsn=app.state.config_postgres_url, min_size=app.state.config_postgres_pool_min_size, max_size=app.state.config_postgres_pool_max_size) if app.state.config_postgres_url else None
-        client_postgres_dict = {name: await asyncpg.create_pool(dsn=url, min_size=app.state.config_postgres_pool_min_size, max_size=app.state.config_postgres_pool_max_size) for name, url in app.state.config_postgres_url_dict.items() if url}
+        client_postgres_dict = {name: await asyncpg.create_pool(dsn=url, min_size=app.state.config_postgres_pool_min_size, max_size=app.state.config_postgres_pool_max_size) for name, url in (app.state.config_postgres_url_dict or {}).items() if url}
         client_redis = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url)) if app.state.config_redis_url else None
         client_redis_ratelimiter = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_ratelimiter)) if app.state.config_redis_url_ratelimiter else None
         client_redis_producer = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_queue)) if app.state.config_redis_url_queue else None
@@ -83,6 +83,8 @@ async def func_lifespan(app:"FastAPI"):
         cache_postgres_schema_ai = await app.state.func_postgres_schema_read_ai(client_postgres=client_postgres) if client_postgres else {}
         cache_postgres_schema_table_list = list(cache_postgres_schema.keys())
         cache_postgres_schema_column_list = sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
+        #cache db names
+        cache_postgres_db_name_list = list(client_postgres_dict)
         # cache data init
         cache_config = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("config"), is_json_value=1) if client_postgres and "config" in cache_postgres_schema else {}
         cache_users_role = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("users_role")) if client_postgres else {}
