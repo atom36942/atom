@@ -13,7 +13,7 @@ router = APIRouter()
 async def func_api_auth_signup_username_password(*, request:Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "role", "type": "int", "required": 1, "allowed": app_state.config_allowed_users_role}, {"name": "username", "type": "str", "required": 1}, {"name": "password", "type": "str", "required": 1}, {"name": "source", "type": "int"}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "role", "type": "int", "required": 1, "allowed": app_state.config_allowed_users_role, "default": None}, {"name": "username", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "password", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "source", "type": "int", "required": 0, "allowed": None, "default": None}])
     if ob.get("username"): ob["username"] = ob["username"].strip()
     await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
     if app_state.config_is_enable_signup == 0: raise Exception("signup disabled")
@@ -27,7 +27,7 @@ async def func_api_auth_signup_username_password(*, request:Request):
 async def func_api_auth_login_username_password(*, request:Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "role", "type": "int", "allowed": app_state.config_allowed_users_role}, {"name": "username", "type": "str", "required": 1}, {"name": "password", "type": "str", "required": 1}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "role", "type": "int", "required": 0, "allowed": app_state.config_allowed_users_role, "default": None}, {"name": "username", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "password", "type": "str", "required": 1, "allowed": None, "default": None}])
     if ob.get("username"): ob["username"] = ob["username"].strip()
     await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
     async with app_state.client_postgres.acquire() as conn:
@@ -41,7 +41,7 @@ async def func_api_auth_login_username_password(*, request:Request):
 async def func_api_auth_login_email_password(*, request:Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "role", "type": "int", "allowed": app_state.config_allowed_users_role}, {"name": "email", "type": "str", "required": 1}, {"name": "password", "type": "str", "required": 1}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "role", "type": "int", "required": 0, "allowed": app_state.config_allowed_users_role, "default": None}, {"name": "email", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "password", "type": "str", "required": 1, "allowed": None, "default": None}])
     if ob.get("email"): ob["email"] = ob["email"].strip()
     await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
     async with app_state.client_postgres.acquire() as conn:
@@ -55,7 +55,7 @@ async def func_api_auth_login_email_password(*, request:Request):
 async def func_api_auth_login_mobile_password(*, request:Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "role", "type": "int", "allowed": app_state.config_allowed_users_role}, {"name": "mobile", "type": "str", "required": 1}, {"name": "password", "type": "str", "required": 1}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "role", "type": "int", "required": 0, "allowed": app_state.config_allowed_users_role, "default": None}, {"name": "mobile", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "password", "type": "str", "required": 1, "allowed": None, "default": None}])
     if ob.get("mobile"): ob["mobile"] = ob["mobile"].strip()
     await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
     async with app_state.client_postgres.acquire() as conn:
@@ -69,7 +69,7 @@ async def func_api_auth_login_mobile_password(*, request:Request):
 async def func_api_auth_login_email_otp(*, request:Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "role", "type": "int", "required": 1, "allowed": app_state.config_allowed_users_role}, {"name": "email", "type": "str", "required": 1}, {"name": "otp", "type": "int", "required": 1}, {"name": "source", "type": "int"}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "role", "type": "int", "required": 1, "allowed": app_state.config_allowed_users_role, "default": None}, {"name": "email", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "otp", "type": "int", "required": 1, "allowed": None, "default": None}, {"name": "source", "type": "int", "required": 0, "allowed": None, "default": None}])
     if ob.get("email"): ob["email"] = ob["email"].strip()
     await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
     await app_state.func_otp_verify(client_postgres=app_state.client_postgres, otp=ob["otp"], email=ob["email"], mobile=None, config_otp_expiry_sec=app_state.config_otp_expiry_sec)
@@ -85,7 +85,7 @@ async def func_api_auth_login_email_otp(*, request:Request):
 async def func_api_auth_login_mobile_otp(*, request:Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "role", "type": "int", "required": 1, "allowed": app_state.config_allowed_users_role}, {"name": "mobile", "type": "str", "required": 1}, {"name": "otp", "type": "int", "required": 1}, {"name": "source", "type": "int"}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "role", "type": "int", "required": 1, "allowed": app_state.config_allowed_users_role, "default": None}, {"name": "mobile", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "otp", "type": "int", "required": 1, "allowed": None, "default": None}, {"name": "source", "type": "int", "required": 0, "allowed": None, "default": None}])
     if ob.get("mobile"): ob["mobile"] = ob["mobile"].strip()
     await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
     await app_state.func_otp_verify(client_postgres=app_state.client_postgres, otp=ob["otp"], mobile=ob["mobile"], email=None, config_otp_expiry_sec=app_state.config_otp_expiry_sec)
@@ -101,7 +101,7 @@ async def func_api_auth_login_mobile_otp(*, request:Request):
 async def func_api_auth_login_google(*, request:Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "role", "type": "int", "required": 1, "allowed": app_state.config_allowed_users_role}, {"name": "google_token", "type": "str", "required": 1}, {"name": "source", "type": "int"}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "role", "type": "int", "required": 1, "allowed": app_state.config_allowed_users_role, "default": None}, {"name": "google_token", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "source", "type": "int", "required": 0, "allowed": None, "default": None}])
     id_info = await asyncio.to_thread(id_token.verify_oauth2_token, id_token=ob["google_token"], request=requests.Request(), audience=app_state.config_google_login_client_id)
     if not id_info: raise Exception("invalid google token")
     async with app_state.client_postgres.acquire() as conn:
@@ -115,6 +115,6 @@ async def func_api_auth_login_google(*, request:Request):
 @router.post("/auth/login-password")
 async def func_api_auth_login_password(*, request:Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "password", "type": "str", "required": 1}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "password", "type": "str", "required": 1, "allowed": None, "default": None}])
     if ob["password"] != app_state.config_login_password: raise Exception("incorrect password")
     return {"status":1,"message":"ok"}
