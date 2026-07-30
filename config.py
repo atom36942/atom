@@ -135,6 +135,7 @@ config_api = {
 "/auth/login-google": {"id": 45, "is_token": 0},
 # my
 "/my/profile": {"id": 46, "is_token": 1},
+"/my/ping": {"id": 92, "is_token": 1},
 "/my/token-refresh": {"id": 47, "is_token": 1},
 "/my/api-usage": {"id": 48, "is_token": 1},
 "/my/object-create": {"id": 49, "is_token": 1},
