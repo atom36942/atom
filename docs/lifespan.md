@@ -25,7 +25,7 @@ Resets the working `tmp/` directory (removed if stale, then recreated) and ensur
 Creates one client per configured integration. **Each is conditional** — if the relevant `config_*` value is unset, the client is `None` and that feature stays dormant. Highlights:
 
 - **Password hasher & HTTP** — Argon2 `PasswordHasher` and a shared `httpx.AsyncClient` are always created.
-- **Postgres** — one primary pool (`client_postgres`) is shared by all main-database reads and writes. An optional external Postgres pool is created separately.
+- **Postgres** — one pool (`client_postgres`) is shared by all database reads and writes.
 - **Redis** — cache/rate-limit client and a separate queue-producer client.
 - **Other datastores** — MongoDB (Motor), MSSQL write/read pools (with fallback).
 - **Cloud/storage** — AWS S3 (async client + boto3 resource), SNS, SES; Azure Blob and Email.
@@ -41,7 +41,7 @@ When `config_is_enable_postgres_schema_init = 1` and Postgres is present, `func_
 ### 5. Cache building
 To keep the request path fast, several read-mostly datasets are loaded into memory once at startup:
 
-- **Schema caches** — `cache_postgres_schema` (+ an AI-oriented variant, and external-DB variants), plus derived `..._table_list` and `..._column_list`. These let routers validate table/column names without hitting the DB.
+- **Schema caches** — `cache_postgres_schema` (+ an AI-oriented variant), plus derived `..._table_list` and `..._column_list`. These let routers validate table/column names without hitting the DB.
 - **Data caches** — `cache_config` (the `config` table), and `cache_users_role` / `cache_users_deactivated` / `cache_users_deleted`, which back the middleware's `inmemory`-mode auth checks.
 - **Empty runtime caches** — `cache_ratelimiter`, `cache_api_response`, and `cache_postgres_buffer_create` (the in-memory write buffer) start empty and fill during operation.
 

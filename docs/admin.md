@@ -11,7 +11,7 @@ Run arbitrary SQL against Postgres or MSSQL. Body: `{"sql": "...", "db": "main"|
 | Endpoint | Purpose |
 |----------|---------|
 | `POST /admin/postgres-query-runner-read` | Run a read query; capped at `config_query_runner_read_limit` rows. |
-| `POST /admin/postgres-query-runner-write` | Run a write query (INSERT/UPDATE/DDL). **Blocked on `db=external`.** |
+| `POST /admin/postgres-query-runner-write` | Run a write query (INSERT/UPDATE/DDL). |
 | `POST /admin/postgres-query-runner-read-export` | Stream results as a CSV download (cap `config_query_runner_export_limit`). |
 | `POST /admin/mssql-query-runner-read` / `-write` / `-read-export` | Same, against MSSQL. |
 
@@ -22,7 +22,7 @@ curl -X POST http://localhost:8000/admin/postgres-query-runner-read \
   -d '{"sql": "SELECT role, count(*) FROM users GROUP BY role"}'
 ```
 
-Read and write runners target `client_postgres` for the main database (or the external pool when selected). Export endpoints return a `StreamingResponse` (`text/csv`), so results never fully materialize in memory.
+Read and write runners target `client_postgres`. Export endpoints return a `StreamingResponse` (`text/csv`), so results never fully materialize in memory.
 
 > These execute raw SQL — they are powerful and intentionally admin-only. Keep them behind `realtime` role checks in production.
 
@@ -67,7 +67,7 @@ curl -X POST http://localhost:8000/admin/postgres-import \
 | `GET /admin/postgres-info?db=main` | DB size/health/stats (`func_postgres_info_read`). |
 | `GET /admin/postgres-schema?db=main` | Live schema (tables, columns, indexes). |
 
-Both accept `db=main` (default) or `db=external`, and are cached (`api_cache_sec`).
+Both use the primary Postgres connection and are cached (`api_cache_sec`).
 
 ---
 

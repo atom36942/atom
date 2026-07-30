@@ -58,7 +58,7 @@ Appended to `tmp/consumer_failed_payload.jsonl` with the payload + traceback. Se
 `config_blob_limit_size_kb` (per file) and `config_blob_limit_upload` (file count). See [blob.md](blob.md).
 
 ### How do I inspect the database schema or size?
-`GET /admin/postgres-schema` and `GET /admin/postgres-info` (`db=main` or `external`).
+`GET /admin/postgres-schema` and `GET /admin/postgres-info`.
 
 ### How do I update Atom to the latest version?
 ```bash
@@ -82,7 +82,7 @@ The identity + **role** pair must match an existing user, and the password must 
 `config_otp_length` (digits) and `config_otp_expiry_sec` (validity window). See [config.md](config.md#otp).
 
 ### How do I read/write a second (external) database?
-Set `config_postgres_url_external`, then pass `db=external` to the admin query runners / schema endpoints.
+Admin query runners and schema endpoints use `config_postgres_url`.
 
 ### Why is a config value from `.env` being ignored?
 Names must start with `config_` and match exactly. Lists/dicts must be JSON; bools accept `true/1/yes/on`. See [config.md](config.md#how-config-is-loaded--overridden).

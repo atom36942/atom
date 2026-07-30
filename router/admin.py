@@ -21,8 +21,6 @@ async def func_api_admin_sync(*, request: Request):
     if app_state.client_postgres: await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, mode="flush", table="", obj_list=[], buffer_limit=0, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, func_regex_check=app_state.func_regex_check)
     app_state.cache_postgres_schema = await app_state.func_postgres_schema_read(client_postgres=app_state.client_postgres) if app_state.client_postgres else {}
     app_state.cache_postgres_schema_ai = await app_state.func_postgres_schema_read_ai(client_postgres=app_state.client_postgres) if app_state.client_postgres else {}
-    app_state.cache_postgres_schema_external = await app_state.func_postgres_schema_read(client_postgres=app_state.client_postgres_external) if app_state.client_postgres_external else {}
-    app_state.cache_postgres_schema_external_ai = await app_state.func_postgres_schema_read_ai(client_postgres=app_state.client_postgres_external) if app_state.client_postgres_external else {}
     app_state.cache_postgres_schema_table_list = list(app_state.cache_postgres_schema.keys())
     app_state.cache_postgres_schema_column_list = sorted(list(set(col for table in app_state.cache_postgres_schema.values() for col in table.keys())))
     app_state.cache_openapi = app_state.func_openapi_spec_generate(app_routes=request.app.routes, app_state=app_state)
@@ -35,19 +33,15 @@ async def func_api_admin_sync(*, request: Request):
 @router.get("/admin/postgres-info")
 async def func_api_admin_postgres_info(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "allowed": ["main", "external"], "default": "main"}])
-    client_postgres = app_state.client_postgres if oq["db"] == "main" else app_state.client_postgres_external
-    if not client_postgres: raise Exception(f"{oq['db']} postgres client not initialized")
-    info = await app_state.func_postgres_info_read(client_postgres=client_postgres)
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
+    info = await app_state.func_postgres_info_read(client_postgres=app_state.client_postgres)
     return {"status": 1, "message": info}
 
 @router.get("/admin/postgres-schema")
 async def func_api_admin_postgres_schema(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "allowed": ["main", "external"], "default": "main"}])
-    client_postgres = app_state.client_postgres if oq["db"] == "main" else app_state.client_postgres_external
-    if not client_postgres: raise Exception(f"{oq['db']} postgres client not initialized")
-    schema = await app_state.func_postgres_schema_read(client_postgres=client_postgres)
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
+    schema = await app_state.func_postgres_schema_read(client_postgres=app_state.client_postgres)
     return {"status": 1, "message": schema}
 
 @router.post("/admin/object-create")
@@ -141,35 +135,29 @@ async def func_api_admin_blob_url_delete(*, request: Request):
 @router.post("/admin/postgres-query-runner-write")
 async def func_api_admin_postgres_query_runner_write(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "db", "type": "str", "allowed": ["main", "external"], "default": "main"}, {"name": "sql", "type": "str", "required": 1}])
-    client_postgres = app_state.client_postgres if ob["db"] == "main" else app_state.client_postgres_external
-    if ob["db"] == "external": raise Exception("write is not allowed on external postgres URL")
-    res = await app_state.func_postgres_query_runner_write(client_postgres=client_postgres, sql=ob["sql"])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "sql", "type": "str", "required": 1}])
+    res = await app_state.func_postgres_query_runner_write(client_postgres=app_state.client_postgres, sql=ob["sql"])
     return {"status": 1, "message": res}
 
 @router.post("/admin/postgres-query-runner-read")
 async def func_api_admin_postgres_query_runner_read(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "db", "type": "str", "allowed": ["main", "external"], "default": "main"}, {"name": "sql", "type": "str", "required": 1}])
-    client_postgres = app_state.client_postgres if ob["db"] == "main" else app_state.client_postgres_external
-    res = await app_state.func_postgres_query_runner_read(client_postgres=client_postgres, config_query_runner_read_limit=app_state.config_query_runner_read_limit, sql=ob["sql"])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "sql", "type": "str", "required": 1}])
+    res = await app_state.func_postgres_query_runner_read(client_postgres=app_state.client_postgres, config_query_runner_read_limit=app_state.config_query_runner_read_limit, sql=ob["sql"])
     return {"status": 1, "message": res}
 
 @router.post("/admin/postgres-query-runner-read-export")
 async def func_api_admin_postgres_query_runner_read_export(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "db", "type": "str", "allowed": ["main", "external"], "default": "main"}, {"name": "sql", "type": "str", "required": 1}])
-    client_postgres = app_state.client_postgres if ob["db"] == "main" else app_state.client_postgres_external
-    generator = await app_state.func_postgres_query_runner_read_export(client_postgres=client_postgres, config_query_runner_export_limit=app_state.config_query_runner_export_limit, sql=ob["sql"])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "sql", "type": "str", "required": 1}])
+    generator = await app_state.func_postgres_query_runner_read_export(client_postgres=app_state.client_postgres, config_query_runner_export_limit=app_state.config_query_runner_export_limit, sql=ob["sql"])
     return StreamingResponse(generator, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=postgres_query_result.csv"})
 
 @router.post("/admin/postgres-query-generator-ai")
 async def func_api_admin_postgres_query_ai(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "db", "type": "str", "allowed": ["main", "external"], "default": "main"}, {"name": "ai", "type": "str", "allowed": app_state.config_ai_services, "default": "gemini"}, {"name": "question", "type": "str", "required": 1}])
-    client_postgres = app_state.client_postgres if ob["db"] == "main" else app_state.client_postgres_external
-    cache_postgres_schema_ai = app_state.cache_postgres_schema_ai if ob["db"] == "main" else app_state.cache_postgres_schema_external_ai
-    res = await app_state.func_postgres_query_generator_ai(client_postgres=client_postgres, client_gemini=app_state.client_gemini, client_openai=app_state.client_openai, func_postgres_schema_read_ai=app_state.func_postgres_schema_read_ai, cache_postgres_schema_ai=cache_postgres_schema_ai, config_query_runner_read_limit=app_state.config_query_runner_read_limit, ai=ob["ai"], question=ob["question"])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "ai", "type": "str", "allowed": app_state.config_ai_services, "default": "gemini"}, {"name": "question", "type": "str", "required": 1}])
+    res = await app_state.func_postgres_query_generator_ai(client_postgres=app_state.client_postgres, client_gemini=app_state.client_gemini, client_openai=app_state.client_openai, func_postgres_schema_read_ai=app_state.func_postgres_schema_read_ai, cache_postgres_schema_ai=app_state.cache_postgres_schema_ai, config_query_runner_read_limit=app_state.config_query_runner_read_limit, ai=ob["ai"], question=ob["question"])
     return {"status": 1, "message": res}
 
 @router.post("/admin/mssql-query-runner-write")

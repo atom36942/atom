@@ -56,7 +56,6 @@ async def func_lifespan(app:"FastAPI"):
         client_password_hasher = PasswordHasher()
         client_http = httpx.AsyncClient()
         client_postgres = await asyncpg.create_pool(dsn=app.state.config_postgres_url, min_size=5, max_size=20) if app.state.config_postgres_url else None
-        client_postgres_external = await asyncpg.create_pool(dsn=app.state.config_postgres_url_external, min_size=5, max_size=20) if app.state.config_postgres_url_external else None
         client_redis = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url)) if app.state.config_redis_url else None
         client_redis_ratelimiter = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_ratelimiter)) if app.state.config_redis_url_ratelimiter else None
         client_redis_producer = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_queue)) if app.state.config_redis_url_queue else None
@@ -81,8 +80,6 @@ async def func_lifespan(app:"FastAPI"):
         # cache schema init
         cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres=client_postgres) if client_postgres else {}
         cache_postgres_schema_ai = await app.state.func_postgres_schema_read_ai(client_postgres=client_postgres) if client_postgres else {}
-        cache_postgres_schema_external = await app.state.func_postgres_schema_read(client_postgres=client_postgres_external) if client_postgres_external else {}
-        cache_postgres_schema_external_ai = await app.state.func_postgres_schema_read_ai(client_postgres=client_postgres_external) if client_postgres_external else {}
         cache_postgres_schema_table_list = list(cache_postgres_schema.keys())
         cache_postgres_schema_column_list = sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
         # cache data init
@@ -136,7 +133,6 @@ async def func_lifespan(app:"FastAPI"):
         # client disconnect
         if client_http: await client_http.aclose()
         if client_postgres: await client_postgres.close()
-        if client_postgres_external: await client_postgres_external.close()
         if client_redis: await client_redis.aclose()
         if client_redis_ratelimiter: await client_redis_ratelimiter.aclose()
         if client_mongodb: client_mongodb.close()

@@ -1,6 +1,5 @@
 # Integrations
 config_postgres_url = None
-config_postgres_url_external = None
 config_redis_url = None
 config_redis_url_ratelimiter = None
 config_redis_url_queue = None
