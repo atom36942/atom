@@ -55,7 +55,8 @@ async def func_lifespan(app:"FastAPI"):
         # client init
         client_password_hasher = PasswordHasher()
         client_http = httpx.AsyncClient()
-        client_postgres = await asyncpg.create_pool(dsn=app.state.config_postgres_url, min_size=5, max_size=20) if app.state.config_postgres_url else None
+        client_postgres = await asyncpg.create_pool(dsn=app.state.config_postgres_url, min_size=app.state.config_postgres_pool_min_size, max_size=app.state.config_postgres_pool_max_size) if app.state.config_postgres_url else None
+        client_postgres_dict = {name: await asyncpg.create_pool(dsn=url, min_size=app.state.config_postgres_pool_min_size, max_size=app.state.config_postgres_pool_max_size) for name, url in app.state.config_postgres_url_dict.items() if url}
         client_redis = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url)) if app.state.config_redis_url else None
         client_redis_ratelimiter = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_ratelimiter)) if app.state.config_redis_url_ratelimiter else None
         client_redis_producer = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_queue)) if app.state.config_redis_url_queue else None
@@ -133,6 +134,7 @@ async def func_lifespan(app:"FastAPI"):
         # client disconnect
         if client_http: await client_http.aclose()
         if client_postgres: await client_postgres.close()
+        for client_postgres_item in client_postgres_dict.values(): await client_postgres_item.close()
         if client_redis: await client_redis.aclose()
         if client_redis_ratelimiter: await client_redis_ratelimiter.aclose()
         if client_mongodb: client_mongodb.close()
