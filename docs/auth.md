@@ -40,6 +40,7 @@ Flow: validate role → regex-check username/password (`config_regex`) → rejec
 
 | Endpoint | Credentials | Notes |
 |----------|-------------|-------|
+| `/auth/login-password` | password | Compares against `config_login_password` and returns `"ok"` when correct. |
 | `/auth/login-username-password` | username + password | Password verified with Argon2. |
 | `/auth/login-email-password` | email + password | |
 | `/auth/login-mobile-password` | mobile + password | |
@@ -53,7 +54,22 @@ Flow: validate role → regex-check username/password (`config_regex`) → rejec
 
 **Google login** verifies the token against `config_google_login_client_id` (off-thread), then matches on the Google `sub` id, storing profile info in `google_login_metadata`.
 
-Every method ends the same way — `func_token_encode` returns the token pair.
+Every user login method ends the same way — `func_token_encode` returns the token pair.
+
+### `POST /auth/login-password`
+
+Body: `password`.
+
+This route compares the supplied password with `config_login_password`. It does not query a user or generate tokens.
+
+```jsonc
+// request body
+{"password": "123456"}
+// response
+{"status": 1, "message": "ok"}
+```
+
+An incorrect password raises `"incorrect password"`.
 
 ---
 

@@ -18,7 +18,7 @@ async def func_api_my_api_usage(*, request: Request):   # 2. naming convention
         raise Exception("postgres read client not initialized")
     oq = await app_state.func_request_param_read(       # 5. read & validate params
         request=request, mode="query", strict=0,
-        config=[("days", "int", 1, None, None)])
+        param_specs=[{"name": "days", "type": "int", "required": 1}])
     async with app_state.client_postgres_read_fallback.acquire() as conn:
         records = await conn.fetch(sql, oq["days"], request.state.user["id"])  # 6. use request.state.user
         obj_list = [dict(r) for r in records]
@@ -55,21 +55,24 @@ Put your endpoint in the file matching its tier (or a new file — see below).
 **Never** read `request.query_params` / `request.json()` by hand. Use `func_request_param_read` — it extracts, validates, type-casts, and applies defaults in one call.
 
 ```python
-oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[
-    #  key        dtype   mandatory  allowed_values                   default
-    ("table",   "str",   1,         app_state.cache_postgres_schema_table_list, None),
-    ("limit",   "int",   0,         None,                             100),
-    ("mode",    "str",   0,         ["now", "buffer"],                "now"),
+oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[
+    {"name": "table", "type": "str", "required": 1,
+     "allowed": app_state.cache_postgres_schema_table_list},
+    {"name": "limit", "type": "int", "default": 100},
+    {"name": "mode", "type": "str", "allowed": ["now", "buffer"], "default": "now"},
 ])
 ```
 
 **`mode`** — where params come from: `"query"`, `"body"` (JSON), `"form"` (multipart, incl. file uploads), or `"header"`.
 
-**`config`** — a list of 5-tuples: `(key, dtype, is_mandatory, allowed_values, default_value)`.
-- `dtype` — `int` / `float` / `str` / `bool` / `dict` / `list` / `file` / `any`, or `list:int` etc. for typed lists. Booleans accept `1/true/yes/on/ok`; lists accept JSON or comma-separated strings.
-- `is_mandatory` — `1` raises if missing/empty (default must then be `None`).
-- `allowed_values` — a whitelist; the value must be one of these (great for validating table names against `cache_postgres_schema_table_list`, or a service against `config_*_services`).
-- `default_value` — used when the param is absent.
+**`param_specs`** — a list of dictionaries describing the accepted parameters.
+- `name` — parameter name (required).
+- `type` — `int` / `float` / `str` / `bool` / `dict` / `list` / `file` / `any`, or `list:int` etc. for typed lists (required). Booleans accept `1/true/yes/on/ok`; lists accept JSON or comma-separated strings.
+- `required` — `1` raises if the parameter is missing or empty. A required parameter cannot also have a default.
+- `allowed` — a whitelist; the value must be one of these (great for validating table names against `cache_postgres_schema_table_list`, or a service against `config_*_services`).
+- `default` — used when the parameter is absent.
+
+Only `name` and `type` are required in each dictionary; omit `required`, `allowed`, and `default` when they do not apply.
 
 **`strict`** — `0` keeps unrecognized params too; `1` returns only the keys you declared.
 
@@ -77,10 +80,12 @@ Convention: name the result `oq` (query), `ob` (body), `of` (form). For bulk wri
 
 **Form / file upload** example (`/private/blob-upload-file`):
 ```python
-of = await app_state.func_request_param_read(request=request, mode="form", strict=0, config=[
-    ("service",   "str",  1, app_state.config_blob_services, None),
-    ("container", "str",  1, None, None),
-    ("file",      "file", 1, None, None)])
+of = await app_state.func_request_param_read(request=request, mode="form", strict=0, param_specs=[
+    {"name": "service", "type": "str", "required": 1,
+     "allowed": app_state.config_blob_services},
+    {"name": "container", "type": "str", "required": 1},
+    {"name": "file", "type": "file", "required": 1},
+])
 ```
 
 ---
@@ -122,7 +127,7 @@ async def func_report_generate(*, client_postgres, user_id, days):
 async def func_api_my_report(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0,
-        config=[("days", "int", 0, None, 7)])
+        param_specs=[{"name": "days", "type": "int", "default": 7}])
     data = await app_state.func_report_generate(
         client_postgres=app_state.client_postgres_read_fallback,
         user_id=request.state.user["id"], days=oq["days"])
