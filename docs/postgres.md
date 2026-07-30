@@ -1,6 +1,6 @@
 # PostgreSQL
 
-Atom supports one primary PostgreSQL pool and any number of named pools for read-only traffic.
+Atom supports one primary PostgreSQL pool and any number of named pools. Built-in APIs use named pools for selectable read traffic, but custom APIs can also use them to connect to independent or third-party PostgreSQL databases.
 
 ## Primary pool
 
@@ -31,7 +31,7 @@ user = await app_state.func_user_read_single(
 )
 ```
 
-## Named read pools
+## Named pools
 
 Add named PostgreSQL URLs with the pattern:
 
@@ -74,6 +74,100 @@ app.state.cache_postgres_db_name_list
 ```
 
 Routers use that list as the `allowed` value for `func_request_param_read`, so an unknown `db` name is rejected before lookup.
+
+## Independent and third-party databases
+
+Despite the name `config_postgres_url_dict`, entries do not have to be read replicas. Each value is an independent asyncpg pool and can point to:
+
+- A read replica of primary.
+- A reporting or analytics database.
+- A tenant-specific PostgreSQL database.
+- A legacy application database.
+- A PostgreSQL database operated by a third party.
+
+For example:
+
+```bash
+config_postgres_url_read=postgresql://atom:password@read-db:5432/atom
+config_postgres_url_crm=postgresql://integration:password@crm-db.example.com:5432/crm
+config_postgres_url_billing=postgresql://integration:password@billing-db.example.com:5432/billing
+```
+
+These create:
+
+```python
+app.state.client_postgres_dict["read"]
+app.state.client_postgres_dict["crm"]
+app.state.client_postgres_dict["billing"]
+```
+
+The built-in APIs listed below treat named pools as read targets. A custom API may perform CRUD against a specific named pool when that behavior is intentional.
+
+For a fixed integration, select the pool in server code instead of accepting a caller-controlled `db`:
+
+```python
+from fastapi import APIRouter, Request
+
+router = APIRouter()
+
+@router.get("/private/crm-customer")
+async def func_api_private_crm_customer(*, request: Request):
+    app_state = request.app.state
+    client_postgres = app_state.client_postgres_dict.get("crm")
+    if not client_postgres:
+        raise Exception("crm postgres client not initialized")
+
+    oq = await app_state.func_request_param_read(
+        request=request,
+        mode="query",
+        strict=0,
+        param_specs=[
+            {
+                "name": "customer_id",
+                "type": "int",
+                "required": 1,
+                "allowed": None,
+                "default": None,
+            }
+        ],
+    )
+    record = await client_postgres.fetchrow(
+        "SELECT id, name, email FROM customer WHERE id=$1",
+        oq["customer_id"],
+    )
+    return {"status": 1, "message": dict(record) if record else None}
+```
+
+A custom write endpoint can use the same named pool:
+
+```python
+@router.put("/private/crm-customer")
+async def func_api_private_crm_customer_update(*, request: Request):
+    app_state = request.app.state
+    client_postgres = app_state.client_postgres_dict.get("crm")
+    if not client_postgres:
+        raise Exception("crm postgres client not initialized")
+
+    ob = await app_state.func_request_param_read(
+        request=request,
+        mode="body",
+        strict=1,
+        param_specs=[
+            {"name": "id", "type": "int", "required": 1, "allowed": None, "default": None},
+            {"name": "name", "type": "str", "required": 1, "allowed": None, "default": None},
+        ],
+    )
+    result = await client_postgres.execute(
+        "UPDATE customer SET name=$1 WHERE id=$2",
+        ob["name"],
+        ob["id"],
+    )
+    return {"status": 1, "message": result}
+```
+
+Register custom routes in `config_api` with the required token, role, and rate-limit policies. Use parameter-bound SQL, grant the integration database user only the permissions it needs, require TLS where supported, and keep its connection URL in the environment.
+
+Primary-derived caches such as `cache_postgres_schema` do not describe an unrelated database. For third-party CRUD, use explicit SQL as above, or build and maintain a separate schema cache for that named database. Do not pass a third-party pool into generic schema-driven helpers unless its schema is compatible with primary.
 
 ## Selecting a database
 
@@ -183,7 +277,7 @@ Those features can be added later behind a centralized client selector without c
 
 ## Shutdown
 
-During application shutdown Atom first performs its final primary buffer flush, then closes `client_postgres` and every pool in `client_postgres_dict`. Named pools are read-only routing targets and are never used for buffered writes.
+During application shutdown Atom first performs its final primary buffer flush, then closes `client_postgres` and every pool in `client_postgres_dict`. Built-in buffered writes always use primary; custom APIs may use named pools for writes when explicitly implemented.
 
 ---
 
