@@ -25,6 +25,7 @@ def func_check(*, app: any) -> None:
         if value[0] not in allowed_mode: raise Exception(f"{path} invalid {key} mode: {value[0]}, allowed: {', '.join(allowed_mode)}")
         return value
     requires_redis = False
+    requires_redis_ratelimiter = False
     for path, cfg in config_api.items():
         if not isinstance(path, str) or not path.startswith("/"): raise Exception(f"invalid config_api path: {path}")
         if path not in route_paths: raise Exception(f"unused configuration in config_api: {path} (route not found)")
@@ -57,12 +58,14 @@ def func_check(*, app: any) -> None:
             int_check(rate_cfg[1], f"{path} api_ratelimiting_times_sec limit", 1)
             window = int_check(rate_cfg[2], f"{path} api_ratelimiting_times_sec window", 1)
             if window > 31536000: raise Exception(f"{path} api_ratelimiting_times_sec window exceeds 1 year")
-            if rate_cfg[0] == "redis": requires_redis = True
+            if rate_cfg[0] == "redis": requires_redis_ratelimiter = True
     for path in route_paths:
         if path not in config_api:
             raise Exception(f"CRITICAL: Route '{path}' is missing from config_api. All routes must be explicitly configured.")
     if requires_redis and not getattr(app.state, "config_redis_url", None):
         raise Exception("config_api uses redis mode but config_redis_url is missing")
+    if requires_redis_ratelimiter and not getattr(app.state, "config_redis_url_ratelimiter", None):
+        raise Exception("config_api uses redis rate limiting but config_redis_url_ratelimiter is missing")
 
     buffer_limit = getattr(app.state, "config_buffer_limit_default", None)
     if buffer_limit is not None:

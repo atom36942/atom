@@ -60,6 +60,7 @@ async def func_lifespan(app:"FastAPI"):
         client_postgres_read_fallback = client_postgres_read or client_postgres
         client_postgres_external = await asyncpg.create_pool(dsn=app.state.config_postgres_url_external, min_size=5, max_size=20) if app.state.config_postgres_url_external else None
         client_redis = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url)) if app.state.config_redis_url else None
+        client_redis_ratelimiter = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_ratelimiter)) if app.state.config_redis_url_ratelimiter else None
         client_redis_producer = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_queue)) if app.state.config_redis_url_queue else None
         client_mongodb = motor.motor_asyncio.AsyncIOMotorClient(app.state.config_mongodb_url) if app.state.config_mongodb_url else None
         client_mssql = await aioodbc.create_pool(dsn=app.state.config_mssql_url, pool_recycle=60) if app.state.config_mssql_url else None
@@ -140,6 +141,7 @@ async def func_lifespan(app:"FastAPI"):
         if client_postgres_read: await client_postgres_read.close()
         if client_postgres_external: await client_postgres_external.close()
         if client_redis: await client_redis.aclose()
+        if client_redis_ratelimiter: await client_redis_ratelimiter.aclose()
         if client_mongodb: client_mongodb.close()
         if client_mssql: client_mssql.close(); await client_mssql.wait_closed()
         if client_s3_context: await client_s3_context.__aexit__(None, None, None)
@@ -197,7 +199,7 @@ async def middleware(request, api_function):
         await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role=user_check_role, client_postgres=app_state.client_postgres_read_fallback, client_redis=app_state.client_redis, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, user_check_deactivated=user_check_deactivated, client_postgres=app_state.client_postgres_read_fallback, client_redis=app_state.client_redis, cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, user_check_deleted=user_check_deleted, client_postgres=app_state.client_postgres_read_fallback, client_redis=app_state.client_redis, cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
-        await app_state.func_middleware_check_ratelimiter(client_redis=app_state.client_redis, api_ratelimiting_times_sec=api_ratelimiting_times_sec, url_path=path, identifier=request.state.user.get("id") if request.state.user else request.client.host, cache_ratelimiter=app_state.cache_ratelimiter)
+        await app_state.func_middleware_check_ratelimiter(client_redis=app_state.client_redis_ratelimiter, api_ratelimiting_times_sec=api_ratelimiting_times_sec, url_path=path, identifier=request.state.user.get("id") if request.state.user else request.client.host, cache_ratelimiter=app_state.cache_ratelimiter)
         user_id, query_params = (request.state.user.get("id") if request.state.user else 0), dict(request.query_params)
         response = await app_state.func_middleware_api_cache(mode="get", path=path, query_params=query_params, api_cache_sec=api_cache_sec, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response)
         if not response:

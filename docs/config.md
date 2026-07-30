@@ -29,8 +29,9 @@ All default to `None`, meaning **off** — the matching client in `main.py` is o
 | `config_postgres_url` | Primary Postgres pool (main datastore) |
 | `config_postgres_url_read` | Read-replica pool; falls back to primary if unset |
 | `config_postgres_url_external` | Second/external Postgres (e.g. reporting) |
-| `config_redis_url` | Redis for caching, rate-limiting, role/status lookups |
+| `config_redis_url` | Redis for response caching, role/status lookups, and admin imports |
 | `config_redis_url_queue` | Redis used as a background-job queue producer |
+| `config_redis_url_ratelimiter` | Dedicated Redis for distributed rate-limit counters |
 | `config_mongodb_url` | MongoDB (Motor) |
 | `config_mssql_url` | MSSQL connection pool |
 | `config_google_login_client_id` | Google login token verification |

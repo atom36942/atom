@@ -151,6 +151,7 @@ All settings live in `config.py` and default to safe values (integrations defaul
    config_postgres_url=postgresql://atom:123456@127.0.0.1:5432/postgres?sslmode=disable
    config_postgres_url_read=postgresql://user_read:123456@127.0.0.1:5432/postgres?sslmode=disable
    config_redis_url=redis://localhost:6379
+   config_redis_url_ratelimiter=redis://localhost:6379/1
    config_redis_url_queue=redis://localhost:6379
    config_mongodb_url=mongodb://localhost:27017
    config_rabbitmq_url=amqp://guest:guest@localhost:5672
@@ -161,7 +162,7 @@ All settings live in `config.py` and default to safe values (integrations defaul
 
 2. **`config_extend.py`** — a git-ignored, drop-in module for overriding or adding any config value in code. Add `function_extend.py` the same way to override or extend logic. Both are auto-loaded if present, so framework updates via `sync.py` never clobber your customizations.
 
-See [config.md](docs/config.md) for a full, grouped reference of every config key.
+See [config.md](docs/config.md) for a full, grouped reference of every config key and [redis.md](docs/redis.md) for Redis clients and usage.
 
 ### ⚠️ Secrets to override in production
 
