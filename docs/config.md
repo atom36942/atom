@@ -32,7 +32,7 @@ All default to `None`, meaning **off** — the matching client in `main.py` is o
 | `config_redis_url` | Redis for caching, rate-limiting, role/status lookups |
 | `config_redis_url_queue` | Redis used as a background-job queue producer |
 | `config_mongodb_url` | MongoDB (Motor) |
-| `config_mssql_url` / `config_mssql_url_read` | MSSQL write / read pools |
+| `config_mssql_url` | MSSQL connection pool |
 | `config_google_login_client_id` | Google login token verification |
 | `config_openai_key` / `config_gemini_key` | AI features (e.g. SQL generation) |
 | `config_posthog_project_key` / `config_posthog_project_host` | PostHog analytics |

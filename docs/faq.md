@@ -26,6 +26,13 @@ Role **`1`** is admin. The root user is seeded at startup from `config_root_user
 ### How do I change how long login tokens last?
 `config_access_token_expires_sec` / `config_refresh_token_expires_sec`. Rotate with `POST /my/token-refresh`.
 
+### How do I keep a user's activity timestamp current?
+Send an authenticated ping whenever the user is active. This updates the user's `last_active_at`:
+```bash
+curl -X POST http://localhost:8000/my/ping \
+  -H "Authorization: Bearer <access_token>"
+```
+
 ### An integration (Redis, S3, …) isn't working — why?
 Its client is `None` unless the matching `config_*` is set. Provide it via `.env`. See the [README](../readme.md#configuration).
 

@@ -2110,20 +2110,20 @@ async def func_blob_container_ops(*, client_s3: any, client_s3_resource: any, cl
             raise Exception(f"mode {mode} not supported for azure")
     return res
 
-async def func_mssql_query_runner_read_export(*, app_state: any, sql: str) -> any:
+async def func_mssql_query_runner_read_export(*, client_mssql: any, config_query_runner_export_limit: int, sql: str) -> any:
     """Runs a read-only MSSQL query and yields CSV lines up to the configured export limit."""
     import re
     import asyncio
-    if not app_state.client_mssql_read: raise Exception("MSSQL read client not initialized")
+    if not client_mssql: raise Exception("MSSQL client not initialized")
     ql = sql.lower().strip().lstrip("(").strip()
     if not ql.startswith(("select", "with")): raise Exception("read mode restricted")
     if re.search(r"\b(insert|update|delete|merge|drop|alter|create|truncate|exec|execute|into)\b", ql): raise Exception("read mode restricted")
-    limit = app_state.config_query_runner_export_limit
+    limit = config_query_runner_export_limit
 
     async def _iter():
         for attempt in range(3):
             try:
-                async with app_state.client_mssql_read.acquire() as conn:
+                async with client_mssql.acquire() as conn:
                     cursor = await conn.cursor()
                     await cursor.execute(sql)
                     columns = [column[0] for column in cursor.description]
@@ -2145,19 +2145,19 @@ async def func_mssql_query_runner_read_export(*, app_state: any, sql: str) -> an
 
     return _iter()
 
-async def func_mssql_query_runner_read(*, client_mssql_read: any, config_query_runner_read_limit: int, sql: str) -> list:
+async def func_mssql_query_runner_read(*, client_mssql: any, config_query_runner_read_limit: int, sql: str) -> list:
     """Runs a read-only MSSQL query and returns matching records up to the configured limit."""
     import re
     import asyncio
 
-    if not client_mssql_read: raise Exception("MSSQL read client not initialized")
+    if not client_mssql: raise Exception("MSSQL client not initialized")
     ql = sql.lower().strip().lstrip("(").strip()
     if not ql.startswith(("select", "with")): raise Exception("read mode restricted")
     if re.search(r"\b(insert|update|delete|merge|drop|alter|create|truncate|exec|execute|into)\b", ql): raise Exception("read mode restricted")
     limit = config_query_runner_read_limit
     for attempt in range(3):
         try:
-            async with client_mssql_read.acquire() as conn:
+            async with client_mssql.acquire() as conn:
                 cursor = await conn.cursor()
                 await cursor.execute(sql)
                 columns = [column[0] for column in cursor.description]
