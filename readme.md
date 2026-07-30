@@ -254,6 +254,7 @@ It fetches `main`, then checks out the core files (`main.py`, `function.py`, `co
 
 | Page | What's inside |
 |------|---------------|
+| [guideline.md](docs/guideline.md) | Step-by-step guide for adding a new API, with a complete example. |
 | [router.md](docs/router.md) | How to add an API: naming, param reading, thin routes, responses. |
 | [extend.md](docs/extend.md) | Add routes, logic, tables, workers without editing core files. |
 | [faq.md](docs/faq.md) | Short answers to common "how do I…" questions. |
