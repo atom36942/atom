@@ -17,10 +17,10 @@ router = APIRouter()
 async def func_api_public_object_create(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_table_list, None), ("mode", "str", 0, ["now", "buffer"], "now")])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[("table", "str", 1, app_state.cache_postgres_schema_table_list, None), ("mode", "str", 0, ["now", "buffer"], "now")])
     enabled_create_tables = app_state.config_table_public_create_enable or []
     if "*" not in enabled_create_tables and oq["table"] not in enabled_create_tables: raise Exception(f"creation disabled for table: {oq['table']}")
-    ob=await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[])
+    ob=await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[])
     obj_list = ob.get("obj_list", [ob])
     if restricted_key := next((key for item in obj_list for key in item if key in app_state.config_column_admin), None): raise Exception(f"unauthorized update to restricted field: {restricted_key}")
     if "created_by_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'created_by_id' column for ownership tracking")
@@ -31,7 +31,7 @@ async def func_api_public_object_create(*, request: Request):
 async def func_api_public_object_read(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_table_list, None), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("relation", "list", 0, None, []), ("filter", "list", 0, None, [])])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[("table", "str", 1, app_state.cache_postgres_schema_table_list, None), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("order", "str", 0, None, "id desc"), ("column", "str", 0, None, "*"), ("relation", "list", 0, None, []), ("filter", "list", 0, None, [])])
     enabled_tables = app_state.config_table_public_read_enable or []
     if "*" not in enabled_tables and oq["table"] not in enabled_tables: raise Exception(f"read disabled for table: {oq['table']}")
     if (disabled_relation_table := next((parts[1] for rel in oq["relation"] for parts in ([p.strip() for p in rel.split(",", 4)],) if len(parts) >= 2 and "*" not in enabled_tables and parts[1] not in enabled_tables), None)) is not None: raise Exception(f"relation read disabled for table: {disabled_relation_table}")
@@ -41,7 +41,7 @@ async def func_api_public_object_read(*, request: Request):
 @router.get("/public/converter-number")
 async def func_api_public_converter_number(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("datatype", "str", 1, ["smallint", "int", "bigint"], None), ("mode", "str", 1, ["encode", "decode"], None), ("x", "str", 1, None, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[("datatype", "str", 1, ["smallint", "int", "bigint"], None), ("mode", "str", 1, ["encode", "decode"], None), ("x", "str", 1, None, None)])
     res = await app_state.func_converter_number(datatype=oq["datatype"], mode=oq["mode"], x=oq["x"])
     return {"status": 1, "message": res}
 
@@ -49,13 +49,13 @@ async def func_api_public_converter_number(*, request: Request):
 async def func_api_public_otp_verify(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("type", "str", 1, ["email", "mobile"], None), ("value", "str", 1, None, None), ("otp", "int", 1, None, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[("type", "str", 1, ["email", "mobile"], None), ("value", "str", 1, None, None), ("otp", "int", 1, None, None)])
     return {"status": 1, "message": await app_state.func_otp_verify(client_postgres=app_state.client_postgres, otp=oq["otp"], email=oq["value"] if oq["type"] == "email" else None, mobile=oq["value"] if oq["type"] == "mobile" else None, config_otp_expiry_sec=app_state.config_otp_expiry_sec)}
 
 @router.post("/public/otp-send-email")
 async def func_api_public_otp_send_email(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_email_services, None), ("sender", "str", 1, None, None), ("email", "str", 1, None, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[("service", "str", 1, app_state.config_email_services, None), ("sender", "str", 1, None, None), ("email", "str", 1, None, None)])
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
     otp = await app_state.func_otp_generate(client_postgres=app_state.client_postgres, email=oq["email"], mobile=None, config_otp_length=app_state.config_otp_length)
     res = await app_state.func_otp_send_email(app_state=app_state, service=oq["service"], sender=oq["sender"], email=oq["email"], otp=otp)
@@ -64,7 +64,7 @@ async def func_api_public_otp_send_email(*, request: Request):
 @router.post("/public/otp-send-mobile")
 async def func_api_public_otp_send_mobile(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("service", "str", 1, app_state.config_mobile_services, None), ("mobile", "str", 1, None, None)])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[("service", "str", 1, app_state.config_mobile_services, None), ("mobile", "str", 1, None, None)])
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
     otp = await app_state.func_otp_generate(client_postgres=app_state.client_postgres, mobile=oq["mobile"], email=None, config_otp_length=app_state.config_otp_length)
     res = await app_state.func_otp_send_mobile(app_state=app_state, service=oq["service"], mobile=oq["mobile"], otp=otp)
@@ -74,7 +74,7 @@ async def func_api_public_otp_send_mobile(*, request: Request):
 async def func_api_public_otp_send_mobile_sns_template(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("mobile", "str", 1, None, None), ("message", "str", 1, None, None), ("template_id", "str", 1, None, None), ("entity_id", "str", 1, None, None), ("sender_id", "str", 1, None, None)])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[("mobile", "str", 1, None, None), ("message", "str", 1, None, None), ("template_id", "str", 1, None, None), ("entity_id", "str", 1, None, None), ("sender_id", "str", 1, None, None)])
     otp = await app_state.func_otp_generate(client_postgres=app_state.client_postgres, mobile=ob["mobile"], email=None, config_otp_length=app_state.config_otp_length)
     res = await app_state.func_otp_send_mobile(app_state=app_state, service="sns", mobile=ob["mobile"], otp=otp, sns_template=ob)
     return {"status": 1, "message": res}
@@ -82,7 +82,7 @@ async def func_api_public_otp_send_mobile_sns_template(*, request: Request):
 @router.post("/public/jira-worklog-export")
 async def func_api_public_jira_worklog_export(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, config=[("url", "str", 1, None, None), ("email", "str", 1, None, None), ("api_token", "str", 1, None, None), ("start_date", "str", 1, None, None), ("end_date", "str", 1, None, None)])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[("url", "str", 1, None, None), ("email", "str", 1, None, None), ("api_token", "str", 1, None, None), ("start_date", "str", 1, None, None), ("end_date", "str", 1, None, None)])
     output_path = await app_state.func_jira_worklog_export(url=ob["url"], email=ob["email"], api_token=ob["api_token"], start_date=ob["start_date"], end_date=ob["end_date"])
     def iterfile():
         with open(output_path, mode="rb") as f:
@@ -94,7 +94,7 @@ async def func_api_public_jira_worklog_export(*, request: Request):
 async def func_api_public_table_groupby(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres_read_fallback: raise Exception("postgres read client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, config=[("table", "str", 1, app_state.cache_postgres_schema_table_list, None), ("col", "str", 1, app_state.cache_postgres_schema_column_list, None), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("agg_func", "str", 0, ["count", "sum", "avg", "min", "max"], "count"), ("agg_col", "str", 0, ["*"] + list(app_state.cache_postgres_schema_column_list), "*"), ("order", "str", 0, ["count desc", "count asc", "item asc", "item desc"], "count desc"), ("filter", "list", 0, None, [])])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[("table", "str", 1, app_state.cache_postgres_schema_table_list, None), ("col", "str", 1, app_state.cache_postgres_schema_column_list, None), ("limit", "int", 0, None, app_state.config_sql_read_limit_default), ("page", "int", 0, None, 1), ("agg_func", "str", 0, ["count", "sum", "avg", "min", "max"], "count"), ("agg_col", "str", 0, ["*"] + list(app_state.cache_postgres_schema_column_list), "*"), ("order", "str", 0, ["count desc", "count asc", "item asc", "item desc"], "count desc"), ("filter", "list", 0, None, [])])
     enabled_tables = app_state.config_table_public_read_enable or []
     if "*" not in enabled_tables and oq["table"] not in enabled_tables: raise Exception(f"read disabled for table: {oq['table']}")
     res = await app_state.func_postgres_groupby_read(app_state=app_state, table=oq["table"], col=oq["col"], limit=oq["limit"], page=oq["page"], agg=oq["agg_func"], a_col=oq["agg_col"], order=oq["order"], filter=oq["filter"])

@@ -763,7 +763,7 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
         sentry_sdk.capture_exception(exception)
     return error_msg, responses.JSONResponse(status_code=400, content={"status": 0, "message": error_msg})
     
-async def func_request_param_read(*, request: any, mode: str, strict: int, config: list) -> dict:
+async def func_request_param_read(*, request: any, mode: str, strict: int, param_specs: list) -> dict:
     """Extract, validate, and type-cast request parameters from query, form, body or headers."""
     params_dict = {}
     header_params = {k.lower(): v for k, v in request.headers.items()}
@@ -786,7 +786,7 @@ async def func_request_param_read(*, request: any, mode: str, strict: int, confi
         params_dict = header_params
     else:
         raise Exception(f"invalid mode: {mode}")
-    if config is None: return params_dict
+    if param_specs is None: return params_dict
     import orjson
     def smart_dict(v):
         if v is None: return {}
@@ -817,7 +817,7 @@ async def func_request_param_read(*, request: any, mode: str, strict: int, confi
         "list": smart_list
     }
     output_dict = params_dict.copy() if not strict else {}
-    for param in config:
+    for param in param_specs:
         if not isinstance(param, (list, tuple)): raise Exception(f"invalid configuration format: expected list or tuple, got {type(param)}")
         param_len = len(param)
         if param_len < 5:
@@ -976,7 +976,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: any) -> dict:
                         p_loc, p_list = None, None
                         for kw in node.keywords:
                             if kw.arg == "mode": p_loc = eval_node(kw.value)
-                            elif kw.arg == "config": p_list = eval_node(kw.value)
+                            elif kw.arg == "param_specs": p_list = eval_node(kw.value)
                         if p_loc is None and len(node.args) > 1: p_loc = eval_node(node.args[1])
                         if p_list is None and len(node.args) > 2: p_list = eval_node(node.args[2])
                         if p_list is not None and p_loc in ["header", "query"]:
