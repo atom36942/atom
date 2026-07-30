@@ -1,5 +1,6 @@
 # Integrations
 config_postgres_url = None
+config_postgres_url_dict = {}
 config_redis_url = None
 config_redis_url_ratelimiter = None
 config_redis_url_queue = None
@@ -439,6 +440,12 @@ def func_config_override_from_env(*, global_dict: dict) -> None:
                 with contextlib.suppress(Exception): global_dict[k] = orjson.loads(ev)
             else: global_dict[k] = int(ev) if ev.lstrip("-").isdigit() else ev
             if isinstance(global_dict[k], list): global_dict[k] = tuple(global_dict[k])
+    postgres_url_prefix = "config_postgres_url_"
+    for k, v in os.environ.items():
+        if k.startswith(postgres_url_prefix) and k not in (postgres_url_prefix, "config_postgres_url_dict"):
+            if not isinstance(global_dict["config_postgres_url_dict"], dict):
+                global_dict["config_postgres_url_dict"] = {}
+            global_dict["config_postgres_url_dict"][k.removeprefix(postgres_url_prefix)] = v
     with contextlib.suppress(Exception):
         for n in ast.parse(open("config.py", encoding="utf-8").read()).body:
             if isinstance(n, ast.Assign) and len(n.targets)==1 and (t:=getattr(n.targets[0], "id", "")).startswith("config_") and (v:=getattr(n.value, "id", "")).startswith("config_") and os.getenv(t) is None: global_dict[t] = global_dict.get(v)

@@ -42,7 +42,7 @@ To brand or extend the console, edit `static/api.html`. To serve a different roo
 <details>
 <summary><strong>Why is my new endpoint public / ignoring auth?</strong></summary>
 
-Atom applies authentication and authorization from `config_api`, not from the router filename. A route with **no matching `config_api` entry** receives an empty policy and is public by default.
+Atom applies authentication and authorization from `config_api`, not from the router filename. Current versions require **every registered route** to have a matching entry; startup fails if a route is missing so an accidentally unprotected endpoint cannot silently go live.
 
 Add the exact route path and enable the checks you need:
 
@@ -55,7 +55,7 @@ config_api["/my/report"] = {
 }
 ```
 
-Make sure the path exactly matches the registered route, then restart the app so startup validation can check the policy. See [config.md](config.md#config_api) and [middleware.md](middleware.md).
+For an intentionally public route, still register it with `"is_token": 0`. Make sure the path exactly matches the registered route, every entry has a unique positive `id`, and protected routes set `"is_token": 1`. Then restart the app so startup validation can check the policy. See [config.md](config.md#config_api) and [middleware.md](middleware.md).
 
 </details>
 
@@ -358,6 +358,154 @@ config_cors_allow_origins=["https://app.example.com"]
 ```
 
 Booleans accept values such as `true`, `1`, `yes`, and `on`; structured values must use JSON with double-quoted strings. Never print secret values while debugging—confirm only whether they were loaded. See [config.md](config.md#how-config-is-loaded--overridden).
+
+</details>
+
+<details>
+<summary><strong>Does Atom require Postgres, Redis, or every listed integration to start?</strong></summary>
+
+No. Integrations are opt-in: if a connection URL or credential is unset, Atom leaves that client as `None` and continues starting. A bare installation can serve `/`, `/health`, `/info`, and other routes that do not depend on a missing service.
+
+Features still require their backing service. Generic CRUD, authentication records, request logs, and the example WebSocket need Postgres. Shared caching and rate limits need Redis, while queues, blob storage, email, SMS, and AI features need their selected provider.
+
+Custom routes should check the client they depend on and return a clear error when it is unavailable. See [about.md](about.md) for the component overview.
+
+</details>
+
+<details>
+<summary><strong>What is the difference between `/public`, `/my`, and `/admin` CRUD?</strong></summary>
+
+The prefixes represent data-access scope, not just route organization:
+
+- `/public/object-*` is anonymous and limited by `config_table_public_create_enable` and `config_table_public_read_enable`.
+- `/my/object-*` requires a user and automatically scopes rows through ownership columns such as `created_by_id` or `user_id`.
+- `/admin/object-*` can operate on any row and table, subject to its administrator route policy.
+
+Use `/my` for normal user-owned product data and `/admin` only for trusted operations. Do not expose a table publicly merely to avoid ownership configuration; add an ownership column and use the authenticated tier instead. See [crud.md](crud.md).
+
+</details>
+
+<details>
+<summary><strong>How do filtering, sorting, and pagination work on object reads?</strong></summary>
+
+Pass `table`, `filter`, `order`, `limit`, and `page` to an object-read endpoint. Filters are a list of conditions; separate list items are combined with `AND`, while `OR` can appear inside a condition:
+
+```text
+GET /my/object-read?table=test&filter=["type = 1","title ilike %atom%"]&order=id desc&limit=20&page=1
+```
+
+The response contains `obj_list` and `has_next_page`. Atom fetches one extra row to calculate that flag, and caps the requested limit with `config_sql_read_limit_max`.
+
+Table and column names are validated against the live schema, and filter values are parameter-bound. Supported operators include comparisons, ranges, text matching, arrays, and JSON operations. See [crud.md](crud.md#filters-func_postgres_where_build).
+
+</details>
+
+<details>
+<summary><strong>How do I include related rows without creating an N+1 query problem?</strong></summary>
+
+Use the `relation` parameter on object reads. A relation describes the local key, related table, and foreign key; Atom collects the relevant IDs and fetches related rows in a batched query instead of issuing one query per result.
+
+Relation result size is capped by `config_sql_read_relation_fetch_limit_max`. On public reads, the related table must also be present in the public read allow-list, so a relation cannot bypass table access rules.
+
+Keep relation payloads focused and select only the columns the client needs. For deeply nested or domain-specific projections, a custom endpoint and purpose-built query may be clearer and more efficient. See [crud.md](crud.md#relations-func_postgres_relation).
+
+</details>
+
+<details>
+<summary><strong>Why is a row created with `mode=buffer` not visible immediately?</strong></summary>
+
+`mode=buffer` acknowledges the request after placing the row in an in-memory write buffer; it does not immediately commit the row to Postgres. The lifespan task flushes buffered rows every 60 seconds, when the configured table buffer limit is reached, during `GET /admin/sync`, and again during graceful shutdown.
+
+Use the default `mode=now` when the next request must read the new row, when you need an immediate database constraint result, or when losing a queued write during a hard process crash would be unacceptable. Buffer mode is intended for high-volume, low-urgency writes such as API logs. See [lifespan.md](lifespan.md#8-background-flush-loop-pulse_flush).
+
+</details>
+
+<details>
+<summary><strong>How should I add custom code without making future updates painful?</strong></summary>
+
+Keep project-specific changes outside framework-managed files:
+
+- Put configuration overrides in `config_extend.py`.
+- Put new or overridden `func_*` logic in `function_extend.py`.
+- Add endpoints in a new `router/<name>.py` containing an `APIRouter`.
+- Add standalone consumers and jobs under `script/`.
+
+Register every custom route in `config_api`; use `"is_token": 0` for an intentionally public route, then add role checks, caching, or rate limiting as needed. `sync.py` overwrites core files and the shipped documentation, but preserves extension files, custom routers, and `.env`.
+
+If you are fixing Atom itself for everyone, edit the core source and submit a pull request instead. See [extend.md](extend.md).
+
+</details>
+
+<details>
+<summary><strong>Will automatic schema initialization delete or alter existing database objects?</strong></summary>
+
+It can. When `config_is_enable_postgres_schema_init = 1`, startup compares `config_postgres` with the live schema and applies configured tables, columns, constraints, indexes, extensions, and triggers. The `config_postgres["control"]` flags determine whether missing tables or columns may be dropped and whether mismatched column types may be recreated.
+
+Review those controls carefully before pointing Atom at an existing or production database. Back up the database, test schema changes on a copy, and use a database account with appropriately limited privileges. For a safe column rename, set the column's `old` key instead of removing one name and adding another. See [config.md](config.md#control).
+
+</details>
+
+<details>
+<summary><strong>Can I run multiple API workers or multiple Atom instances?</strong></summary>
+
+Yes, but in-memory state is local to each process. Response caches, rate-limit counters, and buffered writes are not automatically shared between workers.
+
+Use Redis modes for response caching and rate limiting when behavior must be consistent across instances. Use a configured external queue and separate consumers for durable background work. Graceful shutdown is especially important because each process performs a final flush of its own write buffer.
+
+Run schema initialization in a controlled deployment phase when possible rather than letting many new instances race to change the schema simultaneously. Postgres remains the shared source of truth, while Redis or another external system coordinates the features that must be shared.
+
+</details>
+
+<details>
+<summary><strong>Is the built-in `/websocket` endpoint ready for production use?</strong></summary>
+
+Treat it as a minimal example, not a complete chat or event system. The shipped endpoint accepts a text message, buffers it into the `test` table, and echoes the operation result. It does not authenticate the connection, enforce a role, manage rooms, or provide delivery guarantees.
+
+HTTP middleware and `config_api` policies do not automatically secure WebSocket connections. For production, add a custom WebSocket route that validates a token during connection setup, checks authorization for every subscribed resource, applies message-size and rate limits, and handles disconnects and backpressure. Use an external broker when messages must reach clients connected to different API instances.
+
+</details>
+
+<details>
+<summary><strong>Why does Atom fail during startup after I change configuration or a table definition?</strong></summary>
+
+Startup intentionally validates configuration before serving traffic. It rejects duplicate API IDs, unknown `config_api` keys or modes, invalid table definitions, duplicate/reserved column names, incompatible index types, unsafe schema-control combinations, and other inconsistent settings.
+
+Read the first startup exception rather than the later shutdown noise. Check recent edits in `config_extend.py`, `config_api`, and `config_postgres`, then compare them with [config.md](config.md). Common mistakes include forgetting the exact first `id` column definition, referencing a nonexistent index column, using malformed JSON in `.env`, or registering a policy path that does not match a route.
+
+</details>
+
+<details>
+<summary><strong>What should I change before deploying Atom publicly?</strong></summary>
+
+At minimum:
+
+- Replace `config_token_secret_key` and `config_root_user_password`.
+- Set `config_is_debug = 0`.
+- Restrict CORS origins and review every public table allow-list.
+- Use short, intentional token lifetimes and realtime checks for destructive admin operations.
+- Rate-limit authentication, OTP, upload, write, and costly integration routes.
+- Use TLS at the proxy/load balancer and keep secrets in the deployment environment.
+- Configure monitoring, database backups, graceful shutdown, and durable handling for failed jobs.
+
+Also review automatic schema controls and remove or protect example data/routes you do not need. Work through the full [production hardening checklist](security.md#production-hardening-checklist) before exposing the service.
+
+</details>
+
+<details>
+<summary><strong>How can a user see their API usage?</strong></summary>
+
+Call `GET /my/api-usage?days=30` with the user's bearer token. The required `days` parameter defines the reporting window, and the response groups the authenticated user's `log_api` records by API path with a request count for each. This can support an account dashboard or basic usage troubleshooting.
+
+Because request logs are buffered, the newest calls may not appear until the buffer is flushed. Treat this as operational usage information rather than a billing-grade meter: define explicit retention, aggregation, timezone, and idempotency rules before using it for quotas or invoices. For platform-wide reporting, query `log_api` through an authorized admin workflow or export it to your observability system.
+
+</details>
+
+<details>
+<summary><strong>Can I use Atom in a commercial project, and how can I contribute?</strong></summary>
+
+Atom is released under the [MIT License](../LICENSE), which permits commercial use, modification, distribution, and private use subject to the license's notice requirements. Review the license itself for the authoritative terms.
+
+For project-specific behavior, prefer extension files and custom routers so your work remains easy to maintain. For changes that improve Atom generally, open an issue describing the problem or submit a focused pull request. Keep route handlers thin, place reusable logic in functions, preserve the standard `{"status": 1, "message": ...}` response shape, update relevant documentation, and include a reproducible verification path. See [Development Guidelines](guideline.md).
 
 </details>
 
