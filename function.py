@@ -25,7 +25,6 @@ def func_check(*, app: any) -> None:
         if value[0] not in allowed_mode: raise Exception(f"{path} invalid {key} mode: {value[0]}, allowed: {', '.join(allowed_mode)}")
         return value
     requires_redis = False
-    requires_postgres = False
     for path, cfg in config_api.items():
         if not isinstance(path, str) or not path.startswith("/"): raise Exception(f"invalid config_api path: {path}")
         if path not in route_paths: raise Exception(f"unused configuration in config_api: {path} (route not found)")
@@ -43,12 +42,10 @@ def func_check(*, app: any) -> None:
             if not isinstance(role_cfg[1], list) or not role_cfg[1]: raise Exception(f"{path} invalid user_check_role roles")
             for role in role_cfg[1]: int_check(role, f"{path} user_check_role role", 1)
             if role_cfg[0] == "redis": requires_redis = True
-            if role_cfg[0] == "realtime": requires_postgres = True
         for key in ("user_check_deactivated", "user_check_deleted"):
             user_cfg = mode_list_check(path, cfg, key, user_mode_allowed, 1, 1)
             if user_cfg:
                 if user_cfg[0] == "redis": requires_redis = True
-                if user_cfg[0] == "realtime": requires_postgres = True
         cache_cfg = mode_list_check(path, cfg, "api_cache_sec", api_mode_allowed, 3, 3)
         if cache_cfg:
             ttl = int_check(cache_cfg[1], f"{path} api_cache_sec ttl", 1)
@@ -66,9 +63,7 @@ def func_check(*, app: any) -> None:
             raise Exception(f"CRITICAL: Route '{path}' is missing from config_api. All routes must be explicitly configured.")
     if requires_redis and not getattr(app.state, "config_redis_url", None):
         raise Exception("config_api uses redis mode but config_redis_url is missing")
-    if requires_postgres and not getattr(app.state, "config_postgres_url", None):
-        raise Exception("config_api uses realtime mode but config_postgres_url is missing")
-        
+
     buffer_limit = getattr(app.state, "config_buffer_limit_default", None)
     if buffer_limit is not None:
         if not isinstance(buffer_limit, int) or buffer_limit < 10 or buffer_limit > 5000:
