@@ -27,6 +27,7 @@ All default to `None`, meaning **off** — the matching client in `main.py` is o
 | Key | Enables |
 |-----|---------|
 | `config_postgres_url` | Primary Postgres pool (main datastore) |
+| `config_postgres_url_dict` | Runtime mapping of named PostgreSQL pools. Defaults to `None`; populated by `config_postgres_url_<name>` environment variables. |
 | `config_redis_url` | Redis for response caching, role/status lookups, and admin imports |
 | `config_redis_url_queue` | Redis used as a background-job queue producer |
 | `config_redis_url_ratelimiter` | Dedicated Redis for distributed rate-limit counters |
@@ -69,6 +70,15 @@ All default to `None`, meaning **off** — the matching client in `main.py` is o
 | `config_is_enable_user_delete` | `0` | Gates the user hard-delete flow. |
 | `config_is_enable_otp_require_users_update` | `0` | When `1`, updating a user's `email`/`mobile` via admin requires OTP verification. |
 | `config_is_debug` | `1` | FastAPI debug mode. Set `0` in production. |
+
+### PostgreSQL pools
+
+| Key | Default | Usage |
+|-----|---------|-------|
+| `config_postgres_pool_min_size` | `5` | Minimum connections opened by every PostgreSQL pool. |
+| `config_postgres_pool_max_size` | `20` | Maximum connections allowed in every PostgreSQL pool. |
+
+`config_postgres_url` creates the primary `client_postgres` pool. Environment variables following `config_postgres_url_<name>` create entries in `config_postgres_url_dict` and named pools in `client_postgres_dict`. For example, `config_postgres_url_read=postgresql://...` creates `client_postgres_dict["read"]`. See [postgres.md](postgres.md).
 
 ### Token / auth
 

@@ -1789,13 +1789,13 @@ async def func_otp_send_mobile(*, app_state: any, service: str, mobile: str, otp
     else:
         raise Exception(f"mobile service {service} not supported")
 
-async def func_postgres_groupby_read(*, app_state: any, table: str, col: str, limit: int, page: int, agg: str, a_col: str, order: str, filter: list) -> dict:
+async def func_postgres_groupby_read(*, app_state: any, client_postgres: any, table: str, col: str, limit: int, page: int, agg: str, a_col: str, order: str, filter: list) -> dict:
     """Executes a PostgreSQL GROUP BY query dynamically and returns the paginated results."""
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)) or not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(col)) or (a_col != "*" and not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(a_col))):
         raise Exception("invalid identifier")
     
-    where_clause, values = await app_state.func_postgres_where_build(client_postgres=app_state.client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, table=table, filter=filter, prefix="x.")
+    where_clause, values = await app_state.func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, table=table, filter=filter, prefix="x.")
     bind_idx = len(values) + 1
     is_array = "[]" in (dt := app_state.cache_postgres_schema.get(table, {}).get(col, {}).get("datatype", "text").lower()) or "array" in dt
     agg_sql = f'{agg}(*)' if agg == "count" and a_col == "*" else f'{agg}("{a_col}")'
@@ -1804,7 +1804,7 @@ async def func_postgres_groupby_read(*, app_state: any, table: str, col: str, li
     sql = f'SELECT {"item_col" if is_array else "x."+q_col+" AS item_col"}, {agg_sql} AS agg_val FROM "{table}" x {f"CROSS JOIN LATERAL unnest(x."+q_col+") item_col" if is_array else ""} {where_clause} GROUP BY item_col ORDER BY {order_sql} LIMIT ${bind_idx} OFFSET ${bind_idx+1}'
     values.extend([limit + 1, (page - 1) * limit])
     
-    async with app_state.client_postgres.acquire() as conn:
+    async with client_postgres.acquire() as conn:
         rows = await conn.fetch(sql, *values)
         ol = [{"item": row["item_col"], "value": row["agg_val"]} for row in rows]
         return {"obj_list": ol[:limit], "has_next_page": len(ol) > limit}

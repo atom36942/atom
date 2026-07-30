@@ -149,6 +149,7 @@ All settings live in `config.py` and default to safe values (integrations defaul
 
    ```bash
    config_postgres_url=postgresql://atom:123456@127.0.0.1:5432/postgres?sslmode=disable
+   config_postgres_url_read=postgresql://atom:123456@read-replica:5432/postgres?sslmode=disable
    config_redis_url=redis://localhost:6379
    config_redis_url_ratelimiter=redis://localhost:6379/1
    config_redis_url_queue=redis://localhost:6379
@@ -161,7 +162,7 @@ All settings live in `config.py` and default to safe values (integrations defaul
 
 2. **`config_extend.py`** — a git-ignored, drop-in module for overriding or adding any config value in code. Add `function_extend.py` the same way to override or extend logic. Both are auto-loaded if present, so framework updates via `sync.py` never clobber your customizations.
 
-See [config.md](docs/config.md) for a full, grouped reference of every config key and [redis.md](docs/redis.md) for Redis clients and usage.
+Any environment variable named `config_postgres_url_<name>` creates a named PostgreSQL pool that supported read APIs can select with `?db=<name>`. When `db` is omitted, the primary `config_postgres_url` pool is used. See [postgres.md](docs/postgres.md) for configuration, supported APIs, examples, and production sizing; see [config.md](docs/config.md) for the complete configuration reference.
 
 ### ⚠️ Secrets to override in production
 
@@ -242,6 +243,7 @@ It fetches `main`, then checks out the core files (`main.py`, `function.py`, `co
 | Page | What's inside |
 |------|---------------|
 | [auth.md](docs/auth.md) | Signup, the login methods, JWT tokens, roles, and OTP. |
+| [postgres.md](docs/postgres.md) | Primary Postgres pool, named read pools, `db` routing, and connection sizing. |
 | [crud.md](docs/crud.md) | Generic CRUD on any table — filters, relations, group-by. |
 | [messaging.md](docs/messaging.md) | In-app direct messages and notifications: inbox, threads, read state. |
 | [blob.md](docs/blob.md) | File storage over S3 / Azure: upload, presigned URLs, preview, delete. |

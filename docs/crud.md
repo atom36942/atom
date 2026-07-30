@@ -51,6 +51,7 @@ POST /my/object-create?table=test
 | `order` | Sort | `id desc` (default) |
 | `limit` / `page` | Pagination | `limit=20&page=2` |
 | `relation` | Join related rows (see below) | — |
+| `db` | Optional named PostgreSQL read pool; omitted means primary | `read` |
 
 Reads fetch `limit + 1` rows internally to compute `has_next_page`:
 
@@ -59,6 +60,8 @@ Reads fetch `limit + 1` rows internally to compute `has_next_page`:
 ```
 
 Limits are capped by `config_sql_read_limit_max`.
+
+`/public/object-read` and `/admin/object-read` support `db`. `/my/object-read` does not because it can also mark received objects as read. Named databases are expected to share the primary schema because table, column, and relation validation uses the primary `cache_postgres_schema`.
 
 ### Filters (`func_postgres_where_build`)
 
@@ -121,7 +124,7 @@ POST /my/object-delete?table=test
 
 ## Group-by reads
 
-`func_postgres_groupby_read` (endpoint `/public/table-groupby`) returns aggregated counts/sums grouped by a column — e.g. counts per `type` — with its own `filter`, `limit`, `page`, `order`, aggregate function, and aggregate column.
+`func_postgres_groupby_read` (endpoint `/public/table-groupby`) returns aggregated counts/sums grouped by a column — e.g. counts per `type` — with its own `filter`, `limit`, `page`, `order`, aggregate function, and aggregate column. It accepts the same optional `db` selector.
 
 ---
 

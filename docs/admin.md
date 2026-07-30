@@ -6,7 +6,7 @@ The `/admin/*` endpoints ([`router/admin.py`](../router/admin.py)) are the opera
 
 ## Query runners
 
-Run arbitrary SQL against Postgres or MSSQL. Body: `{"sql": "...", "db": "main"|"external"}` (Postgres).
+Run arbitrary SQL against Postgres or MSSQL. PostgreSQL read endpoints accept the optional `db` query parameter; the SQL remains in the request body.
 
 | Endpoint | Purpose |
 |----------|---------|
@@ -16,13 +16,13 @@ Run arbitrary SQL against Postgres or MSSQL. Body: `{"sql": "...", "db": "main"|
 | `POST /admin/mssql-query-runner-read` / `-write` / `-read-export` | Same, against MSSQL. |
 
 ```bash
-curl -X POST http://localhost:8000/admin/postgres-query-runner-read \
+curl -X POST "http://localhost:8000/admin/postgres-query-runner-read?db=read" \
   -H "Authorization: Bearer <admin-token>" \
   -H "Content-Type: application/json" \
   -d '{"sql": "SELECT role, count(*) FROM users GROUP BY role"}'
 ```
 
-Read and write runners target `client_postgres`. Export endpoints return a `StreamingResponse` (`text/csv`), so results never fully materialize in memory.
+Postgres read runners use `client_postgres` when `db` is omitted or the selected `client_postgres_dict` pool when it is present. The write runner always targets primary. Export endpoints return a `StreamingResponse` (`text/csv`), so results never fully materialize in memory.
 
 > These execute raw SQL — they are powerful and intentionally admin-only. Keep them behind `realtime` role checks in production.
 
@@ -33,7 +33,8 @@ Read and write runners target `client_postgres`. Export endpoints return a `Stre
 `POST /admin/postgres-query-generator-ai` — turn a natural-language question into SQL.
 
 ```jsonc
-{"question": "top 10 users by number of objects created", "ai": "gemini", "db": "main"}
+POST /admin/postgres-query-generator-ai?db=read
+{"question": "top 10 users by number of objects created", "ai": "gemini"}
 ```
 
 - `ai` selects the provider from `config_ai_services` (`gemini` default, or `openai`); requires the corresponding key.
@@ -64,16 +65,16 @@ curl -X POST http://localhost:8000/admin/postgres-import \
 
 | Endpoint | Returns |
 |----------|---------|
-| `GET /admin/postgres-info?db=main` | DB size/health/stats (`func_postgres_info_read`). |
-| `GET /admin/postgres-schema?db=main` | Live schema (tables, columns, indexes). |
+| `GET /admin/postgres-info?db=read` | DB size/health/stats (`func_postgres_info_read`). |
+| `GET /admin/postgres-schema?db=read` | Live schema (tables, columns, indexes). |
 
-Both use the primary Postgres connection and are cached (`api_cache_sec`).
+Both use primary when `db` is omitted and the selected named pool otherwise. They are cached (`api_cache_sec`).
 
 ---
 
 ## Object CRUD (unrestricted)
 
-`/admin/object-create`, `-read`, `-update`, `-delete` mirror the generic CRUD engine (see [crud.md](crud.md)) but **without ownership scoping** — an admin can operate on any row of any table. Extra guards still apply: user hard-delete needs `config_is_enable_user_delete=1`; updating `users` email/mobile can require OTP (`config_is_enable_otp_require_users_update`); password updates must be `{id, password}` only.
+`/admin/object-create`, `-read`, `-update`, `-delete` mirror the generic CRUD engine (see [crud.md](crud.md)) but **without ownership scoping** — an admin can operate on any row of any table. `/admin/object-read` accepts the optional `db` selector; all writes remain on primary. Extra guards still apply: user hard-delete needs `config_is_enable_user_delete=1`; updating `users` email/mobile can require OTP (`config_is_enable_otp_require_users_update`); password updates must be `{id, password}` only.
 
 ---
 

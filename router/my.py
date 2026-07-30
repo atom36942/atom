@@ -36,10 +36,11 @@ async def func_api_my_token_refresh(*, request: Request):
 @router.get("/my/api-usage")
 async def func_api_my_api_usage(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "days", "type": "int", "required": 1, "allowed": None, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": app_state.cache_postgres_db_name_list, "default": None}, {"name": "days", "type": "int", "required": 1, "allowed": None, "default": None}])
+    client_postgres = app_state.client_postgres if oq["db"] is None else app_state.client_postgres_dict[oq["db"]]
+    if not client_postgres: raise Exception("postgres client not initialized")
     sql = "SELECT path AS api, count(*) FROM log_api WHERE created_at >= NOW() - ($1 * INTERVAL '1 day') AND created_by_id=$2 GROUP BY path LIMIT 1000;"
-    async with app_state.client_postgres.acquire() as conn:
+    async with client_postgres.acquire() as conn:
         records = await conn.fetch(sql, oq["days"], request.state.user["id"])
         obj_list = [dict(r) for r in records]
     return {"status": 1, "message": obj_list}
@@ -152,11 +153,12 @@ async def func_api_my_received_object_delete_all(*, request: Request):
 @router.get("/my/message-inbox")
 async def func_api_my_message_inbox(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "mode", "type": "str", "required": 1, "allowed": ["all", "unread", "read"], "default": None}, {"name": "order", "type": "str", "required": 0, "allowed": None, "default": "id desc"}, {"name": "limit", "type": "int", "required": 0, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": 0, "allowed": None, "default": 1}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": app_state.cache_postgres_db_name_list, "default": None}, {"name": "mode", "type": "str", "required": 1, "allowed": ["all", "unread", "read"], "default": None}, {"name": "order", "type": "str", "required": 0, "allowed": None, "default": "id desc"}, {"name": "limit", "type": "int", "required": 0, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": 0, "allowed": None, "default": 1}])
+    client_postgres = app_state.client_postgres if oq["db"] is None else app_state.client_postgres_dict[oq["db"]]
+    if not client_postgres: raise Exception("postgres client not initialized")
     where_clause = {"read": "user_id=$1 AND read_at IS NOT NULL", "unread": "user_id=$1 AND read_at IS NULL"}.get(oq["mode"], "1=1")
     sql = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
-    async with app_state.client_postgres.acquire() as conn:
+    async with client_postgres.acquire() as conn:
         ol = [dict(r) for r in await conn.fetch(sql, request.state.user["id"])]
         return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 

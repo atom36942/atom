@@ -25,7 +25,7 @@ Resets the working `tmp/` directory (removed if stale, then recreated) and ensur
 Creates one client per configured integration. **Each is conditional** — if the relevant `config_*` value is unset, the client is `None` and that feature stays dormant. Highlights:
 
 - **Password hasher & HTTP** — Argon2 `PasswordHasher` and a shared `httpx.AsyncClient` are always created.
-- **Postgres** — one pool (`client_postgres`) is shared by all database reads and writes.
+- **Postgres** — `client_postgres` is the primary pool used for writes and default reads. Every `config_postgres_url_<name>` entry creates an additional pool in `client_postgres_dict`; supported read APIs can select one with `?db=<name>`.
 - **Redis** — cache/rate-limit client and a separate queue-producer client.
 - **Other datastores** — MongoDB (Motor), MSSQL write/read pools (with fallback).
 - **Cloud/storage** — AWS S3 (async client + boto3 resource), SNS, SES; Azure Blob and Email.
@@ -33,7 +33,7 @@ Creates one client per configured integration. **Each is conditional** — if th
 - **Messaging** — Kafka producer (started here), RabbitMQ connection + channel, Celery producer.
 - **Ops** — PostHog analytics, SFTP connection.
 
-Connection pools are opened with sensible bounds (Postgres `min_size=5, max_size=20`; MSSQL `pool_recycle=60`).
+Every Postgres pool uses `config_postgres_pool_min_size` and `config_postgres_pool_max_size` (defaults `5` and `20`); MSSQL uses `pool_recycle=60`. Account for every app instance and every named Postgres pool when sizing database connection limits.
 
 ### 4. Database schema init
 When `config_is_enable_postgres_schema_init = 1` and Postgres is present, `func_postgres_schema_init` applies the declarative schema from `config_postgres` — creating extensions, tables, columns, indexes, and constraints, and seeding the root admin user (password hashed with Argon2). See [config.md](config.md#config_postgres) for what it reads.
@@ -41,7 +41,7 @@ When `config_is_enable_postgres_schema_init = 1` and Postgres is present, `func_
 ### 5. Cache building
 To keep the request path fast, several read-mostly datasets are loaded into memory once at startup:
 
-- **Schema caches** — `cache_postgres_schema` (+ an AI-oriented variant), plus derived `..._table_list` and `..._column_list`. These let routers validate table/column names without hitting the DB.
+- **Schema caches** — `cache_postgres_schema` (+ an AI-oriented variant), plus derived `..._table_list` and `..._column_list`. These let routers validate table/column names without hitting the DB. `cache_postgres_db_name_list` contains the initialized named-pool keys used to validate the `db` query parameter.
 - **Data caches** — `cache_config` (the `config` table), and `cache_users_role` / `cache_users_deactivated` / `cache_users_deleted`, which back the middleware's `inmemory`-mode auth checks.
 - **Empty runtime caches** — `cache_ratelimiter`, `cache_api_response`, and `cache_postgres_buffer_create` (the in-memory write buffer) start empty and fill during operation.
 
@@ -73,7 +73,7 @@ Cancels any tracked `runtime_background_tasks` (waiting up to 5s), then cancels 
 Acquires `flush_lock` and runs one last `func_postgres_create(mode="flush")` so no buffered rows are lost on exit.
 
 ### 3. Close every client
-Gracefully disconnects all initialized clients — HTTP, Postgres pools, Redis, MongoDB, MSSQL, S3/SNS/SES, OpenAI/Gemini, PostHog (shutdown + flush), Kafka (stop), RabbitMQ channel + connection, Redis producer, SFTP, and Azure Blob/Email — each guarded by a presence/capability check so `None` or already-closed clients are skipped.
+Gracefully disconnects all initialized clients — HTTP, the primary and every named Postgres pool, Redis, MongoDB, MSSQL, S3/SNS/SES, OpenAI/Gemini, PostHog (shutdown + flush), Kafka (stop), RabbitMQ channel + connection, Redis producer, SFTP, and Azure Blob/Email — each guarded by a presence/capability check so `None` or already-closed clients are skipped.
 
 ---
 
