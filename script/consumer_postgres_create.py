@@ -34,7 +34,7 @@ async def setup():
 
 async def execute(payload, client_postgres, cache_postgres_buffer_create, cache_postgres_schema, client_password_hasher):
     table = payload.get("table")
-    return await func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=config_regex, buffer_limit=config_table.get(table, {}).get("buffer_limit", config_buffer_limit_default), mode=payload.get("mode", "now"), table=table, obj_list=payload.get("obj_list"))
+    return await func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer=cache_postgres_buffer_create, config_regex=config_regex, buffer_limit=config_table.get(table, {}).get("buffer_limit", config_buffer_limit_default), mode=payload.get("mode", "now"), table=table, obj_list=payload.get("obj_list"))
 
 # init
 if __name__ == "__main__":

@@ -72,6 +72,8 @@ API logs
 
 The lifespan starts `func_postgres_buffers_flush_periodic` as `postgres_buffer_flush_task`. It calls `func_postgres_buffer_flush` separately for both buffers every 60 seconds. Shutdown cancels the periodic task and calls the single-buffer helper explicitly for each final flush. Primary and log flush errors are isolated, so a primary failure does not prevent an independent logging database from flushing.
 
+See [buffer.md](buffer.md) for create modes, buffer grouping, limits, and flush behavior.
+
 The `log_api` table-specific `buffer_limit` in `config_table` still controls early log-buffer release:
 
 ```python

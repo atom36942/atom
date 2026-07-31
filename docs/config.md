@@ -116,7 +116,7 @@ For example, `config_postgres_url_logs=postgresql://...` with `config_log_db=log
 
 | Key | Default | Usage |
 |-----|---------|-------|
-| `config_buffer_limit_default` | `100` | Default in-memory buffer size before a table's rows flush to Postgres. |
+| `config_buffer_limit_default` | `100` | Default in-memory buffer size before a table's rows flush to Postgres. See [buffer.md](buffer.md). |
 | `config_batch_item_limit` | `1000` | Max objects per create/update/delete request (`router/my.py`). |
 | `config_sql_read_limit_default` | `100` | Default page size for object reads. |
 | `config_sql_read_limit_max` | `10000` | Hard cap on read page size. |

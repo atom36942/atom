@@ -1942,7 +1942,7 @@ async def func_blob_upload_file(*, app_state: any, service: str, container: str,
         output[item.filename] = file_url
         blob_list.append({"created_by_id": user_id, "type": 1, "service": service, "file_url": file_url})
     if blob_list:
-        await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
+        await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
     return output
 
 async def func_blob_upload_url(*, app_state: any, service: str, container: str, count: int, user_id: int) -> list:
@@ -1971,7 +1971,7 @@ async def func_blob_upload_url(*, app_state: any, service: str, container: str, 
             output.append({"upload_url": sas_url, "key": file_key, "file_url": file_url})
         blob_list.append({"created_by_id": user_id, "type": 2, "service": service, "file_url": file_url})
     if blob_list:
-        await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
+        await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
     return output
 
 async def func_redis_import(*, client_redis: any, config_redis_cache_ttl_sec: int, mode: str, file: any) -> str:
@@ -2235,7 +2235,7 @@ async def func_postgres_import(*, app_state: any, mode: str, table: str, file: a
                 if not ol: continue
                 if mode in ("update", "delete") and any("id" not in obj for obj in ol): raise Exception(f"CSV format error: Postgres {mode} requires 'id' column")
                 if mode == "create":
-                    await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table=table, obj_list=ol)
+                    await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table=table, obj_list=ol)
                 elif mode == "update":
                     await app_state.func_postgres_update(client_postgres=app_state.client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, config_regex=app_state.config_regex, table=table, obj_list=ol, created_by_id=None)
                 elif mode == "delete":
@@ -2525,7 +2525,7 @@ async def func_postgres_relation(*, client_postgres: any, client_postgres_conn: 
         else: raise Exception(f"invalid operator: {op}")
     return obj_list
 
-async def func_postgres_create(*, client_postgres: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer_create: dict, config_regex: dict, buffer_limit: int, mode: str, table: str, obj_list: list) -> any:
+async def func_postgres_create(*, client_postgres: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_regex: dict, buffer_limit: int, mode: str, table: str, obj_list: list) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     import re, orjson
     limit_chunk = 5000
@@ -2578,12 +2578,12 @@ async def func_postgres_create(*, client_postgres: any, client_postgres_conn: an
             yield await func_postgres_serialize(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=batch, is_base=0 if len(batch) > 1 else 1)
     if mode not in ("now", "buffer", "flush"): raise Exception(f"invalid mode: {mode}")
     if mode == "flush":
-        for key, buffer_list in list(cache_postgres_buffer_create.items()):
+        for key, buffer_list in list(cache_postgres_buffer.items()):
             if buffer_list:
                 parts = key.split("|")
                 tbl = parts[0]
                 await insert_serialized(tbl, buffer_list)
-                cache_postgres_buffer_create[key] = []
+                cache_postgres_buffer[key] = []
         return "flushed"
     if not obj_list: raise Exception("object list required")
     if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
@@ -2593,11 +2593,11 @@ async def func_postgres_create(*, client_postgres: any, client_postgres_conn: an
         result = "buffered"
         async for serialized_list in serialize_batches():
             key = f"{table}|{','.join(sorted(serialized_list[0].keys()))}"
-            cache_postgres_buffer_create.setdefault(key, []).extend(serialized_list)
-            if len(cache_postgres_buffer_create[key]) >= buffer_limit:
-                items = cache_postgres_buffer_create[key]
+            cache_postgres_buffer.setdefault(key, []).extend(serialized_list)
+            if len(cache_postgres_buffer[key]) >= buffer_limit:
+                items = cache_postgres_buffer[key]
                 await insert_serialized(table, items)
-                cache_postgres_buffer_create[key] = []
+                cache_postgres_buffer[key] = []
                 result = "buffered released"
         return result
     if mode == "now":
@@ -2617,7 +2617,7 @@ async def func_postgres_buffer_flush(*, app_state: any, client_postgres: any, ca
     """Flush one PostgreSQL create buffer through its selected client pool."""
     if not client_postgres: return None
     async with app_state.postgres_buffer_flush_lock:
-        return await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="flush", table="", obj_list=[])
+        return await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=cache_postgres_buffer, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="flush", table="", obj_list=[])
 
 async def func_postgres_buffers_flush_periodic(*, app_state: any, client_postgres: any, cache_postgres_buffer_create: dict, client_postgres_log: any, cache_postgres_buffer_log_api: dict, interval_sec: int = 60) -> None:
     """Periodically flush the primary and API-log PostgreSQL buffers."""

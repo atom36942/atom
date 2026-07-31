@@ -37,6 +37,8 @@ POST /my/object-create?table=test
 - **`mode`** query param: `now` writes immediately; `buffer` appends to the in-memory buffer flushed by `pulse_flush` (see [lifespan.md](lifespan.md)) — use `buffer` for high-volume, low-urgency inserts.
 - Optional **`queue`** param routes the create through Redis/RabbitMQ/Kafka/Celery to a background consumer instead of writing inline.
 
+For the complete `mode=buffer` lifecycle—including automatic cache creation, limits, periodic flushes, and shutdown behavior—see [buffer.md](buffer.md).
+
 ---
 
 ## Read
