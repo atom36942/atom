@@ -230,6 +230,7 @@ It fetches `main`, then checks out the core files (`main.py`, `function.py`, `co
 |------|---------------|
 | [about.md](docs/about.md) | Architecture overview: components, request lifecycle, key features. |
 | [config.md](docs/config.md) | Full reference for every `config.py` key, grouped by purpose. |
+| [prod.md](docs/prod.md) | Conservative production settings and deployment guidance. |
 
 ⚙️ **Internals**
 
