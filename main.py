@@ -169,12 +169,12 @@ if config_sentry_dsn: sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastA
 # middleware
 @app.middleware("http")
 async def middleware(request, api_function):
-    # middleware request init
+    #request init
     if request.method == "OPTIONS": return await api_function(request)
     start, error, response_type, request.state.user = time.perf_counter(), None, "direct_no_cache_set", {}
     app_state = request.app.state
     try:
-        # middleware route config
+        # route config
         route = request.scope.get("route")
         path = request.url.path
         route_path = getattr(route, "path", None) or path
@@ -185,19 +185,19 @@ async def middleware(request, api_function):
         user_check_deleted = api_cfg.get("user_check_deleted")
         api_ratelimiting_times_sec = api_cfg.get("api_ratelimiting_times_sec")
         api_cache_sec = api_cfg.get("api_cache_sec")
-        # middleware authentication
+        # authentication
         request.state.user = await app_state.func_token_decode(headers=request.headers, config_token_secret_key=app_state.config_token_secret_key)
         await app_state.func_middleware_check_auth(user_dict=request.state.user, url_path=path, is_token=is_token, user_check_role=user_check_role, user_check_deactivated=user_check_deactivated, user_check_deleted=user_check_deleted)
-        # middleware authorization
+        # authorization
         await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role=user_check_role, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, user_check_deactivated=user_check_deactivated, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis, cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, user_check_deleted=user_check_deleted, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis, cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
-        # middleware rate limiting
+        # rate limiting
         await app_state.func_middleware_check_ratelimiter(client_redis=app_state.client_redis_ratelimiter, api_ratelimiting_times_sec=api_ratelimiting_times_sec, url_path=path, identifier=request.state.user.get("id") if request.state.user else request.client.host, cache_ratelimiter=app_state.cache_ratelimiter)
-        # middleware api cache
+        # api cache
         user_id, query_params = (request.state.user.get("id") if request.state.user else 0), dict(request.query_params)
         response = await app_state.func_middleware_api_cache(mode="get", path=path, query_params=query_params, api_cache_sec=api_cache_sec, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response)
-        # middleware api execution
+        # api execution
         if not response:
             if query_params.get("is_background") == "1":
                 response_type = "background_added"
@@ -208,11 +208,11 @@ async def middleware(request, api_function):
                 if getattr(response, "is_cache_set", False): response_type = "direct_cache_set"
         else:
             response_type = "cache_response"
-    # middleware error response
+    # error response
     except Exception as e:
         response_type = "error"
         error, response = await app_state.func_middleware_api_response_error(exception=e, is_traceback=1, sentry_dsn=app_state.config_sentry_dsn)
-    # middleware api log buffer
+    # api log buffer
     if app_state.client_postgres_log:
         with suppress(Exception): await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_log_api, config_regex=app_state.config_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": request.client.host if request.client else None, "path": request.url.path, "method": request.method, "query_param": str(request.query_params), "status_code": response.status_code if hasattr(response, "status_code") else None, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
     return response
