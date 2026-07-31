@@ -42,7 +42,7 @@ if importlib.util.find_spec("config_extend"): from config_extend import *
 async def func_lifespan(app:"FastAPI"):
     try:
         app.state.runtime_background_tasks = set()
-        app.state.pulse_flush_task = None
+        app.state.postgres_buffer_flush_task = None
         # start
         start_journey = time.perf_counter()
         # check
@@ -98,50 +98,33 @@ async def func_lifespan(app:"FastAPI"):
         cache_api_response = {}
         cache_postgres_buffer_create = {}
         cache_postgres_buffer_log_api = {}
-        # flush lock
-        app.state.flush_lock, app.state.pulse_flush_task = asyncio.Lock(), None
         # app state add
         [setattr(app.state, k, v) for k, v in {**globals(), **locals()}.items() if k.startswith(("client_", "cache_"))]
         # openapi spec generation
         app.state.cache_openapi = app.state.func_openapi_spec_generate(app_routes=app.routes, app_state=app.state)
-        # postgres buffer flush loop
-        async def pulse_flush():
-            buffer_flush_interval_sec = 60
-            while True:
-                try:
-                    await asyncio.sleep(buffer_flush_interval_sec)
-                    if client_postgres:
-                        try:
-                            await app.state.func_postgres_buffer_flush(app_state=app.state, client_postgres=client_postgres, cache_postgres_buffer=cache_postgres_buffer_create)
-                        except Exception as e: print(f"❌ primary buffer flush error: {e}")
-                    if client_postgres_log:
-                        try:
-                            await app.state.func_postgres_buffer_flush(app_state=app.state, client_postgres=client_postgres_log, cache_postgres_buffer=cache_postgres_buffer_log_api)
-                        except Exception as e: print(f"❌ log api buffer flush error: {e}")
-                except asyncio.CancelledError: break
-                except Exception as e: print(f"❌ pulse flush error: {e}")
-        app.state.pulse_flush_task = asyncio.create_task(pulse_flush())
+        # start periodic postgres buffer flush task
+        app.state.postgres_buffer_flush_lock = asyncio.Lock()
+        app.state.postgres_buffer_flush_task = asyncio.create_task(app.state.func_postgres_buffers_flush_periodic(app_state=app.state, client_postgres=client_postgres, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log=client_postgres_log, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api, interval_sec=60))
     except Exception as e:
         print(f"❌ startup error: {e}")
         raise
     # shutdown
     yield
     try:
+        # stop runtime background tasks
         runtime_background_tasks = getattr(app.state, "runtime_background_tasks", set())
         if runtime_background_tasks:
             await app.state.func_async_tasks_cancel(task_list=list(runtime_background_tasks), timeout_sec=5)
-        # background task stop
-        pulse_flush_task = getattr(app.state, "pulse_flush_task", None)
-        if pulse_flush_task: await app.state.func_async_tasks_cancel(task_list=[pulse_flush_task], timeout_sec=5)
+        # stop periodic postgres buffer flush task
+        postgres_buffer_flush_task = getattr(app.state, "postgres_buffer_flush_task", None)
+        if postgres_buffer_flush_task: await app.state.func_async_tasks_cancel(task_list=[postgres_buffer_flush_task], timeout_sec=5)
         # postgres buffer flush final
-        if client_postgres:
-            try:
-                await app.state.func_postgres_buffer_flush(app_state=app.state, client_postgres=client_postgres, cache_postgres_buffer=cache_postgres_buffer_create)
-            except Exception as e: print(f"❌ final primary buffer flush error: {e}")
-        if client_postgres_log:
-            try:
-                await app.state.func_postgres_buffer_flush(app_state=app.state, client_postgres=client_postgres_log, cache_postgres_buffer=cache_postgres_buffer_log_api)
-            except Exception as e: print(f"❌ final log api buffer flush error: {e}")
+        try:
+            await app.state.func_postgres_buffer_flush(app_state=app.state, client_postgres=client_postgres, cache_postgres_buffer=cache_postgres_buffer_create)
+        except Exception as e: print(f"❌ final primary buffer flush error: {e}")
+        try:
+            await app.state.func_postgres_buffer_flush(app_state=app.state, client_postgres=client_postgres_log, cache_postgres_buffer=cache_postgres_buffer_log_api)
+        except Exception as e: print(f"❌ final log api buffer flush error: {e}")
         # client disconnect
         if client_http: await client_http.aclose()
         if client_postgres: await client_postgres.close()

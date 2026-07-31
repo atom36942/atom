@@ -2616,8 +2616,22 @@ async def func_postgres_create(*, client_postgres: any, client_postgres_conn: an
 async def func_postgres_buffer_flush(*, app_state: any, client_postgres: any, cache_postgres_buffer: dict) -> any:
     """Flush one PostgreSQL create buffer through its selected client pool."""
     if not client_postgres: return None
-    async with app_state.flush_lock:
+    async with app_state.postgres_buffer_flush_lock:
         return await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="flush", table="", obj_list=[])
+
+async def func_postgres_buffers_flush_periodic(*, app_state: any, client_postgres: any, cache_postgres_buffer_create: dict, client_postgres_log: any, cache_postgres_buffer_log_api: dict, interval_sec: int = 60) -> None:
+    """Periodically flush the primary and API-log PostgreSQL buffers."""
+    import asyncio
+    while True:
+        try:
+            await asyncio.sleep(interval_sec)
+            try: await app_state.func_postgres_buffer_flush(app_state=app_state, client_postgres=client_postgres, cache_postgres_buffer=cache_postgres_buffer_create)
+            except Exception as e: print(f"❌ primary buffer flush error: {e}")
+            try: await app_state.func_postgres_buffer_flush(app_state=app_state, client_postgres=client_postgres_log, cache_postgres_buffer=cache_postgres_buffer_log_api)
+            except Exception as e: print(f"❌ log api buffer flush error: {e}")
+        except asyncio.CancelledError: break
+        except Exception as e: print(f"❌ periodic postgres buffer flush error: {e}")
+    return None
 
 async def func_async_tasks_cancel(*, task_list: list, timeout_sec: int = 5) -> None:
     """Cancel asynchronous tasks and wait up to the configured timeout for them to finish."""

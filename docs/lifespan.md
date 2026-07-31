@@ -46,19 +46,19 @@ To keep the request path fast, several read-mostly datasets are loaded into memo
 - **Empty runtime caches** — `cache_ratelimiter`, `cache_api_response`, `cache_postgres_buffer_create` (the general write buffer), and `cache_postgres_buffer_log_api` (the dedicated API-log buffer) start empty and fill during operation.
 
 ### 6. Register on `app.state`
-Every local variable named `client_*` or `cache_*` is bulk-assigned onto `app.state`, making all clients and caches reachable from routers as `request.app.state.<name>`. A `flush_lock` (asyncio lock) is also created to serialize buffer flushes.
+Every local variable named `client_*` or `cache_*` is bulk-assigned onto `app.state`, making all clients and caches reachable from routers as `request.app.state.<name>`. A `postgres_buffer_flush_lock` (asyncio lock) is also created to serialize buffer flushes.
 
 ### 7. OpenAPI generation
 `func_openapi_spec_generate` builds the OpenAPI spec from the live routes and stores it as `cache_openapi`, served at `/openapi.json`.
 
-### 8. Background flush loop (`pulse_flush`)
-Starts a long-running task that, every **60 seconds**, calls `func_postgres_buffer_flush` for the primary general buffer and the dedicated API-log buffer. The helper acquires `flush_lock` and delegates to `func_postgres_create(mode="flush")`. Logs use primary when `config_log_db=None`, or the matching named pool otherwise. Primary and log failures are isolated so one failed destination does not block the other.
+### 8. Periodic buffer flush (`func_postgres_buffers_flush_periodic`)
+Starts `func_postgres_buffers_flush_periodic` as `postgres_buffer_flush_task`. Every **60 seconds**, it calls `func_postgres_buffer_flush` separately for the primary general buffer and the dedicated API-log buffer. The single-buffer helper acquires `postgres_buffer_flush_lock` and delegates to `func_postgres_create(mode="flush")`. Logs use primary when `config_log_db=None`, or the matching named pool otherwise. Primary and log failures are isolated so one failed destination does not block the other.
 
 ---
 
 ## `yield` — Serving
 
-Between startup and shutdown the app handles requests. Handlers read clients/caches off `app.state`; the middleware records API logs into the buffer that `pulse_flush` drains.
+Between startup and shutdown the app handles requests. Handlers read clients/caches off `app.state`; the middleware records API logs into the buffer that `func_postgres_buffers_flush_periodic` drains.
 
 ---
 
@@ -67,10 +67,10 @@ Between startup and shutdown the app handles requests. Handlers read clients/cac
 Runs in reverse spirit of startup — drain, then disconnect — all wrapped so a failure in one step still lets the rest proceed.
 
 ### 1. Stop background work
-Calls `func_async_tasks_cancel` for tracked `runtime_background_tasks` and the `pulse_flush` task, cancelling each group and waiting up to 5 seconds for clean completion.
+Calls `func_async_tasks_cancel` for tracked `runtime_background_tasks` and `postgres_buffer_flush_task`, cancelling each group and waiting up to 5 seconds for clean completion.
 
 ### 2. Final buffer flush
-Acquires `flush_lock` and runs one last `func_postgres_create(mode="flush")` so no buffered rows are lost on exit.
+Calls `func_postgres_buffer_flush` separately for the primary and API-log buffers. Each call acquires `postgres_buffer_flush_lock` and delegates to `func_postgres_create(mode="flush")`, so records accumulated since the last periodic flush are persisted before disconnect.
 
 ### 3. Close every client
 Gracefully disconnects all initialized clients — HTTP, the primary and every named Postgres pool, Redis, MongoDB, MSSQL, S3/SNS/SES, OpenAI/Gemini, PostHog (shutdown + flush), Kafka (stop), RabbitMQ channel + connection, Redis producer, SFTP, and Azure Blob/Email — each guarded by a presence/capability check so `None` or already-closed clients are skipped.
