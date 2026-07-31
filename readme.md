@@ -248,6 +248,7 @@ It fetches `main`, then checks out the core files (`main.py`, `function.py`, `co
 | [buffer.md](docs/buffer.md) | PostgreSQL create buffers, limits, periodic flushing, and shutdown behavior. |
 | [object.md](docs/object.md) | Practical create, read, update, and delete examples for public, user, and admin APIs. |
 | [read.md](docs/read.md) | Read parameters, filter encoding and operators, pagination, sorting, and relations. |
+| [queue.md](docs/queue.md) | Queueing object creates/updates through Redis, RabbitMQ, Kafka, or Celery. |
 | [crud.md](docs/crud.md) | Generic CRUD on any table — filters, relations, group-by. |
 | [messaging.md](docs/messaging.md) | In-app direct messages and notifications: inbox, threads, read state. |
 | [blob.md](docs/blob.md) | File storage over S3 / Azure: upload, presigned URLs, preview, delete. |

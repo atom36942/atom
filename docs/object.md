@@ -109,7 +109,7 @@ For asynchronous processing, add a configured queue:
 POST /my/object-create?table=test&queue=redis
 ```
 
-Supported queue names come from `config_queue_services`. Publishing succeeds only when the matching producer is configured, and a consumer must be running to perform the database write.
+Supported queue names come from `config_queue_services`. Publishing succeeds only when the matching producer is configured, and a consumer must be running to perform the database write. See [Object Queues](queue.md) for broker configuration, consumers, delivery behavior, and failure handling.
 
 ### Read my objects
 
@@ -156,6 +156,8 @@ Batch updates use `obj_list`:
 The table must contain `updated_by_id`, which Atom fills from the token. Non-user tables are additionally restricted by `created_by_id`, so knowing another row's ID is not enough to update it. Server-managed columns are rejected.
 
 User-account updates have extra rules: a user can update only their own row, role changes are blocked, sensitive fields must be changed individually, and email/mobile changes require an OTP when configured.
+
+Updates can also be published with `queue=redis`, `queue=rabbitmq`, `queue=kafka`, or `queue=celery`. See [Object Queues](queue.md#queue-an-update).
 
 ### Delete my objects
 

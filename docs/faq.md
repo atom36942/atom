@@ -272,7 +272,7 @@ Create endpoints support two ways to move work off the request path:
 - Add `?is_background=1` for an in-process background task. This is simple and fast, but the task can be lost if the API process stops.
 - Add `?queue=redis` (or another configured queue mode) to publish the payload for a separate worker. This is the better choice for durable, scalable, or slow workloads.
 
-Make sure the selected queue client is configured and its consumer process is running before publishing jobs. Design handlers to be idempotent so retries cannot create duplicates, and monitor `tmp/consumer_failed_payload.jsonl` for terminal failures. See [workers.md](workers.md).
+Make sure the selected queue client is configured and its consumer process is running before publishing jobs. Design handlers to be idempotent so retries cannot create duplicates, and monitor `tmp/consumer_failed_payload.jsonl` for terminal failures. See [Object Queues](queue.md) for object API details and [Background Workers](workers.md) for broader worker patterns.
 
 </details>
 
@@ -414,11 +414,24 @@ Keep relation payloads focused and select only the columns the client needs. For
 </details>
 
 <details>
-<summary><strong>Why is a row created with `mode=buffer` not visible immediately?</strong></summary>
+<summary><strong>What does `mode=buffer` do, and when should I use it?</strong></summary>
 
-`mode=buffer` acknowledges the request after placing the row in an in-memory write buffer; it does not immediately commit the row to Postgres. The lifespan task flushes buffered rows every 60 seconds, when the configured table buffer limit is reached, during `GET /admin/sync`, and again during graceful shutdown.
+The `/public/object-create`, `/my/object-create`, and `/admin/object-create` APIs accept `mode=now` or `mode=buffer`. The default, `mode=now`, inserts into PostgreSQL during the request and normally returns the created IDs. `mode=buffer` validates and serializes the objects, then keeps them temporarily in the API process's memory so multiple rows can be inserted as a batch:
 
-Use the default `mode=now` when the next request must read the new row, when you need an immediate database constraint result, or when losing a queued write during a hard process crash would be unacceptable. Buffer mode is intended for high-volume, low-urgency writes such as API logs. See [lifespan.md](lifespan.md#8-background-flush-loop-pulse_flush).
+```bash
+curl -X POST "http://localhost:8000/my/object-create?table=test&mode=buffer" \
+  -H "Authorization: Bearer <access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Buffered object","type":1}'
+```
+
+A successful response with `"message": "buffered"` means the row is accepted in memory but is **not yet committed or readable from PostgreSQL**. `"buffered released"` means that buffer group reached its limit and was inserted immediately.
+
+Pending groups are flushed when they reach the table's `buffer_limit`, approximately every 60 seconds, by `GET /admin/sync`, and during graceful shutdown. `config_table[<table>]["buffer_limit"]` overrides `config_buffer_limit_default`. Rows are grouped by table and column shape, so differently shaped objects can reach their limits independently.
+
+Use buffering for high-volume, low-urgency records where delayed visibility and possible loss during a crash or forced shutdown are acceptable. Use `mode=now` when the caller needs the inserted ID, must read the row immediately, or requires database persistence before success is returned.
+
+`mode=buffer` is process-local batching, not a durable queue. For broker-backed asynchronous work, use the supported `queue` parameter and keep queued creates on their default `mode=now`; combining `queue` with `mode=buffer` can leave records only in consumer memory. See [PostgreSQL Buffers](buffer.md) and [Object Queues](queue.md#queue-versus-modebuffer).
 
 </details>
 
