@@ -96,7 +96,7 @@ Apply the corresponding table definition through your migration or deployment pr
 
 - The external database contains a compatible `log_api` table.
 - Its database user has `INSERT` permission.
-- The configured names match, such as `config_postgres_url_dump` with `config_log_db=dump`.
+- The configured names match, such as `config_postgres_url_logs` with `config_log_db=logs`.
 
 ## Failure behavior
 
