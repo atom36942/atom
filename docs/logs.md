@@ -44,7 +44,7 @@ The mapping is exact and case-sensitive. For example, `config_log_db=logs` selec
 
 ## Dedicated log buffer
 
-API logs use their own in-memory buffer:
+The new log database uses an in-memory buffer, but you do not need to configure or create it manually. Atom automatically creates:
 
 ```python
 app.state.cache_postgres_buffer_log_api
@@ -66,9 +66,11 @@ Normal buffered rows
 API logs
     → cache_postgres_buffer_log_api
     → client_postgres_log
+    → client_postgres_dict[config_log_db] when configured
+    → log_api
 ```
 
-The periodic lifespan task flushes both buffers every 60 seconds. It also performs a final flush during graceful shutdown.
+The periodic lifespan task calls `func_postgres_buffer_flush` for both buffers every 60 seconds. It calls the same helper for a final flush during graceful shutdown. Primary and log flush errors are isolated, so a primary failure does not prevent an independent logging database from flushing.
 
 The `log_api` table-specific `buffer_limit` in `config_table` still controls early log-buffer release:
 
@@ -82,13 +84,19 @@ config_table = {
 
 Schema initialization runs against primary only. When `config_log_db` selects an independent database, that database must already contain a compatible `log_api` table.
 
+Log serialization and validation currently use the primary `cache_postgres_schema`. The selected logging database does not need a separate schema cache as long as its `log_api` table has the same structure as primary. A separate schema cache would only be necessary if the external log table structure differs.
+
 The required schema is declared under:
 
 ```python
 config_postgres["table"]["log_api"]
 ```
 
-Apply the corresponding table definition through your migration or deployment process before routing logs to the external database. The logging database user needs permission to insert into `log_api`.
+Apply the corresponding table definition through your migration or deployment process before routing logs to the external database. You only need to ensure:
+
+- The external database contains a compatible `log_api` table.
+- Its database user has `INSERT` permission.
+- The configured names match, such as `config_postgres_url_dump` with `config_log_db=dump`.
 
 ## Failure behavior
 

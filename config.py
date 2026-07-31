@@ -44,7 +44,6 @@ config_is_enable_postgres_schema_init = 1
 config_is_enable_signup = 1
 config_is_enable_otp_require_users_update = 0
 config_is_debug = 1
-config_log_db = None
 config_postgres_pool_min_size = 5
 config_postgres_pool_max_size = 20
 config_otp_length = 6
@@ -71,6 +70,7 @@ config_cors_allow_methods = ["*"]
 config_cors_allow_headers = ["*"]
 config_cors_expose_headers = ["*"]
 config_cors_allow_credentials = True
+config_log_db = None
 
 # Table
 config_table_sensitive = ["spatial_ref_sys", "users", "log_users_delete", "jobseeker"]

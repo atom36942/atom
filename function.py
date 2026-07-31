@@ -2643,6 +2643,12 @@ async def func_postgres_create(*, client_postgres: any, client_postgres_conn: an
         async with client_postgres.acquire() as conn:
             return await _execute_now(conn)
 
+async def func_postgres_buffer_flush(*, app_state: any, client_postgres: any, cache_postgres_buffer: dict) -> any:
+    """Flush one PostgreSQL create buffer through its selected client pool."""
+    if not client_postgres: return None
+    async with app_state.flush_lock:
+        return await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="flush", table="", obj_list=[])
+
 async def func_postgres_read(*, client_postgres: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
     import re

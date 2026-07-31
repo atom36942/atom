@@ -52,7 +52,7 @@ Every local variable named `client_*` or `cache_*` is bulk-assigned onto `app.st
 `func_openapi_spec_generate` builds the OpenAPI spec from the live routes and stores it as `cache_openapi`, served at `/openapi.json`.
 
 ### 8. Background flush loop (`pulse_flush`)
-Starts a long-running task that, every **60 seconds**, acquires `flush_lock` and calls `func_postgres_create(mode="flush")` for the primary general buffer and the dedicated API-log buffer. Logs use primary when `config_log_db=None`, or the matching named pool otherwise. Errors are caught and logged so one bad flush doesn't kill the loop.
+Starts a long-running task that, every **60 seconds**, calls `func_postgres_buffer_flush` for the primary general buffer and the dedicated API-log buffer. The helper acquires `flush_lock` and delegates to `func_postgres_create(mode="flush")`. Logs use primary when `config_log_db=None`, or the matching named pool otherwise. Primary and log failures are isolated so one failed destination does not block the other.
 
 ---
 
