@@ -45,6 +45,8 @@ For the complete `mode=buffer` lifecycle—including automatic cache creation, l
 
 `func_postgres_read` powers `/my/object-read` and `/public/object-read`. Query params:
 
+For copy-paste requests and the complete filter and relation syntax, see [Reading Objects](read.md).
+
 | Param | Meaning | Example |
 |-------|---------|---------|
 | `table` | Table to read (validated against schema) | `test` |

@@ -246,6 +246,8 @@ It fetches `main`, then checks out the core files (`main.py`, `function.py`, `co
 | [postgres.md](docs/postgres.md) | Primary Postgres pool, named read pools, `db` routing, and connection sizing. |
 | [logs.md](docs/logs.md) | API log buffering and routing `log_api` to a named PostgreSQL database. |
 | [buffer.md](docs/buffer.md) | PostgreSQL create buffers, limits, periodic flushing, and shutdown behavior. |
+| [object.md](docs/object.md) | Practical create, read, update, and delete examples for public, user, and admin APIs. |
+| [read.md](docs/read.md) | Read parameters, filter encoding and operators, pagination, sorting, and relations. |
 | [crud.md](docs/crud.md) | Generic CRUD on any table — filters, relations, group-by. |
 | [messaging.md](docs/messaging.md) | In-app direct messages and notifications: inbox, threads, read state. |
 | [blob.md](docs/blob.md) | File storage over S3 / Azure: upload, presigned URLs, preview, delete. |

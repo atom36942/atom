@@ -381,7 +381,9 @@ The prefixes represent data-access scope, not just route organization:
 - `/my/object-*` requires a user and automatically scopes rows through ownership columns such as `created_by_id` or `user_id`.
 - `/admin/object-*` can operate on any row and table, subject to its administrator route policy.
 
-Use `/my` for normal user-owned product data and `/admin` only for trusted operations. Do not expose a table publicly merely to avoid ownership configuration; add an ownership column and use the authenticated tier instead. See [crud.md](crud.md).
+Use `/my` for normal user-owned product data and `/admin` only for trusted operations. Do not expose a table publicly merely to avoid ownership configuration; add an ownership column and use the authenticated tier instead.
+
+For endpoint-by-endpoint curl examples covering create, read, update, and delete in all three tiers, see [Object APIs](object.md). For filter and relation internals, see [Generic CRUD](crud.md).
 
 </details>
 
@@ -396,7 +398,7 @@ GET /my/object-read?table=test&filter=["type = 1","title ilike %atom%"]&order=id
 
 The response contains `obj_list` and `has_next_page`. Atom fetches one extra row to calculate that flag, and caps the requested limit with `config_sql_read_limit_max`.
 
-Table and column names are validated against the live schema, and filter values are parameter-bound. Supported operators include comparisons, ranges, text matching, arrays, and JSON operations. See [crud.md](crud.md#filters-func_postgres_where_build).
+Table and column names are validated against the live schema, and filter values are parameter-bound. Supported operators include comparisons, ranges, text matching, arrays, and JSON operations. See [Reading Objects](read.md#filters) for encoding and examples.
 
 </details>
 
@@ -407,7 +409,7 @@ Use the `relation` parameter on object reads. A relation describes the local key
 
 Relation result size is capped by `config_sql_read_relation_fetch_limit_max`. On public reads, the related table must also be present in the public read allow-list, so a relation cannot bypass table access rules.
 
-Keep relation payloads focused and select only the columns the client needs. For deeply nested or domain-specific projections, a custom endpoint and purpose-built query may be clearer and more efficient. See [crud.md](crud.md#relations-func_postgres_relation).
+Keep relation payloads focused and select only the columns the client needs. For deeply nested or domain-specific projections, a custom endpoint and purpose-built query may be clearer and more efficient. See [Reading Objects](read.md#relations) for the five-part syntax and examples.
 
 </details>
 
