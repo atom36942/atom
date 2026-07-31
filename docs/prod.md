@@ -48,6 +48,16 @@ config_root_html_path=static/api.html
 config_is_enable_user_delete=0
 ```
 
+## 3. Recommended production `.env`
+
+```dotenv
+config_is_debug=0
+config_is_enable_signup=0
+config_cors_allow_origins=["https://app.example.com"]
+config_access_token_expires_sec=900
+config_refresh_token_expires_sec=2592000
+```
+
 ---
 
 📚 [Back to README](../readme.md)
