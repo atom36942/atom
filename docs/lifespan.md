@@ -67,7 +67,7 @@ Between startup and shutdown the app handles requests. Handlers read clients/cac
 Runs in reverse spirit of startup — drain, then disconnect — all wrapped so a failure in one step still lets the rest proceed.
 
 ### 1. Stop background work
-Cancels any tracked `runtime_background_tasks` (waiting up to 5s), then cancels the `pulse_flush` loop cleanly.
+Calls `func_async_tasks_cancel` for tracked `runtime_background_tasks` and the `pulse_flush` task, cancelling each group and waiting up to 5 seconds for clean completion.
 
 ### 2. Final buffer flush
 Acquires `flush_lock` and runs one last `func_postgres_create(mode="flush")` so no buffered rows are lost on exit.

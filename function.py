@@ -66,12 +66,10 @@ def func_check(*, app: any) -> None:
         raise Exception("config_api uses redis mode but config_redis_url is missing")
     if requires_redis_ratelimiter and not getattr(app.state, "config_redis_url_ratelimiter", None):
         raise Exception("config_api uses redis rate limiting but config_redis_url_ratelimiter is missing")
-
     buffer_limit = getattr(app.state, "config_buffer_limit_default", None)
     if buffer_limit is not None:
         if not isinstance(buffer_limit, int) or buffer_limit < 10 or buffer_limit > 5000:
             raise Exception("config_buffer_limit_default must be an integer between 10 and 5000")
-            
     return None
 
 async def func_postgres_schema_init(*, client_postgres: any, config_postgres: dict, root_user_password_hash: str = None) -> str:
@@ -1715,10 +1713,8 @@ async def func_jira_worklog_export(*, url: str, email: str, api_token: str, star
     import asyncio
     import pandas as pd
     from jira import JIRA
-
     os.makedirs("tmp", exist_ok=True)
     output_path = f"tmp/{uuid.uuid4().hex}.csv"
-
     def _export():
         jira = JIRA(server=url, basic_auth=(email, api_token))
         log_rows, people = [], set()
@@ -1733,7 +1729,6 @@ async def func_jira_worklog_export(*, url: str, email: str, api_token: str, star
         if not df.empty: df = df.pivot_table(index="author", columns="date", values="hours", aggfunc="sum", fill_value=0)
         df.reindex(index=sorted(people), columns=cols, fill_value=0).round(0).astype(int).to_csv(output_path)
         return output_path
-
     await asyncio.to_thread(_export)
     return output_path
 
@@ -1742,7 +1737,6 @@ async def func_otp_send_email(*, app_state: any, service: str, sender: str, emai
     import httpx
     import orjson
     import asyncio
-
     if service == "ses":
         if not app_state.client_ses: raise Exception("SES client not initialized")
         app_state.client_ses.send_email(Source=sender, Destination={"ToAddresses": [email]}, Message={"Subject": {"Data": "your otp code"}, "Body": {"Html": {"Data": str(otp)}}})
@@ -1763,7 +1757,6 @@ async def func_otp_send_email(*, app_state: any, service: str, sender: str, emai
 async def func_otp_send_mobile(*, app_state: any, service: str, mobile: str, otp: int, sns_template: dict = None) -> any:
     """Sends OTP code via configured mobile service (sns, fast2sms)."""
     import httpx
-
     if service == "sns":
         if not app_state.client_sns: raise Exception("SNS client not initialized")
         if sns_template:
@@ -1794,7 +1787,6 @@ async def func_postgres_groupby_read(*, app_state: any, client_postgres: any, ta
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)) or not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(col)) or (a_col != "*" and not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(a_col))):
         raise Exception("invalid identifier")
-    
     where_clause, values = await app_state.func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=app_state.cache_postgres_schema, table=table, filter=filter, prefix="x.")
     bind_idx = len(values) + 1
     is_array = "[]" in (dt := app_state.cache_postgres_schema.get(table, {}).get(col, {}).get("datatype", "text").lower()) or "array" in dt
@@ -1803,7 +1795,6 @@ async def func_postgres_groupby_read(*, app_state: any, client_postgres: any, ta
     q_col = f'"{col}"'
     sql = f'SELECT {"item_col" if is_array else "x."+q_col+" AS item_col"}, {agg_sql} AS agg_val FROM "{table}" x {f"CROSS JOIN LATERAL unnest(x."+q_col+") item_col" if is_array else ""} {where_clause} GROUP BY item_col ORDER BY {order_sql} LIMIT ${bind_idx} OFFSET ${bind_idx+1}'
     values.extend([limit + 1, (page - 1) * limit])
-    
     async with client_postgres.acquire() as conn:
         rows = await conn.fetch(sql, *values)
         ol = [{"item": row["item_col"], "value": row["agg_val"]} for row in rows]
@@ -1894,14 +1885,11 @@ async def func_email_send(*, app_state: any, service: str, sender: str, to: list
     """Sends a custom email via the specified service (ses, resend, azure)."""
     import asyncio
     import orjson
-
     if (service == "ses" and not app_state.client_ses) or (service == "resend" and not app_state.client_http) or (service == "azure" and not app_state.client_azure_email):
         raise Exception("email client not initialized")
-    
     cc = cc or []
     bcc = bcc or []
     reply_to = reply_to or []
-
     message = None
     if service == "ses":
         params = {"Source": sender, "Destination": {"ToAddresses": to, "CcAddresses": cc, "BccAddresses": bcc}, "Message": {"Subject": {"Data": subject}, "Body": {"Text": {"Data": text}}}}
@@ -1935,11 +1923,9 @@ async def func_blob_upload_file(*, app_state: any, service: str, container: str,
         raise Exception("required postgres/blob client not initialized")
     if len(files) > app_state.config_blob_limit_upload:
         raise Exception(f"maximum {app_state.config_blob_limit_upload} files allowed")
-    
     output = {}
     blob_list = []
     container_client = app_state.client_azure_blob.get_container_client(container) if service == "azure" else None
-    
     for item in files:
         file_data = await item.read()
         if len(file_data) > app_state.config_blob_limit_size_kb * 1024:
@@ -1955,7 +1941,6 @@ async def func_blob_upload_file(*, app_state: any, service: str, container: str,
             file_url = blob_client.url
         output[item.filename] = file_url
         blob_list.append({"created_by_id": user_id, "type": 1, "service": service, "file_url": file_url})
-        
     if blob_list:
         await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
     return output
@@ -1965,17 +1950,14 @@ async def func_blob_upload_url(*, app_state: any, service: str, container: str, 
     import uuid
     from datetime import datetime, timedelta, timezone
     from azure.storage.blob import BlobSasPermissions, generate_blob_sas
-
     if not app_state.client_postgres or (service == "s3" and not app_state.client_s3):
         raise Exception("required postgres/blob client not initialized")
     if service == "azure" and (not app_state.config_azure_account_name or not app_state.config_azure_account_key):
         raise Exception("azure storage credentials not configured")
     if count > app_state.config_blob_limit_upload:
         raise Exception(f"maximum {app_state.config_blob_limit_upload} allowed")
-    
     output = []
     blob_list = []
-    
     for _ in range(count):
         file_key = f"user_{user_id}/{uuid.uuid4().hex}.bin"
         if service == "s3":
@@ -1988,7 +1970,6 @@ async def func_blob_upload_url(*, app_state: any, service: str, container: str, 
             file_url = f"https://{app_state.config_azure_account_name}.blob.core.windows.net/{container}/{file_key}"
             output.append({"upload_url": sas_url, "key": file_key, "file_url": file_url})
         blob_list.append({"created_by_id": user_id, "type": 2, "service": service, "file_url": file_url})
-        
     if blob_list:
         await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
     return output
@@ -2019,17 +2000,14 @@ async def func_mongodb_import(*, client_mongodb: any, mode: str, database: str, 
     """Imports, updates, or deletes records in MongoDB from a CSV upload file in batches."""
     from pymongo import UpdateOne, DeleteOne
     if not client_mongodb: raise Exception("mongodb client not initialized")
-    
     count = 0
     limit_batch = 5000
     collection = client_mongodb[database][table]
-    
     def _mongodb_import_id(item, mode_name):
         if "id" not in item and "_id" not in item: raise Exception(f"CSV format error: MongoDB {mode_name} requires 'id' or '_id' column")
         oid = item.get("id") or item.get("_id")
         if not oid: raise Exception(f"CSV format error: MongoDB {mode_name} requires non-empty 'id' or '_id'")
         return oid
-
     async for ol in func_api_file_to_chunks(upload_file=file, chunk_size=limit_batch):
         if not ol: continue
         if mode == "create":
@@ -2066,7 +2044,6 @@ async def func_blob_container_ops(*, client_s3: any, client_s3_resource: any, cl
     """Creates, makes public, empties, or deletes S3 buckets or Azure Blob containers."""
     if (service == "s3" and ((mode == "empty" and not client_s3_resource) or (mode != "empty" and not client_s3))) or (service == "azure" and not client_azure_blob):
         raise Exception("blob client not initialized")
-    
     res = None
     if service == "s3":
         if mode == "create":
@@ -2111,7 +2088,6 @@ async def func_mssql_query_runner_read_export(*, client_mssql: any, config_query
     if not ql.startswith(("select", "with")): raise Exception("read mode restricted")
     if re.search(r"\b(insert|update|delete|merge|drop|alter|create|truncate|exec|execute|into)\b", ql): raise Exception("read mode restricted")
     limit = config_query_runner_export_limit
-
     async def _iter():
         for attempt in range(3):
             try:
@@ -2134,14 +2110,12 @@ async def func_mssql_query_runner_read_export(*, client_mssql: any, config_query
                     await asyncio.sleep(0.5)
                     continue
                 raise e
-
     return _iter()
 
 async def func_mssql_query_runner_read(*, client_mssql: any, config_query_runner_read_limit: int, sql: str) -> list:
     """Runs a read-only MSSQL query and returns matching records up to the configured limit."""
     import re
     import asyncio
-
     if not client_mssql: raise Exception("MSSQL client not initialized")
     ql = sql.lower().strip().lstrip("(").strip()
     if not ql.startswith(("select", "with")): raise Exception("read mode restricted")
@@ -2168,7 +2142,6 @@ async def func_mssql_query_runner_read(*, client_mssql: any, config_query_runner
 async def func_mssql_query_runner_write(*, client_mssql: any, sql: str) -> str:
     """Runs a write SQL query against the MSSQL instance and commits the transaction."""
     import asyncio
-
     if not client_mssql: raise Exception("MSSQL client not initialized")
     ql = sql.lower().strip().lstrip("(").strip()
     if ql.startswith(("select", "with")): raise Exception("read SQL must use /admin/mssql-query-runner-read")
@@ -2204,14 +2177,12 @@ async def func_postgres_query_runner_read_export(*, client_postgres: any, config
     """Runs a read-only PostgreSQL SELECT/WITH query and yields CSV chunks up to the configured export limit."""
     import io
     import csv
-
     sql = str(sql or "").strip().rstrip(";").strip()
     if not sql: raise Exception("SQL is required")
     if ";" in sql: raise Exception("Only one SQL statement is allowed")
     if not sql.lower().lstrip("(").strip().startswith(("select", "with")): raise Exception("Only SELECT/WITH queries are supported")
     if not client_postgres: raise Exception("postgres client not initialized")
     timeout_sec = 30
-
     async def _iter():
         async with client_postgres.acquire() as conn:
             async with conn.transaction(readonly=True):
@@ -2227,7 +2198,6 @@ async def func_postgres_query_runner_read_export(*, client_postgres: any, config
                     writer.writerow([record[column] for column in columns])
                     yield buffer.getvalue()
                     buffer.seek(0); buffer.truncate(0)
-
     return _iter()
 
 async def func_postgres_query_runner_write(*, client_postgres: any, sql: str) -> str:
@@ -2648,6 +2618,14 @@ async def func_postgres_buffer_flush(*, app_state: any, client_postgres: any, ca
     if not client_postgres: return None
     async with app_state.flush_lock:
         return await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="flush", table="", obj_list=[])
+
+async def func_async_tasks_cancel(*, task_list: list, timeout_sec: int = 5) -> None:
+    """Cancel asynchronous tasks and wait up to the configured timeout for them to finish."""
+    import asyncio
+    task_list = [task for task in task_list if task]
+    for task in task_list: task.cancel()
+    if task_list: await asyncio.wait(task_list, timeout=timeout_sec)
+    return None
 
 async def func_postgres_read(*, client_postgres: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""

@@ -129,15 +129,10 @@ async def func_lifespan(app:"FastAPI"):
     try:
         runtime_background_tasks = getattr(app.state, "runtime_background_tasks", set())
         if runtime_background_tasks:
-            pending_tasks = set(runtime_background_tasks)
-            for task in pending_tasks: task.cancel()
-            await asyncio.wait(pending_tasks, timeout=5)
+            await app.state.func_async_tasks_cancel(task_list=list(runtime_background_tasks), timeout_sec=5)
         # background task stop
         pulse_flush_task = getattr(app.state, "pulse_flush_task", None)
-        if pulse_flush_task:
-            pulse_flush_task.cancel()
-            try: await pulse_flush_task
-            except asyncio.CancelledError: pass
+        if pulse_flush_task: await app.state.func_async_tasks_cancel(task_list=[pulse_flush_task], timeout_sec=5)
         # postgres buffer flush final
         if client_postgres:
             try:
