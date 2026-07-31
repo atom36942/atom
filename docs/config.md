@@ -80,6 +80,14 @@ All default to `None`, meaning **off** — the matching client in `main.py` is o
 
 `config_postgres_url` creates the primary `client_postgres` pool. Environment variables following `config_postgres_url_<name>` create entries in `config_postgres_url_dict` and named pools in `client_postgres_dict`. For example, `config_postgres_url_read=postgresql://...` creates `client_postgres_dict["read"]`. See [postgres.md](postgres.md).
 
+### API logging
+
+| Key | Default | Usage |
+|-----|---------|-------|
+| `config_log_db` | `None` | Named `client_postgres_dict` key used for `log_api`; `None` uses primary. |
+
+For example, `config_postgres_url_logs=postgresql://...` with `config_log_db=logs` sends API logs to the `logs` pool. See [logs.md](logs.md).
+
 ### Token / auth
 
 | Key | Default | Usage |

@@ -277,7 +277,7 @@ Those features can be added later behind a centralized client selector without c
 
 ## Shutdown
 
-During application shutdown Atom first performs its final primary buffer flush, then closes `client_postgres` and every pool in `client_postgres_dict`. Built-in buffered writes always use primary; custom APIs may use named pools for writes when explicitly implemented.
+During application shutdown Atom performs final flushes for the primary application buffer and the dedicated API-log buffer, then closes `client_postgres` and every pool in `client_postgres_dict`. Application writes use primary; `config_log_db` may route `log_api` writes to a named pool, and custom APIs may use named pools for writes when explicitly implemented. See [logs.md](logs.md).
 
 ---
 

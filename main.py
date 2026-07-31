@@ -57,6 +57,8 @@ async def func_lifespan(app:"FastAPI"):
         client_http = httpx.AsyncClient()
         client_postgres = await asyncpg.create_pool(dsn=app.state.config_postgres_url, min_size=app.state.config_postgres_pool_min_size, max_size=app.state.config_postgres_pool_max_size) if app.state.config_postgres_url else None
         client_postgres_dict = {name: await asyncpg.create_pool(dsn=url, min_size=app.state.config_postgres_pool_min_size, max_size=app.state.config_postgres_pool_max_size) for name, url in (app.state.config_postgres_url_dict or {}).items() if url}
+        if app.state.config_log_db is not None and app.state.config_log_db not in client_postgres_dict: raise Exception(f"config_log_db '{app.state.config_log_db}' not found in config_postgres_url_dict")
+        client_postgres_log = client_postgres if app.state.config_log_db is None else client_postgres_dict[app.state.config_log_db]
         client_redis = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url)) if app.state.config_redis_url else None
         client_redis_ratelimiter = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_ratelimiter)) if app.state.config_redis_url_ratelimiter else None
         client_redis_producer = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_queue)) if app.state.config_redis_url_queue else None
@@ -94,6 +96,7 @@ async def func_lifespan(app:"FastAPI"):
         cache_ratelimiter = {}
         cache_api_response = {}
         cache_postgres_buffer_create = {}
+        cache_postgres_buffer_log_api = {}
         # flush lock
         app.state.flush_lock, app.state.pulse_flush_task = asyncio.Lock(), None
         # app state add
@@ -109,6 +112,9 @@ async def func_lifespan(app:"FastAPI"):
                     if client_postgres:
                         async with app.state.flush_lock:
                             await app.state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=app.state.func_postgres_serialize, func_regex_check=app.state.func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=app.state.config_regex, buffer_limit=app.state.config_buffer_limit_default, mode="flush", table="", obj_list=[])
+                    if client_postgres_log:
+                        async with app.state.flush_lock:
+                            await app.state.func_postgres_create(client_postgres=client_postgres_log, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=app.state.func_postgres_serialize, func_regex_check=app.state.func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_log_api, config_regex=app.state.config_regex, buffer_limit=app.state.config_buffer_limit_default, mode="flush", table="", obj_list=[])
                 except asyncio.CancelledError: break
                 except Exception as e: print(f"❌ pulse flush error: {e}")
         app.state.pulse_flush_task = asyncio.create_task(pulse_flush())
@@ -133,6 +139,9 @@ async def func_lifespan(app:"FastAPI"):
         if client_postgres:
             async with app.state.flush_lock:
                 await app.state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=app.state.func_postgres_serialize, func_regex_check=app.state.func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_create, config_regex=app.state.config_regex, buffer_limit=app.state.config_buffer_limit_default, mode="flush", table="", obj_list=[])
+        if client_postgres_log:
+            async with app.state.flush_lock:
+                await app.state.func_postgres_create(client_postgres=client_postgres_log, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=app.state.func_postgres_serialize, func_regex_check=app.state.func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer_create=cache_postgres_buffer_log_api, config_regex=app.state.config_regex, buffer_limit=app.state.config_buffer_limit_default, mode="flush", table="", obj_list=[])
         # client disconnect
         if client_http: await client_http.aclose()
         if client_postgres: await client_postgres.close()
@@ -212,8 +221,8 @@ async def middleware(request, api_function):
     except Exception as e:
         response_type = "error"
         error, response = await app_state.func_middleware_api_response_error(exception=e, is_traceback=1, sentry_dsn=app_state.config_sentry_dsn)
-    if app_state.client_postgres:
-        with suppress(Exception): await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": request.client.host if request.client else None, "path": request.url.path, "method": request.method, "query_param": str(request.query_params), "status_code": response.status_code if hasattr(response, "status_code") else None, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
+    if app_state.client_postgres_log:
+        with suppress(Exception): await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer_create=app_state.cache_postgres_buffer_log_api, config_regex=app_state.config_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": request.client.host if request.client else None, "path": request.url.path, "method": request.method, "query_param": str(request.query_params), "status_code": response.status_code if hasattr(response, "status_code") else None, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
     return response
 
 # cors

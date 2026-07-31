@@ -43,7 +43,7 @@ To keep the request path fast, several read-mostly datasets are loaded into memo
 
 - **Schema caches** — `cache_postgres_schema` (+ an AI-oriented variant), plus derived `..._table_list` and `..._column_list`. These let routers validate table/column names without hitting the DB. `cache_postgres_db_name_list` contains the initialized named-pool keys used to validate the `db` query parameter.
 - **Data caches** — `cache_config` (the `config` table), and `cache_users_role` / `cache_users_deactivated` / `cache_users_deleted`, which back the middleware's `inmemory`-mode auth checks.
-- **Empty runtime caches** — `cache_ratelimiter`, `cache_api_response`, and `cache_postgres_buffer_create` (the in-memory write buffer) start empty and fill during operation.
+- **Empty runtime caches** — `cache_ratelimiter`, `cache_api_response`, `cache_postgres_buffer_create` (the general write buffer), and `cache_postgres_buffer_log_api` (the dedicated API-log buffer) start empty and fill during operation.
 
 ### 6. Register on `app.state`
 Every local variable named `client_*` or `cache_*` is bulk-assigned onto `app.state`, making all clients and caches reachable from routers as `request.app.state.<name>`. A `flush_lock` (asyncio lock) is also created to serialize buffer flushes.
@@ -52,7 +52,7 @@ Every local variable named `client_*` or `cache_*` is bulk-assigned onto `app.st
 `func_openapi_spec_generate` builds the OpenAPI spec from the live routes and stores it as `cache_openapi`, served at `/openapi.json`.
 
 ### 8. Background flush loop (`pulse_flush`)
-Starts a long-running task that, every **60 seconds**, acquires `flush_lock` and calls `func_postgres_create(mode="flush")` to persist buffered rows (API logs, high-volume inserts) to Postgres. This is what makes buffered writes durable without slowing individual requests. Errors are caught and logged so one bad flush doesn't kill the loop.
+Starts a long-running task that, every **60 seconds**, acquires `flush_lock` and calls `func_postgres_create(mode="flush")` for the primary general buffer and the dedicated API-log buffer. Logs use primary when `config_log_db=None`, or the matching named pool otherwise. Errors are caught and logged so one bad flush doesn't kill the loop.
 
 ---
 
