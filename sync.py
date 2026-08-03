@@ -37,6 +37,7 @@ files_to_sync = [
     "script/manual_postgres_cleaner.py",
     "script/manual_postgres_ingestion.py",
     "script/worker_users_delete.py",
+    "sync.py",
 ]
 if not os.path.exists("requirements.txt"):
     files_to_sync.append("requirements.txt")
