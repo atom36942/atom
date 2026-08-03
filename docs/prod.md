@@ -56,7 +56,25 @@ config_is_enable_signup=0
 config_cors_allow_origins=["https://app.example.com"]
 config_access_token_expires_sec=900
 config_refresh_token_expires_sec=2592000
+config_table_public_create_enable=[]
+config_table_public_read_enable=[]
+config_table_my_delete_all_enable=[]
+config_table_my_delete_all_received_enable=[]
+config_table_my_create_disable=["users","log_api","log_users_password","otp","spatial_ref_sys"]
+config_table_sensitive=["spatial_ref_sys","users","log_users_delete"]
 ```
+
+### Critical table-access settings
+
+Review these values for the production schema before deployment:
+
+- `config_table_public_create_enable`: controls anonymous writes through `/public/object-create`. Keep it empty unless a table is explicitly designed and validated for untrusted public submissions.
+- `config_table_public_read_enable`: controls anonymous reads through `/public/object-read` and `/public/table-groupby`. List only intentionally public tables, for example `["public_catalog"]`.
+- `config_table_my_delete_all_enable` and `config_table_my_delete_all_received_enable`: enable bulk deletion endpoints for the listed tables. Keep them empty unless the application requires those operations.
+- `config_table_my_create_disable`: prevents authenticated users from creating rows directly in protected tables. Preserve the security-sensitive defaults and add application-specific protected tables.
+- `config_table_sensitive`: protects listed tables from cleanup and deletion scripts. Add any application tables that must never be removed by bulk maintenance.
+
+> **Production warning:** Never use `["*"]` for a public allow-list unless every table is safe for anonymous access. Start with empty allow-lists and add tables individually after reviewing their columns, ownership rules, and stored data.
 
 ---
 

@@ -305,7 +305,7 @@ Toggles that decide **how aggressive the auto-migration is** and which safety gu
 ### `sql`
 A dict of extra raw SQL run during init (e.g. custom indexes/constraints named `index_*`, `unique_*`, `check_*`, which init registers so it won't duplicate them). Empty by default.
 
-**Shipped tables:** `users`, `test`, `config`, `otp`, `blob`, `message`, `notification`, `comment_test`, `log_api`, `log_users_password`, `log_users_delete`, `jobseeker`. See [extend.md](extend.md#4-add-or-change-database-tables) for adding your own.
+**Shipped tables:** `users`, `test`, `config`, `otp`, `blob`, `message`, `notification`, `comment_test`, `log_api`, `log_users_password`, `log_users_delete`. See [extend.md](extend.md#4-add-or-change-database-tables) for adding your own.
 
 ---
 

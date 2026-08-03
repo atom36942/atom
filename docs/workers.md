@@ -11,7 +11,7 @@ There are two shapes: **queue consumers** (react to messages) and **table poller
 Any request can hand work off instead of doing it inline. The generic create endpoint accepts a `queue` param:
 
 ```jsonc
-POST /my/object-create?table=jobseeker&queue=redis
+POST /my/object-create?table=test&queue=redis
 { ... }
 ```
 
@@ -49,7 +49,7 @@ venv/bin/python script/consumer_postgres_create.py <queue> <channel>
 
 ## Table pollers & the worker-status pattern
 
-Some tables carry a set of `worker_*` columns that turn a plain row into a **durable job with retries** (see the `jobseeker` and `log_users_delete` tables in [config.md](config.md#config_postgres)):
+Some tables carry a set of `worker_*` columns that turn a plain row into a **durable job with retries** (see the `log_users_delete` table in [config.md](config.md#config_postgres)):
 
 | Column | Role |
 |--------|------|
@@ -59,12 +59,12 @@ Some tables carry a set of `worker_*` columns that turn a plain row into a **dur
 | `worker_processed_at` | When it finished. |
 | `worker_last_error` | Last failure message. |
 
-`script/worker_resume_parser.py` is the reference implementation. Its loop:
+`script/worker_users_delete.py` demonstrates this pattern. Its loop:
 
 1. **Claim** a batch atomically with `... FOR UPDATE ... SKIP LOCKED`, flipping `worker_status → 1` — so multiple worker instances never grab the same row.
-2. **Process** each row (here: fetch a résumé, parse it with AI).
+2. **Process** each claimed user-deletion event.
 3. **On success** → `worker_status = 2`, set `worker_processed_at`.
-4. **On failure** → increment `worker_retry_count`, set `worker_next_retry_at` using a **backoff schedule** (`[60, 300, 3600, 86400]` seconds), and mark `worker_status = 3`; once retries are exhausted, mark `worker_status = 4` (Dead).
+4. **On failure** → increment `worker_retry_count`, set `worker_next_retry_at` using a **backoff schedule** (`[60, 300, 900, 3600, 21600]` seconds), and mark `worker_status = 3`; once retries are exhausted, mark `worker_status = 4` (Dead).
 
 This gives safe, concurrent, self-retrying background processing using only Postgres — no extra queue required.
 
@@ -88,7 +88,6 @@ Workers are separate processes — start them alongside the API (e.g. in their o
 
 ```bash
 venv/bin/python script/consumer_postgres_create.py redis postgres_create   # queue consumer
-venv/bin/python script/worker_resume_parser.py                             # table-poller worker
 venv/bin/python script/worker_users_delete.py                              # scheduled cleanup job
 ```
 

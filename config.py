@@ -74,11 +74,11 @@ config_cors_allow_credentials = True
 config_log_db = None
 
 # Table
-config_table_sensitive = ["spatial_ref_sys", "users", "log_users_delete", "jobseeker"]
+config_table_sensitive = ["spatial_ref_sys", "users", "log_users_delete"]
 config_table_my_create_disable = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
 config_table_my_delete_all_enable = ["test"]
 config_table_my_delete_all_received_enable = ["message","notification"]
-config_table_public_create_enable = ["test","jobseeker"]
+config_table_public_create_enable = ["test"]
 config_table_public_read_enable = ["*"]
 
 # Column
