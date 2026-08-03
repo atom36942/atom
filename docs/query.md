@@ -58,6 +58,48 @@ The shared limits are:
 | `config_query_runner_read_limit` | `5000` | JSON read responses |
 | `config_query_runner_export_limit` | `50000` | CSV exports |
 
+## Database clients
+
+Atom creates query-runner clients during the FastAPI lifespan only when their corresponding configuration value is present. Each initialized client is exposed through `request.app.state` and closed during application shutdown.
+
+| Database | Python driver | Configuration | Runtime client |
+|----------|---------------|---------------|----------------|
+| PostgreSQL | `asyncpg` | `config_postgres_url` | `app.state.client_postgres` |
+| Named PostgreSQL database | `asyncpg` | `config_postgres_url_<name>` | `app.state.client_postgres_dict[name]` |
+| Microsoft SQL Server | `aioodbc` | `config_mssql_url` | `app.state.client_mssql` |
+| ClickHouse | `clickhouse-connect` | `config_clickhouse_url` | `app.state.client_clickhouse` |
+
+### PostgreSQL client
+
+The primary `asyncpg` pool uses `config_postgres_pool_min_size` and `config_postgres_pool_max_size`. Write queries always use this primary pool. Each `config_postgres_url_<name>` environment variable creates another pool that supported read, export, and AI endpoints can select using `?db=<name>`.
+
+```env
+config_postgres_url=postgresql://atom:password@postgres-host:5432/atom
+config_postgres_url_analytics=postgresql://reader:password@analytics-host:5432/analytics
+```
+
+### MSSQL client
+
+The MSSQL client is an `aioodbc` connection pool created from `config_mssql_url`. Its connections use a 60-second pool recycle interval. The pool is closed and awaited during application shutdown.
+
+```env
+config_mssql_url=Driver={ODBC Driver 18 for SQL Server};Server=tcp:mssql-host,1433;Database=atom;Uid=atom;Pwd=password;Encrypt=yes;TrustServerCertificate=no;
+```
+
+The configured ODBC driver must also be installed in the operating system running Atom.
+
+### ClickHouse client
+
+The ClickHouse integration uses the official asynchronous `clickhouse-connect` client. `config_clickhouse_url` is passed as its DSN, and the client is closed asynchronously during application shutdown.
+
+```env
+config_clickhouse_url=http://default:password@clickhouse-host:8123/default
+```
+
+Use port `8123` for HTTP or the server's configured HTTPS port, commonly `8443`. The native ClickHouse protocol used by `clickhouse client` on port `9000` is not supported by this driver integration.
+
+If a required configuration value is absent, its client remains `None` and the corresponding endpoint returns a `... client not initialized` error.
+
 ## PostgreSQL
 
 Configure the primary database with `config_postgres_url`. Named databases configured as `config_postgres_url_<name>` can be selected by the read, export, and AI endpoints using `?db=<name>`. The write endpoint always uses the primary database.
@@ -255,4 +297,3 @@ The API Runner intentionally does not prefill an example for this endpoint, redu
 | `read mode restricted` | MSSQL read validation found an unsupported statement or write keyword. |
 | `read SQL must use ...-read` | A read statement was sent to a write endpoint. |
 | `401` or `403` response | The token is missing, invalid, or does not have an allowed role. |
-
