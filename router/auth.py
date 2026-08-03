@@ -116,5 +116,5 @@ async def func_api_auth_login_google(*, request:Request):
 async def func_api_auth_login_password(*, request:Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "password", "type": "str", "required": 1, "allowed": None, "default": None}])
-    if ob["password"] != app_state.config_login_password: raise Exception("incorrect password")
+    if ob["password"] != str(app_state.config_login_password): raise Exception("incorrect password")
     return {"status":1,"message":"ok"}
