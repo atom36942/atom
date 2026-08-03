@@ -169,6 +169,7 @@ config_api = {
 "/public/otp-send-mobile-sns-template": {"id": 71, "is_token": 0},
 "/public/jira-worklog-export": {"id": 19, "is_token": 0},
 "/public/table-groupby": {"id": 18, "is_token": 0, "api_cache_sec": ["inmemory", 10, 0]},
+"/public/table-distinct": {"id": 96, "is_token": 0, "api_cache_sec": ["inmemory", 10, 0]},
 # admin
 "/admin/sync": {"id": 1, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/object-create": {"id": 2, "is_token": 1, "user_check_role": ["token", [1]]},

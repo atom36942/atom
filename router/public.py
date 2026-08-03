@@ -102,3 +102,17 @@ async def func_api_public_table_groupby(*, request: Request):
     if "*" not in enabled_tables and oq["table"] not in enabled_tables: raise Exception(f"read disabled for table: {oq['table']}")
     res = await app_state.func_postgres_groupby_read(app_state=app_state, client_postgres=client_postgres, table=oq["table"], col=oq["col"], limit=oq["limit"], page=oq["page"], agg=oq["agg_func"], a_col=oq["agg_col"], order=oq["order"], filter=oq["filter"])
     return {"status": 1, "message": res}
+
+@router.get("/public/table-distinct")
+async def func_api_public_table_distinct(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": app_state.cache_postgres_schema_table_list, "default": None}, {"name": "col", "type": "str", "required": 1, "allowed": app_state.cache_postgres_schema_column_list, "default": None}, {"name": "limit", "type": "int", "required": 0, "allowed": None, "default": app_state.config_sql_read_limit_default}])
+    if oq["limit"] < 1: raise Exception("query limit must be greater than 0")
+    if app_state.config_sql_read_limit_max and oq["limit"] > app_state.config_sql_read_limit_max: raise Exception(f"query limit {oq['limit']} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
+    enabled_tables = app_state.config_table_public_read_enable or []
+    if "*" not in enabled_tables and oq["table"] not in enabled_tables: raise Exception(f"read disabled for table: {oq['table']}")
+    if oq["col"] not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"column '{oq['col']}' not found in table: {oq['table']}")
+    async with app_state.client_postgres.acquire() as conn:
+        rows = await conn.fetch(f'SELECT DISTINCT "{oq["col"]}" AS value FROM "{oq["table"]}" LIMIT $1', oq["limit"])
+    return {"status": 1, "message": [row["value"] for row in rows]}
