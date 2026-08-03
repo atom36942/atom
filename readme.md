@@ -154,6 +154,7 @@ All settings live in `config.py` and default to safe values (integrations defaul
    config_redis_url_ratelimiter=redis://localhost:6379/1
    config_redis_url_queue=redis://localhost:6379
    config_mongodb_url=mongodb://localhost:27017
+   config_clickhouse_url=https://default:password@clickhouse.example.com:8443/default
    config_rabbitmq_url=amqp://guest:guest@localhost:5672
    config_celery_url=redis://localhost:6379
    ```
@@ -245,6 +246,7 @@ It fetches `main`, then checks out the core files (`main.py`, `function.py`, `co
 |------|---------------|
 | [auth.md](docs/auth.md) | Signup, the login methods, JWT tokens, roles, and OTP. |
 | [postgres.md](docs/postgres.md) | Primary Postgres pool, named read pools, `db` routing, and connection sizing. |
+| [query.md](docs/query.md) | PostgreSQL, MSSQL, and ClickHouse query runners, CSV exports, and AI SQL generation. |
 | [logs.md](docs/logs.md) | API log buffering and routing `log_api` to a named PostgreSQL database. |
 | [buffer.md](docs/buffer.md) | PostgreSQL create buffers, limits, periodic flushing, and shutdown behavior. |
 | [object.md](docs/object.md) | Practical create, read, update, and delete examples for public, user, and admin APIs. |

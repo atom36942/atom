@@ -191,3 +191,24 @@ async def func_api_admin_mssql_query_runner_read_export(*, request: Request):
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "sql", "type": "str", "required": 1, "allowed": None, "default": None}])
     generator = await app_state.func_mssql_query_runner_read_export(client_mssql=app_state.client_mssql, config_query_runner_export_limit=app_state.config_query_runner_export_limit, sql=ob["sql"])
     return StreamingResponse(generator, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=mssql_query_runner_read_export.csv"})
+
+@router.post("/admin/clickhouse-query-runner-write")
+async def func_api_admin_clickhouse_query_runner_write(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "sql", "type": "str", "required": 1, "allowed": None, "default": None}])
+    res = await app_state.func_clickhouse_query_runner_write(client_clickhouse=app_state.client_clickhouse, sql=ob["sql"])
+    return {"status": 1, "message": res}
+
+@router.post("/admin/clickhouse-query-runner-read")
+async def func_api_admin_clickhouse_query_runner_read(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "sql", "type": "str", "required": 1, "allowed": None, "default": None}])
+    res = await app_state.func_clickhouse_query_runner_read(client_clickhouse=app_state.client_clickhouse, config_query_runner_read_limit=app_state.config_query_runner_read_limit, sql=ob["sql"])
+    return {"status": 1, "message": res}
+
+@router.post("/admin/clickhouse-query-runner-read-export")
+async def func_api_admin_clickhouse_query_runner_read_export(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "sql", "type": "str", "required": 1, "allowed": None, "default": None}])
+    generator = await app_state.func_clickhouse_query_runner_read_export(client_clickhouse=app_state.client_clickhouse, config_query_runner_export_limit=app_state.config_query_runner_export_limit, sql=ob["sql"])
+    return StreamingResponse(generator, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=clickhouse_query_runner_read_export.csv"})

@@ -6,7 +6,9 @@ The `/admin/*` endpoints ([`router/admin.py`](../router/admin.py)) are the opera
 
 ## Query runners
 
-Run arbitrary SQL against Postgres or MSSQL. PostgreSQL read endpoints accept the optional `db` query parameter; the SQL remains in the request body.
+For the complete endpoint reference, request examples, limits, and database-specific behavior, see [Query runners](query.md).
+
+Run arbitrary SQL against Postgres, MSSQL, or ClickHouse. PostgreSQL read endpoints accept the optional `db` query parameter; the SQL remains in the request body.
 
 | Endpoint | Purpose |
 |----------|---------|
@@ -14,6 +16,7 @@ Run arbitrary SQL against Postgres or MSSQL. PostgreSQL read endpoints accept th
 | `POST /admin/postgres-query-runner-write` | Run a write query (INSERT/UPDATE/DDL). |
 | `POST /admin/postgres-query-runner-read-export` | Stream results as a CSV download (cap `config_query_runner_export_limit`). |
 | `POST /admin/mssql-query-runner-read` / `-write` / `-read-export` | Same, against MSSQL. |
+| `POST /admin/clickhouse-query-runner-read` / `-write` / `-read-export` | Same, against ClickHouse; reads accept only one `SELECT`/`WITH` statement. |
 
 ```bash
 curl -X POST "http://localhost:8000/admin/postgres-query-runner-read?db=read" \
@@ -23,6 +26,8 @@ curl -X POST "http://localhost:8000/admin/postgres-query-runner-read?db=read" \
 ```
 
 Postgres read runners use `client_postgres` when `db` is omitted or the selected `client_postgres_dict` pool when it is present. The write runner always targets primary. Export endpoints return a `StreamingResponse` (`text/csv`), so results never fully materialize in memory.
+
+Configure ClickHouse through `config_clickhouse_url`, for example `https://default:password@clickhouse.example.com:8443/default`. Its read runners enforce read-only mode, a 30-second execution limit, and the shared query-runner row caps.
 
 > These execute raw SQL — they are powerful and intentionally admin-only. Keep them behind `realtime` role checks in production.
 

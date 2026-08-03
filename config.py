@@ -6,6 +6,7 @@ config_redis_url_ratelimiter = None
 config_redis_url_queue = None
 config_mongodb_url = None
 config_mssql_url = None
+config_clickhouse_url = None
 config_google_login_client_id = None
 config_openai_key = None
 config_gemini_key = None
@@ -189,6 +190,9 @@ config_api = {
 "/admin/mssql-query-runner-write": {"id": 21, "is_token": 1, "user_check_role": ["realtime", [1]]},
 "/admin/mssql-query-runner-read": {"id": 23, "is_token": 1, "user_check_role": ["token", [1,2]]},
 "/admin/mssql-query-runner-read-export": {"id": 89, "is_token": 1, "user_check_role": ["realtime", [1,2]]},
+"/admin/clickhouse-query-runner-write": {"id": 93, "is_token": 1, "user_check_role": ["realtime", [1]], "user_check_deactivated": ["realtime"], "user_check_deleted": ["realtime"]},
+"/admin/clickhouse-query-runner-read": {"id": 94, "is_token": 1, "user_check_role": ["token", [1,2]]},
+"/admin/clickhouse-query-runner-read-export": {"id": 95, "is_token": 1, "user_check_role": ["inmemory", [1,2]]},
 }
 
 config_column_int_mapping = {

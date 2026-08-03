@@ -2210,6 +2210,43 @@ async def func_postgres_query_runner_write(*, client_postgres: any, sql: str) ->
         result = await conn.execute(sql, timeout=15)
     return result
 
+def func_clickhouse_query_runner_read_sql(*, sql: str, limit: int) -> str:
+    """Validate a ClickHouse read query and wrap it with a server-side row limit."""
+    sql = str(sql or "").strip().rstrip(";").strip()
+    if not sql: raise Exception("SQL is required")
+    if ";" in sql: raise Exception("Only one SQL statement is allowed")
+    if not sql.lower().lstrip("(").strip().startswith(("select", "with")): raise Exception("Only SELECT/WITH queries are supported")
+    return f"SELECT * FROM ({sql}) AS clickhouse_query LIMIT {int(limit)}"
+
+async def func_clickhouse_query_runner_read(*, client_clickhouse: any, config_query_runner_read_limit: int, sql: str) -> list:
+    """Run a read-only ClickHouse query and return row mappings up to the configured limit."""
+    if not client_clickhouse: raise Exception("clickhouse client not initialized")
+    sql = func_clickhouse_query_runner_read_sql(sql=sql, limit=config_query_runner_read_limit)
+    result = await client_clickhouse.query(sql, settings={"readonly": 1, "max_execution_time": 30})
+    return [dict(zip(result.column_names, row)) for row in result.result_rows]
+
+async def func_clickhouse_query_runner_read_export(*, client_clickhouse: any, config_query_runner_export_limit: int, sql: str) -> any:
+    """Stream a read-only ClickHouse query as CSV up to the configured export limit."""
+    if not client_clickhouse: raise Exception("clickhouse client not initialized")
+    sql = func_clickhouse_query_runner_read_sql(sql=sql, limit=config_query_runner_export_limit)
+    async def _iter():
+        stream = await client_clickhouse.raw_stream(sql, settings={"readonly": 1, "max_execution_time": 30}, fmt="CSVWithNames")
+        async with stream:
+            async for chunk in stream:
+                yield chunk
+    return _iter()
+
+async def func_clickhouse_query_runner_write(*, client_clickhouse: any, sql: str) -> str:
+    """Run one non-read ClickHouse statement and return its command result."""
+    if not client_clickhouse: raise Exception("clickhouse client not initialized")
+    sql = str(sql or "").strip().rstrip(";").strip()
+    if not sql: raise Exception("SQL is required")
+    if ";" in sql: raise Exception("Only one SQL statement is allowed")
+    ql = sql.lower().lstrip("(").strip()
+    if ql.startswith(("select", "with", "explain", "show", "describe", "desc", "exists")): raise Exception("read SQL must use /admin/clickhouse-query-runner-read")
+    result = await client_clickhouse.command(sql, settings={"max_execution_time": 30})
+    return str(result)
+
 async def func_postgres_map_column(*, client_postgres: any, config_sql: str, is_json_value: int = 0) -> dict:
     """Execute a mapping SQL query and return a dictionary from the first two columns."""
     if not config_sql: return {}
