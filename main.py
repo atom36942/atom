@@ -15,6 +15,7 @@ import clickhouse_connect
 import httpx
 import motor.motor_asyncio
 import openai
+import pyodbc
 import redis.asyncio as redis
 import sentry_sdk
 import uvicorn
@@ -62,7 +63,8 @@ async def func_lifespan(app:"FastAPI"):
         client_redis_ratelimiter = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_ratelimiter)) if app.state.config_redis_url_ratelimiter else None
         client_redis_producer = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_queue)) if app.state.config_redis_url_queue else None
         client_mongodb = motor.motor_asyncio.AsyncIOMotorClient(app.state.config_mongodb_url) if app.state.config_mongodb_url else None
-        client_mssql = await aioodbc.create_pool(dsn=app.state.config_mssql_url, pool_recycle=60) if app.state.config_mssql_url else None
+        pyodbc.pooling = False  # must be off before the first connect: driver-manager pooling hands cached (possibly dead) sockets back to pool_recycle's close/reconnect, making the recycle a no-op
+        client_mssql = await aioodbc.create_pool(dsn=app.state.config_mssql_url, minsize=1, maxsize=10, pool_recycle=60) if app.state.config_mssql_url else None
         client_clickhouse = await clickhouse_connect.get_async_client(dsn=app.state.config_clickhouse_url) if app.state.config_clickhouse_url else None
         client_s3_context = aiobotocore.session.get_session().create_client("s3", region_name=app.state.config_aws_s3_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_aws_s3_region_name else None
         client_s3 = await client_s3_context.__aenter__() if client_s3_context else None
