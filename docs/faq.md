@@ -340,7 +340,7 @@ For a one-database deployment, simply change `config_postgres_url` and restart A
 <details>
 <summary><strong>Why is a config value from `.env` being ignored?</strong></summary>
 
-Atom only loads environment overrides whose names start with `config_` and exactly match a configuration variable. Environment values are parsed according to the original value's type.
+Atom only loads environment overrides whose names start with `config_` and match a configuration variable. Matching is case-insensitive for Windows compatibility, although lowercase `config_*` is the canonical style. Environment values are parsed according to the original value's type.
 
 Check the common causes:
 

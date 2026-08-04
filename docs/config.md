@@ -9,7 +9,7 @@ At startup, every `config_*` / `func_*` value is copied onto `app.state`, so rou
 You rarely edit `config.py` directly. Values can be overridden three ways (later wins):
 
 1. **`config.py`** — the shipped defaults.
-2. **Environment variables / `.env`** — `func_config_override_from_env` (bottom of `config.py`) reads every `config_*` name from the environment and casts it to match the default's type:
+2. **Environment variables / `.env`** — `func_config_override_from_env` (bottom of `config.py`) reads every `config_*` name from the environment and casts it to match the default's type. Names are matched case-insensitively for Windows compatibility, although lowercase `config_*` remains the canonical style:
    - **bool** → `true/1/yes/on/ok` become truthy.
    - **list / tuple / dict** → parsed as JSON (e.g. `config_cors_allow_origins=["https://app.com"]`).
    - **int** → numeric strings become ints; everything else stays a string.

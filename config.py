@@ -441,21 +441,23 @@ config_postgres = {
 def func_config_override_from_env(*, global_dict: dict) -> None:
     import orjson, os, ast, contextlib; from dotenv import load_dotenv
     load_dotenv(".env")
+    env = {k.lower(): v for k, v in os.environ.items()}
+    env.update({k: v for k, v in os.environ.items() if k == k.lower()})
     for k, v in list(global_dict.items()):
-        if k.startswith("config_") and (ev := os.getenv(k)) is not None:
+        if k.startswith("config_") and (ev := env.get(k)) is not None:
             if isinstance(v, bool): global_dict[k] = 1 if ev.lower() in ("true", "1", "yes", "on", "ok") else 0
             elif isinstance(v, (list, tuple, dict)):
                 with contextlib.suppress(Exception): global_dict[k] = orjson.loads(ev)
             else: global_dict[k] = int(ev) if ev.lstrip("-").isdigit() else ev
             if isinstance(global_dict[k], list): global_dict[k] = tuple(global_dict[k])
     postgres_url_prefix = "config_postgres_url_"
-    for k, v in os.environ.items():
+    for k, v in env.items():
         if k.startswith(postgres_url_prefix) and k not in (postgres_url_prefix, "config_postgres_url_dict"):
             if not isinstance(global_dict["config_postgres_url_dict"], dict):
                 global_dict["config_postgres_url_dict"] = {}
             global_dict["config_postgres_url_dict"][k.removeprefix(postgres_url_prefix)] = v
     with contextlib.suppress(Exception):
         for n in ast.parse(open("config.py", encoding="utf-8").read()).body:
-            if isinstance(n, ast.Assign) and len(n.targets)==1 and (t:=getattr(n.targets[0], "id", "")).startswith("config_") and (v:=getattr(n.value, "id", "")).startswith("config_") and os.getenv(t) is None: global_dict[t] = global_dict.get(v)
+            if isinstance(n, ast.Assign) and len(n.targets)==1 and (t:=getattr(n.targets[0], "id", "")).startswith("config_") and (v:=getattr(n.value, "id", "")).startswith("config_") and t not in env: global_dict[t] = global_dict.get(v)
     return None
 func_config_override_from_env(global_dict=globals())
