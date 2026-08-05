@@ -1,5 +1,7 @@
 # command: venv/bin/python -m script.consumer_postgres_update
 
+# info: Listens to message brokers (Redis, RabbitMQ, Kafka, Celery) and processes asynchronous bulk UPDATE operations for PostgreSQL.
+
 # packages
 import sys
 import asyncpg

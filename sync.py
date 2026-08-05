@@ -37,6 +37,8 @@ files_to_sync = [
     "script/consumer_postgres_update.py",
     "script/manual_postgres_cleaner.py",
     "script/manual_postgres_ingestion.py",
+    "script/manual_postgres_secure.py",
+    "script/worker_resume_parser.py",
     "script/worker_users_delete.py",
     "sync.py",
 ]

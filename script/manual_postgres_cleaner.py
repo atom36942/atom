@@ -1,5 +1,7 @@
 # command: venv/bin/python -m script.manual_postgres_cleaner
 
+# info: Periodically deletes expired database rows based on table retention day settings while guarding sensitive tables.
+
 # packages
 import asyncio
 import time

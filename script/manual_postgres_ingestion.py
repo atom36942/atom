@@ -1,5 +1,7 @@
 # command: venv/bin/python -m script.manual_postgres_ingestion
 
+# info: Performs high-performance bulk operations (create, update, delete) from a CSV file into PostgreSQL using staging tables and copy_records_to_table.
+
 # packages
 import ast
 import asyncio
@@ -13,8 +15,10 @@ from datetime import datetime
 import asyncpg
 from dotenv import load_dotenv
 
-# config
+# env load
 load_dotenv(".env")
+
+# config
 pg_dsn = os.getenv("PG_DSN")
 csv_path = os.getenv("csv_path")
 table = os.getenv("table")

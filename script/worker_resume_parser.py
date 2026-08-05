@@ -1,5 +1,7 @@
 # command: venv/bin/python -m script.worker_resume_parser
 
+# info: Worker process that polls resume files from S3/Azure storage and parses resume data using LLM providers into PostgreSQL.
+
 # packages
 import asyncio
 import json

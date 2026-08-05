@@ -1,5 +1,7 @@
 # command: venv/bin/python -m script.worker_users_delete
 
+# info: Background worker that permanently hard-deletes soft-deleted user data and associated storage files after the data retention window expires.
+
 # packages
 import asyncio
 import asyncpg
