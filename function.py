@@ -85,7 +85,6 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
             if legacy_key in control:
                 return 0 if control.get(legacy_key) else 1
         return default
-    is_autovacuum = control.get("is_enable_autovacuum_optimize", 0)
     is_enable_drop_schema = get_enable_control_switch("is_enable_drop_schema", 1, ("is_enable_drop_schema_disable", "is_disable_drop_schema"))
     is_enable_drop_table = get_enable_control_switch("is_enable_drop_table", 1, ("is_enable_drop_table_disable", "is_disable_drop_table"))
     is_enable_truncate_table = get_enable_control_switch("is_enable_truncate_table", 1, ("is_enable_truncate_disable", "is_disable_truncate"))
@@ -223,8 +222,6 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
         for table_name, column_configs in config_db["table"].items():
             primary_cfg = column_configs[0]
             await conn.execute(f'CREATE TABLE IF NOT EXISTS "{table_name}" ("{primary_cfg["name"]}" {primary_cfg["datatype"]} PRIMARY KEY);')
-            if is_autovacuum:
-                await conn.execute(f'ALTER TABLE "{table_name}" SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02);')
             rows = await conn.fetch("SELECT a.attname, format_type(a.atttypid, a.atttypmod) as type, a.attnotnull as notnull, pg_get_expr(ad.adbin, ad.adrelid) as default FROM pg_attribute a JOIN pg_class t ON a.attrelid = t.oid JOIN pg_namespace n ON t.relnamespace = n.oid LEFT JOIN pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum WHERE t.relname = $1 AND n.nspname = 'public' AND a.attnum > 0 AND NOT a.attisdropped", table_name)
             current_cols = {r[0]: r[1] for r in rows}
             current_notnulls = {r[0]: r[2] for r in rows}

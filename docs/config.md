@@ -283,7 +283,6 @@ Toggles that decide **how aggressive the auto-migration is** and which safety gu
 
 | Control key | Default | What it does |
 |-------------|---------|--------------|
-| `is_enable_autovacuum_optimize` | `0` | Tune autovacuum settings on managed tables. |
 | `is_enable_drop_schema` | `1` | Allow dropping the schema during (re)init. |
 | `is_enable_drop_table` | `1` | Allow dropping tables no longer in config. |
 | `is_enable_truncate_table` | `1` | Allow truncating tables during init. |
