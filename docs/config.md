@@ -283,7 +283,6 @@ Toggles that decide **how aggressive the auto-migration is** and which safety gu
 
 | Control key | Default | What it does |
 |-------------|---------|--------------|
-| `is_enable_drop_schema` | `1` | Allow dropping the schema during (re)init. |
 | `is_enable_drop_table` | `1` | Allow dropping tables no longer in config. |
 | `is_enable_truncate_table` | `1` | Allow truncating tables during init. |
 | `is_enable_drop_column` | `1`* | Allow dropping columns removed from config. (*ships `1`; function default if absent is `0`.) |

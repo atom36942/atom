@@ -343,7 +343,6 @@ config_postgres = {
 "control":{
 "is_enable_updated_at_set":1,
 "is_enable_is_protected_delete_disable":1,
-"is_enable_drop_schema":0,
 "is_enable_drop_table":0,
 "is_enable_truncate_table":0,
 "is_enable_drop_column":0,

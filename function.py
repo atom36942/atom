@@ -85,7 +85,6 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
             if legacy_key in control:
                 return 0 if control.get(legacy_key) else 1
         return default
-    is_enable_drop_schema = get_enable_control_switch("is_enable_drop_schema", 1, ("is_enable_drop_schema_disable", "is_disable_drop_schema"))
     is_enable_drop_table = get_enable_control_switch("is_enable_drop_table", 1, ("is_enable_drop_table_disable", "is_disable_drop_table"))
     is_enable_truncate_table = get_enable_control_switch("is_enable_truncate_table", 1, ("is_enable_truncate_disable", "is_disable_truncate"))
     is_enable_drop_column = get_enable_control_switch("is_enable_drop_column", 0, ("is_enable_drop_column_disable", "is_disable_drop_column"))
@@ -380,7 +379,6 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_table() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'operation not allowed on %', TG_TABLE_NAME; END; $$;")
         drop_tags = []
-        if not is_enable_drop_schema: drop_tags.append("'DROP SCHEMA'")
         if not is_enable_drop_table: drop_tags.append("'DROP TABLE'")
         if drop_tags:
             tag_list = ",".join(drop_tags)
