@@ -85,18 +85,13 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
             if legacy_key in control:
                 return 0 if control.get(legacy_key) else 1
         return default
-    is_enable_drop_table = get_enable_control_switch("is_enable_drop_table", 1, ("is_enable_drop_table_disable", "is_disable_drop_table"))
     is_enable_truncate_table = get_enable_control_switch("is_enable_truncate_table", 1, ("is_enable_truncate_disable", "is_disable_truncate"))
-    is_enable_drop_column = get_enable_control_switch("is_enable_drop_column", 0, ("is_enable_drop_column_disable", "is_disable_drop_column"))
     is_enable_root_user_delete_disable = control.get("is_enable_root_user_delete_disable", control.get("is_enable_users_protect_root", 1))
     is_enable_root_user_create = control.get("is_enable_root_user_create", 1)
     is_enable_log_users_password = control.get("is_enable_log_users_password", 1)
     is_enable_log_users_delete = control.get("is_enable_log_users_delete", 1)
     is_enable_is_protected_delete_disable = control.get("is_enable_is_protected_delete_disable", 1)
     is_enable_updated_at_set = control.get("is_enable_updated_at_set", 1)
-    is_enable_drop_column_mismatch = control.get("is_enable_drop_column_mismatch", control.get("is_drop_column_mismatch_db", control.get("is_drop_column_mismatch", 0)))
-    if not is_enable_drop_column and is_enable_drop_column_mismatch:
-        raise Exception("config_db.control conflict: is_enable_drop_column=0 blocks is_enable_drop_column_mismatch=1")
     bulk_blocked = control.get("table_row_delete_disable_bulk", control.get("table_delete_disable_row_bulk", control.get("disable_table_delete_row_bulk", [])))
     table_blocked = control.get("table_row_delete_disable_all", control.get("table_delete_disable_row", control.get("disable_table_delete_row", [])))
     catalog = {"idx": set(), "uni": set(), "chk": set(), "tg": set()}
@@ -200,18 +195,7 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
                         print(f"⚠️  {f'extension {extension}':<30} : ❌ skipped (insufficient privileges)")
                     else:
                         raise e
-        try:
-            if not is_enable_drop_column:
-                await conn.execute("CREATE OR REPLACE FUNCTION func_drop_column_disable() RETURNS event_trigger LANGUAGE plpgsql AS $$ DECLARE obj RECORD; BEGIN FOR obj IN SELECT * FROM pg_event_trigger_dropped_objects() LOOP IF obj.object_type = 'table column' THEN RAISE EXCEPTION 'dropping columns is disabled in configuration'; END IF; END LOOP; END; $$;")
-                await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_column_disable")
-                await conn.execute("CREATE EVENT TRIGGER trigger_drop_column_disable ON sql_drop WHEN TAG IN ('ALTER TABLE') EXECUTE FUNCTION func_drop_column_disable();")
-            else:
-                await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_column_disable")
-        except Exception as e:
-            if any(x in str(e).lower() for x in ("insufficient_privilege", "permission denied", "must be superuser")):
-                print(f"⚠️  {'drop column event trigger':<30} : ❌ skipped (insufficient privileges)")
-            else:
-                raise e
+
         for table_name, column_configs in config_db["table"].items():
             primary_cfg = column_configs[0]
             await conn.execute(f'CREATE TABLE IF NOT EXISTS "{table_name}" ("{primary_cfg["name"]}" {primary_cfg["datatype"]} PRIMARY KEY);')
@@ -267,12 +251,7 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
                     elif current_default is not None:
                         await conn.execute(f'ALTER TABLE "{table_name}" ALTER COLUMN "{col_name}" DROP DEFAULT')
                         table_changed = True
-            if is_enable_drop_column_mismatch:
-                desired_cols = {col_cfg["name"] for col_cfg in column_configs}
-                for col_name in list(current_cols):
-                    if col_name not in desired_cols:
-                        await conn.execute(f'ALTER TABLE "{table_name}" DROP COLUMN "{col_name}"')
-                        table_changed = True
+
             for col_cfg in column_configs:
                 if col_cfg.get("is_primary") == 1:
                     continue
@@ -378,24 +357,7 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
         await conn.execute("CREATE OR REPLACE FUNCTION func_set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_table() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'operation not allowed on %', TG_TABLE_NAME; END; $$;")
-        drop_tags = []
-        if not is_enable_drop_table: drop_tags.append("'DROP TABLE'")
-        if drop_tags:
-            tag_list = ",".join(drop_tags)
-            await conn.execute("CREATE OR REPLACE FUNCTION func_drop_disable() RETURNS event_trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'dropping objects is disabled in configuration'; END; $$;")
-            try:
-                await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_disable")
-                await conn.execute(f"CREATE EVENT TRIGGER trigger_drop_disable ON ddl_command_start WHEN TAG IN ({tag_list}) EXECUTE FUNCTION func_drop_disable();")
-            except Exception as e:
-                if any(x in str(e).lower() for x in ("insufficient_privilege", "permission denied", "must be superuser")):
-                    print(f"⚠️  {'event trigger':<30} : ❌ skipped (insufficient privileges)")
-                else:
-                    raise e
-        else:
-            try:
-                await conn.execute("DROP EVENT TRIGGER IF EXISTS trigger_drop_disable")
-            except:
-                pass
+
         for table, cols in db_tables.items():
             if table == "spatial_ref_sys":
                 continue

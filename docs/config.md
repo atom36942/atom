@@ -283,10 +283,7 @@ Toggles that decide **how aggressive the auto-migration is** and which safety gu
 
 | Control key | Default | What it does |
 |-------------|---------|--------------|
-| `is_enable_drop_table` | `1` | Allow dropping tables no longer in config. |
 | `is_enable_truncate_table` | `1` | Allow truncating tables during init. |
-| `is_enable_drop_column` | `1`* | Allow dropping columns removed from config. (*ships `1`; function default if absent is `0`.) |
-| `is_enable_drop_column_mismatch` | `1`* | Drop & recreate a column whose datatype no longer matches config. Requires `is_enable_drop_column=1` or init raises a conflict error. |
 | `is_enable_updated_at_set` | `1` | Auto-maintain `updated_at` (trigger) on update. |
 | `is_enable_is_protected_delete_disable` | `1` | Rows flagged `is_protected` cannot be deleted. |
 | `is_enable_log_users_password` | `1` | Record password changes into `log_users_password`. |
