@@ -95,12 +95,6 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
     is_enable_log_users_delete = control.get("is_enable_log_users_delete", 1)
     is_enable_is_protected_delete_disable = control.get("is_enable_is_protected_delete_disable", 1)
     is_enable_updated_at_set = control.get("is_enable_updated_at_set", 1)
-    is_enable_users_role_delete_disable_hard = control.get("is_enable_users_role_delete_disable_hard", control.get("is_enable_users_protect_role", control.get("is_enable_users_protect_with_role", 0 if control.get("is_enable_users_delete_with_role", control.get("is_enable_users_delete_role", 1)) else 1)))
-    is_enable_users_role_delete_disable_soft = control.get("is_enable_users_role_delete_disable_soft", 0)
-    if "is_enable_users_delete_role_disable" in control:
-        is_enable_users_role_delete_disable_hard = control.get("is_enable_users_delete_role_disable")
-    if "is_disable_users_delete_role" in control:
-        is_enable_users_role_delete_disable_hard = control.get("is_disable_users_delete_role")
     is_enable_drop_column_mismatch = control.get("is_enable_drop_column_mismatch", control.get("is_drop_column_mismatch_db", control.get("is_drop_column_mismatch", 0)))
     if not is_enable_drop_column and is_enable_drop_column_mismatch:
         raise Exception("config_db.control conflict: is_enable_drop_column=0 blocks is_enable_drop_column_mismatch=1")
@@ -381,14 +375,6 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
                 catalog["tg"].add("trigger_log_users_delete")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_log_users_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'UPDATE' THEN IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN INSERT INTO log_users_delete (user_id, type, created_by_id) VALUES (NEW.id, 1, COALESCE(NEW.deleted_by_id, NEW.updated_by_id)); ELSIF OLD.deleted_at IS NOT NULL AND NEW.deleted_at IS NULL THEN INSERT INTO log_users_delete (user_id, type, created_by_id) VALUES (NEW.id, 2, NEW.updated_by_id); END IF; RETURN NEW; ELSIF TG_OP = 'DELETE' THEN INSERT INTO log_users_delete (user_id, type) VALUES (OLD.id, 3); RETURN OLD; END IF; RETURN NULL; END; $$;")
                 await conn.execute("DROP TRIGGER IF EXISTS trigger_log_users_delete ON users; CREATE TRIGGER trigger_log_users_delete AFTER UPDATE OF deleted_at OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_log_users_delete();")
-            if is_enable_users_role_delete_disable_hard and "role" in users_cols:
-                catalog["tg"].add("trigger_delete_disable_role_users")
-                await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_role_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.role IS NOT NULL THEN RAISE EXCEPTION 'DELETE not allowed for user with role'; END IF; RETURN OLD; END; $$;")
-                await conn.execute("DROP TRIGGER IF EXISTS trigger_delete_disable_role_users ON users; CREATE TRIGGER trigger_delete_disable_role_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_role_users();")
-            if is_enable_users_role_delete_disable_soft and all(c in users_cols for c in ("role", "deleted_at")):
-                catalog["tg"].add("trigger_delete_disable_role_users_soft")
-                await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_role_users_soft() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.role IS NOT NULL AND OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN RAISE EXCEPTION 'soft DELETE not allowed for user with role'; END IF; RETURN NEW; END; $$;")
-                await conn.execute("DROP TRIGGER IF EXISTS trigger_delete_disable_role_users_soft ON users; CREATE TRIGGER trigger_delete_disable_role_users_soft BEFORE UPDATE OF deleted_at ON users FOR EACH ROW EXECUTE FUNCTION func_delete_disable_role_users_soft();")
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_is_protected() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.is_protected IS TRUE THEN RAISE EXCEPTION 'DELETE not allowed for protected row in %', TG_TABLE_NAME; END IF; RETURN OLD; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$;")
         await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$;")

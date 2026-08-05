@@ -294,8 +294,6 @@ Toggles that decide **how aggressive the auto-migration is** and which safety gu
 | `is_enable_log_users_delete` | `1` | Record user delete/restore events into `log_users_delete`. |
 | `is_enable_root_user_create` | `1` | Seed the root admin user (role 1) at startup. |
 | `is_enable_root_user_delete_disable` | `1` | Protect the root user from deletion. |
-| `is_enable_users_role_delete_disable_hard` | `0` | When `1`, block **hard**-deleting users that have a role. |
-| `is_enable_users_role_delete_disable_soft` | `0` | When `1`, block **soft**-deleting users that have a role. |
 | `table_row_delete_disable_all` | `[]` | Tables where **all** row deletes are blocked. |
 | `table_row_delete_disable_bulk` | `[]` | Tables where only **bulk** row deletes are blocked. |
 

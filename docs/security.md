@@ -58,7 +58,6 @@ Three independent gates protect the generic CRUD layer (see [crud.md](crud.md)):
 - `is_protected` rows can't be deleted (`is_enable_is_protected_delete_disable`).
 - The root user is protected (`is_enable_root_user_delete_disable`).
 - Per-table delete guards: `table_row_delete_disable_all` / `_bulk`.
-- Optional role-based delete blocks: `is_enable_users_role_delete_disable_hard` / `_soft`.
 
 See [config.md](config.md#control).
 
