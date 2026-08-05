@@ -2597,7 +2597,7 @@ async def func_postgres_buffer_flush(*, app_state: any, client_postgres: any, ca
     """Flush one PostgreSQL create buffer through its selected client pool."""
     if not client_postgres: return None
     async with app_state.postgres_buffer_flush_lock:
-        return await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=cache_postgres_buffer, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="flush", table="", obj_list=[])
+        return await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=None, func_postgres_serialize=None, func_regex_check=None, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=cache_postgres_buffer, config_regex=None, buffer_limit=None, mode="flush", table=None, obj_list=None)
 
 async def func_postgres_buffers_flush_periodic(*, app_state: any, client_postgres: any, cache_postgres_buffer_create: dict, client_postgres_log: any, cache_postgres_buffer_log_api: dict, interval_sec: int = 60) -> None:
     """Periodically flush the primary and API-log PostgreSQL buffers."""
