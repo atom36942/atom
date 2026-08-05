@@ -14,7 +14,7 @@
     "is_enable_drop_column_mismatch": 0,
     "is_enable_log_users_password": 1,
     "is_enable_log_users_delete": 1,
-    "is_enable_root_user_create": 0,
+    "is_enable_root_user_create": 1,
     "is_enable_root_user_delete_disable": 1,
     "is_enable_users_role_delete_disable_hard": 1,
     "is_enable_users_role_delete_disable_soft": 1,
