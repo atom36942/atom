@@ -14,13 +14,13 @@ from dotenv import load_dotenv
 load_dotenv(".env")
 
 # config
-pg_root_url = os.getenv("PG_ROOT_URL")
+pg_url_root = os.getenv("PG_URL_ROOT")
 
 # logic
 async def execute():
     """Applies DROP SCHEMA and DROP TABLE Event Triggers across all user databases."""
-    root_url = sys.argv[1] if len(sys.argv) > 1 else pg_root_url
-    if not root_url: raise ValueError("PG_ROOT_URL is required")
+    root_url = sys.argv[1] if len(sys.argv) > 1 else pg_url_root
+    if not root_url: raise ValueError("PG_URL_ROOT is required")
     def get_db_url(base_url: str, db_name: str) -> str:
         parsed = urlparse(base_url)
         return urlunparse((parsed.scheme, parsed.netloc, f"/{db_name}", parsed.params, parsed.query, parsed.fragment))
