@@ -88,6 +88,8 @@ async def func_lifespan(app:"FastAPI"):
         # cache schema init
         cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres=client_postgres) if client_postgres else {}
         cache_postgres_schema_ai = await app.state.func_postgres_schema_read_ai(client_postgres=client_postgres) if client_postgres else {}
+        cache_postgres_schema_dict = {name: await app.state.func_postgres_schema_read(client_postgres=client) for name, client in client_postgres_dict.items()}
+        cache_postgres_schema_ai_dict = {name: await app.state.func_postgres_schema_read_ai(client_postgres=client) for name, client in client_postgres_dict.items()}
         cache_postgres_schema_table_list = list(cache_postgres_schema.keys())
         cache_postgres_schema_column_list = sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
         #cache db names
