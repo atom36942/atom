@@ -50,9 +50,9 @@ Routes can choose Redis for role, deactivation, and deletion checks:
 "/private/example": {
     "id": 101,
     "is_token_check": 1,
-    "user_check_role": ["redis", [1, 2]],
-    "user_check_deactivated": ["redis"],
-    "user_check_deleted": ["redis"],
+    "user_check_role": {"mode": "redis", "roles": [1, 2]},
+    "user_check_deactivated": {"mode": "redis"},
+    "user_check_deleted": {"mode": "redis"},
 },
 ```
 

@@ -50,8 +50,8 @@ Add the exact route path and enable the checks you need:
 config_api["/my/report"] = {
     "id": 210,
     "is_token_check": 1,
-    "user_check_role": ["token", [1, 2]],
-    "user_check_deactivated": ["realtime"],
+    "user_check_role": {"mode": "token", "roles": [1, 2]},
+    "user_check_deactivated": {"mode": "realtime"},
 }
 ```
 
@@ -448,6 +448,34 @@ Keep project-specific changes outside framework-managed files:
 Register every custom route in `config_api`; use `"is_token_check": 0` for an intentionally public route, then add role checks, caching, or rate limiting as needed. `sync.py` overwrites core files and the shipped documentation, but preserves extension files, custom routers, and `.env`.
 
 If you are fixing Atom itself for everyone, edit the core source and submit a pull request instead. See [extend.md](extend.md).
+
+</details>
+
+<details>
+<summary><strong>How do I start Atom with a read-only PostgreSQL URL?</strong></summary>
+
+Enable Atom's global read-only mode and use read-only database credentials as the primary connection:
+
+```dotenv
+config_postgres_url=postgresql://readonly_user:password@host:5432/database
+config_is_read_only=1
+```
+
+When read-only mode is enabled, Atom:
+
+- configures the primary and named asyncpg pools with `default_transaction_read_only=on`;
+- skips PostgreSQL schema initialization, regardless of `config_is_enable_postgres_schema_init`;
+- does not start the periodic PostgreSQL buffer-flush task;
+- does not buffer request records into `log_api`; and
+- skips final primary and API-log buffer flushes during shutdown.
+
+Read routes continue to work normally. Write-capable routes remain registered, including generic CRUD, OTP generation, first-login user creation, message read-marking, blob metadata operations, the WebSocket example, and the admin write-query runner. If one is called, PostgreSQL rejects its write because every transaction on Atom's pools is read-only.
+
+Use an actual read-only PostgreSQL role as well. `config_is_read_only` prevents Atom's expected lifecycle writes and makes its pools read-only, while database permissions provide an independent enforcement boundary for custom code, separately configured clients, workers, and scripts.
+
+The setting only controls PostgreSQL activity created through the pools initialized by `main.py`. It does not disable writes to Redis, MongoDB, object storage, queues, local files, or independent PostgreSQL connections opened by standalone workers and scripts. Do not run write consumers, ingestion scripts, or deletion workers as part of a read-only deployment.
+
+Use the read-only URL as `config_postgres_url`, rather than configuring only a named URL such as `config_postgres_url_read`, when Atom needs its normal primary schema and authorization caches. Named pools are intended for explicitly selected read endpoints and do not replace the primary connection during startup.
 
 </details>
 

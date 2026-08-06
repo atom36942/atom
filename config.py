@@ -44,6 +44,7 @@ config_is_enable_user_delete = 0
 config_is_enable_postgres_schema_init = 1
 config_is_enable_signup = 1
 config_is_enable_otp_require_users_update = 0
+config_is_read_only = 0
 config_is_debug = 1
 config_postgres_pool_min_size = 5
 config_postgres_pool_max_size = 20
