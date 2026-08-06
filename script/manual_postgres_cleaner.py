@@ -5,7 +5,9 @@
 # packages
 import asyncio
 import time
-import asyncpg
+
+# function
+from function import func_client_postgres
 
 # config
 from config import config_postgres_url
@@ -18,7 +20,7 @@ async def execute():
     if blocked_tables:
         raise Exception(f"postgres cleaner blocked for sensitive table(s): {', '.join(blocked_tables)}")
     print("Starting Postgres Cleanup Script...")
-    pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=5, server_settings={'application_name': 'atom-daemon-cleaner'})
+    pool = await func_client_postgres(dsn=config_postgres_url, min_size=1, max_size=5)
     try:
         async with pool.acquire() as conn:
             await conn.execute("SET statement_timeout = '60s'")

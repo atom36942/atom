@@ -13,12 +13,14 @@ import traceback
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 import aiohttp
-import asyncpg
 import boto3
-import openai
 from azure.storage.blob import BlobSasPermissions, generate_blob_sas
-from google import genai
 from google.genai import types
+
+# function
+from function import func_client_postgres
+from function import func_client_openai
+from function import func_client_gemini
 
 # config
 from config import config_postgres_url
@@ -41,8 +43,8 @@ async def execute():
     if AI_SERVICE not in config_ai_services:
         print(f"Error: AI_SERVICE must be one of {config_ai_services}.")
         return
-    client_openai = openai.OpenAI(api_key=config_openai_key) if config_openai_key else None
-    client_gemini = genai.Client(api_key=config_gemini_key) if config_gemini_key else None
+    client_openai = func_client_openai(api_key=config_openai_key)
+    client_gemini = func_client_gemini(api_key=config_gemini_key)
     if AI_SERVICE == "gemini" and not client_gemini:
         print("Error: config_gemini_key is not set. Worker requires Gemini.")
         return
@@ -50,7 +52,7 @@ async def execute():
         print("Error: config_openai_key is not set. Worker requires OpenAI.")
         return
     print(f"Starting Dynamic Resume Parser Worker Script... ai={AI_SERVICE} batch_limit={BATCH_LIMIT} concurrency_limit={CONCURRENCY_LIMIT}")
-    pool = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=20, server_settings={"application_name": "atom-daemon-resume-parser"})
+    pool = await func_client_postgres(dsn=config_postgres_url, min_size=1, max_size=20)
     async with pool.acquire() as conn:
         records = await conn.fetch(f"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1", TABLE_NAME)
         if not records:

@@ -4,10 +4,10 @@
 
 # packages
 import sys
-import asyncpg
-from argon2 import PasswordHasher
 
 # function
+from function import func_client_postgres
+from function import func_client_password_hasher
 from function import func_run_broker
 from function import func_postgres_create
 from function import func_postgres_serialize
@@ -28,10 +28,10 @@ from config import config_kafka_password
 
 # logic
 async def setup():
-    client_postgres = await asyncpg.create_pool(dsn=config_postgres_url, min_size=1, max_size=5)
+    client_postgres = await func_client_postgres(dsn=config_postgres_url, min_size=1, max_size=5)
     cache_postgres_buffer_create = {}
     cache_postgres_schema = await func_postgres_schema_read(client_postgres=client_postgres)
-    client_password_hasher = PasswordHasher()
+    client_password_hasher = func_client_password_hasher()
     return client_postgres, cache_postgres_buffer_create, cache_postgres_schema, client_password_hasher
 
 async def execute(payload, client_postgres, cache_postgres_buffer_create, cache_postgres_schema, client_password_hasher):

@@ -5,30 +5,11 @@ import os
 import shutil
 import time
 from contextlib import asynccontextmanager, suppress
-import aio_pika
-import aiobotocore.session
-import aioodbc
-import asyncpg
-import asyncssh
-import boto3
-import clickhouse_connect
-import httpx
-import motor.motor_asyncio
-import openai
-import pyodbc
-import redis.asyncio as redis
 import sentry_sdk
 import uvicorn
-from aiokafka import AIOKafkaProducer
-from argon2 import PasswordHasher
-from azure.communication.email import EmailClient
-from azure.storage.blob.aio import BlobServiceClient
-from celery import Celery
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from google import genai
-from posthog import Posthog
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 
 # import custom files
@@ -56,34 +37,32 @@ async def func_lifespan(app:"FastAPI"):
         os.makedirs("tmp", exist_ok=True)
         os.makedirs("secret", exist_ok=True)
         # client init
-        client_password_hasher = PasswordHasher()
-        client_http = httpx.AsyncClient()
-        postgres_pool_kwargs = {"min_size": app.state.config_postgres_pool_min_size, "max_size": app.state.config_postgres_pool_max_size}
-        if app.state.config_is_read_only: postgres_pool_kwargs["server_settings"] = {"default_transaction_read_only": "on"}
-        client_postgres = await asyncpg.create_pool(dsn=app.state.config_postgres_url, **postgres_pool_kwargs) if app.state.config_postgres_url else None
-        client_postgres_dict = {name: await asyncpg.create_pool(dsn=url, **postgres_pool_kwargs) for name, url in (app.state.config_postgres_url_dict or {}).items() if url}
-        client_redis = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url)) if app.state.config_redis_url else None
-        client_redis_user_state = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_user_state)) if app.state.config_redis_url_user_state else None
-        client_redis_ratelimiter = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_ratelimiter)) if app.state.config_redis_url_ratelimiter else None
-        client_redis_producer = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_queue)) if app.state.config_redis_url_queue else None
-        client_mongodb = motor.motor_asyncio.AsyncIOMotorClient(app.state.config_mongodb_url) if app.state.config_mongodb_url else None
-        pyodbc.pooling = False  # must be off before the first connect: driver-manager pooling hands cached (possibly dead) sockets back to pool_recycle's close/reconnect, making the recycle a no-op
-        client_mssql = await aioodbc.create_pool(dsn=app.state.config_mssql_url, minsize=1, maxsize=10, pool_recycle=60) if app.state.config_mssql_url else None
-        client_clickhouse = await clickhouse_connect.get_async_client(dsn=app.state.config_clickhouse_url) if app.state.config_clickhouse_url else None
-        client_s3_context = aiobotocore.session.get_session().create_client("s3", region_name=app.state.config_aws_s3_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_aws_s3_region_name else None
-        client_s3 = await client_s3_context.__aenter__() if client_s3_context else None
-        client_s3_resource = boto3.resource("s3", region_name=app.state.config_aws_s3_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_aws_s3_region_name else None
-        client_sns = boto3.client("sns", region_name=app.state.config_aws_sns_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_aws_sns_region_name else None
-        client_ses = boto3.client("ses", region_name=app.state.config_aws_ses_region_name, aws_access_key_id=app.state.config_aws_access_key_id, aws_secret_access_key=app.state.config_aws_secret_access_key) if app.state.config_aws_ses_region_name else None
-        client_openai = openai.OpenAI(api_key=app.state.config_openai_key) if app.state.config_openai_key else None
-        client_gemini = genai.Client(api_key=app.state.config_gemini_key) if app.state.config_gemini_key else None
-        client_posthog = Posthog(app.state.config_posthog_project_key, host=app.state.config_posthog_project_host) if app.state.config_posthog_project_key else None
-        client_celery_producer = Celery("atom", broker=app.state.config_celery_url, backend=app.state.config_celery_url) if app.state.config_celery_url else None
-        client_kafka_producer = (AIOKafkaProducer(bootstrap_servers=app.state.config_kafka_url, security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=app.state.config_kafka_username, sasl_plain_password=app.state.config_kafka_password) if app.state.config_kafka_username else AIOKafkaProducer(bootstrap_servers=app.state.config_kafka_url)) if app.state.config_kafka_url else None; await client_kafka_producer.start() if client_kafka_producer else None
-        client_rabbitmq = await aio_pika.connect_robust(app.state.config_rabbitmq_url) if app.state.config_rabbitmq_url else None; client_rabbitmq_producer = await client_rabbitmq.channel() if client_rabbitmq else None
-        client_sftp = await asyncssh.connect(host=app.state.config_sftp_host, port=int(app.state.config_sftp_port), username=app.state.config_sftp_username, password=app.state.config_sftp_password, known_hosts=None) if app.state.config_sftp_host else None
-        client_azure_email = EmailClient.from_connection_string(app.state.config_azure_email_connection_string) if app.state.config_azure_email_connection_string else None
-        client_azure_blob = BlobServiceClient.from_connection_string(f"DefaultEndpointsProtocol=https;AccountName={app.state.config_azure_account_name};AccountKey={app.state.config_azure_account_key};EndpointSuffix=core.windows.net") if (app.state.config_azure_account_name and app.state.config_azure_account_key) else None
+        client_password_hasher = func_client_password_hasher()
+        client_http = func_client_http()
+        postgres_pool_kwargs = {"min_size": app.state.config_postgres_pool_min_size, "max_size": app.state.config_postgres_pool_max_size, "is_read_only": app.state.config_is_read_only}
+        client_postgres = await func_client_postgres(dsn=app.state.config_postgres_url, **postgres_pool_kwargs)
+        client_postgres_dict = {name: await func_client_postgres(dsn=url, **postgres_pool_kwargs) for name, url in (app.state.config_postgres_url_dict or {}).items() if url}
+        client_redis = func_client_redis(url=app.state.config_redis_url)
+        client_redis_user_state = func_client_redis(url=app.state.config_redis_url_user_state)
+        client_redis_ratelimiter = func_client_redis(url=app.state.config_redis_url_ratelimiter)
+        client_redis_producer = func_client_redis(url=app.state.config_redis_url_queue)
+        client_mongodb = func_client_mongodb(url=app.state.config_mongodb_url)
+        client_mssql = await func_client_mssql(dsn=app.state.config_mssql_url)
+        client_clickhouse = await func_client_clickhouse(dsn=app.state.config_clickhouse_url)
+        aws_kwargs = {"aws_access_key_id": app.state.config_aws_access_key_id, "aws_secret_access_key": app.state.config_aws_secret_access_key}
+        client_s3_context, client_s3 = await func_client_s3(region_name=app.state.config_aws_s3_region_name, **aws_kwargs)
+        client_s3_resource = func_client_s3_resource(region_name=app.state.config_aws_s3_region_name, **aws_kwargs)
+        client_sns = func_client_sns(region_name=app.state.config_aws_sns_region_name, **aws_kwargs)
+        client_ses = func_client_ses(region_name=app.state.config_aws_ses_region_name, **aws_kwargs)
+        client_openai = func_client_openai(api_key=app.state.config_openai_key)
+        client_gemini = func_client_gemini(api_key=app.state.config_gemini_key)
+        client_posthog = func_client_posthog(project_key=app.state.config_posthog_project_key, host=app.state.config_posthog_project_host)
+        client_celery_producer = func_client_celery(url=app.state.config_celery_url)
+        client_kafka_producer = await func_client_kafka(url=app.state.config_kafka_url, username=app.state.config_kafka_username, password=app.state.config_kafka_password)
+        client_rabbitmq, client_rabbitmq_producer = await func_client_rabbitmq(url=app.state.config_rabbitmq_url)
+        client_sftp = await func_client_sftp(host=app.state.config_sftp_host, port=app.state.config_sftp_port, username=app.state.config_sftp_username, password=app.state.config_sftp_password)
+        client_azure_email = func_client_azure_email(connection_string=app.state.config_azure_email_connection_string)
+        client_azure_blob = func_client_azure_blob(account_name=app.state.config_azure_account_name, account_key=app.state.config_azure_account_key)
         # client helper
         if app.state.config_log_db is not None and app.state.config_log_db not in client_postgres_dict: raise Exception(f"config_log_db '{app.state.config_log_db}' not found in config_postgres_url_dict")
         client_postgres_log = client_postgres if app.state.config_log_db is None else client_postgres_dict[app.state.config_log_db]
