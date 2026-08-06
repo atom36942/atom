@@ -2,16 +2,13 @@
 import asyncio
 import importlib.util
 import os
-import shutil
 import time
 from contextlib import asynccontextmanager, suppress
 import uvicorn
 
-# custom files
+# custom
 from function import *
 from config import *
-
-# extend files
 if importlib.util.find_spec("function_extend"): from function_extend import *
 if importlib.util.find_spec("config_extend"): from config_extend import *
 
@@ -19,18 +16,14 @@ if importlib.util.find_spec("config_extend"): from config_extend import *
 @asynccontextmanager
 async def func_lifespan(app:"FastAPI"):
     try:
+        # start
+        start_journey = time.perf_counter()
         app.state.runtime_background_tasks = set()
         app.state.postgres_buffer_flush_task = None
         app.state.inmemory_cache_cleanup_task = None
-        # start
-        start_journey = time.perf_counter()
         # check
-        app.state.func_check(app=app)
-        # structure
-        if os.path.isdir("tmp") and not os.path.islink("tmp"): shutil.rmtree("tmp")
-        elif os.path.exists("tmp"): os.remove("tmp")
-        os.makedirs("tmp", exist_ok=True)
-        os.makedirs("secret", exist_ok=True)
+        func_check(app=app)
+        func_structure_init()
         # client init
         client_password_hasher = func_client_password_hasher()
         client_http = func_client_http()

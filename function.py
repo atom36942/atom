@@ -3226,6 +3226,14 @@ def func_app_fastapi_create(*, config_is_debug: bool = False, lifespan: any = No
     from fastapi import FastAPI
     return FastAPI(debug=bool(config_is_debug), lifespan=lifespan, openapi_url=None, docs_url=None, redoc_url=None)
 
+def func_structure_init(*, dir_list: tuple = ("tmp", "secret")) -> None:
+    """Reset working tmp/ directory and ensure required application directories exist."""
+    import os, shutil
+    if os.path.isdir("tmp") and not os.path.islink("tmp"): shutil.rmtree("tmp")
+    elif os.path.exists("tmp"): os.remove("tmp")
+    for d in dir_list: os.makedirs(d, exist_ok=True)
+
+
 
 
 
