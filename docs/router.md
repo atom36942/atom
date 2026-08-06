@@ -170,11 +170,11 @@ Adding the route file makes it *reachable*, but auth/rate-limit/cache come from 
 # config_extend.py
 from config import config_api
 config_api = {**config_api,
-    "/my/report": {"id": 210, "is_token_check": 1, "api_cache_sec": ["inmemory", 30, 0]},
+    "/my/report": {"id": 210, "is_token_check": 1, "cache": {"mode": "inmemory", "ttl_sec": 30, "is_per_user": 0}},
 }
 ```
 
-See [config.md](config.md#config_api) for every field (`is_token_check`, `user_check_role`, `api_ratelimiting_times_sec`, `api_cache_sec`, and the `token`/`inmemory`/`realtime` modes).
+See [config.md](config.md#config_api) for every field (`is_token_check`, `user_check_role`, `rate_limit`, `cache`, and the `token`/`inmemory`/`realtime` modes).
 
 > `func_check` runs at startup and validates `config_api` entries — a malformed policy fails the boot early.
 

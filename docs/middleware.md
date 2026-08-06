@@ -35,7 +35,7 @@ Reads the matched route's path and looks up its entry in `config_api`:
 api_cfg = app_state.config_api.get(route_path, {})
 ```
 
-From it, pulls `is_token_check`, `user_check_role`, `user_check_deactivated`, `user_check_deleted`, `api_ratelimiting_times_sec`, and `api_cache_sec`. A path with **no entry** gets an empty dict → all checks default to off/public. See [config.md](config.md#config_api) for the shape of these fields.
+From it, pulls `is_token_check`, `user_check_role`, `user_check_deactivated`, `user_check_deleted`, `rate_limit`, and `cache`. A path with **no entry** gets an empty dict → all checks default to off/public. See [config.md](config.md#config_api) for the shape of these fields.
 
 ### 3. Decode token (`func_token_decode`)
 Parses the `Authorization` header and verifies the JWT with `config_token_secret_key`. On success `request.state.user` becomes the decoded claims (id, role, …); otherwise it stays empty. This never rejects on its own — enforcement happens next.
@@ -53,7 +53,7 @@ Four checks run in order, each a no-op unless the route's policy asks for it:
 The role/deactivated/deleted checks honor the policy's `mode` (`token` / `inmemory` / `realtime`) to decide whether to trust the JWT, read the in-memory/Redis cache (TTL `config_redis_cache_ttl_sec`), or query Postgres live. Any failure raises and jumps to the error handler (step 8).
 
 ### 5. Rate-limit (`func_middleware_check_ratelimiter`)
-If the route defines `api_ratelimiting_times_sec`, enforces "at most N requests per window" keyed by the **user id** (if authenticated) or **client IP** (if not). Over-limit raises.
+If the route defines `rate_limit`, enforces "at most N requests per window" keyed by the **user id** (if authenticated) or **client IP** (if not). Over-limit raises.
 
 ### 6. Cache lookup (`func_middleware_api_cache`, `mode="get"`)
 If the route is cacheable, builds a key from path + query params + user id and checks for a stored response. **On hit**, that response is returned immediately (`response_type = "cache_response"`) — the handler never runs.

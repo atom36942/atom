@@ -144,17 +144,17 @@ Restart Atom after the change. Startup schema initialization creates the table a
 <details>
 <summary><strong>How do I cache an endpoint's response?</strong></summary>
 
-Add `api_cache_sec` to the route's `config_api` policy. The format is `[mode, ttl_seconds, user_flag]`:
+Add `cache` to the route's `config_api` policy. The format is `{"mode": "inmemory", "ttl_sec": 60, "is_per_user": 0}`:
 
 ```python
 config_api["/public/catalog"] = {
     "id": 211,
     "is_token_check": 0,
-    "api_cache_sec": ["inmemory", 60, 0],
+    "cache": {"mode": "inmemory", "ttl_sec": 60, "is_per_user": 0},
 }
 ```
 
-This example caches matching responses for 60 seconds. Cache keys include the route and query string; set the final flag to `1` when responses must also be isolated by authenticated user. Use `"redis"` instead of `"inmemory"` when multiple Atom processes need to share the same cache, and configure Redis first.
+This example caches matching responses for 60 seconds. Cache keys include the route and query string; set `is_per_user` to `1` when responses must also be isolated by authenticated user. Use `"redis"` instead of `"inmemory"` when multiple Atom processes need to share the same cache, and configure Redis first.
 
 Cache read-heavy endpoints whose responses may safely be slightly stale. Avoid caching rapidly changing or side-effecting responses.
 
@@ -163,13 +163,13 @@ Cache read-heavy endpoints whose responses may safely be slightly stale. Avoid c
 <details>
 <summary><strong>How do I rate-limit an endpoint?</strong></summary>
 
-Add `api_ratelimiting_times_sec` to the route's `config_api` entry. Its format is `[mode, request_count, window_seconds]`:
+Add `rate_limit` to the route's `config_api` entry. Its format is `{"mode": "inmemory", "limit": 10, "window_sec": 60}`:
 
 ```python
 config_api["/public/otp-send-email"] = {
     "id": 212,
     "is_token_check": 0,
-    "api_ratelimiting_times_sec": ["inmemory", 10, 60],
+    "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60},
 }
 ```
 

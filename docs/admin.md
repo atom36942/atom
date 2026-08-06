@@ -73,7 +73,7 @@ curl -X POST http://localhost:8000/admin/postgres-import \
 | `GET /admin/postgres-info?db=read` | DB size/health/stats (`func_postgres_info_read`). |
 | `GET /admin/postgres-schema?db=read` | Live schema (tables, columns, indexes). |
 
-Both use primary when `db` is omitted and the selected named pool otherwise. They are cached (`api_cache_sec`).
+Both use primary when `db` is omitted and the selected named pool otherwise. They are cached (`cache`).
 
 ---
 

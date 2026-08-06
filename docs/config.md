@@ -222,11 +222,11 @@ The **per-endpoint policy table**. It maps each route path to a dict of policy f
 |-------|-------|---------|
 | `id` | `int` | Stable numeric id for the endpoint — unique, used for referencing/analytics. Not security-related. |
 | `is_token_check` | `0` / `1` | `1` requires a valid JWT (`func_middleware_check_token`); `0` is public. |
-| `user_check_role` | `[mode, [roles]]` | Restrict to the listed role numbers. Rejected if the user's role isn't in the list. |
-| `user_check_deactivated` | `[mode]` | Reject users whose `deactivated_at` is set. |
-| `user_check_deleted` | `[mode]` | Reject users whose `deleted_at` is set. |
-| `api_ratelimiting_times_sec` | `[mode, times, sec]` | Allow at most `times` requests per `sec`-second window per user/IP. |
-| `api_cache_sec` | `[mode, sec, stale]` | Cache the response for `sec` seconds (keyed by path + query + user). |
+| `user_check_role` | `{"mode": "...", "roles": [...]}` | Restrict to the listed role numbers. Rejected if the user's role isn't in the list. |
+| `user_check_deactivated` | `{"mode": "..."}` | Reject users whose `deactivated_at` is set. |
+| `user_check_deleted` | `{"mode": "..."}` | Reject users whose `deleted_at` is set. |
+| `rate_limit` | `{"mode": "...", "limit": N, "window_sec": S}` | Allow at most `limit` requests per `window_sec`-second window per user/IP. |
+| `cache` | `{"mode": "...", "ttl_sec": S, "is_per_user": 0}` | Cache the response for `ttl_sec` seconds (set `is_per_user: 1` to isolate per user). |
 
 **The `mode` value** (first element of the checks above) selects *where the truth is read from* — a trade-off between freshness and speed:
 
@@ -241,15 +241,15 @@ The **per-endpoint policy table**. It maps each route path to a dict of policy f
 "/admin/object-delete": {
   "id": 5,
   "is_token_check": 1,
-  "user_check_role": ["realtime", [1]],
-  "user_check_deactivated": ["realtime"],
-  "user_check_deleted": ["realtime"],
-  "api_ratelimiting_times_sec": ["inmemory", 10, 60],
+  "user_check_role": {"mode": "realtime", "roles": [1]},
+  "user_check_deactivated": {"mode": "realtime"},
+  "user_check_deleted": {"mode": "realtime"},
+  "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60},
 },
 ```
 Compare the cached public read — no token, response cached 100s:
 ```python
-"/public/object-read": {"id": 14, "is_token_check": 0, "api_cache_sec": ["inmemory", 100, 0]},
+"/public/object-read": {"id": 14, "is_token_check": 0, "cache": {"mode": "inmemory", "ttl_sec": 100, "is_per_user": 0}},
 ```
 
 ## `config_postgres`

@@ -68,17 +68,17 @@ This mode reduces Postgres reads but permits values to remain stale until the TT
 
 ### API response cache
 
-Set a route's `api_cache_sec` mode to `redis`:
+Set a route's `cache` mode to `redis`:
 
 ```python
 "/public/example": {
     "id": 102,
     "is_token_check": 0,
-    "api_cache_sec": ["redis", 300, 0],
+    "cache": {"mode": "redis", "ttl_sec": 300, "is_per_user": 0},
 },
 ```
 
-The values mean `[mode, ttl_seconds, is_user_specific]`. Set the final value to `1` to include the authenticated user id in the key, or `0` to share the cached response. Cache keys have this shape:
+The dict keys are `{"mode": "...", "ttl_sec": ..., "is_per_user": ...}`. Set `is_per_user` to `1` to include the authenticated user id in the key, or `0` to share the cached response. Cache keys have this shape:
 
 ```text
 cache:{path}?{sorted_query_parameters}:{user_id_or_0}
@@ -106,11 +106,11 @@ Enable distributed rate limiting for a route with:
 "/public/example": {
     "id": 103,
     "is_token_check": 0,
-    "api_ratelimiting_times_sec": ["redis", 100, 60],
+    "rate_limit": {"mode": "redis", "limit": 100, "window_sec": 60},
 },
 ```
 
-The values mean `[mode, maximum_requests, window_seconds]`. Each counter is keyed by the authenticated user id or, for anonymous requests, the client IP:
+The dict keys are `{"mode": "...", "limit": ..., "window_sec": ...}`. Each counter is keyed by the authenticated user id or, for anonymous requests, the client IP:
 
 ```text
 ratelimiter:{request_path}:{user_id_or_client_ip}
@@ -145,7 +145,7 @@ Run the corresponding consumer process when Redis queue mode is enabled; otherwi
 | Prefix or list | Owner | Expiry |
 |----------------|-------|--------|
 | `cache:user:*` | General client | `config_redis_cache_ttl_sec` |
-| `cache:{path}?...` | General client | Route's `api_cache_sec` TTL |
+| `cache:{path}?...` | General client | Route's `cache` TTL |
 | Arbitrary imported keys | General client | `config_redis_cache_ttl_sec`, or none when set to `0` |
 | `ratelimiter:*` | Rate-limiter client | Route's rate-limit window |
 | `func_postgres_create` list | Queue client | No automatic expiry |

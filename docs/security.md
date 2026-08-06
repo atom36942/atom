@@ -35,7 +35,7 @@ Each check has a **`mode`** — `token` (trust the JWT claim), `inmemory` (Redis
 
 ## 3. Abuse — rate limiting
 
-Routes with `api_ratelimiting_times_sec` cap requests per window, keyed by **user id** (authenticated) or **client IP** (anonymous). Applied before the handler runs.
+Routes with `rate_limit` cap requests per window, keyed by **user id** (authenticated) or **client IP** (anonymous). Applied before the handler runs.
 
 ## 4. Data access control
 

@@ -6,7 +6,7 @@ def func_check(*, app: any) -> None:
     api_ids = []
     user_mode_allowed = ("redis", "realtime", "inmemory", "token")
     api_mode_allowed = ("redis", "inmemory")
-    api_keys_allowed = ("id", "is_token_check", "user_check_role", "user_check_deactivated", "user_check_deleted", "api_cache_sec", "api_ratelimiting_times_sec")
+    api_keys_allowed = ("id", "is_token_check", "user_check_role", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec")
     def flag_check(value, key):
         if value not in (0, 1, "0", "1", True, False): raise Exception(f"invalid {key}: expected 0/1")
     def int_check(value, key, min_value=0):
@@ -15,14 +15,6 @@ def func_check(*, app: any) -> None:
         except Exception:
             raise Exception(f"invalid {key}: expected integer")
         if value < min_value: raise Exception(f"invalid {key}: minimum {min_value}")
-        return value
-    def mode_list_check(path, cfg, key, allowed_mode, min_len, max_len):
-        if key not in cfg: return ()
-        value = cfg[key]
-        if isinstance(value, str): value = [value]
-        if not isinstance(value, list): raise Exception(f"{path} invalid {key}: expected list")
-        if len(value) < min_len or len(value) > max_len: raise Exception(f"{path} invalid {key}: expected {min_len}-{max_len} values")
-        if value[0] not in allowed_mode: raise Exception(f"{path} invalid {key} mode: {value[0]}, allowed: {', '.join(allowed_mode)}")
         return value
     requires_redis = False
     requires_redis_ratelimiter = False
@@ -38,27 +30,60 @@ def func_check(*, app: any) -> None:
         api_ids.append(api_id)
         if "is_token_check" not in cfg: raise Exception(f"{path} missing required key: is_token_check")
         flag_check(cfg["is_token_check"], f"{path} is_token_check")
-        role_cfg = mode_list_check(path, cfg, "user_check_role", user_mode_allowed, 2, 2)
-        if role_cfg:
-            if not isinstance(role_cfg[1], list) or not role_cfg[1]: raise Exception(f"{path} invalid user_check_role roles")
-            for role in role_cfg[1]: int_check(role, f"{path} user_check_role role", 1)
-            if role_cfg[0] == "redis": requires_redis = True
+        role_val = cfg.get("user_check_role")
+        if role_val:
+            if isinstance(role_val, dict):
+                mode = role_val.get("mode")
+                roles = role_val.get("roles")
+            elif isinstance(role_val, (list, tuple)):
+                mode = role_val[0] if len(role_val) > 0 else None
+                roles = role_val[1] if len(role_val) > 1 else []
+            else:
+                raise Exception(f"{path} invalid user_check_role format")
+            if mode not in user_mode_allowed: raise Exception(f"{path} invalid user_check_role mode: {mode}")
+            if not isinstance(roles, list) or not roles: raise Exception(f"{path} invalid user_check_role roles")
+            for role in roles: int_check(role, f"{path} user_check_role role", 1)
+            if mode == "redis": requires_redis = True
         for key in ("user_check_deactivated", "user_check_deleted"):
-            user_cfg = mode_list_check(path, cfg, key, user_mode_allowed, 1, 1)
-            if user_cfg:
-                if user_cfg[0] == "redis": requires_redis = True
-        cache_cfg = mode_list_check(path, cfg, "api_cache_sec", api_mode_allowed, 3, 3)
-        if cache_cfg:
-            ttl = int_check(cache_cfg[1], f"{path} api_cache_sec ttl", 1)
-            if ttl > 315360000: raise Exception(f"{path} api_cache_sec ttl exceeds 10 years")
-            flag_check(cache_cfg[2], f"{path} api_cache_sec user flag")
-            if cache_cfg[0] == "redis": requires_redis = True
-        rate_cfg = mode_list_check(path, cfg, "api_ratelimiting_times_sec", api_mode_allowed, 3, 3)
-        if rate_cfg:
-            int_check(rate_cfg[1], f"{path} api_ratelimiting_times_sec limit", 1)
-            window = int_check(rate_cfg[2], f"{path} api_ratelimiting_times_sec window", 1)
-            if window > 31536000: raise Exception(f"{path} api_ratelimiting_times_sec window exceeds 1 year")
-            if rate_cfg[0] == "redis": requires_redis_ratelimiter = True
+            u_val = cfg.get(key)
+            if u_val:
+                mode = u_val.get("mode") if isinstance(u_val, dict) else (u_val[0] if isinstance(u_val, (list, tuple)) else None)
+                if mode not in user_mode_allowed: raise Exception(f"{path} invalid {key} mode: {mode}")
+                if mode == "redis": requires_redis = True
+        c_val = cfg.get("cache") if "cache" in cfg else cfg.get("api_cache_sec")
+        if c_val:
+            if isinstance(c_val, dict):
+                mode = c_val.get("mode")
+                ttl = c_val.get("ttl_sec", 0)
+                is_per_user = c_val.get("is_per_user", c_val.get("is_user_cache", c_val.get("stale_sec", 0)))
+            elif isinstance(c_val, (list, tuple)):
+                mode = c_val[0] if len(c_val) > 0 else None
+                ttl = c_val[1] if len(c_val) > 1 else 0
+                is_per_user = c_val[2] if len(c_val) > 2 else 0
+            else:
+                raise Exception(f"{path} invalid cache format")
+            if mode not in api_mode_allowed: raise Exception(f"{path} invalid cache mode: {mode}")
+            ttl = int_check(ttl, f"{path} cache ttl", 1)
+            if ttl > 315360000: raise Exception(f"{path} cache ttl exceeds 10 years")
+            flag_check(is_per_user, f"{path} cache is_per_user flag")
+            if mode == "redis": requires_redis = True
+        r_val = cfg.get("rate_limit") if "rate_limit" in cfg else cfg.get("api_ratelimiting_times_sec")
+        if r_val:
+            if isinstance(r_val, dict):
+                mode = r_val.get("mode")
+                limit = r_val.get("limit", 0)
+                window = r_val.get("window_sec", 0)
+            elif isinstance(r_val, (list, tuple)):
+                mode = r_val[0] if len(r_val) > 0 else None
+                limit = r_val[1] if len(r_val) > 1 else 0
+                window = r_val[2] if len(r_val) > 2 else 0
+            else:
+                raise Exception(f"{path} invalid rate_limit format")
+            if mode not in api_mode_allowed: raise Exception(f"{path} invalid rate_limit mode: {mode}")
+            int_check(limit, f"{path} rate_limit limit", 1)
+            window = int_check(window, f"{path} rate_limit window", 1)
+            if window > 31536000: raise Exception(f"{path} rate_limit window exceeds 1 year")
+            if mode == "redis": requires_redis_ratelimiter = True
     for path in route_paths:
         if path not in config_api:
             raise Exception(f"CRITICAL: Route '{path}' is missing from config_api. All routes must be explicitly configured.")
@@ -471,11 +496,11 @@ async def func_middleware_check_token(*, user_dict: dict, url_path: str, is_toke
             raise Exception("access token required")
     return None
 
-async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_deactivated: list, client_postgres: any, client_redis: any, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_deactivated: any, client_postgres: any, client_redis: any, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is deactivated using a strictly configured mode from config_api."""
     cfg = user_check_deactivated
     if not cfg or not user_dict: return None
-    mode = cfg[0]
+    mode = cfg.get("mode") if isinstance(cfg, dict) else (cfg[0] if isinstance(cfg, (list, tuple)) else None)
     if not mode: return None
     async def fetch_deactivated_status(uid):
         if not client_postgres: raise Exception("postgres client missing")
@@ -506,11 +531,11 @@ async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_
     if active_status == "absent": raise Exception("missing deactivated_at")
     if active_status is not None: raise Exception("user not active")
 
-async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_deleted: list, client_postgres: any, client_redis: any, cache_users_deleted: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_deleted: any, client_postgres: any, client_redis: any, cache_users_deleted: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is deleted using a strictly configured mode from config_api."""
     cfg = user_check_deleted
     if not cfg or not user_dict: return None
-    mode = cfg[0]
+    mode = cfg.get("mode") if isinstance(cfg, dict) else (cfg[0] if isinstance(cfg, (list, tuple)) else None)
     if not mode: return None
     async def fetch_deleted(uid):
         if not client_postgres: raise Exception("postgres client missing")
@@ -541,13 +566,20 @@ async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_dele
     if deleted_status == "absent": raise Exception("missing deleted_at")
     if deleted_status is not None: raise Exception("user is deleted")
 
-async def func_middleware_check_role(*, user_dict: dict, user_check_role: list, client_postgres: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_role(*, user_dict: dict, user_check_role: any, client_postgres: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
     """Ensure sufficient roles to access endpoints using a strictly configured mode from config_api."""
     cfg = user_check_role
     if not cfg: return None
     if not user_dict: raise Exception("authorization token missing")
-    mode = cfg[0]
-    roles = {int(role) for role in cfg[1]}
+    if isinstance(cfg, dict):
+        mode = cfg.get("mode")
+        raw_roles = cfg.get("roles", [])
+    elif isinstance(cfg, (list, tuple)):
+        mode = cfg[0]
+        raw_roles = cfg[1]
+    else:
+        return None
+    roles = {int(role) for role in raw_roles}
     async def fetch_role(uid):
         if not client_postgres: raise Exception("postgres client missing")
         async with client_postgres.acquire() as conn:
@@ -584,12 +616,19 @@ async def func_middleware_check_role(*, user_dict: dict, user_check_role: list, 
             raise Exception("invalid user role type")
     if user_role not in roles: raise Exception("access denied")
 
-async def func_middleware_check_ratelimiter(*, client_redis: any, api_ratelimiting_times_sec: list, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
+async def func_middleware_check_ratelimiter(*, client_redis: any, rate_limit: any = None, api_ratelimiting_times_sec: any = None, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
     """Check and enforce API rate limits using either Redis or in-memory storage."""
     import time
-    rl_config = api_ratelimiting_times_sec
+    rl_config = rate_limit if rate_limit is not None else api_ratelimiting_times_sec
     if not rl_config: return None
-    mode, limit, window = rl_config
+    if isinstance(rl_config, dict):
+        mode = rl_config.get("mode")
+        limit = rl_config.get("limit", 0)
+        window = rl_config.get("window_sec", 0)
+    elif isinstance(rl_config, (list, tuple)):
+        mode, limit, window = rl_config
+    else:
+        return None
     limit, window = int(limit), int(window)
     if limit <= 0 or window <= 0: return None
     cache_key = f"ratelimiter:{url_path}:{identifier}"
@@ -616,15 +655,22 @@ async def func_middleware_check_ratelimiter(*, client_redis: any, api_ratelimiti
         raise Exception(f"invalid ratelimiter mode: {mode}, allowed: redis, inmemory")
     return None
 
-async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, api_cache_sec: list, client_redis: any = None, user_id: int = 0, cache_api_response: dict = None, response: any = None) -> any:
+async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, cache: any = None, api_cache_sec: any = None, client_redis: any = None, user_id: int = 0, cache_api_response: dict = None, response: any = None) -> any:
     """Get or set middleware API cache for a request."""
     from fastapi import Response
     import gzip, base64, time
     if mode not in ("get", "set"): raise Exception(f"invalid cache operation: {mode}, allowed: get, set")
-    cfg = api_cache_sec
-    cache_mode = cfg[0] if cfg else None
-    ttl = int(cfg[1]) if cfg else 0
-    is_user_cache = cfg[2] if cfg else 0
+    cfg = cache if cache is not None else api_cache_sec
+    if isinstance(cfg, dict):
+        cache_mode = cfg.get("mode")
+        ttl = int(cfg.get("ttl_sec", 0))
+        is_user_cache = cfg.get("is_per_user", cfg.get("is_user_cache", cfg.get("stale_sec", 0)))
+    elif isinstance(cfg, (list, tuple)):
+        cache_mode = cfg[0] if cfg else None
+        ttl = int(cfg[1]) if cfg else 0
+        is_user_cache = cfg[2] if cfg else 0
+    else:
+        cache_mode, ttl, is_user_cache = None, 0, 0
     is_user_cache = str(is_user_cache) == "1" or is_user_cache is True
     is_enabled = query_params.get("is_disable_cache") != "1" and bool(cfg) and bool(cache_mode) and ttl > 0
     if mode == "set" and not is_enabled: return response
