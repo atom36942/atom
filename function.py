@@ -6,7 +6,7 @@ def func_check(*, app: any) -> None:
     api_ids = []
     user_mode_allowed = ("redis", "realtime", "inmemory", "token")
     api_mode_allowed = ("redis", "inmemory")
-    api_keys_allowed = ("id", "is_token", "user_check_role", "user_check_deactivated", "user_check_deleted", "api_cache_sec", "api_ratelimiting_times_sec")
+    api_keys_allowed = ("id", "is_token_check", "user_check_role", "user_check_deactivated", "user_check_deleted", "api_cache_sec", "api_ratelimiting_times_sec")
     def flag_check(value, key):
         if value not in (0, 1, "0", "1", True, False): raise Exception(f"invalid {key}: expected 0/1")
     def int_check(value, key, min_value=0):
@@ -36,8 +36,8 @@ def func_check(*, app: any) -> None:
         api_id = int_check(cfg["id"], f"{path} id", 1)
         if api_id in api_ids: raise Exception(f"duplicate api id: {api_id}")
         api_ids.append(api_id)
-        if "is_token" not in cfg: raise Exception(f"{path} missing required key: is_token")
-        flag_check(cfg["is_token"], f"{path} is_token")
+        if "is_token_check" not in cfg: raise Exception(f"{path} missing required key: is_token_check")
+        flag_check(cfg["is_token_check"], f"{path} is_token_check")
         role_cfg = mode_list_check(path, cfg, "user_check_role", user_mode_allowed, 2, 2)
         if role_cfg:
             if not isinstance(role_cfg[1], list) or not role_cfg[1]: raise Exception(f"{path} invalid user_check_role roles")
@@ -459,9 +459,9 @@ async def func_token_decode(*, headers: dict, config_token_secret_key: str) -> d
     if isinstance(user, dict): user["_token_type"] = decoded_payload.get("type")
     return user
 
-async def func_middleware_check_auth(*, user_dict: dict, url_path: str, is_token: int = 0, user_check_role: list = None, user_check_deactivated: list = None, user_check_deleted: list = None) -> None:
+async def func_middleware_check_auth(*, user_dict: dict, url_path: str, is_token_check: int = 0, user_check_role: list = None, user_check_deactivated: list = None, user_check_deleted: list = None) -> None:
     """Check whether current API requires token-authenticated user."""
-    is_token_required = is_token in (1, "1", True, "true") or bool(user_check_role) or bool(user_check_deactivated) or bool(user_check_deleted)
+    is_token_required = is_token_check in (1, "1", True, "true") or bool(user_check_role) or bool(user_check_deactivated) or bool(user_check_deleted)
     if is_token_required:
         if not user_dict: raise Exception("authorization token missing")
         token_type = user_dict.get("_token_type") if isinstance(user_dict, dict) else None
@@ -889,7 +889,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: any) -> dict:
             tag = path.split("/")[1] if len(path.split("/")) > 1 and path.split("/")[1] else "system"
             op = {"tags": [tag], "parameters": [], "responses": {"200": {"description": "Successful Response"}}}
             api_cfg = config_api.get(path, {})
-            is_token_required = api_cfg.get("is_token") in (1, "1", True, "true") or "user_check_role" in api_cfg
+            is_token_required = api_cfg.get("is_token_check") in (1, "1", True, "true") or "user_check_role" in api_cfg
             op["x-auth-required"] = is_token_required
             op["x-roles-allowed"] = api_cfg.get("user_check_role", None)
             op["x-check-deactivated"] = "user_check_deactivated" in api_cfg

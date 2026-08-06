@@ -40,7 +40,7 @@ config_openai_key = "sk-..."
 from config import config_api
 config_api = {
     **config_api,
-    "/custom/hello": {"id": 200, "is_token": 0},
+    "/custom/hello": {"id": 200, "is_token_check": 0},
 }
 ```
 

@@ -2,7 +2,7 @@
 
 Atom uses **stateless JWT** authentication. Clients log in once, receive an access + refresh token, and send the access token as a `Bearer` header on every protected request. The middleware decodes it into `request.state.user`; nothing is stored server-side.
 
-All auth endpoints live in [`router/auth.py`](../router/auth.py) and are **public** (`is_token=0`) — they mint tokens, they don't require one.
+All auth endpoints live in [`router/auth.py`](../router/auth.py) and are **public** (`is_token_check=0`) — they mint tokens, they don't require one.
 
 ---
 
@@ -113,7 +113,7 @@ curl http://localhost:8000/my/profile \
 In a handler, the authenticated user is on `request.state.user`:
 
 ```python
-user_id = request.state.user["id"]      # protected route (is_token=1)
+user_id = request.state.user["id"]      # protected route (is_token_check=1)
 role    = request.state.user["role"]
 ```
 
@@ -121,7 +121,7 @@ role    = request.state.user["role"]
 
 ## How enforcement happens
 
-Minting a token doesn't protect anything by itself — a route is protected by its `config_api` entry (`is_token`, `user_check_role`, …), checked in the middleware. See [config.md](config.md#config_api) and [security.md](security.md).
+Minting a token doesn't protect anything by itself — a route is protected by its `config_api` entry (`is_token_check`, `user_check_role`, …), checked in the middleware. See [config.md](config.md#config_api) and [security.md](security.md).
 
 ---
 

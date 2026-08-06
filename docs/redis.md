@@ -49,7 +49,7 @@ Routes can choose Redis for role, deactivation, and deletion checks:
 ```python
 "/private/example": {
     "id": 101,
-    "is_token": 1,
+    "is_token_check": 1,
     "user_check_role": ["redis", [1, 2]],
     "user_check_deactivated": ["redis"],
     "user_check_deleted": ["redis"],
@@ -73,7 +73,7 @@ Set a route's `api_cache_sec` mode to `redis`:
 ```python
 "/public/example": {
     "id": 102,
-    "is_token": 0,
+    "is_token_check": 0,
     "api_cache_sec": ["redis", 300, 0],
 },
 ```
@@ -105,7 +105,7 @@ Enable distributed rate limiting for a route with:
 ```python
 "/public/example": {
     "id": 103,
-    "is_token": 0,
+    "is_token_check": 0,
     "api_ratelimiting_times_sec": ["redis", 100, 60],
 },
 ```
