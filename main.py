@@ -1,22 +1,17 @@
-# import packages
+# packages
 import asyncio
 import importlib.util
 import os
 import shutil
 import time
 from contextlib import asynccontextmanager, suppress
-import sentry_sdk
 import uvicorn
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from sentry_sdk.integrations.fastapi import FastApiIntegration
 
-# import custom files
+# custom files
 from function import *
 from config import *
 
-#import extend files
+# extend files
 if importlib.util.find_spec("function_extend"): from function_extend import *
 if importlib.util.find_spec("config_extend"): from config_extend import *
 
@@ -124,19 +119,11 @@ async def func_lifespan(app:"FastAPI"):
         print(f"❌ shutdown error: {e}")
 
 # app
-app = FastAPI(debug=bool(config_is_debug), lifespan=func_lifespan, openapi_url=None, docs_url=None, redoc_url=None)
-
-# state
+app = func_app_fastapi_create(config_is_debug=config_is_debug, lifespan=func_lifespan)
 [setattr(app.state, k, v) for k, v in globals().items() if k.startswith(("func_", "config_"))]
-
-# router
 func_app_router_add(app=app, router_dir=os.path.join(os.path.dirname(__file__), "router"), router_order={"index": 0, "auth": 1, "my": 2, "public": 3, "private": 4, "admin": 5})
-
-# static
-app.mount("/static", StaticFiles(directory="./static", check_dir=False), name="static")
-
-# sentry
-if config_sentry_dsn: sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=False)
+func_app_static_add(app=app)
+func_sentry_init(config_sentry_dsn=config_sentry_dsn)
 
 # middleware
 @app.middleware("http")
@@ -190,7 +177,7 @@ async def middleware(request, api_function):
     return response
 
 # cors
-app.add_middleware(CORSMiddleware, allow_origins=config_cors_allow_origins, allow_origin_regex=config_cors_allow_origin_regex, allow_methods=config_cors_allow_methods, allow_headers=config_cors_allow_headers, expose_headers=config_cors_expose_headers, allow_credentials=config_cors_allow_credentials)
+func_app_cors_add(app=app, allow_origins=config_cors_allow_origins, allow_origin_regex=config_cors_allow_origin_regex, allow_methods=config_cors_allow_methods, allow_headers=config_cors_allow_headers, expose_headers=config_cors_expose_headers, allow_credentials=config_cors_allow_credentials)
 
 # main
 if __name__ == "__main__":

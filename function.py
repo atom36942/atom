@@ -3204,5 +3204,30 @@ async def func_client_close(*, app_state: any = None, clients: dict = None) -> N
     if client_azure_blob:
         with suppress(Exception): await client_azure_blob.close()
 
+def func_sentry_init(*, config_sentry_dsn: str):
+    """Initialize Sentry SDK monitoring if DSN is configured."""
+    if not config_sentry_dsn: return None
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    return sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=False)
+
+def func_app_static_add(*, app: any, path: str = "/static", directory: str = "./static") -> None:
+    """Mount static directory on FastAPI application."""
+    from fastapi.staticfiles import StaticFiles
+    app.mount(path, StaticFiles(directory=directory, check_dir=False), name="static")
+
+def func_app_cors_add(*, app: any, allow_origins: list = None, allow_origin_regex: str = None, allow_methods: list = None, allow_headers: list = None, expose_headers: list = None, allow_credentials: bool = True) -> None:
+    """Configure CORS middleware on FastAPI application."""
+    from fastapi.middleware.cors import CORSMiddleware
+    app.add_middleware(CORSMiddleware, allow_origins=allow_origins, allow_origin_regex=allow_origin_regex, allow_methods=allow_methods, allow_headers=allow_headers, expose_headers=expose_headers, allow_credentials=allow_credentials)
+
+def func_app_fastapi_create(*, config_is_debug: bool = False, lifespan: any = None):
+    """Create and configure the primary FastAPI application instance."""
+    from fastapi import FastAPI
+    return FastAPI(debug=bool(config_is_debug), lifespan=lifespan, openapi_url=None, docs_url=None, redoc_url=None)
+
+
+
+
 
 
