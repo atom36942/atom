@@ -76,6 +76,18 @@ venv/bin/pip install -r requirements.txt
 venv/bin/uvicorn main:app --reload
 ```
 
+**macOS + Homebrew (pinned Python):**
+
+```bash
+git clone https://github.com/atom36942/atom.git
+cd atom
+rm -rf venv
+/opt/homebrew/bin/python3.14 -m venv venv   # adjust version to your Homebrew Python
+venv/bin/pip install --upgrade pip
+venv/bin/pip install -r requirements.txt
+venv/bin/uvicorn main:app --reload
+```
+
 Server runs on **http://localhost:8000** (`/` built-in API console, `/health`, `/info`, `/openapi.json`).
 
 *Or run with Docker:*
