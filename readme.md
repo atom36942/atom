@@ -47,19 +47,25 @@ Atom gives you authentication, generic CRUD over any table, caching, rate-limiti
 - 🧾 **Self-documenting** — Generated OpenAPI spec + built-in interactive API console at `/`.
 - 🔧 **Extend without forking** — Add custom routes and logic in drop-in extension files (`config_extend.py`, `function_extend.py`).
 
-## Table of Contents
+## Contents
 
-- [Quickstart & Installation](#quickstart--installation)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Quickstart](#quickstart)
 - [Configuration](#configuration)
-- [Project Structure](#project-structure)
-- [Background Workers & Updates](#background-workers--updates)
-- [Documentation Index](#documentation-index)
+- [Structure](#structure)
+- [Workers](#workers)
+- [Documentation](#documentation)
 - [Contributing](#contributing)
 - [License](#license)
 
-## Quickstart & Installation
+## Requirements
 
-### 1. Installation
+- **Python 3.11+**
+- **Git**
+- Optional **unixODBC** system libraries for MSSQL support.
+
+## Installation
 
 ```bash
 git clone https://github.com/atom36942/atom.git
@@ -67,19 +73,10 @@ cd atom
 python3 -m venv venv
 venv/bin/pip install --upgrade pip
 venv/bin/pip install -r requirements.txt
-```
-
-Start the dev server:
-
-```bash
 venv/bin/uvicorn main:app --reload
 ```
 
-The server runs at **http://localhost:8000**. Useful routes:
-- `/` — Interactive API console
-- `/health` — Server health check
-- `/info` — API registry & database schema info
-- `/openapi.json` — OpenAPI specification
+Server runs on **http://localhost:8000** (`/` built-in API console, `/health`, `/info`, `/openapi.json`).
 
 *Or run with Docker:*
 ```bash
@@ -87,7 +84,7 @@ docker build -t atom .
 docker run --rm -p 8000:8000 --env-file .env atom
 ```
 
-### 2. Quickstart
+## Quickstart
 
 With the server running and `config_postgres_url` set in `.env`:
 
@@ -119,7 +116,7 @@ All configuration defaults live in `config.py`. Override settings without editin
 
 📖 See **[config.md](docs/config.md)** for the complete configuration reference.
 
-### ⚠️ Production Secrets
+### ⚠️ Secrets to override in production
 
 Before deploying to production, override the default system secrets in `.env`:
 
@@ -138,9 +135,9 @@ Generate a secure secret:
 python3 -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-📖 See **[prod.md](docs/prod.md)** for production deployment settings and **[security.md](docs/security.md)** for security guidelines.
+📖 See **[prod.md](docs/prod.md)** as the single source of truth for production configuration and **[security.md](docs/security.md)** for security guidelines.
 
-## Project Structure
+## Structure
 
 ```
 atom/
@@ -157,12 +154,12 @@ atom/
 
 📖 See **[about.md](docs/about.md)** for framework architecture and **[extend.md](docs/extend.md)** for extension patterns.
 
-## Background Workers & Updates
+## Workers
 
 - **Background Workers**: Launch background consumers from `script/` (e.g. `venv/bin/python script/consumer_postgres_create.py`). See **[workers.md](docs/workers.md)**.
 - **Updating Atom**: Run `venv/bin/python sync.py` to pull upstream updates safely without touching your `.env` or custom extend modules. See **[extend.md](docs/extend.md)**.
 
-## Documentation Index
+## Documentation
 
 📖 **Getting Started & Architecture**
 - [about.md](docs/about.md) — Framework architecture and request lifecycle.

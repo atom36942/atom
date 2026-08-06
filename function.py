@@ -3130,3 +3130,79 @@ def func_client_azure_blob(*, account_name: str, account_key: str):
     if not (account_name and account_key): return None
     return BlobServiceClient.from_connection_string(f"DefaultEndpointsProtocol=https;AccountName={account_name};AccountKey={account_key};EndpointSuffix=core.windows.net")
 
+async def func_client_close(*, app_state: any = None, clients: dict = None) -> None:
+    """Safely disconnect and close all active database, storage, messaging, and AI clients."""
+    from contextlib import suppress
+    c = {}
+    if app_state: c = {k: getattr(app_state, k, None) for k in dir(app_state) if k.startswith("client_")}
+    elif isinstance(clients, dict): c = clients.copy()
+    client_http = c.get("client_http")
+    if client_http:
+        with suppress(Exception): await client_http.aclose()
+    client_postgres = c.get("client_postgres")
+    if client_postgres:
+        with suppress(Exception): await client_postgres.close()
+    client_postgres_dict = c.get("client_postgres_dict") or {}
+    for client_postgres_item in client_postgres_dict.values():
+        if client_postgres_item:
+            with suppress(Exception): await client_postgres_item.close()
+    for redis_key in ("client_redis", "client_redis_user_state", "client_redis_ratelimiter", "client_redis_producer"):
+        r_client = c.get(redis_key)
+        if r_client:
+            with suppress(Exception): await r_client.aclose()
+    client_mongodb = c.get("client_mongodb")
+    if client_mongodb:
+        with suppress(Exception): client_mongodb.close()
+    client_mssql = c.get("client_mssql")
+    if client_mssql:
+        with suppress(Exception):
+            client_mssql.close()
+            await client_mssql.wait_closed()
+    client_clickhouse = c.get("client_clickhouse")
+    if client_clickhouse:
+        with suppress(Exception): await client_clickhouse.close()
+    client_s3_context = c.get("client_s3_context")
+    if client_s3_context:
+        with suppress(Exception): await client_s3_context.__aexit__(None, None, None)
+    client_s3_resource = c.get("client_s3_resource")
+    if client_s3_resource and hasattr(client_s3_resource.meta.client, "close"):
+        with suppress(Exception): client_s3_resource.meta.client.close()
+    for boto_key in ("client_sns", "client_ses"):
+        b_client = c.get(boto_key)
+        if b_client and hasattr(b_client, "close"):
+            with suppress(Exception): b_client.close()
+    for ai_key in ("client_openai", "client_gemini"):
+        ai_client = c.get(ai_key)
+        if ai_client and hasattr(ai_client, "close"):
+            with suppress(Exception): ai_client.close()
+    client_posthog = c.get("client_posthog")
+    if client_posthog:
+        with suppress(Exception):
+            client_posthog.shutdown()
+            client_posthog.flush()
+    client_celery = c.get("client_celery_producer")
+    if client_celery and hasattr(client_celery, "close"):
+        with suppress(Exception): client_celery.close()
+    client_kafka = c.get("client_kafka_producer")
+    if client_kafka:
+        with suppress(Exception): await client_kafka.stop()
+    client_rabbitmq_producer = c.get("client_rabbitmq_producer")
+    if client_rabbitmq_producer and not getattr(client_rabbitmq_producer, "is_closed", True):
+        with suppress(Exception): await client_rabbitmq_producer.close()
+    client_rabbitmq = c.get("client_rabbitmq")
+    if client_rabbitmq and not getattr(client_rabbitmq, "is_closed", True):
+        with suppress(Exception): await client_rabbitmq.close()
+    client_sftp = c.get("client_sftp")
+    if client_sftp:
+        with suppress(Exception):
+            client_sftp.close()
+            await client_sftp.wait_closed()
+    client_azure_email = c.get("client_azure_email")
+    if client_azure_email and hasattr(client_azure_email, "close"):
+        with suppress(Exception): client_azure_email.close()
+    client_azure_blob = c.get("client_azure_blob")
+    if client_azure_blob:
+        with suppress(Exception): await client_azure_blob.close()
+
+
+
