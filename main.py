@@ -76,7 +76,7 @@ async def func_lifespan(app:"FastAPI"):
         cache_postgres_buffer_create = {}
         cache_postgres_buffer_log_api = {}
         # app state add
-        [setattr(app.state, k, v) for k, v in {**globals(), **locals()}.items() if k.startswith(("client_", "cache_"))]
+        func_app_state_add(app=app, data_dict={**globals(), **locals()}, prefixes=("client_", "cache_"))
         # openapi spec generation
         app.state.cache_openapi = app.state.func_openapi_spec_generate(app_routes=app.routes, app_state=app.state)
         # start periodic tasks
@@ -113,7 +113,8 @@ async def func_lifespan(app:"FastAPI"):
 
 # app
 app = func_app_fastapi_create(config_is_debug=config_is_debug, lifespan=func_lifespan)
-[setattr(app.state, k, v) for k, v in globals().items() if k.startswith(("func_", "config_"))]
+# state
+func_app_state_add(app=app, data_dict=globals(), prefixes=("func_", "config_"))
 func_app_router_add(app=app, router_dir=os.path.join(os.path.dirname(__file__), "router"), router_order={"index": 0, "auth": 1, "my": 2, "public": 3, "private": 4, "admin": 5})
 func_app_static_add(app=app)
 func_sentry_init(config_sentry_dsn=config_sentry_dsn)

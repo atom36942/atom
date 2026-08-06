@@ -3233,6 +3233,13 @@ def func_structure_init(*, dir_list: tuple = ("tmp", "secret")) -> None:
     elif os.path.exists("tmp"): os.remove("tmp")
     for d in dir_list: os.makedirs(d, exist_ok=True)
 
+def func_app_state_add(*, app: any, data_dict: dict, prefixes: tuple) -> None:
+    """Bulk register objects matching specific key prefixes onto app.state."""
+    for k, v in data_dict.items():
+        if k.startswith(prefixes):
+            setattr(app.state, k, v)
+
+
 
 
 
