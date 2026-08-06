@@ -68,7 +68,7 @@ Two paths:
 Any exception from steps 2–7 is caught here: `response_type = "error"`, and the function builds a safe error response (with traceback capture and Sentry reporting when `config_sentry_dsn` is set). The request is never left unhandled.
 
 ### 9. API logging (always)
-Finally — success or error — if `client_postgres_log` is configured, one `log_api` row is **buffered** (not written synchronously) via `func_postgres_create(mode="buffer")`, capturing: user id, `response_type`, IP, path, method, query params, status code, `response_time_ms`, and any error. `config_log_db=None` uses primary; a configured name uses the corresponding `client_postgres_dict` pool. Logging has a dedicated buffer and is wrapped in `suppress(Exception)` so it can never break the response. See [logs.md](logs.md).
+Finally — success or error — if `client_postgres_log_api` is configured, one `log_api` row is **buffered** (not written synchronously) via `func_postgres_create(mode="buffer")`, capturing: user id, `response_type`, IP, path, method, query params, status code, `response_time_ms`, and any error. `config_postgres_db_log_api=None` uses primary; a configured name uses the corresponding `client_postgres_dict` pool. Logging has a dedicated buffer and is wrapped in `suppress(Exception)` so it can never break the response. See [logs.md](logs.md).
 
 ### 10. Return
 The response (cached, background ack, handler output, or error) is returned to the client.

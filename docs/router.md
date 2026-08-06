@@ -56,8 +56,7 @@ Put your endpoint in the file matching its tier (or a new file — see below).
 
 ```python
 oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[
-    {"name": "table", "type": "str", "required": 1,
-     "allowed": app_state.cache_postgres_schema_table_list},
+    {"name": "table", "type": "str", "required": 1, "allowed": None},
     {"name": "limit", "type": "int", "default": 100},
     {"name": "mode", "type": "str", "allowed": ["now", "buffer"], "default": "now"},
 ])
@@ -69,7 +68,7 @@ oq = await app_state.func_request_param_read(request=request, mode="query", stri
 - `name` — parameter name (required).
 - `type` — `int` / `float` / `str` / `bool` / `dict` / `list` / `file` / `any`, or `list:int` etc. for typed lists (required). Booleans accept `1/true/yes/on/ok`; lists accept JSON or comma-separated strings.
 - `required` — `1` raises if the parameter is missing or empty. A required parameter cannot also have a default.
-- `allowed` — a whitelist; the value must be one of these (great for validating table names against `cache_postgres_schema_table_list`, or a service against `config_*_services`).
+- `allowed` — a whitelist; the value must be one of these (great for validating options, or a service against `config_*_services`).
 - `default` — used when the parameter is absent.
 
 Only `name` and `type` are required in each dictionary; omit `required`, `allowed`, and `default` when they do not apply.

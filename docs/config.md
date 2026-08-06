@@ -86,9 +86,9 @@ All default to `None`, meaning **off** — the matching client in `main.py` is o
 
 | Key | Default | Usage |
 |-----|---------|-------|
-| `config_log_db` | `None` | Named `client_postgres_dict` key used for `log_api`; `None` uses primary. |
+| `config_postgres_db_log_api` | `None` | Named `client_postgres_dict` key used for `log_api`; `None` uses primary. |
 
-For example, `config_postgres_url_logs=postgresql://...` with `config_log_db=logs` sends API logs to the `logs` pool. See [logs.md](logs.md).
+For example, `config_postgres_url_logs=postgresql://...` with `config_postgres_db_log_api=logs` sends API logs to the `logs` pool. See [logs.md](logs.md).
 
 ### Token / auth
 

@@ -24,10 +24,12 @@ async def func_lifespan(app:"FastAPI"):
         # check
         func_check(app=app)
         func_structure_init()
+        # kwargs
+        postgres_pool_kwargs = {"min_size": app.state.config_postgres_pool_min_size, "max_size": app.state.config_postgres_pool_max_size, "is_read_only": app.state.config_is_read_only}
+        aws_kwargs = {"aws_access_key_id": app.state.config_aws_access_key_id, "aws_secret_access_key": app.state.config_aws_secret_access_key}
         # client init
         client_password_hasher = func_client_password_hasher()
         client_http = func_client_http()
-        postgres_pool_kwargs = {"min_size": app.state.config_postgres_pool_min_size, "max_size": app.state.config_postgres_pool_max_size, "is_read_only": app.state.config_is_read_only}
         client_postgres = await func_client_postgres(dsn=app.state.config_postgres_url, **postgres_pool_kwargs)
         client_postgres_dict = {name: await func_client_postgres(dsn=url, **postgres_pool_kwargs) for name, url in (app.state.config_postgres_url_dict or {}).items() if url}
         client_redis = func_client_redis(url=app.state.config_redis_url)
@@ -37,8 +39,7 @@ async def func_lifespan(app:"FastAPI"):
         client_mongodb = func_client_mongodb(url=app.state.config_mongodb_url)
         client_mssql = await func_client_mssql(dsn=app.state.config_mssql_url)
         client_clickhouse = await func_client_clickhouse(dsn=app.state.config_clickhouse_url)
-        aws_kwargs = {"aws_access_key_id": app.state.config_aws_access_key_id, "aws_secret_access_key": app.state.config_aws_secret_access_key}
-        client_s3_context, client_s3 = await func_client_s3(region_name=app.state.config_aws_s3_region_name, **aws_kwargs)
+        client_s3 = await func_client_s3(region_name=app.state.config_aws_s3_region_name, **aws_kwargs)
         client_s3_resource = func_client_s3_resource(region_name=app.state.config_aws_s3_region_name, **aws_kwargs)
         client_sns = func_client_sns(region_name=app.state.config_aws_sns_region_name, **aws_kwargs)
         client_ses = func_client_ses(region_name=app.state.config_aws_ses_region_name, **aws_kwargs)
@@ -51,9 +52,9 @@ async def func_lifespan(app:"FastAPI"):
         client_sftp = await func_client_sftp(host=app.state.config_sftp_host, port=app.state.config_sftp_port, username=app.state.config_sftp_username, password=app.state.config_sftp_password)
         client_azure_email = func_client_azure_email(connection_string=app.state.config_azure_email_connection_string)
         client_azure_blob = func_client_azure_blob(account_name=app.state.config_azure_account_name, account_key=app.state.config_azure_account_key)
-        # client helper
-        if app.state.config_log_db is not None and app.state.config_log_db not in client_postgres_dict: raise Exception(f"config_log_db '{app.state.config_log_db}' not found in config_postgres_url_dict")
-        client_postgres_log = client_postgres if app.state.config_log_db is None else client_postgres_dict[app.state.config_log_db]
+        # client log api
+        if app.state.config_postgres_db_log_api is not None and app.state.config_postgres_db_log_api not in client_postgres_dict: raise Exception(f"config_postgres_db_log_api '{app.state.config_postgres_db_log_api}' not found in config_postgres_url_dict")
+        client_postgres_log_api = client_postgres if app.state.config_postgres_db_log_api is None else client_postgres_dict[app.state.config_postgres_db_log_api]
         # postges schema init
         if client_postgres and not app.state.config_is_read_only and app.state.config_is_enable_postgres_schema_init: await app.state.func_postgres_schema_init(client_postgres=client_postgres, config_postgres=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(config_root_user_password) if config_root_user_password else None)
         # cache schema init
@@ -61,10 +62,6 @@ async def func_lifespan(app:"FastAPI"):
         cache_postgres_schema_ai = await app.state.func_postgres_schema_read_ai(client_postgres=client_postgres) if client_postgres else {}
         cache_postgres_schema_dict = {name: await app.state.func_postgres_schema_read(client_postgres=client) for name, client in client_postgres_dict.items()}
         cache_postgres_schema_ai_dict = {name: await app.state.func_postgres_schema_read_ai(client_postgres=client) for name, client in client_postgres_dict.items()}
-        cache_postgres_schema_table_list = list(cache_postgres_schema.keys())
-        cache_postgres_schema_column_list = sorted(list(set(col for table in cache_postgres_schema.values() for col in table.keys())))
-        #cache db names
-        cache_postgres_db_name_list = list(client_postgres_dict)
         # cache data init
         cache_config = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("config"), is_json_value=1) if client_postgres and "config" in cache_postgres_schema else {}
         cache_users_role = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("users_role")) if client_postgres else {}
@@ -81,7 +78,7 @@ async def func_lifespan(app:"FastAPI"):
         app.state.cache_openapi = app.state.func_openapi_spec_generate(app_routes=app.routes, app_state=app.state)
         # start periodic tasks
         app.state.postgres_buffer_flush_lock = asyncio.Lock()
-        if not app.state.config_is_read_only: app.state.postgres_buffer_flush_task = asyncio.create_task(app.state.func_postgres_buffers_flush_periodic(app_state=app.state, client_postgres=client_postgres, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log=client_postgres_log, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api, interval_sec=60))
+        if not app.state.config_is_read_only: app.state.postgres_buffer_flush_task = asyncio.create_task(app.state.func_postgres_buffers_flush_periodic(app_state=app.state, client_postgres=client_postgres, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log_api=client_postgres_log_api, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api, interval_sec=60))
         app.state.inmemory_cache_cleanup_task = asyncio.create_task(app.state.func_inmemory_cache_cleanup_periodic(cache_api_response=cache_api_response, cache_ratelimiter=cache_ratelimiter, interval_sec=300))
     except Exception as e:
         print(f"❌ startup error: {e}")
@@ -104,7 +101,7 @@ async def func_lifespan(app:"FastAPI"):
                 await app.state.func_postgres_buffer_flush(app_state=app.state, client_postgres=client_postgres, cache_postgres_buffer=cache_postgres_buffer_create)
             except Exception as e: print(f"❌ final primary buffer flush error: {e}")
             try:
-                await app.state.func_postgres_buffer_flush(app_state=app.state, client_postgres=client_postgres_log, cache_postgres_buffer=cache_postgres_buffer_log_api)
+                await app.state.func_postgres_buffer_flush(app_state=app.state, client_postgres=client_postgres_log_api, cache_postgres_buffer=cache_postgres_buffer_log_api)
             except Exception as e: print(f"❌ final log api buffer flush error: {e}")
         # client disconnect
         await func_client_close(app_state=app.state)
@@ -166,8 +163,8 @@ async def middleware(request, api_function):
         response_type = "error"
         error, response = await app_state.func_middleware_api_response_error(exception=e, is_traceback=1, sentry_dsn=app_state.config_sentry_dsn)
     # api log buffer
-    if not app_state.config_is_read_only and app_state.client_postgres_log:
-        with suppress(Exception): await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_log_api, config_regex=app_state.config_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": request.client.host if request.client else None, "path": request.url.path, "method": request.method, "query_param": str(request.query_params), "status_code": response.status_code if hasattr(response, "status_code") else None, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
+    if not app_state.config_is_read_only and app_state.client_postgres_log_api:
+        with suppress(Exception): await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_log_api, config_regex=app_state.config_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": request.client.host if request.client else None, "path": request.url.path, "method": request.method, "query_param": str(request.query_params), "status_code": response.status_code if hasattr(response, "status_code") else None, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
     return response
 
 # cors

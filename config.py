@@ -73,7 +73,7 @@ config_cors_allow_methods = ["*"]
 config_cors_allow_headers = ["*"]
 config_cors_expose_headers = ["*"]
 config_cors_allow_credentials = True
-config_log_db = None
+config_postgres_db_log_api = None
 
 # Table
 config_table_sensitive = ["spatial_ref_sys", "users", "log_users_delete"]

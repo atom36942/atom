@@ -9,7 +9,7 @@ router = APIRouter()
 @router.get("/my/profile")
 async def func_api_my_profile(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": app_state.cache_postgres_db_name_list, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}])
     client_postgres = app_state.client_postgres if oq["db"] is None else app_state.client_postgres_dict[oq["db"]]
     if not client_postgres: raise Exception("postgres client not initialized")
     user_id = request.state.user["id"]
@@ -36,7 +36,7 @@ async def func_api_my_token_refresh(*, request: Request):
 @router.get("/my/api-usage")
 async def func_api_my_api_usage(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": app_state.cache_postgres_db_name_list, "default": None}, {"name": "days", "type": "int", "required": 1, "allowed": None, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}, {"name": "days", "type": "int", "required": 1, "allowed": None, "default": None}])
     client_postgres = app_state.client_postgres if oq["db"] is None else app_state.client_postgres_dict[oq["db"]]
     if not client_postgres: raise Exception("postgres client not initialized")
     sql = "SELECT path AS api, count(*) FROM log_api WHERE created_at >= NOW() - ($1 * INTERVAL '1 day') AND created_by_id=$2 GROUP BY path LIMIT 1000;"
@@ -48,7 +48,7 @@ async def func_api_my_api_usage(*, request: Request):
 @router.post("/my/object-create")
 async def func_api_my_object_create(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": app_state.cache_postgres_schema_table_list, "default": None}, {"name": "mode", "type": "str", "required": 0, "allowed": ["now", "buffer"], "default": "now"}, {"name": "queue", "type": "str", "required": 0, "allowed": app_state.config_queue_services, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "mode", "type": "str", "required": 0, "allowed": ["now", "buffer"], "default": "now"}, {"name": "queue", "type": "str", "required": 0, "allowed": app_state.config_queue_services, "default": None}])
     if (not oq["queue"] and not app_state.client_postgres) or (oq["queue"] == "redis" and not app_state.client_redis_producer) or (oq["queue"] == "rabbitmq" and not app_state.client_rabbitmq_producer) or (oq["queue"] == "kafka" and not app_state.client_kafka_producer) or (oq["queue"] == "celery" and not app_state.client_celery_producer): raise Exception("required postgres/queue client not initialized")
     if "*" in app_state.config_table_my_create_disable or oq["table"] in app_state.config_table_my_create_disable: raise Exception(f"creation disabled for table: {oq['table']}")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[])
@@ -64,7 +64,7 @@ async def func_api_my_object_create(*, request: Request):
 async def func_api_my_object_read(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": app_state.cache_postgres_schema_table_list, "default": None}, {"name": "ownership_column", "type": "str", "required": 0, "allowed": app_state.config_column_ownership, "default": "created_by_id"}, {"name": "limit", "type": "int", "required": 0, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": 0, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": 0, "allowed": None, "default": "id desc"}, {"name": "column", "type": "str", "required": 0, "allowed": None, "default": "*"}, {"name": "relation", "type": "list", "required": 0, "allowed": None, "default": []}, {"name": "filter", "type": "list", "required": 0, "allowed": None, "default": []}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "ownership_column", "type": "str", "required": 0, "allowed": app_state.config_column_ownership, "default": "created_by_id"}, {"name": "limit", "type": "int", "required": 0, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": 0, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": 0, "allowed": None, "default": "id desc"}, {"name": "column", "type": "str", "required": 0, "allowed": None, "default": "*"}, {"name": "relation", "type": "list", "required": 0, "allowed": None, "default": []}, {"name": "filter", "type": "list", "required": 0, "allowed": None, "default": []}])
     schema_cols = app_state.cache_postgres_schema.get(oq["table"], {})
     if oq["ownership_column"] == "user_id" and "id" in schema_cols and "read_at" in schema_cols and not app_state.client_postgres: raise Exception("postgres client not initialized")
     if oq["ownership_column"] not in schema_cols: raise Exception(f"table '{oq['table']}' lacks ownership column '{oq['ownership_column']}'")
@@ -76,7 +76,7 @@ async def func_api_my_object_read(*, request: Request):
 @router.put("/my/object-update")
 async def func_api_my_object_update(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": app_state.cache_postgres_schema_table_list, "default": None}, {"name": "otp", "type": "int", "required": 0, "allowed": None, "default": None}, {"name": "queue", "type": "str", "required": 0, "allowed": app_state.config_queue_services, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "otp", "type": "int", "required": 0, "allowed": None, "default": None}, {"name": "queue", "type": "str", "required": 0, "allowed": app_state.config_queue_services, "default": None}])
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[])
     obj_list = ob.get("obj_list", [ob])
     if ((not oq["queue"] or (oq["table"] == "users" and any(key in obj_list[0] for key in ("email", "mobile")))) and not app_state.client_postgres) or (oq["queue"] == "redis" and not app_state.client_redis_producer) or (oq["queue"] == "rabbitmq" and not app_state.client_rabbitmq_producer) or (oq["queue"] == "kafka" and not app_state.client_kafka_producer) or (oq["queue"] == "celery" and not app_state.client_celery_producer): raise Exception("required postgres/queue client not initialized")
@@ -97,7 +97,7 @@ async def func_api_my_object_update(*, request: Request):
 async def func_api_my_ids_delete(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": app_state.cache_postgres_schema_table_list, "default": None}, {"name": "ids", "type": "list:int", "required": 1, "allowed": None, "default": None}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "ids", "type": "list:int", "required": 1, "allowed": None, "default": None}])
     if app_state.config_batch_item_limit and len(ob["ids"]) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
     if ob["table"] == "users" and app_state.config_is_enable_user_delete != 1: raise Exception("users hard delete disabled")
     if ob["table"] == "users" and len(ob["ids"]) != 1: raise Exception("multiple users table delete not allowed")
@@ -110,7 +110,7 @@ async def func_api_my_ids_delete(*, request: Request):
 async def func_api_my_object_delete_all(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": app_state.cache_postgres_schema_table_list, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}])
     if oq["table"] == "users": raise Exception("users bulk delete disabled; use /my/object-delete for own account")
     enabled_delete_all = app_state.config_table_my_delete_all_enable or []
     if "*" not in enabled_delete_all and oq["table"] not in enabled_delete_all: raise Exception(f"delete all disabled for table: {oq['table']}")
@@ -123,7 +123,7 @@ async def func_api_my_object_delete_all(*, request: Request):
 async def func_api_my_received_ids_delete(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": app_state.cache_postgres_schema_table_list, "default": None}, {"name": "col", "type": "str", "required": 0, "allowed": ["user_id"], "default": "user_id"}, {"name": "ids", "type": "list:int", "required": 1, "allowed": None, "default": None}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "col", "type": "str", "required": 0, "allowed": ["user_id"], "default": "user_id"}, {"name": "ids", "type": "list:int", "required": 1, "allowed": None, "default": None}])
     if app_state.config_batch_item_limit and len(ob["ids"]) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
     schema = app_state.cache_postgres_schema.get(ob["table"], {})
     col = ob["col"]
@@ -140,7 +140,7 @@ async def func_api_my_received_ids_delete(*, request: Request):
 async def func_api_my_received_object_delete_all(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": app_state.cache_postgres_schema_table_list, "default": None}, {"name": "col", "type": "str", "required": 0, "allowed": ["user_id"], "default": "user_id"}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "col", "type": "str", "required": 0, "allowed": ["user_id"], "default": "user_id"}])
     if oq["table"] == "users": raise Exception("users received bulk delete disabled")
     enabled_delete_all_user_id = app_state.config_table_my_delete_all_received_enable or []
     if "*" not in enabled_delete_all_user_id and oq["table"] not in enabled_delete_all_user_id: raise Exception(f"received delete all disabled for table: {oq['table']}")
@@ -153,7 +153,7 @@ async def func_api_my_received_object_delete_all(*, request: Request):
 @router.get("/my/message-inbox")
 async def func_api_my_message_inbox(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": app_state.cache_postgres_db_name_list, "default": None}, {"name": "mode", "type": "str", "required": 1, "allowed": ["all", "unread", "read"], "default": None}, {"name": "order", "type": "str", "required": 0, "allowed": None, "default": "id desc"}, {"name": "limit", "type": "int", "required": 0, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": 0, "allowed": None, "default": 1}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}, {"name": "mode", "type": "str", "required": 1, "allowed": ["all", "unread", "read"], "default": None}, {"name": "order", "type": "str", "required": 0, "allowed": None, "default": "id desc"}, {"name": "limit", "type": "int", "required": 0, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": 0, "allowed": None, "default": 1}])
     client_postgres = app_state.client_postgres if oq["db"] is None else app_state.client_postgres_dict[oq["db"]]
     if not client_postgres: raise Exception("postgres client not initialized")
     where_clause = {"read": "user_id=$1 AND read_at IS NOT NULL", "unread": "user_id=$1 AND read_at IS NULL"}.get(oq["mode"], "1=1")

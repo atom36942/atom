@@ -2648,7 +2648,7 @@ async def func_postgres_buffer_flush(*, app_state: any, client_postgres: any, ca
     async with app_state.postgres_buffer_flush_lock:
         return await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=None, func_postgres_serialize=None, func_regex_check=None, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=cache_postgres_buffer, config_regex=None, buffer_limit=None, mode="flush", table=None, obj_list=None)
 
-async def func_postgres_buffers_flush_periodic(*, app_state: any, client_postgres: any, cache_postgres_buffer_create: dict, client_postgres_log: any, cache_postgres_buffer_log_api: dict, interval_sec: int = 60) -> None:
+async def func_postgres_buffers_flush_periodic(*, app_state: any, client_postgres: any, cache_postgres_buffer_create: dict, client_postgres_log_api: any, cache_postgres_buffer_log_api: dict, interval_sec: int = 60) -> None:
     """Periodically flush the primary and API-log PostgreSQL buffers."""
     import asyncio
     while True:
@@ -2656,7 +2656,7 @@ async def func_postgres_buffers_flush_periodic(*, app_state: any, client_postgre
             await asyncio.sleep(interval_sec)
             try: await app_state.func_postgres_buffer_flush(app_state=app_state, client_postgres=client_postgres, cache_postgres_buffer=cache_postgres_buffer_create)
             except Exception as e: print(f"❌ primary buffer flush error: {e}")
-            try: await app_state.func_postgres_buffer_flush(app_state=app_state, client_postgres=client_postgres_log, cache_postgres_buffer=cache_postgres_buffer_log_api)
+            try: await app_state.func_postgres_buffer_flush(app_state=app_state, client_postgres=client_postgres_log_api, cache_postgres_buffer=cache_postgres_buffer_log_api)
             except Exception as e: print(f"❌ log api buffer flush error: {e}")
         except asyncio.CancelledError: break
         except Exception as e: print(f"❌ periodic postgres buffer flush error: {e}")
@@ -3055,12 +3055,13 @@ async def func_client_clickhouse(*, dsn: str):
     return await clickhouse_connect.get_async_client(dsn=dsn) if dsn else None
 
 async def func_client_s3(*, region_name: str, aws_access_key_id: str, aws_secret_access_key: str):
-    """Initialize AWS S3 async botocore context and enter client session."""
+    """Initialize AWS S3 async botocore client session."""
     import aiobotocore.session
-    if not region_name: return None, None
+    if not region_name: return None
     s3_context = aiobotocore.session.get_session().create_client("s3", region_name=region_name, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
     s3_client = await s3_context.__aenter__()
-    return s3_context, s3_client
+    setattr(s3_client, "_context", s3_context)
+    return s3_client
 
 def func_client_s3_resource(*, region_name: str, aws_access_key_id: str, aws_secret_access_key: str):
     """Initialize AWS S3 boto3 resource."""
@@ -3161,9 +3162,11 @@ async def func_client_close(*, app_state: any = None, clients: dict = None) -> N
     client_clickhouse = c.get("client_clickhouse")
     if client_clickhouse:
         with suppress(Exception): await client_clickhouse.close()
-    client_s3_context = c.get("client_s3_context")
-    if client_s3_context:
-        with suppress(Exception): await client_s3_context.__aexit__(None, None, None)
+    client_s3 = c.get("client_s3")
+    if client_s3:
+        s3_ctx = getattr(client_s3, "_context", None)
+        if s3_ctx:
+            with suppress(Exception): await s3_ctx.__aexit__(None, None, None)
     client_s3_resource = c.get("client_s3_resource")
     if client_s3_resource and hasattr(client_s3_resource.meta.client, "close"):
         with suppress(Exception): client_s3_resource.meta.client.close()

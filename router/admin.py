@@ -23,8 +23,6 @@ async def func_api_admin_sync(*, request: Request):
     app_state.cache_postgres_schema_ai = await app_state.func_postgres_schema_read_ai(client_postgres=app_state.client_postgres) if app_state.client_postgres else {}
     app_state.cache_postgres_schema_dict = {name: await app_state.func_postgres_schema_read(client_postgres=client) for name, client in app_state.client_postgres_dict.items()}
     app_state.cache_postgres_schema_ai_dict = {name: await app_state.func_postgres_schema_read_ai(client_postgres=client) for name, client in app_state.client_postgres_dict.items()}
-    app_state.cache_postgres_schema_table_list = list(app_state.cache_postgres_schema.keys())
-    app_state.cache_postgres_schema_column_list = sorted(list(set(col for table in app_state.cache_postgres_schema.values() for col in table.keys())))
     app_state.cache_openapi = app_state.func_openapi_spec_generate(app_routes=request.app.routes, app_state=app_state)
     app_state.cache_config = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres, config_sql=app_state.config_sql.get("config"), is_json_value=1) if app_state.client_postgres and "config" in app_state.cache_postgres_schema else {}
     app_state.cache_users_role = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres, config_sql=app_state.config_sql.get("users_role")) if app_state.client_postgres else {}
@@ -35,7 +33,7 @@ async def func_api_admin_sync(*, request: Request):
 @router.get("/admin/postgres-info")
 async def func_api_admin_postgres_info(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": app_state.cache_postgres_db_name_list, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}])
     client_postgres = app_state.client_postgres if oq["db"] is None else app_state.client_postgres_dict[oq["db"]]
     if not client_postgres: raise Exception("postgres client not initialized")
     info = await app_state.func_postgres_info_read(client_postgres=client_postgres)
@@ -44,7 +42,7 @@ async def func_api_admin_postgres_info(*, request: Request):
 @router.get("/admin/postgres-schema")
 async def func_api_admin_postgres_schema(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": app_state.cache_postgres_db_name_list, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}])
     client_postgres = app_state.client_postgres if oq["db"] is None else app_state.client_postgres_dict[oq["db"]]
     if not client_postgres: raise Exception("postgres client not initialized")
     schema = await app_state.func_postgres_schema_read(client_postgres=client_postgres)
@@ -54,7 +52,7 @@ async def func_api_admin_postgres_schema(*, request: Request):
 async def func_api_admin_object_create(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": app_state.cache_postgres_schema_table_list, "default": None}, {"name": "mode", "type": "str", "required": 0, "allowed": ["now", "buffer"], "default": "now"}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "mode", "type": "str", "required": 0, "allowed": ["now", "buffer"], "default": "now"}])
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[])
     obj_list = ob.get("obj_list", [ob])
     if "created_by_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'created_by_id' column for ownership tracking")
@@ -64,7 +62,7 @@ async def func_api_admin_object_create(*, request: Request):
 @router.get("/admin/object-read")
 async def func_api_admin_object_read(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": app_state.cache_postgres_db_name_list, "default": None}, {"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "limit", "type": "int", "required": 0, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": 0, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": 0, "allowed": None, "default": "id desc"}, {"name": "column", "type": "str", "required": 0, "allowed": None, "default": "*"}, {"name": "relation", "type": "list", "required": 0, "allowed": None, "default": []}, {"name": "filter", "type": "list", "required": 0, "allowed": None, "default": []}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "limit", "type": "int", "required": 0, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": 0, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": 0, "allowed": None, "default": "id desc"}, {"name": "column", "type": "str", "required": 0, "allowed": None, "default": "*"}, {"name": "relation", "type": "list", "required": 0, "allowed": None, "default": []}, {"name": "filter", "type": "list", "required": 0, "allowed": None, "default": []}])
     client_postgres = app_state.client_postgres if oq["db"] is None else app_state.client_postgres_dict[oq["db"]]
     cache_postgres_schema = app_state.cache_postgres_schema if oq["db"] is None else app_state.cache_postgres_schema_dict[oq["db"]]
     if not client_postgres: raise Exception("postgres client not initialized")
@@ -76,7 +74,7 @@ async def func_api_admin_object_read(*, request: Request):
 async def func_api_admin_object_update(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": app_state.cache_postgres_schema_table_list, "default": None}, {"name": "otp", "type": "int", "required": 0, "allowed": None, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "otp", "type": "int", "required": 0, "allowed": None, "default": None}])
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[])
     obj_list = ob.get("obj_list", [ob])
     if any("password" in item for item in obj_list) and any(len(item) != 2 or "id" not in item or "password" not in item for item in obj_list): raise Exception("password update requires exactly two fields (id, password)")
@@ -91,7 +89,7 @@ async def func_api_admin_object_update(*, request: Request):
 async def func_api_admin_object_delete(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": app_state.cache_postgres_schema_table_list, "default": None}, {"name": "ids", "type": "list:int", "required": 1, "allowed": None, "default": None}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "ids", "type": "list:int", "required": 1, "allowed": None, "default": None}])
     if ob["table"] == "users" and app_state.config_is_enable_user_delete != 1: raise Exception("users hard delete disabled")
     created_by_id = None
     deleted_count = await app_state.func_postgres_delete(client_postgres=app_state.client_postgres, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, table=ob["table"], ids=ob["ids"], created_by_id=created_by_id)
@@ -100,7 +98,7 @@ async def func_api_admin_object_delete(*, request: Request):
 @router.post("/admin/postgres-import")
 async def func_api_admin_postgres_import(*, request: Request):
     app_state = request.app.state
-    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, param_specs=[{"name": "mode", "type": "str", "required": 1, "allowed": ["create", "update", "delete"], "default": None}, {"name": "table", "type": "str", "required": 1, "allowed": app_state.cache_postgres_schema_table_list, "default": None}, {"name": "file", "type": "file", "required": 1, "allowed": None, "default": None}])
+    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, param_specs=[{"name": "mode", "type": "str", "required": 1, "allowed": ["create", "update", "delete"], "default": None}, {"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "file", "type": "file", "required": 1, "allowed": None, "default": None}])
     res = await app_state.func_postgres_import(app_state=app_state, mode=of["mode"], table=of["table"], file=of["file"][-1])
     return {"status": 1, "message": res}
 
@@ -151,7 +149,7 @@ async def func_api_admin_postgres_query_runner_write(*, request: Request):
 @router.post("/admin/postgres-query-runner-read")
 async def func_api_admin_postgres_query_runner_read(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": app_state.cache_postgres_db_name_list, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}])
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "sql", "type": "str", "required": 1, "allowed": None, "default": None}])
     client_postgres = app_state.client_postgres if oq["db"] is None else app_state.client_postgres_dict[oq["db"]]
     res = await app_state.func_postgres_query_runner_read(client_postgres=client_postgres, config_query_runner_read_limit=app_state.config_query_runner_read_limit, sql=ob["sql"])
@@ -160,7 +158,7 @@ async def func_api_admin_postgres_query_runner_read(*, request: Request):
 @router.post("/admin/postgres-query-runner-read-export")
 async def func_api_admin_postgres_query_runner_read_export(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": app_state.cache_postgres_db_name_list, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}])
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "sql", "type": "str", "required": 1, "allowed": None, "default": None}])
     client_postgres = app_state.client_postgres if oq["db"] is None else app_state.client_postgres_dict[oq["db"]]
     generator = await app_state.func_postgres_query_runner_read_export(client_postgres=client_postgres, config_query_runner_export_limit=app_state.config_query_runner_export_limit, sql=ob["sql"])
@@ -169,7 +167,7 @@ async def func_api_admin_postgres_query_runner_read_export(*, request: Request):
 @router.post("/admin/postgres-query-generator-ai")
 async def func_api_admin_postgres_query_ai(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": app_state.cache_postgres_db_name_list, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}])
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "ai", "type": "str", "required": 0, "allowed": app_state.config_ai_services, "default": "gemini"}, {"name": "question", "type": "str", "required": 1, "allowed": None, "default": None}])
     db = oq["db"]
     client_postgres = app_state.client_postgres if db is None else app_state.client_postgres_dict[db]

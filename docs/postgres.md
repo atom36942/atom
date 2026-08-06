@@ -67,13 +67,7 @@ app.state.client_postgres_dict["read_india"]
 app.state.client_postgres_dict["analytics"]
 ```
 
-It also exposes the initialized names as:
-
-```python
-app.state.cache_postgres_db_name_list
-```
-
-Routers use that list as the `allowed` value for `func_request_param_read`, so an unknown `db` name is rejected before lookup.
+Routers inspect `client_postgres_dict` when `db` parameter is provided.
 
 ## Independent and third-party databases
 
@@ -277,7 +271,7 @@ Those features can be added later behind a centralized client selector without c
 
 ## Shutdown
 
-During application shutdown Atom performs final flushes for the primary application buffer and the dedicated API-log buffer, then closes `client_postgres` and every pool in `client_postgres_dict`. Application writes use primary; `config_log_db` may route `log_api` writes to a named pool, and custom APIs may use named pools for writes when explicitly implemented. See [logs.md](logs.md).
+During application shutdown Atom performs final flushes for the primary application buffer and the dedicated API-log buffer, then closes `client_postgres` and every pool in `client_postgres_dict`. Application writes use primary; `config_postgres_db_log_api` may route `log_api` writes to a named pool, and custom APIs may use named pools for writes when explicitly implemented. See [logs.md](logs.md).
 
 ---
 

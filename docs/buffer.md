@@ -25,9 +25,9 @@ The names begin with `cache_` so lifespan automatically registers them on `app.s
 | Buffer | Contents | Destination |
 |--------|----------|-------------|
 | `cache_postgres_buffer_create` | Records submitted through object-create APIs with `mode=buffer` | Primary `client_postgres` |
-| `cache_postgres_buffer_log_api` | Middleware-generated `log_api` records | `client_postgres_log` |
+| `cache_postgres_buffer_log_api` | Middleware-generated `log_api` records | `client_postgres_log_api` |
 
-`client_postgres_log` points to primary when `config_log_db=None`, or to `client_postgres_dict[config_log_db]` when a named logging database is configured.
+`client_postgres_log_api` points to primary when `config_postgres_db_log_api=None`, or to `client_postgres_dict[config_postgres_db_log_api]` when a named logging database is configured.
 
 ## Create modes
 
@@ -181,7 +181,7 @@ API logging is automatic. After every request, middleware creates a `log_api` ob
 
 ```python
 await app_state.func_postgres_create(
-    client_postgres=app_state.client_postgres_log,
+    client_postgres=app_state.client_postgres_log_api,
     ...
     cache_postgres_buffer=app_state.cache_postgres_buffer_log_api,
     buffer_limit=app_state.config_table.get(
@@ -216,7 +216,7 @@ app.state.postgres_buffer_flush_task = asyncio.create_task(
 
 ```text
 client_postgres + cache_postgres_buffer_create
-client_postgres_log + cache_postgres_buffer_log_api
+client_postgres_log_api + cache_postgres_buffer_log_api
 ```
 
 `func_postgres_buffer_flush` owns the client-availability check:

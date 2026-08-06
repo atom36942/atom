@@ -7,25 +7,25 @@ Atom records one `log_api` row after every API request. Logging is buffered so t
 By default:
 
 ```python
-config_log_db = None
+config_postgres_db_log_api = None
 ```
 
 `None` means API logs use the primary PostgreSQL pool:
 
 ```python
-app.state.client_postgres_log = app.state.client_postgres
+app.state.client_postgres_log_api = app.state.client_postgres
 ```
 
 This preserves the original behavior and requires no additional configuration.
 
 ## Store logs in another PostgreSQL database
 
-Configure a named PostgreSQL connection and set `config_log_db` to the same name:
+Configure a named PostgreSQL connection and set `config_postgres_db_log_api` to the same name:
 
 ```bash
 config_postgres_url=postgresql://atom:password@primary-db:5432/atom
 config_postgres_url_logs=postgresql://logger:password@logs-db:5432/atom_logs
-config_log_db=logs
+config_postgres_db_log_api=logs
 ```
 
 The suffix in `config_postgres_url_logs` becomes the `client_postgres_dict` key:
@@ -37,10 +37,10 @@ app.state.client_postgres_dict["logs"]
 Lifespan resolves:
 
 ```python
-app.state.client_postgres_log = app.state.client_postgres_dict["logs"]
+app.state.client_postgres_log_api = app.state.client_postgres_dict["logs"]
 ```
 
-The mapping is exact and case-sensitive. For example, `config_log_db=logs` selects `config_postgres_url_logs`. If `config_log_db` names a pool that does not exist, startup fails with a configuration error instead of silently writing logs to primary.
+The mapping is exact and case-sensitive. For example, `config_postgres_db_log_api=logs` selects `config_postgres_url_logs`. If `config_postgres_db_log_api` names a pool that does not exist, startup fails with a configuration error instead of silently writing logs to primary.
 
 ## Dedicated log buffer
 
@@ -65,8 +65,8 @@ Normal buffered rows
 
 API logs
     → cache_postgres_buffer_log_api
-    → client_postgres_log
-    → client_postgres_dict[config_log_db] when configured
+    → client_postgres_log_api
+    → client_postgres_dict[config_postgres_db_log_api] when configured
     → log_api
 ```
 
@@ -84,7 +84,7 @@ config_table = {
 
 ## Database schema
 
-Schema initialization runs against primary only. When `config_log_db` selects an independent database, that database must already contain a compatible `log_api` table.
+Schema initialization runs against primary only. When `config_postgres_db_log_api` selects an independent database, that database must already contain a compatible `log_api` table.
 
 Log serialization and validation currently use the primary `cache_postgres_schema`. The selected logging database does not need a separate schema cache as long as its `log_api` table has the same structure as primary. A separate schema cache would only be necessary if the external log table structure differs.
 
@@ -98,7 +98,7 @@ Apply the corresponding table definition through your migration or deployment pr
 
 - The external database contains a compatible `log_api` table.
 - Its database user has `INSERT` permission.
-- The configured names match, such as `config_postgres_url_logs` with `config_log_db=logs`.
+- The configured names match, such as `config_postgres_url_logs` with `config_postgres_db_log_api=logs`.
 
 ## Failure behavior
 
@@ -130,7 +130,7 @@ Keep logs on primary:
 
 ```bash
 config_postgres_url=postgresql://atom:password@primary-db:5432/atom
-# config_log_db is unset
+# config_postgres_db_log_api is unset
 ```
 
 Send logs to the `logs` database:
@@ -138,7 +138,7 @@ Send logs to the `logs` database:
 ```bash
 config_postgres_url=postgresql://atom:password@primary-db:5432/atom
 config_postgres_url_logs=postgresql://logger:password@logs-db:5432/atom_logs
-config_log_db=logs
+config_postgres_db_log_api=logs
 ```
 
 Use the same named database for analytics reads:

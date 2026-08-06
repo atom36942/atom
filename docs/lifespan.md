@@ -41,7 +41,7 @@ When `config_is_enable_postgres_schema_init = 1` and Postgres is present, `func_
 ### 5. Cache building
 To keep the request path fast, several read-mostly datasets are loaded into memory once at startup:
 
-- **Schema caches** — `cache_postgres_schema` (+ an AI-oriented variant), plus derived `..._table_list` and `..._column_list`. These let routers validate table/column names without hitting the DB. `cache_postgres_db_name_list` contains the initialized named-pool keys used to validate the `db` query parameter.
+- **Schema caches** — `cache_postgres_schema` (+ an AI-oriented variant), plus derived `..._table_list` and `..._column_list`. These let routers validate table/column names without hitting the DB.
 - **Data caches** — `cache_config` (the `config` table), and `cache_users_role` / `cache_users_deactivated` / `cache_users_deleted`, which back the middleware's `inmemory`-mode auth checks.
 - **Empty runtime caches** — `cache_ratelimiter`, `cache_api_response`, `cache_postgres_buffer_create` (the general write buffer), and `cache_postgres_buffer_log_api` (the dedicated API-log buffer) start empty and fill during operation.
 
@@ -52,7 +52,7 @@ Every local variable named `client_*` or `cache_*` is bulk-assigned onto `app.st
 `func_openapi_spec_generate` builds the OpenAPI spec from the live routes and stores it as `cache_openapi`, served at `/openapi.json`.
 
 ### 8. Periodic buffer flush (`func_postgres_buffers_flush_periodic`)
-Starts `func_postgres_buffers_flush_periodic` as `postgres_buffer_flush_task`. Every **60 seconds**, it calls `func_postgres_buffer_flush` separately for the primary general buffer and the dedicated API-log buffer. The single-buffer helper acquires `postgres_buffer_flush_lock` and delegates to `func_postgres_create(mode="flush")`. Logs use primary when `config_log_db=None`, or the matching named pool otherwise. Primary and log failures are isolated so one failed destination does not block the other.
+Starts `func_postgres_buffers_flush_periodic` as `postgres_buffer_flush_task`. Every **60 seconds**, it calls `func_postgres_buffer_flush` separately for the primary general buffer and the dedicated API-log buffer. The single-buffer helper acquires `postgres_buffer_flush_lock` and delegates to `func_postgres_create(mode="flush")`. Logs use primary when `config_postgres_db_log_api=None`, or the matching named pool otherwise. Primary and log failures are isolated so one failed destination does not block the other.
 
 See [buffer.md](buffer.md) for the full buffering lifecycle and API examples.
 
