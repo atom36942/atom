@@ -459,7 +459,7 @@ async def func_token_decode(*, headers: dict, config_token_secret_key: str) -> d
     if isinstance(user, dict): user["_token_type"] = decoded_payload.get("type")
     return user
 
-async def func_middleware_check_auth(*, user_dict: dict, url_path: str, is_token_check: int = 0, user_check_role: list = None, user_check_deactivated: list = None, user_check_deleted: list = None) -> None:
+async def func_middleware_check_token(*, user_dict: dict, url_path: str, is_token_check: int = 0, user_check_role: list = None, user_check_deactivated: list = None, user_check_deleted: list = None) -> None:
     """Check whether current API requires token-authenticated user."""
     is_token_required = is_token_check in (1, "1", True, "true") or bool(user_check_role) or bool(user_check_deactivated) or bool(user_check_deleted)
     if is_token_required:
@@ -2611,6 +2611,21 @@ async def func_postgres_buffers_flush_periodic(*, app_state: any, client_postgre
             except Exception as e: print(f"❌ log api buffer flush error: {e}")
         except asyncio.CancelledError: break
         except Exception as e: print(f"❌ periodic postgres buffer flush error: {e}")
+    return None
+
+async def func_inmemory_cache_cleanup_periodic(*, cache_api_response: dict, cache_ratelimiter: dict, interval_sec: int = 300) -> None:
+    """Periodically purges expired items from in-memory cache and ratelimiter dictionaries."""
+    import asyncio, time
+    while True:
+        try:
+            await asyncio.sleep(interval_sec)
+            now = time.time()
+            expired_api_keys = [k for k, v in cache_api_response.items() if isinstance(v, dict) and v.get("expire_at", 0) <= now]
+            for k in expired_api_keys: cache_api_response.pop(k, None)
+            expired_rl_keys = [k for k, v in cache_ratelimiter.items() if isinstance(v, dict) and v.get("expire_at", 0) <= now]
+            for k in expired_rl_keys: cache_ratelimiter.pop(k, None)
+        except asyncio.CancelledError: break
+        except Exception as e: print(f"❌ in-memory cache cleanup error: {e}")
     return None
 
 async def func_async_tasks_cancel(*, task_list: list, timeout_sec: int = 5) -> None:

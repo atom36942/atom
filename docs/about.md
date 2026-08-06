@@ -69,7 +69,7 @@ Request
 | Step | Defined in (`function.py`) |
 |------|----------------------------|
 | Decode token | `func_token_decode` |
-| Auth check | `func_middleware_check_auth` |
+| Auth check | `func_middleware_check_token` |
 | Role check | `func_middleware_check_role` |
 | Deactivation check | `func_middleware_check_user_deactivated` |
 | Deletion check | `func_middleware_check_user_deleted` |

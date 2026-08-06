@@ -45,7 +45,7 @@ Four checks run in order, each a no-op unless the route's policy asks for it:
 
 | Step | Function | Rejects when |
 |------|----------|--------------|
-| Auth | `func_middleware_check_auth` | `is_token_check=1` but no valid user. |
+| Auth | `func_middleware_check_token` | `is_token_check=1` but no valid user. |
 | Role | `func_middleware_check_role` | User's role isn't in the allowed list. |
 | Deactivated | `func_middleware_check_user_deactivated` | User's `deactivated_at` is set. |
 | Deleted | `func_middleware_check_user_deleted` | User's `deleted_at` is set. |

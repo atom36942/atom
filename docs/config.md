@@ -221,7 +221,7 @@ The **per-endpoint policy table**. It maps each route path to a dict of policy f
 | Field | Shape | Meaning |
 |-------|-------|---------|
 | `id` | `int` | Stable numeric id for the endpoint — unique, used for referencing/analytics. Not security-related. |
-| `is_token_check` | `0` / `1` | `1` requires a valid JWT (`func_middleware_check_auth`); `0` is public. |
+| `is_token_check` | `0` / `1` | `1` requires a valid JWT (`func_middleware_check_token`); `0` is public. |
 | `user_check_role` | `[mode, [roles]]` | Restrict to the listed role numbers. Rejected if the user's role isn't in the list. |
 | `user_check_deactivated` | `[mode]` | Reject users whose `deactivated_at` is set. |
 | `user_check_deleted` | `[mode]` | Reject users whose `deleted_at` is set. |

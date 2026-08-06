@@ -45,6 +45,7 @@ async def func_lifespan(app:"FastAPI"):
     try:
         app.state.runtime_background_tasks = set()
         app.state.postgres_buffer_flush_task = None
+        app.state.inmemory_cache_cleanup_task = None
         # start
         start_journey = time.perf_counter()
         # check
@@ -108,9 +109,10 @@ async def func_lifespan(app:"FastAPI"):
         [setattr(app.state, k, v) for k, v in {**globals(), **locals()}.items() if k.startswith(("client_", "cache_"))]
         # openapi spec generation
         app.state.cache_openapi = app.state.func_openapi_spec_generate(app_routes=app.routes, app_state=app.state)
-        # start periodic postgres buffer flush task
+        # start periodic tasks
         app.state.postgres_buffer_flush_lock = asyncio.Lock()
         app.state.postgres_buffer_flush_task = asyncio.create_task(app.state.func_postgres_buffers_flush_periodic(app_state=app.state, client_postgres=client_postgres, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log=client_postgres_log, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api, interval_sec=60))
+        app.state.inmemory_cache_cleanup_task = asyncio.create_task(app.state.func_inmemory_cache_cleanup_periodic(cache_api_response=cache_api_response, cache_ratelimiter=cache_ratelimiter, interval_sec=300))
     except Exception as e:
         print(f"❌ startup error: {e}")
         raise
@@ -121,9 +123,11 @@ async def func_lifespan(app:"FastAPI"):
         runtime_background_tasks = getattr(app.state, "runtime_background_tasks", set())
         if runtime_background_tasks:
             await app.state.func_async_tasks_cancel(task_list=list(runtime_background_tasks), timeout_sec=5)
-        # stop periodic postgres buffer flush task
+        # stop periodic tasks
         postgres_buffer_flush_task = getattr(app.state, "postgres_buffer_flush_task", None)
         if postgres_buffer_flush_task: await app.state.func_async_tasks_cancel(task_list=[postgres_buffer_flush_task], timeout_sec=5)
+        inmemory_cache_cleanup_task = getattr(app.state, "inmemory_cache_cleanup_task", None)
+        if inmemory_cache_cleanup_task: await app.state.func_async_tasks_cancel(task_list=[inmemory_cache_cleanup_task], timeout_sec=5)
         # postgres buffer flush final
         try:
             await app.state.func_postgres_buffer_flush(app_state=app.state, client_postgres=client_postgres, cache_postgres_buffer=cache_postgres_buffer_create)
@@ -194,7 +198,7 @@ async def middleware(request, api_function):
         api_cache_sec = api_cfg.get("api_cache_sec")
         # authentication
         request.state.user = await app_state.func_token_decode(headers=request.headers, config_token_secret_key=app_state.config_token_secret_key)
-        await app_state.func_middleware_check_auth(user_dict=request.state.user, url_path=path, is_token_check=is_token_check, user_check_role=user_check_role, user_check_deactivated=user_check_deactivated, user_check_deleted=user_check_deleted)
+        await app_state.func_middleware_check_token(user_dict=request.state.user, url_path=path, is_token_check=is_token_check, user_check_role=user_check_role, user_check_deactivated=user_check_deactivated, user_check_deleted=user_check_deleted)
         # authorization
         await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role=user_check_role, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, user_check_deactivated=user_check_deactivated, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis, cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
