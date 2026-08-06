@@ -63,6 +63,7 @@ async def func_lifespan(app:"FastAPI"):
         client_postgres = await asyncpg.create_pool(dsn=app.state.config_postgres_url, **postgres_pool_kwargs) if app.state.config_postgres_url else None
         client_postgres_dict = {name: await asyncpg.create_pool(dsn=url, **postgres_pool_kwargs) for name, url in (app.state.config_postgres_url_dict or {}).items() if url}
         client_redis = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url)) if app.state.config_redis_url else None
+        client_redis_user_state = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_user_state)) if app.state.config_redis_url_user_state else None
         client_redis_ratelimiter = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_ratelimiter)) if app.state.config_redis_url_ratelimiter else None
         client_redis_producer = redis.Redis.from_pool(redis.ConnectionPool.from_url(app.state.config_redis_url_queue)) if app.state.config_redis_url_queue else None
         client_mongodb = motor.motor_asyncio.AsyncIOMotorClient(app.state.config_mongodb_url) if app.state.config_mongodb_url else None
@@ -143,6 +144,7 @@ async def func_lifespan(app:"FastAPI"):
         if client_postgres: await client_postgres.close()
         for client_postgres_item in client_postgres_dict.values(): await client_postgres_item.close()
         if client_redis: await client_redis.aclose()
+        if client_redis_user_state: await client_redis_user_state.aclose()
         if client_redis_ratelimiter: await client_redis_ratelimiter.aclose()
         if client_mongodb: client_mongodb.close()
         if client_mssql: client_mssql.close(); await client_mssql.wait_closed()
@@ -203,9 +205,9 @@ async def middleware(request, api_function):
         request.state.user = await app_state.func_token_decode(headers=request.headers, config_token_secret_key=app_state.config_token_secret_key)
         await app_state.func_middleware_check_token(user_dict=request.state.user, url_path=path, is_token_check=is_token_check, user_check_role=user_check_role, user_check_deactivated=user_check_deactivated, user_check_deleted=user_check_deleted)
         # authorization
-        await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role=user_check_role, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
-        await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, user_check_deactivated=user_check_deactivated, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis, cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
-        await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, user_check_deleted=user_check_deleted, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis, cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
+        await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role=user_check_role, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis_user_state, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
+        await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, user_check_deactivated=user_check_deactivated, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis_user_state, cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
+        await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, user_check_deleted=user_check_deleted, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis_user_state, cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         # rate limiting
         await app_state.func_middleware_check_ratelimiter(client_redis=app_state.client_redis_ratelimiter, rate_limit=rate_limit, url_path=path, identifier=request.state.user.get("id") if request.state.user else request.client.host, cache_ratelimiter=app_state.cache_ratelimiter)
         # api cache

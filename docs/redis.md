@@ -1,16 +1,17 @@
 # 🟥 Redis
 
-Atom uses three separate asynchronous Redis clients. Each client has one responsibility and is enabled by its own connection URL. This separation lets cache, rate-limiter, and queue workloads use different Redis databases or servers and prevents one workload from consuming another workload's capacity.
+Atom uses four separate asynchronous Redis clients. Each client has one responsibility and is enabled by its own connection URL. This separation lets API cache, user-state cache, rate-limiter, and queue workloads use different Redis databases or servers and prevents one workload from consuming another workload's capacity.
 
 ## Clients at a glance
 
 | Configuration | Runtime client | Purpose |
 |---------------|----------------|---------|
-| `config_redis_url` | `app.state.client_redis` | User-state cache, API response cache, and admin Redis import |
+| `config_redis_url` | `app.state.client_redis` | API response cache and admin Redis import |
+| `config_redis_url_user_state` | `app.state.client_redis_user_state` | User authorization and account status lookups |
 | `config_redis_url_ratelimiter` | `app.state.client_redis_ratelimiter` | Distributed API rate-limit counters |
 | `config_redis_url_queue` | `app.state.client_redis_producer` | Background-job queue producer |
 
-All three settings default to `None`. `main.py` creates a `redis.asyncio.Redis` client only when the corresponding URL is configured, exposes it through `app.state`, and closes it during application shutdown.
+All four settings default to `None`. `main.py` creates a `redis.asyncio.Redis` client only when the corresponding URL is configured, exposes it through `app.state`, and closes it during application shutdown.
 
 ## Configuration
 
@@ -18,14 +19,16 @@ Set the URLs in `.env`:
 
 ```bash
 config_redis_url=redis://localhost:6379/0
-config_redis_url_ratelimiter=redis://localhost:6379/1
-config_redis_url_queue=redis://localhost:6379/2
+config_redis_url_user_state=redis://localhost:6379/1
+config_redis_url_ratelimiter=redis://localhost:6379/2
+config_redis_url_queue=redis://localhost:6379/3
 ```
 
-The database suffixes (`/0`, `/1`, and `/2`) are optional. They provide logical separation on one Redis server. For stronger workload and failure isolation, use separate Redis instances:
+The database suffixes (`/0`, `/1`, `/2`, and `/3`) are optional. They provide logical separation on one Redis server. For stronger workload and failure isolation, use separate Redis instances:
 
 ```bash
 config_redis_url=redis://cache.internal:6379/0
+config_redis_url_user_state=redis://userstate.internal:6379/0
 config_redis_url_ratelimiter=redis://ratelimiter.internal:6379/0
 config_redis_url_queue=redis://queue.internal:6379/0
 ```
@@ -38,13 +41,9 @@ config_redis_url=rediss://username:password@redis.example.com:6380/0
 
 Only configure clients that the application uses. A missing URL leaves its client as `None`, and a feature that explicitly selects that Redis client will report that the required client is missing.
 
-## General-purpose client
+## User-state client
 
-`config_redis_url` creates `client_redis`. It is used by the following features.
-
-### User authorization and status cache
-
-Routes can choose Redis for role, deactivation, and deletion checks:
+`config_redis_url_user_state` creates `client_redis_user_state`. Routes can choose Redis for role, deactivation, and deletion checks:
 
 ```python
 "/private/example": {

@@ -28,7 +28,8 @@ All default to `None`, meaning **off** — the matching client in `main.py` is o
 |-----|---------|
 | `config_postgres_url` | Primary Postgres pool (main datastore) |
 | `config_postgres_url_dict` | Runtime mapping of named PostgreSQL pools. Defaults to `None`; populated by `config_postgres_url_<name>` environment variables. |
-| `config_redis_url` | Redis for response caching, role/status lookups, and admin imports |
+| `config_redis_url` | Redis for response caching and admin imports |
+| `config_redis_url_user_state` | Dedicated Redis for role, deactivation, and soft-deletion status lookups |
 | `config_redis_url_queue` | Redis used as a background-job queue producer |
 | `config_redis_url_ratelimiter` | Dedicated Redis for distributed rate-limit counters |
 | `config_mongodb_url` | MongoDB (Motor) |

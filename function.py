@@ -17,6 +17,7 @@ def func_check(*, app: any) -> None:
         if value < min_value: raise Exception(f"invalid {key}: minimum {min_value}")
         return value
     requires_redis = False
+    requires_redis_user_state = False
     requires_redis_ratelimiter = False
     for path, cfg in config_api.items():
         if not isinstance(path, str) or not path.startswith("/"): raise Exception(f"invalid config_api path: {path}")
@@ -43,13 +44,13 @@ def func_check(*, app: any) -> None:
             if mode not in user_mode_allowed: raise Exception(f"{path} invalid user_check_role mode: {mode}")
             if not isinstance(roles, list) or not roles: raise Exception(f"{path} invalid user_check_role roles")
             for role in roles: int_check(role, f"{path} user_check_role role", 1)
-            if mode == "redis": requires_redis = True
+            if mode == "redis": requires_redis_user_state = True
         for key in ("user_check_deactivated", "user_check_deleted"):
             u_val = cfg.get(key)
             if u_val:
                 mode = u_val.get("mode") if isinstance(u_val, dict) else (u_val[0] if isinstance(u_val, (list, tuple)) else None)
                 if mode not in user_mode_allowed: raise Exception(f"{path} invalid {key} mode: {mode}")
-                if mode == "redis": requires_redis = True
+                if mode == "redis": requires_redis_user_state = True
         c_val = cfg.get("cache") if "cache" in cfg else cfg.get("api_cache_sec")
         if c_val:
             if isinstance(c_val, dict):
@@ -89,6 +90,8 @@ def func_check(*, app: any) -> None:
             raise Exception(f"CRITICAL: Route '{path}' is missing from config_api. All routes must be explicitly configured.")
     if requires_redis and not getattr(app.state, "config_redis_url", None):
         raise Exception("config_api uses redis mode but config_redis_url is missing")
+    if requires_redis_user_state and not getattr(app.state, "config_redis_url_user_state", None):
+        raise Exception("config_api uses redis user state check but config_redis_url_user_state is missing")
     if requires_redis_ratelimiter and not getattr(app.state, "config_redis_url_ratelimiter", None):
         raise Exception("config_api uses redis rate limiting but config_redis_url_ratelimiter is missing")
     buffer_limit = getattr(app.state, "config_buffer_limit_default", None)
