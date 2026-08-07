@@ -23,6 +23,10 @@ async def func_lifespan(app:"FastAPI"):
         app.state.inmemory_cache_cleanup_task = None
         postgres_pool_kwargs = {"min_size": app.state.config_postgres_pool_min_size, "max_size": app.state.config_postgres_pool_max_size, "is_read_only": app.state.config_is_read_only}
         aws_kwargs = {"aws_access_key_id": app.state.config_aws_access_key_id, "aws_secret_access_key": app.state.config_aws_secret_access_key}
+        cache_api_response = {}
+        cache_ratelimiter = {}
+        cache_postgres_buffer_create = {}
+        cache_postgres_buffer_log_api = {}
         func_check(app=app)
         func_structure_init()
         # client init
@@ -50,29 +54,22 @@ async def func_lifespan(app:"FastAPI"):
         client_sftp = await func_client_sftp(host=app.state.config_sftp_host, port=app.state.config_sftp_port, username=app.state.config_sftp_username, password=app.state.config_sftp_password)
         client_azure_email = func_client_azure_email(connection_string=app.state.config_azure_email_connection_string)
         client_azure_blob = func_client_azure_blob(account_name=app.state.config_azure_account_name, account_key=app.state.config_azure_account_key)
-        # client log api
+        # client init misc
         if app.state.config_postgres_db_log_api is not None and app.state.config_postgres_db_log_api not in client_postgres_dict: raise Exception(f"config_postgres_db_log_api '{app.state.config_postgres_db_log_api}' not found in config_postgres_url_dict")
         client_postgres_log_api = client_postgres if app.state.config_postgres_db_log_api is None else client_postgres_dict[app.state.config_postgres_db_log_api]
-        # postges schema init
+        # postgres master
         if client_postgres and not app.state.config_is_read_only and app.state.config_is_enable_postgres_schema_init: await app.state.func_postgres_schema_init(client_postgres=client_postgres, config_postgres=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(config_root_user_password) if config_root_user_password else None)
-        # postges cache master
         cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres=client_postgres) if client_postgres else {}
         cache_postgres_schema_ai = await app.state.func_postgres_schema_read_ai(client_postgres=client_postgres) if client_postgres else {}
         cache_config = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("config"), is_json_value=1) if client_postgres and "config" in cache_postgres_schema else {}
         cache_users_role = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("users_role")) if client_postgres else {}
         cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("users_deactivated")) if client_postgres else {}
         cache_users_deleted = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("users_deleted")) if client_postgres else {}
-        # postges cache misc
+        # postgres misc
         cache_postgres_schema_dict = {name: await app.state.func_postgres_schema_read(client_postgres=client) for name, client in client_postgres_dict.items()}
         cache_postgres_schema_ai_dict = {name: await app.state.func_postgres_schema_read_ai(client_postgres=client) for name, client in client_postgres_dict.items()}
-        # caches in-memory
-        cache_api_response = {}
-        cache_ratelimiter = {}
-        cache_postgres_buffer_create = {}
-        cache_postgres_buffer_log_api = {}
-        # app state add
+        # func calls
         func_app_state_add(app=app, data_dict={**globals(), **locals()}, prefixes=("client_", "cache_"))
-        # openapi spec generation
         app.state.cache_openapi = app.state.func_openapi_spec_generate(app_routes=app.routes, app_state=app.state)
         # start periodic tasks
         app.state.postgres_buffer_flush_lock = asyncio.Lock()
