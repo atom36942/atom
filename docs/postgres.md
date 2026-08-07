@@ -174,10 +174,8 @@ db=<name>
 Selection follows this rule:
 
 ```python
-client_postgres = (
-    app_state.client_postgres
-    if oq["db"] is None
-    else app_state.client_postgres_dict[oq["db"]]
+client_postgres, cache_postgres_schema, cache_postgres_schema_ai = (
+    app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
 )
 ```
 
@@ -185,8 +183,8 @@ Therefore:
 
 - No `db` parameter uses primary and preserves the original behavior.
 - `?db=read` uses `client_postgres_dict["read"]`.
-- An unknown name fails validation and returns the standard error response.
-- The caller can select only configured names, never provide a connection URL.
+- An unknown name fails validation and returns a clear error (`database pool '<db>' not found`).
+- The caller can select only configured names, never provide a raw connection URL.
 
 Example:
 
@@ -199,7 +197,7 @@ curl "http://localhost:8000/my/profile?db=read" \
 curl "http://localhost:8000/public/object-read?db=read_india&table=test&limit=20"
 ```
 
-For POST-based read tools, `db` remains a query parameter:
+For POST-based read tools and form imports, `db` remains a query/form parameter:
 
 ```bash
 curl -X POST "http://localhost:8000/admin/postgres-query-runner-read?db=analytics" \
@@ -210,23 +208,25 @@ curl -X POST "http://localhost:8000/admin/postgres-query-runner-read?db=analytic
 
 ## APIs supporting `db`
 
-| API | Purpose |
-|-----|---------|
-| `GET /my/profile` | User profile and configured profile metadata |
-| `GET /my/api-usage` | Current user's API usage |
-| `GET /my/message-inbox` | Message conversation summaries |
-| `GET /admin/postgres-info` | Database information and statistics |
-| `GET /admin/postgres-schema` | Live database schema |
-| `GET /admin/object-read` | Unrestricted administrative object read |
-| `POST /admin/postgres-query-runner-read` | Read-only SQL runner |
-| `POST /admin/postgres-query-runner-read-export` | Read-only SQL CSV export |
-| `POST /admin/postgres-query-generator-ai` | AI-generated read query |
-| `GET /public/object-read` | Public allow-listed object read |
-| `GET /public/table-groupby` | Public grouped aggregation |
+| API | Purpose | Execution Model |
+|-----|---------|-----------------|
+| `GET /my/profile` | User profile and configured profile metadata | Pure Read |
+| `GET /my/api-usage` | Current user's API usage | Pure Read |
+| `GET /my/message-inbox` | Message conversation summaries | Pure Read |
+| `GET /my/message-thread` | Message conversation thread | Hybrid (Read from `db`, update `read_at` on Primary) |
+| `GET /my/object-read` | User scoped object read | Hybrid (Read from `db`, mark read on Primary) |
+| `GET /admin/postgres-info` | Database information and statistics | Pure Read |
+| `GET /admin/postgres-schema` | Live database schema | Pure Read |
+| `GET /admin/object-read` | Unrestricted administrative object read | Pure Read |
+| `POST /admin/postgres-query-runner-read` | Read-only SQL runner | Pure Read |
+| `POST /admin/postgres-query-runner-read-export` | Read-only SQL CSV export | Pure Read |
+| `POST /admin/postgres-query-generator-ai` | AI-generated read query | Pure Read |
+| `POST /admin/postgres-import` | Bulk CSV/JSON import tool | Target DB Import |
+| `GET /public/object-read` | Public allow-listed object read | Pure Read |
+| `GET /public/table-groupby` | Public grouped aggregation | Pure Read |
+| `GET /public/table-distinct` | Public distinct column value read | Pure Read |
 
-Write APIs never accept `db`; they always use `client_postgres`.
-
-`/my/object-read` and `/my/message-thread` are not replica-selectable because they can update `read_at`. Authentication, token refresh, middleware security checks, and OTP verification also remain on primary to avoid replica-lag inconsistencies.
+Write mutations (e.g. `/my/object-create`, `/admin/object-update`) target primary `client_postgres`. Hybrid APIs like `/my/object-read` and `/my/message-thread` fetch data from the selected `db` pool while executing state updates (like `read_at`) on primary. Authentication, token refresh, middleware security checks, and OTP verification remain on primary to avoid replica-lag inconsistencies.
 
 ## Pool sizing
 

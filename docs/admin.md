@@ -59,7 +59,7 @@ Upload a file (multipart form) to bulk-load data. `mode` selects the operation.
 | `POST /admin/mongodb-import` | A Mongo `database` + `table` | `create` / `update` / `delete` |
 
 ```bash
-curl -X POST http://localhost:8000/admin/postgres-import \
+curl -X POST "http://localhost:8000/admin/postgres-import?db=crm" \
   -H "Authorization: Bearer <admin-token>" \
   -F "mode=create" -F "table=test" -F "file=@./rows.csv"
 ```

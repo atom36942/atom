@@ -480,6 +480,38 @@ Use the read-only URL as `config_postgres_url`, rather than configuring only a n
 </details>
 
 <details>
+<summary><strong>How do I select a database pool or read-replica using `?db=`?</strong></summary>
+
+Atom supports connecting to multiple PostgreSQL connection pools or read-replicas configured via environment variables (`config_postgres_url_<name>`).
+
+Read endpoints (such as `/public/object-read`, `/my/object-read`, `/my/profile`, `/my/message-thread`, `/admin/object-read`, etc.) accept the optional **`?db=<name>`** query parameter.
+
+**How it works in Python:**
+Routers resolve database targets cleanly using `func_postgres_db_select`:
+
+```python
+client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(
+    app_state=app_state, db=oq["db"]
+)
+```
+
+- If `db` is omitted (`None`), it defaults to primary `app_state.client_postgres`.
+- If `db` is specified (e.g., `?db=read_india`), it resolves `client_postgres_dict["read_india"]`.
+- If `db` does not exist in `client_postgres_dict`, it raises a clear error: `database pool '<name>' not found`.
+- For hybrid endpoints like `/my/message-thread` or `/my/object-read`, `SELECT` queries run on the selected `client_postgres` pool, while state updates (like `read_at`) execute safely on primary `app_state.client_postgres`.
+
+Example API calls:
+```bash
+curl "http://localhost:8000/my/profile?db=read" \
+  -H "Authorization: Bearer <access-token>"
+```
+```bash
+curl "http://localhost:8000/public/object-read?db=read_india&table=products&limit=20"
+```
+
+</details>
+
+<details>
 <summary><strong>Will automatic schema initialization delete or alter existing database objects?</strong></summary>
 
 It can. When `config_is_enable_postgres_schema_init = 1`, startup compares `config_postgres` with the live schema and applies configured tables, columns, constraints, indexes, extensions, and triggers. The `config_postgres["control"]` flags determine whether missing tables or columns may be dropped and whether mismatched column types may be recreated.
