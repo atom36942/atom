@@ -87,7 +87,6 @@ async def func_lifespan(app:"FastAPI"):
 
 # app
 app = func_app_fastapi_create(config_is_debug=config_is_debug, lifespan=func_lifespan)
-# state
 func_app_state_add(app=app, data_dict=globals(), prefixes=("func_", "config_"))
 func_app_router_add(app=app, router_dir=os.path.join(os.path.dirname(__file__), "router"), router_order={"index": 0, "auth": 1, "my": 2, "public": 3, "private": 4, "admin": 5})
 func_app_static_add(app=app)
@@ -96,12 +95,12 @@ func_sentry_init(config_sentry_dsn=config_sentry_dsn)
 # middleware
 @app.middleware("http")
 async def middleware(request, api_function):
-    #request init
+    #start
     if request.method == "OPTIONS": return await api_function(request)
     start, error, response_type, request.state.user = time.perf_counter(), None, "direct_no_cache_set", {}
     app_state = request.app.state
     try:
-        # route config
+        # config
         route = request.scope.get("route")
         path = request.url.path
         route_path = getattr(route, "path", None) or path
@@ -112,19 +111,18 @@ async def middleware(request, api_function):
         user_check_deleted = api_cfg.get("user_check_deleted")
         rate_limit = api_cfg.get("rate_limit")
         cache = api_cfg.get("cache")
-        # authentication
+        # token
         request.state.user = await app_state.func_token_decode(headers=request.headers, config_token_secret_key=app_state.config_token_secret_key)
+        # checks
         await app_state.func_middleware_check_token(user_dict=request.state.user, url_path=path, is_token_check=is_token_check, user_check_role=user_check_role, user_check_deactivated=user_check_deactivated, user_check_deleted=user_check_deleted)
-        # authorization
         await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role=user_check_role, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis_user_state, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, user_check_deactivated=user_check_deactivated, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis_user_state, cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, user_check_deleted=user_check_deleted, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis_user_state, cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
-        # rate limiting
         await app_state.func_middleware_check_ratelimiter(client_redis=app_state.client_redis_ratelimiter, rate_limit=rate_limit, url_path=path, identifier=request.state.user.get("id") if request.state.user else request.client.host, cache_ratelimiter=app_state.cache_ratelimiter)
-        # api cache
+        # cache
         user_id, query_params = (request.state.user.get("id") if request.state.user else 0), dict(request.query_params)
         response = await app_state.func_middleware_api_cache(mode="get", path=path, query_params=query_params, cache=cache, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response)
-        # api execution
+        # execution
         if not response:
             if query_params.get("is_background") == "1":
                 response_type = "background_added"
@@ -135,7 +133,7 @@ async def middleware(request, api_function):
                 if getattr(response, "is_cache_set", False): response_type = "direct_cache_set"
         else:
             response_type = "cache_response"
-    # error response
+    # error
     except Exception as e:
         response_type = "error"
         error, response = await app_state.func_middleware_api_response_error(exception=e, is_traceback=1, sentry_dsn=app_state.config_sentry_dsn)
