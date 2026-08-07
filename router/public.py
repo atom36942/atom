@@ -122,3 +122,18 @@ async def func_api_public_table_distinct(*, request: Request):
     async with client_postgres.acquire() as conn:
         rows = await conn.fetch(f'SELECT DISTINCT "{oq["col"]}" AS value FROM "{oq["table"]}" LIMIT $1', oq["limit"])
     return {"status": 1, "message": [row["value"] for row in rows]}
+
+@router.post("/public/blob-upload-file")
+async def func_api_public_blob_upload_file(*, request: Request):
+    app_state = request.app.state
+    of = await app_state.func_request_param_read(request=request, mode="form", strict=0, param_specs=[{"name": "service", "type": "str", "required": 1, "allowed": app_state.config_blob_services, "default": None}, {"name": "container", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "file", "type": "file", "required": 1, "allowed": None, "default": None}])
+    res = await app_state.func_blob_upload_file(app_state=app_state, service=of["service"], container=of["container"], files=of["file"], user_id=request.state.user.get("id"))
+    return {"status": 1, "message": res}
+
+@router.post("/public/blob-upload-url")
+async def func_api_public_blob_upload_url(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "service", "type": "str", "required": 1, "allowed": app_state.config_blob_services, "default": None}, {"name": "container", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "count", "type": "int", "required": 0, "allowed": None, "default": 1}])
+    res = await app_state.func_blob_upload_url(app_state=app_state, service=oq["service"], container=oq["container"], count=oq["count"], user_id=request.state.user.get("id"))
+    return {"status": 1, "message": res}
+

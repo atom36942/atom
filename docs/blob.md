@@ -26,7 +26,7 @@ This ownership + soft-delete tracking is what powers per-user cleanup and the re
 
 ## Uploading
 
-### Direct upload — `POST /private/blob-upload-file`
+### Direct upload — `POST /private/blob-upload-file` / `POST /public/blob-upload-file`
 Multipart form: `service`, `container`, and one or more `file`s. The server streams the file(s) to the backend and records `blob` rows.
 
 ```bash
@@ -37,7 +37,7 @@ curl -X POST "http://localhost:8000/private/blob-upload-file" \
 
 - Enforces `config_blob_limit_size_kb` (per file) and `config_blob_limit_upload` (file count).
 
-### Presigned upload — `POST /private/blob-upload-url`
+### Presigned upload — `POST /private/blob-upload-url` / `POST /public/blob-upload-url`
 Query: `service`, `container`, `count`. Returns `count` presigned URLs the **client** uploads to directly (offloading bandwidth from the server). URLs expire after `config_blob_expire_sec_upload`.
 
 ### Azure container SAS — `POST /private/blob-container-sas`
