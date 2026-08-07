@@ -83,7 +83,7 @@ config_table_my_create_disable = ["users", "log_api", "log_users_password", "otp
 config_table_my_delete_all_enable = ["test"]
 config_table_my_delete_all_received_enable = ["message","notification"]
 config_table_public_create_enable = ["test"]
-config_table_public_read_enable = ["*"]
+config_table_public_read_enable = ["test"]
 
 # Column
 config_column_token_encode = ["id", "role", "username", "id_ext" ,"deactivated_at", "deleted_at"]
