@@ -79,7 +79,7 @@ Request
 | Error handling | `func_middleware_api_response_error` |
 | API log buffer | `func_postgres_create` (`mode="buffer"`, `table="log_api"`) |
 
-The interval flush of buffered logs/writes runs in the `pulse_flush` loop started by the lifespan in `main.py`.
+The interval flush of buffered logs/writes runs in the `func_postgres_buffer_flush_periodic_task` background task started by the lifespan in `main.py`.
 
 ## Tech Stack
 

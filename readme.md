@@ -123,8 +123,22 @@ curl "http://localhost:8000/my/object-read?table=test" \
 
 All configuration defaults live in `config.py`. Override settings without editing core files:
 
-1. **Environment Variables (`.env`)** — For secrets and database strings (e.g. `config_postgres_url`, `config_redis_url`).
+1. **Environment Variables (`.env`)** — For secrets and database connection strings.
 2. **`config_extend.py`** — Drop-in module for programmatic configuration overrides.
+
+### Sample `.env`
+
+```env
+config_postgres_url=postgresql://atom:123456@127.0.0.1:5432/postgres?sslmode=disable
+config_postgres_url_read=postgresql://atom:123456@read-replica:5432/postgres?sslmode=disable
+config_redis_url=redis://localhost:6379
+config_redis_url_ratelimiter=redis://localhost:6379/1
+config_redis_url_queue=redis://localhost:6379
+config_mongodb_url=mongodb://localhost:27017
+config_clickhouse_url=https://default:password@clickhouse.example.com:8443/default
+config_rabbitmq_url=amqp://guest:guest@localhost:5672
+config_celery_url=redis://localhost:6379
+```
 
 📖 See **[config.md](docs/config.md)** for the complete configuration reference.
 

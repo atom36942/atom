@@ -41,7 +41,7 @@ When `config_is_enable_postgres_schema_init = 1` and Postgres is present, `func_
 ### 5. Cache building
 To keep the request path fast, several read-mostly datasets are loaded into memory once at startup:
 
-- **Schema caches** — `cache_postgres_schema` (+ an AI-oriented variant), plus derived `..._table_list` and `..._column_list`. These let routers validate table/column names without hitting the DB.
+- **Schema caches** — `cache_postgres_schema` (+ an AI-oriented variant), and multi-DB schema dicts. These let routers validate table/column names dynamically without hitting the DB.
 - **Data caches** — `cache_config` (the `config` table), and `cache_users_role` / `cache_users_deactivated` / `cache_users_deleted`, which back the middleware's `inmemory`-mode auth checks.
 - **Empty runtime caches** — `cache_ratelimiter`, `cache_api_response`, `cache_postgres_buffer_create` (the general write buffer), and `cache_postgres_buffer_log_api` (the dedicated API-log buffer) start empty and fill during operation.
 
@@ -60,7 +60,7 @@ See [buffer.md](buffer.md) for the full buffering lifecycle and API examples.
 
 ## `yield` — Serving
 
-Between startup and shutdown the app handles requests. Handlers read clients/caches off `app.state`; the middleware records API logs into the buffer that `func_postgres_buffers_flush_periodic` drains.
+Between startup and shutdown the app handles requests. Handlers read clients/caches off `app.state`; the middleware records API logs into the buffer that `func_postgres_buffer_flush_periodic_task` drains.
 
 ---
 

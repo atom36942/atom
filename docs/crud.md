@@ -34,7 +34,7 @@ POST /my/object-create?table=test
 - Accepts a single object **or** an `obj_list`; capped at `config_batch_item_limit`.
 - Values are serialized/validated against the schema (types, `regex`, mandatory columns).
 - The `my` endpoint injects `created_by_id` from the token; server-managed columns in `config_column_admin` are rejected if a client sends them.
-- **`mode`** query param: `now` writes immediately; `buffer` appends to the in-memory buffer flushed by `pulse_flush` (see [lifespan.md](lifespan.md)) — use `buffer` for high-volume, low-urgency inserts.
+- **`mode`** query param: `now` writes immediately; `buffer` appends to the in-memory buffer flushed by `func_postgres_buffer_flush_periodic_task` (see [lifespan.md](lifespan.md)) — use `buffer` for high-volume, low-urgency inserts.
 - Optional **`queue`** param routes the create through Redis/RabbitMQ/Kafka/Celery to a background consumer instead of writing inline.
 
 For the complete `mode=buffer` lifecycle—including automatic cache creation, limits, periodic flushes, and shutdown behavior—see [buffer.md](buffer.md).
