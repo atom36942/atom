@@ -79,12 +79,8 @@ async def func_lifespan(app:"FastAPI"):
     # shutdown
     yield
     try:
-        # stop background tasks
         await app.state.func_app_tasks_stop(app_state=app.state)
-        # postgres buffer flush final
-        if not app.state.config_is_read_only:
-            await app.state.func_postgres_buffer_flush_all(app_state=app.state, client_postgres=client_postgres, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log_api=client_postgres_log_api, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api)
-        # client disconnect
+        if not app.state.config_is_read_only:await app.state.func_postgres_buffer_flush_all(app_state=app.state, client_postgres=client_postgres, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log_api=client_postgres_log_api, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api)
         await func_client_close(app_state=app.state)
     except Exception as e:
         print(f"❌ shutdown error: {e}")
