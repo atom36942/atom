@@ -19,8 +19,6 @@ async def func_lifespan(app:"FastAPI"):
         # start
         start_journey = time.perf_counter()
         app.state.runtime_background_tasks = set()
-        app.state.postgres_buffer_flush_task = None
-        app.state.inmemory_cache_cleanup_task = None
         postgres_pool_kwargs = {"min_size": app.state.config_postgres_pool_min_size, "max_size": app.state.config_postgres_pool_max_size, "is_read_only": app.state.config_is_read_only}
         aws_kwargs = {"aws_access_key_id": app.state.config_aws_access_key_id, "aws_secret_access_key": app.state.config_aws_secret_access_key}
         cache_api_response = {}
@@ -71,7 +69,7 @@ async def func_lifespan(app:"FastAPI"):
         # func calls
         func_app_state_add(app=app, data_dict={**globals(), **locals()}, prefixes=("client_", "cache_"))
         app.state.cache_openapi = app.state.func_openapi_spec_generate(app_routes=app.routes, app_state=app.state)
-        # start periodic tasks
+        # periodic tasks
         app.state.postgres_buffer_flush_lock = asyncio.Lock()
         if not app.state.config_is_read_only: app.state.postgres_buffer_flush_task = asyncio.create_task(app.state.func_postgres_buffer_flush_periodic_task(app_state=app.state, client_postgres=client_postgres, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log_api=client_postgres_log_api, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api, interval_sec=app.state.config_postgres_buffer_flush_auto_sec))
         app.state.inmemory_cache_cleanup_task = asyncio.create_task(app.state.func_inmemory_cache_cleanup_periodic_task(cache_api_response=cache_api_response, cache_ratelimiter=cache_ratelimiter, interval_sec=app.state.config_inmemory_cache_cleanup_auto_sec))
