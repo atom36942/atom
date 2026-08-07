@@ -68,8 +68,8 @@ Between startup and shutdown the app handles requests. Handlers read clients/cac
 
 Runs in reverse spirit of startup — drain, then disconnect — all wrapped so a failure in one step still lets the rest proceed.
 
-### 1. Stop background work
-Calls `func_async_tasks_cancel` for tracked `runtime_background_tasks` and `postgres_buffer_flush_task`, cancelling each group and waiting up to 5 seconds for clean completion.
+### 1. Stop background tasks (`func_app_tasks_stop`)
+Calls `func_app_tasks_stop` to cancel tracked `runtime_background_tasks` and periodic system tasks (`postgres_buffer_flush_task`, `inmemory_cache_cleanup_task`), waiting up to 5 seconds for clean completion.
 
 ### 2. Final buffer flush (`func_postgres_buffer_flush_all`)
 Calls `func_postgres_buffer_flush_all` for the primary and API-log buffers. It acquires `postgres_buffer_flush_lock` and delegates to `func_postgres_create(mode="flush")`, so records accumulated since the last periodic flush are persisted before disconnect.

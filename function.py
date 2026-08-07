@@ -2689,6 +2689,12 @@ async def func_async_tasks_cancel(*, task_list: list, timeout_sec: int = 5) -> N
     if task_list: await asyncio.wait(task_list, timeout=timeout_sec)
     return None
 
+async def func_app_tasks_stop(*, app_state: any, timeout_sec: int = 5) -> None:
+    """Cancel all runtime background tasks and periodic system tasks on app_state."""
+    runtime_tasks = list(getattr(app_state, "runtime_background_tasks", set()))
+    periodic_tasks = [getattr(app_state, "postgres_buffer_flush_task", None), getattr(app_state, "inmemory_cache_cleanup_task", None)]
+    await app_state.func_async_tasks_cancel(task_list=runtime_tasks + periodic_tasks, timeout_sec=timeout_sec)
+
 async def func_postgres_read(*, client_postgres: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
     import re

@@ -79,15 +79,8 @@ async def func_lifespan(app:"FastAPI"):
     # shutdown
     yield
     try:
-        # stop runtime background tasks
-        runtime_background_tasks = getattr(app.state, "runtime_background_tasks", set())
-        if runtime_background_tasks:
-            await app.state.func_async_tasks_cancel(task_list=list(runtime_background_tasks), timeout_sec=5)
-        # stop periodic tasks
-        postgres_buffer_flush_task = getattr(app.state, "postgres_buffer_flush_task", None)
-        if postgres_buffer_flush_task: await app.state.func_async_tasks_cancel(task_list=[postgres_buffer_flush_task], timeout_sec=5)
-        inmemory_cache_cleanup_task = getattr(app.state, "inmemory_cache_cleanup_task", None)
-        if inmemory_cache_cleanup_task: await app.state.func_async_tasks_cancel(task_list=[inmemory_cache_cleanup_task], timeout_sec=5)
+        # stop background tasks
+        await app.state.func_app_tasks_stop(app_state=app.state)
         # postgres buffer flush final
         if not app.state.config_is_read_only:
             await app.state.func_postgres_buffer_flush_all(app_state=app.state, client_postgres=client_postgres, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log_api=client_postgres_log_api, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api)
