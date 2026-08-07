@@ -2642,28 +2642,32 @@ async def func_postgres_create(*, client_postgres: any, client_postgres_conn: an
         async with client_postgres.acquire() as conn:
             return await _execute_now(conn)
 
-async def func_postgres_buffer_flush(*, app_state: any, client_postgres: any, cache_postgres_buffer: dict) -> any:
-    """Flush one PostgreSQL create buffer through its selected client pool."""
-    if not client_postgres: return None
-    async with app_state.postgres_buffer_flush_lock:
-        return await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=None, func_postgres_serialize=None, func_regex_check=None, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=cache_postgres_buffer, config_regex=None, buffer_limit=None, mode="flush", table=None, obj_list=None)
+async def func_postgres_buffer_flush_all(*, app_state: any, client_postgres: any = None, cache_postgres_buffer_create: dict = None, client_postgres_log_api: any = None, cache_postgres_buffer_log_api: dict = None) -> None:
+    """Flush all PostgreSQL create buffers through their respective client pools."""
+    if client_postgres and cache_postgres_buffer_create:
+        try:
+            async with app_state.postgres_buffer_flush_lock:
+                await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=None, func_postgres_serialize=None, func_regex_check=None, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=cache_postgres_buffer_create, config_regex=None, buffer_limit=None, mode="flush", table=None, obj_list=None)
+        except Exception as e: print(f"❌ primary buffer flush error: {e}")
+    if client_postgres_log_api and cache_postgres_buffer_log_api:
+        try:
+            async with app_state.postgres_buffer_flush_lock:
+                await app_state.func_postgres_create(client_postgres=client_postgres_log_api, client_postgres_conn=None, client_password_hasher=None, func_postgres_serialize=None, func_regex_check=None, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=cache_postgres_buffer_log_api, config_regex=None, buffer_limit=None, mode="flush", table=None, obj_list=None)
+        except Exception as e: print(f"❌ log api buffer flush error: {e}")
 
-async def func_postgres_buffers_flush_periodic(*, app_state: any, client_postgres: any, cache_postgres_buffer_create: dict, client_postgres_log_api: any, cache_postgres_buffer_log_api: dict, interval_sec: int = 60) -> None:
-    """Periodically flush the primary and API-log PostgreSQL buffers."""
+async def func_postgres_buffer_flush_periodic_task(*, app_state: any, client_postgres: any, cache_postgres_buffer_create: dict, client_postgres_log_api: any, cache_postgres_buffer_log_api: dict, interval_sec: int = 60) -> None:
+    """Periodically flush all PostgreSQL buffers in a background task loop."""
     import asyncio
     while True:
         try:
             await asyncio.sleep(interval_sec)
-            try: await app_state.func_postgres_buffer_flush(app_state=app_state, client_postgres=client_postgres, cache_postgres_buffer=cache_postgres_buffer_create)
-            except Exception as e: print(f"❌ primary buffer flush error: {e}")
-            try: await app_state.func_postgres_buffer_flush(app_state=app_state, client_postgres=client_postgres_log_api, cache_postgres_buffer=cache_postgres_buffer_log_api)
-            except Exception as e: print(f"❌ log api buffer flush error: {e}")
+            await app_state.func_postgres_buffer_flush_all(app_state=app_state, client_postgres=client_postgres, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log_api=client_postgres_log_api, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api)
         except asyncio.CancelledError: break
-        except Exception as e: print(f"❌ periodic postgres buffer flush error: {e}")
+        except Exception as e: print(f"❌ periodic postgres buffer flush task error: {e}")
     return None
 
-async def func_inmemory_cache_cleanup_periodic(*, cache_api_response: dict, cache_ratelimiter: dict, interval_sec: int = 300) -> None:
-    """Periodically purges expired items from in-memory cache and ratelimiter dictionaries."""
+async def func_inmemory_cache_cleanup_periodic_task(*, cache_api_response: dict, cache_ratelimiter: dict, interval_sec: int = 300) -> None:
+    """Periodically purges expired items from in-memory cache and ratelimiter dictionaries in a background task loop."""
     import asyncio, time
     while True:
         try:
@@ -2674,7 +2678,7 @@ async def func_inmemory_cache_cleanup_periodic(*, cache_api_response: dict, cach
             expired_rl_keys = [k for k, v in cache_ratelimiter.items() if isinstance(v, dict) and v.get("expire_at", 0) <= now]
             for k in expired_rl_keys: cache_ratelimiter.pop(k, None)
         except asyncio.CancelledError: break
-        except Exception as e: print(f"❌ in-memory cache cleanup error: {e}")
+        except Exception as e: print(f"❌ in-memory cache cleanup task error: {e}")
     return None
 
 async def func_async_tasks_cancel(*, task_list: list, timeout_sec: int = 5) -> None:

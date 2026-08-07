@@ -39,7 +39,7 @@ The names begin with `cache_` so lifespan automatically registers them on `app.s
 | `buffer` | Validate and serialize records, then append them to an in-memory buffer. |
 | `flush` | Insert every pending group from the supplied buffer and clear successful groups. |
 
-API callers can select `now` or `buffer`. The `flush` mode is internal and is invoked through `func_postgres_buffer_flush`.
+API callers can select `now` or `buffer`. The `flush` mode is internal and is invoked through `func_postgres_buffer_flush_all`.
 
 ## Buffer a create request
 
@@ -208,27 +208,20 @@ Lifespan creates one shared lock and one periodic task:
 ```python
 app.state.postgres_buffer_flush_lock = asyncio.Lock()
 app.state.postgres_buffer_flush_task = asyncio.create_task(
-    app.state.func_postgres_buffers_flush_periodic(...)
+    app.state.func_postgres_buffer_flush_periodic_task(..., interval_sec=app.state.config_postgres_buffer_flush_auto_sec)
 )
 ```
 
-`func_postgres_buffers_flush_periodic` waits 60 seconds, then calls `func_postgres_buffer_flush` separately for:
+`func_postgres_buffer_flush_periodic_task` waits `config_postgres_buffer_flush_auto_sec` (default 60s), then calls `func_postgres_buffer_flush_all` for:
 
 ```text
 client_postgres + cache_postgres_buffer_create
 client_postgres_log_api + cache_postgres_buffer_log_api
 ```
 
-`func_postgres_buffer_flush` owns the client-availability check:
+`func_postgres_buffer_flush_all` acquires `postgres_buffer_flush_lock` and invokes `func_postgres_create(mode="flush")` for all active buffers.
 
-```python
-if not client_postgres:
-    return None
-```
-
-It then acquires `postgres_buffer_flush_lock` and invokes `func_postgres_create(mode="flush")` for the supplied buffer.
-
-The first periodic flush happens approximately 60 seconds after startup. Starting the periodic task does not immediately flush anything.
+The first periodic flush happens after the configured interval (`config_postgres_buffer_flush_auto_sec`). Starting the periodic task does not immediately flush anything.
 
 ## Graceful shutdown
 

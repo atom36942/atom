@@ -51,8 +51,8 @@ Every local variable named `client_*` or `cache_*` is bulk-assigned onto `app.st
 ### 7. OpenAPI generation
 `func_openapi_spec_generate` builds the OpenAPI spec from the live routes and stores it as `cache_openapi`, served at `/openapi.json`.
 
-### 8. Periodic buffer flush (`func_postgres_buffers_flush_periodic`)
-Starts `func_postgres_buffers_flush_periodic` as `postgres_buffer_flush_task`. Every **60 seconds**, it calls `func_postgres_buffer_flush` separately for the primary general buffer and the dedicated API-log buffer. The single-buffer helper acquires `postgres_buffer_flush_lock` and delegates to `func_postgres_create(mode="flush")`. Logs use primary when `config_postgres_db_log_api=None`, or the matching named pool otherwise. Primary and log failures are isolated so one failed destination does not block the other.
+### 8. Periodic buffer flush (`func_postgres_buffer_flush_periodic_task`)
+Starts `func_postgres_buffer_flush_periodic_task` as `postgres_buffer_flush_task`. Every `config_postgres_buffer_flush_auto_sec` (default 60s), it calls `func_postgres_buffer_flush_all` for the primary general buffer and the dedicated API-log buffer. The helper acquires `postgres_buffer_flush_lock` and delegates to `func_postgres_create(mode="flush")`. Logs use primary when `config_postgres_db_log_api=None`, or the matching named pool otherwise. Primary and log failures are isolated so one failed destination does not block the other.
 
 See [buffer.md](buffer.md) for the full buffering lifecycle and API examples.
 
@@ -71,8 +71,8 @@ Runs in reverse spirit of startup — drain, then disconnect — all wrapped so 
 ### 1. Stop background work
 Calls `func_async_tasks_cancel` for tracked `runtime_background_tasks` and `postgres_buffer_flush_task`, cancelling each group and waiting up to 5 seconds for clean completion.
 
-### 2. Final buffer flush
-Calls `func_postgres_buffer_flush` separately for the primary and API-log buffers. Each call acquires `postgres_buffer_flush_lock` and delegates to `func_postgres_create(mode="flush")`, so records accumulated since the last periodic flush are persisted before disconnect.
+### 2. Final buffer flush (`func_postgres_buffer_flush_all`)
+Calls `func_postgres_buffer_flush_all` for the primary and API-log buffers. It acquires `postgres_buffer_flush_lock` and delegates to `func_postgres_create(mode="flush")`, so records accumulated since the last periodic flush are persisted before disconnect.
 
 ### 3. Close every client
 Gracefully disconnects all initialized clients — HTTP, the primary and every named Postgres pool, Redis, MongoDB, MSSQL, S3/SNS/SES, OpenAI/Gemini, PostHog (shutdown + flush), Kafka (stop), RabbitMQ channel + connection, Redis producer, SFTP, and Azure Blob/Email — each guarded by a presence/capability check so `None` or already-closed clients are skipped.
