@@ -10,7 +10,7 @@ router = APIRouter()
 async def func_api_my_profile(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}])
-    client_postgres = app_state.client_postgres if oq["db"] is None else app_state.client_postgres_dict[oq["db"]]
+    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     if not client_postgres: raise Exception("postgres client not initialized")
     user_id = request.state.user["id"]
     user = await app_state.func_user_read_single(client_postgres=client_postgres, user_id=user_id)
@@ -37,7 +37,7 @@ async def func_api_my_token_refresh(*, request: Request):
 async def func_api_my_api_usage(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}, {"name": "days", "type": "int", "required": 1, "allowed": None, "default": None}])
-    client_postgres = app_state.client_postgres if oq["db"] is None else app_state.client_postgres_dict[oq["db"]]
+    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     if not client_postgres: raise Exception("postgres client not initialized")
     sql = "SELECT path AS api, count(*) FROM log_api WHERE created_at >= NOW() - ($1 * INTERVAL '1 day') AND created_by_id=$2 GROUP BY path LIMIT 1000;"
     async with client_postgres.acquire() as conn:
@@ -63,13 +63,14 @@ async def func_api_my_object_create(*, request: Request):
 @router.get("/my/object-read")
 async def func_api_my_object_read(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "ownership_column", "type": "str", "required": 0, "allowed": app_state.config_column_ownership, "default": "created_by_id"}, {"name": "limit", "type": "int", "required": 0, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": 0, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": 0, "allowed": None, "default": "id desc"}, {"name": "column", "type": "str", "required": 0, "allowed": None, "default": "*"}, {"name": "relation", "type": "list", "required": 0, "allowed": None, "default": []}, {"name": "filter", "type": "list", "required": 0, "allowed": None, "default": []}])
-    schema_cols = app_state.cache_postgres_schema.get(oq["table"], {})
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "ownership_column", "type": "str", "required": 0, "allowed": app_state.config_column_ownership, "default": "created_by_id"}, {"name": "limit", "type": "int", "required": 0, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": 0, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": 0, "allowed": None, "default": "id desc"}, {"name": "column", "type": "str", "required": 0, "allowed": None, "default": "*"}, {"name": "relation", "type": "list", "required": 0, "allowed": None, "default": []}, {"name": "filter", "type": "list", "required": 0, "allowed": None, "default": []}])
+    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
+    if not client_postgres: raise Exception("postgres client not initialized")
+    schema_cols = cache_postgres_schema.get(oq["table"], {})
     if oq["ownership_column"] == "user_id" and "id" in schema_cols and "read_at" in schema_cols and not app_state.client_postgres: raise Exception("postgres client not initialized")
     if oq["ownership_column"] not in schema_cols: raise Exception(f"table '{oq['table']}' lacks ownership column '{oq['ownership_column']}'")
     filters = oq["filter"] + [f"""{oq["ownership_column"]} = {request.state.user["id"]}"""]
-    ol = await app_state.func_postgres_read(client_postgres=app_state.client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=app_state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
+    ol = await app_state.func_postgres_read(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
     if oq["ownership_column"] == "user_id" and "id" in schema_cols and "read_at" in schema_cols: app_state.func_postgres_mark_read(client_postgres=app_state.client_postgres, table=oq["table"], ownership_column=oq["ownership_column"], user_id=request.state.user["id"], ids=[r.get("id") for r in ol if isinstance(r, dict)])
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 
@@ -154,7 +155,7 @@ async def func_api_my_received_object_delete_all(*, request: Request):
 async def func_api_my_message_inbox(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}, {"name": "mode", "type": "str", "required": 1, "allowed": ["all", "unread", "read"], "default": None}, {"name": "order", "type": "str", "required": 0, "allowed": None, "default": "id desc"}, {"name": "limit", "type": "int", "required": 0, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": 0, "allowed": None, "default": 1}])
-    client_postgres = app_state.client_postgres if oq["db"] is None else app_state.client_postgres_dict[oq["db"]]
+    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     if not client_postgres: raise Exception("postgres client not initialized")
     where_clause = {"read": "user_id=$1 AND read_at IS NOT NULL", "unread": "user_id=$1 AND read_at IS NULL"}.get(oq["mode"], "1=1")
     sql = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
@@ -165,12 +166,14 @@ async def func_api_my_message_inbox(*, request: Request):
 @router.get("/my/message-thread")
 async def func_api_my_message_thread(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "user_id", "type": "int", "required": 1, "allowed": None, "default": None}, {"name": "order", "type": "str", "required": 0, "allowed": None, "default": "id desc"}, {"name": "limit", "type": "int", "required": 0, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": 0, "allowed": None, "default": 1}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}, {"name": "user_id", "type": "int", "required": 1, "allowed": None, "default": None}, {"name": "order", "type": "str", "required": 0, "allowed": None, "default": "id desc"}, {"name": "limit", "type": "int", "required": 0, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": 0, "allowed": None, "default": 1}])
+    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
+    if not client_postgres or not app_state.client_postgres: raise Exception("postgres client not initialized")
     user_one_id = request.state.user["id"]
     sql = f"SELECT * FROM message WHERE ((created_by_id=$1 AND user_id=$2) OR (created_by_id=$2 AND user_id=$1)) ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
-    async with app_state.client_postgres.acquire() as conn:
+    async with client_postgres.acquire() as conn:
         ol = [dict(r) for r in await conn.fetch(sql, user_one_id, oq["user_id"])]
+    async with app_state.client_postgres.acquire() as conn:
         await conn.execute("UPDATE message SET read_at=now() WHERE created_by_id=$1 AND user_id=$2;", oq["user_id"], user_one_id)
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 

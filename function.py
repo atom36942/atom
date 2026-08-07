@@ -1281,6 +1281,18 @@ async def func_postgres_schema_read_ai(*, client_postgres: any) -> dict:
         }
     return schema
 
+def func_postgres_db_select(*, app_state: any, db: str = None) -> tuple:
+    """Select target PostgreSQL client, schema, and AI schema caches by database pool name."""
+    if db is None:
+        return app_state.client_postgres, app_state.cache_postgres_schema, app_state.cache_postgres_schema_ai
+    if not app_state.client_postgres_dict or db not in app_state.client_postgres_dict:
+        raise Exception(f"database pool '{db}' not found")
+    return (
+        app_state.client_postgres_dict[db],
+        app_state.cache_postgres_schema_dict.get(db, {}),
+        app_state.cache_postgres_schema_ai_dict.get(db, {}),
+    )
+
 async def func_postgres_info_read(*, client_postgres: any) -> dict:
     """Read comprehensive PostgreSQL database statistics, storage, activity, and schema information."""
     async with client_postgres.acquire() as conn:
@@ -2253,22 +2265,24 @@ async def func_postgres_map_column(*, client_postgres: any, config_sql: str, is_
         output[r[0]] = value
     return output
 
-async def func_postgres_import(*, app_state: any, mode: str, table: str, file: any) -> str:
+async def func_postgres_import(*, app_state: any, mode: str, table: str, file: any, client_postgres: any = None, cache_postgres_schema: dict = None) -> str:
     """Imports, updates, or deletes records in PostgreSQL from a CSV upload file in batches."""
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
+    client_postgres = client_postgres or app_state.client_postgres
+    cache_postgres_schema = cache_postgres_schema if cache_postgres_schema is not None else app_state.cache_postgres_schema
+    if not client_postgres: raise Exception("postgres client not initialized")
     if mode == "delete" and table == "users" and app_state.config_is_enable_user_delete != 1: raise Exception("users hard delete disabled")
     count = 0
-    async with app_state.client_postgres.acquire() as conn:
+    async with client_postgres.acquire() as conn:
         async with conn.transaction():
             async for ol in func_api_file_to_chunks(upload_file=file, chunk_size=5000):
                 if not ol: continue
                 if mode in ("update", "delete") and any("id" not in obj for obj in ol): raise Exception(f"CSV format error: Postgres {mode} requires 'id' column")
                 if mode == "create":
-                    await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table=table, obj_list=ol)
+                    await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table=table, obj_list=ol)
                 elif mode == "update":
-                    await app_state.func_postgres_update(client_postgres=app_state.client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, config_regex=app_state.config_regex, table=table, obj_list=ol, created_by_id=None)
+                    await app_state.func_postgres_update(client_postgres=client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=cache_postgres_schema, config_regex=app_state.config_regex, table=table, obj_list=ol, created_by_id=None)
                 elif mode == "delete":
-                    await app_state.func_postgres_delete(client_postgres=app_state.client_postgres, client_postgres_conn=conn, cache_postgres_schema=app_state.cache_postgres_schema, table=table, ids=[obj["id"] for obj in ol], created_by_id=None)
+                    await app_state.func_postgres_delete(client_postgres=client_postgres, client_postgres_conn=conn, cache_postgres_schema=cache_postgres_schema, table=table, ids=[obj["id"] for obj in ol], created_by_id=None)
                 count += len(ol)
     return f"{count} rows processed"
 
