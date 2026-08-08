@@ -1,22 +1,33 @@
-# 🧱 Object APIs
+# 🗃️ Generic CRUD & Object APIs
 
-Atom provides reusable object APIs for creating, reading, updating, and deleting rows without writing a route for every table. The same database functions sit behind three access tiers: `public`, `my`, and `admin`.
+Atom's core database capability allows you to **create, read, update, and delete rows across any database table without writing per-table endpoint boilerplate**. You supply the `table` name along with payload data or query parameters, and the framework validates against the active schema, builds bound SQL queries safely, and returns standard responses.
 
-## Which API should I use?
+The generic CRUD engine consists of pure functions in [`function.py`](../function.py):
+- **`func_postgres_create`** — Row insertion engine (supports single objects, batch `obj_list`, buffered writes, and background queue routing).
+- **`func_postgres_read`** — Query engine with dynamic filtering, sorting, pagination, and relational joins.
+- **`func_postgres_where_build`** — SQL `WHERE` clause builder with parameter binding and rich filter operators.
+- **`func_postgres_relation`** — Relational join engine (avoids N+1 query overhead).
+- **`func_postgres_update`** — Row update engine with ownership verification and column safeguards.
+- **`func_postgres_delete`** — Row deletion engine with protected row guards and table-level controls.
+- **`func_postgres_groupby_read`** — Group-by aggregation engine (`/public/table-groupby`).
 
-| Tier | Authentication | Data scope | Operations |
-|------|----------------|------------|------------|
-| `/public` | Normally none | Tables explicitly allowed by public configuration | Create, read |
-| `/my` | Bearer token | Rows owned by the current user | Create, read, update, delete |
-| `/admin` | Admin bearer token | Any permitted row in the selected table | Create, read, update, delete |
+Endpoints in `router/public.py`, `router/my.py`, and `router/admin.py` wrap these functions across three distinct access tiers.
 
-`public` intentionally has no generic update or delete endpoint. Use `/my` for normal application data owned by a user and reserve `/admin` for trusted management workflows.
+---
 
-All examples assume Atom is running at `http://localhost:8000`, Postgres is configured, and the shipped `test` table is available.
+## 🏛️ Access Tiers & Permission Scopes
 
-## Common response format
+| Tier | Endpoints | Authentication | Data Scope & Permissions |
+| :--- | :--- | :--- | :--- |
+| **/public** | `/public/object-create`<br>`/public/object-read`<br>`/public/table-groupby` | None (or optional token) | Operates strictly on tables explicitly enabled in `config_table_public_create_enable` / `config_table_public_read_enable`. No update or delete endpoints exist in this tier. |
+| **/my** | `/my/object-create`<br>`/my/object-read`<br>`/my/object-update`<br>`/my/object-delete`<br>`/my/object-delete-all` | Bearer Token (Required) | Scoped strictly to rows **owned by the authenticated user** (matching `created_by_id` or `ownership_column`). |
+| **/admin** | `/admin/object-create`<br>`/admin/object-read`<br>`/admin/object-update`<br>`/admin/object-delete` | Admin Token (Role 1/2) | Unrestricted access across any table or row (bypasses ownership checks behind strict role checks). |
 
-Successful endpoints use Atom's standard envelope:
+---
+
+## 📋 Common Response Format
+
+All Object API endpoints return Atom's standard response envelope:
 
 ```json
 {
@@ -25,233 +36,188 @@ Successful endpoints use Atom's standard envelope:
 }
 ```
 
-Read operations return rows and a pagination flag:
+Read operations return rows inside `obj_list` along with a pagination flag:
 
 ```json
 {
   "status": 1,
   "message": {
-    "obj_list": [{"id": 12, "title": "First object", "type": 1}],
+    "obj_list": [
+      {"id": 12, "title": "First object", "type": 1}
+    ],
     "has_next_page": false
   }
 }
 ```
 
-## Public objects
+---
 
-Public operations are controlled by `config_table_public_create_enable` and `config_table_public_read_enable`. A table must be explicitly allowed unless the list contains `"*"`.
+## ➕ Create Operations (`func_postgres_create`)
 
-### Create a public object
+Inserts one or more rows into the target table.
 
-```bash
-curl -X POST "http://localhost:8000/public/object-create?table=test" \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Public object","type":1}'
-```
+### Endpoint Usages:
+- **`POST /public/object-create?table=<name>`**
+- **`POST /my/object-create?table=<name>`**
+- **`POST /admin/object-create?table=<name>`**
 
-Create several objects with `obj_list`:
+### Request Examples:
 
-```bash
-curl -X POST "http://localhost:8000/public/object-create?table=test" \
-  -H "Content-Type: application/json" \
-  -d '{"obj_list":[
-    {"title":"Public A","type":1},
-    {"title":"Public B","type":2}
-  ]}'
-```
-
-The table must contain `created_by_id` for ownership tracking. An anonymous request cannot supply an owner, while a request carrying a valid optional token is stamped with that user's ID. Clients cannot set fields listed in `config_column_admin`.
-
-Use `mode=buffer` only for writes that do not need to be visible immediately:
-
-```text
-POST /public/object-create?table=test&mode=buffer
-```
-
-### Read public objects
-
-```bash
-curl -G "http://localhost:8000/public/object-read" \
-  --data-urlencode "table=test" \
-  --data-urlencode "column=id,title,type,created_at" \
-  --data-urlencode 'filter=["type = 1"]' \
-  --data-urlencode "order=id desc" \
-  --data-urlencode "limit=20" \
-  --data-urlencode "page=1"
-```
-
-Public reads are not ownership-scoped. Every returned row that matches the filters is visible, so expose only suitable tables and columns. Related tables requested through `relation` must also be allowed for public reads.
-
-## My objects
-
-All `/my/object-*` requests require:
-
-```text
-Authorization: Bearer <access_token>
-```
-
-The `my` tier protects user-owned data. Creates stamp `created_by_id`; reads, updates, and deletes restrict access to rows owned by the authenticated user.
-
-### Create my object
-
+**Single Object:**
 ```bash
 curl -X POST "http://localhost:8000/my/object-create?table=test" \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
-  -d '{"title":"My private object","type":1}'
+  -d '{"title": "hello atom", "type": 1}'
 ```
 
-Do not send `created_by_id`; Atom takes it from the token. Tables listed in `config_table_my_create_disable` cannot be created through this endpoint.
-
-For asynchronous processing, add a configured queue:
-
-```text
-POST /my/object-create?table=test&queue=redis
-```
-
-Supported queue names come from `config_queue_services`. Publishing succeeds only when the matching producer is configured, and a consumer must be running to perform the database write. See [Object Queues](queue.md) for broker configuration, consumers, delivery behavior, and failure handling.
-
-### Read my objects
-
+**Batch Creation (`obj_list`):**
 ```bash
-curl -G "http://localhost:8000/my/object-read" \
+curl -X POST "http://localhost:8000/my/object-create?table=test" \
   -H "Authorization: Bearer <access_token>" \
-  --data-urlencode "table=test" \
-  --data-urlencode 'filter=["type = 1","title ilike %private%"]' \
-  --data-urlencode "order=id desc" \
-  --data-urlencode "limit=20" \
-  --data-urlencode "page=1"
+  -H "Content-Type: application/json" \
+  -d '{"obj_list": [{"title": "item A"}, {"title": "item B"}]}'
 ```
 
-Atom appends an ownership filter using `created_by_id` by default, so callers cannot read another user's rows by changing their filters. For received objects such as messages or notifications, use `ownership_column=user_id`:
+### Key Creation Options:
+- **Batch Limit**: `obj_list` size is capped by `config_batch_item_limit`.
+- **Ownership Stamping**: The `/my` tier automatically stamps `created_by_id` from the caller's JWT token. Server-managed columns in `config_column_admin` are rejected if sent by clients.
+- **Write Buffer (`mode=buffer`)**:
+  ```text
+  POST /my/object-create?table=test&mode=buffer
+  ```
+  Appends writes to the in-memory buffer flushed periodically by `func_postgres_buffer_flush_periodic_task` (see **[buffer.md](buffer.md)**).
+- **Background Queue (`queue=<provider>`)**:
+  ```text
+  POST /my/object-create?table=test&queue=redis
+  ```
+  Routes creation requests asynchronously through Redis, RabbitMQ, Kafka, or Celery queues (see **[queue.md](queue.md)**).
 
+---
+
+## 🔍 Read Operations (`func_postgres_read`)
+
+Queries rows with filtering, pagination, sorting, field selection, and relational joins.
+
+### Endpoint Usages:
+- **`GET /public/object-read`**
+- **`GET /my/object-read`**
+- **`GET /admin/object-read`**
+
+### Query Parameters:
+
+| Parameter | Purpose | Example |
+| :--- | :--- | :--- |
+| `table` | Target database table (validated against schema) | `table=test` |
+| `column` | Comma-separated columns to return (defaults to `*`) | `column=id,title,type` |
+| `filter` | JSON list of WHERE filter expressions | `filter=["type = 1", "rating >= 4"]` |
+| `order` | Sorting clause | `order=id desc` |
+| `limit` / `page` | Pagination limit and 1-based page number | `limit=20&page=1` |
+| `relation` | Relational join definitions | See **[read.md](read.md)** |
+| `ownership_column` | Scopes `/my/object-read` to received rows (e.g. `user_id`) | `ownership_column=user_id` |
+| `db` | Named PostgreSQL read pool (public/admin only) | `db=read` |
+
+### Filter Syntax & Operators (`func_postgres_where_build`):
+
+Filter strings follow `"<column> <operator> <value>"`. Values are always parameter-bound to prevent SQL injection.
+
+| Operator Group | Supported Operators | Example Syntax |
+| :--- | :--- | :--- |
+| **Comparison** | `=`, `!=`, `>`, `<`, `>=`, `<=` (or `eq`, `neq`, `gt`, `lt`, `gte`, `lte`) | `"type = 1"` |
+| **Null & Distinct** | `is`, `is not`, `is distinct from`, `is not distinct from` | `"deleted_at is null"` |
+| **Sets & Ranges** | `in`, `not in`, `between` | `"status in (1, 2)"`, `"created_at between 2024-01-01 AND 2024-12-31"` |
+| **Text Matching** | `like`, `ilike`, `~`, `~*` | `"title ilike %atom%"` |
+| **Array Columns** | `contains`, `overlap`, `any` | `"tags contains ['python']"` |
+| **JSONB Columns** | `contains`, `exists` | `"meta contains {\"role\": \"user\"}"` |
+
+Multiple filter items in the array are **AND'd** together. Use `OR` inside a single string item (e.g. `"status = 1 OR status = 2"`).
+
+### Group-By Aggregations (`/public/table-groupby`):
+Performs aggregated counts and sums grouped by a column:
 ```text
-GET /my/object-read?table=notification&ownership_column=user_id
+GET /public/table-groupby?table=test&group_by=type&aggregate_func=count
 ```
 
-The selected ownership column must exist on the table and be included in `config_column_ownership`.
+---
 
-### Update my object
+## ✏️ Update Operations (`func_postgres_update`)
 
-Each update item must include its `id`:
+Updates existing rows by `id`.
 
+### Endpoint Usages:
+- **`PUT /my/object-update?table=<name>`**
+- **`PUT /admin/object-update?table=<name>`**
+
+### Request Examples:
+
+**Single Update:**
 ```bash
 curl -X PUT "http://localhost:8000/my/object-update?table=test" \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
-  -d '{"id":12,"title":"Updated title","type":2}'
+  -d '{"id": 12, "title": "Updated title", "type": 2}'
 ```
 
-Batch updates use `obj_list`:
-
+**Batch Update:**
 ```json
 {
   "obj_list": [
-    {"id": 12, "title": "Updated A"},
-    {"id": 13, "title": "Updated B"}
+    {"id": 12, "title": "Updated item A"},
+    {"id": 13, "title": "Updated item B"}
   ]
 }
 ```
 
-The table must contain `updated_by_id`, which Atom fills from the token. Non-user tables are additionally restricted by `created_by_id`, so knowing another row's ID is not enough to update it. Server-managed columns are rejected.
+### Key Update Rules:
+- **ID Required**: Every item in payload must include its primary key `id`.
+- **Ownership Check**: The `/my` tier ensures `created_by_id` matches the caller's user ID.
+- **Single-Update Fields**: Sensitive fields in `config_column_single_update` (`password`, `email`, `mobile`) must be updated individually.
+- **Role Guard**: Updating `role` on `users` table via `/my` endpoint is blocked (`config_column_admin_users`).
+- **Auto Audit Columns**: `updated_at` and `updated_by_id` are populated automatically.
 
-User-account updates have extra rules: a user can update only their own row, role changes are blocked, sensitive fields must be changed individually, and email/mobile changes require an OTP when configured.
+---
 
-Updates can also be published with `queue=redis`, `queue=rabbitmq`, `queue=kafka`, or `queue=celery`. See [Object Queues](queue.md#queue-an-update).
+## 🗑️ Delete Operations (`func_postgres_delete`)
 
-### Delete my objects
+Deletes rows by ID.
 
-Unlike create, read, and update, the table name belongs in the delete request body:
+### Endpoint Usages:
+- **`POST /my/object-delete`**
+- **`POST /admin/object-delete`**
+- **`DELETE /my/object-delete-all?table=<name>`**
+- **`DELETE /my/object-delete-received`** / **`object-delete-received-all`**
 
+### Request Example:
 ```bash
 curl -X POST "http://localhost:8000/my/object-delete" \
   -H "Authorization: Bearer <access_token>" \
   -H "Content-Type: application/json" \
-  -d '{"table":"test","ids":[12,13]}'
+  -d '{"table": "test", "ids": [12, 13]}'
 ```
 
-Only rows owned through `created_by_id` are deleted. Protected rows and table-level delete controls still apply. Account hard deletion also requires `config_is_enable_user_delete = 1`, accepts only the caller's user ID, and cannot delete multiple user rows.
+### Delete Safeguards:
+- **Protected Rows**: Rows flagged `is_protected` cannot be deleted (`is_enable_is_protected_delete_disable`).
+- **User Account Hard Delete**: Deleting user accounts requires `config_is_enable_user_delete = 1`.
+- **Table Delete Guards**: `table_row_delete_disable_all` and `table_row_delete_disable_bulk` protect critical system tables.
+- **Delete-All Enable**: Bulk table deletion via `/my/object-delete-all` requires explicit configuration in `config_table_my_delete_all_enable`.
 
-`DELETE /my/object-delete-all?table=test` removes all rows created by the current user, but only for tables allowed by `config_table_my_delete_all_enable`. Received rows use `/my/object-delete-received` or `/my/object-delete-received-all` and are scoped by `user_id`.
+---
 
-## Admin objects
+## 🛡️ Security & Integrity Safeguards
 
-Admin object APIs require an authorized bearer token according to their `config_api` policies. They are not ownership-scoped and therefore need stricter operational controls.
+1. **Schema Validation**: Table and column names are validated against `cache_postgres_schema` (built on startup). Unknown tables or columns are rejected before SQL generation.
+2. **SQL Injection Immunity**: All filter and payload values are bound as query parameters via `func_postgres_serialize` and `func_postgres_where_build`.
+3. **Column Allow-Lists & Block-Lists**: Server-managed system fields (`created_at`, `role`, `verified_at`) in `config_column_admin` are blocked from user writes.
+4. **Ownership Enforcement**: `/my` endpoints enforce ownership filters so users cannot read, modify, or delete another user's rows.
 
-### Create as admin
+---
 
-```bash
-curl -X POST "http://localhost:8000/admin/object-create?table=test" \
-  -H "Authorization: Bearer <admin_access_token>" \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Admin-created object","type":1}'
-```
+## 📚 Related Documentation
 
-Atom stamps `created_by_id` with the acting administrator. The endpoint also accepts an `obj_list` body and `mode=buffer`.
-
-### Read as admin
-
-```bash
-curl -G "http://localhost:8000/admin/object-read" \
-  -H "Authorization: Bearer <admin_access_token>" \
-  --data-urlencode "table=test" \
-  --data-urlencode 'filter=["type in (1,2)"]' \
-  --data-urlencode "column=id,title,type,created_by_id" \
-  --data-urlencode "order=id desc" \
-  --data-urlencode "limit=50" \
-  --data-urlencode "page=1"
-```
-
-Admin reads can return rows belonging to any user. They also accept `db=<name>` for a configured named PostgreSQL read pool; omit it to use the primary database.
-
-### Update as admin
-
-```bash
-curl -X PUT "http://localhost:8000/admin/object-update?table=test" \
-  -H "Authorization: Bearer <admin_access_token>" \
-  -H "Content-Type: application/json" \
-  -d '{"id":12,"title":"Corrected by admin"}'
-```
-
-Admin updates are not filtered by the original owner. Atom stamps `updated_by_id` with the acting administrator. Password changes must contain exactly `id` and `password`; configured OTP rules can also apply to administrator changes of a user's email or mobile number.
-
-### Delete as admin
-
-```bash
-curl -X POST "http://localhost:8000/admin/object-delete" \
-  -H "Authorization: Bearer <admin_access_token>" \
-  -H "Content-Type: application/json" \
-  -d '{"table":"test","ids":[12,13]}'
-```
-
-Admin delete is not ownership-scoped, but it still honors protected-row and table delete safeguards. User hard deletion remains disabled unless `config_is_enable_user_delete = 1`.
-
-## Read options shared by the tiers
-
-| Parameter | Purpose | Example |
-|-----------|---------|---------|
-| `table` | Database table | `test` |
-| `column` | Comma-separated returned columns | `id,title,type` |
-| `filter` | JSON list of conditions | `["type = 1"]` |
-| `order` | Sort expression | `id desc` |
-| `limit` | Rows per page | `20` |
-| `page` | One-based page number | `1` |
-| `relation` | JSON list of relation expressions | See [Reading Objects](read.md#relations) |
-| `db` | Named read database; public/admin only | `analytics` |
-
-Supported filters include comparisons (`=`, `!=`, `>`, `>=`), sets (`in`, `not in`), ranges (`between`), null checks, text matching (`like`, `ilike`), arrays, and JSONB operations. Multiple list entries are combined with `AND`; use `OR` within one entry.
-
-## Important safeguards
-
-- Request batches are capped by `config_batch_item_limit`.
-- Read limits are capped by `config_sql_read_limit_max`.
-- Table and column names are validated against the cached schema.
-- Filter values are bound as SQL parameters.
-- `config_column_admin` protects server-managed fields.
-- `is_protected` and `config_postgres["control"]` can block deletion.
-- `config_api` controls tokens, roles, user status checks, caching, and rate limits for each route.
-
-For complete filter, ordering, pagination, and relation syntax, continue with [Reading Objects](read.md). For internal behavior, see [Generic CRUD](crud.md), and for access-control details, see [Security Model](security.md).
+- **[read.md](read.md)** — Complete guide to query filtering, pagination, field selections, and relational joins.
+- **[buffer.md](buffer.md)** — Asynchronous in-memory write buffer and flush loops (`mode=buffer`).
+- **[queue.md](queue.md)** — Background worker queues (`queue=redis`, `queue=rabbitmq`, etc.).
+- **[security.md](security.md)** — Production security model, role checks, and column protection rules.
 
 ---
 

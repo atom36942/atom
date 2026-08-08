@@ -45,7 +45,7 @@ Atom gives you authentication, generic CRUD over any table, caching, rate-limiti
 - 🛠️ **Admin & Dev toolkit** — Built-in SQL runner, AI SQL generation, data import, and live schema introspection.
 - 📦 **Background workers** — Queue consumers and durable retries with Postgres or dedicated message brokers.
 - 🧾 **Self-documenting** — Generated OpenAPI spec + built-in interactive API console at `/`.
-- 🔧 **Extend without forking** — Add custom routes and logic in drop-in extension files (`config_extend.py`, `function_extend.py`).
+- 🔧 **Extend without forking** — Add custom routes and logic in drop-in extension files (`config_extend.py`, `function_extend.py`). Learn more in **[extend.md](docs/extend.md)**.
 
 ## Contents
 
@@ -53,6 +53,7 @@ Atom gives you authentication, generic CRUD over any table, caching, rate-limiti
 - [Installation](#installation)
 - [Quickstart](#quickstart)
 - [Configuration](#configuration)
+- [Extensibility](#extensibility)
 - [Structure](#structure)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
@@ -129,7 +130,7 @@ curl "http://localhost:8000/my/object-read?table=test" \
   -H "Authorization: Bearer <access_token>"
 ```
 
-📖 Learn more in [auth.md](docs/auth.md) and [crud.md](docs/crud.md).
+📖 Learn more in [auth.md](docs/auth.md) and [object.md](docs/object.md).
 
 ## Configuration
 
@@ -157,6 +158,17 @@ config_celery_url=redis://localhost:6379
 ### ⚠️ [Secrets to override in production](docs/prod.md)
 
 Before deploying to production, ensure you override default system secrets in `.env`. See **[prod.md](docs/prod.md)** for the complete production security configuration checklist and **[security.md](docs/security.md)** for security guidelines.
+
+## Extensibility
+
+Atom is designed to be extended without forking core framework files. Add custom routes, custom database schemas, and custom helper logic in drop-in extension files:
+
+- **`config_extend.py`** — Custom configurations, table schema definitions, and API route rules.
+- **`function_extend.py`** — Custom business logic and helper function overrides.
+
+This decouples your application code from the framework core, enabling seamless upstream updates via `python sync.py`.
+
+📖 See **[extend.md](docs/extend.md)** for detailed patterns on adding custom endpoints, tables, and logic.
 
 ## Structure
 
@@ -191,9 +203,8 @@ atom/
 
 🚀 **Features & Storage**
 - [auth.md](docs/auth.md) — Signup, authentication methods, OTP, and roles.
-- [crud.md](docs/crud.md) — Generic database CRUD capabilities.
+- [object.md](docs/object.md) — Generic database CRUD engine and Object APIs.
 - [read.md](docs/read.md) — Advanced filtering, pagination, and sorting.
-- [object.md](docs/object.md) — Practical object CRUD examples.
 - [postgres.md](docs/postgres.md) — Primary & read-replica Postgres connections.
 - [query.md](docs/query.md) — Multi-database query runners & AI SQL generator.
 - [queue.md](docs/queue.md) — Asynchronous job queues (Redis, RabbitMQ, Kafka, Celery).
@@ -204,10 +215,9 @@ atom/
 - [workers.md](docs/workers.md) — Background workers and retry patterns.
 
 🧱 **Customization & Guides**
-- [guideline.md](docs/guideline.md) — Step-by-step guide to adding custom APIs.
 - [router.md](docs/router.md) — Router design conventions.
 - [extend.md](docs/extend.md) — Extending Atom without forking core code.
-- [faq.md](docs/faq.md) — Frequently asked questions and solutions.
+- [faq.md](docs/faq.md) — Developer guidelines & frequently asked questions.
 
 ## Contributing
 

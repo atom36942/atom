@@ -3,6 +3,140 @@
 Practical answers to common "how do I…" questions. Open a question for the steps, examples, and links to the full documentation.
 
 <details>
+<summary><strong>How do I add a new API? (Development Guidelines)</strong></summary>
+
+Keep the router small: accept and validate the request, call a reusable `func_*` helper, and return the standard response format.
+
+### 1. Create a router file
+
+Create a Python file inside `router/`, for example: `router/product.py`. Router files are discovered automatically. Every router file must define a module-level `router = APIRouter()`.
+
+### 2. Import the required packages
+
+Only import packages used by the router:
+
+```python
+from fastapi import APIRouter, Request
+
+router = APIRouter()
+```
+
+Put imports needed only by core logic in `function_extend.py`, not in the router.
+
+### 3. Add the route and follow existing naming conventions
+
+- Route path: `/<tier>/<action-kebab-case>`
+- Function name: `func_api_<tier>_<action_snake_case>`
+- Function signature: `async def func_api_...(*, request: Request)`
+- Use `GET` for reads and `POST` for operations that create or change data.
+
+Example:
+
+```python
+@router.post("/my/product-create")
+async def func_api_my_product_create(*, request: Request):
+    app_state = request.app.state
+```
+
+The common route tiers are `index`, `auth`, `my`, `public`, `private`, and `admin`.
+
+### 4. Accept parameters with `func_request_param_read`
+
+Do not read `request.query_params`, `request.json()`, or `request.form()` directly. Use `func_request_param_read`:
+
+```python
+oq = await app_state.func_request_param_read(
+    request=request,
+    mode="query",
+    strict=0,
+    param_specs=[
+        {"name": "category", "type": "str", "required": 1},
+        {"name": "active", "type": "bool", "default": 1},
+    ],
+)
+
+ob = await app_state.func_request_param_read(
+    request=request,
+    mode="body",
+    strict=1,
+    param_specs=[
+        {"name": "name", "type": "str", "required": 1},
+        {"name": "quantity", "type": "int", "default": 1},
+        {"name": "tags", "type": "list:str", "default": []},
+    ],
+)
+```
+
+Use:
+- `mode="query"` for URL query parameters
+- `mode="body"` for a JSON object
+- `mode="form"` for multipart form data and file uploads
+- `mode="header"` for headers
+- `strict=1` to return only declared parameters
+
+### 5. Move core logic to `function_extend.py`
+
+Business logic, database work, and reusable transformations belong in a `func_*` helper in `function_extend.py`. Use keyword-only arguments and pass dependencies explicitly:
+
+```python
+# function_extend.py
+async def func_product_create(
+    *,
+    client_postgres,
+    name: str,
+    quantity: int,
+    category: str,
+    active: int,
+    tags: list,
+    user_id: int,
+):
+    if not client_postgres:
+        raise Exception("postgres client not initialized")
+
+    async with client_postgres.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO product
+                (name, quantity, category, active, tags, created_by_id)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING *
+            """,
+            name, quantity, category, active, tags, user_id,
+        )
+    return dict(row)
+```
+
+Access functions via `request.app.state`:
+
+```python
+app_state = request.app.state
+product = await app_state.func_product_create(
+    client_postgres=app_state.client_postgres,
+    name=ob["name"],
+    quantity=ob["quantity"],
+    category=oq["category"],
+    active=oq["active"],
+    tags=ob["tags"],
+    user_id=request.state.user["id"],
+)
+```
+
+### 6. Return the standard response format
+
+Every JSON response must contain `status` and `message`:
+
+```python
+return {"status": 1, "message": product}
+```
+
+- `status: 1` means success.
+- On failure, raise an exception with a clear message. The middleware converts it to `{"status": 0, "message": "..."}`.
+
+If the API needs authentication, roles, rate limiting, or caching, also add its path to `config_api` in `config_extend.py`. See [router.md](router.md) and [config.md](config.md).
+
+</details>
+
+<details>
 <summary><strong>How do I check request logs?</strong></summary>
 
 Every request is recorded in the **`log_api`** table. The row includes the path, HTTP method, response status, execution time, authenticated user, and any captured error, making it the first place to look when an endpoint behaves unexpectedly.
@@ -138,7 +272,7 @@ Integrations are optional and their clients remain `None` until the matching `co
 
 Add the values to `.env`, restart Atom, and watch the startup output for connection or permission errors. Then verify the external service is reachable from the same machine or container. For example, Redis needs the relevant `config_redis_url*`, while S3 needs its region and AWS credentials.
 
-Do not commit secrets to `config.py`. Use `.env` for environment-specific credentials and see the [configuration guide](../readme.md#configuration) for the available integrations.
+Do not commit secrets to `config.py`. Use `.env` for environment-specific credentials and see [config.md](config.md) for the available integrations.
 
 </details>
 
@@ -401,7 +535,7 @@ The prefixes represent data-access scope, not just route organization:
 
 Use `/my` for normal user-owned product data and `/admin` only for trusted operations. Do not expose a table publicly merely to avoid ownership configuration; add an ownership column and use the authenticated tier instead.
 
-For endpoint-by-endpoint curl examples covering create, read, update, and delete in all three tiers, see [Object APIs](object.md). For filter and relation internals, see [Generic CRUD](crud.md).
+For endpoint-by-endpoint curl examples, filter options, and relation details across all three tiers, see **[object.md](object.md)**.
 
 </details>
 
@@ -598,7 +732,7 @@ Because request logs are buffered, the newest calls may not appear until the buf
 
 Atom is released under the [MIT License](../LICENSE), which permits commercial use, modification, distribution, and private use subject to the license's notice requirements. Review the license itself for the authoritative terms.
 
-For project-specific behavior, prefer extension files and custom routers so your work remains easy to maintain. For changes that improve Atom generally, open an issue describing the problem or submit a focused pull request. Keep route handlers thin, place reusable logic in functions, preserve the standard `{"status": 1, "message": ...}` response shape, update relevant documentation, and include a reproducible verification path. See [Development Guidelines](guideline.md).
+For project-specific behavior, prefer extension files and custom routers so your work remains easy to maintain. For changes that improve Atom generally, open an issue describing the problem or submit a focused pull request. Keep route handlers thin, place reusable logic in functions, preserve the standard `{"status": 1, "message": ...}` response shape, update relevant documentation, and include a reproducible verification path. See [Development Guidelines](#how-do-i-add-a-new-api-development-guidelines).
 
 </details>
 

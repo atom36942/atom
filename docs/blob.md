@@ -2,7 +2,7 @@
 
 Atom provides file storage over pluggable backends — **AWS S3** and **Azure Blob** — behind one API. Uploads can be done directly through the server or via presigned URLs, and every stored object is tracked in the `blob` table so it can be previewed and cleaned up.
 
-Backends are chosen per-request with a `service` param, validated against `config_blob_services` (`["s3", "azure"]`). The relevant client (`client_s3` / `client_azure_blob`) must be configured (see the [README](../readme.md#configuration)) or the call errors.
+Backends are chosen per-request with a `service` param, validated against `config_blob_services` (`["s3", "azure"]`). The relevant client (`client_s3` / `client_azure_blob`) must be configured (see [config.md](config.md)) or the call errors.
 
 Logic lives in `func_blob_*` functions in [`function.py`](../function.py); endpoints span `router/private.py`, `router/my.py`, and `router/admin.py`.
 

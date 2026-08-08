@@ -7,7 +7,7 @@ Atom sends **email** and **SMS** through pluggable providers, chosen per-request
 | Email | `ses` (AWS), `resend`, `azure` | `config_email_services` |
 | SMS | `sns` (AWS), `fast2sms` | `config_mobile_services` |
 
-The chosen provider's client/keys must be configured (see the [README](../readme.md#configuration)) or the call errors. Logic lives in `func_email_send`, `func_otp_send_email`, and `func_otp_send_mobile` in [`function.py`](../function.py).
+The chosen provider's client/keys must be configured (see [config.md](config.md)) or the call errors. Logic lives in `func_email_send`, `func_otp_send_email`, and `func_otp_send_mobile` in [`function.py`](../function.py).
 
 ---
 

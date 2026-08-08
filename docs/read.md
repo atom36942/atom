@@ -457,7 +457,7 @@ Omit `db` to use `config_postgres_url`. The named database must be present in th
 - Use a stable order for pagination.
 - Keep admin reads behind strong route policies and audit their use.
 
-For the full create/read/update/delete overview, see [Object APIs](object.md). For the underlying CRUD behavior, see [Generic CRUD](crud.md).
+For the full create/read/update/delete overview and CRUD behavior, see [Object APIs](object.md).
 
 ---
 

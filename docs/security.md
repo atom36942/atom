@@ -39,7 +39,7 @@ Routes with `rate_limit` cap requests per window, keyed by **user id** (authenti
 
 ## 4. Data access control
 
-Three independent gates protect the generic CRUD layer (see [crud.md](crud.md)):
+Three independent gates protect the generic CRUD layer (see [object.md](object.md)):
 
 - **Table allow-lists** — `config_table_public_create_enable` / `_read_enable` (public), `config_table_my_create_disable`, `config_table_my_delete_all_enable`. `"*"` = all, `[]` = none.
 - **Ownership scoping** — `config_column_ownership` (`created_by_id`, `user_id`). The `my/*` endpoints filter and stamp by ownership so a user only ever touches their own rows; `admin/*` is unrestricted behind role checks.
@@ -63,7 +63,7 @@ See [config.md](config.md#control).
 
 ## 7. Secrets & transport
 
-- **Never commit secrets.** `config_token_secret_key` and `config_root_user_password` ship with insecure defaults — override them (and all connection strings) via `.env`, which is git-ignored. See the [README](../readme.md#-secrets-to-override-in-production).
+- **Never commit secrets.** `config_token_secret_key` and `config_root_user_password` ship with insecure defaults — override them (and all connection strings) via `.env`, which is git-ignored. See **[prod.md](prod.md)**.
 - **CORS** — `config_cors_*`. The default `allow_origin_regex = ".*"` with credentials is permissive for development; **restrict origins in production**.
 - **Debug** — set `config_is_debug=0` in production to avoid leaking internals.
 - **Error reporting** — configure `config_sentry_dsn` to capture exceptions with `send_default_pii=False`.
