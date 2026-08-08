@@ -1920,7 +1920,7 @@ async def func_email_send(*, app_state: any, service: str, sender: str, to: list
         raise Exception(f"email service {service} not supported")
     return message
 
-async def func_blob_upload_file(*, app_state: any, service: str, container: str, files: list, user_id: int) -> dict:
+async def func_blob_upload_file(*, app_state: any, service: str, container: str, files: list, user_id: int = None) -> dict:
     """Uploads a list of UploadFile objects to S3 or Azure and logs them in the database."""
     import uuid
     if not app_state.client_postgres or (service == "s3" and not app_state.client_s3) or (service == "azure" and not app_state.client_azure_blob):
@@ -1935,7 +1935,7 @@ async def func_blob_upload_file(*, app_state: any, service: str, container: str,
         if len(file_data) > app_state.config_blob_limit_size_kb * 1024:
             raise Exception(f"file size exceeds {app_state.config_blob_limit_size_kb}kb")
         ext = item.filename.split(".")[-1] if "." in item.filename else "bin"
-        file_key = f"user_{user_id}/{uuid.uuid4().hex}.{ext}"
+        file_key = f"user_{user_id}/{uuid.uuid4().hex}.{ext}" if user_id else f"public/{uuid.uuid4().hex}.{ext}"
         if service == "s3":
             await app_state.client_s3.put_object(Bucket=container, Key=file_key, Body=file_data)
             file_url = f"https://{container}.s3.amazonaws.com/{file_key}"
@@ -1949,7 +1949,7 @@ async def func_blob_upload_file(*, app_state: any, service: str, container: str,
         await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
     return output
 
-async def func_blob_upload_url(*, app_state: any, service: str, container: str, count: int, user_id: int) -> list:
+async def func_blob_upload_url(*, app_state: any, service: str, container: str, count: int, user_id: int = None) -> list:
     """Generates presigned upload URLs (S3 post fields or Azure SAS URLs) for client-side uploads and logs them in the database."""
     import uuid
     from datetime import datetime, timedelta, timezone
@@ -1963,7 +1963,7 @@ async def func_blob_upload_url(*, app_state: any, service: str, container: str, 
     output = []
     blob_list = []
     for _ in range(count):
-        file_key = f"user_{user_id}/{uuid.uuid4().hex}.bin"
+        file_key = f"user_{user_id}/{uuid.uuid4().hex}.bin" if user_id else f"public/{uuid.uuid4().hex}.bin"
         if service == "s3":
             presigned_post = app_state.client_s3.generate_presigned_post(Bucket=container, Key=file_key, ExpiresIn=app_state.config_blob_expire_sec_upload, Conditions=[["content-length-range", 1, app_state.config_blob_limit_size_kb * 1024]])
             file_url = f"https://{container}.s3.{app_state.config_aws_s3_region_name}.amazonaws.com/{file_key}"

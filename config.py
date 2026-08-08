@@ -213,7 +213,7 @@ config_postgres = {
 "blob":[
 {"name":"id","datatype":"bigserial","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
-{"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree(created_by_id)"},
+{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
 {"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"deleted_by_id","datatype":"bigint"},
 {"name":"type","datatype":"smallint","is_mandatory":1},
