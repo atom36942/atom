@@ -287,15 +287,15 @@ Toggles that decide **how aggressive the auto-migration is** and which safety gu
 
 | Control key | Default | What it does |
 |-------------|---------|--------------|
-| `is_truncate_table` | `1` | Allow truncating tables during init. |
+| `is_truncate_table` | `0` | Allow truncating tables during init. |
 | `is_updated_at_set` | `1` | Auto-maintain `updated_at` (trigger) on update. |
 | `is_protected_delete_disabled` | `1` | Rows flagged `is_protected` cannot be deleted. |
 | `is_log_users_password` | `1` | Record password changes into `log_users_password`. |
 | `is_log_users_delete` | `1` | Record user delete/restore events into `log_users_delete`. |
 | `is_root_user_create` | `1` | Seed the root admin user (role 1) at startup. |
 | `is_root_user_delete_disabled` | `1` | Protect the root user from deletion. |
-| `table_row_delete_disable_all` | `[]` | Tables where **all** row deletes are blocked. |
-| `table_row_delete_disable_bulk` | `[]` | Tables where only **bulk** row deletes are blocked. |
+| `table_row_delete_disable_all` | `["users", "config", "log_users_password", "log_users_delete"]` | Tables where **all** row deletes are blocked. |
+| `table_row_delete_disable_bulk` | `[["*", 1000]]` | Tables where only **bulk** row deletes (exceeding limit) are blocked. |
 
 > Several keys also accept legacy aliases (e.g. `is_disable_drop_table`) for backward compatibility, but prefer the names above.
 
