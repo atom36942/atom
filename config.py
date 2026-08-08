@@ -366,6 +366,7 @@ config_api = {
 "/info": {"id": 17, "is_token": 0, "cache": {"mode": "inmemory", "ttl_sec": 300, "is_per_user": 0}},
 "/openapi.json": {"id": 37, "is_token": 0},
 "/static": {"id": 77, "is_token": 0},
+"/pgweb": {"id": 99, "is_token": 0},
 "/websocket": {"id": 38, "is_token": 0},
 # auth
 "/auth/login-password": {"id": 91, "is_token": 0},

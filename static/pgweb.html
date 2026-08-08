@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>pgweb</title>
+<style>
+:root{
+  color-scheme:light dark;
+  --bg:#fff; --panel:#f7f8fa; --panel2:#eef0f4; --line:#e928303a; --line:#e2e5ea;
+  --fg:#1c2024; --dim:#69707d; --accent:#2563eb; --accent-fg:#fff;
+  --null:#a0a6b0; --ok:#0f8a4a; --err:#c0392b; --sel:#dbe7ff; --hover:#f0f2f6;
+  --row-h:26px;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --bg:#0d1117; --panel:#11161e; --panel2:#161c26; --line:#232b37;
+         --fg:#d7dee8; --dim:#7f8b9c; --accent:#4d8ffd; --accent-fg:#fff;
+         --null:#5a6472; --ok:#3fb950; --err:#f2645a; --sel:#1b2f52; --hover:#171e28; }
+}
+:root[data-theme=light]{ color-scheme:light;
+  --bg:#fff; --panel:#f7f8fa; --panel2:#eef0f4; --line:#e2e5ea; --fg:#1c2024; --dim:#69707d;
+  --accent:#2563eb; --accent-fg:#fff; --null:#a0a6b0; --ok:#0f8a4a; --err:#c0392b; --sel:#dbe7ff; --hover:#f0f2f6; }
+:root[data-theme=dark]{ color-scheme:dark;
+  --bg:#0d1117; --panel:#11161e; --panel2:#161c26; --line:#232b37; --fg:#d7dee8; --dim:#7f8b9c;
+  --accent:#4d8ffd; --accent-fg:#fff; --null:#5a6472; --ok:#3fb950; --err:#f2645a; --sel:#1b2f52; --hover:#171e28; }
+
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden}
+body{background:var(--bg);color:var(--fg);display:flex;
+  font:12px/1.45 ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace}
+button,input,select,textarea{font:inherit;color:inherit}
+button{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:4px 10px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:default;border-color:var(--line)}
+input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:4px 8px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px;border:3px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:var(--dim)}
+
+/* ---------- connect ---------- */
+#connect{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center}
+#connect .box{width:min(560px,92vw)}
+#connect h1{font-size:15px;margin:0 0 4px;letter-spacing:.3px}
+#connect p{color:var(--dim);margin:0 0 18px}
+#connect .row{display:flex;gap:8px}
+#connect input{flex:1}
+#cerr{color:var(--err);margin-top:10px;min-height:16px;white-space:pre-wrap}
+#connect .hint{color:var(--dim);margin-top:16px;font-size:11px}
+
+/* ---------- shell ---------- */
+#app{display:none;flex:1;min-width:0}
+body.ready #app{display:flex}
+body.ready #connect{display:none}
+#side{width:248px;flex:0 0 248px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+#dbline{padding:9px 11px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+#dbname{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#side .search{padding:8px}
+#side .search input{width:100%}
+#tree{flex:1;overflow:auto;padding-bottom:8px}
+.schema{padding:7px 11px 3px;color:var(--dim);font-size:10.5px;letter-spacing:.6px;text-transform:uppercase}
+.kind{padding:5px 11px 2px;color:var(--dim);font-size:10.5px}
+.obj{display:flex;justify-content:space-between;gap:8px;padding:3px 11px 3px 20px;cursor:pointer}
+.obj:hover{background:var(--hover)}
+.obj.on{background:var(--accent);color:var(--accent-fg)}
+.obj .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.obj .ct{color:var(--dim);font-size:10.5px;flex:none}
+.obj.on .ct{color:var(--accent-fg);opacity:.8}
+
+#main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+#tabs{display:flex;align-items:center;gap:2px;padding:6px 9px;border-bottom:1px solid var(--line);background:var(--panel)}
+.tab{padding:4px 11px;border-radius:5px;cursor:pointer;color:var(--dim)}
+.tab:hover{background:var(--hover)}
+.tab.on{background:var(--panel2);color:var(--fg)}
+#tabs .sp{flex:1}
+#tabs .icon{padding:4px 8px;line-height:1}
+
+#tools{display:flex;align-items:center;gap:6px;padding:6px 9px;border-bottom:1px solid var(--line);background:var(--bg)}
+#tools select,#tools input{padding:3px 7px}
+#fval{width:170px}
+#tools .sp{flex:1}
+
+#pane{flex:1;position:relative;min-height:0}
+.view{position:absolute;inset:0;display:none;flex-direction:column;min-height:0}
+.view.on{display:flex}
+
+/* ---------- virtual grid ---------- */
+/* contain must not include size here: #rows is absolutely positioned and shrink-to-fit,
+   so size-contained rows would measure as empty and collapse to zero width */
+#vp{flex:1;overflow:auto;position:relative;contain:layout paint}
+#inner{position:relative}
+#head{position:sticky;top:0;z-index:3;display:flex;background:var(--panel2);border-bottom:1px solid var(--line)}
+.th{flex:none;padding:0 8px;height:var(--row-h);line-height:var(--row-h);font-weight:600;color:var(--dim);
+    border-right:1px solid var(--line);position:relative;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;user-select:none}
+.th .grip{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize}
+.th .grip:hover{background:var(--accent)}
+#canvas{position:relative}
+#rows{position:absolute;top:0;left:0;width:100%;will-change:transform}
+.tr{display:flex;height:var(--row-h);contain:layout paint}
+.tr[hidden]{display:none}   /* author display:flex would otherwise beat the UA [hidden] rule */
+.tr:nth-child(even){background:color-mix(in srgb,var(--fg) 3%,transparent)}
+.tr:hover{background:var(--hover)}
+.tr.sel{background:var(--sel)}
+.td{flex:none;padding:0 8px;height:var(--row-h);line-height:var(--row-h);border-right:1px solid var(--line);
+    overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.td.null{color:var(--null);font-style:italic}
+.td[contenteditable=true]{background:var(--bg);outline:2px solid var(--accent);outline-offset:-2px;
+    text-overflow:clip;cursor:text;overflow:visible;z-index:4;position:relative}
+#empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:var(--dim)}
+#empty.on{display:flex}
+
+/* ---------- text panes ---------- */
+.pre{flex:1;overflow:auto;margin:0;padding:12px 14px;white-space:pre;color:var(--fg)}
+.pre .k{color:var(--dim)}
+
+/* ---------- query ---------- */
+#sql{height:190px;flex:none;border:0;border-bottom:1px solid var(--line);border-radius:0;
+     padding:11px 13px;resize:vertical;background:var(--bg);tab-size:2}
+#qbar{display:flex;align-items:center;gap:8px;padding:6px 9px;border-bottom:1px solid var(--line);background:var(--panel)}
+#qmsg{color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#qmsg.err{color:var(--err)}
+
+/* ---------- status ---------- */
+#status{display:flex;align-items:center;gap:14px;padding:4px 11px;border-top:1px solid var(--line);
+        background:var(--panel);color:var(--dim);font-size:11px}
+#status .sp{flex:1}
+#status b{color:var(--fg);font-weight:600}
+#status .t{color:var(--ok)}
+
+dialog{border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--fg);padding:0;
+       box-shadow:0 12px 40px #0006;max-width:min(560px,92vw)}
+dialog::backdrop{background:#0008}
+dialog .hd{padding:11px 14px;border-bottom:1px solid var(--line);font-weight:600}
+dialog .bd{padding:12px 14px;max-height:60vh;overflow:auto}
+dialog .ft{padding:10px 14px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+dialog .f{display:flex;gap:9px;align-items:center;margin-bottom:7px}
+dialog .f label{width:140px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none}
+dialog .f input{flex:1}
+#cellbox{white-space:pre-wrap;word-break:break-word;font:inherit;margin:0}
+</style>
+</head>
+<body>
+
+<div id="connect">
+  <div class="box">
+    <h1>pgweb</h1>
+    <p>connect to a postgres database</p>
+    <div class="row">
+      <input id="dsn" placeholder="postgres://user:password@localhost:5432/dbname" autocomplete="off" spellcheck="false"/>
+      <button class="primary" id="cbtn">connect</button>
+    </div>
+    <div id="cerr"></div>
+    <div class="hint">runs locally · the url stays on the server, never in the browser</div>
+  </div>
+</div>
+
+<div id="app">
+  <aside id="side">
+    <div id="dbline"><span id="dbname">—</span><span class="sp" style="flex:1"></span>
+      <button class="icon" id="theme" title="theme">◐</button>
+      <button class="icon" id="disc" title="disconnect">⏻</button>
+    </div>
+    <div class="search"><input id="q" placeholder="filter objects" autocomplete="off" spellcheck="false"/></div>
+    <div id="tree"></div>
+  </aside>
+
+  <main id="main">
+    <div id="tabs">
+      <div class="tab on" data-v="rows">Rows</div>
+      <div class="tab" data-v="struct">Structure</div>
+      <div class="tab" data-v="idx">Indexes</div>
+      <div class="tab" data-v="query">Query</div>
+      <div class="sp"></div>
+      <button id="addrow" title="insert row">+ row</button>
+      <button id="delrow" title="delete selected row" disabled>− row</button>
+      <button id="reload" title="reload">↻</button>
+    </div>
+
+    <div id="pane">
+      <div class="view on" id="v-rows">
+        <div id="tools">
+          <select id="fcol"></select>
+          <select id="fop">
+            <option>=</option><option>≠</option><option>&gt;</option><option>&lt;</option>
+            <option>≥</option><option>≤</option><option>LIKE</option><option>ILIKE</option>
+            <option>IS NULL</option><option>IS NOT NULL</option>
+          </select>
+          <input id="fval" placeholder="value" autocomplete="off"/>
+          <button id="fgo">apply</button>
+          <button id="fclr">clear</button>
+          <span class="sp"></span>
+          <span id="ftxt" style="color:var(--dim)"></span>
+        </div>
+        <div id="vp"><div id="inner">
+          <div id="head"></div>
+          <div id="canvas"><div id="rows"></div></div>
+        </div></div>
+        <div id="empty">no rows</div>
+      </div>
+      <div class="view" id="v-struct"><pre class="pre" id="p-struct"></pre></div>
+      <div class="view" id="v-idx"><pre class="pre" id="p-idx"></pre></div>
+      <div class="view" id="v-query">
+        <textarea id="sql" spellcheck="false" placeholder="select * from …"></textarea>
+        <div id="qbar"><button class="primary" id="run">run ⌘⏎</button><span id="qmsg"></span></div>
+      </div>
+    </div>
+
+    <div id="status">
+      <span id="st-obj">—</span><span id="st-rows"></span><span id="st-size"></span>
+      <span class="sp"></span><span id="st-time" class="t"></span>
+    </div>
+  </main>
+</div>
+
+<dialog id="dlg"><form method="dialog">
+  <div class="hd" id="dlg-t"></div><div class="bd" id="dlg-b"></div>
+  <div class="ft" id="dlg-f"></div>
+</form></dialog>
+
+<script>
+'use strict';
+const ROW_H = 26, CHUNK = 1000, OVER = 6, MAXW = 460, MINW = 64;
+// browsers clamp element height near 2^24 px; past that the spacer stops growing and the
+// tail of a big table becomes unreachable, so the scrollbar is scaled instead of 1:1
+const MAXH = 16000000;
+const $ = s => document.getElementById(s);
+const vp=$('vp'), inner=$('inner'), headEl=$('head'), canvas=$('canvas'), rowsEl=$('rows');
+
+const S = { db:'', schema:'', table:'', kind:'', pk:null, cols:[], widths:[], total:0,
+            chunks:new Map(), pending:new Map(), local:null, where:'', sel:-1, meta:null, tree:{},
+            viewPx:0, scale:1 };
+let pool=[], lastFirst=-1, ticking=false, ac=null;
+
+/* ---------------- api ---------------- */
+async function api(body){
+  const t0 = performance.now();
+  const r = await fetch('/pgweb', {method:'POST', headers:{'Content-Type':'application/json'},
+                                   body:JSON.stringify(body)});
+  let j; try{ j = await r.json(); }catch{ throw new Error('bad response from server'); }
+  const ms = performance.now() - t0;
+  if(!r.ok || j.status !== 1){
+    const msg = String(j?.message ?? j?.detail ?? r.statusText ?? 'request failed');
+    if(msg.includes('not_connected')){ disconnected(); throw new Error('not_connected'); }
+    throw new Error(msg);
+  }
+  $('st-time').textContent = ms.toFixed(1)+' ms';
+  return j.message;
+}
+const num = n => n>=1e9?(n/1e9).toFixed(1)+'B' : n>=1e6?(n/1e6).toFixed(1)+'M'
+               : n>=1e3?(n/1e3).toFixed(1)+'k' : String(n);
+
+/* ---------------- theme ---------------- */
+(function theme(){
+  const saved = localStorage.getItem('pgweb.theme');
+  if(saved) document.documentElement.dataset.theme = saved;
+  $('theme').onclick = () => {
+    const cur = document.documentElement.dataset.theme
+      || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem('pgweb.theme', next);
+  };
+})();
+
+/* ---------------- connect ---------------- */
+async function connect(){
+  const dsn = $('dsn').value.trim();
+  if(!dsn) return;
+  $('cbtn').disabled = true; $('cerr').textContent = '';
+  try{
+    const m = await api({action:'connect', dsn});
+    S.db = m.database; S.tree = m.tree;
+    $('dbname').textContent = m.database;
+    $('dbname').title = m.version || '';
+    document.body.classList.add('ready');
+    localStorage.setItem('pgweb.dsn', dsn);
+    drawTree();
+    const last = JSON.parse(localStorage.getItem('pgweb.last')||'null');
+    const exists = last && (S.tree[last.schema]||{})[last.kind]?.some(o=>o.name===last.table);
+    if(exists) openObject(last.schema, last.table, last.kind);
+  }catch(e){ $('cerr').textContent = e.message; }
+  finally{ $('cbtn').disabled = false; }
+}
+function disconnected(){
+  document.body.classList.remove('ready');
+  S.chunks.clear(); S.local=null; S.table=''; lastFirst=-1;
+}
+$('cbtn').onclick = connect;
+$('dsn').onkeydown = e => { if(e.key==='Enter') connect(); };
+$('dsn').value = localStorage.getItem('pgweb.dsn') || '';
+$('disc').onclick = async () => { try{ await api({action:'disconnect'}); }catch{} disconnected(); };
+
+/* ---------------- sidebar ---------------- */
+function drawTree(){
+  const box = $('tree'); box.textContent = '';
+  const frag = document.createDocumentFragment();
+  for(const [schema, kinds] of Object.entries(S.tree)){
+    const h = document.createElement('div'); h.className='schema'; h.textContent=schema; frag.appendChild(h);
+    for(const kind of ['table','view','matview']){
+      const list = kinds[kind]; if(!list?.length) continue;
+      const k = document.createElement('div'); k.className='kind';
+      k.textContent = kind==='matview' ? 'materialized views' : kind+'s'; frag.appendChild(k);
+      for(const o of list){
+        const d = document.createElement('div'); d.className='obj';
+        d.dataset.schema=schema; d.dataset.table=o.name; d.dataset.kind=kind;
+        const nm=document.createElement('span'); nm.className='nm'; nm.textContent=o.name;
+        const ct=document.createElement('span'); ct.className='ct';
+        ct.textContent = kind==='table' ? num(o.est_rows) : kind==='view' ? 'view' : 'mat';
+        d.append(nm,ct); d.onclick=()=>openObject(schema,o.name,kind); frag.appendChild(d);
+      }
+    }
+  }
+  box.appendChild(frag);
+}
+$('q').oninput = e => {
+  const term = e.target.value.toLowerCase();
+  for(const o of document.querySelectorAll('.obj')) o.hidden = !o.dataset.table.toLowerCase().includes(term);
+};
+
+/* ---------------- open object ---------------- */
+async function openObject(schema, table, kind){
+  ac?.abort(); ac = null;
+  for(const el of document.querySelectorAll('.obj.on')) el.classList.remove('on');
+  document.querySelector(`.obj[data-schema="${schema}"][data-table="${table}"]`)?.classList.add('on');
+  S.schema=schema; S.table=table; S.kind=kind; S.where=''; S.sel=-1; S.local=null;
+  S.chunks.clear(); S.pending.clear(); lastFirst=-1;
+  $('fval').value=''; $('ftxt').textContent=''; $('tools').style.display='flex';
+  localStorage.setItem('pgweb.last', JSON.stringify({schema,table,kind}));
+
+  const m = await api({action:'rows', schema, table, limit:CHUNK, is_meta:1});
+  S.cols = m.cols; S.meta = m.meta; S.pk = m.meta.pk;
+  S.total = kind==='table' ? Math.max(m.meta.stats.est_rows, m.rows.length) : m.rows.length;
+  S.chunks.set(0, m.rows);
+  if(m.rows.length < CHUNK) S.total = m.rows.length;   // small table: exact
+
+  $('p-struct').textContent = m.meta.columns.map(c =>
+    `${c.name.padEnd(28)}${c.type}${c.nullable?'':'  not null'}${c.default_value?'  default '+c.default_value:''}`).join('\n');
+  $('p-idx').textContent = m.meta.indexes.map(i=>i.def).join('\n\n') || '(no indexes)';
+  $('fcol').innerHTML = S.cols.map(c=>`<option>${c}</option>`).join('');
+  $('st-obj').innerHTML = `<b>${schema}.${table}</b>`;
+  $('st-rows').textContent = kind==='table'
+    ? `~${num(m.meta.stats.est_rows)} rows` : `${m.rows.length} rows`;
+  $('st-size').textContent = m.meta.stats.total_size || '';
+  updateButtons();
+  buildGrid(); vp.scrollTop=0; render(true);
+  show('rows');
+}
+
+/* ---------------- grid ---------------- */
+function measure(){
+  const sample = (S.local || S.chunks.get(0) || []).slice(0, 40);
+  S.widths = S.cols.map((c,i) => {
+    let n = c.length;
+    for(const r of sample){ const v=r[i]; if(v!=null){ const L=String(v).length; if(L>n) n=L; } }
+    return Math.max(MINW, Math.min(MAXW, n*7.1 + 20));
+  });
+  const saved = JSON.parse(localStorage.getItem('pgweb.w.'+S.schema+'.'+S.table)||'null');
+  if(saved && saved.length===S.cols.length) S.widths = saved;
+}
+function geometry(){
+  const totalPx = S.total * ROW_H;
+  S.viewPx = Math.min(totalPx, MAXH);
+  S.scale = S.viewPx > 0 ? totalPx / S.viewPx : 1;   // >1 once the table exceeds the pixel ceiling
+}
+function buildGrid(){
+  measure(); geometry();
+  const total = S.widths.reduce((a,b)=>a+b,0);
+  inner.style.width = total+'px';
+  canvas.style.height = S.viewPx+'px';
+  headEl.textContent='';
+  S.cols.forEach((c,i)=>{
+    const th=document.createElement('div'); th.className='th'; th.style.width=S.widths[i]+'px';
+    th.textContent=c; th.title=c;
+    const g=document.createElement('div'); g.className='grip'; g.dataset.i=i; th.appendChild(g);
+    headEl.appendChild(th);
+  });
+  const need = Math.ceil(vp.clientHeight/ROW_H) + OVER*2;
+  rowsEl.textContent=''; pool=[];
+  const frag=document.createDocumentFragment();
+  for(let i=0;i<need;i++){
+    const tr=document.createElement('div'); tr.className='tr';
+    for(let c=0;c<S.cols.length;c++){
+      const td=document.createElement('div'); td.className='td'; td.style.width=S.widths[c]+'px';
+      td.dataset.c=c; tr.appendChild(td);
+    }
+    frag.appendChild(tr); pool.push(tr);
+  }
+  rowsEl.appendChild(frag);
+  $('empty').classList.toggle('on', S.total===0);
+}
+function rowAt(i){
+  if(S.local) return S.local[i];
+  const ci = Math.floor(i/CHUNK), c = S.chunks.get(ci);
+  return c ? c[i - ci*CHUNK] : null;
+}
+function ensure(ci){
+  if(S.local || ci<0 || S.chunks.has(ci) || S.pending.has(ci)) return;
+  if(ci*CHUNK >= S.total) return;
+  S.pending.set(ci, 1);
+  api({action:'rows', schema:S.schema, table:S.table, pk:S.pk, limit:CHUNK,
+       offset:ci*CHUNK, where:S.where||undefined})
+    .then(m=>{
+      S.chunks.set(ci, m.rows); S.pending.delete(ci);
+      if(S.chunks.size > 60){
+        for(const k of S.chunks.keys()) if(Math.abs(k-ci)>14){ S.chunks.delete(k); break; }
+      }
+      lastFirst=-1; render(true);
+    })
+    .catch(()=>S.pending.delete(ci));
+}
+function render(force){
+  const top = vp.scrollTop, scaled = S.scale > 1.0001;
+  // unscaled: pixel-exact. scaled: map scroll position onto the row range and pin the
+  // block to the viewport, since one pixel now covers several rows.
+  let first = scaled ? Math.round(top * S.scale / ROW_H) : Math.floor(top/ROW_H) - OVER;
+  first = Math.max(0, Math.min(first, Math.max(0, S.total - pool.length)));
+  if(!force && first===lastFirst) return;
+  lastFirst = first;
+  rowsEl.style.transform = `translateY(${scaled ? top : first*ROW_H}px)`;
+  if(!S.local){ const ci=Math.floor(first/CHUNK); ensure(ci); ensure(ci+1); }
+  for(let p=0;p<pool.length;p++){
+    const idx=first+p, tr=pool[p];
+    if(idx >= S.total){ tr.hidden=true; continue; }
+    tr.hidden=false; tr.dataset.i=idx;
+    tr.classList.toggle('sel', idx===S.sel);
+    const row=rowAt(idx), cells=tr.children;
+    for(let c=0;c<cells.length;c++){
+      const td=cells[c];
+      if(!row){ td.textContent=''; td.className='td'; continue; }
+      const v=row[c];
+      td.textContent = v===null ? 'NULL' : String(v);
+      td.className = v===null ? 'td null' : 'td';
+    }
+  }
+}
+vp.addEventListener('scroll', ()=>{
+  if(ticking) return; ticking=true;
+  requestAnimationFrame(()=>{ ticking=false; render(false); });
+}, {passive:true});
+// the pool is sized to the viewport, so it has to follow it — a window resize, a pane that
+// starts collapsed, or a tab first painted in the background all land here
+new ResizeObserver(()=>{
+  if(!S.cols.length) return;
+  const need = Math.ceil(vp.clientHeight/ROW_H) + OVER*2;
+  if(need !== pool.length){ buildGrid(); lastFirst=-1; render(true); }
+}).observe(vp);
+
+/* column resize */
+let drag=null;
+headEl.addEventListener('mousedown', e=>{
+  const g=e.target.closest('.grip'); if(!g) return;
+  drag={i:+g.dataset.i, x:e.clientX, w:S.widths[+g.dataset.i]}; e.preventDefault();
+});
+addEventListener('mousemove', e=>{
+  if(!drag) return;
+  const w=Math.max(MINW, drag.w + (e.clientX-drag.x));
+  S.widths[drag.i]=w;
+  headEl.children[drag.i].style.width=w+'px';
+  for(const tr of pool) tr.children[drag.i].style.width=w+'px';
+  inner.style.width=S.widths.reduce((a,b)=>a+b,0)+'px';
+});
+addEventListener('mouseup', ()=>{
+  if(!drag) return;
+  localStorage.setItem('pgweb.w.'+S.schema+'.'+S.table, JSON.stringify(S.widths));
+  drag=null;
+});
+
+/* ---------------- selection, view cell, edit ---------------- */
+rowsEl.addEventListener('click', e=>{
+  const tr=e.target.closest('.tr'); if(!tr||tr.hidden) return;
+  S.sel = +tr.dataset.i; updateButtons();
+  for(const t of pool) t.classList.toggle('sel', +t.dataset.i===S.sel);
+});
+rowsEl.addEventListener('dblclick', e=>{
+  const td=e.target.closest('.td'); if(!td) return;
+  const tr=td.parentElement, row=rowAt(+tr.dataset.i); if(!row) return;
+  const val=row[+td.dataset.c];
+  const long = val!=null && String(val).length>60;
+  if(long || !canEdit()) return showCell(S.cols[+td.dataset.c], val);
+  beginEdit(td);
+});
+function showCell(col, val){
+  $('dlg-t').textContent=col;
+  $('dlg-b').innerHTML='<pre id="cellbox"></pre>';
+  $('cellbox').textContent = val===null ? 'NULL' : String(val);
+  $('dlg-f').innerHTML='<button value="cancel">close</button>';
+  $('dlg').showModal();
+}
+const canEdit = () => S.kind==='table' && !!S.pk && !S.local;
+function beginEdit(td){
+  const tr=td.parentElement, idx=+tr.dataset.i, ci=+td.dataset.c;
+  const row=rowAt(idx); if(!row) return;
+  const before = row[ci];
+  td.contentEditable='plaintext-only'; td.classList.remove('null');
+  td.textContent = before===null ? '' : String(before);
+  td.focus();
+  const r=document.createRange(); r.selectNodeContents(td);
+  getSelection().removeAllRanges(); getSelection().addRange(r);
+  let done=false;
+  const finish = async (commit) => {
+    if(done) return; done=true;
+    td.contentEditable='false';
+    const raw=td.textContent;
+    if(!commit || raw === (before===null?'':String(before))){ lastFirst=-1; render(true); return; }
+    const next = raw==='' ? null : raw;
+    try{
+      const m = await api({action:'mutate', mode:'update', schema:S.schema, table:S.table, pk:S.pk,
+                           obj:{[S.pk]: row[S.cols.indexOf(S.pk)], [S.cols[ci]]: next}});
+      if(m.rows[0]){ const cix=Math.floor(idx/CHUNK), arr=S.chunks.get(cix);
+                     if(arr) arr[idx-cix*CHUNK]=m.rows[0]; }
+      flash('updated');
+    }catch(err){ alertBox('update failed', err.message); }
+    lastFirst=-1; render(true);
+  };
+  td.onkeydown = ev => {
+    if(ev.key==='Enter'){ ev.preventDefault(); finish(true); }
+    else if(ev.key==='Escape'){ ev.preventDefault(); finish(false); }
+  };
+  td.onblur = () => finish(true);
+}
+function updateButtons(){
+  $('delrow').disabled = !(canEdit() && S.sel>=0);
+  $('addrow').disabled = !canEdit();
+}
+
+/* ---------------- insert / delete ---------------- */
+$('addrow').onclick = () => {
+  if(!canEdit()) return;
+  $('dlg-t').textContent = `insert into ${S.table}`;
+  $('dlg-b').innerHTML = S.meta.columns.map(c=>
+    `<div class="f"><label title="${c.name}">${c.name}</label>
+     <input data-col="${c.name}" placeholder="${c.default_value?'default':(c.nullable?'null':c.type)}"></div>`).join('');
+  $('dlg-f').innerHTML = '<button value="cancel">cancel</button><button class="primary" id="ins">insert</button>';
+  $('dlg').showModal();
+  $('ins').onclick = async ev => {
+    ev.preventDefault();
+    const obj={};
+    for(const el of $('dlg-b').querySelectorAll('input')) if(el.value!=='') obj[el.dataset.col]=el.value;
+    if(!Object.keys(obj).length) return;
+    try{
+      await api({action:'mutate', mode:'create', schema:S.schema, table:S.table, pk:S.pk, obj});
+      $('dlg').close(); flash('inserted'); reload();
+    }catch(err){ alertBox('insert failed', err.message); }
+  };
+};
+$('delrow').onclick = () => {
+  if(!canEdit() || S.sel<0) return;
+  const row=rowAt(S.sel); if(!row) return;
+  const id=row[S.cols.indexOf(S.pk)];
+  $('dlg-t').textContent='delete row';
+  $('dlg-b').textContent=`delete from ${S.schema}.${S.table} where ${S.pk} = ${id}`;
+  $('dlg-f').innerHTML='<button value="cancel">cancel</button><button class="primary" id="del">delete</button>';
+  $('dlg').showModal();
+  $('del').onclick = async ev => {
+    ev.preventDefault();
+    try{
+      await api({action:'mutate', mode:'delete', schema:S.schema, table:S.table, pk:S.pk, obj:{[S.pk]:id}});
+      $('dlg').close(); flash('deleted'); S.sel=-1; reload();
+    }catch(err){ alertBox('delete failed', err.message); }
+  };
+};
+
+/* ---------------- filter ---------------- */
+const OPS={'=':'=','≠':'<>','>':'>','<':'<','≥':'>=','≤':'<=','LIKE':'LIKE','ILIKE':'ILIKE',
+           'IS NULL':'IS NULL','IS NOT NULL':'IS NOT NULL'};
+$('fgo').onclick = async () => {
+  const col=$('fcol').value, op=OPS[$('fop').value], val=$('fval').value;
+  if(!col) return;
+  S.where = op.startsWith('IS') ? `"${col}" ${op}`
+          : `"${col}" ${op} '${String(val).replace(/'/g,"''")}'`;
+  await applyFilter();
+};
+$('fclr').onclick = async () => { S.where=''; $('fval').value=''; await applyFilter(); };
+async function applyFilter(){
+  S.chunks.clear(); S.pending.clear(); S.sel=-1; lastFirst=-1;
+  try{
+    const [first, cnt] = await Promise.all([
+      api({action:'rows', schema:S.schema, table:S.table, pk:S.pk, limit:CHUNK, where:S.where||undefined}),
+      S.where ? api({action:'count', schema:S.schema, table:S.table, where:S.where}) : null
+    ]);
+    S.chunks.set(0, first.rows);
+    S.total = S.where ? (first.rows.length<CHUNK ? first.rows.length : Math.max(cnt.count, first.rows.length))
+                      : Math.max(S.meta.stats.est_rows, first.rows.length);
+    $('ftxt').textContent = S.where ? (first.rows.length<CHUNK ? `${first.rows.length} matched` : `~${num(S.total)} matched`) : '';
+    $('st-rows').textContent = S.where ? `~${num(S.total)} rows` : `~${num(S.meta.stats.est_rows)} rows`;
+    buildGrid(); vp.scrollTop=0; render(true);
+  }catch(err){ alertBox('filter failed', err.message); }
+}
+$('fval').onkeydown = e => { if(e.key==='Enter') $('fgo').click(); };
+
+/* ---------------- query ---------------- */
+async function runQuery(confirmed){
+  const sql=$('sql').value.trim(); if(!sql) return;
+  $('run').disabled=true; $('qmsg').className=''; $('qmsg').textContent='running…';
+  const t0=performance.now();
+  try{
+    const m = await api({action:'query', sql, is_confirmed: confirmed?1:0});
+    S.local=m.rows; S.cols=m.cols; S.total=m.rows.length; S.sel=-1; S.pk=null;
+    S.chunks.clear(); lastFirst=-1;
+    $('tools').style.display='none';        // column filters belong to a table, not a result set
+    buildGrid(); vp.scrollTop=0; render(true); show('rows'); updateButtons();
+    $('qmsg').textContent = `${m.rows.length} rows`;
+    $('st-obj').innerHTML='<b>query</b>'; $('st-rows').textContent=`${m.rows.length} rows`; $('st-size').textContent='';
+    $('st-time').textContent = (performance.now()-t0).toFixed(1)+' ms';
+  }catch(err){
+    if(err.message.includes('unbounded_write')){
+      $('qmsg').textContent='';
+      $('dlg-t').textContent='unbounded write';
+      $('dlg-b').textContent='this statement has no WHERE clause and will affect every row. run it?';
+      $('dlg-f').innerHTML='<button value="cancel">cancel</button><button class="primary" id="yes">run anyway</button>';
+      $('dlg').showModal();
+      $('yes').onclick=ev=>{ ev.preventDefault(); $('dlg').close(); runQuery(true); };
+    } else { $('qmsg').className='err'; $('qmsg').textContent=err.message; }
+  } finally { $('run').disabled=false; }
+}
+$('run').onclick = ()=>runQuery(false);
+$('sql').addEventListener('keydown', e=>{
+  if((e.metaKey||e.ctrlKey) && e.key==='Enter'){ e.preventDefault(); runQuery(false); }
+  if(e.key==='Tab'){ e.preventDefault(); const s=e.target.selectionStart;
+    e.target.setRangeText('  ', s, e.target.selectionEnd, 'end'); }
+});
+
+/* ---------------- chrome ---------------- */
+function show(v){
+  for(const t of document.querySelectorAll('.tab')) t.classList.toggle('on', t.dataset.v===v);
+  for(const x of document.querySelectorAll('.view')) x.classList.toggle('on', x.id==='v-'+v);
+  if(v==='rows' && S.cols.length){ lastFirst=-1; render(true); }
+}
+for(const t of document.querySelectorAll('.tab')) t.onclick = ()=>show(t.dataset.v);
+function reload(){ if(S.table) openObject(S.schema, S.table, S.kind); }
+$('reload').onclick = reload;
+function flash(msg){ const el=$('st-time'); const old=el.textContent; el.textContent=msg;
+                     setTimeout(()=>{ if(el.textContent===msg) el.textContent=old; }, 1200); }
+function alertBox(title, msg){
+  $('dlg-t').textContent=title; $('dlg-b').innerHTML='<pre id="cellbox"></pre>';
+  $('cellbox').textContent=msg;
+  $('dlg-f').innerHTML='<button value="cancel">close</button>'; $('dlg').showModal();
+}
+addEventListener('keydown', e=>{
+  if(e.key==='Escape' && !$('dlg').open && document.activeElement?.contentEditable!=='true'){
+    if(S.sel>=0){ S.sel=-1; updateButtons(); lastFirst=-1; render(true); }
+  }
+});
+
+/* auto-resume an existing session (cookie survives reload) */
+(async function boot(){
+  try{
+    const m = await api({action:'schema'});
+    S.tree=m.tree; document.body.classList.add('ready');
+    const info = await api({action:'query', sql:'select current_database() as db'});
+    S.db=info.rows[0][0]; $('dbname').textContent=S.db;
+    drawTree();
+    const last=JSON.parse(localStorage.getItem('pgweb.last')||'null');
+    if(last && (S.tree[last.schema]||{})[last.kind]?.some(o=>o.name===last.table))
+      openObject(last.schema,last.table,last.kind);
+  }catch{ /* no session yet: connect screen stays up */ }
+})();
+</script>
+</body>
+</html>

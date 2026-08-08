@@ -2220,6 +2220,144 @@ async def func_postgres_query_runner_write(*, client_postgres: any, sql: str) ->
         result = await conn.execute(sql, timeout=15)
     return result
 
+async def func_pgweb(*, client_postgres_pgweb: dict, func_client_postgres: callable, action: str, token: str = None, dsn: str = None, schema: str = "public", table: str = None, limit: int = 1000, offset: int = None, after: any = None, where: str = None, order: str = None, is_desc: int = 0, sql: str = None, mode: str = None, obj: dict = None, pk: str = None, is_meta: int = 0, is_exact: int = 0, is_confirmed: int = 0, timeout_sec: int = 30) -> dict:
+    """Single dispatcher for the pgweb dev UI: connect, schema, rows, count, query, mutate, disconnect."""
+    import secrets
+    from contextlib import suppress
+
+    def ident(*parts):
+        """Quote identifiers. Postgres cannot parameterize these, so they are validated instead."""
+        out = []
+        for part in parts:
+            if part in (None, ""): continue
+            part = str(part)
+            if not part.replace("_", "").isalnum(): raise Exception(f"invalid identifier: {part}")
+            out.append(f'"{part}"')
+        return ".".join(out)
+
+    def jsonable(value):
+        """Postgres types the stdlib encoder cannot handle (Decimal, datetime, UUID, …) become text."""
+        if value is None or isinstance(value, (bool, int, float, str)): return value
+        if isinstance(value, (bytes, bytearray, memoryview)): return "\\x" + bytes(value).hex()
+        return str(value)
+
+    def pack(records):
+        return {"cols": [str(k) for k in records[0].keys()] if records else [], "rows": [[jsonable(v) for v in r.values()] for r in records]}
+
+    async def read_tree(pool):
+        records = await pool.fetch("""
+            SELECT n.nspname AS schema_name, c.relname AS name, c.reltuples::bigint AS est_rows,
+                   CASE c.relkind WHEN 'r' THEN 'table' WHEN 'p' THEN 'table' WHEN 'v' THEN 'view'
+                        WHEN 'm' THEN 'matview' ELSE 'other' END AS kind
+            FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE c.relkind IN ('r','p','v','m') AND n.nspname NOT IN ('pg_catalog','information_schema')
+              AND n.nspname NOT LIKE 'pg_toast%' AND n.nspname NOT LIKE 'pg_temp%'
+            ORDER BY n.nspname, c.relname""", timeout=timeout_sec)
+        tree = {}
+        for r in records: tree.setdefault(r["schema_name"], {}).setdefault(r["kind"], []).append({"name": r["name"], "est_rows": max(r["est_rows"], 0)})
+        return tree
+
+    # connect creates the pool; every later action resolves it from the session token
+    if action == "connect":
+        if not dsn: raise Exception("dsn is required")
+        pool = await func_client_postgres(dsn=dsn, min_size=2, max_size=12)
+        if not pool: raise Exception("could not connect")
+        try:
+            info = await pool.fetchrow("SELECT current_database() AS db, version() AS version", timeout=timeout_sec)
+            tree = await read_tree(pool)
+        except Exception:
+            with suppress(Exception): await pool.close()
+            raise
+        new_token = secrets.token_urlsafe(32)
+        client_postgres_pgweb[new_token] = pool
+        return {"_token": new_token, "tree": tree, "database": info["db"], "version": info["version"].split(" on ")[0]}
+
+    if action == "disconnect":
+        pool = client_postgres_pgweb.pop(token or "", None)
+        if pool:
+            with suppress(Exception): await pool.close()
+        return {"_clear": 1}
+
+    pool = client_postgres_pgweb.get(token or "")
+    if not pool: raise Exception("not_connected")
+
+    if action == "schema":
+        return {"tree": await read_tree(pool)}
+
+    if action == "rows":
+        if not table: raise Exception("table is required")
+        limit = max(1, min(int(limit or 1000), 5000))
+        meta = None
+        # meta is read first so the primary key can order this very page — otherwise the
+        # opening page comes back in heap order and disagrees with every page after it
+        if is_meta:
+            reg = f"{schema}.{table}"
+            meta = {
+                "columns": [dict(r) for r in await pool.fetch("SELECT attname AS name, format_type(atttypid, atttypmod) AS type, NOT attnotnull AS nullable, pg_get_expr(d.adbin, d.adrelid) AS default_value FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum WHERE a.attrelid = $1::regclass AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum", reg, timeout=timeout_sec)],
+                "indexes": [dict(r) for r in await pool.fetch("SELECT indexname AS name, indexdef AS def FROM pg_indexes WHERE schemaname = $1 AND tablename = $2", schema, table, timeout=timeout_sec)],
+                "pk": await pool.fetchval("SELECT a.attname FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey) WHERE i.indrelid = $1::regclass AND i.indisprimary LIMIT 1", reg, timeout=timeout_sec),
+                "stats": dict(await pool.fetchrow("SELECT GREATEST(c.reltuples::bigint, 0) AS est_rows, pg_size_pretty(pg_total_relation_size(c.oid)) AS total_size, pg_size_pretty(pg_indexes_size(c.oid)) AS index_size FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname = $2", schema, table, timeout=timeout_sec)),
+            }
+            pk = pk or meta["pk"]
+        args, clauses = [], []
+        if after not in (None, ""):
+            if not pk: raise Exception("keyset paging requires a primary key")
+            args.append(after)
+            clauses.append(f'{ident(pk)} {"<" if is_desc else ">"} $1')
+        if where: clauses.append(f"({where})")
+        where_sql = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        order_col = order or pk
+        order_sql = f' ORDER BY {ident(order_col)}{" DESC" if is_desc else ""}' if order_col else ""
+        offset_sql = f" OFFSET {int(offset)}" if offset else ""
+        query = f"SELECT * FROM {ident(schema, table)}{where_sql}{order_sql} LIMIT {limit}{offset_sql}"
+        out = pack(await pool.fetch(query, *args, timeout=timeout_sec))
+        if meta is not None: out["meta"] = meta
+        return out
+
+    # planner estimate by default; exact count only when explicitly asked for
+    if action == "count":
+        if not table: raise Exception("table is required")
+        target = f"SELECT * FROM {ident(schema, table)}" + (f" WHERE {where}" if where else "")
+        if is_exact: return {"count": await pool.fetchval(f"SELECT count(*) FROM ({target}) AS pgweb_count", timeout=timeout_sec), "kind": "exact"}
+        plan = await pool.fetchval(f"EXPLAIN (FORMAT JSON) {target}", timeout=timeout_sec)
+        return {"count": (plan if isinstance(plan, list) else __import__("json").loads(plan))[0]["Plan"]["Plan Rows"], "kind": "estimate"}
+
+    if action == "query":
+        if not sql or not sql.strip(): raise Exception("sql is required")
+        normalized = " ".join(sql.lower().split())
+        if not is_confirmed and (normalized.startswith(("truncate", "drop ")) or (normalized.startswith(("update ", "delete ")) and " where " not in normalized)): raise Exception("unbounded_write")
+        return pack(await pool.fetch(sql, timeout=timeout_sec))
+
+    if action == "mutate":
+        if not table: raise Exception("table is required")
+        if not pk: raise Exception("editing requires a primary key")
+        if not isinstance(obj, dict) or not obj: raise Exception("obj is required")
+        # the grid sends every value as text; cast each through the column's own catalog type
+        # (from format_type, never user input) so asyncpg's strict parameter typing is satisfied
+        types = {r["name"]: r["type"] for r in await pool.fetch("SELECT attname AS name, format_type(atttypid, atttypmod) AS type FROM pg_attribute WHERE attrelid = $1::regclass AND attnum > 0 AND NOT attisdropped", f"{schema}.{table}", timeout=timeout_sec)}
+        def cast(col, pos):
+            if col not in types: raise Exception(f"unknown column: {col}")
+            return f"${pos}::text::{types[col]}"
+        def text(value): return None if value is None else str(value)
+        if mode == "create":
+            cols = list(obj)
+            query = f'INSERT INTO {ident(schema, table)} ({", ".join(ident(c) for c in cols)}) VALUES ({", ".join(cast(c, i + 1) for i, c in enumerate(cols))}) RETURNING *'
+            args = [text(obj[c]) for c in cols]
+        elif mode == "update":
+            if pk not in obj: raise Exception(f"obj must include the primary key '{pk}'")
+            cols = [c for c in obj if c != pk]
+            if not cols: raise Exception("nothing to update")
+            query = f'UPDATE {ident(schema, table)} SET {", ".join(f"{ident(c)}={cast(c, i + 1)}" for i, c in enumerate(cols))} WHERE {ident(pk)}={cast(pk, len(cols) + 1)} RETURNING *'
+            args = [text(obj[c]) for c in cols] + [text(obj[pk])]
+        elif mode == "delete":
+            if pk not in obj: raise Exception(f"obj must include the primary key '{pk}'")
+            query = f"DELETE FROM {ident(schema, table)} WHERE {ident(pk)}={cast(pk, 1)} RETURNING *"
+            args = [text(obj[pk])]
+        else: raise Exception(f"invalid mode: {mode}")
+        return pack(await pool.fetch(query, *args, timeout=timeout_sec))
+
+    raise Exception(f"invalid action: {action}")
+
 def func_clickhouse_query_runner_read_sql(*, sql: str, limit: int) -> str:
     """Validate a ClickHouse read query and wrap it with a server-side row limit."""
     sql = str(sql or "").strip().rstrip(";").strip()
@@ -3177,6 +3315,10 @@ async def func_client_close(*, app_state: any = None, clients: dict = None) -> N
     for client_postgres_item in client_postgres_dict.values():
         if client_postgres_item:
             with suppress(Exception): await client_postgres_item.close()
+    client_postgres_pgweb = c.get("client_postgres_pgweb") or {}
+    for client_postgres_session in client_postgres_pgweb.values():
+        if client_postgres_session:
+            with suppress(Exception): await client_postgres_session.close()
     for redis_key in ("client_redis", "client_redis_user_state", "client_redis_ratelimiter", "client_redis_producer"):
         r_client = c.get(redis_key)
         if r_client:
