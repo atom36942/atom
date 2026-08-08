@@ -54,7 +54,6 @@ Atom gives you authentication, generic CRUD over any table, caching, rate-limiti
 - [Quickstart](#quickstart)
 - [Configuration](#configuration)
 - [Structure](#structure)
-- [Workers](#workers)
 - [Documentation](#documentation)
 - [Contributing](#contributing)
 - [License](#license)
@@ -155,7 +154,7 @@ config_celery_url=redis://localhost:6379
 
 📖 See **[config.md](docs/config.md)** for the complete configuration reference.
 
-### ⚠️ Secrets to override in production
+### ⚠️ [Secrets to override in production](docs/prod.md)
 
 Before deploying to production, override the default system secrets in `.env`:
 
@@ -192,11 +191,6 @@ atom/
 ```
 
 📖 See **[about.md](docs/about.md)** for framework architecture and **[extend.md](docs/extend.md)** for extension patterns.
-
-## Workers
-
-- **Background Workers**: Launch background consumers from `script/` (e.g. `venv/bin/python script/consumer_postgres_create.py`). See **[workers.md](docs/workers.md)**.
-- **Updating Atom**: Run `venv/bin/python sync.py` to pull upstream updates safely without touching your `.env` or custom extend modules. See **[extend.md](docs/extend.md)**.
 
 ## Documentation
 
