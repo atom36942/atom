@@ -35,17 +35,21 @@ Reads the matched route's path and looks up its entry in `config_api`:
 api_cfg = app_state.config_api.get(route_path, {})
 ```
 
-From it, pulls `is_token_check`, `user_check_role`, `user_check_deactivated`, `user_check_deleted`, `rate_limit`, and `cache`. A path with **no entry** gets an empty dict → all checks default to off/public. See [config.md](config.md#config_api) for the shape of these fields.
+From it, pulls `is_active`, `is_token`, `user_check_role`, `user_check_deactivated`, `user_check_deleted`, `rate_limit`, and `cache`. A path with **no entry** gets an empty dict → all checks default to off/public. See [config.md](config.md#config_api) for the shape of these fields.
 
-### 3. Decode token (`func_token_decode`)
+### 3. Active check (`func_middleware_check_active`)
+Checks if `is_active` is disabled (`0` / `False`). If disabled, rejects the request immediately before parsing token or running database lookups.
+
+### 4. Decode token (`func_token_decode`)
 Parses the `Authorization` header and verifies the JWT with `config_token_secret_key`. On success `request.state.user` becomes the decoded claims (id, role, …); otherwise it stays empty. This never rejects on its own — enforcement happens next.
 
-### 4. Auth & user-state checks
+### 5. Auth & user-state checks
 Four checks run in order, each a no-op unless the route's policy asks for it:
 
 | Step | Function | Rejects when |
 |------|----------|--------------|
-| Auth | `func_middleware_check_token` | `is_token_check=1` but no valid user. |
+| Active | `func_middleware_check_active` | `is_active=0` (disabled endpoint). |
+| Auth | `func_middleware_check_token` | `is_token=1` but no valid user. |
 | Role | `func_middleware_check_role` | User's role isn't in the allowed list. |
 | Deactivated | `func_middleware_check_user_deactivated` | User's `deactivated_at` is set. |
 | Deleted | `func_middleware_check_user_deleted` | User's `deleted_at` is set. |

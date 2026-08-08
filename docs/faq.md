@@ -49,13 +49,31 @@ Add the exact route path and enable the checks you need:
 ```python
 config_api["/my/report"] = {
     "id": 210,
-    "is_token_check": 1,
+    "is_token": 1,
     "user_check_role": {"mode": "token", "roles": [1, 2]},
     "user_check_deactivated": {"mode": "realtime"},
 }
 ```
 
-For an intentionally public route, still register it with `"is_token_check": 0`. Make sure the path exactly matches the registered route, every entry has a unique positive `id`, and protected routes set `"is_token_check": 1`. Then restart the app so startup validation can check the policy. See [config.md](config.md#config_api) and [middleware.md](middleware.md).
+For an intentionally public route, still register it with `"is_token": 0`. Make sure the path exactly matches the registered route, every entry has a unique positive `id`, and protected routes set `"is_token": 1`. Then restart the app so startup validation can check the policy. See [config.md](config.md#config_api) and [middleware.md](middleware.md).
+
+</details>
+
+<details>
+<summary><strong>How do I disable specific endpoints or admin APIs in production?</strong></summary>
+
+Set `"is_active": 0` in the route's `config_api` policy (e.g., in `config_extend.py` or `config.py`):
+
+```python
+config_api["/admin/postgres-query-runner-write"] = {
+    "id": 6,
+    "is_active": 0,  # <-- Disables this route in production
+    "is_token": 1,
+    "user_check_role": {"mode": "realtime", "roles": [1]},
+}
+```
+
+When `"is_active": 0` is set, the HTTP middleware checks it immediately via `func_middleware_check_active` before decoding tokens or querying the database, instantly rejecting the request with an exception (`"API endpoint is disabled"`). If `"is_active"` is omitted, it defaults to `1` (enabled). See [config.md](config.md#config_api) and [middleware.md](middleware.md).
 
 </details>
 
@@ -149,7 +167,7 @@ Add `cache` to the route's `config_api` policy. The format is `{"mode": "inmemor
 ```python
 config_api["/public/catalog"] = {
     "id": 211,
-    "is_token_check": 0,
+    "is_token": 0,
     "cache": {"mode": "inmemory", "ttl_sec": 60, "is_per_user": 0},
 }
 ```
@@ -168,7 +186,7 @@ Add `rate_limit` to the route's `config_api` entry. Its format is `{"mode": "inm
 ```python
 config_api["/public/otp-send-email"] = {
     "id": 212,
-    "is_token_check": 0,
+    "is_token": 0,
     "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60},
 }
 ```
@@ -445,7 +463,7 @@ Keep project-specific changes outside framework-managed files:
 - Add endpoints in a new `router/<name>.py` containing an `APIRouter`.
 - Add standalone consumers and jobs under `script/`.
 
-Register every custom route in `config_api`; use `"is_token_check": 0` for an intentionally public route, then add role checks, caching, or rate limiting as needed. `sync.py` overwrites core files and the shipped documentation, but preserves extension files, custom routers, and `.env`.
+Register every custom route in `config_api`; use `"is_token": 0` for an intentionally public route, then add role checks, caching, or rate limiting as needed. `sync.py` overwrites core files and the shipped documentation, but preserves extension files, custom routers, and `.env`.
 
 If you are fixing Atom itself for everyone, edit the core source and submit a pull request instead. See [extend.md](extend.md).
 

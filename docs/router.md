@@ -41,7 +41,7 @@ Match the tier the route belongs to:
 |------|---------|
 | `index` | Root/meta (health, info, openapi) |
 | `auth` | Signup & login (no token) |
-| `my` | The authenticated user's own data (`is_token_check=1`) |
+| `my` | The authenticated user's own data (`is_token=1`) |
 | `public` | Open, unauthenticated endpoints |
 | `private` | Authenticated server-side actions (email, blobs) |
 | `admin` | Role-restricted privileged ops |
@@ -99,7 +99,7 @@ Two different scopes — don't confuse them:
 | `request.state` | This request only | The middleware, per request | `request.state.user` — the decoded JWT claims (`{}` if unauthenticated). |
 
 So:
-- Get the authenticated user's id: `request.state.user["id"]` (safe on `is_token_check=1` routes; use `request.state.user.get("id")` on public routes where a token is optional).
+- Get the authenticated user's id: `request.state.user["id"]` (safe on `is_token=1` routes; use `request.state.user.get("id")` on public routes where a token is optional).
 - Get a DB client / config / helper: `request.app.state.client_postgres`, `app_state.config_batch_item_limit`, `app_state.func_postgres_read(...)`.
 
 Idiom: bind `app_state = request.app.state` on the first line, then reference `app_state.*`.
@@ -169,11 +169,11 @@ Adding the route file makes it *reachable*, but auth/rate-limit/cache come from 
 # config_extend.py
 from config import config_api
 config_api = {**config_api,
-    "/my/report": {"id": 210, "is_token_check": 1, "cache": {"mode": "inmemory", "ttl_sec": 30, "is_per_user": 0}},
+    "/my/report": {"id": 210, "is_token": 1, "cache": {"mode": "inmemory", "ttl_sec": 30, "is_per_user": 0}},
 }
 ```
 
-See [config.md](config.md#config_api) for every field (`is_token_check`, `user_check_role`, `rate_limit`, `cache`, and the `token`/`inmemory`/`realtime` modes).
+See [config.md](config.md#config_api) for every field (`is_token`, `user_check_role`, `rate_limit`, `cache`, and the `token`/`inmemory`/`realtime` modes).
 
 > `func_check` runs at startup and validates `config_api` entries — a malformed policy fails the boot early.
 

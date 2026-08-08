@@ -224,7 +224,8 @@ The **per-endpoint policy table**. It maps each route path to a dict of policy f
 | Field | Shape | Meaning |
 |-------|-------|---------|
 | `id` | `int` | Stable numeric id for the endpoint — unique, used for referencing/analytics. Not security-related. |
-| `is_token_check` | `0` / `1` | `1` requires a valid JWT (`func_middleware_check_token`); `0` is public. |
+| `is_active` | `0` / `1` | `1` enables the endpoint; `0` disables the endpoint (`func_middleware_check_active`). Defaults to `1` if omitted. |
+| `is_token` | `0` / `1` | `1` requires a valid JWT (`func_middleware_check_token`); `0` is public. |
 | `user_check_role` | `{"mode": "...", "roles": [...]}` | Restrict to the listed role numbers. Rejected if the user's role isn't in the list. |
 | `user_check_deactivated` | `{"mode": "..."}` | Reject users whose `deactivated_at` is set. |
 | `user_check_deleted` | `{"mode": "..."}` | Reject users whose `deleted_at` is set. |
@@ -243,7 +244,7 @@ The **per-endpoint policy table**. It maps each route path to a dict of policy f
 ```python
 "/admin/object-delete": {
   "id": 5,
-  "is_token_check": 1,
+  "is_token": 1,
   "user_check_role": {"mode": "realtime", "roles": [1]},
   "user_check_deactivated": {"mode": "realtime"},
   "user_check_deleted": {"mode": "realtime"},
@@ -252,7 +253,7 @@ The **per-endpoint policy table**. It maps each route path to a dict of policy f
 ```
 Compare the cached public read — no token, response cached 100s:
 ```python
-"/public/object-read": {"id": 14, "is_token_check": 0, "cache": {"mode": "inmemory", "ttl_sec": 100, "is_per_user": 0}},
+"/public/object-read": {"id": 14, "is_token": 0, "cache": {"mode": "inmemory", "ttl_sec": 100, "is_per_user": 0}},
 ```
 
 ## `config_postgres`

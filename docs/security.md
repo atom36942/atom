@@ -24,7 +24,7 @@ Every route's protection comes from its `config_api` entry, enforced in the midd
 
 | Check | Config field | Rejects |
 |-------|-------------|---------|
-| Token required | `is_token_check` | Missing/invalid token. |
+| Token required | `is_token` | Missing/invalid token. |
 | Role | `user_check_role` | Role not in the allowed list. |
 | Deactivated | `user_check_deactivated` | `deactivated_at` is set. |
 | Deleted | `user_check_deleted` | `deleted_at` is set. |

@@ -105,16 +105,19 @@ async def middleware(request, api_function):
         path = request.url.path
         route_path = getattr(route, "path", None) or path
         api_cfg = app_state.config_api.get(route_path, {})
-        is_token_check = api_cfg.get("is_token_check", 0)
+        is_active = api_cfg.get("is_active", 1)
+        is_token = api_cfg.get("is_token", 0)
         user_check_role = api_cfg.get("user_check_role")
         user_check_deactivated = api_cfg.get("user_check_deactivated")
         user_check_deleted = api_cfg.get("user_check_deleted")
         rate_limit = api_cfg.get("rate_limit")
         cache = api_cfg.get("cache")
+        # active check
+        await app_state.func_middleware_check_active(is_active=is_active)
         # token
         request.state.user = await app_state.func_token_decode(headers=request.headers, config_token_secret_key=app_state.config_token_secret_key)
         # checks
-        await app_state.func_middleware_check_token(user_dict=request.state.user, url_path=path, is_token_check=is_token_check, user_check_role=user_check_role, user_check_deactivated=user_check_deactivated, user_check_deleted=user_check_deleted)
+        await app_state.func_middleware_check_token(user_dict=request.state.user, url_path=path, is_token=is_token, user_check_role=user_check_role, user_check_deactivated=user_check_deactivated, user_check_deleted=user_check_deleted)
         await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role=user_check_role, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis_user_state, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, user_check_deactivated=user_check_deactivated, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis_user_state, cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, user_check_deleted=user_check_deleted, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis_user_state, cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)

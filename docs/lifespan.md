@@ -16,7 +16,7 @@ If any startup step raises, the error is logged and re-raised so the app **fails
 ## Startup
 
 ### 1. Validation (`func_check`)
-Before touching any resource, `func_check` validates that `config_api` is well-formed: every entry uses only allowed keys (`id`, `is_token_check`, `user_check_*`, `cache`, `rate_limit`), flags are `0/1`, check `mode`s are valid (`redis` / `realtime` / `inmemory` / `token`), and ids/routes are consistent. A misconfigured API table stops the boot here.
+Before touching any resource, `func_check` validates that `config_api` is well-formed: every entry uses only allowed keys (`id`, `is_token`, `user_check_*`, `cache`, `rate_limit`), flags are `0/1`, check `mode`s are valid (`redis` / `realtime` / `inmemory` / `token`), and ids/routes are consistent. A misconfigured API table stops the boot here.
 
 ### 2. Filesystem prep
 Resets the working `tmp/` directory (removed if stale, then recreated) and ensures `secret/` exists — scratch space for uploads/temp artifacts and secret material.

@@ -48,7 +48,7 @@ Only configure clients that the application uses. A missing URL leaves its clien
 ```python
 "/private/example": {
     "id": 101,
-    "is_token_check": 1,
+    "is_token": 1,
     "user_check_role": {"mode": "redis", "roles": [1, 2]},
     "user_check_deactivated": {"mode": "redis"},
     "user_check_deleted": {"mode": "redis"},
@@ -72,7 +72,7 @@ Set a route's `cache` mode to `redis`:
 ```python
 "/public/example": {
     "id": 102,
-    "is_token_check": 0,
+    "is_token": 0,
     "cache": {"mode": "redis", "ttl_sec": 300, "is_per_user": 0},
 },
 ```
@@ -104,7 +104,7 @@ Enable distributed rate limiting for a route with:
 ```python
 "/public/example": {
     "id": 103,
-    "is_token_check": 0,
+    "is_token": 0,
     "rate_limit": {"mode": "redis", "limit": 100, "window_sec": 60},
 },
 ```
