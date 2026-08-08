@@ -63,9 +63,11 @@ Atom gives you authentication, generic CRUD over any table, caching, rate-limiti
 
 - **Python 3.11+**
 - **Git**
-- Optional **unixODBC** system libraries for MSSQL support.
+- Optional database drivers for MSSQL support (**unixODBC** on Linux/macOS, **Microsoft ODBC Driver for SQL Server** on Windows).
 
 ## Installation
+
+**Linux / macOS:**
 
 ```bash
 git clone https://github.com/atom36942/atom.git
@@ -88,9 +90,20 @@ venv/bin/pip install -r requirements.txt
 venv/bin/uvicorn main:app --reload
 ```
 
+**Windows (Command Prompt / PowerShell):**
+
+```cmd
+git clone https://github.com/atom36942/atom.git
+cd atom
+python -m venv venv
+venv\Scripts\pip install --upgrade pip
+venv\Scripts\pip install -r requirements.txt
+venv\Scripts\uvicorn main:app --reload
+```
+
 Server runs on **http://localhost:8000** (`/` built-in API console, `/health`, `/info`, `/openapi.json`).
 
-*Or run with Docker:*
+*Or run with Docker (Cross-Platform):*
 ```bash
 docker build -t atom .
 docker run --rm -p 8000:8000 --env-file .env atom
