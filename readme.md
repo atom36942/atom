@@ -156,24 +156,7 @@ config_celery_url=redis://localhost:6379
 
 ### ⚠️ [Secrets to override in production](docs/prod.md)
 
-Before deploying to production, override the default system secrets in `.env`:
-
-```bash
-config_token_secret_key=<a-long-random-string>
-config_root_user_password=<a-strong-password>
-```
-
-| Key | Default in `config.py` | Why it matters |
-|-----|------------------------|----------------|
-| `config_token_secret_key` | `mysecretkey-mysecretkey-mysecretkey` | Signs JWTs — forge protection. |
-| `config_root_user_password` | `123456` | Password for root admin (role 1). |
-
-Generate a secure secret:
-```bash
-python3 -c "import secrets; print(secrets.token_urlsafe(48))"
-```
-
-📖 See **[prod.md](docs/prod.md)** as the single source of truth for production configuration and **[security.md](docs/security.md)** for security guidelines.
+Before deploying to production, ensure you override default system secrets in `.env`. See **[prod.md](docs/prod.md)** for the complete production security configuration checklist and **[security.md](docs/security.md)** for security guidelines.
 
 ## Structure
 
