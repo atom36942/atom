@@ -5,81 +5,117 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>pgweb</title>
 <style>
+/* palette lifted from pgweb's own app.css: #79589f chrome, #7eb54e primary,
+   #f9f9f9 sidebar, #ffe row hover, #3874d7 selection, #bbb nulls */
 :root{
-  color-scheme:light dark;
-  --bg:#fff; --panel:#f7f8fa; --panel2:#eef0f4; --line:#e928303a; --line:#e2e5ea;
-  --fg:#1c2024; --dim:#69707d; --accent:#2563eb; --accent-fg:#fff;
-  --null:#a0a6b0; --ok:#0f8a4a; --err:#c0392b; --sel:#dbe7ff; --hover:#f0f2f6;
-  --row-h:26px;
+  color-scheme:light;
+  --nav:#79589f; --nav-fg:#d6cce2; --nav-on-bg:#fff; --nav-on-fg:#000;
+  --side:#f9f9f9; --bg:#fff; --fg:#3a3633; --dim:#aaa; --line:#ddd;
+  --th-fg:#333; --th-line:#eae9e9; --th-hover:#fafafa; --th-active:#f3faff;
+  --row-odd:#f9f9f9; --row-even:#fff; --row-line:#f2f2f2; --row-hover:#ffe;
+  --sel:#3874d7; --sel-fg:#fff; --null:#bbb; --obj-hl:#f1f1f1;
+  --green:#7eb54e; --green-h:#64903e; --err:#c0392b;
+  --info-fg:#7f7e7f; --info-val:#4f4f4f;
+  --row-h:34px; --bar-h:50px;
+}
+:root[data-theme=dark]{
+  color-scheme:dark;
+  --nav:#79589f; --nav-fg:#d6cce2; --nav-on-bg:#141419; --nav-on-fg:#f2f0ee;   /* == --bg, so the active tab merges into the pane */
+  --side:#191920; --bg:#141419; --fg:#d9d5d1; --dim:#7a7a84; --line:#2e2e37;
+  --th-fg:#cfcac5; --th-line:#2e2e37; --th-hover:#20202a; --th-active:#1e2a3a;
+  --row-odd:#191920; --row-even:#141419; --row-line:#22222b; --row-hover:#2a2a1c;
+  --sel:#3874d7; --sel-fg:#fff; --null:#66666f; --obj-hl:#24242e;
+  --green:#8fc95f; --green-h:#a5d977; --err:#f2645a;
+  --info-fg:#8a8a93; --info-val:#c6c2be;
 }
 @media (prefers-color-scheme:dark){
-  :root{ --bg:#0d1117; --panel:#11161e; --panel2:#161c26; --line:#232b37;
-         --fg:#d7dee8; --dim:#7f8b9c; --accent:#4d8ffd; --accent-fg:#fff;
-         --null:#5a6472; --ok:#3fb950; --err:#f2645a; --sel:#1b2f52; --hover:#171e28; }
+  :root:not([data-theme=light]){
+    color-scheme:dark;
+    --nav-on-bg:#141419; --nav-on-fg:#f2f0ee;   /* == --bg, so the active tab merges into the pane */
+    --side:#191920; --bg:#141419; --fg:#d9d5d1; --dim:#7a7a84; --line:#2e2e37;
+    --th-fg:#cfcac5; --th-line:#2e2e37; --th-hover:#20202a; --th-active:#1e2a3a;
+    --row-odd:#191920; --row-even:#141419; --row-line:#22222b; --row-hover:#2a2a1c;
+    --null:#66666f; --obj-hl:#24242e; --green:#8fc95f; --green-h:#a5d977; --err:#f2645a;
+    --info-fg:#8a8a93; --info-val:#c6c2be;
+  }
 }
-:root[data-theme=light]{ color-scheme:light;
-  --bg:#fff; --panel:#f7f8fa; --panel2:#eef0f4; --line:#e2e5ea; --fg:#1c2024; --dim:#69707d;
-  --accent:#2563eb; --accent-fg:#fff; --null:#a0a6b0; --ok:#0f8a4a; --err:#c0392b; --sel:#dbe7ff; --hover:#f0f2f6; }
-:root[data-theme=dark]{ color-scheme:dark;
-  --bg:#0d1117; --panel:#11161e; --panel2:#161c26; --line:#232b37; --fg:#d7dee8; --dim:#7f8b9c;
-  --accent:#4d8ffd; --accent-fg:#fff; --null:#5a6472; --ok:#3fb950; --err:#f2645a; --sel:#1b2f52; --hover:#171e28; }
 
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;overflow:hidden}
 body{background:var(--bg);color:var(--fg);display:flex;
-  font:12px/1.45 ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace}
+  font:13px/1.42857143 "Helvetica Neue",Helvetica,Arial,sans-serif}
 button,input,select,textarea{font:inherit;color:inherit}
-button{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:4px 10px;cursor:pointer}
-button:hover{border-color:var(--accent)}
-button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
-button:disabled{opacity:.45;cursor:default;border-color:var(--line)}
-input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:4px 8px;outline:none}
-input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+button{background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:4px 11px;cursor:pointer;color:var(--fg)}
+button:hover{border-color:#444;color:var(--fg)}
+button.primary{border-color:var(--green);color:var(--green);background:var(--bg)}
+button.primary:hover{border-color:var(--green-h);color:var(--green-h)}
+button:disabled{opacity:.4;cursor:default;border-color:var(--line);color:var(--dim)}
+input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:4px 8px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:#999}
 ::-webkit-scrollbar{width:11px;height:11px}
-::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px;border:3px solid var(--bg)}
+::-webkit-scrollbar-thumb{background:#c7c7c7;border-radius:6px;border:3px solid var(--bg)}
+:root[data-theme=dark] ::-webkit-scrollbar-thumb{background:#3a3a45}
 ::-webkit-scrollbar-thumb:hover{background:var(--dim)}
 
 /* ---------- connect ---------- */
-#connect{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center}
-#connect .box{width:min(560px,92vw)}
-#connect h1{font-size:15px;margin:0 0 4px;letter-spacing:.3px}
-#connect p{color:var(--dim);margin:0 0 18px}
+#connect{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column}
+#connect .bar{height:var(--bar-h);background:var(--nav);color:#fff;display:flex;align-items:center;
+  padding:0 16px;font-size:15px;font-weight:bold;flex:none}
+#connect .mid{flex:1;display:flex;align-items:center;justify-content:center;padding:20px}
+#connect .box{width:min(580px,92vw)}
+#connect h1{font-size:15px;margin:0 0 4px;font-weight:bold}
+#connect p{color:#888;margin:0 0 18px;font-size:13px}
 #connect .row{display:flex;gap:8px}
 #connect input{flex:1}
-#cerr{color:var(--err);margin-top:10px;min-height:16px;white-space:pre-wrap}
-#connect .hint{color:var(--dim);margin-top:16px;font-size:11px}
+#cerr{color:var(--err);margin-top:10px;min-height:17px;white-space:pre-wrap;font-size:12px}
+#connect .hint{color:var(--dim);margin-top:16px;font-size:12px}
 
 /* ---------- shell ---------- */
 #app{display:none;flex:1;min-width:0}
 body.ready #app{display:flex}
 body.ready #connect{display:none}
-#side{width:248px;flex:0 0 248px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
-#dbline{padding:9px 11px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
-#dbname{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#side{width:250px;flex:0 0 250px;background:var(--side);display:flex;flex-direction:column;min-height:0}
+#dbline{height:var(--bar-h);flex:none;background:var(--nav);color:#fff;font-weight:bold;font-size:14px;
+  display:flex;align-items:center;gap:6px;padding:0 8px}
+#dbname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #side .search{padding:8px}
-#side .search input{width:100%}
-#tree{flex:1;overflow:auto;padding-bottom:8px}
-.schema{padding:7px 11px 3px;color:var(--dim);font-size:10.5px;letter-spacing:.6px;text-transform:uppercase}
-.kind{padding:5px 11px 2px;color:var(--dim);font-size:10.5px}
-.obj{display:flex;justify-content:space-between;gap:8px;padding:3px 11px 3px 20px;cursor:pointer}
-.obj:hover{background:var(--hover)}
-.obj.on{background:var(--accent);color:var(--accent-fg)}
+#side .search input{width:100%;font-size:12px}
+#tree{flex:1;overflow:auto;padding-bottom:8px;font-size:12px}
+.schema{padding:8px 10px 3px;color:#888;font-weight:bold;font-size:12px}
+.kind{padding:5px 10px 2px 20px;color:var(--dim);font-size:11px;text-transform:uppercase}
+/* pgweb: 30px rows, #f1f1f1 on hover, active is the same grey plus bold — not a colour fill */
+.obj{display:flex;justify-content:space-between;gap:8px;height:30px;line-height:30px;
+     padding:0 8px 0 24px;cursor:pointer;white-space:nowrap}
+.obj:hover{background:var(--obj-hl)}
+.obj.on{background:var(--obj-hl);color:var(--th-fg);font-weight:bold}
 .obj .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.obj .ct{color:var(--dim);font-size:10.5px;flex:none}
-.obj.on .ct{color:var(--accent-fg);opacity:.8}
+.obj .ct{color:var(--dim);font-size:11px;flex:none;font-weight:normal}
+
+/* sidebar footer: pgweb's TABLE INFORMATION panel */
+#tinfo{flex:none;border-top:1px solid #eee;font-size:12px}
+:root[data-theme=dark] #tinfo{border-top-color:var(--line)}
+#tinfo .title{text-transform:uppercase;color:var(--dim);line-height:30px;padding:0 10px}
+#tinfo .line{line-height:22px;padding:0 10px;color:var(--info-fg);display:flex;justify-content:space-between;gap:8px}
+#tinfo .line span{color:var(--info-val)}
 
 #main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
-#tabs{display:flex;align-items:center;gap:2px;padding:6px 9px;border-bottom:1px solid var(--line);background:var(--panel)}
-.tab{padding:4px 11px;border-radius:5px;cursor:pointer;color:var(--dim)}
-.tab:hover{background:var(--hover)}
-.tab.on{background:var(--panel2);color:var(--fg)}
+#tabs{height:var(--bar-h);flex:none;display:flex;align-items:stretch;background:var(--nav);padding:0}
+.tab{padding:0 14px;line-height:var(--bar-h);font-size:13px;font-weight:500;color:var(--nav-fg);
+  cursor:pointer;margin:0 1px;flex:none;white-space:nowrap}
+.tab:hover{color:#fff}
+.tab.on{background:var(--nav-on-bg);color:var(--nav-on-fg);margin:0}
 #tabs .sp{flex:1}
-#tabs .icon{padding:4px 8px;line-height:1}
+#tabs{overflow:hidden}
+#tabs button{align-self:center;background:var(--nav);color:#fff;border-color:rgba(255,255,255,.55);
+  margin-right:8px;font-size:12px;flex:none;white-space:nowrap}
+#tabs button:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
+#tabs button:disabled{opacity:.45;color:#e2d8ee;border-color:rgba(255,255,255,.3)}
 
-#tools{display:flex;align-items:center;gap:6px;padding:6px 9px;border-bottom:1px solid var(--line);background:var(--bg)}
-#tools select,#tools input{padding:3px 7px}
-#fval{width:170px}
+#tools{display:flex;align-items:center;gap:6px;padding:7px 9px;border-bottom:1px solid var(--th-line);background:var(--bg)}
+#tools select,#tools input{padding:3px 7px;font-size:12px}
+#fval{width:180px}
 #tools .sp{flex:1}
+#ftxt{color:#888;font-size:12px}
 
 #pane{flex:1;position:relative;min-height:0}
 .view{position:absolute;inset:0;display:none;flex-direction:column;min-height:0}
@@ -88,81 +124,87 @@ body.ready #connect{display:none}
 /* ---------- virtual grid ---------- */
 /* contain must not include size here: #rows is absolutely positioned and shrink-to-fit,
    so size-contained rows would measure as empty and collapse to zero width */
-#vp{flex:1;overflow:auto;position:relative;contain:layout paint}
+#vp{flex:1;overflow:auto;position:relative;contain:layout paint;font-size:12px}
 #inner{position:relative}
-#head{position:sticky;top:0;z-index:3;display:flex;background:var(--panel2);border-bottom:1px solid var(--line)}
-.th{flex:none;padding:0 8px;height:var(--row-h);line-height:var(--row-h);font-weight:600;color:var(--dim);
-    border-right:1px solid var(--line);position:relative;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;user-select:none}
+#head{position:sticky;top:0;z-index:3;display:flex;background:var(--bg);border-bottom:1px solid var(--th-line)}
+.th{flex:none;padding:0 9px;height:31px;line-height:31px;font-weight:bold;color:var(--th-fg);
+    position:relative;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;user-select:none;cursor:pointer}
+.th:hover{background:var(--th-hover)}
 .th .grip{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize}
-.th .grip:hover{background:var(--accent)}
+.th .grip:hover{background:var(--nav)}
 #canvas{position:relative}
 #rows{position:absolute;top:0;left:0;width:100%;will-change:transform}
-.tr{display:flex;height:var(--row-h);contain:layout paint}
+.tr{display:flex;height:var(--row-h);contain:layout paint;border-bottom:1px solid var(--row-line);background:var(--row-even)}
 .tr[hidden]{display:none}   /* author display:flex would otherwise beat the UA [hidden] rule */
-.tr:nth-child(even){background:color-mix(in srgb,var(--fg) 3%,transparent)}
-.tr:hover{background:var(--hover)}
+.tr:nth-child(odd){background:var(--row-odd)}
+.tr:hover{background:var(--row-hover)}
 .tr.sel{background:var(--sel)}
-.td{flex:none;padding:0 8px;height:var(--row-h);line-height:var(--row-h);border-right:1px solid var(--line);
+.tr.sel .td{color:var(--sel-fg)}
+.td{flex:none;padding:0 9px;height:33px;line-height:33px;color:var(--fg);
     overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.td.null{color:var(--null);font-style:italic}
-.td[contenteditable=true]{background:var(--bg);outline:2px solid var(--accent);outline-offset:-2px;
-    text-overflow:clip;cursor:text;overflow:visible;z-index:4;position:relative}
+.td.null{color:var(--null);text-transform:uppercase}
+.tr.sel .td.null{color:#dfe7f7}
+.td[contenteditable=true]{background:var(--bg);outline:2px solid var(--nav);outline-offset:-2px;
+    text-overflow:clip;cursor:text;overflow:visible;z-index:4;position:relative;color:var(--fg)}
 #empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:var(--dim)}
 #empty.on{display:flex}
 
 /* ---------- text panes ---------- */
-.pre{flex:1;overflow:auto;margin:0;padding:12px 14px;white-space:pre;color:var(--fg)}
-.pre .k{color:var(--dim)}
+.pre{flex:1;overflow:auto;margin:0;padding:14px 16px;white-space:pre;color:var(--fg);
+     font:12px/1.6 Menlo,Monaco,Consolas,"Courier New",monospace}
 
 /* ---------- query ---------- */
-#sql{height:190px;flex:none;border:0;border-bottom:1px solid var(--line);border-radius:0;
-     padding:11px 13px;resize:vertical;background:var(--bg);tab-size:2}
-#qbar{display:flex;align-items:center;gap:8px;padding:6px 9px;border-bottom:1px solid var(--line);background:var(--panel)}
-#qmsg{color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#sql{height:200px;flex:none;border:0;border-bottom:1px solid var(--line);border-radius:0;
+     padding:12px 14px;resize:vertical;background:var(--bg);tab-size:2;
+     font:12px/1.6 Menlo,Monaco,Consolas,"Courier New",monospace}
+#qbar{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--th-line);background:var(--bg)}
+#qmsg{color:#888;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #qmsg.err{color:var(--err)}
 
 /* ---------- status ---------- */
-#status{display:flex;align-items:center;gap:14px;padding:4px 11px;border-top:1px solid var(--line);
-        background:var(--panel);color:var(--dim);font-size:11px}
+#status{display:flex;align-items:center;gap:14px;padding:5px 11px;border-top:1px solid var(--th-line);
+        background:var(--side);color:#888;font-size:12px}
 #status .sp{flex:1}
-#status b{color:var(--fg);font-weight:600}
-#status .t{color:var(--ok)}
+#status b{color:var(--fg);font-weight:bold}
+#status .t{color:var(--green)}
 
-dialog{border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--fg);padding:0;
-       box-shadow:0 12px 40px #0006;max-width:min(560px,92vw)}
-dialog::backdrop{background:#0008}
-dialog .hd{padding:11px 14px;border-bottom:1px solid var(--line);font-weight:600}
-dialog .bd{padding:12px 14px;max-height:60vh;overflow:auto}
-dialog .ft{padding:10px 14px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
-dialog .f{display:flex;gap:9px;align-items:center;margin-bottom:7px}
-dialog .f label{width:140px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none}
+dialog{border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);padding:0;
+       box-shadow:0 8px 30px rgba(0,0,0,.3);max-width:min(580px,92vw)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog .hd{padding:12px 15px;border-bottom:1px solid var(--th-line);font-weight:bold;font-size:14px}
+dialog .bd{padding:14px 15px;max-height:60vh;overflow:auto;font-size:12px}
+dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;gap:8px;justify-content:flex-end}
+dialog .f{display:flex;gap:9px;align-items:center;margin-bottom:8px}
+dialog .f label{width:140px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none}
 dialog .f input{flex:1}
-#cellbox{white-space:pre-wrap;word-break:break-word;font:inherit;margin:0}
+#cellbox{white-space:pre-wrap;word-break:break-word;margin:0;
+         font:12px/1.6 Menlo,Monaco,Consolas,"Courier New",monospace}
 </style>
 </head>
 <body>
 
 <div id="connect">
-  <div class="box">
-    <h1>pgweb</h1>
-    <p>connect to a postgres database</p>
-    <div class="row">
-      <input id="dsn" placeholder="postgres://user:password@localhost:5432/dbname" autocomplete="off" spellcheck="false"/>
-      <button class="primary" id="cbtn">connect</button>
+  <div class="bar">pgweb</div>
+  <div class="mid">
+    <div class="box">
+      <h1>Connect to a Postgres database</h1>
+      <p>Paste a connection string to get started.</p>
+      <div class="row">
+        <input id="dsn" placeholder="postgres://user:password@localhost:5432/dbname" autocomplete="off" spellcheck="false"/>
+        <button class="primary" id="cbtn">Connect</button>
+      </div>
+      <div id="cerr"></div>
+      <div class="hint">Runs locally · the url stays on the server, never in the browser</div>
     </div>
-    <div id="cerr"></div>
-    <div class="hint">runs locally · the url stays on the server, never in the browser</div>
   </div>
 </div>
 
 <div id="app">
   <aside id="side">
-    <div id="dbline"><span id="dbname">—</span><span class="sp" style="flex:1"></span>
-      <button class="icon" id="theme" title="theme">◐</button>
-      <button class="icon" id="disc" title="disconnect">⏻</button>
-    </div>
-    <div class="search"><input id="q" placeholder="filter objects" autocomplete="off" spellcheck="false"/></div>
+    <div id="dbline"><span id="dbname">—</span></div>
+    <div class="search"><input id="q" placeholder="Filter database objects" autocomplete="off" spellcheck="false"/></div>
     <div id="tree"></div>
+    <div id="tinfo"><div class="title">Table Information</div><div id="tinfo-lines"></div></div>
   </aside>
 
   <main id="main">
@@ -172,9 +214,11 @@ dialog .f input{flex:1}
       <div class="tab" data-v="idx">Indexes</div>
       <div class="tab" data-v="query">Query</div>
       <div class="sp"></div>
-      <button id="addrow" title="insert row">+ row</button>
-      <button id="delrow" title="delete selected row" disabled>− row</button>
+      <button id="addrow" title="insert row">+ Row</button>
+      <button id="delrow" title="delete selected row" disabled>− Row</button>
       <button id="reload" title="reload">↻</button>
+      <button id="theme" title="toggle theme">◐</button>
+      <button id="disc" title="disconnect">Disconnect</button>
     </div>
 
     <div id="pane">
@@ -220,7 +264,7 @@ dialog .f input{flex:1}
 
 <script>
 'use strict';
-const ROW_H = 26, CHUNK = 1000, OVER = 6, MAXW = 460, MINW = 64;
+const ROW_H = 34, CHUNK = 1000, OVER = 6, MAXW = 460, MINW = 64;   /* 33px cell + 1px rule, as pgweb */
 // browsers clamp element height near 2^24 px; past that the spacer stops growing and the
 // tail of a big table becomes unreachable, so the scrollbar is scaled instead of 1:1
 const MAXH = 16000000;
@@ -338,6 +382,12 @@ async function openObject(schema, table, kind){
     `${c.name.padEnd(28)}${c.type}${c.nullable?'':'  not null'}${c.default_value?'  default '+c.default_value:''}`).join('\n');
   $('p-idx').textContent = m.meta.indexes.map(i=>i.def).join('\n\n') || '(no indexes)';
   $('fcol').innerHTML = S.cols.map(c=>`<option>${c}</option>`).join('');
+  const st = m.meta.stats;
+  $('tinfo-lines').innerHTML =
+    `<div class="line">Size<span>${st.total_size||'—'}</span></div>` +
+    `<div class="line">Index size<span>${st.index_size||'—'}</span></div>` +
+    `<div class="line">${kind==='table'?'Estimated rows':'Rows'}<span>${kind==='table'?num(st.est_rows):m.rows.length}</span></div>` +
+    `<div class="line">Columns<span>${m.meta.columns.length}</span></div>`;
   $('st-obj').innerHTML = `<b>${schema}.${table}</b>`;
   $('st-rows').textContent = kind==='table'
     ? `~${num(m.meta.stats.est_rows)} rows` : `${m.rows.length} rows`;
@@ -599,6 +649,7 @@ async function runQuery(confirmed){
     S.local=m.rows; S.cols=m.cols; S.total=m.rows.length; S.sel=-1; S.pk=null;
     S.chunks.clear(); lastFirst=-1;
     $('tools').style.display='none';        // column filters belong to a table, not a result set
+    $('tinfo-lines').innerHTML='';          // stats belong to a table too
     buildGrid(); vp.scrollTop=0; render(true); show('rows'); updateButtons();
     $('qmsg').textContent = `${m.rows.length} rows`;
     $('st-obj').innerHTML='<b>query</b>'; $('st-rows').textContent=`${m.rows.length} rows`; $('st-size').textContent='';

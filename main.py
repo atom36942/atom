@@ -66,7 +66,7 @@ async def func_lifespan(app:"FastAPI"):
         # postgres misc
         cache_postgres_schema_dict = {name: await app.state.func_postgres_schema_read(client_postgres=client) for name, client in client_postgres_dict.items()}
         cache_postgres_schema_ai_dict = {name: await app.state.func_postgres_schema_read_ai(client_postgres=client) for name, client in client_postgres_dict.items()}
-        # pgweb dev ui sessions (token -> asyncpg pool, created at runtime)
+        # pgweb dev ui: single connection, {"pool": asyncpg pool} created at runtime
         client_postgres_pgweb = {}
         # func calls
         func_app_state_add(app=app, data_dict={**globals(), **locals()}, prefixes=("client_", "cache_"))

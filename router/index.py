@@ -34,12 +34,7 @@ async def func_api_index_info(*, request:Request):
 async def func_api_pgweb(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[])
-    output = await app_state.func_pgweb(client_postgres_pgweb=app_state.client_postgres_pgweb, func_client_postgres=app_state.func_client_postgres, token=request.cookies.get("pgweb_sid"), **ob)
-    new_token, is_clear = output.pop("_token", None), output.pop("_clear", None)
-    response = responses.JSONResponse({"status": 1, "message": output})
-    if new_token: response.set_cookie("pgweb_sid", new_token, httponly=True, samesite="strict", path="/")
-    if is_clear: response.delete_cookie("pgweb_sid", path="/")
-    return response
+    return {"status": 1, "message": await app_state.func_pgweb(client_postgres_pgweb=app_state.client_postgres_pgweb, func_client_postgres=app_state.func_client_postgres, **ob)}
 
 @router.get("/openapi.json")
 async def func_api_openapi_json(*, request:Request):

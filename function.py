@@ -2220,9 +2220,11 @@ async def func_postgres_query_runner_write(*, client_postgres: any, sql: str) ->
         result = await conn.execute(sql, timeout=15)
     return result
 
-async def func_pgweb(*, client_postgres_pgweb: dict, func_client_postgres: callable, action: str, token: str = None, dsn: str = None, schema: str = "public", table: str = None, limit: int = 1000, offset: int = None, after: any = None, where: str = None, order: str = None, is_desc: int = 0, sql: str = None, mode: str = None, obj: dict = None, pk: str = None, is_meta: int = 0, is_exact: int = 0, is_confirmed: int = 0, timeout_sec: int = 30) -> dict:
-    """Single dispatcher for the pgweb dev UI: connect, schema, rows, count, query, mutate, disconnect."""
-    import secrets
+async def func_pgweb(*, client_postgres_pgweb: dict, func_client_postgres: callable, action: str, dsn: str = None, schema: str = "public", table: str = None, limit: int = 1000, offset: int = None, after: any = None, where: str = None, order: str = None, is_desc: int = 0, sql: str = None, mode: str = None, obj: dict = None, pk: str = None, is_meta: int = 0, is_exact: int = 0, is_confirmed: int = 0, timeout_sec: int = 30) -> dict:
+    """Single dispatcher for the pgweb dev UI: connect, schema, rows, count, query, mutate, disconnect.
+
+    One connection at a time — client_postgres_pgweb holds a single pool under "pool".
+    """
     from contextlib import suppress
 
     def ident(*parts):
@@ -2268,17 +2270,19 @@ async def func_pgweb(*, client_postgres_pgweb: dict, func_client_postgres: calla
         except Exception:
             with suppress(Exception): await pool.close()
             raise
-        new_token = secrets.token_urlsafe(32)
-        client_postgres_pgweb[new_token] = pool
-        return {"_token": new_token, "tree": tree, "database": info["db"], "version": info["version"].split(" on ")[0]}
+        previous = client_postgres_pgweb.pop("pool", None)   # replace whatever was connected before
+        if previous:
+            with suppress(Exception): await previous.close()
+        client_postgres_pgweb["pool"] = pool
+        return {"tree": tree, "database": info["db"], "version": info["version"].split(" on ")[0]}
 
     if action == "disconnect":
-        pool = client_postgres_pgweb.pop(token or "", None)
+        pool = client_postgres_pgweb.pop("pool", None)
         if pool:
             with suppress(Exception): await pool.close()
-        return {"_clear": 1}
+        return {}
 
-    pool = client_postgres_pgweb.get(token or "")
+    pool = client_postgres_pgweb.get("pool")
     if not pool: raise Exception("not_connected")
 
     if action == "schema":
