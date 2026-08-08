@@ -19,7 +19,7 @@ Endpoints in `router/public.py`, `router/my.py`, and `router/admin.py` wrap thes
 
 | Tier | Endpoints | Authentication | Data Scope & Permissions |
 | :--- | :--- | :--- | :--- |
-| **/public** | `/public/object-create`<br>`/public/object-read`<br>`/public/table-groupby` | None (or optional token) | Operates strictly on tables explicitly enabled in `config_table_public_create_enable` / `config_table_public_read_enable`. No update or delete endpoints exist in this tier. |
+| **/public** | `/public/object-create`<br>`/public/object-read`<br>`/public/table-groupby` | None (or optional token) | Operates strictly on tables explicitly enabled in `config_table_public_create_enabled` / `config_table_public_read_enabled`. No update or delete endpoints exist in this tier. |
 | **/my** | `/my/object-create`<br>`/my/object-read`<br>`/my/object-update`<br>`/my/object-delete`<br>`/my/object-delete-all` | Bearer Token (Required) | Scoped strictly to rows **owned by the authenticated user** (matching `created_by_id` or `ownership_column`). |
 | **/admin** | `/admin/object-create`<br>`/admin/object-read`<br>`/admin/object-update`<br>`/admin/object-delete` | Admin Token (Role 1/2) | Unrestricted access across any table or row (bypasses ownership checks behind strict role checks). |
 
@@ -196,10 +196,10 @@ curl -X POST "http://localhost:8000/my/object-delete" \
 ```
 
 ### Delete Safeguards:
-- **Protected Rows**: Rows flagged `is_protected` cannot be deleted (`is_enable_is_protected_delete_disable`).
-- **User Account Hard Delete**: Deleting user accounts requires `config_is_enable_user_delete = 1`.
+- **Protected Rows**: Rows flagged `is_protected` cannot be deleted (`is_protected_delete_disabled`).
+- **User Account Hard Delete**: Deleting user accounts requires `config_is_user_delete = 1`.
 - **Table Delete Guards**: `table_row_delete_disable_all` and `table_row_delete_disable_bulk` protect critical system tables.
-- **Delete-All Enable**: Bulk table deletion via `/my/object-delete-all` requires explicit configuration in `config_table_my_delete_all_enable`.
+- **Delete-All Enable**: Bulk table deletion via `/my/object-delete-all` requires explicit configuration in `config_table_my_delete_all_enabled`.
 
 ---
 

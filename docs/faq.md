@@ -225,12 +225,12 @@ Public signup cannot create role `1` users, which prevents callers from granting
 <details>
 <summary><strong>Why do I get "signup disabled"?</strong></summary>
 
-The application is running with `config_is_enable_signup = 0`. In that mode, password signup is rejected, and OTP or Google login cannot automatically create a user on their first login.
+The application is running with `config_is_signup = 0`. In that mode, password signup is rejected, and OTP or Google login cannot automatically create a user on their first login.
 
 Set the value in `.env` or `config_extend.py`, then restart Atom:
 
 ```python
-config_is_enable_signup = 1
+config_is_signup = 1
 ```
 
 If signup should remain closed, create the user through an administrator workflow instead; existing users can still log in. See [auth.md](auth.md).
@@ -505,7 +505,7 @@ Check the common causes:
 For example:
 
 ```dotenv
-config_is_enable_signup=false
+config_is_signup=false
 config_cors_allow_origins=["https://app.example.com"]
 ```
 
@@ -529,7 +529,7 @@ Custom routes should check the client they depend on and return a clear error wh
 
 The prefixes represent data-access scope, not just route organization:
 
-- `/public/object-*` is anonymous and limited by `config_table_public_create_enable` and `config_table_public_read_enable`.
+- `/public/object-*` is anonymous and limited by `config_table_public_create_enabled` and `config_table_public_read_enabled`.
 - `/my/object-*` requires a user and automatically scopes rows through ownership columns such as `created_by_id` or `user_id`.
 - `/admin/object-*` can operate on any row and table, subject to its administrator route policy.
 
@@ -616,7 +616,7 @@ config_is_read_only=1
 When read-only mode is enabled, Atom:
 
 - configures the primary and named asyncpg pools with `default_transaction_read_only=on`;
-- skips PostgreSQL schema initialization, regardless of `config_is_enable_postgres_schema_init`;
+- skips PostgreSQL schema initialization, regardless of `config_is_postgres_schema_init`;
 - does not start the periodic PostgreSQL buffer-flush task;
 - does not buffer request records into `log_api`; and
 - skips final primary and API-log buffer flushes during shutdown.
@@ -666,7 +666,7 @@ curl "http://localhost:8000/public/object-read?db=read_india&table=products&limi
 <details>
 <summary><strong>Will automatic schema initialization delete or alter existing database objects?</strong></summary>
 
-It can. When `config_is_enable_postgres_schema_init = 1`, startup compares `config_postgres` with the live schema and applies configured tables, columns, constraints, indexes, extensions, and triggers. The `config_postgres["control"]` flags determine whether missing tables or columns may be dropped and whether mismatched column types may be recreated.
+It can. When `config_is_postgres_schema_init = 1`, startup compares `config_postgres` with the live schema and applies configured tables, columns, constraints, indexes, extensions, and triggers. The `config_postgres["control"]` flags determine whether missing tables or columns may be dropped and whether mismatched column types may be recreated.
 
 Review those controls carefully before pointing Atom at an existing or production database. Back up the database, test schema changes on a copy, and use a database account with appropriately limited privileges. For a safe column rename, set the column's `old` key instead of removing one name and adding another. See [config.md](config.md#control).
 

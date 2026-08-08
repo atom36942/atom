@@ -67,10 +67,10 @@ All default to `None`, meaning **off** — the matching client in `main.py` is o
 
 | Key | Default | Usage |
 |-----|---------|-------|
-| `config_is_enable_signup` | `1` | When `0`, all signup/first-login-create paths in `router/auth.py` are rejected. |
-| `config_is_enable_postgres_schema_init` | `1` | When `1`, `func_postgres_schema_init` creates/migrates tables from `config_postgres` at startup. |
-| `config_is_enable_user_delete` | `0` | Gates the user hard-delete flow. |
-| `config_is_enable_otp_require_users_update` | `0` | When `1`, updating a user's `email`/`mobile` via admin requires OTP verification. |
+| `config_is_signup` | `1` | When `0`, all signup/first-login-create paths in `router/auth.py` are rejected. |
+| `config_is_postgres_schema_init` | `1` | When `1`, `func_postgres_schema_init` creates/migrates tables from `config_postgres` at startup. |
+| `config_is_user_delete` | `0` | Gates the user hard-delete flow. |
+| `config_is_otp_require_users_update` | `0` | When `1`, updating a user's `email`/`mobile` via admin requires OTP verification. |
 | `config_is_debug` | `1` | FastAPI debug mode. Set `0` in production. |
 
 ### PostgreSQL pools
@@ -157,11 +157,11 @@ These lists gate which tables the generic CRUD endpoints may touch — the core 
 | Key | Usage |
 |-----|-------|
 | `config_table_sensitive` | Tables protected from bulk cleanup/deletion scripts (`script/`). |
-| `config_table_my_create_disable` | Tables the `/my/object-create` endpoint refuses (e.g. `users`, `log_api`, `otp`). |
-| `config_table_my_delete_all_enable` | Tables where an authenticated user may delete *all their own* rows. |
-| `config_table_my_delete_all_received_enable` | Tables supporting "delete all received" (e.g. `message`, `notification`). |
-| `config_table_public_create_enable` | Tables the **public** create endpoint accepts. |
-| `config_table_public_read_enable` | Tables the **public** read endpoint exposes. `["*"]` = all. |
+| `config_table_my_create_disabled` | Tables the `/my/object-create` endpoint refuses (e.g. `users`, `log_api`, `otp`). |
+| `config_table_my_delete_all_enabled` | Tables where an authenticated user may delete *all their own* rows. |
+| `config_table_my_delete_all_received_enabled` | Tables supporting "delete all received" (e.g. `message`, `notification`). |
+| `config_table_public_create_enabled` | Tables the **public** create endpoint accepts. |
+| `config_table_public_read_enabled` | Tables the **public** read endpoint exposes. `["*"]` = all. |
 
 > Pattern: an empty/absent list means "nothing allowed"; `"*"` means "all". Endpoints check membership before running.
 
@@ -257,7 +257,7 @@ Compare the cached public read — no token, response cached 100s:
 ```
 
 ## `config_postgres`
-The **declarative database schema**, applied by `func_postgres_schema_init` at startup when `config_is_enable_postgres_schema_init = 1`. It has four top-level keys: `extension`, `table`, `control`, `sql`.
+The **declarative database schema**, applied by `func_postgres_schema_init` at startup when `config_is_postgres_schema_init = 1`. It has four top-level keys: `extension`, `table`, `control`, `sql`.
 
 ### `extension`
 List of Postgres extensions to ensure exist (created if missing; skipped with a warning if the DB user lacks privileges):
@@ -287,13 +287,13 @@ Toggles that decide **how aggressive the auto-migration is** and which safety gu
 
 | Control key | Default | What it does |
 |-------------|---------|--------------|
-| `is_enable_truncate_table` | `1` | Allow truncating tables during init. |
-| `is_enable_updated_at_set` | `1` | Auto-maintain `updated_at` (trigger) on update. |
-| `is_enable_is_protected_delete_disable` | `1` | Rows flagged `is_protected` cannot be deleted. |
-| `is_enable_log_users_password` | `1` | Record password changes into `log_users_password`. |
-| `is_enable_log_users_delete` | `1` | Record user delete/restore events into `log_users_delete`. |
-| `is_enable_root_user_create` | `1` | Seed the root admin user (role 1) at startup. |
-| `is_enable_root_user_delete_disable` | `1` | Protect the root user from deletion. |
+| `is_truncate_table` | `1` | Allow truncating tables during init. |
+| `is_updated_at_set` | `1` | Auto-maintain `updated_at` (trigger) on update. |
+| `is_protected_delete_disabled` | `1` | Rows flagged `is_protected` cannot be deleted. |
+| `is_log_users_password` | `1` | Record password changes into `log_users_password`. |
+| `is_log_users_delete` | `1` | Record user delete/restore events into `log_users_delete`. |
+| `is_root_user_create` | `1` | Seed the root admin user (role 1) at startup. |
+| `is_root_user_delete_disabled` | `1` | Protect the root user from deletion. |
 | `table_row_delete_disable_all` | `[]` | Tables where **all** row deletes are blocked. |
 | `table_row_delete_disable_bulk` | `[]` | Tables where only **bulk** row deletes are blocked. |
 

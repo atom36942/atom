@@ -41,10 +41,10 @@ config_root_user_password = "123456"
 config_login_password = "123456"
 config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
 config_root_html_path = "static/api.html"
-config_is_enable_user_delete = 0
-config_is_enable_postgres_schema_init = 1
-config_is_enable_signup = 1
-config_is_enable_otp_require_users_update = 0
+config_is_user_delete = 0
+config_is_postgres_schema_init = 1
+config_is_signup = 1
+config_is_otp_require_users_update = 0
 config_is_read_only = 0
 config_is_debug = 1
 config_postgres_pool_min_size = 5
@@ -79,11 +79,11 @@ config_postgres_db_log_api = None
 
 # Table
 config_table_sensitive = ["spatial_ref_sys", "users", "log_users_delete"]
-config_table_my_create_disable = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
-config_table_my_delete_all_enable = ["test"]
-config_table_my_delete_all_received_enable = ["message","notification"]
-config_table_public_create_enable = ["test"]
-config_table_public_read_enable = ["test"]
+config_table_my_create_disabled = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
+config_table_my_delete_all_enabled = ["test"]
+config_table_my_delete_all_received_enabled = ["message","notification"]
+config_table_public_create_enabled = ["test"]
+config_table_public_read_enabled = ["test"]
 
 # Column
 config_column_token_encode = ["id", "role", "username", "id_ext" ,"deactivated_at", "deleted_at"]
@@ -345,13 +345,13 @@ config_postgres = {
 ],
 },
 "control":{
-"is_enable_updated_at_set":1,
-"is_enable_is_protected_delete_disable":1,
-"is_enable_truncate_table":0,
-"is_enable_log_users_password":1,
-"is_enable_log_users_delete":1,
-"is_enable_root_user_create":1,
-"is_enable_root_user_delete_disable":1,
+"is_updated_at_set":1,
+"is_protected_delete_disabled":1,
+"is_truncate_table":0,
+"is_log_users_password":1,
+"is_log_users_delete":1,
+"is_root_user_create":1,
+"is_root_user_delete_disabled":1,
 "table_row_delete_disable_all":["users", "config", "log_users_password", "log_users_delete"],
 "table_row_delete_disable_bulk":[["*", 1000]],
 },

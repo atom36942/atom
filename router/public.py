@@ -18,7 +18,7 @@ async def func_api_public_object_create(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "mode", "type": "str", "required": 0, "allowed": ["now", "buffer"], "default": "now"}])
-    enabled_create_tables = app_state.config_table_public_create_enable or []
+    enabled_create_tables = app_state.config_table_public_create_enabled or []
     if "*" not in enabled_create_tables and oq["table"] not in enabled_create_tables: raise Exception(f"creation disabled for table: {oq['table']}")
     ob=await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[])
     obj_list = ob.get("obj_list", [ob])
@@ -34,7 +34,7 @@ async def func_api_public_object_read(*, request: Request):
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     if not client_postgres: raise Exception("postgres client not initialized")
     if oq["table"] not in cache_postgres_schema: raise Exception(f"table '{oq['table']}' not found")
-    enabled_tables = app_state.config_table_public_read_enable or []
+    enabled_tables = app_state.config_table_public_read_enabled or []
     if "*" not in enabled_tables and oq["table"] not in enabled_tables: raise Exception(f"read disabled for table: {oq['table']}")
     if (disabled_relation_table := next((parts[1] for rel in oq["relation"] for parts in ([p.strip() for p in rel.split(",", 4)],) if len(parts) >= 2 and "*" not in enabled_tables and parts[1] not in enabled_tables), None)) is not None: raise Exception(f"relation read disabled for table: {disabled_relation_table}")
     ol = await app_state.func_postgres_read(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
@@ -102,7 +102,7 @@ async def func_api_public_table_groupby(*, request: Request):
     if oq["table"] not in cache_postgres_schema: raise Exception(f"table '{oq['table']}' not found")
     if oq["col"] not in cache_postgres_schema[oq["table"]]: raise Exception(f"column '{oq['col']}' not found in table: {oq['table']}")
     if oq["agg_col"] != "*" and oq["agg_col"] not in cache_postgres_schema[oq["table"]]: raise Exception(f"column '{oq['agg_col']}' not found in table: {oq['table']}")
-    enabled_tables = app_state.config_table_public_read_enable or []
+    enabled_tables = app_state.config_table_public_read_enabled or []
     if "*" not in enabled_tables and oq["table"] not in enabled_tables: raise Exception(f"read disabled for table: {oq['table']}")
     res = await app_state.func_postgres_groupby_read(app_state=app_state, client_postgres=client_postgres, cache_postgres_schema=cache_postgres_schema, table=oq["table"], col=oq["col"], limit=oq["limit"], page=oq["page"], agg=oq["agg_func"], a_col=oq["agg_col"], order=oq["order"], filter=oq["filter"])
     return {"status": 1, "message": res}
@@ -116,7 +116,7 @@ async def func_api_public_table_distinct(*, request: Request):
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     if not client_postgres: raise Exception("postgres client not initialized")
     if oq["table"] not in cache_postgres_schema: raise Exception(f"table '{oq['table']}' not found")
-    enabled_tables = app_state.config_table_public_read_enable or []
+    enabled_tables = app_state.config_table_public_read_enabled or []
     if "*" not in enabled_tables and oq["table"] not in enabled_tables: raise Exception(f"read disabled for table: {oq['table']}")
     if oq["col"] not in cache_postgres_schema[oq["table"]]: raise Exception(f"column '{oq['col']}' not found in table: {oq['table']}")
     async with client_postgres.acquire() as conn:

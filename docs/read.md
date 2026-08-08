@@ -6,7 +6,7 @@ Atom's generic read APIs support column selection, filters, sorting, pagination,
 
 | Endpoint | Access | Scope |
 |----------|--------|-------|
-| `GET /public/object-read` | Public by default | Any matching row in a table allowed by `config_table_public_read_enable` |
+| `GET /public/object-read` | Public by default | Any matching row in a table allowed by `config_table_public_read_enabled` |
 | `GET /my/object-read` | Bearer token | Only rows owned by the authenticated user |
 | `GET /admin/object-read` | Authorized admin token | Any matching row |
 
@@ -396,7 +396,7 @@ curl -G "http://localhost:8000/admin/object-read" \
 
 - The source column must be included in the main result.
 - `fetch` always requires `fetch|<limit>`.
-- Public reads may relate only to tables allowed by `config_table_public_read_enable`.
+- Public reads may relate only to tables allowed by `config_table_public_read_enabled`.
 - Relations use the same selected database connection as the main public/admin read.
 - Named read databases are expected to share the primary schema used for validation.
 - Fetches are one level deep; relation strings do not recursively nest more relations.
@@ -450,7 +450,7 @@ Omit `db` to use `config_postgres_url`. The named database must be present in th
 ## Security and performance guidance
 
 - Prefer `/my/object-read` for user-owned data; do not rely on a client-supplied owner filter.
-- Expose only intentional tables through `config_table_public_read_enable`.
+- Expose only intentional tables through `config_table_public_read_enabled`.
 - Select only needed columns and use modest page and relation limits.
 - Index columns frequently used for filters, ordering, ownership, and relation target keys.
 - Relation fetching avoids N+1 queries but can still return many rows: source page size × relation limit.

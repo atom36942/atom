@@ -39,7 +39,7 @@ Assembles the FastAPI application instance. Handles the startup/shutdown **[life
 Contains all reusable, framework-agnostic helper functions (JWT token parsing, password hashing, generic CRUD operations, buffer flushes, blob operations, and AI utilities). See **[object.md](object.md)**, **[auth.md](auth.md)**, and **[query.md](query.md)**.
 
 ### 3. `config.py` — Centralized Declarative Configuration
-Acts as the single source of truth for all environment variables, feature flags, table schemas, rate-limiting rules, auth parameters, and endpoint permissions. Read the full reference in **[config.md](config.md)**.
+Acts as the single source of truth for all environment variables, feature flags (`config_is_*`), token/OTP settings, and limits (upload size, batch size, read limits, buffer sizes), and endpoint permissions. Read the full reference in **[config.md](config.md)**.
 
 ### 4. `router/` — Access-Tiered Routers
 API routes are partitioned into access tiers based on security requirements:

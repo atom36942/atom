@@ -36,7 +36,7 @@ Creates one client per configured integration. **Each is conditional** — if th
 Every Postgres pool uses `config_postgres_pool_min_size` and `config_postgres_pool_max_size` (defaults `5` and `20`); MSSQL uses `pool_recycle=60`. Account for every app instance and every named Postgres pool when sizing database connection limits.
 
 ### 4. Database schema init
-When `config_is_enable_postgres_schema_init = 1` and Postgres is present, `func_postgres_schema_init` applies the declarative schema from `config_postgres` — creating extensions, tables, columns, indexes, and constraints, and seeding the root admin user (password hashed with Argon2). See [config.md](config.md#config_postgres) for what it reads.
+When `config_is_postgres_schema_init = 1` and Postgres is present, `func_postgres_schema_init` applies the declarative schema from `config_postgres` — creating extensions, tables, columns, indexes, and constraints, and seeding the root admin user (password hashed with Argon2). See [config.md](config.md#config_postgres) for what it reads.
 
 ### 5. Cache building
 To keep the request path fast, several read-mostly datasets are loaded into memory once at startup:

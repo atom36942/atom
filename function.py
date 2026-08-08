@@ -114,13 +114,13 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
             if legacy_key in control:
                 return 0 if control.get(legacy_key) else 1
         return default
-    is_enable_truncate_table = get_enable_control_switch("is_enable_truncate_table", 1, ("is_enable_truncate_disable", "is_disable_truncate"))
-    is_enable_root_user_delete_disable = control.get("is_enable_root_user_delete_disable", control.get("is_enable_users_protect_root", 1))
-    is_enable_root_user_create = control.get("is_enable_root_user_create", 1)
-    is_enable_log_users_password = control.get("is_enable_log_users_password", 1)
-    is_enable_log_users_delete = control.get("is_enable_log_users_delete", 1)
-    is_enable_is_protected_delete_disable = control.get("is_enable_is_protected_delete_disable", 1)
-    is_enable_updated_at_set = control.get("is_enable_updated_at_set", 1)
+    is_truncate_table = get_enable_control_switch("is_truncate_table", 1, ("is_enable_truncate_disable", "is_disable_truncate"))
+    is_root_user_delete_disabled = control.get("is_root_user_delete_disabled", control.get("is_enable_users_protect_root", 1))
+    is_root_user_create = control.get("is_root_user_create", 1)
+    is_log_users_password = control.get("is_log_users_password", 1)
+    is_log_users_delete = control.get("is_log_users_delete", 1)
+    is_protected_delete_disabled = control.get("is_protected_delete_disabled", 1)
+    is_updated_at_set = control.get("is_updated_at_set", 1)
     bulk_blocked = control.get("table_row_delete_disable_bulk", control.get("table_delete_disable_row_bulk", control.get("disable_table_delete_row_bulk", [])))
     table_blocked = control.get("table_row_delete_disable_all", control.get("table_delete_disable_row", control.get("disable_table_delete_row", [])))
     catalog = {"idx": set(), "uni": set(), "chk": set(), "tg": set()}
@@ -366,19 +366,19 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
             db_tables.setdefault(row[0], []).append(row[1])
         users_cols = db_tables.get("users", [])
         if users_cols:
-            if is_enable_root_user_delete_disable:
+            if is_root_user_delete_disabled:
                 catalog["tg"].add("trigger_protect_root_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_protect_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'DELETE' THEN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; END IF; RETURN NULL; END; $$; DROP TRIGGER IF EXISTS trigger_protect_root_users ON users; CREATE TRIGGER trigger_protect_root_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_protect_root_users();")
-            if is_enable_root_user_create and all(c in users_cols for c in ("username", "password", "role", "deleted_at", "deactivated_at")):
+            if is_root_user_create and all(c in users_cols for c in ("username", "password", "role", "deleted_at", "deactivated_at")):
                 if not root_user_password_hash:
                     root_user_password_hash = "$argon2id$v=19$m=65536,t=3,p=4$XXabrpBeXx2PeIcUC7cxWA$CqF+8i+q+k62/6MkQMXFcyMGoTeWmDMvwf8u7WvnrG8"
                 await conn.execute("INSERT INTO users (username, password, role) VALUES ('admin', $1, 1) ON CONFLICT (username, role) DO UPDATE SET username = 'admin', password = COALESCE(users.password, EXCLUDED.password), role = 1, deleted_at = NULL, deactivated_at = NULL;", root_user_password_hash)
                 await conn.execute("UPDATE users SET username = 'admin', password = COALESCE(users.password, $1), role = 1, deleted_at = NULL, deactivated_at = NULL WHERE id = 1;", root_user_password_hash)
-            if is_enable_log_users_password and "password" in users_cols and "log_users_password" in db_tables:
+            if is_log_users_password and "password" in users_cols and "log_users_password" in db_tables:
                 catalog["tg"].add("trigger_password_log_users")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_password_log_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.password IS DISTINCT FROM NEW.password THEN INSERT INTO log_users_password (user_id, password, created_by_id) VALUES (NEW.id, NEW.password, NEW.updated_by_id); END IF; RETURN NEW; END; $$;")
                 await conn.execute("DROP TRIGGER IF EXISTS trigger_password_log_users ON users; CREATE TRIGGER trigger_password_log_users AFTER UPDATE ON users FOR EACH ROW EXECUTE FUNCTION func_password_log_users();")
-            if is_enable_log_users_delete and "deleted_at" in users_cols and "log_users_delete" in db_tables:
+            if is_log_users_delete and "deleted_at" in users_cols and "log_users_delete" in db_tables:
                 catalog["tg"].add("trigger_log_users_delete")
                 await conn.execute("CREATE OR REPLACE FUNCTION func_log_users_delete() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'UPDATE' THEN IF OLD.deleted_at IS NULL AND NEW.deleted_at IS NOT NULL THEN INSERT INTO log_users_delete (user_id, type, created_by_id) VALUES (NEW.id, 1, COALESCE(NEW.deleted_by_id, NEW.updated_by_id)); ELSIF OLD.deleted_at IS NOT NULL AND NEW.deleted_at IS NULL THEN INSERT INTO log_users_delete (user_id, type, created_by_id) VALUES (NEW.id, 2, NEW.updated_by_id); END IF; RETURN NEW; ELSIF TG_OP = 'DELETE' THEN INSERT INTO log_users_delete (user_id, type) VALUES (OLD.id, 3); RETURN OLD; END IF; RETURN NULL; END; $$;")
                 await conn.execute("DROP TRIGGER IF EXISTS trigger_log_users_delete ON users; CREATE TRIGGER trigger_log_users_delete AFTER UPDATE OF deleted_at OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_log_users_delete();")
@@ -390,16 +390,16 @@ async def func_postgres_schema_init(*, client_postgres: any, config_postgres: di
         for table, cols in db_tables.items():
             if table == "spatial_ref_sys":
                 continue
-            if not is_enable_truncate_table:
+            if not is_truncate_table:
                 trunc_tg_name = f"trigger_truncate_disable_{table}"
                 catalog["tg"].add(trunc_tg_name)
                 await conn.execute(f"DROP TRIGGER IF EXISTS {trunc_tg_name} ON {table}; CREATE TRIGGER {trunc_tg_name} BEFORE TRUNCATE ON {table} FOR EACH STATEMENT EXECUTE FUNCTION func_delete_disable_table();")
-            if is_enable_is_protected_delete_disable and "is_protected" in cols:
+            if is_protected_delete_disabled and "is_protected" in cols:
                 prot_tg_name = f"trigger_delete_disable_is_protected_{table}"
                 catalog["tg"].add(prot_tg_name)
                 await conn.execute(f"DROP TRIGGER IF EXISTS {prot_tg_name} ON {table}")
                 await conn.execute(f"CREATE TRIGGER {prot_tg_name} BEFORE DELETE ON {table} FOR EACH ROW EXECUTE FUNCTION func_delete_disable_is_protected();")
-            if is_enable_updated_at_set and "updated_at" in cols:
+            if is_updated_at_set and "updated_at" in cols:
                 upd_tg_name = f"trigger_updated_at_set_{table}"
                 catalog["tg"].add(upd_tg_name)
                 await conn.execute(f"DROP TRIGGER IF EXISTS {upd_tg_name} ON {table}")
@@ -2276,7 +2276,7 @@ async def func_postgres_import(*, app_state: any, mode: str, table: str, file: a
     client_postgres = client_postgres or app_state.client_postgres
     cache_postgres_schema = cache_postgres_schema if cache_postgres_schema is not None else app_state.cache_postgres_schema
     if not client_postgres: raise Exception("postgres client not initialized")
-    if mode == "delete" and table == "users" and app_state.config_is_enable_user_delete != 1: raise Exception("users hard delete disabled")
+    if mode == "delete" and table == "users" and app_state.config_is_user_delete != 1: raise Exception("users hard delete disabled")
     count = 0
     async with client_postgres.acquire() as conn:
         async with conn.transaction():

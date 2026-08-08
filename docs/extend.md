@@ -30,7 +30,7 @@ Create `config_extend.py` in the project root. Any name you define replaces the 
 # config_extend.py
 
 # turn features on/off
-config_is_enable_signup = 0
+config_is_signup = 0
 config_is_debug = 0
 
 # enable an integration just by setting its config
@@ -78,26 +78,15 @@ router = APIRouter()
 @router.get("/custom/hello")
 async def func_api_custom_hello(*, request: Request):
     app_state = request.app.state
-    # reuse core logic via app.state
-    data = await app_state.func_postgres_read(
-        client_postgres=app_state.client_postgres,
-        table="test", filter=[], limit=10, page=1, order="id desc", column="*", relation=[],
-        client_password_hasher=app_state.client_password_hasher,
-        func_postgres_serialize=app_state.func_postgres_serialize,
-        func_postgres_where_build=app_state.func_postgres_where_build,
-        func_postgres_relation=app_state.func_postgres_relation,
-        cache_postgres_schema=app_state.cache_postgres_schema,
-        config_sql_read_limit_max=app_state.config_sql_read_limit_max,
-        config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max,
-    )
-    return {"status": 1, "message": data}
+    res = await app_state.func_my_helper(user_id=1)
+    return {"status": 1, "message": res}
 ```
 
 Load order is controlled by `router_order` in `main.py` (files not listed load after the known tiers, alphabetically). Add the path to `config_api` (step 1) if it needs auth, rate-limiting, or caching.
 
 ## 4. Add or change database tables
 
-Tables are declared as data in `config.py` under `config_postgres["table"]` and created automatically on startup when `config_is_enable_postgres_schema_init = 1`. To add your own table without editing `config.py`, extend the structure in `config_extend.py`:
+Tables are declared as data in `config.py` under `config_postgres["table"]` and created automatically on startup when `config_is_postgres_schema_init = 1`. To add your own table without editing `config.py`, extend the structure in `config_extend.py`:
 
 ```python
 # config_extend.py

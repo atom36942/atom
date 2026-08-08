@@ -29,7 +29,7 @@ Returns the full back-and-forth between you and one other user (both directions)
 
 ### Deleting
 - `/my/object-delete` — delete messages you sent (own rows).
-- `/my/object-delete-received` / `-received-all` — delete messages you *received* (for tables in `config_table_my_delete_all_received_enable`, which includes `message`).
+- `/my/object-delete-received` / `-received-all` — delete messages you *received* (for tables in `config_table_my_delete_all_received_enabled`, which includes `message`).
 
 ---
 

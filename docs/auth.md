@@ -22,7 +22,7 @@ Login always takes an identity **+ role** pair.
 ### `POST /auth/signup-username-password`
 Body: `role`, `username`, `password`, optional `source`.
 
-Flow: validate role → regex-check username/password (`config_regex`) → reject if `config_is_enable_signup=0` → reject `role=1` → hash password with Argon2 → insert user → return tokens.
+Flow: validate role → regex-check username/password (`config_regex`) → reject if `config_is_signup=0` → reject `role=1` → hash password with Argon2 → insert user → return tokens.
 
 ```jsonc
 // request body
