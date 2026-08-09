@@ -5,38 +5,35 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>pgweb</title>
 <style>
-/* palette lifted from pgweb's own app.css: #79589f chrome, #7eb54e primary,
-   #f9f9f9 sidebar, #ffe row hover, #3874d7 selection, #bbb nulls */
+/* palette from pgweb's own app.css: #79589f chrome, #7eb54e primary, #f9f9f9 sidebar,
+   #ffe row hover, #3874d7 selection, #bbb nulls */
 :root{
   color-scheme:light;
   --nav:#79589f; --nav-fg:#d6cce2; --nav-on-bg:#fff; --nav-on-fg:#000;
   --side:#f9f9f9; --bg:#fff; --fg:#3a3633; --dim:#aaa; --line:#ddd;
-  --th-fg:#333; --th-line:#eae9e9; --th-hover:#fafafa; --th-active:#f3faff;
+  --th-fg:#333; --th-line:#eae9e9; --th-hover:#fafafa;
   --row-odd:#f9f9f9; --row-even:#fff; --row-line:#f2f2f2; --row-hover:#ffe;
-  --sel:#3874d7; --sel-fg:#fff; --null:#bbb; --obj-hl:#f1f1f1;
+  --sel:#3874d7; --sel-fg:#fff; --null:#bbb; --hl:#f1f1f1;
   --green:#7eb54e; --green-h:#64903e; --err:#c0392b;
-  --info-fg:#7f7e7f; --info-val:#4f4f4f;
-  --row-h:34px; --bar-h:50px;
+  --row-h:30px; --bar-h:50px;
 }
 :root[data-theme=dark]{
   color-scheme:dark;
-  --nav:#79589f; --nav-fg:#d6cce2; --nav-on-bg:#141419; --nav-on-fg:#f2f0ee;   /* == --bg, so the active tab merges into the pane */
+  --nav:#79589f; --nav-fg:#d6cce2; --nav-on-bg:#141419; --nav-on-fg:#f2f0ee;
   --side:#191920; --bg:#141419; --fg:#d9d5d1; --dim:#7a7a84; --line:#2e2e37;
-  --th-fg:#cfcac5; --th-line:#2e2e37; --th-hover:#20202a; --th-active:#1e2a3a;
+  --th-fg:#cfcac5; --th-line:#2e2e37; --th-hover:#20202a;
   --row-odd:#191920; --row-even:#141419; --row-line:#22222b; --row-hover:#2a2a1c;
-  --sel:#3874d7; --sel-fg:#fff; --null:#66666f; --obj-hl:#24242e;
+  --sel:#3874d7; --sel-fg:#fff; --null:#66666f; --hl:#24242e;
   --green:#8fc95f; --green-h:#a5d977; --err:#f2645a;
-  --info-fg:#8a8a93; --info-val:#c6c2be;
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme=light]){
     color-scheme:dark;
-    --nav-on-bg:#141419; --nav-on-fg:#f2f0ee;   /* == --bg, so the active tab merges into the pane */
+    --nav-on-bg:#141419; --nav-on-fg:#f2f0ee;
     --side:#191920; --bg:#141419; --fg:#d9d5d1; --dim:#7a7a84; --line:#2e2e37;
-    --th-fg:#cfcac5; --th-line:#2e2e37; --th-hover:#20202a; --th-active:#1e2a3a;
+    --th-fg:#cfcac5; --th-line:#2e2e37; --th-hover:#20202a;
     --row-odd:#191920; --row-even:#141419; --row-line:#22222b; --row-hover:#2a2a1c;
-    --null:#66666f; --obj-hl:#24242e; --green:#8fc95f; --green-h:#a5d977; --err:#f2645a;
-    --info-fg:#8a8a93; --info-val:#c6c2be;
+    --null:#66666f; --hl:#24242e; --green:#8fc95f; --green-h:#a5d977; --err:#f2645a;
   }
 }
 
@@ -45,30 +42,29 @@ html,body{height:100%;margin:0;overflow:hidden}
 body{background:var(--bg);color:var(--fg);display:flex;
   font:13px/1.42857143 "Helvetica Neue",Helvetica,Arial,sans-serif}
 button,input,select,textarea{font:inherit;color:inherit}
-button{background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:4px 11px;cursor:pointer;color:var(--fg)}
-button:hover{border-color:#444;color:var(--fg)}
-button.primary{border-color:var(--green);color:var(--green);background:var(--bg)}
-button.primary:hover{border-color:var(--green-h);color:var(--green-h)}
-button:disabled{opacity:.4;cursor:default;border-color:var(--line);color:var(--dim)}
-input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:4px 8px;outline:none}
+button{background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:4px 11px;
+  cursor:pointer;color:var(--fg)}
+button:hover:not(:disabled){border-color:#8a8a8a;background:var(--hl)}
+button:disabled{opacity:.45;cursor:default}
+button.primary{border-color:var(--green);color:var(--green)}
+button.primary:hover:not(:disabled){border-color:var(--green-h);color:var(--green-h);background:var(--bg)}
+input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:3px;
+  padding:4px 8px;outline:none}
 input:focus,select:focus,textarea:focus{border-color:#999}
 ::-webkit-scrollbar{width:11px;height:11px}
 ::-webkit-scrollbar-thumb{background:#c7c7c7;border-radius:6px;border:3px solid var(--bg)}
 :root[data-theme=dark] ::-webkit-scrollbar-thumb{background:#3a3a45}
 ::-webkit-scrollbar-thumb:hover{background:var(--dim)}
 
-/* ---------- connect ---------- */
+/* ---------- connect: url only ---------- */
 #connect{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column}
-#connect .bar{height:var(--bar-h);background:var(--nav);color:#fff;display:flex;align-items:center;
-  padding:0 16px;font-size:15px;font-weight:bold;flex:none}
-#connect .mid{flex:1;display:flex;align-items:center;justify-content:center;padding:20px}
-#connect .box{width:min(580px,92vw)}
-#connect h1{font-size:15px;margin:0 0 4px;font-weight:bold}
-#connect p{color:#888;margin:0 0 18px;font-size:13px}
-#connect .row{display:flex;gap:8px}
-#connect input{flex:1}
-#cerr{color:var(--err);margin-top:10px;min-height:17px;white-space:pre-wrap;font-size:12px}
-#connect .hint{color:var(--dim);margin-top:16px;font-size:12px}
+#connect .bar{height:var(--bar-h);flex:none;background:var(--nav);color:#fff;display:flex;
+  align-items:center;padding:0 16px;font-size:15px;font-weight:bold}
+#connect .mid{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
+#connect .box{width:min(560px,92vw)}
+#dsn{width:100%;padding:10px 13px;font-size:14px;
+  font-family:Menlo,Monaco,Consolas,"Courier New",monospace}
+#cerr{color:var(--err);margin-top:10px;min-height:18px;font-size:12px;white-space:pre-wrap}
 
 /* ---------- shell ---------- */
 #app{display:none;flex:1;min-width:0}
@@ -76,42 +72,47 @@ body.ready #app{display:flex}
 body.ready #connect{display:none}
 #side{width:250px;flex:0 0 250px;background:var(--side);display:flex;flex-direction:column;min-height:0}
 #dbline{height:var(--bar-h);flex:none;background:var(--nav);color:#fff;font-weight:bold;font-size:14px;
-  display:flex;align-items:center;gap:6px;padding:0 8px}
+  display:flex;align-items:center;gap:6px;padding:0 8px 0 12px}
 #dbname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#side .search{padding:8px}
-#side .search input{width:100%;font-size:12px}
-#tree{flex:1;overflow:auto;padding-bottom:8px;font-size:12px}
-.schema{padding:8px 10px 3px;color:#888;font-weight:bold;font-size:12px}
-.kind{padding:5px 10px 2px 20px;color:var(--dim);font-size:11px;text-transform:uppercase}
-/* pgweb: 30px rows, #f1f1f1 on hover, active is the same grey plus bold — not a colour fill */
-.obj{display:flex;justify-content:space-between;gap:8px;height:30px;line-height:30px;
-     padding:0 8px 0 24px;cursor:pointer;white-space:nowrap}
-.obj:hover{background:var(--obj-hl)}
-.obj.on{background:var(--obj-hl);color:var(--th-fg);font-weight:bold}
-.obj .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.obj .ct{color:var(--dim);font-size:11px;flex:none;font-weight:normal}
+#dbline button{background:transparent;color:#fff;border-color:rgba(255,255,255,.6);padding:3px 8px;line-height:1}
+#dbline button:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
 
-/* sidebar footer: pgweb's TABLE INFORMATION panel */
-#tinfo{flex:none;border-top:1px solid #eee;font-size:12px}
-:root[data-theme=dark] #tinfo{border-top-color:var(--line)}
-#tinfo .title{text-transform:uppercase;color:var(--dim);line-height:30px;padding:0 10px}
-#tinfo .line{line-height:22px;padding:0 10px;color:var(--info-fg);display:flex;justify-content:space-between;gap:8px}
-#tinfo .line span{color:var(--info-val)}
+/* query runner pinned above the table list */
+#runner{display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;cursor:pointer;
+  border-bottom:1px solid var(--line);font-weight:bold;font-size:12px}
+#runner:hover{background:var(--hl)}
+#runner.on{background:var(--sel);color:#fff;border-bottom-color:var(--sel)}
+#runner .kbd{margin-left:auto;font-weight:normal;font-size:11px;color:var(--dim)}
+#runner.on .kbd{color:#cfe0fb}
+
+#side .search{padding:8px;position:relative}
+#side .search input{width:100%;font-size:12px;padding:4px 24px 4px 8px}
+#qclr{position:absolute;right:13px;top:12px;width:18px;height:18px;padding:0;line-height:15px;
+  text-align:center;border-radius:50%;font-size:14px;color:var(--dim);border-color:transparent;background:transparent}
+#qclr:hover:not(:disabled){background:var(--hl);color:var(--fg);border-color:transparent}
+#qclr[hidden]{display:none}
+#tree{flex:1;overflow:auto;padding-bottom:8px;font-size:12px}
+.obj{display:flex;align-items:center;gap:8px;height:28px;padding:0 12px;cursor:pointer;white-space:nowrap}
+.obj[hidden]{display:none}   /* author display:flex would otherwise beat the UA [hidden] rule */
+.obj:hover{background:var(--hl)}
+.obj.on{background:var(--sel);color:#fff;font-weight:bold}
+.obj .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.obj .ct{color:var(--dim);font-size:11px;flex:none;font-weight:normal}
+.obj.on .ct{color:#cfe0fb}
 
 #main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
-#tabs{height:var(--bar-h);flex:none;display:flex;align-items:stretch;background:var(--nav);padding:0}
+#tabs{height:var(--bar-h);flex:none;display:flex;align-items:stretch;background:var(--nav);overflow:hidden}
 .tab{padding:0 14px;line-height:var(--bar-h);font-size:13px;font-weight:500;color:var(--nav-fg);
   cursor:pointer;margin:0 1px;flex:none;white-space:nowrap}
+.tab[hidden]{display:none}
 .tab:hover{color:#fff}
 .tab.on{background:var(--nav-on-bg);color:var(--nav-on-fg);margin:0}
 #tabs .sp{flex:1}
-#tabs{overflow:hidden}
-#tabs button{align-self:center;background:var(--nav);color:#fff;border-color:rgba(255,255,255,.55);
+#tabs button{align-self:center;background:transparent;color:#fff;border-color:rgba(255,255,255,.6);
   margin-right:8px;font-size:12px;flex:none;white-space:nowrap}
 #tabs button:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
-#tabs button:disabled{opacity:.45;color:#e2d8ee;border-color:rgba(255,255,255,.3)}
 
-#tools{display:flex;align-items:center;gap:6px;padding:7px 9px;border-bottom:1px solid var(--th-line);background:var(--bg)}
+#tools{display:flex;align-items:center;gap:6px;padding:7px 9px;border-bottom:1px solid var(--th-line)}
 #tools select,#tools input{padding:3px 7px;font-size:12px}
 #fval{width:180px}
 #tools .sp{flex:1}
@@ -127,56 +128,51 @@ body.ready #connect{display:none}
 #vp{flex:1;overflow:auto;position:relative;contain:layout paint;font-size:12px}
 #inner{position:relative}
 #head{position:sticky;top:0;z-index:3;display:flex;background:var(--bg);border-bottom:1px solid var(--th-line)}
-.th{flex:none;padding:0 9px;height:31px;line-height:31px;font-weight:bold;color:var(--th-fg);
-    position:relative;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;user-select:none;cursor:pointer}
+.th{flex:none;padding:0 9px;height:29px;line-height:29px;font-weight:bold;color:var(--th-fg);
+    position:relative;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;user-select:none}
 .th:hover{background:var(--th-hover)}
 .th .grip{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize}
 .th .grip:hover{background:var(--nav)}
 #canvas{position:relative}
 #rows{position:absolute;top:0;left:0;width:100%;will-change:transform}
-.tr{display:flex;height:var(--row-h);contain:layout paint;border-bottom:1px solid var(--row-line);background:var(--row-even)}
-.tr[hidden]{display:none}   /* author display:flex would otherwise beat the UA [hidden] rule */
+.tr{display:flex;height:var(--row-h);contain:layout paint;background:var(--row-even);
+    border-bottom:1px solid var(--row-line)}
+.tr[hidden]{display:none}   /* same [hidden] vs display:flex trap as .obj */
 .tr:nth-child(odd){background:var(--row-odd)}
 .tr:hover{background:var(--row-hover)}
-.tr.sel{background:var(--sel)}
-.tr.sel .td{color:var(--sel-fg)}
-.td{flex:none;padding:0 9px;height:33px;line-height:33px;color:var(--fg);
+.td{flex:none;padding:0 9px;height:29px;line-height:29px;color:var(--fg);
     overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .td.null{color:var(--null);text-transform:uppercase}
-.tr.sel .td.null{color:#dfe7f7}
-.td[contenteditable=true]{background:var(--bg);outline:2px solid var(--nav);outline-offset:-2px;
-    text-overflow:clip;cursor:text;overflow:visible;z-index:4;position:relative;color:var(--fg)}
 #empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:var(--dim)}
 #empty.on{display:flex}
 
-/* ---------- text panes ---------- */
+/* ---------- detail panes ---------- */
 .pre{flex:1;overflow:auto;margin:0;padding:14px 16px;white-space:pre;color:var(--fg);
-     font:12px/1.6 Menlo,Monaco,Consolas,"Courier New",monospace}
+     font:12px/1.7 Menlo,Monaco,Consolas,"Courier New",monospace}
+.pre .muted{color:var(--dim)}
 
 /* ---------- query ---------- */
-#sql{height:200px;flex:none;border:0;border-bottom:1px solid var(--line);border-radius:0;
+#sql{height:210px;flex:none;border:0;border-bottom:1px solid var(--line);border-radius:0;
      padding:12px 14px;resize:vertical;background:var(--bg);tab-size:2;
-     font:12px/1.6 Menlo,Monaco,Consolas,"Courier New",monospace}
-#qbar{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--th-line);background:var(--bg)}
+     font:12.5px/1.7 Menlo,Monaco,Consolas,"Courier New",monospace}
+#qbar{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--th-line)}
 #qmsg{color:#888;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #qmsg.err{color:var(--err)}
+#qres{flex:1;position:relative;min-height:0;display:flex;flex-direction:column}
 
 /* ---------- status ---------- */
-#status{display:flex;align-items:center;gap:14px;padding:5px 11px;border-top:1px solid var(--th-line);
-        background:var(--side);color:#888;font-size:12px}
+#status{height:26px;flex:none;display:flex;align-items:center;gap:14px;padding:0 11px;
+        border-top:1px solid var(--th-line);background:var(--side);color:#888;font-size:12px}
 #status .sp{flex:1}
 #status b{color:var(--fg);font-weight:bold}
 #status .t{color:var(--green)}
 
 dialog{border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);padding:0;
-       box-shadow:0 8px 30px rgba(0,0,0,.3);max-width:min(580px,92vw)}
+       box-shadow:0 8px 30px rgba(0,0,0,.3);max-width:min(640px,92vw)}
 dialog::backdrop{background:rgba(0,0,0,.45)}
 dialog .hd{padding:12px 15px;border-bottom:1px solid var(--th-line);font-weight:bold;font-size:14px}
 dialog .bd{padding:14px 15px;max-height:60vh;overflow:auto;font-size:12px}
 dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;gap:8px;justify-content:flex-end}
-dialog .f{display:flex;gap:9px;align-items:center;margin-bottom:8px}
-dialog .f label{width:140px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none}
-dialog .f input{flex:1}
 #cellbox{white-space:pre-wrap;word-break:break-word;margin:0;
          font:12px/1.6 Menlo,Monaco,Consolas,"Courier New",monospace}
 </style>
@@ -187,42 +183,42 @@ dialog .f input{flex:1}
   <div class="bar">pgweb</div>
   <div class="mid">
     <div class="box">
-      <h1>Connect to a Postgres database</h1>
-      <p>Paste a connection string to get started.</p>
-      <div class="row">
-        <input id="dsn" placeholder="postgres://user:password@localhost:5432/dbname" autocomplete="off" spellcheck="false"/>
-        <button class="primary" id="cbtn">Connect</button>
-      </div>
+      <input id="dsn" placeholder="postgres://user:password@localhost:5432/dbname" autocomplete="off" spellcheck="false" autofocus/>
       <div id="cerr"></div>
-      <div class="hint">Runs locally · the url stays on the server, never in the browser</div>
     </div>
   </div>
 </div>
 
 <div id="app">
   <aside id="side">
-    <div id="dbline"><span id="dbname">—</span></div>
-    <div class="search"><input id="q" placeholder="Filter database objects" autocomplete="off" spellcheck="false"/></div>
+    <div id="dbline">
+      <span id="dbname">—</span>
+      <button id="theme" title="Toggle theme">◐</button>
+      <button id="disc" title="Disconnect">⏻</button>
+    </div>
+    <div id="runner" class="on"><span>Query runner</span><span class="kbd">⌘⏎</span></div>
+    <div class="search">
+      <input id="q" placeholder="Search tables" autocomplete="off" spellcheck="false"/>
+      <button id="qclr" title="Clear" hidden>×</button>
+    </div>
     <div id="tree"></div>
-    <div id="tinfo"><div class="title">Table Information</div><div id="tinfo-lines"></div></div>
   </aside>
 
   <main id="main">
     <div id="tabs">
-      <div class="tab on" data-v="rows">Rows</div>
-      <div class="tab" data-v="struct">Structure</div>
-      <div class="tab" data-v="idx">Indexes</div>
       <div class="tab" data-v="query">Query</div>
+      <div class="tab" data-v="rows" hidden>Rows</div>
+      <div class="tab" data-v="struct" hidden>Structure</div>
+      <div class="tab" data-v="indexes" hidden>Indexes</div>
+      <div class="tab" data-v="constraints" hidden>Constraints</div>
+      <div class="tab" data-v="triggers" hidden>Triggers</div>
+      <div class="tab" data-v="policies" hidden>Policies</div>
       <div class="sp"></div>
-      <button id="addrow" title="insert row">+ Row</button>
-      <button id="delrow" title="delete selected row" disabled>− Row</button>
-      <button id="reload" title="reload">↻</button>
-      <button id="theme" title="toggle theme">◐</button>
-      <button id="disc" title="disconnect">Disconnect</button>
+      <button id="reload" title="Reload">↻</button>
     </div>
 
     <div id="pane">
-      <div class="view on" id="v-rows">
+      <div class="view" id="v-rows">
         <div id="tools">
           <select id="fcol"></select>
           <select id="fop">
@@ -230,28 +226,32 @@ dialog .f input{flex:1}
             <option>≥</option><option>≤</option><option>LIKE</option><option>ILIKE</option>
             <option>IS NULL</option><option>IS NOT NULL</option>
           </select>
-          <input id="fval" placeholder="value" autocomplete="off"/>
-          <button id="fgo">apply</button>
-          <button id="fclr">clear</button>
-          <span class="sp"></span>
-          <span id="ftxt" style="color:var(--dim)"></span>
+          <input id="fval" placeholder="Filter value" autocomplete="off"/>
+          <button id="fgo">Apply</button>
+          <button id="fclr">Clear</button>
+          <span class="sp"></span><span id="ftxt"></span>
         </div>
         <div id="vp"><div id="inner">
           <div id="head"></div>
           <div id="canvas"><div id="rows"></div></div>
         </div></div>
-        <div id="empty">no rows</div>
+        <div id="empty">No rows</div>
       </div>
       <div class="view" id="v-struct"><pre class="pre" id="p-struct"></pre></div>
-      <div class="view" id="v-idx"><pre class="pre" id="p-idx"></pre></div>
-      <div class="view" id="v-query">
-        <textarea id="sql" spellcheck="false" placeholder="select * from …"></textarea>
-        <div id="qbar"><button class="primary" id="run">run ⌘⏎</button><span id="qmsg"></span></div>
+      <div class="view" id="v-indexes"><pre class="pre" id="p-indexes"></pre></div>
+      <div class="view" id="v-constraints"><pre class="pre" id="p-constraints"></pre></div>
+      <div class="view" id="v-triggers"><pre class="pre" id="p-triggers"></pre></div>
+      <div class="view" id="v-policies"><pre class="pre" id="p-policies"></pre></div>
+      <div class="view on" id="v-query">
+        <textarea id="sql" spellcheck="false" placeholder="SELECT * FROM …
+
+writes run here too — INSERT, UPDATE, DELETE, DDL"></textarea>
+        <div id="qbar"><button class="primary" id="run">Run  ⌘⏎</button><span id="qmsg"></span></div>
       </div>
     </div>
 
     <div id="status">
-      <span id="st-obj">—</span><span id="st-rows"></span><span id="st-size"></span>
+      <span id="st-obj"></span><span id="st-rows"></span><span id="st-size"></span>
       <span class="sp"></span><span id="st-time" class="t"></span>
     </div>
   </main>
@@ -264,17 +264,18 @@ dialog .f input{flex:1}
 
 <script>
 'use strict';
-const ROW_H = 34, CHUNK = 1000, OVER = 6, MAXW = 460, MINW = 64;   /* 33px cell + 1px rule, as pgweb */
+const ROW_H = 30, CHUNK = 1000, OVER = 6, MAXW = 440, MINW = 64;   /* 29px cell + 1px rule; matches --row-h */
 // browsers clamp element height near 2^24 px; past that the spacer stops growing and the
 // tail of a big table becomes unreachable, so the scrollbar is scaled instead of 1:1
 const MAXH = 16000000;
 const $ = s => document.getElementById(s);
 const vp=$('vp'), inner=$('inner'), headEl=$('head'), canvas=$('canvas'), rowsEl=$('rows');
+const DETAILS = ['indexes','constraints','triggers','policies'];
 
-const S = { db:'', schema:'', table:'', kind:'', pk:null, cols:[], widths:[], total:0,
-            chunks:new Map(), pending:new Map(), local:null, where:'', sel:-1, meta:null, tree:{},
-            viewPx:0, scale:1 };
-let pool=[], lastFirst=-1, ticking=false, ac=null;
+const S = { db:'', schema:'public', table:'', kind:'', pk:null, cols:[], widths:[], total:0,
+            chunks:new Map(), pending:new Map(), local:null, where:'', meta:null, tree:{},
+            viewPx:0, scale:1, loaded:{} };
+let pool=[], lastFirst=-1, ticking=false;
 
 /* ---------------- api ---------------- */
 async function api(body){
@@ -311,90 +312,117 @@ const num = n => n>=1e9?(n/1e9).toFixed(1)+'B' : n>=1e6?(n/1e6).toFixed(1)+'M'
 async function connect(){
   const dsn = $('dsn').value.trim();
   if(!dsn) return;
-  $('cbtn').disabled = true; $('cerr').textContent = '';
+  $('dsn').disabled = true; $('cerr').textContent = 'connecting…';
   try{
     const m = await api({action:'connect', dsn});
     S.db = m.database; S.tree = m.tree;
-    $('dbname').textContent = m.database;
-    $('dbname').title = m.version || '';
+    $('dbname').textContent = m.database; $('dbname').title = m.version || '';
     document.body.classList.add('ready');
     localStorage.setItem('pgweb.dsn', dsn);
-    drawTree();
-    const last = JSON.parse(localStorage.getItem('pgweb.last')||'null');
-    const exists = last && (S.tree[last.schema]||{})[last.kind]?.some(o=>o.name===last.table);
-    if(exists) openObject(last.schema, last.table, last.kind);
+    drawTree(); openRunner();
+    $('cerr').textContent = '';
   }catch(e){ $('cerr').textContent = e.message; }
-  finally{ $('cbtn').disabled = false; }
+  finally{ $('dsn').disabled = false; $('dsn').focus(); }
 }
 function disconnected(){
   document.body.classList.remove('ready');
   S.chunks.clear(); S.local=null; S.table=''; lastFirst=-1;
 }
-$('cbtn').onclick = connect;
 $('dsn').onkeydown = e => { if(e.key==='Enter') connect(); };
 $('dsn').value = localStorage.getItem('pgweb.dsn') || '';
 $('disc').onclick = async () => { try{ await api({action:'disconnect'}); }catch{} disconnected(); };
 
 /* ---------------- sidebar ---------------- */
+// public schema only, one flat list, no row counts
 function drawTree(){
   const box = $('tree'); box.textContent = '';
+  const kinds = S.tree.public || {};
   const frag = document.createDocumentFragment();
-  for(const [schema, kinds] of Object.entries(S.tree)){
-    const h = document.createElement('div'); h.className='schema'; h.textContent=schema; frag.appendChild(h);
-    for(const kind of ['table','view','matview']){
-      const list = kinds[kind]; if(!list?.length) continue;
-      const k = document.createElement('div'); k.className='kind';
-      k.textContent = kind==='matview' ? 'materialized views' : kind+'s'; frag.appendChild(k);
-      for(const o of list){
-        const d = document.createElement('div'); d.className='obj';
-        d.dataset.schema=schema; d.dataset.table=o.name; d.dataset.kind=kind;
-        const nm=document.createElement('span'); nm.className='nm'; nm.textContent=o.name;
+  for(const kind of ['table','view','matview']){
+    for(const o of (kinds[kind] || [])){
+      const d = document.createElement('div'); d.className='obj';
+      d.dataset.table=o.name; d.dataset.kind=kind;
+      const nm=document.createElement('span'); nm.className='nm'; nm.textContent=o.name;
+      d.appendChild(nm);
+      if(kind!=='table'){
         const ct=document.createElement('span'); ct.className='ct';
-        ct.textContent = kind==='table' ? num(o.est_rows) : kind==='view' ? 'view' : 'mat';
-        d.append(nm,ct); d.onclick=()=>openObject(schema,o.name,kind); frag.appendChild(d);
+        ct.textContent = kind==='view' ? 'view' : 'mview'; d.appendChild(ct);
       }
+      d.onclick=()=>openObject(o.name,kind); frag.appendChild(d);
     }
+  }
+  if(!frag.childNodes.length){
+    const e=document.createElement('div'); e.className='obj'; e.style.cssText='color:var(--dim);cursor:default';
+    e.textContent='No tables in public'; frag.appendChild(e);
   }
   box.appendChild(frag);
 }
-$('q').oninput = e => {
-  const term = e.target.value.toLowerCase();
-  for(const o of document.querySelectorAll('.obj')) o.hidden = !o.dataset.table.toLowerCase().includes(term);
-};
+function searchTables(){
+  const term = $('q').value.trim().toLowerCase();
+  $('qclr').hidden = !term;
+  for(const o of document.querySelectorAll('.obj')){
+    const name = o.dataset.table;          // the empty-state row has no table, never hide it
+    o.hidden = !!name && !name.toLowerCase().includes(term);
+  }
+}
+$('q').oninput = searchTables;
+$('q').onkeydown = e => { if(e.key==='Escape'){ $('q').value=''; searchTables(); } };
+$('qclr').onclick = () => { $('q').value=''; searchTables(); $('q').focus(); };
 
-/* ---------------- open object ---------------- */
-async function openObject(schema, table, kind){
-  ac?.abort(); ac = null;
+/* ---------------- query runner (the default view) ---------------- */
+function openRunner(){
   for(const el of document.querySelectorAll('.obj.on')) el.classList.remove('on');
-  document.querySelector(`.obj[data-schema="${schema}"][data-table="${table}"]`)?.classList.add('on');
-  S.schema=schema; S.table=table; S.kind=kind; S.where=''; S.sel=-1; S.local=null;
-  S.chunks.clear(); S.pending.clear(); lastFirst=-1;
-  $('fval').value=''; $('ftxt').textContent=''; $('tools').style.display='flex';
-  localStorage.setItem('pgweb.last', JSON.stringify({schema,table,kind}));
+  $('runner').classList.add('on');
+  S.table=''; S.kind='';
+  for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v!=='query';
+  show('query');
+  $('st-obj').textContent=''; $('st-rows').textContent=''; $('st-size').textContent='';
+  $('sql').focus();
+}
+$('runner').onclick = openRunner;
 
-  const m = await api({action:'rows', schema, table, limit:CHUNK, is_meta:1});
-  S.cols = m.cols; S.meta = m.meta; S.pk = m.meta.pk;
+/* ---------------- open a table ---------------- */
+async function openObject(table, kind){
+  $('runner').classList.remove('on');
+  for(const el of document.querySelectorAll('.obj.on')) el.classList.remove('on');
+  document.querySelector(`.obj[data-table="${table}"]`)?.classList.add('on');
+  S.table=table; S.kind=kind; S.where=''; S.local=null; S.loaded={};
+  S.chunks.clear(); S.pending.clear(); lastFirst=-1;
+  $('fval').value=''; $('ftxt').textContent='';
+  localStorage.setItem('pgweb.last', JSON.stringify({table,kind}));
+  for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v==='query';
+
+  const m = await api({action:'rows', schema:'public', table, limit:CHUNK, is_meta:1});
+  S.cols=m.cols; S.meta=m.meta; S.pk=m.meta.pk;
   S.total = kind==='table' ? Math.max(m.meta.stats.est_rows, m.rows.length) : m.rows.length;
   S.chunks.set(0, m.rows);
   if(m.rows.length < CHUNK) S.total = m.rows.length;   // small table: exact
 
   $('p-struct').textContent = m.meta.columns.map(c =>
-    `${c.name.padEnd(28)}${c.type}${c.nullable?'':'  not null'}${c.default_value?'  default '+c.default_value:''}`).join('\n');
-  $('p-idx').textContent = m.meta.indexes.map(i=>i.def).join('\n\n') || '(no indexes)';
+    `${c.name.padEnd(30)}${c.type}${c.nullable?'':'  NOT NULL'}${c.default_value?'  DEFAULT '+c.default_value:''}`).join('\n');
+  for(const p of DETAILS) $('p-'+p).textContent = '';
   $('fcol').innerHTML = S.cols.map(c=>`<option>${c}</option>`).join('');
-  const st = m.meta.stats;
-  $('tinfo-lines').innerHTML =
-    `<div class="line">Size<span>${st.total_size||'—'}</span></div>` +
-    `<div class="line">Index size<span>${st.index_size||'—'}</span></div>` +
-    `<div class="line">${kind==='table'?'Estimated rows':'Rows'}<span>${kind==='table'?num(st.est_rows):m.rows.length}</span></div>` +
-    `<div class="line">Columns<span>${m.meta.columns.length}</span></div>`;
-  $('st-obj').innerHTML = `<b>${schema}.${table}</b>`;
-  $('st-rows').textContent = kind==='table'
-    ? `~${num(m.meta.stats.est_rows)} rows` : `${m.rows.length} rows`;
-  $('st-size').textContent = m.meta.stats.total_size || '';
-  updateButtons();
+  $('st-obj').innerHTML = `<b>${table}</b>`;
+  $('st-rows').textContent = ''; $('st-size').textContent = m.meta.stats.total_size || '';
   buildGrid(); vp.scrollTop=0; render(true);
   show('rows');
+}
+
+/* per-table detail: one request, only when its tab is first opened */
+async function loadDetail(part){
+  if(S.loaded[part] || !S.table) return;
+  S.loaded[part] = true;
+  const el = $('p-'+part);
+  el.textContent = 'loading…';
+  try{
+    const m = await api({action:'detail', schema:'public', table:S.table, part});
+    if(!m.rows.length){ el.textContent = `(no ${part})`; return; }
+    if(part==='indexes')      el.textContent = m.rows.map(r=>r.def).join('\n\n');
+    // pg_get_constraintdef already starts with the kind, so don't print it twice
+    else if(part==='constraints') el.textContent = m.rows.map(r=>`${r.name}\n  ${r.def}`).join('\n\n');
+    else if(part==='triggers')    el.textContent = m.rows.map(r=>`${r.name}  →  ${r.function}()\n  ${r.def}`).join('\n\n');
+    else                          el.textContent = m.rows.map(r=>`${r.name}  [${r.kind}]  roles: ${r.roles||'public'}\n  USING ${r.using_expr||'—'}\n  CHECK ${r.check_expr||'—'}`).join('\n\n');
+  }catch(err){ S.loaded[part]=false; el.textContent = 'error: '+err.message; }
 }
 
 /* ---------------- grid ---------------- */
@@ -403,9 +431,9 @@ function measure(){
   S.widths = S.cols.map((c,i) => {
     let n = c.length;
     for(const r of sample){ const v=r[i]; if(v!=null){ const L=String(v).length; if(L>n) n=L; } }
-    return Math.max(MINW, Math.min(MAXW, n*7.1 + 20));
+    return Math.max(MINW, Math.min(MAXW, Math.ceil(n*7.25) + 26));   /* 12px mono ≈ 7.22px/char + 18px padding */
   });
-  const saved = JSON.parse(localStorage.getItem('pgweb.w.'+S.schema+'.'+S.table)||'null');
+  const saved = JSON.parse(localStorage.getItem('pgweb.w.'+S.table)||'null');
   if(saved && saved.length===S.cols.length) S.widths = saved;
 }
 function geometry(){
@@ -415,8 +443,7 @@ function geometry(){
 }
 function buildGrid(){
   measure(); geometry();
-  const total = S.widths.reduce((a,b)=>a+b,0);
-  inner.style.width = total+'px';
+  inner.style.width = S.widths.reduce((a,b)=>a+b,0)+'px';
   canvas.style.height = S.viewPx+'px';
   headEl.textContent='';
   S.cols.forEach((c,i)=>{
@@ -437,6 +464,7 @@ function buildGrid(){
     frag.appendChild(tr); pool.push(tr);
   }
   rowsEl.appendChild(frag);
+  $('empty').textContent = 'No rows';
   $('empty').classList.toggle('on', S.total===0);
 }
 function rowAt(i){
@@ -448,7 +476,7 @@ function ensure(ci){
   if(S.local || ci<0 || S.chunks.has(ci) || S.pending.has(ci)) return;
   if(ci*CHUNK >= S.total) return;
   S.pending.set(ci, 1);
-  api({action:'rows', schema:S.schema, table:S.table, pk:S.pk, limit:CHUNK,
+  api({action:'rows', schema:'public', table:S.table, pk:S.pk, limit:CHUNK,
        offset:ci*CHUNK, where:S.where||undefined})
     .then(m=>{
       S.chunks.set(ci, m.rows); S.pending.delete(ci);
@@ -473,7 +501,6 @@ function render(force){
     const idx=first+p, tr=pool[p];
     if(idx >= S.total){ tr.hidden=true; continue; }
     tr.hidden=false; tr.dataset.i=idx;
-    tr.classList.toggle('sel', idx===S.sel);
     const row=rowAt(idx), cells=tr.children;
     for(let c=0;c<cells.length;c++){
       const td=cells[c];
@@ -512,104 +539,21 @@ addEventListener('mousemove', e=>{
 });
 addEventListener('mouseup', ()=>{
   if(!drag) return;
-  localStorage.setItem('pgweb.w.'+S.schema+'.'+S.table, JSON.stringify(S.widths));
+  if(S.table) localStorage.setItem('pgweb.w.'+S.table, JSON.stringify(S.widths));
   drag=null;
 });
 
-/* ---------------- selection, view cell, edit ---------------- */
-rowsEl.addEventListener('click', e=>{
-  const tr=e.target.closest('.tr'); if(!tr||tr.hidden) return;
-  S.sel = +tr.dataset.i; updateButtons();
-  for(const t of pool) t.classList.toggle('sel', +t.dataset.i===S.sel);
-});
+/* read-only cell inspector — all writes go through the query runner */
 rowsEl.addEventListener('dblclick', e=>{
   const td=e.target.closest('.td'); if(!td) return;
-  const tr=td.parentElement, row=rowAt(+tr.dataset.i); if(!row) return;
-  const val=row[+td.dataset.c];
-  const long = val!=null && String(val).length>60;
-  if(long || !canEdit()) return showCell(S.cols[+td.dataset.c], val);
-  beginEdit(td);
-});
-function showCell(col, val){
-  $('dlg-t').textContent=col;
+  const row=rowAt(+td.parentElement.dataset.i); if(!row) return;
+  const c=+td.dataset.c;
+  $('dlg-t').textContent=S.cols[c];
   $('dlg-b').innerHTML='<pre id="cellbox"></pre>';
-  $('cellbox').textContent = val===null ? 'NULL' : String(val);
-  $('dlg-f').innerHTML='<button value="cancel">close</button>';
+  $('cellbox').textContent = row[c]===null ? 'NULL' : String(row[c]);
+  $('dlg-f').innerHTML='<button value="cancel">Close</button>';
   $('dlg').showModal();
-}
-const canEdit = () => S.kind==='table' && !!S.pk && !S.local;
-function beginEdit(td){
-  const tr=td.parentElement, idx=+tr.dataset.i, ci=+td.dataset.c;
-  const row=rowAt(idx); if(!row) return;
-  const before = row[ci];
-  td.contentEditable='plaintext-only'; td.classList.remove('null');
-  td.textContent = before===null ? '' : String(before);
-  td.focus();
-  const r=document.createRange(); r.selectNodeContents(td);
-  getSelection().removeAllRanges(); getSelection().addRange(r);
-  let done=false;
-  const finish = async (commit) => {
-    if(done) return; done=true;
-    td.contentEditable='false';
-    const raw=td.textContent;
-    if(!commit || raw === (before===null?'':String(before))){ lastFirst=-1; render(true); return; }
-    const next = raw==='' ? null : raw;
-    try{
-      const m = await api({action:'mutate', mode:'update', schema:S.schema, table:S.table, pk:S.pk,
-                           obj:{[S.pk]: row[S.cols.indexOf(S.pk)], [S.cols[ci]]: next}});
-      if(m.rows[0]){ const cix=Math.floor(idx/CHUNK), arr=S.chunks.get(cix);
-                     if(arr) arr[idx-cix*CHUNK]=m.rows[0]; }
-      flash('updated');
-    }catch(err){ alertBox('update failed', err.message); }
-    lastFirst=-1; render(true);
-  };
-  td.onkeydown = ev => {
-    if(ev.key==='Enter'){ ev.preventDefault(); finish(true); }
-    else if(ev.key==='Escape'){ ev.preventDefault(); finish(false); }
-  };
-  td.onblur = () => finish(true);
-}
-function updateButtons(){
-  $('delrow').disabled = !(canEdit() && S.sel>=0);
-  $('addrow').disabled = !canEdit();
-}
-
-/* ---------------- insert / delete ---------------- */
-$('addrow').onclick = () => {
-  if(!canEdit()) return;
-  $('dlg-t').textContent = `insert into ${S.table}`;
-  $('dlg-b').innerHTML = S.meta.columns.map(c=>
-    `<div class="f"><label title="${c.name}">${c.name}</label>
-     <input data-col="${c.name}" placeholder="${c.default_value?'default':(c.nullable?'null':c.type)}"></div>`).join('');
-  $('dlg-f').innerHTML = '<button value="cancel">cancel</button><button class="primary" id="ins">insert</button>';
-  $('dlg').showModal();
-  $('ins').onclick = async ev => {
-    ev.preventDefault();
-    const obj={};
-    for(const el of $('dlg-b').querySelectorAll('input')) if(el.value!=='') obj[el.dataset.col]=el.value;
-    if(!Object.keys(obj).length) return;
-    try{
-      await api({action:'mutate', mode:'create', schema:S.schema, table:S.table, pk:S.pk, obj});
-      $('dlg').close(); flash('inserted'); reload();
-    }catch(err){ alertBox('insert failed', err.message); }
-  };
-};
-$('delrow').onclick = () => {
-  if(!canEdit() || S.sel<0) return;
-  const row=rowAt(S.sel); if(!row) return;
-  const id=row[S.cols.indexOf(S.pk)];
-  $('dlg-t').textContent='delete row';
-  $('dlg-b').textContent=`delete from ${S.schema}.${S.table} where ${S.pk} = ${id}`;
-  $('dlg-f').innerHTML='<button value="cancel">cancel</button><button class="primary" id="del">delete</button>';
-  $('dlg').showModal();
-  $('del').onclick = async ev => {
-    ev.preventDefault();
-    try{
-      await api({action:'mutate', mode:'delete', schema:S.schema, table:S.table, pk:S.pk, obj:{[S.pk]:id}});
-      $('dlg').close(); flash('deleted'); S.sel=-1; reload();
-    }catch(err){ alertBox('delete failed', err.message); }
-  };
-};
+});
 
 /* ---------------- filter ---------------- */
 const OPS={'=':'=','≠':'<>','>':'>','<':'<','≥':'>=','≤':'<=','LIKE':'LIKE','ILIKE':'ILIKE',
@@ -623,19 +567,19 @@ $('fgo').onclick = async () => {
 };
 $('fclr').onclick = async () => { S.where=''; $('fval').value=''; await applyFilter(); };
 async function applyFilter(){
-  S.chunks.clear(); S.pending.clear(); S.sel=-1; lastFirst=-1;
+  S.chunks.clear(); S.pending.clear(); lastFirst=-1;
   try{
     const [first, cnt] = await Promise.all([
-      api({action:'rows', schema:S.schema, table:S.table, pk:S.pk, limit:CHUNK, where:S.where||undefined}),
-      S.where ? api({action:'count', schema:S.schema, table:S.table, where:S.where}) : null
+      api({action:'rows', schema:'public', table:S.table, pk:S.pk, limit:CHUNK, where:S.where||undefined}),
+      S.where ? api({action:'count', schema:'public', table:S.table, where:S.where}) : null
     ]);
     S.chunks.set(0, first.rows);
     S.total = S.where ? (first.rows.length<CHUNK ? first.rows.length : Math.max(cnt.count, first.rows.length))
                       : Math.max(S.meta.stats.est_rows, first.rows.length);
-    $('ftxt').textContent = S.where ? (first.rows.length<CHUNK ? `${first.rows.length} matched` : `~${num(S.total)} matched`) : '';
-    $('st-rows').textContent = S.where ? `~${num(S.total)} rows` : `~${num(S.meta.stats.est_rows)} rows`;
+    $('ftxt').textContent = S.where
+      ? (first.rows.length<CHUNK ? `${first.rows.length} matched` : `~${num(S.total)} matched`) : '';
     buildGrid(); vp.scrollTop=0; render(true);
-  }catch(err){ alertBox('filter failed', err.message); }
+  }catch(err){ alertBox('Filter failed', err.message); }
 }
 $('fval').onkeydown = e => { if(e.key==='Enter') $('fgo').click(); };
 
@@ -646,20 +590,22 @@ async function runQuery(confirmed){
   const t0=performance.now();
   try{
     const m = await api({action:'query', sql, is_confirmed: confirmed?1:0});
-    S.local=m.rows; S.cols=m.cols; S.total=m.rows.length; S.sel=-1; S.pk=null;
+    S.local=m.rows; S.cols=m.cols; S.total=m.rows.length; S.pk=null;
     S.chunks.clear(); lastFirst=-1;
-    $('tools').style.display='none';        // column filters belong to a table, not a result set
-    $('tinfo-lines').innerHTML='';          // stats belong to a table too
-    buildGrid(); vp.scrollTop=0; render(true); show('rows'); updateButtons();
+    $('tools').style.display='none';       // column filters belong to a table, not a result set
+    buildGrid(); vp.scrollTop=0; render(true);
+    for(const t of document.querySelectorAll('.tab')) t.hidden = !(t.dataset.v==='query'||t.dataset.v==='rows');
+    show('rows');
     $('qmsg').textContent = `${m.rows.length} rows`;
-    $('st-obj').innerHTML='<b>query</b>'; $('st-rows').textContent=`${m.rows.length} rows`; $('st-size').textContent='';
+    $('st-obj').innerHTML='<b>query</b>';
+    $('st-rows').textContent=`${m.rows.length} rows`; $('st-size').textContent='';
     $('st-time').textContent = (performance.now()-t0).toFixed(1)+' ms';
   }catch(err){
     if(err.message.includes('unbounded_write')){
       $('qmsg').textContent='';
-      $('dlg-t').textContent='unbounded write';
-      $('dlg-b').textContent='this statement has no WHERE clause and will affect every row. run it?';
-      $('dlg-f').innerHTML='<button value="cancel">cancel</button><button class="primary" id="yes">run anyway</button>';
+      $('dlg-t').textContent='Unbounded write';
+      $('dlg-b').textContent='This statement has no WHERE clause and will affect every row. Run it?';
+      $('dlg-f').innerHTML='<button value="cancel">Cancel</button><button class="primary" id="yes">Run anyway</button>';
       $('dlg').showModal();
       $('yes').onclick=ev=>{ ev.preventDefault(); $('dlg').close(); runQuery(true); };
     } else { $('qmsg').className='err'; $('qmsg').textContent=err.message; }
@@ -671,41 +617,39 @@ $('sql').addEventListener('keydown', e=>{
   if(e.key==='Tab'){ e.preventDefault(); const s=e.target.selectionStart;
     e.target.setRangeText('  ', s, e.target.selectionEnd, 'end'); }
 });
+addEventListener('keydown', e=>{
+  if((e.metaKey||e.ctrlKey) && e.key==='Enter' && document.activeElement!==$('sql')){
+    e.preventDefault(); openRunner();
+  }
+});
 
 /* ---------------- chrome ---------------- */
 function show(v){
   for(const t of document.querySelectorAll('.tab')) t.classList.toggle('on', t.dataset.v===v);
   for(const x of document.querySelectorAll('.view')) x.classList.toggle('on', x.id==='v-'+v);
-  if(v==='rows' && S.cols.length){ lastFirst=-1; render(true); }
+  if(v==='rows'){
+    $('tools').style.display = S.local ? 'none' : 'flex';
+    if(S.cols.length){ lastFirst=-1; render(true); }
+  }
+  if(DETAILS.includes(v)) loadDetail(v);
 }
 for(const t of document.querySelectorAll('.tab')) t.onclick = ()=>show(t.dataset.v);
-function reload(){ if(S.table) openObject(S.schema, S.table, S.kind); }
-$('reload').onclick = reload;
-function flash(msg){ const el=$('st-time'); const old=el.textContent; el.textContent=msg;
-                     setTimeout(()=>{ if(el.textContent===msg) el.textContent=old; }, 1200); }
+$('reload').onclick = () => { if(S.table) openObject(S.table, S.kind); else openRunner(); };
 function alertBox(title, msg){
   $('dlg-t').textContent=title; $('dlg-b').innerHTML='<pre id="cellbox"></pre>';
   $('cellbox').textContent=msg;
-  $('dlg-f').innerHTML='<button value="cancel">close</button>'; $('dlg').showModal();
+  $('dlg-f').innerHTML='<button value="cancel">Close</button>'; $('dlg').showModal();
 }
-addEventListener('keydown', e=>{
-  if(e.key==='Escape' && !$('dlg').open && document.activeElement?.contentEditable!=='true'){
-    if(S.sel>=0){ S.sel=-1; updateButtons(); lastFirst=-1; render(true); }
-  }
-});
 
-/* auto-resume an existing session (cookie survives reload) */
+/* the server holds one connection, so a reload just picks it back up */
 (async function boot(){
   try{
     const m = await api({action:'schema'});
     S.tree=m.tree; document.body.classList.add('ready');
     const info = await api({action:'query', sql:'select current_database() as db'});
     S.db=info.rows[0][0]; $('dbname').textContent=S.db;
-    drawTree();
-    const last=JSON.parse(localStorage.getItem('pgweb.last')||'null');
-    if(last && (S.tree[last.schema]||{})[last.kind]?.some(o=>o.name===last.table))
-      openObject(last.schema,last.table,last.kind);
-  }catch{ /* no session yet: connect screen stays up */ }
+    drawTree(); openRunner();
+  }catch{ /* not connected yet: the url prompt stays up */ }
 })();
 </script>
 </body>

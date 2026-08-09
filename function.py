@@ -2220,8 +2220,10 @@ async def func_postgres_query_runner_write(*, client_postgres: any, sql: str) ->
         result = await conn.execute(sql, timeout=15)
     return result
 
-async def func_pgweb(*, client_postgres_pgweb: dict, func_client_postgres: callable, action: str, dsn: str = None, schema: str = "public", table: str = None, limit: int = 1000, offset: int = None, after: any = None, where: str = None, order: str = None, is_desc: int = 0, sql: str = None, mode: str = None, obj: dict = None, pk: str = None, is_meta: int = 0, is_exact: int = 0, is_confirmed: int = 0, timeout_sec: int = 30) -> dict:
-    """Single dispatcher for the pgweb dev UI: connect, schema, rows, count, query, mutate, disconnect.
+async def func_pgweb(*, client_postgres_pgweb: dict, func_client_postgres: callable, action: str, dsn: str = None, schema: str = "public", table: str = None, limit: int = 1000, offset: int = None, after: any = None, where: str = None, order: str = None, is_desc: int = 0, sql: str = None, part: str = None, pk: str = None, is_meta: int = 0, is_exact: int = 0, is_confirmed: int = 0, timeout_sec: int = 30) -> dict:
+    """Single dispatcher for the pgweb dev UI: connect, schema, rows, detail, count, query, disconnect.
+
+    Read-only browsing — every write goes through the query runner as SQL.
 
     One connection at a time — client_postgres_pgweb holds a single pool under "pool".
     """
@@ -2296,11 +2298,12 @@ async def func_pgweb(*, client_postgres_pgweb: dict, func_client_postgres: calla
         # opening page comes back in heap order and disagrees with every page after it
         if is_meta:
             reg = f"{schema}.{table}"
+            # only what the grid needs to open: columns, primary key, row estimate.
+            # indexes / constraints / triggers load lazily via action="detail"
             meta = {
                 "columns": [dict(r) for r in await pool.fetch("SELECT attname AS name, format_type(atttypid, atttypmod) AS type, NOT attnotnull AS nullable, pg_get_expr(d.adbin, d.adrelid) AS default_value FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum WHERE a.attrelid = $1::regclass AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum", reg, timeout=timeout_sec)],
-                "indexes": [dict(r) for r in await pool.fetch("SELECT indexname AS name, indexdef AS def FROM pg_indexes WHERE schemaname = $1 AND tablename = $2", schema, table, timeout=timeout_sec)],
                 "pk": await pool.fetchval("SELECT a.attname FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey) WHERE i.indrelid = $1::regclass AND i.indisprimary LIMIT 1", reg, timeout=timeout_sec),
-                "stats": dict(await pool.fetchrow("SELECT GREATEST(c.reltuples::bigint, 0) AS est_rows, pg_size_pretty(pg_total_relation_size(c.oid)) AS total_size, pg_size_pretty(pg_indexes_size(c.oid)) AS index_size FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname = $2", schema, table, timeout=timeout_sec)),
+                "stats": dict(await pool.fetchrow("SELECT GREATEST(c.reltuples::bigint, 0) AS est_rows, pg_size_pretty(pg_total_relation_size(c.oid)) AS total_size FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname = $2", schema, table, timeout=timeout_sec)),
             }
             pk = pk or meta["pk"]
         args, clauses = [], []
@@ -2332,33 +2335,20 @@ async def func_pgweb(*, client_postgres_pgweb: dict, func_client_postgres: calla
         if not is_confirmed and (normalized.startswith(("truncate", "drop ")) or (normalized.startswith(("update ", "delete ")) and " where " not in normalized)): raise Exception("unbounded_write")
         return pack(await pool.fetch(sql, timeout=timeout_sec))
 
-    if action == "mutate":
+    # per-table detail, fetched only when its tab is opened
+    if action == "detail":
         if not table: raise Exception("table is required")
-        if not pk: raise Exception("editing requires a primary key")
-        if not isinstance(obj, dict) or not obj: raise Exception("obj is required")
-        # the grid sends every value as text; cast each through the column's own catalog type
-        # (from format_type, never user input) so asyncpg's strict parameter typing is satisfied
-        types = {r["name"]: r["type"] for r in await pool.fetch("SELECT attname AS name, format_type(atttypid, atttypmod) AS type FROM pg_attribute WHERE attrelid = $1::regclass AND attnum > 0 AND NOT attisdropped", f"{schema}.{table}", timeout=timeout_sec)}
-        def cast(col, pos):
-            if col not in types: raise Exception(f"unknown column: {col}")
-            return f"${pos}::text::{types[col]}"
-        def text(value): return None if value is None else str(value)
-        if mode == "create":
-            cols = list(obj)
-            query = f'INSERT INTO {ident(schema, table)} ({", ".join(ident(c) for c in cols)}) VALUES ({", ".join(cast(c, i + 1) for i, c in enumerate(cols))}) RETURNING *'
-            args = [text(obj[c]) for c in cols]
-        elif mode == "update":
-            if pk not in obj: raise Exception(f"obj must include the primary key '{pk}'")
-            cols = [c for c in obj if c != pk]
-            if not cols: raise Exception("nothing to update")
-            query = f'UPDATE {ident(schema, table)} SET {", ".join(f"{ident(c)}={cast(c, i + 1)}" for i, c in enumerate(cols))} WHERE {ident(pk)}={cast(pk, len(cols) + 1)} RETURNING *'
-            args = [text(obj[c]) for c in cols] + [text(obj[pk])]
-        elif mode == "delete":
-            if pk not in obj: raise Exception(f"obj must include the primary key '{pk}'")
-            query = f"DELETE FROM {ident(schema, table)} WHERE {ident(pk)}={cast(pk, 1)} RETURNING *"
-            args = [text(obj[pk])]
-        else: raise Exception(f"invalid mode: {mode}")
-        return pack(await pool.fetch(query, *args, timeout=timeout_sec))
+        reg = f"{schema}.{table}"
+        if part == "indexes":
+            return {"rows": [dict(r) for r in await pool.fetch("SELECT indexname AS name, indexdef AS def FROM pg_indexes WHERE schemaname = $1 AND tablename = $2 ORDER BY indexname", schema, table, timeout=timeout_sec)]}
+        if part == "constraints":
+            # contype 'n' (NOT NULL, pg17+) is skipped — the Structure tab already shows it
+            return {"rows": [dict(r) for r in await pool.fetch("SELECT conname AS name, pg_get_constraintdef(oid) AS def, CASE contype WHEN 'p' THEN 'primary key' WHEN 'f' THEN 'foreign key' WHEN 'u' THEN 'unique' WHEN 'c' THEN 'check' WHEN 'x' THEN 'exclude' ELSE contype::text END AS kind FROM pg_constraint WHERE conrelid = $1::regclass AND contype <> 'n' ORDER BY contype, conname", reg, timeout=timeout_sec)]}
+        if part == "triggers":
+            return {"rows": [dict(r) for r in await pool.fetch("SELECT t.tgname AS name, p.proname AS function, pg_get_triggerdef(t.oid) AS def FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid WHERE t.tgrelid = $1::regclass AND NOT t.tgisinternal ORDER BY t.tgname", reg, timeout=timeout_sec)]}
+        if part == "policies":
+            return {"rows": [dict(r) for r in await pool.fetch("SELECT policyname AS name, cmd AS kind, COALESCE(qual, '') AS using_expr, COALESCE(with_check, '') AS check_expr, COALESCE(array_to_string(roles, ', '), '') AS roles FROM pg_policies WHERE schemaname = $1 AND tablename = $2 ORDER BY policyname", schema, table, timeout=timeout_sec)]}
+        raise Exception(f"invalid part: {part}")
 
     raise Exception(f"invalid action: {action}")
 
