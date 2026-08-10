@@ -1290,18 +1290,31 @@ async def func_postgres_schema_read_ai(*, client_postgres: any) -> dict:
 def func_postgres_db_select(*, app_state: any, db: str = None) -> tuple:
     """Select target PostgreSQL client, schema, and AI schema caches by database pool name."""
     if db is None:
-        client_postgres = app_state.client_postgres
-        cache_postgres_schema = app_state.cache_postgres_schema
-        cache_postgres_schema_ai = app_state.cache_postgres_schema_ai
-    elif not app_state.client_postgres_dict or db not in app_state.client_postgres_dict:
+        return app_state.client_postgres, app_state.cache_postgres_schema, app_state.cache_postgres_schema_ai
+    if not app_state.client_postgres_dict or db not in app_state.client_postgres_dict:
         raise Exception(f"database pool '{db}' not found")
+    return (
+        app_state.client_postgres_dict[db],
+        app_state.cache_postgres_schema_dict.get(db, {}),
+        app_state.cache_postgres_schema_ai_dict.get(db, {}),
+    )
+
+def func_validate_restricted_columns(*, app_state: any, obj_list: list) -> None:
+    """Validate that object list does not contain restricted columns configured in config_column_admin."""
+    config_column_admin = getattr(app_state, "config_column_admin", set()) or set()
+    if restricted_key := next((key for item in obj_list for key in item if key in config_column_admin), None):
+        raise Exception(f"unauthorized update to restricted field: {restricted_key}")
+
+def func_check_public_table_permission(*, app_state: any, table: str, action: str = "read") -> None:
+    """Validate if public table read or create access is enabled."""
+    if action == "create":
+        enabled_tables = getattr(app_state, "config_table_public_create_enabled", []) or []
+        if "*" not in enabled_tables and table not in enabled_tables:
+            raise Exception(f"creation disabled for table: {table}")
     else:
-        client_postgres = app_state.client_postgres_dict[db]
-        cache_postgres_schema = app_state.cache_postgres_schema_dict.get(db, {})
-        cache_postgres_schema_ai = app_state.cache_postgres_schema_ai_dict.get(db, {})
-    if not client_postgres:
-        raise Exception("postgres client not initialized")
-    return client_postgres, cache_postgres_schema, cache_postgres_schema_ai
+        enabled_tables = getattr(app_state, "config_table_public_read_enabled", []) or []
+        if "*" not in enabled_tables and table not in enabled_tables:
+            raise Exception(f"read disabled for table: {table}")
 
 async def func_postgres_info_read(*, client_postgres: any) -> dict:
     """Read comprehensive PostgreSQL database statistics, storage, activity, and schema information."""

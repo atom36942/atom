@@ -52,7 +52,7 @@ async def func_api_my_object_create(*, request: Request):
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[])
     obj_list = ob.get("obj_list", [ob])
     if app_state.config_batch_item_limit and len(obj_list) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
-    if restricted_key := next((key for item in obj_list for key in item if key in app_state.config_column_admin), None): raise Exception(f"unauthorized update to restricted field: {restricted_key}")
+    app_state.func_validate_restricted_columns(app_state=app_state, obj_list=obj_list)
     if "created_by_id" not in app_state.cache_postgres_schema.get(oq["table"], {}): raise Exception(f"table '{oq['table']}' lacks required 'created_by_id' column for ownership tracking")
     if request.state.user.get("id"): obj_list = [dict(item, created_by_id=request.state.user["id"]) for item in obj_list]
     if oq["queue"]: return {"status": 1, "message": await app_state.func_producer(queue=oq["queue"], client_celery_producer=app_state.client_celery_producer, client_kafka_producer=app_state.client_kafka_producer, client_rabbitmq_producer=app_state.client_rabbitmq_producer, client_redis_producer=app_state.client_redis_producer, channel="func_postgres_create", payload={"mode": oq["mode"], "table": oq["table"], "obj_list": obj_list})}
@@ -79,7 +79,7 @@ async def func_api_my_object_update(*, request: Request):
     obj_list = ob.get("obj_list", [ob])
     if ((not oq["queue"] or (oq["table"] == "users" and any(key in obj_list[0] for key in ("email", "mobile")))) and not app_state.client_postgres) or (oq["queue"] == "redis" and not app_state.client_redis_producer) or (oq["queue"] == "rabbitmq" and not app_state.client_rabbitmq_producer) or (oq["queue"] == "kafka" and not app_state.client_kafka_producer) or (oq["queue"] == "celery" and not app_state.client_celery_producer): raise Exception("required postgres/queue client not initialized")
     if app_state.config_batch_item_limit and len(obj_list) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
-    if restricted_key := next((key for item in obj_list for key in item if key in app_state.config_column_admin), None): raise Exception(f"unauthorized update to restricted field: {restricted_key}")
+    app_state.func_validate_restricted_columns(app_state=app_state, obj_list=obj_list)
     if oq["table"] == "users" and (restricted_user_key := next((key for item in obj_list for key in item if key in getattr(app_state, 'config_column_admin_users', [])), None)): raise Exception(f"unauthorized update to restricted user field: {restricted_user_key}")
     if oq["table"] == "users" and len(obj_list) > 1: raise Exception("multi-object user update restricted")
     if oq["table"] == "users" and str(obj_list[0].get("id")) != str(request.state.user["id"]): raise Exception("ownership issue: cannot update other users")
