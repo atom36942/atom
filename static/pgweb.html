@@ -26,16 +26,7 @@
   --sel:#3874d7; --sel-fg:#fff; --null:#66666f; --hl:#24242e;
   --green:#8fc95f; --green-h:#a5d977; --err:#f2645a;
 }
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme=light]){
-    color-scheme:dark;
-    --nav-on-bg:#141419; --nav-on-fg:#f2f0ee;
-    --side:#191920; --bg:#141419; --fg:#d9d5d1; --dim:#7a7a84; --line:#2e2e37;
-    --th-fg:#cfcac5; --th-line:#2e2e37; --th-hover:#20202a;
-    --row-odd:#191920; --row-even:#141419; --row-line:#22222b; --row-hover:#2a2a1c;
-    --null:#66666f; --hl:#24242e; --green:#8fc95f; --green-h:#a5d977; --err:#f2645a;
-  }
-}
+/* light is the default regardless of OS preference — dark is opt-in via the toggle */
 
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;overflow:hidden}
@@ -56,34 +47,17 @@ input:focus,select:focus,textarea:focus{border-color:#999}
 :root[data-theme=dark] ::-webkit-scrollbar-thumb{background:#3a3a45}
 ::-webkit-scrollbar-thumb:hover{background:var(--dim)}
 
-/* ---------- connect: url only ---------- */
-#connect{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column}
-#connect .bar{height:var(--bar-h);flex:none;background:var(--nav);color:#fff;display:flex;
-  align-items:center;padding:0 16px;font-size:15px;font-weight:bold}
-#connect .mid{flex:1;display:flex;align-items:center;justify-content:center;padding:24px}
-#connect .box{width:min(560px,92vw)}
-#dsn{width:100%;padding:10px 13px;font-size:14px;
-  font-family:Menlo,Monaco,Consolas,"Courier New",monospace}
-#cerr{color:var(--err);margin-top:10px;min-height:18px;font-size:12px;white-space:pre-wrap}
-
-/* ---------- shell ---------- */
-#app{display:none;flex:1;min-width:0}
-body.ready #app{display:flex}
-body.ready #connect{display:none}
+/* ---------- shell: always present, empty until connected ---------- */
+#app{display:flex;flex:1;min-width:0}
 #side{width:250px;flex:0 0 250px;background:var(--side);display:flex;flex-direction:column;min-height:0}
-#dbline{height:var(--bar-h);flex:none;background:var(--nav);color:#fff;font-weight:bold;font-size:14px;
-  display:flex;align-items:center;gap:6px;padding:0 8px 0 12px}
-#dbname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#dbline button{background:transparent;color:#fff;border-color:rgba(255,255,255,.6);padding:3px 8px;line-height:1}
-#dbline button:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
-
-/* query runner pinned above the table list */
-#runner{display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;cursor:pointer;
-  border-bottom:1px solid var(--line);font-weight:bold;font-size:12px}
+#dbline{height:var(--bar-h);flex:none;background:var(--nav);color:#fff;
+  display:flex;justify-content:flex-start;align-items:center;padding:0 12px;min-width:0}
+#productname{font-size:15px;font-weight:700;letter-spacing:-.15px;line-height:18px}
+#runner{height:32px;flex:none;display:flex;align-items:center;padding:0 12px;border-bottom:1px solid var(--line);
+  font-size:12px;font-weight:600;cursor:pointer}
+#runner[hidden]{display:none}
 #runner:hover{background:var(--hl)}
 #runner.on{background:var(--sel);color:#fff;border-bottom-color:var(--sel)}
-#runner .kbd{margin-left:auto;font-weight:normal;font-size:11px;color:var(--dim)}
-#runner.on .kbd{color:#cfe0fb}
 
 #side .search{padding:8px;position:relative}
 #side .search input{width:100%;font-size:12px;padding:4px 24px 4px 8px}
@@ -101,16 +75,26 @@ body.ready #connect{display:none}
 .obj.on .ct{color:#cfe0fb}
 
 #main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
-#tabs{height:var(--bar-h);flex:none;display:flex;align-items:stretch;background:var(--nav);overflow:hidden}
+#tabs{height:var(--bar-h);flex:none;display:flex;align-items:stretch;background:var(--nav);overflow:visible;position:relative;z-index:10}
 .tab{padding:0 14px;line-height:var(--bar-h);font-size:13px;font-weight:500;color:var(--nav-fg);
   cursor:pointer;margin:0 1px;flex:none;white-space:nowrap}
 .tab[hidden]{display:none}
 .tab:hover{color:#fff}
 .tab.on{background:var(--nav-on-bg);color:var(--nav-on-fg);margin:0}
 #tabs .sp{flex:1}
-#tabs button{align-self:center;background:transparent;color:#fff;border-color:rgba(255,255,255,.6);
+#tabs > button,#tabs > #optionswrap > button{align-self:center;background:transparent;color:#fff;border-color:rgba(255,255,255,.6);
   margin-right:8px;font-size:12px;flex:none;white-space:nowrap}
-#tabs button:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
+#tabs > button:hover:not(:disabled),#tabs > #optionswrap > button:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
+#optionswrap{align-self:stretch;display:flex;align-items:center;position:relative;flex:none}
+#optionswrap[hidden]{display:none}
+#optionsmenu{position:absolute;right:8px;top:42px;width:164px;padding:5px;background:var(--bg);border:1px solid var(--line);
+  border-radius:4px;box-shadow:0 5px 18px rgba(0,0,0,.22);display:flex;flex-direction:column;z-index:30}
+#optionsmenu[hidden]{display:none}
+#optionsmenu button{width:100%;padding:7px 9px;margin:0;border:0;background:transparent;color:var(--fg);
+  text-align:left;font-size:12px;white-space:nowrap}
+#optionsmenu button:hover:not(:disabled){background:var(--hl);border-color:transparent}
+#optionsmenu #readonly.on{color:var(--green)}
+#optionsmenu #readonly.off{color:var(--err)}
 
 #tools{display:flex;align-items:center;gap:6px;padding:7px 9px;border-bottom:1px solid var(--th-line)}
 #tools select,#tools input{padding:3px 7px;font-size:12px}
@@ -163,6 +147,7 @@ body.ready #connect{display:none}
 /* ---------- status ---------- */
 #status{height:26px;flex:none;display:flex;align-items:center;gap:14px;padding:0 11px;
         border-top:1px solid var(--th-line);background:var(--side);color:#888;font-size:12px}
+#status[hidden]{display:none}
 #status .sp{flex:1}
 #status b{color:var(--fg);font-weight:bold}
 #status .t{color:var(--green)}
@@ -173,40 +158,41 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 dialog .hd{padding:12px 15px;border-bottom:1px solid var(--th-line);font-weight:bold;font-size:14px}
 dialog .bd{padding:14px 15px;max-height:60vh;overflow:auto;font-size:12px}
 dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;gap:8px;justify-content:flex-end}
+/* width:100% has no intrinsic size, so the dialog would shrink-wrap to nothing */
+#dsn2{display:block;width:min(580px,82vw);min-height:39px;padding:9px 12px;resize:none;
+      overflow-x:hidden;overflow-y:hidden;overflow-wrap:anywhere;white-space:pre-wrap;font-size:13px;line-height:1.5;
+      font-family:Menlo,Monaco,Consolas,"Courier New",monospace}
+#derr{color:var(--err);margin-top:8px;min-height:16px;font-size:12px;white-space:pre-wrap}
 #cellbox{white-space:pre-wrap;word-break:break-word;margin:0;
          font:12px/1.6 Menlo,Monaco,Consolas,"Courier New",monospace}
+#v-info{overflow:auto;padding:16px}
+#dbinfo-table{width:100%;max-width:760px;border-collapse:collapse;font-size:12px}
+#dbinfo-table th,#dbinfo-table td{padding:7px 9px;border-bottom:1px solid var(--th-line);text-align:left;vertical-align:top}
+#dbinfo-table th{width:145px;color:var(--dim);font-weight:500;white-space:nowrap}
+#dbinfo-table td{color:var(--fg);font-family:Menlo,Monaco,Consolas,"Courier New",monospace;word-break:break-word}
+#dbinfo-table tr:last-child th,#dbinfo-table tr:last-child td{border-bottom:0}
+#dbinfo-table .section th{width:auto;padding-top:13px;color:var(--fg);font-weight:700;background:var(--side)}
 </style>
 </head>
 <body>
 
-<div id="connect">
-  <div class="bar">pgweb</div>
-  <div class="mid">
-    <div class="box">
-      <input id="dsn" placeholder="postgres://user:password@localhost:5432/dbname" autocomplete="off" spellcheck="false" autofocus/>
-      <div id="cerr"></div>
-    </div>
-  </div>
-</div>
-
 <div id="app">
   <aside id="side">
     <div id="dbline">
-      <span id="dbname">—</span>
-      <button id="theme" title="Toggle theme">◐</button>
-      <button id="disc" title="Disconnect">⏻</button>
+      <span id="productname">pgweb</span>
     </div>
-    <div id="runner" class="on"><span>Query runner</span><span class="kbd">⌘⏎</span></div>
-    <div class="search">
+    <div id="runner" hidden>Query runner</div>
+    <div class="search" id="tablesearch" hidden>
       <input id="q" placeholder="Search tables" autocomplete="off" spellcheck="false"/>
       <button id="qclr" title="Clear" hidden>×</button>
     </div>
-    <div id="tree"></div>
+    <div id="tree" hidden></div>
   </aside>
 
   <main id="main">
     <div id="tabs">
-      <div class="tab" data-v="query">Query</div>
+      <div class="tab" data-v="query" hidden>Query</div>
+      <div class="tab" data-v="info" hidden>Database info</div>
       <div class="tab" data-v="rows" hidden>Rows</div>
       <div class="tab" data-v="struct" hidden>Structure</div>
       <div class="tab" data-v="indexes" hidden>Indexes</div>
@@ -214,10 +200,20 @@ dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;ga
       <div class="tab" data-v="triggers" hidden>Triggers</div>
       <div class="tab" data-v="policies" hidden>Policies</div>
       <div class="sp"></div>
-      <button id="reload" title="Reload">↻</button>
+      <div id="optionswrap" hidden>
+        <button id="options" aria-expanded="false">Options ▾</button>
+        <div id="optionsmenu" hidden>
+          <button id="dbinfo">Database info</button>
+          <button id="readonly" class="on" title="Queries run inside a PostgreSQL read-only transaction">Read only: On</button>
+          <button id="reload" title="Re-read the public schema and current table">Refresh schema</button>
+          <button id="theme" title="Use dark theme" aria-label="Use dark theme">Dark theme</button>
+        </div>
+      </div>
+      <button id="connbtn">Connect</button>
     </div>
 
-    <div id="pane">
+    <div id="pane" hidden>
+      <div class="view" id="v-info"><table id="dbinfo-table"><tbody></tbody></table></div>
       <div class="view" id="v-rows">
         <div id="tools">
           <select id="fcol"></select>
@@ -246,11 +242,15 @@ dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;ga
         <textarea id="sql" spellcheck="false" placeholder="SELECT * FROM …
 
 writes run here too — INSERT, UPDATE, DELETE, DDL"></textarea>
-        <div id="qbar"><button class="primary" id="run">Run  ⌘⏎</button><span id="qmsg"></span></div>
+        <div id="qbar">
+          <button class="primary" id="run">Run  ⌘⏎</button>
+          <button id="explain" title="Show the query plan without running it">Explain</button>
+          <span id="qmsg"></span>
+        </div>
       </div>
     </div>
 
-    <div id="status">
+    <div id="status" hidden>
       <span id="st-obj"></span><span id="st-rows"></span><span id="st-size"></span>
       <span class="sp"></span><span id="st-time" class="t"></span>
     </div>
@@ -272,10 +272,18 @@ const $ = s => document.getElementById(s);
 const vp=$('vp'), inner=$('inner'), headEl=$('head'), canvas=$('canvas'), rowsEl=$('rows');
 const DETAILS = ['indexes','constraints','triggers','policies'];
 
-const S = { db:'', schema:'public', table:'', kind:'', pk:null, cols:[], widths:[], total:0,
+const S = { db:'', table:'', kind:'', pk:null, cols:[], widths:[], total:0,
             chunks:new Map(), pending:new Map(), local:null, where:'', meta:null, tree:{},
-            viewPx:0, scale:1, loaded:{} };
+            viewPx:0, scale:1, loaded:{}, connected:false,
+            readOnly:localStorage.getItem('pgweb.readOnly') === '1' };
 let pool=[], lastFirst=-1, ticking=false;
+
+// Native dialogs close on Escape but not on backdrop clicks by default.
+$('dlg').addEventListener('click', e => {
+  if(e.target !== $('dlg')) return;
+  const r=$('dlg').getBoundingClientRect();
+  if(e.clientX<r.left || e.clientX>r.right || e.clientY<r.top || e.clientY>r.bottom) $('dlg').close();
+});
 
 /* ---------------- api ---------------- */
 async function api(body){
@@ -292,68 +300,159 @@ async function api(body){
   $('st-time').textContent = ms.toFixed(1)+' ms';
   return j.message;
 }
-const num = n => n>=1e9?(n/1e9).toFixed(1)+'B' : n>=1e6?(n/1e6).toFixed(1)+'M'
-               : n>=1e3?(n/1e3).toFixed(1)+'k' : String(n);
-
 /* ---------------- theme ---------------- */
 (function theme(){
-  const saved = localStorage.getItem('pgweb.theme');
-  if(saved) document.documentElement.dataset.theme = saved;
+  document.documentElement.dataset.theme = localStorage.getItem('pgweb.theme') || 'light';
+  const draw = () => {
+    const dark = document.documentElement.dataset.theme === 'dark';
+    $('theme').textContent = dark ? 'Light theme' : 'Dark theme';
+    $('theme').title = $('theme').ariaLabel = dark ? 'Use light theme' : 'Use dark theme';
+  };
+  draw();
   $('theme').onclick = () => {
-    const cur = document.documentElement.dataset.theme
-      || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
-    const next = cur === 'dark' ? 'light' : 'dark';
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
     localStorage.setItem('pgweb.theme', next);
+    draw();
   };
 })();
 
+/* ---------------- query safety ---------------- */
+function drawReadOnly(){
+  const b=$('readonly');
+  b.textContent = `Read only: ${S.readOnly ? 'On' : 'Off'}`;
+  b.className = S.readOnly ? 'on' : 'off';
+  b.title = S.readOnly
+    ? 'Queries run inside a PostgreSQL read-only transaction'
+    : 'Write queries are allowed';
+}
+$('readonly').onclick = () => {
+  if(S.readOnly && !confirm('Turn off read-only mode? Query runner writes and DDL will be allowed.')) return;
+  S.readOnly = !S.readOnly;
+  localStorage.setItem('pgweb.readOnly', S.readOnly ? '1' : '0');
+  drawReadOnly();
+};
+drawReadOnly();
+
+/* ---------------- options menu ---------------- */
+$('options').onclick = e => {
+  e.stopPropagation();
+  const open=$('optionsmenu').hidden;
+  $('optionsmenu').hidden=!open;
+  $('options').ariaExpanded=String(open);
+};
+$('optionsmenu').onclick = e => {
+  if(e.target.closest('button')){
+    $('optionsmenu').hidden=true;
+    $('options').ariaExpanded='false';
+  }
+};
+document.addEventListener('click', e => {
+  if(!$('optionswrap').contains(e.target)){
+    $('optionsmenu').hidden=true;
+    $('options').ariaExpanded='false';
+  }
+});
+
 /* ---------------- connect ---------------- */
-async function connect(){
-  const dsn = $('dsn').value.trim();
-  if(!dsn) return;
-  $('dsn').disabled = true; $('cerr').textContent = 'connecting…';
-  try{
-    const m = await api({action:'connect', dsn});
-    S.db = m.database; S.tree = m.tree;
-    $('dbname').textContent = m.database; $('dbname').title = m.version || '';
-    document.body.classList.add('ready');
-    localStorage.setItem('pgweb.dsn', dsn);
-    drawTree(); openRunner();
-    $('cerr').textContent = '';
-  }catch(e){ $('cerr').textContent = e.message; }
-  finally{ $('dsn').disabled = false; $('dsn').focus(); }
+// the shell is always on screen; connection state only decides what's in it
+function setConnected(on){
+  S.connected = on;
+  $('connbtn').textContent = on ? 'Disconnect' : 'Connect';
+  $('connbtn').title = on ? 'Disconnect from this database' : 'Connect to a database';
+  $('optionswrap').hidden = !on;
+  $('optionsmenu').hidden = true;
+  $('options').ariaExpanded = 'false';
+  $('pane').hidden = !on;
+  $('status').hidden = !on;
+  $('runner').hidden = !on;
+  $('tablesearch').hidden = !on;
+  $('tree').hidden = !on;
+  $('reload').disabled = !on;
+  $('run').disabled = $('explain').disabled = $('sql').disabled = !on;
+  if(!on){
+    S.tree={}; S.chunks.clear(); S.pending.clear();
+    S.local=null; S.table=''; S.kind=''; S.cols=[]; S.total=0; lastFirst=-1;
+    $('tree').textContent=''; $('q').value=''; $('qclr').hidden=true;
+    $('tools').style.display='none';
+    for(const t of document.querySelectorAll('.tab')) t.hidden = true;
+    show('query');
+    headEl.textContent=''; rowsEl.textContent=''; pool=[];
+    $('empty').textContent='Not connected'; $('empty').classList.add('on');
+    for(const id of ['st-obj','st-rows','st-size','st-time']) $(id).textContent='';
+  }else{
+    $('empty').classList.remove('on'); $('empty').textContent='No rows';
+  }
 }
-function disconnected(){
-  document.body.classList.remove('ready');
-  S.chunks.clear(); S.local=null; S.table=''; lastFirst=-1;
+async function doConnect(dsn){
+  const m = await api({action:'connect', dsn});
+  S.db = m.database; S.tree = m.tree;
+  localStorage.setItem('pgweb.dsn', dsn);
+  setConnected(true);
+  drawTree(); openRunner();
 }
-$('dsn').onkeydown = e => { if(e.key==='Enter') connect(); };
-$('dsn').value = localStorage.getItem('pgweb.dsn') || '';
-$('disc').onclick = async () => { try{ await api({action:'disconnect'}); }catch{} disconnected(); };
+function disconnected(){ setConnected(false); }
+
+$('connbtn').onclick = () => S.connected ? askDisconnect() : askConnect();
+
+function askConnect(){
+  $('dlg-t').textContent = 'Connect to a database';
+  $('dlg-b').innerHTML =
+    '<textarea id="dsn2" rows="1" wrap="soft" placeholder="postgresql://localhost:5432/postgres" autocomplete="off" spellcheck="false"></textarea>'
+    + '<div id="derr"></div>';
+  $('dlg-f').innerHTML = '<button value="cancel">Cancel</button><button class="primary" id="dgo">Connect</button>';
+  $('dlg').showModal();
+  const inp = $('dsn2');
+  const fit = () => { inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight+2,160)+'px'; };
+  inp.value = localStorage.getItem('pgweb.dsn') || 'postgresql://localhost:5432/postgres'; fit();
+  inp.oninput = fit; inp.focus(); inp.select();
+  const go = async ev => {
+    ev?.preventDefault();
+    const dsn = inp.value.trim(); if(!dsn) return;
+    $('dgo').disabled = inp.disabled = true; $('derr').textContent = 'connecting…';
+    try{ await doConnect(dsn); $('dlg').close(); }
+    catch(e){ $('derr').textContent = e.message; }
+    finally{ $('dgo').disabled = inp.disabled = false; }
+  };
+  $('dgo').onclick = go;
+  inp.onkeydown = e => { if(e.key==='Enter') go(e); };
+}
+
+function askDisconnect(){
+  $('dlg-t').textContent = 'Disconnect';
+  $('dlg-b').textContent = `Disconnect from ${S.db}? Any unsaved query text stays in the editor.`;
+  $('dlg-f').innerHTML = '<button value="cancel">Cancel</button><button class="primary" id="dyes">Disconnect</button>';
+  $('dlg').showModal();
+  $('dyes').onclick = async ev => {
+    ev.preventDefault(); $('dlg').close();
+    try{ await api({action:'disconnect'}); }catch{}
+    setConnected(false);
+  };
+}
 
 /* ---------------- sidebar ---------------- */
-// public schema only, one flat list, no row counts
+// public schema only, one flat list
+const TAG = {view:'view', matview:'mview', foreign:'foreign'};
 function drawTree(){
   const box = $('tree'); box.textContent = '';
   const kinds = S.tree.public || {};
+  const items = [];
+  for(const kind of ['table','view','matview','foreign'])
+    for(const o of (kinds[kind] || [])) items.push({kind, name:o.name});
+  items.sort((a,b) => a.name.localeCompare(b.name));
+
   const frag = document.createDocumentFragment();
-  for(const kind of ['table','view','matview']){
-    for(const o of (kinds[kind] || [])){
-      const d = document.createElement('div'); d.className='obj';
-      d.dataset.table=o.name; d.dataset.kind=kind;
-      const nm=document.createElement('span'); nm.className='nm'; nm.textContent=o.name;
-      d.appendChild(nm);
-      if(kind!=='table'){
-        const ct=document.createElement('span'); ct.className='ct';
-        ct.textContent = kind==='view' ? 'view' : 'mview'; d.appendChild(ct);
-      }
-      d.onclick=()=>openObject(o.name,kind); frag.appendChild(d);
+  for(const o of items){
+    const d = document.createElement('div'); d.className='obj';
+    d.dataset.table=o.name; d.dataset.kind=o.kind; d.dataset.label=o.name;
+    const nm=document.createElement('span'); nm.className='nm'; nm.textContent=o.name; nm.title=o.name;
+    d.appendChild(nm);
+    if(TAG[o.kind]){
+      const ct=document.createElement('span'); ct.className='ct'; ct.textContent=TAG[o.kind];
+      d.appendChild(ct);
     }
-  }
-  if(!frag.childNodes.length){
-    const e=document.createElement('div'); e.className='obj'; e.style.cssText='color:var(--dim);cursor:default';
-    e.textContent='No tables in public'; frag.appendChild(e);
+    d.onclick=()=>openObject(o.name, o.kind);
+    frag.appendChild(d);
   }
   box.appendChild(frag);
 }
@@ -361,8 +460,8 @@ function searchTables(){
   const term = $('q').value.trim().toLowerCase();
   $('qclr').hidden = !term;
   for(const o of document.querySelectorAll('.obj')){
-    const name = o.dataset.table;          // the empty-state row has no table, never hide it
-    o.hidden = !!name && !name.toLowerCase().includes(term);
+    const label = o.dataset.label;         // qualified, so "analytics" matches too
+    o.hidden = !!label && !label.toLowerCase().includes(term);
   }
 }
 $('q').oninput = searchTables;
@@ -390,20 +489,20 @@ async function openObject(table, kind){
   S.chunks.clear(); S.pending.clear(); lastFirst=-1;
   $('fval').value=''; $('ftxt').textContent='';
   localStorage.setItem('pgweb.last', JSON.stringify({table,kind}));
-  for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v==='query';
+  for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v==='query'||t.dataset.v==='info';
 
-  const m = await api({action:'rows', schema:'public', table, limit:CHUNK, is_meta:1});
+  const m = await api({action:'rows', table, limit:CHUNK, is_meta:1});
   S.cols=m.cols; S.meta=m.meta; S.pk=m.meta.pk;
-  S.total = kind==='table' ? Math.max(m.meta.stats.est_rows, m.rows.length) : m.rows.length;
+  S.total = m.rows.length;
   S.chunks.set(0, m.rows);
-  if(m.rows.length < CHUNK) S.total = m.rows.length;   // small table: exact
 
   $('p-struct').textContent = m.meta.columns.map(c =>
     `${c.name.padEnd(30)}${c.type}${c.nullable?'':'  NOT NULL'}${c.default_value?'  DEFAULT '+c.default_value:''}`).join('\n');
   for(const p of DETAILS) $('p-'+p).textContent = '';
   $('fcol').innerHTML = S.cols.map(c=>`<option>${c}</option>`).join('');
   $('st-obj').innerHTML = `<b>${table}</b>`;
-  $('st-rows').textContent = ''; $('st-size').textContent = m.meta.stats.total_size || '';
+  $('st-rows').textContent = `${m.rows.length} rows loaded`;
+  $('st-size').textContent = m.meta.stats.total_size || '';
   buildGrid(); vp.scrollTop=0; render(true);
   show('rows');
 }
@@ -415,7 +514,7 @@ async function loadDetail(part){
   const el = $('p-'+part);
   el.textContent = 'loading…';
   try{
-    const m = await api({action:'detail', schema:'public', table:S.table, part});
+    const m = await api({action:'detail', table:S.table, part});
     if(!m.rows.length){ el.textContent = `(no ${part})`; return; }
     if(part==='indexes')      el.textContent = m.rows.map(r=>r.def).join('\n\n');
     // pg_get_constraintdef already starts with the kind, so don't print it twice
@@ -476,7 +575,7 @@ function ensure(ci){
   if(S.local || ci<0 || S.chunks.has(ci) || S.pending.has(ci)) return;
   if(ci*CHUNK >= S.total) return;
   S.pending.set(ci, 1);
-  api({action:'rows', schema:'public', table:S.table, pk:S.pk, limit:CHUNK,
+  api({action:'rows', table:S.table, pk:S.pk, limit:CHUNK,
        offset:ci*CHUNK, where:S.where||undefined})
     .then(m=>{
       S.chunks.set(ci, m.rows); S.pending.delete(ci);
@@ -569,15 +668,11 @@ $('fclr').onclick = async () => { S.where=''; $('fval').value=''; await applyFil
 async function applyFilter(){
   S.chunks.clear(); S.pending.clear(); lastFirst=-1;
   try{
-    const [first, cnt] = await Promise.all([
-      api({action:'rows', schema:'public', table:S.table, pk:S.pk, limit:CHUNK, where:S.where||undefined}),
-      S.where ? api({action:'count', schema:'public', table:S.table, where:S.where}) : null
-    ]);
+    const first = await api({action:'rows', table:S.table, pk:S.pk,
+                             limit:CHUNK, where:S.where||undefined});
     S.chunks.set(0, first.rows);
-    S.total = S.where ? (first.rows.length<CHUNK ? first.rows.length : Math.max(cnt.count, first.rows.length))
-                      : Math.max(S.meta.stats.est_rows, first.rows.length);
-    $('ftxt').textContent = S.where
-      ? (first.rows.length<CHUNK ? `${first.rows.length} matched` : `~${num(S.total)} matched`) : '';
+    S.total = first.rows.length;
+    $('ftxt').textContent = S.where ? `${first.rows.length} rows loaded` : '';
     buildGrid(); vp.scrollTop=0; render(true);
   }catch(err){ alertBox('Filter failed', err.message); }
 }
@@ -589,16 +684,18 @@ async function runQuery(confirmed){
   $('run').disabled=true; $('qmsg').className=''; $('qmsg').textContent='running…';
   const t0=performance.now();
   try{
-    const m = await api({action:'query', sql, is_confirmed: confirmed?1:0});
+    const m = await api({action:'query', sql, is_confirmed: confirmed?1:0,
+                         is_read_only:S.readOnly?1:0});
     S.local=m.rows; S.cols=m.cols; S.total=m.rows.length; S.pk=null;
     S.chunks.clear(); lastFirst=-1;
     $('tools').style.display='none';       // column filters belong to a table, not a result set
     buildGrid(); vp.scrollTop=0; render(true);
     for(const t of document.querySelectorAll('.tab')) t.hidden = !(t.dataset.v==='query'||t.dataset.v==='rows');
     show('rows');
-    $('qmsg').textContent = `${m.rows.length} rows`;
+    $('qmsg').textContent = m.truncated ? `${m.rows.length}+ rows · limited` : `${m.rows.length} rows`;
     $('st-obj').innerHTML='<b>query</b>';
-    $('st-rows').textContent=`${m.rows.length} rows`; $('st-size').textContent='';
+    $('st-rows').textContent=m.truncated ? `${m.rows.length}+ rows` : `${m.rows.length} rows`;
+    $('st-size').textContent='';
     $('st-time').textContent = (performance.now()-t0).toFixed(1)+' ms';
   }catch(err){
     if(err.message.includes('unbounded_write')){
@@ -608,10 +705,31 @@ async function runQuery(confirmed){
       $('dlg-f').innerHTML='<button value="cancel">Cancel</button><button class="primary" id="yes">Run anyway</button>';
       $('dlg').showModal();
       $('yes').onclick=ev=>{ ev.preventDefault(); $('dlg').close(); runQuery(true); };
-    } else { $('qmsg').className='err'; $('qmsg').textContent=err.message; }
-  } finally { $('run').disabled=false; }
+    } else {
+      $('qmsg').className='err';
+      $('qmsg').textContent = S.readOnly && /read.only|read-only/i.test(err.message)
+        ? 'Blocked by read-only mode' : err.message;
+    }
+  } finally { $('run').disabled = !S.connected; }
 }
 $('run').onclick = ()=>runQuery(false);
+// plain EXPLAIN only — it plans without executing. EXPLAIN ANALYZE really runs the
+// statement, so type that yourself if you want it rather than have a button do it.
+$('explain').onclick = async () => {
+  const sql = $('sql').value.trim(); if(!sql) return;
+  $('explain').disabled = true; $('qmsg').className=''; $('qmsg').textContent='planning…';
+  try{
+    const m = await api({action:'query', sql:'EXPLAIN '+sql, is_read_only:S.readOnly?1:0});
+    S.local=m.rows; S.cols=m.cols; S.total=m.rows.length; S.pk=null; S.chunks.clear(); lastFirst=-1;
+    $('tools').style.display='none';
+    buildGrid(); vp.scrollTop=0; render(true);
+    for(const t of document.querySelectorAll('.tab')) t.hidden = !(t.dataset.v==='query'||t.dataset.v==='rows');
+    show('rows');
+    $('qmsg').textContent = `plan · ${m.rows.length} lines`;
+    $('st-obj').innerHTML='<b>explain</b>'; $('st-rows').textContent=''; $('st-size').textContent='';
+  }catch(err){ $('qmsg').className='err'; $('qmsg').textContent=err.message; }
+  finally{ $('explain').disabled = !S.connected; }
+};
 $('sql').addEventListener('keydown', e=>{
   if((e.metaKey||e.ctrlKey) && e.key==='Enter'){ e.preventDefault(); runQuery(false); }
   if(e.key==='Tab'){ e.preventDefault(); const s=e.target.selectionStart;
@@ -634,7 +752,45 @@ function show(v){
   if(DETAILS.includes(v)) loadDetail(v);
 }
 for(const t of document.querySelectorAll('.tab')) t.onclick = ()=>show(t.dataset.v);
-$('reload').onclick = () => { if(S.table) openObject(S.table, S.kind); else openRunner(); };
+// re-reads the object list too, so DDL run in the query runner shows up without a page reload
+$('reload').onclick = async () => {
+  try{
+    const m = await api({action:'schema'});
+    S.tree = m.tree; drawTree(); searchTables();
+    if(S.table && (S.tree.public||{})[S.kind]?.some(o=>o.name===S.table)) openObject(S.table, S.kind);
+    else if(S.table) openRunner();      // the table went away
+  }catch(e){ alertBox('Refresh failed', e.message); }
+};
+$('dbinfo').onclick = async () => {
+  $('dbinfo').disabled=true;
+  $('runner').classList.remove('on');
+  for(const el of document.querySelectorAll('.obj.on')) el.classList.remove('on');
+  S.table=''; S.kind='';
+  $('st-obj').textContent=''; $('st-rows').textContent=''; $('st-size').textContent='';
+  for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v!=='info';
+  show('info');
+  const body=$('dbinfo-table').tBodies[0];
+  body.innerHTML='<tr><td>Loading database info…</td></tr>';
+  try{
+    const m=await api({action:'info'});
+    const labels={database:'Database',schema_scope:'Schema scope',user_name:'User',version:'PostgreSQL version',
+      database_size:'Database size',encoding:'Encoding',collation:'Collation',time_zone:'Time zone',tables:'Tables',
+      views:'Views',materialized_views:'Materialized views',indexes:'Indexes',sequences:'Sequences',
+      functions:'Functions',procedures:'Procedures',triggers:'Triggers'};
+    body.textContent='';
+    for(const [key,label] of Object.entries(labels)){
+      if(key==='tables'){
+        const section=document.createElement('tr'), heading=document.createElement('th');
+        section.className='section'; heading.colSpan=2;
+        heading.textContent='Public schema objects (excluding extensions and internal objects)';
+        section.appendChild(heading); body.appendChild(section);
+      }
+      const tr=document.createElement('tr'), th=document.createElement('th'), td=document.createElement('td');
+      th.textContent=label; td.textContent=m[key] ?? '—'; tr.append(th,td); body.appendChild(tr);
+    }
+  }catch(e){ body.innerHTML='<tr><td></td></tr>'; body.rows[0].cells[0].textContent='Error: '+e.message; }
+  finally{ $('dbinfo').disabled=false; }
+};
 function alertBox(title, msg){
   $('dlg-t').textContent=title; $('dlg-b').innerHTML='<pre id="cellbox"></pre>';
   $('cellbox').textContent=msg;
@@ -644,12 +800,10 @@ function alertBox(title, msg){
 /* the server holds one connection, so a reload just picks it back up */
 (async function boot(){
   try{
-    const m = await api({action:'schema'});
-    S.tree=m.tree; document.body.classList.add('ready');
-    const info = await api({action:'query', sql:'select current_database() as db'});
-    S.db=info.rows[0][0]; $('dbname').textContent=S.db;
-    drawTree(); openRunner();
-  }catch{ /* not connected yet: the url prompt stays up */ }
+    const m = await api({action:'schema'});          // one call: tree + database name
+    S.tree=m.tree; S.db=m.database;
+    setConnected(true); drawTree(); openRunner();
+  }catch{ setConnected(false); }                     // shell stays, just empty
 })();
 </script>
 </body>

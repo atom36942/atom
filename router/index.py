@@ -30,12 +30,6 @@ async def func_api_index_info(*, request:Request):
         }
     }
 
-@router.post("/pgweb")
-async def func_api_pgweb(*, request: Request):
-    app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[])
-    return {"status": 1, "message": await app_state.func_pgweb(client_postgres_pgweb=app_state.client_postgres_pgweb, func_client_postgres=app_state.func_client_postgres, **ob)}
-
 @router.get("/openapi.json")
 async def func_api_openapi_json(*, request:Request):
     app_state = request.app.state
@@ -53,3 +47,9 @@ async def func_api_websocket(*, websocket:WebSocket):
             await websocket.send_text(str(output))
     except WebSocketDisconnect:
         pass
+
+@router.post("/pgweb")
+async def func_api_pgweb(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[])
+    return {"status": 1, "message": await app_state.func_pgweb(client_postgres_pgweb=app_state.client_postgres_pgweb, func_client_postgres=app_state.func_client_postgres, **ob)}

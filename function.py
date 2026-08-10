@@ -2220,51 +2220,40 @@ async def func_postgres_query_runner_write(*, client_postgres: any, sql: str) ->
         result = await conn.execute(sql, timeout=15)
     return result
 
-async def func_pgweb(*, client_postgres_pgweb: dict, func_client_postgres: callable, action: str, dsn: str = None, schema: str = "public", table: str = None, limit: int = 1000, offset: int = None, after: any = None, where: str = None, order: str = None, is_desc: int = 0, sql: str = None, part: str = None, pk: str = None, is_meta: int = 0, is_exact: int = 0, is_confirmed: int = 0, timeout_sec: int = 30) -> dict:
-    """Single dispatcher for the pgweb dev UI: connect, schema, rows, detail, count, query, disconnect.
-
-    Read-only browsing — every write goes through the query runner as SQL.
-
-    One connection at a time — client_postgres_pgweb holds a single pool under "pool".
-    """
+async def func_pgweb(*, client_postgres_pgweb: dict, func_client_postgres: callable, action: str, dsn: str = None, table: str = None, limit: int = 1000, offset: int = None, after: any = None, where: str = None, order: str = None, is_desc: int = 0, sql: str = None, part: str = None, pk: str = None, is_meta: int = 0, is_confirmed: int = 0, is_read_only: int = 0, timeout_sec: int = 30) -> dict:
+    """Single dispatcher for the public-schema pgweb dev UI."""
     from contextlib import suppress
-
+    schema = "public"
     def ident(*parts):
-        """Quote identifiers. Postgres cannot parameterize these, so they are validated instead."""
         out = []
-        for part in parts:
-            if part in (None, ""): continue
-            part = str(part)
-            if not part.replace("_", "").isalnum(): raise Exception(f"invalid identifier: {part}")
-            out.append(f'"{part}"')
+        for item in parts:
+            if item in (None, ""): continue
+            item = str(item)
+            if not item.replace("_", "").isalnum(): raise Exception(f"invalid identifier: {item}")
+            out.append(f'"{item}"')
         return ".".join(out)
-
     def jsonable(value):
-        """Postgres types the stdlib encoder cannot handle (Decimal, datetime, UUID, …) become text."""
         if value is None or isinstance(value, (bool, int, float, str)): return value
         if isinstance(value, (bytes, bytearray, memoryview)): return "\\x" + bytes(value).hex()
         return str(value)
-
     def pack(records):
         return {"cols": [str(k) for k in records[0].keys()] if records else [], "rows": [[jsonable(v) for v in r.values()] for r in records]}
-
     async def read_tree(pool):
         records = await pool.fetch("""
-            SELECT n.nspname AS schema_name, c.relname AS name, c.reltuples::bigint AS est_rows,
+            SELECT n.nspname AS schema_name, c.relname AS name,
                    CASE c.relkind WHEN 'r' THEN 'table' WHEN 'p' THEN 'table' WHEN 'v' THEN 'view'
-                        WHEN 'm' THEN 'matview' ELSE 'other' END AS kind
+                        WHEN 'm' THEN 'matview' WHEN 'f' THEN 'foreign' ELSE 'other' END AS kind
             FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-            WHERE c.relkind IN ('r','p','v','m') AND n.nspname NOT IN ('pg_catalog','information_schema')
-              AND n.nspname NOT LIKE 'pg_toast%' AND n.nspname NOT LIKE 'pg_temp%'
+            WHERE c.relkind IN ('r','p','v','m','f') AND n.nspname = 'public'
+              AND NOT c.relispartition
+              AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.classid = 'pg_class'::regclass AND d.deptype = 'e')
             ORDER BY n.nspname, c.relname""", timeout=timeout_sec)
         tree = {}
-        for r in records: tree.setdefault(r["schema_name"], {}).setdefault(r["kind"], []).append({"name": r["name"], "est_rows": max(r["est_rows"], 0)})
+        for r in records: tree.setdefault(r["schema_name"], {}).setdefault(r["kind"], []).append({"name": r["name"]})
         return tree
-
-    # connect creates the pool; every later action resolves it from the session token
     if action == "connect":
         if not dsn: raise Exception("dsn is required")
-        pool = await func_client_postgres(dsn=dsn, min_size=2, max_size=12)
+        pool = await func_client_postgres(dsn=dsn, min_size=1, max_size=4)
         if not pool: raise Exception("could not connect")
         try:
             info = await pool.fetchrow("SELECT current_database() AS db, version() AS version", timeout=timeout_sec)
@@ -2277,79 +2266,101 @@ async def func_pgweb(*, client_postgres_pgweb: dict, func_client_postgres: calla
             with suppress(Exception): await previous.close()
         client_postgres_pgweb["pool"] = pool
         return {"tree": tree, "database": info["db"], "version": info["version"].split(" on ")[0]}
-
     if action == "disconnect":
         pool = client_postgres_pgweb.pop("pool", None)
         if pool:
             with suppress(Exception): await pool.close()
         return {}
-
     pool = client_postgres_pgweb.get("pool")
     if not pool: raise Exception("not_connected")
-
     if action == "schema":
-        return {"tree": await read_tree(pool)}
-
+        return {"tree": await read_tree(pool), "database": await pool.fetchval("SELECT current_database()", timeout=timeout_sec)}
+    if action == "info":
+        row = await pool.fetchrow("""
+            SELECT current_database() AS database, current_user AS user_name,
+                   current_setting('server_version') AS version,
+                   pg_size_pretty(pg_database_size(current_database())) AS database_size,
+                   pg_encoding_to_char(d.encoding) AS encoding, d.datcollate AS collation,
+                   current_setting('TimeZone') AS time_zone
+              FROM pg_database d WHERE d.datname = current_database()""", timeout=timeout_sec)
+        relations = await pool.fetchrow("""
+            SELECT count(*) FILTER (WHERE c.relkind IN ('r','p') AND NOT c.relispartition) AS tables,
+                   count(*) FILTER (WHERE c.relkind = 'v') AS views,
+                   count(*) FILTER (WHERE c.relkind = 'm') AS materialized_views,
+                   count(*) FILTER (WHERE c.relkind IN ('i','I')) AS indexes,
+                   count(*) FILTER (WHERE c.relkind = 'S') AS sequences
+              FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = 'public'
+               AND NOT EXISTS (SELECT 1 FROM pg_depend d
+                                WHERE d.objid = c.oid AND d.classid = 'pg_class'::regclass AND d.deptype = 'e')""", timeout=timeout_sec)
+        routines = await pool.fetchrow("""
+            SELECT count(*) FILTER (WHERE p.prokind IN ('f','w')) AS functions,
+                   count(*) FILTER (WHERE p.prokind = 'p') AS procedures
+              FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+             WHERE n.nspname = 'public'
+               AND NOT EXISTS (SELECT 1 FROM pg_depend d
+                                WHERE d.objid = p.oid AND d.classid = 'pg_proc'::regclass AND d.deptype = 'e')""", timeout=timeout_sec)
+        triggers = await pool.fetchval("""
+            SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'public' AND NOT t.tgisinternal
+              AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = t.oid AND d.classid = 'pg_trigger'::regclass AND d.deptype = 'e')
+              AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.classid = 'pg_class'::regclass AND d.deptype = 'e')""", timeout=timeout_sec)
+        return {**{k: jsonable(v) for k, v in row.items()}, "schema_scope": "public",
+                **{k: int(v) for k, v in relations.items()}, **{k: int(v) for k, v in routines.items()},
+                "triggers": int(triggers)}
     if action == "rows":
         if not table: raise Exception("table is required")
-        limit = max(1, min(int(limit or 1000), 5000))
-        meta = None
-        # meta is read first so the primary key can order this very page — otherwise the
-        # opening page comes back in heap order and disagrees with every page after it
+        limit, meta = max(1, min(int(limit or 1000), 5000)), None
         if is_meta:
             reg = f"{schema}.{table}"
-            # only what the grid needs to open: columns, primary key, row estimate.
-            # indexes / constraints / triggers load lazily via action="detail"
-            meta = {
-                "columns": [dict(r) for r in await pool.fetch("SELECT attname AS name, format_type(atttypid, atttypmod) AS type, NOT attnotnull AS nullable, pg_get_expr(d.adbin, d.adrelid) AS default_value FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum WHERE a.attrelid = $1::regclass AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum", reg, timeout=timeout_sec)],
-                "pk": await pool.fetchval("SELECT a.attname FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey) WHERE i.indrelid = $1::regclass AND i.indisprimary LIMIT 1", reg, timeout=timeout_sec),
-                "stats": dict(await pool.fetchrow("SELECT GREATEST(c.reltuples::bigint, 0) AS est_rows, pg_size_pretty(pg_total_relation_size(c.oid)) AS total_size FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname = $2", schema, table, timeout=timeout_sec)),
-            }
+            catalog = await pool.fetch("""
+                SELECT a.attname AS name, format_type(a.atttypid, a.atttypmod) AS type,
+                       NOT a.attnotnull AS nullable, pg_get_expr(d.adbin, d.adrelid) AS default_value,
+                       (SELECT pa.attname FROM pg_index i JOIN pg_attribute pa ON pa.attrelid = i.indrelid AND pa.attnum = ANY(i.indkey)
+                         WHERE i.indrelid = a.attrelid AND i.indisprimary ORDER BY array_position(i.indkey::smallint[], pa.attnum) LIMIT 1) AS pk,
+                       pg_size_pretty(pg_total_relation_size(c.oid)) AS total_size
+                  FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid
+             LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+                 WHERE a.attrelid = $1::regclass AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum""", reg, timeout=timeout_sec)
+            first_meta = catalog[0] if catalog else None
+            meta = {"columns": [{k: r[k] for k in ("name", "type", "nullable", "default_value")} for r in catalog],
+                    "pk": first_meta["pk"] if first_meta else None,
+                    "stats": {"total_size": first_meta["total_size"] if first_meta else "0 bytes"}}
             pk = pk or meta["pk"]
         args, clauses = [], []
         if after not in (None, ""):
             if not pk: raise Exception("keyset paging requires a primary key")
-            args.append(after)
-            clauses.append(f'{ident(pk)} {"<" if is_desc else ">"} $1')
+            args.append(after); clauses.append(f'{ident(pk)} {"<" if is_desc else ">"} $1')
         if where: clauses.append(f"({where})")
         where_sql = (" WHERE " + " AND ".join(clauses)) if clauses else ""
         order_col = order or pk
         order_sql = f' ORDER BY {ident(order_col)}{" DESC" if is_desc else ""}' if order_col else ""
         offset_sql = f" OFFSET {int(offset)}" if offset else ""
-        query = f"SELECT * FROM {ident(schema, table)}{where_sql}{order_sql} LIMIT {limit}{offset_sql}"
-        out = pack(await pool.fetch(query, *args, timeout=timeout_sec))
+        out = pack(await pool.fetch(f"SELECT * FROM {ident(schema, table)}{where_sql}{order_sql} LIMIT {limit}{offset_sql}", *args, timeout=timeout_sec))
         if meta is not None: out["meta"] = meta
         return out
-
-    # planner estimate by default; exact count only when explicitly asked for
-    if action == "count":
-        if not table: raise Exception("table is required")
-        target = f"SELECT * FROM {ident(schema, table)}" + (f" WHERE {where}" if where else "")
-        if is_exact: return {"count": await pool.fetchval(f"SELECT count(*) FROM ({target}) AS pgweb_count", timeout=timeout_sec), "kind": "exact"}
-        plan = await pool.fetchval(f"EXPLAIN (FORMAT JSON) {target}", timeout=timeout_sec)
-        return {"count": (plan if isinstance(plan, list) else __import__("json").loads(plan))[0]["Plan"]["Plan Rows"], "kind": "estimate"}
-
     if action == "query":
         if not sql or not sql.strip(): raise Exception("sql is required")
         normalized = " ".join(sql.lower().split())
-        if not is_confirmed and (normalized.startswith(("truncate", "drop ")) or (normalized.startswith(("update ", "delete ")) and " where " not in normalized)): raise Exception("unbounded_write")
+        if not is_read_only and not is_confirmed and (normalized.startswith(("truncate", "drop ")) or (normalized.startswith(("update ", "delete ")) and " where " not in normalized)): raise Exception("unbounded_write")
+        if is_read_only:
+            async with pool.acquire() as conn:
+                async with conn.transaction(readonly=True):
+                    cursor = await conn.cursor(sql, timeout=timeout_sec)
+                    records = await cursor.fetch(5001)
+                    out = pack(records[:5000]); out["truncated"] = len(records) > 5000
+                    return out
         return pack(await pool.fetch(sql, timeout=timeout_sec))
-
-    # per-table detail, fetched only when its tab is opened
     if action == "detail":
         if not table: raise Exception("table is required")
         reg = f"{schema}.{table}"
-        if part == "indexes":
-            return {"rows": [dict(r) for r in await pool.fetch("SELECT indexname AS name, indexdef AS def FROM pg_indexes WHERE schemaname = $1 AND tablename = $2 ORDER BY indexname", schema, table, timeout=timeout_sec)]}
-        if part == "constraints":
-            # contype 'n' (NOT NULL, pg17+) is skipped — the Structure tab already shows it
-            return {"rows": [dict(r) for r in await pool.fetch("SELECT conname AS name, pg_get_constraintdef(oid) AS def, CASE contype WHEN 'p' THEN 'primary key' WHEN 'f' THEN 'foreign key' WHEN 'u' THEN 'unique' WHEN 'c' THEN 'check' WHEN 'x' THEN 'exclude' ELSE contype::text END AS kind FROM pg_constraint WHERE conrelid = $1::regclass AND contype <> 'n' ORDER BY contype, conname", reg, timeout=timeout_sec)]}
-        if part == "triggers":
-            return {"rows": [dict(r) for r in await pool.fetch("SELECT t.tgname AS name, p.proname AS function, pg_get_triggerdef(t.oid) AS def FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid WHERE t.tgrelid = $1::regclass AND NOT t.tgisinternal ORDER BY t.tgname", reg, timeout=timeout_sec)]}
-        if part == "policies":
-            return {"rows": [dict(r) for r in await pool.fetch("SELECT policyname AS name, cmd AS kind, COALESCE(qual, '') AS using_expr, COALESCE(with_check, '') AS check_expr, COALESCE(array_to_string(roles, ', '), '') AS roles FROM pg_policies WHERE schemaname = $1 AND tablename = $2 ORDER BY policyname", schema, table, timeout=timeout_sec)]}
-        raise Exception(f"invalid part: {part}")
-
+        if part == "indexes": query, args = "SELECT indexname AS name, indexdef AS def FROM pg_indexes WHERE schemaname = $1 AND tablename = $2 ORDER BY indexname", (schema, table)
+        elif part == "constraints": query, args = "SELECT conname AS name, pg_get_constraintdef(oid) AS def, CASE contype WHEN 'p' THEN 'primary key' WHEN 'f' THEN 'foreign key' WHEN 'u' THEN 'unique' WHEN 'c' THEN 'check' WHEN 'x' THEN 'exclude' ELSE contype::text END AS kind FROM pg_constraint WHERE conrelid = $1::regclass AND contype <> 'n' ORDER BY contype, conname", (reg,)
+        elif part == "triggers": query, args = "SELECT t.tgname AS name, p.proname AS function, pg_get_triggerdef(t.oid) AS def FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid WHERE t.tgrelid = $1::regclass AND NOT t.tgisinternal ORDER BY t.tgname", (reg,)
+        elif part == "policies": query, args = "SELECT policyname AS name, cmd AS kind, COALESCE(qual, '') AS using_expr, COALESCE(with_check, '') AS check_expr, COALESCE(array_to_string(roles, ', '), '') AS roles FROM pg_policies WHERE schemaname = $1 AND tablename = $2 ORDER BY policyname", (schema, table)
+        else: raise Exception(f"invalid part: {part}")
+        return {"rows": [dict(r) for r in await pool.fetch(query, *args, timeout=timeout_sec)]}
     raise Exception(f"invalid action: {action}")
 
 def func_clickhouse_query_runner_read_sql(*, sql: str, limit: int) -> str:
@@ -3407,11 +3418,3 @@ def func_app_state_add(*, app: any, data_dict: dict, prefixes: tuple) -> None:
     for k, v in data_dict.items():
         if k.startswith(prefixes):
             setattr(app.state, k, v)
-
-
-
-
-
-
-
-
