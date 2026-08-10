@@ -29,6 +29,7 @@ files_to_sync = [
     "router/private.py",
     "router/admin.py",
     "static/api.html",
+    "static/pgweb.html",
     "readme.md",
     "Dockerfile",
     ".gitignore",

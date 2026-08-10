@@ -161,6 +161,7 @@ Atom is designed to remain secure in production and easy to update downstream:
 | **Router Design** | **[router.md](router.md)** | Access tier router conventions (`auth`, `my`, `admin`, etc.) |
 | **API Logging** | **[logs.md](logs.md)** | Audit logging & HTTP request telemetry |
 | **Extending Atom** | **[extend.md](extend.md)** | Non-forking extension via `config_extend.py` & `sync.py` |
+| **Web Interfaces** | **[html.md](html.md)** | Built-in web interfaces (API Master & PgWeb) |
 | **Security** | **[security.md](security.md)** | Production security model & hardening checklist |
 | **Production** | **[prod.md](prod.md)** | Production deployment configuration checklist |
 | **FAQ & Guides** | **[faq.md](faq.md)** | Step-by-step developer guidelines & operational answers |

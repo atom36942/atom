@@ -173,27 +173,12 @@ This decouples your application code from the framework core, enabling seamless 
 
 ## Built-in Web Interfaces
 
-Atom comes with zero-dependency, single-page web applications stored in `static/` to streamline developer workflows, API debugging, and database management:
+Atom comes with zero-dependency, single-page web applications stored in `static/`:
 
-### ⚡ API Master (`static/api.html`)
+- ⚡ **[API Master](docs/html.md#--api-master-staticapihtml)** (`static/api.html`) — Interactive API console, endpoint inspector, cURL importer, response viewer, and WebSocket tester served at `/`.
+- 🗃️ **[PgWeb](docs/html.md#-pgweb-staticpgwebhtml)** (`static/pgweb.html`) — Built-in PostgreSQL database browser, schema inspector, and SQL query runner served at `/static/pgweb.html`.
 
-Served by default at `/` (configured via `config_root_html_path="static/api.html"`), **API Master** is an interactive, browser-based API testing console and route inspector:
-
-- **Endpoint Introspection**: Automatically discovers API routes, parameters, and metadata from `/info` and `/openapi.json`.
-- **Interactive Runner**: Send GET, POST, PUT, DELETE, and WebSocket requests directly from the UI with custom headers, query params, path overrides, and JSON/Form bodies.
-- **cURL Importer**: Paste raw `curl` commands to instantly populate request parameters in the interactive runner.
-- **Response Viewers**: View responses in Tree View, Raw JSON, Table format, Header inspection, and performance metrics charts.
-- **WebSocket Testing**: Built-in interactive console for real-time WebSocket connection and message testing.
-- **CSV Catalog**: Export a downloadable CSV catalog containing all registered endpoints and parameter specifications.
-
-### 🗃️ PgWeb (`static/pgweb.html`)
-
-Served at `/static/pgweb.html` (and accessible via the top navigation icon in API Master), **PgWeb** is a lightweight PostgreSQL management interface backed by Atom's `/pgweb` endpoint:
-
-- **Database Exploration**: Inspect schemas, tables, views, columns, indexes, and constraints.
-- **SQL Runner**: Run arbitrary SQL queries directly against Postgres with syntax highlighting and tabular results.
-- **Data Browser**: Query, filter, page, and inspect table records directly from your browser.
-- **Zero Additional Setup**: Embedded directly in the framework without requiring a separate standalone database client or desktop app.
+📖 Learn more in **[html.md](docs/html.md)**.
 
 ## Structure
 
@@ -242,6 +227,7 @@ atom/
 🧱 **Customization & Guides**
 - [router.md](docs/router.md) — Router design conventions.
 - [extend.md](docs/extend.md) — Extending Atom without forking core code.
+- [html.md](docs/html.md) — Built-in web interfaces (API Master & PgWeb).
 - [faq.md](docs/faq.md) — Developer guidelines & frequently asked questions.
 
 ## Contributing
