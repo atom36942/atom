@@ -2240,17 +2240,29 @@ async def func_pgweb(*, client_postgres_pgweb: dict, func_client_postgres: calla
         return {"cols": [str(k) for k in records[0].keys()] if records else [], "rows": [[jsonable(v) for v in r.values()] for r in records]}
     async def read_tree(pool):
         records = await pool.fetch("""
-            SELECT n.nspname AS schema_name, c.relname AS name,
-                   CASE c.relkind WHEN 'r' THEN 'table' WHEN 'p' THEN 'table' WHEN 'v' THEN 'view'
-                        WHEN 'm' THEN 'matview' WHEN 'f' THEN 'foreign' ELSE 'other' END AS kind
+            SELECT n.nspname AS schema_name, c.relname AS name, 'table' AS kind
             FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-            WHERE c.relkind IN ('r','p','v','m','f') AND n.nspname = 'public'
+            WHERE c.relkind IN ('r','p') AND n.nspname = 'public'
               AND NOT c.relispartition
               AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.classid = 'pg_class'::regclass AND d.deptype = 'e')
             ORDER BY n.nspname, c.relname""", timeout=timeout_sec)
         tree = {}
         for r in records: tree.setdefault(r["schema_name"], {}).setdefault(r["kind"], []).append({"name": r["name"]})
         return tree
+    def safe_dsn(value):
+        """Keep connection context useful without returning a database password."""
+        from urllib.parse import urlsplit, urlunsplit
+        try:
+            parsed = urlsplit(value)
+            if not parsed.scheme: return value
+            auth = parsed.username or ""
+            if parsed.password is not None: auth += ":***"
+            if auth: auth += "@"
+            host = parsed.hostname or ""
+            if ":" in host and not host.startswith("["): host = f"[{host}]"
+            port = f":{parsed.port}" if parsed.port else ""
+            return urlunsplit((parsed.scheme, f"{auth}{host}{port}", parsed.path, parsed.query, parsed.fragment))
+        except Exception: return "connection URL unavailable"
     if action == "connect":
         if not dsn: raise Exception("dsn is required")
         pool = await func_client_postgres(dsn=dsn, min_size=1, max_size=4)
@@ -2265,9 +2277,11 @@ async def func_pgweb(*, client_postgres_pgweb: dict, func_client_postgres: calla
         if previous:
             with suppress(Exception): await previous.close()
         client_postgres_pgweb["pool"] = pool
+        client_postgres_pgweb["connection_url"] = safe_dsn(dsn)
         return {"tree": tree, "database": info["db"], "version": info["version"].split(" on ")[0]}
     if action == "disconnect":
         pool = client_postgres_pgweb.pop("pool", None)
+        client_postgres_pgweb.pop("connection_url", None)
         if pool:
             with suppress(Exception): await pool.close()
         return {}
@@ -2306,7 +2320,7 @@ async def func_pgweb(*, client_postgres_pgweb: dict, func_client_postgres: calla
             WHERE n.nspname = 'public' AND NOT t.tgisinternal
               AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = t.oid AND d.classid = 'pg_trigger'::regclass AND d.deptype = 'e')
               AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.classid = 'pg_class'::regclass AND d.deptype = 'e')""", timeout=timeout_sec)
-        return {**{k: jsonable(v) for k, v in row.items()}, "schema_scope": "public",
+        return {**{k: jsonable(v) for k, v in row.items()}, "connection_url": client_postgres_pgweb.get("connection_url", "—"), "schema_scope": "public",
                 **{k: int(v) for k, v in relations.items()}, **{k: int(v) for k, v in routines.items()},
                 "triggers": int(triggers)}
     if action == "rows":

@@ -111,9 +111,9 @@ input:focus,select:focus,textarea:focus{border-color:#999}
    so size-contained rows would measure as empty and collapse to zero width */
 #vp{flex:1;overflow:auto;position:relative;contain:layout paint;font-size:12px}
 #inner{position:relative}
-#head{position:sticky;top:0;z-index:3;display:flex;background:var(--bg);border-bottom:1px solid var(--th-line)}
+#head{position:sticky;top:0;z-index:3;display:flex;background:var(--bg);border-bottom:1px solid var(--th-line);border-left:1px solid var(--th-line)}
 .th{flex:none;padding:0 9px;height:29px;line-height:29px;font-weight:bold;color:var(--th-fg);
-    position:relative;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;user-select:none}
+    position:relative;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;user-select:none;border-right:1px solid var(--th-line)}
 .th:hover{background:var(--th-hover)}
 .th .grip{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize}
 .th .grip:hover{background:var(--nav)}
@@ -125,13 +125,14 @@ input:focus,select:focus,textarea:focus{border-color:#999}
 .tr:nth-child(odd){background:var(--row-odd)}
 .tr:hover{background:var(--row-hover)}
 .td{flex:none;padding:0 9px;height:29px;line-height:29px;color:var(--fg);
-    overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+    overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border-right:1px solid var(--row-line)}
+.td:first-child{border-left:1px solid var(--row-line)}
 .td.null{color:var(--null);text-transform:uppercase}
 #empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:var(--dim)}
 #empty.on{display:flex}
 
 /* ---------- detail panes ---------- */
-.pre{flex:1;overflow:auto;margin:0;padding:14px 16px;white-space:pre;color:var(--fg);
+.pre{flex:1;overflow:auto;margin:10px;padding:14px 16px;border:1px solid var(--th-line);white-space:pre;color:var(--fg);
      font:12px/1.7 Menlo,Monaco,Consolas,"Courier New",monospace}
 .pre .muted{color:var(--dim)}
 
@@ -140,6 +141,12 @@ input:focus,select:focus,textarea:focus{border-color:#999}
      padding:12px 14px;resize:vertical;background:var(--bg);tab-size:2;
      font:12.5px/1.7 Menlo,Monaco,Consolas,"Courier New",monospace}
 #qbar{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--th-line)}
+#explainwrap{position:relative}
+#explainmenu{position:absolute;left:0;top:34px;z-index:20;width:150px;padding:5px;background:var(--bg);
+  border:1px solid var(--line);border-radius:4px;box-shadow:0 5px 18px rgba(0,0,0,.22);display:flex;flex-direction:column}
+#explainmenu[hidden]{display:none}
+#explainmenu button{width:100%;padding:7px 9px;border:0;background:transparent;text-align:left;white-space:nowrap}
+#explainmenu button:hover:not(:disabled){background:var(--hl);border-color:transparent}
 #qmsg{color:#888;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #qmsg.err{color:var(--err)}
 #qres{flex:1;position:relative;min-height:0;display:flex;flex-direction:column}
@@ -166,12 +173,16 @@ dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;ga
 #cellbox{white-space:pre-wrap;word-break:break-word;margin:0;
          font:12px/1.6 Menlo,Monaco,Consolas,"Courier New",monospace}
 #v-info{overflow:auto;padding:16px}
-#dbinfo-table{width:100%;max-width:760px;border-collapse:collapse;font-size:12px}
-#dbinfo-table th,#dbinfo-table td{padding:7px 9px;border-bottom:1px solid var(--th-line);text-align:left;vertical-align:top}
+#dbinfo-table{width:100%;max-width:760px;border-collapse:collapse;border:1px solid var(--th-line);font-size:12px}
+#dbinfo-table th,#dbinfo-table td{padding:7px 9px;border:1px solid var(--th-line);text-align:left;vertical-align:top}
 #dbinfo-table th{width:145px;color:var(--dim);font-weight:500;white-space:nowrap}
 #dbinfo-table td{color:var(--fg);font-family:Menlo,Monaco,Consolas,"Courier New",monospace;word-break:break-word}
 #dbinfo-table tr:last-child th,#dbinfo-table tr:last-child td{border-bottom:0}
 #dbinfo-table .section th{width:auto;padding-top:13px;color:var(--fg);font-weight:700;background:var(--side)}
+#toast{position:fixed;right:18px;bottom:18px;z-index:80;padding:7px 12px;
+  border-radius:4px;background:#2f2d31;color:#fff;box-shadow:0 3px 14px rgba(0,0,0,.25);font-size:12px;
+  pointer-events:none;white-space:nowrap}
+#toast[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -239,12 +250,16 @@ dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;ga
       <div class="view" id="v-triggers"><pre class="pre" id="p-triggers"></pre></div>
       <div class="view" id="v-policies"><pre class="pre" id="p-policies"></pre></div>
       <div class="view on" id="v-query">
-        <textarea id="sql" spellcheck="false" placeholder="SELECT * FROM …
-
-writes run here too — INSERT, UPDATE, DELETE, DDL"></textarea>
+        <textarea id="sql" spellcheck="false" placeholder="select * from test limit 10;"></textarea>
         <div id="qbar">
           <button class="primary" id="run">Run  ⌘⏎</button>
-          <button id="explain" title="Show the query plan without running it">Explain</button>
+          <div id="explainwrap">
+            <button id="explain" title="Explain or analyze the query" aria-expanded="false">Explain ▾</button>
+            <div id="explainmenu" hidden>
+              <button id="explainplan">Explain Query</button>
+              <button id="analyze">Analyze Query</button>
+            </div>
+          </div>
           <span id="qmsg"></span>
         </div>
       </div>
@@ -261,10 +276,11 @@ writes run here too — INSERT, UPDATE, DELETE, DDL"></textarea>
   <div class="hd" id="dlg-t"></div><div class="bd" id="dlg-b"></div>
   <div class="ft" id="dlg-f"></div>
 </form></dialog>
+<div id="toast" role="status" aria-live="polite" hidden></div>
 
 <script>
 'use strict';
-const ROW_H = 30, CHUNK = 1000, OVER = 6, MAXW = 440, MINW = 64;   /* 29px cell + 1px rule; matches --row-h */
+const ROW_H = 30, CHUNK = 1000, SIDE_BATCH = 200, OVER = 6, MAXW = 440, MINW = 64;   /* 29px cell + 1px rule; matches --row-h */
 // browsers clamp element height near 2^24 px; past that the spacer stops growing and the
 // tail of a big table becomes unreachable, so the scrollbar is scaled instead of 1:1
 const MAXH = 16000000;
@@ -275,8 +291,14 @@ const DETAILS = ['indexes','constraints','triggers','policies'];
 const S = { db:'', table:'', kind:'', pk:null, cols:[], widths:[], total:0,
             chunks:new Map(), pending:new Map(), local:null, where:'', meta:null, tree:{},
             viewPx:0, scale:1, loaded:{}, connected:false,
-            readOnly:localStorage.getItem('pgweb.readOnly') === '1' };
+            readOnly:localStorage.getItem('pgweb.readOnly') === '1', sideItems:[], sideShown:0 };
 let pool=[], lastFirst=-1, ticking=false;
+let toastTimer;
+
+function toast(message){
+  clearTimeout(toastTimer); $('toast').textContent=message; $('toast').hidden=false;
+  toastTimer=setTimeout(()=>$('toast').hidden=true, 2200);
+}
 
 // Native dialogs close on Escape but not on backdrop clicks by default.
 $('dlg').addEventListener('click', e => {
@@ -314,6 +336,7 @@ async function api(body){
     document.documentElement.dataset.theme = next;
     localStorage.setItem('pgweb.theme', next);
     draw();
+    toast(next === 'dark' ? 'Dark theme enabled' : 'Light theme enabled');
   };
 })();
 
@@ -327,10 +350,19 @@ function drawReadOnly(){
     : 'Write queries are allowed';
 }
 $('readonly').onclick = () => {
-  if(S.readOnly && !confirm('Turn off read-only mode? Query runner writes and DDL will be allowed.')) return;
-  S.readOnly = !S.readOnly;
-  localStorage.setItem('pgweb.readOnly', S.readOnly ? '1' : '0');
-  drawReadOnly();
+  const next=!S.readOnly;
+  $('dlg-t').textContent = next ? 'Enable read-only mode' : 'Allow database writes';
+  $('dlg-b').textContent = next
+    ? 'Queries will run inside a PostgreSQL read-only transaction. INSERT, UPDATE, DELETE, and DDL will be blocked.'
+    : 'Full CRUD and DDL will be allowed in the query runner. Continue?';
+  $('dlg-f').innerHTML = `<button value="cancel">Cancel</button><button class="primary" id="modeyes">${next?'Enable read only':'Allow writes'}</button>`;
+  $('dlg').showModal();
+  $('modeyes').onclick = e => {
+    e.preventDefault(); S.readOnly=next;
+    localStorage.setItem('pgweb.readOnly', S.readOnly ? '1' : '0');
+    drawReadOnly(); $('dlg').close();
+    toast(S.readOnly ? 'Read-only mode enabled' : 'Writes enabled');
+  };
 };
 drawReadOnly();
 
@@ -352,6 +384,10 @@ document.addEventListener('click', e => {
     $('optionsmenu').hidden=true;
     $('options').ariaExpanded='false';
   }
+  if(!$('explainwrap').contains(e.target)){
+    $('explainmenu').hidden=true;
+    $('explain').ariaExpanded='false';
+  }
 });
 
 /* ---------------- connect ---------------- */
@@ -369,7 +405,7 @@ function setConnected(on){
   $('tablesearch').hidden = !on;
   $('tree').hidden = !on;
   $('reload').disabled = !on;
-  $('run').disabled = $('explain').disabled = $('sql').disabled = !on;
+  $('run').disabled = $('explain').disabled = $('explainplan').disabled = $('analyze').disabled = $('sql').disabled = !on;
   if(!on){
     S.tree={}; S.chunks.clear(); S.pending.clear();
     S.local=null; S.table=''; S.kind=''; S.cols=[]; S.total=0; lastFirst=-1;
@@ -431,39 +467,40 @@ function askDisconnect(){
 }
 
 /* ---------------- sidebar ---------------- */
-// public schema only, one flat list
-const TAG = {view:'view', matview:'mview', foreign:'foreign'};
+// All public table names stay in memory; DOM rows are appended in small batches.
 function drawTree(){
-  const box = $('tree'); box.textContent = '';
-  const kinds = S.tree.public || {};
-  const items = [];
-  for(const kind of ['table','view','matview','foreign'])
-    for(const o of (kinds[kind] || [])) items.push({kind, name:o.name});
-  items.sort((a,b) => a.name.localeCompare(b.name));
-
+  S.sideItems=((S.tree.public||{}).table||[]).map(o=>o.name).sort((a,b)=>a.localeCompare(b));
+  renderTreeBatch(true);
+}
+function renderTreeBatch(reset=false){
+  const box=$('tree'), term=$('q').value.trim().toLowerCase();
+  const matches=term ? S.sideItems.filter(name=>name.toLowerCase().includes(term)) : S.sideItems;
+  if(reset){ box.textContent=''; S.sideShown=0; }
+  const next=matches.slice(S.sideShown, S.sideShown+SIDE_BATCH);
   const frag = document.createDocumentFragment();
-  for(const o of items){
-    const d = document.createElement('div'); d.className='obj';
-    d.dataset.table=o.name; d.dataset.kind=o.kind; d.dataset.label=o.name;
-    const nm=document.createElement('span'); nm.className='nm'; nm.textContent=o.name; nm.title=o.name;
+  for(const name of next){
+    const d = document.createElement('div'); d.className='obj'+(S.table===name?' on':'');
+    d.dataset.table=name; d.dataset.kind='table';
+    const nm=document.createElement('span'); nm.className='nm'; nm.textContent=name; nm.title=name;
     d.appendChild(nm);
-    if(TAG[o.kind]){
-      const ct=document.createElement('span'); ct.className='ct'; ct.textContent=TAG[o.kind];
-      d.appendChild(ct);
-    }
-    d.onclick=()=>openObject(o.name, o.kind);
+    d.onclick=()=>openObject(name, 'table');
     frag.appendChild(d);
   }
-  box.appendChild(frag);
+  S.sideShown+=next.length; box.appendChild(frag);
+  if(reset && !matches.length){
+    const empty=document.createElement('div'); empty.className='obj'; empty.style.cssText='color:var(--dim);cursor:default';
+    empty.textContent=term?'No matching tables':'No tables in public'; box.appendChild(empty);
+  }
 }
 function searchTables(){
   const term = $('q').value.trim().toLowerCase();
   $('qclr').hidden = !term;
-  for(const o of document.querySelectorAll('.obj')){
-    const label = o.dataset.label;         // qualified, so "analytics" matches too
-    o.hidden = !!label && !label.toLowerCase().includes(term);
-  }
+  renderTreeBatch(true);
 }
+$('tree').addEventListener('scroll', () => {
+  const box=$('tree');
+  if(box.scrollTop+box.clientHeight >= box.scrollHeight-60) renderTreeBatch();
+}, {passive:true});
 $('q').oninput = searchTables;
 $('q').onkeydown = e => { if(e.key==='Escape'){ $('q').value=''; searchTables(); } };
 $('qclr').onclick = () => { $('q').value=''; searchTables(); $('q').focus(); };
@@ -713,22 +750,41 @@ async function runQuery(confirmed){
   } finally { $('run').disabled = !S.connected; }
 }
 $('run').onclick = ()=>runQuery(false);
-// plain EXPLAIN only — it plans without executing. EXPLAIN ANALYZE really runs the
-// statement, so type that yourself if you want it rather than have a button do it.
-$('explain').onclick = async () => {
+$('explain').onclick = e => {
+  e.stopPropagation();
+  const open=$('explainmenu').hidden;
+  $('explainmenu').hidden=!open; $('explain').ariaExpanded=String(open);
+};
+async function explainQuery(analyze=false){
   const sql = $('sql').value.trim(); if(!sql) return;
-  $('explain').disabled = true; $('qmsg').className=''; $('qmsg').textContent='planning…';
+  $('explainmenu').hidden=true; $('explain').ariaExpanded='false';
+  $('explain').disabled=$('explainplan').disabled=$('analyze').disabled=true;
+  $('qmsg').className=''; $('qmsg').textContent=analyze?'analyzing…':'planning…';
   try{
-    const m = await api({action:'query', sql:'EXPLAIN '+sql, is_read_only:S.readOnly?1:0});
+    const m = await api({action:'query', sql:(analyze?'EXPLAIN ANALYZE ':'EXPLAIN ')+sql, is_read_only:S.readOnly?1:0});
     S.local=m.rows; S.cols=m.cols; S.total=m.rows.length; S.pk=null; S.chunks.clear(); lastFirst=-1;
     $('tools').style.display='none';
     buildGrid(); vp.scrollTop=0; render(true);
     for(const t of document.querySelectorAll('.tab')) t.hidden = !(t.dataset.v==='query'||t.dataset.v==='rows');
     show('rows');
-    $('qmsg').textContent = `plan · ${m.rows.length} lines`;
-    $('st-obj').innerHTML='<b>explain</b>'; $('st-rows').textContent=''; $('st-size').textContent='';
-  }catch(err){ $('qmsg').className='err'; $('qmsg').textContent=err.message; }
-  finally{ $('explain').disabled = !S.connected; }
+    $('qmsg').textContent = `${analyze?'analysis':'plan'} · ${m.rows.length} lines`;
+    $('st-obj').innerHTML=`<b>${analyze?'analyze':'explain'}</b>`; $('st-rows').textContent=''; $('st-size').textContent='';
+  }catch(err){
+    $('qmsg').className='err';
+    $('qmsg').textContent = S.readOnly && /read.only|read-only/i.test(err.message) ? 'Blocked by read-only mode' : err.message;
+  }finally{
+    $('explain').disabled=$('explainplan').disabled=$('analyze').disabled=!S.connected;
+  }
+}
+$('explainplan').onclick = ()=>explainQuery(false);
+$('analyze').onclick = () => {
+  if(!$('sql').value.trim()) return;
+  $('explainmenu').hidden=true; $('explain').ariaExpanded='false';
+  $('dlg-t').textContent='Analyze query';
+  $('dlg-b').textContent='EXPLAIN ANALYZE executes the SQL before showing actual timing and row counts. For write statements, database changes will occur. Continue?';
+  $('dlg-f').innerHTML='<button value="cancel">Cancel</button><button class="primary" id="analyzeyes">Analyze query</button>';
+  $('dlg').showModal();
+  $('analyzeyes').onclick=e=>{ e.preventDefault(); $('dlg').close(); explainQuery(true); };
 };
 $('sql').addEventListener('keydown', e=>{
   if((e.metaKey||e.ctrlKey) && e.key==='Enter'){ e.preventDefault(); runQuery(false); }
@@ -756,9 +812,10 @@ for(const t of document.querySelectorAll('.tab')) t.onclick = ()=>show(t.dataset
 $('reload').onclick = async () => {
   try{
     const m = await api({action:'schema'});
-    S.tree = m.tree; drawTree(); searchTables();
-    if(S.table && (S.tree.public||{})[S.kind]?.some(o=>o.name===S.table)) openObject(S.table, S.kind);
+    S.tree = m.tree; drawTree();
+    if(S.table && (S.tree.public||{})[S.kind]?.some(o=>o.name===S.table)) await openObject(S.table, S.kind);
     else if(S.table) openRunner();      // the table went away
+    toast('Schema refreshed');
   }catch(e){ alertBox('Refresh failed', e.message); }
 };
 $('dbinfo').onclick = async () => {
@@ -773,7 +830,7 @@ $('dbinfo').onclick = async () => {
   body.innerHTML='<tr><td>Loading database info…</td></tr>';
   try{
     const m=await api({action:'info'});
-    const labels={database:'Database',schema_scope:'Schema scope',user_name:'User',version:'PostgreSQL version',
+    const labels={connection_url:'Connection URL',database:'Database',schema_scope:'Schema scope',user_name:'User',version:'PostgreSQL version',
       database_size:'Database size',encoding:'Encoding',collation:'Collation',time_zone:'Time zone',tables:'Tables',
       views:'Views',materialized_views:'Materialized views',indexes:'Indexes',sequences:'Sequences',
       functions:'Functions',procedures:'Procedures',triggers:'Triggers'};
