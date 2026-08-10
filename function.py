@@ -1316,6 +1316,32 @@ def func_check_public_table_permission(*, app_state: any, table: str, action: st
         if "*" not in enabled_tables and table not in enabled_tables:
             raise Exception(f"read disabled for table: {table}")
 
+def func_check_table_column_exists(*, app_state: any, table: str, column: str, purpose: str = None) -> None:
+    """Validate that table schema contains specified column."""
+    schema = (getattr(app_state, "cache_postgres_schema", {}) or {}).get(table, {})
+    if column not in schema:
+        msg = f"table '{table}' lacks required '{column}' column"
+        if purpose: msg += f" for {purpose}"
+        raise Exception(msg)
+
+def func_attach_user_audit_fields(*, request: any, obj_list: list, field: str = "created_by_id") -> list:
+    """Inject current user ID into payload objects for audit field tracking."""
+    user_id = getattr(getattr(request, "state", None), "user", {}).get("id")
+    if user_id:
+        return [dict(item, **{field: user_id}) for item in obj_list]
+    return obj_list
+
+def func_check_user_delete_permission(*, app_state: any, table: str) -> None:
+    """Ensure hard deletion of users table is not prohibited by configuration."""
+    if table == "users" and getattr(app_state, "config_is_user_delete", 0) != 1:
+        raise Exception("users hard delete disabled")
+
+async def func_extract_request_object_list(*, request: any) -> list:
+    """Extract single or batch object payload list from request body."""
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[])
+    return ob.get("obj_list", [ob])
+
 async def func_postgres_info_read(*, client_postgres: any) -> dict:
     """Read comprehensive PostgreSQL database statistics, storage, activity, and schema information."""
     async with client_postgres.acquire() as conn:
@@ -2450,7 +2476,7 @@ async def func_postgres_import(*, app_state: any, mode: str, table: str, file: a
     client_postgres = client_postgres or app_state.client_postgres
     cache_postgres_schema = cache_postgres_schema if cache_postgres_schema is not None else app_state.cache_postgres_schema
     if not client_postgres: raise Exception("postgres client not initialized")
-    if mode == "delete" and table == "users" and app_state.config_is_user_delete != 1: raise Exception("users hard delete disabled")
+    if mode == "delete": app_state.func_check_user_delete_permission(app_state=app_state, table=table)
     count = 0
     async with client_postgres.acquire() as conn:
         async with conn.transaction():
