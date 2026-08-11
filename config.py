@@ -135,7 +135,7 @@ config_postgres = {
 "extension": ["postgis", "pg_trgm", "btree_gin"],
 "table":{
 "test":[
-{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"id","datatype":"bigint generated always as identity","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint"},
 {"name":"updated_at","datatype":"timestamptz"},
@@ -156,7 +156,7 @@ config_postgres = {
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
 ],
 "users":[
-{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"id","datatype":"bigint generated always as identity","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint"},
 {"name":"updated_at","datatype":"timestamptz"},
@@ -192,7 +192,7 @@ config_postgres = {
 {"name":"source","datatype":"smallint"},
 ],
 "config":[
-{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"id","datatype":"bigint generated always as identity","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint"},
 {"name":"updated_at","datatype":"timestamptz"},
@@ -203,7 +203,7 @@ config_postgres = {
 {"name":"value","datatype":"jsonb","is_mandatory":1},
 ],
 "otp":[
-{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"id","datatype":"bigint generated always as identity","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint"},
 {"name":"otp","datatype":"integer","is_mandatory":1},
@@ -211,7 +211,7 @@ config_postgres = {
 {"name":"mobile","datatype":"text","index":"btree(mobile)"},
 ],
 "blob":[
-{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"id","datatype":"bigint generated always as identity","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
 {"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
@@ -221,7 +221,7 @@ config_postgres = {
 {"name":"file_url","datatype":"text","is_mandatory":1}
 ],
 "message":[
-{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"id","datatype":"bigint generated always as identity","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree(created_by_id)"},
 {"name":"updated_at","datatype":"timestamptz"},
@@ -233,7 +233,7 @@ config_postgres = {
 {"name":"read_at","datatype":"timestamptz"}
 ],
 "notification":[
-{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"id","datatype":"bigint generated always as identity","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
 {"name":"updated_at","datatype":"timestamptz"},
@@ -249,7 +249,7 @@ config_postgres = {
 {"name":"read_at","datatype":"timestamptz"}
 ],
 "comment_test":[
-{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"id","datatype":"bigint generated always as identity","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory":1},
 {"name":"updated_at","datatype":"timestamptz"},
@@ -258,7 +258,7 @@ config_postgres = {
 {"name":"description","datatype":"text","is_mandatory":1},
 ],
 "log_api":[
-{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"id","datatype":"bigint generated always as identity","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
 {"name":"ip_address","datatype":"text"},
@@ -271,14 +271,14 @@ config_postgres = {
 {"name":"error","datatype":"text"}
 ],
 "log_users_password":[
-{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"id","datatype":"bigint generated always as identity","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"created_by_id","datatype":"bigint"},
 {"name":"user_id","datatype":"bigint"},
 {"name":"password","datatype":"text"}
 ],
 "log_users_delete":[
-{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"id","datatype":"bigint generated always as identity","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint"},
 {"name":"type","datatype":"smallint","is_mandatory":1,"in":(1,2,3),"index":"btree(type,created_at)"},
@@ -290,7 +290,7 @@ config_postgres = {
 {"name":"worker_last_error","datatype":"text"}
 ],
 "jobseeker":[
-{"name":"id","datatype":"bigserial","is_primary":1},
+{"name":"id","datatype":"bigint generated always as identity","is_primary":1},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint"},
 {"name":"updated_at","datatype":"timestamptz"},

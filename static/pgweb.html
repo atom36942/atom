@@ -15,11 +15,12 @@
   --row-odd:#f9f9f9; --row-even:#fff; --row-line:#f2f2f2; --row-hover:#ffe;
   --sel:#3874d7; --sel-fg:#fff; --null:#bbb; --hl:#f1f1f1;
   --green:#7eb54e; --green-h:#64903e; --err:#c0392b;
-  --table-list-bg:#fbfbfc;
+  --table-list-bg:#fbfbfc; --runner-neutral:#f1f1f3;
   --side-on:#cfe0f8; --side-on-fg:#183f78;
   --sql-key:#7a3fb0; --sql-string:#c33b45; --sql-ident:#087f8c; --sql-number:#d45d00;
   --sql-comment:#7b8b78; --sql-param:#1769aa; --sql-type:#9b4d96; --sql-fn:#006d77;
   --apply-bg:#edf7e7; --apply-border:#9fc783; --cancel-bg:#f1eef5; --cancel-border:#c4b8d1;
+  --filter-bg:#f6f4f8; --grid-edge:#c8c8c8;
   --row-h:30px; --bar-h:50px;
 }
 :root[data-theme=dark]{
@@ -30,11 +31,12 @@
   --row-odd:#191920; --row-even:#141419; --row-line:#22222b; --row-hover:#2a2a1c;
   --sel:#3874d7; --sel-fg:#fff; --null:#66666f; --hl:#24242e;
   --green:#8fc95f; --green-h:#a5d977; --err:#f2645a;
-  --table-list-bg:#17171e;
+  --table-list-bg:#17171e; --runner-neutral:#202027;
   --side-on:#263b5a; --side-on-fg:#eef5ff;
   --sql-key:#c792ea; --sql-string:#f07178; --sql-ident:#89ddff; --sql-number:#f78c6c;
   --sql-comment:#71806f; --sql-param:#82aaff; --sql-type:#ffcb6b; --sql-fn:#80cbc4;
   --apply-bg:#24351f; --apply-border:#577a45; --cancel-bg:#292530; --cancel-border:#574c63;
+  --filter-bg:#1d1a22; --grid-edge:#484852;
 }
 /* light is the default regardless of OS preference — dark is opt-in via the toggle */
 
@@ -63,21 +65,25 @@ input:focus,select:focus,textarea:focus{border-color:#999}
 #app{display:flex;flex:1;min-width:0}
 #side{width:250px;flex:0 0 250px;background:var(--side);display:flex;flex-direction:column;min-height:0;
   border-right:1px solid var(--line)}
-#dbline{height:var(--bar-h);flex:none;background:var(--nav);color:#fff;
+#dbline{height:var(--bar-h);flex:none;background:var(--nav);color:#fff;position:relative;z-index:11;
   display:flex;justify-content:flex-start;align-items:center;padding:0 12px;min-width:0;
   border-bottom:1px solid rgba(0,0,0,.15)}
+#dbline::after{content:"";position:absolute;top:0;right:-1px;bottom:0;width:1px;background:rgba(255,255,255,.12)}
 #productname{font-size:15px;font-weight:700;letter-spacing:-.15px;line-height:18px}
-#runner{height:38px;flex:none;display:flex;align-items:center;padding:0 12px;
+#runner{height:50px;flex:none;display:flex;align-items:center;padding:0 12px;
   border-top:1px solid var(--line);border-bottom:1px solid var(--line);
-  font-size:12px;font-weight:600;cursor:pointer;background:var(--table-list-bg)}
+  font-size:12px;font-weight:600;cursor:pointer;background:var(--runner-neutral)}
 #runner[hidden]{display:none}
 #runner:hover{background:var(--hl)}
 #runner.on{background:var(--side-on);color:var(--side-on-fg);border-bottom-color:var(--line);
   box-shadow:inset 4px 0 0 var(--sel);font-weight:700}
 
-#side .search{padding:8px;position:relative;background:var(--bg)}
-#side .search input{width:100%;font-size:12px;padding:4px 24px 4px 8px}
-#qclr{position:absolute;right:13px;top:12px;width:18px;height:18px;padding:0;line-height:15px;
+#side .search{height:40px;padding:0 12px;position:relative;background:var(--bg);border-bottom:1px solid var(--line)}
+#side .search:focus-within{background:var(--hl)}
+#side .search input{width:100%;height:39px;padding:0 26px 0 0;border:0;border-radius:0;background:transparent;
+  box-shadow:none;font-size:12px}
+#side .search input:focus{border:0;box-shadow:none}
+#qclr{position:absolute;right:10px;top:10px;width:20px;height:20px;padding:0;line-height:17px;
   text-align:center;border-radius:50%;font-size:14px;color:var(--dim);border-color:transparent;background:transparent}
 #qclr:hover:not(:disabled){background:var(--hl);color:var(--fg);border-color:transparent}
 #qclr[hidden]{display:none}
@@ -97,11 +103,10 @@ input:focus,select:focus,textarea:focus{border-color:#999}
 #main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
 #tabs{height:var(--bar-h);flex:none;display:flex;align-items:stretch;background:var(--nav);overflow:visible;position:relative;z-index:10}
 .tab{padding:0 14px;line-height:var(--bar-h);font-size:13px;font-weight:500;color:var(--nav-fg);
-  cursor:pointer;margin:0;flex:none;white-space:nowrap;border-left:1px solid rgba(255,255,255,.16);
-  border-right:1px solid rgba(0,0,0,.12)}
+  cursor:pointer;margin:0;flex:none;white-space:nowrap;border:0}
 .tab[hidden]{display:none}
 .tab:hover{color:#fff}
-.tab.on{background:var(--nav-on-bg);color:var(--nav-on-fg);border-color:var(--line)}
+.tab.on{background:var(--nav-on-bg);color:var(--nav-on-fg)}
 #tabs .sp{flex:1}
 #tabs > button,#tabs > #optionswrap > button{align-self:center;background:transparent;color:#fff;border-color:rgba(255,255,255,.6);
   margin-right:8px;font-size:12px;flex:none;white-space:nowrap}
@@ -114,8 +119,10 @@ input:focus,select:focus,textarea:focus{border-color:#999}
   stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #tabs > #optionswrap > #readonly.off{color:#ffd0cc}
 
-#tools{display:flex;align-items:center;gap:6px;padding:7px 9px;border-bottom:1px solid var(--line);
-  background:var(--bg)}
+#tools{display:flex;align-items:center;gap:7px;padding:8px 10px;border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);background:var(--filter-bg);box-shadow:0 1px 0 rgba(0,0,0,.03)}
+#tools .filterlabel{flex:none;color:var(--dim);font-size:11px;font-weight:700;letter-spacing:.02em;
+  text-transform:uppercase;margin-right:3px;white-space:nowrap}
 #tools select,#tools input,#tools button{height:32px;padding:4px 9px;font-size:12px}
 #fcol{min-width:150px}
 #fgo{background:var(--apply-bg);border-color:var(--apply-border);color:var(--green-h);font-weight:600}
@@ -125,6 +132,12 @@ input:focus,select:focus,textarea:focus{border-color:#999}
 #fval{width:180px}
 #tools .sp{flex:1}
 #ftxt{color:#888;font-size:12px}
+.detail-tools{height:50px;flex:none;display:flex;align-items:center;gap:8px;padding:8px 10px;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--filter-bg)}
+.detail-tools input{width:210px;height:32px;padding:4px 9px;order:4}
+.detail-tools .sp{flex:1;order:1}.detail-count{order:2;color:var(--dim);font-size:12px;white-space:nowrap}
+.detail-download{order:3}.detail-download,#rowcsv{width:32px;height:32px;padding:0;flex:none}
+#prevbatch,#nextbatch{height:32px;padding:4px 10px;flex:none}
 
 #pane{flex:1;position:relative;min-height:0}
 .view{position:absolute;inset:0;display:none;flex-direction:column;min-height:0}
@@ -134,14 +147,16 @@ input:focus,select:focus,textarea:focus{border-color:#999}
 /* contain must not include size here: #rows is absolutely positioned and shrink-to-fit,
    so size-contained rows would measure as empty and collapse to zero width */
 #vp{flex:1;overflow:auto;position:relative;contain:layout paint;font-size:12px}
-#inner{position:relative}
+#inner{position:relative;box-sizing:content-box}
 #head{position:sticky;top:0;z-index:3;display:flex;background:var(--bg);border-bottom:1px solid var(--th-line);border-left:1px solid var(--th-line)}
-.th{flex:none;padding:0 9px;height:29px;line-height:29px;font-weight:bold;color:var(--th-fg);
+.th{flex:none;padding:0 9px;height:39px;line-height:39px;font-weight:bold;color:var(--th-fg);
     position:relative;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;user-select:none;border-right:1px solid var(--th-line)}
 .th:hover{background:var(--th-hover)}
+.th:last-child{border-right:1px solid var(--th-line)}
 .th .grip{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize}
 .th .grip:hover{background:var(--nav)}
 #canvas{position:relative}
+#canvas.has-rows{border-bottom:2px solid var(--grid-edge)}
 #rows{position:absolute;top:0;left:0;width:100%;will-change:transform}
 .tr{display:flex;height:var(--row-h);contain:layout paint;background:var(--row-even);
     border-bottom:1px solid var(--row-line)}
@@ -151,22 +166,25 @@ input:focus,select:focus,textarea:focus{border-color:#999}
 .td{flex:none;padding:0 9px;height:29px;line-height:29px;color:var(--fg);
     overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border-right:1px solid var(--row-line)}
 .td:first-child{border-left:1px solid var(--row-line)}
+.td:last-child{border-right:1px solid var(--th-line)}
 .td.null{color:var(--null);text-transform:uppercase}
 #empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:var(--dim);
   pointer-events:none}
-#v-rows > #empty{top:47px}
+#v-rows > #empty{top:50px}
 #empty.on{display:flex}
 
 /* ---------- detail panes ---------- */
 .detail-wrap{flex:1;min-height:0;overflow:auto}
-.detail-grid{width:100%;min-width:720px;table-layout:fixed;border-collapse:separate;border-spacing:0;font-size:12px}
-.detail-grid th,.detail-grid td{height:30px;padding:0 9px;line-height:29px;text-align:left;
+.detail-grid{width:auto;min-width:0;table-layout:fixed;border-collapse:separate;border-spacing:0;font-size:12px;
+  border-right:1px solid var(--th-line)}
+.detail-grid th,.detail-grid td{padding:0 9px;text-align:left;
   overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border-right:1px solid var(--row-line);border-bottom:1px solid var(--row-line)}
-.detail-grid th{position:sticky;top:0;z-index:2;background:var(--bg);color:var(--th-fg);font-weight:700;
+.detail-grid th{height:40px;line-height:39px;position:sticky;top:0;z-index:2;background:var(--bg);color:var(--th-fg);font-weight:700;
   border-right-color:var(--th-line);border-bottom-color:var(--th-line)}
 .detail-grid tbody tr:nth-child(odd){background:var(--row-odd)}
 .detail-grid tbody tr:hover{background:var(--row-hover)}
-.detail-grid td{color:var(--fg);cursor:default}
+.detail-grid td{height:30px;line-height:29px;color:var(--fg);cursor:default}
+.detail-grid th:last-child,.detail-grid td:last-child{border-right:0}
 .detail-grid td.null{color:var(--null);text-transform:uppercase}
 .detail-grid .empty-detail{height:90px;line-height:90px;text-align:center;color:var(--dim);font-family:inherit}
 
@@ -181,7 +199,7 @@ input:focus,select:focus,textarea:focus{border-color:#999}
 #sql{resize:none;background:transparent;color:transparent;-webkit-text-fill-color:transparent;caret-color:var(--fg)}
 #sql::selection{background:rgba(56,116,215,.28)}
 #sql::placeholder{color:var(--dim);-webkit-text-fill-color:var(--dim)}
-.sql-key{color:var(--sql-key);font-weight:600}.sql-string{color:var(--sql-string)}
+.sql-key{color:var(--sql-key);font-weight:400}.sql-string{color:var(--sql-string)}
 .sql-ident{color:var(--sql-ident)}.sql-number{color:var(--sql-number)}.sql-comment{color:var(--sql-comment);font-style:italic}
 .sql-param{color:var(--sql-param)}.sql-type{color:var(--sql-type)}.sql-fn{color:var(--sql-fn)}
 #qbar{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--th-line)}
@@ -192,6 +210,15 @@ input:focus,select:focus,textarea:focus{border-color:#999}
 #streamprogress[hidden]{display:none}
 #streambar{width:110px;height:7px;accent-color:var(--green)}
 #qres{flex:1;position:relative;min-height:0;display:flex;flex-direction:column}
+#qerror{position:absolute;inset:0;z-index:12;display:flex;align-items:center;justify-content:center;
+  padding:24px;background:var(--bg)}
+#qerror[hidden]{display:none}
+#qerrorbox{width:min(720px,90%);max-height:75%;overflow:hidden;border:1px solid var(--line);border-radius:5px;
+  background:var(--bg);box-shadow:0 5px 18px rgba(0,0,0,.14)}
+#qerrorhead{display:flex;align-items:center;gap:10px;padding:9px 11px;border-bottom:1px solid var(--line);
+  color:var(--err);font-weight:700}
+#qerrorhead .title{flex:1}#qerrorbody{max-height:320px;overflow:auto;margin:0;padding:12px 14px;
+  white-space:pre-wrap;word-break:break-word;font:12px/1.6 Menlo,Monaco,Consolas,"Courier New",monospace}
 
 /* ---------- status ---------- */
 #status{height:26px;flex:none;display:flex;align-items:center;gap:14px;padding:0 11px;
@@ -209,6 +236,8 @@ dialog .hd{padding:12px 15px;border-bottom:1px solid var(--th-line);font-weight:
 dialog .hd .title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 dialog .bd{padding:14px 15px;max-height:60vh;overflow:auto;font-size:12px}
 dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;gap:8px;justify-content:flex-end}
+dialog.structured{width:min(760px,calc(100vw - 32px));max-width:none}
+dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 /* width:100% has no intrinsic size, so the dialog would shrink-wrap to nothing */
 #dsn2{display:block;width:min(580px,82vw);min-height:39px;padding:9px 12px;resize:none;
       overflow-x:hidden;overflow-y:hidden;overflow-wrap:anywhere;white-space:pre-wrap;font-size:13px;line-height:1.5;
@@ -216,6 +245,10 @@ dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;ga
 #derr{color:var(--err);margin-top:8px;min-height:16px;font-size:12px;white-space:pre-wrap}
 #cellbox{white-space:pre-wrap;word-break:break-word;margin:0;
          font:12px/1.6 Menlo,Monaco,Consolas,"Courier New",monospace}
+#cellbox.json{box-sizing:border-box;width:100%;max-height:60vh;padding:16px 18px;overflow:auto;
+  white-space:pre;word-break:normal;line-height:1.7;tab-size:2}
+.json-key{color:var(--sql-ident)}.json-string{color:var(--sql-string)}.json-number{color:var(--sql-number)}
+.json-bool{color:var(--sql-key)}.json-null{color:var(--null);font-style:italic}
 #v-info{overflow:auto;padding:16px}
 #dbinfo-table{width:100%;max-width:760px;border-collapse:collapse;border:1px solid var(--th-line);font-size:12px}
 #dbinfo-table th,#dbinfo-table td{padding:7px 9px;border:1px solid var(--th-line);text-align:left;vertical-align:top}
@@ -236,11 +269,11 @@ dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;ga
     <div id="dbline">
       <span id="productname">pgweb</span>
     </div>
+    <div id="runner" hidden>Query Runner</div>
     <div class="search" id="tablesearch" hidden>
       <input id="q" placeholder="Search tables" autocomplete="off" spellcheck="false"/>
       <button id="qclr" title="Clear" hidden>×</button>
     </div>
-    <div id="runner" hidden>Query Runner</div>
     <div id="tree" hidden></div>
     <div id="tablecount" hidden></div>
   </aside>
@@ -250,11 +283,17 @@ dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;ga
       <div class="tab" data-v="query" hidden>Query Runner</div>
       <div class="tab" data-v="info" hidden>Database info</div>
       <div class="tab" data-v="rows" hidden>Rows</div>
-      <div class="tab" data-v="struct" hidden>Structure</div>
+      <div class="tab" data-v="struct" hidden>Columns</div>
+      <div class="tab" data-v="overview" hidden>Overview</div>
       <div class="tab" data-v="indexes" hidden>Indexes</div>
       <div class="tab" data-v="constraints" hidden>Constraints</div>
+      <div class="tab" data-v="statistics" hidden>Statistics</div>
+      <div class="tab" data-v="ddl" hidden>DDL</div>
       <div class="tab" data-v="triggers" hidden>Triggers</div>
       <div class="tab" data-v="policies" hidden>Policies</div>
+      <div class="tab" data-v="privileges" hidden>Privileges</div>
+      <div class="tab" data-v="partitions" hidden>Partitions</div>
+      <div class="tab" data-v="dependencies" hidden>Dependencies</div>
       <div class="sp"></div>
       <div id="optionswrap" hidden>
         <button class="headicon" id="dbinfo" title="Database info" aria-label="Database info"></button>
@@ -269,6 +308,7 @@ dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;ga
       <div class="view" id="v-info"><table id="dbinfo-table"><tbody></tbody></table></div>
       <div class="view" id="v-rows">
         <div id="tools">
+          <span class="filterlabel">Filter rows</span>
           <select id="fcol"></select>
           <select id="fop">
             <option>=</option><option>≠</option><option>&gt;</option><option>&lt;</option>
@@ -277,8 +317,11 @@ dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;ga
           </select>
           <input id="fval" placeholder="Filter value" autocomplete="off"/>
           <button id="fgo" hidden>Apply</button>
-          <button id="fclr" hidden>Cancel</button>
+          <button id="fclr" title="Reset filter" hidden>Reset</button>
           <span class="sp"></span><span id="ftxt"></span>
+          <button id="prevbatch" hidden>Previous 10</button>
+          <button id="nextbatch" hidden>Next 10</button>
+          <button class="iconbtn" id="rowcsv" title="Download rows as CSV" aria-label="Download rows as CSV" disabled></button>
         </div>
         <div id="vp"><div id="inner">
           <div id="head"></div>
@@ -286,11 +329,17 @@ dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;ga
         </div></div>
         <div id="empty">No rows</div>
       </div>
-      <div class="view" id="v-struct"><div class="detail-wrap"><table class="detail-grid" id="g-struct"><thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Default</th></tr></thead><tbody></tbody></table></div></div>
-      <div class="view" id="v-indexes"><div class="detail-wrap"><table class="detail-grid" id="g-indexes"><thead><tr><th>Name</th><th>Definition</th></tr></thead><tbody></tbody></table></div></div>
-      <div class="view" id="v-constraints"><div class="detail-wrap"><table class="detail-grid" id="g-constraints"><thead><tr><th>Name</th><th>Kind</th><th>Definition</th></tr></thead><tbody></tbody></table></div></div>
-      <div class="view" id="v-triggers"><div class="detail-wrap"><table class="detail-grid" id="g-triggers"><thead><tr><th>Name</th><th>Function</th><th>Definition</th></tr></thead><tbody></tbody></table></div></div>
-      <div class="view" id="v-policies"><div class="detail-wrap"><table class="detail-grid" id="g-policies"><thead><tr><th>Name</th><th>Command</th><th>Roles</th><th>Using</th><th>Check</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-struct"><div class="detail-tools"><input class="detail-search" data-grid="g-struct" data-one="column" data-many="columns" type="search" placeholder="Search columns"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-struct"><thead><tr><th>#</th><th>Column</th><th>Type</th><th>Key</th><th>Nullable</th><th>Default</th><th>Generated</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-overview"><div class="detail-tools"><input class="detail-search" data-grid="g-overview" data-one="item" data-many="items" type="search" placeholder="Search overview"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-overview"><thead><tr><th>#</th><th>Schema</th><th>Owner</th><th>Kind</th><th>Estimated rows</th><th>Table size</th><th>Index size</th><th>Total size</th><th>Tablespace</th><th>Persistence</th><th>RLS</th><th>Comment</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-indexes"><div class="detail-tools"><input class="detail-search" data-grid="g-indexes" data-one="index" data-many="indexes" type="search" placeholder="Search indexes"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-indexes"><thead><tr><th>#</th><th>Name</th><th>Method</th><th>Columns</th><th>Unique</th><th>Primary</th><th>Size</th><th>Predicate</th><th>Definition</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-constraints"><div class="detail-tools"><input class="detail-search" data-grid="g-constraints" data-one="constraint" data-many="constraints" type="search" placeholder="Search constraints"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-constraints"><thead><tr><th>#</th><th>Name</th><th>Kind</th><th>Columns</th><th>References</th><th>Deferrable</th><th>Validated</th><th>Definition</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-statistics"><div class="detail-tools"><input class="detail-search" data-grid="g-statistics" data-one="item" data-many="items" type="search" placeholder="Search statistics"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-statistics"><thead><tr><th>#</th><th>Seq scans</th><th>Index scans</th><th>Live rows</th><th>Dead rows</th><th>Inserts</th><th>Updates</th><th>Deletes</th><th>HOT updates</th><th>Last vacuum</th><th>Last autovacuum</th><th>Last analyze</th><th>Last autoanalyze</th><th>Heap hits</th><th>Heap reads</th><th>Index hits</th><th>Index reads</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-ddl"><div class="detail-tools"><input class="detail-search" data-grid="g-ddl" data-one="statement" data-many="statements" type="search" placeholder="Search DDL"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-ddl"><thead><tr><th>#</th><th>Object</th><th>Name</th><th>SQL</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-triggers"><div class="detail-tools"><input class="detail-search" data-grid="g-triggers" data-one="trigger" data-many="triggers" type="search" placeholder="Search triggers"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-triggers"><thead><tr><th>#</th><th>Name</th><th>Timing</th><th>Events</th><th>Level</th><th>Function</th><th>Enabled</th><th>Condition</th><th>Definition</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-policies"><div class="detail-tools"><input class="detail-search" data-grid="g-policies" data-one="policy" data-many="policies" type="search" placeholder="Search policies"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-policies"><thead><tr><th>#</th><th>Name</th><th>Mode</th><th>Command</th><th>Roles</th><th>Using</th><th>Check</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-privileges"><div class="detail-tools"><input class="detail-search" data-grid="g-privileges" data-one="grant" data-many="grants" type="search" placeholder="Search privileges"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-privileges"><thead><tr><th>#</th><th>Grantee</th><th>Privileges</th><th>Grantor</th><th>Grantable</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-partitions"><div class="detail-tools"><input class="detail-search" data-grid="g-partitions" data-one="partition" data-many="partitions" type="search" placeholder="Search partitions"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-partitions"><thead><tr><th>#</th><th>Schema</th><th>Partition</th><th>Bound</th><th>Estimated rows</th><th>Size</th><th>Tablespace</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-dependencies"><div class="detail-tools"><input class="detail-search" data-grid="g-dependencies" data-one="dependency" data-many="dependencies" type="search" placeholder="Search dependencies"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-dependencies"><thead><tr><th>#</th><th>Type</th><th>Name</th><th>Relationship</th></tr></thead><tbody></tbody></table></div></div>
       <div class="view on" id="v-query">
         <div id="sqlwrap">
           <pre id="sqlhl" aria-hidden="true"></pre>
@@ -298,6 +347,7 @@ dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;ga
         </div>
         <div id="qbar">
           <button class="primary" id="run">Run</button>
+          <button id="cancelquery" hidden>Cancel</button>
           <button id="stream" title="Download all returned rows as a streaming CSV">Stream</button>
           <button id="explain" title="Show the estimated query plan without executing the query">Explain</button>
           <button id="analyze" title="Execute the query and show actual timing and row counts">Analyze</button>
@@ -308,7 +358,9 @@ dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;ga
           <button class="export" data-format="xml" disabled>XML</button>
           <button id="resetsql" title="Reset to default SQL" hidden>Reset</button>
         </div>
-        <div id="qres"></div>
+        <div id="qres">
+          <div id="qerror" hidden><div id="qerrorbox"><div id="qerrorhead"><span class="title" id="qerrortitle"></span><button type="button" class="iconbtn" id="qerrorcopy" title="Copy error" aria-label="Copy error"></button></div><pre id="qerrorbody"></pre></div></div>
+        </div>
       </div>
     </div>
 
@@ -327,7 +379,7 @@ dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;ga
 
 <script>
 'use strict';
-const ROW_H = 30, CHUNK = 1000, SIDE_BATCH = 200, OVER = 6, MAXW = 440, MINW = 64;   /* 29px cell + 1px rule; matches --row-h */
+const ROW_H = 30, CHUNK = 10, SIDE_BATCH = 200, OVER = 6, MAXW = 440, MINW = 64;   /* 29px cell + 1px rule; matches --row-h */
 const DEFAULT_SQL = 'SELECT * FROM test LIMIT 10;';
 // browsers clamp element height near 2^24 px; past that the spacer stops growing and the
 // tail of a big table becomes unreachable, so the scrollbar is scaled instead of 1:1
@@ -340,15 +392,31 @@ const icon = name => ({
   refresh:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 8a7 7 0 0 1 11.5-1L20 12M4 12l2.4 5a7 7 0 0 0 11.5-1"/></svg>',
   moon:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5Z"/></svg>',
   sun:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
-  copy:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>'
+  copy:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
+  download:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg>'
 })[name];
 const vp=$('vp'), inner=$('inner'), headEl=$('head'), canvas=$('canvas'), rowsEl=$('rows');
 $('dbinfo').innerHTML=icon('info'); $('reload').innerHTML=icon('refresh');
-const DETAILS = ['indexes','constraints','triggers','policies'];
+$('rowcsv').innerHTML=icon('download');
+const yesNo=value=>value?'Yes':'No';
+const DETAIL_ROWS={
+  overview:rows=>rows.map((r,i)=>[i+1,r.schema,r.owner,r.kind,r.estimated_rows,r.table_size,r.index_size,r.total_size,r.tablespace,r.persistence,r.rls,r.comment]),
+  indexes:rows=>rows.map((r,i)=>[i+1,r.name,r.method,r.columns,yesNo(r.is_unique),yesNo(r.is_primary),r.size,r.predicate,r.def]),
+  constraints:rows=>rows.map((r,i)=>[i+1,r.name,r.kind,r.columns,r.reference,yesNo(r.deferrable),yesNo(r.validated),r.def]),
+  statistics:rows=>rows.map((r,i)=>[i+1,r.seq_scan,r.idx_scan,r.live_rows,r.dead_rows,r.inserts,r.updates,r.deletes,r.hot_updates,r.last_vacuum,r.last_autovacuum,r.last_analyze,r.last_autoanalyze,r.heap_hits,r.heap_reads,r.index_hits,r.index_reads]),
+  ddl:rows=>rows.map((r,i)=>[i+1,r.kind,r.name,r.sql]),
+  triggers:rows=>rows.map((r,i)=>[i+1,r.name,r.timing,r.events,r.level,(r.function||'')+'()',r.enabled,r.condition,r.def]),
+  policies:rows=>rows.map((r,i)=>[i+1,r.name,r.mode,r.kind,r.roles||'public',r.using_expr,r.check_expr]),
+  privileges:rows=>rows.map((r,i)=>[i+1,r.grantee,r.privileges,r.grantor,r.grantable]),
+  partitions:rows=>rows.map((r,i)=>[i+1,r.schema,r.name,r.bound,r.estimated_rows,r.size,r.tablespace]),
+  dependencies:rows=>rows.map((r,i)=>[i+1,r.kind,r.name,r.relationship])
+};
+const DETAILS=Object.keys(DETAIL_ROWS);
 
 const S = { db:'', table:'', kind:'', pk:null, cols:[], widths:[], total:0,
-            chunks:new Map(), pending:new Map(), local:null, where:'', meta:null, tree:{},
-            viewPx:0, scale:1, loaded:{}, connected:false,
+            chunks:new Map(), pending:new Map(), local:null, where:null, meta:null, tree:{},
+            viewPx:0, scale:1, loaded:{}, connected:false, hasMore:false, pageStart:0, latestFirst:false,
+            activeQueryId:null, cancelRequested:false,
             readOnly:localStorage.getItem('pgweb.readOnly') === '1', sideItems:[], sideShown:0, queryCleared:false,
             filterApplied:{col:'',op:'=',val:''} };
 let pool=[], lastFirst=-1, ticking=false;
@@ -440,15 +508,16 @@ function setConnected(on){
   $('tablecount').hidden = !on;
   $('reload').disabled = !on;
   $('run').disabled = $('stream').disabled = $('explain').disabled = $('analyze').disabled = $('resetsql').disabled = $('sql').disabled = !on;
+  $('cancelquery').hidden=true; $('prevbatch').hidden=$('nextbatch').hidden=true;
   if(!on) setExports(false);
   if(!on){
     S.tree={}; S.chunks.clear(); S.pending.clear();
-    S.local=null; S.table=''; S.kind=''; S.cols=[]; S.total=0; lastFirst=-1;
+    S.local=null; S.table=''; S.kind=''; S.cols=[]; S.total=0; S.hasMore=false; S.pageStart=0; S.latestFirst=false; S.activeQueryId=null; lastFirst=-1;
     $('tree').textContent=''; $('q').value=''; $('qclr').hidden=true;
     $('tools').style.display='none';
     for(const t of document.querySelectorAll('.tab')) t.hidden = true;
     show('query');
-    headEl.textContent=''; rowsEl.textContent=''; pool=[];
+    headEl.textContent=''; rowsEl.textContent=''; canvas.classList.remove('has-rows'); pool=[];
     $('empty').textContent='Not connected'; $('empty').classList.add('on');
     for(const id of ['st-obj','st-rows','st-size','st-time']) $(id).textContent='';
   }else{
@@ -589,25 +658,105 @@ function openRunner(){
 $('runner').onclick = openRunner;
 
 /* ---------------- open a table ---------------- */
+const detailCellValues=new WeakMap();
+const detailRowValues=new WeakMap();
+function compactCellValue(value){
+  if(value===null || value===undefined) return 'NULL';
+  if(typeof value==='object'){
+    try{return JSON.stringify(value);}
+    catch{return String(value);}
+  }
+  return String(value);
+}
+function prettyCellValue(value){
+  if(value===null || value===undefined) return 'NULL';
+  if(typeof value==='object'){
+    try{return JSON.stringify(value,null,2);}
+    catch{return String(value);}
+  }
+  const text=String(value), trimmed=text.trim();
+  if((trimmed.startsWith('{')&&trimmed.endsWith('}'))||(trimmed.startsWith('[')&&trimmed.endsWith(']'))){
+    try{const parsed=JSON.parse(trimmed); if(parsed&&typeof parsed==='object') return JSON.stringify(parsed,null,2);}catch{}
+  }
+  return text;
+}
+function structuredCellValue(value){
+  if(value&&typeof value==='object') return value;
+  if(typeof value!=='string') return null;
+  const text=value.trim();
+  if(!((text.startsWith('{')&&text.endsWith('}'))||(text.startsWith('[')&&text.endsWith(']')))) return null;
+  try{const parsed=JSON.parse(text); return parsed&&typeof parsed==='object'?parsed:null;}catch{return null;}
+}
+function highlightJson(value){
+  const source=JSON.stringify(value,null,2);
+  const token=/"(?:\\.|[^"\\])*"(?=\s*:)|"(?:\\.|[^"\\])*"|\b(?:true|false)\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g;
+  let html='',last=0,match;
+  while((match=token.exec(source))){
+    html+=sqlEscape(source.slice(last,match.index));
+    const text=match[0], cls=text==='null'?'json-null':/^(?:true|false)$/.test(text)?'json-bool'
+      : text.startsWith('"')?(source.slice(token.lastIndex).trimStart().startsWith(':')?'json-key':'json-string'):'json-number';
+    html+=`<span class="${cls}">${sqlEscape(text)}</span>`; last=token.lastIndex;
+  }
+  return html+sqlEscape(source.slice(last));
+}
+function sizeDetailGrid(table,rows){
+  const headers=[...table.tHead.rows[0].cells];
+  const widths=headers.map((header,index)=>{
+    let length=header.textContent.length;
+    for(const row of rows.slice(0,200)) length=Math.max(length,compactCellValue(row[index]).length);
+    const name=header.textContent.toLowerCase();
+    const max=/definition/.test(name)?420:/default|predicate|condition|using|check/.test(name)?300:240;
+    const min=index===0?44:64;
+    return Math.max(min,Math.min(max,Math.ceil(length*7.25)+24));
+  });
+  table.querySelector('colgroup')?.remove();
+  const colgroup=document.createElement('colgroup');
+  for(const width of widths){ const col=document.createElement('col'); col.style.width=width+'px'; colgroup.appendChild(col); }
+  table.insertBefore(colgroup,table.tHead);
+  const width=widths.reduce((sum,value)=>sum+value,0);
+  table.style.width=width+'px'; table.style.minWidth='0';
+  table.style.marginRight=width>$('pane').clientWidth?'16px':'0';
+}
 function fillDetailGrid(id, rows, emptyText='No data'){
-  const table=$(id), body=table.tBodies[0]; body.textContent='';
+  const table=$(id), body=table.tBodies[0]; body.textContent=''; table.dataset.total=rows.length;
   if(!rows.length){
     const tr=body.insertRow(), td=tr.insertCell(); td.colSpan=table.tHead.rows[0].cells.length;
-    td.className='empty-detail'; td.textContent=emptyText; return;
-  }
-  for(const values of rows){
-    const tr=body.insertRow();
-    for(const value of values){
-      const td=tr.insertCell(); td.textContent=value==null?'NULL':String(value);
-      if(value==null) td.classList.add('null');
+    td.className='empty-detail'; td.textContent=emptyText;
+  }else{
+    for(const values of rows){
+      const tr=body.insertRow(); detailRowValues.set(tr,values);
+      for(const value of values){
+        const td=tr.insertCell(); td.textContent=compactCellValue(value); detailCellValues.set(td,value);
+        if(value==null) td.classList.add('null');
+      }
     }
   }
+  sizeDetailGrid(table,rows);
+  const input=document.querySelector(`.detail-search[data-grid="${id}"]`); if(input) updateDetailSearch(input);
+}
+function updateDetailSearch(input){
+  const table=$(input.dataset.grid), term=input.value.trim().toLowerCase();
+  const rows=[...table.tBodies[0].rows].filter(row=>!row.cells[0]?.classList.contains('empty-detail'));
+  let shown=0;
+  for(const row of rows){ const match=!term||row.textContent.toLowerCase().includes(term); row.hidden=!match; if(match) shown++; }
+  const total=+table.dataset.total||0, noun=total===1?input.dataset.one:input.dataset.many;
+  input.parentElement.querySelector('.detail-count').textContent=term?`${shown} of ${total} ${noun}`:`${total} ${noun}`;
+  const download=input.parentElement.querySelector('.detail-download'); if(download) download.disabled=shown===0;
+}
+for(const input of document.querySelectorAll('.detail-search')){
+  input.oninput=()=>updateDetailSearch(input);
+  input.onkeydown=e=>{ if(e.key==='Escape'){ input.value=''; updateDetailSearch(input); } };
+}
+for(const tools of document.querySelectorAll('.detail-tools')){
+  const input=tools.querySelector('.detail-search'), button=document.createElement('button');
+  button.type='button'; button.className='iconbtn detail-download'; button.title=button.ariaLabel='Download tab data as CSV';
+  button.dataset.grid=input.dataset.grid; button.innerHTML=icon('download'); button.disabled=true; tools.appendChild(button);
 }
 async function openObject(table, kind){
   $('runner').classList.remove('on');
   for(const el of document.querySelectorAll('.obj.on')) el.classList.remove('on');
   document.querySelector(`.obj[data-table="${table}"]`)?.classList.add('on');
-  S.table=table; S.kind=kind; S.where=''; S.local=null; S.loaded={};
+  S.table=table; S.kind=kind; S.where=null; S.local=null; S.loaded={};
   setExports(false);
   S.chunks.clear(); S.pending.clear(); lastFirst=-1;
   $('fval').value=''; $('ftxt').textContent='';
@@ -616,12 +765,13 @@ async function openObject(table, kind){
   for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v==='query'||t.dataset.v==='info';
 
   const m = await api({action:'rows', table, limit:CHUNK, is_meta:1});
-  S.meta=m.meta; S.cols=m.meta.columns.map(c=>c.name); S.pk=m.meta.pk;
-  S.total = m.rows.length;
+  S.meta=m.meta; S.cols=m.meta.columns.map(c=>c.name); S.pk=m.meta.pk; S.latestFirst=!!m.meta.latest_first;
+  S.total=m.rows.length; S.hasMore=!!m.has_more; S.pageStart=0;
   S.chunks.set(0, m.rows);
 
-  fillDetailGrid('g-struct',m.meta.columns.map(c=>[c.name,c.type,c.nullable?'Yes':'No',c.default_value]));
-  for(const p of DETAILS) $('g-'+p).tBodies[0].textContent='';
+  for(const input of document.querySelectorAll('.detail-search')) input.value='';
+  fillDetailGrid('g-struct',m.meta.columns.map(c=>[c.position,c.name,c.type,c.key_type,c.nullable?'Yes':'No',c.default_value,c.generated]));
+  for(const p of DETAILS) fillDetailGrid('g-'+p,[],'Not loaded');
   $('fcol').textContent='';
   for(const column of m.meta.columns){
     const option=document.createElement('option'); option.value=column.name; option.textContent=column.name;
@@ -631,8 +781,7 @@ async function openObject(table, kind){
   $('st-obj').innerHTML = `<b>${table}</b>`;
   $('st-rows').textContent = `${m.rows.length} rows loaded`;
   $('st-size').textContent = m.meta.stats.total_size || '';
-  $('ftxt').textContent = `${m.rows.length} ${m.rows.length===1?'row':'rows'} fetched`;
-  buildGrid(); vp.scrollTop=0; render(true);
+  drawBatchNav(); buildGrid(); vp.scrollTop=0; render(true);
   show('rows');
 }
 
@@ -643,11 +792,7 @@ async function loadDetail(part){
   fillDetailGrid('g-'+part,[], 'Loading…');
   try{
     const m = await api({action:'detail', table:S.table, part});
-    const rows=part==='indexes' ? m.rows.map(r=>[r.name,r.def])
-      : part==='constraints' ? m.rows.map(r=>[r.name,r.kind,r.def])
-      : part==='triggers' ? m.rows.map(r=>[r.name,(r.function||'')+'()',r.def])
-      : m.rows.map(r=>[r.name,r.kind,r.roles||'public',r.using_expr,r.check_expr]);
-    fillDetailGrid('g-'+part,rows,`No ${part}`);
+    fillDetailGrid('g-'+part,DETAIL_ROWS[part](m.rows),`No ${part}`);
   }catch(err){ S.loaded[part]=false; fillDetailGrid('g-'+part,[], 'Error: '+err.message); }
 }
 
@@ -656,7 +801,7 @@ function measure(){
   const sample = (S.local || S.chunks.get(0) || []).slice(0, 40);
   S.widths = S.cols.map((c,i) => {
     let n = c.length;
-    for(const r of sample){ const v=r[i]; if(v!=null){ const L=String(v).length; if(L>n) n=L; } }
+    for(const r of sample){ const v=r[i]; if(v!=null){ const L=compactCellValue(v).length; if(L>n) n=L; } }
     return Math.max(MINW, Math.min(MAXW, Math.ceil(n*7.25) + 26));   /* 12px mono ≈ 7.22px/char + 18px padding */
   });
   const saved = JSON.parse(localStorage.getItem('pgweb.w.'+S.table)||'null');
@@ -669,8 +814,11 @@ function geometry(){
 }
 function buildGrid(){
   measure(); geometry();
-  inner.style.width = S.widths.reduce((a,b)=>a+b,0)+'px';
+  const gridWidth=S.widths.reduce((a,b)=>a+b,0);
+  inner.style.width=gridWidth+'px'; inner.style.paddingRight=gridWidth>vp.clientWidth?'16px':'0';
   canvas.style.height = S.viewPx+'px';
+  canvas.classList.toggle('has-rows',S.total>0);
+  $('rowcsv').disabled=S.total===0;
   headEl.textContent='';
   S.cols.forEach((c,i)=>{
     const th=document.createElement('div'); th.className='th'; th.style.width=S.widths[i]+'px';
@@ -698,12 +846,44 @@ function rowAt(i){
   const ci = Math.floor(i/CHUNK), c = S.chunks.get(ci);
   return c ? c[i - ci*CHUNK] : null;
 }
+function filterParams(){
+  return S.where?{filter_col:S.where.col,filter_op:S.where.op,filter_value:S.where.val}:{};
+}
+function drawBatchNav(){
+  const supported=!!S.pk;
+  $('prevbatch').hidden=$('nextbatch').hidden=false;
+  $('prevbatch').disabled=!supported||S.pageStart===0;
+  $('nextbatch').disabled=!supported||!S.hasMore;
+  const unsupported='Requires a single-column primary key';
+  $('prevbatch').title=!supported?unsupported:S.pageStart===0?'Already at the first batch':'Load the previous 10 rows';
+  $('nextbatch').title=!supported?unsupported:!S.hasMore?'No more rows':'Load the next 10 rows';
+  $('ftxt').textContent=S.total?`${S.pageStart+1}–${S.pageStart+S.total} fetched`:'0 rows fetched';
+}
+async function changeBatch(direction){
+  const current=S.chunks.get(0)||[], pkIndex=S.cols.indexOf(S.pk);
+  if(!S.pk||pkIndex<0||!current.length) return;
+  const forward=direction==='next';
+  if(forward&&!S.hasMore||!forward&&S.pageStart===0) return;
+  $('prevbatch').disabled=$('nextbatch').disabled=true;
+  try{
+    const cursor=String((forward?current[current.length-1]:current[0])[pkIndex]);
+    const requestDesc=forward?S.latestFirst:!S.latestFirst;
+    const page=await api({action:'rows',table:S.table,pk:S.pk,order:S.pk,limit:CHUNK,
+                          after:cursor,is_desc:requestDesc?1:0,...filterParams()});
+    const rows=forward?page.rows:[...page.rows].reverse();
+    S.pageStart=forward?S.pageStart+S.total:Math.max(0,S.pageStart-rows.length);
+    S.chunks.clear(); S.chunks.set(0,rows); S.total=rows.length; S.hasMore=forward?!!page.has_more:true;
+    drawBatchNav(); buildGrid(); vp.scrollTop=0; lastFirst=-1; render(true);
+  }catch(err){ drawBatchNav(); alertBox('Batch navigation failed',err.message); }
+}
+$('prevbatch').onclick=()=>changeBatch('previous');
+$('nextbatch').onclick=()=>changeBatch('next');
 function ensure(ci){
   if(S.local || ci<0 || S.chunks.has(ci) || S.pending.has(ci)) return;
   if(ci*CHUNK >= S.total) return;
   S.pending.set(ci, 1);
   api({action:'rows', table:S.table, pk:S.pk, limit:CHUNK,
-       offset:ci*CHUNK, where:S.where||undefined})
+       offset:ci*CHUNK, ...filterParams()})
     .then(m=>{
       S.chunks.set(ci, m.rows); S.pending.delete(ci);
       if(S.chunks.size > 60){
@@ -732,7 +912,7 @@ function render(force){
       const td=cells[c];
       if(!row){ td.textContent=''; td.className='td'; continue; }
       const v=row[c];
-      td.textContent = v===null ? 'NULL' : String(v);
+      td.textContent = compactCellValue(v);
       td.className = v===null ? 'td null' : 'td';
     }
   }
@@ -761,7 +941,8 @@ addEventListener('mousemove', e=>{
   S.widths[drag.i]=w;
   headEl.children[drag.i].style.width=w+'px';
   for(const tr of pool) tr.children[drag.i].style.width=w+'px';
-  inner.style.width=S.widths.reduce((a,b)=>a+b,0)+'px';
+  const gridWidth=S.widths.reduce((a,b)=>a+b,0);
+  inner.style.width=gridWidth+'px'; inner.style.paddingRight=gridWidth>vp.clientWidth?'16px':'0';
 });
 addEventListener('mouseup', ()=>{
   if(!drag) return;
@@ -770,22 +951,26 @@ addEventListener('mouseup', ()=>{
 });
 
 /* shared read-only cell inspector — all writes go through the query runner */
-function openCellValue(column,rawValue){
+function openCellValue(column,rawValue,copiedMessage='Cell value copied'){
+  const structured=structuredCellValue(rawValue);
+  $('dlg').classList.toggle('structured',!!structured);
   $('dlg-t').textContent='';
   const title=document.createElement('span'); title.className='title'; title.textContent=column;
   const copy=document.createElement('button'); copy.type='button'; copy.className='iconbtn'; copy.id='copycell';
   copy.title=copy.ariaLabel='Copy cell value'; copy.innerHTML=icon('copy');
   $('dlg-t').append(title,copy);
   $('dlg-b').innerHTML='<pre id="cellbox"></pre>';
-  const value=rawValue===null ? 'NULL' : String(rawValue);
-  $('cellbox').textContent = value;
+  const value=prettyCellValue(rawValue);
+  if(structured){ $('cellbox').className='json'; $('cellbox').innerHTML=highlightJson(structured); }
+  else $('cellbox').textContent=value;
   $('dlg-f').innerHTML='<button value="cancel">Close</button>';
   $('copycell').onclick=async()=>{
-    try{ await navigator.clipboard.writeText(value); toast('Cell value copied'); }
-    catch{ toast('Could not copy cell value'); }
+    try{ await navigator.clipboard.writeText(value); toast(copiedMessage); }
+    catch{ toast('Could not copy'); }
   };
   $('dlg').showModal();
 }
+$('dlg').addEventListener('close',()=>$('dlg').classList.remove('structured'));
 rowsEl.addEventListener('dblclick', e=>{
   const td=e.target.closest('.td'); if(!td) return;
   const row=rowAt(+td.parentElement.dataset.i); if(!row) return;
@@ -794,7 +979,7 @@ rowsEl.addEventListener('dblclick', e=>{
 for(const table of document.querySelectorAll('.detail-grid')) table.tBodies[0].addEventListener('dblclick',e=>{
   const td=e.target.closest('td'); if(!td || td.classList.contains('empty-detail')) return;
   const column=table.tHead.rows[0].cells[td.cellIndex]?.textContent||'Value';
-  openCellValue(column,td.classList.contains('null')?null:td.textContent);
+  openCellValue(column,detailCellValues.has(td)?detailCellValues.get(td):(td.classList.contains('null')?null:td.textContent));
 });
 
 /* ---------------- filter ---------------- */
@@ -829,8 +1014,7 @@ $('fgo').onclick = async () => {
   const col=$('fcol').value, op=OPS[$('fop').value], val=$('fval').value;
   if(!col) return;
   const previous=S.where;
-  S.where = !val && !op.startsWith('IS') ? '' : op.startsWith('IS') ? `"${col}" ${op}`
-          : `"${col}" ${op} '${String(val).replace(/'/g,"''")}'`;
+  S.where=!val&&!op.startsWith('IS')?null:{col,op,val};
   if(await applyFilter()){
     S.filterApplied={col,op:$('fop').value,val}; drawFilterActions();
   }else S.where=previous;
@@ -843,7 +1027,7 @@ $('fclr').onclick = async () => {
     return;
   }
   if(S.where){
-    S.where=''; $('fval').value='';
+    S.where=null; $('fval').value='';
     if(await applyFilter()) S.filterApplied={col:$('fcol').value,op:$('fop').value,val:''};
     drawFilterActions();
   }
@@ -851,12 +1035,11 @@ $('fclr').onclick = async () => {
 async function applyFilter(){
   S.chunks.clear(); S.pending.clear(); lastFirst=-1;
   try{
-    const first = await api({action:'rows', table:S.table, pk:S.pk,
-                             limit:CHUNK, where:S.where||undefined});
+    const first = await api({action:'rows', table:S.table, pk:S.pk, order:S.pk,
+                             is_desc:S.latestFirst?1:0,limit:CHUNK, ...filterParams()});
     S.chunks.set(0, first.rows);
-    S.total = first.rows.length;
-    $('ftxt').textContent = `${first.rows.length} ${first.rows.length===1?'row':'rows'} fetched`;
-    buildGrid(); vp.scrollTop=0; render(true);
+    S.total=first.rows.length; S.hasMore=!!first.has_more; S.pageStart=0;
+    drawBatchNav(); buildGrid(); vp.scrollTop=0; render(true);
     return true;
   }catch(err){ alertBox('Filter failed', err.message); return false; }
 }
@@ -866,9 +1049,33 @@ $('fval').onkeydown = e => { if(e.key==='Enter') $('fgo').click(); };
 function mountGrid(host){
   if(vp.parentElement!==host) host.append(vp, $('empty'));
 }
+function hideQueryError(){ $('qerror').hidden=true; }
+function showQueryError(title,message){
+  $('qerrortitle').textContent=title; $('qerrorbody').textContent=message; $('qerror').hidden=false;
+  $('qerrorcopy').innerHTML=icon('copy');
+  $('qerrorcopy').onclick=async()=>{
+    try{ await navigator.clipboard.writeText(message); toast('Error copied'); }
+    catch{ toast('Could not copy'); }
+  };
+}
 function setExports(on){
   for(const b of document.querySelectorAll('#qbar .export')) b.disabled=!on;
 }
+const csvCell=value=>'"'+(value==null?'':compactCellValue(value)).replace(/"/g,'""')+'"';
+function downloadCsv(headers,data,filename){
+  if(!data.length) return;
+  const text=[headers.map(csvCell),...data.map(row=>row.map(csvCell))].map(row=>row.join(',')).join('\r\n');
+  const url=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a'); a.href=url; a.download=filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),0);
+}
+function safeFilePart(value){return String(value||'table').replace(/[^a-z0-9_.-]+/gi,'-').replace(/^-|-$/g,'');}
+$('rowcsv').onclick=()=>downloadCsv(S.cols,S.local||S.chunks.get(0)||[],`${safeFilePart(S.table)}-rows.csv`);
+for(const button of document.querySelectorAll('.detail-download')) button.onclick=()=>{
+  const table=$(button.dataset.grid), headers=[...table.tHead.rows[0].cells].map(cell=>cell.textContent);
+  const data=[...table.tBodies[0].rows].filter(row=>!row.hidden&&detailRowValues.has(row)).map(row=>detailRowValues.get(row));
+  downloadCsv(headers,data,`${safeFilePart(S.table)}-${button.dataset.grid.replace(/^g-/,'')}.csv`);
+};
 function exportResult(format){
   if(!S.local) return;
   const objects=S.local.map(row=>Object.fromEntries(S.cols.map((col,i)=>[col,row[i]])));
@@ -876,8 +1083,7 @@ function exportResult(format){
   if(format==='json'){
     text=JSON.stringify(objects,null,2); type='application/json';
   }else if(format==='csv'){
-    const cell=value=>'"'+String(value??'').replace(/"/g,'""')+'"';
-    text=[S.cols.map(cell),...S.local.map(row=>row.map(cell))].map(row=>row.join(',')).join('\r\n');
+    text=[S.cols.map(csvCell),...S.local.map(row=>row.map(csvCell))].map(row=>row.join(',')).join('\r\n');
     type='text/csv';
   }else{
     const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[ch]));
@@ -894,6 +1100,7 @@ for(const b of document.querySelectorAll('#qbar .export')) b.onclick=()=>exportR
 const streamSize=bytes=>bytes<1024 ? `${bytes} B` : bytes<1048576 ? `${(bytes/1024).toFixed(1)} KB` : `${(bytes/1048576).toFixed(1)} MB`;
 async function streamQuery(confirmed=false){
   const sql=$('sql').value.trim(); if(!sql) return;
+  hideQueryError();
   const normalized=sql.toLowerCase().replace(/\s+/g,' ').trim();
   if(!S.readOnly && !confirmed && (normalized.startsWith('truncate') || normalized.startsWith('drop ') ||
      ((normalized.startsWith('update ') || normalized.startsWith('delete ')) && !normalized.includes(' where ')))){
@@ -909,7 +1116,7 @@ async function streamQuery(confirmed=false){
     try{
       const handle=await window.showSaveFilePicker({suggestedName:'query-result-all.csv',types:[{description:'CSV file',accept:{'text/csv':['.csv']}}]});
       writable=await handle.createWritable();
-    }catch(err){ if(err.name==='AbortError') return; alertBox('Stream failed',err.message); return; }
+    }catch(err){ if(err.name==='AbortError') return; showQueryError('Stream failed',err.message); return; }
   }
   $('stream').disabled=true; $('streamprogress').hidden=false; $('streambar').removeAttribute('value');
   $('streammsg').textContent='Starting…';
@@ -938,20 +1145,40 @@ async function streamQuery(confirmed=false){
     toast('CSV download complete');
   }catch(err){
     if(writable) try{ await writable.abort(); }catch{}
-    $('streammsg').textContent='Download failed'; alertBox('Stream failed',err.message);
+    $('streammsg').textContent='Download failed'; showQueryError('Stream failed',err.message);
   }finally{
     $('stream').disabled=!S.connected;
     setTimeout(()=>$('streamprogress').hidden=true,1200);
   }
 }
 $('stream').onclick=()=>streamQuery(false);
+function beginQuery(){
+  const id=globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`;
+  S.activeQueryId=id; S.cancelRequested=false;
+  $('run').disabled=$('explain').disabled=$('analyze').disabled=true;
+  $('cancelquery').hidden=false; $('cancelquery').disabled=false;
+  return id;
+}
+function finishQuery(id){
+  if(S.activeQueryId!==id) return;
+  S.activeQueryId=null; $('cancelquery').hidden=true; $('cancelquery').disabled=false;
+  $('run').disabled=$('explain').disabled=$('analyze').disabled=!S.connected;
+}
+$('cancelquery').onclick=async()=>{
+  const queryId=S.activeQueryId; if(!queryId) return;
+  S.cancelRequested=true; $('cancelquery').disabled=true; $('qmsg').className=''; $('qmsg').textContent='canceling…';
+  try{
+    const result=await api({action:'cancel',query_id:queryId});
+    $('qmsg').textContent=result.canceled?'canceling…':'query already finished';
+  }catch(err){ $('qmsg').textContent='cancel failed'; showQueryError('Cancel failed',err.message); }
+};
 async function runQuery(confirmed){
   const sql=$('sql').value.trim(); if(!sql) return;
-  $('run').disabled=true; $('qmsg').className=''; $('qmsg').textContent='running…';
+  hideQueryError(); const queryId=beginQuery(); $('qmsg').className=''; $('qmsg').textContent='running…';
   const t0=performance.now();
   try{
     const m = await api({action:'query', sql, is_confirmed: confirmed?1:0,
-                         is_read_only:S.readOnly?1:0});
+                         is_read_only:S.readOnly?1:0,query_id:queryId});
     S.local=m.rows; S.cols=m.cols; S.total=m.rows.length; S.pk=null;
     S.chunks.clear(); lastFirst=-1;
     $('tools').style.display='none';       // column filters belong to a table, not a result set
@@ -964,7 +1191,8 @@ async function runQuery(confirmed){
     $('qmsg').textContent = `${m.truncated ? count+'+ rows · showing first '+count : count+' rows'} · ${elapsed} ms`;
     setExports(true); drawResetSql();
   }catch(err){
-    if(err.message.includes('unbounded_write')){
+    if(S.cancelRequested){ $('qmsg').className=''; $('qmsg').textContent='Canceled'; hideQueryError(); }
+    else if(err.message.includes('unbounded_write')){
       $('qmsg').textContent='';
       $('dlg-t').textContent='Unbounded write';
       $('dlg-b').textContent='This statement has no WHERE clause and will affect every row. Run it?';
@@ -972,27 +1200,28 @@ async function runQuery(confirmed){
       $('dlg').showModal();
       $('yes').onclick=ev=>{ ev.preventDefault(); $('dlg').close(); runQuery(true); };
     } else {
-      $('qmsg').className='err';
-      $('qmsg').textContent = S.readOnly && /read.only|read-only/i.test(err.message)
+      const message=S.readOnly && /read.only|read-only/i.test(err.message)
         ? 'Blocked by read-only mode' : err.message;
+      $('qmsg').className=''; $('qmsg').textContent=''; showQueryError('Query failed',message);
     }
-  } finally { $('run').disabled = !S.connected; }
+  } finally { finishQuery(queryId); }
 }
 $('run').onclick = ()=>runQuery(false);
 $('resetsql').onclick = ()=>{
   $('sql').value=DEFAULT_SQL; S.queryCleared=false;
   S.local=null; S.cols=[]; S.total=0; S.chunks.clear(); lastFirst=-1; pool=[];
-  headEl.textContent=''; rowsEl.textContent=''; inner.style.width=''; canvas.style.height='0'; vp.scrollTop=0; vp.scrollLeft=0;
-  $('empty').classList.remove('on'); $('qmsg').textContent=''; $('qmsg').className='';
+  headEl.textContent=''; rowsEl.textContent=''; inner.style.width=''; canvas.style.height='0'; canvas.classList.remove('has-rows'); vp.scrollTop=0; vp.scrollLeft=0;
+  $('empty').classList.remove('on'); $('qmsg').textContent=''; $('qmsg').className=''; hideQueryError();
   setExports(false); drawResetSql(); updateSqlHighlight(); $('sql').focus();
 };
 async function explainQuery(analyze=false){
   const sql = $('sql').value.trim(); if(!sql) return;
-  $('explain').disabled=$('analyze').disabled=true;
+  hideQueryError(); const queryId=beginQuery();
   $('qmsg').className=''; $('qmsg').textContent=analyze?'analyzing…':'planning…';
   const t0=performance.now();
   try{
-    const m = await api({action:'query', sql:(analyze?'EXPLAIN ANALYZE ':'EXPLAIN ')+sql, is_read_only:S.readOnly?1:0});
+    const m = await api({action:'query', sql:(analyze?'EXPLAIN ANALYZE ':'EXPLAIN ')+sql,
+                         is_read_only:S.readOnly?1:0,query_id:queryId});
     S.local=m.rows; S.cols=m.cols; S.total=m.rows.length; S.pk=null; S.chunks.clear(); lastFirst=-1;
     $('tools').style.display='none';
     mountGrid($('qres'));
@@ -1002,10 +1231,13 @@ async function explainQuery(analyze=false){
     $('qmsg').textContent = `${m.rows.length} lines · ${(performance.now()-t0).toFixed(1)} ms`;
     setExports(true); drawResetSql();
   }catch(err){
-    $('qmsg').className='err';
-    $('qmsg').textContent = S.readOnly && /read.only|read-only/i.test(err.message) ? 'Blocked by read-only mode' : err.message;
+    if(S.cancelRequested){ $('qmsg').className=''; $('qmsg').textContent='Canceled'; hideQueryError(); }
+    else{
+      const message=S.readOnly && /read.only|read-only/i.test(err.message) ? 'Blocked by read-only mode' : err.message;
+      $('qmsg').className=''; $('qmsg').textContent=''; showQueryError(analyze?'Analyze failed':'Explain failed',message);
+    }
   }finally{
-    $('explain').disabled=$('analyze').disabled=!S.connected;
+    finishQuery(queryId);
   }
 }
 $('explain').onclick = ()=>explainQuery(false);
@@ -1087,9 +1319,7 @@ $('dbinfo').onclick = async () => {
   finally{ $('dbinfo').disabled=false; }
 };
 function alertBox(title, msg){
-  $('dlg-t').textContent=title; $('dlg-b').innerHTML='<pre id="cellbox"></pre>';
-  $('cellbox').textContent=msg;
-  $('dlg-f').innerHTML='<button value="cancel">Close</button>'; $('dlg').showModal();
+  openCellValue(title,msg,'Error copied');
 }
 
 /* the server holds one connection, so a reload just picks it back up */

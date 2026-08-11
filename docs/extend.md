@@ -93,7 +93,7 @@ Tables are declared as data in `config.py` under `config_postgres["table"]` and 
 from config import config_postgres
 
 config_postgres["table"]["product"] = [
-    {"name": "id", "datatype": "bigserial", "is_primary": 1},
+    {"name": "id", "datatype": "bigint generated always as identity", "is_primary": 1},
     {"name": "created_at", "datatype": "timestamptz", "default": "now()", "index": "btree(created_at)"},
     {"name": "created_by_id", "datatype": "bigint"},
     {"name": "title", "datatype": "text", "is_mandatory": 1, "index": "gin_trgm(title)"},

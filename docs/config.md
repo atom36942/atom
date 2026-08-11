@@ -264,7 +264,7 @@ List of Postgres extensions to ensure exist (created if missing; skipped with a 
 `postgis` (spatial types/indexes), `pg_trgm` (trigram/fuzzy text search), `btree_gin` (GIN indexes over scalar columns).
 
 ### `table`
-A dict of `table_name → [column specs]`. **Rules enforced at init:** the first column of every table must be exactly `{"name":"id","datatype":"bigserial","is_primary":1}`; only one primary column; no duplicate or reserved-word column names.
+A dict of `table_name → [column specs]`. **Rules enforced at init:** the first column of every table must be an identity primary key (e.g. `{"name":"id","datatype":"bigint generated always as identity","is_primary":1}` or `bigserial`); only one primary column; no duplicate or reserved-word column names.
 
 Each column spec is a dict. Supported keys:
 

@@ -7,8 +7,16 @@ WORKDIR /app
 # Copy dependency requirements file first to leverage Docker cache
 COPY requirements.txt .
 
-# Install system-level dependencies for ODBC database connections and clean apt cache
-RUN apt-get update && apt-get install -y unixodbc unixodbc-dev && rm -rf /var/lib/apt/lists/*
+# Install system-level dependencies for ODBC database connections and Microsoft ODBC Driver for SQL Server
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl gnupg2 apt-transport-https ca-certificates unixodbc unixodbc-dev \
+    && . /etc/os-release \
+    && curl -fsSL -o /tmp/packages-microsoft-prod.deb "https://packages.microsoft.com/config/debian/${VERSION_ID}/packages-microsoft-prod.deb" \
+    && dpkg -i /tmp/packages-microsoft-prod.deb \
+    && rm /tmp/packages-microsoft-prod.deb \
+    && apt-get update \
+    && ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql17 msodbcsql18 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip and install Python dependencies without caching packages
 RUN pip install --no-cache-dir --upgrade pip && \
