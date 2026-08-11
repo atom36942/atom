@@ -52,4 +52,14 @@ async def func_api_websocket(*, websocket:WebSocket):
 async def func_api_pgweb(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[])
+    if ob.get("action") == "stream":
+        pool = app_state.client_postgres_pgweb.get("pool")
+        if not pool: return responses.JSONResponse({"status": 0, "message": "not_connected"}, status_code=400)
+        params = {key: value for key, value in ob.items() if key != "action"}
+        try: generator = await app_state.func_pgweb_stream(pool=pool, **params)
+        except Exception as exc: return responses.JSONResponse({"status": 0, "message": str(exc)}, status_code=400)
+        return responses.StreamingResponse(generator, media_type="text/csv; charset=utf-8", headers={
+            "Content-Disposition": 'attachment; filename="query-result-all.csv"',
+            "Cache-Control": "no-store",
+        })
     return {"status": 1, "message": await app_state.func_pgweb(app_state=app_state, **ob)}

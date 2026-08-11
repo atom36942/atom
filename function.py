@@ -2435,14 +2435,49 @@ async def func_pgweb_query(*, pool: any, sql: str, is_confirmed: int = 0, is_rea
     if not sql or not sql.strip(): raise Exception("sql is required")
     normalized = " ".join(sql.lower().split())
     if not is_read_only and not is_confirmed and (normalized.startswith(("truncate", "drop ")) or (normalized.startswith(("update ", "delete ")) and " where " not in normalized)): raise Exception("unbounded_write")
-    if is_read_only:
+    result_limit = 10000
+    async with pool.acquire() as conn:
+        async with conn.transaction(readonly=bool(is_read_only)):
+            statement = await conn.prepare(sql, timeout=timeout_sec)
+            if not statement.get_attributes():
+                return func_pgweb_pack(await statement.fetch(timeout=timeout_sec))
+            cursor = await statement.cursor(timeout=timeout_sec)
+            records = await cursor.fetch(result_limit + 1)
+            out = func_pgweb_pack(records[:result_limit])
+            out["truncated"] = len(records) > result_limit
+            return out
+
+async def func_pgweb_stream(*, pool: any, sql: str, is_confirmed: int = 0, is_read_only: int = 0, timeout_sec: int = 300) -> any:
+    """Stream every row returned by one query as CSV without buffering the result set."""
+    import csv
+    import io
+    if not sql or not sql.strip(): raise Exception("sql is required")
+    normalized = " ".join(sql.lower().split())
+    if not is_read_only and not is_confirmed and (normalized.startswith(("truncate", "drop ")) or (normalized.startswith(("update ", "delete ")) and " where " not in normalized)): raise Exception("unbounded_write")
+    async with pool.acquire() as conn:
+        statement = await conn.prepare(sql, timeout=timeout_sec)
+        columns = [attr.name for attr in statement.get_attributes()]
+    if not columns: raise Exception("query returned no downloadable rows")
+
+    async def _iter():
         async with pool.acquire() as conn:
-            async with conn.transaction(readonly=True):
-                cursor = await conn.cursor(sql, timeout=timeout_sec)
-                records = await cursor.fetch(5001)
-                out = func_pgweb_pack(records[:5000]); out["truncated"] = len(records) > 5000
-                return out
-    return func_pgweb_pack(await pool.fetch(sql, timeout=timeout_sec))
+            async with conn.transaction(readonly=bool(is_read_only)):
+                await conn.execute(f"SET LOCAL statement_timeout = '{int(timeout_sec) * 1000}ms'")
+                statement = await conn.prepare(sql, timeout=timeout_sec)
+                buffer = io.StringIO()
+                writer = csv.writer(buffer)
+                writer.writerow(columns)
+                yield buffer.getvalue().encode("utf-8")
+                buffer.seek(0); buffer.truncate(0)
+                pending = 0
+                async for record in statement.cursor(prefetch=500, timeout=timeout_sec):
+                    writer.writerow([func_pgweb_jsonable(record[column]) for column in columns])
+                    pending += 1
+                    if pending >= 250:
+                        yield buffer.getvalue().encode("utf-8")
+                        buffer.seek(0); buffer.truncate(0); pending = 0
+                if pending: yield buffer.getvalue().encode("utf-8")
+    return _iter()
 
 async def func_pgweb_detail(*, pool: any, table: str, part: str, timeout_sec: int = 30) -> dict:
     """Read one lazily loaded public-table detail."""
