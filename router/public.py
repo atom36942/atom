@@ -130,3 +130,10 @@ async def func_api_public_blob_upload_url(*, request: Request):
     res = await app_state.func_blob_upload_url(app_state=app_state, service=oq["service"], container=oq["container"], count=oq["count"], user_id=request.state.user.get("id"))
     return {"status": 1, "message": res}
 
+@router.post("/public/password-hash")
+async def func_api_public_password_hash(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "password", "type": "str", "required": 1, "allowed": None, "default": None}])
+    return {"status": 1, "message": app_state.client_password_hasher.hash(str(ob["password"]))}
+
+

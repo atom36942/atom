@@ -413,6 +413,7 @@ config_api = {
 "/public/table-distinct": {"id": 96, "is_token": 0, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": 0}},
 "/public/blob-upload-file": {"id": 97, "is_token": 0},
 "/public/blob-upload-url": {"id": 98, "is_token": 0},
+"/public/password-hash": {"id": 100, "is_token": 0},
 # admin
 "/admin/sync": {"id": 1, "is_token": 1, "user_check_role": {"mode": "realtime", "roles": [1]}},
 "/admin/object-create": {"id": 2, "is_token": 1, "user_check_role": {"mode": "token", "roles": [1]}},
