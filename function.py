@@ -1372,7 +1372,7 @@ def func_attach_user_audit_fields(*, request: any, obj_list: list, field: str = 
 
 def func_check_user_delete_permission(*, app_state: any, table: str) -> None:
     """Ensure hard deletion of users table is not prohibited by configuration."""
-    if table == "users" and getattr(app_state, "config_is_user_delete", 0) != 1:
+    if table == "users" and int(getattr(app_state, "config_is_user_delete", 0)) != 1:
         raise Exception("users hard delete disabled")
 
 async def func_extract_request_object_list(*, request: any) -> list:
@@ -3748,7 +3748,7 @@ def func_app_cors_add(*, app: any, allow_origins: list = None, allow_origin_rege
 def func_app_fastapi_create(*, config_is_debug: bool = False, lifespan: any = None):
     """Create and configure the primary FastAPI application instance."""
     from fastapi import FastAPI
-    return FastAPI(debug=bool(config_is_debug), lifespan=lifespan, openapi_url=None, docs_url=None, redoc_url=None)
+    return FastAPI(debug=bool(int(config_is_debug)), lifespan=lifespan, openapi_url=None, docs_url=None, redoc_url=None)
 
 def func_structure_init(*, dir_list: tuple = ("tmp", "secret")) -> None:
     """Reset working tmp/ directory and ensure required application directories exist."""
