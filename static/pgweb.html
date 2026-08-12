@@ -362,16 +362,16 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
           <textarea id="sql" wrap="off" spellcheck="false" placeholder="select * from test limit 10;"></textarea>
         </div>
         <div id="qbar">
-          <button class="primary" id="run">Run</button>
-          <button id="cancelquery" hidden>Cancel</button>
-          <button id="stream" title="Download all returned rows as a streaming CSV">Stream</button>
           <button id="explain" title="Show the estimated query plan without executing the query">Explain</button>
           <button id="analyze" title="Execute the query and show actual timing and row counts">Analyze</button>
+          <button id="stream" title="Download all returned rows as a streaming CSV">Stream</button>
+          <button class="primary" id="run">Run</button>
+          <button id="cancelquery" hidden>Cancel</button>
           <span id="streamprogress" hidden><progress id="streambar"></progress><span id="streammsg"></span></span>
           <span id="qmsg"></span>
           <button class="export" data-format="json" disabled>JSON</button>
-          <button class="export" data-format="csv" disabled>CSV</button>
           <button class="export" data-format="xml" disabled>XML</button>
+          <button class="export" data-format="csv" disabled>CSV</button>
           <button id="resetsql" title="Reset to default SQL" hidden>Reset</button>
         </div>
         <div id="qres">
