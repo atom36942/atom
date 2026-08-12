@@ -48,9 +48,9 @@ Do not read `request.query_params`, `request.json()`, or `request.form()` direct
 oq = await app_state.func_request_param_read(
     request=request,
     mode="query",
-    strict=0,
+    strict=False,
     param_specs=[
-        {"name": "category", "type": "str", "required": 1},
+        {"name": "category", "type": "str", "required": True},
         {"name": "active", "type": "bool", "default": 1},
     ],
 )
@@ -58,9 +58,9 @@ oq = await app_state.func_request_param_read(
 ob = await app_state.func_request_param_read(
     request=request,
     mode="body",
-    strict=1,
+    strict=True,
     param_specs=[
-        {"name": "name", "type": "str", "required": 1},
+        {"name": "name", "type": "str", "required": True},
         {"name": "quantity", "type": "int", "default": 1},
         {"name": "tags", "type": "list:str", "default": []},
     ],
@@ -72,7 +72,7 @@ Use:
 - `mode="body"` for a JSON object
 - `mode="form"` for multipart form data and file uploads
 - `mode="header"` for headers
-- `strict=1` to return only declared parameters
+- `strict=True` to return only declared parameters
 
 ### 5. Move core logic to `function_extend.py`
 
@@ -183,31 +183,31 @@ Add the exact route path and enable the checks you need:
 ```python
 config_api["/my/report"] = {
     "id": 210,
-    "is_token": 1,
+    "is_token": True,
     "user_check_role": {"mode": "token", "roles": [1, 2]},
     "user_check_deactivated": {"mode": "realtime"},
 }
 ```
 
-For an intentionally public route, still register it with `"is_token": 0`. Make sure the path exactly matches the registered route, every entry has a unique positive `id`, and protected routes set `"is_token": 1`. Then restart the app so startup validation can check the policy. See [config.md](config.md#config_api) and [middleware.md](middleware.md).
+For an intentionally public route, still register it with `"is_token": False`. Make sure the path exactly matches the registered route, every entry has a unique positive `id`, and protected routes set `"is_token": True`. Then restart the app so startup validation can check the policy. See [config.md](config.md#config_api) and [middleware.md](middleware.md).
 
 </details>
 
 <details>
 <summary><strong>How do I disable specific endpoints or admin APIs in production?</strong></summary>
 
-Set `"is_active": 0` in the route's `config_api` policy (e.g., in `config_extend.py` or `config.py`):
+Set `"is_active": False` in the route's `config_api` policy (e.g., in `config_extend.py` or `config.py`):
 
 ```python
 config_api["/admin/postgres-query-runner-write"] = {
     "id": 6,
-    "is_active": 0,  # <-- Disables this route in production
-    "is_token": 1,
+    "is_active": False,  # <-- Disables this route in production
+    "is_token": True,
     "user_check_role": {"mode": "realtime", "roles": [1]},
 }
 ```
 
-When `"is_active": 0` is set, the HTTP middleware checks it immediately via `func_middleware_check_active` before decoding tokens or querying the database, instantly rejecting the request with an exception (`"API endpoint is disabled"`). If `"is_active"` is omitted, it defaults to `1` (enabled). See [config.md](config.md#config_api) and [middleware.md](middleware.md).
+When `"is_active": False` is set, the HTTP middleware checks it immediately via `func_middleware_check_active` before decoding tokens or querying the database, instantly rejecting the request with an exception (`"API endpoint is disabled"`). If `"is_active"` is omitted, it defaults to `True`. See [config.md](config.md#config_api) and [middleware.md](middleware.md).
 
 </details>
 
@@ -225,12 +225,12 @@ Public signup cannot create role `1` users, which prevents callers from granting
 <details>
 <summary><strong>Why do I get "signup disabled"?</strong></summary>
 
-The application is running with `config_is_signup = 0`. In that mode, password signup is rejected, and OTP or Google login cannot automatically create a user on their first login.
+The application is running with `config_is_signup = False`. In that mode, password signup is rejected, and OTP or Google login cannot automatically create a user on their first login.
 
 Set the value in `.env` or `config_extend.py`, then restart Atom:
 
 ```python
-config_is_signup = 1
+config_is_signup = True
 ```
 
 If signup should remain closed, create the user through an administrator workflow instead; existing users can still log in. See [auth.md](auth.md).
@@ -283,8 +283,8 @@ Define the table under `config_postgres["table"]`, preferably from `config_exten
 
 ```python
 config_postgres["table"]["project"] = [
-    {"name": "id", "datatype": "bigint", "identity": "always", "is_primary": 1},
-    {"name": "title", "datatype": "varchar(200)", "is_mandatory": 1},
+    {"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True},
+    {"name": "title", "datatype": "varchar(200)", "is_mandatory": True},
     {"name": "created_at", "datatype": "timestamptz", "default": "CURRENT_TIMESTAMP"},
 ]
 ```
@@ -296,17 +296,17 @@ Restart Atom after the change. Startup schema initialization creates the table a
 <details>
 <summary><strong>How do I cache an endpoint's response?</strong></summary>
 
-Add `cache` to the route's `config_api` policy. The format is `{"mode": "inmemory", "ttl_sec": 60, "is_per_user": 0}`:
+Add `cache` to the route's `config_api` policy. The format is `{"mode": "inmemory", "ttl_sec": 60, "is_per_user": False}`:
 
 ```python
 config_api["/public/catalog"] = {
     "id": 211,
-    "is_token": 0,
-    "cache": {"mode": "inmemory", "ttl_sec": 60, "is_per_user": 0},
+    "is_token": False,
+    "cache": {"mode": "inmemory", "ttl_sec": 60, "is_per_user": False},
 }
 ```
 
-This example caches matching responses for 60 seconds. Cache keys include the route and query string; set `is_per_user` to `1` when responses must also be isolated by authenticated user. Use `"redis"` instead of `"inmemory"` when multiple Atom processes need to share the same cache, and configure Redis first.
+This example caches matching responses for 60 seconds. Cache keys include the route and query string; set `is_per_user` to `True` when responses must also be isolated by authenticated user. Use `"redis"` instead of `"inmemory"` when multiple Atom processes need to share the same cache, and configure Redis first.
 
 Cache read-heavy endpoints whose responses may safely be slightly stale. Avoid caching rapidly changing or side-effecting responses.
 
@@ -320,7 +320,7 @@ Add `rate_limit` to the route's `config_api` entry. Its format is `{"mode": "inm
 ```python
 config_api["/public/otp-send-email"] = {
     "id": 212,
-    "is_token": 0,
+    "is_token": False,
     "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60},
 }
 ```
@@ -509,7 +509,7 @@ config_is_signup=false
 config_cors_allow_origins=["https://app.example.com"]
 ```
 
-Booleans accept values such as `true`, `1`, `yes`, and `on`; structured values must use JSON with double-quoted strings. Never print secret values while debugging—confirm only whether they were loaded. See [config.md](config.md#how-config-is-loaded--overridden).
+Booleans accept case-insensitive `true` and `false`; `1`/`0`, `yes`/`no`, and `on`/`off` are also accepted; structured values must use JSON with double-quoted strings. Never print secret values while debugging—confirm only whether they were loaded. See [config.md](config.md#how-config-is-loaded--overridden).
 
 </details>
 
@@ -597,7 +597,7 @@ Keep project-specific changes outside framework-managed files:
 - Add endpoints in a new `router/<name>.py` containing an `APIRouter`.
 - Add standalone consumers and jobs under `script/`.
 
-Register every custom route in `config_api`; use `"is_token": 0` for an intentionally public route, then add role checks, caching, or rate limiting as needed. `sync.py` overwrites core files and the shipped documentation, but preserves extension files, custom routers, and `.env`.
+Register every custom route in `config_api`; use `"is_token": False` for an intentionally public route, then add role checks, caching, or rate limiting as needed. `sync.py` overwrites core files and the shipped documentation, but preserves extension files, custom routers, and `.env`.
 
 If you are fixing Atom itself for everyone, edit the core source and submit a pull request instead. See [extend.md](extend.md).
 
@@ -610,7 +610,7 @@ Enable Atom's global read-only mode and use read-only database credentials as th
 
 ```dotenv
 config_postgres_url=postgresql://readonly_user:password@host:5432/database
-config_is_read_only=1
+config_is_read_only=true
 ```
 
 When read-only mode is enabled, Atom:
@@ -666,7 +666,7 @@ curl "http://localhost:8000/public/object-read?db=read_india&table=products&limi
 <details>
 <summary><strong>Will automatic schema initialization delete or alter existing database objects?</strong></summary>
 
-It can. When `config_is_postgres_schema_init = 1`, startup compares `config_postgres` with the live schema and applies configured tables, columns, constraints, indexes, extensions, and triggers. The `config_postgres["control"]` flags determine whether missing tables or columns may be dropped and whether mismatched column types may be recreated.
+It can. When `config_is_postgres_schema_init = True`, startup compares `config_postgres` with the live schema and applies configured tables, columns, constraints, indexes, extensions, and triggers. The `config_postgres["control"]` flags determine whether missing tables or columns may be dropped and whether mismatched column types may be recreated.
 
 Review those controls carefully before pointing Atom at an existing or production database. Back up the database, test schema changes on a copy, and use a database account with appropriately limited privileges. For a safe column rename, set the column's `old` key instead of removing one name and adding another. See [config.md](config.md#control).
 
@@ -707,7 +707,7 @@ Read the first startup exception rather than the later shutdown noise. Check rec
 At minimum:
 
 - Replace `config_token_secret_key` and `config_root_user_password`.
-- Set `config_is_debug = 0`.
+- Set `config_is_debug = False`.
 - Restrict CORS origins and review every public table allow-list.
 - Use short, intentional token lifetimes and realtime checks for destructive admin operations.
 - Rate-limit authentication, OTP, upload, write, and costly integration routes.

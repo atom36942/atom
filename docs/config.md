@@ -14,6 +14,15 @@ Config values are resolved in three tiers (later wins):
 
 > **Rule of Thumb**: Use `.env` for secrets, credentials, and environment flags; use `config_extend.py` for structural changes (tables, custom route policies).
 
+Boolean defaults remain booleans when overridden from `.env`. Use case-insensitive `true` or `false` as the standard form:
+
+```dotenv
+config_is_signup=true
+config_is_debug=false
+```
+
+The loader also accepts `1`/`0`, `yes`/`no`, and `on`/`off`. Any other value raises a startup error instead of silently choosing a value. In Python configuration such as `config.py` or `config_extend.py`, always use `True` and `False`.
+
 ---
 
 ## Single Configuration Keys
@@ -71,12 +80,12 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_login_password` | Default fallback login password for test environments |
 | `config_token_secret_key` | HMAC secret key for signing/verifying JWT tokens *(Must change)* |
 | `config_root_html_path` | Path to static HTML file served at `/` (`static/api.html`) |
-| `config_is_user_delete` | Toggle user hard-deletion flow (0 = disabled, 1 = enabled) |
-| `config_is_postgres_schema_init` | Toggle database schema initialization on startup (1/0) |
-| `config_is_signup` | Toggle public user signup routes in `router/auth.py` (1/0) |
-| `config_is_otp_require_users_update` | Require OTP verification when updating user contact details (1/0) |
-| `config_is_read_only` | System-wide read-only mode toggle (1/0) |
-| `config_is_debug` | FastAPI debug mode toggle (1 = debug, 0 = production) |
+| `config_is_user_delete` | Boolean toggle for the user hard-deletion flow |
+| `config_is_postgres_schema_init` | Boolean toggle for database schema initialization on startup |
+| `config_is_signup` | Boolean toggle for public user signup routes in `router/auth.py` |
+| `config_is_otp_require_users_update` | Boolean requiring OTP verification when updating user contact details |
+| `config_is_read_only` | Boolean system-wide read-only mode toggle |
+| `config_is_debug` | Boolean FastAPI debug-mode toggle (`False` in production) |
 | `config_postgres_db_log_api` | Named Postgres pool key for API logging (`None` = primary pool) |
 
 ### Limits, OTP & Auth
@@ -163,13 +172,13 @@ Per-endpoint security and execution policy table.
 | Key | Type / Value | Description & Usage |
 |---|---|---|
 | `id` | `int` | Unique numeric identifier for the endpoint |
-| `is_active` | `0` / `1` | Toggles endpoint availability (`0` disables endpoint instantly via middleware) |
-| `is_token` | `0` / `1` | `1` requires a valid JWT access token; `0` allows public unauthenticated access |
+| `is_active` | `bool` | Toggles endpoint availability (`False` disables the endpoint via middleware) |
+| `is_token` | `bool` | `True` requires a valid JWT access token; `False` allows public unauthenticated access |
 | `user_check_role` | `{"mode": "...", "roles": [...]}` | Restricts access to users with listed role numbers |
 | `user_check_deactivated` | `{"mode": "..."}` | Blocks request if user has `deactivated_at` timestamp set |
 | `user_check_deleted` | `{"mode": "..."}` | Blocks request if user has `deleted_at` timestamp set |
 | `rate_limit` | `{"mode": "...", "limit": N, "window_sec": S}` | Limits requests to `limit` per `window_sec` seconds |
-| `cache` | `{"mode": "...", "ttl_sec": S, "is_per_user": 0/1}` | Caches response for `ttl_sec` seconds (`is_per_user: 1` isolates per user) |
+| `cache` | `{"mode": "...", "ttl_sec": S, "is_per_user": bool}` | Caches responses for `ttl_sec` seconds (`is_per_user: True` isolates entries per user) |
 
 #### Inspection Modes (`mode` Nested Key)
 
@@ -201,8 +210,8 @@ Declarative schema initialization and migration configuration.
 | `name` | `str` | Column name (first column must be `id` primary key) |
 | `datatype` | `str` | PostgreSQL data type (e.g. `bigint`, `timestamptz`, `text`, `jsonb`, `geography`) |
 | `identity` | `str` | Identity column strategy (`"always"` or `"by_default"`) |
-| `is_primary` | `int` | `1` designates identity primary key column |
-| `is_mandatory` | `int` | `1` adds `NOT NULL` constraint |
+| `is_primary` | `bool` | `True` designates the identity primary-key column |
+| `is_mandatory` | `bool` | `True` adds a `NOT NULL` constraint |
 | `default` | `str` / `int` | Default value/expression (e.g. `"now()"`, `1`) |
 | `unique` | `str` | Unique constraint (`"code,type"` for composite; `"code,type\|code,slug"` for multiple) |
 | `check` | `str` | SQL `CHECK` clause (e.g. `"rating >= 0 AND rating <= 10"`) |
@@ -217,13 +226,13 @@ Auto-migration and safety guards in `config_postgres["control"]`.
 
 | Control Key | Default | Usage & Description |
 |---|---|---|
-| `is_updated_at_set` | `1` | Auto-attaches trigger to maintain `updated_at` column on record update |
-| `is_protected_delete_disabled` | `1` | Prevents deletion of rows where `is_protected = true` |
-| `is_truncate_table` | `0` | Controls whether table truncation is permitted during startup schema init |
-| `is_log_users_password` | `1` | Automatically records password changes into `log_users_password` |
-| `is_log_users_delete` | `1` | Automatically logs user soft/hard deletion actions into `log_users_delete` |
-| `is_root_user_create` | `1` | Automatically seeds initial root admin user on startup |
-| `is_root_user_delete_disabled` | `1` | Protects root admin user account from deletion |
+| `is_updated_at_set` | `True` | Auto-attaches trigger to maintain `updated_at` column on record update |
+| `is_protected_delete_disabled` | `True` | Prevents deletion of rows where `is_protected = true` |
+| `is_truncate_table` | `False` | Controls whether table truncation is permitted during startup schema init |
+| `is_log_users_password` | `True` | Automatically records password changes into `log_users_password` |
+| `is_log_users_delete` | `True` | Automatically logs user soft/hard deletion actions into `log_users_delete` |
+| `is_root_user_create` | `True` | Automatically seeds initial root admin user on startup |
+| `is_root_user_delete_disabled` | `True` | Protects root admin user account from deletion |
 | `table_row_delete_disable_all` | `["users", ...]` | Tables where row deletion is entirely prohibited |
 | `table_row_delete_disable_bulk` | `[["*", 1000]]` | Caps on maximum rows allowed in a single bulk delete operation |
 

@@ -197,7 +197,7 @@ curl -X POST "http://localhost:8000/my/object-delete" \
 
 ### Delete Safeguards:
 - **Protected Rows**: Rows flagged `is_protected` cannot be deleted (`is_protected_delete_disabled`).
-- **User Account Hard Delete**: Deleting user accounts requires `config_is_user_delete = 1`.
+- **User Account Hard Delete**: Deleting user accounts requires `config_is_user_delete = True`.
 - **Table Delete Guards**: `table_row_delete_disable_all` and `table_row_delete_disable_bulk` protect critical system tables.
 - **Delete-All Enable**: Bulk table deletion via `/my/object-delete-all` requires explicit configuration in `config_table_my_delete_all_enabled`.
 

@@ -9,7 +9,7 @@ router = APIRouter()
 @router.get("/my/profile")
 async def func_api_my_profile(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}])
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     user_id = request.state.user["id"]
     user = await app_state.func_user_read_single(client_postgres=client_postgres, user_id=user_id)
@@ -35,7 +35,7 @@ async def func_api_my_token_refresh(*, request: Request):
 @router.get("/my/api-usage")
 async def func_api_my_api_usage(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}, {"name": "days", "type": "int", "required": 1, "allowed": None, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "days", "type": "int", "required": True, "allowed": None, "default": None}])
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     sql = "SELECT path AS api, count(*) FROM log_api WHERE created_at >= NOW() - ($1 * INTERVAL '1 day') AND created_by_id=$2 GROUP BY path LIMIT 1000;"
     async with client_postgres.acquire() as conn:
@@ -46,7 +46,7 @@ async def func_api_my_api_usage(*, request: Request):
 @router.post("/my/object-create")
 async def func_api_my_object_create(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "mode", "type": "str", "required": 0, "allowed": ["now", "buffer"], "default": "now"}, {"name": "queue", "type": "str", "required": 0, "allowed": app_state.config_queue_services, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "mode", "type": "str", "required": False, "allowed": ["now", "buffer"], "default": "now"}, {"name": "queue", "type": "str", "required": False, "allowed": app_state.config_queue_services, "default": None}])
     if (not oq["queue"] and not app_state.client_postgres) or (oq["queue"] == "redis" and not app_state.client_redis_producer) or (oq["queue"] == "rabbitmq" and not app_state.client_rabbitmq_producer) or (oq["queue"] == "kafka" and not app_state.client_kafka_producer) or (oq["queue"] == "celery" and not app_state.client_celery_producer): raise Exception("required postgres/queue client not initialized")
     if "*" in app_state.config_table_my_create_disabled or oq["table"] in app_state.config_table_my_create_disabled: raise Exception(f"creation disabled for table: {oq['table']}")
     obj_list = await app_state.func_extract_request_object_list(request=request)
@@ -60,7 +60,7 @@ async def func_api_my_object_create(*, request: Request):
 @router.get("/my/object-read")
 async def func_api_my_object_read(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "ownership_column", "type": "str", "required": 0, "allowed": app_state.config_column_ownership, "default": "created_by_id"}, {"name": "limit", "type": "int", "required": 0, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": 0, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": 0, "allowed": None, "default": "id desc"}, {"name": "column", "type": "str", "required": 0, "allowed": None, "default": "*"}, {"name": "relation", "type": "list", "required": 0, "allowed": None, "default": []}, {"name": "filter", "type": "list", "required": 0, "allowed": None, "default": []}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "ownership_column", "type": "str", "required": False, "allowed": app_state.config_column_ownership, "default": "created_by_id"}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "id desc"}, {"name": "column", "type": "str", "required": False, "allowed": None, "default": "*"}, {"name": "relation", "type": "list", "required": False, "allowed": None, "default": []}, {"name": "filter", "type": "list", "required": False, "allowed": None, "default": []}])
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     schema_cols = cache_postgres_schema.get(oq["table"], {})
     if oq["ownership_column"] == "user_id" and "id" in schema_cols and "read_at" in schema_cols and not app_state.client_postgres: raise Exception("postgres client not initialized")
@@ -73,7 +73,7 @@ async def func_api_my_object_read(*, request: Request):
 @router.put("/my/object-update")
 async def func_api_my_object_update(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "otp", "type": "int", "required": 0, "allowed": None, "default": None}, {"name": "queue", "type": "str", "required": 0, "allowed": app_state.config_queue_services, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "otp", "type": "int", "required": False, "allowed": None, "default": None}, {"name": "queue", "type": "str", "required": False, "allowed": app_state.config_queue_services, "default": None}])
     obj_list = await app_state.func_extract_request_object_list(request=request)
     if ((not oq["queue"] or (oq["table"] == "users" and any(key in obj_list[0] for key in ("email", "mobile")))) and not app_state.client_postgres) or (oq["queue"] == "redis" and not app_state.client_redis_producer) or (oq["queue"] == "rabbitmq" and not app_state.client_rabbitmq_producer) or (oq["queue"] == "kafka" and not app_state.client_kafka_producer) or (oq["queue"] == "celery" and not app_state.client_celery_producer): raise Exception("required postgres/queue client not initialized")
     if app_state.config_batch_item_limit and len(obj_list) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
@@ -93,7 +93,7 @@ async def func_api_my_object_update(*, request: Request):
 async def func_api_my_ids_delete(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "ids", "type": "list:int", "required": 1, "allowed": None, "default": None}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "ids", "type": "list:int", "required": True, "allowed": None, "default": None}])
     if app_state.config_batch_item_limit and len(ob["ids"]) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
     app_state.func_check_user_delete_permission(app_state=app_state, table=ob["table"])
     if ob["table"] == "users" and len(ob["ids"]) != 1: raise Exception("multiple users table delete not allowed")
@@ -106,7 +106,7 @@ async def func_api_my_ids_delete(*, request: Request):
 async def func_api_my_object_delete_all(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}])
     if oq["table"] == "users": raise Exception("users bulk delete disabled; use /my/object-delete for own account")
     enabled_delete_all = app_state.config_table_my_delete_all_enabled or []
     if "*" not in enabled_delete_all and oq["table"] not in enabled_delete_all: raise Exception(f"delete all disabled for table: {oq['table']}")
@@ -119,7 +119,7 @@ async def func_api_my_object_delete_all(*, request: Request):
 async def func_api_my_received_ids_delete(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "col", "type": "str", "required": 0, "allowed": ["user_id"], "default": "user_id"}, {"name": "ids", "type": "list:int", "required": 1, "allowed": None, "default": None}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "col", "type": "str", "required": False, "allowed": ["user_id"], "default": "user_id"}, {"name": "ids", "type": "list:int", "required": True, "allowed": None, "default": None}])
     if app_state.config_batch_item_limit and len(ob["ids"]) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
     schema = app_state.cache_postgres_schema.get(ob["table"], {})
     col = ob["col"]
@@ -136,7 +136,7 @@ async def func_api_my_received_ids_delete(*, request: Request):
 async def func_api_my_received_object_delete_all(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "col", "type": "str", "required": 0, "allowed": ["user_id"], "default": "user_id"}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "col", "type": "str", "required": False, "allowed": ["user_id"], "default": "user_id"}])
     if oq["table"] == "users": raise Exception("users received bulk delete disabled")
     enabled_delete_all_user_id = app_state.config_table_my_delete_all_received_enabled or []
     if "*" not in enabled_delete_all_user_id and oq["table"] not in enabled_delete_all_user_id: raise Exception(f"received delete all disabled for table: {oq['table']}")
@@ -149,7 +149,7 @@ async def func_api_my_received_object_delete_all(*, request: Request):
 @router.get("/my/message-inbox")
 async def func_api_my_message_inbox(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}, {"name": "mode", "type": "str", "required": 1, "allowed": ["all", "unread", "read"], "default": None}, {"name": "order", "type": "str", "required": 0, "allowed": None, "default": "id desc"}, {"name": "limit", "type": "int", "required": 0, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": 0, "allowed": None, "default": 1}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "mode", "type": "str", "required": True, "allowed": ["all", "unread", "read"], "default": None}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "id desc"}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}])
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     where_clause = {"read": "user_id=$1 AND read_at IS NOT NULL", "unread": "user_id=$1 AND read_at IS NULL"}.get(oq["mode"], "1=1")
     sql = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
@@ -160,7 +160,7 @@ async def func_api_my_message_inbox(*, request: Request):
 @router.get("/my/message-thread")
 async def func_api_my_message_thread(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "db", "type": "str", "required": 0, "allowed": None, "default": None}, {"name": "user_id", "type": "int", "required": 1, "allowed": None, "default": None}, {"name": "order", "type": "str", "required": 0, "allowed": None, "default": "id desc"}, {"name": "limit", "type": "int", "required": 0, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": 0, "allowed": None, "default": 1}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "user_id", "type": "int", "required": True, "allowed": None, "default": None}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "id desc"}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}])
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
     user_one_id = request.state.user["id"]
@@ -175,8 +175,8 @@ async def func_api_my_message_thread(*, request: Request):
 async def func_api_my_object_create_mongodb(*, request: Request):
     app_state = request.app.state
     if not app_state.client_mongodb: raise Exception("mongodb client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[{"name": "database", "type": "str", "required": 1, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": 1, "allowed": None, "default": None}])
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "database", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": True, "allowed": None, "default": None}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[])
     obj_list = ob.get("obj_list", [ob])
     res = await app_state.client_mongodb[oq["database"]][oq["table"]].insert_many(obj_list)
     output=[str(id) for id in res.inserted_ids]
@@ -185,7 +185,7 @@ async def func_api_my_object_create_mongodb(*, request: Request):
 @router.post("/my/blob-delete-url")
 async def func_api_my_blob_url_delete(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=0, param_specs=[{"name": "service", "type": "str", "required": 1, "allowed": app_state.config_blob_services, "default": None}, {"name": "url", "type": "list:str", "required": 1, "allowed": None, "default": None}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services, "default": None}, {"name": "url", "type": "list:str", "required": True, "allowed": None, "default": None}])
     service, urls, user_id = ob["service"], ob["url"], request.state.user["id"]
     if len(urls) > 500: raise Exception("maximum 500 URLs allowed per request")
     await app_state.func_blob_url_delete(app_state=app_state, service=service, urls=urls, user_id=user_id)

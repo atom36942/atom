@@ -48,7 +48,7 @@ Only configure clients that the application uses. A missing URL leaves its clien
 ```python
 "/private/example": {
     "id": 101,
-    "is_token": 1,
+    "is_token": True,
     "user_check_role": {"mode": "redis", "roles": [1, 2]},
     "user_check_deactivated": {"mode": "redis"},
     "user_check_deleted": {"mode": "redis"},
@@ -72,12 +72,12 @@ Set a route's `cache` mode to `redis`:
 ```python
 "/public/example": {
     "id": 102,
-    "is_token": 0,
-    "cache": {"mode": "redis", "ttl_sec": 300, "is_per_user": 0},
+    "is_token": False,
+    "cache": {"mode": "redis", "ttl_sec": 300, "is_per_user": False},
 },
 ```
 
-The dict keys are `{"mode": "...", "ttl_sec": ..., "is_per_user": ...}`. Set `is_per_user` to `1` to include the authenticated user id in the key, or `0` to share the cached response. Cache keys have this shape:
+The dict keys are `{"mode": "...", "ttl_sec": ..., "is_per_user": ...}`. Set `is_per_user` to `True` to include the authenticated user id in the key, or `False` to share the cached response. Cache keys have this shape:
 
 ```text
 cache:{path}?{sorted_query_parameters}:{user_id_or_0}
@@ -104,7 +104,7 @@ Enable distributed rate limiting for a route with:
 ```python
 "/public/example": {
     "id": 103,
-    "is_token": 0,
+    "is_token": False,
     "rate_limit": {"mode": "redis", "limit": 100, "window_sec": 60},
 },
 ```

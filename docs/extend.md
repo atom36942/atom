@@ -30,8 +30,8 @@ Create `config_extend.py` in the project root. Any name you define replaces the 
 # config_extend.py
 
 # turn features on/off
-config_is_signup = 0
-config_is_debug = 0
+config_is_signup = False
+config_is_debug = False
 
 # enable an integration just by setting its config
 config_openai_key = "sk-..."
@@ -40,7 +40,7 @@ config_openai_key = "sk-..."
 from config import config_api
 config_api = {
     **config_api,
-    "/custom/hello": {"id": 200, "is_token": 0},
+    "/custom/hello": {"id": 200, "is_token": False},
 }
 ```
 
@@ -86,17 +86,17 @@ Load order is controlled by `router_order` in `main.py` (files not listed load a
 
 ## 4. Add or change database tables
 
-Tables are declared as data in `config.py` under `config_postgres["table"]` and created automatically on startup when `config_is_postgres_schema_init = 1`. To add your own table without editing `config.py`, extend the structure in `config_extend.py`:
+Tables are declared as data in `config.py` under `config_postgres["table"]` and created automatically on startup when `config_is_postgres_schema_init = True`. To add your own table without editing `config.py`, extend the structure in `config_extend.py`:
 
 ```python
 # config_extend.py
 from config import config_postgres
 
 config_postgres["table"]["product"] = [
-    {"name": "id", "datatype": "bigint", "identity": "always", "is_primary": 1},
+    {"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True},
     {"name": "created_at", "datatype": "timestamptz", "default": "now()", "index": "btree(created_at)"},
     {"name": "created_by_id", "datatype": "bigint"},
-    {"name": "title", "datatype": "text", "is_mandatory": 1, "index": "gin_trgm(title)"},
+    {"name": "title", "datatype": "text", "is_mandatory": True, "index": "gin_trgm(title)"},
     {"name": "price", "datatype": "numeric(10,2)"},
 ]
 ```

@@ -17,8 +17,8 @@ async def func_api_my_api_usage(*, request: Request):   # 2. naming convention
     if not app_state.client_postgres:     # 4. guard needed clients
         raise Exception("postgres client not initialized")
     oq = await app_state.func_request_param_read(       # 5. read & validate params
-        request=request, mode="query", strict=0,
-        param_specs=[{"name": "days", "type": "int", "required": 1}])
+        request=request, mode="query", strict=False,
+        param_specs=[{"name": "days", "type": "int", "required": True}])
     async with app_state.client_postgres.acquire() as conn:
         records = await conn.fetch(sql, oq["days"], request.state.user["id"])  # 6. use request.state.user
         obj_list = [dict(r) for r in records]
@@ -41,7 +41,7 @@ Match the tier the route belongs to:
 |------|---------|
 | `index` | Root/meta (health, info, openapi) |
 | `auth` | Signup & login (no token) |
-| `my` | The authenticated user's own data (`is_token=1`) |
+| `my` | The authenticated user's own data (`is_token=True`) |
 | `public` | Open, unauthenticated endpoints |
 | `private` | Authenticated server-side actions (email, blobs) |
 | `admin` | Role-restricted privileged ops |
@@ -55,8 +55,8 @@ Put your endpoint in the file matching its tier (or a new file — see below).
 **Never** read `request.query_params` / `request.json()` by hand. Use `func_request_param_read` — it extracts, validates, type-casts, and applies defaults in one call.
 
 ```python
-oq = await app_state.func_request_param_read(request=request, mode="query", strict=0, param_specs=[
-    {"name": "table", "type": "str", "required": 1, "allowed": None},
+oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[
+    {"name": "table", "type": "str", "required": True, "allowed": None},
     {"name": "limit", "type": "int", "default": 100},
     {"name": "mode", "type": "str", "allowed": ["now", "buffer"], "default": "now"},
 ])
@@ -66,24 +66,24 @@ oq = await app_state.func_request_param_read(request=request, mode="query", stri
 
 **`param_specs`** — a list of dictionaries describing the accepted parameters.
 - `name` — parameter name (required).
-- `type` — `int` / `float` / `str` / `bool` / `dict` / `list` / `file` / `any`, or `list:int` etc. for typed lists (required). Booleans accept `1/true/yes/on/ok`; lists accept JSON or comma-separated strings.
-- `required` — `1` raises if the parameter is missing or empty. A required parameter cannot also have a default.
+- `type` — `int` / `float` / `str` / `bool` / `dict` / `list` / `file` / `any`, or `list:int` etc. for typed lists (required). Boolean request values accept `true`/`false`, `1`/`0`, `yes`/`no`, and `on`/`off`; lists accept JSON or comma-separated strings.
+- `required` — `True` raises if the parameter is missing or empty. A required parameter cannot also have a default.
 - `allowed` — a whitelist; the value must be one of these (great for validating options, or a service against `config_*_services`).
 - `default` — used when the parameter is absent.
 
 Only `name` and `type` are required in each dictionary; omit `required`, `allowed`, and `default` when they do not apply.
 
-**`strict`** — `0` keeps unrecognized params too; `1` returns only the keys you declared.
+**`strict`** — `False` keeps unrecognized parameters too; `True` returns only the keys you declared.
 
 Convention: name the result `oq` (query), `ob` (body), `of` (form). For bulk writes the pattern is `obj_list = ob.get("obj_list", [ob])` so one endpoint accepts a single object or a list.
 
 **Form / file upload** example (`/private/blob-upload-file`):
 ```python
-of = await app_state.func_request_param_read(request=request, mode="form", strict=0, param_specs=[
-    {"name": "service", "type": "str", "required": 1,
+of = await app_state.func_request_param_read(request=request, mode="form", strict=False, param_specs=[
+    {"name": "service", "type": "str", "required": True,
      "allowed": app_state.config_blob_services},
-    {"name": "container", "type": "str", "required": 1},
-    {"name": "file", "type": "file", "required": 1},
+    {"name": "container", "type": "str", "required": True},
+    {"name": "file", "type": "file", "required": True},
 ])
 ```
 
@@ -99,7 +99,7 @@ Two different scopes — don't confuse them:
 | `request.state` | This request only | The middleware, per request | `request.state.user` — the decoded JWT claims (`{}` if unauthenticated). |
 
 So:
-- Get the authenticated user's id: `request.state.user["id"]` (safe on `is_token=1` routes; use `request.state.user.get("id")` on public routes where a token is optional).
+- Get the authenticated user's id: `request.state.user["id"]` (safe on `is_token=True` routes; use `request.state.user.get("id")` on public routes where a token is optional).
 - Get a DB client / config / helper: `request.app.state.client_postgres`, `app_state.config_batch_item_limit`, `app_state.func_postgres_read(...)`.
 
 Idiom: bind `app_state = request.app.state` on the first line, then reference `app_state.*`.
@@ -125,7 +125,7 @@ async def func_report_generate(*, client_postgres, user_id, days):
 @router.get("/my/report")
 async def func_api_my_report(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=0,
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False,
         param_specs=[{"name": "days", "type": "int", "default": 7}])
     data = await app_state.func_report_generate(
         client_postgres=app_state.client_postgres,
@@ -169,7 +169,7 @@ Adding the route file makes it *reachable*, but auth/rate-limit/cache come from 
 # config_extend.py
 from config import config_api
 config_api = {**config_api,
-    "/my/report": {"id": 210, "is_token": 1, "cache": {"mode": "inmemory", "ttl_sec": 30, "is_per_user": 0}},
+    "/my/report": {"id": 210, "is_token": True, "cache": {"mode": "inmemory", "ttl_sec": 30, "is_per_user": False}},
 }
 ```
 

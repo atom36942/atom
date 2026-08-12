@@ -41,12 +41,12 @@ config_root_user_password = "123456"
 config_login_password = "123456"
 config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
 config_root_html_path = "static/api.html"
-config_is_user_delete = 0
-config_is_postgres_schema_init = 1
-config_is_signup = 1
-config_is_otp_require_users_update = 0
-config_is_read_only = 0
-config_is_debug = 1
+config_is_user_delete = False
+config_is_postgres_schema_init = True
+config_is_signup = True
+config_is_otp_require_users_update = False
+config_is_read_only = False
+config_is_debug = True
 config_postgres_pool_min_size = 5
 config_postgres_pool_max_size = 20
 config_otp_length = 6
@@ -135,16 +135,16 @@ config_postgres = {
 "extension": ["postgis", "pg_trgm", "btree_gin"],
 "table":{
 "test":[
-{"name":"id","datatype":"bigint","identity":"always","is_primary":1},
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint"},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"type","datatype":"smallint","index":"btree(type)"},
-{"name":"title","datatype":"text","is_mandatory":1,"index":"gin_trgm(title)"},
+{"name":"title","datatype":"text","is_mandatory": True,"index":"gin_trgm(title)"},
 {"name":"description","datatype":"text"},
 {"name":"slug","datatype":"text","index":"btree(slug)"},
-{"name":"code","datatype":"text","is_mandatory":0,"unique":"code,type|code,slug"},
+{"name":"code","datatype":"text","is_mandatory": False,"unique":"code,type|code,slug"},
 {"name":"email","datatype":"text","regex":"^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$","index":"btree(email)"},
 {"name":"tag","datatype":"text[]","index":"gin(tag)"},
 {"name":"tag_int","datatype":"integer[]","index":"gin(tag_int)"},
@@ -156,7 +156,7 @@ config_postgres = {
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
 ],
 "users":[
-{"name":"id","datatype":"bigint","identity":"always","is_primary":1},
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint"},
 {"name":"updated_at","datatype":"timestamptz"},
@@ -168,7 +168,7 @@ config_postgres = {
 {"name":"deleted_at","datatype":"timestamptz"},
 {"name":"deleted_by_id","datatype":"bigint"},
 {"name":"is_protected","datatype":"boolean"},
-{"name":"role","datatype":"smallint","is_mandatory":1,"index":"btree(role)"},
+{"name":"role","datatype":"smallint","is_mandatory": True,"index":"btree(role)"},
 {"name":"username","datatype":"text","unique":"username,role"},
 {"name":"email","datatype":"text","unique":"email,role"},
 {"name":"mobile","datatype":"text","unique":"mobile,role"},
@@ -192,73 +192,73 @@ config_postgres = {
 {"name":"source","datatype":"smallint"},
 ],
 "config":[
-{"name":"id","datatype":"bigint","identity":"always","is_primary":1},
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint"},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"deactivated_at","datatype":"timestamptz"},
 {"name":"deactivated_by_id","datatype":"bigint"},
-{"name":"key","datatype":"text","is_mandatory":1,"unique":"key"},
-{"name":"value","datatype":"jsonb","is_mandatory":1},
+{"name":"key","datatype":"text","is_mandatory": True,"unique":"key"},
+{"name":"value","datatype":"jsonb","is_mandatory": True},
 ],
 "otp":[
-{"name":"id","datatype":"bigint","identity":"always","is_primary":1},
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint"},
-{"name":"otp","datatype":"integer","is_mandatory":1},
+{"name":"otp","datatype":"integer","is_mandatory": True},
 {"name":"email","datatype":"text","index":"btree(email)"},
 {"name":"mobile","datatype":"text","index":"btree(mobile)"},
 ],
 "blob":[
-{"name":"id","datatype":"bigint","identity":"always","is_primary":1},
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
 {"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"deleted_by_id","datatype":"bigint"},
-{"name":"type","datatype":"smallint","is_mandatory":1},
-{"name":"service","datatype":"text","is_mandatory":1},
-{"name":"file_url","datatype":"text","is_mandatory":1}
+{"name":"type","datatype":"smallint","is_mandatory": True},
+{"name":"service","datatype":"text","is_mandatory": True},
+{"name":"file_url","datatype":"text","is_mandatory": True}
 ],
 "message":[
-{"name":"id","datatype":"bigint","identity":"always","is_primary":1},
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
-{"name":"created_by_id","datatype":"bigint","is_mandatory":1,"index":"btree(created_by_id)"},
+{"name":"created_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(created_by_id)"},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"deleted_by_id","datatype":"bigint"},
-{"name":"user_id","datatype":"bigint","is_mandatory":1,"index":"btree(user_id)"},
-{"name":"description","datatype":"text","is_mandatory":1},
+{"name":"user_id","datatype":"bigint","is_mandatory": True,"index":"btree(user_id)"},
+{"name":"description","datatype":"text","is_mandatory": True},
 {"name":"read_at","datatype":"timestamptz"}
 ],
 "notification":[
-{"name":"id","datatype":"bigint","identity":"always","is_primary":1},
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"deleted_by_id","datatype":"bigint"},
-{"name":"type","datatype":"smallint","is_mandatory":1,"index":"btree(type)"},
-{"name":"user_id","datatype":"bigint","is_mandatory":1,"index":"btree(user_id)"},
-{"name":"title","datatype":"text","is_mandatory":1},
+{"name":"type","datatype":"smallint","is_mandatory": True,"index":"btree(type)"},
+{"name":"user_id","datatype":"bigint","is_mandatory": True,"index":"btree(user_id)"},
+{"name":"title","datatype":"text","is_mandatory": True},
 {"name":"description","datatype":"text"},
 {"name":"reference_table","datatype":"text"},
 {"name":"reference_id","datatype":"bigint"},
 {"name":"read_at","datatype":"timestamptz"}
 ],
 "comment_test":[
-{"name":"id","datatype":"bigint","identity":"always","is_primary":1},
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
-{"name":"created_by_id","datatype":"bigint","is_mandatory":1},
+{"name":"created_by_id","datatype":"bigint","is_mandatory": True},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"test_id","datatype":"bigint","is_mandatory":1,"index":"btree(test_id)"},
-{"name":"description","datatype":"text","is_mandatory":1},
+{"name":"test_id","datatype":"bigint","is_mandatory": True,"index":"btree(test_id)"},
+{"name":"description","datatype":"text","is_mandatory": True},
 ],
 "log_api":[
-{"name":"id","datatype":"bigint","identity":"always","is_primary":1},
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
 {"name":"ip_address","datatype":"text"},
@@ -271,18 +271,18 @@ config_postgres = {
 {"name":"error","datatype":"text"}
 ],
 "log_users_password":[
-{"name":"id","datatype":"bigint","identity":"always","is_primary":1},
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"created_by_id","datatype":"bigint"},
 {"name":"user_id","datatype":"bigint"},
 {"name":"password","datatype":"text"}
 ],
 "log_users_delete":[
-{"name":"id","datatype":"bigint","identity":"always","is_primary":1},
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint"},
-{"name":"type","datatype":"smallint","is_mandatory":1,"in":(1,2,3),"index":"btree(type,created_at)"},
-{"name":"user_id","datatype":"bigint","is_mandatory":1,"index":"btree(user_id,created_at)"},
+{"name":"type","datatype":"smallint","is_mandatory": True,"in":(1,2,3),"index":"btree(type,created_at)"},
+{"name":"user_id","datatype":"bigint","is_mandatory": True,"index":"btree(user_id,created_at)"},
 {"name":"worker_status","datatype":"smallint","in":(1,2,3,4),"index":"btree(worker_status,worker_next_retry_at,created_at)"},
 {"name":"worker_retry_count","datatype":"integer","default":0},
 {"name":"worker_next_retry_at","datatype":"timestamptz","default":"now()"},
@@ -290,7 +290,7 @@ config_postgres = {
 {"name":"worker_last_error","datatype":"text"}
 ],
 "jobseeker":[
-{"name":"id","datatype":"bigint","identity":"always","is_primary":1},
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint"},
 {"name":"updated_at","datatype":"timestamptz"},
@@ -345,13 +345,13 @@ config_postgres = {
 ],
 },
 "control":{
-"is_updated_at_set":1,
-"is_protected_delete_disabled":1,
-"is_truncate_table":0,
-"is_log_users_password":1,
-"is_log_users_delete":1,
-"is_root_user_create":1,
-"is_root_user_delete_disabled":1,
+"is_updated_at_set": True,
+"is_protected_delete_disabled": True,
+"is_truncate_table": False,
+"is_log_users_password": True,
+"is_log_users_delete": True,
+"is_root_user_create": True,
+"is_root_user_delete_disabled": True,
 "table_row_delete_disable_all":["users", "config", "log_users_password", "log_users_delete"],
 "table_row_delete_disable_bulk":[["*", 1000]],
 },
@@ -361,83 +361,83 @@ config_postgres = {
 
 config_api = {
 # index
-"/": {"id": 35, "is_token": 0},
-"/health": {"id": 36, "is_token": 0},
-"/info": {"id": 17, "is_token": 0, "cache": {"mode": "inmemory", "ttl_sec": 300, "is_per_user": 0}},
-"/openapi.json": {"id": 37, "is_token": 0},
-"/static": {"id": 77, "is_token": 0},
-"/pgweb": {"id": 99, "is_token": 0},
-"/websocket": {"id": 38, "is_token": 0},
+"/": {"id": 35, "is_token": False},
+"/health": {"id": 36, "is_token": False},
+"/info": {"id": 17, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 300, "is_per_user": False}},
+"/openapi.json": {"id": 37, "is_token": False},
+"/static": {"id": 77, "is_token": False},
+"/pgweb": {"id": 99, "is_token": False},
+"/websocket": {"id": 38, "is_token": False},
 # auth
-"/auth/login-password": {"id": 91, "is_token": 0},
-"/auth/signup-username-password": {"id": 39, "is_token": 0},
-"/auth/login-username-password": {"id": 40, "is_token": 0},
-"/auth/login-email-password": {"id": 41, "is_token": 0},
-"/auth/login-mobile-password": {"id": 42, "is_token": 0},
-"/auth/login-email-otp": {"id": 43, "is_token": 0},
-"/auth/login-mobile-otp": {"id": 44, "is_token": 0},
-"/auth/login-google": {"id": 45, "is_token": 0},
+"/auth/login-password": {"id": 91, "is_token": False},
+"/auth/signup-username-password": {"id": 39, "is_token": False},
+"/auth/login-username-password": {"id": 40, "is_token": False},
+"/auth/login-email-password": {"id": 41, "is_token": False},
+"/auth/login-mobile-password": {"id": 42, "is_token": False},
+"/auth/login-email-otp": {"id": 43, "is_token": False},
+"/auth/login-mobile-otp": {"id": 44, "is_token": False},
+"/auth/login-google": {"id": 45, "is_token": False},
 # my
-"/my/profile": {"id": 46, "is_token": 1},
-"/my/ping": {"id": 92, "is_token": 1},
-"/my/token-refresh": {"id": 47, "is_token": 1},
-"/my/api-usage": {"id": 48, "is_token": 1},
-"/my/object-create": {"id": 49, "is_token": 1},
-"/my/object-read": {"id": 50, "is_token": 1},
-"/my/object-update": {"id": 51, "is_token": 1},
-"/my/object-delete": {"id": 52, "is_token": 1},
-"/my/object-delete-all": {"id": 53, "is_token": 1},
-"/my/object-delete-received": {"id": 54, "is_token": 1},
-"/my/object-delete-received-all": {"id": 55, "is_token": 1},
-"/my/message-inbox": {"id": 56, "is_token": 1},
-"/my/message-thread": {"id": 57, "is_token": 1},
-"/my/object-create-mongodb": {"id": 58, "is_token": 1},
-"/my/blob-delete-all": {"id": 59, "is_token": 1},
-"/my/blob-delete-url": {"id": 60, "is_token": 1},
+"/my/profile": {"id": 46, "is_token": True},
+"/my/ping": {"id": 92, "is_token": True},
+"/my/token-refresh": {"id": 47, "is_token": True},
+"/my/api-usage": {"id": 48, "is_token": True},
+"/my/object-create": {"id": 49, "is_token": True},
+"/my/object-read": {"id": 50, "is_token": True},
+"/my/object-update": {"id": 51, "is_token": True},
+"/my/object-delete": {"id": 52, "is_token": True},
+"/my/object-delete-all": {"id": 53, "is_token": True},
+"/my/object-delete-received": {"id": 54, "is_token": True},
+"/my/object-delete-received-all": {"id": 55, "is_token": True},
+"/my/message-inbox": {"id": 56, "is_token": True},
+"/my/message-thread": {"id": 57, "is_token": True},
+"/my/object-create-mongodb": {"id": 58, "is_token": True},
+"/my/blob-delete-all": {"id": 59, "is_token": True},
+"/my/blob-delete-url": {"id": 60, "is_token": True},
 # private
-"/private/send-email": {"id": 61, "is_token": 1},
-"/private/blob-upload-file": {"id": 62, "is_token": 1},
-"/private/blob-upload-url": {"id": 63, "is_token": 1},
-"/private/blob-container-sas": {"id": 64, "is_token": 1},
-"/private/blob-preview-urls": {"id": 65, "is_token": 1},
+"/private/send-email": {"id": 61, "is_token": True},
+"/private/blob-upload-file": {"id": 62, "is_token": True},
+"/private/blob-upload-url": {"id": 63, "is_token": True},
+"/private/blob-container-sas": {"id": 64, "is_token": True},
+"/private/blob-preview-urls": {"id": 65, "is_token": True},
 # public
-"/public/object-create": {"id": 66, "is_token": 0},
-"/public/object-read": {"id": 14, "is_token": 0, "cache": {"mode": "inmemory", "ttl_sec": 100, "is_per_user": 0}},
-"/public/converter-number": {"id": 67, "is_token": 0},
-"/public/otp-verify": {"id": 68, "is_token": 0},
-"/public/otp-send-email": {"id": 69, "is_token": 0},
-"/public/otp-send-mobile": {"id": 70, "is_token": 0},
-"/public/otp-send-mobile-sns-template": {"id": 71, "is_token": 0},
-"/public/jira-worklog-export": {"id": 19, "is_token": 0},
-"/public/table-groupby": {"id": 18, "is_token": 0, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": 0}},
-"/public/table-distinct": {"id": 96, "is_token": 0, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": 0}},
-"/public/blob-upload-file": {"id": 97, "is_token": 0},
-"/public/blob-upload-url": {"id": 98, "is_token": 0},
-"/public/password-hash": {"id": 100, "is_token": 0},
+"/public/object-create": {"id": 66, "is_token": False},
+"/public/object-read": {"id": 14, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 100, "is_per_user": False}},
+"/public/converter-number": {"id": 67, "is_token": False},
+"/public/otp-verify": {"id": 68, "is_token": False},
+"/public/otp-send-email": {"id": 69, "is_token": False},
+"/public/otp-send-mobile": {"id": 70, "is_token": False},
+"/public/otp-send-mobile-sns-template": {"id": 71, "is_token": False},
+"/public/jira-worklog-export": {"id": 19, "is_token": False},
+"/public/table-groupby": {"id": 18, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
+"/public/table-distinct": {"id": 96, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
+"/public/blob-upload-file": {"id": 97, "is_token": False},
+"/public/blob-upload-url": {"id": 98, "is_token": False},
+"/public/password-hash": {"id": 100, "is_token": False},
 # admin
-"/admin/sync": {"id": 1, "is_token": 1, "user_check_role": {"mode": "realtime", "roles": [1]}},
-"/admin/object-create": {"id": 2, "is_token": 1, "user_check_role": {"mode": "token", "roles": [1]}},
-"/admin/object-update": {"id": 3, "is_token": 1, "user_check_role": {"mode": "token", "roles": [1]}},
-"/admin/object-read": {"id": 4, "is_token": 1, "user_check_role": {"mode": "token", "roles": [1, 2]}},
-"/admin/object-delete": {"id": 5, "is_token": 1, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
-"/admin/postgres-import": {"id": 8, "is_token": 1, "user_check_role": {"mode": "realtime", "roles": [1]}},
-"/admin/redis-import": {"id": 9, "is_token": 1, "user_check_role": {"mode": "token", "roles": [1]}},
-"/admin/mongodb-import": {"id": 11, "is_token": 1, "user_check_role": {"mode": "token", "roles": [1]}},
-"/admin/blob-container-read": {"id": 10, "is_token": 1, "user_check_role": {"mode": "inmemory", "roles": [1]}},
-"/admin/blob-container-ops": {"id": 12, "is_token": 1, "user_check_role": {"mode": "token", "roles": [1]}},
-"/admin/blob-delete-url": {"id": 13, "is_token": 1, "user_check_role": {"mode": "token", "roles": [1]}},
-"/admin/postgres-info": {"id": 84, "is_token": 1, "user_check_role": {"mode": "token", "roles": [1, 2]}, "cache": {"mode": "inmemory", "ttl_sec": 300, "is_per_user": 0}},
-"/admin/postgres-schema": {"id": 85, "is_token": 1, "user_check_role": {"mode": "token", "roles": [1, 2]}, "cache": {"mode": "inmemory", "ttl_sec": 300, "is_per_user": 0}},
-"/admin/postgres-query-runner-write": {"id": 6, "is_active": 1, "is_token": 1, "user_check_role": {"mode": "realtime", "roles": [1]}},
-"/admin/postgres-query-runner-read": {"id": 22, "is_token": 1, "user_check_role": {"mode": "token", "roles": [1, 2]}},
-"/admin/postgres-query-runner-read-export": {"id": 7, "is_token": 1, "user_check_role": {"mode": "inmemory", "roles": [1, 2]}},
-"/admin/postgres-query-generator-ai": {"id": 90, "is_token": 1, "user_check_role": {"mode": "token", "roles": [1, 2]}},
-"/admin/mssql-query-runner-write": {"id": 21, "is_token": 1, "user_check_role": {"mode": "realtime", "roles": [1]}},
-"/admin/mssql-query-runner-read": {"id": 23, "is_token": 1, "user_check_role": {"mode": "token", "roles": [1, 2]}},
-"/admin/mssql-query-runner-read-export": {"id": 89, "is_token": 1, "user_check_role": {"mode": "realtime", "roles": [1, 2]}},
-"/admin/clickhouse-query-runner-write": {"id": 93, "is_token": 1, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}},
-"/admin/clickhouse-query-runner-read": {"id": 94, "is_token": 1, "user_check_role": {"mode": "token", "roles": [1, 2]}},
-"/admin/clickhouse-query-runner-read-export": {"id": 95, "is_token": 1, "user_check_role": {"mode": "inmemory", "roles": [1, 2]}},
+"/admin/sync": {"id": 1, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
+"/admin/object-create": {"id": 2, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
+"/admin/object-update": {"id": 3, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
+"/admin/object-read": {"id": 4, "is_token": True, "user_check_role": {"mode": "token", "roles": [1, 2]}},
+"/admin/object-delete": {"id": 5, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
+"/admin/postgres-import": {"id": 8, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
+"/admin/redis-import": {"id": 9, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
+"/admin/mongodb-import": {"id": 11, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
+"/admin/blob-container-read": {"id": 10, "is_token": True, "user_check_role": {"mode": "inmemory", "roles": [1]}},
+"/admin/blob-container-ops": {"id": 12, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
+"/admin/blob-delete-url": {"id": 13, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
+"/admin/postgres-info": {"id": 84, "is_token": True, "user_check_role": {"mode": "token", "roles": [1, 2]}, "cache": {"mode": "inmemory", "ttl_sec": 300, "is_per_user": False}},
+"/admin/postgres-schema": {"id": 85, "is_token": True, "user_check_role": {"mode": "token", "roles": [1, 2]}, "cache": {"mode": "inmemory", "ttl_sec": 300, "is_per_user": False}},
+"/admin/postgres-query-runner-write": {"id": 6, "is_active": True, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
+"/admin/postgres-query-runner-read": {"id": 22, "is_token": True, "user_check_role": {"mode": "token", "roles": [1, 2]}},
+"/admin/postgres-query-runner-read-export": {"id": 7, "is_token": True, "user_check_role": {"mode": "inmemory", "roles": [1, 2]}},
+"/admin/postgres-query-generator-ai": {"id": 90, "is_token": True, "user_check_role": {"mode": "token", "roles": [1, 2]}},
+"/admin/mssql-query-runner-write": {"id": 21, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
+"/admin/mssql-query-runner-read": {"id": 23, "is_token": True, "user_check_role": {"mode": "token", "roles": [1, 2]}},
+"/admin/mssql-query-runner-read-export": {"id": 89, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1, 2]}},
+"/admin/clickhouse-query-runner-write": {"id": 93, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}},
+"/admin/clickhouse-query-runner-read": {"id": 94, "is_token": True, "user_check_role": {"mode": "token", "roles": [1, 2]}},
+"/admin/clickhouse-query-runner-read-export": {"id": 95, "is_token": True, "user_check_role": {"mode": "inmemory", "roles": [1, 2]}},
 }
 
 #override
@@ -448,7 +448,14 @@ def func_config_override_from_env(*, global_dict: dict) -> None:
     env.update({k: v for k, v in os.environ.items() if k == k.lower()})
     for k, v in list(global_dict.items()):
         if k.startswith("config_") and (ev := env.get(k)) is not None:
-            if isinstance(v, bool): global_dict[k] = 1 if ev.lower() in ("true", "1", "yes", "on", "ok") else 0
+            if isinstance(v, bool):
+                bool_value = ev.strip().lower()
+                if bool_value in ("true", "1", "yes", "on", "ok"):
+                    global_dict[k] = True
+                elif bool_value in ("false", "0", "no", "off"):
+                    global_dict[k] = False
+                else:
+                    raise ValueError(f"invalid boolean value for {k}: {ev!r}; expected true or false")
             elif isinstance(v, (list, tuple, dict)):
                 with contextlib.suppress(Exception): global_dict[k] = orjson.loads(ev)
             else: global_dict[k] = int(ev) if ev.lstrip("-").isdigit() else ev

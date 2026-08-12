@@ -132,12 +132,12 @@ async def func_api_private_crm_customer(*, request: Request):
     oq = await app_state.func_request_param_read(
         request=request,
         mode="query",
-        strict=0,
+        strict=False,
         param_specs=[
             {
                 "name": "customer_id",
                 "type": "int",
-                "required": 1,
+                "required": True,
                 "allowed": None,
                 "default": None,
             }
@@ -163,10 +163,10 @@ async def func_api_private_crm_customer_update(*, request: Request):
     ob = await app_state.func_request_param_read(
         request=request,
         mode="body",
-        strict=1,
+        strict=True,
         param_specs=[
-            {"name": "id", "type": "int", "required": 1, "allowed": None, "default": None},
-            {"name": "name", "type": "str", "required": 1, "allowed": None, "default": None},
+            {"name": "id", "type": "int", "required": True, "allowed": None, "default": None},
+            {"name": "name", "type": "str", "required": True, "allowed": None, "default": None},
         ],
     )
     result = await client_postgres.execute(

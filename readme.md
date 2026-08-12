@@ -151,7 +151,11 @@ config_mongodb_url=mongodb://localhost:27017
 config_clickhouse_url=https://default:password@clickhouse.example.com:8443/default
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 config_celery_url=redis://localhost:6379
+config_is_signup=true
+config_is_debug=false
 ```
+
+Boolean environment settings use case-insensitive `true` or `false`. The loader also accepts `1`/`0`, `yes`/`no`, and `on`/`off`, but `true`/`false` is the project convention.
 
 📖 See **[config.md](docs/config.md)** for the complete configuration reference.
 

@@ -102,7 +102,7 @@ async def func_api_my_event_create(*, request: Request):
     ob = await app_state.func_request_param_read(
         request=request,
         mode="body",
-        strict=0,
+        strict=False,
         param_specs=[],
     )
 

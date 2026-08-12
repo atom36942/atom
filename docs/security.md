@@ -65,7 +65,7 @@ See [config.md](config.md#control).
 
 - **Never commit secrets.** `config_token_secret_key` and `config_root_user_password` ship with insecure defaults — override them (and all connection strings) via `.env`, which is git-ignored. See **[prod.md](prod.md)**.
 - **CORS** — `config_cors_*`. The default `allow_origin_regex = ".*"` with credentials is permissive for development; **restrict origins in production**.
-- **Debug** — set `config_is_debug=0` in production to avoid leaking internals.
+- **Debug** — set `config_is_debug=false` in production to avoid leaking internals.
 - **Error reporting** — configure `config_sentry_dsn` to capture exceptions with `send_default_pii=False`.
 
 ---
@@ -75,7 +75,7 @@ See [config.md](config.md#control).
 - [ ] Set a strong random `config_token_secret_key`.
 - [ ] Change `config_root_user_password`.
 - [ ] Restrict `config_cors_allow_origins` / `config_cors_allow_origin_regex`.
-- [ ] Set `config_is_debug=0`.
+- [ ] Set `config_is_debug=false`.
 - [ ] Use `realtime` mode for role checks on destructive admin routes.
 - [ ] Review `config_table_public_*_enabled` — expose only what's intended.
 - [ ] Set rate limits on auth and write endpoints.

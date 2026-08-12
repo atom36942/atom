@@ -2,7 +2,7 @@
 
 Atom uses **stateless JWT** authentication. Clients log in once, receive an access + refresh token, and send the access token as a `Bearer` header on every protected request. The middleware decodes it into `request.state.user`; nothing is stored server-side.
 
-All auth endpoints live in [`router/auth.py`](../router/auth.py) and are **public** (`is_token=0`) — they mint tokens, they don't require one.
+All auth endpoints live in [`router/auth.py`](../router/auth.py) and are **public** (`is_token=False`) — they mint tokens, they don't require one.
 
 ---
 
@@ -22,7 +22,7 @@ Login always takes an identity **+ role** pair.
 ### `POST /auth/signup-username-password`
 Body: `role`, `username`, `password`, optional `source`.
 
-Flow: validate role → regex-check username/password (`config_regex`) → reject if `config_is_signup=0` → reject `role=1` → hash password with Argon2 → insert user → return tokens.
+Flow: validate role → regex-check username/password (`config_regex`) → reject if `config_is_signup=false` → reject `role=1` → hash password with Argon2 → insert user → return tokens.
 
 ```jsonc
 // request body
@@ -113,7 +113,7 @@ curl http://localhost:8000/my/profile \
 In a handler, the authenticated user is on `request.state.user`:
 
 ```python
-user_id = request.state.user["id"]      # protected route (is_token=1)
+user_id = request.state.user["id"]      # protected route (is_token=True)
 role    = request.state.user["role"]
 ```
 
