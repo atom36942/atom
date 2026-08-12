@@ -101,7 +101,9 @@ input:focus,select:focus,textarea:focus{border-color:#999}
 .obj.on .ct{color:var(--side-on-fg)}
 
 #main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
-#tabs{height:var(--bar-h);flex:none;display:flex;align-items:stretch;background:var(--nav);overflow:visible;position:relative;z-index:10}
+#tabs{height:var(--bar-h);flex:none;display:flex;align-items:stretch;background:var(--nav);overflow:hidden;position:relative;z-index:10}
+#tablist{display:flex;align-items:stretch;flex:1;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain}
+#tablist::-webkit-scrollbar{display:none}
 .tab{padding:0 14px;line-height:var(--bar-h);font-size:13px;font-weight:500;color:var(--nav-fg);
   cursor:pointer;margin:0;flex:none;white-space:nowrap;border:0}
 .tab[hidden]{display:none}
@@ -111,13 +113,15 @@ input:focus,select:focus,textarea:focus{border-color:#999}
 #tabs > button,#tabs > #optionswrap > button{align-self:center;background:transparent;color:#fff;border-color:rgba(255,255,255,.6);
   margin-right:8px;font-size:12px;flex:none;white-space:nowrap}
 #tabs > button:hover:not(:disabled),#tabs > #optionswrap > button:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
-#optionswrap{align-self:stretch;display:flex;align-items:center;gap:2px;flex:none;margin-right:6px}
+#optionswrap{align-self:stretch;display:flex;align-items:center;gap:2px;flex:none;margin:0 6px 0 12px;
+  padding-left:8px;border-left:1px solid rgba(255,255,255,.18);background:var(--nav);position:relative;z-index:2}
 #optionswrap[hidden]{display:none}
 #tabs > #optionswrap > .headicon{width:30px;height:30px;padding:0;margin:0;border:0;border-radius:3px;
   font-size:16px;line-height:28px;text-align:center}
 #tabs > #optionswrap > .headicon svg{display:block;width:17px;height:17px;margin:auto;fill:none;
   stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #tabs > #optionswrap > #readonly.off{color:#ffd0cc}
+@media (max-width:1000px){.tab{padding-left:11px;padding-right:11px}#optionswrap{margin-left:8px;padding-left:6px}}
 
 #tools{display:flex;align-items:center;gap:7px;padding:8px 10px;border-top:1px solid var(--line);
   border-bottom:1px solid var(--line);background:var(--filter-bg);box-shadow:0 1px 0 rgba(0,0,0,.03)}
@@ -280,6 +284,7 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 
   <main id="main">
     <div id="tabs">
+      <div id="tablist" role="tablist" aria-label="Table views">
       <div class="tab" data-v="query" hidden>Query Runner</div>
       <div class="tab" data-v="info" hidden>Database info</div>
       <div class="tab" data-v="rows" hidden>Rows</div>
@@ -294,7 +299,7 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
       <div class="tab" data-v="privileges" hidden>Privileges</div>
       <div class="tab" data-v="partitions" hidden>Partitions</div>
       <div class="tab" data-v="dependencies" hidden>Dependencies</div>
-      <div class="sp"></div>
+      </div>
       <div id="optionswrap" hidden>
         <button class="headicon" id="dbinfo" title="Database info" aria-label="Database info"></button>
         <button class="headicon on" id="readonly" title="Read only: On" aria-label="Read only: On"></button>
@@ -381,6 +386,7 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 'use strict';
 const ROW_H = 30, CHUNK = 10, SIDE_BATCH = 200, OVER = 6, MAXW = 440, MINW = 64;   /* 29px cell + 1px rule; matches --row-h */
 const DEFAULT_SQL = 'SELECT * FROM test LIMIT 10;';
+const DEFAULT_DSN = 'postgresql://postgres:postgres@localhost:5432/postgres';
 // browsers clamp element height near 2^24 px; past that the spacer stops growing and the
 // tail of a big table becomes unreachable, so the scrollbar is scaled instead of 1:1
 const MAXH = 16000000;
@@ -527,7 +533,6 @@ function setConnected(on){
 async function doConnect(dsn){
   const m = await api({action:'connect', dsn});
   S.db = m.database; S.tree = m.tree;
-  localStorage.setItem('pgweb.dsn', dsn);
   setConnected(true);
   drawTree(); openRunner();
 }
@@ -538,13 +543,14 @@ $('connbtn').onclick = () => S.connected ? askDisconnect() : askConnect();
 function askConnect(){
   $('dlg-t').textContent = 'Connect to a database';
   $('dlg-b').innerHTML =
-    '<textarea id="dsn2" rows="1" wrap="soft" placeholder="postgresql://localhost:5432/postgres" autocomplete="off" spellcheck="false"></textarea>'
+    `<textarea id="dsn2" rows="1" wrap="soft" placeholder="${DEFAULT_DSN}" autocomplete="off" spellcheck="false"></textarea>`
     + '<div id="derr"></div>';
   $('dlg-f').innerHTML = '<button value="cancel">Cancel</button><button class="primary" id="dgo">Connect</button>';
   $('dlg').showModal();
   const inp = $('dsn2');
   const fit = () => { inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight+2,160)+'px'; };
-  inp.value = localStorage.getItem('pgweb.dsn') || 'postgresql://localhost:5432/postgres'; fit();
+  localStorage.removeItem('pgweb.dsn');
+  inp.value=DEFAULT_DSN; fit();
   inp.oninput = fit; inp.focus(); inp.select();
   const go = async ev => {
     ev?.preventDefault();
@@ -1277,6 +1283,7 @@ addEventListener('keydown', e=>{
 function show(v){
   for(const t of document.querySelectorAll('.tab')) t.classList.toggle('on', t.dataset.v===v);
   for(const x of document.querySelectorAll('.view')) x.classList.toggle('on', x.id==='v-'+v);
+  document.querySelector(`.tab[data-v="${v}"]`)?.scrollIntoView({block:'nearest',inline:'nearest'});
   $('status').hidden = true;
   if(v==='rows'){
     $('tools').style.display = S.local ? 'none' : 'flex';
@@ -1285,6 +1292,10 @@ function show(v){
   if(DETAILS.includes(v)) loadDetail(v);
 }
 for(const t of document.querySelectorAll('.tab')) t.onclick = ()=>show(t.dataset.v);
+$('tablist').addEventListener('wheel',e=>{
+  if($('tablist').scrollWidth<=$('tablist').clientWidth||Math.abs(e.deltaX)>Math.abs(e.deltaY)) return;
+  $('tablist').scrollLeft+=e.deltaY; e.preventDefault();
+},{passive:false});
 // re-reads the object list too, so DDL run in the query runner shows up without a page reload
 $('reload').onclick = async () => {
   try{

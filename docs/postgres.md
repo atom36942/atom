@@ -31,9 +31,27 @@ user = await app_state.func_user_read_single(
 )
 ```
 
-## Named pools
+## Read Replicas and Named Pools
 
-Add named PostgreSQL URLs with the pattern:
+To offload heavy read traffic from the primary PostgreSQL instance, Atom supports configuring read replicas and additional named pools using environment variables.
+
+### Read Replica Configuration
+
+To direct read queries to a PostgreSQL read replica, set `config_postgres_url_read` (or any `config_postgres_url_<name>`) in `.env`:
+
+```bash
+config_postgres_url_read=postgresql://atom:password@read-replica-db:5432/atom?sslmode=require
+```
+
+At startup, Atom detects the `config_postgres_url_` prefix and populates `app.state.client_postgres_dict["read"]` with an `asyncpg` connection pool. Read-supported endpoints can then target this replica by specifying `?db=read`:
+
+```bash
+curl "http://localhost:8000/public/object-read?db=read&table=users"
+```
+
+### Multiple Named Pools
+
+Add additional named PostgreSQL connection URLs using the pattern:
 
 ```text
 config_postgres_url_<name>
@@ -67,7 +85,7 @@ app.state.client_postgres_dict["read_india"]
 app.state.client_postgres_dict["analytics"]
 ```
 
-Routers inspect `client_postgres_dict` when `db` parameter is provided.
+Routers inspect `client_postgres_dict` when the `db` parameter is provided.
 
 ## Independent and third-party databases
 

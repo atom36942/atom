@@ -143,8 +143,7 @@ All configuration defaults live in `config.py`. Override settings without editin
 ### Sample `.env`
 
 ```env
-config_postgres_url=postgresql://atom:123456@127.0.0.1:5432/postgres?sslmode=disable
-config_postgres_url_read=postgresql://atom:123456@read-replica:5432/postgres?sslmode=disable
+config_postgres_url=postgresql://postgres:postgres@localhost:5432/postgres
 config_redis_url=redis://localhost:6379
 config_redis_url_ratelimiter=redis://localhost:6379/1
 config_redis_url_queue=redis://localhost:6379
