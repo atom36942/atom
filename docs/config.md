@@ -18,101 +18,135 @@ Config values are resolved in three tiers (later wins):
 
 ## Single Configuration Keys
 
-All scalar and list settings in `config.py` formatted with section, key, and usage:
+All scalar and list settings in `config.py` grouped by section:
 
-| Section | Key | Usage |
-|---|---|---|
-| **Integrations** | `config_postgres_url` | Primary PostgreSQL connection string DSN |
-| **Integrations** | `config_postgres_url_dict` | Runtime mapping of named PostgreSQL pools (via `config_postgres_url_<name>`) |
-| **Integrations** | `config_redis_url` | Main Redis URL for response caching & imports |
-| **Integrations** | `config_redis_url_user_state` | Dedicated Redis for user state/role/deactivation lookups |
-| **Integrations** | `config_redis_url_ratelimiter` | Dedicated Redis for distributed rate limiter counters |
-| **Integrations** | `config_redis_url_queue` | Redis URL used as background job queue producer |
-| **Integrations** | `config_mongodb_url` | MongoDB (Motor) connection string DSN |
-| **Integrations** | `config_mssql_url` | MSSQL connection pool connection string |
-| **Integrations** | `config_clickhouse_url` | ClickHouse async DSN for query runner |
-| **Integrations** | `config_google_login_client_id` | Google OAuth Client ID for token verification |
-| **Integrations** | `config_openai_key` | OpenAI API key |
-| **Integrations** | `config_gemini_key` | Google Gemini API key |
-| **Integrations** | `config_posthog_project_host` | PostHog analytics host URL |
-| **Integrations** | `config_posthog_project_key` | PostHog analytics project key |
-| **Integrations** | `config_sentry_dsn` | Sentry DSN for error tracking |
-| **Integrations** | `config_fast2sms_url` | Fast2SMS gateway URL |
-| **Integrations** | `config_fast2sms_key` | Fast2SMS API key |
-| **Integrations** | `config_resend_url` | Resend email API URL |
-| **Integrations** | `config_resend_key` | Resend email API key |
-| **Integrations** | `config_sftp_host` | SFTP server hostname |
-| **Integrations** | `config_sftp_port` | SFTP server port |
-| **Integrations** | `config_sftp_username` | SFTP server username |
-| **Integrations** | `config_sftp_password` | SFTP server password |
-| **Integrations** | `config_aws_access_key_id` | AWS Access Key ID |
-| **Integrations** | `config_aws_secret_access_key` | AWS Secret Access Key |
-| **Integrations** | `config_aws_s3_region_name` | AWS S3 region name |
-| **Integrations** | `config_aws_sns_region_name` | AWS SNS region name |
-| **Integrations** | `config_aws_ses_region_name` | AWS SES region name |
-| **Integrations** | `config_azure_account_name` | Azure Storage account name |
-| **Integrations** | `config_azure_account_key` | Azure Storage account key |
-| **Integrations** | `config_azure_email_connection_string` | Azure email connection string |
-| **Integrations** | `config_kafka_url` | Apache Kafka broker URL |
-| **Integrations** | `config_kafka_username` | Kafka SASL username |
-| **Integrations** | `config_kafka_password` | Kafka SASL password |
-| **Integrations** | `config_rabbitmq_url` | RabbitMQ broker URL |
-| **Integrations** | `config_celery_url` | Celery broker/backend URL |
-| **System** | `config_root_user_password` | Password for seeded root admin (hashed at startup) |
-| **System** | `config_login_password` | Default fallback login password for test environments |
-| **System** | `config_token_secret_key` | HMAC secret key for signing/verifying JWT tokens *(Must change)* |
-| **System** | `config_root_html_path` | Path to static HTML file served at `/` (`static/api.html`) |
-| **System** | `config_is_user_delete` | Toggle user hard-deletion flow (0 = disabled, 1 = enabled) |
-| **System** | `config_is_postgres_schema_init` | Toggle database schema initialization on startup (1/0) |
-| **System** | `config_is_signup` | Toggle public user signup routes in `router/auth.py` (1/0) |
-| **System** | `config_is_otp_require_users_update` | Require OTP verification when updating user contact details (1/0) |
-| **System** | `config_is_read_only` | System-wide read-only mode toggle (1/0) |
-| **System** | `config_is_debug` | FastAPI debug mode toggle (1 = debug, 0 = production) |
-| **System** | `config_postgres_db_log_api` | Named Postgres pool key for API logging (`None` = primary pool) |
-| **Limits & Auth** | `config_postgres_pool_min_size` | Minimum connections per PostgreSQL pool (default: `5`) |
-| **Limits & Auth** | `config_postgres_pool_max_size` | Maximum connections per PostgreSQL pool (default: `20`) |
-| **Limits & Auth** | `config_otp_length` | Digit length generated for OTP codes (default: `6`) |
-| **Limits & Auth** | `config_otp_expiry_sec` | Expiry window for OTP codes in seconds (default: `600`) |
-| **Limits & Auth** | `config_access_token_expires_sec` | JWT Access Token lifetime in seconds |
-| **Limits & Auth** | `config_refresh_token_expires_sec` | JWT Refresh Token lifetime in seconds |
-| **Limits & Auth** | `config_blob_limit_size_kb` | Maximum file upload size in KB (default: `500`) |
-| **Limits & Auth** | `config_blob_limit_upload` | Maximum files allowed per upload request (default: `100`) |
-| **Limits & Auth** | `config_blob_expire_sec_upload` | Presigned upload URL lifetime in seconds (`3600`) |
-| **Limits & Auth** | `config_blob_expire_sec_preview` | Presigned preview URL lifetime in seconds (`360000`) |
-| **Limits & Auth** | `config_buffer_limit_default` | In-memory buffer size before flushing rows to Postgres (`100`) |
-| **Limits & Auth** | `config_postgres_buffer_flush_auto_sec` | Timer interval in seconds to auto-flush write buffers (`60`) |
-| **Limits & Auth** | `config_inmemory_cache_cleanup_auto_sec` | Timer interval in seconds to purge expired cache entries (`300`) |
-| **Limits & Auth** | `config_batch_item_limit` | Maximum objects allowed per batch CRUD request (`1000`) |
-| **Limits & Auth** | `config_sql_read_limit_default` | Default page size for object read queries (`100`) |
-| **Limits & Auth** | `config_sql_read_limit_max` | Hard cap limit for object read page size (`10000`) |
-| **Limits & Auth** | `config_sql_read_relation_fetch_limit_max` | Maximum rows fetched per joined relation (`100`) |
-| **Limits & Auth** | `config_query_runner_read_limit` | Maximum row cap for admin SQL query runner (`5000`) |
-| **Limits & Auth** | `config_query_runner_export_limit` | Maximum row cap for admin CSV query exports (`50000`) |
-| **Limits & Auth** | `config_allowed_users_role` | Valid role numbers accepted at signup/login (`[1, 2, 3, 4, 5]`) |
-| **Limits & Auth** | `config_redis_cache_ttl_sec` | TTL for Redis-cached role/user status lookups (`3600`) |
-| **Limits & Auth** | `config_users_delete_data_retention_day` | Retention grace period in days before soft-deleted users are purged (`30`) |
-| **CORS** | `config_cors_allow_origins` | List of allowed CORS origin URLs (`[]`) |
-| **CORS** | `config_cors_allow_origin_regex` | Regex pattern matching allowed CORS origins (`.*`) |
-| **CORS** | `config_cors_allow_methods` | Allowed HTTP methods for CORS (`["*"]`) |
-| **CORS** | `config_cors_allow_headers` | Allowed request headers for CORS (`["*"]`) |
-| **CORS** | `config_cors_expose_headers` | Exposed headers for CORS (`["*"]`) |
-| **CORS** | `config_cors_allow_credentials` | Allow cookies/credentials in CORS requests (`True`) |
-| **Table Rules** | `config_table_sensitive` | Protected tables exempted from bulk cleanup/deletion scripts |
-| **Table Rules** | `config_table_my_create_disabled` | Tables refused on user `/my/object-create` endpoint |
-| **Table Rules** | `config_table_my_delete_all_enabled` | Tables supporting `/my/object-delete-all` for row owners |
-| **Table Rules** | `config_table_my_delete_all_received_enabled` | Tables supporting delete-all-received (messages, notifications) |
-| **Table Rules** | `config_table_public_create_enabled` | Tables accessible on unauthenticated public create route |
-| **Table Rules** | `config_table_public_read_enabled` | Tables accessible on unauthenticated public read route |
-| **Column Rules** | `config_column_token_encode` | User columns encoded into JWT claims (`id`, `role`, `username`, etc.) |
-| **Column Rules** | `config_column_ownership` | Column names indicating row ownership (`created_by_id`, `user_id`) |
-| **Column Rules** | `config_column_admin` | Server-managed columns blocked from user mutation (`created_at`, `role`, etc.) |
-| **Column Rules** | `config_column_admin_users` | Admin-only restricted columns for `users` table (`role`) |
-| **Column Rules** | `config_column_single_update` | Columns requiring single-field update requests (`password`, `email`, etc.) |
-| **Services** | `config_queue_services` | Registered background queue providers (`redis`, `rabbitmq`, `kafka`, `celery`) |
-| **Services** | `config_blob_services` | Registered blob storage providers (`s3`, `azure`) |
-| **Services** | `config_email_services` | Registered email providers (`ses`, `resend`, `azure`) |
-| **Services** | `config_mobile_services` | Registered SMS providers (`sns`, `fast2sms`) |
-| **Services** | `config_ai_services` | Registered AI service providers (`gemini`, `openai`) |
+### Integrations
+
+Disabled (`None`) by default; activated automatically when connection credentials are set.
+
+| Key | Usage |
+|---|---|
+| `config_postgres_url` | Primary PostgreSQL connection string DSN |
+| `config_postgres_url_dict` | Runtime mapping of named PostgreSQL pools (populated via `config_postgres_url_<name>`) |
+| `config_redis_url` | Main Redis URL for response caching & imports |
+| `config_redis_url_user_state` | Dedicated Redis for user state/role/deactivation lookups |
+| `config_redis_url_ratelimiter` | Dedicated Redis for distributed rate limiter counters |
+| `config_redis_url_queue` | Redis URL used as background job queue producer |
+| `config_mongodb_url` | MongoDB (Motor) connection string DSN |
+| `config_mssql_url` | MSSQL connection pool connection string |
+| `config_clickhouse_url` | ClickHouse async DSN for query runner |
+| `config_google_login_client_id` | Google OAuth Client ID for token verification |
+| `config_openai_key` | OpenAI API key |
+| `config_gemini_key` | Google Gemini API key |
+| `config_posthog_project_host` | PostHog analytics host URL |
+| `config_posthog_project_key` | PostHog analytics project key |
+| `config_sentry_dsn` | Sentry DSN for error tracking |
+| `config_fast2sms_url` | Fast2SMS gateway URL |
+| `config_fast2sms_key` | Fast2SMS API key |
+| `config_resend_url` | Resend email API URL |
+| `config_resend_key` | Resend email API key |
+| `config_sftp_host` | SFTP server hostname |
+| `config_sftp_port` | SFTP server port |
+| `config_sftp_username` | SFTP server username |
+| `config_sftp_password` | SFTP server password |
+| `config_aws_access_key_id` | AWS Access Key ID |
+| `config_aws_secret_access_key` | AWS Secret Access Key |
+| `config_aws_s3_region_name` | AWS S3 region name |
+| `config_aws_sns_region_name` | AWS SNS region name |
+| `config_aws_ses_region_name` | AWS SES region name |
+| `config_azure_account_name` | Azure Storage account name |
+| `config_azure_account_key` | Azure Storage account key |
+| `config_azure_email_connection_string` | Azure email connection string |
+| `config_kafka_url` | Apache Kafka broker URL |
+| `config_kafka_username` | Kafka SASL username |
+| `config_kafka_password` | Kafka SASL password |
+| `config_rabbitmq_url` | RabbitMQ broker URL |
+| `config_celery_url` | Celery broker/backend URL |
+
+### System & Security
+
+| Key | Usage |
+|---|---|
+| `config_root_user_password` | Password for seeded root admin (hashed at startup) |
+| `config_login_password` | Default fallback login password for test environments |
+| `config_token_secret_key` | HMAC secret key for signing/verifying JWT tokens *(Must change)* |
+| `config_root_html_path` | Path to static HTML file served at `/` (`static/api.html`) |
+| `config_is_user_delete` | Toggle user hard-deletion flow (0 = disabled, 1 = enabled) |
+| `config_is_postgres_schema_init` | Toggle database schema initialization on startup (1/0) |
+| `config_is_signup` | Toggle public user signup routes in `router/auth.py` (1/0) |
+| `config_is_otp_require_users_update` | Require OTP verification when updating user contact details (1/0) |
+| `config_is_read_only` | System-wide read-only mode toggle (1/0) |
+| `config_is_debug` | FastAPI debug mode toggle (1 = debug, 0 = production) |
+| `config_postgres_db_log_api` | Named Postgres pool key for API logging (`None` = primary pool) |
+
+### Limits, OTP & Auth
+
+| Key | Usage |
+|---|---|
+| `config_postgres_pool_min_size` | Minimum connections per PostgreSQL pool (default: `5`) |
+| `config_postgres_pool_max_size` | Maximum connections per PostgreSQL pool (default: `20`) |
+| `config_otp_length` | Digit length generated for OTP codes (default: `6`) |
+| `config_otp_expiry_sec` | Expiry window for OTP codes in seconds (default: `600`) |
+| `config_access_token_expires_sec` | JWT Access Token lifetime in seconds |
+| `config_refresh_token_expires_sec` | JWT Refresh Token lifetime in seconds |
+| `config_blob_limit_size_kb` | Maximum file upload size in KB (default: `500`) |
+| `config_blob_limit_upload` | Maximum files allowed per upload request (default: `100`) |
+| `config_blob_expire_sec_upload` | Presigned upload URL lifetime in seconds (`3600`) |
+| `config_blob_expire_sec_preview` | Presigned preview URL lifetime in seconds (`360000`) |
+| `config_buffer_limit_default` | In-memory buffer size before flushing rows to Postgres (`100`) |
+| `config_postgres_buffer_flush_auto_sec` | Timer interval in seconds to auto-flush write buffers (`60`) |
+| `config_inmemory_cache_cleanup_auto_sec` | Timer interval in seconds to purge expired cache entries (`300`) |
+| `config_batch_item_limit` | Maximum objects allowed per batch CRUD request (`1000`) |
+| `config_sql_read_limit_default` | Default page size for object read queries (`100`) |
+| `config_sql_read_limit_max` | Hard cap limit for object read page size (`10000`) |
+| `config_sql_read_relation_fetch_limit_max` | Maximum rows fetched per joined relation (`100`) |
+| `config_query_runner_read_limit` | Maximum row cap for admin SQL query runner (`5000`) |
+| `config_query_runner_export_limit` | Maximum row cap for admin CSV query exports (`50000`) |
+| `config_allowed_users_role` | Valid role numbers accepted at signup/login (`[1, 2, 3, 4, 5]`) |
+| `config_redis_cache_ttl_sec` | TTL for Redis-cached role/user status lookups (`3600`) |
+| `config_users_delete_data_retention_day` | Retention grace period in days before soft-deleted users are purged (`30`) |
+
+### CORS
+
+| Key | Usage |
+|---|---|
+| `config_cors_allow_origins` | List of allowed CORS origin URLs (`[]`) |
+| `config_cors_allow_origin_regex` | Regex pattern matching allowed CORS origins (`.*`) |
+| `config_cors_allow_methods` | Allowed HTTP methods for CORS (`["*"]`) |
+| `config_cors_allow_headers` | Allowed request headers for CORS (`["*"]`) |
+| `config_cors_expose_headers` | Exposed headers for CORS (`["*"]`) |
+| `config_cors_allow_credentials` | Allow cookies/credentials in CORS requests (`True`) |
+
+### Table Access Control
+
+| Key | Usage |
+|---|---|
+| `config_table_sensitive` | Protected tables exempted from bulk cleanup/deletion scripts |
+| `config_table_my_create_disabled` | Tables refused on user `/my/object-create` endpoint |
+| `config_table_my_delete_all_enabled` | Tables supporting `/my/object-delete-all` for row owners |
+| `config_table_my_delete_all_received_enabled` | Tables supporting delete-all-received (messages, notifications) |
+| `config_table_public_create_enabled` | Tables accessible on unauthenticated public create route |
+| `config_table_public_read_enabled` | Tables accessible on unauthenticated public read route |
+
+### Column Rules
+
+| Key | Usage |
+|---|---|
+| `config_column_token_encode` | User columns encoded into JWT claims (`id`, `role`, `username`, etc.) |
+| `config_column_ownership` | Column names indicating row ownership (`created_by_id`, `user_id`) |
+| `config_column_admin` | Server-managed columns blocked from user mutation (`created_at`, `role`, etc.) |
+| `config_column_admin_users` | Admin-only restricted columns for `users` table (`role`) |
+| `config_column_single_update` | Columns requiring single-field update requests (`password`, `email`, etc.) |
+
+### Service Registries
+
+| Key | Usage |
+|---|---|
+| `config_queue_services` | Registered background queue providers (`redis`, `rabbitmq`, `kafka`, `celery`) |
+| `config_blob_services` | Registered blob storage providers (`s3`, `azure`) |
+| `config_email_services` | Registered email providers (`ses`, `resend`, `azure`) |
+| `config_mobile_services` | Registered SMS providers (`sns`, `fast2sms`) |
+| `config_ai_services` | Registered AI service providers (`gemini`, `openai`) |
 
 ---
 
