@@ -2759,6 +2759,72 @@ async def func_clickhouse_query_runner_write(*, client_clickhouse: any, sql: str
     result = await client_clickhouse.command(sql, settings={"max_execution_time": 30})
     return str(result)
 
+async def func_clickhouse_schema_read_ai(*, client_clickhouse: any) -> dict:
+    """Read the current ClickHouse database schema in the compact form used by AI prompts."""
+    if not client_clickhouse: raise Exception("clickhouse client not initialized")
+    result = await client_clickhouse.query("""
+        SELECT database, table, name, type, is_in_primary_key, is_in_sorting_key
+        FROM system.columns
+        WHERE database = currentDatabase()
+        ORDER BY database, table, position
+    """)
+    schema = {}
+    for database, table, name, data_type, is_primary, is_sorting in result.result_rows:
+        schema.setdefault(f"{database}.{table}", []).append({"name": name, "data_type": data_type, "is_primary_key": bool(is_primary), "is_sorting_key": bool(is_sorting)})
+    return schema
+
+async def func_clickhouse_query_generator_ai(*, client_clickhouse: any, client_gemini: any, client_openai: any, func_clickhouse_schema_read_ai: callable, cache_clickhouse_schema_ai: dict, config_query_runner_read_limit: int, ai: str, question: str) -> dict:
+    """Generate schema-aware, read-only ClickHouse SQL with Gemini or OpenAI."""
+    import asyncio
+    import json
+    import re
+    from google.genai import types
+    if not client_clickhouse: raise Exception("clickhouse client not initialized")
+    if ai == "gemini" and not client_gemini: raise Exception("Gemini client not initialized")
+    if ai == "openai" and not client_openai: raise Exception("OpenAI client not initialized")
+    question = str(question or "").strip()
+    default_limit, max_limit = 10, int(config_query_runner_read_limit)
+    schema = cache_clickhouse_schema_ai or await func_clickhouse_schema_read_ai(client_clickhouse=client_clickhouse)
+    if not schema: raise Exception("clickhouse schema is empty")
+    response_schema = {"type": "OBJECT", "properties": {"sql": {"type": "STRING", "nullable": True}, "message": {"type": "STRING"}, "warnings": {"type": "ARRAY", "items": {"type": "STRING"}}}}
+    response_json_schema = {"type": "object", "additionalProperties": False, "properties": {"sql": {"type": ["string", "null"]}, "message": {"type": "string"}, "warnings": {"type": "array", "items": {"type": "string"}}}, "required": ["sql", "message", "warnings"]}
+    prompt = "\n".join([
+        "You generate safe ClickHouse SQL for an internal read-only query runner.",
+        "Return JSON only in the requested schema.",
+        "Generate exactly one SELECT or WITH statement. Never generate mutations, DDL, settings, or FORMAT clauses.",
+        "Use only tables and columns in the supplied schema and use ClickHouse syntax and functions.",
+        f"Use LIMIT {default_limit} unless requested; never exceed LIMIT {max_limit}.",
+        "Prefer sorting-key or primary-key columns for filters when they satisfy the request.",
+        "If the request cannot be answered from the schema, return sql null and explain briefly.",
+        f"User question: {question}",
+        f"Schema: {json.dumps(schema, separators=(',', ':'))}",
+    ])
+    if ai == "gemini":
+        response = await asyncio.to_thread(client_gemini.models.generate_content, model="gemini-2.5-flash", contents=prompt, config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=response_schema, temperature=0.1))
+        data = json.loads(response.text or "{}")
+    else:
+        response = await asyncio.to_thread(client_openai.responses.create, model="gpt-4.1-mini", input=prompt, text={"format": {"type": "json_schema", "name": "clickhouse_query_generator", "schema": response_json_schema, "strict": True}}, temperature=0.1)
+        data = json.loads(response.output_text or "{}")
+    if not data.get("sql"):
+        message = str(data.get("message") or "").strip() or "Could not generate a safe ClickHouse query for the supplied schema."
+        return {"sql": None, "message": message, "warnings": data.get("warnings") or []}
+    sql = str(data["sql"]).strip().rstrip(";").strip()
+    if not sql or ";" in sql: raise Exception("AI generated multiple SQL statements.")
+    if not sql.lower().lstrip("(").strip().startswith(("select", "with")): raise Exception("AI generated non-read SQL.")
+    if re.search(r"\b(format|into\s+outfile|settings)\b", sql, flags=re.IGNORECASE): raise Exception("AI generated unsupported ClickHouse SQL.")
+    known = {name.lower(): name for name in schema}
+    known.update({name.split(".", 1)[-1].lower(): name for name in schema})
+    for raw_table in re.findall(r"\b(?:from|join)\s+(`[^`]+`|[A-Za-z_]\w*(?:\s*\.\s*(?:`[^`]+`|[A-Za-z_]\w*))?)", sql, flags=re.IGNORECASE):
+        table_name = re.sub(r"\s*\.\s*", ".", raw_table.replace("`", ""))
+        if table_name.lower() not in known: raise Exception(f"AI generated SQL for unknown object: {table_name}")
+    limit_match = re.search(r"\blimit\s+(\d+)\s*$", sql, flags=re.IGNORECASE)
+    if limit_match:
+        limit = max(1, min(int(limit_match.group(1)), max_limit))
+        sql = re.sub(r"\blimit\s+\d+\s*$", f"LIMIT {limit}", sql, flags=re.IGNORECASE)
+    else:
+        sql = f"{sql}\nLIMIT {default_limit}"
+    return {"sql": f"{sql};", "message": "SQL generated in the editor. Review before Run or Export.", "warnings": data.get("warnings") or []}
+
 async def func_postgres_map_column(*, client_postgres: any, config_sql: str, is_json_value: bool = False) -> dict:
     """Execute a mapping SQL query and return a dictionary from the first two columns."""
     if not config_sql: return {}

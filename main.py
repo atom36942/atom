@@ -52,9 +52,9 @@ async def func_lifespan(app:"FastAPI"):
         client_sftp = await func_client_sftp(host=app.state.config_sftp_host, port=app.state.config_sftp_port, username=app.state.config_sftp_username, password=app.state.config_sftp_password)
         client_azure_email = func_client_azure_email(connection_string=app.state.config_azure_email_connection_string)
         client_azure_blob = func_client_azure_blob(account_name=app.state.config_azure_account_name, account_key=app.state.config_azure_account_key)
-        # client init misc
-        if app.state.config_postgres_db_log_api is not None and app.state.config_postgres_db_log_api not in client_postgres_dict: raise Exception(f"config_postgres_db_log_api '{app.state.config_postgres_db_log_api}' not found in config_postgres_url_dict")
+        # client misc
         client_postgres_log_api = client_postgres if app.state.config_postgres_db_log_api is None else client_postgres_dict[app.state.config_postgres_db_log_api]
+        client_postgres_pgweb = {}
         # postgres master
         if client_postgres and not app.state.config_is_read_only and app.state.config_is_postgres_schema_init: await app.state.func_postgres_schema_init(app_state=app.state, client_postgres=client_postgres, config_db=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(config_root_user_password) if config_root_user_password else None)
         cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres=client_postgres) if client_postgres else {}
@@ -63,11 +63,10 @@ async def func_lifespan(app:"FastAPI"):
         cache_users_role = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("users_role")) if client_postgres else {}
         cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("users_deactivated")) if client_postgres else {}
         cache_users_deleted = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("users_deleted")) if client_postgres else {}
-        # postgres misc
+        # cache misc
         cache_postgres_schema_dict = {name: await app.state.func_postgres_schema_read(client_postgres=client) for name, client in client_postgres_dict.items()}
         cache_postgres_schema_ai_dict = {name: await app.state.func_postgres_schema_read_ai(client_postgres=client) for name, client in client_postgres_dict.items()}
-        # pgweb dev ui: single connection, {"pool": asyncpg pool} created at runtime
-        client_postgres_pgweb = {}
+        cache_clickhouse_schema_ai = await app.state.func_clickhouse_schema_read_ai(client_clickhouse=client_clickhouse) if client_clickhouse else {}
         # func calls
         func_app_state_add(app=app, data_dict={**globals(), **locals()}, prefixes=("client_", "cache_"))
         app.state.cache_openapi = app.state.func_openapi_spec_generate(app_routes=app.routes, app_state=app.state)

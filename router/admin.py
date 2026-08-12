@@ -21,6 +21,7 @@ async def func_api_admin_sync(*, request: Request):
     if app_state.client_postgres: await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=None, func_postgres_serialize=None, cache_postgres_schema=app_state.cache_postgres_schema, mode="flush", table=None, obj_list=None, buffer_limit=None, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_regex=None, func_regex_check=None)
     app_state.cache_postgres_schema = await app_state.func_postgres_schema_read(client_postgres=app_state.client_postgres) if app_state.client_postgres else {}
     app_state.cache_postgres_schema_ai = await app_state.func_postgres_schema_read_ai(client_postgres=app_state.client_postgres) if app_state.client_postgres else {}
+    app_state.cache_clickhouse_schema_ai = await app_state.func_clickhouse_schema_read_ai(client_clickhouse=app_state.client_clickhouse) if app_state.client_clickhouse else {}
     app_state.cache_postgres_schema_dict = {name: await app_state.func_postgres_schema_read(client_postgres=client) for name, client in app_state.client_postgres_dict.items()}
     app_state.cache_postgres_schema_ai_dict = {name: await app_state.func_postgres_schema_read_ai(client_postgres=client) for name, client in app_state.client_postgres_dict.items()}
     app_state.cache_openapi = app_state.func_openapi_spec_generate(app_routes=request.app.routes, app_state=app_state)
@@ -209,3 +210,10 @@ async def func_api_admin_clickhouse_query_runner_read_export(*, request: Request
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[{"name": "sql", "type": "str", "required": True, "allowed": None, "default": None}])
     generator = await app_state.func_clickhouse_query_runner_read_export(client_clickhouse=app_state.client_clickhouse, config_query_runner_export_limit=app_state.config_query_runner_export_limit, sql=ob["sql"])
     return StreamingResponse(generator, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=clickhouse_query_runner_read_export.csv"})
+
+@router.post("/admin/clickhouse-query-generator-ai")
+async def func_api_admin_clickhouse_query_generator_ai(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[{"name": "ai", "type": "str", "required": False, "allowed": app_state.config_ai_services, "default": "gemini"}, {"name": "question", "type": "str", "required": True, "allowed": None, "default": None}])
+    res = await app_state.func_clickhouse_query_generator_ai(client_clickhouse=app_state.client_clickhouse, client_gemini=app_state.client_gemini, client_openai=app_state.client_openai, func_clickhouse_schema_read_ai=app_state.func_clickhouse_schema_read_ai, cache_clickhouse_schema_ai=app_state.cache_clickhouse_schema_ai, config_query_runner_read_limit=app_state.config_query_runner_read_limit, ai=ob["ai"], question=ob["question"])
+    return {"status": 1, "message": res}

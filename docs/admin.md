@@ -37,6 +37,8 @@ Configure ClickHouse through `config_clickhouse_url`, for example `https://defau
 
 `POST /admin/postgres-query-generator-ai` — turn a natural-language question into SQL.
 
+`POST /admin/clickhouse-query-generator-ai` provides the same workflow for ClickHouse. The AI-oriented schema is read from `system.columns` at startup, cached as `cache_clickhouse_schema_ai`, and refreshed by `GET /admin/sync`. The generator falls back to a live schema read when the cache is empty, then generates ClickHouse-dialect `SELECT`/`WITH` SQL and validates table names and row limits before returning it.
+
 ```jsonc
 POST /admin/postgres-query-generator-ai?db=read
 {"question": "top 10 users by number of objects created", "ai": "gemini"}

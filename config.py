@@ -438,6 +438,7 @@ config_api = {
 "/admin/clickhouse-query-runner-write": {"id": 93, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}},
 "/admin/clickhouse-query-runner-read": {"id": 94, "is_token": True, "user_check_role": {"mode": "token", "roles": [1, 2]}},
 "/admin/clickhouse-query-runner-read-export": {"id": 95, "is_token": True, "user_check_role": {"mode": "inmemory", "roles": [1, 2]}},
+"/admin/clickhouse-query-generator-ai": {"id": 101, "is_token": True, "user_check_role": {"mode": "token", "roles": [1, 2]}},
 }
 
 #override
