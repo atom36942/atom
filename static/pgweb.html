@@ -738,7 +738,14 @@ function updateDetailSearch(input){
   const table=$(input.dataset.grid), term=input.value.trim().toLowerCase();
   const rows=[...table.tBodies[0].rows].filter(row=>!row.cells[0]?.classList.contains('empty-detail'));
   let shown=0;
-  for(const row of rows){ const match=!term||row.textContent.toLowerCase().includes(term); row.hidden=!match; if(match) shown++; }
+  for(const row of rows){
+    const match=!term||[...row.cells].slice(1).some(cell=>cell.textContent.toLowerCase().includes(term));
+    row.hidden=!match;
+    if(match){
+      shown++; row.cells[0].textContent=String(shown); detailCellValues.set(row.cells[0],shown);
+      const values=detailRowValues.get(row); if(values) values[0]=shown;
+    }
+  }
   const total=+table.dataset.total||0, noun=total===1?input.dataset.one:input.dataset.many;
   input.parentElement.querySelector('.detail-count').textContent=term?`${shown} of ${total} ${noun}`:`${total} ${noun}`;
   const download=input.parentElement.querySelector('.detail-download'); if(download) download.disabled=shown===0;
@@ -770,7 +777,7 @@ async function openObject(table, kind){
   S.chunks.set(0, m.rows);
 
   for(const input of document.querySelectorAll('.detail-search')) input.value='';
-  fillDetailGrid('g-struct',m.meta.columns.map(c=>[c.position,c.name,c.type,c.key_type,c.nullable?'Yes':'No',c.default_value,c.generated]));
+  fillDetailGrid('g-struct',m.meta.columns.map((c,i)=>[i+1,c.name,c.type,c.key_type,c.nullable?'Yes':'No',c.default_value,c.generated]));
   for(const p of DETAILS) fillDetailGrid('g-'+p,[],'Not loaded');
   $('fcol').textContent='';
   for(const column of m.meta.columns){
