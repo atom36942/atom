@@ -63,7 +63,7 @@ input:focus,select:focus,textarea:focus{border-color:#999}
 
 /* ---------- shell: always present, empty until connected ---------- */
 #app{display:flex;flex:1;min-width:0}
-#side{width:250px;flex:0 0 250px;background:var(--side);display:flex;flex-direction:column;min-height:0;
+#side{width:clamp(190px,18vw,220px);flex:0 0 clamp(190px,18vw,220px);background:var(--side);display:flex;flex-direction:column;min-height:0;
   border-right:1px solid var(--line)}
 #dbline{height:var(--bar-h);flex:none;background:var(--nav);color:#fff;position:relative;z-index:11;
   display:flex;justify-content:flex-start;align-items:center;padding:0 12px;min-width:0;
@@ -102,13 +102,23 @@ input:focus,select:focus,textarea:focus{border-color:#999}
 
 #main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
 #tabs{height:var(--bar-h);flex:none;display:flex;align-items:stretch;background:var(--nav);overflow:hidden;position:relative;z-index:10}
-#tablist{display:flex;align-items:stretch;flex:1;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain}
-#tablist::-webkit-scrollbar{display:none}
+#tablist{display:flex;align-items:stretch;flex:1;min-width:0;overflow:hidden}
 .tab{padding:0 14px;line-height:var(--bar-h);font-size:13px;font-weight:500;color:var(--nav-fg);
   cursor:pointer;margin:0;flex:none;white-space:nowrap;border:0}
 .tab[hidden]{display:none}
 .tab:hover{color:#fff}
 .tab.on{background:var(--nav-on-bg);color:var(--nav-on-fg)}
+.tab.secondary{display:none!important}
+#morewrap{position:relative;display:flex;align-items:stretch;flex:none}
+#morewrap[hidden]{display:none}
+#moretab{border:0;border-radius:0;background:transparent;color:var(--nav-fg);padding:0 14px;font-size:13px;white-space:nowrap}
+#moretab:hover:not(:disabled){background:transparent;color:#fff;border:0}
+#moretab.on{background:var(--nav-on-bg);color:var(--nav-on-fg)}
+#moremenu{position:fixed;z-index:50;min-width:170px;padding:5px;background:var(--bg);border:1px solid var(--line);
+  border-radius:4px;box-shadow:0 6px 20px rgba(0,0,0,.22)}
+#moremenu[hidden]{display:none}
+#moremenu button{display:block;width:100%;padding:7px 10px;border:0;text-align:left;background:transparent;white-space:nowrap}
+#moremenu button:hover,#moremenu button.on{background:var(--hl);color:var(--fg)}
 #tabs .sp{flex:1}
 #tabs > button,#tabs > #optionswrap > button{align-self:center;background:transparent;color:#fff;border-color:rgba(255,255,255,.6);
   margin-right:8px;font-size:12px;flex:none;white-space:nowrap}
@@ -121,7 +131,7 @@ input:focus,select:focus,textarea:focus{border-color:#999}
 #tabs > #optionswrap > .headicon svg{display:block;width:17px;height:17px;margin:auto;fill:none;
   stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #tabs > #optionswrap > #readonly.off{color:#ffd0cc}
-@media (max-width:1000px){.tab{padding-left:11px;padding-right:11px}#optionswrap{margin-left:8px;padding-left:6px}}
+@media (max-width:1000px){.tab,#moretab{padding-left:10px;padding-right:10px}#optionswrap{margin-left:8px;padding-left:6px}}
 
 #tools{display:flex;align-items:center;gap:7px;padding:8px 10px;border-top:1px solid var(--line);
   border-bottom:1px solid var(--line);background:var(--filter-bg);box-shadow:0 1px 0 rgba(0,0,0,.03)}
@@ -292,13 +302,14 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
       <div class="tab" data-v="overview" hidden>Overview</div>
       <div class="tab" data-v="indexes" hidden>Indexes</div>
       <div class="tab" data-v="constraints" hidden>Constraints</div>
-      <div class="tab" data-v="statistics" hidden>Statistics</div>
-      <div class="tab" data-v="ddl" hidden>DDL</div>
-      <div class="tab" data-v="triggers" hidden>Triggers</div>
-      <div class="tab" data-v="policies" hidden>Policies</div>
-      <div class="tab" data-v="privileges" hidden>Privileges</div>
-      <div class="tab" data-v="partitions" hidden>Partitions</div>
-      <div class="tab" data-v="dependencies" hidden>Dependencies</div>
+      <div class="tab secondary" data-v="statistics" hidden>Statistics</div>
+      <div class="tab secondary" data-v="ddl" hidden>DDL</div>
+      <div class="tab secondary" data-v="triggers" hidden>Triggers</div>
+      <div class="tab secondary" data-v="policies" hidden>Policies</div>
+      <div class="tab secondary" data-v="privileges" hidden>Privileges</div>
+      <div class="tab secondary" data-v="partitions" hidden>Partitions</div>
+      <div class="tab secondary" data-v="dependencies" hidden>Dependencies</div>
+      <div id="morewrap" hidden><button id="moretab" type="button">More ▾</button></div>
       </div>
       <div id="optionswrap" hidden>
         <button class="headicon" id="dbinfo" title="Database info" aria-label="Database info"></button>
@@ -374,6 +385,13 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
       <span class="sp"></span><span id="st-time" class="t"></span>
     </div>
   </main>
+</div>
+
+<div id="moremenu" hidden>
+  <button data-v="statistics">Statistics</button><button data-v="ddl">DDL</button>
+  <button data-v="triggers">Triggers</button><button data-v="policies">Policies</button>
+  <button data-v="privileges">Privileges</button><button data-v="partitions">Partitions</button>
+  <button data-v="dependencies">Dependencies</button>
 </div>
 
 <dialog id="dlg"><form method="dialog">
@@ -522,6 +540,7 @@ function setConnected(on){
     $('tree').textContent=''; $('q').value=''; $('qclr').hidden=true;
     $('tools').style.display='none';
     for(const t of document.querySelectorAll('.tab')) t.hidden = true;
+    $('morewrap').hidden=true; $('moremenu').hidden=true;
     show('query');
     headEl.textContent=''; rowsEl.textContent=''; canvas.classList.remove('has-rows'); pool=[];
     $('empty').textContent='Not connected'; $('empty').classList.add('on');
@@ -654,6 +673,7 @@ function openRunner(){
   $('runner').classList.add('on');
   S.table=''; S.kind='';
   for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v!=='query';
+  $('morewrap').hidden=true; $('moremenu').hidden=true;
   show('query');
   $('st-obj').textContent=''; $('st-rows').textContent=''; $('st-size').textContent='';
   seedQuery();
@@ -776,6 +796,7 @@ async function openObject(table, kind){
   mountGrid($('v-rows'));
   localStorage.setItem('pgweb.last', JSON.stringify({table,kind}));
   for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v==='query'||t.dataset.v==='info';
+  $('morewrap').hidden=false;
 
   const m = await api({action:'rows', table, limit:CHUNK, is_meta:1});
   S.meta=m.meta; S.cols=m.meta.columns.map(c=>c.name); S.pk=m.meta.pk; S.latestFirst=!!m.meta.latest_first;
@@ -1198,6 +1219,7 @@ async function runQuery(confirmed){
     mountGrid($('qres'));
     buildGrid(); vp.scrollTop=0; render(true);
     for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v!=='query';
+    $('morewrap').hidden=true; $('moremenu').hidden=true;
     show('query');
     const elapsed=(performance.now()-t0).toFixed(1);
     const count=m.rows.length.toLocaleString();
@@ -1240,6 +1262,7 @@ async function explainQuery(analyze=false){
     mountGrid($('qres'));
     buildGrid(); vp.scrollTop=0; render(true);
     for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v!=='query';
+    $('morewrap').hidden=true; $('moremenu').hidden=true;
     show('query');
     $('qmsg').textContent = `${m.rows.length} lines · ${(performance.now()-t0).toFixed(1)} ms`;
     setExports(true); drawResetSql();
@@ -1281,9 +1304,13 @@ addEventListener('keydown', e=>{
 
 /* ---------------- chrome ---------------- */
 function show(v){
+  const secondary=document.querySelector(`.tab.secondary[data-v="${v}"]`);
   for(const t of document.querySelectorAll('.tab')) t.classList.toggle('on', t.dataset.v===v);
   for(const x of document.querySelectorAll('.view')) x.classList.toggle('on', x.id==='v-'+v);
-  document.querySelector(`.tab[data-v="${v}"]`)?.scrollIntoView({block:'nearest',inline:'nearest'});
+  $('moretab').classList.toggle('on',!!secondary);
+  $('moretab').textContent=secondary?secondary.textContent+' ▾':'More ▾';
+  for(const item of $('moremenu').querySelectorAll('button')) item.classList.toggle('on',item.dataset.v===v);
+  $('moremenu').hidden=true;
   $('status').hidden = true;
   if(v==='rows'){
     $('tools').style.display = S.local ? 'none' : 'flex';
@@ -1292,10 +1319,17 @@ function show(v){
   if(DETAILS.includes(v)) loadDetail(v);
 }
 for(const t of document.querySelectorAll('.tab')) t.onclick = ()=>show(t.dataset.v);
-$('tablist').addEventListener('wheel',e=>{
-  if($('tablist').scrollWidth<=$('tablist').clientWidth||Math.abs(e.deltaX)>Math.abs(e.deltaY)) return;
-  $('tablist').scrollLeft+=e.deltaY; e.preventDefault();
-},{passive:false});
+$('moretab').onclick=e=>{
+  e.stopPropagation(); const open=$('moremenu').hidden;
+  if(open){
+    const rect=$('moretab').getBoundingClientRect();
+    $('moremenu').style.top=rect.bottom+'px'; $('moremenu').style.left=Math.max(8,rect.right-170)+'px';
+  }
+  $('moremenu').hidden=!open;
+};
+for(const item of $('moremenu').querySelectorAll('button')) item.onclick=()=>show(item.dataset.v);
+addEventListener('click',e=>{if(!e.target.closest('#morewrap,#moremenu')) $('moremenu').hidden=true;});
+addEventListener('resize',()=>$('moremenu').hidden=true);
 // re-reads the object list too, so DDL run in the query runner shows up without a page reload
 $('reload').onclick = async () => {
   try{
@@ -1313,6 +1347,7 @@ $('dbinfo').onclick = async () => {
   S.table=''; S.kind='';
   $('st-obj').textContent=''; $('st-rows').textContent=''; $('st-size').textContent='';
   for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v!=='info';
+  $('morewrap').hidden=true; $('moremenu').hidden=true;
   show('info');
   const body=$('dbinfo-table').tBodies[0];
   body.innerHTML='<tr><td>Loading database info…</td></tr>';
