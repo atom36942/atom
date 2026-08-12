@@ -264,7 +264,7 @@ List of Postgres extensions to ensure exist (created if missing; skipped with a 
 `postgis` (spatial types/indexes), `pg_trgm` (trigram/fuzzy text search), `btree_gin` (GIN indexes over scalar columns).
 
 ### `table`
-A dict of `table_name → [column specs]`. **Rules enforced at init:** the first column of every table must be an identity primary key (e.g. `{"name":"id","datatype":"bigint generated always as identity","is_primary":1}` or `bigserial`); only one primary column; no duplicate or reserved-word column names.
+A dict of `table_name → [column specs]`. **Rules enforced at init:** the first column of every table must be an identity primary key (e.g. `{"name":"id","datatype":"bigint","identity":"always","is_primary":1}` or `bigserial`); only one primary column; no duplicate or reserved-word column names.
 
 Each column spec is a dict. Supported keys:
 
@@ -272,6 +272,7 @@ Each column spec is a dict. Supported keys:
 |-----------|---------|
 | `name` | Column name (required; can't be a PG reserved word). |
 | `datatype` | PG type (required) — e.g. `text`, `bigint`, `timestamptz`, `jsonb`, `text[]`, `numeric(3,1)`, `geography(Point,4326)`. |
+| `identity` | Optional identity generation strategy for `bigint` primary key (`"always"` or `"by_default"`). |
 | `is_primary` | `1` marks the primary key (only the first `id` column). |
 | `is_mandatory` | `1` adds `NOT NULL`. |
 | `default` | Default value / expression (e.g. `now()`, `1`). |

@@ -283,7 +283,7 @@ Define the table under `config_postgres["table"]`, preferably from `config_exten
 
 ```python
 config_postgres["table"]["project"] = [
-    {"name": "id", "datatype": "bigint generated always as identity", "is_primary": 1},
+    {"name": "id", "datatype": "bigint", "identity": "always", "is_primary": 1},
     {"name": "title", "datatype": "varchar(200)", "is_mandatory": 1},
     {"name": "created_at", "datatype": "timestamptz", "default": "CURRENT_TIMESTAMP"},
 ]
