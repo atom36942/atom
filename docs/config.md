@@ -1,311 +1,82 @@
 # ⚙️ Configuration Reference
 
-Everything Atom does is driven by `config.py` — a single file of plain Python values. This page explains every key, grouped by purpose, and how it's used across the codebase.
+Atom is driven by `config.py` — a single file of plain Python values loaded onto `app.state` at startup.
 
-At startup, every `config_*` / `func_*` value is copied onto `app.state`, so routers and functions read them as `request.app.state.config_...`.
+---
 
 ## How config is loaded & overridden
 
-You rarely edit `config.py` directly. Values can be overridden three ways (later wins):
+Config values are resolved in three tiers (later wins):
 
-1. **`config.py`** — the shipped defaults.
-2. **Environment variables / `.env`** — `func_config_override_from_env` (bottom of `config.py`) reads every `config_*` name from the environment and casts it to match the default's type. Names are matched case-insensitively for Windows compatibility, although lowercase `config_*` remains the canonical style:
-   - **bool** → `true/1/yes/on/ok` become truthy.
-   - **list / tuple / dict** → parsed as JSON (e.g. `config_cors_allow_origins=["https://app.com"]`).
-   - **int** → numeric strings become ints; everything else stays a string.
-   - It also resolves **aliases**: a line like `config_x = config_y` in `config.py` means `config_x` inherits `config_y`'s value unless separately set.
-3. **`config_extend.py`** — a drop-in module (git-ignored, survives `sync.py`) for overriding or extending anything in code. See [extend.md](extend.md).
+1. **`config.py`** — Shipped defaults.
+2. **Environment variables / `.env`** — `config_*` names in `.env` automatically override defaults with automatic type casting (booleans, ints, JSON arrays/dicts).
+3. **`config_extend.py`** — Drop-in module (git-ignored, survives `sync.py`) for code-level overrides and schema extensions. See [extend.md](extend.md).
 
-> Rule of thumb: **secrets and connection strings** → `.env`; **structural changes** (tables, API rules, column policies) → `config_extend.py`.
+> **Rule of Thumb**: Use `.env` for secrets, credentials, and environment flags; use `config_extend.py` for structural changes (tables, custom route policies).
 
 ---
 
-## Integrations
+## Core Settings
 
-All default to `None`, meaning **off** — the matching client in `main.py` is only created when its config is present. Set only what you use.
+Set these in `.env` or `config_extend.py` to configure your application:
 
-| Key | Enables |
-|-----|---------|
-| `config_postgres_url` | Primary Postgres pool (main datastore) |
-| `config_postgres_url_dict` | Runtime mapping of named PostgreSQL pools. Defaults to `None`; populated by `config_postgres_url_<name>` environment variables. |
-| `config_redis_url` | Redis for response caching and admin imports |
-| `config_redis_url_user_state` | Dedicated Redis for role, deactivation, and soft-deletion status lookups |
-| `config_redis_url_queue` | Redis used as a background-job queue producer |
-| `config_redis_url_ratelimiter` | Dedicated Redis for distributed rate-limit counters |
-| `config_mongodb_url` | MongoDB (Motor) |
-| `config_mssql_url` | MSSQL connection pool |
-| `config_clickhouse_url` | ClickHouse async client DSN used by the admin query runner |
-| `config_google_login_client_id` | Google login token verification |
-| `config_openai_key` / `config_gemini_key` | AI features (e.g. SQL generation) |
-| `config_posthog_project_key` / `config_posthog_project_host` | PostHog analytics |
-| `config_sentry_dsn` | Sentry error tracking |
-| `config_fast2sms_url` / `config_fast2sms_key` | SMS via Fast2SMS |
-| `config_resend_url` / `config_resend_key` | Email via Resend |
-| `config_sftp_host` / `_port` / `_username` / `_password` | SFTP client |
-| `config_aws_access_key_id` / `config_aws_secret_access_key` | AWS credentials |
-| `config_aws_s3_region_name` | Enables S3 client (blob storage) |
-| `config_aws_sns_region_name` | Enables SNS client (SMS/push) |
-| `config_aws_ses_region_name` | Enables SES client (email) |
-| `config_azure_account_name` / `config_azure_account_key` | Azure Blob storage |
-| `config_azure_email_connection_string` | Azure email |
-| `config_kafka_url` / `config_kafka_username` / `config_kafka_password` | Kafka producer |
-| `config_rabbitmq_url` | RabbitMQ producer |
-| `config_celery_url` | Celery broker/backend |
+### Integrations
+Integrations default to `None` (disabled) and activate automatically when connection credentials are set:
+- **Databases**: `config_postgres_url`, `config_redis_url`, `config_mongodb_url`, `config_mssql_url`, `config_clickhouse_url`.
+- **Cloud & Storage**: `config_aws_access_key_id` / `_secret_access_key` / `_s3_region_name`, `config_azure_account_name` / `_account_key`.
+- **Queues**: `config_kafka_url`, `config_rabbitmq_url`, `config_celery_url`.
+- **Services & AI**: `config_openai_key`, `config_gemini_key`, `config_sentry_dsn`, `config_posthog_project_key`, `config_resend_key`, `config_fast2sms_key`.
+
+### System & Security
+- `config_token_secret_key`: HMAC key for signing JWTs *(change in production)*.
+- `config_root_user_password`: Default root admin password *(change in production)*.
+- **Flags**: `config_is_signup`, `config_is_postgres_schema_init`, `config_is_user_delete`, `config_is_debug`.
+
+### OTP & Auth Limits
+- `config_otp_length` (default `6`) & `config_otp_expiry_sec` (default `600`s).
+- `config_access_token_expires_sec` & `config_refresh_token_expires_sec`.
+- `config_postgres_pool_min_size` (`5`) & `config_postgres_pool_max_size` (`20`).
 
 ---
 
-## System
+## Structured Configs
 
-### Security (change before production)
+### `config_api`
+Per-endpoint middleware policy dict mapping paths to authentication, role, rate-limiting, and caching rules:
 
-| Key | Default | Usage |
-|-----|---------|-------|
-| `config_token_secret_key` | `mysecretkey-...` | HMAC secret for signing/verifying JWTs (`func_token_encode` / `func_token_decode`). **Must change.** |
-| `config_root_user_password` | `123456` | Password of the seeded root admin (role 1), hashed at startup. **Must change.** |
-
-### Feature flags
-
-| Key | Default | Usage |
-|-----|---------|-------|
-| `config_is_signup` | `1` | When `0`, all signup/first-login-create paths in `router/auth.py` are rejected. |
-| `config_is_postgres_schema_init` | `1` | When `1`, `func_postgres_schema_init` creates/migrates tables from `config_postgres` at startup. |
-| `config_is_user_delete` | `0` | Gates the user hard-delete flow. |
-| `config_is_otp_require_users_update` | `0` | When `1`, updating a user's `email`/`mobile` via admin requires OTP verification. |
-| `config_is_debug` | `1` | FastAPI debug mode. Set `0` in production. |
-
-### PostgreSQL pools
-
-| Key | Default | Usage |
-|-----|---------|-------|
-| `config_postgres_pool_min_size` | `5` | Minimum connections opened by every PostgreSQL pool. |
-| `config_postgres_pool_max_size` | `20` | Maximum connections allowed in every PostgreSQL pool. |
-
-`config_postgres_url` creates the primary `client_postgres` pool. Environment variables following `config_postgres_url_<name>` create entries in `config_postgres_url_dict` and named pools in `client_postgres_dict`. For example, `config_postgres_url_read=postgresql://...` creates `client_postgres_dict["read"]`. See [postgres.md](postgres.md).
-
-### API logging
-
-| Key | Default | Usage |
-|-----|---------|-------|
-| `config_postgres_db_log_api` | `None` | Named `client_postgres_dict` key used for `log_api`; `None` uses primary. |
-
-For example, `config_postgres_url_logs=postgresql://...` with `config_postgres_db_log_api=logs` sends API logs to the `logs` pool. See [logs.md](logs.md).
-
-### Token / auth
-
-| Key | Default | Usage |
-|-----|---------|-------|
-| `config_access_token_expires_sec` | ~100 yrs | Access-token lifetime added to `now` in `func_token_encode`. |
-| `config_refresh_token_expires_sec` | ~100k yrs | Refresh-token lifetime. |
-| `config_allowed_users_role` | `[1,2,3,4,5]` | Valid `role` values accepted at signup/login (validated in `router/auth.py`). |
-
-### OTP
-
-| Key | Default | Usage |
-|-----|---------|-------|
-| `config_otp_length` | `6` | Digits generated by `func_otp_generate`. |
-| `config_otp_expiry_sec` | `600` | OTP validity window, enforced in `func_otp_verify`. |
-
-### Blob / uploads
-
-| Key | Default | Usage |
-|-----|---------|-------|
-| `config_blob_limit_size_kb` | `500` | Max upload size per file. |
-| `config_blob_limit_upload` | `100` | Max files per upload request. |
-| `config_blob_expire_sec_upload` | `3600` | Presigned upload URL TTL. |
-| `config_blob_expire_sec_preview` | `360000` | Presigned preview URL TTL. |
-
-### Limits & batching
-
-| Key | Default | Usage |
-|-----|---------|-------|
-| `config_buffer_limit_default` | `100` | Default in-memory buffer size before a table's rows flush to Postgres. See [buffer.md](buffer.md). |
-| `config_postgres_buffer_flush_auto_sec` | `60` | Periodic timer interval in seconds to automatically flush PostgreSQL write buffers. |
-| `config_inmemory_cache_cleanup_auto_sec` | `300` | Periodic timer interval in seconds to automatically purge expired in-memory cache entries. |
-| `config_batch_item_limit` | `1000` | Max objects per create/update/delete request (`router/my.py`). |
-| `config_sql_read_limit_default` | `100` | Default page size for object reads. |
-| `config_sql_read_limit_max` | `10000` | Hard cap on read page size. |
-| `config_sql_read_relation_fetch_limit_max` | `100` | Cap on rows fetched per relation join. |
-| `config_query_runner_read_limit` | `5000` | Row cap for the admin query runners. |
-| `config_query_runner_export_limit` | `50000` | Row cap for query-runner CSV exports. |
-
-### Caching & retention
-
-| Key | Default | Usage |
-|-----|---------|-------|
-| `config_redis_cache_ttl_sec` | `3600` | TTL for Redis-cached role/deactivation/deletion lookups used in middleware checks. |
-| `config_users_delete_data_retention_day` | `30` | Grace period before soft-deleted users/blobs are purged (`script/worker_users_delete.py`). |
-
-### CORS
-
-| Key | Default | Usage |
-|-----|---------|-------|
-| `config_cors_allow_origins` | `[]` | Allowed origins (exact). |
-| `config_cors_allow_origin_regex` | `.*` | Origin regex — the wildcard default is permissive; **tighten in production.** |
-| `config_cors_allow_methods` | `["*"]` | Allowed HTTP methods. |
-| `config_cors_allow_headers` | `["*"]` | Allowed request headers. |
-| `config_cors_expose_headers` | `["*"]` | Headers exposed to the browser. |
-| `config_cors_allow_credentials` | `True` | Allow cookies/credentials. |
-
-`config_root_html_path` (`static/api.html`) is the file served at `/`.
-
----
-
-## Table access control
-
-These lists gate which tables the generic CRUD endpoints may touch — the core of Atom's data-security model.
-
-| Key | Usage |
-|-----|-------|
-| `config_table_sensitive` | Tables protected from bulk cleanup/deletion scripts (`script/`). |
-| `config_table_my_create_disabled` | Tables the `/my/object-create` endpoint refuses (e.g. `users`, `log_api`, `otp`). |
-| `config_table_my_delete_all_enabled` | Tables where an authenticated user may delete *all their own* rows. |
-| `config_table_my_delete_all_received_enabled` | Tables supporting "delete all received" (e.g. `message`, `notification`). |
-| `config_table_public_create_enabled` | Tables the **public** create endpoint accepts. |
-| `config_table_public_read_enabled` | Tables the **public** read endpoint exposes. `["*"]` = all. |
-
-> Pattern: an empty/absent list means "nothing allowed"; `"*"` means "all". Endpoints check membership before running.
-
----
-
-## Column rules
-
-Per-column policies enforced during read/write.
-
-| Key | Usage |
-|-----|-------|
-| `config_column_token_encode` | User fields embedded into the JWT payload (`id`, `role`, `username`, `deactivated_at`, …). |
-| `config_column_ownership` | Columns that mark row ownership (`created_by_id`, `user_id`) — used to scope "my" reads/deletes and user-deletion cleanup. |
-| `config_column_admin` | Server-managed columns a normal user may **not** set (`created_at`, `role`, `verified_at`, …); attempts are rejected. |
-| `config_column_admin_users` | Extra restricted columns specific to the `users` table (`role`). |
-| `config_column_single_update` | Sensitive user fields (`password`, `email`, `mobile`, …) that must be updated one at a time. |
-
----
-
-## Service registries
-
-Names of the interchangeable providers Atom supports for each capability. Used to validate a requested `service` param and pick a client.
-
-| Key | Options |
-|-----|---------|
-| `config_queue_services` | `redis`, `rabbitmq`, `kafka`, `celery` |
-| `config_blob_services` | `s3`, `azure` |
-| `config_email_services` | `ses`, `resend`, `azure` |
-| `config_mobile_services` | `sns`, `fast2sms` |
-| `config_ai_services` | `gemini`, `openai` |
-
----
-
-## Structured config (dicts)
-
-The remaining settings are dictionaries. Each is documented as its own section below.
-
-## `config_sql`
-Named SQL snippets loaded into caches at startup — e.g. `users_role`, `users_deactivated`, `users_deleted` feed the in-memory maps the middleware checks against, and `config` loads the `config` table into `cache_config`.
-
-## `config_table`
-Per-table operational settings, keyed by table name:
-- `buffer_limit` — override the default flush threshold for high-write tables.
-- `retention_day` — how long log/otp rows are kept before cleanup scripts purge them.
-
-## `config_regex`
-Validation patterns applied by `func_regex_check` on write. Each entry is `[pattern, error_message]` — e.g. `username` and `password` rules. Column-level `regex` in `config_postgres` complements this.
-
-## `config_dropdown`
-Enumerated value lists (e.g. `gender`) surfaced via `/info` for front-end dropdowns.
-
-## `config_column_int_mapping`
-Human-readable labels for integer-coded columns (e.g. `worker_status`: `1 → Processing`), surfaced via `/info`.
-
-## `config_api`
-The **per-endpoint policy table**. It maps each route path to a dict of policy fields; the middleware in `main.py` looks up the current path and enforces them **in order** before the handler runs. A path with no entry is treated as open (no token, no checks).
-
-**Fields (each key of an entry):**
-
-| Field | Shape | Meaning |
-|-------|-------|---------|
-| `id` | `int` | Stable numeric id for the endpoint — unique, used for referencing/analytics. Not security-related. |
-| `is_active` | `0` / `1` | `1` enables the endpoint; `0` disables the endpoint (`func_middleware_check_active`). Defaults to `1` if omitted. |
-| `is_token` | `0` / `1` | `1` requires a valid JWT (`func_middleware_check_token`); `0` is public. |
-| `user_check_role` | `{"mode": "...", "roles": [...]}` | Restrict to the listed role numbers. Rejected if the user's role isn't in the list. |
-| `user_check_deactivated` | `{"mode": "..."}` | Reject users whose `deactivated_at` is set. |
-| `user_check_deleted` | `{"mode": "..."}` | Reject users whose `deleted_at` is set. |
-| `rate_limit` | `{"mode": "...", "limit": N, "window_sec": S}` | Allow at most `limit` requests per `window_sec`-second window per user/IP. |
-| `cache` | `{"mode": "...", "ttl_sec": S, "is_per_user": 0}` | Cache the response for `ttl_sec` seconds (set `is_per_user: 1` to isolate per user). |
-
-**The `mode` value** (first element of the checks above) selects *where the truth is read from* — a trade-off between freshness and speed:
-
-| `mode` | Source | Use when |
-|--------|--------|----------|
-| `token` | The value baked into the JWT | Cheapest; fine when the claim rarely changes mid-session. |
-| `inmemory` | Process/Redis cache (TTL = `config_redis_cache_ttl_sec`) | Balanced; slightly stale allowed. |
-| `realtime` | Live Postgres query every request | Most secure/fresh; use for destructive admin ops. |
-
-**Worked example** — admin hard-delete requires role 1 verified *live*, blocks deactivated/deleted users, and rate-limits to 10 calls/60s:
 ```python
 "/admin/object-delete": {
-  "id": 5,
-  "is_token": 1,
-  "user_check_role": {"mode": "realtime", "roles": [1]},
-  "user_check_deactivated": {"mode": "realtime"},
-  "user_check_deleted": {"mode": "realtime"},
-  "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60},
-},
-```
-Compare the cached public read — no token, response cached 100s:
-```python
-"/public/object-read": {"id": 14, "is_token": 0, "cache": {"mode": "inmemory", "ttl_sec": 100, "is_per_user": 0}},
+    "id": 5,
+    "is_token": 1,
+    "user_check_role": {"mode": "realtime", "roles": [1]},
+    "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60},
+}
 ```
 
-## `config_postgres`
-The **declarative database schema**, applied by `func_postgres_schema_init` at startup when `config_is_postgres_schema_init = 1`. It has four top-level keys: `extension`, `table`, `control`, `sql`.
+- **Policy Keys**: `is_active`, `is_token`, `user_check_role`, `user_check_deactivated`, `user_check_deleted`, `rate_limit`, `cache`.
+- **Check Modes**: `token` (reads JWT claim), `inmemory` (Redis/process cache), `realtime` (live DB query on every request).
 
-### `extension`
-List of Postgres extensions to ensure exist (created if missing; skipped with a warning if the DB user lacks privileges):
-`postgis` (spatial types/indexes), `pg_trgm` (trigram/fuzzy text search), `btree_gin` (GIN indexes over scalar columns).
+### `config_postgres`
+Declarative database schema applied at startup when `config_is_postgres_schema_init = 1`:
+- **`extension`**: PostgreSQL extensions (`pg_trgm`, `postgis`, `btree_gin`).
+- **`table`**: Dict of `table_name -> [column specs]` defining data types, primary keys, indexes, default expressions, unique/check constraints, and `old` column names for safe renames.
 
-### `table`
-A dict of `table_name → [column specs]`. **Rules enforced at init:** the first column of every table must be an identity primary key (e.g. `{"name":"id","datatype":"bigint","identity":"always","is_primary":1}` or `bigserial`); only one primary column; no duplicate or reserved-word column names.
+#### `control`
+Auto-migration safety flags inside `config_postgres["control"]`:
+- `is_truncate_table`: Allow table truncation during init (`0`).
+- `is_updated_at_set`: Auto-update `updated_at` timestamps via triggers (`1`).
+- `is_root_user_create`: Seed initial root admin user (`1`).
+- `table_row_delete_disable_all`: Tables where row deletion is entirely blocked.
+- `table_row_delete_disable_bulk`: Limits for bulk row deletions.
 
-Each column spec is a dict. Supported keys:
+### `config_table` & `config_sql`
+- **`config_table`**: Per-table operational rules (e.g. `buffer_limit`, `retention_day`).
+- **`config_sql`**: Startup SQL queries cached in memory for fast middleware lookups.
 
-| Column key | Meaning |
-|-----------|---------|
-| `name` | Column name (required; can't be a PG reserved word). |
-| `datatype` | PG type (required) — e.g. `text`, `bigint`, `timestamptz`, `jsonb`, `text[]`, `numeric(3,1)`, `geography(Point,4326)`. |
-| `identity` | Optional identity generation strategy for `bigint` primary key (`"always"` or `"by_default"`). |
-| `is_primary` | `1` marks the primary key (only the first `id` column). |
-| `is_mandatory` | `1` adds `NOT NULL`. |
-| `default` | Default value / expression (e.g. `now()`, `1`). |
-| `unique` | Unique constraint. Comma = **composite** (`"code,type"`); `\|` = **multiple separate** constraints (`"code,type\|code,slug"`). |
-| `check` | SQL `CHECK` expression (e.g. `"rating >= 0 AND rating <= 10"`). |
-| `regex` | Validation pattern enforced on write by `func_regex_check` (not allowed on array types). |
-| `index` | Index spec `type(cols)`; `\|`-separated for multiple. Types: `btree`, `gin`, `gist`, `gin_trgm`. Init validates type↔datatype (e.g. `gist` only on spatial, `gin` only on array/jsonb/text). |
-| `in` | Allowed value set (e.g. `(1,2,3,4)` for status enums). |
-| `old` | Previous column name — enables a **safe rename** instead of drop+create. |
-
-### `control`
-Toggles that decide **how aggressive the auto-migration is** and which safety guards apply. All are read in `func_postgres_schema_init`; defaults shown are what applies if the key is omitted.
-
-| Control key | Default | What it does |
-|-------------|---------|--------------|
-| `is_truncate_table` | `0` | Allow truncating tables during init. |
-| `is_updated_at_set` | `1` | Auto-maintain `updated_at` (trigger) on update. |
-| `is_protected_delete_disabled` | `1` | Rows flagged `is_protected` cannot be deleted. |
-| `is_log_users_password` | `1` | Record password changes into `log_users_password`. |
-| `is_log_users_delete` | `1` | Record user delete/restore events into `log_users_delete`. |
-| `is_root_user_create` | `1` | Seed the root admin user (role 1) at startup. |
-| `is_root_user_delete_disabled` | `1` | Protect the root user from deletion. |
-| `table_row_delete_disable_all` | `["users", "config", "log_users_password", "log_users_delete"]` | Tables where **all** row deletes are blocked. |
-| `table_row_delete_disable_bulk` | `[["*", 1000]]` | Tables where only **bulk** row deletes (exceeding limit) are blocked. |
-
-> Several keys also accept legacy aliases (e.g. `is_disable_drop_table`) for backward compatibility, but prefer the names above.
-
-### `sql`
-A dict of extra raw SQL run during init (e.g. custom indexes/constraints named `index_*`, `unique_*`, `check_*`, which init registers so it won't duplicate them). Empty by default.
-
-**Shipped tables:** `users`, `test`, `config`, `otp`, `blob`, `message`, `notification`, `comment_test`, `log_api`, `log_users_password`, `log_users_delete`. See [extend.md](extend.md#4-add-or-change-database-tables) for adding your own.
-
----
+### Rules & Registries
+- **Table Access Control**: Lists gating generic CRUD endpoints (`config_table_sensitive`, `config_table_public_read_enabled`, `config_table_my_create_disabled`).
+- **Column Rules**: `config_column_admin`, `config_column_ownership`, `config_column_single_update`.
+- **Service Registries**: Supported service providers (`config_queue_services`, `config_blob_services`, `config_email_services`, `config_ai_services`).
 
 ---
 
