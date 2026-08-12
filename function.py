@@ -1,5 +1,41 @@
-def func_check(*, app: any) -> None:
-    """Validate config_api entries against registered routes and middleware config formats."""
+def func_check_database_config(*, app_state: any) -> None:
+    """Validate database pool sizing and named PostgreSQL connections."""
+    import re
+    def int_check(value, key):
+        if isinstance(value, bool): raise Exception(f"invalid {key}: expected integer")
+        try: value = int(value)
+        except Exception: raise Exception(f"invalid {key}: expected integer")
+        if value < 1: raise Exception(f"invalid {key}: minimum 1")
+        return value
+    pool_min = int_check(getattr(app_state, "config_postgres_pool_min_size", None), "config_postgres_pool_min_size")
+    pool_max = int_check(getattr(app_state, "config_postgres_pool_max_size", None), "config_postgres_pool_max_size")
+    if pool_max < pool_min: raise Exception("config_postgres_pool_max_size must be greater than or equal to config_postgres_pool_min_size")
+    url_dict_value = getattr(app_state, "config_postgres_url_dict", None)
+    if url_dict_value is not None and not isinstance(url_dict_value, dict): raise Exception("config_postgres_url_dict must be dict or None")
+    url_dict = url_dict_value or {}
+    for name, url in url_dict.items():
+        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", name): raise Exception(f"invalid config_postgres_url_dict name: {name}")
+        if not isinstance(url, str) or not url.strip().lower().startswith(("postgres://", "postgresql://")): raise Exception(f"invalid PostgreSQL URL for config_postgres_url_dict '{name}'")
+    log_db = getattr(app_state, "config_postgres_db_log_api", None)
+    if log_db is not None and log_db not in url_dict: raise Exception(f"config_postgres_db_log_api '{log_db}' not found in config_postgres_url_dict")
+    return None
+
+def func_check_runtime_config(*, app_state: any) -> None:
+    """Validate query limits, buffer bounds, and background-task intervals."""
+    def int_check(value, key):
+        if isinstance(value, bool): raise Exception(f"invalid {key}: expected integer")
+        try: value = int(value)
+        except Exception: raise Exception(f"invalid {key}: expected integer")
+        if value < 1: raise Exception(f"invalid {key}: minimum 1")
+        return value
+    values = {key: int_check(getattr(app_state, key, None), key) for key in ("config_query_runner_read_limit", "config_query_runner_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec")}
+    if values["config_sql_read_limit_default"] > values["config_sql_read_limit_max"]: raise Exception("config_sql_read_limit_default must not exceed config_sql_read_limit_max")
+    buffer_limit = getattr(app_state, "config_buffer_limit_default", None)
+    if buffer_limit is not None and (isinstance(buffer_limit, bool) or not isinstance(buffer_limit, int) or buffer_limit < 10 or buffer_limit > 5000): raise Exception("config_buffer_limit_default must be an integer between 10 and 5000")
+    return None
+
+def func_check_api_config(*, app: any) -> None:
+    """Validate registered API middleware configuration and its Redis dependencies."""
     config_api = getattr(app.state, "config_api", {})
     if not isinstance(config_api, dict): raise Exception("config_api must be dict")
     route_paths = {route.path for route in app.routes if hasattr(route, "path")}
@@ -10,10 +46,9 @@ def func_check(*, app: any) -> None:
     def flag_check(value, key):
         if not isinstance(value, bool): raise Exception(f"invalid {key}: expected bool")
     def int_check(value, key, min_value=0):
-        try:
-            value = int(value)
-        except Exception:
-            raise Exception(f"invalid {key}: expected integer")
+        if isinstance(value, bool): raise Exception(f"invalid {key}: expected integer")
+        try: value = int(value)
+        except Exception: raise Exception(f"invalid {key}: expected integer")
         if value < min_value: raise Exception(f"invalid {key}: minimum {min_value}")
         return value
     requires_redis = False
@@ -95,10 +130,21 @@ def func_check(*, app: any) -> None:
         raise Exception("config_api uses redis user state check but config_redis_url_user_state is missing")
     if requires_redis_ratelimiter and not getattr(app.state, "config_redis_url_ratelimiter", None):
         raise Exception("config_api uses redis rate limiting but config_redis_url_ratelimiter is missing")
-    buffer_limit = getattr(app.state, "config_buffer_limit_default", None)
-    if buffer_limit is not None:
-        if not isinstance(buffer_limit, int) or buffer_limit < 10 or buffer_limit > 5000:
-            raise Exception("config_buffer_limit_default must be an integer between 10 and 5000")
+    redis_urls_required = []
+    if requires_redis: redis_urls_required.append("config_redis_url")
+    if requires_redis_user_state: redis_urls_required.append("config_redis_url_user_state")
+    if requires_redis_ratelimiter: redis_urls_required.append("config_redis_url_ratelimiter")
+    for key in redis_urls_required:
+        url = getattr(app.state, key, None)
+        if not isinstance(url, str) or not url.strip().lower().startswith(("redis://", "rediss://", "unix://")):
+            raise Exception(f"{key} must be a valid Redis URL")
+    return None
+
+def func_check(*, app: any) -> None:
+    """Validate database, runtime, and API configuration before client initialization."""
+    func_check_database_config(app_state=app.state)
+    func_check_runtime_config(app_state=app.state)
+    func_check_api_config(app=app)
     return None
 
 def func_postgres_schema_config_validate(*, config_db: dict) -> None:
