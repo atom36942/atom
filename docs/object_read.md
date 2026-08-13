@@ -68,14 +68,113 @@ async def func_postgres_read(
 
 ## 📝 Request & Response Examples
 
-### Complex Query Request
+### 1. Python Code Invocation (`func_postgres_read`)
+Passing `filter` directly as a Python `list` of condition strings:
 
-**cURL Request:**
-```bash
-curl -X GET "http://localhost:8000/public/object-read?table=test&limit=10&page=1&order=rating%20desc&filter=%5B%22status%20%3D%201%22%2C%22type%20!%3D%209%22%2C%22rating%20%3E%3D%202%22%2C%22title%20ilike%20%25Title%25%22%5D"
+```python
+results = await func_postgres_read(
+    client_postgres=client_postgres,
+    client_password_hasher=client_password_hasher,
+    func_postgres_serialize=func_postgres_serialize,
+    func_postgres_where_build=func_postgres_where_build,
+    func_postgres_relation=func_postgres_relation,
+    cache_postgres_schema=cache_postgres_schema,
+    config_sql_read_limit_max=100,
+    config_sql_read_relation_fetch_limit_max=50,
+    table="test",
+    filter=[
+        "status = 1",
+        "type != 9",
+        "rating >= 2.0",
+        "rating < 5.0",
+        "status in 1|2|3",
+        "title ilike %Title%",
+        "tag contains tag1",
+        "metadata contains active|true|bool"
+    ],
+    limit=10,
+    page=1,
+    order="id desc",
+    column="*"
+)
 ```
 
-**JSON Response:**
+---
+
+### 2. HTTP GET API Request (cURL)
+Passing `filter` as a URL-encoded JSON string array:
+
+**Readable Query String:**
+```text
+GET /public/object-read?table=test&filter=["status = 1", "type != 9", "rating < 5", "title ilike %Title%"]
+```
+
+**cURL Command (using `--data-urlencode`):**
+```bash
+curl -G "http://localhost:8000/public/object-read" \
+  --data-urlencode "table=test" \
+  --data-urlencode "limit=10" \
+  --data-urlencode "page=1" \
+  --data-urlencode 'filter=["status = 1", "type != 9", "rating >= 2", "title ilike %Title%"]'
+```
+
+**Raw Encoded cURL:**
+```bash
+curl -X GET "http://localhost:8000/public/object-read?table=test&limit=10&page=1&filter=%5B%22status%20%3D%201%22%2C%22type%20!%3D%209%22%2C%22rating%20%3E%3D%202%22%2C%22title%20ilike%20%25Title%25%22%5D"
+```
+
+---
+
+### 3. JavaScript (`fetch` API)
+Passing an Array list via `JSON.stringify()`:
+
+```javascript
+const filterList = [
+  "status = 1",
+  "type != 9",
+  "rating >= 2",
+  "title ilike %Title%"
+];
+
+const response = await fetch(
+  `/public/object-read?table=test&limit=10&filter=${encodeURIComponent(JSON.stringify(filterList))}`
+);
+const data = await response.json();
+console.log(data.message.obj_list);
+```
+
+---
+
+### 4. Python HTTP Client (`requests`)
+
+```python
+import requests
+import json
+
+filter_list = [
+    "status = 1",
+    "type != 9",
+    "rating >= 2",
+    "title ilike %Title%"
+]
+
+response = requests.get(
+    "http://localhost:8000/public/object-read",
+    params={
+        "table": "test",
+        "limit": 10,
+        "filter": json.dumps(filter_list)
+    }
+)
+
+data = response.json()
+print(data["message"]["obj_list"])
+```
+
+---
+
+### 📥 Standard JSON API Response
+
 ```json
 {
   "status": 1,
