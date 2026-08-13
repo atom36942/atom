@@ -421,7 +421,7 @@ To restore access, clear `deactivated_at` and refresh the relevant caches with `
 
 Create endpoints support two ways to move work off the request path:
 
-- Add `?is_background=1` for an in-process background task. This is simple and fast, but the task can be lost if the API process stops.
+- Add `?is_background=true` for an in-process background task. This is simple and fast, but the task can be lost if the API process stops. Boolean query flags use `true`/`false`; legacy `1`/`0` values remain accepted for compatibility.
 - Add `?queue=redis` (or another configured queue mode) to publish the payload for a separate worker. This is the better choice for durable, scalable, or slow workloads.
 
 Make sure the selected queue client is configured and its consumer process is running before publishing jobs. Design handlers to be idempotent so retries cannot create duplicates, and monitor `tmp/consumer_failed_payload.jsonl` for terminal failures. See [Object Queues](queue.md) for object API details and [Background Workers](workers.md) for broader worker patterns.

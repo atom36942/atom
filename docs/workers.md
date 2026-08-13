@@ -15,7 +15,7 @@ POST /my/object-create?table=test&queue=redis
 { ... }
 ```
 
-`func_producer` publishes the payload to the chosen backend (`redis` / `rabbitmq` / `kafka` / `celery`, validated against `config_queue_services`), and a consumer picks it up. The middleware also supports `?is_background=1` for fire-and-forget within the app process (see [middleware.md](middleware.md)).
+`func_producer` publishes the payload to the chosen backend (`redis` / `rabbitmq` / `kafka` / `celery`, validated against `config_queue_services`), and a consumer picks it up. The middleware also supports `?is_background=true` for fire-and-forget within the app process (see [middleware.md](middleware.md)).
 
 For object endpoint support, broker configuration, exact consumer commands, and delivery/failure semantics, see [Object Queues](queue.md).
 

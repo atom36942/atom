@@ -34,6 +34,15 @@ def func_check_runtime_config(*, app_state: any) -> None:
     if buffer_limit is not None and (isinstance(buffer_limit, bool) or not isinstance(buffer_limit, int) or buffer_limit < 10 or buffer_limit > 5000): raise Exception("config_buffer_limit_default must be an integer between 10 and 5000")
     return None
 
+def func_query_bool_parse(value: any, default: bool = False) -> bool:
+    """Parse a query-string boolean, retaining legacy 1/0 compatibility."""
+    if value is None: return default
+    if isinstance(value, bool): return value
+    normalized = str(value).strip().lower()
+    if normalized in ("true", "1"): return True
+    if normalized in ("false", "0"): return False
+    raise ValueError(f"invalid boolean query value: {value!r}; expected 'true' or 'false'")
+
 def func_check_api_config(*, app: any) -> None:
     """Validate registered API middleware configuration and its Redis dependencies."""
     config_api = getattr(app.state, "config_api", {})
@@ -773,7 +782,8 @@ async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict,
     else:
         cache_mode, ttl, is_user_cache = None, 0, 0
     is_user_cache = str(is_user_cache) == "1" or is_user_cache is True
-    is_enabled = query_params.get("is_disable_cache") != "1" and bool(cfg) and bool(cache_mode) and ttl > 0
+    is_disable_cache = func_query_bool_parse(query_params.get("is_disable_cache"), default=False)
+    is_enabled = not is_disable_cache and bool(cfg) and bool(cache_mode) and ttl > 0
     if mode == "set" and not is_enabled: return response
     if mode == "get" and not is_enabled: return None
     if cache_api_response is None: cache_api_response = {}

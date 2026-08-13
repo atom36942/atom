@@ -106,8 +106,8 @@ async def middleware(request, api_function):
         path = request.url.path
         route_path = getattr(route, "path", None) or path
         api_cfg = app_state.config_api.get(route_path, {})
-        is_active = api_cfg.get("is_active", 1)
-        is_token = api_cfg.get("is_token", 0)
+        is_active = api_cfg.get("is_active", True)
+        is_token = api_cfg.get("is_token", False)
         user_check_role = api_cfg.get("user_check_role")
         user_check_deactivated = api_cfg.get("user_check_deactivated")
         user_check_deleted = api_cfg.get("user_check_deleted")
@@ -128,7 +128,7 @@ async def middleware(request, api_function):
         response = await app_state.func_middleware_api_cache(mode="get", path=path, query_params=query_params, cache=cache, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response)
         # execution
         if not response:
-            if query_params.get("is_background") == "1":
+            if app_state.func_query_bool_parse(query_params.get("is_background"), default=False):
                 response_type = "background_added"
                 response = await app_state.func_middleware_api_background(scope=request.scope, body_bytes=await request.body(), api_function=api_function)
             else:

@@ -65,7 +65,7 @@ If the route is cacheable, builds a key from path + query params + user id and c
 ### 7. Handle the request (on cache miss)
 Two paths:
 
-- **Background** — if the query string has `is_background=1`, the request is handed to `func_middleware_api_background` (reads the body + scope, schedules the work) and returns right away with `response_type = "background_added"`.
+- **Background** — if the query string has `is_background=true`, the request is handed to `func_middleware_api_background` (reads the body + scope, schedules the work) and returns right away with `response_type = "background_added"`. Boolean query flags use `true`/`false`; legacy `1`/`0` values remain accepted for compatibility.
 - **Direct** — otherwise the actual route handler runs (`await api_function(request)`), then `func_middleware_api_cache(mode="set")` stores the response if the route is cacheable (`response_type = "direct_cache_set"` when it does).
 
 ### 8. Error handling (`func_middleware_api_response_error`)

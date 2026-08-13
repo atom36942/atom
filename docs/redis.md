@@ -83,7 +83,7 @@ The dict keys are `{"mode": "...", "ttl_sec": ..., "is_per_user": ...}`. Set `is
 cache:{path}?{sorted_query_parameters}:{user_id_or_0}
 ```
 
-Responses are gzip-compressed and Base64-encoded before storage. Clients can bypass the lookup and write for a request with `?is_disable_cache=1`.
+Responses are gzip-compressed and Base64-encoded before storage. Clients can bypass the lookup and write for a request with `?is_disable_cache=true`. Boolean query flags use `true`/`false`; legacy `1`/`0` values remain accepted for compatibility.
 
 ### Admin Redis import
 
