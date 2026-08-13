@@ -304,7 +304,7 @@ Monitor at least:
 - Build an explicit retry/dead-letter policy for business-critical jobs.
 - Make replay safe before automating it.
 
-For the surrounding object API behavior, see [Object APIs](object.md). For general worker patterns, see [Background Workers](workers.md).
+For the surrounding object API behavior, see [Object Read API](object_read.md). For general worker patterns, see [Background Workers](workers.md).
 
 ---
 

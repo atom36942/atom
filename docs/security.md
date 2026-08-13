@@ -39,7 +39,7 @@ Routes with `rate_limit` cap requests per window, keyed by **user id** (authenti
 
 ## 4. Data access control
 
-Three independent gates protect the generic CRUD layer (see [object.md](object.md)):
+Three independent gates protect the generic CRUD layer (see [object_create.md](object_create.md), [object_read.md](object_read.md)):
 
 - **Table allow-lists** — `config_table_public_create_enabled` / `_read_enabled` (public), `config_table_my_create_disabled`, `config_table_my_delete_all_enabled`. `"*"` = all, `[]` = none.
 - **Ownership scoping** — `config_column_ownership` (`created_by_id`, `user_id`). The `my/*` endpoints filter and stamp by ownership so a user only ever touches their own rows; `admin/*` is unrestricted behind role checks.

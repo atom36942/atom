@@ -131,7 +131,7 @@ curl "http://localhost:8000/my/object-read?table=test" \
   -H "Authorization: Bearer <access_token>"
 ```
 
-📖 Learn more in [auth.md](docs/auth.md) and [object.md](docs/object.md).
+📖 Learn more in [auth.md](docs/auth.md) and [object_read.md](docs/object_read.md).
 
 ## Configuration
 
@@ -216,8 +216,10 @@ atom/
 
 🚀 **Features & Storage**
 - [auth.md](docs/auth.md) — Signup, authentication methods, OTP, and roles.
-- [object.md](docs/object.md) — Generic database CRUD engine and Object APIs.
-- [read.md](docs/read.md) — Advanced filtering, pagination, and sorting.
+- [object_create.md](docs/object_create.md) — Generic record creation and bulk batching.
+- [object_read.md](docs/object_read.md) — Advanced filtering, pagination, sorting, and joins.
+- [object_update.md](docs/object_update.md) — Bulk CASE statement record updates.
+- [object_delete.md](docs/object_delete.md) — Record deletion and ownership guards.
 - [postgres.md](docs/postgres.md) — Primary & read-replica Postgres connections.
 - [query.md](docs/query.md) — Multi-database query runners & AI SQL generator.
 - [queue.md](docs/queue.md) — Asynchronous job queues (Redis, RabbitMQ, Kafka, Celery).

@@ -9,7 +9,7 @@ Atom ships two related in-app features backed by dedicated tables: **direct mess
 Messages live in the `message` table. Each row is one message from `created_by_id` (sender) to `user_id` (recipient), with a `read_at` timestamp.
 
 ### Send a message
-Use generic create (see [object.md](object.md)) — the sender is stamped from the token:
+Use generic create (see [object_create.md](object_create.md)) — the sender is stamped from the token:
 
 ```jsonc
 POST /my/object-create?table=message

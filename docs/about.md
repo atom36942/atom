@@ -36,7 +36,7 @@ atom/
 Assembles the FastAPI application instance. Handles the startup/shutdown **[lifespan](lifespan.md)** context manager, orchestrates connection pools (**[postgres.md](postgres.md)**, **[redis.md](redis.md)**), builds in-memory caches, registers routers (**[router.md](router.md)**), and mounts the unified **[middleware](middleware.md)**.
 
 ### 2. `function.py` — Helper Logic & Utility Engine
-Contains all reusable, framework-agnostic helper functions (JWT token parsing, password hashing, generic CRUD operations, buffer flushes, blob operations, and AI utilities). See **[object.md](object.md)**, **[auth.md](auth.md)**, and **[query.md](query.md)**.
+Contains all reusable, framework-agnostic helper functions (JWT token parsing, password hashing, generic CRUD operations, buffer flushes, blob operations, and AI utilities). See **[object_create.md](object_create.md)**, **[object_read.md](object_read.md)**, **[auth.md](auth.md)**, and **[query.md](query.md)**.
 
 ### 3. `config.py` — Centralized Declarative Configuration
 Acts as the single source of truth for all environment variables, feature flags (`config_is_*`), token/OTP settings, and limits (upload size, batch size, read limits, buffer sizes), and endpoint permissions. Read the full reference in **[config.md](config.md)**.
@@ -44,8 +44,8 @@ Acts as the single source of truth for all environment variables, feature flags 
 ### 4. `router/` — Access-Tiered Routers
 API routes are partitioned into access tiers based on security requirements:
 - `auth`: Signup, login, password reset, OTP, and OAuth endpoints (**[auth.md](auth.md)**).
-- `my`: Authenticated user operations, profile settings, user object CRUD, and messaging (**[object.md](object.md)**, **[messaging.md](messaging.md)**).
-- `public`: Unauthenticated public data reads and public forms (**[read.md](read.md)**).
+- `my`: Authenticated user operations, profile settings, user object CRUD, and messaging (**[object_read.md](object_read.md)**, **[messaging.md](messaging.md)**).
+- `public`: Unauthenticated public data reads and public forms (**[object_read.md](object_read.md)**).
 - `private`: Server-side actions like internal emails and signed storage URLs (**[blob.md](blob.md)**, **[comms.md](comms.md)**).
 - `admin`: High-privilege administrative utilities, query runners, data imports, and schema inspection (**[admin.md](admin.md)**).
 
@@ -108,8 +108,8 @@ For detailed specifications on each middleware phase, status code handling, and 
 
 Atom provides powerful built-in data handling abstractions without forcing heavy ORM overhead:
 
-1. **Generic CRUD Engine**: Perform low-level CRUD operations against any SQL table using declarative configuration. See **[object.md](object.md)**.
-2. **Advanced Filtering & Pagination Engine**: Parse complex queries, field selections, sorting parameters, and relational joins dynamically. Read **[read.md](read.md)**.
+1. **Generic CRUD Engine**: Perform low-level CRUD operations against any SQL table using declarative configuration. See **[object_create.md](object_create.md)**, **[object_read.md](object_read.md)**, **[object_update.md](object_update.md)**, and **[object_delete.md](object_delete.md)**.
+2. **Advanced Filtering & Pagination Engine**: Parse complex queries, field selections, sorting parameters, and relational joins dynamically. Read **[object_read.md](object_read.md)**.
 3. **High-Performance Async Write Buffer**: Non-blocking in-memory buffer that batches database writes (like request logging and analytics) into periodic bulk inserts to reduce database round-trips. Read **[buffer.md](buffer.md)**.
 4. **Multi-Database & AI Query Runner**: Direct raw SQL query execution across Postgres, MSSQL, and ClickHouse with natural language AI SQL generation. See **[query.md](query.md)**.
 
@@ -147,8 +147,8 @@ Atom is designed to remain secure in production and easy to update downstream:
 | **Middleware** | **[middleware.md](middleware.md)** | HTTP middleware pipeline, authentication & rate limiting |
 | **Postgres** | **[postgres.md](postgres.md)** | Primary/replica pool setup, connection limits & asyncpg |
 | **Redis** | **[redis.md](redis.md)** | Redis cache, rate limiter, and queue client management |
-| **Object CRUD Engine** | **[object.md](object.md)** | Generic CRUD engine & access-tiered object CRUD APIs |
-| **Read Engine** | **[read.md](read.md)** | Filtering, pagination, field selection & dynamic joins |
+| **Object CRUD Engine** | **[object_create.md](object_create.md)**, **[object_update.md](object_update.md)**, **[object_delete.md](object_delete.md)** | Generic CRUD engines & access-tiered object APIs |
+| **Read Engine** | **[object_read.md](object_read.md)** | Filtering, pagination, field selection & dynamic joins |
 | **Write Buffer** | **[buffer.md](buffer.md)** | High-throughput asynchronous write buffer & flush loops |
 | **Query Engine** | **[query.md](query.md)** | Raw SQL query execution & AI SQL query generation |
 | **Authentication** | **[auth.md](auth.md)** | JWT auth, role enforcement, OTP & Google OAuth |

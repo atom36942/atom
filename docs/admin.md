@@ -81,7 +81,7 @@ Both use primary when `db` is omitted and the selected named pool otherwise. The
 
 ## Object CRUD (unrestricted)
 
-`/admin/object-create`, `-read`, `-update`, `-delete` mirror the generic CRUD engine (see [object.md](object.md)) but **without ownership scoping** — an admin can operate on any row of any table. `/admin/object-read` accepts the optional `db` selector; all writes remain on primary. Extra guards still apply: user hard-delete needs `config_is_user_delete=True`; updating `users` email/mobile can require OTP (`config_is_otp_require_users_update`); password updates must be `{id, password}` only.
+`/admin/object-create`, `-read`, `-update`, `-delete` mirror the generic CRUD engine (see [object_create.md](object_create.md), [object_read.md](object_read.md), [object_update.md](object_update.md), [object_delete.md](object_delete.md)) but **without ownership scoping** — an admin can operate on any row of any table. `/admin/object-read` accepts the optional `db` selector; all writes remain on primary. Extra guards still apply: user hard-delete needs `config_is_user_delete=True`; updating `users` email/mobile can require OTP (`config_is_otp_require_users_update`); password updates must be `{id, password}` only.
 
 ---
 
