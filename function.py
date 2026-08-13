@@ -2450,7 +2450,7 @@ async def func_pgweb_schema(*, pool: any, timeout_sec: int = 30) -> dict:
     return {"tree": await func_pgweb_tree(pool=pool, timeout_sec=timeout_sec), "database": await pool.fetchval("SELECT current_database()", timeout=timeout_sec)}
 
 async def func_pgweb_info(*, pool: any, connection_url: str, timeout_sec: int = 30) -> dict:
-    """Return exact database properties and non-extension public object counts."""
+    """Return database properties plus user-owned and managed public object counts."""
     row = await pool.fetchrow("""
         SELECT current_database() AS database, current_user AS user_name, current_setting('server_version') AS version,
                pg_size_pretty(pg_database_size(current_database())) AS database_size,
@@ -2468,12 +2468,207 @@ async def func_pgweb_info(*, pool: any, connection_url: str, timeout_sec: int = 
         FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname = 'public'
           AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.classid = 'pg_proc'::regclass AND d.deptype = 'e')""", timeout=timeout_sec)
+    table_metadata = await pool.fetchrow("""
+        WITH user_tables AS (
+          SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+          WHERE n.nspname='public' AND c.relkind IN ('r','p') AND NOT c.relispartition
+            AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid=c.oid
+              AND d.classid='pg_class'::regclass AND d.deptype='e')
+        )
+        SELECT
+          (SELECT count(*) FROM pg_attribute a JOIN user_tables t ON t.oid=a.attrelid
+             WHERE a.attnum>0 AND NOT a.attisdropped) AS columns,
+          (SELECT count(*) FROM pg_constraint c JOIN user_tables t ON t.oid=c.conrelid) AS constraints,
+          (SELECT count(*) FROM pg_constraint c JOIN user_tables t ON t.oid=c.conrelid WHERE c.contype='p') AS primary_keys,
+          (SELECT count(*) FROM pg_constraint c JOIN user_tables t ON t.oid=c.conrelid WHERE c.contype='f') AS foreign_keys,
+          (SELECT count(*) FROM pg_constraint c JOIN user_tables t ON t.oid=c.conrelid WHERE c.contype='u') AS unique_constraints,
+          (SELECT count(*) FROM pg_policy p JOIN user_tables t ON t.oid=p.polrelid) AS policies
+    """, timeout=timeout_sec)
     triggers = await pool.fetchval("""
         SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = 'public' AND NOT t.tgisinternal
           AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = t.oid AND d.classid = 'pg_trigger'::regclass AND d.deptype = 'e')
           AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.classid = 'pg_class'::regclass AND d.deptype = 'e')""", timeout=timeout_sec)
-    return {**{k: func_pgweb_jsonable(v) for k, v in row.items()}, "connection_url": connection_url, "schema_scope": "public", **{k: int(v) for k, v in relations.items()}, **{k: int(v) for k, v in routines.items()}, "triggers": int(triggers)}
+    managed = await pool.fetchrow("""
+        SELECT
+          (SELECT count(*) FROM pg_extension) AS extension_count,
+          (SELECT string_agg(extname || ' ' || extversion, ', ' ORDER BY extname) FROM pg_extension) AS extension_names,
+          (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = 'public' AND EXISTS (
+               SELECT 1 FROM pg_depend d WHERE d.objid = c.oid
+                 AND d.classid = 'pg_class'::regclass AND d.deptype = 'e')) AS extension_relations,
+          (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+             WHERE n.nspname = 'public' AND EXISTS (
+               SELECT 1 FROM pg_depend d WHERE d.objid = p.oid
+                 AND d.classid = 'pg_proc'::regclass AND d.deptype = 'e')) AS extension_routines,
+          (SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+             JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = 'public' AND t.tgisinternal) AS internal_triggers
+    """, timeout=timeout_sec)
+    return {**{k: func_pgweb_jsonable(v) for k, v in row.items()}, "connection_url": connection_url,
+            "schema_scope": "public", **{k: int(v) for k, v in relations.items()},
+            **{k: int(v) for k, v in table_metadata.items()}, **{k: int(v) for k, v in routines.items()},
+            "triggers": int(triggers),
+            **{k: (int(v) if k != "extension_names" else (v or "None")) for k, v in managed.items()}}
+
+async def func_pgweb_catalog(*, pool: any, kind: str, timeout_sec: int = 30) -> dict:
+    """Return one lazily requested database-wide public-schema catalog."""
+    columns_by_kind = {
+        "tables": ["schema", "name", "type", "owner", "columns", "indexes", "constraints", "triggers", "policies", "size", "estimated_rows"],
+        "columns": ["schema", "table_name", "position", "name", "type", "nullable", "default_value", "generated"],
+        "views": ["schema", "name", "type", "owner", "size", "estimated_rows"],
+        "materialized_views": ["schema", "name", "type", "owner", "size", "estimated_rows"],
+        "indexes": ["schema", "name", "table_name", "method", "unique", "primary", "size", "definition"],
+        "constraints": ["schema", "table_name", "name", "type", "columns", "references", "validated", "definition"],
+        "primary_keys": ["schema", "table_name", "name", "type", "columns", "references", "validated", "definition"],
+        "foreign_keys": ["schema", "table_name", "name", "type", "columns", "references", "validated", "definition"],
+        "unique_constraints": ["schema", "table_name", "name", "type", "columns", "references", "validated", "definition"],
+        "policies": ["schema", "table_name", "name", "mode", "command", "roles", "using_expression", "check_expression"],
+        "sequences": ["schema", "name", "owner", "data_type", "start_value", "min_value", "max_value", "increment_by", "cycle"],
+        "functions": ["schema", "name", "owner", "type", "arguments", "result", "language", "definition"],
+        "procedures": ["schema", "name", "owner", "type", "arguments", "result", "language", "definition"],
+        "triggers": ["schema", "table_name", "name", "enabled", "function", "definition"],
+        "internal_triggers": ["schema", "table_name", "name", "enabled", "function", "definition"],
+        "extensions": ["name", "version", "schema", "owner", "description"],
+        "extension_relations": ["extension", "schema", "name", "type"],
+        "extension_routines": ["extension", "schema", "name", "type", "arguments", "language"],
+    }
+    relation_kinds = {"tables": ("'r','p'", "Table"), "views": ("'v'", "View"),
+                      "materialized_views": ("'m'", "Materialized view")}
+    if kind in relation_kinds:
+        relkinds, label = relation_kinds[kind]
+        query = f"""
+            SELECT n.nspname AS schema, c.relname AS name, $1::text AS type,
+                   pg_get_userbyid(c.relowner) AS owner,
+                   CASE WHEN c.relkind IN ('r','p') THEN
+                     (SELECT count(*) FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped)
+                   END AS columns,
+                   CASE WHEN c.relkind IN ('r','p') THEN
+                     (SELECT count(*) FROM pg_index i WHERE i.indrelid=c.oid)
+                   END AS indexes,
+                   CASE WHEN c.relkind IN ('r','p') THEN
+                     (SELECT count(*) FROM pg_constraint con WHERE con.conrelid=c.oid)
+                   END AS constraints,
+                   CASE WHEN c.relkind IN ('r','p') THEN
+                     (SELECT count(*) FROM pg_trigger t WHERE t.tgrelid=c.oid AND NOT t.tgisinternal)
+                   END AS triggers,
+                   CASE WHEN c.relkind IN ('r','p') THEN
+                     (SELECT count(*) FROM pg_policy p WHERE p.polrelid=c.oid)
+                   END AS policies,
+                   CASE WHEN c.relkind IN ('r','p','m') THEN pg_size_pretty(pg_total_relation_size(c.oid)) ELSE '—' END AS size,
+                   c.reltuples::bigint AS estimated_rows
+            FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='public' AND c.relkind IN ({relkinds}) AND NOT c.relispartition
+              AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid=c.oid
+                AND d.classid='pg_class'::regclass AND d.deptype='e')
+            ORDER BY c.relname"""
+        args = (label,)
+    elif kind == "columns":
+        query, args = """
+            SELECT n.nspname AS schema, c.relname AS table_name, a.attnum AS position, a.attname AS name,
+                   format_type(a.atttypid,a.atttypmod) AS type, NOT a.attnotnull AS nullable,
+                   pg_get_expr(ad.adbin,ad.adrelid) AS default_value,
+                   CASE a.attidentity WHEN 'a' THEN 'Identity always' WHEN 'd' THEN 'Identity by default'
+                     ELSE CASE WHEN a.attgenerated<>'' THEN pg_get_expr(ad.adbin,ad.adrelid) END END AS generated
+            FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+            LEFT JOIN pg_attrdef ad ON ad.adrelid=a.attrelid AND ad.adnum=a.attnum
+            WHERE n.nspname='public' AND c.relkind IN ('r','p') AND NOT c.relispartition
+              AND a.attnum>0 AND NOT a.attisdropped
+              AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid=c.oid
+                AND d.classid='pg_class'::regclass AND d.deptype='e')
+            ORDER BY c.relname,a.attnum""", ()
+    elif kind == "indexes":
+        query, args = """
+            SELECT n.nspname AS schema, i.relname AS name, t.relname AS table_name,
+                   am.amname AS method, x.indisunique AS unique, x.indisprimary AS primary,
+                   pg_size_pretty(pg_relation_size(i.oid)) AS size, pg_get_indexdef(i.oid) AS definition
+            FROM pg_index x JOIN pg_class i ON i.oid=x.indexrelid JOIN pg_class t ON t.oid=x.indrelid
+            JOIN pg_namespace n ON n.oid=i.relnamespace JOIN pg_am am ON am.oid=i.relam
+            WHERE n.nspname='public' AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid=i.oid
+              AND d.classid='pg_class'::regclass AND d.deptype='e') ORDER BY i.relname""", ()
+    elif kind in ("constraints", "primary_keys", "foreign_keys", "unique_constraints"):
+        constraint_type = {"constraints": None, "primary_keys": "p", "foreign_keys": "f", "unique_constraints": "u"}[kind]
+        query, args = """
+            SELECT n.nspname AS schema, c.relname AS table_name, con.conname AS name,
+                   CASE con.contype WHEN 'p' THEN 'Primary key' WHEN 'f' THEN 'Foreign key'
+                     WHEN 'u' THEN 'Unique' WHEN 'c' THEN 'Check' WHEN 'x' THEN 'Exclusion'
+                     ELSE con.contype::text END AS type,
+                   COALESCE((SELECT string_agg(a.attname, ', ' ORDER BY k.ord)
+                     FROM unnest(con.conkey) WITH ORDINALITY k(attnum,ord)
+                     JOIN pg_attribute a ON a.attrelid=con.conrelid AND a.attnum=k.attnum),'') AS columns,
+                   CASE WHEN con.confrelid<>0 THEN con.confrelid::regclass::text END AS "references",
+                   con.convalidated AS validated, pg_get_constraintdef(con.oid,true) AS definition
+            FROM pg_constraint con JOIN pg_class c ON c.oid=con.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+            WHERE n.nspname='public' AND ($1::text IS NULL OR con.contype::text=$1)
+              AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid=c.oid
+                AND d.classid='pg_class'::regclass AND d.deptype='e')
+            ORDER BY c.relname,con.conname""", (constraint_type,)
+    elif kind == "policies":
+        query, args = """
+            SELECT schemaname AS schema, tablename AS table_name, policyname AS name,
+                   CASE WHEN permissive='PERMISSIVE' THEN 'Permissive' ELSE 'Restrictive' END AS mode,
+                   cmd AS command, COALESCE(array_to_string(roles,', '),'') AS roles,
+                   qual AS using_expression, with_check AS check_expression
+            FROM pg_policies p WHERE p.schemaname='public'
+              AND NOT EXISTS (SELECT 1 FROM pg_depend d
+                WHERE d.objid=(format('%I.%I',p.schemaname,p.tablename)::regclass)::oid
+                  AND d.classid='pg_class'::regclass AND d.deptype='e')
+            ORDER BY tablename,policyname""", ()
+    elif kind == "sequences":
+        query, args = """
+            SELECT schemaname AS schema, sequencename AS name, sequenceowner AS owner, data_type,
+                   start_value, min_value, max_value, increment_by, cycle
+            FROM pg_sequences WHERE schemaname='public' ORDER BY sequencename""", ()
+    elif kind in ("functions", "procedures"):
+        prokind = "p" if kind == "procedures" else "fw"
+        query, args = """
+            SELECT n.nspname AS schema, p.proname AS name, pg_get_userbyid(p.proowner) AS owner,
+                   CASE p.prokind WHEN 'p' THEN 'Procedure' WHEN 'w' THEN 'Window function' ELSE 'Function' END AS type,
+                   pg_get_function_identity_arguments(p.oid) AS arguments,
+                   pg_get_function_result(p.oid) AS result, l.lanname AS language,
+                   pg_get_functiondef(p.oid) AS definition
+            FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang
+            WHERE n.nspname='public' AND p.prokind::text = ANY($1::text[])
+              AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid=p.oid
+                AND d.classid='pg_proc'::regclass AND d.deptype='e')
+            ORDER BY p.proname, pg_get_function_identity_arguments(p.oid)""", (list(prokind),)
+    elif kind in ("triggers", "internal_triggers"):
+        internal = kind == "internal_triggers"
+        query, args = """
+            SELECT n.nspname AS schema, c.relname AS table_name, t.tgname AS name,
+                   CASE t.tgenabled WHEN 'D' THEN 'Disabled' WHEN 'R' THEN 'Replica' WHEN 'A' THEN 'Always' ELSE 'Enabled' END AS enabled,
+                   p.proname AS function, pg_get_triggerdef(t.oid) AS definition
+            FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+            JOIN pg_proc p ON p.oid=t.tgfoid WHERE n.nspname='public' AND t.tgisinternal=$1
+              AND ($1 OR NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid=t.oid
+                AND d.classid='pg_trigger'::regclass AND d.deptype='e'))
+            ORDER BY c.relname,t.tgname""", (internal,)
+    elif kind == "extensions":
+        query, args = """
+            SELECT e.extname AS name, e.extversion AS version, n.nspname AS schema,
+                   pg_get_userbyid(e.extowner) AS owner, obj_description(e.oid,'pg_extension') AS description
+            FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace ORDER BY e.extname""", ()
+    elif kind == "extension_relations":
+        query, args = """
+            SELECT e.extname AS extension, n.nspname AS schema, c.relname AS name,
+                   CASE c.relkind WHEN 'r' THEN 'Table' WHEN 'p' THEN 'Partitioned table' WHEN 'v' THEN 'View'
+                     WHEN 'm' THEN 'Materialized view' WHEN 'i' THEN 'Index' WHEN 'S' THEN 'Sequence' ELSE c.relkind::text END AS type
+            FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+            JOIN pg_depend d ON d.objid=c.oid AND d.classid='pg_class'::regclass AND d.deptype='e'
+            JOIN pg_extension e ON e.oid=d.refobjid WHERE n.nspname='public' ORDER BY e.extname,c.relname""", ()
+    elif kind == "extension_routines":
+        query, args = """
+            SELECT e.extname AS extension, n.nspname AS schema, p.proname AS name,
+                   CASE p.prokind WHEN 'p' THEN 'Procedure' WHEN 'w' THEN 'Window function' ELSE 'Function' END AS type,
+                   pg_get_function_identity_arguments(p.oid) AS arguments, l.lanname AS language
+            FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang
+            JOIN pg_depend d ON d.objid=p.oid AND d.classid='pg_proc'::regclass AND d.deptype='e'
+            JOIN pg_extension e ON e.oid=d.refobjid WHERE n.nspname='public' ORDER BY e.extname,p.proname""", ()
+    else:
+        raise Exception(f"invalid catalog: {kind}")
+    records = await pool.fetch(query, *args, timeout=timeout_sec)
+    rows = [{key: func_pgweb_jsonable(value) for key, value in dict(record).items()} for record in records]
+    return {"columns": columns_by_kind[kind], "rows": rows}
 
 async def func_pgweb_rows(*, pool: any, table: str, limit: int = 1000, offset: int = None, after: any = None,
                           filter_col: str = None, filter_op: str = None, filter_value: any = None, where: str = None,
@@ -2761,7 +2956,9 @@ async def func_pgweb(*, app_state: any, action: str, **params) -> dict:
         backend_pid = active_queries.get(query_id)
         canceled = bool(backend_pid and await pool.fetchval("SELECT pg_cancel_backend($1)", backend_pid))
         return {"canceled": canceled}
-    handlers = {"schema": app_state.func_pgweb_schema, "info": app_state.func_pgweb_info, "rows": app_state.func_pgweb_rows, "query": app_state.func_pgweb_query, "detail": app_state.func_pgweb_detail}
+    handlers = {"schema": app_state.func_pgweb_schema, "info": app_state.func_pgweb_info,
+                "catalog": app_state.func_pgweb_catalog, "rows": app_state.func_pgweb_rows,
+                "query": app_state.func_pgweb_query, "detail": app_state.func_pgweb_detail}
     handler = handlers.get(action)
     if not handler: raise Exception(f"invalid action: {action}")
     if action == "info": params["connection_url"] = client_postgres_pgweb.get("connection_url", "—")

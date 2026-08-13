@@ -263,13 +263,32 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
   white-space:pre;word-break:normal;line-height:1.7;tab-size:2}
 .json-key{color:var(--sql-ident)}.json-string{color:var(--sql-string)}.json-number{color:var(--sql-number)}
 .json-bool{color:var(--sql-key)}.json-null{color:var(--null);font-style:italic}
-#v-info{overflow:auto;padding:16px}
-#dbinfo-table{width:100%;max-width:760px;border-collapse:collapse;border:1px solid var(--th-line);font-size:12px}
-#dbinfo-table th,#dbinfo-table td{padding:7px 9px;border:1px solid var(--th-line);text-align:left;vertical-align:top}
-#dbinfo-table th{width:145px;color:var(--dim);font-weight:500;white-space:nowrap}
+#v-info{overflow:hidden;padding:0}
+#dbinfo-summary{height:100%;overflow:auto;padding:16px}
+#dbinfo-table{width:max-content;min-width:min(760px,100%);border-collapse:collapse;border:1px solid var(--th-line);font-size:12px}
+#dbinfo-table th,#dbinfo-table td{height:30px;padding:5px 9px;border:1px solid var(--th-line);text-align:left;vertical-align:middle}
+#dbinfo-table th{width:190px;padding-right:20px;color:var(--dim);font-weight:500;white-space:nowrap}
 #dbinfo-table td{color:var(--fg);font-family:Menlo,Monaco,Consolas,"Courier New",monospace;word-break:break-word}
+#dbinfo-table tr:not(.section):nth-child(odd){background:var(--row-odd)}
+#dbinfo-table tr:not(.section):hover{background:var(--row-hover)}
+#dbinfo-table tr.drill{cursor:pointer}
+#dbinfo-table tr.drill td{position:relative;padding-right:30px}
+#dbinfo-table tr.drill td::after{content:'›';position:absolute;right:12px;color:var(--dim);font:20px/18px Arial,sans-serif}
+#dbinfo-table tr.drill:hover td::after{color:var(--fg)}
+#dbinfo-table tr.drill-disabled td{position:relative;padding-right:30px}
+#dbinfo-table tr.drill-disabled td::after{content:'›';position:absolute;right:12px;color:var(--dim);opacity:.35;font:20px/18px Arial,sans-serif}
 #dbinfo-table tr:last-child th,#dbinfo-table tr:last-child td{border-bottom:0}
-#dbinfo-table .section th{width:auto;padding-top:13px;color:var(--fg);font-weight:700;background:var(--side)}
+#dbinfo-table .section th{width:auto;height:40px;padding:0 9px;color:var(--th-fg);font-weight:700;background:var(--bg)}
+#dbinfo-catalog{height:100%;display:flex;flex-direction:column;min-height:0}
+#dbinfo-catalog[hidden],#dbinfo-summary[hidden]{display:none}
+#dbcat-tools{height:50px;display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--filter-bg)}
+#dbcat-title{font-weight:700}.dbcat-sp{flex:1}#dbcat-count{color:var(--dim);white-space:nowrap}
+#dbcat-search{width:190px;height:32px}#dbcat-download{width:32px;height:32px;padding:0}
+#dbcat-wrap{flex:1;min-height:0;overflow:auto}
+#dbcat-table{border-collapse:collapse;width:max-content;min-width:100%;font-size:12px}
+#dbcat-table th,#dbcat-table td{height:30px;padding:5px 9px;border-right:1px solid var(--th-line);border-bottom:1px solid var(--row-line);text-align:left;white-space:nowrap;max-width:440px;overflow:hidden;text-overflow:ellipsis}
+#dbcat-table th{height:40px;color:var(--th-fg);font-weight:700;background:var(--bg);position:sticky;top:0;z-index:2}
+#dbcat-table tbody tr:nth-child(odd){background:var(--row-odd)}#dbcat-table tbody tr:hover{background:var(--row-hover)}
 #toast{position:fixed;right:18px;bottom:18px;z-index:80;padding:7px 12px;
   border-radius:4px;background:#2f2d31;color:#fff;box-shadow:0 3px 14px rgba(0,0,0,.25);font-size:12px;
   pointer-events:none;white-space:nowrap}
@@ -321,7 +340,13 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
     </div>
 
     <div id="pane" hidden>
-      <div class="view" id="v-info"><table id="dbinfo-table"><tbody></tbody></table></div>
+      <div class="view" id="v-info">
+        <div id="dbinfo-summary"><table id="dbinfo-table"><tbody></tbody></table></div>
+        <div id="dbinfo-catalog" hidden>
+          <div id="dbcat-tools"><button id="dbcat-back" type="button">Back</button><strong id="dbcat-title"></strong><span class="dbcat-sp"></span><span id="dbcat-count"></span><button class="iconbtn" id="dbcat-download" type="button" title="Download CSV"></button><input id="dbcat-search" type="search" placeholder="Search"/></div>
+          <div id="dbcat-wrap"><table id="dbcat-table"><thead></thead><tbody></tbody></table></div>
+        </div>
+      </div>
       <div class="view" id="v-rows">
         <div id="tools">
           <span class="filterlabel">Filter rows</span>
@@ -422,6 +447,7 @@ const icon = name => ({
 const vp=$('vp'), inner=$('inner'), headEl=$('head'), canvas=$('canvas'), rowsEl=$('rows');
 $('dbinfo').innerHTML=icon('info'); $('reload').innerHTML=icon('refresh');
 $('rowcsv').innerHTML=icon('download');
+$('dbcat-download').innerHTML=icon('download');
 const yesNo=value=>value?'Yes':'No';
 const DETAIL_ROWS={
   overview:rows=>rows.map((r,i)=>[i+1,r.schema,r.owner,r.kind,r.estimated_rows,r.table_size,r.index_size,r.total_size,r.tablespace,r.persistence,r.rls,r.comment]),
@@ -442,7 +468,7 @@ const S = { db:'', table:'', kind:'', pk:null, cols:[], widths:[], total:0,
             viewPx:0, scale:1, loaded:{}, connected:false, hasMore:false, pageStart:0, latestFirst:false,
             activeQueryId:null, cancelRequested:false,
             readOnly:localStorage.getItem('pgweb.readOnly') === '1', sideItems:[], sideShown:0, queryCleared:false,
-            filterApplied:{col:'',op:'=',val:''} };
+            filterApplied:{col:'',op:'=',val:''}, dbInfo:null, dbCatalog:{}, dbCatalogKind:'' };
 let pool=[], lastFirst=-1, ticking=false;
 let toastTimer;
 
@@ -535,7 +561,7 @@ function setConnected(on){
   $('cancelquery').hidden=true; $('prevbatch').hidden=$('nextbatch').hidden=true;
   if(!on) setExports(false);
   if(!on){
-    S.tree={}; S.chunks.clear(); S.pending.clear();
+    S.tree={}; S.dbInfo=null; S.dbCatalog={}; S.dbCatalogKind=''; S.chunks.clear(); S.pending.clear();
     S.local=null; S.table=''; S.kind=''; S.cols=[]; S.total=0; S.hasMore=false; S.pageStart=0; S.latestFirst=false; S.activeQueryId=null; lastFirst=-1;
     $('tree').textContent=''; $('q').value=''; $('qclr').hidden=true;
     $('tools').style.display='none';
@@ -551,7 +577,7 @@ function setConnected(on){
 }
 async function doConnect(dsn){
   const m = await api({action:'connect', dsn});
-  S.db = m.database; S.tree = m.tree;
+  S.db = m.database; S.tree = m.tree; S.dbInfo=null; S.dbCatalog={}; S.dbCatalogKind='';
   setConnected(true);
   drawTree(); openRunner();
 }
@@ -667,7 +693,9 @@ function seedQuery(){
   if($('sql').value.trim() || S.queryCleared) return;
   $('sql').value = DEFAULT_SQL;
 }
-function drawResetSql(){ $('resetsql').hidden=$('sql').value===DEFAULT_SQL && !S.local; }
+function drawResetSql(){
+  $('resetsql').hidden=$('sql').value===DEFAULT_SQL && !S.local && $('qerror').hidden;
+}
 function openRunner(){
   for(const el of document.querySelectorAll('.obj.on')) el.classList.remove('on');
   $('runner').classList.add('on');
@@ -1086,6 +1114,7 @@ function mountGrid(host){
 function hideQueryError(){ $('qerror').hidden=true; }
 function showQueryError(title,message){
   $('qerrortitle').textContent=title; $('qerrorbody').textContent=message; $('qerror').hidden=false;
+  drawResetSql();
   $('qerrorcopy').innerHTML=icon('copy');
   $('qerrorcopy').onclick=async()=>{
     try{ await navigator.clipboard.writeText(message); toast('Error copied'); }
@@ -1334,11 +1363,89 @@ addEventListener('resize',()=>$('moremenu').hidden=true);
 $('reload').onclick = async () => {
   try{
     const m = await api({action:'schema'});
-    S.tree = m.tree; drawTree();
+    S.tree = m.tree; S.dbInfo=null; S.dbCatalog={}; S.dbCatalogKind=''; drawTree();
     if(S.table && (S.tree.public||{})[S.kind]?.some(o=>o.name===S.table)) await openObject(S.table, S.kind);
     else if(S.table) openRunner();      // the table went away
     toast('Schema refreshed');
   }catch(e){ alertBox('Refresh failed', e.message); }
+};
+function drawDatabaseInfo(m){
+  const body=$('dbinfo-table').tBodies[0];
+  const labels={connection_url:'Connection URL',database:'Database',schema_scope:'Schema scope',user_name:'User',version:'PostgreSQL version',
+    database_size:'Database size',encoding:'Encoding',collation:'Collation',time_zone:'Time zone',tables:'Tables',
+    columns:'Columns',indexes:'Indexes',constraints:'Constraints',primary_keys:'Primary keys',foreign_keys:'Foreign keys',
+    unique_constraints:'Unique constraints',policies:'Policies',views:'Views',materialized_views:'Materialized views',sequences:'Sequences',
+    functions:'Functions',procedures:'Procedures',triggers:'Triggers',extension_count:'Installed extensions',
+    extension_names:'Extensions and versions',extension_relations:'Extension-owned relations in public',
+    extension_routines:'Extension-owned routines in public',internal_triggers:'Internal triggers in public'};
+  const sections={connection_url:'Database and connection',tables:'Public schema user objects',
+    extension_count:'Extensions and PostgreSQL-managed objects (excluded above)'};
+  const drill={tables:'tables',columns:'columns',indexes:'indexes',constraints:'constraints',
+    primary_keys:'primary_keys',foreign_keys:'foreign_keys',unique_constraints:'unique_constraints',policies:'policies',
+    views:'views',materialized_views:'materialized_views',sequences:'sequences',functions:'functions',procedures:'procedures',triggers:'triggers',
+    extension_count:'extensions',extension_relations:'extension_relations',
+    extension_routines:'extension_routines',internal_triggers:'internal_triggers'};
+  body.textContent='';
+  for(const [key,label] of Object.entries(labels)){
+    if(sections[key]){
+      const section=document.createElement('tr'), heading=document.createElement('th');
+      section.className='section'; heading.colSpan=2; heading.textContent=sections[key];
+      section.appendChild(heading); body.appendChild(section);
+    }
+    const tr=document.createElement('tr'), th=document.createElement('th'), td=document.createElement('td');
+    th.textContent=label; td.textContent=m[key] ?? '—'; tr.append(th,td); body.appendChild(tr);
+    if(drill[key]){
+      if(Number(m[key])>0){
+        tr.className='drill'; tr.tabIndex=0; tr.title=`View ${label.toLowerCase()}`;
+        tr.onclick=()=>openDatabaseCatalog(drill[key],label);
+        tr.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); tr.click(); } };
+      }else{
+        tr.className='drill-disabled'; tr.title='No objects';
+      }
+    }
+  }
+}
+const catalogLabel=key=>key.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase());
+function drawDatabaseCatalog(){
+  const data=S.dbCatalog[S.dbCatalogKind]||{columns:[],rows:[]};
+  const term=$('dbcat-search').value.trim().toLowerCase();
+  const rows=data.rows.filter(row=>!term||data.columns.some(key=>String(row[key]??'').toLowerCase().includes(term)));
+  const thead=$('dbcat-table').tHead, tbody=$('dbcat-table').tBodies[0]; thead.textContent=''; tbody.textContent='';
+  const hr=document.createElement('tr');
+  for(const label of ['#',...data.columns.map(catalogLabel)]){ const th=document.createElement('th'); th.textContent=label; hr.appendChild(th); }
+  thead.appendChild(hr);
+  if(!rows.length){
+    const tr=document.createElement('tr'),td=document.createElement('td'); td.colSpan=Math.max(1,data.columns.length+1);
+    td.textContent=term?'No matching objects':'No objects'; td.style.textAlign='center'; td.style.color='var(--dim)'; tr.appendChild(td); tbody.appendChild(tr);
+  }else rows.forEach((row,index)=>{
+    const tr=document.createElement('tr'), number=document.createElement('td'); number.textContent=String(index+1); tr.appendChild(number);
+    for(const key of data.columns){
+      const td=document.createElement('td'), value=row[key]; td.textContent=compactCellValue(value);
+      if(value==null) td.className='null';
+      td.title=td.textContent; td.onclick=()=>openCellValue(catalogLabel(key),value,'Value copied'); tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  });
+  $('dbcat-count').textContent=term?`${rows.length} of ${data.rows.length}`:`${data.rows.length} objects`;
+  $('dbcat-download').disabled=!rows.length;
+}
+async function openDatabaseCatalog(kind,title){
+  S.dbCatalogKind=kind; $('dbcat-title').textContent=title; $('dbcat-search').placeholder=`Search ${title.toLowerCase()}`;
+  $('dbcat-search').value=''; $('dbinfo-summary').hidden=true; $('dbinfo-catalog').hidden=false;
+  if(S.dbCatalog[kind]){ drawDatabaseCatalog(); return; }
+  $('dbcat-count').textContent='Loading…'; $('dbcat-download').disabled=true;
+  $('dbcat-table').tHead.textContent=''; $('dbcat-table').tBodies[0].innerHTML='<tr><td>Loading…</td></tr>';
+  try{ S.dbCatalog[kind]=await api({action:'catalog',kind}); drawDatabaseCatalog(); }
+  catch(e){ $('dbcat-count').textContent=''; $('dbcat-table').tBodies[0].innerHTML='<tr><td></td></tr>'; $('dbcat-table').tBodies[0].rows[0].cells[0].textContent='Error: '+e.message; }
+}
+$('dbcat-back').onclick=()=>{ $('dbinfo-catalog').hidden=true; $('dbinfo-summary').hidden=false; };
+$('dbcat-search').oninput=drawDatabaseCatalog;
+$('dbcat-search').onkeydown=e=>{ if(e.key==='Escape'){ e.currentTarget.value=''; drawDatabaseCatalog(); } };
+$('dbcat-download').onclick=()=>{
+  const data=S.dbCatalog[S.dbCatalogKind]; if(!data) return;
+  const term=$('dbcat-search').value.trim().toLowerCase();
+  const rows=data.rows.filter(row=>!term||data.columns.some(key=>String(row[key]??'').toLowerCase().includes(term)));
+  downloadCsv(data.columns.map(catalogLabel),rows.map(row=>data.columns.map(key=>row[key])),`${S.db}-${S.dbCatalogKind}.csv`);
 };
 $('dbinfo').onclick = async () => {
   $('dbinfo').disabled=true;
@@ -1349,26 +1456,12 @@ $('dbinfo').onclick = async () => {
   for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v!=='info';
   $('morewrap').hidden=true; $('moremenu').hidden=true;
   show('info');
+  $('dbinfo-catalog').hidden=true; $('dbinfo-summary').hidden=false;
   const body=$('dbinfo-table').tBodies[0];
-  body.innerHTML='<tr><td>Loading database info…</td></tr>';
-  try{
-    const m=await api({action:'info'});
-    const labels={connection_url:'Connection URL',database:'Database',schema_scope:'Schema scope',user_name:'User',version:'PostgreSQL version',
-      database_size:'Database size',encoding:'Encoding',collation:'Collation',time_zone:'Time zone',tables:'Tables',
-      views:'Views',materialized_views:'Materialized views',indexes:'Indexes',sequences:'Sequences',
-      functions:'Functions',procedures:'Procedures',triggers:'Triggers'};
-    body.textContent='';
-    for(const [key,label] of Object.entries(labels)){
-      if(key==='tables'){
-        const section=document.createElement('tr'), heading=document.createElement('th');
-        section.className='section'; heading.colSpan=2;
-        heading.textContent='Public schema objects (excluding extensions and internal objects)';
-        section.appendChild(heading); body.appendChild(section);
-      }
-      const tr=document.createElement('tr'), th=document.createElement('th'), td=document.createElement('td');
-      th.textContent=label; td.textContent=m[key] ?? '—'; tr.append(th,td); body.appendChild(tr);
-    }
-  }catch(e){ body.innerHTML='<tr><td></td></tr>'; body.rows[0].cells[0].textContent='Error: '+e.message; }
+  if(S.dbInfo){ drawDatabaseInfo(S.dbInfo); $('dbinfo').disabled=false; return; }
+  body.innerHTML='<tr><td colspan="2">Loading database info…</td></tr>';
+  try{ S.dbInfo=await api({action:'info'}); drawDatabaseInfo(S.dbInfo); }
+  catch(e){ body.innerHTML='<tr><td colspan="2"></td></tr>'; body.rows[0].cells[0].textContent='Error: '+e.message; }
   finally{ $('dbinfo').disabled=false; }
 };
 function alertBox(title, msg){
