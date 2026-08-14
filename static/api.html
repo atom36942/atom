@@ -558,10 +558,10 @@
           if (typeof v[0] === "object" && v[0] !== null) {
               const keys = [...new Set(v.flatMap(x => x && typeof x === "object" ? Object.keys(x) : []))];
               if (keys.length === 0) return `<span style="color:var(--muted)">[Empty Objects]</span>`;
-              const tableRows = v.map((row, rowIndex) => `\n<tr><td class="grid-idx">${rowIndex}</td>${keys.map(k => td(renderCell(row && typeof row === "object" ? row[k] : undefined))).join("")}</tr>`).join("");
+              const tableRows = v.map((row, rowIndex) => `\n<tr><td class="grid-idx">${rowIndex + 1}</td>${keys.map(k => td(renderCell(row && typeof row === "object" ? row[k] : undefined))).join("")}</tr>`).join("");
               return wrapTable(tbl(`<thead><tr><th class="grid-idx">#</th>${keys.map(k => `<th>${he(k)}</th>`).join("")}</tr></thead><tbody>${tableRows}</tbody>`));
           } else {
-              const tableRows = v.map((val, rowIndex) => `\n<tr><td class="grid-idx">${rowIndex}</td>${td(renderCell(val))}</tr>`).join("");
+              const tableRows = v.map((val, rowIndex) => `\n<tr><td class="grid-idx">${rowIndex + 1}</td>${td(renderCell(val))}</tr>`).join("");
               return wrapTable(tbl(`<thead><tr><th class="grid-idx">#</th><th>Value</th></tr></thead><tbody>${tableRows}</tbody>`));
           }
       }
