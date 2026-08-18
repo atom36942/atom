@@ -52,6 +52,7 @@ async def func_lifespan(app:"FastAPI"):
         client_sftp = await func_client_sftp(host=app.state.config_sftp_host, port=app.state.config_sftp_port, username=app.state.config_sftp_username, password=app.state.config_sftp_password)
         client_azure_email = func_client_azure_email(connection_string=app.state.config_azure_email_connection_string)
         client_azure_blob = func_client_azure_blob(account_name=app.state.config_azure_account_name, account_key=app.state.config_azure_account_key)
+        client_msgraph = func_client_msgraph(tenant_id=app.state.config_msgraph_tenant_id, client_id=app.state.config_msgraph_client_id, client_secret=app.state.config_msgraph_client_secret)
         # client misc
         client_postgres_log_api = client_postgres if app.state.config_postgres_db_log_api is None else client_postgres_dict[app.state.config_postgres_db_log_api]
         client_postgres_pgweb = {}

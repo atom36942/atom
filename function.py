@@ -3982,6 +3982,44 @@ def func_client_azure_blob(*, account_name: str, account_key: str):
     if not (account_name and account_key): return None
     return BlobServiceClient.from_connection_string(f"DefaultEndpointsProtocol=https;AccountName={account_name};AccountKey={account_key};EndpointSuffix=core.windows.net")
 
+def func_client_msgraph(*, tenant_id: str, client_id: str, client_secret: str, scopes: list = None):
+    """Initialize Microsoft Graph ServiceClient (Flow 1: Client Credentials)."""
+    if not (tenant_id and client_id and client_secret): return None
+    from azure.identity import ClientSecretCredential
+    from msgraph import GraphServiceClient
+    credential = ClientSecretCredential(tenant_id=tenant_id, client_id=client_id, client_secret=client_secret)
+    scopes = scopes or ["https://graph.microsoft.com/.default"]
+    return GraphServiceClient(credentials=credential, scopes=scopes)
+
+async def func_teams_meeting_invite_create(*, client_msgraph: any, organizer_email: str, subject: str, description_html: str, start_time: str, end_time: str, time_zone: str = "UTC", attendee_emails: list = None) -> dict:
+    """Create a Microsoft Teams meeting event under organizer's calendar and dispatch calendar invites to attendees."""
+    if not client_msgraph: raise Exception("Microsoft Graph client not initialized")
+    from msgraph.generated.models.event import Event
+    from msgraph.generated.models.item_body import ItemBody
+    from msgraph.generated.models.body_type import BodyType
+    from msgraph.generated.models.date_time_time_zone import DateTimeTimeZone
+    from msgraph.generated.models.attendee import Attendee
+    from msgraph.generated.models.attendee_type import AttendeeType
+    from msgraph.generated.models.email_address import EmailAddress
+    from msgraph.generated.models.online_meeting_provider_type import OnlineMeetingProviderType
+    attendees = [Attendee(email_address=EmailAddress(address=email), type=AttendeeType.Required) for email in (attendee_emails or [])]
+    new_event = Event(
+        subject=subject,
+        body=ItemBody(content_type=BodyType.Html, content=description_html),
+        start=DateTimeTimeZone(date_time=start_time, time_zone=time_zone),
+        end=DateTimeTimeZone(date_time=end_time, time_zone=time_zone),
+        attendees=attendees,
+        is_online_meeting=True,
+        online_meeting_provider=OnlineMeetingProviderType.TeamsForBusiness,
+    )
+    created_event = await client_msgraph.users.by_user_id(organizer_email).events.post(new_event)
+    return {
+        "event_id": created_event.id,
+        "subject": created_event.subject,
+        "join_url": created_event.online_meeting.join_url if created_event.online_meeting else None,
+        "web_link": created_event.web_link,
+    }
+
 async def func_client_close(*, app_state: any = None, clients: dict = None) -> None:
     """Safely disconnect and close all active database, storage, messaging, and AI clients."""
     from contextlib import suppress
