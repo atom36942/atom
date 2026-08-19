@@ -70,13 +70,6 @@ input:focus,select:focus,textarea:focus{border-color:#999}
   border-bottom:1px solid rgba(0,0,0,.15)}
 #dbline::after{content:"";position:absolute;top:0;right:-1px;bottom:0;width:1px;background:rgba(255,255,255,.12)}
 #productname{font-size:15px;font-weight:700;letter-spacing:-.15px;line-height:18px}
-#runner{height:50px;flex:none;display:flex;align-items:center;padding:0 12px;
-  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
-  font-size:12px;font-weight:600;cursor:pointer;background:var(--runner-neutral)}
-#runner[hidden]{display:none}
-#runner:hover{background:var(--hl)}
-#runner.on{background:var(--side-on);color:var(--side-on-fg);border-bottom-color:var(--line);
-  box-shadow:inset 4px 0 0 var(--sel);font-weight:700}
 
 #side .search{height:40px;padding:0 12px;position:relative;background:var(--bg);border-bottom:1px solid var(--line)}
 #side .search:focus-within{background:var(--hl)}
@@ -128,6 +121,7 @@ input:focus,select:focus,textarea:focus{border-color:#999}
 #optionswrap[hidden]{display:none}
 #tabs > #optionswrap > .headicon{width:30px;height:30px;padding:0;margin:0;border:0;border-radius:3px;
   font-size:16px;line-height:28px;text-align:center}
+#tabs > #optionswrap > .headicon.on{background:rgba(255,255,255,.2);color:#fff}
 #tabs > #optionswrap > .headicon svg{display:block;width:17px;height:17px;margin:auto;fill:none;
   stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #tabs > #optionswrap > #readonly.off{color:#ffd0cc}
@@ -150,7 +144,8 @@ input:focus,select:focus,textarea:focus{border-color:#999}
   border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--filter-bg)}
 .detail-tools input{width:210px;height:32px;padding:4px 9px;order:4}
 .detail-tools .sp{flex:1;order:1}.detail-count{order:2;color:var(--dim);font-size:12px;white-space:nowrap}
-.detail-download{order:3}.detail-download,#rowcsv{width:32px;height:32px;padding:0;flex:none}
+.detail-refresh,.detail-download{order:3}
+.detail-refresh,.detail-download,#rowrefresh,#rowcsv{width:32px;height:32px;padding:0;flex:none}
 #prevbatch,#nextbatch{height:32px;padding:4px 10px;flex:none}
 
 #pane{flex:1;position:relative;min-height:0}
@@ -302,7 +297,6 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
     <div id="dbline">
       <span id="productname">pgweb</span>
     </div>
-    <div id="runner" hidden>Query Runner</div>
     <div class="search" id="tablesearch" hidden>
       <input id="q" placeholder="Search tables" autocomplete="off" spellcheck="false"/>
       <button id="qclr" title="Clear" hidden>×</button>
@@ -331,6 +325,7 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
       <div id="morewrap" hidden><button id="moretab" type="button">More ▾</button></div>
       </div>
       <div id="optionswrap" hidden>
+        <button class="headicon" id="queryrunner" title="Query runner (⌘+Enter)" aria-label="Query runner"></button>
         <button class="headicon" id="dbinfo" title="Database info" aria-label="Database info"></button>
         <button class="headicon on" id="readonly" title="Read only: On" aria-label="Read only: On"></button>
         <button class="headicon" id="reload" title="Refresh schema" aria-label="Refresh schema"></button>
@@ -362,6 +357,7 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
           <span class="sp"></span><span id="ftxt"></span>
           <button id="prevbatch" hidden>Previous 10</button>
           <button id="nextbatch" hidden>Next 10</button>
+          <button class="iconbtn" id="rowrefresh" title="Refresh table data" aria-label="Refresh table data"></button>
           <button class="iconbtn" id="rowcsv" title="Download rows as CSV" aria-label="Download rows as CSV" disabled></button>
         </div>
         <div id="vp"><div id="inner">
@@ -435,6 +431,7 @@ const DEFAULT_DSN = 'postgresql://postgres:postgres@localhost:5432/postgres';
 const MAXH = 16000000;
 const $ = s => document.getElementById(s);
 const icon = name => ({
+  terminal:'<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>',
   info:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></svg>',
   lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/></svg>',
   unlock:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2M12 14v2"/></svg>',
@@ -445,7 +442,8 @@ const icon = name => ({
   download:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg>'
 })[name];
 const vp=$('vp'), inner=$('inner'), headEl=$('head'), canvas=$('canvas'), rowsEl=$('rows');
-$('dbinfo').innerHTML=icon('info'); $('reload').innerHTML=icon('refresh');
+$('queryrunner').innerHTML=icon('terminal'); $('dbinfo').innerHTML=icon('info'); $('reload').innerHTML=icon('refresh');
+$('rowrefresh').innerHTML=icon('refresh');
 $('rowcsv').innerHTML=icon('download');
 $('dbcat-download').innerHTML=icon('download');
 const yesNo=value=>value?'Yes':'No';
@@ -552,11 +550,12 @@ function setConnected(on){
   $('optionswrap').hidden = !on;
   $('pane').hidden = !on;
   $('status').hidden = true;
-  $('runner').hidden = !on;
+  $('queryrunner').disabled = !on;
   $('tablesearch').hidden = !on;
   $('tree').hidden = !on;
   $('tablecount').hidden = !on;
   $('reload').disabled = !on;
+  $('rowrefresh').disabled = !on;
   $('run').disabled = $('stream').disabled = $('explain').disabled = $('analyze').disabled = $('resetsql').disabled = $('sql').disabled = !on;
   $('cancelquery').hidden=true; $('prevbatch').hidden=$('nextbatch').hidden=true;
   if(!on) setExports(false);
@@ -698,7 +697,6 @@ function drawResetSql(){
 }
 function openRunner(){
   for(const el of document.querySelectorAll('.obj.on')) el.classList.remove('on');
-  $('runner').classList.add('on');
   S.table=''; S.kind='';
   for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v!=='query';
   $('morewrap').hidden=true; $('moremenu').hidden=true;
@@ -709,7 +707,7 @@ function openRunner(){
   drawResetSql();
   $('sql').focus();
 }
-$('runner').onclick = openRunner;
+$('queryrunner').onclick = openRunner;
 
 /* ---------------- open a table ---------------- */
 const detailCellValues=new WeakMap();
@@ -717,10 +715,14 @@ const detailRowValues=new WeakMap();
 function compactCellValue(value){
   if(value===null || value===undefined) return 'NULL';
   if(typeof value==='object'){
-    try{return JSON.stringify(value);}
+    try{
+      const s = JSON.stringify(value);
+      return s.length > 300 ? s.slice(0, 300) + '…' : s;
+    }
     catch{return String(value);}
   }
-  return String(value);
+  const s = String(value);
+  return s.length > 500 ? s.slice(0, 500) + '…' : s;
 }
 function prettyCellValue(value){
   if(value===null || value===undefined) return 'NULL';
@@ -809,12 +811,26 @@ for(const input of document.querySelectorAll('.detail-search')){
   input.onkeydown=e=>{ if(e.key==='Escape'){ input.value=''; updateDetailSearch(input); } };
 }
 for(const tools of document.querySelectorAll('.detail-tools')){
-  const input=tools.querySelector('.detail-search'), button=document.createElement('button');
+  const input=tools.querySelector('.detail-search');
+  const refBtn=document.createElement('button');
+  refBtn.type='button'; refBtn.className='iconbtn detail-refresh'; refBtn.title=refBtn.ariaLabel='Refresh tab data';
+  refBtn.dataset.grid=input.dataset.grid; refBtn.innerHTML=icon('refresh');
+  refBtn.onclick=()=>{
+    const part=input.dataset.grid.replace(/^g-/,'');
+    if(part==='struct'){
+      refreshTableData();
+    }else{
+      S.loaded[part]=false;
+      loadDetail(part);
+    }
+  };
+  tools.appendChild(refBtn);
+
+  const button=document.createElement('button');
   button.type='button'; button.className='iconbtn detail-download'; button.title=button.ariaLabel='Download tab data as CSV';
   button.dataset.grid=input.dataset.grid; button.innerHTML=icon('download'); button.disabled=true; tools.appendChild(button);
 }
 async function openObject(table, kind){
-  $('runner').classList.remove('on');
   for(const el of document.querySelectorAll('.obj.on')) el.classList.remove('on');
   document.querySelector(`.obj[data-table="${table}"]`)?.classList.add('on');
   S.table=table; S.kind=kind; S.where=null; S.local=null; S.loaded={};
@@ -832,8 +848,6 @@ async function openObject(table, kind){
   S.chunks.set(0, m.rows);
 
   for(const input of document.querySelectorAll('.detail-search')) input.value='';
-  fillDetailGrid('g-struct',m.meta.columns.map((c,i)=>[i+1,c.name,c.type,c.key_type,c.nullable?'Yes':'No',c.default_value,c.generated]));
-  for(const p of DETAILS) fillDetailGrid('g-'+p,[],'Not loaded');
   $('fcol').textContent='';
   for(const column of m.meta.columns){
     const option=document.createElement('option'); option.value=column.name; option.textContent=column.name;
@@ -863,7 +877,14 @@ function measure(){
   const sample = (S.local || S.chunks.get(0) || []).slice(0, 40);
   S.widths = S.cols.map((c,i) => {
     let n = c.length;
-    for(const r of sample){ const v=r[i]; if(v!=null){ const L=compactCellValue(v).length; if(L>n) n=L; } }
+    for(const r of sample){
+      const v=r[i];
+      if(v!=null){
+        const L = typeof v==='string' ? Math.min(v.length, 60) : compactCellValue(v).length;
+        if(L>n) n=L;
+        if(n>=60) { n=60; break; }
+      }
+    }
     return Math.max(MINW, Math.min(MAXW, Math.ceil(n*7.25) + 26));   /* 12px mono ≈ 7.22px/char + 18px padding */
   });
   const saved = JSON.parse(localStorage.getItem('pgweb.w.'+S.table)||'null');
@@ -1132,7 +1153,38 @@ function downloadCsv(headers,data,filename){
   const a=document.createElement('a'); a.href=url; a.download=filename; a.click();
   setTimeout(()=>URL.revokeObjectURL(url),0);
 }
+async function refreshTableData(){
+  if(!S.table) return;
+  const btn=$('rowrefresh');
+  if(btn) btn.disabled=true;
+  try{
+    const m = await api({action:'rows', table:S.table, pk:S.pk, order:S.pk,
+                         is_desc:S.latestFirst?1:0, limit:CHUNK, is_meta:1, ...filterParams()});
+    S.meta=m.meta; S.cols=m.meta.columns.map(c=>c.name); S.pk=m.meta.pk; S.latestFirst=!!m.meta.latest_first;
+    S.chunks.clear(); S.pending.clear(); lastFirst=-1;
+    S.chunks.set(0, m.rows);
+    S.total=m.rows.length; S.hasMore=!!m.has_more; S.pageStart=0;
+    $('st-obj').innerHTML = `<b>${S.table}</b>`;
+    $('st-rows').textContent = `${m.rows.length} rows loaded`;
+    $('st-size').textContent = m.meta?.stats?.total_size || '';
+    drawBatchNav(); buildGrid(); vp.scrollTop=0; render(true);
+    S.loaded = {};
+    const activeTab = document.querySelector('.tab.on')?.dataset?.v;
+    if(activeTab === 'struct'){
+      S.loaded['struct'] = true;
+      fillDetailGrid('g-struct',m.meta.columns.map((c,i)=>[i+1,c.name,c.type,c.key_type,c.nullable?'Yes':'No',c.default_value,c.generated]));
+    }else if(DETAILS.includes(activeTab)){
+      loadDetail(activeTab);
+    }
+    toast('Table data refreshed');
+  }catch(err){
+    alertBox('Refresh failed', err.message);
+  }finally{
+    if(btn) btn.disabled=false;
+  }
+}
 function safeFilePart(value){return String(value||'table').replace(/[^a-z0-9_.-]+/gi,'-').replace(/^-|-$/g,'');}
+$('rowrefresh').onclick=refreshTableData;
 $('rowcsv').onclick=()=>downloadCsv(S.cols,S.local||S.chunks.get(0)||[],`${safeFilePart(S.table)}-rows.csv`);
 for(const button of document.querySelectorAll('.detail-download')) button.onclick=()=>{
   const table=$(button.dataset.grid), headers=[...table.tHead.rows[0].cells].map(cell=>cell.textContent);
@@ -1341,9 +1393,15 @@ function show(v){
   for(const item of $('moremenu').querySelectorAll('button')) item.classList.toggle('on',item.dataset.v===v);
   $('moremenu').hidden=true;
   $('status').hidden = true;
+  $('queryrunner')?.classList.toggle('on', v==='query');
+  $('dbinfo')?.classList.toggle('on', v==='info');
   if(v==='rows'){
     $('tools').style.display = S.local ? 'none' : 'flex';
     if(S.cols.length){ lastFirst=-1; render(true); }
+  }
+  if(v==='struct' && S.meta?.columns && !S.loaded['struct']){
+    S.loaded['struct'] = true;
+    fillDetailGrid('g-struct',S.meta.columns.map((c,i)=>[i+1,c.name,c.type,c.key_type,c.nullable?'Yes':'No',c.default_value,c.generated]));
   }
   if(DETAILS.includes(v)) loadDetail(v);
 }
@@ -1449,7 +1507,6 @@ $('dbcat-download').onclick=()=>{
 };
 $('dbinfo').onclick = async () => {
   $('dbinfo').disabled=true;
-  $('runner').classList.remove('on');
   for(const el of document.querySelectorAll('.obj.on')) el.classList.remove('on');
   S.table=''; S.kind='';
   $('st-obj').textContent=''; $('st-rows').textContent=''; $('st-size').textContent='';

@@ -2703,7 +2703,7 @@ async def func_pgweb_rows(*, pool: any, table: str, limit: int = 1000, offset: i
                    (SELECT pa.attname FROM pg_index i JOIN pg_attribute pa ON pa.attrelid = i.indrelid AND pa.attnum = ANY(i.indkey)
                     WHERE i.indrelid = a.attrelid AND i.indisprimary AND i.indnkeyatts = 1
                     ORDER BY array_position(i.indkey::smallint[], pa.attnum) LIMIT 1) AS pk,
-                   pg_size_pretty(pg_total_relation_size(c.oid)) AS total_size
+                   pg_size_pretty(c.relpages::bigint * 8192) AS total_size
             FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid
             LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
             WHERE a.attrelid = $1::regclass AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum""", reg, timeout=timeout_sec)
