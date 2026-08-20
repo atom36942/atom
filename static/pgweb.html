@@ -12,7 +12,7 @@
   --nav:#79589f; --nav-fg:#d6cce2; --nav-on-bg:#fff; --nav-on-fg:#000;
   --side:#f9f9f9; --bg:#fff; --fg:#3a3633; --dim:#aaa; --line:#ddd;
   --th-fg:#333; --th-line:#eae9e9; --th-hover:#fafafa;
-  --row-odd:#f9f9f9; --row-even:#fff; --row-line:#f2f2f2; --row-hover:#ffe;
+  --row-odd:#f9f9f9; --row-even:#fff; --row-line:#f2f2f2; --row-hover:#fff7d6;
   --sel:#3874d7; --sel-fg:#fff; --null:#bbb; --hl:#f1f1f1;
   --green:#7eb54e; --green-h:#64903e; --err:#c0392b;
   --table-list-bg:#fbfbfc; --runner-neutral:#f1f1f3;
@@ -28,7 +28,7 @@
   --nav:#79589f; --nav-fg:#d6cce2; --nav-on-bg:#141419; --nav-on-fg:#f2f0ee;
   --side:#191920; --bg:#141419; --fg:#d9d5d1; --dim:#7a7a84; --line:#2e2e37;
   --th-fg:#cfcac5; --th-line:#2e2e37; --th-hover:#20202a;
-  --row-odd:#191920; --row-even:#141419; --row-line:#22222b; --row-hover:#2a2a1c;
+  --row-odd:#191920; --row-even:#141419; --row-line:#22222b; --row-hover:#2d2d1e;
   --sel:#3874d7; --sel-fg:#fff; --null:#66666f; --hl:#24242e;
   --green:#8fc95f; --green-h:#a5d977; --err:#f2645a;
   --table-list-bg:#17171e; --runner-neutral:#202027;
@@ -56,6 +56,7 @@ button.primary:hover:not(:disabled){border-color:var(--green-h);color:var(--gree
 input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:3px;
   padding:4px 8px;outline:none}
 input:focus,select:focus,textarea:focus{border-color:#999}
+input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6px;position:relative;right:-2px}
 ::-webkit-scrollbar{width:11px;height:11px}
 ::-webkit-scrollbar-thumb{background:#c7c7c7;border-radius:6px;border:3px solid var(--bg)}
 :root[data-theme=dark] ::-webkit-scrollbar-thumb{background:#3a3a45}
@@ -142,7 +143,7 @@ input:focus,select:focus,textarea:focus{border-color:#999}
 #ftxt{color:#888;font-size:12px}
 .detail-tools{height:50px;flex:none;display:flex;align-items:center;gap:8px;padding:8px 10px;
   border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--filter-bg)}
-.detail-tools input{width:210px;height:32px;padding:4px 9px;order:4}
+.detail-tools input{width:210px;height:32px;padding:4px 6px 4px 9px;order:4}
 .detail-tools .sp{flex:1;order:1}.detail-count{order:2;color:var(--dim);font-size:12px;white-space:nowrap}
 .detail-refresh,.detail-download{order:3}
 .detail-refresh,.detail-download,#rowrefresh,#rowcsv{width:32px;height:32px;padding:0;flex:none}
@@ -238,14 +239,14 @@ input:focus,select:focus,textarea:focus{border-color:#999}
 #status .t{color:var(--green)}
 
 dialog{border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);padding:0;
-       box-shadow:0 8px 30px rgba(0,0,0,.3);max-width:min(640px,92vw)}
+       box-shadow:0 8px 30px rgba(0,0,0,.3);min-width:min(440px,92vw);max-width:min(640px,92vw)}
 dialog::backdrop{background:rgba(0,0,0,.45)}
 dialog .hd{padding:12px 15px;border-bottom:1px solid var(--th-line);font-weight:bold;font-size:14px;
   display:flex;align-items:center;gap:10px}
 dialog .hd .title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 dialog .bd{padding:14px 15px;max-height:60vh;overflow:auto;font-size:12px}
 dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;gap:8px;justify-content:flex-end}
-dialog.structured{width:min(760px,calc(100vw - 32px));max-width:none}
+dialog.structured{width:min(760px,calc(100vw - 32px));min-width:min(540px,92vw);max-width:none}
 dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 /* width:100% has no intrinsic size, so the dialog would shrink-wrap to nothing */
 #dsn2{display:block;width:min(580px,82vw);min-height:39px;padding:9px 12px;resize:none;
@@ -278,7 +279,7 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 #dbinfo-catalog[hidden],#dbinfo-summary[hidden]{display:none}
 #dbcat-tools{height:50px;display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--filter-bg)}
 #dbcat-title{font-weight:700}.dbcat-sp{flex:1}#dbcat-count{color:var(--dim);white-space:nowrap}
-#dbcat-search{width:190px;height:32px}#dbcat-download{width:32px;height:32px;padding:0}
+#dbcat-search{width:190px;height:32px;padding:4px 6px 4px 9px}#dbcat-download{width:32px;height:32px;padding:0}
 #dbcat-wrap{flex:1;min-height:0;overflow:auto}
 #dbcat-table{border-collapse:collapse;width:max-content;min-width:100%;font-size:12px}
 #dbcat-table th,#dbcat-table td{height:30px;padding:5px 9px;border-right:1px solid var(--th-line);border-bottom:1px solid var(--row-line);text-align:left;white-space:nowrap;max-width:440px;overflow:hidden;text-overflow:ellipsis}
