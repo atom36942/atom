@@ -3676,9 +3676,9 @@ async def func_otp_generate(*, client_postgres: any, email: str, mobile: str, co
         await conn.execute(sql, otp, email.strip().lower() if email else None, mobile.strip() if mobile else None)
     return otp
 
-async def func_otp_verify(*, client_postgres: any, otp: int, email: str, mobile: str, config_otp_expiry_sec: int, config_otp_master: int = None) -> None:
+async def func_otp_verify(*, client_postgres: any, otp: int, email: str, mobile: str, config_otp_expiry_sec: int, config_otp_static: int = None) -> None:
     """Verify an OTP for email or mobile within its expiration window."""
-    if config_otp_master is not None and otp == config_otp_master: return "done"
+    if config_otp_static is not None and otp == config_otp_static: return "done"
     if not otp: raise Exception("otp code missing")
     if not email and not mobile: raise Exception("missing both email and mobile")
     if email and mobile: raise Exception("provide only one identifier")

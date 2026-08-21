@@ -49,7 +49,7 @@ async def func_api_public_otp_verify(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "type", "type": "str", "required": True, "allowed": ["email", "mobile"], "default": None}, {"name": "value", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "otp", "type": "int", "required": True, "allowed": None, "default": None}])
-    return {"status": 1, "message": await app_state.func_otp_verify(client_postgres=app_state.client_postgres, otp=oq["otp"], email=oq["value"] if oq["type"] == "email" else None, mobile=oq["value"] if oq["type"] == "mobile" else None, config_otp_expiry_sec=app_state.config_otp_expiry_sec, config_otp_master=app_state.config_otp_master)}
+    return {"status": 1, "message": await app_state.func_otp_verify(client_postgres=app_state.client_postgres, otp=oq["otp"], email=oq["value"] if oq["type"] == "email" else None, mobile=oq["value"] if oq["type"] == "mobile" else None, config_otp_expiry_sec=app_state.config_otp_expiry_sec, config_otp_static=app_state.config_otp_static)}
 
 @router.post("/public/otp-send-email")
 async def func_api_public_otp_send_email(*, request: Request):
