@@ -355,7 +355,7 @@ config_postgres = {
 "is_log_users_delete": True,
 "is_root_user_create": True,
 "is_root_user_delete_disabled": True,
-"table_row_delete_disable_all":["users", "config", "log_users_password", "log_users_delete"],
+"table_row_delete_disable":["users", "config", "log_users_password", "log_users_delete"],
 "table_row_delete_disable_bulk":[["*", 1000]],
 },
 "sql":{

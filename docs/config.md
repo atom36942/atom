@@ -233,7 +233,7 @@ Auto-migration and safety guards in `config_postgres["control"]`.
 | `is_log_users_delete` | `True` | Automatically logs user soft/hard deletion actions into `log_users_delete` |
 | `is_root_user_create` | `True` | Automatically seeds initial root admin user on startup |
 | `is_root_user_delete_disabled` | `True` | Protects root admin user account from deletion |
-| `table_row_delete_disable_all` | `["users", ...]` | Tables where row deletion is entirely prohibited |
+| `table_row_delete_disable` | `["users", ...]` | Tables where row deletion is entirely prohibited |
 | `table_row_delete_disable_bulk` | `[["*", 1000]]` | Caps on maximum rows allowed in a single bulk delete operation |
 
 ---
