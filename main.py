@@ -25,6 +25,7 @@ async def func_lifespan(app:"FastAPI"):
         cache_ratelimiter = {}
         cache_postgres_buffer_create = {}
         cache_postgres_buffer_log_api = {}
+        cache_extend = {}
         func_check(app=app)
         func_structure_init()
         # client init

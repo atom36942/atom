@@ -29,6 +29,7 @@ async def func_api_admin_sync(*, request: Request):
     app_state.cache_users_role = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres, config_sql=app_state.config_sql.get("users_role")) if app_state.client_postgres else {}
     app_state.cache_users_deactivated = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres, config_sql=app_state.config_sql.get("users_deactivated")) if app_state.client_postgres else {}
     app_state.cache_users_deleted = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres, config_sql=app_state.config_sql.get("users_deleted")) if app_state.client_postgres else {}
+    if hasattr(app_state, "cache_extend") and isinstance(app_state.cache_extend, dict): app_state.cache_extend.clear()
     return {"status": 1, "message": "done"}
 
 @router.get("/admin/postgres-info")

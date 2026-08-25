@@ -43,7 +43,7 @@ To keep the request path fast, several read-mostly datasets are loaded into memo
 
 - **Schema caches** — `cache_postgres_schema` (+ an AI-oriented variant), and multi-DB schema dicts. These let routers validate table/column names dynamically without hitting the DB.
 - **Data caches** — `cache_config` (the `config` table), and `cache_users_role` / `cache_users_deactivated` / `cache_users_deleted`, which back the middleware's `inmemory`-mode auth checks.
-- **Empty runtime caches** — `cache_ratelimiter`, `cache_api_response`, `cache_postgres_buffer_create` (the general write buffer), and `cache_postgres_buffer_log_api` (the dedicated API-log buffer) start empty and fill during operation.
+- **Empty runtime caches** — `cache_ratelimiter`, `cache_api_response`, `cache_postgres_buffer_create` (the general write buffer), `cache_postgres_buffer_log_api` (the dedicated API-log buffer), and `cache_extend` (developer custom state) start empty and fill during operation.
 
 ### 6. Register on `app.state`
 Every local variable named `client_*` or `cache_*` is bulk-assigned onto `app.state`, making all clients and caches reachable from routers as `request.app.state.<name>`. A `postgres_buffer_flush_lock` (asyncio lock) is also created to serialize buffer flushes.

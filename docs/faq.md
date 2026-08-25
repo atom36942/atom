@@ -347,9 +347,38 @@ These routes use the configured Postgres connection and require the appropriate 
 <details>
 <summary><strong>How do I refresh caches without restarting?</strong></summary>
 
-Call `GET /admin/sync` with an authorized token. It reloads runtime caches for the database schema, configuration, user roles/status, and generated OpenAPI document without requiring a full process restart.
+Call `GET /admin/sync` with an authorized token. It reloads runtime caches for the database schema, configuration, user roles/status, generated OpenAPI document, and clears `cache_extend` without requiring a full process restart.
 
 Use it after an out-of-band database or configuration-table change when Atom's cached view is stale. It does **not** reload edited Python source files or recreate external clients; restart the application for code changes, `.env` changes, or integration connection changes.
+
+</details>
+
+<details>
+<summary><strong>How do I store and reset custom in-memory data across routes?</strong></summary>
+
+Use `app.state.cache_extend` (accessible in route handlers as `request.app.state.cache_extend`). It is initialized as an empty dictionary (`{}`) during application startup.
+
+### 1. Read and write in your route
+
+```python
+# router/custom.py
+from fastapi import APIRouter, Request
+
+router = APIRouter()
+
+@router.get("/my/feature")
+async def func_api_my_feature(*, request: Request):
+    cache = request.app.state.cache_extend
+
+    if "pricing_rules" not in cache:
+        cache["pricing_rules"] = {"discount": 0.15, "tier": "gold"}
+
+    return {"status": 1, "data": cache["pricing_rules"]}
+```
+
+### 2. Reset the cache
+
+Call `GET /admin/sync` with an admin token to clear `cache_extend` along with the framework schema and policy caches without restarting the application.
 
 </details>
 
