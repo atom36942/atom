@@ -239,20 +239,37 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 #status .t{color:var(--green)}
 
 dialog{border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);padding:0;
-       box-shadow:0 8px 30px rgba(0,0,0,.3);min-width:min(440px,92vw);max-width:min(640px,92vw)}
+       box-shadow:0 8px 30px rgba(0,0,0,.3);min-width:min(500px,92vw);max-width:min(640px,92vw)}
 dialog::backdrop{background:rgba(0,0,0,.45)}
 dialog .hd{padding:12px 15px;border-bottom:1px solid var(--th-line);font-weight:bold;font-size:14px;
   display:flex;align-items:center;gap:10px}
 dialog .hd .title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-dialog .bd{padding:14px 15px;max-height:60vh;overflow:auto;font-size:12px}
+dialog .bd{padding:14px 15px;max-height:72vh;overflow:auto;font-size:12px}
 dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;gap:8px;justify-content:flex-end}
 dialog.structured{width:min(760px,calc(100vw - 32px));min-width:min(540px,92vw);max-width:none}
 dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 /* width:100% has no intrinsic size, so the dialog would shrink-wrap to nothing */
-#dsn2{display:block;width:min(580px,82vw);min-height:39px;padding:9px 12px;resize:none;
-      overflow-x:hidden;overflow-y:hidden;overflow-wrap:anywhere;white-space:pre-wrap;font-size:13px;line-height:1.5;
+.conn-form{display:flex;flex-direction:column;gap:10px}
+.conn-field{display:flex;flex-direction:column;gap:4px}
+.conn-label{font-size:11px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.4px}
+.conn-label .req{color:var(--err)}
+#dsn2{display:block;width:100%;min-height:44px;padding:8px 10px;resize:none;
+      overflow-x:hidden;overflow-y:hidden;overflow-wrap:anywhere;white-space:pre-wrap;font-size:12.5px;line-height:1.5;
       font-family:Menlo,Monaco,Consolas,"Courier New",monospace}
-#derr{color:var(--err);margin-top:8px;min-height:16px;font-size:12px;white-space:pre-wrap}
+#dsn-name{width:100%;height:32px;padding:6px 10px;font-size:12px}
+.saved-dsns-wrap{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.saved-dsns-head{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:600;color:var(--th-fg);margin-bottom:8px}
+.saved-dsns-head .cnt{font-size:11px;color:var(--dim);font-weight:normal}
+.saved-dsns-list{display:flex;flex-direction:column;gap:6px;max-height:190px;overflow-y:auto;padding-right:2px}
+.saved-dsn-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border:1px solid var(--line);border-radius:4px;background:var(--side);transition:border-color .15s,background .15s}
+.saved-dsn-item:hover{background:var(--hl);border-color:#999}
+.saved-dsn-info{flex:1;min-width:0;cursor:pointer}
+.saved-dsn-name{font-size:12px;font-weight:600;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.saved-dsn-url{font-size:11px;color:var(--dim);font-family:Menlo,Monaco,Consolas,"Courier New",monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+.saved-dsn-actions{display:flex;align-items:center;gap:6px;flex:none}
+.saved-dsns-empty{padding:12px;text-align:center;font-size:11px;color:var(--dim);background:var(--table-list-bg);border:1px dashed var(--line);border-radius:4px}
+.sm-btn{padding:3px 8px;font-size:11px;height:26px}
+#derr{color:var(--err);margin-top:2px;min-height:16px;font-size:12px;white-space:pre-wrap}
 #cellbox{white-space:pre-wrap;word-break:break-word;margin:0;
          font:12px/1.6 Menlo,Monaco,Consolas,"Courier New",monospace}
 #cellbox.json{box-sizing:border-box;width:100%;max-height:60vh;padding:16px 18px;overflow:auto;
@@ -440,6 +457,7 @@ const icon = name => ({
   moon:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5Z"/></svg>',
   sun:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   copy:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
   download:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg>'
 })[name];
 const vp=$('vp'), inner=$('inner'), headEl=$('head'), canvas=$('canvas'), rowsEl=$('rows');
@@ -585,28 +603,211 @@ function disconnected(){ setConnected(false); }
 
 $('connbtn').onclick = () => S.connected ? askDisconnect() : askConnect();
 
+const SAVED_DSNS_KEY = 'pgweb.saved_dsns';
+function getSavedDsns(){
+  try{
+    const raw = JSON.parse(localStorage.getItem(SAVED_DSNS_KEY) || '[]');
+    if(!Array.isArray(raw)) return [];
+    const seenNames = new Set(), seenDsns = new Set(), unique = [];
+    for(const item of raw){
+      if(!item || !item.dsn) continue;
+      const nameKey = String(item.name || '').trim().toLowerCase();
+      const dsnKey = String(item.dsn || '').trim();
+      if(!nameKey || !dsnKey || seenNames.has(nameKey) || seenDsns.has(dsnKey)) continue;
+      seenNames.add(nameKey);
+      seenDsns.add(dsnKey);
+      unique.push(item);
+    }
+    return unique;
+  }catch{
+    return [];
+  }
+}
+function setSavedDsns(items){
+  localStorage.setItem(SAVED_DSNS_KEY, JSON.stringify(items));
+}
+function maskDsn(dsn){
+  if(!dsn) return '';
+  return String(dsn).replace(/(:\/\/[^:]+:)([^@]+)(@)/, '$1••••$3');
+}
+function parseDsnDb(dsn){
+  try{
+    const u = new URL(dsn.startsWith('postgres') ? dsn.replace(/^postgres(ql)?:\/\//, 'http://') : 'http://' + dsn);
+    const db = u.pathname.replace(/^\//, '');
+    const host = u.hostname;
+    if(db && host && host !== 'localhost' && host !== '127.0.0.1') return `${db} (${host})`;
+    return db || host || 'PostgreSQL';
+  }catch{
+    const m = String(dsn).match(/\/([^/?#]+)(?:[?#]|$)/);
+    return m ? m[1] : 'PostgreSQL';
+  }
+}
+
 function askConnect(){
   $('dlg-t').textContent = 'Connect to a database';
-  $('dlg-b').innerHTML =
-    `<textarea id="dsn2" rows="1" wrap="soft" placeholder="${DEFAULT_DSN}" autocomplete="off" spellcheck="false"></textarea>`
-    + '<div id="derr"></div>';
-  $('dlg-f').innerHTML = '<button value="cancel">Cancel</button><button class="primary" id="dgo">Connect</button>';
+  $('dlg-b').innerHTML = `
+    <div class="conn-form">
+      <div class="conn-field">
+        <label for="dsn2" class="conn-label">PostgreSQL Database URL (DSN) <span class="req">*</span></label>
+        <textarea id="dsn2" rows="1" wrap="soft" placeholder="${DEFAULT_DSN}" autocomplete="off" spellcheck="false"></textarea>
+      </div>
+      <div class="conn-field">
+        <label for="dsn-name" class="conn-label">Connection Name (optional)</label>
+        <input id="dsn-name" type="text" placeholder="e.g. Local Dev, Staging (defaults to DB name)" autocomplete="off"/>
+      </div>
+      <div id="derr"></div>
+      <div class="saved-dsns-wrap" id="saved-dsns-wrap">
+        <div class="saved-dsns-head">
+          <span>Saved Connections</span>
+          <span id="saved-dsns-cnt" class="cnt"></span>
+        </div>
+        <div id="saved-dsns-list" class="saved-dsns-list"></div>
+      </div>
+    </div>
+  `;
+  $('dlg-f').innerHTML = '<button value="cancel">Cancel</button><button type="button" id="dconn">Connect</button><button type="button" class="primary" id="dconnsave">Connect &amp; Save</button>';
   $('dlg').showModal();
-  const inp = $('dsn2');
-  const fit = () => { inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight+2,160)+'px'; };
-  localStorage.removeItem('pgweb.dsn');
-  inp.value=DEFAULT_DSN; fit();
-  inp.oninput = fit; inp.focus(); inp.select();
-  const go = async ev => {
-    ev?.preventDefault();
-    const dsn = inp.value.trim(); if(!dsn) return;
-    $('dgo').disabled = inp.disabled = true; $('derr').textContent = 'connecting…';
-    try{ await doConnect(dsn); $('dlg').close(); }
-    catch(e){ $('derr').textContent = e.message; }
-    finally{ $('dgo').disabled = inp.disabled = false; }
+
+  const dsnInp = $('dsn2');
+  const nameInp = $('dsn-name');
+  const connBtn = $('dconn');
+  const connSaveBtn = $('dconnsave');
+  const fit = () => { dsnInp.style.height='auto'; dsnInp.style.height=Math.min(dsnInp.scrollHeight+2,140)+'px'; };
+  dsnInp.value = DEFAULT_DSN; fit();
+  dsnInp.oninput = fit;
+
+  const saveConnection = (name, dsn) => {
+    dsn = (dsn || '').trim();
+    if(!dsn) return;
+    const finalName = (name || '').trim() || parseDsnDb(dsn);
+    const finalNameLower = finalName.toLowerCase();
+    let items = getSavedDsns();
+
+    // Remove any existing entries that share either the same name (case-insensitive) or same DSN to guarantee strict uniqueness
+    items = items.filter(i => String(i.name || '').trim().toLowerCase() !== finalNameLower && String(i.dsn || '').trim() !== dsn);
+
+    // Insert updated/new connection at the top
+    items.unshift({
+      id: 'dsn_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      name: finalName,
+      dsn,
+      updatedAt: Date.now()
+    });
+
+    setSavedDsns(items);
+    renderSavedList();
   };
-  $('dgo').onclick = go;
-  inp.onkeydown = e => { if(e.key==='Enter') go(e); };
+
+  const renderSavedList = () => {
+    const listEl = $('saved-dsns-list');
+    const cntEl = $('saved-dsns-cnt');
+    if(!listEl) return;
+    const items = getSavedDsns();
+    cntEl.textContent = items.length ? `${items.length} saved` : '';
+    if(!items.length){
+      listEl.innerHTML = '<div class="saved-dsns-empty">No saved connections yet. Enter a URL above and click "Connect &amp; Save".</div>';
+      return;
+    }
+    listEl.textContent = '';
+    items.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'saved-dsn-item';
+
+      const info = document.createElement('div');
+      info.className = 'saved-dsn-info';
+      info.title = 'Click to fill form';
+
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'saved-dsn-name';
+      nameDiv.textContent = item.name || 'PostgreSQL';
+
+      const urlDiv = document.createElement('div');
+      urlDiv.className = 'saved-dsn-url';
+      urlDiv.textContent = maskDsn(item.dsn);
+
+      info.append(nameDiv, urlDiv);
+      info.onclick = () => {
+        nameInp.value = item.name || '';
+        dsnInp.value = item.dsn || '';
+        fit();
+        dsnInp.focus();
+      };
+
+      const actions = document.createElement('div');
+      actions.className = 'saved-dsn-actions';
+
+      const quickConnBtn = document.createElement('button');
+      quickConnBtn.type = 'button';
+      quickConnBtn.className = 'primary sm-btn dsn-connect-btn';
+      quickConnBtn.title = 'Connect to this database';
+      quickConnBtn.textContent = 'Connect';
+      quickConnBtn.onclick = async (e) => {
+        e.stopPropagation();
+        await executeConnect(item.dsn, item.name, false);
+      };
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'iconbtn sm-btn dsn-del-btn';
+      delBtn.title = 'Delete connection from list';
+      delBtn.ariaLabel = 'Delete connection';
+      delBtn.innerHTML = icon('trash');
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        const updated = getSavedDsns().filter(i => (i.id ? i.id !== item.id : i.dsn !== item.dsn));
+        setSavedDsns(updated);
+        renderSavedList();
+        toast('Connection removed');
+      };
+
+      actions.append(quickConnBtn, delBtn);
+      row.append(info, actions);
+      listEl.appendChild(row);
+    });
+  };
+
+  const executeConnect = async (dsn, name, shouldSave) => {
+    dsn = (dsn || '').trim();
+    if(!dsn){ $('derr').textContent = 'Please enter a PostgreSQL URL'; return; }
+    connBtn.disabled = connSaveBtn.disabled = dsnInp.disabled = nameInp.disabled = true;
+    $('derr').textContent = 'connecting…';
+    try{
+      await doConnect(dsn);
+      if(shouldSave) saveConnection(name, dsn);
+      $('dlg').close();
+      if(shouldSave) toast('Connected and saved to favorites');
+    }catch(e){
+      $('derr').textContent = e.message;
+    }finally{
+      connBtn.disabled = connSaveBtn.disabled = dsnInp.disabled = nameInp.disabled = false;
+    }
+  };
+
+  connBtn.onclick = ev => {
+    ev?.preventDefault();
+    executeConnect(dsnInp.value, nameInp.value, false);
+  };
+
+  connSaveBtn.onclick = ev => {
+    ev?.preventDefault();
+    executeConnect(dsnInp.value, nameInp.value, true);
+  };
+
+  dsnInp.onkeydown = e => {
+    if(e.key === 'Enter' && !e.shiftKey){
+      e.preventDefault();
+      executeConnect(dsnInp.value, nameInp.value, true);
+    }
+  };
+  nameInp.onkeydown = e => {
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      executeConnect(dsnInp.value, nameInp.value, true);
+    }
+  };
+
+  renderSavedList();
+  dsnInp.focus(); dsnInp.select();
 }
 
 function askDisconnect(){
