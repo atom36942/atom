@@ -18,7 +18,7 @@ async def func_api_public_object_create(*, request: Request):
     app_state = request.app.state
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "mode", "type": "str", "required": False, "allowed": ["now", "buffer"], "default": "now"}])
-    app_state.func_check_public_table_permission(app_state=app_state, table=oq["table"], action="create")
+    app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="public", action="create")
     obj_list = await app_state.func_extract_request_object_list(request=request)
     app_state.func_validate_restricted_columns(app_state=app_state, obj_list=obj_list)
     app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column="created_by_id", purpose="ownership tracking")
@@ -31,7 +31,7 @@ async def func_api_public_object_read(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "id desc"}, {"name": "column", "type": "str", "required": False, "allowed": None, "default": "*"}, {"name": "relation", "type": "list", "required": False, "allowed": None, "default": []}, {"name": "filter", "type": "list", "required": False, "allowed": None, "default": []}])
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     if oq["table"] not in cache_postgres_schema: raise Exception(f"table '{oq['table']}' not found")
-    app_state.func_check_public_table_permission(app_state=app_state, table=oq["table"], action="read")
+    app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="public", action="read")
     enabled_tables = app_state.config_table_public_read_enabled or []
     if (disabled_relation_table := next((parts[1] for rel in oq["relation"] for parts in ([p.strip() for p in rel.split(",", 4)],) if len(parts) >= 2 and "*" not in enabled_tables and parts[1] not in enabled_tables), None)) is not None: raise Exception(f"relation read disabled for table: {disabled_relation_table}")
     ol = await app_state.func_postgres_read(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
@@ -98,7 +98,7 @@ async def func_api_public_table_groupby(*, request: Request):
     if oq["table"] not in cache_postgres_schema: raise Exception(f"table '{oq['table']}' not found")
     if oq["col"] not in cache_postgres_schema[oq["table"]]: raise Exception(f"column '{oq['col']}' not found in table: {oq['table']}")
     if oq["agg_col"] != "*" and oq["agg_col"] not in cache_postgres_schema[oq["table"]]: raise Exception(f"column '{oq['agg_col']}' not found in table: {oq['table']}")
-    app_state.func_check_public_table_permission(app_state=app_state, table=oq["table"], action="read")
+    app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="public", action="read")
     res = await app_state.func_postgres_groupby_read(app_state=app_state, client_postgres=client_postgres, cache_postgres_schema=cache_postgres_schema, table=oq["table"], col=oq["col"], limit=oq["limit"], page=oq["page"], agg=oq["agg_func"], a_col=oq["agg_col"], order=oq["order"], filter=oq["filter"])
     return {"status": 1, "message": res}
 
@@ -110,7 +110,7 @@ async def func_api_public_table_distinct(*, request: Request):
     if app_state.config_sql_read_limit_max and oq["limit"] > app_state.config_sql_read_limit_max: raise Exception(f"query limit {oq['limit']} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     if oq["table"] not in cache_postgres_schema: raise Exception(f"table '{oq['table']}' not found")
-    app_state.func_check_public_table_permission(app_state=app_state, table=oq["table"], action="read")
+    app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="public", action="read")
     if oq["col"] not in cache_postgres_schema[oq["table"]]: raise Exception(f"column '{oq['col']}' not found in table: {oq['table']}")
     async with client_postgres.acquire() as conn:
         rows = await conn.fetch(f'SELECT DISTINCT "{oq["col"]}" AS value FROM "{oq["table"]}" LIMIT $1', oq["limit"])

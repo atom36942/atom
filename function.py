@@ -1415,16 +1415,19 @@ def func_validate_restricted_columns(*, app_state: any, obj_list: list) -> None:
     if restricted_key := next((key for item in obj_list for key in item if key in config_column_admin), None):
         raise Exception(f"unauthorized update to restricted field: {restricted_key}")
 
+def func_check_table_permission(*, app_state: any, table: str, scope: str = "public", action: str = "read") -> None:
+    """Validate if table access is enabled for given scope ('public', 'private') and action ('read', 'create')."""
+    config_attr = f"config_table_{scope}_{action}_enabled"
+    enabled_tables = getattr(app_state, config_attr, []) or []
+    if "*" not in enabled_tables and table not in enabled_tables:
+        verb = "creation" if action == "create" else "read"
+        raise Exception(f"{verb} disabled for table: {table}")
+
 def func_check_public_table_permission(*, app_state: any, table: str, action: str = "read") -> None:
-    """Validate if public table read or create access is enabled."""
-    if action == "create":
-        enabled_tables = getattr(app_state, "config_table_public_create_enabled", []) or []
-        if "*" not in enabled_tables and table not in enabled_tables:
-            raise Exception(f"creation disabled for table: {table}")
-    else:
-        enabled_tables = getattr(app_state, "config_table_public_read_enabled", []) or []
-        if "*" not in enabled_tables and table not in enabled_tables:
-            raise Exception(f"read disabled for table: {table}")
+    func_check_table_permission(app_state=app_state, table=table, scope="public", action=action)
+
+def func_check_private_table_permission(*, app_state: any, table: str, action: str = "read") -> None:
+    func_check_table_permission(app_state=app_state, table=table, scope="private", action=action)
 
 def func_check_table_column_exists(*, app_state: any, table: str, column: str, purpose: str = None) -> None:
     """Validate that table schema contains specified column."""

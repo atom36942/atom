@@ -60,7 +60,8 @@ async def func_postgres_read(
 
 | Endpoint | Access Level | Description |
 | :--- | :--- | :--- |
-| **`GET /public/object-read?table=<tbl>`** | Public | Read table records with public access filters |
+| **`GET /public/object-read?table=<tbl>`** | Public | Read table records with public access filters (`config_table_public_read_enabled`) |
+| **`GET /private/object-read?table=<tbl>`** | Authenticated User | Read table records with private access filters (`config_table_private_read_enabled`) |
 | **`GET /my/object-read?table=<tbl>`** | Authenticated User | Scoped to user's owned records (`created_by_id` or `ownership_column`) |
 | **`GET /admin/object-read?table=<tbl>`** | Admin | Unrestricted read query execution |
 

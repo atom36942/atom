@@ -136,6 +136,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_table_my_delete_all_received_enabled` | Tables supporting delete-all-received (messages, notifications) |
 | `config_table_public_create_enabled` | Tables accessible on unauthenticated public create route |
 | `config_table_public_read_enabled` | Tables accessible on unauthenticated public read route |
+| `config_table_private_read_enabled` | Tables accessible on authenticated private read route |
 
 ### Column Rules
 

@@ -88,6 +88,7 @@ config_table_my_delete_all_enabled = ["test"]
 config_table_my_delete_all_received_enabled = ["message","notification"]
 config_table_public_create_enabled = ["test"]
 config_table_public_read_enabled = ["test"]
+config_table_private_read_enabled = ["test"]
 
 # Column
 config_column_token_encode = ["id", "role", "username", "id_ext" ,"deactivated_at", "deleted_at"]
@@ -404,6 +405,7 @@ config_api = {
 "/private/blob-upload-url": {"id": 63, "is_token": True},
 "/private/blob-container-sas": {"id": 64, "is_token": True},
 "/private/blob-preview-urls": {"id": 65, "is_token": True},
+"/private/object-read": {"id": 102, "is_token": True},
 # public
 "/public/object-create": {"id": 66, "is_token": False},
 "/public/object-read": {"id": 14, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 100, "is_per_user": False}},
