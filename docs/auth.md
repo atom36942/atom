@@ -11,9 +11,7 @@ All auth endpoints live in [`router/auth.py`](../router/auth.py) and are **publi
 Users live in the `users` table. Two fields shape auth:
 
 - **`role`** (smallint) — the user's role. Validated on signup/login against `config_allowed_users_role` (default `[1,2,3,4,5]`). **Role `1` is the root/admin role** and cannot be created through the public auth endpoints.
-- **Identity fields** — `username`, `email`, `mobile`, `google_login_id`. Each is unique **per role** (schema `unique:"email,role"`), so the same email can exist under different roles (e.g. a customer and a staff account).
-
-Login always takes an identity **+ role** pair.
+- **Identity fields** — `username`, `email`, `mobile`, `google_login_id`, `id_ext`. By default, each identity is globally unique across the system (e.g. `unique:"email"`). You can also configure them to be composite (e.g. `unique:"email,role"` or `unique:"email,tenant_id"`). See **[identity.md](identity.md)** for detailed identity configuration and customization.
 
 ---
 

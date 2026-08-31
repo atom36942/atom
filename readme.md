@@ -216,6 +216,7 @@ atom/
 
 🚀 **Features & Storage**
 - [auth.md](docs/auth.md) — Signup, authentication methods, OTP, and roles.
+- [identity.md](docs/identity.md) — User identities, uniqueness rules, and custom auth columns.
 - [object_create.md](docs/object_create.md) — Generic record creation and bulk batching.
 - [object_read.md](docs/object_read.md) — Advanced filtering, pagination, sorting, and joins.
 - [object_update.md](docs/object_update.md) — Bulk CASE statement record updates.
