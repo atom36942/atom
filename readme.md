@@ -228,6 +228,7 @@ atom/
 - [blob.md](docs/blob.md) — AWS S3 & Azure Blob storage integration.
 - [comms.md](docs/comms.md) — Email (SES/Resend/Azure) and SMS (SNS/Fast2SMS).
 - [admin.md](docs/admin.md) — Admin toolkit, data imports, and schema utilities.
+- [root_user.md](docs/root_user.md) — Root superadmin user architecture, seeding, and protections.
 - [workers.md](docs/workers.md) — Background workers and retry patterns.
 
 🧱 **Customization & Guides**

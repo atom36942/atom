@@ -555,7 +555,7 @@ async def func_postgres_schema_init(*, app_state: any, client_postgres: any, con
 
 async def func_auth_user_login_fetch(*, conn: any, field: str, value: any, role: any) -> dict:
     """Fetch a single login user by a unique-ish field with optional role. Raise on not-found or ambiguity (role omitted but multiple rows)."""
-    allowed_fields = ("username", "email", "mobile")
+    allowed_fields = ("username", "email", "mobile", "id_ext")
     if field not in allowed_fields: raise Exception(f"invalid auth field: {field}")
     records = await conn.fetch(f'SELECT * FROM users WHERE "{field}"=$2 AND ($1::smallint IS NULL OR role=$1) ORDER BY id DESC LIMIT 2;', role, value)
     if not records: raise Exception(f"{field} not found")

@@ -10,7 +10,7 @@ All auth endpoints live in [`router/auth.py`](../router/auth.py) and are **publi
 
 Users live in the `users` table. Two fields shape auth:
 
-- **`role`** (smallint) — the user's role. Validated on signup/login against `config_allowed_users_role` (default `[1,2,3,4,5]`). **Role `1` is the root/admin role** and cannot be created through the public auth endpoints.
+- **`role`** (smallint) — the user's role. Validated on signup/login against `config_allowed_users_role` (default `[1,2,3,4,5]`). **Role `1` is the root/admin role** (see **[root_user.md](root_user.md)**) and cannot be created through the public auth endpoints.
 - **Identity fields** — `username`, `email`, `mobile`, `google_login_id`, `id_ext`. By default, each identity is globally unique across the system (e.g. `unique:"email"`). You can also configure them to be composite (e.g. `unique:"email,role"` or `unique:"email,tenant_id"`). See **[identity.md](identity.md)** for detailed identity configuration and customization.
 
 ---
@@ -42,6 +42,7 @@ Flow: validate role → regex-check username/password (`config_regex`) → rejec
 | `/auth/login-username-password` | username + password | Password verified with Argon2. |
 | `/auth/login-email-password` | email + password | |
 | `/auth/login-mobile-password` | mobile + password | |
+| `/auth/login-id-ext-password` | id_ext + password | |
 | `/auth/login-email-otp` | email + otp | Verifies OTP, then finds-or-creates the user. |
 | `/auth/login-mobile-otp` | mobile + otp | Same, via SMS OTP. |
 | `/auth/login-google` | `google_token` (+ role) | Verifies the Google ID token, finds-or-creates by `google_login_id`. |

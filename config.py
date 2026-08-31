@@ -379,6 +379,7 @@ config_api = {
 "/auth/login-username-password": {"id": 40, "is_token": False},
 "/auth/login-email-password": {"id": 41, "is_token": False},
 "/auth/login-mobile-password": {"id": 42, "is_token": False},
+"/auth/login-id-ext-password": {"id": 103, "is_token": False},
 "/auth/login-email-otp": {"id": 43, "is_token": False},
 "/auth/login-mobile-otp": {"id": 44, "is_token": False},
 "/auth/login-google": {"id": 45, "is_token": False},

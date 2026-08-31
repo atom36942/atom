@@ -65,6 +65,20 @@ async def func_api_auth_login_mobile_password(*, request:Request):
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
     return {"status":1,"message":token}
 
+@router.post("/auth/login-id-ext-password")
+async def func_api_auth_login_id_ext_password(*, request:Request):
+    app_state = request.app.state
+    if not app_state.client_postgres: raise Exception("postgres client not initialized")
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[{"name": "role", "type": "int", "required": False, "allowed": app_state.config_allowed_users_role, "default": None}, {"name": "id_ext", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "password", "type": "str", "required": True, "allowed": None, "default": None}])
+    if ob.get("id_ext"): ob["id_ext"] = ob["id_ext"].strip()
+    await app_state.func_regex_check(config_regex=app_state.config_regex, obj_list=[ob])
+    async with app_state.client_postgres.acquire() as conn:
+        user = await app_state.func_auth_user_login_fetch(conn=conn, field="id_ext", value=ob["id_ext"], role=ob["role"])
+        try: app_state.client_password_hasher.verify(user["password"], str(ob["password"]))
+        except Exception: raise Exception("incorrect password")
+    token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
+    return {"status":1,"message":token}
+
 @router.post("/auth/login-email-otp")
 async def func_api_auth_login_email_otp(*, request:Request):
     app_state = request.app.state

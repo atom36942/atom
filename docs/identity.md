@@ -14,7 +14,7 @@ Out of the box, Atom supports multiple identity fields on the `users` table:
 | **`email`** | `text` | Primary email address for password and Email OTP login. | `POST /auth/login-email-password`<br>`POST /auth/login-email-otp` |
 | **`mobile`** | `text` | Mobile phone number for SMS OTP and password login. | `POST /auth/login-mobile-password`<br>`POST /auth/login-mobile-otp` |
 | **`google_login_id`** | `text` | Google OAuth subject (`sub`) ID for Google Social Login. | `POST /auth/login-google` |
-| **`id_ext`** | `text` | External identifier for SSO, LDAP, Active Directory, or ERP user sync. | Included in JWT token claims |
+| **`id_ext`** | `text` | External identifier (Employee ID, Student ID, ERP sync) for password login or SSO. | `POST /auth/login-id-ext-password`<br>Included in JWT token claims |
 
 ---
 
