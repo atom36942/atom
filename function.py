@@ -2034,14 +2034,15 @@ async def func_blob_delete_all(*, app_state: any, user_id: int, limit: int = 500
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
     async with app_state.client_postgres.acquire() as conn:
         records = await conn.fetch("SELECT id, file_url, service FROM blob WHERE created_by_id = $1 AND deleted_at IS NULL LIMIT $2", user_id, limit + 1)
-        if not records: return {"deleted_count": 0, "has_more": False}
-        has_more = len(records) > limit
-        process_records = records[:limit]
-        s3_urls = [r["file_url"] for r in process_records if r["service"] == "s3"]
-        azure_urls = [r["file_url"] for r in process_records if r["service"] == "azure"]
-        if s3_urls: await app_state.func_blob_url_delete(app_state=app_state, service="s3", urls=s3_urls, user_id=user_id)
-        if azure_urls: await app_state.func_blob_url_delete(app_state=app_state, service="azure", urls=azure_urls, user_id=user_id)
-        ids_to_update = [r["id"] for r in process_records]
+    if not records: return {"deleted_count": 0, "has_more": False}
+    has_more = len(records) > limit
+    process_records = records[:limit]
+    s3_urls = [r["file_url"] for r in process_records if r["service"] == "s3"]
+    azure_urls = [r["file_url"] for r in process_records if r["service"] == "azure"]
+    if s3_urls: await app_state.func_blob_url_delete(app_state=app_state, service="s3", urls=s3_urls, user_id=user_id)
+    if azure_urls: await app_state.func_blob_url_delete(app_state=app_state, service="azure", urls=azure_urls, user_id=user_id)
+    ids_to_update = [r["id"] for r in process_records]
+    async with app_state.client_postgres.acquire() as conn:
         await conn.execute("UPDATE blob SET deleted_at = NOW(), deleted_by_id = $1 WHERE id = ANY($2::bigint[])", user_id, ids_to_update)
     return {"deleted_count": len(process_records), "has_more": has_more}
 
