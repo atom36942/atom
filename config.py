@@ -170,6 +170,15 @@ config_postgres = {
 {"name":"address","datatype":"text","old":"adress"},
 {"name":"metadata","datatype":"jsonb","index":"gin(metadata)"}
 ],
+"test_comment":[
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
+{"name":"created_at","datatype":"timestamptz","default":"now()"},
+{"name":"created_by_id","datatype":"bigint","is_mandatory": True},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"test_id","datatype":"bigint","is_mandatory": True,"index":"btree(test_id)"},
+{"name":"description","datatype":"text","is_mandatory": True},
+],
 "users":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
@@ -262,15 +271,6 @@ config_postgres = {
 {"name":"reference_table","datatype":"text"},
 {"name":"reference_id","datatype":"bigint"},
 {"name":"read_at","datatype":"timestamptz"}
-],
-"test_comment":[
-{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
-{"name":"created_at","datatype":"timestamptz","default":"now()"},
-{"name":"created_by_id","datatype":"bigint","is_mandatory": True},
-{"name":"updated_at","datatype":"timestamptz"},
-{"name":"updated_by_id","datatype":"bigint"},
-{"name":"test_id","datatype":"bigint","is_mandatory": True,"index":"btree(test_id)"},
-{"name":"description","datatype":"text","is_mandatory": True},
 ],
 "log_api":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
