@@ -369,7 +369,7 @@ config_postgres = {
 {"name":"project","datatype":"smallint","is_mandatory": True,"index":"btree(project)"},
 {"name":"tags","datatype":"text[]","index":"gin(tags)"},
 {"name":"assigned_to_id","datatype":"bigint","is_mandatory": True,"index":"btree(assigned_to_id,status)"},
-{"name":"status","datatype":"smallint","default":1,"in":(1,2,3,4,5,6),"index":"btree(status)"},
+{"name":"status","datatype":"smallint","is_mandatory": True,"default":1,"in":(1,2,3,4,5,6),"index":"btree(status)"},
 {"name":"priority","datatype":"smallint","default":2,"in":(1,2,3,4),"index":"btree(priority)"},
 {"name":"due_at","datatype":"timestamptz","index":"btree(due_at)"},
 {"name":"completed_at","datatype":"timestamptz"}
