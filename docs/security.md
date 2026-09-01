@@ -42,7 +42,7 @@ Routes with `rate_limit` cap requests per window, keyed by **user id** (authenti
 Three independent gates protect the generic CRUD layer (see [object_create.md](object_create.md), [object_read.md](object_read.md)):
 
 - **Table allow-lists** — `config_table_public_create_enabled` / `_read_enabled` (public), `config_table_my_create_disabled`, `config_table_my_delete_all_enabled`. `"*"` = all, `[]` = none.
-- **Ownership scoping** — `config_column_ownership` (`created_by_id`, `user_id`). The `my/*` endpoints filter and stamp by ownership so a user only ever touches their own rows; `admin/*` is unrestricted behind role checks.
+- **Ownership scoping** — `config_column_ownership` (`created_by_id`, `received_by_id`, `assigned_to_id`, `user_id`). Any `ownership_column` parameter is whitelisted against this list before it reaches SQL. The `my/*` endpoints filter and stamp by ownership so a user only ever touches their own rows; `admin/*` is unrestricted behind role checks.
 - **Restricted columns** — a client can't set server-managed fields in `config_column_admin` (`created_at`, `role`, `verified_at`, …); on `users`, `config_column_admin_users` blocks `role`; and `config_column_single_update` forces sensitive fields (`password`, `email`, `mobile`) to be changed one at a time.
 - **Sensitive tables** — `config_table_sensitive` shields core tables (`users`, `log_*`, …) from bulk-cleanup scripts.
 

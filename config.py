@@ -85,14 +85,14 @@ config_postgres_db_log_api = None
 config_table_sensitive = ["spatial_ref_sys", "users", "log_users_delete"]
 config_table_my_create_disabled = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
 config_table_my_delete_all_enabled = ["test"]
-config_table_my_delete_all_received_enabled = ["message","notification"]
+config_table_my_delete_all_owned_enabled = ["message","notification"]
 config_table_public_create_enabled = ["test"]
 config_table_public_read_enabled = ["test"]
 config_table_private_read_enabled = ["test"]
 
 # Column
 config_column_token_encode = ["id", "role", "username", "id_ext" ,"deactivated_at", "deleted_at"]
-config_column_ownership = ["created_by_id", "user_id"]
+config_column_ownership = ["created_by_id", "received_by_id", "assigned_to_id", "user_id"]
 config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id"]
 config_column_admin_users=["role"]
 config_column_single_update = ["username", "password", "email", "mobile", "deleted_at"]
@@ -243,7 +243,7 @@ config_postgres = {
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"deleted_by_id","datatype":"bigint"},
-{"name":"user_id","datatype":"bigint","is_mandatory": True,"index":"btree(user_id)"},
+{"name":"received_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(received_by_id)"},
 {"name":"description","datatype":"text","is_mandatory": True},
 {"name":"read_at","datatype":"timestamptz"}
 ],
@@ -256,7 +256,7 @@ config_postgres = {
 {"name":"deleted_at","datatype":"timestamptz","index":"btree(deleted_at)"},
 {"name":"deleted_by_id","datatype":"bigint"},
 {"name":"type","datatype":"smallint","is_mandatory": True,"index":"btree(type)"},
-{"name":"user_id","datatype":"bigint","is_mandatory": True,"index":"btree(user_id)"},
+{"name":"received_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(received_by_id)"},
 {"name":"title","datatype":"text","is_mandatory": True},
 {"name":"description","datatype":"text"},
 {"name":"reference_table","datatype":"text"},
@@ -428,8 +428,8 @@ config_api = {
 "/my/object-update": {"id": 51, "is_token": True},
 "/my/object-delete": {"id": 52, "is_token": True},
 "/my/object-delete-all": {"id": 53, "is_token": True},
-"/my/object-delete-received": {"id": 54, "is_token": True},
-"/my/object-delete-received-all": {"id": 55, "is_token": True},
+"/my/object-delete-owned": {"id": 54, "is_token": True},
+"/my/object-delete-owned-all": {"id": 55, "is_token": True},
 "/my/message-inbox": {"id": 56, "is_token": True},
 "/my/message-thread": {"id": 57, "is_token": True},
 "/my/object-create-mongodb": {"id": 58, "is_token": True},

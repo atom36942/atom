@@ -54,7 +54,8 @@ async def func_postgres_delete(
 | **`DELETE /my/object-delete?table=<tbl>&ids=1,2,3`** | User | `created_by_id = current_user.id` | Deletes owned records by ID list |
 | **`DELETE /admin/object-delete?table=<tbl>&ids=1,2,3`** | Admin | None | Unrestricted deletion by ID list |
 | **`DELETE /my/object-delete-all?table=<tbl>`** | User | `created_by_id = current_user.id` | Deletes all records owned by current user |
-| **`DELETE /my/object-delete-received-all?table=<tbl>`**| User | `ownership_column = current_user.id` | Drains inbox/received messages |
+| **`POST /my/object-delete-owned`** | User | `<ownership_column> = current_user.id` | Deletes rows by ID via any ownership column |
+| **`DELETE /my/object-delete-owned-all?table=<tbl>&ownership_column=<col>`**| User | `<ownership_column> = current_user.id` | Drains all rows scoped to that column |
 
 ---
 

@@ -133,7 +133,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_table_sensitive` | Protected tables exempted from bulk cleanup/deletion scripts |
 | `config_table_my_create_disabled` | Tables refused on user `/my/object-create` endpoint |
 | `config_table_my_delete_all_enabled` | Tables supporting `/my/object-delete-all` for row owners |
-| `config_table_my_delete_all_received_enabled` | Tables supporting delete-all-received (messages, notifications) |
+| `config_table_my_delete_all_owned_enabled` | Tables supporting `/my/object-delete-owned-all` (messages, notifications) |
 | `config_table_public_create_enabled` | Tables accessible on unauthenticated public create route |
 | `config_table_public_read_enabled` | Tables accessible on unauthenticated public read route |
 | `config_table_private_read_enabled` | Tables accessible on authenticated private read route |
@@ -143,7 +143,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | Key | Usage |
 |---|---|
 | `config_column_token_encode` | User columns encoded into JWT claims (`id`, `role`, `username`, etc.) |
-| `config_column_ownership` | Column names indicating row ownership (`created_by_id`, `user_id`) |
+| `config_column_ownership` | Column names indicating row ownership (`created_by_id`, `received_by_id`, `assigned_to_id`, `user_id`); the allowed set for `ownership_column` |
 | `config_column_admin` | Server-managed columns blocked from user mutation (`created_at`, `role`, etc.) |
 | `config_column_admin_users` | Admin-only restricted columns for `users` table (`role`) |
 | `config_column_single_update` | Columns requiring single-field update requests (`password`, `email`, etc.) |

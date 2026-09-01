@@ -63,11 +63,11 @@ async def func_api_my_object_read(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "ownership_column", "type": "str", "required": False, "allowed": app_state.config_column_ownership, "default": "created_by_id"}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "id desc"}, {"name": "column", "type": "str", "required": False, "allowed": None, "default": "*"}, {"name": "relation", "type": "list", "required": False, "allowed": None, "default": []}, {"name": "filter", "type": "list", "required": False, "allowed": None, "default": []}])
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     schema_cols = cache_postgres_schema.get(oq["table"], {})
-    if oq["ownership_column"] == "user_id" and "id" in schema_cols and "read_at" in schema_cols and not app_state.client_postgres: raise Exception("postgres client not initialized")
+    if oq["ownership_column"] == "received_by_id" and "id" in schema_cols and "read_at" in schema_cols and not app_state.client_postgres: raise Exception("postgres client not initialized")
     if oq["ownership_column"] not in schema_cols: raise Exception(f"table '{oq['table']}' lacks ownership column '{oq['ownership_column']}'")
     filters = oq["filter"] + [f"""{oq["ownership_column"]} = {request.state.user["id"]}"""]
     ol = await app_state.func_postgres_read(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
-    if oq["ownership_column"] == "user_id" and "id" in schema_cols and "read_at" in schema_cols: app_state.func_postgres_mark_read(client_postgres=app_state.client_postgres, table=oq["table"], ownership_column=oq["ownership_column"], user_id=request.state.user["id"], ids=[r.get("id") for r in ol if isinstance(r, dict)])
+    if oq["ownership_column"] == "received_by_id" and "id" in schema_cols and "read_at" in schema_cols: app_state.func_postgres_mark_read(client_postgres=app_state.client_postgres, table=oq["table"], ownership_column=oq["ownership_column"], user_id=request.state.user["id"], ids=[r.get("id") for r in ol if isinstance(r, dict)])
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 
 @router.put("/my/object-update")
@@ -115,35 +115,34 @@ async def func_api_my_object_delete_all(*, request: Request):
         result = await conn.execute(f"""DELETE FROM "{oq["table"]}" WHERE "created_by_id"=$1""", user_id)
     return {"status": 1, "message": f"{int(result.rsplit(' ', 1)[-1])} objects deleted"}
 
-@router.post("/my/object-delete-received")
-async def func_api_my_received_ids_delete(*, request: Request):
+@router.post("/my/object-delete-owned")
+async def func_api_my_owned_ids_delete(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "col", "type": "str", "required": False, "allowed": ["user_id"], "default": "user_id"}, {"name": "ids", "type": "list:int", "required": True, "allowed": None, "default": None}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "ownership_column", "type": "str", "required": True, "allowed": app_state.config_column_ownership, "default": None}, {"name": "ids", "type": "list:int", "required": True, "allowed": None, "default": None}])
     if app_state.config_batch_item_limit and len(ob["ids"]) > app_state.config_batch_item_limit: raise Exception(f"maximum {app_state.config_batch_item_limit} objects allowed")
-    schema = app_state.cache_postgres_schema.get(ob["table"], {})
-    col = ob["col"]
-    if ob["table"] == "users" or "id" not in schema or col not in schema: raise Exception(f"users delete disabled or missing 'id'/'{col}' column")
+    schema, ownership_column = app_state.cache_postgres_schema.get(ob["table"], {}), ob["ownership_column"]
+    if ob["table"] == "users" or "id" not in schema or ownership_column not in schema: raise Exception(f"users delete disabled or missing 'id'/'{ownership_column}' column")
     id_list, deleted_count = [int(x) for x in ob["ids"]], 0
     async with app_state.client_postgres.acquire() as conn:
         async with conn.transaction():
             for i in range(0, len(id_list), 5000):
-                result = await conn.fetchval(f"""WITH deleted AS (DELETE FROM "{ob["table"]}" WHERE id=ANY($1::bigint[]) AND "{col}"=$2 RETURNING 1) SELECT COUNT(*) FROM deleted""", id_list[i:i+5000], user_id)
+                result = await conn.fetchval(f"""WITH deleted AS (DELETE FROM "{ob["table"]}" WHERE id=ANY($1::bigint[]) AND "{ownership_column}"=$2 RETURNING 1) SELECT COUNT(*) FROM deleted""", id_list[i:i+5000], user_id)
                 deleted_count += result
     return {"status": 1, "message": f"{deleted_count} ids deleted"}
 
-@router.delete("/my/object-delete-received-all")
-async def func_api_my_received_object_delete_all(*, request: Request):
+@router.delete("/my/object-delete-owned-all")
+async def func_api_my_owned_object_delete_all(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "col", "type": "str", "required": False, "allowed": ["user_id"], "default": "user_id"}])
-    if oq["table"] == "users": raise Exception("users received bulk delete disabled")
-    enabled_delete_all_user_id = app_state.config_table_my_delete_all_received_enabled or []
-    if "*" not in enabled_delete_all_user_id and oq["table"] not in enabled_delete_all_user_id: raise Exception(f"received delete all disabled for table: {oq['table']}")
-    col = oq["col"]
-    app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column=col, purpose="ownership tracking")
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "ownership_column", "type": "str", "required": True, "allowed": app_state.config_column_ownership, "default": None}])
+    if oq["table"] == "users": raise Exception("users owned bulk delete disabled")
+    enabled_delete_all_owned = app_state.config_table_my_delete_all_owned_enabled or []
+    if "*" not in enabled_delete_all_owned and oq["table"] not in enabled_delete_all_owned: raise Exception(f"owned delete all disabled for table: {oq['table']}")
+    ownership_column = oq["ownership_column"]
+    app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column=ownership_column, purpose="ownership tracking")
     async with app_state.client_postgres.acquire() as conn:
-        result = await conn.execute(f"""DELETE FROM "{oq["table"]}" WHERE "{col}"=$1""", user_id)
+        result = await conn.execute(f"""DELETE FROM "{oq["table"]}" WHERE "{ownership_column}"=$1""", user_id)
     return {"status": 1, "message": f"{int(result.rsplit(' ', 1)[-1])} objects deleted"}
 
 @router.get("/my/message-inbox")
@@ -151,8 +150,8 @@ async def func_api_my_message_inbox(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "mode", "type": "str", "required": True, "allowed": ["all", "unread", "read"], "default": None}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "id desc"}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}])
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
-    where_clause = {"read": "user_id=$1 AND read_at IS NOT NULL", "unread": "user_id=$1 AND read_at IS NULL"}.get(oq["mode"], "1=1")
-    sql = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - user_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR user_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
+    where_clause = {"read": "received_by_id=$1 AND read_at IS NOT NULL", "unread": "received_by_id=$1 AND read_at IS NULL"}.get(oq["mode"], "1=1")
+    sql = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - received_by_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR received_by_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
     async with client_postgres.acquire() as conn:
         ol = [dict(r) for r in await conn.fetch(sql, request.state.user["id"])]
         return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
@@ -164,11 +163,11 @@ async def func_api_my_message_thread(*, request: Request):
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
     user_one_id = request.state.user["id"]
-    sql = f"SELECT * FROM message WHERE ((created_by_id=$1 AND user_id=$2) OR (created_by_id=$2 AND user_id=$1)) ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
+    sql = f"SELECT * FROM message WHERE ((created_by_id=$1 AND received_by_id=$2) OR (created_by_id=$2 AND received_by_id=$1)) ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
     async with client_postgres.acquire() as conn:
         ol = [dict(r) for r in await conn.fetch(sql, user_one_id, oq["user_id"])]
     async with app_state.client_postgres.acquire() as conn:
-        await conn.execute("UPDATE message SET read_at=now() WHERE created_by_id=$1 AND user_id=$2;", oq["user_id"], user_one_id)
+        await conn.execute("UPDATE message SET read_at=now() WHERE created_by_id=$1 AND received_by_id=$2;", oq["user_id"], user_one_id)
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 
 @router.post("/my/object-create-mongodb")
