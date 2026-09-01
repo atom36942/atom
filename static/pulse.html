@@ -29,8 +29,17 @@
   </main>
 
   <main id="appView" class="app hidden">
-    <header class="topbar"><div class="brand"><div class="mark">P</div>Pulse</div><div class="top-spacer"></div><div class="account"><button id="accountBtn" class="avatar" type="button" aria-label="Account menu" aria-expanded="false"><span id="avatarText">USR</span></button><div id="accountMenu" class="account-menu hidden"><button id="profileBtn" class="menu-item" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Profile</span></button><button id="refreshBtn" class="menu-item" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg><span>Refresh</span></button><button id="logoutBtn" class="menu-item danger-text" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M15 4h5v16h-5"/></svg><span>Logout</span></button></div></div></header>
-    <section class="shell">
+    <header class="topbar"><div class="brand"><div class="mark">P</div>Pulse</div><nav class="app-nav" aria-label="Main navigation"><button id="dashboardNav" class="nav-btn active" type="button">Dashboard</button><button id="tasksNav" class="nav-btn" type="button">Tasks</button></nav><div class="top-spacer"></div><div class="account"><button id="accountBtn" class="avatar" type="button" aria-label="Account menu" aria-expanded="false"><span id="avatarText">USR</span></button><div id="accountMenu" class="account-menu hidden"><button id="profileBtn" class="menu-item" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Profile</span></button><button id="refreshBtn" class="menu-item" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg><span>Refresh</span></button><button id="logoutBtn" class="menu-item danger-text" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M15 4h5v16h-5"/></svg><span>Logout</span></button></div></div></header>
+    <section id="dashboardView" class="shell">
+      <div class="heading"><div><h1>Dashboard</h1><p>See where the team needs attention.</p></div></div>
+      <div class="dashboard-grid">
+        <section class="chart-card"><h2>Tasks by status</h2><div id="statusChart" class="chart-list"><div class="chart-empty">Loading…</div></div></section>
+        <section class="chart-card"><h2>Tasks by assignee</h2><div id="assigneeChart" class="chart-list"><div class="chart-empty">Loading…</div></div></section>
+        <section class="chart-card"><h2>Tasks by priority</h2><div id="priorityChart" class="chart-list"><div class="chart-empty">Loading…</div></div></section>
+        <section class="chart-card"><h2>Tasks by project</h2><div id="projectChart" class="chart-list"><div class="chart-empty">Loading…</div></div></section>
+      </div>
+    </section>
+    <section id="tasksView" class="shell hidden">
       <div class="heading"><div><h1>Tasks</h1><p>Plan today. Ship together.</p></div><button id="newTaskBtn" class="btn">＋ Add task</button></div>
       <div class="filters">
         <select id="projectFilter" class="input" aria-label="Project"><option value="">Any project</option></select>
