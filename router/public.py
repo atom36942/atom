@@ -89,32 +89,14 @@ async def func_api_public_jira_worklog_export(*, request: Request):
         os.remove(output_path)
     return responses.StreamingResponse(iterfile(), media_type="application/octet-stream", headers={"Content-Disposition": f'attachment; filename="{os.path.basename(output_path)}"' })
 
-@router.get("/public/table-groupby")
-async def func_api_public_table_groupby(*, request: Request):
+@router.get("/public/table-column-values")
+async def func_api_public_table_column_values(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "col", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}, {"name": "agg_func", "type": "str", "required": False, "allowed": ["count", "sum", "avg", "min", "max"], "default": "count"}, {"name": "agg_col", "type": "str", "required": False, "allowed": None, "default": "*"}, {"name": "order", "type": "str", "required": False, "allowed": ["count desc", "count asc", "item asc", "item desc"], "default": "count desc"}, {"name": "filter", "type": "list", "required": False, "allowed": None, "default": []}])
-    if app_state.config_sql_read_limit_max and oq["limit"] > app_state.config_sql_read_limit_max: raise Exception(f"query limit {oq['limit']} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "col", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "include_count", "type": "bool", "required": False, "allowed": None, "default": True}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": False, "allowed": ["count desc", "count asc", "item asc", "item desc"], "default": "count desc"}, {"name": "filter", "type": "list", "required": False, "allowed": None, "default": []}])
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
-    if oq["table"] not in cache_postgres_schema: raise Exception(f"table '{oq['table']}' not found")
-    if oq["col"] not in cache_postgres_schema[oq["table"]]: raise Exception(f"column '{oq['col']}' not found in table: {oq['table']}")
-    if oq["agg_col"] != "*" and oq["agg_col"] not in cache_postgres_schema[oq["table"]]: raise Exception(f"column '{oq['agg_col']}' not found in table: {oq['table']}")
     app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="public", action="read")
-    res = await app_state.func_postgres_groupby_read(app_state=app_state, client_postgres=client_postgres, cache_postgres_schema=cache_postgres_schema, table=oq["table"], col=oq["col"], limit=oq["limit"], page=oq["page"], agg=oq["agg_func"], a_col=oq["agg_col"], order=oq["order"], filter=oq["filter"])
+    res = await app_state.func_postgres_column_values_read(app_state=app_state, client_postgres=client_postgres, cache_postgres_schema=cache_postgres_schema, table=oq["table"], col=oq["col"], include_count=oq["include_count"], limit=oq["limit"], page=oq["page"], order=oq["order"], filter=oq["filter"])
     return {"status": 1, "message": res}
-
-@router.get("/public/table-distinct")
-async def func_api_public_table_distinct(*, request: Request):
-    app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "col", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}])
-    if oq["limit"] < 1: raise Exception("query limit must be greater than 0")
-    if app_state.config_sql_read_limit_max and oq["limit"] > app_state.config_sql_read_limit_max: raise Exception(f"query limit {oq['limit']} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
-    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
-    if oq["table"] not in cache_postgres_schema: raise Exception(f"table '{oq['table']}' not found")
-    app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="public", action="read")
-    if oq["col"] not in cache_postgres_schema[oq["table"]]: raise Exception(f"column '{oq['col']}' not found in table: {oq['table']}")
-    async with client_postgres.acquire() as conn:
-        rows = await conn.fetch(f'SELECT DISTINCT "{oq["col"]}" AS value FROM "{oq["table"]}" LIMIT $1', oq["limit"])
-    return {"status": 1, "message": [row["value"] for row in rows]}
 
 @router.post("/public/blob-upload-file")
 async def func_api_public_blob_upload_file(*, request: Request):
@@ -135,5 +117,3 @@ async def func_api_public_password_hash(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[{"name": "password", "type": "str", "required": True, "allowed": None, "default": None}])
     return {"status": 1, "message": app_state.client_password_hasher.hash(str(ob["password"]))}
-
-

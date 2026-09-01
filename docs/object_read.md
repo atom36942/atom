@@ -204,6 +204,6 @@ print(data["message"]["obj_list"])
 | **String** | `=`, `!=`, `like`, `ilike`, `~`, `~*` | `"title like %Title%"`, `"email ilike %@example.com"`, `"code ~ ^CODE_"`, `"slug ~* ^slug-"` |
 | **Boolean** | `=`, `!=`, `is`, `is not` | `"active = true"`, `"is_verified is true"` |
 | **Date/Time** | `>=`, `<=`, `between`, `is null` | `"created_at >= 2026-01-01"`, `"created_at between 2026-01-01\|2026-12-31"` |
-| **Array** | `contains`, `overlap`, `any` | `"tag contains tag1"`, `"tag overlap tag1\|tag2"`, `"tag_int any 1"` |
+| **Array** | `contains`, `overlap`, `any` | `"tags contains tag1"`, `"tags overlap tag1\|tag2"`, `"tags_int any 1"` |
 | **JSONB** | `contains`, `exists` | `"metadata contains active\|true\|bool"`, `"metadata exists active"` |
 | **Spatial** | `point` | `"coordinate point 80.0\|15.0\|0\|5000"` |

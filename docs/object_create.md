@@ -70,7 +70,7 @@ curl -X POST "http://localhost:8000/public/object-create?table=test" \
     "type": 1,
     "title": "New Record",
     "email": "user@example.com",
-    "tag": ["tag1", "tag2"],
+    "tags": ["tag1", "tag2"],
     "rating": 4.5
   }'
 ```
@@ -113,12 +113,12 @@ curl -X POST "http://localhost:8000/admin/object-create?table=test" \
 For bulk inserts (`> 1` record), `func_postgres_create` executes the following SQL pattern:
 
 ```sql
-INSERT INTO "test" ("title", "type", "tag")
+INSERT INTO "test" ("title", "type", "tags")
 SELECT 
     ("title"->>0)::text,
     ("type"->>0)::smallint,
-    (SELECT ARRAY(SELECT jsonb_array_elements_text("tag")))::text[]
-FROM jsonb_to_recordset($1::jsonb) AS x("title" jsonb, "type" jsonb, "tag" jsonb)
+    (SELECT ARRAY(SELECT jsonb_array_elements_text("tags")))::text[]
+FROM jsonb_to_recordset($1::jsonb) AS x("title" jsonb, "type" jsonb, "tags" jsonb)
 RETURNING id;
 ```
 

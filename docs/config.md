@@ -289,18 +289,20 @@ Enumerated option lists for frontend UI dropdowns exposed via `/info`.
 
 Human-readable label mapping for integer-coded database columns.
 
-| Column / Scope Key | Integer Code | String Label / Meaning |
+| Table / Column Key | Integer Code | String Label / Meaning |
 |---|---|---|
-| `worker_status` | `None` | Pending |
-| `worker_status` | `1` | Processing |
-| `worker_status` | `2` | Completed |
-| `worker_status` | `3` | Failed |
-| `worker_status` | `4` | Dead |
-| `type.log_users_delete` | `1` | User Soft Deleted |
-| `type.log_users_delete` | `2` | User Restored |
-| `type.log_users_delete` | `3` | User Hard Deleted |
-| `type.blob` | `1` | File |
-| `type.blob` | `2` | Presigned Url |
+| `log_users_delete.worker_status` | `None` | Pending |
+| `log_users_delete.worker_status` | `1` | Processing |
+| `log_users_delete.worker_status` | `2` | Completed |
+| `log_users_delete.worker_status` | `3` | Failed |
+| `log_users_delete.worker_status` | `4` | Dead |
+| `log_users_delete.type` | `1` | User Soft Deleted |
+| `log_users_delete.type` | `2` | User Restored |
+| `log_users_delete.type` | `3` | User Hard Deleted |
+| `blob.type` | `1` | File |
+| `blob.type` | `2` | Presigned Url |
+
+Mappings use the lookup order `config_column_int_mapping[table][column][value]`.
 
 ---
 

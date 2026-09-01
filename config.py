@@ -129,10 +129,20 @@ config_regex = {
 config_dropdown = {"gender": ["male", "female"],}
 
 config_column_int_mapping = {
+"task": {
+"project": {1: "Myshipment", 2: "Portal", 3: "Hirex", 4: "Inditex", 5: "Amazon", 6: "Quotation", 7: "Tradelane", 8: "OBhai"},
+"status": {1: "To Do", 2: "In Progress", 3: "Review", 4: "Completed", 5: "Cancelled"},
+"priority": {1: "Low", 2: "Medium", 3: "High", 4: "Urgent"},
+},
+"blob": {
+"type": {1: "File", 2: "Presigned Url"},
+},
+"log_users_delete": {
+"type": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
 "worker_status": {None: "Pending", 1: "Processing", 2: "Completed", 3: "Failed", 4: "Dead"},
-"type": {
-"log_users_delete": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
-"blob": {1: "File", 2: "Presigned Url"},
+},
+"jobseeker": {
+"worker_status": {None: "Pending", 1: "Processing", 2: "Completed", 3: "Failed", 4: "Dead"},
 },
 }
 
@@ -151,9 +161,9 @@ config_postgres = {
 {"name":"slug","datatype":"text","index":"btree(slug)"},
 {"name":"code","datatype":"text","is_mandatory": False,"unique":"code,type|code,slug"},
 {"name":"email","datatype":"text","regex":"^[a-zA-Z0-9+_.-]+@[a-zA-Z0-9.-]+$","index":"btree(email)"},
-{"name":"tag","datatype":"text[]","index":"gin(tag)"},
-{"name":"tag_int","datatype":"integer[]","index":"gin(tag_int)"},
-{"name":"tag_bigint","datatype":"bigint[]","index":"gin(tag_bigint)"},
+{"name":"tags","datatype":"text[]","index":"gin(tags)"},
+{"name":"tags_int","datatype":"integer[]","index":"gin(tags_int)"},
+{"name":"tags_bigint","datatype":"bigint[]","index":"gin(tags_bigint)"},
 {"name":"rating","datatype":"numeric(3,1)","check":"rating >= 0 AND rating <= 10"},
 {"name":"coordinate","datatype":"geography(Point, 4326)","index":"gist(coordinate)"},
 {"name":"status","datatype":"smallint","default":1,"index":"btree(status,type)"},
@@ -253,7 +263,7 @@ config_postgres = {
 {"name":"reference_id","datatype":"bigint"},
 {"name":"read_at","datatype":"timestamptz"}
 ],
-"comment_test":[
+"test_comment":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
 {"name":"created_by_id","datatype":"bigint","is_mandatory": True},
@@ -348,6 +358,31 @@ config_postgres = {
 {"name":"projects","datatype":"jsonb",},
 {"name":"industry","datatype":"text"}
 ],
+"task":[
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
+{"name":"created_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(created_by_id)"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"title","datatype":"text","is_mandatory": True,"index":"gin_trgm(title)"},
+{"name":"description","datatype":"text"},
+{"name":"project","datatype":"smallint","is_mandatory": True,"index":"btree(project)"},
+{"name":"tags","datatype":"text[]","index":"gin(tags)"},
+{"name":"assigned_to_id","datatype":"bigint","is_mandatory": True,"index":"btree(assigned_to_id,status)"},
+{"name":"status","datatype":"smallint","default":1,"in":(1,2,3,4,5),"index":"btree(status)"},
+{"name":"priority","datatype":"smallint","default":2,"in":(1,2,3,4),"index":"btree(priority)"},
+{"name":"due_at","datatype":"timestamptz","index":"btree(due_at)"},
+{"name":"completed_at","datatype":"timestamptz"}
+],
+"task_comment":[
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
+{"name":"created_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(created_by_id)"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"updated_by_id","datatype":"bigint"},
+{"name":"task_id","datatype":"bigint","is_mandatory": True,"index":"btree(task_id,created_at)"},
+{"name":"description","datatype":"text","is_mandatory": True}
+],
 },
 "control":{
 "is_updated_at_set": True,
@@ -416,8 +451,7 @@ config_api = {
 "/public/otp-send-mobile": {"id": 70, "is_token": False},
 "/public/otp-send-mobile-sns-template": {"id": 71, "is_token": False},
 "/public/jira-worklog-export": {"id": 19, "is_token": False},
-"/public/table-groupby": {"id": 18, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
-"/public/table-distinct": {"id": 96, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
+"/public/table-column-values": {"id": 18, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
 "/public/blob-upload-file": {"id": 97, "is_token": False},
 "/public/blob-upload-url": {"id": 98, "is_token": False},
 "/public/password-hash": {"id": 100, "is_token": False},
@@ -426,6 +460,7 @@ config_api = {
 "/admin/object-create": {"id": 2, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/object-update": {"id": 3, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/object-read": {"id": 4, "is_token": True, "user_check_role": {"mode": "token", "roles": [1, 2]}},
+"/admin/table-column-values": {"id": 104, "is_token": True, "user_check_role": {"mode": "token", "roles": [1, 2]}, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
 "/admin/object-delete": {"id": 5, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 "/admin/postgres-import": {"id": 8, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
 "/admin/redis-import": {"id": 9, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},

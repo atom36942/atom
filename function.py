@@ -1966,6 +1966,32 @@ async def func_postgres_groupby_read(*, app_state: any, client_postgres: any, ca
         ol = [{"item": row["item_col"], "value": row["agg_val"]} for row in rows]
         return {"obj_list": ol[:limit], "has_next_page": len(ol) > limit}
 
+async def func_postgres_column_values_read(*, app_state: any, client_postgres: any, cache_postgres_schema: dict, table: str, col: str, include_count: bool = True, limit: int, page: int, order: str, filter: list) -> dict:
+    """Read paginated distinct scalar or array-column values, optionally including counts."""
+    if limit < 1: raise Exception("query limit must be greater than 0")
+    if page < 1: raise Exception("page must be greater than 0")
+    if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
+    if table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
+    if col not in cache_postgres_schema[table]: raise Exception(f"column '{col}' not found in table: {table}")
+    if include_count:
+        res = await app_state.func_postgres_groupby_read(app_state=app_state, client_postgres=client_postgres, cache_postgres_schema=cache_postgres_schema, table=table, col=col, limit=limit, page=page, agg="count", a_col="*", order=order, filter=filter)
+        res["obj_list"] = [{"item": row["item"], "count": row["value"]} for row in res["obj_list"]]
+        return res
+    where_clause, values = await app_state.func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter, prefix="x.")
+    datatype = cache_postgres_schema[table][col].get("datatype", "text").lower()
+    is_array = "[]" in datatype or "array" in datatype
+    q_col = f'"{col}"'
+    order_direction = "DESC" if order == "item desc" else "ASC"
+    bind_idx = len(values) + 1
+    source_sql = f'CROSS JOIN LATERAL unnest(x.{q_col}) item_col' if is_array else ""
+    item_sql = "item_col" if is_array else f'x.{q_col}'
+    sql = f'SELECT DISTINCT {item_sql} AS item FROM "{table}" x {source_sql} {where_clause} ORDER BY item {order_direction} LIMIT ${bind_idx} OFFSET ${bind_idx + 1}'
+    values.extend([limit + 1, (page - 1) * limit])
+    async with client_postgres.acquire() as conn:
+        rows = await conn.fetch(sql, *values)
+    obj_list = [row["item"] for row in rows]
+    return {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}
+
 async def func_blob_preview_urls_get(*, client_s3: any, client_azure_blob: any, config_azure_account_name: str, config_azure_account_key: str, config_blob_expire_sec_preview: int, service: str, urls: list) -> dict:
     """Generates presigned preview URLs for S3 or Azure blob URLs using robust parsing and unquoting."""
     import urllib.parse
