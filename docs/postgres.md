@@ -241,8 +241,10 @@ curl -X POST "http://localhost:8000/admin/postgres-query-runner-read?db=analytic
 | `POST /admin/postgres-query-generator-ai` | AI-generated read query | Pure Read |
 | `POST /admin/postgres-import` | Bulk CSV/JSON import tool | Target DB Import |
 | `GET /public/object-read` | Public allow-listed object read | Pure Read |
-| `GET /public/table-column-values` | Public distinct column values, with counts by default | Pure Read |
-| `GET /admin/table-column-values` | Admin distinct column values, with counts by default | Pure Read |
+| `GET /public/table-column-groupby` | Public dynamic single or multi-column group by and aggregation | Pure Read |
+| `GET /public/table-column-distinct` | Public dynamic single-column distinct values | Pure Read |
+| `GET /admin/table-column-groupby` | Admin dynamic single or multi-column group by and aggregation | Pure Read |
+| `GET /admin/table-column-distinct` | Admin dynamic single-column distinct values | Pure Read |
 
 Write mutations (e.g. `/my/object-create`, `/admin/object-update`) target primary `client_postgres`. Hybrid APIs like `/my/object-read` and `/my/message-thread` fetch data from the selected `db` pool while executing state updates (like `read_at`) on primary. Authentication, token refresh, middleware security checks, and OTP verification remain on primary to avoid replica-lag inconsistencies.
 

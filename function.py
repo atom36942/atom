@@ -1948,40 +1948,80 @@ async def func_otp_send_mobile(*, app_state: any, service: str, mobile: str, otp
     else:
         raise Exception(f"mobile service {service} not supported")
 
-async def func_postgres_groupby_read(*, app_state: any, client_postgres: any, cache_postgres_schema: dict, table: str, col: str, limit: int, page: int, agg: str, a_col: str, order: str, filter: list) -> dict:
-    """Executes a PostgreSQL GROUP BY query dynamically and returns the paginated results."""
+async def func_postgres_table_column_groupby_read(*, app_state: any, client_postgres: any, cache_postgres_schema: dict, table: str, col: any, limit: int, page: int, agg: str = "count", a_col: str = "*", order: str = "count desc", filter: list = None) -> dict:
+    """Executes a PostgreSQL GROUP BY query dynamically across single or multiple columns and returns flat paginated results."""
     import re
-    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)) or not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(col)) or (a_col != "*" and not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(a_col))):
-        raise Exception("invalid identifier")
-    where_clause, values = await app_state.func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter, prefix="x.")
-    bind_idx = len(values) + 1
-    is_array = "[]" in (dt := cache_postgres_schema.get(table, {}).get(col, {}).get("datatype", "text").lower()) or "array" in dt
-    agg_sql = f'{agg}(*)' if agg == "count" and a_col == "*" else f'{agg}("{a_col}")'
-    order_sql = (("agg_val" if agg != "count" else "count(*)") if "count" in order else "item_col") + (" DESC" if "desc" in order else " ASC")
-    q_col = f'"{col}"'
-    sql = f'SELECT {"item_col" if is_array else "x."+q_col+" AS item_col"}, {agg_sql} AS agg_val FROM "{table}" x {f"CROSS JOIN LATERAL unnest(x."+q_col+") item_col" if is_array else ""} {where_clause} GROUP BY item_col ORDER BY {order_sql} LIMIT ${bind_idx} OFFSET ${bind_idx+1}'
-    values.extend([limit + 1, (page - 1) * limit])
-    async with client_postgres.acquire() as conn:
-        rows = await conn.fetch(sql, *values)
-        ol = [{"item": row["item_col"], "value": row["agg_val"]} for row in rows]
-        return {"obj_list": ol[:limit], "has_next_page": len(ol) > limit}
-
-async def func_postgres_column_values_read(*, app_state: any, client_postgres: any, cache_postgres_schema: dict, table: str, col: str, include_count: bool = True, limit: int, page: int, order: str, filter: list) -> dict:
-    """Read paginated distinct scalar or array-column values, optionally including counts."""
     if limit < 1: raise Exception("query limit must be greater than 0")
     if page < 1: raise Exception("page must be greater than 0")
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
     if table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
+    cols = [col] if isinstance(col, str) else list(col or [])
+    if not cols: raise Exception("at least one column must be specified")
+    for c in cols:
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c)): raise Exception(f"invalid identifier: {c}")
+        if c not in cache_postgres_schema[table]: raise Exception(f"column '{c}' not found in table: {table}")
+    agg = (agg or "count").lower()
+    if agg not in ["count", "sum", "avg", "min", "max"]: raise Exception(f"unsupported agg: {agg}")
+    if a_col != "*" and not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(a_col)): raise Exception("invalid aggregate column")
+    if a_col != "*" and a_col not in cache_postgres_schema[table]: raise Exception(f"column '{a_col}' not found in table: {table}")
+    where_clause, values = await app_state.func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter or [], prefix="x.")
+    select_exprs, group_exprs, unnest_clauses = [], [], []
+    for c in cols:
+        dt = cache_postgres_schema.get(table, {}).get(c, {}).get("datatype", "text").lower()
+        is_array = "[]" in dt or "array" in dt
+        if is_array:
+            alias_c = f"{c}_item"
+            unnest_clauses.append(f'CROSS JOIN LATERAL unnest(x."{c}") "{alias_c}"')
+            select_exprs.append(f'"{alias_c}" AS "{c}"')
+            group_exprs.append(f'"{alias_c}"')
+        else:
+            select_exprs.append(f'x."{c}" AS "{c}"')
+            group_exprs.append(f'x."{c}"')
+    agg_field = "count" if agg == "count" and a_col == "*" else (f"{agg}_{a_col}" if a_col != "*" else agg)
+    agg_col_sql = f'x."{a_col}"' if a_col != "*" else "*"
+    select_exprs.append(f'{agg.upper()}({agg_col_sql}) AS "{agg_field}"')
+    order = (order or "count desc").strip()
+    order_lower = order.lower()
+    if "count" in order_lower or agg in order_lower:
+        order_dir = "DESC" if "desc" in order_lower else "ASC"
+        order_sql = f'"{agg_field}" {order_dir}'
+    elif "item desc" in order_lower or "item asc" in order_lower:
+        order_dir = "DESC" if "desc" in order_lower else "ASC"
+        order_sql = f'{group_exprs[0]} {order_dir}'
+    else:
+        parts = order.split()
+        order_col_name = parts[0]
+        order_dir = parts[1].upper() if len(parts) > 1 and parts[1].lower() in ("asc", "desc") else "ASC"
+        if order_col_name in cols:
+            dt = cache_postgres_schema.get(table, {}).get(order_col_name, {}).get("datatype", "text").lower()
+            order_sql = f'"{order_col_name}_item" {order_dir}' if ("[]" in dt or "array" in dt) else f'x."{order_col_name}" {order_dir}'
+        else:
+            order_sql = f'"{agg_field}" DESC'
+    select_sql = ", ".join(select_exprs)
+    group_sql = ", ".join(group_exprs)
+    source_sql = f' {" ".join(unnest_clauses)}' if unnest_clauses else ""
+    bind_idx = len(values) + 1
+    sql = f'SELECT {select_sql} FROM "{table}" x{source_sql} {where_clause} GROUP BY {group_sql} ORDER BY {order_sql} LIMIT ${bind_idx} OFFSET ${bind_idx + 1}'
+    values.extend([limit + 1, (page - 1) * limit])
+    async with client_postgres.acquire() as conn:
+        rows = await conn.fetch(sql, *values)
+    ol = [dict(row) for row in rows]
+    return {"obj_list": ol[:limit], "has_next_page": len(ol) > limit}
+
+async def func_postgres_table_column_distinct_read(*, app_state: any, client_postgres: any, cache_postgres_schema: dict, table: str, col: str, limit: int, page: int, order: str = "item asc", filter: list = None) -> dict:
+    """Read paginated distinct values for a single column."""
+    import re
+    if limit < 1: raise Exception("query limit must be greater than 0")
+    if page < 1: raise Exception("page must be greater than 0")
+    if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
+    if table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(col)): raise Exception(f"invalid identifier: {col}")
     if col not in cache_postgres_schema[table]: raise Exception(f"column '{col}' not found in table: {table}")
-    if include_count:
-        res = await app_state.func_postgres_groupby_read(app_state=app_state, client_postgres=client_postgres, cache_postgres_schema=cache_postgres_schema, table=table, col=col, limit=limit, page=page, agg="count", a_col="*", order=order, filter=filter)
-        res["obj_list"] = [{"item": row["item"], "count": row["value"]} for row in res["obj_list"]]
-        return res
-    where_clause, values = await app_state.func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter, prefix="x.")
+    where_clause, values = await app_state.func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter or [], prefix="x.")
     datatype = cache_postgres_schema[table][col].get("datatype", "text").lower()
     is_array = "[]" in datatype or "array" in datatype
     q_col = f'"{col}"'
-    order_direction = "DESC" if order == "item desc" else "ASC"
+    order_direction = "DESC" if "desc" in (order or "").lower() else "ASC"
     bind_idx = len(values) + 1
     source_sql = f'CROSS JOIN LATERAL unnest(x.{q_col}) item_col' if is_array else ""
     item_sql = "item_col" if is_array else f'x.{q_col}'
@@ -1989,8 +2029,8 @@ async def func_postgres_column_values_read(*, app_state: any, client_postgres: a
     values.extend([limit + 1, (page - 1) * limit])
     async with client_postgres.acquire() as conn:
         rows = await conn.fetch(sql, *values)
-    obj_list = [row["item"] for row in rows]
-    return {"obj_list": obj_list[:limit], "has_next_page": len(obj_list) > limit}
+    items = [row["item"] for row in rows]
+    return {"item_list": items[:limit], "has_next_page": len(items) > limit}
 
 async def func_blob_preview_urls_get(*, client_s3: any, client_azure_blob: any, config_azure_account_name: str, config_azure_account_key: str, config_blob_expire_sec_preview: int, service: str, urls: list) -> dict:
     """Generates presigned preview URLs for S3 or Azure blob URLs using robust parsing and unquoting."""
