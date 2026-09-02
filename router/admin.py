@@ -18,19 +18,8 @@ router = APIRouter()
 @router.get("/admin/sync")
 async def func_api_admin_sync(*, request: Request):
     app_state = request.app.state
-    if app_state.client_postgres: await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=None, func_postgres_serialize=None, cache_postgres_schema=app_state.cache_postgres_schema, mode="flush", table=None, obj_list=None, buffer_limit=None, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_regex=None, func_regex_check=None)
-    app_state.cache_postgres_schema = await app_state.func_postgres_schema_read(client_postgres=app_state.client_postgres) if app_state.client_postgres else {}
-    app_state.cache_postgres_schema_ai = await app_state.func_postgres_schema_read_ai(client_postgres=app_state.client_postgres) if app_state.client_postgres else {}
-    app_state.cache_clickhouse_schema_ai = await app_state.func_clickhouse_schema_read_ai(client_clickhouse=app_state.client_clickhouse) if app_state.client_clickhouse else {}
-    app_state.cache_postgres_schema_dict = {name: await app_state.func_postgres_schema_read(client_postgres=client) for name, client in app_state.client_postgres_dict.items()}
-    app_state.cache_postgres_schema_ai_dict = {name: await app_state.func_postgres_schema_read_ai(client_postgres=client) for name, client in app_state.client_postgres_dict.items()}
-    app_state.cache_openapi = app_state.func_openapi_spec_generate(app_routes=request.app.routes, app_state=app_state)
-    app_state.cache_config = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres, config_sql=app_state.config_sql.get("config"), is_json_value=True) if app_state.client_postgres and "config" in app_state.cache_postgres_schema else {}
-    app_state.cache_users_role = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres, config_sql=app_state.config_sql.get("users_role")) if app_state.client_postgres else {}
-    app_state.cache_users_deactivated = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres, config_sql=app_state.config_sql.get("users_deactivated")) if app_state.client_postgres else {}
-    app_state.cache_users_deleted = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres, config_sql=app_state.config_sql.get("users_deleted")) if app_state.client_postgres else {}
-    if hasattr(app_state, "cache_extend") and isinstance(app_state.cache_extend, dict): app_state.cache_extend.clear()
-    return {"status": 1, "message": "done"}
+    res = await app_state.func_admin_sync(app_state=app_state, app_routes=request.app.routes)
+    return {"status": 1, "message": res}
 
 @router.get("/admin/postgres-info")
 async def func_api_admin_postgres_info(*, request: Request):
@@ -51,9 +40,9 @@ async def func_api_admin_postgres_schema(*, request: Request):
 @router.post("/admin/object-create")
 async def func_api_admin_object_create(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "mode", "type": "str", "required": False, "allowed": ["now", "buffer"], "default": "now"}])
     obj_list = await app_state.func_extract_request_object_list(request=request)
+    app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
     app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column="created_by_id", purpose="ownership tracking")
     obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="created_by_id")
     return {"status": 1, "message": await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_table.get(oq["table"], {}).get("buffer_limit", app_state.config_buffer_limit_default), mode=oq["mode"], table=oq["table"], obj_list=obj_list)}
@@ -86,11 +75,10 @@ async def func_api_admin_table_column_distinct(*, request: Request):
 @router.put("/admin/object-update")
 async def func_api_admin_object_update(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "otp", "type": "int", "required": False, "allowed": None, "default": None}])
     obj_list = await app_state.func_extract_request_object_list(request=request)
-    if any("password" in item for item in obj_list) and any(len(item) != 2 or "id" not in item or "password" not in item for item in obj_list): raise Exception("password update requires exactly two fields (id, password)")
-    if oq["table"] == "users" and app_state.config_is_otp_require_users_update and any(key in obj_list[0] for key in ("email", "mobile")): len(obj_list) <= 1 or (_ for _ in ()).throw(Exception("multi-object user update restricted")); len(obj_list[0]) == 2 or (_ for _ in ()).throw(Exception("sensitive fields must be updated individually (item length 2 required)")); await app_state.func_otp_verify(client_postgres=app_state.client_postgres, otp=oq["otp"], email=obj_list[0].get("email"), mobile=obj_list[0].get("mobile"), config_otp_expiry_sec=app_state.config_otp_expiry_sec, config_otp_static=app_state.config_otp_static)
+    app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
+    await app_state.func_check_user_update_permission(app_state=app_state, table=oq["table"], obj_list=obj_list, scope="admin", otp=oq["otp"])
     app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column="updated_by_id", purpose="update tracking")
     obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="updated_by_id")
     created_by_id = None
@@ -100,12 +88,20 @@ async def func_api_admin_object_update(*, request: Request):
 @router.post("/admin/object-delete")
 async def func_api_admin_object_delete(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "ids", "type": "list:int", "required": True, "allowed": None, "default": None}])
-    app_state.func_check_user_delete_permission(app_state=app_state, table=ob["table"])
+    app_state.func_check_batch_limit(app_state=app_state, items=ob["ids"])
+    app_state.func_check_user_delete_permission(app_state=app_state, table=ob["table"], scope="admin")
     created_by_id = None
     deleted_count = await app_state.func_postgres_delete(client_postgres=app_state.client_postgres, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, table=ob["table"], ids=ob["ids"], created_by_id=created_by_id)
     return {"status": 1, "message": f"{deleted_count} ids deleted"}
+
+@router.delete("/admin/user-delete")
+async def func_api_admin_user_delete(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "id", "type": "int", "required": True, "allowed": None, "default": None}])
+    if not app_state.config_is_user_delete: raise Exception("users hard delete disabled")
+    deleted_count = await app_state.func_postgres_delete(client_postgres=app_state.client_postgres, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, table="users", ids=[oq["id"]], created_by_id=None)
+    return {"status": 1, "message": f"{deleted_count} user deleted"}
 
 @router.post("/admin/postgres-import")
 async def func_api_admin_postgres_import(*, request: Request):

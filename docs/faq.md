@@ -558,7 +558,7 @@ Custom routes should check the client they depend on and return a clear error wh
 
 The prefixes represent data-access scope, not just route organization:
 
-- `/public/object-*` is anonymous and limited by `config_table_public_create_enabled` and `config_table_public_read_enabled`.
+- `/public/object-*` is anonymous and limited by `config_table_public_create_allowed` and `config_table_public_read_allowed`.
 - `/my/object-*` requires a user and automatically scopes rows through ownership columns such as `created_by_id`, `received_by_id`, `assigned_to_id`, or `user_id`.
 - `/admin/object-*` can operate on any row and table, subject to its administrator route policy.
 

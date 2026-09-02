@@ -51,11 +51,13 @@ async def func_postgres_delete(
 
 | Endpoint | Access Level | Ownership Restriction | Description |
 | :--- | :--- | :--- | :--- |
-| **`DELETE /my/object-delete?table=<tbl>&ids=1,2,3`** | User | `created_by_id = current_user.id` | Deletes owned records by ID list |
-| **`DELETE /admin/object-delete?table=<tbl>&ids=1,2,3`** | Admin | None | Unrestricted deletion by ID list |
+| **`POST /my/object-delete`** | User | `created_by_id = current_user.id` | Deletes owned domain records by ID list (`{"table": "...", "ids": [...]}`) |
+| **`POST /admin/object-delete`** | Admin | None | Unrestricted deletion by ID list (`{"table": "...", "ids": [...]}`) |
 | **`DELETE /my/object-delete-all?table=<tbl>`** | User | `created_by_id = current_user.id` | Deletes all records owned by current user |
 | **`POST /my/object-delete-owned`** | User | `<ownership_column> = current_user.id` | Deletes rows by ID via any ownership column |
 | **`DELETE /my/object-delete-owned-all?table=<tbl>&ownership_column=<col>`**| User | `<ownership_column> = current_user.id` | Drains all rows scoped to that column |
+| **`DELETE /my/user-delete?id=<user_id>`** | User | Self-account only (`id == current_user.id`) | Deletes user's own account (requires `config_is_user_delete`) |
+| **`DELETE /admin/user-delete?id=<user_id>`** | Admin | None | Deletes specific user account by ID (requires `config_is_user_delete`) |
 
 ---
 

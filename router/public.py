@@ -16,10 +16,10 @@ router = APIRouter()
 @router.post("/public/object-create")
 async def func_api_public_object_create(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "mode", "type": "str", "required": False, "allowed": ["now", "buffer"], "default": "now"}])
     app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="public", action="create")
     obj_list = await app_state.func_extract_request_object_list(request=request)
+    app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
     app_state.func_validate_restricted_columns(app_state=app_state, obj_list=obj_list)
     app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column="created_by_id", purpose="ownership tracking")
     obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="created_by_id")
@@ -31,9 +31,7 @@ async def func_api_public_object_read(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "id desc"}, {"name": "column", "type": "str", "required": False, "allowed": None, "default": "*"}, {"name": "relation", "type": "list", "required": False, "allowed": None, "default": []}, {"name": "filter", "type": "list", "required": False, "allowed": None, "default": []}])
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     if oq["table"] not in cache_postgres_schema: raise Exception(f"table '{oq['table']}' not found")
-    app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="public", action="read")
-    enabled_tables = app_state.config_table_public_read_enabled or []
-    if (disabled_relation_table := next((parts[1] for rel in oq["relation"] for parts in ([p.strip() for p in rel.split(",", 4)],) if len(parts) >= 2 and "*" not in enabled_tables and parts[1] not in enabled_tables), None)) is not None: raise Exception(f"relation read disabled for table: {disabled_relation_table}")
+    app_state.func_check_table_permission(app_state=app_state, table=oq["table"], relation=oq["relation"], scope="public", action="read")
     ol = await app_state.func_postgres_read(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
     
@@ -47,7 +45,6 @@ async def func_api_public_converter_number(*, request: Request):
 @router.get("/public/otp-verify")
 async def func_api_public_otp_verify(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "type", "type": "str", "required": True, "allowed": ["email", "mobile"], "default": None}, {"name": "value", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "otp", "type": "int", "required": True, "allowed": None, "default": None}])
     return {"status": 1, "message": await app_state.func_otp_verify(client_postgres=app_state.client_postgres, otp=oq["otp"], email=oq["value"] if oq["type"] == "email" else None, mobile=oq["value"] if oq["type"] == "mobile" else None, config_otp_expiry_sec=app_state.config_otp_expiry_sec, config_otp_static=app_state.config_otp_static)}
 
@@ -55,7 +52,6 @@ async def func_api_public_otp_verify(*, request: Request):
 async def func_api_public_otp_send_email(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_email_services, "default": None}, {"name": "sender", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "email", "type": "str", "required": True, "allowed": None, "default": None}])
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     otp = await app_state.func_otp_generate(client_postgres=app_state.client_postgres, email=oq["email"], mobile=None, config_otp_length=app_state.config_otp_length)
     res = await app_state.func_otp_send_email(app_state=app_state, service=oq["service"], sender=oq["sender"], email=oq["email"], otp=otp)
     return {"status": 1, "message": res}
@@ -64,7 +60,6 @@ async def func_api_public_otp_send_email(*, request: Request):
 async def func_api_public_otp_send_mobile(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_mobile_services, "default": None}, {"name": "mobile", "type": "str", "required": True, "allowed": None, "default": None}])
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     otp = await app_state.func_otp_generate(client_postgres=app_state.client_postgres, mobile=oq["mobile"], email=None, config_otp_length=app_state.config_otp_length)
     res = await app_state.func_otp_send_mobile(app_state=app_state, service=oq["service"], mobile=oq["mobile"], otp=otp)
     return {"status": 1, "message": res}
@@ -72,7 +67,6 @@ async def func_api_public_otp_send_mobile(*, request: Request):
 @router.post("/public/otp-send-mobile-sns-template")
 async def func_api_public_otp_send_mobile_sns_template(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[{"name": "mobile", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "message", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "template_id", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "entity_id", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "sender_id", "type": "str", "required": True, "allowed": None, "default": None}])
     otp = await app_state.func_otp_generate(client_postgres=app_state.client_postgres, mobile=ob["mobile"], email=None, config_otp_length=app_state.config_otp_length)
     res = await app_state.func_otp_send_mobile(app_state=app_state, service="sns", mobile=ob["mobile"], otp=otp, sns_template=ob)

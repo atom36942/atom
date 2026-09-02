@@ -130,13 +130,13 @@ Disabled (`None`) by default; activated automatically when connection credential
 
 | Key | Usage |
 |---|---|
-| `config_table_sensitive` | Protected tables exempted from bulk cleanup/deletion scripts |
-| `config_table_my_create_disabled` | Tables refused on user `/my/object-create` endpoint |
-| `config_table_my_delete_all_enabled` | Tables supporting `/my/object-delete-all` for row owners |
-| `config_table_my_delete_all_owned_enabled` | Tables supporting `/my/object-delete-owned-all` (messages, notifications) |
-| `config_table_public_create_enabled` | Tables accessible on unauthenticated public create route |
-| `config_table_public_read_enabled` | Tables accessible on unauthenticated public read route |
-| `config_table_private_read_enabled` | Tables accessible on authenticated private read route |
+| `config_table_protected` | Protected tables exempted from bulk cleanup/deletion scripts |
+| `config_table_my_create_blocked` | Tables refused on user `/my/object-create` endpoint |
+| `config_table_my_delete_all_allowed` | Tables supporting `/my/object-delete-all` for row owners |
+| `config_table_my_delete_owned_all_allowed` | Tables supporting `/my/object-delete-owned-all` (messages, notifications) |
+| `config_table_public_create_allowed` | Tables accessible on unauthenticated public create route |
+| `config_table_public_read_allowed` | Tables accessible on unauthenticated public read route |
+| `config_table_private_read_allowed` | Tables accessible on authenticated private read route |
 
 ### Column Rules
 

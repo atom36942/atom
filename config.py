@@ -82,13 +82,13 @@ config_cors_allow_credentials = True
 config_postgres_db_log_api = None
 
 # Table
-config_table_sensitive = ["spatial_ref_sys", "users", "log_users_delete"]
-config_table_my_create_disabled = ["users", "log_api", "log_users_password", "otp","spatial_ref_sys"]
-config_table_my_delete_all_enabled = ["test"]
-config_table_my_delete_all_owned_enabled = ["message","notification"]
-config_table_public_create_enabled = ["test"]
-config_table_public_read_enabled = ["test"]
-config_table_private_read_enabled = ["test"]
+config_table_protected = ["spatial_ref_sys", "users", "log_users_delete"]
+config_table_my_create_blocked = ["users", "log_api", "log_users_password", "otp", "spatial_ref_sys"]
+config_table_my_delete_all_allowed = ["test"]
+config_table_my_delete_owned_all_allowed = ["message", "notification"]
+config_table_public_create_allowed = ["test"]
+config_table_public_read_allowed = ["test"]
+config_table_private_read_allowed = ["test"]
 
 # Column
 config_column_token_encode = ["id", "role", "username", "id_ext" ,"deactivated_at", "deleted_at"]
@@ -430,6 +430,8 @@ config_api = {
 "/my/object-delete-all": {"id": 53, "is_token": True},
 "/my/object-delete-owned": {"id": 54, "is_token": True},
 "/my/object-delete-owned-all": {"id": 55, "is_token": True},
+"/my/object-read-owned": {"id": 109, "is_token": True},
+"/my/user-delete": {"id": 110, "is_token": True},
 "/my/message-inbox": {"id": 56, "is_token": True},
 "/my/message-thread": {"id": 57, "is_token": True},
 "/my/object-create-mongodb": {"id": 58, "is_token": True},
@@ -466,6 +468,7 @@ config_api = {
 "/admin/table-column-groupby": {"id": 104, "is_token": True, "user_check_role": {"mode": "token", "roles": [1, 2]}, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
 "/admin/table-column-distinct": {"id": 106, "is_token": True, "user_check_role": {"mode": "token", "roles": [1, 2]}, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
 "/admin/object-delete": {"id": 5, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
+"/admin/user-delete": {"id": 111, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}},
 "/admin/postgres-import": {"id": 8, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
 "/admin/redis-import": {"id": 9, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/mongodb-import": {"id": 11, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},

@@ -74,7 +74,7 @@ This gives safe, concurrent, self-retrying background processing using only Post
 
 | Script | Purpose |
 |--------|---------|
-| `worker_users_delete.py` | Purges soft-deleted users and their blobs past `config_users_delete_data_retention_day`; skips `config_table_sensitive`. |
+| `worker_users_delete.py` | Purges soft-deleted users and their blobs past `config_users_delete_data_retention_day`; skips `config_table_protected`. |
 | `manual_postgres_cleaner.py` | Deletes old rows per each table's `retention_day`; **refuses** to touch sensitive tables. |
 | `manual_postgres_ingestion.py` | Bulk-loads data into Postgres (reads `PG_DSN` from `.env`). |
 

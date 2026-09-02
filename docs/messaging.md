@@ -31,7 +31,7 @@ Returns the full back-and-forth between you and one other user (both directions)
 
 ### Deleting
 - `/my/object-delete` — delete messages you sent (own rows).
-- `/my/object-delete-owned` / `-owned-all` with `ownership_column=received_by_id` — delete messages you *received* (`-owned-all` is limited to tables in `config_table_my_delete_all_owned_enabled`, which includes `message`).
+- `/my/object-delete-owned` / `-owned-all` with `ownership_column=received_by_id` — delete messages you *received* (`-owned-all` is limited to tables in `config_table_my_delete_owned_all_allowed`, which includes `message`).
 
 ---
 

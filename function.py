@@ -562,6 +562,49 @@ async def func_auth_user_login_fetch(*, conn: any, field: str, value: any, role:
     if role is None and len(records) > 1: raise Exception("role is mandatory")
     return dict(records[0])
 
+async def func_auth_signup_password(*, client_postgres: any, client_password_hasher: any, role: int, username: str, password: str, source: int = None, config_is_signup: bool = True) -> dict:
+    """Create a new user with hashed password after enforcing signup and role safety checks."""
+    if not client_postgres: raise Exception("postgres client not initialized")
+    if not config_is_signup: raise Exception("signup disabled")
+    if role == 1: raise Exception("role 1 not allowed for user creation")
+    hashed_password = client_password_hasher.hash(str(password))
+    async with client_postgres.acquire() as conn:
+        records = await conn.fetch('INSERT INTO users (role, username, password, source) VALUES ($1, $2, $3, $4) RETURNING *;', role, username, hashed_password, source)
+        return dict(records[0])
+
+async def func_auth_login_password(*, client_postgres: any, client_password_hasher: any, field: str, value: any, password: str, role: any) -> dict:
+    """Fetch user by identifier field and verify password hash."""
+    if not client_postgres: raise Exception("postgres client not initialized")
+    async with client_postgres.acquire() as conn:
+        user = await func_auth_user_login_fetch(conn=conn, field=field, value=value, role=role)
+        try:
+            client_password_hasher.verify(user["password"], str(password))
+        except Exception:
+            raise Exception("incorrect password")
+        return user
+
+async def func_auth_user_find_or_create(*, client_postgres: any, field: str, value: any, role: int, source: int = None, config_is_signup: bool = True, extra_cols: dict = None) -> dict:
+    """Find existing user or create a new user (for OTP and Social Logins) with signup policy enforcement."""
+    if not client_postgres: raise Exception("postgres client not initialized")
+    import re
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(field)): raise Exception(f"invalid identifier {field}")
+    async with client_postgres.acquire() as conn:
+        records = await conn.fetch(f'SELECT * FROM users WHERE "{field}"=$1 AND role=$2 ORDER BY id DESC LIMIT 1;', value, role)
+        if records:
+            return dict(records[0])
+        if not config_is_signup: raise Exception("signup disabled")
+        if role == 1: raise Exception("role 1 not allowed for user creation")
+        insert_dict = {"role": role, field: value, "source": source}
+        if extra_cols:
+            for k, v in extra_cols.items():
+                if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(k)):
+                    insert_dict[k] = v
+        cols = list(insert_dict.keys())
+        placeholders = [f"${i+1}" for i in range(len(cols))]
+        sql = f'INSERT INTO users ({", ".join(f"{c}" for c in cols)}) VALUES ({", ".join(placeholders)}) RETURNING *;'
+        created = await conn.fetch(sql, *list(insert_dict.values()))
+        return dict(created[0])
+
 async def func_token_encode(*, user: dict, config_token_secret_key: str, config_access_token_expires_sec: int, config_refresh_token_expires_sec: int, config_column_token_encode: list) -> dict:
     """Generate access and refresh JWT tokens for a user object."""
     import jwt, orjson, time
@@ -973,6 +1016,23 @@ async def func_request_param_read(*, request: any, mode: str, strict: bool, para
         output_dict[key] = val
     return output_dict
 
+async def func_admin_sync(*, app_state: any, app_routes: list = None) -> str:
+    """Synchronize and refresh all application state caches, schemas, OpenAPI spec, and config maps."""
+    if getattr(app_state, "client_postgres", None):
+        await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=None, func_postgres_serialize=None, cache_postgres_schema=app_state.cache_postgres_schema, mode="flush", table=None, obj_list=None, buffer_limit=None, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_regex=None, func_regex_check=None)
+    app_state.cache_postgres_schema = await app_state.func_postgres_schema_read(client_postgres=app_state.client_postgres) if getattr(app_state, "client_postgres", None) else {}
+    app_state.cache_postgres_schema_ai = await app_state.func_postgres_schema_read_ai(client_postgres=app_state.client_postgres) if getattr(app_state, "client_postgres", None) else {}
+    app_state.cache_clickhouse_schema_ai = await app_state.func_clickhouse_schema_read_ai(client_clickhouse=app_state.client_clickhouse) if getattr(app_state, "client_clickhouse", None) else {}
+    app_state.cache_postgres_schema_dict = {name: await app_state.func_postgres_schema_read(client_postgres=client) for name, client in getattr(app_state, "client_postgres_dict", {}).items()}
+    app_state.cache_postgres_schema_ai_dict = {name: await app_state.func_postgres_schema_read_ai(client_postgres=client) for name, client in getattr(app_state, "client_postgres_dict", {}).items()}
+    if app_routes is not None:
+        app_state.cache_openapi = app_state.func_openapi_spec_generate(app_routes=app_routes, app_state=app_state)
+    app_state.cache_config = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres, config_sql=app_state.config_sql.get("config"), is_json_value=True) if getattr(app_state, "client_postgres", None) and "config" in app_state.cache_postgres_schema else {}
+    app_state.cache_users_role = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres, config_sql=app_state.config_sql.get("users_role")) if getattr(app_state, "client_postgres", None) else {}
+    app_state.cache_users_deactivated = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres, config_sql=app_state.config_sql.get("users_deactivated")) if getattr(app_state, "client_postgres", None) else {}
+    app_state.cache_users_deleted = await app_state.func_postgres_map_column(client_postgres=app_state.client_postgres, config_sql=app_state.config_sql.get("users_deleted")) if getattr(app_state, "client_postgres", None) else {}
+    if hasattr(app_state, "cache_extend") and isinstance(app_state.cache_extend, dict): app_state.cache_extend.clear()
+    return "done"
 
 def func_openapi_spec_generate(*, app_routes: list, app_state: any) -> dict:
     """Generate a standard OpenAPI 3.0.0 specification from FastAPI routes using source inspection."""
@@ -1415,13 +1475,19 @@ def func_validate_restricted_columns(*, app_state: any, obj_list: list) -> None:
     if restricted_key := next((key for item in obj_list for key in item if key in config_column_admin), None):
         raise Exception(f"unauthorized update to restricted field: {restricted_key}")
 
-def func_check_table_permission(*, app_state: any, table: str, scope: str = "public", action: str = "read") -> None:
-    """Validate if table access is enabled for given scope ('public', 'private') and action ('read', 'create')."""
-    config_attr = f"config_table_{scope}_{action}_enabled"
+def func_check_table_permission(*, app_state: any, table: str, relation: list = None, scope: str = "public", action: str = "read") -> None:
+    """Validate if table and relation access is allowed for given scope ('public', 'private', 'my') and action ('read', 'create', 'delete_all', 'delete_owned_all')."""
+    config_attr = f"config_table_{scope}_{action}_allowed"
     enabled_tables = getattr(app_state, config_attr, []) or []
     if "*" not in enabled_tables and table not in enabled_tables:
-        verb = "creation" if action == "create" else "read"
+        verb_map = {"create": "creation", "read": "read", "delete_all": "delete all", "delete_owned_all": "owned delete all"}
+        verb = verb_map.get(action, action.replace("_", " "))
         raise Exception(f"{verb} disabled for table: {table}")
+    if relation:
+        for rel in relation:
+            parts = [p.strip() for p in rel.split(",", 4)]
+            if len(parts) >= 2 and "*" not in enabled_tables and parts[1] not in enabled_tables:
+                raise Exception(f"relation read disabled for table: {parts[1]}")
 
 def func_check_public_table_permission(*, app_state: any, table: str, action: str = "read") -> None:
     func_check_table_permission(app_state=app_state, table=table, scope="public", action=action)
@@ -1444,10 +1510,45 @@ def func_attach_user_audit_fields(*, request: any, obj_list: list, field: str = 
         return [dict(item, **{field: user_id}) for item in obj_list]
     return obj_list
 
-def func_check_user_delete_permission(*, app_state: any, table: str) -> None:
-    """Ensure hard deletion of users table is not prohibited by configuration."""
-    if table == "users" and not getattr(app_state, "config_is_user_delete", False):
-        raise Exception("users hard delete disabled")
+async def func_check_user_update_permission(*, app_state: any, table: str, obj_list: list, scope: str = "admin", otp: int = None, user_id: int = None) -> None:
+    """Validate permissions, sensitive fields, and OTP requirements for user and object updates."""
+    if any("password" in item for item in obj_list) and any(len(item) != 2 or "id" not in item or "password" not in item for item in obj_list):
+        raise Exception("password update requires exactly two fields (id, password)")
+    if table == "users":
+        if scope == "my":
+            if restricted_user_key := next((key for item in obj_list for key in item if key in getattr(app_state, 'config_column_admin_users', [])), None):
+                raise Exception(f"unauthorized update to restricted user field: {restricted_user_key}")
+            if len(obj_list) > 1:
+                raise Exception("multi-object user update restricted")
+            if user_id is not None and str(obj_list[0].get("id")) != str(user_id):
+                raise Exception("ownership issue: cannot update other users")
+            if any(key in getattr(app_state, 'config_column_single_update', []) for key in obj_list[0]) and len(obj_list[0]) != 2:
+                raise Exception("sensitive fields must be updated individually (item length 2 required)")
+        is_otp_required = getattr(app_state, "config_is_otp_require_users_update", False) if scope == "admin" else True
+        if is_otp_required and any(key in obj_list[0] for key in ("email", "mobile")):
+            if len(obj_list) > 1:
+                raise Exception("multi-object user update restricted")
+            if len(obj_list[0]) != 2:
+                raise Exception("sensitive fields must be updated individually (item length 2 required)")
+            await app_state.func_otp_verify(
+                client_postgres=app_state.client_postgres,
+                otp=otp,
+                email=obj_list[0].get("email"),
+                mobile=obj_list[0].get("mobile"),
+                config_otp_expiry_sec=app_state.config_otp_expiry_sec,
+                config_otp_static=app_state.config_otp_static
+            )
+
+def func_check_user_delete_permission(*, app_state: any, table: str, scope: str = "admin", ids: list = None, user_id: int = None) -> None:
+    """Ensure hard deletion of users table is redirected to dedicated user-delete endpoints."""
+    if table == "users":
+        raise Exception("users table delete restricted; use /my/user-delete or /admin/user-delete")
+
+def func_check_batch_limit(*, app_state: any, items: list) -> None:
+    """Ensure batch item list length does not exceed config_batch_item_limit."""
+    limit = getattr(app_state, "config_batch_item_limit", None)
+    if limit and len(items) > limit:
+        raise Exception(f"maximum {limit} objects allowed")
 
 async def func_extract_request_object_list(*, request: any) -> list:
     """Extract single or batch object payload list from request body."""
@@ -1950,6 +2051,7 @@ async def func_otp_send_mobile(*, app_state: any, service: str, mobile: str, otp
 
 async def func_postgres_table_column_groupby_read(*, app_state: any, client_postgres: any, cache_postgres_schema: dict, table: str, col: any, limit: int, page: int, agg: str = "count", agg_col: str = "*", order: str = "count desc", filter: list = None) -> dict:
     """Executes a PostgreSQL GROUP BY query dynamically across single or multiple columns and returns flat paginated results."""
+    if not client_postgres: raise Exception("postgres client not initialized")
     import re
     if limit < 1: raise Exception("query limit must be greater than 0")
     if page < 1: raise Exception("page must be greater than 0")
@@ -2010,6 +2112,7 @@ async def func_postgres_table_column_groupby_read(*, app_state: any, client_post
 
 async def func_postgres_table_column_distinct_read(*, app_state: any, client_postgres: any, cache_postgres_schema: dict, table: str, col: str, limit: int, page: int, order: str = "item asc", filter: list = None) -> dict:
     """Read paginated distinct values for a single column."""
+    if not client_postgres: raise Exception("postgres client not initialized")
     import re
     if limit < 1: raise Exception("query limit must be greater than 0")
     if page < 1: raise Exception("page must be greater than 0")
@@ -3167,7 +3270,7 @@ async def func_postgres_import(*, app_state: any, mode: str, table: str, file: a
     client_postgres = client_postgres or app_state.client_postgres
     cache_postgres_schema = cache_postgres_schema if cache_postgres_schema is not None else app_state.cache_postgres_schema
     if not client_postgres: raise Exception("postgres client not initialized")
-    if mode == "delete": app_state.func_check_user_delete_permission(app_state=app_state, table=table)
+    if mode == "delete": app_state.func_check_user_delete_permission(app_state=app_state, table=table, scope="admin")
     count = 0
     async with client_postgres.acquire() as conn:
         async with conn.transaction():
@@ -3467,6 +3570,7 @@ async def func_postgres_relation(*, client_postgres: any, client_postgres_conn: 
 
 async def func_postgres_create(*, client_postgres: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_regex: dict, buffer_limit: int, mode: str, table: str, obj_list: list) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
+    if not client_postgres and not client_postgres_conn: raise Exception("postgres client not initialized")
     import re, orjson
     limit_chunk = 5000
     async def insert_serialized(tbl, serialized_list, connection=None):
@@ -3608,6 +3712,7 @@ async def func_app_tasks_stop(*, app_state: any, timeout_sec: int = 5) -> None:
 
 async def func_postgres_read(*, client_postgres: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
+    if not client_postgres: raise Exception("postgres client not initialized")
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if limit < 1: raise Exception("query limit must be greater than 0")
@@ -3646,6 +3751,7 @@ async def func_postgres_read(*, client_postgres: any, client_password_hasher: an
 
 async def func_postgres_update(*, client_postgres: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, table: str, obj_list: list, created_by_id: int) -> any:
     """Update PostgreSQL records immediately with support for owner validation and dynamic serialization."""
+    if not client_postgres and not client_postgres_conn: raise Exception("postgres client not initialized")
     import re
     if not obj_list: raise Exception("object list required")
     if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
@@ -3684,8 +3790,9 @@ async def func_postgres_update(*, client_postgres: any, client_postgres_conn: an
         async with client_postgres.acquire() as conn: await _execute_update(conn)
     return returned_ids if returned_ids or len(obj_list) == 1 else "updated"
 
-async def func_postgres_delete(*, client_postgres: any, client_postgres_conn: any, cache_postgres_schema: dict = None, table: str, ids: list, created_by_id: int) -> int:
+async def func_postgres_delete(*, client_postgres: any, client_postgres_conn: any, cache_postgres_schema: dict = None, table: str, ids: list, created_by_id: int, ownership_column: str = "created_by_id") -> int:
     """Delete records by ID with schema-aware optional ownership restrictions."""
+    if not client_postgres and not client_postgres_conn: raise Exception("postgres client not initialized")
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if table == "spatial_ref_sys": raise Exception("system table protected")
@@ -3696,7 +3803,8 @@ async def func_postgres_delete(*, client_postgres: any, client_postgres_conn: an
     id_list = [int(x) for x in ids]
     limit_chunk = 5000
     if created_by_id is not None:
-        if schema and "created_by_id" not in schema: raise Exception(f"table {table} missing created_by_id column")
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(ownership_column)): raise Exception(f"invalid identifier {ownership_column}")
+        if schema and ownership_column not in schema: raise Exception(f"table {table} missing {ownership_column} column")
     async def _execute_delete(connection):
         deleted_count = 0
         async with connection.transaction():
@@ -3705,7 +3813,7 @@ async def func_postgres_delete(*, client_postgres: any, client_postgres_conn: an
                 where_clause = '"id" = ANY($1::bigint[])'
                 values = [batch_ids]
                 if created_by_id is not None:
-                    where_clause += ' AND "created_by_id"=$2::bigint'
+                    where_clause += f' AND "{ownership_column}"=$2::bigint'
                     values.append(created_by_id)
                 sql_delete = f'WITH deleted AS (DELETE FROM "{table}" WHERE {where_clause} RETURNING 1) SELECT COUNT(*) FROM deleted;'
                 deleted_count += await connection.fetchval(sql_delete, *values)
@@ -3715,6 +3823,25 @@ async def func_postgres_delete(*, client_postgres: any, client_postgres_conn: an
     else:
         async with client_postgres.acquire() as conn:
             return await _execute_delete(conn)
+
+async def func_postgres_delete_all(*, client_postgres: any, client_postgres_conn: any = None, cache_postgres_schema: dict = None, table: str, ownership_column: str, user_id: int) -> int:
+    """Delete all records in a table matching an ownership column for a user."""
+    if not client_postgres and not client_postgres_conn: raise Exception("postgres client not initialized")
+    import re
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(ownership_column)): raise Exception(f"invalid identifier {ownership_column}")
+    if table == "spatial_ref_sys": raise Exception("system table protected")
+    schema = (cache_postgres_schema or {}).get(table, {})
+    if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"unknown table {table}")
+    if schema and ownership_column not in schema: raise Exception(f"table '{table}' lacks required '{ownership_column}' column")
+    async def _execute_delete_all(connection):
+        result = await connection.execute(f'DELETE FROM "{table}" WHERE "{ownership_column}"=$1', user_id)
+        return int(result.rsplit(" ", 1)[-1])
+    if client_postgres_conn:
+        return await _execute_delete_all(client_postgres_conn)
+    else:
+        async with client_postgres.acquire() as conn:
+            return await _execute_delete_all(conn)
 
 async def func_producer(*, queue: str, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, channel: str, payload: dict) -> any:
     """Ultra-standardized producer orchestration. Handles multi-tech dispatch with explicit clients."""
@@ -3739,6 +3866,7 @@ async def func_producer(*, queue: str, client_celery_producer: any, client_kafka
 
 async def func_otp_generate(*, client_postgres: any, email: str, mobile: str, config_otp_length: int) -> int:
     """Generate a random OTP and store it in PostgreSQL for a given email or mobile."""
+    if not client_postgres: raise Exception("postgres client not initialized")
     import random
     otp = random.randint(10**(config_otp_length-1), 10**config_otp_length - 1)
     sql = "INSERT INTO otp (otp, email, mobile) VALUES ($1, $2, $3);"
@@ -3748,6 +3876,7 @@ async def func_otp_generate(*, client_postgres: any, email: str, mobile: str, co
 
 async def func_otp_verify(*, client_postgres: any, otp: int, email: str, mobile: str, config_otp_expiry_sec: int, config_otp_static: int = None) -> None:
     """Verify an OTP for email or mobile within its expiration window."""
+    if not client_postgres: raise Exception("postgres client not initialized")
     if config_otp_static is not None and otp == config_otp_static: return "done"
     if not otp: raise Exception("otp code missing")
     if not email and not mobile: raise Exception("missing both email and mobile")

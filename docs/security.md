@@ -41,10 +41,10 @@ Routes with `rate_limit` cap requests per window, keyed by **user id** (authenti
 
 Three independent gates protect the generic CRUD layer (see [object_create.md](object_create.md), [object_read.md](object_read.md)):
 
-- **Table allow-lists** — `config_table_public_create_enabled` / `_read_enabled` (public), `config_table_my_create_disabled`, `config_table_my_delete_all_enabled`. `"*"` = all, `[]` = none.
+- **Table allow-lists** — `config_table_public_create_allowed` / `_read_allowed` (public), `config_table_my_create_blocked`, `config_table_my_delete_all_allowed`. `"*"` = all, `[]` = none.
 - **Ownership scoping** — `config_column_ownership` (`created_by_id`, `received_by_id`, `assigned_to_id`, `user_id`). Any `ownership_column` parameter is whitelisted against this list before it reaches SQL. The `my/*` endpoints filter and stamp by ownership so a user only ever touches their own rows; `admin/*` is unrestricted behind role checks.
 - **Restricted columns** — a client can't set server-managed fields in `config_column_admin` (`created_at`, `role`, `verified_at`, …); on `users`, `config_column_admin_users` blocks `role`; and `config_column_single_update` forces sensitive fields (`password`, `email`, `mobile`) to be changed one at a time.
-- **Sensitive tables** — `config_table_sensitive` shields core tables (`users`, `log_*`, …) from bulk-cleanup scripts.
+- **Protected tables** — `config_table_protected` shields core tables (`users`, `log_*`, …) from bulk-cleanup scripts.
 
 ## 5. Input safety
 
@@ -77,7 +77,7 @@ See [config.md](config.md#control).
 - [ ] Restrict `config_cors_allow_origins` / `config_cors_allow_origin_regex`.
 - [ ] Set `config_is_debug=false`.
 - [ ] Use `realtime` mode for role checks on destructive admin routes.
-- [ ] Review `config_table_public_*_enabled` — expose only what's intended.
+- [ ] Review `config_table_public_*_allowed` — expose only what's intended.
 - [ ] Set rate limits on auth and write endpoints.
 - [ ] Configure `config_sentry_dsn` for monitoring.
 - [ ] Point `config_postgres_url` at the primary database used for every write and default read; configure only trusted read replicas through `config_postgres_url_<name>`.

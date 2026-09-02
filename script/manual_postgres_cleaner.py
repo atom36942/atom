@@ -12,13 +12,13 @@ from function import func_client_postgres
 # config
 from config import config_postgres_url
 from config import config_table
-from config import config_table_sensitive
+from config import config_table_protected
 
 # logic
 async def execute():
-    blocked_tables = [table for table, cfg in config_table.items() if cfg.get("retention_day") is not None and table in config_table_sensitive]
+    blocked_tables = [table for table, cfg in config_table.items() if cfg.get("retention_day") is not None and table in config_table_protected]
     if blocked_tables:
-        raise Exception(f"postgres cleaner blocked for sensitive table(s): {', '.join(blocked_tables)}")
+        raise Exception(f"postgres cleaner blocked for protected table(s): {', '.join(blocked_tables)}")
     print("Starting Postgres Cleanup Script...")
     pool = await func_client_postgres(dsn=config_postgres_url, min_size=1, max_size=5)
     try:
