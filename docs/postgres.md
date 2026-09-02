@@ -243,6 +243,8 @@ curl -X POST "http://localhost:8000/admin/postgres-query-runner-read?db=analytic
 | `GET /public/object-read` | Public allow-listed object read | Pure Read |
 | `GET /public/table-column-groupby` | Public dynamic single or multi-column group by and aggregation | Pure Read |
 | `GET /public/table-column-distinct` | Public dynamic single-column distinct values | Pure Read |
+| `GET /private/table-column-groupby` | Private dynamic single or multi-column group by and aggregation | Pure Read |
+| `GET /private/table-column-distinct` | Private dynamic single-column distinct values | Pure Read |
 | `GET /admin/table-column-groupby` | Admin dynamic single or multi-column group by and aggregation | Pure Read |
 | `GET /admin/table-column-distinct` | Admin dynamic single-column distinct values | Pure Read |
 

@@ -1948,7 +1948,7 @@ async def func_otp_send_mobile(*, app_state: any, service: str, mobile: str, otp
     else:
         raise Exception(f"mobile service {service} not supported")
 
-async def func_postgres_table_column_groupby_read(*, app_state: any, client_postgres: any, cache_postgres_schema: dict, table: str, col: any, limit: int, page: int, agg: str = "count", a_col: str = "*", order: str = "count desc", filter: list = None) -> dict:
+async def func_postgres_table_column_groupby_read(*, app_state: any, client_postgres: any, cache_postgres_schema: dict, table: str, col: any, limit: int, page: int, agg: str = "count", agg_col: str = "*", order: str = "count desc", filter: list = None) -> dict:
     """Executes a PostgreSQL GROUP BY query dynamically across single or multiple columns and returns flat paginated results."""
     import re
     if limit < 1: raise Exception("query limit must be greater than 0")
@@ -1962,8 +1962,8 @@ async def func_postgres_table_column_groupby_read(*, app_state: any, client_post
         if c not in cache_postgres_schema[table]: raise Exception(f"column '{c}' not found in table: {table}")
     agg = (agg or "count").lower()
     if agg not in ["count", "sum", "avg", "min", "max"]: raise Exception(f"unsupported agg: {agg}")
-    if a_col != "*" and not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(a_col)): raise Exception("invalid aggregate column")
-    if a_col != "*" and a_col not in cache_postgres_schema[table]: raise Exception(f"column '{a_col}' not found in table: {table}")
+    if agg_col != "*" and not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(agg_col)): raise Exception("invalid aggregate column")
+    if agg_col != "*" and agg_col not in cache_postgres_schema[table]: raise Exception(f"column '{agg_col}' not found in table: {table}")
     where_clause, values = await app_state.func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter or [], prefix="x.")
     select_exprs, group_exprs, unnest_clauses = [], [], []
     for c in cols:
@@ -1977,8 +1977,8 @@ async def func_postgres_table_column_groupby_read(*, app_state: any, client_post
         else:
             select_exprs.append(f'x."{c}" AS "{c}"')
             group_exprs.append(f'x."{c}"')
-    agg_field = "count" if agg == "count" and a_col == "*" else (f"{agg}_{a_col}" if a_col != "*" else agg)
-    agg_col_sql = f'x."{a_col}"' if a_col != "*" else "*"
+    agg_field = "count" if agg == "count" and agg_col == "*" else (f"{agg}_{agg_col}" if agg_col != "*" else agg)
+    agg_col_sql = f'x."{agg_col}"' if agg_col != "*" else "*"
     select_exprs.append(f'{agg.upper()}({agg_col_sql}) AS "{agg_field}"')
     order = (order or "count desc").strip()
     order_lower = order.lower()

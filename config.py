@@ -442,6 +442,8 @@ config_api = {
 "/private/blob-container-sas": {"id": 64, "is_token": True},
 "/private/blob-preview-urls": {"id": 65, "is_token": True},
 "/private/object-read": {"id": 102, "is_token": True},
+"/private/table-column-groupby": {"id": 107, "is_token": True, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
+"/private/table-column-distinct": {"id": 108, "is_token": True, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
 # public
 "/public/object-create": {"id": 66, "is_token": False},
 "/public/object-read": {"id": 14, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 100, "is_per_user": False}},
