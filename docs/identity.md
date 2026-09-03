@@ -22,11 +22,21 @@ Out of the box, Atom supports multiple identity fields on the `users` table:
 
 Column uniqueness is declared directly in the `users` table schema within [`config.py`](../config.py). Atom automatically manages PostgreSQL `UNIQUE` constraints during startup migration (`func_postgres_schema_init`).
 
-### Pattern A: Globally Unique (Single Identity System)
-Each identity value can only exist **once** in the entire database (standard SaaS/B2C pattern):
-
+### Pattern A: Composite Uniqueness with Role (Default & Recommended)
+By default, Atom configures identities to be unique **per role** using a comma `,`:
 ```python
 # config.py -> config_postgres["table"]["users"]
+{"name": "username", "datatype": "text", "unique": "username,role"},
+{"name": "email", "datatype": "text", "unique": "email,role"},
+{"name": "mobile", "datatype": "text", "unique": "mobile,role"},
+{"name": "id_ext", "datatype": "text", "unique": "id_ext,role"},
+{"name": "google_login_id", "datatype": "text", "unique": "google_login_id,role"},
+```
+This enables multi-persona applications (e.g. Rider vs. Driver or Buyer vs. Seller) where one person uses the same email/phone across different roles.
+
+### Pattern B: Globally Unique Across System (Single Identity System)
+If your app strictly requires that each identity exists only once across all roles:
+```python
 {"name": "username", "datatype": "text", "unique": "username"},
 {"name": "email", "datatype": "text", "unique": "email"},
 {"name": "mobile", "datatype": "text", "unique": "mobile"},
@@ -34,14 +44,9 @@ Each identity value can only exist **once** in the entire database (standard Saa
 {"name": "id_ext", "datatype": "text", "unique": "id_ext"},
 ```
 
-### Pattern B: Composite Uniqueness (Multi-Tenant or Multi-Role)
-Identities are unique only within a specific scope (e.g. per `role`, per `tenant_id`, or per `org_id`). Use a **comma `,`** to define composite columns:
-
+### Pattern C: Multi-Tenant Uniqueness
+For multi-tenant SaaS where identities are scoped per organization or tenant:
 ```python
-# Unique per role (the same email can register as customer role:2 and staff role:3)
-{"name": "email", "datatype": "text", "unique": "email,role"},
-
-# Unique per tenant/organization in a B2B multi-tenant setup
 {"name": "username", "datatype": "text", "unique": "username,tenant_id"},
 {"name": "email", "datatype": "text", "unique": "email,org_id"},
 ```

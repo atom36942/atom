@@ -47,7 +47,7 @@ When Atom starts (`main.py` -> [`func_postgres_schema_users_init`](../function.p
    ```sql
    INSERT INTO users (username, password, role) 
    VALUES ('admin', $1, 1) 
-   ON CONFLICT (username) DO UPDATE 
+   ON CONFLICT (username, role) DO UPDATE 
    SET username = 'admin', 
        password = EXCLUDED.password, 
        role = 1, 
