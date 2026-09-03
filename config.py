@@ -130,9 +130,8 @@ config_dropdown = {"gender": ["male", "female"],}
 
 config_column_int_mapping = {
 "task": {
-"project": {1: "Myshipment", 2: "Portal", 3: "Hirex", 4: "Inditex", 5: "Amazon", 6: "Quotation", 7: "Tradelane", 8: "OBhai"},
-"status": {1: "To Do", 2: "In Progress", 3: "Review", 4: "Completed", 5: "Cancelled", 6: "Hold"},
-"priority": {1: "Low", 2: "Medium", 3: "High", 4: "Urgent"},
+"project": {1: "Myshipment", 2: "Portal", 3: "Hirex", 4: "OBhai", 5: "Amazon", 6: "Quotation", 7: "Tradelane", 8: "Misc"},
+"status": {1: "To Do", 2: "In Progress", 3: "Done"},
 },
 "blob": {
 "type": {1: "File", 2: "Presigned Url"},
@@ -361,18 +360,17 @@ config_postgres = {
 "task":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
-{"name":"created_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(created_by_id)"},
+{"name":"created_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(created_by_id,id)"},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"title","datatype":"text","is_mandatory": True,"index":"gin_trgm(title)"},
-{"name":"description","datatype":"text"},
-{"name":"project","datatype":"smallint","is_mandatory": True,"index":"btree(project)"},
+{"name":"project","datatype":"smallint","is_mandatory": True,"index":"btree(project,status,id)"},
+{"name":"status","datatype":"smallint","is_mandatory": True,"default":1,"in":(1,2,3),"index":"btree(status,id)"},
+{"name":"assigned_to_id","datatype":"bigint","is_mandatory": True,"index":"btree(assigned_to_id,id)"},
+{"name":"due_date","datatype":"date","index":"btree(due_date)"},
 {"name":"tags","datatype":"text[]","index":"gin(tags)"},
-{"name":"assigned_to_id","datatype":"bigint","is_mandatory": True,"index":"btree(assigned_to_id,status)"},
-{"name":"status","datatype":"smallint","is_mandatory": True,"default":1,"in":(1,2,3,4,5,6),"index":"btree(status)"},
-{"name":"priority","datatype":"smallint","default":2,"in":(1,2,3,4),"index":"btree(priority)"},
-{"name":"due_at","datatype":"timestamptz","index":"btree(due_at)"},
-{"name":"completed_at","datatype":"timestamptz"}
+{"name":"link_url","datatype":"text"},
+{"name":"title","datatype":"varchar(100)","is_mandatory": True,"index":"gin_trgm(title)"},
+{"name":"description","datatype":"text"},
 ],
 "task_comment":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
@@ -380,7 +378,7 @@ config_postgres = {
 {"name":"created_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(created_by_id)"},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
-{"name":"task_id","datatype":"bigint","is_mandatory": True,"index":"btree(task_id,created_at)"},
+{"name":"task_id","datatype":"bigint","is_mandatory": True,"index":"btree(task_id,id)"},
 {"name":"description","datatype":"text","is_mandatory": True}
 ],
 },

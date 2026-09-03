@@ -658,20 +658,19 @@ function askConnect(){
       <div id="derr"></div>
       <div class="saved-dsns-wrap" id="saved-dsns-wrap">
         <div class="saved-dsns-head">
-          <span>Saved Connections</span>
+          <span>Saved URLs</span>
           <span id="saved-dsns-cnt" class="cnt"></span>
         </div>
         <div id="saved-dsns-list" class="saved-dsns-list"></div>
       </div>
     </div>
   `;
-  $('dlg-f').innerHTML = '<button value="cancel">Cancel</button><button type="button" id="dconn">Connect</button><button type="button" class="primary" id="dconnsave">Connect &amp; Save</button>';
+  $('dlg-f').innerHTML = '<button value="cancel">Close</button><button type="button" class="primary" id="dconn">Connect</button>';
   $('dlg').showModal();
 
   const dsnInp = $('dsn2');
   const nameInp = $('dsn-name');
   const connBtn = $('dconn');
-  const connSaveBtn = $('dconnsave');
   const fit = () => { dsnInp.style.height='auto'; dsnInp.style.height=Math.min(dsnInp.scrollHeight+2,140)+'px'; };
   dsnInp.value = DEFAULT_DSN; fit();
   dsnInp.oninput = fit;
@@ -705,7 +704,7 @@ function askConnect(){
     const items = getSavedDsns();
     cntEl.textContent = items.length ? `${items.length} saved` : '';
     if(!items.length){
-      listEl.innerHTML = '<div class="saved-dsns-empty">No saved connections yet. Enter a URL above and click "Connect &amp; Save".</div>';
+      listEl.innerHTML = '<div class="saved-dsns-empty">No saved URLs yet. Enter a URL above and click "Connect".</div>';
       return;
     }
     listEl.textContent = '';
@@ -743,21 +742,21 @@ function askConnect(){
       quickConnBtn.textContent = 'Connect';
       quickConnBtn.onclick = async (e) => {
         e.stopPropagation();
-        await executeConnect(item.dsn, item.name, false);
+        await executeConnect(item.dsn, item.name);
       };
 
       const delBtn = document.createElement('button');
       delBtn.type = 'button';
       delBtn.className = 'iconbtn sm-btn dsn-del-btn';
-      delBtn.title = 'Delete connection from list';
-      delBtn.ariaLabel = 'Delete connection';
+      delBtn.title = 'Delete URL from list';
+      delBtn.ariaLabel = 'Delete URL';
       delBtn.innerHTML = icon('trash');
       delBtn.onclick = (e) => {
         e.stopPropagation();
         const updated = getSavedDsns().filter(i => (i.id ? i.id !== item.id : i.dsn !== item.dsn));
         setSavedDsns(updated);
         renderSavedList();
-        toast('Connection removed');
+        toast('URL removed');
       };
 
       actions.append(quickConnBtn, delBtn);
@@ -766,43 +765,38 @@ function askConnect(){
     });
   };
 
-  const executeConnect = async (dsn, name, shouldSave) => {
+  const executeConnect = async (dsn, name) => {
     dsn = (dsn || '').trim();
     if(!dsn){ $('derr').textContent = 'Please enter a PostgreSQL URL'; return; }
-    connBtn.disabled = connSaveBtn.disabled = dsnInp.disabled = nameInp.disabled = true;
+    connBtn.disabled = dsnInp.disabled = nameInp.disabled = true;
     $('derr').textContent = 'connecting…';
     try{
       await doConnect(dsn);
-      if(shouldSave) saveConnection(name, dsn);
+      saveConnection(name, dsn);
       $('dlg').close();
-      if(shouldSave) toast('Connected and saved to favorites');
+      toast('Connected and URL saved');
     }catch(e){
       $('derr').textContent = e.message;
     }finally{
-      connBtn.disabled = connSaveBtn.disabled = dsnInp.disabled = nameInp.disabled = false;
+      connBtn.disabled = dsnInp.disabled = nameInp.disabled = false;
     }
   };
 
   connBtn.onclick = ev => {
     ev?.preventDefault();
-    executeConnect(dsnInp.value, nameInp.value, false);
-  };
-
-  connSaveBtn.onclick = ev => {
-    ev?.preventDefault();
-    executeConnect(dsnInp.value, nameInp.value, true);
+    executeConnect(dsnInp.value, nameInp.value);
   };
 
   dsnInp.onkeydown = e => {
     if(e.key === 'Enter' && !e.shiftKey){
       e.preventDefault();
-      executeConnect(dsnInp.value, nameInp.value, true);
+      executeConnect(dsnInp.value, nameInp.value);
     }
   };
   nameInp.onkeydown = e => {
     if(e.key === 'Enter'){
       e.preventDefault();
-      executeConnect(dsnInp.value, nameInp.value, true);
+      executeConnect(dsnInp.value, nameInp.value);
     }
   };
 
