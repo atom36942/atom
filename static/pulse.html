@@ -72,6 +72,38 @@
     .field-label-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.field-label-row .field-help{font-weight:500}.field-label-row .field-help.limit{font-weight:700}
     .task-table .title-cell,.kanban-card-title{font-weight:600}.task-table .title-cell{color:#171a17}
     .password-input{position:relative}.password-input .input{padding-right:44px}.password-toggle{position:absolute;right:5px;top:50%;width:34px;height:34px;transform:translateY(-50%);display:grid;place-items:center;border:0;border-radius:7px;background:transparent;color:var(--muted)}.password-toggle:hover{background:#f0f2ed;color:var(--ink)}.password-toggle:focus-visible{outline:2px solid var(--brand);outline-offset:1px}.password-toggle svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+    @media(max-width:720px){
+      .shell{width:min(100% - 24px,1160px);margin-top:16px}
+      .filters{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:14px}
+      .filter-search{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+      .search-box{width:auto!important}.filter-actions{gap:6px}.filter-icon{width:38px;height:38px}
+      .task-table-wrap{overflow:visible;border:0;background:transparent}
+      .task-table,.task-table tbody{display:block;width:100%}.task-table thead{display:none}.task-table tbody{display:grid;gap:9px}
+      .task-table tbody tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 14px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:11px}
+      .task-table tbody tr:hover{background:var(--surface);border-color:#bcc5bb}
+      .task-table td{display:block;width:auto!important;max-width:none!important;padding:0!important;border:0!important;min-width:0}
+      .task-table td:before{display:block;margin-bottom:2px;color:var(--muted);font-size:9px;font-weight:750;letter-spacing:.04em;text-transform:uppercase}
+      .task-table td:nth-child(1){order:2}.task-table td:nth-child(1):before{content:"ID"}
+      .task-table td:nth-child(2){order:1;grid-column:1/-1}.task-table td:nth-child(2):before{content:"Title"}
+      .task-table td:nth-child(3){order:3}.task-table td:nth-child(3):before{content:"Project"}
+      .task-table td:nth-child(4){order:4}.task-table td:nth-child(4):before{content:"Assignee"}
+      .task-table td:nth-child(5){order:5}.task-table td:nth-child(5):before{content:"Status"}
+      .task-table td:nth-child(6){order:6}.task-table td:nth-child(6):before{content:"Due date"}
+      .task-table .title-cell span{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+      .task-id-time{display:flex;align-items:baseline;gap:6px}.task-id-time small{font-size:9px}
+      .pager{margin-top:12px}.pager .page-summary{max-width:44%;overflow:hidden;white-space:nowrap}
+      .task-view-modal{width:calc(100vw - 16px);height:calc(100dvh - 16px);border-radius:12px}
+      .task-view-modal .drawer-head{padding:9px 11px;align-items:center}.task-view-head-actions{gap:4px}.task-view-head-actions .icon-btn{width:32px;height:32px;border-radius:8px}.task-view-head-actions svg{width:16px;height:16px}
+      .task-view-grid{grid-template-rows:minmax(190px,40%) minmax(0,1fr);gap:8px;padding:8px}.task-detail-cards{gap:8px;padding:8px}.detail-card{padding:11px}
+      .modal-wrap{padding:8px}.modal{max-height:calc(100dvh - 16px);border-radius:12px}.modal-head{padding:13px 14px}.modal-body{padding:14px}.modal-foot{position:sticky;bottom:0;padding:10px 14px;background:var(--surface);z-index:2}
+      .dashboard-modal{max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px)}
+      .kanban-board{gap:9px}.kanban-column-head{padding:8px 10px}.kanban-card{padding:10px}
+    }
+    @media(max-width:380px){
+      .shell{width:calc(100% - 16px)}.filters{grid-template-columns:1fr}.filter-search{grid-column:auto}.filter-actions{justify-content:flex-end}
+      .topbar{height:56px}.brand{font-size:14px}.brand .mark{width:30px;height:30px}.avatar{width:36px;height:36px}
+      .task-view-modal .drawer-head h2{font-size:15px}.task-view-modal .drawer-head p{font-size:10px}.task-view-head-actions .icon-btn{width:30px;height:30px}
+    }
   </style>
 </head>
 <body>
@@ -296,8 +328,9 @@
     function safeExternalUrl(value){try{const url=new URL(value);return ["http:","https:"].includes(url.protocol)?url.href:""}catch{return ""}}
     function taskLinkMarkup(value){const url=safeExternalUrl(value);return url?`<div class="task-link-actions"><a class="external-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="Open task link" aria-label="Open task link in a new tab"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-9 9"/><path d="M19 13v6H5V5h6"/></svg></a><button class="external-link copy-task-link" type="button" data-link="${escapeHtml(url)}" title="Copy task link" aria-label="Copy task link"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button></div>`:"-"}
     async function copyTaskLink(url){try{await navigator.clipboard.writeText(url);toast("Link copied")}catch{toast("Could not copy link",true)}}
-    function sharedTaskUrl(taskId){const url=new URL(location.href);url.searchParams.set("task_id",taskId);return url.href}
-    async function shareTask(){if(!state.commentTask)return;const url=sharedTaskUrl(state.commentTask.id),title=`Pulse task #${state.commentTask.id}`;try{if(navigator.share)await navigator.share({title,text:state.commentTask.title||title,url});else await copyTaskLink(url)}catch(error){if(error.name!=="AbortError")toast("Could not share task",true)}}
+    function sharedTaskUrl(taskId){const url=new URL(location.pathname,location.origin);url.searchParams.set("task_id",String(taskId));return url.href}
+    async function shareTask(){if(!state.commentTask)return;try{await navigator.clipboard.writeText(sharedTaskUrl(state.commentTask.id));toast("Task link copied")}catch{toast("Could not copy task link",true)}}
+    const shareTaskButton=$("shareTaskDetailBtn");shareTaskButton.title="Copy task link";shareTaskButton.setAttribute("aria-label","Copy task link");shareTaskButton.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>';
     async function openSharedTask(){const taskId=new URL(location.href).searchParams.get("task_id");if(!/^\d+$/.test(taskId||""))return;try{const result=await api("/admin/object-read",{query:{table:"task",filter:[`id = ${taskId}`],limit:1,page:1,relation:["assigned_to_id,users,id,fetch|1,username"]}}),task=result.obj_list?.[0];if(!task)throw new Error("Shared task not found.");await openComments(task)}catch(error){toast(error.message,true)}}
     async function copyComment(comment){try{await navigator.clipboard.writeText(comment.description||"");toast("Comment copied")}catch{toast("Could not copy comment",true)}}
     function renderTaskDetail(task){const fields=[["Created at","created_at"],["Project","project"],["Assigned to","assigned_to_id"],["Status","status"],["Due date","due_date"],["Tags","tags"],["Link","link_url"]];$("taskViewMeta").textContent=`ID: ${task.id}`;$("taskViewMeta").title=`ID: ${task.id}`;$("taskDetail").innerHTML=`<section class="detail-card"><table class="profile-table task-meta-table"><tbody>${fields.map(([label,key])=>`<tr><th>${label}</th><td${key==="created_at"?` title="${escapeHtml(new Date(task.created_at).toLocaleString())}"`:""}>${key==="link_url"?taskLinkMarkup(task[key]):escapeHtml(taskObjectValue(key,task[key],task))}</td></tr>`).join("")}</tbody></table></section><section class="detail-card task-copy-card"><div class="detail-title-text">${escapeHtml(taskObjectValue("title",task.title,task))}</div><div class="detail-description-text">${task.description?commentDescriptionMarkup(task.description):"-"}</div></section>`}
