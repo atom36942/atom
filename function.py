@@ -1495,10 +1495,12 @@ def func_check_public_table_permission(*, app_state: any, table: str, action: st
 def func_check_private_table_permission(*, app_state: any, table: str, action: str = "read") -> None:
     func_check_table_permission(app_state=app_state, table=table, scope="private", action=action)
 
-def func_check_table_column_exists(*, app_state: any, table: str, column: str, purpose: str = None) -> None:
+def func_check_table_column_exists(*, app_state: any = None, cache_postgres_schema: dict = None, table: str, column: str, purpose: str = None) -> None:
     """Validate that table schema contains specified column."""
-    schema = (getattr(app_state, "cache_postgres_schema", {}) or {}).get(table, {})
-    if column not in schema:
+    cache = cache_postgres_schema if cache_postgres_schema is not None else (getattr(app_state, "cache_postgres_schema", {}) or {})
+    if table not in cache:
+        raise Exception(f"table '{table}' not found")
+    if column not in cache[table]:
         msg = f"table '{table}' lacks required '{column}' column"
         if purpose: msg += f" for {purpose}"
         raise Exception(msg)
@@ -2099,6 +2101,7 @@ async def func_postgres_table_column_groupby_read(*, app_state: any, client_post
             order_sql = f'"{order_col_name}_item" {order_dir}' if ("[]" in dt or "array" in dt) else f'x."{order_col_name}" {order_dir}'
         else:
             order_sql = f'"{agg_field}" DESC'
+    order_sql = f'{order_sql}, {", ".join(group_exprs)}'
     select_sql = ", ".join(select_exprs)
     group_sql = ", ".join(group_exprs)
     source_sql = f' {" ".join(unnest_clauses)}' if unnest_clauses else ""
@@ -3371,6 +3374,8 @@ async def func_postgres_serialize(*, client_postgres: any, client_password_hashe
 async def func_postgres_where_build(*, client_postgres: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, filter: list, prefix: str = "") -> tuple:
     """Build a SQL WHERE clause with support for recursion, logical operators (_or, _and), flat SQL strings, and explicit operator syntax."""
     import re, orjson
+    if not table: raise Exception("table required")
+    if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
     values = []
     filter_pattern = r'^((?:"[^"]+")|[a-zA-Z_][a-zA-Z0-9_]*)\s+(is\s+not\s+distinct\s+from|is\s+distinct\s+from|is\s+not|not\s+in|>=|<=|==|!=|<>|~\*|=|>|<|eq|neq|gt|lt|gte|lte|is|in|between|like|ilike|~|contains|exists|overlap|any|point)\s+(.*)$'
     value_ops = {"=":"=","==":"=","eq":"=","!=":"!=","<>":"!=","neq":"!=","!=": "!=", ">":">","gt":">","<":"<","lt":"<",">=":">=","gte":">=","<=":"<=","lte":"<=","is":"IS","is not":"IS NOT","in":"IN","not in":"NOT IN","between":"BETWEEN","is distinct from":"IS DISTINCT FROM","is not distinct from":"IS NOT DISTINCT FROM"}
@@ -3633,6 +3638,14 @@ async def func_postgres_create(*, client_postgres: any, client_postgres_conn: an
     if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
     obj_list = [dict(item) for item in obj_list]; [item.pop("id", None) for item in obj_list]
     if table == "spatial_ref_sys": raise Exception("system table protected")
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
+    if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
+    if cache_postgres_schema is not None and table in cache_postgres_schema:
+        schema = cache_postgres_schema[table]
+        for item in obj_list:
+            for c in item.keys():
+                if c not in schema:
+                    raise Exception(f"column '{c}' not found in table: {table}")
     if mode == "buffer":
         result = "buffered"
         async for serialized_list in serialize_batches():
@@ -3715,6 +3728,7 @@ async def func_postgres_read(*, client_postgres: any, client_password_hasher: an
     if not client_postgres: raise Exception("postgres client not initialized")
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
+    if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
     if limit < 1: raise Exception("query limit must be greater than 0")
     if page < 1: raise Exception("query page must be greater than 0")
     if config_sql_read_limit_max and limit > config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {config_sql_read_limit_max}")
@@ -3729,19 +3743,24 @@ async def func_postgres_read(*, client_postgres: any, client_password_hasher: an
             direction = p[1].upper() if len(p) > 1 and p[1].lower() in ("asc", "desc") else "ASC"
             order_list.append(f'"{col}" {direction}')
     order_clause = ", ".join(order_list)
+    if "id" in cache_postgres_schema.get(table, {}) and not any(part.split()[0].strip('"') == "id" for part in order_list):
+        order_clause = f'{order_clause}, "id" DESC'
     column_list = "*"
     if column != "*":
         cols = []
         for c in column.split(","):
             c_strip = c.strip()
             if not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(c_strip)): raise Exception(f"invalid identifier {c_strip}")
+            if cache_postgres_schema is not None and table in cache_postgres_schema and re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c_strip)):
+                if c_strip not in cache_postgres_schema[table]: raise Exception(f"column '{c_strip}' not found in table: {table}")
             cols.append(c_strip)
         column_list = ",".join([f'"{c}"' for c in cols])
     filters = filter
     where_statement, values = await func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter=filters, prefix="")
+    fetch_limit = limit + 1
     bind_idx = len(values) + 1
     sql_select = f'SELECT {column_list} FROM "{table}" {where_statement} ORDER BY {order_clause} LIMIT ${bind_idx} OFFSET ${bind_idx+1}'
-    values.extend([limit, (page - 1) * limit])
+    values.extend([fetch_limit, (page - 1) * limit])
     async with client_postgres.acquire() as conn:
         records = await conn.fetch(sql_select, *values)
         result_list = [dict(r) for r in records]
@@ -3758,9 +3777,14 @@ async def func_postgres_update(*, client_postgres: any, client_postgres_conn: an
     if any(not isinstance(obj, dict) for obj in obj_list): raise Exception("object data invalid")
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if table == "spatial_ref_sys": raise Exception("system table protected")
+    if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
     if any("id" not in obj for obj in obj_list): raise Exception("missing required field: 'id' for update operation")
     update_cols = [c for c in obj_list[0] if c != "id" and (re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(c)) or (_ for _ in ()).throw(Exception(f"invalid identifier {c}")))]
     if not update_cols: raise Exception("update field required")
+    if cache_postgres_schema is not None and table in cache_postgres_schema:
+        schema = cache_postgres_schema[table]
+        for c in update_cols:
+            if c not in schema: raise Exception(f"column '{c}' not found in table: {table}")
     if any(set(obj.keys()) != set(obj_list[0].keys()) for obj in obj_list): raise Exception("object keys mismatch")
     returned_ids = []
     limit_batch = 5000
@@ -3796,15 +3820,15 @@ async def func_postgres_delete(*, client_postgres: any, client_postgres_conn: an
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if table == "spatial_ref_sys": raise Exception("system table protected")
+    if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
     schema = (cache_postgres_schema or {}).get(table, {})
-    if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"unknown table {table}")
-    if schema and "id" not in schema: raise Exception(f"table {table} missing id column")
+    if schema and "id" not in schema: raise Exception(f"table '{table}' missing id column")
     if not ids or not isinstance(ids, (list, tuple)): raise Exception("ids required")
     id_list = [int(x) for x in ids]
     limit_chunk = 5000
     if created_by_id is not None:
         if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(ownership_column)): raise Exception(f"invalid identifier {ownership_column}")
-        if schema and ownership_column not in schema: raise Exception(f"table {table} missing {ownership_column} column")
+        if schema and ownership_column not in schema: raise Exception(f"table '{table}' lacks required '{ownership_column}' column")
     async def _execute_delete(connection):
         deleted_count = 0
         async with connection.transaction():
@@ -3831,8 +3855,8 @@ async def func_postgres_delete_all(*, client_postgres: any, client_postgres_conn
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(ownership_column)): raise Exception(f"invalid identifier {ownership_column}")
     if table == "spatial_ref_sys": raise Exception("system table protected")
+    if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
     schema = (cache_postgres_schema or {}).get(table, {})
-    if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"unknown table {table}")
     if schema and ownership_column not in schema: raise Exception(f"table '{table}' lacks required '{ownership_column}' column")
     async def _execute_delete_all(connection):
         result = await connection.execute(f'DELETE FROM "{table}" WHERE "{ownership_column}"=$1', user_id)

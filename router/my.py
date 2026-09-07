@@ -1,9 +1,31 @@
 # packages
 import urllib.parse
+import re
 from fastapi import APIRouter, Request
 
 # router
 router = APIRouter()
+
+def _message_pagination(*, limit: int, page: int, max_limit: int) -> tuple[int, int]:
+    if limit < 1: raise Exception("query limit must be greater than 0")
+    if page < 1: raise Exception("query page must be greater than 0")
+    if max_limit and limit > max_limit: raise Exception(f"query limit {limit} exceeds maximum allowed: {max_limit}")
+    return limit + 1, (page - 1) * limit
+
+def _message_order(*, order: str, cache_postgres_schema: dict) -> str:
+    schema = cache_postgres_schema.get("message", {})
+    if not schema: raise Exception("table 'message' not found")
+    order_list, ordered_columns = [], set()
+    for item in str(order or "id desc").split(","):
+        parts = item.strip().split()
+        if not parts or len(parts) > 2 or not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", parts[0]) or parts[0] not in schema:
+            raise Exception(f"invalid message order: {item.strip()}")
+        if len(parts) == 2 and parts[1].lower() not in ("asc", "desc"): raise Exception(f"invalid message order: {item.strip()}")
+        direction = parts[1].upper() if len(parts) == 2 else "ASC"
+        order_list.append(f'"{parts[0]}" {direction}')
+        ordered_columns.add(parts[0])
+    if "id" not in ordered_columns: order_list.append('"id" DESC')
+    return ", ".join(order_list)
 
 # api
 @router.get("/my/profile")
@@ -61,9 +83,9 @@ async def func_api_my_object_read(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "id desc"}, {"name": "column", "type": "str", "required": False, "allowed": None, "default": "*"}, {"name": "relation", "type": "list", "required": False, "allowed": None, "default": []}, {"name": "filter", "type": "list", "required": False, "allowed": None, "default": []}])
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
-    app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column="created_by_id", purpose="ownership tracking")
+    app_state.func_check_table_column_exists(app_state=app_state, cache_postgres_schema=cache_postgres_schema, table=oq["table"], column="created_by_id", purpose="ownership tracking")
     filters = oq["filter"] + [f"""created_by_id = {request.state.user["id"]}"""]
-    ol = await app_state.func_postgres_read(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
+    ol = await app_state.func_postgres_read(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 
 @router.get("/my/object-read-owned")
@@ -71,9 +93,9 @@ async def func_api_my_owned_object_read(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "ownership_column", "type": "str", "required": True, "allowed": app_state.config_column_ownership, "default": None}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "id desc"}, {"name": "column", "type": "str", "required": False, "allowed": None, "default": "*"}, {"name": "relation", "type": "list", "required": False, "allowed": None, "default": []}, {"name": "filter", "type": "list", "required": False, "allowed": None, "default": []}])
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
-    app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column=oq["ownership_column"], purpose="ownership tracking")
+    app_state.func_check_table_column_exists(app_state=app_state, cache_postgres_schema=cache_postgres_schema, table=oq["table"], column=oq["ownership_column"], purpose="ownership tracking")
     filters = oq["filter"] + [f"""{oq["ownership_column"]} = {request.state.user["id"]}"""]
-    ol = await app_state.func_postgres_read(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"] + 1, page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
+    ol = await app_state.func_postgres_read(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"])
     schema_cols = cache_postgres_schema.get(oq["table"], {})
     if oq["ownership_column"] == "received_by_id" and "id" in schema_cols and "read_at" in schema_cols:
         app_state.func_postgres_mark_read(client_postgres=app_state.client_postgres, table=oq["table"], ownership_column=oq["ownership_column"], user_id=request.state.user["id"], ids=[r.get("id") for r in ol if isinstance(r, dict)])
@@ -146,10 +168,12 @@ async def func_api_my_message_inbox(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "mode", "type": "str", "required": True, "allowed": ["all", "unread", "read"], "default": None}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "id desc"}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}])
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
+    fetch_limit, offset = _message_pagination(limit=oq["limit"], page=oq["page"], max_limit=app_state.config_sql_read_limit_max)
+    order_sql = _message_order(order=oq["order"], cache_postgres_schema=cache_postgres_schema)
     where_clause = {"read": "received_by_id=$1 AND read_at IS NOT NULL", "unread": "received_by_id=$1 AND read_at IS NULL"}.get(oq["mode"], "1=1")
-    sql = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - received_by_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR received_by_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
+    sql = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - received_by_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR received_by_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {order_sql} LIMIT $2 OFFSET $3;"
     async with client_postgres.acquire() as conn:
-        ol = [dict(r) for r in await conn.fetch(sql, request.state.user["id"])]
+        ol = [dict(r) for r in await conn.fetch(sql, request.state.user["id"], fetch_limit, offset)]
         return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 
 @router.get("/my/message-thread")
@@ -159,9 +183,11 @@ async def func_api_my_message_thread(*, request: Request):
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
     user_one_id = request.state.user["id"]
-    sql = f"SELECT * FROM message WHERE ((created_by_id=$1 AND received_by_id=$2) OR (created_by_id=$2 AND received_by_id=$1)) ORDER BY {oq['order']} LIMIT {oq['limit'] + 1} OFFSET {(oq['page']-1)*oq['limit']};"
+    fetch_limit, offset = _message_pagination(limit=oq["limit"], page=oq["page"], max_limit=app_state.config_sql_read_limit_max)
+    order_sql = _message_order(order=oq["order"], cache_postgres_schema=cache_postgres_schema)
+    sql = f"SELECT * FROM message WHERE ((created_by_id=$1 AND received_by_id=$2) OR (created_by_id=$2 AND received_by_id=$1)) ORDER BY {order_sql} LIMIT $3 OFFSET $4;"
     async with client_postgres.acquire() as conn:
-        ol = [dict(r) for r in await conn.fetch(sql, user_one_id, oq["user_id"])]
+        ol = [dict(r) for r in await conn.fetch(sql, user_one_id, oq["user_id"], fetch_limit, offset)]
     async with app_state.client_postgres.acquire() as conn:
         await conn.execute("UPDATE message SET read_at=now() WHERE created_by_id=$1 AND received_by_id=$2;", oq["user_id"], user_one_id)
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
