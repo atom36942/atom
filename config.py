@@ -131,7 +131,7 @@ config_dropdown = {"gender": ["male", "female"],}
 config_column_int_mapping = {
 "task": {
 "project": {1: "Myshipment", 2: "Portal", 3: "Hirex", 4: "OBhai", 5: "Amazon", 6: "Quotation", 7: "Tradelane", 8: "Misc"},
-"status": {1: "To Do", 2: "In Progress", 3: "Done"},
+"status": {1: "To Do", 2: "In Progress", 3: "Done", 4: "Blocked", 5: "Review"},
 },
 "blob": {
 "type": {1: "File", 2: "Presigned Url"},
@@ -364,7 +364,7 @@ config_postgres = {
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"project","datatype":"smallint","is_mandatory": True,"index":"btree(project,status,id)"},
-{"name":"status","datatype":"smallint","is_mandatory": True,"default":1,"in":(1,2,3),"index":"btree(status,id)"},
+{"name":"status","datatype":"smallint","is_mandatory": True,"default":1,"index":"btree(status,id)"},
 {"name":"assigned_to_id","datatype":"bigint","is_mandatory": True,"index":"btree(assigned_to_id,id)"},
 {"name":"due_date","datatype":"date","index":"btree(due_date)"},
 {"name":"tags","datatype":"text[]","index":"gin(tags)"},
