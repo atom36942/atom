@@ -146,8 +146,11 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 .detail-tools input{width:210px;height:32px;padding:4px 6px 4px 9px;order:4}
 .detail-tools .sp{flex:1;order:1}.detail-count{order:2;color:var(--dim);font-size:12px;white-space:nowrap}
 .detail-refresh,.detail-download{order:3}
-.detail-refresh,.detail-download,#rowrefresh,#rowcsv{width:32px;height:32px;padding:0;flex:none}
-#prevbatch,#nextbatch{height:32px;padding:4px 10px;flex:none}
+.pagenav{display:inline-flex;align-items:center;gap:8px;flex:none}
+.pagenav[hidden]{display:none}
+.pagebtn{width:32px;height:32px;border-radius:6px;padding:0;display:inline-flex;align-items:center;justify-content:center}
+.pagebtn svg{width:14px;height:14px}
+.pagenum{font-size:13px;font-weight:700;color:var(--fg);user-select:none;min-width:48px;text-align:center}
 
 #pane{flex:1;position:relative;min-height:0}
 .view{position:absolute;inset:0;display:none;flex-direction:column;min-height:0}
@@ -256,7 +259,6 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 #dsn2{display:block;width:100%;min-height:44px;padding:8px 10px;resize:none;
       overflow-x:hidden;overflow-y:hidden;overflow-wrap:anywhere;white-space:pre-wrap;font-size:12.5px;line-height:1.5;
       font-family:Menlo,Monaco,Consolas,"Courier New",monospace}
-#dsn-name{width:100%;height:32px;padding:6px 10px;font-size:12px}
 .saved-dsns-wrap{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
 .saved-dsns-head{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:600;color:var(--th-fg);margin-bottom:8px}
 .saved-dsns-head .cnt{font-size:11px;color:var(--dim);font-weight:normal}
@@ -269,6 +271,15 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 .saved-dsn-actions{display:flex;align-items:center;gap:6px;flex:none}
 .saved-dsns-empty{padding:12px;text-align:center;font-size:11px;color:var(--dim);background:var(--table-list-bg);border:1px dashed var(--line);border-radius:4px}
 .sm-btn{padding:3px 8px;font-size:11px;height:26px}
+.iconbtn.sm-btn{width:26px;height:26px;padding:0;display:inline-flex;align-items:center;justify-content:center}
+.iconbtn.sm-btn svg{width:13px;height:13px}
+.dsn-connect-btn{color:var(--green);border-color:var(--line)}
+.dsn-connect-btn:hover:not(:disabled){color:var(--green-h);border-color:var(--green);background:var(--apply-bg)}
+.dsn-del-btn{color:var(--dim);border-color:var(--line)}
+.dsn-del-btn:hover:not(:disabled){color:var(--err);border-color:var(--err);background:var(--cancel-bg)}
+#dconn{background:var(--green);color:#fff;border-color:var(--green);font-weight:600;padding:5px 16px}
+#dconn:hover:not(:disabled){background:var(--green-h);border-color:var(--green-h);color:#fff}
+:root[data-theme=dark] #dconn{color:#141419}
 #derr{color:var(--err);margin-top:2px;min-height:16px;font-size:12px;white-space:pre-wrap}
 #cellbox{white-space:pre-wrap;word-break:break-word;margin:0;
          font:12px/1.6 Menlo,Monaco,Consolas,"Courier New",monospace}
@@ -373,8 +384,11 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
           <button id="fgo" hidden>Apply</button>
           <button id="fclr" title="Reset filter" hidden>Reset</button>
           <span class="sp"></span><span id="ftxt"></span>
-          <button id="prevbatch" hidden>Previous 10</button>
-          <button id="nextbatch" hidden>Next 10</button>
+          <div class="pagenav" id="pagenav" hidden>
+            <button class="iconbtn pagebtn" id="prevbatch" title="Previous page" aria-label="Previous page"></button>
+            <span class="pagenum" id="pagenum">Page 1</span>
+            <button class="iconbtn pagebtn" id="nextbatch" title="Next page" aria-label="Next page"></button>
+          </div>
           <button class="iconbtn" id="rowrefresh" title="Refresh table data" aria-label="Refresh table data"></button>
           <button class="iconbtn" id="rowcsv" title="Download rows as CSV" aria-label="Download rows as CSV" disabled></button>
         </div>
@@ -458,12 +472,17 @@ const icon = name => ({
   sun:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
   copy:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
   trash:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  plug:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22v-5M9 8V2M15 8V2M18 8v4a6 6 0 0 1-12 0V8z"/></svg>',
+  chevronLeft:'<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>',
+  chevronRight:'<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>',
   download:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg>'
 })[name];
 const vp=$('vp'), inner=$('inner'), headEl=$('head'), canvas=$('canvas'), rowsEl=$('rows');
 $('queryrunner').innerHTML=icon('terminal'); $('dbinfo').innerHTML=icon('info'); $('reload').innerHTML=icon('refresh');
 $('rowrefresh').innerHTML=icon('refresh');
 $('rowcsv').innerHTML=icon('download');
+$('prevbatch').innerHTML=icon('chevronLeft');
+$('nextbatch').innerHTML=icon('chevronRight');
 $('dbcat-download').innerHTML=icon('download');
 const yesNo=value=>value?'Yes':'No';
 const DETAIL_ROWS={
@@ -576,7 +595,7 @@ function setConnected(on){
   $('reload').disabled = !on;
   $('rowrefresh').disabled = !on;
   $('run').disabled = $('stream').disabled = $('explain').disabled = $('analyze').disabled = $('resetsql').disabled = $('sql').disabled = !on;
-  $('cancelquery').hidden=true; $('prevbatch').hidden=$('nextbatch').hidden=true;
+  $('cancelquery').hidden=true; $('pagenav').hidden=true;
   if(!on) setExports(false);
   if(!on){
     S.tree={}; S.dbInfo=null; S.dbCatalog={}; S.dbCatalogKind=''; S.chunks.clear(); S.pending.clear();
@@ -594,6 +613,7 @@ function setConnected(on){
   }
 }
 async function doConnect(dsn){
+  dsn = cleanDsn(dsn);
   const m = await api({action:'connect', dsn});
   S.db = m.database; S.tree = m.tree; S.dbInfo=null; S.dbCatalog={}; S.dbCatalogKind='';
   setConnected(true);
@@ -609,8 +629,19 @@ function getSavedDsns(){
     const raw = JSON.parse(localStorage.getItem(SAVED_DSNS_KEY) || '[]');
     if(!Array.isArray(raw)) return [];
     const seenNames = new Set(), seenDsns = new Set(), unique = [];
+    let modified = false;
     for(const item of raw){
       if(!item || !item.dsn) continue;
+      // Strip old auto-appended (host) from saved names to keep minimal
+      if(item.name && /\s*\([^)]+\)$/.test(item.name)){
+        try{
+          const u = new URL(cleanDsn(item.dsn).replace(/^postgres(ql)?:\/\//i, 'http://'));
+          if(u.hostname && item.name.endsWith(` (${u.hostname})`)){
+            item.name = item.name.slice(0, -(` (${u.hostname})`.length)).trim() || u.hostname;
+            modified = true;
+          }
+        }catch{}
+      }
       const nameKey = String(item.name || '').trim().toLowerCase();
       const dsnKey = String(item.dsn || '').trim();
       if(!nameKey || !dsnKey || seenNames.has(nameKey) || seenDsns.has(dsnKey)) continue;
@@ -618,6 +649,7 @@ function getSavedDsns(){
       seenDsns.add(dsnKey);
       unique.push(item);
     }
+    if(modified) setSavedDsns(unique);
     return unique;
   }catch{
     return [];
@@ -626,16 +658,26 @@ function getSavedDsns(){
 function setSavedDsns(items){
   localStorage.setItem(SAVED_DSNS_KEY, JSON.stringify(items));
 }
+function cleanDsn(raw){
+  if(!raw) return '';
+  let str = String(raw).trim();
+  const uriMatch = str.match(/(postgres(?:ql)?:\/\/[^\s"']+)/i);
+  if(uriMatch) return uriMatch[1];
+  str = str.replace(/^['"]+|['"]+$/g, '').trim();
+  str = str.replace(/^psql\s+(?:-[d\w]+\s+)?/i, '').replace(/^['"]+|['"]+$/g, '').trim();
+  return str;
+}
 function maskDsn(dsn){
+  dsn = cleanDsn(dsn);
   if(!dsn) return '';
   return String(dsn).replace(/(:\/\/[^:]+:)([^@]+)(@)/, '$1••••$3');
 }
 function parseDsnDb(dsn){
   try{
+    dsn = cleanDsn(dsn);
     const u = new URL(dsn.startsWith('postgres') ? dsn.replace(/^postgres(ql)?:\/\//, 'http://') : 'http://' + dsn);
     const db = u.pathname.replace(/^\//, '');
     const host = u.hostname;
-    if(db && host && host !== 'localhost' && host !== '127.0.0.1') return `${db} (${host})`;
     return db || host || 'PostgreSQL';
   }catch{
     const m = String(dsn).match(/\/([^/?#]+)(?:[?#]|$)/);
@@ -651,10 +693,6 @@ function askConnect(){
         <label for="dsn2" class="conn-label">PostgreSQL Database URL (DSN) <span class="req">*</span></label>
         <textarea id="dsn2" rows="1" wrap="soft" placeholder="${DEFAULT_DSN}" autocomplete="off" spellcheck="false"></textarea>
       </div>
-      <div class="conn-field">
-        <label for="dsn-name" class="conn-label">Connection Name (optional)</label>
-        <input id="dsn-name" type="text" placeholder="e.g. Local Dev, Staging (defaults to DB name)" autocomplete="off"/>
-      </div>
       <div id="derr"></div>
       <div class="saved-dsns-wrap" id="saved-dsns-wrap">
         <div class="saved-dsns-head">
@@ -665,20 +703,19 @@ function askConnect(){
       </div>
     </div>
   `;
-  $('dlg-f').innerHTML = '<button value="cancel">Close</button><button type="button" class="primary" id="dconn">Connect</button>';
+  $('dlg-f').innerHTML = '<button value="cancel">Close</button><button type="button" id="dconn">Connect</button>';
   $('dlg').showModal();
 
   const dsnInp = $('dsn2');
-  const nameInp = $('dsn-name');
   const connBtn = $('dconn');
   const fit = () => { dsnInp.style.height='auto'; dsnInp.style.height=Math.min(dsnInp.scrollHeight+2,140)+'px'; };
   dsnInp.value = DEFAULT_DSN; fit();
   dsnInp.oninput = fit;
 
-  const saveConnection = (name, dsn) => {
-    dsn = (dsn || '').trim();
+  const saveConnection = (dsn) => {
+    dsn = cleanDsn(dsn);
     if(!dsn) return;
-    const finalName = (name || '').trim() || parseDsnDb(dsn);
+    const finalName = parseDsnDb(dsn);
     const finalNameLower = finalName.toLowerCase();
     let items = getSavedDsns();
 
@@ -726,7 +763,6 @@ function askConnect(){
 
       info.append(nameDiv, urlDiv);
       info.onclick = () => {
-        nameInp.value = item.name || '';
         dsnInp.value = item.dsn || '';
         fit();
         dsnInp.focus();
@@ -737,12 +773,13 @@ function askConnect(){
 
       const quickConnBtn = document.createElement('button');
       quickConnBtn.type = 'button';
-      quickConnBtn.className = 'primary sm-btn dsn-connect-btn';
+      quickConnBtn.className = 'iconbtn sm-btn dsn-connect-btn';
       quickConnBtn.title = 'Connect to this database';
-      quickConnBtn.textContent = 'Connect';
+      quickConnBtn.ariaLabel = 'Connect to this database';
+      quickConnBtn.innerHTML = icon('plug');
       quickConnBtn.onclick = async (e) => {
         e.stopPropagation();
-        await executeConnect(item.dsn, item.name);
+        await executeConnect(item.dsn);
       };
 
       const delBtn = document.createElement('button');
@@ -765,38 +802,32 @@ function askConnect(){
     });
   };
 
-  const executeConnect = async (dsn, name) => {
-    dsn = (dsn || '').trim();
+  const executeConnect = async (rawDsn) => {
+    const dsn = cleanDsn(rawDsn);
     if(!dsn){ $('derr').textContent = 'Please enter a PostgreSQL URL'; return; }
-    connBtn.disabled = dsnInp.disabled = nameInp.disabled = true;
+    connBtn.disabled = dsnInp.disabled = true;
     $('derr').textContent = 'connecting…';
     try{
       await doConnect(dsn);
-      saveConnection(name, dsn);
+      saveConnection(dsn);
       $('dlg').close();
       toast('Connected and URL saved');
     }catch(e){
       $('derr').textContent = e.message;
     }finally{
-      connBtn.disabled = dsnInp.disabled = nameInp.disabled = false;
+      connBtn.disabled = dsnInp.disabled = false;
     }
   };
 
   connBtn.onclick = ev => {
     ev?.preventDefault();
-    executeConnect(dsnInp.value, nameInp.value);
+    executeConnect(dsnInp.value);
   };
 
   dsnInp.onkeydown = e => {
     if(e.key === 'Enter' && !e.shiftKey){
       e.preventDefault();
-      executeConnect(dsnInp.value, nameInp.value);
-    }
-  };
-  nameInp.onkeydown = e => {
-    if(e.key === 'Enter'){
-      e.preventDefault();
-      executeConnect(dsnInp.value, nameInp.value);
+      executeConnect(dsnInp.value);
     }
   };
 
@@ -1130,13 +1161,15 @@ function filterParams(){
 }
 function drawBatchNav(){
   const supported=!!S.pk;
-  $('prevbatch').hidden=$('nextbatch').hidden=false;
+  $('pagenav').hidden=false;
   $('prevbatch').disabled=!supported||S.pageStart===0;
   $('nextbatch').disabled=!supported||!S.hasMore;
+  const page=Math.floor(S.pageStart/CHUNK)+1;
+  $('pagenum').textContent=`Page ${page}`;
   const unsupported='Requires a single-column primary key';
-  $('prevbatch').title=!supported?unsupported:S.pageStart===0?'Already at the first batch':'Load the previous 10 rows';
-  $('nextbatch').title=!supported?unsupported:!S.hasMore?'No more rows':'Load the next 10 rows';
-  $('ftxt').textContent=S.total?`${S.pageStart+1}–${S.pageStart+S.total} fetched`:'0 rows fetched';
+  $('prevbatch').title=!supported?unsupported:S.pageStart===0?'First page':`Go to Page ${page-1}`;
+  $('nextbatch').title=!supported?unsupported:!S.hasMore?'No more rows':`Go to Page ${page+1}`;
+  $('ftxt').textContent=S.total?`${S.pageStart+1}–${S.pageStart+S.total} rows`:'0 rows';
 }
 async function changeBatch(direction){
   const current=S.chunks.get(0)||[], pkIndex=S.cols.indexOf(S.pk);
