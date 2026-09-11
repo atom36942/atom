@@ -343,7 +343,7 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
       <div id="morewrap" hidden><button id="moretab" type="button">More ▾</button></div>
       </div>
       <div id="optionswrap" hidden>
-        <button class="headicon" id="queryrunner" title="Query runner (⌘+Enter)" aria-label="Query runner"></button>
+        <button class="headicon" id="queryrunner" title="Query runner" aria-label="Query runner"></button>
         <button class="headicon" id="dbinfo" title="Database info" aria-label="Database info"></button>
         <button class="headicon on" id="readonly" title="Read only: On" aria-label="Read only: On"></button>
         <button class="headicon" id="reload" title="Refresh schema" aria-label="Refresh schema"></button>
@@ -398,13 +398,13 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
       <div class="view on" id="v-query">
         <div id="sqlwrap">
           <pre id="sqlhl" aria-hidden="true"></pre>
-          <textarea id="sql" wrap="off" spellcheck="false" placeholder="select * from test limit 10;"></textarea>
+          <textarea id="sql" wrap="off" spellcheck="false" placeholder="select * from test limit 10;" title="Toggle line comments: ⌘+Enter / Ctrl+Enter" aria-keyshortcuts="Meta+Enter Control+Enter"></textarea>
         </div>
         <div id="qbar">
           <button id="explain" title="Show the estimated query plan without executing the query">Explain</button>
           <button id="analyze" title="Execute the query and show actual timing and row counts">Analyze</button>
           <button id="stream" title="Download all returned rows as a streaming CSV">Stream</button>
-          <button class="primary" id="run">Run</button>
+          <button class="primary" id="run" title="Run query">Run</button>
           <button id="cancelquery" hidden>Cancel</button>
           <span id="streamprogress" hidden><progress id="streambar"></progress><span id="streammsg"></span></span>
           <span id="qmsg"></span>
@@ -1562,8 +1562,38 @@ $('analyze').onclick = () => {
   $('dlg').showModal();
   $('analyzeyes').onclick=e=>{ e.preventDefault(); $('dlg').close(); explainQuery(true); };
 };
+function toggleSqlComments(){
+  const editor=$('sql'), source=editor.value;
+  const start=editor.selectionStart, end=editor.selectionEnd;
+  const first=start===0?0:source.lastIndexOf('\n',start-1)+1;
+  // A selection ending at the next line's start excludes that line.
+  const last=source.indexOf('\n',end>start && source[end-1]==='\n'?end-1:end);
+  const stop=last<0?source.length:last;
+  const lines=source.slice(first,stop).split('\n');
+  const nonempty=lines.filter(line=>line.trim());
+  const uncomment=nonempty.length>0 && nonempty.every(line=>/^\s*--/.test(line));
+  const replacement=lines.map(line=>{
+    if(!line.trim() && lines.length>1) return line;
+    return uncomment?line.replace(/^(\s*)-- ?/,'$1'):line.replace(/^(\s*)/,'$1-- ');
+  }).join('\n');
+  const scrollTop=editor.scrollTop, scrollLeft=editor.scrollLeft;
+  editor.setRangeText(replacement,first,stop,'select');
+  if(start===end){
+    const indent=lines[0].match(/^\s*/)[0].length;
+    const delta=replacement.length-(stop-first);
+    const caret=start<=first+indent?start:Math.max(first+indent,start+delta);
+    editor.setSelectionRange(caret,caret);
+  }
+  editor.dispatchEvent(new Event('input',{bubbles:true}));
+  editor.scrollTop=scrollTop; editor.scrollLeft=scrollLeft;
+  updateSqlHighlight();
+}
 $('sql').addEventListener('keydown', e=>{
-  if((e.metaKey||e.ctrlKey) && e.key==='Enter'){ e.preventDefault(); runQuery(false); }
+  if((e.metaKey||e.ctrlKey) && e.key==='Enter' && !e.isComposing){
+    e.preventDefault();
+    if(!e.repeat) toggleSqlComments();
+    return;
+  }
   if(e.key==='Tab'){ e.preventDefault(); const s=e.target.selectionStart;
     e.target.setRangeText('  ', s, e.target.selectionEnd, 'end'); updateSqlHighlight(); }
 });
@@ -1573,11 +1603,6 @@ $('sql').addEventListener('input', ()=>{
 $('sql').addEventListener('scroll',()=>{
   $('sqlhl').scrollTop=$('sql').scrollTop; $('sqlhl').scrollLeft=$('sql').scrollLeft;
 },{passive:true});
-addEventListener('keydown', e=>{
-  if((e.metaKey||e.ctrlKey) && e.key==='Enter' && document.activeElement!==$('sql')){
-    e.preventDefault(); openRunner();
-  }
-});
 
 /* ---------------- chrome ---------------- */
 function show(v){
