@@ -201,9 +201,22 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 .detail-grid td.null{color:var(--null);text-transform:uppercase}
 .detail-grid .empty-detail{height:90px;line-height:90px;text-align:center;color:var(--dim);font-family:inherit}
 
-/* ---------- query ---------- */
-#sqlwrap{height:210px;min-height:90px;flex:none;position:relative;resize:vertical;overflow:hidden;
-  border-bottom:1px solid var(--line);background:var(--bg)}
+#sqlwrap{height:210px;min-height:70px;flex:none;position:relative;overflow:hidden;
+  background:var(--bg)}
+#sqlresizer{height:9px;margin:-4px 0 -4px 0;position:relative;z-index:10;cursor:row-resize;
+  display:flex;align-items:center;justify-content:center;flex:none;
+  touch-action:none;user-select:none;outline:none}
+#sqlresizer::before{content:"";position:absolute;left:0;right:0;top:4px;height:1px;
+  background:var(--line);transition:background .15s ease,height .15s ease}
+#sqlresizer:hover::before,#sqlresizer.dragging::before,#sqlresizer:focus-visible::before{
+  background:var(--sel);height:2px}
+.sqlresizer-grip{position:relative;z-index:2;width:38px;height:4px;border-radius:2px;
+  background:var(--dim);opacity:.5;
+  transition:opacity .15s ease,background .15s ease,width .15s ease}
+#sqlresizer:hover .sqlresizer-grip,#sqlresizer.dragging .sqlresizer-grip,#sqlresizer:focus-visible .sqlresizer-grip{
+  opacity:1;background:var(--sel);width:52px}
+body.resizing-sql{cursor:row-resize!important;user-select:none!important}
+body.resizing-sql *{user-select:none!important}
 #sql,#sqlhl{position:absolute;inset:0;width:100%;height:100%;margin:0;border:0;border-radius:0;
   padding:12px 14px;tab-size:2;white-space:pre;overflow:auto;
   font:12.5px/1.7 Menlo,Monaco,Consolas,"Courier New",monospace}
@@ -414,6 +427,7 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
           <pre id="sqlhl" aria-hidden="true"></pre>
           <textarea id="sql" wrap="off" spellcheck="false" placeholder="select * from test limit 10;" title="Toggle line comments: ⌘+Enter / Ctrl+Enter" aria-keyshortcuts="Meta+Enter Control+Enter"></textarea>
         </div>
+        <div id="sqlresizer" role="separator" aria-orientation="horizontal" tabindex="0" title="Drag to adjust query editor height (double-click to reset)"><div class="sqlresizer-grip"></div></div>
         <div id="qbar">
           <button id="explain" title="Show the estimated query plan without executing the query">Explain</button>
           <button id="analyze" title="Execute the query and show actual timing and row counts">Analyze</button>
@@ -1636,6 +1650,70 @@ $('sql').addEventListener('input', ()=>{
 $('sql').addEventListener('scroll',()=>{
   $('sqlhl').scrollTop=$('sql').scrollTop; $('sqlhl').scrollLeft=$('sql').scrollLeft;
 },{passive:true});
+
+/* query editor resizer */
+(function initSqlResizer(){
+  const resizer=$('sqlresizer'), sqlwrap=$('sqlwrap');
+  if(!resizer || !sqlwrap) return;
+  const saved=parseInt(localStorage.getItem('pgweb.editorHeight'),10);
+  if(saved && saved>=70 && saved<=2000) sqlwrap.style.height=saved+'px';
+  let drag=null;
+  resizer.addEventListener('pointerdown',e=>{
+    if(e.button!==0) return;
+    e.preventDefault();
+    drag={id:e.pointerId, startY:e.clientY, startH:sqlwrap.getBoundingClientRect().height};
+    resizer.setPointerCapture(e.pointerId);
+    resizer.classList.add('dragging');
+    document.body.classList.add('resizing-sql');
+  });
+  resizer.addEventListener('pointermove',e=>{
+    if(!drag || e.pointerId!==drag.id) return;
+    const delta=e.clientY - drag.startY;
+    const minH=70;
+    const maxH=Math.max(minH, ($('v-query').clientHeight||window.innerHeight)-120);
+    const newH=Math.min(maxH, Math.max(minH, Math.round(drag.startH + delta)));
+    sqlwrap.style.height=newH+'px';
+  });
+  const stopDrag=e=>{
+    if(!drag || (e && e.pointerId!==drag.id)) return;
+    try{ resizer.releasePointerCapture(drag.id); }catch(_){}
+    const finalH=Math.round(sqlwrap.getBoundingClientRect().height);
+    localStorage.setItem('pgweb.editorHeight', finalH);
+    drag=null;
+    resizer.classList.remove('dragging');
+    document.body.classList.remove('resizing-sql');
+  };
+  resizer.addEventListener('pointerup', stopDrag);
+  resizer.addEventListener('pointercancel', stopDrag);
+  resizer.addEventListener('dblclick',()=>{
+    sqlwrap.style.height='210px';
+    localStorage.setItem('pgweb.editorHeight','210px');
+  });
+  resizer.addEventListener('keydown',e=>{
+    if(e.key==='ArrowUp'||e.key==='ArrowDown'){
+      e.preventDefault();
+      const currentH=sqlwrap.getBoundingClientRect().height;
+      const step=(e.shiftKey?50:20)*(e.key==='ArrowDown'?1:-1);
+      const minH=70;
+      const maxH=Math.max(minH, ($('v-query').clientHeight||window.innerHeight)-120);
+      const newH=Math.min(maxH, Math.max(minH, Math.round(currentH + step)));
+      sqlwrap.style.height=newH+'px';
+      localStorage.setItem('pgweb.editorHeight', newH);
+    }else if(e.key==='Home'){
+      e.preventDefault();
+      sqlwrap.style.height='210px';
+      localStorage.setItem('pgweb.editorHeight','210px');
+    }
+  });
+  addEventListener('resize',()=>{
+    if(!sqlwrap) return;
+    const currentH=sqlwrap.getBoundingClientRect().height;
+    const maxH=Math.max(70, ($('v-query').clientHeight||window.innerHeight)-120);
+    if(currentH > maxH){
+      sqlwrap.style.height=maxH+'px';
+    }
+  });
+})();
 
 /* ---------------- chrome ---------------- */
 function show(v){
