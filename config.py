@@ -213,6 +213,7 @@ config_postgres = {
 {"name":"date_of_birth","datatype":"date"},
 {"name":"dashboard","datatype":"jsonb"},
 {"name":"source","datatype":"smallint"},
+{"name":"parent_id","datatype":"bigint"},
 ],
 "config":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
