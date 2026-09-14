@@ -30,6 +30,8 @@ config_aws_ses_region_name = None
 config_azure_account_name = None
 config_azure_account_key = None
 config_azure_email_connection_string = None
+config_azure_sms_connection_string = None
+config_azure_sms_from_number = None
 config_msgraph_tenant_id = None
 config_msgraph_client_id = None
 config_msgraph_client_secret = None
@@ -101,7 +103,7 @@ config_column_single_update = ["username", "password", "email", "mobile", "delet
 config_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
 config_blob_services = ["s3", "azure"]
 config_email_services = ["ses", "resend", "azure"]
-config_mobile_services = ["sns", "fast2sms"]
+config_mobile_services = ["sns", "fast2sms", "azure"]
 config_ai_services = ["gemini", "openai"]
 
 # Dict

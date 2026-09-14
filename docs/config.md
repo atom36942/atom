@@ -66,6 +66,8 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_azure_account_name` | Azure Storage account name |
 | `config_azure_account_key` | Azure Storage account key |
 | `config_azure_email_connection_string` | Azure email connection string |
+| `config_azure_sms_connection_string` | Azure Communication Services SMS connection string |
+| `config_azure_sms_from_number` | Azure SMS sender phone number or alphanumeric sender ID |
 | `config_kafka_url` | Apache Kafka broker URL |
 | `config_kafka_username` | Kafka SASL username |
 | `config_kafka_password` | Kafka SASL password |
@@ -155,7 +157,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_queue_services` | Registered background queue providers (`redis`, `rabbitmq`, `kafka`, `celery`) |
 | `config_blob_services` | Registered blob storage providers (`s3`, `azure`) |
 | `config_email_services` | Registered email providers (`ses`, `resend`, `azure`) |
-| `config_mobile_services` | Registered SMS providers (`sns`, `fast2sms`) |
+| `config_mobile_services` | Registered SMS providers (`sns`, `fast2sms`, `azure`) |
 | `config_ai_services` | Registered AI service providers (`gemini`, `openai`) |
 
 ---

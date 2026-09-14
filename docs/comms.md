@@ -1,13 +1,15 @@
-# 📨 Email & SMS
+# 📨 Email
 
-Atom sends **email** and **SMS** through pluggable providers, chosen per-request with a `service` param. This page covers the sending side; for the OTP login *flow* that builds on it, see [auth.md](auth.md).
+Atom sends transactional **email** through pluggable providers, chosen per-request with a `service` param.
+
+> [!TIP]
+> For SMS and Mobile OTP delivery (Azure Communication Services, AWS SNS, Fast2SMS), see **[sms.md](sms.md)**.
 
 | Channel | `service` options | Config registry |
 |---------|-------------------|-----------------|
 | Email | `ses` (AWS), `resend`, `azure` | `config_email_services` |
-| SMS | `sns` (AWS), `fast2sms` | `config_mobile_services` |
 
-The chosen provider's client/keys must be configured (see [config.md](config.md)) or the call errors. Logic lives in `func_email_send`, `func_otp_send_email`, and `func_otp_send_mobile` in [`function.py`](../function.py).
+The chosen provider's client/keys must be configured (see [config.md](config.md)) or the call errors. Logic lives in `func_email_send` and `func_otp_send_email` in [`function.py`](../function.py).
 
 ---
 
@@ -30,35 +32,30 @@ Authenticated. Body:
 
 ---
 
-## Sending SMS (via OTP endpoints)
+## Sending Email OTP — `POST /public/otp-send-email`
 
-SMS sending is exposed through the OTP endpoints (the framework's built-in SMS use case):
+Generates a `config_otp_length`-digit code, stores it in the `otp` table, and emails it via `func_otp_send_email`.
 
-### `POST /public/otp-send-email`
-Query: `service` (email provider), `sender`, `email`. Generates a `config_otp_length`-digit code, stores it in the `otp` table, and emails it via `func_otp_send_email`.
-
-### `POST /public/otp-send-mobile`
-Query: `service` (`sns`/`fast2sms`), `mobile`. Generates + stores a code and sends it by SMS via `func_otp_send_mobile`.
-
-### `POST /public/otp-send-mobile-sns-template`
-Body: `mobile`, `message`, `template_id`, `entity_id`, `sender_id`. Sends via AWS SNS using a **DLT template** (required for transactional SMS in some regions, e.g. India). The template fields are passed through to SNS as `sns_template`.
+* **Query parameters**: `service` (`ses`/`resend`/`azure`), `sender`, `email`.
 
 After sending, the client submits the code to an OTP login endpoint — see [auth.md](auth.md#otp-flow).
 
 ---
 
-## Choosing a provider
+## Choosing an Email Provider
 
-Providers are interchangeable — the same endpoint works with any configured `service`, so you can switch (e.g. SES → Resend) by changing one param and supplying the new provider's config. Because each is optional, enable only what you use.
+Providers are interchangeable — the same endpoint works with any configured `service`, so you can switch (e.g. SES → Resend) by changing one param and supplying the new provider's config.
 
 | Provider | Channel | Notes |
 |----------|---------|-------|
 | `ses` | Email | AWS SES; needs `config_aws_ses_region_name` + credentials. |
 | `resend` | Email | Needs `config_resend_url` / `config_resend_key`. |
 | `azure` | Email | Needs `config_azure_email_connection_string`. |
-| `sns` | SMS | AWS SNS; supports DLT templates. |
-| `fast2sms` | SMS | Needs `config_fast2sms_url` / `config_fast2sms_key`. |
 
 ---
 
-📚 [Back to README](../readme.md)
+📚 **Related Documentation:**
+* [sms.md](sms.md) — SMS and Mobile OTP delivery
+* [auth.md](auth.md) — OTP verification and login flows
+* [config.md](config.md) — Configuration reference
+* [Back to README](../readme.md)

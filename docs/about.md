@@ -121,7 +121,7 @@ For complex background processing and external service integrations, Atom provid
 
 - **Asynchronous Task Queues**: Pluggable background queue architectures powered by Redis, RabbitMQ, Kafka, or Celery. See **[queue.md](queue.md)** and **[workers.md](workers.md)**.
 - **Cloud Storage Integration**: Unified file upload, download preview, and SAS token generation for AWS S3 and Azure Blob Storage. Read **[blob.md](blob.md)**.
-- **Communications Engine**: Transmit transactional emails (AWS SES, Resend, Azure) and SMS (AWS SNS, Fast2SMS). Read **[comms.md](comms.md)**.
+- **Communications Engine**: Transmit transactional emails (AWS SES, Resend, Azure) and SMS (Azure, AWS SNS, Fast2SMS). Read **[comms.md](comms.md)** and **[sms.md](sms.md)**.
 - **Direct Messaging System**: Built-in user-to-user messaging and notification pipelines. Read **[messaging.md](messaging.md)**.
 
 ---
@@ -155,7 +155,8 @@ Atom is designed to remain secure in production and easy to update downstream:
 | **Queue System** | **[queue.md](queue.md)** | Background job queues (Redis, RabbitMQ, Kafka, Celery) |
 | **Workers** | **[workers.md](workers.md)** | Consumer execution scripts in `script/` |
 | **Cloud Storage** | **[blob.md](blob.md)** | AWS S3 and Azure Blob storage integration |
-| **Communications**| **[comms.md](comms.md)** | Transactional email (SES/Resend/Azure) & SMS (SNS) |
+| **Email** | **[comms.md](comms.md)** | Transactional email (SES/Resend/Azure) |
+| **SMS & Mobile OTP** | **[sms.md](sms.md)** | Mobile OTP delivery (Azure/SNS/Fast2SMS) |
 | **Messaging** | **[messaging.md](messaging.md)** | User-to-user direct chat & notification queues |
 | **Admin Toolkit** | **[admin.md](admin.md)** | Administrative ops, schema inspector & data import |
 | **Router Design** | **[router.md](router.md)** | Access tier router conventions (`auth`, `my`, `admin`, etc.) |

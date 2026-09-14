@@ -2023,8 +2023,8 @@ async def func_otp_send_email(*, app_state: any, service: str, sender: str, emai
         raise Exception(f"email service {service} not supported")
     return "done"
 
-async def func_otp_send_mobile(*, app_state: any, service: str, mobile: str, otp: int, sns_template: dict = None) -> any:
-    """Sends OTP code via configured mobile service (sns, fast2sms)."""
+async def func_otp_send_mobile(*, app_state: any, service: str, mobile: str, otp: int, sns_template: dict = None, sender: str = None) -> any:
+    """Sends OTP code via configured mobile service (sns, fast2sms, azure)."""
     import httpx
     if service == "sns":
         if not app_state.client_sns: raise Exception("SNS client not initialized")
@@ -2048,6 +2048,13 @@ async def func_otp_send_mobile(*, app_state: any, service: str, mobile: str, otp
         async with httpx.AsyncClient() as client:
             response = await client.get(app_state.config_fast2sms_url, params=params)
             return response.json()
+    elif service == "azure":
+        if not app_state.client_azure_sms: raise Exception("azure sms client not configured")
+        from_number = sender or app_state.config_azure_sms_from_number
+        if not from_number: raise Exception("azure sms from_number not configured")
+        import asyncio
+        await asyncio.to_thread(lambda: app_state.client_azure_sms.send(from_=from_number, to=[mobile], message=f"Your OTP code is {otp}"))
+        return "done"
     else:
         raise Exception(f"mobile service {service} not supported")
 
@@ -4200,6 +4207,12 @@ def func_client_azure_email(*, connection_string: str):
     from azure.communication.email import EmailClient
     return EmailClient.from_connection_string(connection_string) if connection_string else None
 
+def func_client_azure_sms(*, connection_string: str):
+    """Initialize Azure SmsClient."""
+    if not connection_string: return None
+    from azure.communication.sms import SmsClient
+    return SmsClient.from_connection_string(connection_string)
+
 def func_client_azure_blob(*, account_name: str, account_key: str):
     """Initialize Azure BlobServiceClient."""
     from azure.storage.blob.aio import BlobServiceClient
@@ -4320,6 +4333,9 @@ async def func_client_close(*, app_state: any = None, clients: dict = None) -> N
     client_azure_email = c.get("client_azure_email")
     if client_azure_email and hasattr(client_azure_email, "close"):
         with suppress(Exception): client_azure_email.close()
+    client_azure_sms = c.get("client_azure_sms")
+    if client_azure_sms and hasattr(client_azure_sms, "close"):
+        with suppress(Exception): client_azure_sms.close()
     client_azure_blob = c.get("client_azure_blob")
     if client_azure_blob:
         with suppress(Exception): await client_azure_blob.close()

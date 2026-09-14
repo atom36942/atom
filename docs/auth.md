@@ -76,7 +76,7 @@ An incorrect password raises `"incorrect password"`.
 
 For OTP logins the client first requests a code, then submits it:
 
-1. **Send** — `POST /public/otp-send-email` or `/public/otp-send-mobile` → `func_otp_generate` creates a `config_otp_length`-digit code, stores it in the `otp` table, and sends it via the chosen email/SMS service.
+1. **Send** — `POST /public/otp-send-email` or `/public/otp-send-mobile` → `func_otp_generate` creates a `config_otp_length`-digit code, stores it in the `otp` table, and sends it via the chosen email/SMS service (see [comms.md](comms.md) and [sms.md](sms.md)).
 2. **Login** — `POST /auth/login-email-otp` (or mobile) with the code → `func_otp_verify` validates it's correct and unexpired.
 
 `/public/otp-verify` exists to check a code without logging in.

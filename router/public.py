@@ -58,9 +58,9 @@ async def func_api_public_otp_send_email(*, request: Request):
 @router.post("/public/otp-send-mobile")
 async def func_api_public_otp_send_mobile(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_mobile_services, "default": None}, {"name": "mobile", "type": "str", "required": True, "allowed": None, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_mobile_services, "default": None}, {"name": "mobile", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "sender", "type": "str", "required": False, "allowed": None, "default": None}])
     otp = await app_state.func_otp_generate(client_postgres=app_state.client_postgres, mobile=oq["mobile"], email=None, config_otp_length=app_state.config_otp_length)
-    res = await app_state.func_otp_send_mobile(app_state=app_state, service=oq["service"], mobile=oq["mobile"], otp=otp)
+    res = await app_state.func_otp_send_mobile(app_state=app_state, service=oq["service"], mobile=oq["mobile"], otp=otp, sender=oq.get("sender"))
     return {"status": 1, "message": res}
 
 @router.post("/public/otp-send-mobile-sns-template")
