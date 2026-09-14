@@ -202,5 +202,5 @@ router/public.py  ──>  func_otp_generate()
 
 📚 **Related Documentation:**
 * [auth.md](auth.md) — Authentication flows & JWT token lifecycle
-* [comms.md](comms.md) — Email sending documentation
+* [email.md](email.md) — Email sending documentation
 * [config.md](config.md) — Complete configuration variable reference

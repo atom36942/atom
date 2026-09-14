@@ -226,7 +226,7 @@ atom/
 - [queue.md](docs/queue.md) — Asynchronous job queues (Redis, RabbitMQ, Kafka, Celery).
 - [messaging.md](docs/messaging.md) — Direct messaging & notifications system.
 - [blob.md](docs/blob.md) — AWS S3 & Azure Blob storage integration.
-- [comms.md](docs/comms.md) — Transactional email (SES/Resend/Azure).
+- [email.md](docs/email.md) — Transactional email (SES/Resend/Azure).
 - [sms.md](docs/sms.md) — Mobile OTP & SMS (Azure/SNS/Fast2SMS).
 - [admin.md](docs/admin.md) — Admin toolkit, data imports, and schema utilities.
 - [root_user.md](docs/root_user.md) — Root superadmin user architecture, seeding, and protections.

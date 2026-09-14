@@ -46,7 +46,7 @@ API routes are partitioned into access tiers based on security requirements:
 - `auth`: Signup, login, password reset, OTP, and OAuth endpoints (**[auth.md](auth.md)**).
 - `my`: Authenticated user operations, profile settings, user object CRUD, and messaging (**[object_read.md](object_read.md)**, **[messaging.md](messaging.md)**).
 - `public`: Unauthenticated public data reads and public forms (**[object_read.md](object_read.md)**).
-- `private`: Server-side actions like internal emails and signed storage URLs (**[blob.md](blob.md)**, **[comms.md](comms.md)**).
+- `private`: Server-side actions like internal emails and signed storage URLs (**[blob.md](blob.md)**, **[email.md](email.md)**).
 - `admin`: High-privilege administrative utilities, query runners, data imports, and schema inspection (**[admin.md](admin.md)**).
 
 See **[router.md](router.md)** for endpoint design conventions.
@@ -121,7 +121,7 @@ For complex background processing and external service integrations, Atom provid
 
 - **Asynchronous Task Queues**: Pluggable background queue architectures powered by Redis, RabbitMQ, Kafka, or Celery. See **[queue.md](queue.md)** and **[workers.md](workers.md)**.
 - **Cloud Storage Integration**: Unified file upload, download preview, and SAS token generation for AWS S3 and Azure Blob Storage. Read **[blob.md](blob.md)**.
-- **Communications Engine**: Transmit transactional emails (AWS SES, Resend, Azure) and SMS (Azure, AWS SNS, Fast2SMS). Read **[comms.md](comms.md)** and **[sms.md](sms.md)**.
+- **Communications Engine**: Transmit transactional emails (AWS SES, Resend, Azure) and SMS (Azure, AWS SNS, Fast2SMS). Read **[email.md](email.md)** and **[sms.md](sms.md)**.
 - **Direct Messaging System**: Built-in user-to-user messaging and notification pipelines. Read **[messaging.md](messaging.md)**.
 
 ---
@@ -155,7 +155,7 @@ Atom is designed to remain secure in production and easy to update downstream:
 | **Queue System** | **[queue.md](queue.md)** | Background job queues (Redis, RabbitMQ, Kafka, Celery) |
 | **Workers** | **[workers.md](workers.md)** | Consumer execution scripts in `script/` |
 | **Cloud Storage** | **[blob.md](blob.md)** | AWS S3 and Azure Blob storage integration |
-| **Email** | **[comms.md](comms.md)** | Transactional email (SES/Resend/Azure) |
+| **Email** | **[email.md](email.md)** | Transactional email (SES/Resend/Azure) |
 | **SMS & Mobile OTP** | **[sms.md](sms.md)** | Mobile OTP delivery (Azure/SNS/Fast2SMS) |
 | **Messaging** | **[messaging.md](messaging.md)** | User-to-user direct chat & notification queues |
 | **Admin Toolkit** | **[admin.md](admin.md)** | Administrative ops, schema inspector & data import |
