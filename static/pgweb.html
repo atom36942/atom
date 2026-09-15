@@ -322,10 +322,12 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 #dbcat-title{font-weight:700}.dbcat-sp{flex:1}#dbcat-count{color:var(--dim);white-space:nowrap}
 #dbcat-search{width:190px;height:32px;padding:4px 6px 4px 9px}#dbcat-download{width:32px;height:32px;padding:0}
 #dbcat-wrap{flex:1;min-height:0;overflow:auto}
-#dbcat-table{border-collapse:collapse;width:max-content;min-width:100%;font-size:12px}
-#dbcat-table th,#dbcat-table td{height:30px;padding:5px 9px;border-right:1px solid var(--th-line);border-bottom:1px solid var(--row-line);text-align:left;white-space:nowrap;max-width:440px;overflow:hidden;text-overflow:ellipsis}
-#dbcat-table th{height:40px;color:var(--th-fg);font-weight:700;background:var(--bg);position:sticky;top:0;z-index:2}
+#dbcat-table{border-collapse:separate;border-spacing:0;table-layout:fixed;width:auto;min-width:0;font-size:12px}
+#dbcat-table th,#dbcat-table td{height:30px;padding:0 9px;border-right:1px solid var(--th-line);border-bottom:1px solid var(--row-line);text-align:left;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dbcat-table th{height:40px;line-height:39px;color:var(--th-fg);font-weight:700;background:var(--bg);position:sticky;top:0;z-index:2}
 #dbcat-table tbody tr:nth-child(odd){background:var(--row-odd)}#dbcat-table tbody tr:hover{background:var(--row-hover)}
+.dbcat-action-cell{padding:0 8px;white-space:nowrap}
+.cat-action-btn{display:inline-flex;align-items:center;justify-content:center;height:22px;padding:0 8px;font-size:11px;font-weight:600;line-height:20px;cursor:pointer;border-radius:3px;vertical-align:middle}
 #toast{position:fixed;right:18px;bottom:18px;z-index:80;padding:7px 12px;
   border-radius:4px;background:#2f2d31;color:#fff;box-shadow:0 3px 14px rgba(0,0,0,.25);font-size:12px;
   pointer-events:none;white-space:nowrap}
@@ -1795,20 +1797,80 @@ function drawDatabaseInfo(m){
     }
   }
 }
+const RUNNABLE_CATALOG_KINDS=new Set(['views','materialized_views','tables','extension_relations']);
+function runCatalogObject(schema, name){
+  if(!name) return;
+  const quoteIdent = s => `"${String(s).replaceAll('"', '""')}"`;
+  const tableSql = schema ? `${quoteIdent(schema)}.${quoteIdent(name)}` : quoteIdent(name);
+  const sql = `SELECT * FROM ${tableSql} LIMIT 100;`;
+  openRunner();
+  $('sql').value = sql;
+  updateSqlHighlight();
+  drawResetSql();
+  runQuery(false);
+}
 const catalogLabel=key=>key.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase());
+function sizeDatabaseCatalog(table, columns, rows, isRunnable){
+  const widths = [];
+  const maxIndexLen = String(Math.max((rows||[]).length, 9)).length;
+  widths.push(Math.max(44, Math.ceil(maxIndexLen * 7.25) + 24));
+  if(isRunnable) widths.push(64);
+  const sample = (rows || []).slice(0, 200);
+  for(const key of columns){
+    const label = catalogLabel(key);
+    let maxLen = label.length;
+    for(const r of sample){
+      const val = r[key];
+      if(val != null){
+        const str = typeof val === 'string' ? val : compactCellValue(val);
+        if(str.length > maxLen) maxLen = str.length;
+      }
+    }
+    const name = key.toLowerCase();
+    const max = /definition|query|sql/.test(name) ? 460
+              : /arguments|result|using|check|condition/.test(name) ? 320
+              : /description/.test(name) ? 360
+              : /name/.test(name) ? 300
+              : /default|predicate|references/.test(name) ? 260
+              : 220;
+    const min = /estimated_rows|total_size|size|owner|type|schema|language|enabled|unique|primary/.test(name) ? 60 : 54;
+    widths.push(Math.max(min, Math.min(max, Math.ceil(maxLen * 7.25) + 24)));
+  }
+  table.querySelector('colgroup')?.remove();
+  const colgroup = document.createElement('colgroup');
+  for(const width of widths){
+    const col = document.createElement('col');
+    col.style.width = width + 'px';
+    colgroup.appendChild(col);
+  }
+  table.insertBefore(colgroup, table.tHead);
+  const totalWidth = widths.reduce((a, b) => a + b, 0);
+  table.style.width = totalWidth + 'px';
+  table.style.minWidth = '0';
+}
 function drawDatabaseCatalog(){
   const data=S.dbCatalog[S.dbCatalogKind]||{columns:[],rows:[]};
   const term=$('dbcat-search').value.trim().toLowerCase();
   const rows=data.rows.filter(row=>!term||data.columns.some(key=>String(row[key]??'').toLowerCase().includes(term)));
   const thead=$('dbcat-table').tHead, tbody=$('dbcat-table').tBodies[0]; thead.textContent=''; tbody.textContent='';
+  const isRunnable=RUNNABLE_CATALOG_KINDS.has(S.dbCatalogKind);
   const hr=document.createElement('tr');
-  for(const label of ['#',...data.columns.map(catalogLabel)]){ const th=document.createElement('th'); th.textContent=label; hr.appendChild(th); }
+  const thNum=document.createElement('th'); thNum.textContent='#'; hr.appendChild(thNum);
+  if(isRunnable){ const thAct=document.createElement('th'); thAct.textContent='Action'; hr.appendChild(thAct); }
+  for(const label of data.columns.map(catalogLabel)){ const th=document.createElement('th'); th.textContent=label; hr.appendChild(th); }
   thead.appendChild(hr);
   if(!rows.length){
-    const tr=document.createElement('tr'),td=document.createElement('td'); td.colSpan=Math.max(1,data.columns.length+1);
+    const tr=document.createElement('tr'),td=document.createElement('td'); td.colSpan=Math.max(1,data.columns.length+(isRunnable?2:1));
     td.textContent=term?'No matching objects':'No objects'; td.style.textAlign='center'; td.style.color='var(--dim)'; tr.appendChild(td); tbody.appendChild(tr);
   }else rows.forEach((row,index)=>{
     const tr=document.createElement('tr'), number=document.createElement('td'); number.textContent=String(index+1); tr.appendChild(number);
+    if(isRunnable){
+      const actTd=document.createElement('td'); actTd.className='dbcat-action-cell';
+      const runBtn=document.createElement('button'); runBtn.type='button'; runBtn.className='primary cat-action-btn'; runBtn.textContent='Run';
+      runBtn.title=`Run query for ${row.name || 'object'} in Query Runner`;
+      runBtn.onclick=e=>{ e.stopPropagation(); runCatalogObject(row.schema, row.name); };
+      actTd.appendChild(runBtn); tr.appendChild(actTd);
+    }
     for(const key of data.columns){
       const td=document.createElement('td'), value=row[key]; td.textContent=compactCellValue(value);
       if(value==null) td.className='null';
@@ -1816,6 +1878,7 @@ function drawDatabaseCatalog(){
     }
     tbody.appendChild(tr);
   });
+  sizeDatabaseCatalog($('dbcat-table'), data.columns, data.rows || [], isRunnable);
   $('dbcat-count').textContent=term?`${rows.length} of ${data.rows.length}`:`${data.rows.length} objects`;
   $('dbcat-download').disabled=!rows.length;
 }
@@ -1824,9 +1887,10 @@ async function openDatabaseCatalog(kind,title){
   $('dbcat-search').value=''; $('dbinfo-summary').hidden=true; $('dbinfo-catalog').hidden=false;
   if(S.dbCatalog[kind]){ drawDatabaseCatalog(); return; }
   $('dbcat-count').textContent='Loading…'; $('dbcat-download').disabled=true;
+  $('dbcat-table').querySelector('colgroup')?.remove(); $('dbcat-table').style.width=''; $('dbcat-table').style.minWidth='';
   $('dbcat-table').tHead.textContent=''; $('dbcat-table').tBodies[0].innerHTML='<tr><td>Loading…</td></tr>';
   try{ S.dbCatalog[kind]=await api({action:'catalog',kind}); drawDatabaseCatalog(); }
-  catch(e){ $('dbcat-count').textContent=''; $('dbcat-table').tBodies[0].innerHTML='<tr><td></td></tr>'; $('dbcat-table').tBodies[0].rows[0].cells[0].textContent='Error: '+e.message; }
+  catch(e){ $('dbcat-count').textContent=''; $('dbcat-table').querySelector('colgroup')?.remove(); $('dbcat-table').style.width=''; $('dbcat-table').style.minWidth=''; $('dbcat-table').tBodies[0].innerHTML='<tr><td></td></tr>'; $('dbcat-table').tBodies[0].rows[0].cells[0].textContent='Error: '+e.message; }
 }
 $('dbcat-back').onclick=()=>{ $('dbinfo-catalog').hidden=true; $('dbinfo-summary').hidden=false; };
 $('dbcat-search').oninput=drawDatabaseCatalog;
