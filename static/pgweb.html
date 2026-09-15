@@ -826,7 +826,6 @@ async function connectFromHome(rawDsn){
 }
 function renderHome(){
   const items = getSavedDsns();
-  const cntEl = $('home-saved-cnt');
   const savedSec = $('login-saved');
   const listEl = $('home-saved-list');
   
@@ -835,7 +834,6 @@ function renderHome(){
     return;
   }
   if(savedSec) savedSec.hidden = false;
-  if(cntEl) cntEl.textContent = `(${items.length})`;
   if(listEl){
     listEl.textContent = '';
     items.forEach(item => {
