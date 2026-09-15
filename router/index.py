@@ -62,4 +62,15 @@ async def func_api_pgweb(*, request: Request):
             "Content-Disposition": 'attachment; filename="query-result-all.csv"',
             "Cache-Control": "no-store",
         })
-    return {"status": 1, "message": await app_state.func_pgweb(app_state=app_state, **ob)}
+    try:
+        result = await app_state.func_pgweb(app_state=app_state, **ob)
+        return responses.Response(
+            content=app_state.func_pgweb_orjson_dumps({"status": 1, "message": result}),
+            media_type="application/json"
+        )
+    except Exception as exc:
+        return responses.Response(
+            content=app_state.func_pgweb_orjson_dumps({"status": 0, "message": str(exc)}),
+            status_code=400,
+            media_type="application/json"
+        )

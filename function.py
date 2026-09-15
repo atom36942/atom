@@ -2578,9 +2578,24 @@ def func_pgweb_jsonable(value):
         except (TypeError, ValueError): pass
     return str(value)
 
+def func_pgweb_orjson_default(obj):
+    if isinstance(obj, (bytes, bytearray, memoryview)):
+        return "\\x" + bytes(obj).hex()
+    if hasattr(obj, "isoformat"):
+        try: return obj.isoformat()
+        except Exception: pass
+    return str(obj)
+
+def func_pgweb_orjson_dumps(payload: dict) -> bytes:
+    """Fast C/Rust JSON serialization with automatic fallback for PostgreSQL data types."""
+    import orjson
+    return orjson.dumps(payload, default=func_pgweb_orjson_default)
+
 def func_pgweb_pack(records) -> dict:
-    """Pack asyncpg records for the browser grid."""
-    return {"cols": [str(k) for k in records[0].keys()] if records else [], "rows": [[func_pgweb_jsonable(v) for v in r.values()] for r in records]}
+    """Pack asyncpg records for the browser grid with zero-copy row packing."""
+    if not records: return {"cols": [], "rows": []}
+    cols = [str(k) for k in records[0].keys()]
+    return {"cols": cols, "rows": [list(r.values()) for r in records]}
 
 def func_pgweb_dsn_safe(dsn: str) -> str:
     """Return connection context without exposing the password."""

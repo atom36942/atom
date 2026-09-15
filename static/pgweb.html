@@ -70,7 +70,8 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
   display:flex;justify-content:flex-start;align-items:center;padding:0 12px;min-width:0;
   border-bottom:1px solid rgba(0,0,0,.15)}
 #dbline::after{content:"";position:absolute;top:0;right:-1px;bottom:0;width:1px;background:rgba(255,255,255,.12)}
-#productname{font-size:15px;font-weight:700;letter-spacing:-.15px;line-height:18px}
+#productname{font-size:15px;font-weight:700;letter-spacing:-.15px;line-height:18px;cursor:pointer;user-select:none;transition:opacity .15s}
+#productname:hover{opacity:.85}
 
 #side .search{height:40px;padding:0 12px;position:relative;background:var(--bg);border-bottom:1px solid var(--line)}
 #side .search:focus-within{background:var(--hl)}
@@ -95,7 +96,7 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 .obj.on .ct{color:var(--side-on-fg)}
 
 #main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
-#tabs{height:var(--bar-h);flex:none;display:flex;align-items:stretch;background:var(--nav);overflow:hidden;position:relative;z-index:10}
+#tabs{height:var(--bar-h);flex:none;display:flex;align-items:stretch;background:var(--nav);overflow:hidden;position:relative;z-index:10;padding-right:12px}
 #tablist{display:flex;align-items:stretch;flex:1;min-width:0;overflow:hidden}
 .tab{padding:0 14px;line-height:var(--bar-h);font-size:13px;font-weight:500;color:var(--nav-fg);
   cursor:pointer;margin:0;flex:none;white-space:nowrap;border:0}
@@ -120,12 +121,18 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 #optionswrap{align-self:stretch;display:flex;align-items:center;gap:2px;flex:none;margin:0 6px 0 12px;
   padding-left:8px;border-left:1px solid rgba(255,255,255,.18);background:var(--nav);position:relative;z-index:2}
 #optionswrap[hidden]{display:none}
-#tabs > #optionswrap > .headicon{width:30px;height:30px;padding:0;margin:0;border:0;border-radius:3px;
-  font-size:16px;line-height:28px;text-align:center}
-#tabs > #optionswrap > .headicon.on{background:rgba(255,255,255,.2);color:#fff}
-#tabs > #optionswrap > .headicon svg{display:block;width:17px;height:17px;margin:auto;fill:none;
+#tabs .headicon{width:30px;height:30px;padding:0;margin:0 2px;border:0;border-radius:3px;
+  font-size:16px;line-height:28px;text-align:center;align-self:center;background:transparent;color:#fff}
+#tabs .headicon:hover:not(:disabled){background:rgba(255,255,255,.2);color:#fff;border-color:transparent}
+#tabs .headicon.on{background:rgba(255,255,255,.2);color:#fff}
+#tabs .headicon svg{display:block;width:17px;height:17px;margin:auto;fill:none;
   stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-#tabs > #optionswrap > #readonly.off{color:#ffd0cc}
+#tabs #readonly.off{color:#ffd0cc}
+#tabs #theme{margin:0 4px 0 6px;align-self:center}
+#tabs #connbtn{align-self:center;height:26px;line-height:24px;padding:0 12px;margin:0 0 0 10px;
+  font-size:12px;font-weight:500;border-radius:3px;border:1px solid rgba(255,255,255,.5);
+  background:transparent;color:#fff;cursor:pointer;white-space:nowrap;flex:none}
+#tabs #connbtn:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
 @media (max-width:1000px){.tab,#moretab{padding-left:10px;padding-right:10px}#optionswrap{margin-left:8px;padding-left:6px}}
 
 #tools{display:flex;align-items:center;gap:7px;padding:8px 10px;border-top:1px solid var(--line);
@@ -328,16 +335,72 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 #dbcat-table tbody tr:nth-child(odd){background:var(--row-odd)}#dbcat-table tbody tr:hover{background:var(--row-hover)}
 .dbcat-action-cell{padding:0 8px;white-space:nowrap}
 .cat-action-btn{display:inline-flex;align-items:center;justify-content:center;height:22px;padding:0 8px;font-size:11px;font-weight:600;line-height:20px;cursor:pointer;border-radius:3px;vertical-align:middle}
-#toast{position:fixed;right:18px;bottom:18px;z-index:80;padding:7px 12px;
-  border-radius:4px;background:#2f2d31;color:#fff;box-shadow:0 3px 14px rgba(0,0,0,.25);font-size:12px;
+#toast{position:fixed;right:24px;bottom:24px;z-index:9999;padding:9px 16px;
+  border-radius:4px;background:#1e1e24;color:#fff;border:1px solid rgba(255,255,255,.15);
+  box-shadow:0 4px 18px rgba(0,0,0,.35);font-size:13px;font-weight:500;
   pointer-events:none;white-space:nowrap}
 #toast[hidden]{display:none}
+
+#side[hidden]{display:none!important}
+#brandname{font-size:15px;font-weight:700;color:#fff;padding:0 16px;line-height:var(--bar-h);user-select:none;flex:none}
+#brandname[hidden]{display:none}
+
+/* ---------- simple centered login form (SSOT CTA) ---------- */
+#v-home{display:none;flex-direction:column;align-items:center;justify-content:flex-start;background:var(--bg);padding:44px 24px 32px;overflow-y:auto;box-sizing:border-box}
+#v-home.on{display:flex}
+.login-box{width:100%;max-width:490px;margin:0 auto;background:var(--side);border:1px solid var(--line);border-radius:8px;
+  padding:26px 28px;box-shadow:0 4px 20px rgba(0,0,0,.04);box-sizing:border-box}
+.login-header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.login-logo{width:36px;height:36px;margin:0;border-radius:8px;
+  background:linear-gradient(135deg,rgba(121,88,159,.18),rgba(121,88,159,.04));
+  border:1px solid rgba(121,88,159,.25);display:flex;align-items:center;justify-content:center;color:var(--nav);flex:none}
+:root[data-theme=dark] .login-logo{background:linear-gradient(135deg,rgba(121,88,159,.35),rgba(121,88,159,.1));color:#c792ea}
+.login-logo svg{width:20px;height:20px}
+.login-header h2{margin:0;font-size:17px;font-weight:700;color:var(--fg);letter-spacing:-.2px}
+.login-field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.login-field label{font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.4px}
+#home-dsn{display:block;width:100%;min-height:50px;padding:8px 10px;resize:none;font-size:12.5px;
+  line-height:1.5;font-family:Menlo,Monaco,Consolas,"Courier New",monospace;
+  border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg);box-sizing:border-box}
+.login-options{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-size:12px}
+.login-checkbox{display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--fg);user-select:none}
+.login-checkbox input{margin:0;cursor:pointer}
+.login-err{color:var(--err);font-size:12px;margin-bottom:12px;font-weight:500;line-height:1.4;word-break:break-word}
+.login-err[hidden]{display:none}
+.login-btn{display:block;width:100%;height:38px;font-size:13px;font-weight:600;background:var(--green);
+  color:#fff;border:1px solid var(--green);border-radius:4px;cursor:pointer;transition:background .15s}
+.login-btn:hover:not(:disabled){background:var(--green-h);border-color:var(--green-h)}
+:root[data-theme=dark] .login-btn{color:#141419}
+.login-saved{margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
+.login-saved-head{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:700;
+  color:var(--dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+.login-saved-list{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;padding-right:4px;
+  overscroll-behavior:contain}
+.login-saved-list::-webkit-scrollbar{width:6px}
+.login-saved-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+.login-saved-list::-webkit-scrollbar-thumb:hover{background:var(--dim)}
+.saved-conn-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;
+  border:1px solid var(--line);border-radius:4px;background:var(--bg);cursor:pointer;transition:all .12s}
+.saved-conn-row:hover{border-color:#888;background:var(--hl)}
+.saved-conn-meta{flex:1;min-width:0}
+.saved-conn-name{font-size:12px;font-weight:600;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.saved-conn-url{font-size:11px;color:var(--dim);font-family:Menlo,Monaco,Consolas,"Courier New",monospace;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+.saved-conn-actions{display:flex;align-items:center;gap:4px;flex:none}
+.saved-conn-btn{color:var(--dim);border:1px solid transparent;background:transparent;padding:3px;cursor:pointer;
+  border-radius:3px;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;transition:all .12s}
+.saved-conn-btn svg{display:block;width:14px;height:14px;margin:auto;fill:none;
+  stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.saved-conn-btn.connect{color:var(--green)}
+.saved-conn-btn.connect:hover{color:var(--green-h);background:var(--apply-bg);border-color:var(--apply-border)}
+.saved-conn-btn.delete{color:var(--dim)}
+.saved-conn-btn.delete:hover{color:var(--err);background:var(--cancel-bg);border-color:var(--cancel-border)}
 </style>
 </head>
 <body>
 
 <div id="app">
-  <aside id="side">
+  <aside id="side" hidden>
     <div id="dbline">
       <span id="productname">pgweb</span>
     </div>
@@ -351,6 +414,7 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 
   <main id="main">
     <div id="tabs">
+      <span id="brandname">pgweb</span>
       <div id="tablist" role="tablist" aria-label="Table views">
       <div class="tab" data-v="query" hidden>Query Runner</div>
       <div class="tab" data-v="info" hidden>Database info</div>
@@ -373,12 +437,52 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
         <button class="headicon" id="dbinfo" title="Database info" aria-label="Database info"></button>
         <button class="headicon on" id="readonly" title="Read only: On" aria-label="Read only: On"></button>
         <button class="headicon" id="reload" title="Refresh schema" aria-label="Refresh schema"></button>
-        <button class="headicon" id="theme" title="Use dark theme" aria-label="Use dark theme"></button>
       </div>
-      <button id="connbtn">Connect</button>
+      <button class="headicon" id="theme" title="Use dark theme" aria-label="Use dark theme"></button>
+      <button id="connbtn" hidden>Connect</button>
     </div>
 
-    <div id="pane" hidden>
+    <div id="pane">
+      <div class="view on" id="v-home">
+        <div class="login-box">
+          <div class="login-header">
+            <div class="login-logo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+              </svg>
+            </div>
+            <h2>Connect to PostgreSQL</h2>
+          </div>
+
+          <form id="login-form" onsubmit="return false;">
+            <div class="login-field">
+              <label for="home-dsn">Database URL (DSN)</label>
+              <textarea id="home-dsn" rows="2" wrap="soft" placeholder="postgresql://user:password@host:port/dbname" autocomplete="off" spellcheck="false"></textarea>
+            </div>
+
+            <div class="login-options">
+              <label class="login-checkbox">
+                <input type="checkbox" id="home-readonly"/>
+                <span>Read-only mode</span>
+              </label>
+            </div>
+
+            <div id="home-conn-err" class="login-err" hidden></div>
+
+            <button type="submit" id="home-connect-btn" class="login-btn">Connect</button>
+          </form>
+
+          <div class="login-saved" id="login-saved" hidden>
+            <div class="login-saved-head">
+              <span>Saved Connections</span>
+              <span id="home-saved-cnt"></span>
+            </div>
+            <div class="login-saved-list" id="home-saved-list"></div>
+          </div>
+        </div>
+      </div>
       <div class="view" id="v-info">
         <div id="dbinfo-summary"><table id="dbinfo-table"><tbody></tbody></table></div>
         <div id="dbinfo-catalog" hidden>
@@ -424,7 +528,7 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
       <div class="view" id="v-privileges"><div class="detail-tools"><input class="detail-search" data-grid="g-privileges" data-one="grant" data-many="grants" type="search" placeholder="Search privileges"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-privileges"><thead><tr><th>#</th><th>Grantee</th><th>Privileges</th><th>Grantor</th><th>Grantable</th></tr></thead><tbody></tbody></table></div></div>
       <div class="view" id="v-partitions"><div class="detail-tools"><input class="detail-search" data-grid="g-partitions" data-one="partition" data-many="partitions" type="search" placeholder="Search partitions"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-partitions"><thead><tr><th>#</th><th>Schema</th><th>Partition</th><th>Bound</th><th>Estimated rows</th><th>Size</th><th>Tablespace</th></tr></thead><tbody></tbody></table></div></div>
       <div class="view" id="v-dependencies"><div class="detail-tools"><input class="detail-search" data-grid="g-dependencies" data-one="dependency" data-many="dependencies" type="search" placeholder="Search dependencies"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-dependencies"><thead><tr><th>#</th><th>Type</th><th>Name</th><th>Relationship</th></tr></thead><tbody></tbody></table></div></div>
-      <div class="view on" id="v-query">
+      <div class="view" id="v-query">
         <div id="sqlwrap">
           <pre id="sqlhl" aria-hidden="true"></pre>
           <textarea id="sql" wrap="off" spellcheck="false" placeholder="select * from test limit 10;" title="Toggle line comments: ⌘+Enter / Ctrl+Enter" aria-keyshortcuts="Meta+Enter Control+Enter"></textarea>
@@ -479,6 +583,7 @@ const DEFAULT_DSN = 'postgresql://postgres:postgres@localhost:5432/postgres';
 const MAXH = 16000000;
 const $ = s => document.getElementById(s);
 const icon = name => ({
+  database:'<svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
   terminal:'<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>',
   info:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></svg>',
   lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/></svg>',
@@ -493,6 +598,7 @@ const icon = name => ({
   chevronRight:'<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>',
   download:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg>'
 })[name];
+const sqlEscape=value=>String(value??'').replace(/[&<>]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
 const vp=$('vp'), inner=$('inner'), headEl=$('head'), canvas=$('canvas'), rowsEl=$('rows');
 $('queryrunner').innerHTML=icon('terminal'); $('dbinfo').innerHTML=icon('info'); $('reload').innerHTML=icon('refresh');
 $('rowrefresh').innerHTML=icon('refresh');
@@ -526,7 +632,7 @@ let toastTimer;
 
 function toast(message){
   clearTimeout(toastTimer); $('toast').textContent=message; $('toast').hidden=false;
-  toastTimer=setTimeout(()=>$('toast').hidden=true, 2200);
+  toastTimer=setTimeout(()=>$('toast').hidden=true, 3500);
 }
 
 // Native dialogs close on Escape but not on backdrop clicks by default.
@@ -590,6 +696,7 @@ $('readonly').onclick = () => {
     e.preventDefault(); S.readOnly=next;
     localStorage.setItem('pgweb.readOnly', S.readOnly ? '1' : '0');
     drawReadOnly(); $('dlg').close();
+    if($('home-readonly')) $('home-readonly').checked = S.readOnly;
     toast(S.readOnly ? 'Read-only mode enabled' : 'Writes enabled');
   };
 };
@@ -599,10 +706,13 @@ drawReadOnly();
 // the shell is always on screen; connection state only decides what's in it
 function setConnected(on){
   S.connected = on;
-  $('connbtn').textContent = on ? 'Disconnect' : 'Connect';
-  $('connbtn').title = on ? 'Disconnect from this database' : 'Connect to a database';
+  $('side').hidden = !on;
+  $('brandname').hidden = on;
+  $('connbtn').hidden = !on;
+  $('connbtn').textContent = 'Disconnect';
+  $('connbtn').title = 'Disconnect from this database';
   $('optionswrap').hidden = !on;
-  $('pane').hidden = !on;
+  $('pane').hidden = false;
   $('status').hidden = true;
   $('queryrunner').disabled = !on;
   $('tablesearch').hidden = !on;
@@ -620,7 +730,8 @@ function setConnected(on){
     $('tools').style.display='none';
     for(const t of document.querySelectorAll('.tab')) t.hidden = true;
     $('morewrap').hidden=true; $('moremenu').hidden=true;
-    show('query');
+    show('home');
+    renderHome();
     headEl.textContent=''; rowsEl.textContent=''; canvas.classList.remove('has-rows'); pool=[];
     $('empty').textContent='Not connected'; $('empty').classList.add('on');
     for(const id of ['st-obj','st-rows','st-size','st-time']) $(id).textContent='';
@@ -674,6 +785,118 @@ function getSavedDsns(){
 function setSavedDsns(items){
   localStorage.setItem(SAVED_DSNS_KEY, JSON.stringify(items));
 }
+function saveConnection(dsn){
+  dsn = cleanDsn(dsn);
+  if(!dsn) return;
+  const finalName = parseDsnDb(dsn);
+  const finalNameLower = finalName.toLowerCase();
+  let items = getSavedDsns();
+  items = items.filter(i => String(i.name || '').trim().toLowerCase() !== finalNameLower && String(i.dsn || '').trim() !== dsn);
+  items.unshift({
+    id: 'dsn_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    name: finalName,
+    dsn,
+    updatedAt: Date.now()
+  });
+  setSavedDsns(items);
+  renderHome();
+}
+async function connectFromHome(rawDsn){
+  const dsn = cleanDsn(rawDsn || $('home-dsn')?.value);
+  const errEl = $('home-conn-err');
+  const btn = $('home-connect-btn');
+  if(!dsn){
+    if(errEl){ errEl.textContent = 'Please enter a PostgreSQL URL'; errEl.hidden = false; }
+    return;
+  }
+  if(errEl){ errEl.hidden = true; errEl.textContent = ''; }
+  if(btn){ btn.disabled = true; btn.textContent = 'Connecting…'; }
+  try{
+    const isRo = !!$('home-readonly')?.checked;
+    S.readOnly = isRo;
+    localStorage.setItem('pgweb.readOnly', isRo ? '1' : '0');
+    drawReadOnly();
+    await doConnect(dsn);
+    saveConnection(dsn);
+    toast('Connected to ' + S.db);
+  }catch(e){
+    if(errEl){ errEl.textContent = e.message; errEl.hidden = false; }
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = 'Connect'; }
+  }
+}
+function renderHome(){
+  const items = getSavedDsns();
+  const cntEl = $('home-saved-cnt');
+  const savedSec = $('login-saved');
+  const listEl = $('home-saved-list');
+  
+  if(!items.length){
+    if(savedSec) savedSec.hidden = true;
+    return;
+  }
+  if(savedSec) savedSec.hidden = false;
+  if(cntEl) cntEl.textContent = `(${items.length})`;
+  if(listEl){
+    listEl.textContent = '';
+    items.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'saved-conn-row';
+      row.title = 'Click to use this connection';
+      
+      const meta = document.createElement('div');
+      meta.className = 'saved-conn-meta';
+      
+      const name = document.createElement('div');
+      name.className = 'saved-conn-name';
+      name.textContent = item.name || 'PostgreSQL';
+      
+      const url = document.createElement('div');
+      url.className = 'saved-conn-url';
+      url.textContent = maskDsn(item.dsn);
+      meta.append(name, url);
+      
+      meta.onclick = () => {
+        $('home-dsn').value = item.dsn;
+        $('home-dsn').focus();
+        $('home-dsn').select();
+      };
+
+      const actions = document.createElement('div');
+      actions.className = 'saved-conn-actions';
+
+      const connBtn = document.createElement('button');
+      connBtn.type = 'button';
+      connBtn.className = 'saved-conn-btn connect';
+      connBtn.title = 'Connect to this database';
+      connBtn.setAttribute('aria-label', 'Connect');
+      connBtn.innerHTML = icon('plug');
+      connBtn.onclick = (e) => {
+        e.stopPropagation();
+        $('home-dsn').value = item.dsn;
+        connectFromHome(item.dsn);
+      };
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'saved-conn-btn delete';
+      delBtn.title = 'Remove saved connection';
+      delBtn.setAttribute('aria-label', 'Remove');
+      delBtn.innerHTML = icon('trash');
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        const updated = getSavedDsns().filter(i => (i.id ? i.id !== item.id : i.dsn !== item.dsn));
+        setSavedDsns(updated);
+        renderHome();
+        toast('Connection removed');
+      };
+
+      actions.append(connBtn, delBtn);
+      row.append(meta, actions);
+      listEl.appendChild(row);
+    });
+  }
+}
 function cleanDsn(raw){
   if(!raw) return '';
   let str = String(raw).trim();
@@ -725,28 +948,11 @@ function askConnect(){
   const dsnInp = $('dsn2');
   const connBtn = $('dconn');
   const fit = () => { dsnInp.style.height='auto'; dsnInp.style.height=Math.min(dsnInp.scrollHeight+2,140)+'px'; };
-  dsnInp.value = DEFAULT_DSN; fit();
+  dsnInp.value = ''; fit();
   dsnInp.oninput = fit;
 
-  const saveConnection = (dsn) => {
-    dsn = cleanDsn(dsn);
-    if(!dsn) return;
-    const finalName = parseDsnDb(dsn);
-    const finalNameLower = finalName.toLowerCase();
-    let items = getSavedDsns();
-
-    // Remove any existing entries that share either the same name (case-insensitive) or same DSN to guarantee strict uniqueness
-    items = items.filter(i => String(i.name || '').trim().toLowerCase() !== finalNameLower && String(i.dsn || '').trim() !== dsn);
-
-    // Insert updated/new connection at the top
-    items.unshift({
-      id: 'dsn_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-      name: finalName,
-      dsn,
-      updatedAt: Date.now()
-    });
-
-    setSavedDsns(items);
+  const saveConnModal = (dsn) => {
+    saveConnection(dsn);
     renderSavedList();
   };
 
@@ -809,6 +1015,7 @@ function askConnect(){
         const updated = getSavedDsns().filter(i => (i.id ? i.id !== item.id : i.dsn !== item.dsn));
         setSavedDsns(updated);
         renderSavedList();
+        renderHome();
         toast('URL removed');
       };
 
@@ -910,7 +1117,6 @@ $('qclr').onclick = () => { $('q').value=''; searchTables(); $('q').focus(); };
 const SQL_KEYWORDS=new Set(('ALL ANALYSE ANALYZE AND ANY ARRAY AS ASC ASYMMETRIC AUTHORIZATION BEGIN BINARY BOTH BY CASE CASCADE CAST CHECK COLLATE COLLATION COLUMN COMMIT CONCURRENTLY CONFLICT CONSTRAINT CREATE CROSS CURRENT_CATALOG CURRENT_DATE CURRENT_ROLE CURRENT_SCHEMA CURRENT_TIME CURRENT_TIMESTAMP CURRENT_USER DATABASE DECLARE DEFAULT DEFERRABLE DELETE DESC DISTINCT DO DROP ELSE ELSIF END EXCEPT EXISTS EXPLAIN FALSE FETCH FOR FOREIGN FREEZE FROM FULL FUNCTION GRANT GROUP HAVING IF ILIKE IN INDEX INITIALLY INNER INSERT INTERSECT INTO IS ISNULL JOIN LANGUAGE LATERAL LEADING LEFT LIKE LIMIT LOCALTIME LOCALTIMESTAMP LOOP MATERIALIZED NATURAL NOT NOTHING NOTNULL NULL NULLS OFFSET ON ONLY OR ORDER OUTER OVER OVERLAPS PARTITION PLACING POLICY PRIMARY PROCEDURE RAISE RECURSIVE REFERENCES REPLACE RESTRICT RETURNS RETURNING RIGHT ROLLBACK SCHEMA SELECT SESSION_USER SET SIMILAR SOME SYMMETRIC TABLE TABLESAMPLE THEN TO TRAILING TRANSACTION TRIGGER TRUE UNION UNIQUE UPDATE USER USING VALUES VARIADIC VERBOSE VIEW WHEN WHERE WINDOW WITH').split(' '));
 const SQL_TYPES=new Set(('BIGINT BIGSERIAL BIT BOOL BOOLEAN BOX BYTEA CHAR CHARACTER CIDR CIRCLE DATE DEC DECIMAL DOUBLE ENUM FLOAT FLOAT4 FLOAT8 INET INT INT2 INT4 INT8 INTEGER INTERVAL JSON JSONB LINE LSEG MACADDR MONEY NUMERIC PATH POINT POLYGON REAL SERIAL SERIAL2 SERIAL4 SERIAL8 SMALLINT SMALLSERIAL TEXT TIME TIMESTAMP TIMESTAMPTZ TIMETZ TSQUERY TSVECTOR UUID VARCHAR VARYING XML').split(' '));
 const SQL_FUNCTIONS=new Set(('AVG COUNT MAX MIN SUM ARRAY_AGG JSON_AGG JSONB_AGG STRING_AGG COALESCE NULLIF GREATEST LEAST NOW CURRENT_DATABASE CURRENT_SCHEMA VERSION LOWER UPPER LENGTH SUBSTRING TRIM DATE_TRUNC EXTRACT TO_CHAR TO_DATE TO_TIMESTAMP ROW_NUMBER RANK DENSE_RANK LAG LEAD FIRST_VALUE LAST_VALUE GENERATE_SERIES UNNEST').split(' '));
-const sqlEscape=value=>value.replace(/[&<>]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
 function updateSqlHighlight(){
   const source=$('sql').value;
   const token=/--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)|\$[A-Za-z_][A-Za-z0-9_]*\$[\s\S]*?(?:\$[A-Za-z_][A-Za-z0-9_]*\$|$)|\$\$[\s\S]*?(?:\$\$|$)|(?:[eEnNbBxX])?'(?:''|\\[\s\S]|[^'])*'|"(?:""|[^"])*"|\$\d+|\b(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\b|\b[A-Za-z_][A-Za-z0-9_$]*\b/g;
@@ -957,7 +1163,10 @@ const detailCellValues=new WeakMap();
 const detailRowValues=new WeakMap();
 function compactCellValue(value){
   if(value===null || value===undefined) return 'NULL';
-  if(typeof value==='object'){
+  const t = typeof value;
+  if(t==='string') return value.length > 500 ? value.slice(0, 500) + '…' : value;
+  if(t==='number' || t==='boolean') return String(value);
+  if(t==='object'){
     try{
       const s = JSON.stringify(value);
       return s.length > 300 ? s.slice(0, 300) + '…' : s;
@@ -1116,7 +1325,12 @@ async function loadDetail(part){
 }
 
 /* ---------------- grid ---------------- */
+const widthCache = new Map();
 function measure(){
+  const saved = JSON.parse(localStorage.getItem('pgweb.w.'+S.table)||'null');
+  if(saved && saved.length===S.cols.length){ S.widths = saved; return; }
+  const cacheKey = (S.table||'') + ':' + S.cols.join(',');
+  if(widthCache.has(cacheKey)){ S.widths = widthCache.get(cacheKey).slice(); return; }
   const sample = (S.local || S.chunks.get(0) || []).slice(0, 40);
   S.widths = S.cols.map((c,i) => {
     let n = c.length;
@@ -1130,8 +1344,8 @@ function measure(){
     }
     return Math.max(MINW, Math.min(MAXW, Math.ceil(n*7.25) + 26));   /* 12px mono ≈ 7.22px/char + 18px padding */
   });
-  const saved = JSON.parse(localStorage.getItem('pgweb.w.'+S.table)||'null');
-  if(saved && saved.length===S.cols.length) S.widths = saved;
+  if(widthCache.size > 200) widthCache.clear();
+  widthCache.set(cacheKey, S.widths.slice());
 }
 function geometry(){
   const totalPx = S.total * ROW_H;
@@ -1274,7 +1488,11 @@ addEventListener('mousemove', e=>{
 });
 addEventListener('mouseup', ()=>{
   if(!drag) return;
-  if(S.table) localStorage.setItem('pgweb.w.'+S.table, JSON.stringify(S.widths));
+  if(S.table){
+    localStorage.setItem('pgweb.w.'+S.table, JSON.stringify(S.widths));
+    const cacheKey = (S.table||'') + ':' + S.cols.join(',');
+    widthCache.set(cacheKey, S.widths.slice());
+  }
   drag=null;
 });
 
@@ -1458,6 +1676,32 @@ function exportResult(format){
 }
 for(const b of document.querySelectorAll('#qbar .export')) b.onclick=()=>exportResult(b.dataset.format);
 const streamSize=bytes=>bytes<1024 ? `${bytes} B` : bytes<1048576 ? `${(bytes/1024).toFixed(1)} KB` : `${(bytes/1048576).toFixed(1)} MB`;
+function promptStreamFilename(){
+  return new Promise((resolve)=>{
+    const defaultName=`query-result-${S.db||'export'}.csv`;
+    $('dlg-t').textContent='Stream and save CSV';
+    $('dlg-b').innerHTML=`<div style="display:flex;flex-direction:column;gap:8px">
+      <label for="sfname" style="font-size:12px;color:var(--dim)">Save file as:</label>
+      <input id="sfname" type="text" value="${defaultName}" style="width:100%;height:32px;padding:4px 9px;box-sizing:border-box" autocomplete="off" spellcheck="false"/>
+      <span style="font-size:11px;color:var(--dim)">Stream all rows returned by this query as a CSV download without row limits.</span>
+    </div>`;
+    $('dlg-f').innerHTML='<button value="cancel">Cancel</button><button class="primary" type="button" id="streamgo">Save CSV</button>';
+    $('dlg').showModal();
+    const inp=$('sfname'); inp?.focus(); inp?.select();
+    inp?.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('streamgo').click(); } });
+    let resolved=false;
+    $('streamgo').onclick=()=>{
+      resolved=true;
+      const val=inp?.value.trim()||defaultName;
+      $('dlg').close();
+      resolve(val.endsWith('.csv')?val:`${val}.csv`);
+    };
+    $('dlg').addEventListener('close',function onClose(){
+      $('dlg').removeEventListener('close',onClose);
+      if(!resolved) resolve(null);
+    },{once:true});
+  });
+}
 async function streamQuery(confirmed=false){
   const sql=$('sql').value.trim(); if(!sql) return;
   hideQueryError();
@@ -1471,16 +1715,12 @@ async function streamQuery(confirmed=false){
     $('streamyes').onclick=e=>{ e.preventDefault(); $('dlg').close(); streamQuery(true); };
     return;
   }
-  let writable=null, chunks=[];
-  if('showSaveFilePicker' in window){
-    try{
-      const handle=await window.showSaveFilePicker({suggestedName:'query-result-all.csv',types:[{description:'CSV file',accept:{'text/csv':['.csv']}}]});
-      writable=await handle.createWritable();
-    }catch(err){ if(err.name==='AbortError') return; showQueryError('Stream failed',err.message); return; }
-  }
+  const filename=await promptStreamFilename();
+  if(!filename) return;
+
   $('stream').disabled=true; $('streamprogress').hidden=false; $('streambar').removeAttribute('value');
   $('streammsg').textContent='Starting…';
-  let bytes=0;
+  let bytes=0, chunks=[];
   try{
     const response=await fetch('/pgweb',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({action:'stream',sql,is_confirmed:confirmed?1:0,is_read_only:S.readOnly?1:0})});
@@ -1493,22 +1733,19 @@ async function streamQuery(confirmed=false){
     while(true){
       const {done,value}=await reader.read(); if(done) break;
       bytes+=value.byteLength; $('streammsg').textContent=streamSize(bytes);
-      if(writable) await writable.write(value); else chunks.push(value);
+      chunks.push(value);
     }
-    if(writable) await writable.close();
-    else{
-      const url=URL.createObjectURL(new Blob(chunks,{type:'text/csv;charset=utf-8'}));
-      const a=document.createElement('a'); a.href=url; a.download='query-result-all.csv'; a.click();
-      setTimeout(()=>URL.revokeObjectURL(url),0); chunks=[];
-    }
+    const url=URL.createObjectURL(new Blob(chunks,{type:'text/csv;charset=utf-8'}));
+    const a=document.createElement('a'); a.href=url; a.download=filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000); chunks=[];
     $('streambar').value=1; $('streammsg').textContent=`${streamSize(bytes)} downloaded`;
-    toast('CSV download complete');
+    toast(`Saved ${filename} (${streamSize(bytes)})`);
   }catch(err){
-    if(writable) try{ await writable.abort(); }catch{}
     $('streammsg').textContent='Download failed'; showQueryError('Stream failed',err.message);
   }finally{
     $('stream').disabled=!S.connected;
-    setTimeout(()=>$('streamprogress').hidden=true,1200);
+    setTimeout(()=>$('streamprogress').hidden=true,3500);
   }
 }
 $('stream').onclick=()=>streamQuery(false);
@@ -1920,6 +2157,34 @@ $('dbinfo').onclick = async () => {
 function alertBox(title, msg){
   openCellValue(title,msg,'Error copied');
 }
+
+/* ---------------- homepage listeners ---------------- */
+$('home-connect-btn').onclick = () => connectFromHome($('home-dsn')?.value);
+$('login-form').onsubmit = (e) => {
+  e?.preventDefault();
+  connectFromHome($('home-dsn')?.value);
+};
+$('home-dsn').onkeydown = e => {
+  if(e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault();
+    connectFromHome($('home-dsn')?.value);
+  }
+};
+$('productname').onclick = () => {
+  if(!S.connected){
+    show('home');
+    renderHome();
+  }else{
+    openRunner();
+  }
+};
+$('brandname').onclick = () => {
+  if(!S.connected){
+    show('home');
+    renderHome();
+  }
+};
+$('home-readonly').checked = S.readOnly;
 
 /* the server holds one connection, so a reload just picks it back up */
 (async function boot(){
