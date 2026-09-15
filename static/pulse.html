@@ -318,6 +318,7 @@
     async function loadUsers(force=false){const cached=!force&&storedJson(USER_CACHE_KEY);if(cached){applyUsers(cached);return}const result=await api("/admin/object-read",{query:{table:"users",column:"id,username,name",filter:[`role = ${PULSE_ROLE}`],order:"name asc",limit:1000,page:1}});const users=result.obj_list||[];applyUsers(users);writeStorage(localStorage,USER_CACHE_KEY,users)}
     function applyTags(rows){const selected=$("tagFilter").value;$("tagFilter").innerHTML='<option value="">Any tag</option>';(rows||[]).forEach(row=>{const tag=row.tags??row.item;if(tag!=null&&tag!=="")$("tagFilter").add(new Option(`${tag} (${Number(row.count)||0})`,tag))});$("tagFilter").value=selected}
     async function loadTags(force=false){const cached=!force&&storedJson(TAG_CACHE_KEY);if(cached){applyTags(cached);return}const result=await api("/admin/table-column-groupby",{query:{table:"task",col:"tags",limit:1000,page:1,order:"item asc"}}),rows=result.obj_list||[];applyTags(rows);writeStorage(localStorage,TAG_CACHE_KEY,rows)}
+    async function refreshTaskTagsAfterSave(){try{await loadTags(true)}catch{}}
     function chartLabel(column,value){
       if(value==null)return "Unassigned";if(column==="assigned_to_id")return state.userById.get(String(value))?.username||`User ${value}`;return taskMapping(column)[value]||String(value);
     }
@@ -398,7 +399,32 @@
     function syncDueDatePlaceholder(){$("taskDue").classList.toggle("date-empty",!$("taskDue").value)}
     function taskPayload(){addTaskTag();return{title:$("taskTitle").value.trim(),description:$("taskDescription").value.trim()||null,link_url:$("taskLinkUrl").value.trim()||null,project:$("taskProject").value?Number($("taskProject").value):null,assigned_to_id:$("taskAssignee").value?Number($("taskAssignee").value):null,status:Number($("taskStatus").value||1),due_date:$("taskDue").value||null,tags:[...state.taskTagsDraft]}}
     function changedTaskFields(payload,task){return Object.fromEntries(Object.entries(payload).filter(([key,value])=>Array.isArray(value)?JSON.stringify(value)!==JSON.stringify(task[key]||[]):value!==(task[key]??null)))}
-    async function saveTask(event){event.preventDefault();const payload=taskPayload(),editing=state.editing;if(!payload.title)return;if(payload.title.length>TASK_TITLE_MAX){syncTitleLimit();toast(`Title cannot exceed ${TASK_TITLE_MAX} characters`,true);return}if(payload.tags.length>TASK_TAG_MAX){renderTaskTags();toast(`Maximum ${TASK_TAG_MAX} tags`,true);return}setBusy($("saveTaskBtn"),true,editing?"Save changes":"Create task");try{let createdIds=[];if(editing){const changes=changedTaskFields(payload,editing);if(!Object.keys(changes).length){closeTaskModal();toast("No changes");return}await api("/admin/object-update",{method:"PUT",query:{table:"task"},body:{id:editing.id,...changes}});Object.assign(editing,changes);if(Object.hasOwn(changes,"assigned_to_id")){const assignee=state.userById.get(String(changes.assigned_to_id));editing.users=assignee?{username:assignee.username}:undefined}if(state.commentTask&&String(state.commentTask.id)===String(editing.id)){state.commentTask=editing;renderTaskDetail(editing)}}else{const result=await api("/my/object-create",{method:"POST",query:{table:"task"},body:payload});createdIds=Array.isArray(result)?result:[];if(createdIds[0]!=null){const assignee=state.userById.get(String(payload.assigned_to_id)),now=new Date().toISOString();state.tasks.unshift({id:createdIds[0],...payload,created_at:now,updated_at:now,created_by_id:state.profile?.id,users:assignee?{username:assignee.username}:undefined});state.tasks=state.tasks.slice(0,PAGE_SIZE)}}invalidateTaskAggregateCaches();closeTaskModal();renderTasks();toast(editing?"Task updated":createdIds[0]!=null?`Task #${createdIds[0]} created`:"Task created")}catch(error){toast(error.message,true)}finally{setBusy($("saveTaskBtn"),false,editing?"Save changes":"Create task")}}
+    async function saveTask(event){
+      event.preventDefault();
+      const payload=taskPayload(),editing=state.editing;
+      if(!payload.title)return;
+      if(payload.title.length>TASK_TITLE_MAX){syncTitleLimit();toast(`Title cannot exceed ${TASK_TITLE_MAX} characters`,true);return}
+      if(payload.tags.length>TASK_TAG_MAX){renderTaskTags();toast(`Maximum ${TASK_TAG_MAX} tags`,true);return}
+      setBusy($("saveTaskBtn"),true,editing?"Save changes":"Create task");
+      try{
+        let createdIds=[],shouldRefreshTags=!editing;
+        if(editing){
+          const changes=changedTaskFields(payload,editing);
+          if(!Object.keys(changes).length){closeTaskModal();toast("No changes");return}
+          shouldRefreshTags=Object.hasOwn(changes,"tags");
+          await api("/admin/object-update",{method:"PUT",query:{table:"task"},body:{id:editing.id,...changes}});
+          Object.assign(editing,changes);
+          if(Object.hasOwn(changes,"assigned_to_id")){const assignee=state.userById.get(String(changes.assigned_to_id));editing.users=assignee?{username:assignee.username}:undefined}
+          if(state.commentTask&&String(state.commentTask.id)===String(editing.id)){state.commentTask=editing;renderTaskDetail(editing)}
+        }else{
+          const result=await api("/my/object-create",{method:"POST",query:{table:"task"},body:payload});
+          createdIds=Array.isArray(result)?result:[];
+          if(createdIds[0]!=null){const assignee=state.userById.get(String(payload.assigned_to_id)),now=new Date().toISOString();state.tasks.unshift({id:createdIds[0],...payload,created_at:now,updated_at:now,created_by_id:state.profile?.id,users:assignee?{username:assignee.username}:undefined});state.tasks=state.tasks.slice(0,PAGE_SIZE)}
+        }
+        if(shouldRefreshTags)await refreshTaskTagsAfterSave();
+        invalidateTaskAggregateCaches();closeTaskModal();renderTasks();toast(editing?"Task updated":createdIds[0]!=null?`Task #${createdIds[0]} created`:"Task created")
+      }catch(error){toast(error.message,true)}finally{setBusy($("saveTaskBtn"),false,editing?"Save changes":"Create task")}
+    }
     async function deleteTask(task){
       if(!await confirmAction("Delete task","Are you sure you want to delete this task? This action cannot be undone.","Delete",true,[],`ID: ${task.id}`))return;
       try{const comments=await api("/admin/object-read",{query:{table:"task_comment",filter:[`task_id = ${task.id}`],limit:1000,page:1}});const ids=(comments.obj_list||[]).map(item=>item.id);if(ids.length)await api("/admin/object-delete",{method:"POST",body:{table:"task_comment",ids}});await api("/admin/object-delete",{method:"POST",body:{table:"task",ids:[task.id]}});invalidateTaskAggregateCaches();state.tasks=state.tasks.filter(item=>String(item.id)!==String(task.id));if(state.commentTask&&String(state.commentTask.id)===String(task.id))closeComments();renderTasks();toast("Task deleted")}catch(error){toast(error.message,true)}
