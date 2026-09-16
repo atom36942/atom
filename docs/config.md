@@ -9,7 +9,7 @@ Atom is driven by `config.py` — a single file of plain Python values loaded on
 Config values are resolved in three tiers (later wins):
 
 1. **`config.py`** — Shipped defaults.
-2. **Environment variables / `.env`** — `config_*` names in `.env` automatically override defaults with automatic type casting (booleans, ints, JSON arrays/dicts).
+2. **Environment variables / `.env`** — `config_*` names in `.env` automatically override defaults with automatic type casting (booleans, ints, JSON arrays/dicts). Any custom `CONFIG_*` variables are also dynamically registered to `app.state`. See [env.md](env.md).
 3. **`config_extend.py`** — Drop-in module (git-ignored, survives `sync.py`) for code-level overrides and schema extensions. See [extend.md](extend.md).
 
 > **Rule of Thumb**: Use `.env` for secrets, credentials, and environment flags; use `config_extend.py` for structural changes (tables, custom route policies).
