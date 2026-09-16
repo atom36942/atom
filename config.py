@@ -512,6 +512,23 @@ def func_config_override_from_env(*, global_dict: dict) -> None:
             else: global_dict[k] = int(ev) if ev.lstrip("-").isdigit() else ev
             if isinstance(global_dict[k], list): global_dict[k] = tuple(global_dict[k])
     postgres_url_prefix = "config_postgres_url_"
+    for k, ev in env.items():
+        if k.startswith("config_") and not k.startswith(postgres_url_prefix) and k not in global_dict:
+            val = ev.strip()
+            if val.lower() in ("true", "yes", "on"):
+                global_dict[k] = True
+            elif val.lower() in ("false", "no", "off"):
+                global_dict[k] = False
+            elif val.lstrip("-").isdigit():
+                global_dict[k] = int(val)
+            else:
+                with contextlib.suppress(Exception):
+                    loaded = orjson.loads(val)
+                    global_dict[k] = tuple(loaded) if isinstance(loaded, list) else loaded
+                if k not in global_dict:
+                    global_dict[k] = ev
+            if isinstance(global_dict.get(k), list):
+                global_dict[k] = tuple(global_dict[k])
     for k, v in env.items():
         if k.startswith(postgres_url_prefix) and k not in (postgres_url_prefix, "config_postgres_url_dict"):
             if not isinstance(global_dict["config_postgres_url_dict"], dict):
