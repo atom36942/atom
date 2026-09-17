@@ -113,7 +113,6 @@ config_token_secret_key="your-secret-key-at-least-32-chars"
 config_login_password="your-strong-login-password"
 config_cors_allow_origins=["http://localhost:3000", "https://app.example.com"]
 config_signup_allowed_roles=[5]
-config_is_prod=true
 ```
 
 Boolean environment settings use case-insensitive `true` or `false`. The loader also accepts `1`/`0`, `yes`/`no`, and `on`/`off`, but `true`/`false` is the project convention.
