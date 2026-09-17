@@ -45,7 +45,7 @@ Atom gives you authentication, generic CRUD over any table, caching, rate-limiti
 - 🛠️ **Admin & Dev toolkit** — Built-in SQL runner, AI SQL generation, data import, and live schema introspection.
 - 📦 **Background workers** — Queue consumers and durable retries with Postgres or dedicated message brokers.
 - 🧾 **Self-documenting** — Generated OpenAPI spec + built-in interactive API console at `/`.
-- 🔧 **Extend without forking** — Add custom routes and logic in drop-in extension files (`config_extend.py`, `function_extend.py`). Learn more in **[extend.md](docs/extend.md)**.
+- 🔧 **Extend without forking** — Add custom routes and logic in drop-in extension files (`config_extend.py`, `function_extend.py`).
 
 ## Requirements
 
@@ -97,12 +97,6 @@ docker build -t atom .
 docker run --rm -p 8000:8000 --env-file .env atom
 ```
 
-## Quickstart
-
-Get up and running with authentication and database operations in under 5 minutes:
-
-👉 **[Quickstart Guide](docs/quickstart.md)**
-
 ## Configuration
 
 All configuration defaults live in `config.py`. Override settings without editing core files:
@@ -131,11 +125,9 @@ config_is_prod=true
 
 Boolean environment settings use case-insensitive `true` or `false`. The loader also accepts `1`/`0`, `yes`/`no`, and `on`/`off`, but `true`/`false` is the project convention.
 
-📖 See **[config.md](docs/config.md)** for the complete configuration reference.
+### ⚠️ Secrets to override in production
 
-### ⚠️ [Secrets to override in production](docs/prod.md)
-
-Before deploying to production, ensure you override default system secrets in `.env`. See **[prod.md](docs/prod.md)** for the complete production security configuration checklist and **[security.md](docs/security.md)** for security guidelines.
+Before deploying to production, ensure you override default system secrets in `.env` (refer to `docs/prod.md` and `docs/security.md`).
 
 ## Extensibility
 
@@ -146,16 +138,12 @@ Atom is designed to be extended without forking core framework files. Add custom
 
 This decouples your application code from the framework core, enabling seamless upstream updates via `python sync.py`.
 
-📖 See **[extend.md](docs/extend.md)** for detailed patterns on adding custom endpoints, tables, and logic.
-
 ## Built-in Web Interfaces
 
 Atom comes with zero-dependency, single-page web applications stored in `static/`:
 
-- ⚡ **[API Master](docs/html.md#--api-master-staticapihtml)** (`static/api.html`) — Interactive API console, endpoint inspector, cURL importer, response viewer, and WebSocket tester served at `/`.
-- 🗃️ **[PgWeb](docs/html.md#-pgweb-staticpgwebhtml)** (`static/pgweb.html`) — Built-in PostgreSQL database browser, schema inspector, and SQL query runner served at `/static/pgweb.html`.
-
-📖 Learn more in **[html.md](docs/html.md)**.
+- ⚡ **API Master** (`static/api.html`) — Interactive API console, endpoint inspector, cURL importer, response viewer, and WebSocket tester served at `/`.
+- 🗃️ **PgWeb** (`static/pgweb.html`) — Built-in PostgreSQL database browser, schema inspector, and SQL query runner served at `/static/pgweb.html`.
 
 ## Structure
 
@@ -172,9 +160,12 @@ atom/
 └── Dockerfile
 ```
 
-📖 See **[about.md](docs/about.md)** for framework architecture and **[extend.md](docs/extend.md)** for extension patterns.
-
 ## Documentation
+
+<details>
+<summary><strong>Full Documentation Index</strong></summary>
+
+<br>
 
 📖 **Getting Started & Architecture**
 - [quickstart.md](docs/quickstart.md) — 5-minute quickstart guide.
@@ -213,12 +204,14 @@ atom/
 - [html.md](docs/html.md) — Built-in web interfaces (API Master & PgWeb).
 - [faq.md](docs/faq.md) — Developer guidelines & frequently asked questions.
 
+</details>
+
 ## Contributing
 
 Contributions are welcome! Extend functionality via `config_extend.py` and `function_extend.py` so downstream projects remain updateable via `sync.py`.
 
-Check out open issues and PRs at [github.com/atom36942/atom](https://github.com/atom36942/atom).
+Check out open issues and pull requests on GitHub.
 
 ## License
 
-Released under the [MIT License](LICENSE).
+Released under the MIT License.
