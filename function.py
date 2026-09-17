@@ -443,7 +443,7 @@ async def func_postgres_schema_users_init(*, conn: any, db_tables: dict, catalog
             await conn.execute("CREATE OR REPLACE FUNCTION func_protect_root_users() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF TG_OP = 'DELETE' THEN IF OLD.id = 1 THEN RAISE EXCEPTION 'DELETE not allowed for root user (id=1)'; END IF; RETURN OLD; END IF; RETURN NULL; END; $$; DROP TRIGGER IF EXISTS trigger_protect_root_users ON users; CREATE TRIGGER trigger_protect_root_users BEFORE DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_protect_root_users();")
         if is_root_user_create and all(c in users_cols for c in ("username", "password", "role", "deleted_at", "deactivated_at")):
             if not root_user_password_hash:
-                root_user_password_hash = "$argon2id$v=19$m=65536,t=3,p=4$XXabrpBeXx2PeIcUC7cxWA$CqF+8i+q+k62/6MkQMXFcyMGoTeWmDMvwf8u7WvnrG8"
+                raise Exception("config_root_user_password must be set in env when is_root_user_create is enabled")
             await conn.execute("INSERT INTO users (username, password, role) VALUES ('admin', $1, 1) ON CONFLICT (username, role) DO UPDATE SET username = 'admin', password = EXCLUDED.password, role = 1, deleted_at = NULL, deactivated_at = NULL;", root_user_password_hash)
             await conn.execute("UPDATE users SET username = 'admin', password = $1, role = 1, deleted_at = NULL, deactivated_at = NULL WHERE id = 1;", root_user_password_hash)
         if is_log_users_password and "password" in users_cols and "log_users_password" in db_tables:
@@ -562,11 +562,15 @@ async def func_auth_user_login_fetch(*, conn: any, field: str, value: any, role:
     if role is None and len(records) > 1: raise Exception("role is mandatory")
     return dict(records[0])
 
-async def func_auth_signup_password(*, client_postgres: any, client_password_hasher: any, role: int, username: str, password: str, source: int = None, config_is_signup: bool = True) -> dict:
+def func_auth_check_signup_role(*, role: int, config_signup_allowed_roles: list) -> None:
+    """Validate that public signup is enabled and the requested role is permitted."""
+    if not config_signup_allowed_roles: raise Exception("signup disabled")
+    if role == 1 or role not in config_signup_allowed_roles: raise Exception(f"signup not allowed for role {role}")
+
+async def func_auth_signup_password(*, client_postgres: any, client_password_hasher: any, func_auth_check_signup_role: callable, role: int, username: str, password: str, source: int = None, config_signup_allowed_roles: list = None) -> dict:
     """Create a new user with hashed password after enforcing signup and role safety checks."""
     if not client_postgres: raise Exception("postgres client not initialized")
-    if not config_is_signup: raise Exception("signup disabled")
-    if role == 1: raise Exception("role 1 not allowed for user creation")
+    func_auth_check_signup_role(role=role, config_signup_allowed_roles=config_signup_allowed_roles)
     hashed_password = client_password_hasher.hash(str(password))
     async with client_postgres.acquire() as conn:
         records = await conn.fetch('INSERT INTO users (role, username, password, source) VALUES ($1, $2, $3, $4) RETURNING *;', role, username, hashed_password, source)
@@ -583,7 +587,7 @@ async def func_auth_login_password(*, client_postgres: any, client_password_hash
             raise Exception("incorrect password")
         return user
 
-async def func_auth_user_find_or_create(*, client_postgres: any, field: str, value: any, role: int, source: int = None, config_is_signup: bool = True, extra_cols: dict = None) -> dict:
+async def func_auth_user_find_or_create(*, client_postgres: any, func_auth_check_signup_role: callable, field: str, value: any, role: int, source: int = None, config_signup_allowed_roles: list = None, extra_cols: dict = None) -> dict:
     """Find existing user or create a new user (for OTP and Social Logins) with signup policy enforcement."""
     if not client_postgres: raise Exception("postgres client not initialized")
     import re
@@ -592,8 +596,7 @@ async def func_auth_user_find_or_create(*, client_postgres: any, field: str, val
         records = await conn.fetch(f'SELECT * FROM users WHERE "{field}"=$1 AND role=$2 ORDER BY id DESC LIMIT 1;', value, role)
         if records:
             return dict(records[0])
-        if not config_is_signup: raise Exception("signup disabled")
-        if role == 1: raise Exception("role 1 not allowed for user creation")
+        func_auth_check_signup_role(role=role, config_signup_allowed_roles=config_signup_allowed_roles)
         insert_dict = {"role": role, field: value, "source": source}
         if extra_cols:
             for k, v in extra_cols.items():
@@ -906,7 +909,16 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
         import sentry_sdk
         sentry_sdk.capture_exception(exception)
     return error_msg, responses.JSONResponse(status_code=400, content={"status": 0, "message": error_msg})
-    
+
+def func_middleware_security_headers(*, response: any) -> any:
+    """Attach baseline HTTP security headers to response."""
+    if hasattr(response, "headers"):
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault("X-XSS-Protection", "0")
+    return response
+
 async def func_request_param_read(*, request: any, mode: str, strict: bool, param_specs: list) -> dict:
     """Extract and validate request parameters; specs use bool ``required`` and optional ``allowed``/``default`` fields."""
     if not isinstance(strict, bool): raise Exception("strict must be bool")
@@ -1477,11 +1489,22 @@ def func_validate_restricted_columns(*, app_state: any, obj_list: list) -> None:
 
 def func_check_table_permission(*, app_state: any, table: str, relation: list = None, scope: str = "public", action: str = "read") -> None:
     """Validate if table and relation access is allowed for given scope ('public', 'private', 'my') and action ('read', 'create', 'delete_all', 'delete_owned_all')."""
+    verb_map = {"create": "creation", "read": "read", "delete_all": "delete all", "delete_owned_all": "owned delete all"}
+    verb = verb_map.get(action, action.replace("_", " "))
+    blocked_attr = f"config_table_{scope}_{action}_blocked"
+    blocked_tables = getattr(app_state, blocked_attr, None)
+    if blocked_tables is not None:
+        if "*" in blocked_tables or table in blocked_tables:
+            raise Exception(f"{verb} disabled for table: {table}")
+        if relation:
+            for rel in relation:
+                parts = [p.strip() for p in rel.split(",", 4)]
+                if len(parts) >= 2 and ("*" in blocked_tables or parts[1] in blocked_tables):
+                    raise Exception(f"relation read disabled for table: {parts[1]}")
+        return
     config_attr = f"config_table_{scope}_{action}_allowed"
     enabled_tables = getattr(app_state, config_attr, []) or []
     if "*" not in enabled_tables and table not in enabled_tables:
-        verb_map = {"create": "creation", "read": "read", "delete_all": "delete all", "delete_owned_all": "owned delete all"}
-        verb = verb_map.get(action, action.replace("_", " "))
         raise Exception(f"{verb} disabled for table: {table}")
     if relation:
         for rel in relation:
@@ -2068,14 +2091,18 @@ async def func_postgres_table_column_groupby_read(*, app_state: any, client_post
     if table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
     cols = [col] if isinstance(col, str) else list(col or [])
     if not cols: raise Exception("at least one column must be specified")
+    blocked_cols = set(getattr(app_state, "config_column_read_blocked", [])) | {"password"}
     for c in cols:
         if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c)): raise Exception(f"invalid identifier: {c}")
+        if c in blocked_cols: raise Exception(f"reading column '{c}' is blocked")
         if c not in cache_postgres_schema[table]: raise Exception(f"column '{c}' not found in table: {table}")
     agg = (agg or "count").lower()
     if agg not in ["count", "sum", "avg", "min", "max"]: raise Exception(f"unsupported agg: {agg}")
-    if agg_col != "*" and not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(agg_col)): raise Exception("invalid aggregate column")
-    if agg_col != "*" and agg_col not in cache_postgres_schema[table]: raise Exception(f"column '{agg_col}' not found in table: {table}")
-    where_clause, values = await app_state.func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter or [], prefix="x.")
+    if agg_col != "*":
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(agg_col)): raise Exception("invalid aggregate column")
+        if agg_col in blocked_cols: raise Exception(f"reading column '{agg_col}' is blocked")
+        if agg_col not in cache_postgres_schema[table]: raise Exception(f"column '{agg_col}' not found in table: {table}")
+    where_clause, values = await app_state.func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter or [], prefix="x.", config_column_read_blocked=getattr(app_state, "config_column_read_blocked", None))
     select_exprs, group_exprs, unnest_clauses = [], [], []
     for c in cols:
         dt = cache_postgres_schema.get(table, {}).get(c, {}).get("datatype", "text").lower()
@@ -2128,9 +2155,11 @@ async def func_postgres_table_column_distinct_read(*, app_state: any, client_pos
     if page < 1: raise Exception("page must be greater than 0")
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
     if table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
+    blocked_cols = set(getattr(app_state, "config_column_read_blocked", [])) | {"password"}
+    if col in blocked_cols: raise Exception(f"reading column '{col}' is blocked")
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(col)): raise Exception(f"invalid identifier: {col}")
     if col not in cache_postgres_schema[table]: raise Exception(f"column '{col}' not found in table: {table}")
-    where_clause, values = await app_state.func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter or [], prefix="x.")
+    where_clause, values = await app_state.func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter or [], prefix="x.", config_column_read_blocked=getattr(app_state, "config_column_read_blocked", None))
     datatype = cache_postgres_schema[table][col].get("datatype", "text").lower()
     is_array = "[]" in datatype or "array" in datatype
     q_col = f'"{col}"'
@@ -3393,12 +3422,13 @@ async def func_postgres_serialize(*, client_postgres: any, client_password_hashe
         output_list.append(new_item)
     return output_list
 
-async def func_postgres_where_build(*, client_postgres: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, filter: list, prefix: str = "") -> tuple:
+async def func_postgres_where_build(*, client_postgres: any, client_password_hasher: any, func_postgres_serialize: callable, cache_postgres_schema: dict, table: str, filter: list, prefix: str = "", config_column_read_blocked: list = None) -> tuple:
     """Build a SQL WHERE clause with support for recursion, logical operators (_or, _and), flat SQL strings, and explicit operator syntax."""
     import re, orjson
     if not table: raise Exception("table required")
     if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
     values = []
+    blocked_cols = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
     filter_pattern = r'^((?:"[^"]+")|[a-zA-Z_][a-zA-Z0-9_]*)\s+(is\s+not\s+distinct\s+from|is\s+distinct\s+from|is\s+not|not\s+in|>=|<=|==|!=|<>|~\*|=|>|<|eq|neq|gt|lt|gte|lte|is|in|between|like|ilike|~|contains|exists|overlap|any|point)\s+(.*)$'
     value_ops = {"=":"=","==":"=","eq":"=","!=":"!=","<>":"!=","neq":"!=","!=": "!=", ">":">","gt":">","<":"<","lt":"<",">=":">=","gte":">=","<=":"<=","lte":"<=","is":"IS","is not":"IS NOT","in":"IN","not in":"NOT IN","between":"BETWEEN","is distinct from":"IS DISTINCT FROM","is not distinct from":"IS NOT DISTINCT FROM"}
     string_ops = {"like":"LIKE","ilike":"ILIKE","~":"~","~*":"~*"}
@@ -3442,6 +3472,8 @@ async def func_postgres_where_build(*, client_postgres: any, client_password_has
         values.append(val)
         return bind_idx
     def validate_filter_column(filter_key):
+        norm_key = str(filter_key).strip().strip('"')
+        if norm_key in blocked_cols: raise Exception(f"filtering on column '{norm_key}' is blocked")
         if filter_key not in table_schema: raise Exception(f"invalid filter column: {filter_key} for table: {table}")
         if not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(filter_key)): raise Exception(f"invalid identifier {filter_key}")
     def allowed_operators(datatype, is_json, is_array):
@@ -3545,17 +3577,20 @@ async def func_postgres_where_build(*, client_postgres: any, client_password_has
     where_sql = await build_filter(filter)
     return where_sql, values
 
-async def func_postgres_relation(*, client_postgres: any, client_postgres_conn: any = None, obj_list: list, relation: list, config_sql_read_relation_fetch_limit_max: int) -> list:
+async def func_postgres_relation(*, client_postgres: any, client_postgres_conn: any = None, obj_list: list, relation: list, config_sql_read_relation_fetch_limit_max: int, config_table_read_protected: list = None, config_column_read_blocked: list = None) -> list:
     """Standardized relationship logic: handles both aggregates (count, sum, etc) and associations (fetching rows) from source to target."""
     if not relation or not obj_list: return obj_list
     import re
     from collections import defaultdict
+    blocked_tables = set(config_table_read_protected) if config_table_read_protected is not None else {"users", "config", "log_api", "log_users_password", "otp", "spatial_ref_sys"}
+    blocked_columns = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
     relations = relation if isinstance(relation, (list, tuple)) else [relation]
     for rel_str in relations:
         if not rel_str: continue
         parts = [p.strip() for p in rel_str.split(",", 4)]
         if len(parts) < 5: raise Exception("relation must have 5 parts: source_col,target_table,target_col,op,val")
         source_col, target_table, target_col, op, val = parts
+        if target_table in blocked_tables: raise Exception(f"relation read disabled for table: {target_table}")
         op_parts = op.split("|")
         op_main = op_parts[0].lower()
         for p in (target_table, op_main):
@@ -3563,6 +3598,8 @@ async def func_postgres_relation(*, client_postgres: any, client_postgres_conn: 
         for p in (source_col, target_col):
              if not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", p): raise Exception(f"invalid identifier in relation: {p}")
         if val != "*" and not all(re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", v.strip()) for v in val.split(",")): raise Exception(f"invalid value in relation: {val}")
+        if val != "*" and any(v.strip() in blocked_columns for v in val.split(",")): raise Exception("relation contains restricted column")
+        if val in blocked_columns: raise Exception("relation contains restricted column")
         if any(source_col not in r for r in obj_list): raise Exception(f"relation source column missing from selected columns: {source_col}")
         source_ids = {r.get(source_col) for r in obj_list if r.get(source_col) is not None}
         if not source_ids: continue
@@ -3587,6 +3624,8 @@ async def func_postgres_relation(*, client_postgres: any, client_postgres_conn: 
             for r in rows:
                 d = dict(r)
                 d.pop("rn", None); rid = str(d.pop("relation_id", None))
+                for b_col in blocked_columns:
+                    d.pop(b_col, None)
                 mapping[rid].append(d)
             for obj in obj_list:
                 sid = str(obj.get(source_col))
@@ -3745,10 +3784,11 @@ async def func_app_tasks_stop(*, app_state: any, timeout_sec: int = 5) -> None:
     periodic_tasks = [getattr(app_state, "postgres_buffer_flush_task", None), getattr(app_state, "inmemory_cache_cleanup_task", None)]
     await app_state.func_async_tasks_cancel(task_list=runtime_tasks + periodic_tasks, timeout_sec=timeout_sec)
 
-async def func_postgres_read(*, client_postgres: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list) -> list:
+async def func_postgres_read(*, client_postgres: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list, config_column_read_blocked: list = None, config_table_read_protected: list = None) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
     if not client_postgres: raise Exception("postgres client not initialized")
     import re
+    blocked_cols = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
     if limit < 1: raise Exception("query limit must be greater than 0")
@@ -3772,13 +3812,14 @@ async def func_postgres_read(*, client_postgres: any, client_password_hasher: an
         cols = []
         for c in column.split(","):
             c_strip = c.strip()
+            if c_strip in blocked_cols: raise Exception(f"column '{c_strip}' is restricted from reading")
             if not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(c_strip)): raise Exception(f"invalid identifier {c_strip}")
             if cache_postgres_schema is not None and table in cache_postgres_schema and re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c_strip)):
                 if c_strip not in cache_postgres_schema[table]: raise Exception(f"column '{c_strip}' not found in table: {table}")
             cols.append(c_strip)
         column_list = ",".join([f'"{c}"' for c in cols])
     filters = filter
-    where_statement, values = await func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter=filters, prefix="")
+    where_statement, values = await func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=cache_postgres_schema, table=table, filter=filters, prefix="", config_column_read_blocked=config_column_read_blocked)
     fetch_limit = limit + 1
     bind_idx = len(values) + 1
     sql_select = f'SELECT {column_list} FROM "{table}" {where_statement} ORDER BY {order_clause} LIMIT ${bind_idx} OFFSET ${bind_idx+1}'
@@ -3786,8 +3827,12 @@ async def func_postgres_read(*, client_postgres: any, client_password_hasher: an
     async with client_postgres.acquire() as conn:
         records = await conn.fetch(sql_select, *values)
         result_list = [dict(r) for r in records]
+        if blocked_cols and result_list:
+            for r in result_list:
+                for b_col in blocked_cols:
+                    r.pop(b_col, None)
         if relation and result_list:
-            result_list = await func_postgres_relation(client_postgres=client_postgres, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_sql_read_relation_fetch_limit_max=config_sql_read_relation_fetch_limit_max)
+            result_list = await func_postgres_relation(client_postgres=client_postgres, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_sql_read_relation_fetch_limit_max=config_sql_read_relation_fetch_limit_max, config_table_read_protected=config_table_read_protected, config_column_read_blocked=config_column_read_blocked)
         return result_list
 
 async def func_postgres_update(*, client_postgres: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, table: str, obj_list: list, created_by_id: int) -> any:
@@ -3913,8 +3958,8 @@ async def func_producer(*, queue: str, client_celery_producer: any, client_kafka
 async def func_otp_generate(*, client_postgres: any, email: str, mobile: str, config_otp_length: int) -> int:
     """Generate a random OTP and store it in PostgreSQL for a given email or mobile."""
     if not client_postgres: raise Exception("postgres client not initialized")
-    import random
-    otp = random.randint(10**(config_otp_length-1), 10**config_otp_length - 1)
+    import secrets
+    otp = secrets.SystemRandom().randint(10**(config_otp_length - 1), 10**config_otp_length - 1)
     sql = "INSERT INTO otp (otp, email, mobile) VALUES ($1, $2, $3);"
     async with client_postgres.acquire() as conn:
         await conn.execute(sql, otp, email.strip().lower() if email else None, mobile.strip() if mobile else None)
@@ -3928,16 +3973,17 @@ async def func_otp_verify(*, client_postgres: any, otp: int, email: str, mobile:
     if not email and not mobile: raise Exception("missing both email and mobile")
     if email and mobile: raise Exception("provide only one identifier")
     if email:
-        sql = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_otp_expiry_sec}s') as is_valid FROM otp WHERE email=$1 ORDER BY id DESC LIMIT 1"
+        sql = f"SELECT id, otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_otp_expiry_sec}s') as is_valid FROM otp WHERE email=$1 ORDER BY id DESC LIMIT 1"
         identifier = email.strip().lower()
     else:
-        sql = f"SELECT otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_otp_expiry_sec}s') as is_valid FROM otp WHERE mobile=$1 ORDER BY id DESC LIMIT 1"
+        sql = f"SELECT id, otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_otp_expiry_sec}s') as is_valid FROM otp WHERE mobile=$1 ORDER BY id DESC LIMIT 1"
         identifier = mobile.strip()
     async with client_postgres.acquire() as conn:
         records = await conn.fetch(sql, identifier)
         if not records: raise Exception("otp not found")
         if records[0]["otp"] != otp: raise Exception("invalid otp code")
         if not records[0]["is_valid"]: raise Exception("otp code expired")
+        await conn.execute("DELETE FROM otp WHERE id = $1;", records[0]["id"])
     return "done"
 
 async def func_api_file_to_chunks(*, upload_file: any, chunk_size: int):
@@ -4368,14 +4414,15 @@ def func_app_static_add(*, app: any, path: str = "/static", directory: str = "./
     app.mount(path, StaticFiles(directory=directory, check_dir=False), name="static")
 
 def func_app_cors_add(*, app: any, allow_origins: list = None, allow_origin_regex: str = None, allow_methods: list = None, allow_headers: list = None, expose_headers: list = None, allow_credentials: bool = True) -> None:
-    """Configure CORS middleware on FastAPI application."""
+    """Configure CORS middleware on FastAPI application if origins are provided."""
+    if not allow_origins and not allow_origin_regex: return
     from fastapi.middleware.cors import CORSMiddleware
-    app.add_middleware(CORSMiddleware, allow_origins=allow_origins, allow_origin_regex=allow_origin_regex, allow_methods=allow_methods, allow_headers=allow_headers, expose_headers=expose_headers, allow_credentials=allow_credentials)
+    app.add_middleware(CORSMiddleware, allow_origins=allow_origins or [], allow_origin_regex=allow_origin_regex, allow_methods=allow_methods or ["*"], allow_headers=allow_headers or ["*"], expose_headers=expose_headers or ["*"], allow_credentials=allow_credentials)
 
-def func_app_fastapi_create(*, config_is_debug: bool = False, lifespan: any = None):
+def func_app_fastapi_create(*, config_is_prod: bool = True, lifespan: any = None):
     """Create and configure the primary FastAPI application instance."""
     from fastapi import FastAPI
-    return FastAPI(debug=config_is_debug, lifespan=lifespan, openapi_url=None, docs_url=None, redoc_url=None)
+    return FastAPI(debug=not config_is_prod, lifespan=lifespan, openapi_url=None, docs_url=None, redoc_url=None)
 
 def func_structure_init(*, dir_list: tuple = ("tmp", "secret")) -> None:
     """Reset working tmp/ directory and ensure required application directories exist."""

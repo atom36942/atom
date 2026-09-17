@@ -42,23 +42,23 @@ config_rabbitmq_url = None
 config_celery_url = None
 
 # System
-config_root_user_password = "123456"
-config_login_password = "123456"
-config_token_secret_key = "mysecretkey-mysecretkey-mysecretkey"
+config_root_user_password = None
+config_login_password = None
+config_token_secret_key = None
 config_root_html_path = "static/api.html"
 config_is_user_delete = False
 config_is_postgres_schema_init = True
-config_is_signup = True
+config_signup_allowed_roles = []
 config_is_otp_require_users_update = False
 config_is_read_only = False
-config_is_debug = False
+config_is_prod = True
 config_postgres_pool_min_size = 5
 config_postgres_pool_max_size = 20
 config_otp_length = 6
 config_otp_expiry_sec = 600
 config_otp_static = None
-config_access_token_expires_sec = 3155695200 
-config_refresh_token_expires_sec = 3155695200000
+config_access_token_expires_sec = 604800
+config_refresh_token_expires_sec = 2592000
 config_blob_limit_size_kb = 500
 config_blob_limit_upload = 100
 config_blob_expire_sec_upload = 3600
@@ -76,7 +76,7 @@ config_allowed_users_role = [1, 2, 3, 4, 5]
 config_redis_cache_ttl_sec = 3600
 config_users_delete_data_retention_day = 30
 config_cors_allow_origins = []
-config_cors_allow_origin_regex = ".*"
+config_cors_allow_origin_regex = None
 config_cors_allow_methods = ["*"]
 config_cors_allow_headers = ["*"]
 config_cors_expose_headers = ["*"]
@@ -86,6 +86,7 @@ config_postgres_db_log_api = None
 # Table
 config_table_protected = ["spatial_ref_sys", "users", "log_users_delete"]
 config_table_my_create_blocked = ["users", "log_api", "log_users_password", "otp", "spatial_ref_sys"]
+config_table_my_read_blocked = ["users", "config", "log_api", "log_users_password", "otp", "spatial_ref_sys"]
 config_table_my_delete_all_allowed = ["test"]
 config_table_my_delete_owned_all_allowed = ["message", "notification"]
 config_table_public_create_allowed = ["test"]
@@ -98,6 +99,7 @@ config_column_ownership = ["created_by_id", "received_by_id", "assigned_to_id", 
 config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id"]
 config_column_admin_users=["role"]
 config_column_single_update = ["username", "password", "email", "mobile", "deleted_at"]
+config_column_read_blocked = ["password"]
 
 # Services
 config_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
@@ -408,17 +410,17 @@ config_api = {
 "/openapi.json": {"id": 37, "is_token": False},
 "/static": {"id": 77, "is_token": False},
 "/pgweb": {"id": 99, "is_token": False},
-"/websocket": {"id": 38, "is_token": False},
+"/websocket": {"id": 38, "is_token": False, "is_active": False},
 # auth
-"/auth/login-password": {"id": 91, "is_token": False},
-"/auth/signup-username-password": {"id": 39, "is_token": False},
-"/auth/login-username-password": {"id": 40, "is_token": False},
-"/auth/login-email-password": {"id": 41, "is_token": False},
-"/auth/login-mobile-password": {"id": 42, "is_token": False},
-"/auth/login-id-ext-password": {"id": 103, "is_token": False},
-"/auth/login-email-otp": {"id": 43, "is_token": False},
-"/auth/login-mobile-otp": {"id": 44, "is_token": False},
-"/auth/login-google": {"id": 45, "is_token": False},
+"/auth/login-password": {"id": 91, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
+"/auth/signup-username-password": {"id": 39, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
+"/auth/login-username-password": {"id": 40, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
+"/auth/login-email-password": {"id": 41, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
+"/auth/login-mobile-password": {"id": 42, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
+"/auth/login-id-ext-password": {"id": 103, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
+"/auth/login-email-otp": {"id": 43, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
+"/auth/login-mobile-otp": {"id": 44, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
+"/auth/login-google": {"id": 45, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 # my
 "/my/profile": {"id": 46, "is_token": True},
 "/my/ping": {"id": 92, "is_token": True},
@@ -451,16 +453,16 @@ config_api = {
 "/public/object-create": {"id": 66, "is_token": False},
 "/public/object-read": {"id": 14, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 100, "is_per_user": False}},
 "/public/converter-number": {"id": 67, "is_token": False},
-"/public/otp-verify": {"id": 68, "is_token": False},
-"/public/otp-send-email": {"id": 69, "is_token": False},
-"/public/otp-send-mobile": {"id": 70, "is_token": False},
-"/public/otp-send-mobile-sns-template": {"id": 71, "is_token": False},
-"/public/jira-worklog-export": {"id": 19, "is_token": False},
+"/public/otp-verify": {"id": 68, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
+"/public/otp-send-email": {"id": 69, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 3, "window_sec": 60}},
+"/public/otp-send-mobile": {"id": 70, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 3, "window_sec": 60}},
+"/public/otp-send-mobile-sns-template": {"id": 71, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 3, "window_sec": 60}},
+"/public/jira-worklog-export": {"id": 19, "is_active": False, "is_token": False},
 "/public/table-column-groupby": {"id": 18, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
 "/public/table-column-distinct": {"id": 105, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
-"/public/blob-upload-file": {"id": 97, "is_token": False},
-"/public/blob-upload-url": {"id": 98, "is_token": False},
-"/public/password-hash": {"id": 100, "is_token": False},
+"/public/blob-upload-file": {"id": 97, "is_active": False, "is_token": False},
+"/public/blob-upload-url": {"id": 98, "is_active": False, "is_token": False},
+"/public/password-hash": {"id": 100, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
 # admin
 "/admin/sync": {"id": 1, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
 "/admin/object-create": {"id": 2, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},

@@ -20,7 +20,6 @@ async def func_api_index_info(*, request:Request):
         "status": 1,
         "message": {
             "api_list": [route.path for route in request.app.routes if hasattr(route, "path")],
-            "postgres_schema": app_state.cache_postgres_schema,
             "mapping": app_state.config_column_int_mapping,
             "dropdown": app_state.config_dropdown,
             "config": {
@@ -37,8 +36,12 @@ async def func_api_openapi_json(*, request:Request):
     
 @router.websocket("/websocket")
 async def func_api_websocket(*, websocket:WebSocket):
-    await websocket.accept()
     app_state = websocket.app.state
+    api_cfg = app_state.config_api.get("/websocket", {})
+    if not api_cfg.get("is_active", True):
+        await websocket.close(code=1008, reason="endpoint disabled")
+        return
+    await websocket.accept()
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
     try:
         while True:
@@ -50,6 +53,9 @@ async def func_api_websocket(*, websocket:WebSocket):
 
 @router.post("/pgweb")
 async def func_api_pgweb(*, request: Request):
+    client_ip = request.client.host if request.client else None
+    if client_ip not in ("127.0.0.1", "::1", "localhost", "testclient"):
+        raise Exception("pgweb is restricted to localhost")
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[])
     if ob.get("action") == "stream":

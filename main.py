@@ -59,7 +59,7 @@ async def func_lifespan(app:"FastAPI"):
         client_postgres_log_api = client_postgres if app.state.config_postgres_db_log_api is None else client_postgres_dict[app.state.config_postgres_db_log_api]
         client_postgres_pgweb = {}
         # postgres master
-        if client_postgres and not app.state.config_is_read_only and app.state.config_is_postgres_schema_init: await app.state.func_postgres_schema_init(app_state=app.state, client_postgres=client_postgres, config_db=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(config_root_user_password) if config_root_user_password else None)
+        if client_postgres and not app.state.config_is_read_only and app.state.config_is_postgres_schema_init: await app.state.func_postgres_schema_init(app_state=app.state, client_postgres=client_postgres, config_db=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(str(config_root_user_password)) if config_root_user_password else None)
         cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres=client_postgres) if client_postgres else {}
         cache_postgres_schema_ai = await app.state.func_postgres_schema_read_ai(client_postgres=client_postgres) if client_postgres else {}
         cache_config = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("config"), is_json_value=True) if client_postgres and "config" in cache_postgres_schema else {}
@@ -90,7 +90,7 @@ async def func_lifespan(app:"FastAPI"):
         print(f"❌ shutdown error: {e}")
 
 # app
-app = func_app_fastapi_create(config_is_debug=config_is_debug, lifespan=func_lifespan)
+app = func_app_fastapi_create(config_is_prod=config_is_prod, lifespan=func_lifespan)
 func_app_state_add(app=app, data_dict=globals(), prefixes=("func_", "config_"))
 func_app_router_add(app=app, router_dir=os.path.join(os.path.dirname(__file__), "router"), router_order={"index": 0, "auth": 1, "my": 2, "public": 3, "private": 4, "admin": 5})
 func_app_static_add(app=app)
@@ -145,8 +145,10 @@ async def middleware(request, api_function):
         response_type = "error"
         error, response = await app_state.func_middleware_api_response_error(exception=e, is_traceback=True, sentry_dsn=app_state.config_sentry_dsn)
     # api log buffer
-    if not app_state.config_is_read_only and app_state.client_postgres_log_api:
+    if not app_state.config_is_read_only and getattr(app_state, "client_postgres_log_api", None):
         with suppress(Exception): await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_log_api, config_regex=app_state.config_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": request.client.host if request.client else None, "path": request.url.path, "method": request.method, "query_param": str(request.query_params), "status_code": response.status_code if hasattr(response, "status_code") else None, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
+    # security headers
+    app_state.func_middleware_security_headers(response=response)
     return response
 
 # cors

@@ -151,8 +151,12 @@ config_mongodb_url=mongodb://localhost:27017
 config_clickhouse_url=https://default:password@clickhouse.example.com:8443/default
 config_rabbitmq_url=amqp://guest:guest@localhost:5672
 config_celery_url=redis://localhost:6379
-config_is_signup=true
-config_is_debug=false
+config_token_secret_key="your-secret-key-at-least-32-chars"
+config_root_user_password="your-strong-root-password"
+config_login_password="your-strong-login-password"
+config_cors_allow_origins=["http://localhost:3000", "https://app.example.com"]
+config_signup_allowed_roles=[5]
+config_is_prod=true
 ```
 
 Boolean environment settings use case-insensitive `true` or `false`. The loader also accepts `1`/`0`, `yes`/`no`, and `on`/`off`, but `true`/`false` is the project convention.

@@ -79,15 +79,15 @@ Disabled (`None`) by default; activated automatically when connection credential
 | Key | Usage |
 |---|---|
 | `config_root_user_password` | Password for seeded root admin (hashed at startup) |
-| `config_login_password` | Default fallback login password for test environments |
+| `config_login_password` | Static login password for `/auth/login-password` (Must set in `.env` if used) |
 | `config_token_secret_key` | HMAC secret key for signing/verifying JWT tokens *(Must change)* |
 | `config_root_html_path` | Path to static HTML file served at `/` (`static/api.html`) |
 | `config_is_user_delete` | Boolean toggle for the user hard-deletion flow |
 | `config_is_postgres_schema_init` | Boolean toggle for database schema initialization on startup |
-| `config_is_signup` | Boolean toggle for public user signup routes in `router/auth.py` |
+| `config_signup_allowed_roles` | List of allowed roles for public user signup (`[]` disables signup) |
 | `config_is_otp_require_users_update` | Boolean requiring OTP verification when updating user contact details |
 | `config_is_read_only` | Boolean system-wide read-only mode toggle |
-| `config_is_debug` | Boolean FastAPI debug-mode toggle (`False` in production) |
+| `config_is_prod` | Boolean production-mode toggle (`True` disables debug and protects endpoints) |
 | `config_postgres_db_log_api` | Named Postgres pool key for API logging (`None` = primary pool) |
 
 ### Limits, OTP & Auth
@@ -134,6 +134,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 |---|---|
 | `config_table_protected` | Protected tables exempted from bulk cleanup/deletion scripts |
 | `config_table_my_create_blocked` | Tables refused on user `/my/object-create` endpoint |
+| `config_table_my_read_blocked` | Tables refused on user `/my/object-read` endpoint |
 | `config_table_my_delete_all_allowed` | Tables supporting `/my/object-delete-all` for row owners |
 | `config_table_my_delete_owned_all_allowed` | Tables supporting `/my/object-delete-owned-all` (messages, notifications) |
 | `config_table_public_create_allowed` | Tables accessible on unauthenticated public create route |
@@ -149,6 +150,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_column_admin` | Server-managed columns blocked from user mutation (`created_at`, `role`, etc.) |
 | `config_column_admin_users` | Admin-only restricted columns for `users` table (`role`) |
 | `config_column_single_update` | Columns requiring single-field update requests (`password`, `email`, etc.) |
+| `config_column_read_blocked` | Sensitive columns blocked and stripped from read responses and relations (`password`) |
 
 ### Service Registries
 

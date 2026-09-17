@@ -1,0 +1,30 @@
+# Environment & secrets
+.env
+.env.*
+secret/
+
+# Git
+.git
+.gitignore
+
+# Python & bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+venv/
+
+# Temp & scratch
+tmp/
+scratch/
+drive/
+*.log
+*.swp
+*.bak
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

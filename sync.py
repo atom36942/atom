@@ -34,6 +34,7 @@ files_to_sync = [
     "static/pulse.html",
     "readme.md",
     "Dockerfile",
+    ".dockerignore",
     ".gitignore",
     "docs",
     "script/consumer_postgres_create.py",

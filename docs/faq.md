@@ -157,7 +157,7 @@ Filter by fields such as `path`, `status`, or `user_id` when investigating a spe
 Atom exposes the API in three useful formats:
 
 - Open `/` for the interactive API console. It lists routes and lets you send requests from the browser.
-- Request `GET /info` for Atom's live route list, database schema, and safe configuration metadata.
+- Request `GET /info` for Atom's live route list, column mappings, and configuration metadata.
 - Request `GET /openapi.json` when you need the standard OpenAPI document for a client generator, API tool, or frontend integration.
 
 The console reads `/info` and `/openapi.json`, so restart the app after changing routes. If only cached schema or policy information is stale, run `GET /admin/sync`.

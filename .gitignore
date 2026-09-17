@@ -10,6 +10,7 @@
 !sync.py
 !requirements.txt
 !Dockerfile
+!.dockerignore
 !readme.md
 !.gitignore.md
 !LICENSE
