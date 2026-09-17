@@ -156,16 +156,16 @@ def func_check(*, app: any) -> None:
     func_check_api_config(app=app)
     return None
 
-def func_postgres_schema_config_validate(*, config_db: dict) -> None:
+def func_postgres_schema_config_validate(*, config_postgres: dict) -> None:
     """Validate configured tables, columns, indexes, and unique constraints before database changes."""
-    if not config_db: raise Exception("config_db missing")
-    if "table" not in config_db: raise Exception("config_db.table missing")
+    if not config_postgres: raise Exception("config_postgres missing")
+    if "table" not in config_postgres: raise Exception("config_postgres.table missing")
     bool_control_keys = ("is_updated_at_set", "is_protected_delete_disabled", "is_truncate_table", "is_log_users_password", "is_log_users_delete", "is_root_user_create", "is_root_user_delete_disabled")
     for key in bool_control_keys:
-        if key in config_db.get("control", {}) and not isinstance(config_db["control"][key], bool):
-            raise Exception(f"config_db.control.{key} must be bool")
+        if key in config_postgres.get("control", {}) and not isinstance(config_postgres["control"][key], bool):
+            raise Exception(f"config_postgres.control.{key} must be bool")
     reserved = {"all", "analyze", "and", "any", "as", "asc", "asymmetric", "authorization", "binary", "both", "case", "cast", "check", "collate", "collation", "column", "concurrently", "constraint", "create", "cross", "current_catalog", "current_date", "current_role", "current_schema", "current_time", "current_timestamp", "current_user", "default", "deferrable", "desc", "distinct", "do", "else", "end", "except", "false", "fetch", "for", "foreign", "freeze", "from", "full", "grant", "group", "having", "ilike", "in", "initially", "inner", "intersect", "into", "is", "isnull", "join", "lateral", "leading", "left", "like", "limit", "localtime", "localtimestamp", "natural", "not", "notnull", "null", "offset", "on", "only", "or", "order", "outer", "overlaps", "placing", "primary", "references", "returning", "right", "select", "session_user", "similar", "some", "symmetric", "table", "tablesample", "then", "to", "trailing", "true", "union", "unique", "user", "using", "variadic", "verbose", "when", "where", "window", "with"}
-    for table_name, column_configs in config_db["table"].items():
+    for table_name, column_configs in config_postgres["table"].items():
         primary_cfg = column_configs[0] if column_configs else {}
         if len(primary_cfg) > 4:
             raise Exception(f"{table_name}.id primary column config cannot have more than 4 keys")
@@ -228,9 +228,9 @@ def func_postgres_schema_config_validate(*, config_db: dict) -> None:
                             raise Exception(f"Unique constraint in {table_name} references non-existent column '{u_col}'. Defined columns: {list(column_names)}")
     return None
 
-def func_postgres_schema_context_build(*, config_db: dict) -> dict:
+def func_postgres_schema_context_build(*, config_postgres: dict) -> dict:
     """Build compatible control switches and the managed-object catalog."""
-    control = config_db.get("control", {})
+    control = config_postgres.get("control", {})
     def get_enable_control_switch(key: str, default: bool = True, legacy_disable_keys: tuple = ()) -> bool:
         if key in control: return control.get(key)
         for legacy_key in legacy_disable_keys:
@@ -247,7 +247,7 @@ def func_postgres_schema_context_build(*, config_db: dict) -> dict:
                 elif key.startswith("check_"): catalog["chk"].add(key)
             elif isinstance(val, dict): register_sql_catalog(val)
         return None
-    register_sql_catalog(config_db.get("sql", {}))
+    register_sql_catalog(config_postgres.get("sql", {}))
     return {"catalog": catalog, "is_truncate_table": get_enable_control_switch("is_truncate_table", True, ("is_enable_truncate_disable", "is_disable_truncate")), "is_root_user_delete_disabled": control.get("is_root_user_delete_disabled", control.get("is_enable_users_protect_root", True)), "is_root_user_create": control.get("is_root_user_create", True), "is_log_users_password": control.get("is_log_users_password", True), "is_log_users_delete": control.get("is_log_users_delete", True), "is_protected_delete_disabled": control.get("is_protected_delete_disabled", True), "is_updated_at_set": control.get("is_updated_at_set", True), "bulk_blocked": control.get("table_row_delete_disable_bulk", control.get("table_delete_disable_row_bulk", control.get("disable_table_delete_row_bulk", []))), "table_blocked": control.get("table_row_delete_disable", control.get("table_row_delete_disable_all", control.get("table_delete_disable_row", control.get("disable_table_delete_row", []))))}
 
 def func_postgres_schema_hash(value: any) -> str:
@@ -539,18 +539,18 @@ async def func_postgres_schema_sql_execute(*, conn: any, sql_config: any) -> Non
     for query in func_postgres_schema_sql_queries(sql_config): await conn.execute(query)
     return None
 
-async def func_postgres_schema_init(*, app_state: any, client_postgres: any, config_db: dict, root_user_password_hash: str = None) -> str:
+async def func_postgres_schema_init(*, app_state: any, client_postgres: any, config_postgres: dict, root_user_password_hash: str = None) -> str:
     """Initialize PostgreSQL schema by composing focused helpers registered on app.state."""
-    app_state.func_postgres_schema_config_validate(config_db=config_db)
-    context = app_state.func_postgres_schema_context_build(config_db=config_db)
+    app_state.func_postgres_schema_config_validate(config_postgres=config_postgres)
+    context = app_state.func_postgres_schema_context_build(config_postgres=config_postgres)
     async with client_postgres.acquire() as conn:
-        await app_state.func_postgres_schema_extensions_init(conn=conn, extensions=config_db.get("extension") or [])
-        await app_state.func_postgres_schema_tables_sync(conn=conn, tables=config_db["table"], catalog=context["catalog"])
+        await app_state.func_postgres_schema_extensions_init(conn=conn, extensions=config_postgres.get("extension") or [])
+        await app_state.func_postgres_schema_tables_sync(conn=conn, tables=config_postgres["table"], catalog=context["catalog"])
         db_tables = await app_state.func_postgres_schema_tables_read(conn=conn)
         await app_state.func_postgres_schema_users_init(conn=conn, db_tables=db_tables, catalog=context["catalog"], context=context, root_user_password_hash=root_user_password_hash)
         await app_state.func_postgres_schema_triggers_sync(conn=conn, db_tables=db_tables, catalog=context["catalog"], context=context)
-        await app_state.func_postgres_schema_cleanup(conn=conn, tables=config_db["table"], catalog=context["catalog"])
-        await app_state.func_postgres_schema_sql_execute(conn=conn, sql_config=config_db.get("sql", {}))
+        await app_state.func_postgres_schema_cleanup(conn=conn, tables=config_postgres["table"], catalog=context["catalog"])
+        await app_state.func_postgres_schema_sql_execute(conn=conn, sql_config=config_postgres.get("sql", {}))
     return "database init done"
 
 async def func_auth_user_login_fetch(*, conn: any, field: str, value: any, role: any) -> dict:
@@ -3577,12 +3577,12 @@ async def func_postgres_where_build(*, client_postgres: any, client_password_has
     where_sql = await build_filter(filter)
     return where_sql, values
 
-async def func_postgres_relation(*, client_postgres: any, client_postgres_conn: any = None, obj_list: list, relation: list, config_sql_read_relation_fetch_limit_max: int, config_table_read_protected: list = None, config_column_read_blocked: list = None) -> list:
+async def func_postgres_relation(*, client_postgres: any, client_postgres_conn: any = None, obj_list: list, relation: list, config_sql_read_relation_fetch_limit_max: int, blocked_tables: list = None, config_column_read_blocked: list = None) -> list:
     """Standardized relationship logic: handles both aggregates (count, sum, etc) and associations (fetching rows) from source to target."""
     if not relation or not obj_list: return obj_list
     import re
     from collections import defaultdict
-    blocked_tables = set(config_table_read_protected) if config_table_read_protected is not None else {"users", "config", "log_api", "log_users_password", "otp", "spatial_ref_sys"}
+    blocked_tables_set = set(blocked_tables) if blocked_tables is not None else set()
     blocked_columns = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
     relations = relation if isinstance(relation, (list, tuple)) else [relation]
     for rel_str in relations:
@@ -3590,7 +3590,7 @@ async def func_postgres_relation(*, client_postgres: any, client_postgres_conn: 
         parts = [p.strip() for p in rel_str.split(",", 4)]
         if len(parts) < 5: raise Exception("relation must have 5 parts: source_col,target_table,target_col,op,val")
         source_col, target_table, target_col, op, val = parts
-        if target_table in blocked_tables: raise Exception(f"relation read disabled for table: {target_table}")
+        if target_table in blocked_tables_set: raise Exception(f"relation read disabled for table: {target_table}")
         op_parts = op.split("|")
         op_main = op_parts[0].lower()
         for p in (target_table, op_main):
@@ -3784,7 +3784,7 @@ async def func_app_tasks_stop(*, app_state: any, timeout_sec: int = 5) -> None:
     periodic_tasks = [getattr(app_state, "postgres_buffer_flush_task", None), getattr(app_state, "inmemory_cache_cleanup_task", None)]
     await app_state.func_async_tasks_cancel(task_list=runtime_tasks + periodic_tasks, timeout_sec=timeout_sec)
 
-async def func_postgres_read(*, client_postgres: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list, config_column_read_blocked: list = None, config_table_read_protected: list = None) -> list:
+async def func_postgres_read(*, client_postgres: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list, config_column_read_blocked: list = None, blocked_tables: list = None) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
     if not client_postgres: raise Exception("postgres client not initialized")
     import re
@@ -3832,7 +3832,7 @@ async def func_postgres_read(*, client_postgres: any, client_password_hasher: an
                 for b_col in blocked_cols:
                     r.pop(b_col, None)
         if relation and result_list:
-            result_list = await func_postgres_relation(client_postgres=client_postgres, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_sql_read_relation_fetch_limit_max=config_sql_read_relation_fetch_limit_max, config_table_read_protected=config_table_read_protected, config_column_read_blocked=config_column_read_blocked)
+            result_list = await func_postgres_relation(client_postgres=client_postgres, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_sql_read_relation_fetch_limit_max=config_sql_read_relation_fetch_limit_max, blocked_tables=blocked_tables, config_column_read_blocked=config_column_read_blocked)
         return result_list
 
 async def func_postgres_update(*, client_postgres: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, table: str, obj_list: list, created_by_id: int) -> any:
@@ -4015,7 +4015,7 @@ async def func_user_read_single(*, client_postgres: any, user_id: int) -> dict:
     if not record: raise Exception("user not found")
     return dict(record)
 
-def func_run_broker(*, queue: str, channel: str, config_broker: dict, setup_callback: callable, execute_callback: callable):
+def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_callback: callable, execute_callback: callable):
     import sys, asyncio, orjson, os, traceback
     from datetime import datetime, timezone
     from itertools import count
@@ -4029,7 +4029,7 @@ def func_run_broker(*, queue: str, channel: str, config_broker: dict, setup_call
         with open("tmp/consumer_failed_payload.jsonl", "ab") as file: file.write(orjson.dumps(record, option=orjson.OPT_APPEND_NEWLINE))
     if queue == "celery":
         from celery import signals, Celery
-        app = Celery("atom", broker=config_broker.get("config_celery_url"), backend=config_broker.get("config_celery_url"))
+        app = Celery("atom", broker=broker_settings.get("config_celery_url"), backend=broker_settings.get("config_celery_url"))
         app.conf.update(worker_prefetch_multiplier=1, task_acks_late=True, task_reject_on_worker_lost=True)
         setup_data, worker_loop = None, None
         @signals.worker_process_init.connect
@@ -4076,7 +4076,7 @@ def func_run_broker(*, queue: str, channel: str, config_broker: dict, setup_call
         try:
             if queue == "redis":
                 import redis.asyncio as redis
-                client = redis.Redis.from_pool(redis.ConnectionPool.from_url(config_broker.get("config_redis_url_queue"))) if config_broker.get("config_redis_url_queue") else None
+                client = redis.Redis.from_pool(redis.ConnectionPool.from_url(broker_settings.get("config_redis_url_queue"))) if broker_settings.get("config_redis_url_queue") else None
                 print(f"redis consumer started on {channel}", flush=True)
                 try:
                     while True:
@@ -4089,7 +4089,7 @@ def func_run_broker(*, queue: str, channel: str, config_broker: dict, setup_call
                     await client.aclose()
             elif queue == "rabbitmq":
                 import aio_pika
-                conn = await aio_pika.connect_robust(config_broker.get("config_rabbitmq_url"))
+                conn = await aio_pika.connect_robust(broker_settings.get("config_rabbitmq_url"))
                 ch = await conn.channel()
                 await ch.set_qos(prefetch_count=consumer_concurrency)
                 rq = await ch.declare_queue(channel, durable=True)
@@ -4111,10 +4111,10 @@ def func_run_broker(*, queue: str, channel: str, config_broker: dict, setup_call
                 kafka_is_enable_auto_commit = 1
                 kafka_batch_limit = 100
                 kafka_batch_timeout_ms = 1000
-                if config_broker.get("config_kafka_username"):
-                    consumer = AIOKafkaConsumer(channel, bootstrap_servers=config_broker.get("config_kafka_url"), group_id=kafka_group_id, enable_auto_commit=bool(kafka_is_enable_auto_commit), security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=config_broker.get("config_kafka_username"), sasl_plain_password=config_broker.get("config_kafka_password"))
+                if broker_settings.get("config_kafka_username"):
+                    consumer = AIOKafkaConsumer(channel, bootstrap_servers=broker_settings.get("config_kafka_url"), group_id=kafka_group_id, enable_auto_commit=bool(kafka_is_enable_auto_commit), security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=broker_settings.get("config_kafka_username"), sasl_plain_password=broker_settings.get("config_kafka_password"))
                 else:
-                    consumer = AIOKafkaConsumer(channel, bootstrap_servers=config_broker.get("config_kafka_url"), group_id=kafka_group_id, enable_auto_commit=bool(kafka_is_enable_auto_commit))
+                    consumer = AIOKafkaConsumer(channel, bootstrap_servers=broker_settings.get("config_kafka_url"), group_id=kafka_group_id, enable_auto_commit=bool(kafka_is_enable_auto_commit))
                 await consumer.start()
                 print(f"kafka consumer started on {channel}", flush=True)
                 try:

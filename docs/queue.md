@@ -54,7 +54,7 @@ Consumers use `func_run_broker` to provide a single unified interface across all
 func_run_broker(
     queue="redis",                 # redis | rabbitmq | kafka | celery
     channel="postgres_create",     # topic or stream name
-    config_broker={...},           # connection credentials
+    broker_settings={...},         # connection credentials
     setup_callback=init_resources, # runs once (opens db pools, loads schema)
     execute_callback=process_msg,  # runs per message
 )

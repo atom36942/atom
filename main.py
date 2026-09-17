@@ -59,7 +59,7 @@ async def func_lifespan(app:"FastAPI"):
         client_postgres_log_api = client_postgres if app.state.config_postgres_db_log_api is None else client_postgres_dict[app.state.config_postgres_db_log_api]
         client_postgres_pgweb = {}
         # postgres master
-        if client_postgres and not app.state.config_is_read_only and app.state.config_is_postgres_schema_init: await app.state.func_postgres_schema_init(app_state=app.state, client_postgres=client_postgres, config_db=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(str(config_root_user_password)) if config_root_user_password else None)
+        if client_postgres and not app.state.config_is_read_only and app.state.config_is_postgres_schema_init: await app.state.func_postgres_schema_init(app_state=app.state, client_postgres=client_postgres, config_postgres=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(str(config_root_user_password)) if config_root_user_password else None)
         cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres=client_postgres) if client_postgres else {}
         cache_postgres_schema_ai = await app.state.func_postgres_schema_read_ai(client_postgres=client_postgres) if client_postgres else {}
         cache_config = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("config"), is_json_value=True) if client_postgres and "config" in cache_postgres_schema else {}
