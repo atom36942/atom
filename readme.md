@@ -108,8 +108,8 @@ All configuration defaults live in `config.py`. Override settings without editin
 
 ```env
 config_postgres_url=postgresql://postgres:postgres@localhost:5432/postgres
-config_token_secret_key="your-secret-key-at-least-32-chars"
 config_root_user_password="your-strong-root-password"
+config_token_secret_key="your-secret-key-at-least-32-chars"
 config_login_password="your-strong-login-password"
 config_cors_allow_origins=["http://localhost:3000", "https://app.example.com"]
 config_signup_allowed_roles=[5]
