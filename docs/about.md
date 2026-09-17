@@ -1,23 +1,21 @@
-# 🧭 About Atom Architecture & Technical Deep-Dive
+# 🧭 Architecture, Lifespan & Routers
 
-Welcome to the technical single-source-of-truth architecture reference for **Atom**. This document explains how Atom is built under the hood, how its code layers interact, how connection pools and lifespans operate, and how HTTP requests flow through its single-middleware pipeline.
-
-For high-level feature overviews, installation guides, and quickstart commands, see the **[README](../readme.md)**.
+Welcome to the comprehensive architecture guide for **Atom**. This document explains how Atom is built under the hood: its core design principles, codebase structure, application lifespan (startup/shutdown), the unified single-middleware HTTP pipeline, and router conventions for authoring new APIs.
 
 ---
 
-## 💡 Architecture & Design Principles
+## 1. Design Principles
 
-Atom is a batteries-included, opinionated FastAPI framework built for performance, modularity, and easy downstream maintenance:
+Atom is a batteries-included, opinionated async Python framework built on top of **FastAPI**, **Starlette**, **Uvicorn**, and **asyncpg**:
 
-- **Config-Driven & Optional Everything**: Core dependencies (Postgres, Redis, Mongo, S3, Azure, Kafka, RabbitMQ, Celery, AI models) are completely optional. Integrations activate only when their connection URLs or keys are present in **[config.py](config.md)** or `.env`.
-- **Pure Async Architecture**: Built on FastAPI, Starlette, Uvicorn, `asyncpg`, `aioredis`, and `aiohttp` to maximize non-blocking concurrency.
-- **Flat & Transparent Layering**: Avoids heavy ORM abstractions or scattered middleware classes. Core execution flows through `main.py` (framework runtime) and `function.py` (pure helper logic).
-- **Non-Forking Extensibility**: Maintainers can extend routes and logic via drop-in extension files (`config_extend.py`, `function_extend.py`) without mutating core framework files, enabling seamless upstream updates via `sync.py`. Learn more in **[extend.md](extend.md)**.
+- **Config-Driven & Optional Everything**: Core dependencies (PostgreSQL, Redis, Mongo, S3, Azure, Kafka, RabbitMQ, Celery, AI models) are completely optional. Integrations activate only when their connection URLs or keys are present in [`config.py`](config.md) or `.env`.
+- **Pure Async Architecture**: Uses non-blocking drivers (`asyncpg`, `redis.asyncio`, `aiohttp`, `httpx`) to maximize concurrency and throughput.
+- **Flat & Transparent Layering**: Avoids heavy ORM abstractions or scattered middleware classes. Execution flows cleanly through `main.py` (runtime) and `function.py` (pure functions).
+- **Non-Forking Extensibility**: Maintainers can extend routes and logic via drop-in extension files (`config_extend.py`, `function_extend.py`) without mutating core framework files, enabling upstream updates via `sync.py`. Learn more in [`extend.md`](extend.md).
 
 ---
 
-## ⚙️ Core Technical Components & Layering
+## 2. Codebase Layout & Layering
 
 The codebase is organized into flat, specialized components with clear separation of responsibilities:
 
@@ -27,146 +25,169 @@ atom/
 ├── function.py     # Framework-agnostic pure logic, helpers & database engines
 ├── config.py       # Centralized declarative settings, rules & schema definitions
 ├── router/         # Access-tiered API endpoint handlers (auth, my, public, private, admin)
-├── static/         # Served assets and built-in interactive API console
+├── static/         # Static web assets & built-in API console
 ├── script/         # Standalone background queue workers & maintenance processes
-└── sync.py         # Upstream framework updater tool
+├── sync.py         # Upstream framework updater tool
+├── requirements.txt
+└── Dockerfile
 ```
 
-### 1. `main.py` — Application Core & Runtime
-Assembles the FastAPI application instance. Handles the startup/shutdown **[lifespan](lifespan.md)** context manager, orchestrates connection pools (**[postgres.md](postgres.md)**, **[redis.md](redis.md)**), builds in-memory caches, registers routers (**[router.md](router.md)**), and mounts the unified **[middleware](middleware.md)**.
-
-### 2. `function.py` — Helper Logic & Utility Engine
-Contains all reusable, framework-agnostic helper functions (JWT token parsing, password hashing, generic CRUD operations, buffer flushes, blob operations, and AI utilities). See **[object_create.md](object_create.md)**, **[object_read.md](object_read.md)**, **[auth.md](auth.md)**, and **[query.md](query.md)**.
-
-### 3. `config.py` — Centralized Declarative Configuration
-Acts as the single source of truth for all environment variables, feature flags (`config_is_*`), token/OTP settings, and limits (upload size, batch size, read limits, buffer sizes), and endpoint permissions. Read the full reference in **[config.md](config.md)**.
-
-### 4. `router/` — Access-Tiered Routers
-API routes are partitioned into access tiers based on security requirements:
-- `auth`: Signup, login, password reset, OTP, and OAuth endpoints (**[auth.md](auth.md)**).
-- `my`: Authenticated user operations, profile settings, user object CRUD, and messaging (**[object_read.md](object_read.md)**, **[messaging.md](messaging.md)**).
-- `public`: Unauthenticated public data reads and public forms (**[object_read.md](object_read.md)**).
-- `private`: Server-side actions like internal emails and signed storage URLs (**[blob.md](blob.md)**, **[email.md](email.md)**).
-- `admin`: High-privilege administrative utilities, query runners, data imports, and schema inspection (**[admin.md](admin.md)**).
-
-See **[router.md](router.md)** for endpoint design conventions.
-
-### 5. `script/` — Standalone Queue Workers
-Contains consumer processes that execute independently of the web application server to process queued tasks (Postgres writes, email dispatch, resume parsing, user deletion cleanup). Read **[workers.md](workers.md)** and **[queue.md](queue.md)**.
+### Core Components:
+1. **`main.py`**: Assembles the FastAPI app, orchestrates startup/shutdown pools via lifespan, mounts the unified HTTP middleware, and auto-discovers routers.
+2. **`function.py`**: Contains framework-agnostic helper functions (JWT parsing, password hashing, generic CRUD, write buffers, cloud storage, AI utilities). Functions are written as pure functions with keyword-only arguments.
+3. **`config.py`**: Single source of truth for all configurations, feature flags (`config_is_*`), token lifetimes, limits, table schemas, and route access control policies (`config_api`).
+4. **`router/`**: Access-tiered routers organized by security scope:
+   - `auth`: Signup, password logins, OTP verification, and OAuth.
+   - `my`: Self-service endpoints for authenticated users scoped to `request.state.user["id"]`.
+   - `public`: Unauthenticated public data reads and public forms.
+   - `private`: Authenticated server-side actions (emails, signed upload URLs).
+   - `admin`: High-privilege administrative utilities, raw SQL runners, data import tools.
+5. **`script/`**: Standalone background workers that consume tasks (buffer flushes, queue polling, email dispatch).
 
 ---
 
-## 🔄 Application Lifespan & Connection Management
+## 3. Application Lifespan (`func_lifespan`)
 
-The application lifecycle in `main.py` manages startup and shutdown routines cleanly using Python's `asynccontextmanager`.
+Atom wires up its state in a single FastAPI **lifespan** context manager (`func_lifespan` in `main.py`). It runs once on **startup** (before `yield`) and once on **shutdown** (after `yield`).
 
 ```
-Startup (lifespan)
-  ├── 1. Connect Primary & Read-Replica Postgres Pools (asyncpg)
-  ├── 2. Connect Redis Clients (Cache, Rate Limiter, Queue)
-  ├── 3. Initialize Optional Clients (MongoDB, MSSQL, S3, Azure, Kafka, RabbitMQ)
-  ├── 4. Load In-Memory Schema, Roles & Config Caches
-  └── 5. Start Background Periodic Tasks (Buffered Writes Flush Loop)
+STARTUP  → validate config → prepare directories → init client pools → apply schema
+         → build in-memory caches → register on app.state → generate OpenAPI → start flush loop
+  yield  (app serves requests)
+SHUTDOWN → stop background tasks → final buffer flush → close every client
 ```
 
-For complete technical details on connection parameters, pooling strategies, and graceful shutdown sequences, see:
-- **[lifespan.md](lifespan.md)** — Comprehensive lifespan lifecycle documentation.
-- **[postgres.md](postgres.md)** — Postgres connection pool, primary/replica routing, and SSL configurations.
-- **[redis.md](redis.md)** — Redis client isolation for cache, rate limiting, and queue management.
+### Startup Sequence:
+1. **Validation (`func_check`)**: Validates that `config_api` is well-formed: every entry uses allowed keys (`id`, `is_token`, `user_check_*`, `cache`, `rate_limit`), flags are booleans, check modes are valid (`redis` / `realtime` / `inmemory` / `token`). Misconfiguration causes fast-fail.
+2. **Filesystem Prep**: Resets the working `tmp/` scratch directory and ensures `secret/` exists.
+3. **Client Initialization**: Initializes clients conditionally based on `.env` settings:
+   - `client_password_hasher`: Argon2 password hasher.
+   - `client_http`: Shared `httpx.AsyncClient`.
+   - `client_postgres`: Primary `asyncpg` connection pool.
+   - `client_postgres_dict`: Named connection pools for read replicas or dedicated databases (e.g. `client_postgres_dict["logs"]`).
+   - `client_redis`, `client_redis_user_state`, `client_redis_ratelimiter`, `client_redis_producer`: Isolated Redis clients.
+   - Optional: MongoDB (Motor), MSSQL, S3, Azure Blob, Kafka, RabbitMQ, Celery, PostHog, OpenAI, Gemini.
+4. **Database Schema Init**: When `config_is_postgres_schema_init = True`, applies table schemas, indexes, and constraints from `config_postgres`, and seeds the root admin user (`admin` / `role: 1`).
+5. **In-Memory Cache Building**: Preloads read-mostly metadata to avoid database hits during request routing:
+   - `cache_postgres_schema`: Table and column definitions.
+   - `cache_config`: Key-value settings from the `config` database table.
+   - `cache_users_role`, `cache_users_deactivated`, `cache_users_deleted`: Backs in-memory auth checks.
+   - Write buffers: `cache_postgres_buffer_create` and `cache_postgres_buffer_log_api`.
+6. **Register on `app.state`**: All local `client_*`, `cache_*`, `config_*`, and `func_*` are bulk-mounted onto `app.state`, accessible in routes as `request.app.state.<name>`.
+7. **Periodic Buffer Flush Loop**: Launches background task `func_postgres_buffer_flush_periodic_task` draining in-memory write buffers every `config_postgres_buffer_flush_auto_sec`.
+
+### Shutdown Sequence:
+1. **Stop Tasks (`func_app_tasks_stop`)**: Cancels runtime background tasks and periodic flush loops with a 5-second graceful window.
+2. **Final Buffer Flush (`func_postgres_buffer_flush_all`)**: Acquires `postgres_buffer_flush_lock` and inserts all remaining pending records in `cache_postgres_buffer_create` and `cache_postgres_buffer_log_api`.
+3. **Close Connections**: Gracefully disconnects all initialized database pools, Redis connections, HTTP clients, and message brokers.
 
 ---
 
-## ⚡ Request Lifecycle & Middleware Pipeline
+## 4. Single HTTP Middleware Pipeline
 
-Every HTTP request to Atom passes through a single, highly-optimized HTTP middleware defined in `main.py` (`@app.middleware("http")`), delegating logic processing to `function.py`:
+Every HTTP request to Atom passes through **one** unified HTTP middleware in `main.py` (`@app.middleware("http")`). The middleware orchestrates cross-cutting concerns, delegating logic to pure functions:
 
 ```
-Incoming Request
+Request
   │
-  ├── 1. Token Decoding (func_token_decode)
-  ├── 2. Auth Check (func_middleware_check_token)
-  ├── 3. Role-Based Access Check (func_middleware_check_role)
-  ├── 4. User Deactivation & Deletion Guard (func_middleware_check_user_*)
-  ├── 5. Distributed Rate Limiter Check (func_middleware_check_ratelimiter)
-  ├── 6. Response Cache Lookup (func_middleware_api_cache) ──[CACHE HIT]──▶ Return Cached Response
-  │                                                                            │ [CACHE MISS]
-  ├── 7. Endpoint Handler Execution (router/...)                              │
-  ├── 8. Store Response in Cache (if configured) ◀─────────────────────────────┘
-  ├── 9. Buffer API Audit Log Row (async-flushed to Postgres log_api table)
+  ├── 0. OPTIONS short-circuit (passes to CORSMiddleware)
+  ├── 1. Initialize request timer & state (request.state.user = {})
+  ├── 2. Look up route policy in config_api (or default public)
+  ├── 3. Active Check (reject if is_active=False)
+  ├── 4. Decode JWT Token (func_token_decode -> request.state.user)
+  ├── 5. Auth & User-State Checks:
+  │      ├── Token check (is_token=True)
+  │      ├── Role check (user_check_role)
+  │      ├── Deactivated check (user_check_deactivated)
+  │      └── Deleted check (user_check_deleted)
+  ├── 6. Distributed Rate Limiter Check (func_middleware_check_ratelimiter)
+  ├── 7. Response Cache Lookup (func_middleware_api_cache, mode="get")
+  │      └── [HIT] ──▶ Return cached response immediately
   │
-  └── Output HTTP Response
+  ├── 8. Request Dispatch:
+  │      ├── Background mode (?is_background=true) ──▶ Schedule & return 202
+  │      └── Direct execution ──▶ Execute route handler (await api_function(request))
+  │
+  ├── 9. Error Handling (catches exceptions, formats envelope, logs to Sentry)
+  ├── 10. Cache Store (stores response if route policy has cache enabled)
+  ├── 11. API Audit Logging (buffers one log_api row into cache_postgres_buffer_log_api)
+  ├── 12. Security Headers (attaches nosniff, DENY, strict-origin)
+  └── Return HTTP Response
 ```
 
-For detailed specifications on each middleware phase, status code handling, and cache keys:
-- Read **[middleware.md](middleware.md)** for full pipeline mechanics.
-- Read **[auth.md](auth.md)** for token security and role enforcement.
-- Read **[logs.md](logs.md)** for audit trail logging and request telemetry.
+### Baseline Security Headers Attached:
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `X-XSS-Protection: 0`
 
 ---
 
-## 🗃️ Data, Query & Asynchronous Buffer Engines
+## 5. Router Design & Writing APIs
 
-Atom provides powerful built-in data handling abstractions without forcing heavy ORM overhead:
+Routers live in [`router/`](../router). Each file is auto-discovered and mounted at startup by `func_app_router_add`. Files load in the order set by `router_order` in `main.py` (`index → auth → my → public → private → admin`).
 
-1. **Generic CRUD Engine**: Perform low-level CRUD operations against any SQL table using declarative configuration. See **[object_create.md](object_create.md)**, **[object_read.md](object_read.md)**, **[object_update.md](object_update.md)**, and **[object_delete.md](object_delete.md)**.
-2. **Advanced Filtering & Pagination Engine**: Parse complex queries, field selections, sorting parameters, and relational joins dynamically. Read **[object_read.md](object_read.md)**.
-3. **High-Performance Async Write Buffer**: Non-blocking in-memory buffer that batches database writes (like request logging and analytics) into periodic bulk inserts to reduce database round-trips. Read **[buffer.md](buffer.md)**.
-4. **Multi-Database & AI Query Runner**: Direct raw SQL query execution across Postgres, MSSQL, and ClickHouse with natural language AI SQL generation. See **[query.md](query.md)**.
+### Anatomy of an Endpoint:
+```python
+@router.get("/my/api-usage")
+async def func_api_my_api_usage(*, request: Request):
+    app_state = request.app.state                         # 1. Grab app.state once
+    if not app_state.client_postgres:                     # 2. Guard required clients
+        raise Exception("postgres client not initialized")
+        
+    oq = await app_state.func_request_param_read(         # 3. Read & validate params
+        request=request, mode="query", strict=False,
+        param_specs=[{"name": "days", "type": "int", "required": True}]
+    )
+    
+    async with app_state.client_postgres.acquire() as conn:
+        records = await conn.fetch(sql, oq["days"], request.state.user["id"])
+        obj_list = [dict(r) for r in records]
+        
+    return {"status": 1, "message": obj_list}             # 4. Standard response envelope
+```
 
----
-
-## 📦 Workers, Storage & External Services
-
-For complex background processing and external service integrations, Atom provides dedicated modules:
-
-- **Asynchronous Task Queues**: Pluggable background queue architectures powered by Redis, RabbitMQ, Kafka, or Celery. See **[queue.md](queue.md)** and **[workers.md](workers.md)**.
-- **Cloud Storage Integration**: Unified file upload, download preview, and SAS token generation for AWS S3 and Azure Blob Storage. Read **[blob.md](blob.md)**.
-- **Communications Engine**: Transmit transactional emails (AWS SES, Resend, Azure) and SMS (Azure, AWS SNS, Fast2SMS). Read **[email.md](email.md)** and **[sms.md](sms.md)**.
-- **Direct Messaging System**: Built-in user-to-user messaging and notification pipelines. Read **[messaging.md](messaging.md)**.
-
----
-
-## 🛡️ Security, Admin & Extension Architecture
-
-Atom is designed to remain secure in production and easy to update downstream:
-
-- **Admin Operations & Introspection**: Schema management, administrative SQL runners, and system data import tooling. Read **[admin.md](admin.md)**.
-- **Security & Hardening**: Strict role checks, token secret key rotation, SQL injection safeguards, and input sanitization. Read **[security.md](security.md)** and **[prod.md](prod.md)**.
-- **Extending Without Forking**: Add custom routes or override core logic in `config_extend.py` and `function_extend.py`, keeping core framework updates simple via `sync.py`. Read **[extend.md](extend.md)** and **[faq.md](faq.md)**.
-- **Troubleshooting & FAQs**: Answers to common developer questions, step-by-step API creation guidelines, performance tweaks, and deployment scenarios. Read **[faq.md](faq.md)**.
-
----
-
-## 📚 Complete Technical Documentation Sitemap
-
-| Area | Documentation File | Purpose / Contents |
+### Naming Conventions:
+| Element | Convention | Example |
 | :--- | :--- | :--- |
-| **Architecture** | **[about.md](about.md)** | Technical master guide & request lifecycle |
-| **Configuration** | **[config.md](config.md)** | Centralized configuration dictionary & default reference |
-| **Lifespan** | **[lifespan.md](lifespan.md)** | Application startup/shutdown, client pools & memory caches |
-| **Middleware** | **[middleware.md](middleware.md)** | HTTP middleware pipeline, authentication & rate limiting |
-| **Postgres** | **[postgres.md](postgres.md)** | Primary/replica pool setup, connection limits & asyncpg |
-| **Redis** | **[redis.md](redis.md)** | Redis cache, rate limiter, and queue client management |
-| **Object CRUD Engine** | **[object_create.md](object_create.md)**, **[object_update.md](object_update.md)**, **[object_delete.md](object_delete.md)** | Generic CRUD engines & access-tiered object APIs |
-| **Read Engine** | **[object_read.md](object_read.md)** | Filtering, pagination, field selection & dynamic joins |
-| **Write Buffer** | **[buffer.md](buffer.md)** | High-throughput asynchronous write buffer & flush loops |
-| **Query Engine** | **[query.md](query.md)** | Raw SQL query execution & AI SQL query generation |
-| **Authentication** | **[auth.md](auth.md)** | JWT auth, role enforcement, OTP & Google OAuth |
-| **Queue System** | **[queue.md](queue.md)** | Background job queues (Redis, RabbitMQ, Kafka, Celery) |
-| **Workers** | **[workers.md](workers.md)** | Consumer execution scripts in `script/` |
-| **Cloud Storage** | **[blob.md](blob.md)** | AWS S3 and Azure Blob storage integration |
-| **Email** | **[email.md](email.md)** | Transactional email (SES/Resend/Azure) |
-| **SMS & Mobile OTP** | **[sms.md](sms.md)** | Mobile OTP delivery (Azure/SNS/Fast2SMS) |
-| **Messaging** | **[messaging.md](messaging.md)** | User-to-user direct chat & notification queues |
-| **Admin Toolkit** | **[admin.md](admin.md)** | Administrative ops, schema inspector & data import |
-| **Router Design** | **[router.md](router.md)** | Access tier router conventions (`auth`, `my`, `admin`, etc.) |
-| **API Logging** | **[logs.md](logs.md)** | Audit logging & HTTP request telemetry |
-| **Extending Atom** | **[extend.md](extend.md)** | Non-forking extension via `config_extend.py` & `sync.py` |
-| **Web Interfaces** | **[html.md](html.md)** | Built-in web interfaces (API Master & PgWeb) |
-| **Security** | **[security.md](security.md)** | Production security model & hardening checklist |
-| **Production** | **[prod.md](prod.md)** | Production deployment configuration checklist |
-| **FAQ & Guides** | **[faq.md](faq.md)** | Step-by-step developer guidelines & operational answers |
+| Route Path | `/<tier>/<action-kebab>` | `/my/object-create` |
+| Handler Function | `func_api_<tier>_<action_snake>` | `func_api_my_object_create` |
+| Signature | Keyword-only `request` | `async def func_api_...(*, request: Request)` |
 
----
+### Parameter Extraction — `func_request_param_read`:
+**Never** parse `request.query_params` or `request.json()` manually. Use `func_request_param_read`:
+```python
+oq = await app_state.func_request_param_read(
+    request=request,
+    mode="query",        # "query", "body", "form", or "header"
+    strict=False,
+    param_specs=[
+        {"name": "table", "type": "str", "required": True},
+        {"name": "limit", "type": "int", "default": 100},
+        {"name": "mode", "type": "str", "allowed": ["now", "buffer"], "default": "now"},
+    ]
+)
+```
+- Supported types: `int`, `float`, `str`, `bool`, `dict`, `list`, `file`, `list:int`, `list:str`.
+- Booleans automatically parse `"true"`, `"false"`, `1`, `0`, `"yes"`, `"no"`.
 
-📚 [Back to README](../readme.md)
+### Request Scopes:
+- `request.app.state`: Process-wide application state (clients, caches, config, functions).
+- `request.state`: Per-request state set by middleware (`request.state.user` holds decoded JWT claims).
+
+### Standard Response Envelope:
+```json
+{"status": 1, "message": <data>}
+```
+- On errors, simply `raise Exception("error message")`. The middleware catches the exception, attaches traceback telemetry, and formats the standard error JSON.
+
+### Registering Route Policies (`config_api`):
+By default, any unlisted route is public. To require authentication, rate limiting, or caching, add an entry to `config_api` (or `config_extend.py`):
+```python
+config_api["/my/report"] = {
+    "id": 210,
+    "is_token": True,
+    "rate_limit": {"count": 100, "seconds": 60},
+    "cache": {"mode": "inmemory", "ttl_sec": 30, "is_per_user": True}
+}
+```

@@ -1,88 +1,67 @@
-# 🛡️ Security Model
+# 🛡️ Security Model & Production Hardening
 
-Atom's security is **layered and config-driven**. Each layer is enforced in one place and configured as data, so protections are uniform across every endpoint rather than re-implemented per handler.
+Atom enforces a layered, defense-in-depth security model across network boundaries, identity verification, authorization policies, database access, and data sanitization.
 
+---
+
+## 1. Baseline Security Headers
+
+Atom attaches standard baseline security headers to every HTTP response before returning:
+- `X-Content-Type-Options: nosniff`: Prevents MIME-sniffing attacks.
+- `X-Frame-Options: DENY`: Mitigates clickjacking attacks.
+- `Referrer-Policy: strict-origin-when-cross-origin`: Protects referrer leakage.
+- `X-XSS-Protection: 0`: Disables legacy flawed browser XSS filters in favor of modern CSP.
+
+---
+
+## 2. Identity & Token Security
+
+- **Stateless HS256 JWTs**: Signed using `config_token_secret_key`. No session state is held server-side.
+- **Minimal Token Claims**: Encodes only non-sensitive routing fields (`id`, `role`, `username`, `id_ext`, `deactivated_at`, `deleted_at`) declared in `config_column_token_encode`.
+- **Argon2 Password Hashing**: Passwords are never stored or logged in plaintext; hashed via Argon2id (`m=65536, t=3, p=4`).
+- **Constant-Time Verification**: Endpoint checks (such as `/auth/login-password`) use `hmac.compare_digest` to thwart timing attacks.
+
+---
+
+## 3. Data Access & Column Protections
+
+- **Parameterized SQL Queries**: All queries pass through `func_postgres_where_build` and `asyncpg` positional parameters (`, `). Raw user strings are never concatenated into SQL.
+- **Sensitive Column Exfiltration Shield**: Projections, filters, distinct queries, and group-by aggregations strictly block sensitive fields declared in `config_column_read_blocked` and `"password"`.
+- **Server-Managed Column Protections**: Clients cannot mutate fields in `config_column_admin` (`created_at`, `role`, `verified_at`).
+- **Single-Field Update Guards**: High-risk identity fields (`password`, `email`, `mobile`) cannot be updated in bulk; `config_column_single_update` forces isolated, single-field mutations.
+- **Database Trigger Protections**: Superadmin user (`id: 1`) is guarded by PostgreSQL triggers (`trigger_protect_root_users`) preventing deletion.
+
+---
+
+## 4. Abuse Mitigation & Rate Limiting
+
+- **Distributed Rate Limiting**: Per-route `rate_limit` policies enforced via Redis or memory counters.
+- **Key Partitioning**: Rate limit windows are keyed by `user_id` for authenticated sessions and by client IP for anonymous callers.
+- **WebSocket Flooding Guard**: Unauthenticated WebSocket endpoints (such as `/websocket`) default to `is_active: False` and close immediately on connect.
+
+---
+
+## 5. Production Hardening Checklist
+
+When deploying Atom to production:
+
+### 1. Mandatory Production Environment Keys (`.env`):
+```dotenv
+config_is_prod=true
+config_token_secret_key="generate-a-secure-random-64-char-string"
+config_root_user_password="strong-complex-root-password"
+config_login_password="strong-login-password"
+config_signup_allowed_roles=[] # Restrict open registration if applicable
 ```
-Network       → CORS
-Identity      → JWT token (signed, stateless)
-Authorization → per-route policy: token → role → deactivated → deleted
-Abuse         → rate-limiting
-Data access   → table allow-lists · ownership scoping · restricted columns
-Input safety  → schema validation · parameter binding · regex checks
-Secrets       → env-injected keys
-```
 
----
-
-## 1. Identity — JWT
-
-Requests carry `Authorization: Bearer <token>`. The middleware decodes it (`func_token_decode`) into `request.state.user`. Tokens are HS256-signed with **`config_token_secret_key`** and stateless (nothing stored server-side). Only the fields in `config_column_token_encode` are embedded. See [auth.md](auth.md).
-
-## 2. Authorization — per-route policy
-
-Every route's protection comes from its `config_api` entry, enforced in the middleware **in order**:
-
-| Check | Config field | Rejects |
-|-------|-------------|---------|
-| Token required | `is_token` | Missing/invalid token. |
-| Role | `user_check_role` | Role not in the allowed list. |
-| Deactivated | `user_check_deactivated` | `deactivated_at` is set. |
-| Deleted | `user_check_deleted` | `deleted_at` is set. |
-
-Each check has a **`mode`** — `token` (trust the JWT claim), `inmemory` (Redis/in-memory cache, TTL `config_redis_cache_ttl_sec`), or `realtime` (live DB query). Use `realtime` for destructive admin ops so a revoked/deactivated user can't act on a stale token; `token`/`inmemory` for cheap, high-traffic reads. See [config.md](config.md#config_api) and [middleware.md](middleware.md).
-
-> **Roles:** role `1` is root/admin. It can't be created via public auth endpoints, and admin routes restrict to `[1]` or `[1,2]`.
-
-## 3. Abuse — rate limiting
-
-Routes with `rate_limit` cap requests per window, keyed by **user id** (authenticated) or **client IP** (anonymous). Applied before the handler runs.
-
-## 4. Data access control
-
-Three independent gates protect the generic CRUD layer (see [object_create.md](object_create.md), [object_read.md](object_read.md)):
-
-- **Table allow-lists** — `config_table_public_create_allowed` / `_read_allowed` (public), `config_table_my_create_blocked`, `config_table_my_delete_all_allowed`. `"*"` = all, `[]` = none.
-- **Ownership scoping** — `config_column_ownership` (`created_by_id`, `received_by_id`, `assigned_to_id`, `user_id`). Any `ownership_column` parameter is whitelisted against this list before it reaches SQL. The `my/*` endpoints filter and stamp by ownership so a user only ever touches their own rows; `admin/*` is unrestricted behind role checks.
-- **Restricted columns** — a client can't set server-managed fields in `config_column_admin` (`created_at`, `role`, `verified_at`, …); on `users`, `config_column_admin_users` blocks `role`; and `config_column_single_update` forces sensitive fields (`password`, `email`, `mobile`) to be changed one at a time.
-- **Protected tables** — `config_table_protected` shields core tables (`users`, `log_*`, …) from bulk-cleanup scripts.
-
-## 5. Input safety
-
-- **Schema validation** — table/column names are checked against `cache_postgres_schema`; unknown names are rejected before any SQL runs.
-- **Parameter binding** — all values go through `func_postgres_serialize` / `func_postgres_where_build` and are bound as query parameters. User input is never string-interpolated into SQL, so the flexible filter syntax is **not** an injection vector.
-- **Regex checks** — `func_regex_check` enforces `config_regex` patterns (e.g. username/password rules) on write.
-- **Passwords** — hashed with **Argon2** (`argon2-cffi`); never stored or logged in plaintext.
-
-## 6. Delete safeguards
-
-- `is_protected` rows can't be deleted (`is_protected_delete_disabled`).
-- The root user is protected (`is_root_user_delete_disabled`). See [root_user.md](root_user.md).
-- Per-table delete guards: `table_row_delete_disable` / `_bulk`.
-
-See [config.md](config.md#control).
-
-## 7. Secrets & transport
-
-- **Never commit secrets.** `config_token_secret_key`, `config_root_user_password`, and `config_login_password` must be configured via `.env`, which is git-ignored. See **[prod.md](prod.md)**.
-- **CORS** — `config_cors_*`. `config_cors_allow_origin_regex` defaults to `None`. Explicitly set `config_cors_allow_origins` in `.env` for your allowed frontends.
-- **Production Mode** — `config_is_prod=True` by default, disabling FastAPI debug mode and securing internal errors.
-- **Error reporting** — configure `config_sentry_dsn` to capture exceptions with `send_default_pii=False`.
-
----
-
-## Production hardening checklist
-
-- [ ] Set a strong random `config_token_secret_key`.
-- [ ] Set a strong `config_root_user_password`.
-- [ ] Set `config_login_password` if using `/auth/login-password`.
-- [ ] Configure allowed origins in `config_cors_allow_origins`.
-- [ ] Ensure `config_is_prod=true` (FastAPI debug disabled).
-- [ ] Use `realtime` mode for role checks on destructive admin routes.
-- [ ] Review `config_table_public_*_allowed` — expose only what's intended.
-- [ ] Set rate limits on auth and write endpoints.
-- [ ] Configure `config_sentry_dsn` for monitoring.
-- [ ] Point `config_postgres_url` at the primary database used for every write and default read; configure only trusted read replicas through `config_postgres_url_<name>`.
-
----
-
-📚 [Back to README](../readme.md)
+### 2. Disable High-Risk Admin APIs:
+In production, set `"is_active": False` in `config_api` for sensitive write and runner endpoints:
+- `/admin/sync`
+- `/admin/postgres-import`
+- `/admin/redis-import`
+- `/admin/mongodb-import`
+- `/admin/postgres-query-runner-write`
+- `/admin/mssql-query-runner-write`
+- `/admin/clickhouse-query-runner-write`
+- `/admin/blob-container-ops`
+- `/admin/blob-delete-url`

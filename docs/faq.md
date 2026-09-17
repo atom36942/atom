@@ -132,7 +132,7 @@ return {"status": 1, "message": product}
 - `status: 1` means success.
 - On failure, raise an exception with a clear message. The middleware converts it to `{"status": 0, "message": "..."}`.
 
-If the API needs authentication, roles, rate limiting, or caching, also add its path to `config_api` in `config_extend.py`. See [router.md](router.md) and [config.md](config.md).
+If the API needs authentication, roles, rate limiting, or caching, also add its path to `config_api` in `config_extend.py`. See [about.md](about.md) and [config.md](config.md).
 
 </details>
 
@@ -189,7 +189,7 @@ config_api["/my/report"] = {
 }
 ```
 
-For an intentionally public route, still register it with `"is_token": False`. Make sure the path exactly matches the registered route, every entry has a unique positive `id`, and protected routes set `"is_token": True`. Then restart the app so startup validation can check the policy. See [config.md](config.md#config_api) and [middleware.md](middleware.md).
+For an intentionally public route, still register it with `"is_token": False`. Make sure the path exactly matches the registered route, every entry has a unique positive `id`, and protected routes set `"is_token": True`. Then restart the app so startup validation can check the policy. See [config.md](config.md#config_api) and [about.md](about.md).
 
 </details>
 
@@ -207,7 +207,7 @@ config_api["/admin/postgres-query-runner-write"] = {
 }
 ```
 
-When `"is_active": False` is set, the HTTP middleware checks it immediately via `func_middleware_check_active` before decoding tokens or querying the database, instantly rejecting the request with an exception (`"API endpoint is disabled"`). If `"is_active"` is omitted, it defaults to `True`. See [config.md](config.md#config_api) and [middleware.md](middleware.md).
+When `"is_active": False` is set, the HTTP middleware checks it immediately via `func_middleware_check_active` before decoding tokens or querying the database, instantly rejecting the request with an exception (`"API endpoint is disabled"`). If `"is_active"` is omitted, it defaults to `True`. See [config.md](config.md#config_api) and [about.md](about.md).
 
 </details>
 
@@ -389,7 +389,7 @@ A worker appends an unrecoverable job to `tmp/consumer_failed_payload.jsonl`. Ea
 
 Inspect the traceback, correct the underlying data or service problem, and replay only the jobs you have verified are safe. Be careful with non-idempotent operations: blindly replaying a partially completed create or external call can produce duplicates.
 
-The `tmp` directory is runtime storage and is recreated when Atom starts, so forward or archive failures elsewhere if you need durable production retention. See [workers.md](workers.md).
+The `tmp` directory is runtime storage and is recreated when Atom starts, so forward or archive failures elsewhere if you need durable production retention. See [queue.md](queue.md).
 
 </details>
 
@@ -405,7 +405,7 @@ config_blob_limit_upload = 20     # files per request
 
 `config_blob_limit_size_kb` applies to each file, while `config_blob_limit_upload` caps the number of files in one request. Restart Atom after changing the configuration.
 
-Also check limits imposed by your reverse proxy, hosting platform, and storage provider; a request rejected before it reaches Atom cannot be fixed by Atom's settings alone. Larger uploads increase memory, bandwidth, and storage exposure, so keep the limits no higher than the product requires. See [blob.md](blob.md).
+Also check limits imposed by your reverse proxy, hosting platform, and storage provider; a request rejected before it reaches Atom cannot be fixed by Atom's settings alone. Larger uploads increase memory, bandwidth, and storage exposure, so keep the limits no higher than the product requires. See [storage.md](storage.md).
 
 </details>
 
@@ -453,7 +453,7 @@ Create endpoints support two ways to move work off the request path:
 - Add `?is_background=true` for an in-process background task. This is simple and fast, but the task can be lost if the API process stops. Boolean query flags use `true`/`false`; legacy `1`/`0` values remain accepted for compatibility.
 - Add `?queue=redis` (or another configured queue mode) to publish the payload for a separate worker. This is the better choice for durable, scalable, or slow workloads.
 
-Make sure the selected queue client is configured and its consumer process is running before publishing jobs. Design handlers to be idempotent so retries cannot create duplicates, and monitor `tmp/consumer_failed_payload.jsonl` for terminal failures. See [Object Queues](queue.md) for object API details and [Background Workers](workers.md) for broader worker patterns.
+Make sure the selected queue client is configured and its consumer process is running before publishing jobs. Design handlers to be idempotent so retries cannot create duplicates, and monitor `tmp/consumer_failed_payload.jsonl` for terminal failures. See [Object Queues](queue.md) for object API details and [Background Workers](queue.md) for broader worker patterns.
 
 </details>
 
@@ -564,7 +564,7 @@ The prefixes represent data-access scope, not just route organization:
 
 Use `/my` for normal user-owned product data and `/admin` only for trusted operations. Do not expose a table publicly merely to avoid ownership configuration; add an ownership column and use the authenticated tier instead.
 
-For endpoint-by-endpoint curl examples, filter options, and relation details across all three tiers, see **[object_read.md](object_read.md)**.
+For endpoint-by-endpoint curl examples, filter options, and relation details across all three tiers, see **[crud.md](crud.md)**.
 
 </details>
 
@@ -579,7 +579,7 @@ GET /my/object-read?table=test&filter=["type = 1","title ilike %atom%"]&order=id
 
 The response contains `obj_list` and `has_next_page`. Atom fetches one extra row to calculate that flag, and caps the requested limit with `config_sql_read_limit_max`.
 
-Table and column names are validated against the live schema, and filter values are parameter-bound. Supported operators include comparisons, ranges, text matching, arrays, and JSON operations. See [Reading Objects](object_read.md) for encoding and examples.
+Table and column names are validated against the live schema, and filter values are parameter-bound. Supported operators include comparisons, ranges, text matching, arrays, and JSON operations. See [Reading Objects](crud.md) for encoding and examples.
 
 </details>
 
@@ -590,7 +590,7 @@ Use the `relation` parameter on object reads. A relation describes the local key
 
 Relation result size is capped by `config_sql_read_relation_fetch_limit_max`. On public reads, the related table must also be present in the public read allow-list, so a relation cannot bypass table access rules.
 
-Keep relation payloads focused and select only the columns the client needs. For deeply nested or domain-specific projections, a custom endpoint and purpose-built query may be clearer and more efficient. See [Reading Objects](object_read.md) for the five-part syntax and examples.
+Keep relation payloads focused and select only the columns the client needs. For deeply nested or domain-specific projections, a custom endpoint and purpose-built query may be clearer and more efficient. See [Reading Objects](crud.md) for the five-part syntax and examples.
 
 </details>
 
@@ -612,7 +612,7 @@ Pending groups are flushed when they reach the table's `buffer_limit`, approxima
 
 Use buffering for high-volume, low-urgency records where delayed visibility and possible loss during a crash or forced shutdown are acceptable. Use `mode=now` when the caller needs the inserted ID, must read the row immediately, or requires database persistence before success is returned.
 
-`mode=buffer` is process-local batching, not a durable queue. For broker-backed asynchronous work, use the supported `queue` parameter and keep queued creates on their default `mode=now`; combining `queue` with `mode=buffer` can leave records only in consumer memory. See [PostgreSQL Buffers](buffer.md) and [Object Queues](queue.md#queue-versus-modebuffer).
+`mode=buffer` is process-local batching, not a durable queue. For broker-backed asynchronous work, use the supported `queue` parameter and keep queued creates on their default `mode=now`; combining `queue` with `mode=buffer` can leave records only in consumer memory. See [PostgreSQL Buffers](database.md) and [Object Queues](queue.md#queue-versus-modebuffer).
 
 </details>
 

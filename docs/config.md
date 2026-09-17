@@ -4,27 +4,60 @@ Atom is driven by `config.py` — a single file of plain Python values loaded on
 
 ---
 
-## How config is loaded & overridden
+## 1. How Config is Loaded & Overridden
 
 Config values are resolved in three tiers (later wins):
 
-1. **`config.py`** — Shipped defaults.
-2. **Environment variables / `.env`** — `config_*` names in `.env` automatically override defaults with automatic type casting (booleans, ints, JSON arrays/dicts). Any custom `CONFIG_*` variables are also dynamically registered to `app.state`. See [env.md](env.md).
+1. **`config.py`** — Shipped framework defaults.
+2. **Environment variables / `.env`** — Values in `.env` or the system environment automatically override defaults with automatic type casting (booleans, ints, JSON arrays/dicts).
 3. **`config_extend.py`** — Drop-in module (git-ignored, survives `sync.py`) for code-level overrides and schema extensions. See [extend.md](extend.md).
 
 > **Rule of Thumb**: Use `.env` for secrets, credentials, and environment flags; use `config_extend.py` for structural changes (tables, custom route policies).
 
-Boolean defaults remain booleans when overridden from `.env`. Use case-insensitive `true` or `false` as the standard form:
+---
 
+## 2. Dynamic `.env` Discovery & Type Inference
+
+Developers can declare **any** custom variable in `.env` without modifying `config.py`. As long as the key starts with `CONFIG_` or `config_`, Atom will:
+1. Detect the variable at startup.
+2. Normalize the key to lowercase snake_case (`config_<name>`).
+3. Automatically infer and cast the value to the appropriate Python type.
+4. Mount it onto `app.state` as `app.state.config_<name>`.
+
+### Example `.env`:
 ```dotenv
-config_is_prod=true
+# String values
+CONFIG_PAYMENT_GATEWAY_API_KEY="sk_live_123456789"
+CONFIG_EXTERNAL_WEBHOOK_URL="https://hooks.example.com/events"
+
+# Booleans (case-insensitive true/false, yes/no, on/off)
+CONFIG_ENABLE_BETA_CHECKOUT=true
+CONFIG_MAINTENANCE_BANNER_ENABLED=false
+
+# Numbers
+CONFIG_MAX_RETRY_ATTEMPTS=5
+CONFIG_SYNC_INTERVAL_SEC=300
+
+# JSON Arrays & Objects
+CONFIG_WHITELISTED_IPS=["192.168.1.1", "10.0.0.1"]
+CONFIG_TIER_LIMITS={"free": 100, "pro": 1000}
 ```
 
-The loader also accepts `1`/`0`, `yes`/`no`, and `on`/`off`. Any other value raises a startup error instead of silently choosing a value. In Python configuration such as `config.py` or `config_extend.py`, always use `True` and `False`.
+### Accessing in Routes:
+```python
+@router.get("/checkout/status")
+async def get_checkout_status(request: Request):
+    app_state = request.app.state
+    api_key = app_state.config_payment_gateway_api_key   # "sk_live_123456789" (str)
+    is_beta = app_state.config_enable_beta_checkout      # True (bool)
+    retries = app_state.config_max_retry_attempts        # 5 (int)
+    ips = app_state.config_whitelisted_ips               # ("192.168.1.1", "10.0.0.1") (tuple)
+    limits = app_state.config_tier_limits                # {"free": 100, "pro": 1000} (dict)
+```
 
 ---
 
-## Single Configuration Keys
+## 3. Single Configuration Keys
 
 All scalar and list settings in `config.py` grouped by section:
 

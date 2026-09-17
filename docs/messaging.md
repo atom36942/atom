@@ -1,74 +1,87 @@
-# 💬 Messaging & Notifications
+# 💬 Messaging, Email & SMS Notifications
 
-Atom ships two related in-app features backed by dedicated tables: **direct messages** between users and **notifications** to a user. Both are ordinary tables, so they also work with the generic CRUD engine — the endpoints below add the conversation-specific logic on top.
+Atom provides a unified communications layer covering **in-app direct messaging**, **in-app notifications**, **transactional email**, and **SMS delivery**.
 
 ---
 
-## Direct messages
+## 1. In-App Direct Messages
 
-Messages live in the `message` table. Each row is one message from `created_by_id` (sender) to `received_by_id` (recipient), with a `read_at` timestamp.
+In-app conversations are backed by the `message` table. Each record connects a sender (`created_by_id`) to a recipient (`received_by_id`) with read timestamps (`read_at`).
 
-### Send a message
-Use generic create (see [object_create.md](object_create.md)) — the sender is stamped from the token:
-
-```jsonc
+### Sending a Message:
+Messages are created using the standard create API:
+```bash
 POST /my/object-create?table=message
-{"received_by_id": 42, "description": "hey there"}
+{"received_by_id": 42, "description": "Hello! Let's discuss the project."}
+```
+The sender ID is automatically stamped from the authenticated session token.
+
+### Inbox View (`GET /my/message-inbox`):
+Returns the **latest message per conversation** (one row per chat participant), ordered by newest activity:
+- Query parameters: `mode` (`"all"`, `"unread"`, `"read"`), `order`, `page`, `limit`.
+
+### Conversation Thread (`GET /my/message-thread?user_id=42`):
+Fetches the full back-and-forth conversation with another participant:
+- Automatically marks incoming unread messages as read (`read_at = now()`).
+
+---
+
+## 2. In-App Notifications
+
+Notifications live in the `notification` table, targeting `received_by_id` with metadata (`type`, `title`, `description`, `reference_table`, `reference_id`, `read_at`).
+
+### Managing Notifications:
+- **Create**: `POST /admin/object-create?table=notification`
+- **Fetch Unread**: `GET /my/object-read?table=notification&ownership_column=received_by_id&filter=["read_at is null"]`.
+- **Mark as Read**: `PUT /my/object-update?table=notification` with `{"read_at": "2026-09-17T00:00:00Z"}`.
+- **Bulk Clear**: `DELETE /my/object-delete-owned-all?table=notification&ownership_column=received_by_id`.
+
+---
+
+## 3. Transactional Email Delivery
+
+Atom supports pluggable email delivery via AWS SES, Resend, and Azure Communication Services.
+
+| Provider | Service Key | Required Configurations |
+| :--- | :--- | :--- |
+| **AWS SES** | `ses` | `config_aws_access_key_id`, `config_aws_secret_access_key`, `config_aws_ses_region_name` |
+| **Resend** | `resend` | `config_resend_url`, `config_resend_key` |
+| **Azure ACS** | `azure` | `config_azure_email_connection_string` |
+
+### Sending Transactional Emails (`POST /private/send-email`):
+```bash
+curl -X POST "http://localhost:8000/private/send-email"   -H "Authorization: Bearer <token>"   -H "Content-Type: application/json"   -d '{
+    "service": "resend",
+    "sender": "no-reply@example.com",
+    "receiver": "user@example.com",
+    "subject": "Order Confirmation",
+    "body": "<h1>Thank you for your order!</h1>",
+    "is_html": true
+  }'
 ```
 
-### Inbox — `GET /my/message-inbox`
-Returns the **latest message per conversation** (one row per person you've talked to), newest first — like a chat list.
-
-- `mode` (required): `all`, `unread`, or `read`.
-- `order`, `limit`, `page` for sorting/pagination (`has_next_page` included).
-
-Conversations are grouped by the pair of participants, and only the most recent message in each is returned.
-
-### Thread — `GET /my/message-thread?user_id=42`
-
-`user_id` is the **other participant's** id — a query parameter, not a column.
-Returns the full back-and-forth between you and one other user (both directions), paginated. **Side effect:** messages that other user sent you are marked read (`read_at = now()`) when you open the thread.
-
-### Deleting
-- `/my/object-delete` — delete messages you sent (own rows).
-- `/my/object-delete-owned` / `-owned-all` with `ownership_column=received_by_id` — delete messages you *received* (`-owned-all` is limited to tables in `config_table_my_delete_owned_all_allowed`, which includes `message`).
-
 ---
 
-## Notifications
+## 4. SMS & Mobile OTP Delivery
 
-The `notification` table targets a single user (`received_by_id`) with a `type`, `title`, `description`, an optional `reference_table` + `reference_id` (to link to the thing the notification is about), and a `read_at`.
+Atom provides SMS dispatch for login verification and text notifications across Azure, AWS SNS, and Fast2SMS.
 
-Because it's a normal table, you use the generic engine:
+| Provider | Service Key | Required Configurations |
+| :--- | :--- | :--- |
+| **Azure ACS** | `azure` | `config_azure_sms_connection_string`, `config_azure_sms_sender_number` |
+| **AWS SNS** | `sns` | `config_aws_access_key_id`, `config_aws_secret_access_key` |
+| **Fast2SMS** | `fast2sms` | `config_fast2sms_url`, `config_fast2sms_key` |
 
-```jsonc
-// create a notification
-POST /admin/object-create?table=notification
-{"received_by_id": 42, "type": 1, "title": "Welcome", "reference_table": "test", "reference_id": 7}
-
-// a user reads their own notifications
-GET /my/object-read?table=notification&ownership_column=received_by_id&filter=["read_at is null"]&order=id desc
-
-// mark read
-PUT /my/object-update?table=notification
-{"obj_list": [{"id": 100, "read_at": "2026-01-01T00:00:00Z"}]}
+### Sending SMS (`POST /private/send-sms`):
+```bash
+curl -X POST "http://localhost:8000/private/send-sms"   -H "Authorization: Bearer <token>"   -H "Content-Type: application/json"   -d '{
+    "service": "fast2sms",
+    "mobile": "+1234567890",
+    "message": "Your verification code is 482910"
+  }'
 ```
 
-Bulk cleanup of received notifications is supported via `/my/object-delete-owned*` with `ownership_column=received_by_id` (enabled for `notification`).
-
-> Notifications can also be produced asynchronously — enqueue a create through a queue and let a worker insert it (see [workers.md](workers.md)).
-
----
-
-## Table summary
-
-| Table | Key columns | Used for |
-|-------|-------------|----------|
-| `message` | `created_by_id` (sender), `received_by_id` (recipient), `description`, `read_at` | 1:1 chat |
-| `notification` | `received_by_id`, `type`, `title`, `description`, `reference_table`/`reference_id`, `read_at` | System alerts to a user |
-
-Both carry the standard `created_at` / soft-delete columns and have retention settings in `config_table` (see [config.md](config.md#config_table)).
-
----
-
-📚 [Back to README](../readme.md)
+### Mobile OTP Flow:
+1. Client requests OTP: `POST /public/otp-send-mobile` with `mobile` and `role`.
+2. Atom generates code of length `config_otp_length` (default 6) with expiration `config_otp_expiry_sec` (default 10m).
+3. Client submits code: `POST /auth/login-mobile-otp` to authenticate.

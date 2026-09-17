@@ -148,6 +148,6 @@ curl -X POST "http://localhost:8000/my/object-delete" \
 ## Next Steps
 
 - 🔐 **[Authentication Guide](auth.md)** — Google OAuth, OTP verification, and password management.
-- 🗃️ **[Object Read Engine](object_read.md)** — Relational joins, advanced filters, and aggregation.
+- 🗃️ **[Object Read Engine](crud.md)** — Relational joins, advanced filters, and aggregation.
 - 🛠️ **[Admin Toolkit](admin.md)** — Live SQL execution, AI query generation, and schema management.
 - ⚙️ **[Configuration Reference](config.md)** — Complete reference of all Atom settings.

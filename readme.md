@@ -108,13 +108,6 @@ All configuration defaults live in `config.py`. Override settings without editin
 
 ```env
 config_postgres_url=postgresql://postgres:postgres@localhost:5432/postgres
-config_redis_url=redis://localhost:6379
-config_redis_url_ratelimiter=redis://localhost:6379/1
-config_redis_url_queue=redis://localhost:6379
-config_mongodb_url=mongodb://localhost:27017
-config_clickhouse_url=https://default:password@clickhouse.example.com:8443/default
-config_rabbitmq_url=amqp://guest:guest@localhost:5672
-config_celery_url=redis://localhost:6379
 config_token_secret_key="your-secret-key-at-least-32-chars"
 config_root_user_password="your-strong-root-password"
 config_login_password="your-strong-login-password"
@@ -168,40 +161,23 @@ atom/
 <br>
 
 📖 **Getting Started & Architecture**
-- [quickstart.md](docs/quickstart.md) — 5-minute quickstart guide.
-- [about.md](docs/about.md) — Framework architecture and request lifecycle.
-- [config.md](docs/config.md) — Complete configuration reference.
-- [prod.md](docs/prod.md) — Production environment configuration.
-- [security.md](docs/security.md) — Hardening checklist and security model.
+- [quickstart.md](docs/quickstart.md) — 5-minute setup and CRUD walkthrough.
+- [about.md](docs/about.md) — Framework architecture, request pipeline, lifespan & routers.
+- [config.md](docs/config.md) — Configuration reference & dynamic `.env` discovery.
+- [security.md](docs/security.md) — Security model, headers & production hardening checklist.
 
-⚙️ **Framework Core & Middleware**
-- [lifespan.md](docs/lifespan.md) — Startup/shutdown client initializations.
-- [middleware.md](docs/middleware.md) — Request pipeline, authentication, and caching.
-- [logs.md](docs/logs.md) — API logging & audit trails.
-- [buffer.md](docs/buffer.md) — Buffered database write performance.
+🚀 **Core Engines & Features**
+- [auth.md](docs/auth.md) — Authentication, identities, user uniqueness & root superadmin.
+- [crud.md](docs/crud.md) — Generic CRUD engine, `/my/*` ownership matrix & advanced queries.
+- [database.md](docs/database.md) — PostgreSQL pools, read replicas, write buffers & API logs.
+- [redis.md](docs/redis.md) — Multi-client Redis architecture & cache strategies.
+- [queue.md](docs/queue.md) — Asynchronous job queues, background consumers & retry workers.
+- [messaging.md](docs/messaging.md) — In-app messaging, notifications, transactional email & SMS.
+- [storage.md](docs/storage.md) — S3 & Azure Blob object storage and secure presigned previews.
 
-🚀 **Features & Storage**
-- [auth.md](docs/auth.md) — Signup, authentication methods, OTP, and roles.
-- [identity.md](docs/identity.md) — User identities, uniqueness rules, and custom auth columns.
-- [object_create.md](docs/object_create.md) — Generic record creation and bulk batching.
-- [object_read.md](docs/object_read.md) — Advanced filtering, pagination, sorting, and joins.
-- [object_update.md](docs/object_update.md) — Bulk CASE statement record updates.
-- [object_delete.md](docs/object_delete.md) — Record deletion and ownership guards.
-- [postgres.md](docs/postgres.md) — Primary & read-replica Postgres connections.
-- [query.md](docs/query.md) — Multi-database query runners & AI SQL generator.
-- [queue.md](docs/queue.md) — Asynchronous job queues (Redis, RabbitMQ, Kafka, Celery).
-- [messaging.md](docs/messaging.md) — Direct messaging & notifications system.
-- [blob.md](docs/blob.md) — AWS S3 & Azure Blob storage integration.
-- [email.md](docs/email.md) — Transactional email (SES/Resend/Azure).
-- [sms.md](docs/sms.md) — Mobile OTP & SMS (Azure/SNS/Fast2SMS).
-- [admin.md](docs/admin.md) — Admin toolkit, data imports, and schema utilities.
-- [root_user.md](docs/root_user.md) — Root superadmin user architecture, seeding, and protections.
-- [workers.md](docs/workers.md) — Background workers and retry patterns.
-
-🧱 **Customization & Guides**
-- [router.md](docs/router.md) — Router design conventions.
-- [extend.md](docs/extend.md) — Extending Atom without forking core code.
-- [html.md](docs/html.md) — Built-in web interfaces (API Master & PgWeb).
+🧱 **Administration & Customization**
+- [admin.md](docs/admin.md) — Admin toolkit, data imports & built-in web UI (API Master & PgWeb).
+- [extend.md](docs/extend.md) — Extending Atom without forking core code & upstream sync.
 - [faq.md](docs/faq.md) — Developer guidelines & frequently asked questions.
 
 </details>
