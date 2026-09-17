@@ -10,7 +10,7 @@ Atom features a built-in superadministrator (**root user**) with `role: 1` that 
 | :--- | :--- | :--- |
 | **Username** | `admin` | Hardcoded in [`function.py`](../function.py) startup initializer |
 | **Role** | `1` | Superadministrator role (has full access to `/admin/*` routes) |
-| **Default Password** | `123456` | `config_root_user_password` (Override via `.env` in production) |
+| **Default Password** | `None` (Must be set in `.env`) | `config_root_user_password` |
 | **Database ID** | `1` | Maintained at `users.id = 1` |
 
 ---
@@ -21,13 +21,13 @@ Root user behavior is governed by the following settings in [`config.py`](../con
 
 | Setting | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `config_root_user_password` | `str` | `"123456"` | Root password string, hashed with Argon2 at startup. |
+| `config_root_user_password` | `str` | `None` | Root password string (required in `.env` if `is_root_user_create` is enabled), hashed with Argon2 at startup. |
 | `is_root_user_create` | `bool` | `True` | Automatically seeds or updates the root user in the database on startup. |
 | `is_root_user_delete_disabled` | `bool` | `True` | Installs a database trigger preventing `id=1` from being deleted. |
 
 ```python
 # config.py
-config_root_user_password = "123456"
+config_root_user_password = None
 
 # In config_postgres["control"]:
 "control": {
@@ -107,7 +107,7 @@ curl -X POST http://localhost:8000/auth/login-username-password \
   -H "Content-Type: application/json" \
   -d '{
     "username": "admin",
-    "password": "123456",
+    "password": "<your-strong-root-password>",
     "role": 1
   }'
 ```

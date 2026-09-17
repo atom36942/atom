@@ -30,8 +30,8 @@ Create `config_extend.py` in the project root. Any name you define replaces the 
 # config_extend.py
 
 # turn features on/off
-config_is_signup = False
-config_is_debug = False
+config_signup_allowed_roles = [5]
+config_is_prod = True
 
 # enable an integration just by setting its config
 config_openai_key = "sk-..."

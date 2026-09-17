@@ -59,11 +59,11 @@ Every user login method ends the same way — `func_token_encode` returns the to
 
 Body: `password`.
 
-This route compares the supplied password with `config_login_password`. It does not query a user or generate tokens.
+This route compares the supplied password with `config_login_password` (which must be configured in `.env`). If unconfigured, it raises `"config_login_password not configured"`. It does not query a user or generate tokens.
 
 ```jsonc
 // request body
-{"password": "123456"}
+{"password": "<your-configured-login-password>"}
 // response
 {"status": 1, "message": "ok"}
 ```

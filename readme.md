@@ -36,7 +36,7 @@
 
 Atom gives you authentication, generic CRUD over any table, caching, rate-limiting, background workers, blob storage, and pluggable integrations out of the box — while staying fully extensible so updates never clobber your code. Every integration is optional and driven by `config.py`.
 
-## Highlights
+## About
 
 - 🔐 **Auth built in** — JWT tokens, password/OTP/Google login, and role-based access control.
 - 🗃️ **Generic CRUD** — Create/read/update/delete any database table with filters, relations & pagination.
@@ -46,19 +46,6 @@ Atom gives you authentication, generic CRUD over any table, caching, rate-limiti
 - 📦 **Background workers** — Queue consumers and durable retries with Postgres or dedicated message brokers.
 - 🧾 **Self-documenting** — Generated OpenAPI spec + built-in interactive API console at `/`.
 - 🔧 **Extend without forking** — Add custom routes and logic in drop-in extension files (`config_extend.py`, `function_extend.py`). Learn more in **[extend.md](docs/extend.md)**.
-
-## Contents
-
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Quickstart](#quickstart)
-- [Configuration](#configuration)
-- [Extensibility](#extensibility)
-- [Built-in Web Interfaces](#built-in-web-interfaces)
-- [Structure](#structure)
-- [Documentation](#documentation)
-- [Contributing](#contributing)
-- [License](#license)
 
 ## Requirements
 

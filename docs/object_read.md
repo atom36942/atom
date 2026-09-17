@@ -50,7 +50,9 @@ async def func_postgres_read(
     page: int = 1,
     order: str = "id desc",
     column: str = "*",
-    relation: list = None
+    relation: list = None,
+    config_column_read_blocked: list = None,
+    config_table_read_protected: list = None
 ) -> list
 ```
 

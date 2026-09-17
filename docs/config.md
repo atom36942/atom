@@ -17,8 +17,7 @@ Config values are resolved in three tiers (later wins):
 Boolean defaults remain booleans when overridden from `.env`. Use case-insensitive `true` or `false` as the standard form:
 
 ```dotenv
-config_is_signup=true
-config_is_debug=false
+config_is_prod=true
 ```
 
 The loader also accepts `1`/`0`, `yes`/`no`, and `on`/`off`. Any other value raises a startup error instead of silently choosing a value. In Python configuration such as `config.py` or `config_extend.py`, always use `True` and `False`.

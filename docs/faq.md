@@ -735,8 +735,8 @@ Read the first startup exception rather than the later shutdown noise. Check rec
 
 At minimum:
 
-- Replace `config_token_secret_key` and `config_root_user_password`.
-- Set `config_is_debug = False`.
+- Configure strong secrets for `config_token_secret_key`, `config_root_user_password`, and `config_login_password`.
+- Ensure `config_is_prod = True` (FastAPI debug mode disabled).
 - Restrict CORS origins and review every public table allow-list.
 - Use short, intentional token lifetimes and realtime checks for destructive admin operations.
 - Rate-limit authentication, OTP, upload, write, and costly integration routes.

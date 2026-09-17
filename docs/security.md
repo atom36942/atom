@@ -63,9 +63,9 @@ See [config.md](config.md#control).
 
 ## 7. Secrets & transport
 
-- **Never commit secrets.** `config_token_secret_key` and `config_root_user_password` ship with insecure defaults — override them (and all connection strings) via `.env`, which is git-ignored. See **[prod.md](prod.md)**.
-- **CORS** — `config_cors_*`. The default `allow_origin_regex = ".*"` with credentials is permissive for development; **restrict origins in production**.
-- **Debug** — set `config_is_debug=false` in production to avoid leaking internals.
+- **Never commit secrets.** `config_token_secret_key`, `config_root_user_password`, and `config_login_password` must be configured via `.env`, which is git-ignored. See **[prod.md](prod.md)**.
+- **CORS** — `config_cors_*`. `config_cors_allow_origin_regex` defaults to `None`. Explicitly set `config_cors_allow_origins` in `.env` for your allowed frontends.
+- **Production Mode** — `config_is_prod=True` by default, disabling FastAPI debug mode and securing internal errors.
 - **Error reporting** — configure `config_sentry_dsn` to capture exceptions with `send_default_pii=False`.
 
 ---
@@ -73,9 +73,10 @@ See [config.md](config.md#control).
 ## Production hardening checklist
 
 - [ ] Set a strong random `config_token_secret_key`.
-- [ ] Change `config_root_user_password`.
-- [ ] Restrict `config_cors_allow_origins` / `config_cors_allow_origin_regex`.
-- [ ] Set `config_is_debug=false`.
+- [ ] Set a strong `config_root_user_password`.
+- [ ] Set `config_login_password` if using `/auth/login-password`.
+- [ ] Configure allowed origins in `config_cors_allow_origins`.
+- [ ] Ensure `config_is_prod=true` (FastAPI debug disabled).
 - [ ] Use `realtime` mode for role checks on destructive admin routes.
 - [ ] Review `config_table_public_*_allowed` — expose only what's intended.
 - [ ] Set rate limits on auth and write endpoints.
