@@ -99,26 +99,9 @@ docker run --rm -p 8000:8000 --env-file .env atom
 
 ## Quickstart
 
-With the server running and `config_postgres_url` set in `.env`:
+Get up and running with authentication and database operations in under 5 minutes:
 
-```bash
-# 1. Sign up (returns access_token)
-curl -X POST http://localhost:8000/auth/signup-username-password \
-  -H "Content-Type: application/json" \
-  -d '{"role": 2, "username": "alice", "password": "secret123"}'
-
-# 2. Create a row
-curl -X POST "http://localhost:8000/my/object-create?table=test" \
-  -H "Authorization: Bearer <access_token>" \
-  -H "Content-Type: application/json" \
-  -d '{"title": "hello atom", "type": 1}'
-
-# 3. Read your rows
-curl "http://localhost:8000/my/object-read?table=test" \
-  -H "Authorization: Bearer <access_token>"
-```
-
-📖 Learn more in [auth.md](docs/auth.md) and [object_read.md](docs/object_read.md).
+👉 **[Quickstart Guide](docs/quickstart.md)**
 
 ## Configuration
 
@@ -194,6 +177,7 @@ atom/
 ## Documentation
 
 📖 **Getting Started & Architecture**
+- [quickstart.md](docs/quickstart.md) — 5-minute quickstart guide.
 - [about.md](docs/about.md) — Framework architecture and request lifecycle.
 - [config.md](docs/config.md) — Complete configuration reference.
 - [prod.md](docs/prod.md) — Production environment configuration.
