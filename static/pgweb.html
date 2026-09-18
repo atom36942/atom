@@ -451,7 +451,7 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
     </div>
 
     <div id="pane">
-      <div class="view on" id="v-home">
+      <div class="view" id="v-home">
         <div class="login-box">
           <div class="login-header">
             <div class="login-logo">
@@ -1162,7 +1162,12 @@ function updateSqlHighlight(){
 }
 function seedQuery(){
   if($('sql').value.trim() || S.queryCleared) return;
-  $('sql').value = DEFAULT_SQL;
+  const savedSql = localStorage.getItem('pgweb.sql');
+  if(savedSql !== null && savedSql.trim()){
+    $('sql').value = savedSql;
+  }else{
+    $('sql').value = DEFAULT_SQL;
+  }
 }
 function drawResetSql(){
   $('resetsql').hidden=$('sql').value===DEFAULT_SQL && !S.local && $('qerror').hidden;
@@ -1305,15 +1310,18 @@ for(const tools of document.querySelectorAll('.detail-tools')){
   button.type='button'; button.className='iconbtn detail-download'; button.title=button.ariaLabel='Download tab data as CSV';
   button.dataset.grid=input.dataset.grid; button.innerHTML=icon('download'); button.disabled=true; tools.appendChild(button);
 }
-async function openObject(table, kind){
+async function openObject(table, kind, initialTab = 'rows'){
   for(const el of document.querySelectorAll('.obj.on')) el.classList.remove('on');
-  document.querySelector(`.obj[data-table="${table}"]`)?.classList.add('on');
+  const targetObj = document.querySelector(`.obj[data-table="${table}"]`);
+  if(targetObj){
+    targetObj.classList.add('on');
+    targetObj.scrollIntoView({block:'nearest'});
+  }
   S.table=table; S.kind=kind; S.where=null; S.local=null; S.loaded={};
   setExports(false);
   S.chunks.clear(); S.pending.clear(); lastFirst=-1;
   $('fval').value=''; $('ftxt').textContent='';
   mountGrid($('v-rows'));
-  localStorage.setItem('pgweb.last', JSON.stringify({table,kind}));
   for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v==='query'||t.dataset.v==='info';
   $('morewrap').hidden=false;
 
@@ -1333,7 +1341,7 @@ async function openObject(table, kind){
   $('st-rows').textContent = `${m.rows.length} rows loaded`;
   $('st-size').textContent = m.meta.stats.total_size || '';
   drawBatchNav(); buildGrid(); vp.scrollTop=0; render(true);
-  show('rows');
+  show(initialTab || 'rows');
 }
 
 /* per-table detail: one request, only when its tab is first opened */
@@ -1830,6 +1838,7 @@ async function runQuery(confirmed){
 $('run').onclick = ()=>runQuery(false);
 $('resetsql').onclick = ()=>{
   $('sql').value=DEFAULT_SQL; S.queryCleared=false;
+  try{ localStorage.removeItem('pgweb.sql'); }catch{}
   S.local=null; S.cols=[]; S.total=0; S.chunks.clear(); lastFirst=-1; pool=[];
   headEl.textContent=''; rowsEl.textContent=''; inner.style.width=''; canvas.style.height='0'; canvas.classList.remove('has-rows'); vp.scrollTop=0; vp.scrollLeft=0;
   $('empty').classList.remove('on'); $('qmsg').textContent=''; $('qmsg').className=''; hideQueryError();
@@ -1908,6 +1917,7 @@ $('sql').addEventListener('keydown', e=>{
 });
 $('sql').addEventListener('input', ()=>{
   S.queryCleared=!$('sql').value.trim(); drawResetSql(); updateSqlHighlight();
+  try{ localStorage.setItem('pgweb.sql', $('sql').value); }catch{}
 });
 $('sql').addEventListener('scroll',()=>{
   $('sqlhl').scrollTop=$('sql').scrollTop; $('sqlhl').scrollLeft=$('sql').scrollLeft;
@@ -1978,6 +1988,27 @@ $('sql').addEventListener('scroll',()=>{
 })();
 
 /* ---------------- chrome ---------------- */
+function savePageState(state){
+  try{
+    const payload = {
+      view: state.view || 'query',
+      table: state.table || '',
+      kind: state.kind || '',
+      db: S.db || ''
+    };
+    sessionStorage.setItem('pgweb.currentPage', JSON.stringify(payload));
+    localStorage.setItem('pgweb.currentPage', JSON.stringify(payload));
+  }catch{}
+}
+function getSavedPageState(){
+  try{
+    const raw = sessionStorage.getItem('pgweb.currentPage') || localStorage.getItem('pgweb.currentPage');
+    return raw ? JSON.parse(raw) : null;
+  }catch{
+    return null;
+  }
+}
+
 function show(v){
   const secondary=document.querySelector(`.tab.secondary[data-v="${v}"]`);
   for(const t of document.querySelectorAll('.tab')) t.classList.toggle('on', t.dataset.v===v);
@@ -1998,6 +2029,16 @@ function show(v){
     fillDetailGrid('g-struct',S.meta.columns.map((c,i)=>[i+1,c.name,c.type,c.key_type,c.nullable?'Yes':'No',c.default_value,c.generated]));
   }
   if(DETAILS.includes(v)) loadDetail(v);
+
+  if(v === 'home'){
+    savePageState({view:'home'});
+  }else if(v === 'query'){
+    savePageState({view:'query'});
+  }else if(v === 'info'){
+    savePageState({view:'info'});
+  }else if(S.table){
+    savePageState({view:v, table:S.table, kind:S.kind});
+  }
 }
 for(const t of document.querySelectorAll('.tab')) t.onclick = ()=>show(t.dataset.v);
 $('moretab').onclick=e=>{
@@ -2016,7 +2057,8 @@ $('reload').onclick = async () => {
   try{
     const m = await api({action:'schema'});
     S.tree = m.tree; S.dbInfo=null; S.dbCatalog={}; S.dbCatalogKind=''; drawTree();
-    if(S.table && (S.tree.public||{})[S.kind]?.some(o=>o.name===S.table)) await openObject(S.table, S.kind);
+    const currentTab = document.querySelector('.tab.on')?.dataset.v || 'rows';
+    if(S.table && (S.tree.public||{})[S.kind]?.some(o=>o.name===S.table)) await openObject(S.table, S.kind, currentTab);
     else if(S.table) openRunner();      // the table went away
     toast('Schema refreshed');
   }catch(e){ alertBox('Refresh failed', e.message); }
@@ -2161,7 +2203,7 @@ $('dbcat-download').onclick=()=>{
   const rows=data.rows.filter(row=>!term||data.columns.some(key=>String(row[key]??'').toLowerCase().includes(term)));
   downloadCsv(data.columns.map(catalogLabel),rows.map(row=>data.columns.map(key=>row[key])),`${S.db}-${S.dbCatalogKind}.csv`);
 };
-$('dbinfo').onclick = async () => {
+async function openDbInfo(){
   $('dbinfo').disabled=true;
   for(const el of document.querySelectorAll('.obj.on')) el.classList.remove('on');
   S.table=''; S.kind='';
@@ -2176,7 +2218,9 @@ $('dbinfo').onclick = async () => {
   try{ S.dbInfo=await api({action:'info'}); drawDatabaseInfo(S.dbInfo); }
   catch(e){ body.innerHTML='<tr><td colspan="2"></td></tr>'; body.rows[0].cells[0].textContent='Error: '+e.message; }
   finally{ $('dbinfo').disabled=false; }
-};
+}
+$('dbinfo').onclick = openDbInfo;
+
 function alertBox(title, msg){
   openCellValue(title,msg,'Error copied');
 }
@@ -2211,12 +2255,37 @@ $('brandname').onclick = () => {
   }
 };
 
+async function restorePage(){
+  const saved = getSavedPageState();
+  if(!saved || saved.view === 'home' || saved.view === 'query'){
+    openRunner();
+    return;
+  }
+  if(saved.view === 'info'){
+    await openDbInfo();
+    return;
+  }
+  if(saved.table){
+    const kind = saved.kind || 'table';
+    const exists = (S.tree.public || {})[kind]?.some(o => o.name === saved.table) ||
+                   (S.sideItems || []).includes(saved.table);
+    if(exists){
+      try{
+        await openObject(saved.table, kind, saved.view || 'rows');
+        return;
+      }catch{}
+    }
+  }
+  openRunner();
+}
+
 /* the server holds one connection, so a reload just picks it back up */
 (async function boot(){
   try{
     const m = await api({action:'schema'});          // one call: tree + database name
     S.tree=m.tree; S.db=m.database;
-    setConnected(true); drawTree(); openRunner();
+    setConnected(true); drawTree();
+    await restorePage();
   }catch{ setConnected(false); }                     // shell stays, just empty
 })();
 </script>
