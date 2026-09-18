@@ -348,8 +348,8 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 /* ---------- simple centered login form (SSOT CTA) ---------- */
 #v-home{display:none;flex-direction:column;align-items:center;justify-content:flex-start;background:var(--bg);padding:44px 24px 32px;overflow-y:auto;box-sizing:border-box}
 #v-home.on{display:flex}
-.login-box{width:100%;max-width:490px;margin:0 auto;background:var(--side);border:1px solid var(--line);border-radius:8px;
-  padding:26px 28px;box-shadow:0 4px 20px rgba(0,0,0,.04);box-sizing:border-box}
+.login-box{width:100%;max-width:680px;margin:0 auto;background:var(--side);border:1px solid var(--line);border-radius:8px;
+  padding:28px 32px;box-shadow:0 4px 20px rgba(0,0,0,.04);box-sizing:border-box}
 .login-header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
 .login-logo{width:36px;height:36px;margin:0;border-radius:8px;
   background:linear-gradient(135deg,rgba(121,88,159,.18),rgba(121,88,159,.04));
@@ -357,21 +357,28 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 :root[data-theme=dark] .login-logo{background:linear-gradient(135deg,rgba(121,88,159,.35),rgba(121,88,159,.1));color:#c792ea}
 .login-logo svg{width:20px;height:20px}
 .login-header h2{margin:0;font-size:17px;font-weight:700;color:var(--fg);letter-spacing:-.2px}
-.login-field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.login-field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
 .login-field label{font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.4px}
-#home-dsn{display:block;width:100%;min-height:50px;padding:8px 10px;resize:none;font-size:12.5px;
+#home-dsn{display:block;width:100%;min-height:56px;padding:9px 12px;resize:none;font-size:12.5px;
   line-height:1.5;font-family:Menlo,Monaco,Consolas,"Courier New",monospace;
   border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg);box-sizing:border-box}
 #home-dsn::placeholder{color:var(--dim);opacity:.6}
-.login-options{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-size:12px}
-.login-checkbox{display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--fg);user-select:none}
-.login-checkbox input{margin:0;cursor:pointer}
 .login-err{color:var(--err);font-size:12px;margin-bottom:12px;font-weight:500;line-height:1.4;word-break:break-word}
 .login-err[hidden]{display:none}
-.login-btn{display:block;width:100%;height:38px;font-size:13px;font-weight:600;background:var(--green);
-  color:#fff;border:1px solid var(--green);border-radius:4px;cursor:pointer;transition:background .15s}
-.login-btn:hover:not(:disabled){background:var(--green-h);border-color:var(--green-h)}
-:root[data-theme=dark] .login-btn{color:#141419}
+.login-actions{display:flex;gap:12px;align-items:center}
+.login-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:1;height:38px;font-size:13px;font-weight:600;
+  border-radius:4px;cursor:pointer;transition:all .15s;text-decoration:none;user-select:none;box-sizing:border-box}
+.login-btn svg{width:14px;height:14px;stroke-width:2;stroke:currentColor;fill:none;flex:none}
+.login-btn-primary{background:var(--green);color:#fff;border:1px solid var(--green)}
+.login-btn-primary:hover:not(:disabled){background:var(--green-h);border-color:var(--green-h)}
+:root[data-theme=dark] .login-btn-primary{color:#141419}
+.login-btn-ro{background:var(--bg);color:var(--fg);border:1px solid var(--line)}
+.login-btn-ro:hover:not(:disabled){background:var(--hl);border-color:#8a8a8a}
+:root[data-theme=dark] .login-btn-ro:hover:not(:disabled){border-color:#666}
+@media (max-width:480px){
+  .login-actions{flex-direction:column}
+  .login-btn{width:100%}
+}
 .login-saved{margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
 .login-saved-head{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:700;
   color:var(--dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
@@ -463,16 +470,17 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
               <textarea id="home-dsn" rows="2" wrap="soft" placeholder="postgresql://user:password@host:port/dbname" autocomplete="off" spellcheck="false"></textarea>
             </div>
 
-            <div class="login-options">
-              <label class="login-checkbox">
-                <input type="checkbox" id="home-readonly"/>
-                <span>Read-only mode</span>
-              </label>
-            </div>
-
             <div id="home-conn-err" class="login-err" hidden></div>
 
-            <button type="submit" id="home-connect-btn" class="login-btn">Connect</button>
+            <div class="login-actions">
+              <button type="button" id="home-connect-ro-btn" class="login-btn login-btn-ro" title="Connect in read-only mode (blocks write operations)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/></svg>
+                <span>Connect Read-Only</span>
+              </button>
+              <button type="submit" id="home-connect-btn" class="login-btn login-btn-primary" title="Connect with full read and write access">
+                <span>Connect</span>
+              </button>
+            </div>
           </form>
 
           <div class="login-saved" id="login-saved" hidden>
@@ -696,7 +704,6 @@ $('readonly').onclick = () => {
     e.preventDefault(); S.readOnly=next;
     localStorage.setItem('pgweb.readOnly', S.readOnly ? '1' : '0');
     drawReadOnly(); $('dlg').close();
-    if($('home-readonly')) $('home-readonly').checked = S.readOnly;
     toast(S.readOnly ? 'Read-only mode enabled' : 'Writes enabled');
   };
 };
@@ -801,28 +808,46 @@ function saveConnection(dsn){
   setSavedDsns(items);
   renderHome();
 }
-async function connectFromHome(rawDsn){
+async function connectFromHome(rawDsn, isReadOnly = false){
   const dsn = cleanDsn(rawDsn || $('home-dsn')?.value);
   const errEl = $('home-conn-err');
   const btn = $('home-connect-btn');
+  const btnRo = $('home-connect-ro-btn');
   if(!dsn){
     if(errEl){ errEl.textContent = 'Please enter a PostgreSQL URL'; errEl.hidden = false; }
     return;
   }
   if(errEl){ errEl.hidden = true; errEl.textContent = ''; }
-  if(btn){ btn.disabled = true; btn.textContent = 'Connecting…'; }
+  if(btn) btn.disabled = true;
+  if(btnRo) btnRo.disabled = true;
+  if(isReadOnly && btnRo){
+    const sp = btnRo.querySelector('span');
+    if(sp) sp.textContent = 'Connecting…';
+  }else if(!isReadOnly && btn){
+    const sp = btn.querySelector('span');
+    if(sp) sp.textContent = 'Connecting…';
+  }
   try{
-    const isRo = !!$('home-readonly')?.checked;
+    const isRo = !!isReadOnly;
     S.readOnly = isRo;
     localStorage.setItem('pgweb.readOnly', isRo ? '1' : '0');
     drawReadOnly();
     await doConnect(dsn);
     saveConnection(dsn);
-    toast('Connected to ' + S.db);
+    toast('Connected to ' + S.db + (isRo ? ' (read-only)' : ''));
   }catch(e){
     if(errEl){ errEl.textContent = e.message; errEl.hidden = false; }
   }finally{
-    if(btn){ btn.disabled = false; btn.textContent = 'Connect'; }
+    if(btn){
+      btn.disabled = false;
+      const sp = btn.querySelector('span');
+      if(sp) sp.textContent = 'Connect';
+    }
+    if(btnRo){
+      btnRo.disabled = false;
+      const sp = btnRo.querySelector('span');
+      if(sp) sp.textContent = 'Connect Read-Only';
+    }
   }
 }
 function renderHome(){
@@ -2157,15 +2182,18 @@ function alertBox(title, msg){
 }
 
 /* ---------------- homepage listeners ---------------- */
-$('home-connect-btn').onclick = () => connectFromHome($('home-dsn')?.value);
+$('home-connect-btn').onclick = () => connectFromHome($('home-dsn')?.value, false);
+if($('home-connect-ro-btn')){
+  $('home-connect-ro-btn').onclick = () => connectFromHome($('home-dsn')?.value, true);
+}
 $('login-form').onsubmit = (e) => {
   e?.preventDefault();
-  connectFromHome($('home-dsn')?.value);
+  connectFromHome($('home-dsn')?.value, false);
 };
 $('home-dsn').onkeydown = e => {
   if(e.key === 'Enter' && !e.shiftKey){
     e.preventDefault();
-    connectFromHome($('home-dsn')?.value);
+    connectFromHome($('home-dsn')?.value, false);
   }
 };
 $('productname').onclick = () => {
@@ -2182,7 +2210,6 @@ $('brandname').onclick = () => {
     renderHome();
   }
 };
-$('home-readonly').checked = S.readOnly;
 
 /* the server holds one connection, so a reload just picks it back up */
 (async function boot(){
