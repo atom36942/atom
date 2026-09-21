@@ -91,7 +91,7 @@ config_table_my_delete_all_allowed = ["test"]
 config_table_my_delete_owned_all_allowed = ["message", "notification"]
 config_table_public_create_allowed = ["test"]
 config_table_public_read_allowed = ["test"]
-config_table_private_read_allowed = ["test"]
+config_table_private_read_allowed = ["test", "task", "task_comment", "users"]
 
 # Column
 config_column_token_encode = ["id", "role", "username", "id_ext" ,"deactivated_at", "deleted_at"]
