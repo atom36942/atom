@@ -125,9 +125,22 @@ Deletes rows where `id = ANY()` AND `created_by_id = current_user.id`.
 Deletes rows matching `ownership_column = current_user.id` (e.g. `ownership_column="received_by_id"` for inbox messages).
 
 ### 3. Bulk Wipe User Records (`DELETE /my/object-delete-all`)
-Wipes all records belonging to the current user in a table. Guarded by:
+Wipes all records belonging to the current user in a table in safe batches (default 5,000 rows per request) to prevent database locks and gateway timeouts on very large tables. Guarded by:
 - `config_table_my_delete_all_allowed` (allowlist of wipeable creator tables).
 - `config_table_my_delete_owned_all_allowed` (allowlist of wipeable owned tables).
+
+**Response Format**:
+```json
+{
+  "status": 1,
+  "message": {
+    "deleted_count": 5000,
+    "has_more": true,
+    "has_next_page": true
+  }
+}
+```
+The client can call the exact same endpoint in a loop while `has_more` is `true`. No extra pagination parameters are needed from the client.
 
 ### 4. Self-Account Deletion (`DELETE /my/user-delete?id=<id>`)
 Users can delete their own account when `config_is_user_delete = True`. The endpoint verifies `id == current_user.id` and raises an error on any attempt to delete other accounts. The root user (`id: 1`) is permanently protected by database triggers.

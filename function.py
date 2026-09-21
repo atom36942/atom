@@ -2210,7 +2210,7 @@ async def func_blob_delete_all(*, app_state: any, user_id: int, limit: int = 500
     if not app_state.client_postgres: raise Exception("postgres client not initialized")
     async with app_state.client_postgres.acquire() as conn:
         records = await conn.fetch("SELECT id, file_url, service FROM blob WHERE created_by_id = $1 AND deleted_at IS NULL LIMIT $2", user_id, limit + 1)
-    if not records: return {"deleted_count": 0, "has_more": False}
+    if not records: return {"deleted_count": 0, "has_more": False, "has_next_page": False}
     has_more = len(records) > limit
     process_records = records[:limit]
     s3_urls = [r["file_url"] for r in process_records if r["service"] == "s3"]
@@ -2220,7 +2220,7 @@ async def func_blob_delete_all(*, app_state: any, user_id: int, limit: int = 500
     ids_to_update = [r["id"] for r in process_records]
     async with app_state.client_postgres.acquire() as conn:
         await conn.execute("UPDATE blob SET deleted_at = NOW(), deleted_by_id = $1 WHERE id = ANY($2::bigint[])", user_id, ids_to_update)
-    return {"deleted_count": len(process_records), "has_more": has_more}
+    return {"deleted_count": len(process_records), "has_more": has_more, "has_next_page": has_more}
 
 async def func_converter_number(*, datatype: str, mode: str, x: str) -> any:
     """Encodes a string to an integer or decodes an integer to a string based on base-39 charset mapping."""
@@ -2435,12 +2435,21 @@ async def func_blob_container_ops(*, client_s3: any, client_s3_resource: any, cl
             res = {"service": service, "mode": mode, "container": container}
         elif mode == "empty":
             container_client = client_azure_blob.get_container_client(container)
-            blobs = [blob.name async for blob in container_client.list_blobs()]
-            for i in range(0, len(blobs), 256):
-                delete_responses = await container_client.delete_blobs(*blobs[i:i + 256], delete_snapshots="include")
+            deleted_count, batch = 0, []
+            async for blob in container_client.list_blobs():
+                batch.append(blob.name)
+                if len(batch) >= 256:
+                    delete_responses = await container_client.delete_blobs(*batch, delete_snapshots="include")
+                    if hasattr(delete_responses, "__aiter__"):
+                        async for _ in delete_responses: pass
+                    deleted_count += len(batch)
+                    batch = []
+            if batch:
+                delete_responses = await container_client.delete_blobs(*batch, delete_snapshots="include")
                 if hasattr(delete_responses, "__aiter__"):
                     async for _ in delete_responses: pass
-            res = {"service": service, "mode": mode, "container": container, "deleted": len(blobs)}
+                deleted_count += len(batch)
+            res = {"service": service, "mode": mode, "container": container, "deleted": deleted_count}
         elif mode == "delete":
             await client_azure_blob.delete_container(container)
             res = {"service": service, "mode": mode, "container": container}
@@ -3909,8 +3918,8 @@ async def func_postgres_delete(*, client_postgres: any, client_postgres_conn: an
         async with client_postgres.acquire() as conn:
             return await _execute_delete(conn)
 
-async def func_postgres_delete_all(*, client_postgres: any, client_postgres_conn: any = None, cache_postgres_schema: dict = None, table: str, ownership_column: str, user_id: int) -> int:
-    """Delete all records in a table matching an ownership column for a user."""
+async def func_postgres_delete_all(*, client_postgres: any, client_postgres_conn: any = None, cache_postgres_schema: dict = None, table: str, ownership_column: str, user_id: int, limit: int = 5000) -> dict:
+    """Delete records in a table matching an ownership column for a user in safe batches."""
     if not client_postgres and not client_postgres_conn: raise Exception("postgres client not initialized")
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
@@ -3919,9 +3928,17 @@ async def func_postgres_delete_all(*, client_postgres: any, client_postgres_conn
     if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
     schema = (cache_postgres_schema or {}).get(table, {})
     if schema and ownership_column not in schema: raise Exception(f"table '{table}' lacks required '{ownership_column}' column")
+    id_col = '"id"' if (not schema or "id" in schema) else "ctid"
+    batch_limit = limit if limit and limit > 0 else 5000
     async def _execute_delete_all(connection):
-        result = await connection.execute(f'DELETE FROM "{table}" WHERE "{ownership_column}"=$1', user_id)
-        return int(result.rsplit(" ", 1)[-1])
+        sql = f'WITH to_delete AS (SELECT {id_col} FROM "{table}" WHERE "{ownership_column}"=$1 LIMIT $2) DELETE FROM "{table}" WHERE {id_col} IN (SELECT {id_col} FROM to_delete)'
+        result = await connection.execute(sql, user_id, batch_limit)
+        deleted_count = int(result.rsplit(" ", 1)[-1])
+        if deleted_count < batch_limit:
+            has_more = False
+        else:
+            has_more = bool(await connection.fetchval(f'SELECT EXISTS(SELECT 1 FROM "{table}" WHERE "{ownership_column}"=$1 LIMIT 1)', user_id))
+        return {"deleted_count": deleted_count, "has_more": has_more, "has_next_page": has_more}
     if client_postgres_conn:
         return await _execute_delete_all(client_postgres_conn)
     else:

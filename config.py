@@ -279,7 +279,7 @@ config_postgres = {
 "log_api":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
-{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id)"},
+{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id,created_at)"},
 {"name":"ip_address","datatype":"text"},
 {"name":"response_type","datatype":"text"},
 {"name":"method","datatype":"text"},
