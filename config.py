@@ -91,7 +91,7 @@ config_table_my_delete_all_allowed = ["test"]
 config_table_my_delete_owned_all_allowed = ["message", "notification"]
 config_table_public_create_allowed = ["test"]
 config_table_public_read_allowed = ["test"]
-config_table_private_read_allowed = ["test", "task", "task_comment", "users"]
+config_table_private_read_allowed = ["test", "task", "task_comment"]
 
 # Column
 config_column_token_encode = ["id", "role", "username", "id_ext" ,"deactivated_at", "deleted_at"]
@@ -447,6 +447,7 @@ config_api = {
 "/private/blob-container-sas": {"id": 64, "is_token": True},
 "/private/blob-preview-urls": {"id": 65, "is_token": True},
 "/private/object-read": {"id": 102, "is_token": True},
+"/private/users-list": {"id": 112, "is_token": True},
 "/private/table-column-groupby": {"id": 107, "is_token": True, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
 "/private/table-column-distinct": {"id": 108, "is_token": True, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
 # public
