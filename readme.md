@@ -168,6 +168,7 @@ atom/
 🚀 **Core Engines & Features**
 - [auth.md](docs/auth.md) — Authentication, identities, user uniqueness & root superadmin.
 - [crud.md](docs/crud.md) — Generic CRUD engine, `/my/*` ownership matrix & advanced queries.
+- [ownership.md](docs/ownership.md) — Ownership conventions, operation-specific policies & `/my/*` enforcement.
 - [database.md](docs/database.md) — PostgreSQL pools, read replicas, write buffers & API logs.
 - [redis.md](docs/redis.md) — Multi-client Redis architecture & cache strategies.
 - [queue.md](docs/queue.md) — Asynchronous job queues, background consumers & retry workers.

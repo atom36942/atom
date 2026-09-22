@@ -81,7 +81,14 @@ config_cors_allow_methods = ["*"]
 config_cors_allow_headers = ["*"]
 config_cors_expose_headers = ["*"]
 config_cors_allow_credentials = True
-config_postgres_db_log_api = None
+config_postgres_db_log_api = 
+
+# Services
+config_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
+config_blob_services = ["s3", "azure"]
+config_email_services = ["ses", "resend", "azure"]
+config_mobile_services = ["sns", "fast2sms", "azure"]
+config_ai_services = ["gemini", "openai"]
 
 # Table
 config_table_protected = ["spatial_ref_sys", "users", "log_users_delete"]
@@ -104,13 +111,6 @@ config_column_admin_users=["role"]
 config_column_single_update = ["username", "password", "email", "mobile", "deleted_at"]
 config_column_read_blocked = ["password"]
 
-# Services
-config_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
-config_blob_services = ["s3", "azure"]
-config_email_services = ["ses", "resend", "azure"]
-config_mobile_services = ["sns", "fast2sms", "azure"]
-config_ai_services = ["gemini", "openai"]
-
 # Dict
 config_sql = {
 "config": "select key,value from config where deactivated_at is null order by id asc limit 1000",
@@ -128,12 +128,12 @@ config_table = {
 "notification": {"retention_day": 30, "buffer_limit": 10},
 }
 
-config_regex = {
+config_column_regex = {
 "username": ["^(?=.{1,120}\\Z)\\S+\\Z", "Username must be 1-120 characters and contain no spaces"],
 "password": ["^(?=.{6,120}\\Z)\\S+\\Z", "Password must be 6-120 characters and contain no spaces"],
 }
 
-config_dropdown = {"gender": ["male", "female"],}
+config_column_dropdown = {"gender": ["male", "female"],}
 
 config_column_int_mapping = {
 "task": {

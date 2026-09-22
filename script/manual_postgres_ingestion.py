@@ -2,7 +2,7 @@
 
 # info: Performs high-performance bulk operations (create, update, delete) from a CSV file into PostgreSQL using staging tables and copy_records_to_table.
 
-# packages
+# import
 import ast
 import asyncio
 import csv

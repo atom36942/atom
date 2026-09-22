@@ -570,10 +570,12 @@ Custom routes should check the client they depend on and return a clear error wh
 The prefixes represent data-access scope, not just route organization:
 
 - `/public/object-*` is anonymous and limited by `config_table_public_create_allowed` and `config_table_public_read_allowed`.
-- `/my/object-*` requires a user and automatically scopes rows through ownership columns such as `created_by_id`, `received_by_id`, `assigned_to_id`, or `user_id`.
+- `/my/object-*` requires a user and scopes rows through `ownership_column = authenticated_user.id`. Read, update, and delete each validate `ownership_column` against their own configured allowlist; create always stamps `created_by_id`.
 - `/admin/object-*` can operate on any row and table, subject to its administrator route policy.
 
 Use `/my` for normal user-owned product data and `/admin` only for trusted operations. Do not expose a table publicly merely to avoid ownership configuration; add an ownership column and use the authenticated tier instead.
+
+The client chooses only an allowed ownership relationship, such as `assigned_to_id`; it never supplies the ownership user ID. The server takes that ID from the verified token and verifies that the selected column exists on the table.
 
 For endpoint-by-endpoint curl examples, filter options, and relation details across all three tiers, see **[crud.md](crud.md)**.
 

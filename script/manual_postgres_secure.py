@@ -2,7 +2,7 @@
 
 # info: Discovers user databases on PostgreSQL server via superuser connection and installs event triggers to block DROP SCHEMA and DROP TABLE execution.
 
-# packages
+# import
 import asyncio
 import os
 import sys

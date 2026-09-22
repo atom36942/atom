@@ -37,6 +37,8 @@ Notifications live in the `notification` table, targeting `received_by_id` with 
 - **Delete Selected**: `POST /my/object-delete?ownership_column=received_by_id` with JSON body `{"table": "notification", "ids": [1, 2]}`.
 - **Bulk Clear**: `DELETE /my/object-delete-all?table=notification&ownership_column=received_by_id`.
 
+These operations require `received_by_id` in the corresponding operation list: `config_column_ownership_read` for fetching and `config_column_ownership_delete` for deletion. `received_by_id` is intentionally not update-approved by default.
+
 ---
 
 ## 3. Transactional Email Delivery

@@ -2,10 +2,8 @@
 
 # info: Listens to message brokers (Redis, RabbitMQ, Kafka, Celery) and processes asynchronous bulk UPDATE operations for PostgreSQL.
 
-# packages
+# import
 import sys
-
-# function
 from function import func_client_postgres
 from function import func_client_password_hasher
 from function import func_run_broker
@@ -13,10 +11,8 @@ from function import func_postgres_update
 from function import func_postgres_serialize
 from function import func_postgres_schema_read
 from function import func_regex_check
-
-# config
 from config import config_postgres_url
-from config import config_regex
+from config import config_column_regex
 from config import config_redis_url_queue
 from config import config_rabbitmq_url
 from config import config_celery_url
@@ -34,7 +30,7 @@ async def setup():
 
 async def execute(payload, client_postgres, cache_postgres_buffer_create, cache_postgres_schema, client_password_hasher):
     table = payload.get("table")
-    return await func_postgres_update(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, config_regex=config_regex, table=table, obj_list=payload.get("obj_list"), created_by_id=payload.get("created_by_id"), ownership_column=payload.get("ownership_column", "created_by_id"))
+    return await func_postgres_update(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=client_password_hasher, func_postgres_serialize=func_postgres_serialize, func_regex_check=func_regex_check, cache_postgres_schema=cache_postgres_schema, config_column_regex=config_column_regex, table=table, obj_list=payload.get("obj_list"), created_by_id=payload.get("created_by_id"), ownership_column=payload.get("ownership_column", "created_by_id"))
 
 # init
 if __name__ == "__main__":

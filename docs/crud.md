@@ -10,7 +10,7 @@ Endpoints are split into **access tiers** (`/my/*`, `/public/*`, `/private/*`, `
 
 | Scope Tier | Base Path | Target Audience | Ownership Enforcement |
 | :--- | :--- | :--- | :--- |
-| **User** | `/my/object-*` | Authenticated users | Defaults to creator ownership; read/delete endpoints accept `ownership_column`. User updates and deletion have account-ID checks. |
+| **User** | `/my/object-*` | Authenticated users | Create stamps the creator; read, update, and delete default to creator ownership and accept an operation-approved `ownership_column`. |
 | **Public** | `/public/object-*` | Anonymous / Unauthenticated | Restricted by `config_table_public_read_allowed`. |
 | **Private** | `/private/object-*` | Internal microservices / backend | Authenticated via token or internal API key. |
 | **Admin** | `/admin/object-*` | Superadmins (`role: 1`) | Unrestricted table access across database. |
@@ -19,18 +19,31 @@ Endpoints are split into **access tiers** (`/my/*`, `/public/*`, `/private/*`, `
 
 ## 2. The `/my/*` Ownership Matrix
 
-`/my/object-read`, `/my/object-delete`, and `/my/object-delete-all` each support an optional `ownership_column` query parameter. It defaults to `created_by_id`; choose another column from `config_column_ownership` for received or assigned records. Create and update do not accept this parameter.
+For a focused explanation of ownership conventions, configuration policy, SQL enforcement, and failure behavior, see [ownership.md](ownership.md).
+
+Atom uses ownership-column conventions to scope generic user CRUD without trusting a user ID supplied by the client. `/my/object-read`, `/my/object-update`, `/my/object-delete`, and `/my/object-delete-all` accept an optional `ownership_column` query parameter. It defaults to `created_by_id`. The authenticated user ID always comes from the verified token.
+
+Each operation has its own allowlist:
+
+- `config_column_ownership_read`: columns accepted by `/my/object-read`.
+- `config_column_ownership_update`: columns accepted by `/my/object-update`.
+- `config_column_ownership_delete`: columns accepted by `/my/object-delete` and `/my/object-delete-all`.
+- `config_column_ownership_all`: the deduplicated union used by internal account-data cleanup; it is not a request authorization list.
+
+Create does not accept `ownership_column`; `/my/object-create` always stamps `created_by_id` from the authenticated user.
 
 | Operation | Default ownership (`created_by_id`) | Custom ownership (`ownership_column`) | Description |
 | :--- | :--- | :--- | :--- |
 | **Create** | `POST /my/object-create` | *(N/A)* | Stamped with `created_by_id = current_user.id`. |
 | **Read** | `GET /my/object-read` | `GET /my/object-read?ownership_column=received_by_id` | Query records created by or assigned to current user. |
-| **Update** | `PUT /my/object-update` | *(N/A)* | Updates creator's records; stamps `updated_by_id`. |
+| **Update** | `PUT /my/object-update` | `PUT /my/object-update?ownership_column=assigned_to_id` | Updates matching owned/assigned records; stamps `updated_by_id`. |
 | **Delete (IDs)** | `POST /my/object-delete` | `POST /my/object-delete?ownership_column=received_by_id` | Deletes specific IDs matching ownership. |
 | **Delete (All)** | `DELETE /my/object-delete-all` | `DELETE /my/object-delete-all?ownership_column=received_by_id` | Bulk wipes matching user rows (allowlist guarded). |
 | **Self Delete** | `POST /my/object-delete` with `table="users"` | *(N/A)* | Self-account deletion (`id == current_user.id`). |
 
-For reads, `ownership_column` defaults to `created_by_id` and accepts columns from `config_column_ownership`. Table/relation permissions, blocked columns, filters, pagination, and `db` selection apply to both modes. Reading through `received_by_id` also marks fetched records as read when the table has `id` and `read_at` columns; those updates use the primary database.
+The server validates that the requested ownership column is allowed for that operation and exists on the requested table. It then adds `<ownership_column> = current_user.id` to the SQL condition. A caller may choose the ownership relationship but cannot choose the user ID. Table permissions remain a separate authorization layer.
+
+For reads, table/relation permissions, blocked columns, filters, pagination, and `db` selection still apply. Reading through `received_by_id` also marks fetched records as read when the table has `id` and `read_at` columns; those updates use the primary database.
 
 ---
 
@@ -78,7 +91,7 @@ Use `curl -G --data-urlencode` for query parameters containing spaces, JSON, com
 | `page` | `int` | `1` | One-based page number; must be positive. |
 | `limit` | `int` | `config_sql_read_limit_default` (100) | Positive page size. Requests exceeding `config_sql_read_limit_max` (10,000) are rejected. |
 | `db` | `str` | Primary pool | Configured pool name, e.g. `read` for `config_postgres_url_read`. |
-| `ownership_column` | `str` | `created_by_id` | `/my/object-read` only: column from `config_column_ownership` matched to the logged-in user's ID. |
+| `ownership_column` | `str` | `created_by_id` | `/my/object-read` only: column from `config_column_ownership_read` matched to the logged-in user's ID. |
 
 `/public/object-read` and `/admin/object-read` accept the same parameters except `ownership_column`. Public reads require permitted tables and relations; admin reads require admin authorization and do not add user ownership filtering. Blocked columns cannot be explicitly selected or filtered; `column=*` removes them from results.
 
@@ -291,7 +304,7 @@ Executes single or bulk updates efficiently using dynamic SQL `CASE` statements 
 ### Features:
 - **Bulk CASE Updates**: Updates hundreds of distinct records with different values in one atomic statement.
 - **Audit Stamping**: Automatically stamps `updated_at = now()` and `updated_by_id = current_user.id`.
-- **Ownership Verification**: Enforces that every updated record matches `created_by_id = current_user.id` in `/my/*` routes.
+- **Ownership Verification**: `/my/object-update` defaults to `created_by_id` and accepts only columns from `config_column_ownership_update`. The selected column is matched to the authenticated user ID.
 
 ### Request Example:
 ```bash
@@ -300,6 +313,17 @@ curl -X PUT "http://localhost:8000/my/object-update?table=tasks"   -H "Authoriza
         {"id": 2, "title": "Updated Task 2", "status": "in_progress"}
       ]}'
 ```
+
+To update a task assigned to the current user:
+
+```bash
+curl -X PUT "http://localhost:8000/my/object-update?table=task&ownership_column=assigned_to_id" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"id": 135, "status": 2}'
+```
+
+The effective condition is `id = 135 AND assigned_to_id = current_user.id`. If ownership does not match, the returned updated-ID list does not contain that ID. Supplying an ownership column that is not allowed for updates, or that does not exist on the table, is rejected. For `table=users`, `ownership_column` is not supported; self-update account-ID checks apply instead.
 
 ---
 
@@ -315,12 +339,12 @@ Body contains an explicit array of integer `ids`:
 For ordinary tables, deletes rows where `id = ANY()` AND `created_by_id = current_user.id` by default. The `users` table follows the account deletion rules below.
 
 ### 2. Delete Consumer / Owned Records (`POST /my/object-delete?ownership_column=received_by_id`)
-Pass the optional `ownership_column` query parameter to select a column from `config_column_ownership`; it defaults to `created_by_id` when omitted. Keep `table` and `ids` in the JSON body, for example `{"table": "message", "ids": [1, 2, 3]}`. Rows must match both a supplied ID and `<ownership_column> = current_user.id`. For `table="users"`, omit `ownership_column`; the own-account deletion checks apply instead.
+Pass the optional `ownership_column` query parameter to select a column from `config_column_ownership_delete`; it defaults to `created_by_id` when omitted. Keep `table` and `ids` in the JSON body, for example `{"table": "message", "ids": [1, 2, 3]}`. Rows must match both a supplied ID and `<ownership_column> = current_user.id`. For `table="users"`, omit `ownership_column`; the own-account deletion checks apply instead.
 
 ### 3. Bulk Wipe User Records (`DELETE /my/object-delete-all`)
 Wipes all records belonging to the current user in a table in batches capped by `config_batch_item_limit` (currently 1,000; fallback 5,000 when unset or zero) to prevent database locks and gateway timeouts on very large tables. Guarded by:
 - `config_table_my_delete_all_allowed` when `ownership_column` is omitted or is `created_by_id`.
-- `config_table_my_delete_owned_all_allowed` when another column from `config_column_ownership` is selected.
+- `config_table_my_delete_owned_all_allowed` when another column from `config_column_ownership_delete` is selected.
 
 The optional `ownership_column` query parameter defaults to `created_by_id`. Rows must belong to the logged-in user through the selected column. Bulk deletion of `users` is always rejected.
 

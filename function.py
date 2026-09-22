@@ -1031,7 +1031,7 @@ async def func_request_param_read(*, request: any, mode: str, strict: bool, para
 async def func_admin_sync(*, app_state: any, app_routes: list = None) -> str:
     """Synchronize and refresh all application state caches, schemas, OpenAPI spec, and config maps."""
     if getattr(app_state, "client_postgres", None):
-        await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=None, func_postgres_serialize=None, cache_postgres_schema=app_state.cache_postgres_schema, mode="flush", table=None, obj_list=None, buffer_limit=None, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_regex=None, func_regex_check=None)
+        await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=None, func_postgres_serialize=None, cache_postgres_schema=app_state.cache_postgres_schema, mode="flush", table=None, obj_list=None, buffer_limit=None, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=None, func_regex_check=None)
     app_state.cache_postgres_schema = await app_state.func_postgres_schema_read(client_postgres=app_state.client_postgres) if getattr(app_state, "client_postgres", None) else {}
     app_state.cache_postgres_schema_ai = await app_state.func_postgres_schema_read_ai(client_postgres=app_state.client_postgres) if getattr(app_state, "client_postgres", None) else {}
     app_state.cache_clickhouse_schema_ai = await app_state.func_clickhouse_schema_read_ai(client_clickhouse=app_state.client_clickhouse) if getattr(app_state, "client_clickhouse", None) else {}
@@ -1179,7 +1179,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: any) -> dict:
                                 op["parameters"] = [x for x in op["parameters"] if x["name"] != p_name]
                                 tp = TYPE_MAP.get(dt.split(":")[0], "string")
                                 itms = {"type": TYPE_MAP.get(dt.split(":")[1], "string")} if ":" in dt else None
-                                reg_info = getattr(app_state, "config_regex", {}).get(p_name) if is_regex_enabled else None
+                                reg_info = getattr(app_state, "config_column_regex", {}).get(p_name) if is_regex_enabled else None
                                 op["parameters"].append({
                                     "name": p_name, "in": p_loc, "required": bool(p.get("required", False)),
                                     "description": reg_info[1] if reg_info and len(reg_info) > 1 else None,
@@ -1192,7 +1192,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: any) -> dict:
                             for p in p_list:
                                 if not isinstance(p, dict) or "name" not in p: continue
                                 p_name = p["name"]
-                                reg_info = getattr(app_state, "config_regex", {}).get(p_name) if is_regex_enabled else None
+                                reg_info = getattr(app_state, "config_column_regex", {}).get(p_name) if is_regex_enabled else None
                                 dt = p.get("type", "str")
                                 props[p_name] = {"type": TYPE_MAP.get(dt.split(":")[0], "string"), "format": "binary" if dt == "file" else None, **({"items": {"type": TYPE_MAP.get(dt.split(":")[1], "string")}} if ":" in dt else {}), "enum": p.get("allowed") if isinstance(p.get("allowed"), (list, tuple)) else None, "default": p.get("default"), "pattern": reg_info[0] if reg_info and len(reg_info) > 0 else None, "description": reg_info[1] if reg_info and len(reg_info) > 1 else None}
                                 if bool(p.get("required", False)): reqs.append(p_name)
@@ -1214,12 +1214,12 @@ def func_app_router_add(*, app: any, router_dir: any, router_order: dict) -> Non
         if hasattr(module, "router"): app.include_router(module.router)
     return None
 
-async def func_regex_check(*, config_regex: dict, obj_list: list) -> None:
+async def func_regex_check(*, config_column_regex: dict, obj_list: list) -> None:
     """Validate fields in a list of objects against regex patterns defined in config."""
     import re
-    if not config_regex: return None
+    if not config_column_regex: return None
     for obj in obj_list:
-        for key, regex_info in config_regex.items():
+        for key, regex_info in config_column_regex.items():
             val = obj.get(key)
             if val is not None:
                 pattern = regex_info[0]
@@ -2323,7 +2323,7 @@ async def func_blob_upload_file(*, app_state: any, service: str, container: str,
         output[item.filename] = file_url
         blob_list.append({"created_by_id": user_id, "type": 1, "service": service, "file_url": file_url})
     if blob_list:
-        await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
+        await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
     return output
 
 async def func_blob_upload_url(*, app_state: any, service: str, container: str, count: int, user_id: int = None) -> list:
@@ -2352,7 +2352,7 @@ async def func_blob_upload_url(*, app_state: any, service: str, container: str, 
             output.append({"upload_url": sas_url, "key": file_key, "file_url": file_url})
         blob_list.append({"created_by_id": user_id, "type": 2, "service": service, "file_url": file_url})
     if blob_list:
-        await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
+        await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
     return output
 
 async def func_redis_import(*, client_redis: any, config_redis_cache_ttl_sec: int, mode: str, file: any) -> str:
@@ -3347,9 +3347,9 @@ async def func_postgres_import(*, app_state: any, mode: str, table: str, file: a
                 if not ol: continue
                 if mode in ("update", "delete") and any("id" not in obj for obj in ol): raise Exception(f"CSV format error: Postgres {mode} requires 'id' column")
                 if mode == "create":
-                    await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table=table, obj_list=ol)
+                    await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table=table, obj_list=ol)
                 elif mode == "update":
-                    await app_state.func_postgres_update(client_postgres=client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=cache_postgres_schema, config_regex=app_state.config_regex, table=table, obj_list=ol, created_by_id=None)
+                    await app_state.func_postgres_update(client_postgres=client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=cache_postgres_schema, config_column_regex=app_state.config_column_regex, table=table, obj_list=ol, created_by_id=None)
                 elif mode == "delete":
                     await app_state.func_postgres_delete(client_postgres=client_postgres, client_postgres_conn=conn, cache_postgres_schema=cache_postgres_schema, table=table, ids=[obj["id"] for obj in ol], created_by_id=None)
                 count += len(ol)
@@ -3649,7 +3649,7 @@ async def func_postgres_relation(*, client_postgres: any, client_postgres_conn: 
         else: raise Exception(f"invalid operator: {op}")
     return obj_list
 
-async def func_postgres_create(*, client_postgres: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_regex: dict, buffer_limit: int, mode: str, table: str, obj_list: list) -> any:
+async def func_postgres_create(*, client_postgres: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_column_regex: dict, buffer_limit: int, mode: str, table: str, obj_list: list) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     if not client_postgres and not client_postgres_conn: raise Exception("postgres client not initialized")
     import re, orjson
@@ -3699,7 +3699,7 @@ async def func_postgres_create(*, client_postgres: any, client_postgres_conn: an
     async def serialize_batches():
         for i in range(0, len(obj_list), limit_chunk):
             batch = obj_list[i:i+limit_chunk]
-            await func_regex_check(config_regex=config_regex, obj_list=batch)
+            await func_regex_check(config_column_regex=config_column_regex, obj_list=batch)
             yield await func_postgres_serialize(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=batch, is_base=False if len(batch) > 1 else 1)
     if mode not in ("now", "buffer", "flush"): raise Exception(f"invalid mode: {mode}")
     if mode == "flush":
@@ -3751,12 +3751,12 @@ async def func_postgres_buffer_flush_all(*, app_state: any, client_postgres: any
     if client_postgres and cache_postgres_buffer_create:
         try:
             async with app_state.postgres_buffer_flush_lock:
-                await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=None, func_postgres_serialize=None, func_regex_check=None, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=cache_postgres_buffer_create, config_regex=None, buffer_limit=None, mode="flush", table=None, obj_list=None)
+                await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=None, func_postgres_serialize=None, func_regex_check=None, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=cache_postgres_buffer_create, config_column_regex=None, buffer_limit=None, mode="flush", table=None, obj_list=None)
         except Exception as e: print(f"❌ primary buffer flush error: {e}")
     if client_postgres_log_api and cache_postgres_buffer_log_api:
         try:
             async with app_state.postgres_buffer_flush_lock:
-                await app_state.func_postgres_create(client_postgres=client_postgres_log_api, client_postgres_conn=None, client_password_hasher=None, func_postgres_serialize=None, func_regex_check=None, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=cache_postgres_buffer_log_api, config_regex=None, buffer_limit=None, mode="flush", table=None, obj_list=None)
+                await app_state.func_postgres_create(client_postgres=client_postgres_log_api, client_postgres_conn=None, client_password_hasher=None, func_postgres_serialize=None, func_regex_check=None, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=cache_postgres_buffer_log_api, config_column_regex=None, buffer_limit=None, mode="flush", table=None, obj_list=None)
         except Exception as e: print(f"❌ log api buffer flush error: {e}")
 
 async def func_postgres_buffer_flush_periodic_task(*, app_state: any, client_postgres: any, cache_postgres_buffer_create: dict, client_postgres_log_api: any, cache_postgres_buffer_log_api: dict, interval_sec: int = 60) -> None:
@@ -3850,7 +3850,7 @@ async def func_postgres_read(*, client_postgres: any, client_password_hasher: an
             result_list = await func_postgres_relation(client_postgres=client_postgres, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_sql_read_relation_fetch_limit_max=config_sql_read_relation_fetch_limit_max, blocked_tables=blocked_tables, config_column_read_blocked=config_column_read_blocked)
         return result_list
 
-async def func_postgres_update(*, client_postgres: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, table: str, obj_list: list, created_by_id: int, ownership_column: str = "created_by_id") -> any:
+async def func_postgres_update(*, client_postgres: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_column_regex: dict, table: str, obj_list: list, created_by_id: int, ownership_column: str = "created_by_id") -> any:
     """Update PostgreSQL records immediately with support for owner validation and dynamic serialization."""
     if not client_postgres and not client_postgres_conn: raise Exception("postgres client not initialized")
     import re
@@ -3876,7 +3876,7 @@ async def func_postgres_update(*, client_postgres: any, client_postgres_conn: an
         async with connection.transaction():
             for i in range(0, len(obj_list), actual_batch_size):
                 batch_raw = obj_list[i:i+actual_batch_size]
-                await func_regex_check(config_regex=config_regex, obj_list=batch_raw)
+                await func_regex_check(config_column_regex=config_column_regex, obj_list=batch_raw)
                 batch = await func_postgres_serialize(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=batch_raw, is_base=True)
                 batch_vals, set_clauses = [], []
                 for col in update_cols:

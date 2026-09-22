@@ -178,7 +178,10 @@ Disabled (`None`) by default; activated automatically when connection credential
 | Key | Usage |
 |---|---|
 | `config_column_token_encode` | User columns encoded into JWT claims (`id`, `role`, `username`, etc.) |
-| `config_column_ownership` | Column names indicating row ownership (`created_by_id`, `received_by_id`, `assigned_to_id`, `user_id`); the allowed set for `ownership_column` on `/my/object-read`, `/my/object-delete`, and `/my/object-delete-all` (default `created_by_id`; keep it in this list) |
+| `config_column_ownership_read` | Ownership columns accepted by `/my/object-read`; defaults to `created_by_id` when omitted |
+| `config_column_ownership_update` | Ownership columns accepted by `/my/object-update`; defaults to `created_by_id` when omitted |
+| `config_column_ownership_delete` | Ownership columns accepted by `/my/object-delete` and `/my/object-delete-all`; defaults to `created_by_id` when omitted |
+| `config_column_ownership_all` | Deduplicated union of the three ownership lists for internal account-data cleanup; not used to authorize API parameters |
 | `config_column_admin` | Server-managed columns blocked from user mutation (`created_at`, `role`, etc.) |
 | `config_column_admin_users` | Admin-only restricted columns for `users` table (`role`) |
 | `config_column_single_update` | Columns requiring single-field update requests (`password`, `email`, etc.) |
@@ -300,7 +303,7 @@ Per-table operational settings map.
 
 ---
 
-### `config_regex`
+### `config_column_regex`
 
 Write-time regex validation rules enforced by `func_regex_check`.
 
@@ -311,7 +314,7 @@ Write-time regex validation rules enforced by `func_regex_check`.
 
 ---
 
-### `config_dropdown`
+### `config_column_dropdown`
 
 Enumerated option lists for frontend UI dropdowns exposed via `/info`.
 

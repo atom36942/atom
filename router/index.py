@@ -1,4 +1,4 @@
-# packages
+# import
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, responses
 
 # router
@@ -21,7 +21,7 @@ async def func_api_index_info(*, request:Request):
         "message": {
             "api_list": [route.path for route in request.app.routes if hasattr(route, "path")],
             "mapping": app_state.config_column_int_mapping,
-            "dropdown": app_state.config_dropdown,
+            "dropdown": app_state.config_column_dropdown,
             "config": {
                 "config_query_runner_read_limit": app_state.config_query_runner_read_limit,
                 "config_query_runner_export_limit": app_state.config_query_runner_export_limit,
@@ -46,7 +46,7 @@ async def func_api_websocket(*, websocket:WebSocket):
     try:
         while True:
             message = await websocket.receive_text()
-            output = await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_regex=app_state.config_regex, buffer_limit=app_state.config_table.get("test", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="test", obj_list=[{"title":message}])
+            output = await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get("test", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="test", obj_list=[{"title":message}])
             await websocket.send_text(str(output))
     except WebSocketDisconnect:
         pass

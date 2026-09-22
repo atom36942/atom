@@ -2,14 +2,10 @@
 
 # info: Periodically deletes expired database rows based on table retention day settings while guarding sensitive tables.
 
-# packages
+# import
 import asyncio
 import time
-
-# function
 from function import func_client_postgres
-
-# config
 from config import config_postgres_url
 from config import config_table
 from config import config_table_protected

@@ -2,17 +2,13 @@
 
 # info: Background worker that permanently hard-deletes soft-deleted user data and associated storage files after the data retention window expires.
 
-# packages
+# import
 import asyncio
 import urllib.parse
 import boto3
 from azure.core.exceptions import ResourceNotFoundError
-
-# function
 from function import func_client_postgres
 from function import func_client_azure_blob
-
-# config
 from config import config_aws_access_key_id
 from config import config_aws_secret_access_key
 from config import config_azure_account_key

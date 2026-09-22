@@ -11,7 +11,7 @@ Usage:  venv/bin/python sync.py   (run from the repo root; re-install deps if
 requirements.txt changed). See docs/extend.md for the extend-without-forking model.
 """
 
-# packages
+# import
 import ast
 import os
 import re
