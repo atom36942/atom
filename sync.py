@@ -31,7 +31,6 @@ files_to_sync = [
     "router/admin.py",
     "static/api.html",
     "static/pgweb.html",
-    "static/pulse.html",
     "readme.md",
     "Dockerfile",
     ".dockerignore",
@@ -40,8 +39,6 @@ files_to_sync = [
     "script/consumer_postgres_create.py",
     "script/consumer_postgres_update.py",
     "script/manual_postgres_cleaner.py",
-    "script/manual_postgres_ingestion.py",
-    "script/manual_postgres_secure.py",
     "script/worker_users_delete.py",
     "sync.py",
 ]
