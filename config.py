@@ -91,7 +91,7 @@ config_mobile_services = ["sns", "fast2sms", "azure"]
 config_ai_services = ["gemini", "openai"]
 
 # Table
-config_table_protected = ["spatial_ref_sys", "users", "log_users_delete"]
+config_table_exclude_from_users_delete = ["spatial_ref_sys", "users", "log_users_delete"]
 config_table_my_create_blocked = ["users", "log_api", "log_users_password", "otp", "spatial_ref_sys"]
 config_table_my_read_blocked = ["users", "config", "log_api", "log_users_password", "otp", "spatial_ref_sys"]
 config_table_my_delete_all_allowed = ["test"]

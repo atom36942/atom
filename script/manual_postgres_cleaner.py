@@ -1,6 +1,6 @@
 # command: venv/bin/python -m script.manual_postgres_cleaner
 
-# info: Periodically deletes expired database rows based on table retention day settings while guarding sensitive tables.
+# info: Periodically deletes expired database rows from tables with retention day settings.
 
 # import
 import asyncio
@@ -8,13 +8,9 @@ import time
 from function import func_client_postgres
 from config import config_postgres_url
 from config import config_table
-from config import config_table_protected
 
 # logic
 async def execute():
-    blocked_tables = [table for table, cfg in config_table.items() if cfg.get("retention_day") is not None and table in config_table_protected]
-    if blocked_tables:
-        raise Exception(f"postgres cleaner blocked for protected table(s): {', '.join(blocked_tables)}")
     print("Starting Postgres Cleanup Script...")
     pool = await func_client_postgres(dsn=config_postgres_url, min_size=1, max_size=5)
     try:

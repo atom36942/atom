@@ -15,7 +15,7 @@ from config import config_azure_account_key
 from config import config_azure_account_name
 from config import config_postgres_url
 from config import config_aws_s3_region_name
-from config import config_table_protected
+from config import config_table_exclude_from_users_delete
 from config import config_column_ownership_all
 from config import config_users_delete_data_retention_day
 
@@ -34,12 +34,6 @@ async def execute():
         clients["azure"] = func_client_azure_blob(account_name=config_azure_account_name, account_key=config_azure_account_key)
     def func_quote_ident(name: str) -> str:
         return '"' + name.replace('"', '""') + '"'
-    def func_is_excluded_table(table: str) -> bool:
-        for pattern in config_table_protected:
-            if pattern.endswith("*"):
-                if table.startswith(pattern[:-1]): return True
-            elif table == pattern: return True
-        return False
     def func_retry_delay_sec(retry_count: int) -> int:
         index = min(max(retry_count, 0), len(worker_retry_delay_sec) - 1)
         return worker_retry_delay_sec[index]
@@ -51,7 +45,7 @@ async def execute():
     def func_owned_tables(schema: dict) -> list:
         tables = []
         for table, columns in schema.items():
-            if func_is_excluded_table(table): continue
+            if table in config_table_exclude_from_users_delete: continue
             ownership_columns = [col for col in config_column_ownership_all if col in columns]
             if "deleted_at" not in columns or not ownership_columns: continue
             tables.append((table, ownership_columns, "is_protected" in columns))
