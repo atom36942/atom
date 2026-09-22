@@ -343,8 +343,8 @@ Pass the optional `ownership_column` query parameter to select a column from `co
 
 ### 3. Bulk Wipe User Records (`DELETE /my/object-delete-all`)
 Wipes all records belonging to the current user in a table in batches capped by `config_batch_item_limit` (currently 1,000; fallback 5,000 when unset or zero) to prevent database locks and gateway timeouts on very large tables. Guarded by:
-- `config_table_my_delete_all_allowed` when `ownership_column` is omitted or is `created_by_id`.
-- `config_table_my_delete_owned_all_allowed` when another column from `config_column_ownership_delete` is selected.
+- The table must be in `config_table_my_delete_all_allowed`.
+- The ownership column must be in `config_column_ownership_delete` and exist in the table.
 
 The optional `ownership_column` query parameter defaults to `created_by_id`. Rows must belong to the logged-in user through the selected column. Bulk deletion of `users` is always rejected.
 

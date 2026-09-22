@@ -167,8 +167,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_table_exclude_from_users_delete` | Exact table names excluded from the user-deletion worker's soft deletion, restoration, and permanent purging; does not affect retention cleanup |
 | `config_table_my_create_blocked` | Tables refused on user `/my/object-create` endpoint |
 | `config_table_my_read_blocked` | Tables refused on user `/my/object-read` endpoint |
-| `config_table_my_delete_all_allowed` | Tables supporting `/my/object-delete-all` with default or explicit `created_by_id` ownership |
-| `config_table_my_delete_owned_all_allowed` | Tables supporting `/my/object-delete-all` with an allowed ownership column other than `created_by_id` (messages, notifications) |
+| `config_table_my_delete_all_allowed` | Tables supporting `/my/object-delete-all` through any column in `config_column_ownership_delete` that exists in the table; defaults to `created_by_id` |
 | `config_table_public_create_allowed` | Tables accessible on unauthenticated public create route |
 | `config_table_public_read_allowed` | Tables accessible on unauthenticated public read route |
 | `config_table_private_read_allowed` | Tables accessible on authenticated private read route |

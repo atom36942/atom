@@ -130,7 +130,7 @@ async def func_api_my_object_delete_all(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "ownership_column", "type": "str", "required": False, "allowed": app_state.config_column_ownership_delete, "default": "created_by_id"}])
     app_state.func_check_user_delete_permission(app_state=app_state, table=oq["table"], scope="my_all")
-    app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="my", action="delete_all" if oq["ownership_column"] == "created_by_id" else "delete_owned_all")
+    app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="my", action="delete_all")
     app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column=oq["ownership_column"], purpose="ownership tracking")
     res = await app_state.func_postgres_delete_all(client_postgres=app_state.client_postgres, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], ownership_column=oq["ownership_column"], user_id=user_id, limit=getattr(app_state, "config_batch_item_limit", 5000) or 5000)
     return {"status": 1, "message": {"deleted_count": res["deleted_count"], "has_more": res["has_more"], "has_next_page": res["has_next_page"]}}

@@ -1497,8 +1497,8 @@ def func_validate_restricted_columns(*, app_state: any, obj_list: list) -> None:
         raise Exception(f"unauthorized update to restricted field: {restricted_key}")
 
 def func_check_table_permission(*, app_state: any, table: str, relation: list = None, scope: str = "public", action: str = "read") -> None:
-    """Validate if table and relation access is allowed for given scope ('public', 'private', 'my') and action ('read', 'create', 'delete_all', 'delete_owned_all')."""
-    verb_map = {"create": "creation", "read": "read", "delete_all": "delete all", "delete_owned_all": "owned delete all"}
+    """Validate if table and relation access is allowed for given scope ('public', 'private', 'my') and action ('read', 'create', 'delete_all')."""
+    verb_map = {"create": "creation", "read": "read", "delete_all": "delete all"}
     verb = verb_map.get(action, action.replace("_", " "))
     blocked_attr = f"config_table_{scope}_{action}_blocked"
     blocked_tables = getattr(app_state, blocked_attr, None)
