@@ -179,10 +179,8 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_column_token_encode` | User columns encoded into JWT claims (`id`, `role`, `username`, etc.) |
 | `config_column_ownership_read` | Ownership columns accepted by `/my/object-read`; defaults to `created_by_id` when omitted |
 | `config_column_ownership_update` | Ownership columns accepted by `/my/object-update`; defaults to `created_by_id` when omitted |
-| `config_column_ownership_delete` | Ownership columns accepted by `/my/object-delete` and `/my/object-delete-all`; defaults to `created_by_id` when omitted |
-| `config_column_ownership_all` | Deduplicated union of the three ownership lists for internal account-data cleanup; not used to authorize API parameters |
+| `config_column_ownership_delete` | Ownership columns accepted by `/my/object-delete` and `/my/object-delete-all`; defaults to `created_by_id` when omitted. Also used by the user-deletion worker to discover user-linked rows. |
 | `config_column_admin` | Server-managed columns blocked from user mutation (`created_at`, `role`, etc.) |
-| `config_column_admin_users` | Admin-only restricted columns for `users` table (`role`) |
 | `config_column_single_update` | Columns requiring single-field update requests (`password`, `email`, etc.) |
 | `config_column_read_blocked` | Sensitive columns blocked and stripped from read responses and relations (`password`) |
 

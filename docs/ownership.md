@@ -70,7 +70,7 @@ config_column_ownership_delete = [
 ]
 ```
 
-`config_column_ownership_all` is the deduplicated union of these lists. It is used by internal account-data cleanup to discover user-linked rows and is not used to authorize an API request.
+Internal account-data cleanup uses only `config_column_ownership_delete` to discover user-linked rows for soft deletion and restoration. Columns approved only for reading or updating do not link rows to a user for this cleanup.
 
 Keep a column in an operation list only when its schema-wide meaning grants that operation. For example:
 

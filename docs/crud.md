@@ -27,8 +27,7 @@ Each operation has its own allowlist:
 
 - `config_column_ownership_read`: columns accepted by `/my/object-read`.
 - `config_column_ownership_update`: columns accepted by `/my/object-update`.
-- `config_column_ownership_delete`: columns accepted by `/my/object-delete` and `/my/object-delete-all`.
-- `config_column_ownership_all`: the deduplicated union used by internal account-data cleanup; it is not a request authorization list.
+- `config_column_ownership_delete`: columns accepted by `/my/object-delete` and `/my/object-delete-all`, and used by internal account-data cleanup to discover user-linked rows.
 
 Create does not accept `ownership_column`; `/my/object-create` always stamps `created_by_id` from the authenticated user.
 

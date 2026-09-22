@@ -1544,8 +1544,6 @@ async def func_check_user_update_permission(*, app_state: any, table: str, obj_l
         raise Exception("password update requires exactly two fields (id, password)")
     if table == "users":
         if scope == "my":
-            if restricted_user_key := next((key for item in obj_list for key in item if key in getattr(app_state, 'config_column_admin_users', [])), None):
-                raise Exception(f"unauthorized update to restricted user field: {restricted_user_key}")
             if len(obj_list) > 1:
                 raise Exception("multi-object user update restricted")
             if user_id is not None and str(obj_list[0].get("id")) != str(user_id):
