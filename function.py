@@ -3850,7 +3850,7 @@ async def func_postgres_read(*, client_postgres: any, client_password_hasher: an
             result_list = await func_postgres_relation(client_postgres=client_postgres, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_sql_read_relation_fetch_limit_max=config_sql_read_relation_fetch_limit_max, blocked_tables=blocked_tables, config_column_read_blocked=config_column_read_blocked)
         return result_list
 
-async def func_postgres_update(*, client_postgres: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, table: str, obj_list: list, created_by_id: int) -> any:
+async def func_postgres_update(*, client_postgres: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_regex: dict, table: str, obj_list: list, created_by_id: int, ownership_column: str = "created_by_id") -> any:
     """Update PostgreSQL records immediately with support for owner validation and dynamic serialization."""
     if not client_postgres and not client_postgres_conn: raise Exception("postgres client not initialized")
     import re
@@ -3861,6 +3861,7 @@ async def func_postgres_update(*, client_postgres: any, client_postgres_conn: an
     if table == "spatial_ref_sys": raise Exception("system table protected")
     if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
     if any("id" not in obj for obj in obj_list): raise Exception("missing required field: 'id' for update operation")
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(ownership_column)): raise Exception(f"invalid identifier {ownership_column}")
     update_cols = [c for c in obj_list[0] if c != "id" and (re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(c)) or (_ for _ in ()).throw(Exception(f"invalid identifier {c}")))]
     if not update_cols: raise Exception("update field required")
     if cache_postgres_schema is not None and table in cache_postgres_schema:
@@ -3886,7 +3887,7 @@ async def func_postgres_update(*, client_postgres: any, client_postgres_conn: an
                     set_clauses.append(f'"{col}" = CASE {" ".join(case_statements)} ELSE "{col}" END')
                 id_list = [obj["id"] for obj in batch]
                 where_clause = f'"id" IN ({",".join(f"${len(batch_vals)+j+1}::bigint" for j in range(len(id_list)))})'
-                if created_by_id is not None: where_clause += f' AND "created_by_id"=${len(batch_vals)+len(id_list)+1}'
+                if created_by_id is not None: where_clause += f' AND "{ownership_column}"=${len(batch_vals)+len(id_list)+1}'
                 batch_vals.extend(id_list)
                 if created_by_id is not None: batch_vals.append(created_by_id)
                 sql = f'UPDATE "{table}" SET {", ".join(set_clauses)} WHERE {where_clause} RETURNING id;'

@@ -95,7 +95,10 @@ config_table_private_read_allowed = ["test", "task", "task_comment"]
 
 # Column
 config_column_token_encode = ["id", "role", "username", "id_ext" ,"deactivated_at", "deleted_at"]
-config_column_ownership = ["created_by_id", "received_by_id", "assigned_to_id", "user_id"]
+config_column_ownership_read = ["created_by_id", "received_by_id", "assigned_to_id", "user_id"]
+config_column_ownership_update = ["created_by_id", "assigned_to_id"]
+config_column_ownership_delete = ["created_by_id", "received_by_id", "assigned_to_id"]
+config_column_ownership_all = list(dict.fromkeys(config_column_ownership_read + config_column_ownership_update + config_column_ownership_delete))
 config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id"]
 config_column_admin_users=["role"]
 config_column_single_update = ["username", "password", "email", "mobile", "deleted_at"]
