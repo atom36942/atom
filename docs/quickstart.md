@@ -134,7 +134,7 @@ curl -X PUT "http://localhost:8000/my/object-update?table=test" \
 
 ## 6. Delete a Record
 
-Soft-delete or delete records using `/my/object-delete`:
+Permanently delete records created by you using `/my/object-delete`:
 
 ```bash
 curl -X POST "http://localhost:8000/my/object-delete" \
@@ -144,6 +144,8 @@ curl -X POST "http://localhost:8000/my/object-delete" \
 ```
 
 ---
+
+For records received by or assigned to you, add `?ownership_column=received_by_id` (or another column from `config_column_ownership`) to the read or delete URL. Keep `table` and `ids` in the JSON body for ID-based deletion. Omit the parameter to use `created_by_id`. See [ownership and account deletion rules](crud.md).
 
 ## Next Steps
 

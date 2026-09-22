@@ -114,7 +114,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_login_password` | Static login password for `/auth/login-password` (Must set in `.env` if used) |
 | `config_token_secret_key` | HMAC secret key for signing/verifying JWT tokens *(Must change)* |
 | `config_root_html_path` | Path to static HTML file served at `/` (`static/api.html`) |
-| `config_is_user_delete` | Boolean toggle for the user hard-deletion flow |
+| `config_is_user_delete` | Enables single-user hard deletion through `/my/object-delete` and `/admin/object-delete`; `False` blocks both without blocking other tables |
 | `config_is_postgres_schema_init` | Boolean toggle for database schema initialization on startup |
 | `config_signup_allowed_roles` | List of allowed roles for public user signup (`[]` disables signup) |
 | `config_is_otp_require_users_update` | Boolean requiring OTP verification when updating user contact details |
@@ -167,8 +167,8 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_table_protected` | Protected tables exempted from bulk cleanup/deletion scripts |
 | `config_table_my_create_blocked` | Tables refused on user `/my/object-create` endpoint |
 | `config_table_my_read_blocked` | Tables refused on user `/my/object-read` endpoint |
-| `config_table_my_delete_all_allowed` | Tables supporting `/my/object-delete-all` for row owners |
-| `config_table_my_delete_owned_all_allowed` | Tables supporting `/my/object-delete-owned-all` (messages, notifications) |
+| `config_table_my_delete_all_allowed` | Tables supporting `/my/object-delete-all` with default or explicit `created_by_id` ownership |
+| `config_table_my_delete_owned_all_allowed` | Tables supporting `/my/object-delete-all` with an allowed ownership column other than `created_by_id` (messages, notifications) |
 | `config_table_public_create_allowed` | Tables accessible on unauthenticated public create route |
 | `config_table_public_read_allowed` | Tables accessible on unauthenticated public read route |
 | `config_table_private_read_allowed` | Tables accessible on authenticated private read route |
@@ -178,7 +178,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | Key | Usage |
 |---|---|
 | `config_column_token_encode` | User columns encoded into JWT claims (`id`, `role`, `username`, etc.) |
-| `config_column_ownership` | Column names indicating row ownership (`created_by_id`, `received_by_id`, `assigned_to_id`, `user_id`); the allowed set for `ownership_column` |
+| `config_column_ownership` | Column names indicating row ownership (`created_by_id`, `received_by_id`, `assigned_to_id`, `user_id`); the allowed set for `ownership_column` on `/my/object-read`, `/my/object-delete`, and `/my/object-delete-all` (default `created_by_id`; keep it in this list) |
 | `config_column_admin` | Server-managed columns blocked from user mutation (`created_at`, `role`, etc.) |
 | `config_column_admin_users` | Admin-only restricted columns for `users` table (`role`) |
 | `config_column_single_update` | Columns requiring single-field update requests (`password`, `email`, etc.) |

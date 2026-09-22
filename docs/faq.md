@@ -3,6 +3,17 @@
 Practical answers to common "how do I…" questions. Open a question for the steps, examples, and links to the full documentation.
 
 <details>
+<summary><strong>How do I disable user deletion while keeping other object deletion enabled?</strong></summary>
+
+Set `config_is_user_delete = False` in `config.py` (or your `config_extend.py` override), then restart the app.
+
+This blocks `table="users"` on both `/my/object-delete` and `/admin/object-delete`. Other tables remain deletable under their normal permissions. This setting applies to both self-account and admin user deletion; it is not a self-deletion-only switch.
+
+When enabled, user deletion accepts exactly one ID. `/my/object-delete` requires the logged-in user's ID; `/admin/object-delete` requires administrator access. Send a POST body such as `{"table": "users", "ids": [7]}`. Omit the `ownership_column` query parameter for self-account deletion; explicitly supplying it is rejected. Bulk deletion of `users` is always blocked.
+
+</details>
+
+<details>
 <summary><strong>How do I add a new API? (Development Guidelines)</strong></summary>
 
 Keep the router small: accept and validate the request, call a reusable `func_*` helper, and return the standard response format.

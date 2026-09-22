@@ -1559,9 +1559,12 @@ async def func_check_user_update_permission(*, app_state: any, table: str, obj_l
             )
 
 def func_check_user_delete_permission(*, app_state: any, table: str, scope: str = "admin", ids: list = None, user_id: int = None) -> None:
-    """Ensure hard deletion of users table is redirected to dedicated user-delete endpoints."""
+    """Validate single-account deletion through my and admin object-delete."""
     if table == "users":
-        raise Exception("users table delete restricted; use /my/user-delete or /admin/user-delete")
+        if scope not in ("my", "admin"): raise Exception("users table delete restricted; use /my/object-delete or /admin/object-delete")
+        if not app_state.config_is_user_delete: raise Exception("users hard delete disabled")
+        if not ids or len(ids) != 1: raise Exception("users table delete requires exactly one id")
+        if scope == "my" and (user_id is None or int(ids[0]) != int(user_id)): raise Exception("users table delete allowed only for own account")
 
 def func_check_batch_limit(*, app_state: any, items: list) -> None:
     """Ensure batch item list length does not exceed config_batch_item_limit."""

@@ -88,19 +88,11 @@ async def func_api_admin_object_update(*, request: Request):
 async def func_api_admin_object_delete(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "ids", "type": "list:int", "required": True, "allowed": None, "default": None}])
-    app_state.func_check_batch_limit(app_state=app_state, items=ob["ids"])
-    app_state.func_check_user_delete_permission(app_state=app_state, table=ob["table"], scope="admin")
-    created_by_id = None
-    deleted_count = await app_state.func_postgres_delete(client_postgres=app_state.client_postgres, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, table=ob["table"], ids=ob["ids"], created_by_id=created_by_id)
+    table, ids = ob["table"], ob["ids"]
+    app_state.func_check_batch_limit(app_state=app_state, items=ids)
+    app_state.func_check_user_delete_permission(app_state=app_state, table=table, scope="admin", ids=ids)
+    deleted_count = await app_state.func_postgres_delete(client_postgres=app_state.client_postgres, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, table=table, ids=ids, created_by_id=None)
     return {"status": 1, "message": f"{deleted_count} ids deleted"}
-
-@router.delete("/admin/user-delete")
-async def func_api_admin_user_delete(*, request: Request):
-    app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "id", "type": "int", "required": True, "allowed": None, "default": None}])
-    if not app_state.config_is_user_delete: raise Exception("users hard delete disabled")
-    deleted_count = await app_state.func_postgres_delete(client_postgres=app_state.client_postgres, client_postgres_conn=None, cache_postgres_schema=app_state.cache_postgres_schema, table="users", ids=[oq["id"]], created_by_id=None)
-    return {"status": 1, "message": f"{deleted_count} user deleted"}
 
 @router.post("/admin/postgres-import")
 async def func_api_admin_postgres_import(*, request: Request):
