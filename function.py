@@ -1153,6 +1153,15 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: any) -> dict:
                         except: pass
                     if not isinstance(node, ast.Call): continue
                     func_id = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
+                    if func_id == "func_extract_request_object_list":
+                        body = op.setdefault("requestBody", {})
+                        body["required"] = True
+                        body["description"] = "A single record object, or an object with an obj_list array for batch operations. Record fields depend on the selected table."
+                        content = body.setdefault("content", {})
+                        json_body = content.setdefault("application/json", {})
+                        schema = json_body.setdefault("schema", {"type": "object", "properties": {}, "required": []})
+                        schema["additionalProperties"] = True
+                        continue
                     if func_id != "func_request_param_read": continue
                     is_regex_enabled = any(isinstance(n, ast.Call) and (getattr(n.func, "id", None) == "func_regex_check" or getattr(n.func, "attr", None) == "func_regex_check") for n in ast.walk(tree))
                     try:
