@@ -447,7 +447,7 @@ config_api = {
 # private
 "/private/send-email": {"id": 61, "is_token": True},
 "/private/blob-upload-file": {"id": 62, "is_token": True},
-"/private/blob-upload-url": {"id": 63, "is_token": True},
+"/private/blob-upload-presigned": {"id": 63, "is_token": True},
 "/private/object-read": {"id": 102, "is_token": True},
 "/private/users-list": {"id": 112, "is_token": True},
 "/private/table-column-groupby": {"id": 107, "is_token": True, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
@@ -464,7 +464,7 @@ config_api = {
 "/public/table-column-groupby": {"id": 18, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
 "/public/table-column-distinct": {"id": 105, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
 "/public/blob-upload-file": {"id": 97, "is_active": False, "is_token": False},
-"/public/blob-upload-url": {"id": 98, "is_active": False, "is_token": False},
+"/public/blob-upload-presigned": {"id": 98, "is_active": False, "is_token": False},
 "/public/password-hash": {"id": 100, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
 # admin
 "/admin/sync": {"id": 1, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},

@@ -107,8 +107,8 @@ async def func_api_public_blob_upload_file(*, request: Request):
     res = await app_state.func_blob_upload_file(app_state=app_state, service=of["service"], container=of["container"], files=of["file"], user_id=request.state.user.get("id"))
     return {"status": 1, "message": res}
 
-@router.post("/public/blob-upload-url")
-async def func_api_public_blob_upload_url(*, request: Request):
+@router.post("/public/blob-upload-presigned")
+async def func_api_public_blob_upload_presigned(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services, "default": None}, {"name": "container", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "count", "type": "int", "required": False, "allowed": None, "default": 1}])
     res = await app_state.func_blob_upload_url(app_state=app_state, service=oq["service"], container=oq["container"], count=oq["count"], user_id=request.state.user.get("id"))

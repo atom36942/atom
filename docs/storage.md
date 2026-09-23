@@ -54,9 +54,9 @@ come from `config_api`; project configuration may further restrict access.
 | Method and endpoint | Purpose | Access |
 |---------------------|---------|--------|
 | `POST /private/blob-upload-file` | Upload bytes through Atom | Logged-in user |
-| `POST /private/blob-upload-url` | Obtain direct cloud upload credentials | Logged-in user |
+| `POST /private/blob-upload-presigned` | Obtain direct cloud upload credentials | Logged-in user |
 | `POST /public/blob-upload-file` | Public variant of server upload | Disabled by default |
-| `POST /public/blob-upload-url` | Public variant of signed upload | Disabled by default |
+| `POST /public/blob-upload-presigned` | Public variant of signed upload | Disabled by default |
 | `POST /my/blob-preview-urls` | Preview the caller's files | Own key prefix |
 | `POST /admin/blob-preview-urls` | Preview files across users | Current database role `1` |
 | `POST /admin/blob-container-sas` | Azure container-wide read token | Current database role `1` |
@@ -129,7 +129,7 @@ First obtain upload credentials:
 
 ```bash
 curl -X POST \
-  'http://localhost:8000/private/blob-upload-url?service=s3&container=my-bucket&count=2' \
+  'http://localhost:8000/private/blob-upload-presigned?service=s3&container=my-bucket&count=2' \
   -H 'Authorization: Bearer <access_token>'
 ```
 
