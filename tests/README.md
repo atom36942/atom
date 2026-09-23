@@ -17,6 +17,7 @@ libraries. Git must be installed for the updater tests.
 | CRUD | Parameter binding, serialization, restricted reads, pagination, ownership predicates, buffered writes, error propagation |
 | Function loading | Custom modules, public exports, duplicate definitions, imported helpers, import failures |
 | Syncing | Developer files and config overrides, dependency merging, validation failures, file retirement, rollback, locking |
+| Security | Read-runner restrictions, blob signing authorization, bounded upload reads, credential redaction |
 
 Database calls are mocked. The tests exercise real builders and serializers but
 do not execute SQL, verify PostgreSQL transaction semantics, or exercise full HTTP

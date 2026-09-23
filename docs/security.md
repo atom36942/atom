@@ -2,6 +2,9 @@
 
 Atom enforces a layered, defense-in-depth security model across network boundaries, identity verification, authorization policies, database access, and data sanitization.
 
+See the [SQL, storage, and credential audit](audit.md) for verified
+findings, fixes, test coverage, and remaining deployment checks.
+
 ---
 
 ## 1. Baseline Security Headers

@@ -343,7 +343,8 @@ async def func_postgres_relation(*, client_postgres: any, client_postgres_conn: 
         parts = [p.strip() for p in rel_str.split(",", 4)]
         if len(parts) < 5: raise Exception("relation must have 5 parts: source_col,target_table,target_col,op,val")
         source_col, target_table, target_col, op, val = parts
-        if target_table in blocked_tables_set: raise Exception(f"relation read disabled for table: {target_table}")
+        if source_col in blocked_columns or target_col in blocked_columns: raise Exception("relation contains restricted column")
+        if "*" in blocked_tables_set or target_table in blocked_tables_set: raise Exception(f"relation read disabled for table: {target_table}")
         op_parts = op.split("|")
         op_main = op_parts[0].lower()
         for p in (target_table, op_main):

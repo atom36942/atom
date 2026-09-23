@@ -36,8 +36,8 @@ Streams multipart form files through the server to the cloud bucket:
 ```bash
 curl -X POST "http://localhost:8000/private/blob-upload-file"   -H "Authorization: Bearer <token>"   -F "service=s3"   -F "container=my-bucket"   -F "file=@./invoice.pdf"
 ```
-- Size limit: Enforces `config_blob_limit_size_kb` (default 50MB per file).
-- File count limit: Enforces `config_blob_limit_upload` (default 10 files per batch).
+- Size limit: Enforces `config_blob_limit_size_kb` (default 500KB per file), reading at most the limit plus one byte into memory. Multipart parsing still happens before this check; configure request-body limits at your ingress.
+- File count limit: Enforces `config_blob_limit_upload` (default 100 files per batch).
 
 ### B. Direct Client Upload via Presigned URLs (`POST /private/blob-upload-url`)
 Offloads server bandwidth by generating temporary write URLs for direct client-to-bucket uploads:
@@ -47,17 +47,49 @@ curl -X POST "http://localhost:8000/private/blob-upload-url?service=s3&container
 Returns presigned URLs valid for `config_blob_expire_sec_upload` seconds.
 
 ### C. Azure Container SAS (`POST /private/blob-container-sas`)
-Issues short-lived Shared Access Signature (SAS) tokens for Azure Blob containers.
+Issues Shared Access Signature (SAS) tokens for Azure Blob containers. This grants
+container-wide read access, so the handler requires role `1`, checked against the
+current database role. A stale admin claim in a token is insufficient.
 
 ---
 
-## 4. Secure Previews (`POST /private/blob-preview-urls`)
+## 4. Secure Previews (`POST /my/blob-preview-urls`)
 
-Generates temporary, signed read-only URLs to share private files without making buckets public:
+Generates temporary, signed read-only URLs for the caller's `user_<id>/` files:
 ```bash
-curl -X POST "http://localhost:8000/private/blob-preview-urls"   -H "Authorization: Bearer <token>"   -H "Content-Type: application/json"   -d '{"file_urls": ["https://my-bucket.s3.amazonaws.com/files/doc.pdf"]}'
+curl -X POST "http://localhost:8000/my/blob-preview-urls"   -H "Authorization: Bearer <token>"   -H "Content-Type: application/json"   -d '{"service": "s3", "urls": ["https://my-bucket.s3.amazonaws.com/user_7/doc.pdf"]}'
 ```
 URLs expire automatically after `config_blob_expire_sec_preview` seconds.
+
+Send `Authorization: Bearer <access_token>` and a JSON body with two required
+fields: `service` (`s3` or `azure`, subject to `config_blob_services`) and `urls`
+(a list of stored file URLs for that service). No query parameters or user ID are
+required; ownership comes from the authenticated user.
+
+The response contains only signed preview URLs, in the exact request order.
+`message[i]` corresponds to `urls[i]`; duplicates are preserved. Invalid or
+unauthorized entries fail the entire request instead of being skipped. Signing
+does not check whether an object exists in storage. Example with a shortened,
+illustrative signature:
+
+```json
+{
+  "status": 1,
+  "message": [
+    "https://my-bucket.s3.ap-south-1.amazonaws.com/user_7/doc.pdf?X-Amz-Signature=..."
+  ]
+}
+```
+
+An object outside the caller's prefix returns HTTP 400 with
+`{"status": 0, "message": "blob preview allowed only for own files"}`.
+
+Signed URLs are bearer credentials: anyone holding one can use it until expiry.
+S3 upload policies include the configured size limit. Azure direct-upload SAS does
+not apply Atom's server-side file-size check; use the server upload endpoint when
+that limit must be enforced. Cloud account permissions must restrict which
+buckets/containers Atom can access. File type and malware checks are application
+policy and are not performed by these generic blob helpers.
 
 ---
 

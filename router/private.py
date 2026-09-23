@@ -34,6 +34,8 @@ async def func_api_private_blob_upload_url(*, request: Request):
 @router.post("/private/blob-container-sas")
 async def func_api_private_blob_container_sas(*, request: Request):
     app_state = request.app.state
+    # Container SAS grants access beyond one user's prefix, so require a current admin role.
+    await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role={"mode": "realtime", "roles": [1]}, client_postgres=app_state.client_postgres, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=0)
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services, "default": None}, {"name": "container", "type": "str", "required": True, "allowed": None, "default": None}])
     if oq["service"] == "s3":
         raise Exception("s3 is not allowed for this api")
@@ -41,13 +43,6 @@ async def func_api_private_blob_container_sas(*, request: Request):
     if oq["service"] == "azure":
         sas_token = generate_container_sas(account_name=app_state.config_azure_account_name, account_key=app_state.config_azure_account_key, container_name=container, permission=ContainerSasPermissions(read=True), expiry=datetime.now(timezone.utc) + timedelta(seconds=app_state.config_blob_expire_sec_preview))
         return {"status": 1, "message": {"sas_token": sas_token, "expiry_sec": app_state.config_blob_expire_sec_preview}}
-
-@router.post("/private/blob-preview-urls")
-async def func_api_private_blob_preview_urls(*, request: Request):
-    app_state = request.app.state
-    of = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services, "default": None}, {"name": "urls", "type": "list", "required": True, "allowed": None, "default": None}])
-    res = await app_state.func_blob_preview_urls_get(client_s3=app_state.client_s3, client_azure_blob=app_state.client_azure_blob, config_azure_account_name=app_state.config_azure_account_name, config_azure_account_key=app_state.config_azure_account_key, config_blob_expire_sec_preview=app_state.config_blob_expire_sec_preview, service=of["service"], urls=of["urls"])
-    return {"status": 1, "message": res}
 
 @router.get("/private/object-read")
 async def func_api_private_object_read(*, request: Request):

@@ -46,41 +46,43 @@ async def func_blob_url_delete(*, app_state: any, service: str, urls: list, user
                 if type(res).__name__ != "ResourceNotFoundError": raise res
         return deleted_urls
 
-async def func_blob_preview_urls_get(*, client_s3: any, client_azure_blob: any, config_azure_account_name: str, config_azure_account_key: str, config_blob_expire_sec_preview: int, service: str, urls: list) -> dict:
-    """Generates presigned preview URLs for S3 or Azure blob URLs using robust parsing and unquoting."""
+async def func_blob_preview_urls_get(*, client_s3: any, client_azure_blob: any, config_azure_account_name: str, config_azure_account_key: str, config_blob_expire_sec_preview: int, service: str, urls: list, user_id: int = None) -> list:
+    """Return one signed preview URL per input, in order, including duplicates."""
     import urllib.parse
     from datetime import datetime, timedelta, timezone
     from azure.storage.blob import BlobSasPermissions, generate_blob_sas
+    if service not in ("s3", "azure"): raise Exception("unsupported blob service")
+    if not isinstance(urls, list): raise Exception("urls must be a list")
     if (service == "s3" and not client_s3) or (service == "azure" and not client_azure_blob):
         raise Exception("blob client not initialized")
     if service == "azure" and (not config_azure_account_name or not config_azure_account_key):
         raise Exception("azure storage credentials not configured")
-    output = {}
-    if service == "s3":
-        for url in urls:
-            if not url: continue
-            parsed = urllib.parse.urlparse(url)
-            host_parts = parsed.netloc.split(".")
-            if host_parts[0] != "s3":
-                bucket = host_parts[0]
-                key = parsed.path.lstrip("/")
-            else:
-                parts = parsed.path.lstrip("/").split("/", 1)
-                if len(parts) != 2: continue
-                bucket, key = parts[0], parts[1]
-            decoded_key = urllib.parse.unquote(key)
-            presigned_url = client_s3.generate_presigned_url(ClientMethod='get_object', Params={'Bucket': bucket, 'Key': decoded_key}, ExpiresIn=config_blob_expire_sec_preview)
-            output[url] = presigned_url
-    elif service == "azure":
-        for url in urls:
-            if not url: continue
-            parsed = urllib.parse.urlparse(url)
+    objects = []
+    # Validate the whole batch before signing; never skip entries or deduplicate.
+    for url in urls:
+        if not isinstance(url, str) or not url.strip(): raise Exception("invalid blob URL")
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme not in ("https", "http") or not parsed.hostname or parsed.username or parsed.password:
+            raise Exception("invalid blob URL")
+        if service == "s3" and parsed.hostname.split(".")[0] != "s3":
+            container, key = parsed.hostname.split(".")[0], parsed.path.lstrip("/")
+        else:
             parts = parsed.path.lstrip("/").split("/", 1)
-            if len(parts) != 2: continue
-            container, key = parts[0], parts[1]
-            decoded_key = urllib.parse.unquote(key)
-            sas_token = generate_blob_sas(account_name=config_azure_account_name, account_key=config_azure_account_key, container_name=container, blob_name=decoded_key, permission=BlobSasPermissions(read=True), expiry=datetime.now(timezone.utc) + timedelta(seconds=config_blob_expire_sec_preview))
-            output[url] = f"https://{config_azure_account_name}.blob.core.windows.net/{container}/{decoded_key}?{sas_token}"
+            if len(parts) != 2: raise Exception("invalid blob URL")
+            container, key = parts
+        decoded_key = urllib.parse.unquote(key)
+        if not container or not decoded_key: raise Exception("invalid blob URL")
+        if user_id is not None and not decoded_key.startswith(f"user_{user_id}/"):
+            raise Exception("blob preview allowed only for own files")
+        objects.append((container, decoded_key))
+    output = []
+    for container, key in objects:
+        if service == "s3":
+            preview_url = await client_s3.generate_presigned_url(ClientMethod='get_object', Params={'Bucket': container, 'Key': key}, ExpiresIn=config_blob_expire_sec_preview)
+        else:
+            sas_token = generate_blob_sas(account_name=config_azure_account_name, account_key=config_azure_account_key, container_name=container, blob_name=key, permission=BlobSasPermissions(read=True), expiry=datetime.now(timezone.utc) + timedelta(seconds=config_blob_expire_sec_preview))
+            preview_url = f"https://{config_azure_account_name}.blob.core.windows.net/{container}/{urllib.parse.quote(key, safe='/')}?{sas_token}"
+        output.append(preview_url)
     return output
 
 async def func_blob_delete_all(*, app_state: any, user_id: int, limit: int = 500) -> dict:
@@ -102,7 +104,8 @@ async def func_blob_delete_all(*, app_state: any, user_id: int, limit: int = 500
 
 async def func_blob_upload_file(*, app_state: any, service: str, container: str, files: list, user_id: int = None) -> dict:
     """Uploads a list of UploadFile objects to S3 or Azure and logs them in the database."""
-    import uuid
+    import uuid, re
+    if service not in ("s3", "azure"): raise Exception("unsupported blob service")
     if not app_state.client_postgres or (service == "s3" and not app_state.client_s3) or (service == "azure" and not app_state.client_azure_blob):
         raise Exception("required postgres/blob client not initialized")
     if len(files) > app_state.config_blob_limit_upload:
@@ -111,14 +114,16 @@ async def func_blob_upload_file(*, app_state: any, service: str, container: str,
     blob_list = []
     container_client = app_state.client_azure_blob.get_container_client(container) if service == "azure" else None
     for item in files:
-        file_data = await item.read()
+        file_data = await item.read(app_state.config_blob_limit_size_kb * 1024 + 1)
         if len(file_data) > app_state.config_blob_limit_size_kb * 1024:
             raise Exception(f"file size exceeds {app_state.config_blob_limit_size_kb}kb")
-        ext = item.filename.split(".")[-1] if "." in item.filename else "bin"
+        filename = item.filename or "file.bin"
+        ext = filename.rsplit(".", 1)[-1] if "." in filename else "bin"
+        if not re.fullmatch(r"[A-Za-z0-9]{1,16}", ext): ext = "bin"
         file_key = f"user_{user_id}/{uuid.uuid4().hex}.{ext}" if user_id else f"public/{uuid.uuid4().hex}.{ext}"
         if service == "s3":
             await app_state.client_s3.put_object(Bucket=container, Key=file_key, Body=file_data)
-            file_url = f"https://{container}.s3.amazonaws.com/{file_key}"
+            file_url = f"https://{container}.s3.{app_state.config_aws_s3_region_name}.amazonaws.com/{file_key}"
         elif service == "azure":
             blob_client = container_client.get_blob_client(file_key)
             await blob_client.upload_blob(file_data)
@@ -138,6 +143,8 @@ async def func_blob_upload_url(*, app_state: any, service: str, container: str, 
         raise Exception("required postgres/blob client not initialized")
     if service == "azure" and (not app_state.config_azure_account_name or not app_state.config_azure_account_key):
         raise Exception("azure storage credentials not configured")
+    if service not in ("s3", "azure"): raise Exception("unsupported blob service")
+    if isinstance(count, bool) or not isinstance(count, int) or count < 1: raise Exception("count must be a positive integer")
     if count > app_state.config_blob_limit_upload:
         raise Exception(f"maximum {app_state.config_blob_limit_upload} allowed")
     output = []
@@ -145,7 +152,7 @@ async def func_blob_upload_url(*, app_state: any, service: str, container: str, 
     for _ in range(count):
         file_key = f"user_{user_id}/{uuid.uuid4().hex}.bin" if user_id else f"public/{uuid.uuid4().hex}.bin"
         if service == "s3":
-            presigned_post = app_state.client_s3.generate_presigned_post(Bucket=container, Key=file_key, ExpiresIn=app_state.config_blob_expire_sec_upload, Conditions=[["content-length-range", 1, app_state.config_blob_limit_size_kb * 1024]])
+            presigned_post = await app_state.client_s3.generate_presigned_post(Bucket=container, Key=file_key, ExpiresIn=app_state.config_blob_expire_sec_upload, Conditions=[["content-length-range", 1, app_state.config_blob_limit_size_kb * 1024]])
             file_url = f"https://{container}.s3.{app_state.config_aws_s3_region_name}.amazonaws.com/{file_key}"
             output.append({"upload_url": presigned_post["url"], **presigned_post["fields"], "file_url": file_url})
         elif service == "azure":

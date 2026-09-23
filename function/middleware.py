@@ -234,6 +234,22 @@ async def func_middleware_api_background(*, scope: dict, body_bytes: bytes, api_
     resp = responses.JSONResponse(status_code=200, content={"status": 1, "message": "added in background"})
     return resp
 
+def func_middleware_log_query_params(*, query_params: any) -> str:
+    """Keep routine query metadata while redacting credentials and opaque payloads."""
+    import re
+    from urllib.parse import urlencode, parse_qsl
+    items = query_params.multi_items() if hasattr(query_params, "multi_items") else parse_qsl(str(query_params), keep_blank_values=True)
+    sensitive = re.compile(r"password|passwd|secret|token|authorization|credential|api.?key|access.?key|signature|(?:^|_)(?:otp|code|dsn|sql|url|urls|filter|payload|question|sig)(?:$|_)", re.IGNORECASE)
+    return urlencode([(key, "[REDACTED]" if sensitive.search(key) else value) for key, value in items])
+
+
+def _redact_error_message(message):
+    import re
+    message = re.sub(r"(\b[a-z][a-z0-9+.-]*://)[^/\s@]+@", r"\1[REDACTED]@", message, flags=re.IGNORECASE)
+    message = re.sub(r"\bBearer\s+[^\s,;]+", "Bearer [REDACTED]", message, flags=re.IGNORECASE)
+    return re.sub(r"((?:password|passwd|secret|token|api[_-]?key|access[_-]?key|sig)\s*[=:]\s*)(?:\"[^\"]*\"|'[^']*'|[^\s&;,]+)", r"\1[REDACTED]", message, flags=re.IGNORECASE)
+
+
 async def func_middleware_api_response_error(*, exception: Exception, is_traceback: bool, sentry_dsn: str) -> tuple:
     """Central API error handler: formats database, client, and system exceptions into a standard JSON response."""
     import traceback, asyncpg, re, botocore.exceptions, redis.exceptions, httpx, jwt.exceptions
@@ -260,6 +276,8 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
         error_msg = "database conflict deadlock detected"
     elif isinstance(exception, asyncpg.exceptions.SerializationError):
         error_msg = "database conflict serialization error"
+    elif isinstance(exception, asyncpg.PostgresError):
+        error_msg = "database request failed"
     elif isinstance(exception, botocore.exceptions.ClientError):
         error_msg = f"""cloud service error: {exception.response.get("Error", {}).get("Code", "Unknown")}"""
     elif isinstance(exception, redis.exceptions.RedisError):
@@ -268,10 +286,15 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
         error_msg = "authentication token invalid"
     elif isinstance(exception, httpx.HTTPStatusError):
         error_msg = f"external api error: {exception.response.status_code}"
+    elif isinstance(exception, httpx.RequestError):
+        error_msg = "external service request failed"
     else:
         error_msg = str(exception)
+    error_msg = _redact_error_message(error_msg)
     if is_traceback:
-        traceback.print_exception(type(exception), exception, exception.__traceback__)
+        import sys
+        traceback.print_tb(exception.__traceback__)
+        print(f"{type(exception).__name__}: {error_msg}", file=sys.stderr)
     if sentry_dsn:
         import sentry_sdk
         sentry_sdk.capture_exception(exception)

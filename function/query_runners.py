@@ -147,14 +147,28 @@ async def func_postgres_query_generator_ai(*, client_postgres: any, client_gemin
     sql = func_postgres_query_ai_validate_sql(sql=data.get("sql"), default_limit=default_limit, max_limit=max_limit, cache_postgres_schema_ai=cache_postgres_schema_ai)
     return {"sql": sql, "message": "SQL generated in the editor. Review before Run or Export.", "warnings": data.get("warnings") or []}
 
+def _mssql_read_sql(sql):
+    """Reject write/batch commands before sending SQL to a read runner.
+
+    This is defense in depth; the database login must also have read-only grants.
+    """
+    import re
+    sql = str(sql or "").strip().rstrip(";").strip()
+    if not sql or ";" in sql:
+        raise Exception("Only one read SQL statement is allowed")
+    if not re.match(r"^\(*\s*(select|with)\b", sql, re.IGNORECASE):
+        raise Exception("read mode restricted")
+    if re.search(r"\b(insert|update|delete|merge|drop|alter|create|truncate|exec|execute|into|grant|revoke|deny|backup|restore|dbcc|set|use|waitfor|shutdown|kill|reconfigure|openrowset|opendatasource|openquery)\b", sql, re.IGNORECASE):
+        raise Exception("read mode restricted")
+    return sql
+
+
 async def func_mssql_query_runner_read_export(*, client_mssql: any, config_query_runner_export_limit: int, sql: str) -> any:
     """Runs a read-only MSSQL query and yields CSV lines up to the configured export limit."""
     import re
     import asyncio
     if not client_mssql: raise Exception("MSSQL client not initialized")
-    ql = sql.lower().strip().lstrip("(").strip()
-    if not ql.startswith(("select", "with")): raise Exception("read mode restricted")
-    if re.search(r"\b(insert|update|delete|merge|drop|alter|create|truncate|exec|execute|into)\b", ql): raise Exception("read mode restricted")
+    sql = _mssql_read_sql(sql)
     limit = config_query_runner_export_limit
     async def _iter():
         for attempt in range(3):
@@ -185,9 +199,7 @@ async def func_mssql_query_runner_read(*, client_mssql: any, config_query_runner
     import re
     import asyncio
     if not client_mssql: raise Exception("MSSQL client not initialized")
-    ql = sql.lower().strip().lstrip("(").strip()
-    if not ql.startswith(("select", "with")): raise Exception("read mode restricted")
-    if re.search(r"\b(insert|update|delete|merge|drop|alter|create|truncate|exec|execute|into)\b", ql): raise Exception("read mode restricted")
+    sql = _mssql_read_sql(sql)
     limit = config_query_runner_read_limit
     for attempt in range(3):
         try:
@@ -290,7 +302,7 @@ async def func_clickhouse_query_runner_read(*, client_clickhouse: any, config_qu
     """Run a read-only ClickHouse query and return row mappings up to the configured limit."""
     if not client_clickhouse: raise Exception("clickhouse client not initialized")
     sql = func_clickhouse_query_runner_read_sql(sql=sql, limit=config_query_runner_read_limit)
-    result = await client_clickhouse.query(sql)
+    result = await client_clickhouse.query(sql, settings={"readonly": 1, "max_execution_time": 30})
     return [dict(zip(result.column_names, row)) for row in result.result_rows]
 
 async def func_clickhouse_query_runner_read_export(*, client_clickhouse: any, config_query_runner_export_limit: int, sql: str) -> any:
@@ -298,7 +310,7 @@ async def func_clickhouse_query_runner_read_export(*, client_clickhouse: any, co
     if not client_clickhouse: raise Exception("clickhouse client not initialized")
     sql = func_clickhouse_query_runner_read_sql(sql=sql, limit=config_query_runner_export_limit)
     async def _iter():
-        stream = await client_clickhouse.raw_stream(sql, fmt="CSVWithNames")
+        stream = await client_clickhouse.raw_stream(sql, fmt="CSVWithNames", settings={"readonly": 1, "max_execution_time": 30})
         async with stream:
             async for chunk in stream:
                 yield chunk

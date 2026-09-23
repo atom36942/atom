@@ -28,6 +28,13 @@ def _message_order(*, order: str, cache_postgres_schema: dict) -> str:
     return ", ".join(order_list)
 
 # api
+@router.post("/my/blob-preview-urls")
+async def func_api_my_blob_preview_urls(*, request: Request):
+    app_state = request.app.state
+    of = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services, "default": None}, {"name": "urls", "type": "list", "required": True, "allowed": None, "default": None}])
+    res = await app_state.func_blob_preview_urls_get(client_s3=app_state.client_s3, client_azure_blob=app_state.client_azure_blob, config_azure_account_name=app_state.config_azure_account_name, config_azure_account_key=app_state.config_azure_account_key, config_blob_expire_sec_preview=app_state.config_blob_expire_sec_preview, service=of["service"], urls=of["urls"], user_id=request.state.user["id"])
+    return {"status": 1, "message": res}
+
 @router.get("/my/profile")
 async def func_api_my_profile(*, request: Request):
     app_state = request.app.state
