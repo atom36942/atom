@@ -45,7 +45,7 @@ Atom gives you authentication, generic CRUD over any table, caching, rate-limiti
 - 🛠️ **Admin & Dev toolkit** — Built-in SQL runner, AI SQL generation, data import, and live schema introspection.
 - 📦 **Background workers** — Queue consumers and durable retries with Postgres or dedicated message brokers.
 - 🧾 **Self-documenting** — Generated OpenAPI spec + built-in interactive API console at `/`.
-- 🔧 **Extend without forking** — Add custom routes and logic in drop-in extension files (`config_extend.py`, `function_extend.py`).
+- 🔧 **Extend without forking** — Add custom routes and logic in `config_extend.py` and custom modules in `function/`.
 
 ## Requirements
 
@@ -126,7 +126,7 @@ Before deploying to production, ensure you override default system secrets in `.
 Atom is designed to be extended without forking core framework files. Add custom routes, custom database schemas, and custom helper logic in drop-in extension files:
 
 - **`config_extend.py`** — Custom configurations, table schema definitions, and API route rules.
-- **`function_extend.py`** — Custom business logic and helper function overrides.
+- **`function/custom_<your>.py`** — Automatically loaded custom business logic with unique `func_*` names.
 
 This decouples your application code from the framework core, enabling seamless upstream updates via `python sync.py`.
 
@@ -142,7 +142,7 @@ Atom comes with zero-dependency, single-page web applications stored in `static/
 ```
 atom/
 ├── main.py         # FastAPI app entry point & client lifecycle
-├── function.py     # Core application logic & helpers
+├── function/       # Auto-loaded core and custom function modules
 ├── config.py       # Single source of truth for config defaults
 ├── router/         # API endpoint routers grouped by access control
 ├── static/         # Static web assets & built-in API console
@@ -153,6 +153,9 @@ atom/
 ```
 
 ## Documentation
+
+Run regression tests with `venv/bin/python -m unittest discover -s tests -v`.
+See [test coverage and setup](tests/README.md).
 
 <details>
 <summary><strong>Full Documentation Index</strong></summary>
@@ -184,7 +187,7 @@ atom/
 
 ## Contributing
 
-Contributions are welcome! Extend functionality via `config_extend.py` and `function_extend.py` so downstream projects remain updateable via `sync.py`.
+Contributions are welcome! Extend functionality via `config_extend.py` and custom modules in `function/` so downstream projects remain updateable via `sync.py`.
 
 Check out open issues and pull requests on GitHub.
 

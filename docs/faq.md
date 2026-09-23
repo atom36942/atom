@@ -32,7 +32,7 @@ from fastapi import APIRouter, Request
 router = APIRouter()
 ```
 
-Put imports needed only by core logic in `function_extend.py`, not in the router.
+Put imports needed only by core logic in `function/custom_business.py`, not in the router.
 
 ### 3. Add the route and follow existing naming conventions
 
@@ -85,12 +85,12 @@ Use:
 - `mode="header"` for headers
 - `strict=True` to return only declared parameters
 
-### 5. Move core logic to `function_extend.py`
+### 5. Move core logic to `function/custom_business.py`
 
-Business logic, database work, and reusable transformations belong in a `func_*` helper in `function_extend.py`. Use keyword-only arguments and pass dependencies explicitly:
+Business logic, database work, and reusable transformations belong in a `func_*` helper in `function/custom_business.py`. Use keyword-only arguments and pass dependencies explicitly:
 
 ```python
-# function_extend.py
+# function/custom_business.py
 async def func_product_create(
     *,
     client_postgres,
@@ -439,7 +439,7 @@ Both responses are cached by default. If you changed the database directly and t
 venv/bin/python sync.py
 ```
 
-Run the command from the project root and review its output. The updater refreshes framework-managed files while preserving your `.env`, `config_extend.py`, `function_extend.py`, and custom routers.
+Run the command from the project root and review its output. The updater refreshes framework-managed files while preserving your `.env`, `config_extend.py`, `function/custom_business.py`, and custom routers.
 
 Commit or back up your work first, then review the Git diff after syncing and run the application/tests before deploying. Keeping custom behavior in the extension files reduces conflicts with future framework updates. See [extend.md](extend.md#updating-the-framework).
 
@@ -523,7 +523,7 @@ Shorter windows reduce the time available for abuse but can frustrate users when
 
 `config_postgres_url` is Atom's primary Postgres connection and is used by CRUD, admin query runners, and schema endpoints. Pointing it at another database switches the application datastore; it does not create a separate named secondary connection.
 
-If you need the main application and a second database at the same time, create an additional client in `function_extend.py` or your own lifespan integration, then expose narrowly scoped functions/routes for that database. Keep credentials in `.env`, use parameterized queries, and give the secondary database account only the permissions it needs.
+If you need the main application and a second database at the same time, create an additional client in `function/custom_business.py` or your own lifespan integration, then expose narrowly scoped functions/routes for that database. Keep credentials in `.env`, use parameterized queries, and give the secondary database account only the permissions it needs.
 
 For a one-database deployment, simply change `config_postgres_url` and restart Atom so the connection pool and schema cache are rebuilt.
 
@@ -635,7 +635,7 @@ Use buffering for high-volume, low-urgency records where delayed visibility and 
 Keep project-specific changes outside framework-managed files:
 
 - Put configuration overrides in `config_extend.py`.
-- Put new or overridden `func_*` logic in `function_extend.py`.
+- Put new `func_*` logic with unique names in `function/custom_<your>.py`.
 - Add endpoints in a new `router/<name>.py` containing an `APIRouter`.
 - Add standalone consumers and jobs under `script/`.
 

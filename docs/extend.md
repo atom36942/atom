@@ -4,23 +4,22 @@ Atom is opinionated but not closed. You extend it **without editing core files**
 
 ## The Golden Rule
 
-Core files — `main.py`, `function.py`, `config.py`, and the shipped routers — are **overwritten by `sync.py`** on update. Put all your customizations in the drop-in extension files instead:
+Core files — `main.py`, upstream Atom files in `function/`, `config.py`, and the shipped routers — are **overwritten by `sync.py`** on update. Put custom logic in uniquely named function modules or the drop-in extension files:
 
 | Your file | Purpose | Survives `sync.py`? |
 |-----------|---------|---------------------|
 | `config_extend.py` | Override / add any config value | ✅ yes |
-| `function_extend.py` | Override / add any function | ✅ yes |
+| `function/custom_<your>.py` | Add functions with unique names | ✅ yes, if the path is absent from upstream Atom |
 | `router/<your>.py` | Add new API endpoints | ✅ yes |
 | `.env` | Secrets & connection strings | ✅ yes |
 
-Both extension modules are auto-loaded at import time in `main.py`:
+Configuration extensions are loaded after the defaults in `main.py`:
 
 ```python
-if importlib.util.find_spec("function_extend"): from function_extend import *
 if importlib.util.find_spec("config_extend"): from config_extend import *
 ```
 
-Because they're imported **after** the core modules with `import *`, anything they define with the same name **wins** (last import overrides). They're also git-ignored/kept out of the sync list, so updates never touch them.
+`config_extend.py` is imported after `config.py`, so its values override the defaults. It is kept out of the sync list. Custom function files are discovered by the `function` package.
 
 ## 1. Override or add config
 
@@ -48,20 +47,33 @@ config_api = {
 
 ## 2. Override or add logic
 
-Create `function_extend.py`. Define a new function, or redefine an existing `func_*` to change core behavior.
+To add functions, create a Python file directly inside the shared `function/` folder:
 
 ```python
-# function_extend.py
-
-# add a new helper
-async def func_my_business_logic(*, client_postgres, payload):
-    ...
-    return result
-
-# override a shipped function (same name wins)
-async def func_token_encode(*, user, config_token_secret_key, expiry_sec):
-    ...  # your custom token logic
+# function/custom_payments.py
+async def func_payment_create(*, amount: int):
+    return {"amount": amount}
 ```
+
+After restart, `from function import func_payment_create` and
+`request.app.state.func_payment_create` are available automatically. No edits to
+`main.py` or `function/__init__.py` are needed.
+
+The loader imports modules alphabetically and exports the `func_*` functions
+defined in each module. Files beginning with `_` and nested packages are not
+auto-loaded. Imported helpers are not exported a second time. Duplicate function
+names defined in different modules stop startup with an error naming both files.
+Use distinctive filenames such as `custom_payments.py`: sync replaces any path
+also present in upstream Atom, including `function/__init__.py`, but leaves
+developer-only files untouched.
+
+Inside a function module, import shared helpers from their defining module
+(for example, `from .request import func_query_bool_parse`), rather than from
+`function`, whose exports are still being assembled during loading. Keep module
+dependencies acyclic. Only function names are exported by `from function import *`.
+
+Keep custom functions in uniquely named files in `function/`. Function names must
+also be unique across modules; duplicate definitions are not an override mechanism.
 
 Everything set on `app.state` (all `func_*` and `config_*` names) is available to routers as `request.app.state.func_...` — so your new functions are reachable from endpoints just like core ones.
 
@@ -105,7 +117,7 @@ Column specs support `is_primary`, `is_mandatory`, `default`, `unique`, `check`,
 
 ## 5. Add background workers
 
-New standalone processes go in `script/` and are run as separate processes (they're not part of the API). Use them for queue consumers or batch jobs; they read the same `config.py` and can import from `function.py` / `function_extend.py`.
+New standalone processes go in `script/` and are run as separate processes (they're not part of the API). Use them for queue consumers or batch jobs; they read the same `config.py` and can import from `function`.
 
 ## Updating the framework
 
@@ -115,18 +127,47 @@ When new Atom versions ship, pull the latest core files with `sync.py`:
 venv/bin/python sync.py
 ```
 
-It runs `git fetch` against the upstream repo and checks out the framework files (`main.py`, `function.py`, `config.py`, routers, `static/api.html`, `Dockerfile`, …). Your `config_extend.py`, `function_extend.py`, custom `router/` files, and `.env` are **not** in the sync list, so they're preserved. Re-run the dependency install if `requirements.txt` changed:
+The updater fetches upstream `main`, pins the fetched commit, and prepares the
+selected Atom files before replacing anything. Missing required files, invalid
+Python, failed Git commands, or symlinked destinations stop the update. Files are
+written to the working tree; the Git index is left unchanged.
+
+- Atom files are created or replaced. Developer-only files in `function/`, custom
+  routers, and `.env` are preserved. A path also present in upstream belongs to Atom.
+- Existing requirement entries are preserved; missing packages are appended.
+  Existing configuration overrides are preserved; missing `config_postgres` and
+  `config_api` assignments are seeded in `config_extend.py`.
+- `.atom-sync/state.json` records the last synced Atom files. On later updates,
+  unchanged Atom files removed upstream are also removed locally. If such a file
+  has local edits, sync stops so you can move those edits to a custom module.
+  On the first run, unknown files are preserved.
+- Write failures trigger rollback using previous contents held in memory. No
+  backup files are saved. No success message is printed on failure, and
+  the command exits nonzero. A lock prevents overlapping updater runs.
+
+Ownership state and the sync lock are excluded from Git and Docker builds. Keep the
+state file for future ownership tracking. Re-run the dependency install if
+`requirements.txt` changed, then restart the app:
 
 ```bash
 venv/bin/pip install -r requirements.txt
 ```
+
+### Recovering an interrupted update
+
+Rollback is available only while the updater process is running. If rollback
+cannot finish, or the process is forcibly killed, review the working tree and
+recover affected files from your saved Git version. Uncommitted changes have no
+persistent recovery copy. Remove `.atom-sync/lock` only after confirming no updater
+is running. Review the diff and run your application tests before deploying;
+syntax validation does not verify runtime compatibility.
 
 ## Summary
 
 | Goal | Do this |
 |------|---------|
 | Change a setting | Set it in `config_extend.py` |
-| Change core behavior | Redefine the `func_*` in `function_extend.py` |
+| Add functions | New `function/custom_<your>.py` with unique `func_*` names |
 | Add an endpoint | New file in `router/` + entry in `config_api` |
 | Add a table | Extend `config_postgres["table"]` in `config_extend.py` |
 | Add a worker | New script in `script/` |

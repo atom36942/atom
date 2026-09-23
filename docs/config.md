@@ -340,6 +340,41 @@ Human-readable label mapping for integer-coded database columns.
 
 Mappings use the lookup order `config_column_int_mapping[table][column][value]`.
 
+### `config_permissions_mapping`
+
+Maps stable permission IDs to action names for per-user capabilities within a role:
+
+```python
+config_permissions_mapping = {
+    1: "invoice.export",
+    2: "invoice.filter.apply",
+    3: "invoice.delete",
+}
+```
+
+Assigned IDs are stored in `config_postgres["table"]["users"]` using this optional column:
+
+```python
+{"name": "permissions", "datatype": "smallint[]", "default": None},
+```
+
+`None` leaves the column nullable; treat database `NULL` and `[]` as no per-user permissions granted. IDs should never be reused for different actions. Defining the mapping does not validate assignments or enforce access automatically; see [Per-User Permissions](auth.md#per-user-permissions) for backend integration requirements.
+
+### `/info` Response Keys
+
+`GET /info` exposes the full permission mapping directly under `message`, alongside the other metadata. There is no nested `config` object.
+
+| Key under `message` | Source / Meaning |
+|---|---|
+| `api_list` | Registered route paths |
+| `config_column_int_mapping` | `config_column_int_mapping` (formerly returned as `mapping`) |
+| `dropdown` | `config_column_dropdown` |
+| `config_permissions_mapping` | Full permission ID-to-action mapping |
+| `config_query_runner_read_limit` | Query runner read limit |
+| `config_query_runner_export_limit` | Query runner export limit |
+
+Permission IDs are integers in Python, but JSON object keys are strings: clients read entries such as `message.config_permissions_mapping["1"]`. This public catalog describes available actions; it does not list the current user's assigned permissions.
+
 ---
 
 📚 [Back to README](../readme.md)

@@ -1,27 +1,25 @@
-"""
-Atom framework updater.
+"""Update Atom-owned files while preserving developer-only files.
 
-Pulls the latest core framework files (and the docs/ folder) from the upstream
-Atom repo and overwrites the local copies — so you can update without a full
-re-clone. Only the files in `files_to_sync` are touched; your extension files
-(config_extend.py, function_extend.py, custom routers), .env, and other project
-files are left untouched.
-
-Usage:  venv/bin/python sync.py   (run from the repo root; re-install deps if
-requirements.txt changed). See docs/extend.md for the extend-without-forking model.
+Run from the project root with ``python sync.py``. Updates are prepared before
+writing and rolled back from memory on write failure. No backup files are saved.
+The Git index is never changed. See docs/extend.md for recovery instructions.
 """
 
-# import
 import ast
+from contextlib import contextmanager
+import hashlib
+import json
 import os
+from pathlib import Path, PurePosixPath
 import re
 import subprocess
+import sys
+import tempfile
 
-# config
 REPO_URL = "https://github.com/atom36942/atom.git"
 files_to_sync = [
     "main.py",
-    "function.py",
+    "function",
     "config.py",
     "router/index.py",
     "router/auth.py",
@@ -46,131 +44,228 @@ files_to_sync = [
     "sync.py",
 ]
 
-# fetch upstream
-print(f"Fetching latest changes from {REPO_URL}...\n")
-subprocess.run(["git", "fetch", REPO_URL, "main"])
+STATE_PATH = ".atom-sync/state.json"
 
-# overwrite listed files
-print("\nSyncing the following files:")
-for file in files_to_sync:
-    print(f" -> {file}")
-checkout_cmd = ["git", "checkout", "FETCH_HEAD", "--"] + files_to_sync
-subprocess.run(checkout_cmd)
 
-# sync requirements.txt
-def get_pkg_name(line: str) -> str | None:
+def git(root, *args):
+    """Never consume stale FETCH_HEAD or partial output after a failed command."""
+    result = subprocess.run(["git", *args], cwd=root, capture_output=True, check=True)
+    return result.stdout
+
+
+def safe_path(root, name):
+    path = PurePosixPath(name)
+    if path.is_absolute() or not path.parts or any(p in (".", "..", ".git") for p in path.parts) or "\\" in name:
+        raise ValueError(f"Unsafe sync path: {name}")
+    target = root
+    for part in path.parts:
+        target = target / part
+        if target.is_symlink():
+            raise ValueError(f"Refusing to replace or follow symlink: {target}")
+    if target.exists() and not target.is_file():
+        raise ValueError(f"Expected a regular file: {name}")
+    return target
+
+
+def is_owned_path(name):
+    return any(name == item or (item in ("function", "docs") and name.startswith(item + "/")) for item in files_to_sync)
+
+
+def get_pkg_name(line):
     line = line.strip()
     if not line or line.startswith(("#", "-", "//")):
         return None
     name = re.split(r"[=><~!;\[\s]", line)[0].strip()
-    if not name:
-        return None
-    return name.lower().replace("_", "-")
+    return re.sub(r"[-_.]+", "-", name).lower() if name else None
 
-def sync_requirements():
-    res = subprocess.run(["git", "show", "FETCH_HEAD:requirements.txt"], capture_output=True, text=True)
-    if res.returncode != 0:
-        return
 
-    upstream_content = res.stdout
-    upstream_lines = upstream_content.splitlines()
+def merge_requirements(local, upstream):
+    if local is None:
+        return upstream if upstream.endswith("\n") else upstream + "\n"
+    names = {get_pkg_name(line) for line in local.splitlines()}
+    missing = []
+    for line in upstream.splitlines():
+        name = get_pkg_name(line)
+        if name and name not in names:
+            missing.append(line.strip())
+            names.add(name)
+    if not missing:
+        return local
+    return local + ("\n" if local and not local.endswith("\n") else "") + "\n".join(missing) + "\n"
 
-    if not os.path.exists("requirements.txt"):
-        print("\nrequirements.txt missing locally. Copying entire requirements.txt from upstream Atom repo...")
-        with open("requirements.txt", "w", encoding="utf-8") as f:
-            f.write(upstream_content if upstream_content.endswith("\n") else upstream_content + "\n")
-        print(" -> requirements.txt created with all packages from Atom repo.")
-        return
 
-    with open("requirements.txt", "r", encoding="utf-8") as f:
-        local_content = f.read()
+def merge_config_extension(local, config):
+    """Seed missing config maps without executing code or replacing overrides."""
+    tree = ast.parse(local)
+    assigned = set()
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            assigned.update(n.id for target in node.targets for n in ast.walk(target) if isinstance(n, ast.Name))
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            assigned.add(node.target.id)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            assigned.update(alias.asname or alias.name for alias in node.names)
+    additions = []
+    for node in ast.parse(config).body:
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            if any(isinstance(target, ast.Name) and target.id in ("config_postgres", "config_api") and target.id not in assigned for target in targets):
+                additions.append(ast.get_source_segment(config, node))
+    return local + ("\n\n" + "\n\n".join(additions) + "\n" if additions else "")
 
-    local_lines = local_content.splitlines()
-    local_pkg_names = set()
-    for line in local_lines:
-        pkg = get_pkg_name(line)
-        if pkg:
-            local_pkg_names.add(pkg)
 
-    missing_lines = []
-    for line in upstream_lines:
-        pkg = get_pkg_name(line)
-        if pkg and pkg not in local_pkg_names:
-            missing_lines.append(line.strip())
-            local_pkg_names.add(pkg)
+def prepare_update(root, revision):
+    entries = {}
+    for record in git(root, "ls-tree", "-r", "-z", revision).split(b"\0"):
+        if not record:
+            continue
+        metadata, raw_name = record.split(b"\t", 1)
+        mode, kind, oid = metadata.decode().split()
+        name = raw_name.decode("utf-8")
+        if is_owned_path(name) or name == "requirements.txt":
+            if kind != "blob" or mode not in ("100644", "100755"):
+                raise ValueError(f"Unsupported upstream file type: {name}")
+            safe_path(root, name)
+            entries[name] = (oid, 0o755 if mode == "100755" else 0o644)
+    for item in [*files_to_sync, "requirements.txt", "function/__init__.py"]:
+        if not any(name == item or name.startswith(item + "/") for name in entries):
+            raise ValueError(f"Required upstream path is missing: {item}")
 
-    if missing_lines:
-        print("\nMerging missing packages from upstream Atom repo into requirements.txt:")
-        for line in missing_lines:
-            print(f" + {line}")
+    plan = {}
+    owned = {}
+    for name, (oid, mode) in sorted(entries.items()):
+        content = git(root, "cat-file", "blob", oid)
+        if name.endswith(".py"):
+            compile(content, name, "exec")
+        plan[name] = (content, mode)
+        if is_owned_path(name):
+            owned[name] = hashlib.sha256(content).hexdigest()
 
-        with open("requirements.txt", "a", encoding="utf-8") as f:
-            if local_content and not local_content.endswith("\n"):
-                f.write("\n")
-            for line in missing_lines:
-                f.write(f"{line}\n")
-        print(" -> requirements.txt updated (dev packages preserved).")
-    else:
-        print("\nNo missing packages from upstream Atom repo to add to requirements.txt.")
+    state_file = safe_path(root, STATE_PATH)
+    if state_file.exists():
+        state = json.loads(state_file.read_text())
+        if not isinstance(state, dict) or state.get("version") != 1 or not isinstance(state.get("files"), dict):
+            raise ValueError("Unsupported or invalid sync ownership state")
+        for name, digest in state["files"].items():
+            if not is_owned_path(name):
+                raise ValueError(f"Unexpected path in sync ownership state: {name}")
+            if name not in owned:
+                path = safe_path(root, name)
+                if path.exists():
+                    if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+                        raise ValueError(f"Retired Atom file has local edits: {name}. Move your code to a custom module before syncing.")
+                    plan[name] = None
 
-sync_requirements()
+    requirements = safe_path(root, "requirements.txt")
+    local_requirements = requirements.read_text() if requirements.exists() else None
+    merged = merge_requirements(local_requirements, plan["requirements.txt"][0].decode())
+    plan["requirements.txt"] = (merged.encode(), requirements.stat().st_mode & 0o777 if requirements.exists() else 0o644)
 
-# check extension files
-def check_var_in_file(file_path: str, var_name: str) -> bool:
-    if not os.path.exists(file_path):
-        return False
+    extension = safe_path(root, "config_extend.py")
+    local_extension = extension.read_text() if extension.exists() else "# config_extend.py\n"
+    merged = merge_config_extension(local_extension, plan["config.py"][0].decode())
+    plan["config_extend.py"] = (merged.encode(), extension.stat().st_mode & 0o777 if extension.exists() else 0o644)
+    state = {"version": 1, "revision": revision, "files": owned}
+    plan[STATE_PATH] = ((json.dumps(state, indent=2, sort_keys=True) + "\n").encode(), 0o600)
+    return plan
+
+
+def atomic_write(path, content, mode):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp = tempfile.mkstemp(prefix=".atom-sync-", dir=path.parent)
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        tree = ast.parse(content)
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    if isinstance(target, ast.Name) and target.id == var_name:
-                        return True
-    except Exception:
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        if f"{var_name} =" in content or f"{var_name}=" in content:
-            return True
-    return False
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temp, mode)
+        os.replace(temp, path)
+    finally:
+        if os.path.exists(temp):
+            os.unlink(temp)
 
-def extract_var_from_config(var_name: str) -> str | None:
-    if not os.path.exists("config.py"):
-        return None
+
+def apply_update(root, plan):
+    """Retain destination contents in memory for rollback during this run."""
+    before = {}
+    for name in plan:
+        path = safe_path(root, name)
+        before[name] = (path.read_bytes(), path.stat().st_mode & 0o777) if path.exists() else None
+    touched = []
     try:
-        with open("config.py", "r", encoding="utf-8") as f:
-            code = f.read()
-        tree = ast.parse(code)
-        for node in tree.body:
-            if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    if isinstance(target, ast.Name) and target.id == var_name:
-                        return ast.get_source_segment(code, node)
-    except Exception:
-        pass
-    return None
+        for name, value in plan.items():
+            path = safe_path(root, name)
+            touched.append(name)
+            if value is None:
+                path.unlink(missing_ok=True)
+                print(f" -> removed retired file {name}")
+            else:
+                atomic_write(path, *value)
+                print(f" -> {name}")
+    except BaseException:
+        failures = []
+        for name in reversed(touched):
+            try:
+                path = safe_path(root, name)
+                if before[name] is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    atomic_write(path, *before[name])
+            except Exception:
+                failures.append(name)
+        if failures:
+            print(f"Rollback incomplete for {', '.join(failures)}. Recover affected files from your saved Git version", file=sys.stderr)
+        else:
+            print("Update failed; previous files restored.", file=sys.stderr)
+        raise
 
-if not os.path.exists("function_extend.py"):
-    print("\nCreating function_extend.py...")
-    with open("function_extend.py", "w", encoding="utf-8") as f:
-        f.write("# function_extend.py\n")
 
-if not os.path.exists("config_extend.py"):
-    print("\nCreating config_extend.py...")
-    with open("config_extend.py", "w", encoding="utf-8") as f:
-        f.write("# config_extend.py\n")
+@contextmanager
+def sync_lock(root):
+    directory = root / ".atom-sync"
+    if directory.is_symlink():
+        raise ValueError("Refusing symlinked .atom-sync directory")
+    directory.mkdir(mode=0o700, exist_ok=True)
+    lock = directory / "lock"
+    try:
+        fd = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        raise ValueError("Another sync may be running. If a previous run was interrupted, review the working tree and confirm no updater is running before removing .atom-sync/lock.") from None
+    try:
+        with os.fdopen(fd, "w") as stream:
+            stream.write(str(os.getpid()))
+        yield
+    finally:
+        lock.unlink(missing_ok=True)
 
-for var in ["config_postgres", "config_api"]:
-    if not check_var_in_file("config_extend.py", var):
-        segment = extract_var_from_config(var)
-        if segment:
-            print(f"Copying {var} into config_extend.py...")
-            with open("config_extend.py", "a", encoding="utf-8") as f:
-                if os.path.getsize("config_extend.py") > 0:
-                    f.write("\n\n")
-                f.write(segment + "\n")
 
-# done
-print("\nFiles synced successfully!")
+def sync(root, repo_url=REPO_URL):
+    root = Path(root).resolve()
+    git_root = Path(git(root, "rev-parse", "--show-toplevel").decode().strip()).resolve()
+    if root != git_root:
+        raise ValueError("Run the updater in the Atom project's Git root")
+    with sync_lock(root):
+        print("Fetching Atom main...")
+        git(root, "fetch", "--no-tags", repo_url, "main")
+        revision = git(root, "rev-parse", "--verify", "FETCH_HEAD^{commit}").decode().strip()
+        plan = prepare_update(root, revision)
+        apply_update(root, plan)
+    print("Files synced successfully! Restart the app; reinstall dependencies if requirements.txt changed.")
 
+
+def main():
+    try:
+        sync(Path(__file__).resolve().parent)
+    except (OSError, ValueError, SyntaxError, subprocess.CalledProcessError) as error:
+        # Avoid printing command arguments or fetched contents containing credentials.
+        message = f"Git command failed (exit {error.returncode})" if isinstance(error, subprocess.CalledProcessError) else str(error)
+        print(f"Sync failed: {message}", file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        print("Sync interrupted. Review the working tree if rollback could not complete.", file=sys.stderr)
+        return 130
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -2,8 +2,6 @@
 *
 
 # files
-!function.py
-!function_extend.py
 !config_extend.py
 !config.py
 !main.py
@@ -12,10 +10,14 @@
 !Dockerfile
 !.dockerignore
 !readme.md
-!.gitignore.md
+!.gitignore
 !LICENSE
 
 # folder
+!function/
+!function/**
+!tests/
+!tests/**
 !router/
 !router/**
 !static/
@@ -30,6 +32,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 .mypy_cache/
+.pytest_cache/
+.atom-sync/
 .DS_Store
 Thumbs.db
 .idea/

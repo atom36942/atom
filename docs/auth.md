@@ -13,6 +13,14 @@ Users live in the `users` database table. Core authorization attributes include:
   - **Role `1` is the root/superadmin role** and cannot be registered via public signup routes.
 - **Identity columns**: `username`, `email`, `mobile`, `google_login_id`, `id_ext`.
 
+### Per-User Permissions
+
+`users.permissions` is an optional `smallint[]` column with `default: None` (nullable). It stores permission IDs so users within the same role can have different capabilities. For example, two users with role `3` could have `[1, 2]` and `[2]`, respectively.
+
+The IDs are defined in [`config_permissions_mapping`](config.md#config_permissions_mapping): `1` is `invoice.export`, `2` is `invoice.filter.apply`, and `3` is `invoice.delete`. Keep IDs stable and never reuse an existing ID for a different action. Treat `NULL` and an empty array as no per-user permissions granted.
+
+The column and mapping provide storage and metadata only. Current role middleware does not enforce these permissions, and they are not included in the default JWT claims. Before using them for authorization, implement backend checks that load the user's permissions and require the relevant permission alongside the allowed role. Validate assigned IDs against the mapping and restrict permission updates to authorized administrators; `permissions` is not currently included in `config_column_admin`.
+
 ---
 
 ## 2. Identity Columns & Uniqueness Rules
