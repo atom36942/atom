@@ -176,7 +176,7 @@ See [test coverage and setup](tests/README.md).
 - [redis.md](docs/redis.md) — Multi-client Redis architecture & cache strategies.
 - [queue.md](docs/queue.md) — Asynchronous job queues, background consumers & retry workers.
 - [messaging.md](docs/messaging.md) — In-app messaging, notifications, transactional email & SMS.
-- [storage.md](docs/storage.md) — S3 & Azure Blob object storage and secure presigned previews.
+- [storage.md](docs/storage.md) — Complete blob guide: S3/Azure uploads, previews, SAS, ownership, and deletion.
 
 🧱 **Administration & Customization**
 - [admin.md](docs/admin.md) — Admin toolkit, data imports & built-in web UI (API Master & PgWeb).

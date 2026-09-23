@@ -5,7 +5,8 @@ import io
 import json
 import re
 import orjson
-from azure.storage.blob import PublicAccess
+from datetime import datetime, timedelta, timezone
+from azure.storage.blob import PublicAccess, ContainerSasPermissions, generate_container_sas
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from google.genai import types
@@ -15,6 +16,19 @@ from pymongo import DeleteOne, UpdateOne
 router = APIRouter()
 
 # api
+@router.post("/admin/blob-container-sas")
+async def func_api_admin_blob_container_sas(*, request: Request):
+    app_state = request.app.state
+    # Container SAS grants access beyond one user's prefix, so require a current admin role.
+    await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role={"mode": "realtime", "roles": [1]}, client_postgres=app_state.client_postgres, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=0)
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services, "default": None}, {"name": "container", "type": "str", "required": True, "allowed": None, "default": None}])
+    if oq["service"] == "s3":
+        raise Exception("s3 is not allowed for this api")
+    container = oq["container"]
+    if oq["service"] == "azure":
+        sas_token = generate_container_sas(account_name=app_state.config_azure_account_name, account_key=app_state.config_azure_account_key, container_name=container, permission=ContainerSasPermissions(read=True), expiry=datetime.now(timezone.utc) + timedelta(seconds=app_state.config_blob_expire_sec_preview))
+        return {"status": 1, "message": {"sas_token": sas_token, "expiry_sec": app_state.config_blob_expire_sec_preview}}
+
 @router.post("/admin/blob-preview-urls")
 async def func_api_admin_blob_preview_urls(*, request: Request):
     app_state = request.app.state

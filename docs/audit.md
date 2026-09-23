@@ -8,7 +8,7 @@ below reflects the code's default access policies, not a verified deployment.
 
 | Severity | Finding | Change |
 |----------|---------|--------|
-| High | Any authenticated user could mint a container-wide Azure read SAS through `/private/blob-container-sas`. | The handler checks the caller's current database role and requires role `1`; the default route policy also requires it. |
+| High | Any authenticated user could mint a container-wide Azure read SAS through `/admin/blob-container-sas`. | The handler checks the caller's current database role and requires role `1`; the default route policy also requires it. |
 | High | Private blob previews signed arbitrary object keys without checking the caller's ownership prefix. | The route passes the authenticated user ID; S3 and Azure signing reject keys outside that user's `user_<id>/` prefix. This intentionally prevents cross-user and public-prefix previews through this endpoint. |
 | Medium | MSSQL read/export runners accepted permission-changing batches such as a SELECT followed by GRANT. | Both paths use a shared conservative guard rejecting batches and permission, administration, and external-provider commands before acquiring a connection. |
 | Medium | Uploads read the complete file into application memory before checking size. | Reads are bounded to the configured limit plus one byte; oversized files are rejected before upload. Multipart parsing/ingress limits remain separate. |

@@ -110,14 +110,14 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
         client.generate_presigned_url.assert_awaited_once()
 
     async def test_container_sas_checks_current_admin_role_before_signing(self):
-        from router.private import func_api_private_blob_container_sas
+        from router.admin import func_api_admin_blob_container_sas
         pool, conn = database()
         conn.fetch.return_value = [{"role": 5}]
         state = SimpleNamespace(client_postgres=pool, func_middleware_check_role=func_middleware_check_role)
         request = SimpleNamespace(app=SimpleNamespace(state=state), state=SimpleNamespace(user={"id": 7, "role": 1}))
-        with patch("router.private.generate_container_sas") as sign:
+        with patch("router.admin.generate_container_sas") as sign:
             with self.assertRaisesRegex(Exception, "access denied"):
-                await func_api_private_blob_container_sas(request=request)
+                await func_api_admin_blob_container_sas(request=request)
             sign.assert_not_called()
         self.assertEqual(conn.fetch.await_args.args[1:], (7,))
 
