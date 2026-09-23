@@ -31,7 +31,6 @@ files_to_sync = [
     # Selected files inside folders (other upstream files are not included).
     "static/api.html",
     "static/pgweb.html",
-    "static/pulse.html",
     "script/consumer_postgres_create.py",
     "script/consumer_postgres_update.py",
     "script/manual_postgres_cleaner.py",
