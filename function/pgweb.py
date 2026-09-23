@@ -57,11 +57,16 @@ def func_pgweb_dsn_safe(dsn: str) -> str:
     except Exception: return "connection URL unavailable"
 
 async def func_pgweb_tree(*, pool: any, timeout_sec: int = 30) -> dict:
-    """Read non-extension top-level tables in the public schema."""
+    """Read non-extension top-level tables, views, and materialized views in the public schema."""
     records = await pool.fetch("""
-        SELECT n.nspname AS schema_name, c.relname AS name, 'table' AS kind
+        SELECT n.nspname AS schema_name, c.relname AS name,
+               CASE
+                 WHEN c.relkind IN ('r','p') THEN 'table'
+                 WHEN c.relkind = 'v' THEN 'view'
+                 WHEN c.relkind = 'm' THEN 'materialized_view'
+               END AS kind
         FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE c.relkind IN ('r','p') AND n.nspname = 'public' AND NOT c.relispartition
+        WHERE c.relkind IN ('r','p','v','m') AND n.nspname = 'public' AND NOT c.relispartition
           AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.classid = 'pg_class'::regclass AND d.deptype = 'e')
         ORDER BY n.nspname, c.relname""", timeout=timeout_sec)
     tree = {}

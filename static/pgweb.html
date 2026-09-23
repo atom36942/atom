@@ -21,7 +21,7 @@
   --sql-comment:#7b8b78; --sql-param:#1769aa; --sql-type:#9b4d96; --sql-fn:#006d77;
   --apply-bg:#edf7e7; --apply-border:#9fc783; --cancel-bg:#f1eef5; --cancel-border:#c4b8d1;
   --filter-bg:#f6f4f8; --grid-edge:#c8c8c8;
-  --row-h:30px; --bar-h:50px;
+  --row-h:30px; --bar-h:50px; --side-w:240px;
 }
 :root[data-theme=dark]{
   color-scheme:dark;
@@ -64,14 +64,30 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 
 /* ---------- shell: always present, empty until connected ---------- */
 #app{display:flex;flex:1;min-width:0}
-#side{width:clamp(190px,18vw,220px);flex:0 0 clamp(190px,18vw,220px);background:var(--side);display:flex;flex-direction:column;min-height:0;
-  border-right:1px solid var(--line)}
+#side{width:var(--side-w,240px);flex:0 0 var(--side-w,240px);background:var(--side);display:flex;flex-direction:column;min-height:0;
+  border-right:1px solid var(--line);position:relative}
+#side.collapsed{display:none!important}
 #dbline{height:var(--bar-h);flex:none;background:var(--nav);color:#fff;position:relative;z-index:11;
-  display:flex;justify-content:flex-start;align-items:center;padding:0 12px;min-width:0;
+  display:flex;justify-content:space-between;align-items:center;padding:0 8px 0 12px;min-width:0;
   border-bottom:1px solid rgba(0,0,0,.15)}
 #dbline::after{content:"";position:absolute;top:0;right:-1px;bottom:0;width:1px;background:rgba(255,255,255,.12)}
+#dbline .headicon{width:30px;height:30px;padding:0;margin:0;border:0;border-radius:3px;
+  font-size:16px;line-height:28px;text-align:center;align-self:center;background:transparent;color:#fff}
+#dbline .headicon:hover:not(:disabled){background:rgba(255,255,255,.2);color:#fff;border-color:transparent}
+#dbline .headicon svg{display:block;width:17px;height:17px;margin:auto;fill:none;
+  stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #productname{font-size:15px;font-weight:700;letter-spacing:-.15px;line-height:18px;cursor:pointer;user-select:none;transition:opacity .15s}
 #productname:hover{opacity:.85}
+
+#sidetabs{display:flex;padding:6px 8px 5px;gap:4px;background:var(--side);border-bottom:1px solid var(--line)}
+#sidetabs[hidden]{display:none!important}
+.side-tab{flex:1;text-align:center;padding:4px 6px;font-size:11.5px;font-weight:500;border-radius:4px;
+  border:1px solid transparent;background:transparent;color:var(--dim);cursor:pointer;white-space:nowrap;
+  user-select:none;transition:background .15s ease,color .15s ease,border-color .15s ease}
+.side-tab:hover{color:var(--fg);background:var(--hl)}
+.side-tab.on{background:var(--bg);color:var(--fg);font-weight:600;border-color:var(--line);
+  box-shadow:0 1px 2px rgba(0,0,0,.04)}
+:root[data-theme=dark] .side-tab.on{background:#22222a;color:#fff;border-color:var(--line)}
 
 #side .search{height:40px;padding:0 12px;position:relative;background:var(--bg);border-bottom:1px solid var(--line)}
 #side .search:focus-within{background:var(--hl)}
@@ -82,7 +98,16 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
   text-align:center;border-radius:50%;font-size:14px;color:var(--dim);border-color:transparent;background:transparent}
 #qclr:hover:not(:disabled){background:var(--hl);color:var(--fg);border-color:transparent}
 #qclr[hidden]{display:none}
-#tree{flex:1;overflow:auto;padding-bottom:8px;font-size:12px;background:var(--table-list-bg)}
+#tree{flex:1;overflow-y:auto;overflow-x:hidden;padding-bottom:8px;font-size:12px;background:var(--table-list-bg);
+  scrollbar-width:thin;scrollbar-color:transparent transparent;transition:scrollbar-color .2s ease}
+#tree:hover{scrollbar-color:rgba(0,0,0,.25) transparent}
+:root[data-theme=dark] #tree:hover{scrollbar-color:rgba(255,255,255,.25) transparent}
+#tree::-webkit-scrollbar{width:5px}
+#tree::-webkit-scrollbar-track{background:transparent}
+#tree::-webkit-scrollbar-thumb{background:transparent;border-radius:3px;border:none;transition:background .2s ease}
+#tree:hover::-webkit-scrollbar-thumb{background:rgba(0,0,0,.2)}
+:root[data-theme=dark] #tree:hover::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2)}
+#tree::-webkit-scrollbar-thumb:hover{background:var(--dim)}
 #tablecount{height:28px;flex:none;display:flex;align-items:center;padding:0 12px;border-top:1px solid var(--line);
   background:var(--side);color:var(--dim);font-size:11px}
 #tablecount[hidden]{display:none}
@@ -99,7 +124,7 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 #tabs{height:var(--bar-h);flex:none;display:flex;align-items:stretch;background:var(--nav);overflow:hidden;position:relative;z-index:10;padding-right:12px}
 #tablist{display:flex;align-items:stretch;flex:1;min-width:0;overflow:hidden}
 .tab{padding:0 14px;line-height:var(--bar-h);font-size:13px;font-weight:500;color:var(--nav-fg);
-  cursor:pointer;margin:0;flex:none;white-space:nowrap;border:0}
+  cursor:pointer;margin:0;flex:none;white-space:nowrap;border:0;transition:color .12s,background .12s}
 .tab[hidden]{display:none}
 .tab:hover{color:#fff}
 .tab.on{background:var(--nav-on-bg);color:var(--nav-on-fg)}
@@ -115,12 +140,24 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 #moremenu button{display:block;width:100%;padding:7px 10px;border:0;text-align:left;background:transparent;white-space:nowrap}
 #moremenu button:hover,#moremenu button.on{background:var(--hl);color:var(--fg)}
 #tabs .sp{flex:1}
-#tabs > button,#tabs > #optionswrap > button{align-self:center;background:transparent;color:#fff;border-color:rgba(255,255,255,.6);
+#tabs > button,#tabs > #optionswrap > button:not(.sql-runner-pill){align-self:center;background:transparent;color:#fff;border-color:rgba(255,255,255,.6);
   margin-right:8px;font-size:12px;flex:none;white-space:nowrap}
-#tabs > button:hover:not(:disabled),#tabs > #optionswrap > button:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
-#optionswrap{align-self:stretch;display:flex;align-items:center;gap:2px;flex:none;margin:0 6px 0 12px;
-  padding-left:8px;border-left:1px solid rgba(255,255,255,.18);background:var(--nav);position:relative;z-index:2}
+#tabs > button:hover:not(:disabled),#tabs > #optionswrap > button:not(.sql-runner-pill):hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
+#optionswrap{align-self:stretch;display:flex;align-items:center;gap:4px;flex:none;margin:0 6px 0 12px;
+  background:var(--nav);position:relative;z-index:2}
 #optionswrap[hidden]{display:none}
+.sql-runner-pill{align-self:center;height:26px;line-height:24px;padding:0 10px;margin:0 4px 0 0;
+  display:inline-flex;align-items:center;gap:6px;border-radius:3px;font-size:12px;font-weight:500;
+  color:#fff;background:transparent;border:1px solid rgba(255,255,255,.5);
+  cursor:pointer;white-space:nowrap;user-select:none;outline:none;transition:all .15s ease}
+.sql-runner-pill .pill-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;flex:none}
+.sql-runner-pill .pill-icon svg{width:13px;height:13px;stroke:currentColor;stroke-width:2.2;fill:none;display:block}
+.sql-runner-pill:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
+.sql-runner-pill.on{background:#fff;color:var(--nav);border-color:#fff;font-weight:600}
+:root[data-theme=dark] .sql-runner-pill{border-color:rgba(255,255,255,.5);color:#fff}
+:root[data-theme=dark] .sql-runner-pill:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
+:root[data-theme=dark] .sql-runner-pill.on{background:#262632;color:#fff;border-color:rgba(255,255,255,.6)}
+.opt-sep{width:1px;height:18px;background:rgba(255,255,255,.22);margin:0 4px;flex:none;align-self:center}
 #tabs .headicon{width:30px;height:30px;padding:0;margin:0 2px;border:0;border-radius:3px;
   font-size:16px;line-height:28px;text-align:center;align-self:center;background:transparent;color:#fff}
 #tabs .headicon:hover:not(:disabled){background:rgba(255,255,255,.2);color:#fff;border-color:transparent}
@@ -140,11 +177,52 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 #tools .filterlabel{flex:none;color:var(--dim);font-size:11px;font-weight:700;letter-spacing:.02em;
   text-transform:uppercase;margin-right:3px;white-space:nowrap}
 #tools select,#tools input,#tools button{height:32px;padding:4px 9px;font-size:12px}
-#fcol{min-width:150px}
-#fgo{background:var(--apply-bg);border-color:var(--apply-border);color:var(--green-h);font-weight:600}
-#fclr{background:var(--cancel-bg);border-color:var(--cancel-border);font-weight:600}
-#fgo:hover:not(:disabled),#fclr:hover:not(:disabled){filter:brightness(.96)}
-:root[data-theme=dark] #fgo:hover:not(:disabled),:root[data-theme=dark] #fclr:hover:not(:disabled){filter:brightness(1.16)}
+.fcol-picker{position:relative;display:inline-flex}
+.fcol-btn{height:32px;padding:4px 12px 4px 10px;min-width:160px;max-width:260px;background:var(--bg);
+  border:1px solid var(--line);border-radius:3px;font-size:12px;color:var(--fg);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;outline:none}
+.fcol-btn:hover{border-color:#8a8a8a;background:var(--hl)}
+.fcol-btn:focus-visible{border-color:var(--sel);box-shadow:0 0 0 2px rgba(56,116,215,.2)}
+.fcol-btn-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.fcol-btn-arrow{display:inline-flex;align-items:center;justify-content:center;color:var(--dim);flex:none;margin-left:auto}
+.fcol-btn-arrow svg{display:block;width:11px;height:11px;stroke:var(--dim)}
+#fop{height:32px;min-width:68px;padding:4px 28px 4px 10px;font-size:12px;appearance:none;
+  -webkit-appearance:none;-moz-appearance:none;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;background-size:11px 11px}
+:root[data-theme=dark] #fop{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aaaaaa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");}
+.fcol-menu{position:absolute;top:calc(100% + 4px);left:0;z-index:100;width:240px;
+  background:var(--bg);border:1px solid var(--line);border-radius:4px;
+  box-shadow:0 6px 22px rgba(0,0,0,.2);overflow:hidden;display:flex;flex-direction:column}
+.fcol-menu[hidden]{display:none}
+.fcol-search-wrap{padding:6px;border-bottom:1px solid var(--line);background:var(--side)}
+.fcol-search{width:100%!important;height:28px!important;padding:2px 8px!important;font-size:12px;
+  border:1px solid var(--line);border-radius:3px;background:var(--bg);outline:none}
+.fcol-search:focus{border-color:var(--sel)}
+.fcol-list{max-height:240px;overflow-y:auto;overflow-x:hidden;padding:4px 0}
+.fcol-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;
+  font-size:12px;cursor:pointer;user-select:none}
+.fcol-item:hover,.fcol-item.active{background:var(--hl);color:var(--fg)}
+.fcol-item.selected{background:var(--side-on);color:var(--side-on-fg);font-weight:600}
+.fcol-item .col-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fcol-item .col-type{font-size:11px;color:var(--dim);font-family:monospace;flex:none}
+.fcol-empty{padding:10px 12px;color:var(--dim);font-size:12px;text-align:center}
+#fgo,#fclr{height:32px;padding:0 14px;font-size:12px;font-weight:600;border-radius:4px;cursor:pointer;outline:none;transition:background .15s,border-color .15s,box-shadow .15s}
+#fgo{margin-left:4px;background:#2ea44f;border:1px solid #278842;color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+#fgo:hover:not(:disabled){background:#2c974b;border-color:#247c3c;box-shadow:0 1px 3px rgba(0,0,0,.14)}
+#fgo:active:not(:disabled){background:#278842}
+#fgo:focus,#fgo:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(46,164,79,.3)}
+#fclr{margin-left:6px;background:#fff;border:1px solid #d0d7de;color:#475569;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+#fclr:hover:not(:disabled){background:#f3f4f6;color:#1e293b;border-color:#94a3b8}
+#fclr:active:not(:disabled){background:#e2e8f0}
+#fclr:focus,#fclr:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(148,163,184,.3)}
+:root[data-theme=dark] #fgo{background:#238636;border-color:#2ea043;color:#fff;box-shadow:none}
+:root[data-theme=dark] #fgo:hover:not(:disabled){background:#2ea043;border-color:#3fb950}
+:root[data-theme=dark] #fgo:focus,:root[data-theme=dark] #fgo:focus-visible{box-shadow:0 0 0 3px rgba(46,164,79,.4)}
+:root[data-theme=dark] #fclr{background:#21262d;border-color:#363b42;color:#cbd5e1;box-shadow:none}
+:root[data-theme=dark] #fclr:hover:not(:disabled){background:#30363d;border-color:#64748b;color:#f8fafc}
+:root[data-theme=dark] #fclr:focus,:root[data-theme=dark] #fclr:focus-visible{box-shadow:0 0 0 3px rgba(100,116,139,.4)}
 #fval{width:180px}
 #tools .sp{flex:1}
 #ftxt{color:#888;font-size:12px}
@@ -224,6 +302,19 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
   opacity:1;background:var(--sel);width:52px}
 body.resizing-sql{cursor:row-resize!important;user-select:none!important}
 body.resizing-sql *{user-select:none!important}
+#sideresizer{width:9px;margin:0 -4px 0 -5px;position:relative;z-index:12;cursor:col-resize;
+  display:flex;align-items:center;justify-content:center;flex:none;
+  touch-action:none;user-select:none;outline:none}
+#sideresizer[hidden]{display:none!important}
+#sideresizer::before{content:"";position:absolute;top:0;bottom:0;left:4px;width:1px;
+  background:transparent;transition:background .15s ease,width .15s ease,box-shadow .15s ease}
+#sideresizer:hover::before,#sideresizer.dragging::before,#sideresizer:focus-visible::before{
+  background:var(--nav);width:2px;box-shadow:0 0 6px rgba(121,88,159,.45)}
+.sideresizer-grip{display:none}
+body.resizing-side{cursor:col-resize!important;user-select:none!important}
+body.resizing-side *{user-select:none!important}
+#sidetoggle-expand{margin-left:8px;cursor:pointer}
+#sidetoggle-expand[hidden]{display:none!important}
 #sql,#sqlhl{position:absolute;inset:0;width:100%;height:100%;margin:0;border:0;border-radius:0;
   padding:12px 14px;tab-size:2;white-space:pre;overflow:auto;
   font:12.5px/1.7 Menlo,Monaco,Consolas,"Courier New",monospace}
@@ -342,7 +433,8 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 #toast[hidden]{display:none}
 
 #side[hidden]{display:none!important}
-#brandname{font-size:15px;font-weight:700;color:#fff;padding:0 16px;line-height:var(--bar-h);user-select:none;flex:none}
+#brandname{font-size:15px;font-weight:700;color:#fff;padding:0 14px;line-height:var(--bar-h);user-select:none;flex:none;cursor:pointer}
+#brandname:hover{opacity:.85}
 #brandname[hidden]{display:none}
 
 /* ---------- simple centered login form (SSOT CTA) ---------- */
@@ -411,6 +503,12 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
   <aside id="side" hidden>
     <div id="dbline">
       <span id="productname">pgweb</span>
+      <button class="headicon" id="sidetoggle" title="Collapse sidebar (Ctrl+B)" aria-label="Collapse sidebar"></button>
+    </div>
+    <div id="sidetabs" role="tablist" aria-label="Object types" hidden>
+      <button type="button" class="side-tab on" data-kind="table">Tables</button>
+      <button type="button" class="side-tab" data-kind="view">Views</button>
+      <button type="button" class="side-tab" data-kind="materialized_view">Materialized</button>
     </div>
     <div class="search" id="tablesearch" hidden>
       <input id="q" placeholder="Search tables" autocomplete="off" spellcheck="false"/>
@@ -420,28 +518,31 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
     <div id="tablecount" hidden></div>
   </aside>
 
+  <div id="sideresizer" role="separator" aria-orientation="vertical" tabindex="0" title="Drag to adjust sidebar width (double-click to auto-fit or reset)" hidden><div class="sideresizer-grip"></div></div>
+
   <main id="main">
     <div id="tabs">
+      <button class="headicon" id="sidetoggle-expand" title="Expand sidebar (Ctrl+B)" aria-label="Expand sidebar" hidden></button>
       <span id="brandname">pgweb</span>
       <div id="tablist" role="tablist" aria-label="Table views">
-      <div class="tab" data-v="query" hidden>Query Runner</div>
-      <div class="tab" data-v="info" hidden>Database info</div>
-      <div class="tab" data-v="rows" hidden>Rows</div>
-      <div class="tab" data-v="struct" hidden>Columns</div>
-      <div class="tab" data-v="overview" hidden>Overview</div>
-      <div class="tab" data-v="indexes" hidden>Indexes</div>
-      <div class="tab" data-v="constraints" hidden>Constraints</div>
-      <div class="tab secondary" data-v="statistics" hidden>Statistics</div>
-      <div class="tab secondary" data-v="ddl" hidden>DDL</div>
-      <div class="tab secondary" data-v="triggers" hidden>Triggers</div>
-      <div class="tab secondary" data-v="policies" hidden>Policies</div>
-      <div class="tab secondary" data-v="privileges" hidden>Privileges</div>
-      <div class="tab secondary" data-v="partitions" hidden>Partitions</div>
-      <div class="tab secondary" data-v="dependencies" hidden>Dependencies</div>
-      <div id="morewrap" hidden><button id="moretab" type="button">More ▾</button></div>
+        <div class="tab" data-v="rows" hidden>Rows</div>
+        <div class="tab" data-v="struct" hidden>Columns</div>
+        <div class="tab" data-v="overview" hidden>Overview</div>
+        <div class="tab" data-v="indexes" hidden>Indexes</div>
+        <div class="tab" data-v="constraints" hidden>Constraints</div>
+        <div class="tab secondary" data-v="statistics" hidden>Statistics</div>
+        <div class="tab secondary" data-v="ddl" hidden>DDL</div>
+        <div class="tab secondary" data-v="triggers" hidden>Triggers</div>
+        <div class="tab secondary" data-v="policies" hidden>Policies</div>
+        <div class="tab secondary" data-v="privileges" hidden>Privileges</div>
+        <div class="tab secondary" data-v="partitions" hidden>Partitions</div>
+        <div class="tab secondary" data-v="dependencies" hidden>Dependencies</div>
+        <div id="morewrap" hidden><button id="moretab" type="button">More ▾</button></div>
+        <div class="tab" data-v="info" hidden>Database info</div>
       </div>
       <div id="optionswrap" hidden>
-        <button class="headicon" id="queryrunner" title="Query runner" aria-label="Query runner"></button>
+        <button id="queryrunner" class="sql-runner-pill" title="Query runner (SQL Editor)" aria-label="SQL Runner"></button>
+        <span class="opt-sep"></span>
         <button class="headicon" id="dbinfo" title="Database info" aria-label="Database info"></button>
         <button class="headicon on" id="readonly" title="Read only: On" aria-label="Read only: On"></button>
         <button class="headicon" id="reload" title="Refresh schema" aria-label="Refresh schema"></button>
@@ -501,7 +602,19 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
       <div class="view" id="v-rows">
         <div id="tools">
           <span class="filterlabel">Filter rows</span>
-          <select id="fcol"></select>
+          <div class="fcol-picker" id="fcol-picker">
+            <button type="button" class="fcol-btn" id="fcol-btn" aria-haspopup="listbox" aria-expanded="false" title="Choose column to filter">
+              <span class="fcol-btn-text" id="fcol-btn-text">Select column</span>
+              <span class="fcol-btn-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+            </button>
+            <div class="fcol-menu" id="fcol-menu" hidden>
+              <div class="fcol-search-wrap">
+                <input type="search" id="fcol-search" class="fcol-search" placeholder="Search columns…" autocomplete="off" spellcheck="false"/>
+              </div>
+              <div class="fcol-list" id="fcol-list" role="listbox"></div>
+            </div>
+            <select id="fcol" hidden></select>
+          </div>
           <select id="fop">
             <option>=</option><option>≠</option><option>&gt;</option><option>&lt;</option>
             <option>≥</option><option>≤</option><option>LIKE</option><option>ILIKE</option>
@@ -604,16 +717,20 @@ const icon = name => ({
   plug:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22v-5M9 8V2M15 8V2M18 8v4a6 6 0 0 1-12 0V8z"/></svg>',
   chevronLeft:'<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>',
   chevronRight:'<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>',
-  download:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg>'
+  download:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg>',
+  panelLeftClose:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><polyline points="15 15 12 12 15 9"/></svg>',
+  panelLeftOpen:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><polyline points="12 15 15 12 12 9"/></svg>'
 })[name];
 const sqlEscape=value=>String(value??'').replace(/[&<>]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
 const vp=$('vp'), inner=$('inner'), headEl=$('head'), canvas=$('canvas'), rowsEl=$('rows');
-$('queryrunner').innerHTML=icon('terminal'); $('dbinfo').innerHTML=icon('info'); $('reload').innerHTML=icon('refresh');
+$('queryrunner').innerHTML='<span class="pill-icon">'+icon('terminal')+'</span><span class="pill-text">SQL Runner</span>'; $('dbinfo').innerHTML=icon('info'); $('reload').innerHTML=icon('refresh');
 $('rowrefresh').innerHTML=icon('refresh');
 $('rowcsv').innerHTML=icon('download');
 $('prevbatch').innerHTML=icon('chevronLeft');
 $('nextbatch').innerHTML=icon('chevronRight');
 $('dbcat-download').innerHTML=icon('download');
+if($('sidetoggle')) $('sidetoggle').innerHTML=icon('panelLeftClose');
+if($('sidetoggle-expand')) $('sidetoggle-expand').innerHTML=icon('panelLeftOpen');
 const yesNo=value=>value?'Yes':'No';
 const DETAIL_ROWS={
   overview:rows=>rows.map((r,i)=>[i+1,r.schema,r.owner,r.kind,r.estimated_rows,r.table_size,r.index_size,r.total_size,r.tablespace,r.persistence,r.rls,r.comment]),
@@ -633,7 +750,10 @@ const S = { db:'', table:'', kind:'', pk:null, cols:[], widths:[], total:0,
             chunks:new Map(), pending:new Map(), local:null, where:null, meta:null, tree:{},
             viewPx:0, scale:1, loaded:{}, connected:false, hasMore:false, pageStart:0, latestFirst:false,
             activeQueryId:null, cancelRequested:false,
-            readOnly:localStorage.getItem('pgweb.readOnly') === '1', sideItems:[], sideShown:0, queryCleared:false,
+            readOnly:localStorage.getItem('pgweb.readOnly') === '1',
+            sideCollapsed:localStorage.getItem('pgweb.sideCollapsed') === '1',
+            sideTab:localStorage.getItem('pgweb.sideTab') || 'table',
+            sideItems:[], sideShown:0, queryCleared:false,
             filterApplied:{col:'',op:'=',val:''}, dbInfo:null, dbCatalog:{}, dbCatalogKind:'' };
 let pool=[], lastFirst=-1, ticking=false;
 let toastTimer;
@@ -709,12 +829,37 @@ $('readonly').onclick = () => {
 };
 drawReadOnly();
 
+function updateSidebarVisibility(){
+  const resizer=$('sideresizer'), expandBtn=$('sidetoggle-expand'), brand=$('brandname');
+  if(!S.connected){
+    $('side').hidden=true;
+    $('side').classList.remove('collapsed');
+    if(resizer) resizer.hidden=true;
+    if(expandBtn) expandBtn.hidden=true;
+    if(brand) brand.hidden=false;
+    return;
+  }
+  const isCollapsed=S.sideCollapsed;
+  $('side').hidden=isCollapsed;
+  if(isCollapsed) $('side').classList.add('collapsed');
+  else $('side').classList.remove('collapsed');
+  if(resizer) resizer.hidden=isCollapsed;
+  if(expandBtn) expandBtn.hidden=!isCollapsed;
+  if(brand) brand.hidden=!isCollapsed;
+}
+function toggleSidebar(forceCollapse){
+  const next = forceCollapse !== undefined ? forceCollapse : !S.sideCollapsed;
+  S.sideCollapsed = next;
+  localStorage.setItem('pgweb.sideCollapsed', next ? '1' : '0');
+  updateSidebarVisibility();
+  toast(next ? 'Sidebar collapsed' : 'Sidebar expanded');
+}
+
 /* ---------------- connect ---------------- */
 // the shell is always on screen; connection state only decides what's in it
 function setConnected(on){
   S.connected = on;
-  $('side').hidden = !on;
-  $('brandname').hidden = on;
+  updateSidebarVisibility();
   $('connbtn').hidden = !on;
   $('connbtn').textContent = 'Disconnect';
   $('connbtn').title = 'Disconnect from this database';
@@ -722,6 +867,7 @@ function setConnected(on){
   $('pane').hidden = false;
   $('status').hidden = true;
   $('queryrunner').disabled = !on;
+  $('sidetabs').hidden = !on;
   $('tablesearch').hidden = !on;
   $('tree').hidden = !on;
   $('tablecount').hidden = !on;
@@ -751,6 +897,7 @@ async function doConnect(dsn){
   const m = await api({action:'connect', dsn});
   S.db = m.database; S.tree = m.tree; S.dbInfo=null; S.dbCatalog={}; S.dbCatalogKind='';
   setConnected(true);
+  setSideTab(S.sideTab || 'table', false);
   drawTree(); openRunner();
 }
 function disconnected(){ setConnected(false); }
@@ -1094,33 +1241,57 @@ function askDisconnect(){
 }
 
 /* ---------------- sidebar ---------------- */
-// All public table names stay in memory; DOM rows are appended in small batches.
+function getKindMeta(kind){
+  if(kind === 'view') return { singular: 'view', plural: 'views', label: 'Views' };
+  if(kind === 'materialized_view') return { singular: 'materialized view', plural: 'materialized views', label: 'Materialized' };
+  return { singular: 'table', plural: 'tables', label: 'Tables' };
+}
+
+function setSideTab(kind, triggerRender = true){
+  S.sideTab = kind || 'table';
+  localStorage.setItem('pgweb.sideTab', S.sideTab);
+  for(const btn of document.querySelectorAll('#sidetabs .side-tab')){
+    btn.classList.toggle('on', btn.dataset.kind === S.sideTab);
+  }
+  const meta = getKindMeta(S.sideTab);
+  $('q').placeholder = `Search ${meta.plural}`;
+  if(triggerRender) drawTree();
+}
+
+for(const btn of document.querySelectorAll('#sidetabs .side-tab')){
+  btn.onclick = () => setSideTab(btn.dataset.kind);
+}
+
+// All public schema objects stay in memory; DOM rows are appended in small batches.
 function drawTree(){
-  S.sideItems=((S.tree.public||{}).table||[]).map(o=>o.name).sort((a,b)=>a.localeCompare(b));
+  const kind = S.sideTab || 'table';
+  S.sideItems = ((S.tree.public||{})[kind]||[]).map(o=>o.name).sort((a,b)=>a.localeCompare(b));
   renderTreeBatch(true);
 }
 function renderTreeBatch(reset=false){
   const box=$('tree'), term=$('q').value.trim().toLowerCase();
+  const kind = S.sideTab || 'table';
+  const meta = getKindMeta(kind);
   const matches=term ? S.sideItems.filter(name=>name.toLowerCase().includes(term)) : S.sideItems;
   const total=S.sideItems.length, shown=matches.length;
   $('tablecount').textContent = term
-    ? `${shown} of ${total} ${total===1?'table':'tables'}`
-    : `${total} ${total===1?'table':'tables'}`;
+    ? `${shown} of ${total} ${total===1?meta.singular:meta.plural}`
+    : `${total} ${total===1?meta.singular:meta.plural}`;
   if(reset){ box.textContent=''; S.sideShown=0; }
   const next=matches.slice(S.sideShown, S.sideShown+SIDE_BATCH);
   const frag = document.createDocumentFragment();
   for(const name of next){
     const d = document.createElement('div'); d.className='obj'+(S.table===name?' on':'');
-    d.dataset.table=name; d.dataset.kind='table';
+    d.dataset.table=name; d.dataset.kind=kind;
     const nm=document.createElement('span'); nm.className='nm'; nm.textContent=name; nm.title=name;
     d.appendChild(nm);
-    d.onclick=()=>openObject(name, 'table');
+    d.onclick=()=>openObject(name, kind);
     frag.appendChild(d);
   }
   S.sideShown+=next.length; box.appendChild(frag);
   if(reset && !matches.length){
     const empty=document.createElement('div'); empty.className='obj'; empty.style.cssText='color:var(--dim);cursor:default';
-    empty.textContent=term?'No matching tables':'No tables in public'; box.appendChild(empty);
+    empty.textContent=term?`No matching ${meta.plural}`:`No ${meta.plural} in public`; box.appendChild(empty);
   }
 }
 function searchTables(){
@@ -1175,7 +1346,7 @@ function drawResetSql(){
 function openRunner(){
   for(const el of document.querySelectorAll('.obj.on')) el.classList.remove('on');
   S.table=''; S.kind='';
-  for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v!=='query';
+  for(const t of document.querySelectorAll('.tab')) t.hidden = true;
   $('morewrap').hidden=true; $('moremenu').hidden=true;
   show('query');
   $('st-obj').textContent=''; $('st-rows').textContent=''; $('st-size').textContent='';
@@ -1311,18 +1482,22 @@ for(const tools of document.querySelectorAll('.detail-tools')){
   button.dataset.grid=input.dataset.grid; button.innerHTML=icon('download'); button.disabled=true; tools.appendChild(button);
 }
 async function openObject(table, kind, initialTab = 'rows'){
+  const targetKind = kind || 'table';
+  if(targetKind !== S.sideTab && (targetKind === 'table' || targetKind === 'view' || targetKind === 'materialized_view')){
+    setSideTab(targetKind, true);
+  }
   for(const el of document.querySelectorAll('.obj.on')) el.classList.remove('on');
   const targetObj = document.querySelector(`.obj[data-table="${table}"]`);
   if(targetObj){
     targetObj.classList.add('on');
     targetObj.scrollIntoView({block:'nearest'});
   }
-  S.table=table; S.kind=kind; S.where=null; S.local=null; S.loaded={};
+  S.table=table; S.kind=targetKind; S.where=null; S.local=null; S.loaded={};
   setExports(false);
   S.chunks.clear(); S.pending.clear(); lastFirst=-1;
   $('fval').value=''; $('ftxt').textContent='';
   mountGrid($('v-rows'));
-  for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v==='query'||t.dataset.v==='info';
+  for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v==='info';
   $('morewrap').hidden=false;
 
   const m = await api({action:'rows', table, limit:CHUNK, is_meta:1});
@@ -1336,6 +1511,7 @@ async function openObject(table, kind, initialTab = 'rows'){
     const option=document.createElement('option'); option.value=column.name; option.textContent=column.name;
     $('fcol').appendChild(option);
   }
+  renderFcolPicker(m.meta.columns);
   S.filterApplied={col:$('fcol').value,op:'=',val:''}; drawFilterOps(false); drawFilterActions();
   $('st-obj').innerHTML = `<b>${table}</b>`;
   $('st-rows').textContent = `${m.rows.length} rows loaded`;
@@ -1560,6 +1736,119 @@ for(const table of document.querySelectorAll('.detail-grid')) table.tBodies[0].a
 });
 
 /* ---------------- filter ---------------- */
+let currentColumns = [];
+
+function syncFcolBtnText(){
+  const val = $('fcol').value;
+  $('fcol-btn-text').textContent = val || 'Select column';
+}
+
+function renderFcolPicker(columns){
+  currentColumns = columns || [];
+  syncFcolBtnText();
+  renderFcolList('');
+}
+
+function renderFcolList(term = ''){
+  const list = $('fcol-list');
+  if(!list) return;
+  list.innerHTML = '';
+  const q = term.trim().toLowerCase();
+  const filtered = q ? currentColumns.filter(c => (c.name||'').toLowerCase().includes(q) || (c.type||'').toLowerCase().includes(q)) : currentColumns;
+  if(!filtered.length){
+    list.innerHTML = '<div class="fcol-empty">No matching columns</div>';
+    return;
+  }
+  const selected = $('fcol').value;
+  for(let i = 0; i < filtered.length; i++){
+    const col = filtered[i];
+    const item = document.createElement('div');
+    item.className = 'fcol-item' + (col.name === selected ? ' selected' : '') + (i === 0 && q ? ' active' : '');
+    item.dataset.col = col.name;
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'col-name';
+    nameSpan.textContent = col.name;
+    const typeSpan = document.createElement('span');
+    typeSpan.className = 'col-type';
+    typeSpan.textContent = col.type || '';
+    item.append(nameSpan, typeSpan);
+    item.onclick = (e) => {
+      e.stopPropagation();
+      selectFcol(col.name);
+    };
+    list.appendChild(item);
+  }
+}
+
+function selectFcol(colName){
+  if(!colName) return;
+  $('fcol').value = colName;
+  syncFcolBtnText();
+  closeFcolMenu();
+  $('fcol').onchange?.();
+}
+
+function openFcolMenu(){
+  $('fcol-menu').hidden = false;
+  $('fcol-btn').setAttribute('aria-expanded', 'true');
+  $('fcol-search').value = '';
+  renderFcolList('');
+  setTimeout(() => $('fcol-search').focus(), 20);
+}
+
+function closeFcolMenu(){
+  $('fcol-menu').hidden = true;
+  $('fcol-btn').setAttribute('aria-expanded', 'false');
+}
+
+function toggleFcolMenu(){
+  if($('fcol-menu').hidden) openFcolMenu();
+  else closeFcolMenu();
+}
+
+$('fcol-btn').onclick = (e) => {
+  e.stopPropagation();
+  toggleFcolMenu();
+};
+
+$('fcol-search').oninput = () => {
+  renderFcolList($('fcol-search').value);
+};
+
+$('fcol-search').onkeydown = (e) => {
+  const items = Array.from($('fcol-list').querySelectorAll('.fcol-item'));
+  if(!items.length) return;
+  const active = $('fcol-list').querySelector('.fcol-item.active');
+  let idx = items.indexOf(active);
+  if(e.key === 'ArrowDown'){
+    e.preventDefault();
+    if(active) active.classList.remove('active');
+    idx = (idx + 1) % items.length;
+    items[idx].classList.add('active');
+    items[idx].scrollIntoView({block:'nearest'});
+  }else if(e.key === 'ArrowUp'){
+    e.preventDefault();
+    if(active) active.classList.remove('active');
+    idx = (idx - 1 + items.length) % items.length;
+    items[idx].classList.add('active');
+    items[idx].scrollIntoView({block:'nearest'});
+  }else if(e.key === 'Enter'){
+    e.preventDefault();
+    const target = active || items[0];
+    if(target && target.dataset.col){
+      selectFcol(target.dataset.col);
+    }
+  }else if(e.key === 'Escape'){
+    e.preventDefault();
+    closeFcolMenu();
+    $('fcol-btn').focus();
+  }
+};
+
+document.addEventListener('click', (e) => {
+  if(!e.target.closest('#fcol-picker')) closeFcolMenu();
+});
+
 const OPS={'=':'=','≠':'<>','>':'>','<':'<','≥':'>=','≤':'<=','LIKE':'LIKE','ILIKE':'ILIKE',
            'IS NULL':'IS NULL','IS NOT NULL':'IS NOT NULL'};
 function filterOperators(){
@@ -1584,7 +1873,7 @@ function filterChanged(){
 function drawFilterActions(){
   $('fgo').hidden=$('fclr').hidden=!(filterChanged() || S.where);
 }
-$('fcol').onchange=()=>{ drawFilterOps(); drawFilterActions(); };
+$('fcol').onchange=()=>{ syncFcolBtnText(); drawFilterOps(); drawFilterActions(); };
 $('fop').onchange=()=>{ drawFilterOps(); drawFilterActions(); };
 $('fval').oninput=drawFilterActions;
 $('fgo').onclick = async () => {
@@ -1598,7 +1887,7 @@ $('fgo').onclick = async () => {
 };
 $('fclr').onclick = async () => {
   if(filterChanged()){
-    $('fcol').value=S.filterApplied.col; drawFilterOps(false);
+    $('fcol').value=S.filterApplied.col; syncFcolBtnText(); drawFilterOps(false);
     $('fop').value=S.filterApplied.op; drawFilterOps();
     $('fval').value=S.filterApplied.val; drawFilterActions();
     return;
@@ -1606,6 +1895,7 @@ $('fclr').onclick = async () => {
   if(S.where){
     S.where=null; $('fval').value='';
     if(await applyFilter()) S.filterApplied={col:$('fcol').value,op:$('fop').value,val:''};
+    syncFcolBtnText();
     drawFilterActions();
   }
 };
@@ -1987,6 +2277,126 @@ $('sql').addEventListener('scroll',()=>{
   });
 })();
 
+/* sidebar resizer & collapse/expand */
+(function initSideResizer(){
+  const resizer=$('sideresizer'), side=$('side');
+  if(!resizer || !side) return;
+  const DEFAULT_W=240, MIN_W=140;
+  const getMaxW=()=>Math.max(MIN_W, Math.min(window.innerWidth - 200, 800));
+
+  function setSidebarWidth(w, save=true){
+    const maxW=getMaxW();
+    const clamped=Math.min(maxW, Math.max(MIN_W, Math.round(w)));
+    document.documentElement.style.setProperty('--side-w', clamped + 'px');
+    if(save) localStorage.setItem('pgweb.sideWidth', clamped);
+    return clamped;
+  }
+
+  // Restore saved width
+  const savedW=parseInt(localStorage.getItem('pgweb.sideWidth'), 10);
+  if(savedW && savedW >= MIN_W && savedW <= 1200){
+    setSidebarWidth(savedW, false);
+  } else {
+    setSidebarWidth(DEFAULT_W, false);
+  }
+
+  // Pointer dragging
+  let drag=null;
+  resizer.addEventListener('pointerdown', e=>{
+    if(e.button!==0) return;
+    e.preventDefault();
+    drag={id:e.pointerId, startX:e.clientX, startW:side.getBoundingClientRect().width};
+    resizer.setPointerCapture(e.pointerId);
+    resizer.classList.add('dragging');
+    document.body.classList.add('resizing-side');
+  });
+
+  resizer.addEventListener('pointermove', e=>{
+    if(!drag || e.pointerId!==drag.id) return;
+    const delta=e.clientX - drag.startX;
+    if(drag.startW + delta < 60){
+      setSidebarWidth(MIN_W, false);
+      return;
+    }
+    setSidebarWidth(drag.startW + delta, false);
+  });
+
+  const stopDrag=e=>{
+    if(!drag || (e && e.pointerId!==drag.id)) return;
+    try{ resizer.releasePointerCapture(drag.id); }catch(_){}
+    if(e && drag.startX && (drag.startW + (e.clientX - drag.startX) < 70)){
+      toggleSidebar(true);
+    } else {
+      const finalW=Math.round(side.getBoundingClientRect().width);
+      localStorage.setItem('pgweb.sideWidth', finalW);
+    }
+    drag=null;
+    resizer.classList.remove('dragging');
+    document.body.classList.remove('resizing-side');
+  };
+
+  resizer.addEventListener('pointerup', stopDrag);
+  resizer.addEventListener('pointercancel', stopDrag);
+
+  // Double click: auto-fit to visible table names or reset to default
+  resizer.addEventListener('dblclick', ()=>{
+    const currentW=Math.round(side.getBoundingClientRect().width);
+    let targetW=DEFAULT_W;
+    if(Math.abs(currentW - DEFAULT_W) < 20){
+      let maxNameW=0;
+      for(const el of document.querySelectorAll('#tree .obj .nm')){
+        maxNameW=Math.max(maxNameW, el.scrollWidth);
+      }
+      if(maxNameW > 0){
+        targetW=Math.min(Math.max(DEFAULT_W, maxNameW + 80), getMaxW());
+      } else {
+        targetW=360;
+      }
+    }
+    setSidebarWidth(targetW, true);
+    toast(`Sidebar width: ${targetW}px`);
+  });
+
+  // Keyboard navigation
+  resizer.addEventListener('keydown', e=>{
+    if(e.key==='ArrowLeft' || e.key==='ArrowRight'){
+      e.preventDefault();
+      const currentW=side.getBoundingClientRect().width;
+      const step=(e.shiftKey?50:15)*(e.key==='ArrowRight'?1:-1);
+      const newW=setSidebarWidth(currentW + step, true);
+      toast(`Sidebar width: ${newW}px`);
+    } else if(e.key==='Home'){
+      e.preventDefault();
+      setSidebarWidth(DEFAULT_W, true);
+      toast(`Sidebar reset to ${DEFAULT_W}px`);
+    }
+  });
+
+  // Window resize bounds check
+  addEventListener('resize', ()=>{
+    if(!side || side.hidden) return;
+    const currentW=side.getBoundingClientRect().width;
+    const maxW=getMaxW();
+    if(currentW > maxW){
+      setSidebarWidth(maxW, false);
+    }
+  });
+
+  // Button clicks & shortcuts
+  if($('sidetoggle')) $('sidetoggle').onclick = () => toggleSidebar(true);
+  if($('sidetoggle-expand')) $('sidetoggle-expand').onclick = () => toggleSidebar(false);
+
+  window.addEventListener('keydown', e=>{
+    if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==='b'){
+      const tag=(e.target && e.target.tagName)||'';
+      if(tag==='INPUT' || tag==='TEXTAREA') return;
+      if(!S.connected) return;
+      e.preventDefault();
+      toggleSidebar();
+    }
+  });
+})();
+
 /* ---------------- chrome ---------------- */
 function savePageState(state){
   try{
@@ -1997,12 +2407,12 @@ function savePageState(state){
       db: S.db || ''
     };
     sessionStorage.setItem('pgweb.currentPage', JSON.stringify(payload));
-    localStorage.setItem('pgweb.currentPage', JSON.stringify(payload));
   }catch{}
 }
 function getSavedPageState(){
   try{
-    const raw = sessionStorage.getItem('pgweb.currentPage') || localStorage.getItem('pgweb.currentPage');
+    // Use sessionStorage so within-session reloads work, but new visits/first-time always default to Query Runner
+    const raw = sessionStorage.getItem('pgweb.currentPage');
     return raw ? JSON.parse(raw) : null;
   }catch{
     return null;
@@ -2020,9 +2430,16 @@ function show(v){
   $('status').hidden = true;
   $('queryrunner')?.classList.toggle('on', v==='query');
   $('dbinfo')?.classList.toggle('on', v==='info');
+  if(v==='query'){
+    seedQuery();
+    updateSqlHighlight();
+    drawResetSql();
+    setTimeout(()=>$('sql')?.focus(), 20);
+  }
   if(v==='rows'){
     $('tools').style.display = S.local ? 'none' : 'flex';
     if(S.cols.length){ lastFirst=-1; render(true); }
+    if(S.table) $('st-obj').innerHTML = `<b>${S.table}</b>`;
   }
   if(v==='struct' && S.meta?.columns && !S.loaded['struct']){
     S.loaded['struct'] = true;
@@ -2206,8 +2623,6 @@ $('dbcat-download').onclick=()=>{
 async function openDbInfo(){
   $('dbinfo').disabled=true;
   for(const el of document.querySelectorAll('.obj.on')) el.classList.remove('on');
-  S.table=''; S.kind='';
-  $('st-obj').textContent=''; $('st-rows').textContent=''; $('st-size').textContent='';
   for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v!=='info';
   $('morewrap').hidden=true; $('moremenu').hidden=true;
   show('info');
@@ -2252,6 +2667,8 @@ $('brandname').onclick = () => {
   if(!S.connected){
     show('home');
     renderHome();
+  }else{
+    openRunner();
   }
 };
 
@@ -2282,9 +2699,12 @@ async function restorePage(){
 /* the server holds one connection, so a reload just picks it back up */
 (async function boot(){
   try{
+    try{ localStorage.removeItem('pgweb.currentPage'); }catch{}
     const m = await api({action:'schema'});          // one call: tree + database name
     S.tree=m.tree; S.db=m.database;
-    setConnected(true); drawTree();
+    setConnected(true);
+    setSideTab(S.sideTab || 'table', false);
+    drawTree();
     await restorePage();
   }catch{ setConnected(false); }                     // shell stays, just empty
 })();
