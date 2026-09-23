@@ -1,7 +1,5 @@
 """Atom data import functions."""
 
-from .files import func_api_file_to_chunks
-
 async def func_redis_import(*, client_redis: any, config_redis_cache_ttl_sec: int, mode: str, file: any) -> str:
     """Imports or deletes keys in Redis in batches from a CSV file."""
     import orjson
@@ -74,3 +72,25 @@ async def func_postgres_import(*, app_state: any, mode: str, table: str, file: a
                     await app_state.func_postgres_delete(client_postgres=client_postgres, client_postgres_conn=conn, cache_postgres_schema=cache_postgres_schema, table=table, ids=[obj["id"] for obj in ol], created_by_id=None)
                 count += len(ol)
     return f"{count} rows processed"
+
+async def func_api_file_to_chunks(*, upload_file: any, chunk_size: int):
+    """Generator: reads an uploaded CSV file in chunks and yields lists of dictionaries."""
+    import csv, io
+    is_wrapped_upload = hasattr(upload_file, "file")
+    if is_wrapped_upload:
+        await upload_file.seek(0)
+        f = io.TextIOWrapper(upload_file.file, encoding="utf-8", newline="")
+    else:
+        content = await upload_file.read()
+        f = io.StringIO(content.decode("utf-8"))
+    chunk = []
+    try:
+        reader = csv.DictReader(f)
+        for row in reader:
+            chunk.append(row)
+            if len(chunk) >= chunk_size:
+                yield chunk
+                chunk = []
+        if chunk: yield chunk
+    finally:
+        if is_wrapped_upload: f.detach()

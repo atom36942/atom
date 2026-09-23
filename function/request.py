@@ -1,33 +1,5 @@
 """Atom request functions."""
 
-async def func_converter_number(*, datatype: str, mode: str, x: str) -> any:
-    """Encodes a string to an integer or decodes an integer to a string based on base-39 charset mapping."""
-    type_limits = {"smallint": 2, "int": 5, "bigint": 11}
-    charset = "abcdefghijklmnopqrstuvwxyz0123456789_-.@#"
-    if datatype not in type_limits: raise ValueError(f"invalid type: {datatype}, allowed: {list(type_limits.keys())}")
-    base = len(charset)
-    max_len = type_limits[datatype]
-    if mode == "encode":
-        val_str = str(x)
-        val_len = len(val_str)
-        if val_len > max_len: raise ValueError(f"input too long {val_len} > {max_len}")
-        result_num = val_len
-        for char in val_str:
-            char_idx = charset.find(char)
-            if char_idx == -1: raise ValueError("invalid character in input")
-            result_num = result_num * base + char_idx
-        return result_num
-    elif mode == "decode":
-        try: num_val = int(x)
-        except Exception: raise ValueError("invalid integer for decoding")
-        decoded_chars = []
-        while num_val > 0:
-            num_val, reminder = divmod(num_val, base)
-            decoded_chars.append(charset[reminder])
-        return "".join(decoded_chars[::-1][1:]) if decoded_chars else ""
-    else:
-        raise ValueError(f"invalid mode: {mode}")
-
 def func_query_bool_parse(value: any, default: bool = False) -> bool:
     """Parse a query-string boolean, retaining legacy 1/0 compatibility."""
     if value is None: return default
@@ -158,3 +130,31 @@ async def func_extract_request_object_list(*, request: any) -> list:
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[])
     return ob.get("obj_list", [ob])
+
+async def func_converter_number(*, datatype: str, mode: str, x: str) -> any:
+    """Encodes a string to an integer or decodes an integer to a string based on base-39 charset mapping."""
+    type_limits = {"smallint": 2, "int": 5, "bigint": 11}
+    charset = "abcdefghijklmnopqrstuvwxyz0123456789_-.@#"
+    if datatype not in type_limits: raise ValueError(f"invalid type: {datatype}, allowed: {list(type_limits.keys())}")
+    base = len(charset)
+    max_len = type_limits[datatype]
+    if mode == "encode":
+        val_str = str(x)
+        val_len = len(val_str)
+        if val_len > max_len: raise ValueError(f"input too long {val_len} > {max_len}")
+        result_num = val_len
+        for char in val_str:
+            char_idx = charset.find(char)
+            if char_idx == -1: raise ValueError("invalid character in input")
+            result_num = result_num * base + char_idx
+        return result_num
+    elif mode == "decode":
+        try: num_val = int(x)
+        except Exception: raise ValueError("invalid integer for decoding")
+        decoded_chars = []
+        while num_val > 0:
+            num_val, reminder = divmod(num_val, base)
+            decoded_chars.append(charset[reminder])
+        return "".join(decoded_chars[::-1][1:]) if decoded_chars else ""
+    else:
+        raise ValueError(f"invalid mode: {mode}")

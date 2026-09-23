@@ -47,42 +47,6 @@ config_api = {
 
 ## 2. Override or add logic
 
-### Core module map
-
-The shared `function/` folder groups helpers by responsibility:
-
-| Module | Responsibility |
-| --- | --- |
-| `app.py` | App setup, state refresh, OpenAPI, and monitoring initialization |
-| `auth.py` | Sign-up, login, JWTs, OTP generation/verification, and user lookup |
-| `background.py` | Buffer flushing, cache cleanup, and task shutdown |
-| `blob.py` | Cloud blob upload, preview, deletion, and container operations |
-| `clients.py` | Service client creation and cleanup |
-| `config.py` | Configuration checks |
-| `data_import.py` | CSV import into databases |
-| `files.py` | Local directories, temporary file streaming, and CSV parsing |
-| `jira.py` | Jira worklog export |
-| `messaging.py` | Email/OTP delivery and message ordering, pagination, and read tracking |
-| `middleware.py` | Request authentication, access checks, caching, and responses |
-| `pgweb.py` | PostgreSQL browser operations |
-| `postgres_crud.py` | PostgreSQL CRUD, grouped reads, and distinct reads |
-| `postgres_metadata.py` | Schema inspection, database selection, column mapping, and diagnostics |
-| `postgres_schema.py` | Schema validation, initialization, and synchronization |
-| `postgres_sql.py` | PostgreSQL filters, relations, and value serialization |
-| `query_ai.py` | AI query generation and ClickHouse schema context |
-| `query_runners.py` | PostgreSQL, SQL Server, and ClickHouse query execution and exports |
-| `queues.py` | Queue publishing and broker workers |
-| `request.py` | Request parameters, object extraction, audit fields, and numeric conversion |
-| `validation.py` | Values, columns, batches, table access, and user mutation permissions |
-
-`__init__.py` discovers these modules automatically. Keep route handlers in
-`router/` and reusable helpers in `function/`. Add a module when a new use case
-needs one; keep related operations together. Public `func_*` names remain
-available through `from function import ...` and `app.state` regardless of their
-module location. Sync discovers the files through its existing folder rules.
-
-### Adding custom functions
-
 To add functions, create a Python file directly inside the shared `function/` folder:
 
 ```python
