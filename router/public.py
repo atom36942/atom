@@ -76,11 +76,7 @@ async def func_api_public_jira_worklog_export(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[{"name": "url", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "email", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "api_token", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "start_date", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "end_date", "type": "str", "required": True, "allowed": None, "default": None}])
     output_path = await app_state.func_jira_worklog_export(url=ob["url"], email=ob["email"], api_token=ob["api_token"], start_date=ob["start_date"], end_date=ob["end_date"])
-    def iterfile():
-        with open(output_path, mode="rb") as f:
-            while chunk := f.read(1048576): yield chunk
-        os.remove(output_path)
-    return responses.StreamingResponse(iterfile(), media_type="application/octet-stream", headers={"Content-Disposition": f'attachment; filename="{os.path.basename(output_path)}"' })
+    return responses.StreamingResponse(app_state.func_file_stream(output_path=output_path), media_type="application/octet-stream", headers={"Content-Disposition": f'attachment; filename="{os.path.basename(output_path)}"' })
 
 @router.get("/public/table-column-groupby")
 async def func_api_public_table_column_groupby(*, request: Request):

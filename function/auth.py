@@ -55,33 +55,6 @@ async def func_auth_user_find_or_create(*, client_postgres: any, func_auth_check
         created = await conn.fetch(sql, *list(insert_dict.values()))
         return dict(created[0])
 
-async def func_token_encode(*, user: dict, config_token_secret_key: str, config_access_token_expires_sec: int, config_refresh_token_expires_sec: int, config_column_token_encode: list) -> dict:
-    """Generate access and refresh JWT tokens for a user object."""
-    import jwt, orjson, time
-    if user is None: return None
-    if config_token_secret_key in (None, ""): raise Exception("token secret key missing")
-    token_secret_key = str(config_token_secret_key)
-    payload_dict = {k: user.get(k) for k in config_column_token_encode} if config_column_token_encode else dict(user) if isinstance(user, dict) else user
-    serialized_payload = orjson.dumps(payload_dict, default=str).decode("utf-8")
-    now_ts = int(time.time())
-    access_token_expires_at = now_ts + config_access_token_expires_sec
-    refresh_token_expires_at = now_ts + config_refresh_token_expires_sec
-    access_token = jwt.encode({"exp": access_token_expires_at, "data": serialized_payload, "type": "access"}, token_secret_key)
-    refresh_token = jwt.encode({"exp": refresh_token_expires_at, "data": serialized_payload, "type": "refresh"}, token_secret_key)
-    return {"access_token": access_token, "refresh_token": refresh_token, "access_token_expires_at": access_token_expires_at, "refresh_token_expires_at": refresh_token_expires_at}
-
-async def func_token_decode(*, headers: dict, config_token_secret_key: str) -> dict:
-    """Decode Bearer token if present; return decoded user dict or empty dict."""
-    auth_header = headers.get("Authorization")
-    token = auth_header.split("Bearer ", 1)[1] if auth_header and auth_header.startswith("Bearer ") else None
-    if not token: return {}
-    import jwt, orjson
-    if config_token_secret_key in (None, ""): raise Exception("token secret key missing")
-    decoded_payload = jwt.decode(token, str(config_token_secret_key), algorithms="HS256")
-    user = orjson.loads(decoded_payload["data"])
-    if isinstance(user, dict): user["_token_type"] = decoded_payload.get("type")
-    return user
-
 async def func_otp_generate(*, client_postgres: any, email: str, mobile: str, config_otp_length: int) -> int:
     """Generate a random OTP and store it in PostgreSQL for a given email or mobile."""
     if not client_postgres: raise Exception("postgres client not initialized")
@@ -112,6 +85,33 @@ async def func_otp_verify(*, client_postgres: any, otp: int, email: str, mobile:
         if not records[0]["is_valid"]: raise Exception("otp code expired")
         await conn.execute("DELETE FROM otp WHERE id = $1;", records[0]["id"])
     return "done"
+
+async def func_token_encode(*, user: dict, config_token_secret_key: str, config_access_token_expires_sec: int, config_refresh_token_expires_sec: int, config_column_token_encode: list) -> dict:
+    """Generate access and refresh JWT tokens for a user object."""
+    import jwt, orjson, time
+    if user is None: return None
+    if config_token_secret_key in (None, ""): raise Exception("token secret key missing")
+    token_secret_key = str(config_token_secret_key)
+    payload_dict = {k: user.get(k) for k in config_column_token_encode} if config_column_token_encode else dict(user) if isinstance(user, dict) else user
+    serialized_payload = orjson.dumps(payload_dict, default=str).decode("utf-8")
+    now_ts = int(time.time())
+    access_token_expires_at = now_ts + config_access_token_expires_sec
+    refresh_token_expires_at = now_ts + config_refresh_token_expires_sec
+    access_token = jwt.encode({"exp": access_token_expires_at, "data": serialized_payload, "type": "access"}, token_secret_key)
+    refresh_token = jwt.encode({"exp": refresh_token_expires_at, "data": serialized_payload, "type": "refresh"}, token_secret_key)
+    return {"access_token": access_token, "refresh_token": refresh_token, "access_token_expires_at": access_token_expires_at, "refresh_token_expires_at": refresh_token_expires_at}
+
+async def func_token_decode(*, headers: dict, config_token_secret_key: str) -> dict:
+    """Decode Bearer token if present; return decoded user dict or empty dict."""
+    auth_header = headers.get("Authorization")
+    token = auth_header.split("Bearer ", 1)[1] if auth_header and auth_header.startswith("Bearer ") else None
+    if not token: return {}
+    import jwt, orjson
+    if config_token_secret_key in (None, ""): raise Exception("token secret key missing")
+    decoded_payload = jwt.decode(token, str(config_token_secret_key), algorithms="HS256")
+    user = orjson.loads(decoded_payload["data"])
+    if isinstance(user, dict): user["_token_type"] = decoded_payload.get("type")
+    return user
 
 async def func_user_read_single(*, client_postgres: any, user_id: int) -> dict:
     """Read a single user by ID from PostgreSQL, raises Exception if not found."""

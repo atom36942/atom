@@ -1,4 +1,4 @@
-"""Atom storage functions."""
+"""Atom blob functions."""
 
 async def func_blob_url_delete(*, app_state: any, service: str, urls: list, user_id: int = None) -> list:
     """Deletes S3 or Azure blobs by their URLs, optionally enforcing user ownership."""
