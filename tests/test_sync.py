@@ -22,11 +22,12 @@ class SyncTests(unittest.TestCase):
         self.upstream.mkdir()
         self.git(self.upstream, "init", "-b", "main")
         for name in sync.files_to_sync:
-            if name in ("function", "docs"):
+            if name in ("function", "router", "docs"):
                 continue
             self.write(self.upstream, name, "# upstream\n")
         self.write(self.upstream, "function/__init__.py", "# loader\n")
         self.write(self.upstream, "function/auth.py", "def func_auth(): return 'upstream'\n")
+        self.write(self.upstream, "router/index.py", "# upstream router\n")
         self.write(self.upstream, "docs/extend.md", "upstream docs\n")
         self.write(self.upstream, "config.py", "config_postgres = {}\nconfig_api = {}\n")
         self.write(self.upstream, "requirements.txt", "fastapi==1.0\norjson==3.0\n")
@@ -34,9 +35,12 @@ class SyncTests(unittest.TestCase):
         self.root = self.base / "developer"
         self.git(self.base, "clone", str(self.upstream), str(self.root))
         self.write(self.root, "function/custom_tracked.py", "def func_custom(): return 7\n")
+        self.write(self.root, "router/custom_tracked.py", "# developer router\n")
         self.commit(self.root)
         self.write(self.root, "function/custom_untracked.py", "def func_other(): return 8\n")
+        self.write(self.root, "router/custom_untracked.py", "# untracked developer router\n")
         self.write(self.root, "function/auth.py", "def func_auth(): return 'local edit'\n")
+        self.write(self.root, "router/index.py", "# local edit\n")
         self.write(self.root, "requirements.txt", "fastapi==0.9\nmy-package==2.0\n")
         self.write(self.root, "config_extend.py", "config_api: dict = {'custom': True}\n")
         self.write(self.root, ".env", "CUSTOM=preserve\n")
@@ -77,7 +81,8 @@ class SyncTests(unittest.TestCase):
         self.assertEqual((self.root / ".git/index").read_bytes(), index)
         self.assertTrue((self.root / "function/__init__.py").exists())
         self.assertIn("upstream", (self.root / "function/auth.py").read_text())
-        for name in ("function/custom_tracked.py", "function/custom_untracked.py", ".env"):
+        self.assertEqual((self.root / "router/index.py").read_text(), "# upstream router\n")
+        for name in ("function/custom_tracked.py", "function/custom_untracked.py", "router/custom_tracked.py", "router/custom_untracked.py", ".env"):
             self.assertEqual(self.snapshot()[name], before[name])
         self.assertEqual((self.root / "requirements.txt").read_text(), "fastapi==0.9\nmy-package==2.0\norjson==3.0\n")
         extension = (self.root / "config_extend.py").read_text()
@@ -86,6 +91,9 @@ class SyncTests(unittest.TestCase):
         self.assertIn("config_postgres = {}", extension)
         state = json.loads((self.root / sync.STATE_PATH).read_text())
         self.assertNotIn("function/custom_tracked.py", state["files"])
+        self.assertNotIn("router/custom_tracked.py", state["files"])
+        self.assertNotIn("router/custom_untracked.py", state["files"])
+        self.assertIn("router/index.py", state["files"])
         self.assertIn("function/auth.py", state["files"])
         self.assertEqual({p.name for p in (self.root / ".atom-sync").iterdir()}, {"state.json"})
 
@@ -143,6 +151,18 @@ class SyncTests(unittest.TestCase):
         self.assertTrue((self.root / "function/login.py").exists())
         self.assertTrue((self.root / "function/custom_tracked.py").exists())
 
+    def test_new_and_renamed_upstream_routers_sync_without_listing_individual_files(self):
+        self.run_sync()
+        self.git(self.upstream, "mv", "router/index.py", "router/home.py")
+        self.write(self.upstream, "router/reports.py", "# newly shipped router\n")
+        self.commit(self.upstream)
+        self.run_sync()
+        self.assertFalse((self.root / "router/index.py").exists())
+        self.assertEqual((self.root / "router/home.py").read_text(), "# upstream router\n")
+        self.assertEqual((self.root / "router/reports.py").read_text(), "# newly shipped router\n")
+        self.assertEqual((self.root / "router/custom_tracked.py").read_text(), "# developer router\n")
+        self.assertEqual((self.root / "router/custom_untracked.py").read_text(), "# untracked developer router\n")
+
     def test_late_failure_restores_removed_files_and_previous_state(self):
         self.run_sync()
         self.git(self.upstream, "mv", "function/auth.py", "function/login.py")
@@ -196,6 +216,68 @@ class SyncTests(unittest.TestCase):
                                 cwd=Path(sync.__file__).parent, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "")
+
+    def install_bootstrap_fixture(self):
+        source = Path(sync.__file__).read_text()
+        # The child must not fetch: its repository URL is deliberately unusable.
+        latest = source.replace('files_to_sync = [', 'files_to_sync = [\n    "latest-only.txt",', 1)
+        latest = latest.replace(f'REPO_URL = "{sync.REPO_URL}"', 'REPO_URL = "/missing/child-must-not-fetch"')
+        self.write(self.upstream, "sync.py", latest)
+        self.write(self.upstream, "latest-only.txt", "synced by the newest rules\n")
+        self.commit(self.upstream)
+        local = source.replace(f'REPO_URL = "{sync.REPO_URL}"', f'REPO_URL = {str(self.upstream)!r}')
+        local = local.replace('def prepare_update(root, revision):',
+                              'def prepare_update(root, revision):\n    raise RuntimeError("old sync logic must not run")')
+        self.write(self.root, "sync.py", local)
+        return latest
+
+    def run_cli(self):
+        return subprocess.run([sys.executable, str(self.root / "sync.py")], cwd=self.root,
+                              capture_output=True, text=True, timeout=30)
+
+    def test_cli_restarts_latest_updater_and_applies_new_rules_in_one_run(self):
+        latest = self.install_bootstrap_fixture()
+        result = self.run_cli()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.root / "sync.py").read_text(), latest)
+        self.assertEqual((self.root / "latest-only.txt").read_text(), "synced by the newest rules\n")
+        self.assertEqual(result.stdout.count("Fetching Atom main..."), 1)
+        self.assertEqual(result.stdout.count("Running the latest Atom updater..."), 1)
+        self.assertEqual(result.stdout.count("Files synced successfully!"), 1)
+        self.assertFalse((self.root / ".atom-sync/lock").exists())
+        state = json.loads((self.root / sync.STATE_PATH).read_text())
+        self.assertEqual(state["revision"], self.git(self.upstream, "rev-parse", "HEAD").decode().strip())
+
+    def test_invalid_latest_updater_leaves_local_files_unchanged(self):
+        self.install_bootstrap_fixture()
+        self.write(self.upstream, "sync.py", "def invalid(:\n")
+        self.commit(self.upstream)
+        before = self.snapshot()
+        result = self.run_cli()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.snapshot(), before)
+        self.assertNotIn("Files synced successfully!", result.stdout)
+        self.assertFalse((self.root / ".atom-sync/lock").exists())
+
+    def test_latest_updater_failure_is_reported_without_syncing_other_files(self):
+        latest = self.install_bootstrap_fixture()
+        (self.upstream / "main.py").unlink()
+        self.commit(self.upstream)
+        before = self.snapshot()
+        result = self.run_cli()
+        self.assertNotEqual(result.returncode, 0)
+        after = self.snapshot()
+        before.pop("sync.py")
+        after.pop("sync.py")
+        self.assertEqual(after, before)
+        self.assertEqual((self.root / "sync.py").read_text(), latest)
+        self.assertNotIn("Files synced successfully!", result.stdout)
+        self.assertFalse((self.root / ".atom-sync/lock").exists())
+
+    def test_internal_child_mode_rejects_missing_parent_lock(self):
+        revision = self.git(self.root, "rev-parse", "HEAD").decode().strip()
+        with self.assertRaisesRegex(ValueError, "parent updater's lock"):
+            sync.apply_bootstrapped_revision(self.root, revision)
 
 
 if __name__ == "__main__":

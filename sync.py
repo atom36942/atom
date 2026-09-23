@@ -1,7 +1,8 @@
 """Update Atom-owned files while preserving developer-only files.
 
-Run from the project root with ``python sync.py``. Updates are prepared before
-writing and rolled back from memory on write failure. No backup files are saved.
+Run from the project root with ``python sync.py``. The latest upstream updater
+is installed and run first. Project updates are then prepared before writing
+and rolled back from memory on write failure. No backup files are saved.
 The Git index is never changed. See docs/extend.md for recovery instructions.
 """
 
@@ -18,32 +19,32 @@ import tempfile
 
 REPO_URL = "https://github.com/atom36942/atom.git"
 files_to_sync = [
-    "main.py",
-    "function",
+    # Individual root files.
+    ".dockerignore",
+    ".gitignore",
+    "Dockerfile",
     "config.py",
-    "router/index.py",
-    "router/auth.py",
-    "router/my.py",
-    "router/public.py",
-    "router/private.py",
-    "router/admin.py",
+    "main.py",
+    "readme.md",
+    "sync.py",
+
+    # Selected files inside folders (other upstream files are not included).
     "static/api.html",
     "static/pgweb.html",
     "static/pulse.html",
-    "readme.md",
-    "Dockerfile",
-    ".dockerignore",
-    ".gitignore",
-    "docs",
     "script/consumer_postgres_create.py",
     "script/consumer_postgres_update.py",
     "script/manual_postgres_cleaner.py",
     "script/manual_postgres_ingestion.py",
     "script/manual_postgres_secure.py",
     "script/worker_users_delete.py",
-    "sync.py",
+    # Whole folders: discover all their upstream files recursively.
+    "docs",
+    "function",
+    "router",
 ]
 
+# requirements.txt and config_extend.py are merged separately, not overwritten.
 STATE_PATH = ".atom-sync/state.json"
 
 
@@ -68,7 +69,7 @@ def safe_path(root, name):
 
 
 def is_owned_path(name):
-    return any(name == item or (item in ("function", "docs") and name.startswith(item + "/")) for item in files_to_sync)
+    return any(name == item or name.startswith(item + "/") for item in files_to_sync)
 
 
 def get_pkg_name(line):
@@ -239,23 +240,86 @@ def sync_lock(root):
         lock.unlink(missing_ok=True)
 
 
-def sync(root, repo_url=REPO_URL):
+def project_root(root):
     root = Path(root).resolve()
     git_root = Path(git(root, "rev-parse", "--show-toplevel").decode().strip()).resolve()
     if root != git_root:
         raise ValueError("Run the updater in the Atom project's Git root")
-    with sync_lock(root):
-        print("Fetching Atom main...")
-        git(root, "fetch", "--no-tags", repo_url, "main")
-        revision = git(root, "rev-parse", "--verify", "FETCH_HEAD^{commit}").decode().strip()
-        plan = prepare_update(root, revision)
-        apply_update(root, plan)
+    return root
+
+
+def fetch_revision(root, repo_url):
+    print("Fetching Atom main...", flush=True)
+    git(root, "fetch", "--no-tags", repo_url, "main")
+    return git(root, "rev-parse", "--verify", "FETCH_HEAD^{commit}").decode().strip()
+
+
+def apply_revision(root, revision):
+    plan = prepare_update(root, revision)
+    apply_update(root, plan)
     print("Files synced successfully! Restart the app; reinstall dependencies if requirements.txt changed.")
+
+
+def sync(root, repo_url=REPO_URL):
+    """Apply using this loaded implementation (also used by integration tests)."""
+    root = project_root(root)
+    with sync_lock(root):
+        apply_revision(root, fetch_revision(root, repo_url))
+
+
+def bootstrap_sync(root, repo_url=REPO_URL):
+    """Install the fetched updater, then run it under the same parent-held lock."""
+    root = project_root(root)
+    with sync_lock(root):
+        revision = fetch_revision(root, repo_url)
+        record = git(root, "ls-tree", revision, "--", "sync.py").decode().strip()
+        if not record:
+            raise ValueError("Upstream sync.py is missing")
+        metadata, name = record.split("\t", 1)
+        mode, kind, oid = metadata.split()
+        if name != "sync.py" or kind != "blob" or mode not in ("100644", "100755"):
+            raise ValueError("Upstream sync.py must be a regular Python file")
+        source = git(root, "cat-file", "blob", oid)
+        compile(source, "sync.py", "exec")
+        script = safe_path(root, "sync.py")
+        previous = (script.read_bytes(), script.stat().st_mode & 0o777) if script.exists() else None
+        atomic_write(script, source, 0o755 if mode == "100755" else 0o644)
+        print("Running the latest Atom updater...", flush=True)
+        try:
+            # The child applies this exact commit; it never re-fetches or bootstraps.
+            result = subprocess.run([sys.executable, str(script), "--apply-revision", revision], cwd=root)
+        except OSError:
+            if previous is None:
+                script.unlink(missing_ok=True)
+            else:
+                atomic_write(script, *previous)
+            raise
+        if result.returncode:
+            raise ValueError(f"Latest Atom updater failed (exit {result.returncode}); review the working tree before retrying")
+
+
+def apply_bootstrapped_revision(root, revision):
+    """Internal child entry: validate the parent lock and pinned updater source."""
+    root = project_root(root)
+    if not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", revision):
+        raise ValueError("Invalid sync revision")
+    lock = safe_path(root, ".atom-sync/lock")
+    if not lock.exists() or lock.read_text() != str(os.getppid()):
+        raise ValueError("Internal sync mode requires the parent updater's lock")
+    if safe_path(root, "sync.py").read_bytes() != git(root, "show", f"{revision}:sync.py"):
+        raise ValueError("Updater source does not match the fetched revision")
+    apply_revision(root, revision)
 
 
 def main():
     try:
-        sync(Path(__file__).resolve().parent)
+        root = Path(__file__).resolve().parent
+        if len(sys.argv) == 3 and sys.argv[1] == "--apply-revision":
+            apply_bootstrapped_revision(root, sys.argv[2])
+        elif len(sys.argv) == 1:
+            bootstrap_sync(root)
+        else:
+            raise ValueError("Usage: python sync.py")
     except (OSError, ValueError, SyntaxError, subprocess.CalledProcessError) as error:
         # Avoid printing command arguments or fetched contents containing credentials.
         message = f"Git command failed (exit {error.returncode})" if isinstance(error, subprocess.CalledProcessError) else str(error)

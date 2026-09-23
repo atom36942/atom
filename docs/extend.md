@@ -10,7 +10,7 @@ Core files — `main.py`, upstream Atom files in `function/`, `config.py`, and t
 |-----------|---------|---------------------|
 | `config_extend.py` | Override / add any config value | ✅ yes |
 | `function/custom_<your>.py` | Add functions with unique names | ✅ yes, if the path is absent from upstream Atom |
-| `router/<your>.py` | Add new API endpoints | ✅ yes |
+| `router/<your>.py` | Add new API endpoints | ✅ yes, if the path is absent from upstream Atom |
 | `.env` | Secrets & connection strings | ✅ yes |
 
 Configuration extensions are loaded after the defaults in `main.py`:
@@ -127,13 +127,23 @@ When new Atom versions ship, pull the latest core files with `sync.py`:
 venv/bin/python sync.py
 ```
 
-The updater fetches upstream `main`, pins the fetched commit, and prepares the
-selected Atom files before replacing anything. Missing required files, invalid
-Python, failed Git commands, or symlinked destinations stop the update. Files are
-written to the working tree; the Git index is left unchanged.
+The updater first fetches upstream `main`, pins that commit, validates its
+`sync.py`, and replaces the local updater. It then starts that latest version in a
+fresh process using the same Python interpreter. The latest version applies its
+sync rules immediately, in this same invocation; there is no second manual run.
+The child uses the pinned commit without re-fetching or restarting again, while
+the parent holds the sync lock.
 
-- Atom files are created or replaced. Developer-only files in `function/`, custom
-  routers, and `.env` are preserved. A path also present in upstream belongs to Atom.
+The latest updater prepares and validates the selected project files before
+replacing them. Missing required files, invalid Python, failed Git commands, or
+symlinked destinations stop the update. Files are written to the working tree;
+the Git index is left unchanged. If the project sync fails, the newly installed
+`sync.py` remains in place, while project write failures use in-memory rollback.
+If the new process cannot be launched, the old updater is restored from memory.
+
+- All upstream files in `function/` and `router/` are discovered automatically and
+  created or replaced, including newly added Atom modules. Developer-only files in
+  both folders and `.env` are preserved. A path also present in upstream belongs to Atom.
 - Existing requirement entries are preserved; missing packages are appended.
   Existing configuration overrides are preserved; missing `config_postgres` and
   `config_api` assignments are seeded in `config_extend.py`.
