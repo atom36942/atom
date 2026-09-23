@@ -84,6 +84,15 @@ illustrative signature:
 An object outside the caller's prefix returns HTTP 400 with
 `{"status": 0, "message": "blob preview allowed only for own files"}`.
 
+### Admin previews (`POST /admin/blob-preview-urls`)
+
+Admins use the same headers, `service` and `urls` body, and ordered list response.
+This endpoint checks the caller's current database role and requires role `1`.
+It can sign any object's URL accessible to Atom's configured storage credentials,
+including other users' and `public/` files, without an ownership-prefix restriction.
+The `/my/` endpoint remains restricted to the caller's own prefix, including when
+the caller is an admin.
+
 Signed URLs are bearer credentials: anyone holding one can use it until expiry.
 S3 upload policies include the configured size limit. Azure direct-upload SAS does
 not apply Atom's server-side file-size check; use the server upload endpoint when

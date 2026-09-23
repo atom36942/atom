@@ -168,6 +168,42 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response, {"status": 1, "message": ["signed"]})
         self.assertEqual(state.func_blob_preview_urls_get.await_args.kwargs["user_id"], 7)
 
+    async def test_admin_preview_allows_other_users_files_for_both_services(self):
+        from router.admin import func_api_admin_blob_preview_urls
+        pool, conn = database()
+        conn.fetch.return_value = [{"role": 1}]
+        client = SimpleNamespace(generate_presigned_url=AsyncMock(return_value="signed-s3"))
+        state = SimpleNamespace(client_postgres=pool, func_middleware_check_role=func_middleware_check_role,
+            func_request_param_read=AsyncMock(), func_blob_preview_urls_get=func_blob_preview_urls_get,
+            client_s3=client, client_azure_blob=MagicMock(), config_blob_services=["s3", "azure"],
+            config_azure_account_name="account", config_azure_account_key="dummy", config_blob_expire_sec_preview=60)
+        request = SimpleNamespace(app=SimpleNamespace(state=state), state=SimpleNamespace(user={"id": 1, "role": 1}))
+        for service, url, expected in [
+            ("s3", "https://bucket.s3.ap-south-1.amazonaws.com/user_8/file", "signed-s3"),
+            ("azure", "https://account.blob.core.windows.net/container/user_8/file",
+             "https://account.blob.core.windows.net/container/user_8/file?signature"),
+        ]:
+            with self.subTest(service=service), patch("azure.storage.blob.generate_blob_sas", return_value="signature"):
+                state.func_request_param_read.return_value = {"service": service, "urls": [url, url]}
+                result = await func_api_admin_blob_preview_urls(request=request)
+                self.assertEqual(result, {"status": 1, "message": [expected, expected]})
+        self.assertEqual(conn.fetch.await_args.args[1:], (1,))
+
+    async def test_admin_preview_rejects_nonadmin_stale_and_missing_users(self):
+        from router.admin import func_api_admin_blob_preview_urls
+        pool, conn = database()
+        state = SimpleNamespace(client_postgres=pool, func_middleware_check_role=func_middleware_check_role,
+                                func_blob_preview_urls_get=AsyncMock(), func_request_param_read=AsyncMock())
+        for user, rows in [({"id": 7, "role": 5}, [{"role": 5}]),
+                           ({"id": 7, "role": 1}, [{"role": 5}]),
+                           ({"id": 7, "role": 1}, []), ({}, [])]:
+            conn.fetch.return_value = rows
+            request = SimpleNamespace(app=SimpleNamespace(state=state), state=SimpleNamespace(user=user))
+            with self.subTest(user=user, rows=rows), self.assertRaises(Exception):
+                await func_api_admin_blob_preview_urls(request=request)
+        state.func_blob_preview_urls_get.assert_not_awaited()
+        state.func_request_param_read.assert_not_awaited()
+
     def test_preview_route_is_registered_only_in_my_router(self):
         from router.my import router as my_router
         from router.private import router as private_router

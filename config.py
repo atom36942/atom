@@ -478,6 +478,7 @@ config_api = {
 "/admin/postgres-import": {"id": 8, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
 "/admin/redis-import": {"id": 9, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/mongodb-import": {"id": 11, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
+"/admin/blob-preview-urls": {"id": 113, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
 "/admin/blob-container-read": {"id": 10, "is_token": True, "user_check_role": {"mode": "inmemory", "roles": [1]}},
 "/admin/blob-container-ops": {"id": 12, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/blob-delete-url": {"id": 13, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},

@@ -15,6 +15,14 @@ from pymongo import DeleteOne, UpdateOne
 router = APIRouter()
 
 # api
+@router.post("/admin/blob-preview-urls")
+async def func_api_admin_blob_preview_urls(*, request: Request):
+    app_state = request.app.state
+    await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role={"mode": "realtime", "roles": [1]}, client_postgres=app_state.client_postgres, client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=0)
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services, "default": None}, {"name": "urls", "type": "list", "required": True, "allowed": None, "default": None}])
+    res = await app_state.func_blob_preview_urls_get(client_s3=app_state.client_s3, client_azure_blob=app_state.client_azure_blob, config_azure_account_name=app_state.config_azure_account_name, config_azure_account_key=app_state.config_azure_account_key, config_blob_expire_sec_preview=app_state.config_blob_expire_sec_preview, service=ob["service"], urls=ob["urls"], user_id=None)
+    return {"status": 1, "message": res}
+
 @router.get("/admin/sync")
 async def func_api_admin_sync(*, request: Request):
     app_state = request.app.state
