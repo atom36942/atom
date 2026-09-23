@@ -132,6 +132,12 @@ config_column_regex = {
 
 config_column_dropdown = {"gender": ["male", "female"],}
 
+config_permissions_mapping = {
+1: "invoice.export",
+2: "invoice.filter.apply",
+3: "invoice.delete",
+}
+
 config_column_int_mapping = {
 "task": {
 "project": {1: "Myshipment", 2: "Portal", 3: "Hirex", 4: "OBhai", 5: "Amazon", 6: "Quotation", 7: "Tradelane", 8: "Misc"},
@@ -196,6 +202,7 @@ config_postgres = {
 {"name":"deleted_by_id","datatype":"bigint"},
 {"name":"is_protected","datatype":"boolean"},
 {"name":"role","datatype":"smallint","is_mandatory": True,"index":"btree(role)"},
+{"name":"permissions","datatype":"smallint[]","default": None},
 {"name":"username","datatype":"text","unique":"username,role"},
 {"name":"email","datatype":"text","unique":"email,role"},
 {"name":"mobile","datatype":"text","unique":"mobile,role"},

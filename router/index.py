@@ -20,12 +20,11 @@ async def func_api_index_info(*, request:Request):
         "status": 1,
         "message": {
             "api_list": [route.path for route in request.app.routes if hasattr(route, "path")],
-            "mapping": app_state.config_column_int_mapping,
+            "config_column_int_mapping": app_state.config_column_int_mapping,
             "dropdown": app_state.config_column_dropdown,
-            "config": {
-                "config_query_runner_read_limit": app_state.config_query_runner_read_limit,
-                "config_query_runner_export_limit": app_state.config_query_runner_export_limit,
-            },
+            "config_permissions_mapping": app_state.config_permissions_mapping,
+            "config_query_runner_read_limit": app_state.config_query_runner_read_limit,
+            "config_query_runner_export_limit": app_state.config_query_runner_export_limit,
         }
     }
 
