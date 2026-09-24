@@ -9,9 +9,17 @@ def func_query_bool_parse(value: any, default: bool = False) -> bool:
     if normalized in ("false", "0"): return False
     raise ValueError(f"invalid boolean query value: {value!r}; expected 'true' or 'false'")
 
-async def func_request_param_read(*, request: any, mode: str, strict: bool, param_specs: list) -> dict:
-    """Extract and validate request parameters; specs use bool ``required`` and optional ``allowed``/``default`` fields."""
+async def func_request_param_read(*, request: any, mode: str, strict: bool, param_specs: list, strict_types: bool = False, header_fallback: bool = True, reject_unknown: bool = False) -> dict:
+    """Read parameters with backward-compatible defaults.
+
+    strict selects specified fields only; reject_unknown rejects extra fields.
+    strict_types rejects malformed/non-object JSON bodies, lossy integer conversion
+    and invalid objects. header_fallback controls implicit header lookup.
+    Specs support minimum/maximum and min_length/max_length after conversion.
+    """
     if not isinstance(strict, bool): raise Exception("strict must be bool")
+    for name, value in (("strict_types", strict_types), ("header_fallback", header_fallback), ("reject_unknown", reject_unknown)):
+        if not isinstance(value, bool): raise Exception(f"{name} must be bool")
     params_dict = {}
     header_params = {k.lower(): v for k, v in request.headers.items()}
     if mode == "query":
@@ -27,21 +35,28 @@ async def func_request_param_read(*, request: any, mode: str, strict: bool, para
         try:
             json_payload = await request.json()
         except Exception:
+            if strict_types: raise Exception("request body must contain valid JSON")
             json_payload = None
+        if strict_types and not isinstance(json_payload, dict):
+            raise Exception("request body must be a JSON object")
         params_dict = json_payload if isinstance(json_payload, dict) else {"body": json_payload}
     elif mode == "header":
         params_dict = header_params
     else:
         raise Exception(f"invalid mode: {mode}")
-    if param_specs is None: return params_dict
+    if param_specs is None:
+        if reject_unknown: raise Exception("reject_unknown requires parameter specifications")
+        return params_dict
     import orjson
     def smart_dict(v):
         if v is None: return {}
         if isinstance(v, dict): return v
         if isinstance(v, str):
             v = v.strip()
-            if not v: return {}
-            if v.startswith("{"): return orjson.loads(v)
+            if v.startswith("{"):
+                parsed = orjson.loads(v)
+                if isinstance(parsed, dict): return parsed
+        if strict_types: raise ValueError("expected an object")
         return {}
     def smart_list(v):
         if v is None: return []
@@ -60,8 +75,15 @@ async def func_request_param_read(*, request: any, mode: str, strict: bool, para
         if value in ("true", "1", "yes", "on", "ok"): return True
         if value in ("false", "0", "no", "off"): return False
         raise ValueError(f"invalid boolean value: {v!r}")
+    def smart_int(v):
+        if strict_types:
+            if isinstance(v, bool): raise ValueError("boolean is not an integer")
+            if not isinstance(v, (int, str)):
+                if not isinstance(v, float) or not v.is_integer():
+                    raise ValueError("expected a whole number")
+        return int(v)
     TYPE_MAP = {
-        "int": int, "bigint": int, "smallint": int, "integer": int, "int4": int, "int8": int,
+        "int": smart_int, "bigint": smart_int, "smallint": smart_int, "integer": smart_int, "int4": smart_int, "int8": smart_int,
         "float": float, "number": float, "numeric": float,
         "str": str, "any": lambda v: v, 
         "bool": smart_bool,
@@ -69,6 +91,9 @@ async def func_request_param_read(*, request: any, mode: str, strict: bool, para
         "file": lambda v: [x for x in (v if isinstance(v, list) else [v] if v is not None else []) if hasattr(x, "file")],
         "list": smart_list
     }
+    if reject_unknown:
+        names = {spec["name"] for spec in param_specs}
+        if set(params_dict) - names: raise Exception("request contains unknown parameters")
     output_dict = params_dict.copy() if not strict else {}
     for param_spec in param_specs:
         if not isinstance(param_spec, dict): raise Exception(f"invalid parameter specification: expected dict, got {type(param_spec)}")
@@ -85,7 +110,7 @@ async def func_request_param_read(*, request: any, mode: str, strict: bool, para
             raise Exception(f"parameter '{key}' default '{default_value}' violating allowed_values: {allowed_values}")
         if allowed_values is not None and not isinstance(allowed_values, (list, tuple)): raise Exception(f"parameter '{key}' allowed_values must be a list or tuple")
         val = params_dict.get(key)
-        if val is None:
+        if val is None and header_fallback:
             val = header_params.get(key.lower())
         if val is None:
             val = default_value
@@ -115,6 +140,21 @@ async def func_request_param_read(*, request: any, mode: str, strict: bool, para
             if dtype == "list" and (not isinstance(val, list) or len(val) == 0):
                  raise Exception(f"parameter '{key}' missing or empty list")
         if val is not None and allowed_values is not None and val not in allowed_values: raise Exception(f"parameter '{key}' value not allowed, allowed: {allowed_values}")
+        if val is not None:
+            for bound, operator in (("minimum", "lower"), ("maximum", "upper")):
+                limit = param_spec.get(bound)
+                if limit is not None:
+                    if isinstance(val, bool) or not isinstance(val, (int, float)):
+                        raise Exception(f"parameter '{key}' {bound} requires a number")
+                    if (operator == "lower" and not val >= limit) or (operator == "upper" and not val <= limit):
+                        raise Exception(f"parameter '{key}' violates {bound} {limit}")
+            for bound, operator in (("min_length", "lower"), ("max_length", "upper")):
+                limit = param_spec.get(bound)
+                if limit is not None:
+                    if not isinstance(val, (str, list, dict)):
+                        raise Exception(f"parameter '{key}' {bound} requires text, a list or an object")
+                    if (operator == "lower" and len(val) < limit) or (operator == "upper" and len(val) > limit):
+                        raise Exception(f"parameter '{key}' violates {bound} {limit}")
         output_dict[key] = val
     return output_dict
 

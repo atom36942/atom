@@ -72,7 +72,7 @@ config_sql_read_limit_max = 10000
 config_sql_read_relation_fetch_limit_max = 100
 config_query_runner_read_limit = 5000
 config_query_runner_export_limit = 50000
-config_allowed_users_role = [1, 2, 3, 4, 5]
+config_allowed_users_role = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 config_redis_cache_ttl_sec = 3600
 config_users_delete_data_retention_day = 30
 config_cors_allow_origins = []
@@ -495,6 +495,10 @@ config_api = {
 "/admin/clickhouse-query-runner-read": {"id": 94, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/clickhouse-query-runner-read-export": {"id": 95, "is_token": True, "user_check_role": {"mode": "inmemory", "roles": [1]}},
 "/admin/clickhouse-query-generator-ai": {"id": 101, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
+# mdm
+"/mdm/read": {"id": 114, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [10]}},
+"/mdm/review": {"id": 115, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [10]}},
+"/mdm/export": {"id": 116, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [10]}},
 }
 
 #override
