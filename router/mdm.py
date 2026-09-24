@@ -9,7 +9,7 @@ router = APIRouter()
 async def func_api_mdm_read(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, strict_types=True, header_fallback=False, reject_unknown=True, param_specs=[
-        {"name": "kind", "type": "str", "required": True, "allowed": ["overview", "groups", "detail", "candidates", "cw-search", "approved", "audit", "matches"]},
+        {"name": "kind", "type": "str", "required": True, "allowed": ["overview", "groups", "detail", "candidates", "cw-search", "approved", "audit", "matches", "company"]},
         {"name": "source", "type": "str", "allowed": ["CW", "SAP"], "default": "CW"},
         {"name": "page", "type": "int", "default": 1, "minimum": 1, "maximum": 100000},
         {"name": "q", "type": "str", "default": ""},
@@ -33,7 +33,7 @@ async def func_api_mdm_review(*, request: Request):
         {"name": "run_id", "type": "str", "required": True},
         {"name": "action", "type": "str", "required": True, "allowed": ["approve", "split", "keep_separate", "reject_suggestion", "confirm_existing", "approve_new", "reject_match", "correct", "record_success", "record_failure"]},
         {"name": "reason", "type": "str", "required": True, "min_length": 3, "max_length": 4000},
-        {"name": "master_ids", "type": "list", "default": [], "max_length": 100},
+        {"name": "case_ids", "type": "list", "default": [], "max_length": 100},
         {"name": "parts", "type": "list", "default": [], "max_length": 2000},
         {"name": "approved_id", "type": "int", "minimum": 1, "maximum": 9223372036854775807},
         {"name": "version", "type": "int", "minimum": 1, "maximum": 9223372036854775807},

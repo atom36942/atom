@@ -25,7 +25,7 @@ def func_mdm_command_validate(*, body: dict) -> dict:
     from fastapi import HTTPException
 
     defaults = {"request_id": None, "source": None, "run_id": None, "action": None,
-                "reason": None, "master_ids": [], "parts": [], "approved_id": None,
+                "reason": None, "case_ids": [], "parts": [], "approved_id": None,
                 "version": None, "cw_code": None, "comparison_id": None,
                 "confirmed": False, "organization_name": None, "addresses": None}
     if not isinstance(body, dict) or set(body) - set(defaults):
@@ -54,10 +54,10 @@ def func_mdm_command_validate(*, body: dict) -> dict:
             raise HTTPException(status_code=400, detail=f"Invalid {key.replace('_', ' ')}.")
     if type(cmd["confirmed"]) is not bool:
         raise HTTPException(status_code=400, detail="Confirmed must be true or false.")
-    if not isinstance(cmd["master_ids"], list) or len(cmd["master_ids"]) > 100:
+    if not isinstance(cmd["case_ids"], list) or len(cmd["case_ids"]) > 100:
         raise HTTPException(status_code=400, detail="Select at most 100 proposed groups.")
     try:
-        cmd["master_ids"] = [UUID(str(value)) for value in cmd["master_ids"]]
+        cmd["case_ids"] = [func_mdm_case_id(value) for value in cmd["case_ids"]]
     except (ValueError, TypeError, AttributeError):
         raise HTTPException(status_code=400, detail="Invalid proposed group ID.")
     if not isinstance(cmd["parts"], list) or len(cmd["parts"]) > 2000:
@@ -102,12 +102,15 @@ def func_mdm_query_validate(*, params: dict) -> dict:
 async def func_mdm_read(*, app_state, pool, kind: str, params: dict) -> dict:
     """Dispatch an allowed read through Atom's registered functions."""
     from fastapi import HTTPException
-    if kind not in ("overview", "groups", "detail", "candidates", "cw-search", "approved", "audit", "matches"):
+    if kind not in ("overview", "groups", "detail", "candidates", "cw-search", "approved", "audit", "matches", "company"):
         raise HTTPException(status_code=404, detail="Unknown MDM operation.")
     func_read = getattr(app_state, "func_mdm_read_" + kind.replace("-", "_"))
     from asyncpg import LockNotAvailableError
     try:
-        return await func_read(app_state=app_state, pool=pool, params=params)
+        result = await func_read(app_state=app_state, pool=pool, params=params)
+        if kind in ("groups", "detail", "candidates"):
+            result = app_state.func_mdm_case_fields(value=result)
+        return result
     except LockNotAvailableError as exc:
         raise HTTPException(status_code=503, detail="Data refresh in progress. Please try again shortly.", headers={"Retry-After": "30"}) from exc
 
@@ -124,20 +127,20 @@ async def func_mdm_read_overview(*, app_state, pool, params: dict) -> dict:
             await conn.execute("SET LOCAL lock_timeout='1s'")
             await conn.execute("SET LOCAL statement_timeout='25s'")
             await conn.execute("SET LOCAL jit=off")
-            queue = await conn.fetchrow("SELECT count(*) approved_records FROM mdm_approved_master a JOIN source_analysis_runs_current r USING(run_id) WHERE r.source=$1", source)
+            queue = await conn.fetchrow("SELECT count(*) approved_records FROM mdm_approved_master a JOIN mdm_runs_current r USING(run_id) WHERE r.source=$1", source)
             review = app_state.func_mdm_row_serialize(queue)
-            review["decisions"] = await conn.fetchval("SELECT count(*) FROM mdm_review_decision d JOIN source_analysis_runs_current r USING(run_id) WHERE r.source=$1", source)
+            review["decisions"] = await conn.fetchval("SELECT count(*) FROM mdm_review_decision d JOIN mdm_runs_current r USING(run_id) WHERE r.source=$1", source)
             review["name_exceptions"] = await conn.fetchval(f"SELECT count(*) FROM {prefix}_source_current WHERE NOT eligible")
             review["pending_business_cases"] = await conn.fetchval("""
-                SELECT count(*) FROM organization_source_master m
-                JOIN source_analysis_runs_current r ON r.run_id=m.run_id
-                WHERE r.source=$1
+                SELECT count(*) FROM mdm_review_case m
+                JOIN mdm_runs_current r ON r.run_id=m.run_id
+                WHERE r.source=$1 AND m.source_record_count>1
                   AND NOT EXISTS (
-                    SELECT 1 FROM organization_source_member sm
+                    SELECT 1 FROM mdm_review_case_member sm
                     JOIN mdm_approved_member am USING(run_id,entity_id)
-                    WHERE sm.run_id=m.run_id AND sm.master_id=m.master_id
+                    WHERE sm.run_id=m.run_id AND sm.case_id=m.case_id
                   )""", source)
-            return {"review": review, "comparison": app_state.func_mdm_row_serialize(await conn.fetchrow("SELECT comparison_id,sap_run_id,cw_run_id,comparison_is_current,completed_at FROM sap_cw_comparison_current"))}
+            return {"review": review, "comparison": app_state.func_mdm_row_serialize(await conn.fetchrow("SELECT comparison_id,sap_run_id,cw_run_id,comparison_is_current,completed_at FROM mdm_sap_cw_comparison_current"))}
 
 async def func_mdm_read_groups(*, app_state, pool, params: dict) -> dict:
     """Read groups with a supplied pool; callable without the API or dispatcher."""
@@ -158,20 +161,20 @@ async def func_mdm_read_groups(*, app_state, pool, params: dict) -> dict:
             if mode == "exceptions":
                 rows = await conn.fetch(f"SELECT * FROM {prefix}_source_current WHERE NOT eligible AND (original_name ILIKE $1 OR source_code ILIKE $1) ORDER BY entity_id LIMIT 26 OFFSET $2", search, (page-1)*25)
             else:
-                run_id=await conn.fetchval("SELECT run_id FROM source_analysis_runs_current WHERE source=$1",source)
+                run_id=await conn.fetchval("SELECT run_id FROM mdm_runs_current WHERE source=$1",source)
                 rows = await conn.fetch("""WITH reviewed AS MATERIALIZED (
-                  SELECT DISTINCT m.master_id FROM mdm_approved_member a
-                  JOIN organization_source_member m USING(run_id,entity_id) WHERE a.run_id=$1
+                  SELECT DISTINCT m.case_id FROM mdm_approved_member a
+                  JOIN mdm_review_case_member m USING(run_id,entity_id) WHERE a.run_id=$1
                 ), page AS MATERIALIZED (
-                  SELECT m.run_id,m.master_id golden_id,m.organization_name,m.source_record_count,m.is_customer,m.is_vendor,m.cw_codes,
-                    EXISTS(SELECT 1 FROM reviewed r WHERE r.master_id=m.master_id) reviewed
-                  FROM organization_source_master m WHERE m.run_id=$1 AND ($2='all' OR m.source_record_count>1)
-                  AND (m.organization_name ILIKE $3 OR m.master_id::text=$4 OR EXISTS(SELECT 1 FROM unnest(m.cw_codes) c WHERE c ILIKE $3))
-                  AND ($5::boolean=false OR NOT EXISTS(SELECT 1 FROM reviewed r WHERE r.master_id=m.master_id))
-                  ORDER BY m.source_record_count DESC,m.organization_name,m.master_id LIMIT 26 OFFSET $6
+                  SELECT m.run_id,m.case_id golden_id,m.organization_name,m.source_record_count,m.is_customer,m.is_vendor,m.cw_codes,
+                    EXISTS(SELECT 1 FROM reviewed r WHERE r.case_id=m.case_id) reviewed
+                  FROM mdm_review_case m WHERE m.run_id=$1 AND ($2='all' OR m.source_record_count>1)
+                  AND (m.organization_name ILIKE $3 OR m.case_id::text=$4 OR EXISTS(SELECT 1 FROM unnest(m.cw_codes) c WHERE c ILIKE $3))
+                  AND ($5::boolean=false OR NOT EXISTS(SELECT 1 FROM reviewed r WHERE r.case_id=m.case_id))
+                  ORDER BY m.source_record_count DESC,m.organization_name,m.case_id LIMIT 26 OFFSET $6
                 ) SELECT page.*,coalesce(p.cw_match_status,'not_compared') cw_match_status,p.possible_cw_codes,c.comparison_is_current cw_comparison_is_current
-                  FROM page LEFT JOIN sap_cw_comparison_current c ON c.sap_run_id=page.run_id
-                  LEFT JOIN sap_cw_presence p ON p.comparison_id=c.comparison_id AND p.sap_master_id=page.golden_id
+                  FROM page LEFT JOIN mdm_sap_cw_comparison_current c ON c.sap_run_id=page.run_id
+                  LEFT JOIN mdm_sap_cw_presence p ON p.comparison_id=c.comparison_id AND p.sap_master_id=page.golden_id
                   ORDER BY page.source_record_count DESC,page.organization_name,page.golden_id""",run_id,mode,search,query,options["pending"],(page-1)*25)
             return {"rows": [app_state.func_mdm_row_serialize(x) for x in rows[:25]], "has_more": len(rows)>25, "page": page}
 
@@ -189,18 +192,18 @@ async def func_mdm_read_detail(*, app_state, pool, params: dict) -> dict:
             await conn.execute("SET LOCAL statement_timeout='25s'")
             await conn.execute("SET LOCAL jit=off")
             try:
-                ids = list(dict.fromkeys(UUID(x) for x in params.get("ids", "").split(",") if x))
+                ids = list(dict.fromkeys(func_mdm_case_id(x) for x in params.get("ids", "").split(",") if x))
             except ValueError:
                 raise HTTPException(status_code=400, detail="Invalid group ID.")
             if not 1 <= len(ids) <= 100:
                 raise HTTPException(status_code=400, detail="Select between 1 and 100 proposed groups.")
-            masters = await conn.fetch(f"SELECT * FROM {prefix}_master_current WHERE golden_id=ANY($1::uuid[])", ids)
+            masters = await conn.fetch(f"SELECT * FROM {prefix}_master_current WHERE golden_id=ANY($1::bigint[])", ids)
             if len(masters) != len(ids):
                 raise HTTPException(status_code=409, detail="A selected group is no longer current. Refresh the list.")
-            records = await conn.fetch(f"SELECT s.*,a.approved_id FROM {prefix}_source_current s LEFT JOIN mdm_approved_member a USING(run_id,entity_id) WHERE s.golden_id=ANY($1::uuid[]) ORDER BY s.golden_id,s.entity_id LIMIT 2001", ids)
+            records = await conn.fetch(f"SELECT s.*,a.approved_id FROM {prefix}_source_current s LEFT JOIN mdm_approved_member a USING(run_id,entity_id) WHERE s.golden_id=ANY($1::bigint[]) ORDER BY s.golden_id,s.entity_id LIMIT 2001", ids)
             if len(records)>2000:
                 raise HTTPException(status_code=400, detail="This selection has more than 2,000 records. Select fewer groups.")
-            links = await conn.fetch("SELECT l.* FROM organization_source_group_link l JOIN organization_source_member m ON m.run_id=l.run_id AND m.entity_id=l.left_entity_id WHERE m.run_id=$1 AND m.master_id=ANY($2::uuid[]) LIMIT 150", masters[0]["run_id"], ids)
+            links = await conn.fetch("SELECT l.* FROM mdm_review_case_link l JOIN mdm_review_case_member m ON m.run_id=l.run_id AND m.entity_id=l.left_entity_id WHERE m.run_id=$1 AND m.case_id=ANY($2::bigint[]) LIMIT 150", masters[0]["run_id"], ids)
             return {"masters": [app_state.func_mdm_row_serialize(x) for x in masters], "records": [app_state.func_mdm_row_serialize(x) for x in records], "evidence": [app_state.func_mdm_row_serialize(x) for x in links], "evidence_limit": 150}
 
 async def func_mdm_read_candidates(*, app_state, pool, params: dict) -> dict:
@@ -219,24 +222,24 @@ async def func_mdm_read_candidates(*, app_state, pool, params: dict) -> dict:
             name = query.upper()
             if not name:
                 raise HTTPException(status_code=400, detail="Enter a cleaned company name to find similar-name cases.")
-            run=await conn.fetchrow("SELECT * FROM source_analysis_runs_current WHERE source=$1",source)
+            run=await conn.fetchrow("SELECT * FROM mdm_runs_current WHERE source=$1",source)
             rows = await conn.fetch("""WITH searched AS MATERIALIZED (
-                SELECT n.name_id FROM organization_review_name n JOIN organization_source_name s ON s.name_id=n.name_id AND s.run_id=$1
+                SELECT n.name_id FROM mdm_review_name n JOIN mdm_source_name s ON s.name_id=n.name_id AND s.run_id=$1
                 WHERE n.review_run_id=$2 AND n.name_key LIKE $3
               ), pairs AS (
-                SELECT p.left_name_id,p.right_name_id,p.name_similarity,'pg_trgm'::text similarity_method FROM organization_review_name_pair p
+                SELECT p.left_name_id,p.right_name_id,p.name_similarity,'pg_trgm'::text similarity_method FROM mdm_review_name_pair p
                 JOIN searched s ON s.name_id=p.left_name_id WHERE p.review_run_id=$2
                 UNION
-                SELECT p.left_name_id,p.right_name_id,p.name_similarity,'pg_trgm'::text FROM organization_review_name_pair p
+                SELECT p.left_name_id,p.right_name_id,p.name_similarity,'pg_trgm'::text FROM mdm_review_name_pair p
                 JOIN searched s ON s.name_id=p.right_name_id WHERE p.review_run_id=$2
                 UNION
-                SELECT p.left_name_id,p.right_name_id,p.name_similarity,'rapidfuzz_legacy'::text FROM organization_source_candidate_extra p
+                SELECT p.left_name_id,p.right_name_id,p.name_similarity,'rapidfuzz_legacy'::text FROM mdm_source_candidate_extra p
                 WHERE p.name_review_run_id=$2 AND (p.left_name_id IN (SELECT name_id FROM searched) OR p.right_name_id IN (SELECT name_id FROM searched))
               ) SELECT p.*,count(*) OVER() total_matches,ln.name_key left_name,rn.name_key right_name,
                 l.source_records left_record_count,r.source_records right_record_count,l.master_ids left_golden_ids,r.master_ids right_golden_ids
-                FROM pairs p JOIN organization_source_name l ON l.run_id=$1 AND l.name_id=p.left_name_id
-                JOIN organization_source_name r ON r.run_id=$1 AND r.name_id=p.right_name_id
-                JOIN organization_review_name ln ON ln.name_id=p.left_name_id JOIN organization_review_name rn ON rn.name_id=p.right_name_id
+                FROM pairs p JOIN mdm_source_name l ON l.run_id=$1 AND l.name_id=p.left_name_id
+                JOIN mdm_source_name r ON r.run_id=$1 AND r.name_id=p.right_name_id
+                JOIN mdm_review_name ln ON ln.name_id=p.left_name_id JOIN mdm_review_name rn ON rn.name_id=p.right_name_id
                 WHERE p.left_name_id<>p.right_name_id OR l.source_records>1
                 ORDER BY p.left_name_id,p.right_name_id LIMIT 26 OFFSET $4""",run["run_id"],run["name_review_run_id"],"%"+name.replace("%","\\%").replace("_","\\_")+"%",(page-1)*25)
             return {"rows": [app_state.func_mdm_row_serialize(x) for x in rows[:25]], "has_more":len(rows)>25, "page":page, "total":rows[0]["total_matches"] if rows else 0}
@@ -257,7 +260,7 @@ async def func_mdm_read_cw_search(*, app_state, pool, params: dict) -> dict:
             if len(query)<2:
                 return {"rows":[]}
             masters=await conn.fetch("SELECT golden_id FROM cw_master_current WHERE organization_name ILIKE $1 OR EXISTS(SELECT 1 FROM unnest(cw_codes) c WHERE c ILIKE $1) ORDER BY organization_name,golden_id LIMIT 51",search)
-            rows = await conn.fetch("SELECT entity_id,cw_code,original_name,cleaned_name,addresses,is_active,is_customer,is_vendor FROM cw_source_current WHERE golden_id=ANY($1::uuid[]) ORDER BY cw_code LIMIT 51", [x["golden_id"] for x in masters])
+            rows = await conn.fetch("SELECT entity_id,cw_code,original_name,cleaned_name,addresses,is_active,is_customer,is_vendor FROM cw_source_current WHERE golden_id=ANY($1::bigint[]) ORDER BY cw_code LIMIT 51", [x["golden_id"] for x in masters])
             return {"rows":[app_state.func_mdm_row_serialize(x) for x in rows[:50]], "has_more":len(rows)>50}
 
 async def func_mdm_read_approved(*, app_state, pool, params: dict) -> dict:
@@ -315,15 +318,15 @@ async def func_mdm_read_matches(*, app_state, pool, params: dict) -> dict:
             if not master:
                 raise HTTPException(status_code=404, detail="SAP approved record not found.")
             rows=await conn.fetch("""SELECT DISTINCT p.cw_name_id,p.name_similarity,n.name_key cw_name,w.entity_ids cw_source_ids
-                FROM sap_cw_comparison_current c JOIN organization_source_member m ON m.run_id=c.sap_run_id
-                JOIN sap_cw_name_match p ON p.comparison_id=c.comparison_id AND p.sap_name_id=m.name_id
-                JOIN organization_review_name n ON n.name_id=p.cw_name_id
-                JOIN organization_source_name w ON w.run_id=c.cw_run_id AND w.name_id=p.cw_name_id
+                FROM mdm_sap_cw_comparison_current c JOIN mdm_review_case_member m ON m.run_id=c.sap_run_id
+                JOIN mdm_sap_cw_name_match p ON p.comparison_id=c.comparison_id AND p.sap_name_id=m.name_id
+                JOIN mdm_review_name n ON n.name_id=p.cw_name_id
+                JOIN mdm_source_name w ON w.run_id=c.cw_run_id AND w.name_id=p.cw_name_id
                 WHERE m.entity_id=ANY($1::text[]) ORDER BY p.name_similarity DESC LIMIT 101""",master["source_entity_ids"])
             # Include exact original OrgCodes and addresses, with a bounded response.
             eids=list(dict.fromkeys(e for r in rows[:100] for e in r["cw_source_ids"]))
             records=await conn.fetch("SELECT entity_id,cw_code,original_name,addresses,is_active FROM cw_source_current WHERE entity_id=ANY($1::text[]) ORDER BY cw_code LIMIT 501",eids)
-            return {"master":app_state.func_mdm_row_serialize(master),"candidates":[app_state.func_mdm_row_serialize(x) for x in rows[:100]],"records":[app_state.func_mdm_row_serialize(x) for x in records[:500]],"truncated":len(rows)>100 or len(records)>500,"comparison":app_state.func_mdm_row_serialize(await conn.fetchrow("SELECT comparison_id,comparison_is_current FROM sap_cw_comparison_current"))}
+            return {"master":app_state.func_mdm_row_serialize(master),"candidates":[app_state.func_mdm_row_serialize(x) for x in rows[:100]],"records":[app_state.func_mdm_row_serialize(x) for x in records[:500]],"truncated":len(rows)>100 or len(records)>500,"comparison":app_state.func_mdm_row_serialize(await conn.fetchrow("SELECT comparison_id,comparison_is_current FROM mdm_sap_cw_comparison_current"))}
 
 def func_mdm_validate_parts(*, records, parts, action, source):
     """Every source row must appear exactly once; survivors must belong to their part."""
@@ -399,17 +402,17 @@ async def func_mdm_write(*, app_state, pool, actor: dict, body: dict) -> dict:
                 if previous["request_hash"]!=digest or previous["actor_id"]!=actor["id"]:
                     raise HTTPException(status_code=409, detail="This request ID has already been used for a different action.")
                 return {"decision_id":previous["id"],"replayed":True}
-            current=await conn.fetchval("SELECT run_id FROM source_analysis_runs_current WHERE source=$1",cmd["source"])
+            current=await conn.fetchval("SELECT run_id FROM mdm_runs_current WHERE source=$1",cmd["source"])
             if current!=cmd["run_id"]:
                 raise HTTPException(status_code=409, detail="The source run changed. Refresh before reviewing.")
             if cmd["action"] in ("approve","split","keep_separate"):
-                ids=sorted(set(cmd["master_ids"]))
+                ids=sorted(set(cmd["case_ids"]))
                 if not ids:
                     raise HTTPException(status_code=400, detail="Select at least one proposed group.")
-                masters=await conn.fetch("SELECT master_id FROM organization_source_master WHERE run_id=$1 AND master_id=ANY($2::uuid[]) ORDER BY master_id FOR UPDATE",cmd["run_id"],ids)
+                masters=await conn.fetch("SELECT case_id FROM mdm_review_case WHERE run_id=$1 AND case_id=ANY($2::bigint[]) ORDER BY case_id FOR UPDATE",cmd["run_id"],ids)
                 if len(masters)!=len(ids):
                     raise HTTPException(status_code=400, detail="A selected group does not belong to this source/run.")
-                records=await conn.fetch(f"SELECT * FROM {prefix}_source_current WHERE golden_id=ANY($1::uuid[]) ORDER BY entity_id LIMIT 2001",ids)
+                records=await conn.fetch(f"SELECT * FROM {prefix}_source_current WHERE golden_id=ANY($1::bigint[]) ORDER BY entity_id LIMIT 2001",ids)
                 if len(records)>2000:
                     raise HTTPException(status_code=400, detail="Select fewer than 2,001 records.")
                 claimed=await conn.fetchval("SELECT count(*) FROM mdm_approved_member WHERE run_id=$1 AND entity_id=ANY($2::text[])",cmd["run_id"],[r["entity_id"] for r in records])
@@ -431,10 +434,10 @@ async def func_mdm_write(*, app_state, pool, actor: dict, body: dict) -> dict:
                     approved.append(aid)
                 return {"decision_id":event,"approved_ids":approved}
             if cmd["action"]=="reject_suggestion":
-                if not cmd["master_ids"] or len(set(cmd["master_ids"]))<2:
+                if not cmd["case_ids"] or len(set(cmd["case_ids"]))<2:
                     raise HTTPException(status_code=400, detail="Select at least two proposed groups to reject their suggested combination.")
-                count=await conn.fetchval("SELECT count(*) FROM organization_source_master WHERE run_id=$1 AND master_id=ANY($2::uuid[])",cmd["run_id"],cmd["master_ids"])
-                if count!=len(set(cmd["master_ids"])):
+                count=await conn.fetchval("SELECT count(*) FROM mdm_review_case WHERE run_id=$1 AND case_id=ANY($2::bigint[])",cmd["run_id"],cmd["case_ids"])
+                if count!=len(set(cmd["case_ids"])):
                     raise HTTPException(status_code=400, detail="Invalid proposed group selection.")
                 return {"decision_id":await app_state.func_mdm_decision_create(conn=conn, cmd=cmd, actor=actor, digest=digest)}
             master=await conn.fetchrow("SELECT * FROM mdm_approved_master WHERE id=$1 FOR UPDATE",cmd["approved_id"])
@@ -447,7 +450,7 @@ async def func_mdm_write(*, app_state, pool, actor: dict, body: dict) -> dict:
             if cmd["action"] in ("confirm_existing","approve_new","reject_match"):
                 if cmd["source"]!="SAP":
                     raise HTTPException(status_code=400, detail="Destination matching is available only for SAP records.")
-                comparison=await conn.fetchrow("SELECT * FROM sap_cw_comparison_current")
+                comparison=await conn.fetchrow("SELECT * FROM mdm_sap_cw_comparison_current")
                 if not comparison or not comparison["comparison_is_current"] or comparison["comparison_id"]!=cmd["comparison_id"]:
                     raise HTTPException(status_code=409, detail="The CargoWise comparison changed or is stale. Refresh it before deciding.")
                 if cmd["action"] in ("confirm_existing","reject_match"):
@@ -530,3 +533,52 @@ async def func_mdm_export(*, app_state, pool, source: str):
         writer.writerow(values)
     return Response("\ufeff"+output.getvalue(),media_type="text/csv",headers={"Content-Disposition":f'attachment; filename="{source.lower()}_approved_handoff.csv"',"Cache-Control":"no-store"})
 
+
+
+def func_mdm_case_fields(*, value):
+    """Use case terminology in proposal responses; approved golden IDs are separate."""
+    names = {"golden_id": "case_id", "masters": "cases", "left_golden_ids": "left_case_ids", "right_golden_ids": "right_case_ids"}
+    if isinstance(value, list):
+        return [func_mdm_case_fields(value=item) for item in value]
+    if isinstance(value, dict):
+        return {names.get(key, key): func_mdm_case_fields(value=item) for key, item in value.items()}
+    return value
+
+
+def func_mdm_case_id(value):
+    """Validate a numeric PostgreSQL case identity without accepting floats or booleans."""
+    if type(value) not in (int, str) or not str(value).isascii() or not str(value).isdigit():
+        raise ValueError("Invalid case ID")
+    number = int(value)
+    if not 1 <= number <= 9223372036854775807:
+        raise ValueError("Invalid case ID")
+    return number
+
+
+async def func_mdm_read_company(*, app_state, pool, params: dict) -> dict:
+    """Read one imported source company, including its original source fields."""
+    import json
+    from fastapi import HTTPException
+    options = app_state.func_mdm_query_validate(params=params)
+    try:
+        raw_id = func_mdm_case_id(params.get("id"))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid company record.")
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            if not await conn.fetchval("SELECT pg_try_advisory_xact_lock_shared(hashtext('mdm_fresh_publication'))"):
+                raise HTTPException(status_code=503, detail="Data refresh in progress. Please try again shortly.")
+            await conn.execute("SET LOCAL lock_timeout='1s'")
+            await conn.execute("SET LOCAL statement_timeout='25s'")
+            if options["source"] == "CW":
+                record = await conn.fetchval('SELECT to_jsonb(o) FROM cw_raw_organization o WHERE id=$1', raw_id)
+                if record is None:
+                    raise HTTPException(status_code=404, detail="Company record not found. Refresh the review list.")
+                record = json.loads(record) if isinstance(record, str) else record
+                addresses = await conn.fetchval("SELECT coalesce(jsonb_agg(to_jsonb(a)),'[]'::jsonb) FROM cw_raw_address a WHERE \"OA_OH\"=$1::uuid", record["OH_PK"])
+                registrations = await conn.fetchval("SELECT coalesce(jsonb_agg(to_jsonb(r)),'[]'::jsonb) FROM cw_raw_registration r WHERE \"OK_OH\"=$1::uuid", record["OH_PK"])
+                return {"company": record, "addresses": json.loads(addresses) if isinstance(addresses,str) else addresses, "registrations": json.loads(registrations) if isinstance(registrations,str) else registrations}
+            record = await conn.fetchval('SELECT to_jsonb(o) FROM sap_raw_organization o WHERE id=$1', raw_id)
+            if record is None:
+                raise HTTPException(status_code=404, detail="Company record not found. Refresh the review list.")
+            return {"company": json.loads(record) if isinstance(record,str) else record}
