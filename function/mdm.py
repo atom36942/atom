@@ -119,7 +119,17 @@ async def func_mdm_read_overview(*, app_state, pool, params: dict) -> dict:
             await conn.execute("SET LOCAL jit=off")
             summary = app_state.func_mdm_row_serialize(await conn.fetchrow(f"SELECT * FROM {prefix}_summary_current"))
             queue = await conn.fetchrow("SELECT count(*) approved_records,count(*) FILTER(WHERE ready_for_export) ready_records,count(*) FILTER(WHERE execution_status='success') completed_records FROM mdm_approved_current WHERE source=$1 AND source_is_current", source)
-            return {"summary": summary, "review": app_state.func_mdm_row_serialize(queue), "comparison": app_state.func_mdm_row_serialize(await conn.fetchrow("SELECT comparison_id,sap_run_id,cw_run_id,comparison_is_current,completed_at FROM sap_cw_comparison_current"))}
+            review = app_state.func_mdm_row_serialize(queue)
+            review["pending_business_cases"] = await conn.fetchval("""
+                SELECT count(*) FROM organization_source_master m
+                JOIN source_analysis_runs_current r ON r.run_id=m.run_id
+                WHERE r.source=$1 AND m.source_record_count>1
+                  AND NOT EXISTS (
+                    SELECT 1 FROM organization_source_member sm
+                    JOIN mdm_approved_member am USING(run_id,entity_id)
+                    WHERE sm.run_id=m.run_id AND sm.master_id=m.master_id
+                  )""", source)
+            return {"summary": summary, "review": review, "comparison": app_state.func_mdm_row_serialize(await conn.fetchrow("SELECT comparison_id,sap_run_id,cw_run_id,comparison_is_current,completed_at FROM sap_cw_comparison_current"))}
 
 async def func_mdm_read_groups(*, app_state, pool, params: dict) -> dict:
     """Read groups with a supplied pool; callable without the API or dispatcher."""
