@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import secrets
 import subprocess
 import sys
 import tempfile
@@ -45,6 +46,7 @@ files_to_sync = [
 
 # requirements.txt and config_extend.py are merged separately, not overwritten.
 STATE_PATH = ".atom-sync/state.json"
+LOCK_TOKEN_ENV = "ATOM_SYNC_LOCK_TOKEN"
 
 
 def git(root, *args):
@@ -232,9 +234,10 @@ def sync_lock(root):
     except FileExistsError:
         raise ValueError("Another sync may be running. If a previous run was interrupted, review the working tree and confirm no updater is running before removing .atom-sync/lock.") from None
     try:
+        token = secrets.token_hex(32)
         with os.fdopen(fd, "w") as stream:
-            stream.write(str(os.getpid()))
-        yield
+            stream.write(token)
+        yield token
     finally:
         lock.unlink(missing_ok=True)
 
@@ -269,7 +272,7 @@ def sync(root, repo_url=REPO_URL):
 def bootstrap_sync(root, repo_url=REPO_URL):
     """Install the fetched updater, then run it under the same parent-held lock."""
     root = project_root(root)
-    with sync_lock(root):
+    with sync_lock(root) as lock_token:
         revision = fetch_revision(root, repo_url)
         record = git(root, "ls-tree", revision, "--", "sync.py").decode().strip()
         if not record:
@@ -286,7 +289,10 @@ def bootstrap_sync(root, repo_url=REPO_URL):
         print("Running the latest Atom updater...", flush=True)
         try:
             # The child applies this exact commit; it never re-fetches or bootstraps.
-            result = subprocess.run([sys.executable, str(script), "--apply-revision", revision], cwd=root)
+            # Windows venv launchers may insert another process between us and Python.
+            child_env = os.environ.copy()
+            child_env[LOCK_TOKEN_ENV] = lock_token
+            result = subprocess.run([sys.executable, str(script), "--apply-revision", revision], cwd=root, env=child_env)
         except OSError:
             if previous is None:
                 script.unlink(missing_ok=True)
@@ -303,7 +309,8 @@ def apply_bootstrapped_revision(root, revision):
     if not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", revision):
         raise ValueError("Invalid sync revision")
     lock = safe_path(root, ".atom-sync/lock")
-    if not lock.exists() or lock.read_text() != str(os.getppid()):
+    token = os.environ.pop(LOCK_TOKEN_ENV, "")
+    if not token or not lock.exists() or not secrets.compare_digest(lock.read_bytes(), token.encode()):
         raise ValueError("Internal sync mode requires the parent updater's lock")
     if safe_path(root, "sync.py").read_bytes() != git(root, "show", f"{revision}:sync.py"):
         raise ValueError("Updater source does not match the fetched revision")

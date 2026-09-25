@@ -3,6 +3,7 @@
 from contextlib import redirect_stdout, redirect_stderr
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -258,6 +259,28 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(self.snapshot(), before)
         self.assertNotIn("Files synced successfully!", result.stdout)
         self.assertFalse((self.root / ".atom-sync/lock").exists())
+
+    def test_child_accepts_handoff_with_different_parent_pid(self):
+        latest = self.install_bootstrap_fixture()
+        # Simulate the parent PID exposed behind a Windows venv launcher.
+        latest = latest.replace('import os\n', 'import os\nos.getppid = lambda: -1\n', 1)
+        self.write(self.upstream, "sync.py", latest)
+        self.commit(self.upstream)
+        result = self.run_cli()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.root / "latest-only.txt").read_text(), "synced by the newest rules\n")
+        self.assertFalse((self.root / ".atom-sync/lock").exists())
+
+    def test_child_rejects_missing_or_wrong_handoff_token(self):
+        revision = self.git(self.root, "rev-parse", "HEAD").decode().strip()
+        with sync.sync_lock(self.root) as token:
+            for supplied in ("", "wrong-token"):
+                with self.subTest(token=supplied), patch.dict(os.environ, {sync.LOCK_TOKEN_ENV: supplied}):
+                    with patch.object(sync, "apply_revision") as apply:
+                        with self.assertRaisesRegex(ValueError, "parent updater's lock"):
+                            sync.apply_bootstrapped_revision(self.root, revision)
+                        apply.assert_not_called()
+                self.assertEqual((self.root / ".atom-sync/lock").read_text(), token)
 
     def test_latest_updater_failure_is_reported_without_syncing_other_files(self):
         latest = self.install_bootstrap_fixture()

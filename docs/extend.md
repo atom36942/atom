@@ -132,7 +132,9 @@ The updater first fetches upstream `main`, pins that commit, validates its
 fresh process using the same Python interpreter. The latest version applies its
 sync rules immediately, in this same invocation; there is no second manual run.
 The child uses the pinned commit without re-fetching or restarting again, while
-the parent holds the sync lock.
+the parent holds the sync lock. A per-run token passed to the child validates
+the handoff without depending on parent process IDs, which Windows virtual
+environment launchers can change.
 
 The latest updater prepares and validates the selected project files before
 replacing them. Missing required files, invalid Python, failed Git commands, or
