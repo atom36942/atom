@@ -150,7 +150,9 @@ def prepare_update(root, revision):
             raise ValueError("Unsupported or invalid sync ownership state")
         for name, digest in state["files"].items():
             if not is_owned_path(name):
-                raise ValueError(f"Unexpected path in sync ownership state: {name}")
+                # A newer updater may stop managing a selected file or folder.
+                # Leave it untouched and omit it from the next ownership state.
+                continue
             if name not in owned:
                 path = safe_path(root, name)
                 if path.exists():
@@ -310,8 +312,12 @@ def apply_bootstrapped_revision(root, revision):
         raise ValueError("Invalid sync revision")
     lock = safe_path(root, ".atom-sync/lock")
     token = os.environ.pop(LOCK_TOKEN_ENV, "")
-    if not token or not lock.exists() or not secrets.compare_digest(lock.read_bytes(), token.encode()):
-        raise ValueError("Internal sync mode requires the parent updater's lock")
+    if not token:
+        raise ValueError("Internal sync mode requires the parent updater's lock: no handoff token was received. If you ran python sync.py, the previous updater may have just installed this version; run python sync.py again.")
+    if not lock.exists():
+        raise ValueError("Internal sync mode requires the parent updater's lock: .atom-sync/lock is missing")
+    if not secrets.compare_digest(lock.read_bytes(), token.encode()):
+        raise ValueError("Internal sync mode requires the parent updater's lock: the handoff token does not match .atom-sync/lock")
     if safe_path(root, "sync.py").read_bytes() != git(root, "show", f"{revision}:sync.py"):
         raise ValueError("Updater source does not match the fetched revision")
     apply_revision(root, revision)

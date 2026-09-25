@@ -143,6 +143,8 @@ the Git index is left unchanged. If the project sync fails, the newly installed
 `sync.py` remains in place, while project write failures use in-memory rollback.
 If the new process cannot be launched, the old updater is restored from memory.
 
+- If a file or folder is removed from the updater's sync selection, its local
+  files are preserved and its old ownership records are dropped on successful sync.
 - All upstream files in `function/` and `router/` are discovered automatically and
   created or replaced, including newly added Atom modules. Developer-only files in
   both folders and `.env` are preserved. A path also present in upstream belongs to Atom.

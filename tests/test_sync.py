@@ -194,6 +194,35 @@ class SyncTests(unittest.TestCase):
             self.run_sync()
         self.assertEqual(self.snapshot(), before)
 
+    def test_removed_sync_selection_is_preserved_and_forgotten(self):
+        self.write(self.upstream, "static/pulse.html", "upstream pulse\n")
+        self.commit(self.upstream)
+        for content in ("upstream pulse\n", "developer pulse\n", None):
+            with self.subTest(content=content):
+                with patch.object(sync, "files_to_sync", [*sync.files_to_sync, "static/pulse.html"]):
+                    self.run_sync()
+                path = self.root / "static/pulse.html"
+                if content is None:
+                    path.unlink()
+                else:
+                    path.write_text(content)
+                self.run_sync()
+                if content is None:
+                    self.assertFalse(path.exists())
+                else:
+                    self.assertEqual(path.read_text(), content)
+                state = json.loads((self.root / sync.STATE_PATH).read_text())
+                self.assertNotIn("static/pulse.html", state["files"])
+
+    def test_removed_folder_selection_preserves_its_files(self):
+        self.run_sync()
+        self.write(self.root, "router/index.py", "# developer edits\n")
+        with patch.object(sync, "files_to_sync", [p for p in sync.files_to_sync if p != "router"]):
+            self.run_sync()
+        self.assertEqual((self.root / "router/index.py").read_text(), "# developer edits\n")
+        state = json.loads((self.root / sync.STATE_PATH).read_text())
+        self.assertFalse(any(name.startswith("router/") for name in state["files"]))
+
     def test_symlink_cannot_redirect_update_outside_project(self):
         outside = self.base / "outside.py"
         outside.write_text("# keep\n")
@@ -270,6 +299,29 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual((self.root / "latest-only.txt").read_text(), "synced by the newest rules\n")
         self.assertFalse((self.root / ".atom-sync/lock").exists())
+
+    def test_old_updater_installs_token_updater_then_retry_succeeds(self):
+        latest = self.install_bootstrap_fixture()
+        local = self.root / "sync.py"
+        # The previous updater launched the child without a handoff token.
+        source = local.read_text().replace(', cwd=root, env=child_env)', ', cwd=root)')
+        source = source.replace('stream.write(token)', 'stream.write(str(os.getpid()))')
+        local.write_text(source)
+        with patch.dict(os.environ):
+            os.environ.pop(sync.LOCK_TOKEN_ENV, None)
+            first = self.run_cli()
+        self.assertNotEqual(first.returncode, 0)
+        self.assertIn("no handoff token was received", first.stderr)
+        self.assertIn("run python sync.py again", first.stderr)
+        self.assertEqual(local.read_text(), latest)
+        self.assertFalse((self.root / ".atom-sync/lock").exists())
+        # The fixture's upstream URL is deliberately invalid for child fetches;
+        # point the newly installed updater at the local repository for retry.
+        local.write_text(latest.replace('REPO_URL = "/missing/child-must-not-fetch"',
+                                        f'REPO_URL = {str(self.upstream)!r}'))
+        second = self.run_cli()
+        self.assertEqual(second.returncode, 0, second.stderr)
+        self.assertEqual((self.root / "latest-only.txt").read_text(), "synced by the newest rules\n")
 
     def test_child_rejects_missing_or_wrong_handoff_token(self):
         revision = self.git(self.root, "rev-parse", "HEAD").decode().strip()
