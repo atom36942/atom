@@ -244,7 +244,7 @@
   </div>
   <div id="exportModal" class="modal-wrap hidden" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
     <form id="exportForm" class="modal export-box">
-      <div class="modal-head"><div class="modal-head-copy"><h2 id="exportTitle">Export assigned tasks</h2><p class="modal-subtitle">Current task filters will be applied</p></div></div>
+      <div class="modal-head"><div class="modal-head-copy"><h2 id="exportTitle">Export assigned tasks</h2><p class="modal-subtitle">Only tasks assigned to you · Current task filters will be applied</p></div></div>
       <div class="modal-body"><p class="export-note">Enter the maximum number of tasks to include in the CSV.</p><div class="field"><label for="exportCount">Maximum tasks</label><input id="exportCount" class="input" type="number" min="1" max="10000" step="1" value="5000" required></div><div id="exportProgress" class="export-progress hidden"><div class="export-progress-row"><span id="exportProgressLabel">Preparing export…</span><span id="exportProgressCount">0 / 5000</span></div><progress id="exportProgressBar" value="0" max="5000"></progress></div></div>
       <div class="modal-foot"><button id="exportCancelBtn" class="btn secondary" type="button">Cancel</button><button id="exportStartBtn" class="btn" type="submit">Export CSV</button></div>
     </form>
