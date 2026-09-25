@@ -64,7 +64,7 @@ def func_mdm_command_validate(*, body: dict) -> dict:
         raise HTTPException(status_code=400, detail="Invalid final groups.")
     normalized = []
     for part in cmd["parts"]:
-        if not isinstance(part, dict) or set(part) - {"entity_ids", "organization_name", "selected_cw_code"}:
+        if not isinstance(part, dict) or set(part) - {"entity_ids", "organization_name", "selected_cw_code", "final_record"}:
             raise HTTPException(status_code=400, detail="Invalid final group fields.")
         ids, name, cw_code = part.get("entity_ids"), part.get("organization_name"), part.get("selected_cw_code")
         if not isinstance(ids, list) or not 1 <= len(ids) <= 2000 or any(not isinstance(value, str) or not value.strip() for value in ids):
@@ -73,7 +73,7 @@ def func_mdm_command_validate(*, body: dict) -> dict:
             raise HTTPException(status_code=400, detail="Each final group needs a company name (maximum 500 characters).")
         if cw_code is not None and (not isinstance(cw_code, str) or len(cw_code) > 100):
             raise HTTPException(status_code=400, detail="Invalid surviving CargoWise code.")
-        normalized.append({"entity_ids": ids, "organization_name": name, "selected_cw_code": cw_code})
+        normalized.append({"entity_ids": ids, "organization_name": name, "selected_cw_code": cw_code, "final_record": part.get("final_record")})
     cmd["parts"] = normalized
     if cmd["addresses"] is not None and (not isinstance(cmd["addresses"], list) or len(cmd["addresses"]) > 2000 or any(not isinstance(a, dict) for a in cmd["addresses"])):
         raise HTTPException(status_code=400, detail="Addresses must be a list of address objects.")
@@ -419,17 +419,25 @@ async def func_mdm_write(*, app_state, pool, actor: dict, body: dict) -> dict:
                 if claimed:
                     raise HTTPException(status_code=409, detail="Another review has already approved some of these records. Refresh the list.")
                 app_state.func_mdm_validate_parts(records=records,parts=cmd["parts"],action=cmd["action"],source=cmd["source"])
+                final_records = [app_state.func_mdm_final_record_prepare(
+                    records=[r for r in records if r["entity_id"] in part["entity_ids"]],
+                    final_record=part.get("final_record"), source=cmd["source"]
+                ) for part in cmd["parts"]]
                 event=await app_state.func_mdm_decision_create(conn=conn, cmd=cmd, actor=actor, digest=digest)
                 approved=[]
-                for part in cmd["parts"]:
+                for part, final in zip(cmd["parts"], final_records):
                     selected=[r for r in records if r["entity_id"] in set(part["entity_ids"])]
                     roles={"source_roles":[{"entity_id":r["entity_id"],"cw_roles":app_state.func_mdm_json_read(r["cw_role_flags"],{}),"account_group_code":r["account_group_code"],"account_group_name":r["account_group_name"]} for r in selected]}
+                    roles["approved_flags"] = final["role_flags"]
+                    roles["final_record_reviewed"] = True
+                    roles["registration_conflicts_confirmed"] = final["registration_conflicts_confirmed"]
+                    roles["no_address_confirmed"] = final["no_address_confirmed"]
                     aid=await conn.fetchval("""INSERT INTO mdm_approved_master
                         (golden_id,source,run_id,decision_id,organization_name,source_master_ids,source_entity_ids,cw_codes,selected_cw_code,is_customer,is_vendor,addresses,registrations,roles,destination_status,approved_by)
                         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14::jsonb,$15,$16) RETURNING id""",
                         uuid4(),cmd["source"],cmd["run_id"],event,part["organization_name"].strip(),list({r["golden_id"] for r in selected}),part["entity_ids"],
                         sorted({r["cw_code"] for r in selected if r["cw_code"]}),part["selected_cw_code"],
-                        app_state.func_mdm_boolean_union(records=selected,key="is_customer"),app_state.func_mdm_boolean_union(records=selected,key="is_vendor"),json.dumps(app_state.func_mdm_values_union(records=selected,key="addresses")),json.dumps(app_state.func_mdm_values_union(records=selected,key="registrations")),json.dumps(roles),"update" if cmd["source"]=="CW" else "pending",actor["id"])
+                        final["is_customer"],final["is_vendor"],json.dumps(final["addresses"]),json.dumps(final["registrations"]),json.dumps(roles),"update" if cmd["source"]=="CW" else "pending",actor["id"])
                     await conn.executemany("INSERT INTO mdm_approved_member(run_id,entity_id,approved_id) VALUES($1,$2,$3)",[(cmd["run_id"],e,aid) for e in part["entity_ids"]])
                     approved.append(aid)
                 return {"decision_id":event,"approved_ids":approved}
@@ -471,6 +479,11 @@ async def func_mdm_write(*, app_state, pool, actor: dict, body: dict) -> dict:
                 old=app_state.func_mdm_json_read(master["addresses"],[])
                 if len(addresses)!=len(old) or any(a.get("source_entity_id")!=b.get("source_entity_id") for a,b in zip(addresses,old)):
                     raise HTTPException(status_code=400, detail="Preserve every address and its source_entity_id when correcting details.")
+                if app_state.func_mdm_json_read(master["roles"],{}).get("final_record_reviewed"):
+                    if any(a.get("source_index")!=b.get("source_index") for a,b in zip(addresses,old)):
+                        raise HTTPException(status_code=400, detail="Preserve the original address references.")
+                    if addresses and (any(type(a.get("is_primary")) is not bool for a in addresses) or sum(a["is_primary"] for a in addresses)!=1):
+                        raise HTTPException(status_code=400, detail="Keep exactly one primary address.")
                 event=await app_state.func_mdm_decision_create(conn=conn, cmd=cmd, actor=actor, digest=digest)
                 await conn.execute("UPDATE mdm_approved_master SET organization_name=$2,addresses=$3::jsonb,destination_status=$4,comparison_id=NULL,version=version+1,updated_at=now() WHERE id=$1",master["id"],cmd["organization_name"].strip(),json.dumps(addresses),"pending" if cmd["source"]=="SAP" else "update")
                 return {"decision_id":event}
@@ -582,3 +595,166 @@ async def func_mdm_read_company(*, app_state, pool, params: dict) -> dict:
             if record is None:
                 raise HTTPException(status_code=404, detail="Company record not found. Refresh the review list.")
             return {"company": json.loads(record) if isinstance(record,str) else record}
+
+
+async def func_mdm_export_cases(*, app_state, pool, params: dict):
+    """Download current cases as flat source-record rows, without pagination."""
+    import csv
+    import io
+    import json
+    from fastapi import HTTPException
+    from fastapi.responses import StreamingResponse
+    options = app_state.func_mdm_query_validate(params=params)
+    source, prefix = options['source'], options['prefix']
+    status = params.get('status', 'pending')
+    if status not in ('pending', 'approved', 'all'):
+        raise HTTPException(status_code=400, detail='Invalid export status.')
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            if not await conn.fetchval("SELECT pg_try_advisory_xact_lock_shared(hashtext('mdm_fresh_publication'))"):
+                raise HTTPException(status_code=503, detail='Data refresh in progress. Please try again shortly.')
+            await conn.execute("SET LOCAL lock_timeout='1s'")
+            await conn.execute("SET LOCAL statement_timeout='60s'")
+            await conn.execute("SET LOCAL jit=off")
+            rows = await conn.fetch(f"""
+                WITH current_run AS MATERIALIZED (SELECT run_id FROM mdm_runs_current WHERE source=$1),
+                reviewed AS MATERIALIZED (
+                  SELECT DISTINCT cm.case_id FROM mdm_approved_member am
+                  JOIN mdm_review_case_member cm USING(run_id,entity_id)
+                  WHERE am.run_id=(SELECT run_id FROM current_run)
+                ), cases AS MATERIALIZED (
+                  SELECT c.* FROM mdm_review_case c
+                  WHERE c.run_id=(SELECT run_id FROM current_run)
+                  AND (c.source_record_count>1 OR c.case_id IN (SELECT case_id FROM reviewed))
+                  AND (c.organization_name ILIKE $2 OR c.case_id::text=$3
+                    OR EXISTS(SELECT 1 FROM unnest(c.cw_codes) code WHERE code ILIKE $2))
+                  AND ($4='all' OR ($4='approved')=(c.case_id IN (SELECT case_id FROM reviewed)))
+                )
+                SELECT c.case_id golden_id,cm.entity_id,cm.is_customer,cm.is_vendor,
+                  i.prepared_data->>'cw_code' cw_code,i.prepared_data->>'source_code' source_code,
+                  i.prepared_data->>'source_file' source_file,i.prepared_data->>'original_name' original_name,
+                  i.prepared_data->>'account_group_name' account_group_name,
+                  i.prepared_data->'addresses' addresses,i.prepared_data->'registrations' registrations,
+                  c.source_record_count,c.organization_name proposed_name,
+                  a.organization_name approved_name,a.selected_cw_code,a.id approved_record_id,
+                  a.approved_at,d.actor_name,d.action,d.reason
+                FROM cases c JOIN mdm_review_case_member cm ON cm.run_id=c.run_id AND cm.case_id=c.case_id
+                JOIN mdm_match_input i ON i.run_id=cm.input_run_id AND i.entity_id=cm.entity_id
+                LEFT JOIN mdm_approved_member am ON am.run_id=cm.run_id AND am.entity_id=cm.entity_id
+                LEFT JOIN mdm_approved_master a ON a.id=am.approved_id
+                LEFT JOIN mdm_review_decision d ON d.id=a.decision_id
+                ORDER BY c.source_record_count DESC,c.organization_name,c.case_id,cm.entity_id
+                """, source, options['search'], options['query'], status)
+    def decoded(value):
+        return json.loads(value) if isinstance(value, str) else value or []
+    address_count = max((len(decoded(r['addresses'])) for r in rows), default=1)
+    fields = ['Case ID','Status','Records in case','Source','Source record ID','Source code','Source file',
+              'Company name','Proposed company name','Account type','Account group','Registration numbers',
+              'Approved record ID','Approved company name','CargoWise code to keep','Reviewer','Review date','Decision','Reason']
+    for i in range(1,address_count+1):
+        fields += [f'Address {i}',f'City {i}',f'State {i}',f'Postcode {i}',f'Country {i}']
+    def safe(value):
+        value = '' if value is None else str(value)
+        if value.lstrip().startswith(('=','+','-','@')) or value.startswith(('\t','\r','\n')):
+            value = "'" + value
+        return value
+    def generate():
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        yield '\ufeff'
+        writer.writerow(fields)
+        yield buffer.getvalue(); buffer.seek(0); buffer.truncate(0)
+        for r in rows:
+            account = 'Customer & vendor' if r['is_customer'] and r['is_vendor'] else 'Customer' if r['is_customer'] else 'Vendor' if r['is_vendor'] else 'Unclassified'
+            registrations = '; '.join(' | '.join(str(v) for v in (x.get('scheme'),x.get('country'),x.get('normalized')) if v) for x in decoded(r['registrations']))
+            values = [r['golden_id'],'Approved' if r['approved_record_id'] else 'Pending',r['source_record_count'],source,r['entity_id'],r['cw_code'] or r['source_code'],r['source_file'],r['original_name'],r['proposed_name'],account,r['account_group_name'],registrations,r['approved_record_id'],r['approved_name'],r['selected_cw_code'],r['actor_name'],r['approved_at'],r['action'],r['reason']]
+            addresses = decoded(r['addresses'])
+            for i in range(address_count):
+                a = addresses[i] if i<len(addresses) else {}
+                lines = a.get('lines', '')
+                values += [' | '.join(str(x) for x in lines) if isinstance(lines,list) else lines,a.get('city'),a.get('state'),a.get('postcode'),a.get('country')]
+            writer.writerow([safe(v) for v in values])
+            if buffer.tell() >= 65536:
+                yield buffer.getvalue(); buffer.seek(0); buffer.truncate(0)
+        if buffer.tell():
+            yield buffer.getvalue()
+    return StreamingResponse(generate(), media_type='text/csv', headers={
+        'Content-Disposition':f'attachment; filename="{source.lower()}_{status}_cases.csv"','Cache-Control':'no-store'})
+
+
+def func_mdm_final_record_prepare(*, records, final_record, source):
+    """Validate reviewed fields and retain server-owned source provenance."""
+    import copy
+    import re
+    from fastapi import HTTPException
+    allowed = {'confirmed','addresses','registrations','role_flags','is_customer','is_vendor',
+               'no_address_confirmed','registration_conflicts_confirmed'}
+    if not isinstance(final_record, dict) or set(final_record) != allowed or final_record['confirmed'] is not True:
+        raise HTTPException(status_code=400, detail='Preview and confirm the final record before approval.')
+    for key in ('no_address_confirmed','registration_conflicts_confirmed'):
+        if type(final_record[key]) is not bool:
+            raise HTTPException(status_code=400, detail='Invalid final-record confirmation.')
+    for key in ('is_customer','is_vendor'):
+        if final_record[key] is not None and type(final_record[key]) is not bool:
+            raise HTTPException(status_code=400, detail='Customer/vendor flags must be Yes, No or Unknown.')
+    by_id = {r['entity_id']: r for r in records}
+    result = copy.deepcopy(final_record)
+    for kind in ('addresses','registrations'):
+        items = final_record[kind]
+        if not isinstance(items,list) or len(items)>10000:
+            raise HTTPException(status_code=400, detail=f'Invalid final {kind}.')
+        result[kind] = []
+        seen = set()
+        for item in items:
+            fields = {'lines','city','state','postcode','country','is_primary'} if kind=='addresses' else {'scheme','country','normalized'}
+            if not isinstance(item,dict) or set(item) != fields | {'source_entity_id','source_index'}:
+                raise HTTPException(status_code=400, detail=f'Invalid reviewed {kind} fields.')
+            eid, index = item['source_entity_id'], item['source_index']
+            if not isinstance(eid,str) or eid not in by_id or type(index) is not int or index<0 or (eid,index) in seen:
+                raise HTTPException(status_code=400, detail='Each retained detail must belong to this final group, once only.')
+            original = func_mdm_json_read(by_id[eid][kind], [])
+            if index>=len(original):
+                raise HTTPException(status_code=400, detail='Source details changed. Reopen the review.')
+            seen.add((eid,index))
+            retained = copy.deepcopy(original[index])
+            for field in fields-{'lines','is_primary'}:
+                value = item[field]
+                if not isinstance(value,str) or len(value)>1000:
+                    raise HTTPException(status_code=400, detail=f'Invalid {field} in final {kind}.')
+                retained[field] = value.strip()
+            if retained['country'] and not re.fullmatch('[A-Za-z]{2}',retained['country']):
+                raise HTTPException(status_code=400, detail='Use a two-letter country code, or leave it blank.')
+            retained['country'] = retained['country'].upper()
+            if kind=='addresses':
+                if type(item['is_primary']) is not bool or not isinstance(item['lines'],list) or len(item['lines'])>20 or any(not isinstance(v,str) or len(v)>1000 for v in item['lines']):
+                    raise HTTPException(status_code=400, detail='Invalid final address.')
+                retained['lines'] = [v.strip() for v in item['lines'] if v.strip()]
+                retained['is_primary'] = item['is_primary']
+                if not any(retained.get(k) for k in ('lines','city','state','postcode','country')):
+                    raise HTTPException(status_code=400, detail='Correct or exclude empty addresses.')
+                # Matching keys describe source data, not reviewer corrections.
+                for key in ('city_key','postcode_key','components'):
+                    retained.pop(key,None)
+            else:
+                if not retained['normalized']:
+                    raise HTTPException(status_code=400, detail='Enter a registration number or exclude that registration.')
+                if any(retained.get(k)!=original[index].get(k) for k in ('scheme','country','normalized')):
+                    retained['verified'] = False
+                retained.pop('match_key',None)
+            retained['source_entity_id'], retained['source_index'] = eid,index
+            result[kind].append(retained)
+    if result['addresses'] and sum(a['is_primary'] for a in result['addresses'])!=1:
+        raise HTTPException(status_code=400, detail='Choose exactly one primary address for each final company.')
+    if not result['addresses'] and not final_record['no_address_confirmed']:
+        raise HTTPException(status_code=400, detail='Confirm saving without an address, or retain an address.')
+    # Different countries/types may legitimately have different registration numbers.
+    registrations = {}
+    for r in result['registrations']:
+        registrations.setdefault((r['scheme'].upper(),r['country']),set()).add(re.sub(r'\W','',r['normalized'].upper()))
+    if any(len(v)>1 for v in registrations.values()) and not final_record['registration_conflicts_confirmed']:
+        raise HTTPException(status_code=400, detail='Resolve or explicitly confirm different registration numbers for the same type and country.')
+    flags = final_record['role_flags']
+    known = set().union(*(func_mdm_json_read(r['cw_role_flags'],{}).keys() for r in records)) if source=='CW' else set()
+    if not isinstance(flags,dict) or set(flags)!=known or any(v is not None and type(v) is not bool for v in flags.values()):
+        raise HTTPException(status_code=400, detail='Confirm every source role flag using Yes, No or Unknown.')
+    return result

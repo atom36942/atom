@@ -50,6 +50,8 @@ async def func_api_mdm_review(*, request: Request):
 @router.get("/mdm/export")
 async def func_api_mdm_export(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, strict_types=True, header_fallback=False, reject_unknown=True, param_specs=[{"name": "source", "type": "str", "required": False, "allowed": ["CW", "SAP"], "default": "CW"}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, strict_types=True, header_fallback=False, reject_unknown=True, param_specs=[{"name": "source", "type": "str", "allowed": ["CW", "SAP"], "default": "CW"}, {"name": "kind", "type": "str", "allowed": ["handoff", "cases"], "default": "handoff"}, {"name": "status", "type": "str", "allowed": ["pending", "approved", "all"], "default": "pending"}, {"name": "q", "type": "str", "default": ""}])
     client_postgres, _, _ = app_state.func_postgres_db_select(app_state=app_state, db="mdm")
+    if oq["kind"] == "cases":
+        return await app_state.func_mdm_export_cases(app_state=app_state, pool=client_postgres, params=oq)
     return await app_state.func_mdm_export(app_state=app_state, pool=client_postgres, source=oq["source"])
