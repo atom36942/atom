@@ -56,7 +56,7 @@ async def func_api_pgweb(*, request: Request):
     if client_ip not in ("127.0.0.1", "::1", "localhost", "testclient"):
         raise Exception("pgweb is restricted to localhost")
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[])
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[])
     if ob.get("action") == "stream":
         pool = app_state.client_postgres_pgweb.get("pool")
         if not pool: return responses.JSONResponse({"status": 0, "message": "not_connected"}, status_code=400)

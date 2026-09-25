@@ -9,7 +9,7 @@ def func_query_bool_parse(value: any, default: bool = False) -> bool:
     if normalized in ("false", "0"): return False
     raise ValueError(f"invalid boolean query value: {value!r}; expected 'true' or 'false'")
 
-async def func_request_param_read(*, request: any, mode: str, strict: bool, param_specs: list, strict_types: bool = False, header_fallback: bool = True, reject_unknown: bool = False) -> dict:
+async def func_request_param_read(*, request: any, mode: str, param_specs: list, strict: bool = False, strict_types: bool = False, header_fallback: bool = True, reject_unknown: bool = False) -> dict:
     """Read parameters with backward-compatible defaults.
 
     strict selects specified fields only; reject_unknown rejects extra fields.

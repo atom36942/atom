@@ -8,7 +8,7 @@ router = APIRouter()
 @router.get("/mdm/read")
 async def func_api_mdm_read(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, strict_types=True, header_fallback=False, reject_unknown=True, param_specs=[
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict_types=True, header_fallback=False, reject_unknown=True, param_specs=[
         {"name": "kind", "type": "str", "required": True, "allowed": ["overview", "groups", "detail", "candidates", "cw-search", "approved", "audit", "matches", "company"]},
         {"name": "source", "type": "str", "allowed": ["CW", "SAP"], "default": "CW"},
         {"name": "page", "type": "int", "default": 1, "minimum": 1, "maximum": 100000},
@@ -27,7 +27,7 @@ async def func_api_mdm_review(*, request: Request):
     app_state = request.app.state
     if len(await request.body()) > 2_000_000:
         raise HTTPException(status_code=413, detail="Review request is too large.")
-    ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, strict_types=True, header_fallback=False, reject_unknown=True, param_specs=[
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict_types=True, header_fallback=False, reject_unknown=True, param_specs=[
         {"name": "request_id", "type": "str", "required": True},
         {"name": "source", "type": "str", "required": True, "allowed": ["CW", "SAP"]},
         {"name": "run_id", "type": "str", "required": True},
@@ -50,7 +50,7 @@ async def func_api_mdm_review(*, request: Request):
 @router.get("/mdm/export")
 async def func_api_mdm_export(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", strict=False, strict_types=True, header_fallback=False, reject_unknown=True, param_specs=[{"name": "source", "type": "str", "allowed": ["CW", "SAP"], "default": "CW"}, {"name": "kind", "type": "str", "allowed": ["handoff", "cases"], "default": "handoff"}, {"name": "status", "type": "str", "allowed": ["pending", "approved", "all"], "default": "pending"}, {"name": "q", "type": "str", "default": ""}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", strict_types=True, header_fallback=False, reject_unknown=True, param_specs=[{"name": "source", "type": "str", "allowed": ["CW", "SAP"], "default": "CW"}, {"name": "kind", "type": "str", "allowed": ["handoff", "cases"], "default": "handoff"}, {"name": "status", "type": "str", "allowed": ["pending", "approved", "all"], "default": "pending"}, {"name": "q", "type": "str", "default": ""}])
     client_postgres, _, _ = app_state.func_postgres_db_select(app_state=app_state, db="mdm")
     if oq["kind"] == "cases":
         return await app_state.func_mdm_export_cases(app_state=app_state, pool=client_postgres, params=oq)
