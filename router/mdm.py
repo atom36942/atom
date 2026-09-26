@@ -9,7 +9,7 @@ router = APIRouter()
 async def func_api_mdm_read(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict_types=True, header_fallback=False, reject_unknown=True, param_specs=[
-        {"name": "kind", "type": "str", "required": True, "allowed": ["overview", "groups", "detail", "candidates", "cw-search", "approved", "audit", "matches", "company"]},
+        {"name": "kind", "type": "str", "required": True, "allowed": ["overview", "groups", "detail", "candidates", "cw-search", "approved", "audit", "matches", "company", "case-matches"]},
         {"name": "source", "type": "str", "allowed": ["CW", "SAP"], "default": "CW"},
         {"name": "page", "type": "int", "default": 1, "minimum": 1, "maximum": 100000},
         {"name": "q", "type": "str", "default": ""},

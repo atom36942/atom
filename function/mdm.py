@@ -102,7 +102,7 @@ def func_mdm_query_validate(*, params: dict) -> dict:
 async def func_mdm_read(*, app_state, pool, kind: str, params: dict) -> dict:
     """Dispatch an allowed read through Atom's registered functions."""
     from fastapi import HTTPException
-    if kind not in ("overview", "groups", "detail", "candidates", "cw-search", "approved", "audit", "matches", "company"):
+    if kind not in ("overview", "groups", "detail", "candidates", "cw-search", "approved", "audit", "matches", "company", "case-matches"):
         raise HTTPException(status_code=404, detail="Unknown MDM operation.")
     func_read = getattr(app_state, "func_mdm_read_" + kind.replace("-", "_"))
     from asyncpg import LockNotAvailableError
@@ -124,22 +124,24 @@ async def func_mdm_read_overview(*, app_state, pool, params: dict) -> dict:
         async with conn.transaction():
             if not await conn.fetchval("SELECT pg_try_advisory_xact_lock_shared(hashtext('mdm_fresh_publication'))"):
                 raise HTTPException(status_code=503, detail="Data refresh in progress. Please try again shortly.", headers={"Retry-After": "30"})
-            await conn.execute("SET LOCAL lock_timeout='1s'")
-            await conn.execute("SET LOCAL statement_timeout='25s'")
-            await conn.execute("SET LOCAL jit=off")
-            queue = await conn.fetchrow("SELECT count(*) approved_records FROM mdm_approved_master a JOIN mdm_runs_current r USING(run_id) WHERE r.source=$1", source)
+            await conn.execute("SET LOCAL lock_timeout='1s'; SET LOCAL statement_timeout='25s'; SET LOCAL jit=off")
+            queue = await conn.fetchrow("""
+                WITH current_run AS MATERIALIZED (SELECT run_id FROM mdm_runs_current WHERE source=$1),
+                reviewed AS MATERIALIZED (
+                  SELECT DISTINCT sm.case_id FROM mdm_approved_member am
+                  JOIN mdm_review_case_member sm USING(run_id,entity_id)
+                  WHERE am.run_id=(SELECT run_id FROM current_run)
+                ) SELECT
+                  (SELECT count(*) FROM mdm_approved_master WHERE run_id=(SELECT run_id FROM current_run)) approved_records,
+                  (SELECT count(*) FROM mdm_review_decision WHERE run_id=(SELECT run_id FROM current_run)) decisions,
+                  (SELECT count(*) FROM mdm_review_case_member m
+                    JOIN mdm_match_input i ON i.run_id=m.input_run_id AND i.entity_id=m.entity_id
+                    WHERE m.run_id=(SELECT run_id FROM current_run) AND NOT i.eligible) name_exceptions,
+                  (SELECT count(*) FROM mdm_review_case m
+                    WHERE m.run_id=(SELECT run_id FROM current_run) AND m.source_record_count>1
+                    AND NOT EXISTS(SELECT 1 FROM reviewed v WHERE v.case_id=m.case_id)) pending_business_cases
+                """,source)
             review = app_state.func_mdm_row_serialize(queue)
-            review["decisions"] = await conn.fetchval("SELECT count(*) FROM mdm_review_decision d JOIN mdm_runs_current r USING(run_id) WHERE r.source=$1", source)
-            review["name_exceptions"] = await conn.fetchval(f"SELECT count(*) FROM {prefix}_source_current WHERE NOT eligible")
-            review["pending_business_cases"] = await conn.fetchval("""
-                SELECT count(*) FROM mdm_review_case m
-                JOIN mdm_runs_current r ON r.run_id=m.run_id
-                WHERE r.source=$1 AND m.source_record_count>1
-                  AND NOT EXISTS (
-                    SELECT 1 FROM mdm_review_case_member sm
-                    JOIN mdm_approved_member am USING(run_id,entity_id)
-                    WHERE sm.run_id=m.run_id AND sm.case_id=m.case_id
-                  )""", source)
             return {"review": review, "comparison": app_state.func_mdm_row_serialize(await conn.fetchrow("SELECT comparison_id,sap_run_id,cw_run_id,comparison_is_current,completed_at FROM mdm_sap_cw_comparison_current"))}
 
 async def func_mdm_read_groups(*, app_state, pool, params: dict) -> dict:
@@ -152,14 +154,12 @@ async def func_mdm_read_groups(*, app_state, pool, params: dict) -> dict:
         async with conn.transaction():
             if not await conn.fetchval("SELECT pg_try_advisory_xact_lock_shared(hashtext('mdm_fresh_publication'))"):
                 raise HTTPException(status_code=503, detail="Data refresh in progress. Please try again shortly.", headers={"Retry-After": "30"})
-            await conn.execute("SET LOCAL lock_timeout='1s'")
-            await conn.execute("SET LOCAL statement_timeout='25s'")
-            await conn.execute("SET LOCAL jit=off")
+            await conn.execute("SET LOCAL lock_timeout='1s'; SET LOCAL statement_timeout='25s'; SET LOCAL jit=off")
             mode = params.get("mode", "duplicates")
             if mode not in ("duplicates", "all", "exceptions"):
                 raise HTTPException(status_code=400, detail="Unknown list mode.")
             if mode == "exceptions":
-                rows = await conn.fetch(f"SELECT * FROM {prefix}_source_current WHERE NOT eligible AND (original_name ILIKE $1 OR source_code ILIKE $1) ORDER BY entity_id LIMIT 26 OFFSET $2", search, (page-1)*25)
+                rows = await conn.fetch(f"SELECT * FROM {prefix}_source_current WHERE NOT eligible AND (original_name ILIKE $1 OR source_code ILIKE $1) ORDER BY entity_id LIMIT 11 OFFSET $2", search, (page-1)*10)
             else:
                 run_id=await conn.fetchval("SELECT run_id FROM mdm_runs_current WHERE source=$1",source)
                 rows = await conn.fetch("""WITH reviewed AS MATERIALIZED (
@@ -171,12 +171,12 @@ async def func_mdm_read_groups(*, app_state, pool, params: dict) -> dict:
                   FROM mdm_review_case m WHERE m.run_id=$1 AND ($2='all' OR m.source_record_count>1)
                   AND (m.organization_name ILIKE $3 OR m.case_id::text=$4 OR EXISTS(SELECT 1 FROM unnest(m.cw_codes) c WHERE c ILIKE $3))
                   AND ($5::boolean=false OR NOT EXISTS(SELECT 1 FROM reviewed r WHERE r.case_id=m.case_id))
-                  ORDER BY m.source_record_count DESC,m.organization_name,m.case_id LIMIT 26 OFFSET $6
-                ) SELECT page.*,coalesce(p.cw_match_status,'not_compared') cw_match_status,p.possible_cw_codes,c.comparison_is_current cw_comparison_is_current
+                  ORDER BY m.source_record_count DESC,m.organization_name,m.case_id LIMIT 11 OFFSET $6
+                ) SELECT page.*,coalesce(p.cw_match_status,'not_compared') cw_match_status,p.strong_cw_codes,p.possible_cw_codes,c.comparison_is_current cw_comparison_is_current
                   FROM page LEFT JOIN mdm_sap_cw_comparison_current c ON c.sap_run_id=page.run_id
                   LEFT JOIN mdm_sap_cw_presence p ON p.comparison_id=c.comparison_id AND p.sap_master_id=page.golden_id
-                  ORDER BY page.source_record_count DESC,page.organization_name,page.golden_id""",run_id,mode,search,query,options["pending"],(page-1)*25)
-            return {"rows": [app_state.func_mdm_row_serialize(x) for x in rows[:25]], "has_more": len(rows)>25, "page": page}
+                  ORDER BY page.source_record_count DESC,page.organization_name,page.golden_id""",run_id,mode,search,query,options["pending"],(page-1)*10)
+            return {"rows": [app_state.func_mdm_row_serialize(x) for x in rows[:10]], "has_more": len(rows)>10, "page": page}
 
 async def func_mdm_read_detail(*, app_state, pool, params: dict) -> dict:
     """Read detail with a supplied pool; callable without the API or dispatcher."""
@@ -188,9 +188,7 @@ async def func_mdm_read_detail(*, app_state, pool, params: dict) -> dict:
         async with conn.transaction():
             if not await conn.fetchval("SELECT pg_try_advisory_xact_lock_shared(hashtext('mdm_fresh_publication'))"):
                 raise HTTPException(status_code=503, detail="Data refresh in progress. Please try again shortly.", headers={"Retry-After": "30"})
-            await conn.execute("SET LOCAL lock_timeout='1s'")
-            await conn.execute("SET LOCAL statement_timeout='25s'")
-            await conn.execute("SET LOCAL jit=off")
+            await conn.execute("SET LOCAL lock_timeout='1s'; SET LOCAL statement_timeout='25s'; SET LOCAL jit=off")
             try:
                 ids = list(dict.fromkeys(func_mdm_case_id(x) for x in params.get("ids", "").split(",") if x))
             except ValueError:
@@ -216,9 +214,7 @@ async def func_mdm_read_candidates(*, app_state, pool, params: dict) -> dict:
         async with conn.transaction():
             if not await conn.fetchval("SELECT pg_try_advisory_xact_lock_shared(hashtext('mdm_fresh_publication'))"):
                 raise HTTPException(status_code=503, detail="Data refresh in progress. Please try again shortly.", headers={"Retry-After": "30"})
-            await conn.execute("SET LOCAL lock_timeout='1s'")
-            await conn.execute("SET LOCAL statement_timeout='25s'")
-            await conn.execute("SET LOCAL jit=off")
+            await conn.execute("SET LOCAL lock_timeout='1s'; SET LOCAL statement_timeout='25s'; SET LOCAL jit=off")
             name = query.upper()
             if not name:
                 raise HTTPException(status_code=400, detail="Enter a cleaned company name to find similar-name cases.")
@@ -241,8 +237,8 @@ async def func_mdm_read_candidates(*, app_state, pool, params: dict) -> dict:
                 JOIN mdm_source_name r ON r.run_id=$1 AND r.name_id=p.right_name_id
                 JOIN mdm_review_name ln ON ln.name_id=p.left_name_id JOIN mdm_review_name rn ON rn.name_id=p.right_name_id
                 WHERE p.left_name_id<>p.right_name_id OR l.source_records>1
-                ORDER BY p.left_name_id,p.right_name_id LIMIT 26 OFFSET $4""",run["run_id"],run["name_review_run_id"],"%"+name.replace("%","\\%").replace("_","\\_")+"%",(page-1)*25)
-            return {"rows": [app_state.func_mdm_row_serialize(x) for x in rows[:25]], "has_more":len(rows)>25, "page":page, "total":rows[0]["total_matches"] if rows else 0}
+                ORDER BY p.left_name_id,p.right_name_id LIMIT 11 OFFSET $4""",run["run_id"],run["name_review_run_id"],"%"+name.replace("%","\\%").replace("_","\\_")+"%",(page-1)*10)
+            return {"rows": [app_state.func_mdm_row_serialize(x) for x in rows[:10]], "has_more":len(rows)>10, "page":page, "total":rows[0]["total_matches"] if rows else 0}
 
 async def func_mdm_read_cw_search(*, app_state, pool, params: dict) -> dict:
     """Read cw search with a supplied pool; callable without the API or dispatcher."""
@@ -254,9 +250,7 @@ async def func_mdm_read_cw_search(*, app_state, pool, params: dict) -> dict:
         async with conn.transaction():
             if not await conn.fetchval("SELECT pg_try_advisory_xact_lock_shared(hashtext('mdm_fresh_publication'))"):
                 raise HTTPException(status_code=503, detail="Data refresh in progress. Please try again shortly.", headers={"Retry-After": "30"})
-            await conn.execute("SET LOCAL lock_timeout='1s'")
-            await conn.execute("SET LOCAL statement_timeout='25s'")
-            await conn.execute("SET LOCAL jit=off")
+            await conn.execute("SET LOCAL lock_timeout='1s'; SET LOCAL statement_timeout='25s'; SET LOCAL jit=off")
             if len(query)<2:
                 return {"rows":[]}
             masters=await conn.fetch("SELECT golden_id FROM cw_master_current WHERE organization_name ILIKE $1 OR EXISTS(SELECT 1 FROM unnest(cw_codes) c WHERE c ILIKE $1) ORDER BY organization_name,golden_id LIMIT 51",search)
@@ -273,11 +267,9 @@ async def func_mdm_read_approved(*, app_state, pool, params: dict) -> dict:
         async with conn.transaction():
             if not await conn.fetchval("SELECT pg_try_advisory_xact_lock_shared(hashtext('mdm_fresh_publication'))"):
                 raise HTTPException(status_code=503, detail="Data refresh in progress. Please try again shortly.", headers={"Retry-After": "30"})
-            await conn.execute("SET LOCAL lock_timeout='1s'")
-            await conn.execute("SET LOCAL statement_timeout='25s'")
-            await conn.execute("SET LOCAL jit=off")
-            rows=await conn.fetch("SELECT * FROM mdm_approved_current WHERE source=$1 AND organization_name ILIKE $2 ORDER BY id DESC LIMIT 26 OFFSET $3",source,search,(page-1)*25)
-            return {"rows":[app_state.func_mdm_row_serialize(x) for x in rows[:25]], "has_more":len(rows)>25,"page":page}
+            await conn.execute("SET LOCAL lock_timeout='1s'; SET LOCAL statement_timeout='25s'; SET LOCAL jit=off")
+            rows=await conn.fetch("SELECT * FROM mdm_approved_current WHERE source=$1 AND organization_name ILIKE $2 ORDER BY id DESC LIMIT 11 OFFSET $3",source,search,(page-1)*10)
+            return {"rows":[app_state.func_mdm_row_serialize(x) for x in rows[:10]], "has_more":len(rows)>10,"page":page}
 
 async def func_mdm_read_audit(*, app_state, pool, params: dict) -> dict:
     """Read audit with a supplied pool; callable without the API or dispatcher."""
@@ -289,11 +281,9 @@ async def func_mdm_read_audit(*, app_state, pool, params: dict) -> dict:
         async with conn.transaction():
             if not await conn.fetchval("SELECT pg_try_advisory_xact_lock_shared(hashtext('mdm_fresh_publication'))"):
                 raise HTTPException(status_code=503, detail="Data refresh in progress. Please try again shortly.", headers={"Retry-After": "30"})
-            await conn.execute("SET LOCAL lock_timeout='1s'")
-            await conn.execute("SET LOCAL statement_timeout='25s'")
-            await conn.execute("SET LOCAL jit=off")
-            rows=await conn.fetch("SELECT * FROM mdm_review_decision WHERE source=$1 ORDER BY id DESC LIMIT 26 OFFSET $2",source,(page-1)*25)
-            return {"rows":[app_state.func_mdm_row_serialize(x) for x in rows[:25]],"has_more":len(rows)>25,"page":page}
+            await conn.execute("SET LOCAL lock_timeout='1s'; SET LOCAL statement_timeout='25s'; SET LOCAL jit=off")
+            rows=await conn.fetch("SELECT * FROM mdm_review_decision WHERE source=$1 ORDER BY id DESC LIMIT 11 OFFSET $2",source,(page-1)*10)
+            return {"rows":[app_state.func_mdm_row_serialize(x) for x in rows[:10]],"has_more":len(rows)>10,"page":page}
 
 async def func_mdm_read_matches(*, app_state, pool, params: dict) -> dict:
     """Read matches with a supplied pool; callable without the API or dispatcher."""
@@ -305,9 +295,7 @@ async def func_mdm_read_matches(*, app_state, pool, params: dict) -> dict:
         async with conn.transaction():
             if not await conn.fetchval("SELECT pg_try_advisory_xact_lock_shared(hashtext('mdm_fresh_publication'))"):
                 raise HTTPException(status_code=503, detail="Data refresh in progress. Please try again shortly.", headers={"Retry-After": "30"})
-            await conn.execute("SET LOCAL lock_timeout='1s'")
-            await conn.execute("SET LOCAL statement_timeout='25s'")
-            await conn.execute("SET LOCAL jit=off")
+            await conn.execute("SET LOCAL lock_timeout='1s'; SET LOCAL statement_timeout='25s'; SET LOCAL jit=off")
             try:
                 aid=int(params.get("id",0))
             except (ValueError, TypeError):
@@ -758,3 +746,31 @@ def func_mdm_final_record_prepare(*, records, final_record, source):
     if not isinstance(flags,dict) or set(flags)!=known or any(v is not None and type(v) is not bool for v in flags.values()):
         raise HTTPException(status_code=400, detail='Confirm every source role flag using Yes, No or Unknown.')
     return result
+
+
+async def func_mdm_read_case_matches(*, app_state, pool, params: dict) -> dict:
+    """Read source CW records suggested for a current SAP case; no decision is made."""
+    from fastapi import HTTPException
+    if params.get('source') != 'SAP':
+        raise HTTPException(status_code=400, detail='CargoWise comparison is available for SAP cases.')
+    try:
+        case_id = func_mdm_case_id(params.get('id'))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail='A valid SAP case ID is required.')
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            if not await conn.fetchval("SELECT pg_try_advisory_xact_lock_shared(hashtext('mdm_fresh_publication'))"):
+                raise HTTPException(status_code=503, detail='Data refresh in progress. Please try again shortly.')
+            await conn.execute("SET LOCAL lock_timeout='1s'; SET LOCAL statement_timeout='25s'; SET LOCAL jit=off")
+            case = await conn.fetchrow('SELECT golden_id,organization_name,cw_match_status,strong_cw_codes,possible_cw_codes,cw_comparison_is_current FROM sap_master_current WHERE golden_id=$1',case_id)
+            if not case:
+                raise HTTPException(status_code=404, detail='This SAP case is no longer current. Refresh the list.')
+            strong = list(case['strong_cw_codes'] or [])
+            codes = sorted(set(strong) | set(case['possible_cw_codes'] or []))
+            rows = await conn.fetch('''SELECT entity_id,cw_code,original_name,is_customer,is_vendor,is_active,
+                addresses,registrations,cw_role_flags FROM cw_source_current
+                WHERE cw_code=ANY($1::text[]) ORDER BY (cw_code=ANY($2::text[])) DESC,cw_code LIMIT 101''',codes,strong) if codes else []
+            return {'case_id':case_id,'organization_name':case['organization_name'],
+                'status':case['cw_match_status'],'comparison_is_current':case['cw_comparison_is_current'],
+                'codes':codes,'strong_codes':strong,'total_codes':len(codes),'truncated':len(rows)>100,
+                'records':[app_state.func_mdm_row_serialize(r) for r in rows[:100]]}
