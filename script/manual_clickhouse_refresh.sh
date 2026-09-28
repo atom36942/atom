@@ -10,7 +10,7 @@ set -a
 source "$ENV_FILE"
 set +a
 
-required_vars=(config_postgres_url_tradelane config_clickhouse_url_tradelane)
+required_vars=(CLICKHOUSE_REFRESH_POSTGRES_URL CLICKHOUSE_REFRESH_URL)
 for variable in "${required_vars[@]}"; do
   [[ -n "${!variable:-}" ]] || { echo "ERROR: $variable is missing from $ENV_FILE"; exit 2; }
 done
@@ -38,13 +38,13 @@ PY
 }
 
 IFS=$'\t' read -r pg_hostname pg_port PG_USER PG_PASSWORD PG_DB \
-  < <(parse_connection_url "$config_postgres_url_tradelane" 5432)
+  < <(parse_connection_url "$CLICKHOUSE_REFRESH_POSTGRES_URL" 5432)
 IFS=$'\t' read -r CH_HOST CH_PORT CH_USER CH_PASSWORD CH_DB \
-  < <(parse_connection_url "$config_clickhouse_url_tradelane" 9000)
+  < <(parse_connection_url "$CLICKHOUSE_REFRESH_URL" 9000)
 
 PG_HOST="$pg_hostname:$pg_port"
 PG_SCHEMA='public'
-PG_URL="$config_postgres_url_tradelane"
+PG_URL="$CLICKHOUSE_REFRESH_POSTGRES_URL"
 
 CH_BIN="${CH_BIN:-/Users/atom/.local/bin/clickhouse}"
 
