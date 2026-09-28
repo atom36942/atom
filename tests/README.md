@@ -15,6 +15,7 @@ libraries. Git must be installed for the updater tests.
 | Authentication | Password verification and hashing, signup policy, ambiguous login, token expiry/signatures/types, OTP success and rejection |
 | Permissions | Table and relation policies, roles, account status, restricted fields, ownership, OTP-protected changes, batch limits |
 | CRUD | Parameter binding, serialization, restricted reads, pagination, ownership predicates, buffered writes, error propagation |
+| Query language | Every filter operator and alias, per-type operator limits, typed values, OR/AND nesting and placeholder order, ownership predicates that user filters cannot widen, relation count/aggregate/fetch strings, blocked columns, malformed relations |
 | Function loading | Custom modules, public exports, duplicate definitions, imported helpers, import failures |
 | Syncing | Developer files and config overrides, dependency merging, validation failures, file retirement, rollback, locking |
 | Security | Read-runner restrictions, blob signing authorization, bounded upload reads, credential redaction |
