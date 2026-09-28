@@ -116,7 +116,7 @@ Increment `page` while `has_next_page` is true. These flags indicate another pag
 
 ### Filters: comparisons, text search, lists, ranges, and nulls
 
-Separate list entries are combined with AND. Put spaces between the column, operator, and value. These are supported filter expressions, not arbitrary SQL.
+Separate list entries are combined with AND. Put spaces between the column, operator, and value. These are supported filter expressions, not arbitrary SQL. An entry that does not parse is rejected with `invalid filter`, never ignored, and repeating a column keeps every condition.
 
 ```bash
 curl -G "$BASE_URL/my/object-read" \
@@ -138,6 +138,7 @@ Replace the `filter` value with any of these JSON examples. Columns must exist a
 | Inclusive range | `["priority between 2 AND 5"]` |
 | Missing value | `["completed_at is null"]` |
 | Present value | `["completed_at is not null"]` |
+| Null equality | `["completed_at = null"]` → `IS NULL`, `!= null` → `IS NOT NULL`; other operators reject `null` |
 | Date/time range | `["created_at >= 2026-09-01T00:00:00Z","created_at < 2026-10-01T00:00:00Z"]` |
 | Simple OR | `["status = pending OR status = active","priority >= 2"]` |
 

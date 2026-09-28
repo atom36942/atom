@@ -191,34 +191,34 @@ async def func_postgres_where_build(*, client_postgres: any, client_password_has
         return raw_val.replace(" AND ", "|").replace(",", "|") if operator in ("between", "in", "not in", "overlap", "contains") else raw_val
     def parse_filter_item(item):
         match = re.match(filter_pattern, item.strip(), re.IGNORECASE)
-        if not match: return None
+        if not match: raise Exception(f"invalid filter: {item.strip()}")
         col, operator, raw_val = match.groups()
         operator = operator.lower()
         return {col.strip('"'): f"{operator},{normalize_filter_value(operator, raw_val)}"}
     def parse_filter_list(filter_list):
+        # Every entry is ANDed; a repeated key moves into _and rather than overwriting the earlier condition.
         converted_filters = {}
-        def add_parsed_filter(parsed):
-            if not parsed: return
-            key = next(iter(parsed))
-            if key in converted_filters:
+        def add_filter(key, val):
+            if key == "_and":
+                if not isinstance(val, list): raise Exception("_and must be a list of objects")
+                converted_filters.setdefault("_and", []).extend(val)
+            elif key in converted_filters:
                 converted_filters.setdefault("_and", []).append({key: converted_filters.pop(key)})
-                converted_filters["_and"].append(parsed)
+                converted_filters["_and"].append({key: val})
             elif "_and" in converted_filters:
-                converted_filters["_and"].append(parsed)
+                converted_filters["_and"].append({key: val})
             else:
-                converted_filters.update(parsed)
+                converted_filters[key] = val
         for item in filter_list:
             if isinstance(item, dict):
-                converted_filters.update(item)
+                for key, val in item.items(): add_filter(key, val)
                 continue
-            if not isinstance(item, str): continue
+            if not isinstance(item, str): raise Exception(f"invalid filter: {item!r}")
             or_parts = re.split(r"\s+OR\s+", item, flags=re.IGNORECASE)
             if len(or_parts) > 1:
-                sub_or = [parsed for part in or_parts if (parsed := parse_filter_item(part))]
-                if sub_or: converted_filters.setdefault("_and", []).append({"_or": sub_or})
+                add_filter("_and", [{"_or": [parse_filter_item(part) for part in or_parts]}])
                 continue
-            parsed = parse_filter_item(item)
-            add_parsed_filter(parsed)
+            add_filter(*next(iter(parse_filter_item(item).items())))
         return converted_filters
     def bind_next(val):
         bind_idx = len(values) + 1
@@ -266,7 +266,9 @@ async def func_postgres_where_build(*, client_postgres: any, client_password_has
         return await serialize_filter(filter_key, raw_val, 1 if is_json and operator == "exists" else 0)
     def build_condition_sql(filter_key, operator, serialized_val, is_json):
         if serialized_val is None:
-            return f'{prefix}"{filter_key}" {value_ops[operator]} NULL' if operator in ("is", "is not", "is distinct from", "is not distinct from") else None
+            if operator in ("is", "is not", "is distinct from", "is not distinct from"): return f'{prefix}"{filter_key}" {value_ops[operator]} NULL'
+            if value_ops.get(operator) in ("=", "!="): return f'{prefix}"{filter_key}" {"IS" if value_ops[operator] == "=" else "IS NOT"} NULL'
+            raise Exception(f"operator {operator} cannot compare {filter_key} with null; use 'is null' or 'is not null'")
         if operator == "contains":
             bind_idx = bind_next(serialized_val)
             return f'{prefix}"{filter_key}" @> ${bind_idx}{"::jsonb" if is_json else ""}'

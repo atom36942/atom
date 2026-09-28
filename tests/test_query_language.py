@@ -83,9 +83,32 @@ class FilterLanguageTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(values[-1], 42)
                 self.assertRegex(sql, rf'AND\s+"created_by_id" = \${len(values)}\)?$')
 
+    async def test_equality_with_null_becomes_is_null(self):
+        for item, sql in [("name = null", '"name" IS NULL'), ("name eq null", '"name" IS NULL'),
+                          ("name != null", '"name" IS NOT NULL'), ("name <> null", '"name" IS NOT NULL')]:
+            with self.subTest(item=item):
+                self.assertEqual(await self.where(item), ("WHERE " + sql, []))
+        self.assertEqual(await self.where({"id": "eq,null"}), ('WHERE "id" IS NULL', []))
+
+    async def test_ordering_and_pattern_operators_reject_null(self):
+        for item in ("id > null", "id <= null", "name like null", "name ilike null"):
+            with self.subTest(item=item), self.assertRaisesRegex(Exception, "cannot compare"):
+                await self.where(item)
+
+    async def test_repeated_keys_across_strings_and_objects_are_all_kept(self):
+        for filters in (["id = 1", {"id": "eq,2"}], [{"id": "eq,1"}, "id = 2"], [{"id": "eq,1"}, {"id": "eq,2"}]):
+            with self.subTest(filters=filters):
+                self.assertEqual(await self.where(*filters), ('WHERE ("id" = $1  AND  "id" = $2)', [1, 2]))
+        caller_and = [{"id": "gt,0"}]
+        await self.where({"_and": caller_and}, "created_by_id = 42")
+        self.assertEqual(caller_and, [{"id": "gt,0"}])
+
     async def test_malformed_filters_raise(self):
         for filters, message in [([{"id": "5"}], "Expected 'operator,value'"), ([{"_or": {"id": "eq,1"}}], "must be a list"),
-                                 (["nope = 1"], "invalid filter column"), (["password = x"], "blocked")]:
+                                 ([{"_and": {"id": "eq,1"}}], "must be a list"), (["nope = 1"], "invalid filter column"),
+                                 (["password = x"], "blocked"), (["name"], "invalid filter: name"),
+                                 (["id bogus 5"], "invalid filter"), (["id = 1 OR nonsense"], "invalid filter: nonsense"),
+                                 ([""], "invalid filter"), ([5], "invalid filter: 5")]:
             with self.subTest(filters=filters), self.assertRaisesRegex(Exception, message):
                 await self.where(*filters)
 
