@@ -1,13 +1,10 @@
 # import
 import asyncio
-import os
 import re
 import uuid
 import httpx
 import orjson
-import pandas as pd
 from fastapi import APIRouter, Request, responses
-from jira import JIRA
 
 # router
 router = APIRouter()
@@ -70,13 +67,6 @@ async def func_api_public_otp_send_mobile_sns_template(*, request: Request):
     otp = await app_state.func_otp_generate(client_postgres=app_state.client_postgres, mobile=ob["mobile"], email=None, config_otp_length=app_state.config_otp_length)
     res = await app_state.func_otp_send_mobile(app_state=app_state, service="sns", mobile=ob["mobile"], otp=otp, sns_template=ob)
     return {"status": 1, "message": res}
-
-@router.post("/public/jira-worklog-export")
-async def func_api_public_jira_worklog_export(*, request: Request):
-    app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "url", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "email", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "api_token", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "start_date", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "end_date", "type": "str", "required": True, "allowed": None, "default": None}])
-    output_path = await app_state.func_jira_worklog_export(url=ob["url"], email=ob["email"], api_token=ob["api_token"], start_date=ob["start_date"], end_date=ob["end_date"])
-    return responses.StreamingResponse(app_state.func_file_stream(output_path=output_path), media_type="application/octet-stream", headers={"Content-Disposition": f'attachment; filename="{os.path.basename(output_path)}"' })
 
 @router.get("/public/table-column-groupby")
 async def func_api_public_table_column_groupby(*, request: Request):

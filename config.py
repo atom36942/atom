@@ -460,7 +460,6 @@ config_api = {
 "/public/otp-send-email": {"id": 69, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 3, "window_sec": 60}},
 "/public/otp-send-mobile": {"id": 70, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 3, "window_sec": 60}},
 "/public/otp-send-mobile-sns-template": {"id": 71, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 3, "window_sec": 60}},
-"/public/jira-worklog-export": {"id": 19, "is_active": False, "is_token": False},
 "/public/table-column-groupby": {"id": 18, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
 "/public/table-column-distinct": {"id": 105, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}},
 "/public/blob-upload-file": {"id": 97, "is_active": False, "is_token": False},
