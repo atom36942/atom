@@ -72,7 +72,7 @@ config_sql_read_limit_max = 10000
 config_sql_read_relation_fetch_limit_max = 100
 config_query_runner_read_limit = 5000
 config_query_runner_export_limit = 50000
-config_allowed_users_role = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+config_allowed_users_role = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 config_redis_cache_ttl_sec = 3600
 config_users_delete_data_retention_day = 30
 config_cors_allow_origins = []
@@ -499,6 +499,10 @@ config_api = {
 "/mdm/read": {"id": 114, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [10]}},
 "/mdm/review": {"id": 115, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [10]}},
 "/mdm/export": {"id": 116, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [10]}},
+# wisetech
+"/wisetech/countries": {"id": 117, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [11]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
+"/wisetech/reference": {"id": 118, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [11]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
+"/wisetech/search": {"id": 119, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [11]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 }
 
 #override
