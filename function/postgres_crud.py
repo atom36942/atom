@@ -291,6 +291,8 @@ async def func_postgres_where_build(*, client_postgres: any, client_password_has
             values.extend(serialized_val)
             return f'{prefix}"{filter_key}" BETWEEN ${bind_idx} AND ${bind_idx+1}'
         bind_idx = bind_next(serialized_val)
+        # IS only accepts literals; the DISTINCT FROM forms keep null-safe semantics with a bound value.
+        if operator in ("is", "is not"): return f'{prefix}"{filter_key}" {"IS NOT DISTINCT FROM" if operator == "is" else "IS DISTINCT FROM"} ${bind_idx}'
         return f'{prefix}"{filter_key}" {(value_ops.get(operator) or string_ops.get(operator))} ${bind_idx}'
     async def build_filter(filter_obj, is_root=True):
         if not filter_obj: return ""

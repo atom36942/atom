@@ -226,10 +226,3 @@ async def func_blob_container_ops(*, client_s3: any, client_s3_resource: any, cl
         else:
             raise Exception(f"mode {mode} not supported for azure")
     return res
-
-def func_file_stream(*, output_path: str):
-    """Stream a temporary file and remove it after the stream completes."""
-    import os
-    with open(output_path, mode="rb") as f:
-        while chunk := f.read(1048576): yield chunk
-    os.remove(output_path)

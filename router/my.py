@@ -1,5 +1,4 @@
 # import
-import urllib.parse
 from fastapi import APIRouter, Request
 
 # router

@@ -2,21 +2,27 @@
 
 from .request import func_query_bool_parse
 
+def func_api_error(*, message: str, status_code: int) -> Exception:
+    """Build an exception that func_middleware_api_response_error returns with this HTTP status; a plain Exception stays 400."""
+    error = Exception(message)
+    error.status_code = status_code
+    return error
+
 async def func_middleware_check_active(*, is_active: bool = True) -> None:
     """Check whether current API endpoint is active/enabled."""
-    if not is_active: raise Exception("API endpoint is disabled")
+    if not is_active: raise func_api_error(message="API endpoint is disabled", status_code=404)
     return None
 
 async def func_middleware_check_token(*, user_dict: dict, url_path: str, is_token: bool = False, user_check_role: list = None, user_check_deactivated: list = None, user_check_deleted: list = None) -> None:
     """Check whether current API requires token-authenticated user."""
     is_token_required = is_token or bool(user_check_role) or bool(user_check_deactivated) or bool(user_check_deleted)
     if is_token_required:
-        if not user_dict: raise Exception("authorization token missing")
+        if not user_dict: raise func_api_error(message="authorization token missing", status_code=401)
         token_type = user_dict.get("_token_type") if isinstance(user_dict, dict) else None
         if url_path == "/my/token-refresh":
-            if token_type != "refresh": raise Exception("refresh token required")
+            if token_type != "refresh": raise func_api_error(message="refresh token required", status_code=401)
         elif token_type != "access":
-            raise Exception("access token required")
+            raise func_api_error(message="access token required", status_code=401)
     return None
 
 async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_deactivated: any, client_postgres: any, client_redis: any, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int) -> None:
@@ -26,13 +32,13 @@ async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_
     mode = cfg.get("mode") if isinstance(cfg, dict) else (cfg[0] if isinstance(cfg, (list, tuple)) else None)
     if not mode: return None
     async def fetch_deactivated_status(uid):
-        if not client_postgres: raise Exception("postgres client missing")
+        if not client_postgres: raise func_api_error(message="postgres client missing", status_code=500)
         async with client_postgres.acquire() as conn:
             rows = await conn.fetch("select id, deactivated_at from users where id=$1", uid)
-        if not rows: raise Exception("user not found")
+        if not rows: raise func_api_error(message="user not found", status_code=401)
         return rows[0]["deactivated_at"]
     if mode == "redis":
-        if not client_redis: raise Exception("redis client missing")
+        if not client_redis: raise func_api_error(message="redis client missing", status_code=500)
         cache_key = f"""cache:user:active:{user_dict["id"]}"""
         active_status = None
         cached_val = await client_redis.get(cache_key)
@@ -50,9 +56,9 @@ async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_
     elif mode == "token":
         active_status = user_dict.get("deactivated_at", "absent")
     else:
-        raise Exception(f"invalid mode: {mode}, allowed: redis, realtime, inmemory, token")
-    if active_status == "absent": raise Exception("missing deactivated_at")
-    if active_status is not None: raise Exception("user not active")
+        raise func_api_error(message=f"invalid mode: {mode}, allowed: redis, realtime, inmemory, token", status_code=500)
+    if active_status == "absent": raise func_api_error(message="missing deactivated_at", status_code=500)
+    if active_status is not None: raise func_api_error(message="user not active", status_code=403)
 
 async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_deleted: any, client_postgres: any, client_redis: any, cache_users_deleted: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is deleted using a strictly configured mode from config_api."""
@@ -61,13 +67,13 @@ async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_dele
     mode = cfg.get("mode") if isinstance(cfg, dict) else (cfg[0] if isinstance(cfg, (list, tuple)) else None)
     if not mode: return None
     async def fetch_deleted(uid):
-        if not client_postgres: raise Exception("postgres client missing")
+        if not client_postgres: raise func_api_error(message="postgres client missing", status_code=500)
         async with client_postgres.acquire() as conn:
             rows = await conn.fetch("select deleted_at from users where id=$1", uid)
-        if not rows: raise Exception("user not found")
+        if not rows: raise func_api_error(message="user not found", status_code=401)
         return rows[0]["deleted_at"]
     if mode == "redis":
-        if not client_redis: raise Exception("redis client missing")
+        if not client_redis: raise func_api_error(message="redis client missing", status_code=500)
         cache_key = f"""cache:user:deleted_at:{user_dict["id"]}"""
         deleted_status = None
         cached_val = await client_redis.get(cache_key)
@@ -85,15 +91,15 @@ async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_dele
     elif mode == "token":
         deleted_status = user_dict.get("deleted_at", "absent")
     else:
-        raise Exception(f"invalid mode: {mode}, allowed: redis, realtime, inmemory, token")
-    if deleted_status == "absent": raise Exception("missing deleted_at")
-    if deleted_status is not None: raise Exception("user is deleted")
+        raise func_api_error(message=f"invalid mode: {mode}, allowed: redis, realtime, inmemory, token", status_code=500)
+    if deleted_status == "absent": raise func_api_error(message="missing deleted_at", status_code=500)
+    if deleted_status is not None: raise func_api_error(message="user is deleted", status_code=403)
 
 async def func_middleware_check_role(*, user_dict: dict, user_check_role: any, client_postgres: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
     """Ensure sufficient roles to access endpoints using a strictly configured mode from config_api."""
     cfg = user_check_role
     if not cfg: return None
-    if not user_dict: raise Exception("authorization token missing")
+    if not user_dict: raise func_api_error(message="authorization token missing", status_code=401)
     if isinstance(cfg, dict):
         mode = cfg.get("mode")
         raw_roles = cfg.get("roles", [])
@@ -104,13 +110,13 @@ async def func_middleware_check_role(*, user_dict: dict, user_check_role: any, c
         return None
     roles = {int(role) for role in raw_roles}
     async def fetch_role(uid):
-        if not client_postgres: raise Exception("postgres client missing")
+        if not client_postgres: raise func_api_error(message="postgres client missing", status_code=500)
         async with client_postgres.acquire() as conn:
             rows = await conn.fetch("select role from users where id=$1", uid)
-        if not rows: raise Exception("user not found")
+        if not rows: raise func_api_error(message="user not found", status_code=401)
         return rows[0]["role"]
     if mode == "redis":
-        if not client_redis: raise Exception("redis client missing")
+        if not client_redis: raise func_api_error(message="redis client missing", status_code=500)
         cache_key = f"""cache:user:role:{user_dict["id"]}"""
         user_role = None
         cached_val = await client_redis.get(cache_key)
@@ -128,16 +134,16 @@ async def func_middleware_check_role(*, user_dict: dict, user_check_role: any, c
     elif mode == "token":
         user_role = user_dict.get("role", "absent")
     else:
-        raise Exception(f"invalid mode: {mode}, allowed: redis, realtime, inmemory, token")
-    if user_role == "absent": raise Exception("user role missing")
-    if user_role is None or user_role == "": raise Exception("user role is null")
-    if user_role == "role": raise Exception("user role is invalid")
+        raise func_api_error(message=f"invalid mode: {mode}, allowed: redis, realtime, inmemory, token", status_code=500)
+    if user_role == "absent": raise func_api_error(message="user role missing", status_code=500)
+    if user_role is None or user_role == "": raise func_api_error(message="user role is null", status_code=403)
+    if user_role == "role": raise func_api_error(message="user role is invalid", status_code=403)
     if not isinstance(user_role, int):
         try:
             user_role = int(user_role)
         except Exception:
-            raise Exception("invalid user role type")
-    if user_role not in roles: raise Exception("access denied")
+            raise func_api_error(message="invalid user role type", status_code=403)
+    if user_role not in roles: raise func_api_error(message="access denied", status_code=403)
 
 async def func_middleware_check_ratelimiter(*, client_redis: any, rate_limit: any = None, api_ratelimiting_times_sec: any = None, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
     """Check and enforce API rate limits using either Redis or in-memory storage."""
@@ -156,10 +162,10 @@ async def func_middleware_check_ratelimiter(*, client_redis: any, rate_limit: an
     if limit <= 0 or window <= 0: return None
     cache_key = f"ratelimiter:{url_path}:{identifier}"
     if mode == "redis":
-        if not client_redis: raise Exception("redis client missing")
+        if not client_redis: raise func_api_error(message="redis client missing", status_code=500)
         current_count = await client_redis.get(cache_key)
         if current_count and int(current_count) + 1 > limit:
-            raise Exception("ratelimiter exceeded")
+            raise func_api_error(message="ratelimiter exceeded", status_code=429)
         pipeline = client_redis.pipeline()
         pipeline.incr(cache_key)
         if not current_count:
@@ -170,19 +176,19 @@ async def func_middleware_check_ratelimiter(*, client_redis: any, rate_limit: an
         item = cache_ratelimiter.get(cache_key)
         if item and item["expire_at"] > now:
             if item["count"] + 1 > limit:
-                raise Exception("ratelimiter exceeded")
+                raise func_api_error(message="ratelimiter exceeded", status_code=429)
             item["count"] += 1
         else:
             cache_ratelimiter[cache_key] = {"count": 1, "expire_at": now + window}
     else:
-        raise Exception(f"invalid ratelimiter mode: {mode}, allowed: redis, inmemory")
+        raise func_api_error(message=f"invalid ratelimiter mode: {mode}, allowed: redis, inmemory", status_code=500)
     return None
 
 async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, cache: any = None, api_cache_sec: any = None, client_redis: any = None, user_id: int = 0, cache_api_response: dict = None, response: any = None) -> any:
     """Get or set middleware API cache for a request."""
     from fastapi import Response
     import gzip, base64, time
-    if mode not in ("get", "set"): raise Exception(f"invalid cache operation: {mode}, allowed: get, set")
+    if mode not in ("get", "set"): raise func_api_error(message=f"invalid cache operation: {mode}, allowed: get, set", status_code=500)
     cfg = cache if cache is not None else api_cache_sec
     if isinstance(cfg, dict):
         cache_mode = cfg.get("mode")
@@ -252,8 +258,10 @@ def _redact_error_message(message):
 
 async def func_middleware_api_response_error(*, exception: Exception, is_traceback: bool, sentry_dsn: str) -> tuple:
     """Central API error handler: formats database, client, and system exceptions into a standard JSON response."""
-    import traceback, asyncpg, re, botocore.exceptions, redis.exceptions, httpx, jwt.exceptions
+    import asyncio, traceback, asyncpg, re, botocore.exceptions, redis.exceptions, httpx, jwt.exceptions
     from fastapi import responses
+    # Plain Exception stays 400; func_api_error and known infrastructure failures get their real status.
+    status_code = exception.status_code if isinstance(getattr(exception, "status_code", None), int) else 400
     if isinstance(exception, asyncpg.exceptions.UniqueViolationError):
         column = re.findall(r"\((.*?)\)=", exception.detail or "")
         error_msg = (column[0].replace("_", " ") + " already exists") if column else "duplicate value"
@@ -273,21 +281,27 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
     elif isinstance(exception, asyncpg.exceptions.StringDataRightTruncationError):
         error_msg = "invalid database input string truncation"
     elif isinstance(exception, asyncpg.exceptions.DeadlockDetectedError):
-        error_msg = "database conflict deadlock detected"
+        error_msg, status_code = "database conflict deadlock detected", 409
     elif isinstance(exception, asyncpg.exceptions.SerializationError):
-        error_msg = "database conflict serialization error"
+        error_msg, status_code = "database conflict serialization error", 409
+    elif isinstance(exception, (asyncpg.exceptions.CannotConnectNowError, asyncpg.exceptions.TooManyConnectionsError, asyncpg.exceptions.ConnectionDoesNotExistError)):
+        error_msg, status_code = "database unavailable", 503
     elif isinstance(exception, asyncpg.PostgresError):
         error_msg = "database request failed"
+    elif isinstance(exception, (asyncpg.exceptions.InterfaceError, ConnectionError, asyncio.TimeoutError)):
+        error_msg, status_code = "database unavailable", 503
     elif isinstance(exception, botocore.exceptions.ClientError):
         error_msg = f"""cloud service error: {exception.response.get("Error", {}).get("Code", "Unknown")}"""
+    elif isinstance(exception, (redis.exceptions.ConnectionError, redis.exceptions.TimeoutError)):
+        error_msg, status_code = "cache service unavailable", 503
     elif isinstance(exception, redis.exceptions.RedisError):
-        error_msg = "cache service error"
+        error_msg, status_code = "cache service error", 500
     elif isinstance(exception, jwt.exceptions.PyJWTError):
-        error_msg = "authentication token invalid"
+        error_msg, status_code = "authentication token invalid", 401
     elif isinstance(exception, httpx.HTTPStatusError):
-        error_msg = f"external api error: {exception.response.status_code}"
+        error_msg, status_code = f"external api error: {exception.response.status_code}", 502
     elif isinstance(exception, httpx.RequestError):
-        error_msg = "external service request failed"
+        error_msg, status_code = "external service request failed", 502
     else:
         error_msg = str(exception)
     error_msg = _redact_error_message(error_msg)
@@ -298,7 +312,7 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
     if sentry_dsn:
         import sentry_sdk
         sentry_sdk.capture_exception(exception)
-    return error_msg, responses.JSONResponse(status_code=400, content={"status": 0, "message": error_msg})
+    return error_msg, responses.JSONResponse(status_code=status_code, content={"status": 0, "message": error_msg})
 
 def func_middleware_security_headers(*, response: any) -> any:
     """Attach baseline HTTP security headers to response."""

@@ -180,6 +180,7 @@ oq = await app_state.func_request_param_read(
 {"status": 1, "message": <data>}
 ```
 - On errors, simply `raise Exception("error message")`. The middleware catches the exception, attaches traceback telemetry, and formats the standard error JSON.
+- A plain `Exception` returns HTTP 400. When the status matters, raise `app_state.func_api_error(message="...", status_code=403)`; the body stays `{"status": 0, "message": ...}`. The middleware already returns 401 for missing, invalid, or expired tokens, 403 for role and account-status denials, 404 for disabled endpoints, 429 for rate limits, 500 for server misconfiguration, 409 for database deadlocks, 502 for failed external APIs, and 503 when Postgres or Redis is unreachable.
 
 ### Registering Route Policies (`config_api`):
 By default, any unlisted route is public. To require authentication, rate limiting, or caching, add an entry to `config_api` (or `config_extend.py`):

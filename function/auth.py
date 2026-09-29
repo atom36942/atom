@@ -1,5 +1,7 @@
 """Atom auth functions."""
 
+from .middleware import func_api_error
+
 async def func_auth_user_login_fetch(*, conn: any, field: str, value: any, role: any) -> dict:
     """Fetch a single login user by a unique-ish field with optional role. Raise on not-found or ambiguity (role omitted but multiple rows)."""
     allowed_fields = ("username", "email", "mobile", "id_ext")
@@ -11,12 +13,12 @@ async def func_auth_user_login_fetch(*, conn: any, field: str, value: any, role:
 
 def func_auth_check_signup_role(*, role: int, config_signup_allowed_roles: list) -> None:
     """Validate that public signup is enabled and the requested role is permitted."""
-    if not config_signup_allowed_roles: raise Exception("signup disabled")
-    if role == 1 or role not in config_signup_allowed_roles: raise Exception(f"signup not allowed for role {role}")
+    if not config_signup_allowed_roles: raise func_api_error(message="signup disabled", status_code=403)
+    if role == 1 or role not in config_signup_allowed_roles: raise func_api_error(message=f"signup not allowed for role {role}", status_code=403)
 
 async def func_auth_signup_password(*, client_postgres: any, client_password_hasher: any, func_auth_check_signup_role: callable, role: int, username: str, password: str, source: int = None, config_signup_allowed_roles: list = None) -> dict:
     """Create a new user with hashed password after enforcing signup and role safety checks."""
-    if not client_postgres: raise Exception("postgres client not initialized")
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     func_auth_check_signup_role(role=role, config_signup_allowed_roles=config_signup_allowed_roles)
     hashed_password = client_password_hasher.hash(str(password))
     async with client_postgres.acquire() as conn:
@@ -25,7 +27,7 @@ async def func_auth_signup_password(*, client_postgres: any, client_password_has
 
 async def func_auth_login_password(*, client_postgres: any, client_password_hasher: any, field: str, value: any, password: str, role: any) -> dict:
     """Fetch user by identifier field and verify password hash."""
-    if not client_postgres: raise Exception("postgres client not initialized")
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     async with client_postgres.acquire() as conn:
         user = await func_auth_user_login_fetch(conn=conn, field=field, value=value, role=role)
         try:
@@ -36,7 +38,7 @@ async def func_auth_login_password(*, client_postgres: any, client_password_hash
 
 async def func_auth_user_find_or_create(*, client_postgres: any, func_auth_check_signup_role: callable, field: str, value: any, role: int, source: int = None, config_signup_allowed_roles: list = None, extra_cols: dict = None) -> dict:
     """Find existing user or create a new user (for OTP and Social Logins) with signup policy enforcement."""
-    if not client_postgres: raise Exception("postgres client not initialized")
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(field)): raise Exception(f"invalid identifier {field}")
     async with client_postgres.acquire() as conn:
@@ -59,7 +61,7 @@ async def func_token_encode(*, user: dict, config_token_secret_key: str, config_
     """Generate access and refresh JWT tokens for a user object."""
     import jwt, orjson, time
     if user is None: return None
-    if config_token_secret_key in (None, ""): raise Exception("token secret key missing")
+    if config_token_secret_key in (None, ""): raise func_api_error(message="token secret key missing", status_code=500)
     token_secret_key = str(config_token_secret_key)
     payload_dict = {k: user.get(k) for k in config_column_token_encode} if config_column_token_encode else dict(user) if isinstance(user, dict) else user
     serialized_payload = orjson.dumps(payload_dict, default=str).decode("utf-8")
@@ -76,7 +78,7 @@ async def func_token_decode(*, headers: dict, config_token_secret_key: str) -> d
     token = auth_header.split("Bearer ", 1)[1] if auth_header and auth_header.startswith("Bearer ") else None
     if not token: return {}
     import jwt, orjson
-    if config_token_secret_key in (None, ""): raise Exception("token secret key missing")
+    if config_token_secret_key in (None, ""): raise func_api_error(message="token secret key missing", status_code=500)
     decoded_payload = jwt.decode(token, str(config_token_secret_key), algorithms="HS256")
     user = orjson.loads(decoded_payload["data"])
     if isinstance(user, dict): user["_token_type"] = decoded_payload.get("type")
@@ -84,7 +86,7 @@ async def func_token_decode(*, headers: dict, config_token_secret_key: str) -> d
 
 async def func_otp_generate(*, client_postgres: any, email: str, mobile: str, config_otp_length: int) -> int:
     """Generate a random OTP and store it in PostgreSQL for a given email or mobile."""
-    if not client_postgres: raise Exception("postgres client not initialized")
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     import secrets
     otp = secrets.SystemRandom().randint(10**(config_otp_length - 1), 10**config_otp_length - 1)
     sql = "INSERT INTO otp (otp, email, mobile) VALUES ($1, $2, $3);"
@@ -94,7 +96,7 @@ async def func_otp_generate(*, client_postgres: any, email: str, mobile: str, co
 
 async def func_otp_verify(*, client_postgres: any, otp: int, email: str, mobile: str, config_otp_expiry_sec: int, config_otp_static: int = None) -> None:
     """Verify an OTP for email or mobile within its expiration window."""
-    if not client_postgres: raise Exception("postgres client not initialized")
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if config_otp_static is not None and otp == config_otp_static: return "done"
     if not otp: raise Exception("otp code missing")
     if not email and not mobile: raise Exception("missing both email and mobile")

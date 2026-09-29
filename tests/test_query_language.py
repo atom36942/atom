@@ -39,6 +39,13 @@ class FilterLanguageTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.where("name is null"), ('WHERE "name" IS NULL', []))
         self.assertEqual(await self.where("name is not null"), ('WHERE "name" IS NOT NULL', []))
 
+    async def test_is_with_a_value_uses_null_safe_distinct_from(self):
+        for item, sql, values in [("is_on is true", '"is_on" IS NOT DISTINCT FROM $1', [True]),
+                                  ("is_on is false", '"is_on" IS NOT DISTINCT FROM $1', [False]),
+                                  ("is_on is not true", '"is_on" IS DISTINCT FROM $1', [True])]:
+            with self.subTest(item=item):
+                self.assertEqual(await self.where(item), ("WHERE " + sql, values))
+
     async def test_type_specific_operators(self):
         for item, sql, values in [
             ("name like a%", '"name" LIKE $1', ["a%"]), ("name ilike %Atl%", '"name" ILIKE $1', ["%Atl%"]),

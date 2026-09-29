@@ -5,6 +5,7 @@
 # import
 import asyncio
 import urllib.parse
+import asyncpg
 import boto3
 from azure.core.exceptions import ResourceNotFoundError
 from function import func_client_postgres

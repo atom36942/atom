@@ -117,7 +117,6 @@ async def func_mdm_read(*, app_state, pool, kind: str, params: dict) -> dict:
 async def func_mdm_read_overview(*, app_state, pool, params: dict) -> dict:
     """Read overview with a supplied pool; callable without the API or dispatcher."""
     from fastapi import HTTPException
-    from uuid import UUID
     options = app_state.func_mdm_query_validate(params=params)
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
     async with pool.acquire() as conn:
@@ -147,7 +146,6 @@ async def func_mdm_read_overview(*, app_state, pool, params: dict) -> dict:
 async def func_mdm_read_groups(*, app_state, pool, params: dict) -> dict:
     """Read groups with a supplied pool; callable without the API or dispatcher."""
     from fastapi import HTTPException
-    from uuid import UUID
     options = app_state.func_mdm_query_validate(params=params)
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
     async with pool.acquire() as conn:
@@ -181,7 +179,6 @@ async def func_mdm_read_groups(*, app_state, pool, params: dict) -> dict:
 async def func_mdm_read_detail(*, app_state, pool, params: dict) -> dict:
     """Read detail with a supplied pool; callable without the API or dispatcher."""
     from fastapi import HTTPException
-    from uuid import UUID
     options = app_state.func_mdm_query_validate(params=params)
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
     async with pool.acquire() as conn:
@@ -207,7 +204,6 @@ async def func_mdm_read_detail(*, app_state, pool, params: dict) -> dict:
 async def func_mdm_read_candidates(*, app_state, pool, params: dict) -> dict:
     """Read candidates with a supplied pool; callable without the API or dispatcher."""
     from fastapi import HTTPException
-    from uuid import UUID
     options = app_state.func_mdm_query_validate(params=params)
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
     async with pool.acquire() as conn:
@@ -243,7 +239,6 @@ async def func_mdm_read_candidates(*, app_state, pool, params: dict) -> dict:
 async def func_mdm_read_cw_search(*, app_state, pool, params: dict) -> dict:
     """Read cw search with a supplied pool; callable without the API or dispatcher."""
     from fastapi import HTTPException
-    from uuid import UUID
     options = app_state.func_mdm_query_validate(params=params)
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
     async with pool.acquire() as conn:
@@ -260,7 +255,6 @@ async def func_mdm_read_cw_search(*, app_state, pool, params: dict) -> dict:
 async def func_mdm_read_approved(*, app_state, pool, params: dict) -> dict:
     """Read approved with a supplied pool; callable without the API or dispatcher."""
     from fastapi import HTTPException
-    from uuid import UUID
     options = app_state.func_mdm_query_validate(params=params)
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
     async with pool.acquire() as conn:
@@ -274,7 +268,6 @@ async def func_mdm_read_approved(*, app_state, pool, params: dict) -> dict:
 async def func_mdm_read_audit(*, app_state, pool, params: dict) -> dict:
     """Read audit with a supplied pool; callable without the API or dispatcher."""
     from fastapi import HTTPException
-    from uuid import UUID
     options = app_state.func_mdm_query_validate(params=params)
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
     async with pool.acquire() as conn:
@@ -288,7 +281,6 @@ async def func_mdm_read_audit(*, app_state, pool, params: dict) -> dict:
 async def func_mdm_read_matches(*, app_state, pool, params: dict) -> dict:
     """Read matches with a supplied pool; callable without the API or dispatcher."""
     from fastapi import HTTPException
-    from uuid import UUID
     options = app_state.func_mdm_query_validate(params=params)
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
     async with pool.acquire() as conn:

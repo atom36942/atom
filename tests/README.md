@@ -19,6 +19,7 @@ libraries. Git must be installed for the updater tests.
 | Function loading | Custom modules, public exports, duplicate definitions, imported helpers, import failures |
 | Syncing | Developer files and config overrides, dependency merging, validation failures, file retirement, rollback, locking |
 | Security | Read-runner restrictions, blob signing authorization, bounded upload reads, credential redaction |
+| Errors | HTTP status for `func_api_error`, each middleware check (401/403/404/429/500), token decoding, and database, Redis, and external-API failures; plain exceptions stay 400 |
 
 Database calls are mocked. The tests exercise real builders and serializers but
 do not execute SQL, verify PostgreSQL transaction semantics, or exercise full HTTP

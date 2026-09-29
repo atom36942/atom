@@ -165,7 +165,6 @@ def _mssql_read_sql(sql):
 
 async def func_mssql_query_runner_read_export(*, client_mssql: any, config_query_runner_export_limit: int, sql: str) -> any:
     """Runs a read-only MSSQL query and yields CSV lines up to the configured export limit."""
-    import re
     import asyncio
     if not client_mssql: raise Exception("MSSQL client not initialized")
     sql = _mssql_read_sql(sql)
@@ -196,7 +195,6 @@ async def func_mssql_query_runner_read_export(*, client_mssql: any, config_query
 
 async def func_mssql_query_runner_read(*, client_mssql: any, config_query_runner_read_limit: int, sql: str) -> list:
     """Runs a read-only MSSQL query and returns matching records up to the configured limit."""
-    import re
     import asyncio
     if not client_mssql: raise Exception("MSSQL client not initialized")
     sql = _mssql_read_sql(sql)
