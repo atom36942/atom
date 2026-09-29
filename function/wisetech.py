@@ -3,7 +3,6 @@ import asyncio
 import re
 from datetime import date
 from decimal import Decimal, InvalidOperation
-
 import httpx
 from fastapi import HTTPException
 
