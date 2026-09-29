@@ -2,7 +2,8 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="${ENV_FILE:-/Users/atom/atom/.env}"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ENV_FILE="${ENV_FILE:-$REPO_ROOT/.env}"
 [[ -f "$ENV_FILE" ]] || { echo "ERROR: environment file not found: $ENV_FILE"; exit 2; }
 
 set -a
@@ -69,7 +70,7 @@ fi
 PG_TABLE="shipments_$YEAR"
 CH_SHIPMENTS="shipments_$YEAR"
 CH_FILTERS="filter_options_$YEAR"
-STATE_ROOT="${STATE_ROOT:-/Users/atom/Documents/clickhouse_year_refresh_state}"
+STATE_ROOT="${STATE_ROOT:-$REPO_ROOT/tmp/clickhouse_year_refresh_state}"
 STATE_DIR="$STATE_ROOT/$YEAR"
 STATE_FILE="$STATE_DIR/state.env"
 FILTER_STATUS_FILE="$STATE_DIR/filter_status.csv"
