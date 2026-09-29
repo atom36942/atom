@@ -50,6 +50,9 @@ class HttpIntegrationTests(unittest.TestCase):
         signup = cls.client.post("/auth/signup-username-password", json={"username": "alice", "password": "alice-pass", "role": 5})
         assert signup.status_code == 200, signup.text
         cls.token = signup.json()["message"]["access_token"]
+        admin = cls.client.post("/auth/login-username-password", json={"username": "admin", "password": "root-test-password"})
+        assert admin.status_code == 200, admin.text
+        cls.admin_token = admin.json()["message"]["access_token"]
 
     @classmethod
     def tearDownClass(cls):
@@ -94,9 +97,7 @@ class HttpIntegrationTests(unittest.TestCase):
     def test_admin_route_is_403_for_users_and_200_for_root_admin(self):
         denied = self.client.get("/admin/object-read", params={"table": "test"}, headers=self.auth())
         self.assertEqual((denied.status_code, denied.json()["message"]), (403, "access denied"))
-        login = self.client.post("/auth/login-username-password", json={"username": "admin", "password": "root-test-password"})
-        self.assertEqual(login.status_code, 200, login.text)
-        allowed = self.client.get("/admin/object-read", params={"table": "test"}, headers=self.auth(login.json()["message"]["access_token"]))
+        allowed = self.client.get("/admin/object-read", params={"table": "test"}, headers=self.auth(self.admin_token))
         self.assertEqual(allowed.status_code, 200, allowed.text)
 
     def test_create_then_read_own_objects(self):
@@ -108,6 +109,30 @@ class HttpIntegrationTests(unittest.TestCase):
         rows = read.json()["message"]["obj_list"]
         self.assertEqual([(r["title"], r["created_by_id"]) for r in rows], [("from http", profile_id)])
         self.assertFalse(read.json()["message"]["has_more"])
+
+    def test_no_response_ever_contains_a_password_hash(self):
+        def keys(value):
+            if isinstance(value, dict): return set(value) | {k for v in value.values() for k in keys(v)}
+            if isinstance(value, list): return {k for v in value for k in keys(v)}
+            return set()
+        self.client.post("/my/object-create", params={"table": "test"}, json={"title": "owned by alice"}, headers=self.auth())
+        user_relation = json.dumps(["created_by_id,users,id,fetch|1,*"])
+        for label, method, path, params, token in [
+            ("profile", "get", "/my/profile", {}, self.token),
+            ("users list", "get", "/private/users-list", {}, self.token),
+            ("admin read users", "get", "/admin/object-read", {"table": "users"}, self.admin_token),
+            ("admin read users, all columns", "get", "/admin/object-read", {"table": "users", "column": "*"}, self.admin_token),
+            ("admin read with users relation", "get", "/admin/object-read", {"table": "test", "relation": user_relation}, self.admin_token),
+            ("my read with users relation", "get", "/my/object-read", {"table": "test", "relation": user_relation}, self.token),
+            ("distinct password", "get", "/admin/table-column-distinct", {"table": "users", "col": "password"}, self.admin_token),
+            ("group by password", "get", "/admin/table-column-groupby", {"table": "users", "col": json.dumps(["password"])}, self.admin_token),
+            ("max of password", "get", "/admin/table-column-groupby", {"table": "users", "col": json.dumps(["role"]), "agg": "max", "agg_col": "password"}, self.admin_token),
+            ("filter on password", "get", "/admin/object-read", {"table": "users", "filter": json.dumps(["password is not null"])}, self.admin_token),
+        ]:
+            with self.subTest(label):
+                response = getattr(self.client, method)(path, params=params, headers=self.auth(token))
+                self.assertNotIn("$argon2", response.text)
+                self.assertNotIn("password", keys(response.json()))
 
     def test_malformed_filter_is_400(self):
         response = self.client.get("/my/object-read", params={"table": "test", "filter": json.dumps(["title"])}, headers=self.auth())

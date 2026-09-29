@@ -496,6 +496,14 @@ config_api = {
 "/admin/clickhouse-query-runner-read": {"id": 94, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/clickhouse-query-runner-read-export": {"id": 95, "is_token": True, "user_check_role": {"mode": "inmemory", "roles": [1]}},
 "/admin/clickhouse-query-generator-ai": {"id": 101, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
+# mdm
+"/mdm/read": {"id": 114, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [10]}},
+"/mdm/review": {"id": 115, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [10]}},
+"/mdm/export": {"id": 116, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [10]}},
+# wisetech
+"/wisetech/countries": {"id": 117, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [11]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
+"/wisetech/reference": {"id": 118, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [11]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
+"/wisetech/search": {"id": 119, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [11]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 }
 
 #override
