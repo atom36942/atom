@@ -19,8 +19,8 @@ import sys
 import tempfile
 
 REPO_URL = "https://github.com/atom36942/atom.git"
-files_to_sync = [
-    # Individual root files.
+# Root files, replaced from upstream.
+sync_root_files = [
     ".dockerignore",
     ".gitignore",
     "Dockerfile",
@@ -28,8 +28,10 @@ files_to_sync = [
     "main.py",
     "readme.md",
     "sync.py",
+]
 
-    # Selected files inside folders (other upstream files are not included).
+# Selected files inside folders; other files in these folders stay local-only.
+sync_folder_files = [
     "static/api.html",
     "static/pgweb.html",
     "script/consumer_postgres_create.py",
@@ -38,11 +40,25 @@ files_to_sync = [
     "script/manual_postgres_ingestion.py",
     "script/manual_postgres_secure.py",
     "script/worker_users_delete.py",
-    # Whole folders: discover all their upstream files recursively.
+]
+
+# Whole folders: every upstream file is synced, new upstream files arrive
+# automatically, and files removed upstream are retired locally.
+sync_folders = [
     "docs",
     "function",
     "router",
 ]
+
+# Paths inside sync_folders that are not Atom's: never written or retired.
+sync_exclude = [
+    "function/mdm.py",
+    "function/wisetech.py",
+    "router/mdm.py",
+    "router/wisetech.py",
+]
+
+files_to_sync = [*sync_root_files, *sync_folder_files, *sync_folders]
 
 # requirements.txt and config_extend.py are merged separately, not overwritten.
 STATE_PATH = ".atom-sync/state.json"
@@ -70,6 +86,8 @@ def safe_path(root, name):
 
 
 def is_owned_path(name):
+    if any(name == item or name.startswith(item + "/") for item in sync_exclude):
+        return False
     return any(name == item or name.startswith(item + "/") for item in files_to_sync)
 
 

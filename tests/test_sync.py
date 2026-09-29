@@ -214,6 +214,29 @@ class SyncTests(unittest.TestCase):
                 state = json.loads((self.root / sync.STATE_PATH).read_text())
                 self.assertNotIn("static/pulse.html", state["files"])
 
+    def test_excluded_folder_files_are_never_written(self):
+        self.write(self.upstream, "router/mdm.py", "# upstream-only poc\n")
+        self.write(self.upstream, "function/wisetech.py", "def func_poc(): return 1\n")
+        self.commit(self.upstream)
+        self.run_sync()
+        self.assertFalse((self.root / "router/mdm.py").exists())
+        self.assertFalse((self.root / "function/wisetech.py").exists())
+        self.assertEqual((self.root / "router/index.py").read_text(), "# upstream router\n")
+        state = json.loads((self.root / sync.STATE_PATH).read_text())
+        self.assertFalse(set(sync.sync_exclude) & set(state["files"]))
+
+    def test_newly_excluded_file_is_kept_and_forgotten_even_when_removed_upstream(self):
+        self.write(self.upstream, "router/mdm.py", "# poc v1\n")
+        self.commit(self.upstream)
+        with patch.object(sync, "sync_exclude", []):
+            self.run_sync()
+        self.assertEqual((self.root / "router/mdm.py").read_text(), "# poc v1\n")
+        self.git(self.upstream, "rm", "-q", "router/mdm.py")
+        self.commit(self.upstream)
+        self.run_sync()
+        self.assertEqual((self.root / "router/mdm.py").read_text(), "# poc v1\n")
+        self.assertNotIn("router/mdm.py", json.loads((self.root / sync.STATE_PATH).read_text())["files"])
+
     def test_removed_folder_selection_preserves_its_files(self):
         self.run_sync()
         self.write(self.root, "router/index.py", "# developer edits\n")
