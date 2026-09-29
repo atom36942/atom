@@ -10,6 +10,17 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        # PostGIS image: Atom's schema installs the postgis, pg_trgm and btree_gin extensions.
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      ATOM_TEST_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v4
 
@@ -30,7 +41,7 @@ jobs:
             | grep -v -e "import \*" -e "may be undefined" -e "unable to detect" \
             && exit 1 || echo "pyflakes: clean"
 
-      - name: Unit tests
+      - name: Unit and integration tests
         run: python -m unittest discover -s tests -v
 
   docker:

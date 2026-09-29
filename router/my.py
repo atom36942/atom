@@ -19,6 +19,7 @@ async def func_api_my_profile(*, request: Request):
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     user_id = request.state.user["id"]
     user = await app_state.func_user_read_single(client_postgres=client_postgres, user_id=user_id)
+    for column in app_state.config_column_read_blocked or ["password"]: user.pop(column, None)
     metadata = {k: [dict(r) for r in await client_postgres.fetch(v, user_id)] for k, v in app_state.config_sql.get("profile_metadata", {}).items()}
     user["metadata"] = metadata
     return {"status": 1, "message": user}

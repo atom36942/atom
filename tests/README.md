@@ -21,8 +21,33 @@ libraries. Git must be installed for the updater tests.
 | Security | Read-runner restrictions, blob signing authorization, bounded upload reads, credential redaction |
 | Errors | HTTP status for `func_api_error`, each middleware check (401/403/404/429/500), token decoding, and database, Redis, and external-API failures; plain exceptions stay 400 |
 
-Database calls are mocked. The tests exercise real builders and serializers but
-do not execute SQL, verify PostgreSQL transaction semantics, or exercise full HTTP
-requests. They do not load the application config or connect to configured
-databases, Redis, or cloud services. Sync tests create disposable local Git
-repositories and do not fetch the real Atom repository.
+## Unit tests
+
+Everything outside `tests/integration/` mocks the database. These tests exercise
+real builders and serializers without executing SQL; they do not load the
+application config or connect to databases, Redis, or cloud services. Sync tests
+create disposable local Git repositories and do not fetch the real Atom repository.
+
+## Integration tests (real PostgreSQL and HTTP)
+
+`tests/integration/` runs real SQL and real HTTP requests. It is skipped unless
+`ATOM_TEST_POSTGRES_URL` points at a PostgreSQL server where the user can
+`CREATE DATABASE` and install `postgis`, `pg_trgm`, and `btree_gin`:
+
+```bash
+ATOM_TEST_POSTGRES_URL=postgresql://user@localhost:5432/postgres venv/bin/python -m unittest discover -s tests -v
+```
+
+Each test gets its own throwaway `atom_test_*` database, dropped afterwards, so
+existing databases on that server are never touched. CI runs these against a
+`postgis/postgis` service.
+
+| Area | Coverage |
+|------|----------|
+| PostgreSQL | Schema init (idempotent, root admin seeded), filters as real SQL including `is true` and `= null`, sorting and pagination, update/delete ownership, relations, buffered writes, OTP attempt cap under concurrency, password signup and login |
+| HTTP | App startup with test settings only, token 401s, role 403 and admin 200, create/read own objects, malformed filter 400, cache hit header, rate limit 429, security headers, no password hash in `/my/profile`, requests written to `log_api` |
+
+The HTTP tests start the app from a temporary working directory with test-only
+environment variables. `config.py` loads `.env` from the working directory and
+startup resets `./tmp`, so running the app from the repo root would read your
+real `.env` and wipe your `tmp/`.
