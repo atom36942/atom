@@ -37,7 +37,6 @@ sync_folder_files = [
     "script/consumer_postgres_create.py",
     "script/consumer_postgres_update.py",
     "script/manual_postgres_ingestion.py",
-    "script/manual_postgres_secure.py",
     "script/worker_users_delete.py",
 ]
 
