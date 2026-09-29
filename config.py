@@ -75,7 +75,7 @@ config_query_runner_read_limit = 5000
 config_query_runner_export_limit = 50000
 config_allowed_users_role = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 config_redis_cache_ttl_sec = 3600
-config_users_delete_data_retention_day = 30
+config_users_delete_retention_day = 30
 config_cors_allow_origins = []
 config_cors_allow_origin_regex = None
 config_cors_allow_methods = ["*"]
@@ -119,11 +119,7 @@ config_sql = {
 }
 
 config_table = {
-"test": {"buffer_limit": 10},
-"log_api": {"retention_day": 30, "buffer_limit": 10},
-"log_users_password": {"retention_day": 90},
-"otp": {"retention_day": 30},
-"notification": {"retention_day": 30, "buffer_limit": 10},
+"log_api": {"buffer_limit": 10},
 }
 
 config_column_regex = {

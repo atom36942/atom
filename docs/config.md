@@ -148,7 +148,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_query_runner_export_limit` | Maximum row cap for admin CSV query exports (`50000`) |
 | `config_allowed_users_role` | Valid role numbers accepted at signup/login (`[1, 2, 3, 4, 5]`) |
 | `config_redis_cache_ttl_sec` | TTL for Redis-cached role/user status lookups (`3600`) |
-| `config_users_delete_data_retention_day` | Retention grace period in days before soft-deleted users are purged (`30`) |
+| `config_users_delete_retention_day` | Retention grace period in days before soft-deleted users are purged (`30`) |
 
 ### CORS
 
@@ -165,7 +165,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 
 | Key | Usage |
 |---|---|
-| `config_table_exclude_from_users_delete` | Exact table names excluded from the user-deletion worker's soft deletion, restoration, and permanent purging; does not affect retention cleanup |
+| `config_table_exclude_from_users_delete` | Exact table names excluded from the user-deletion worker's soft deletion, restoration, and permanent purging |
 | `config_table_my_create_blocked` | Tables refused on user `/my/object-create` endpoint |
 | `config_table_my_read_blocked` | Tables refused on user `/my/object-read` endpoint |
 | `config_table_my_delete_all_allowed` | Tables supporting `/my/object-delete-all` through any column in `config_column_ownership_delete` that exists in the table; defaults to `created_by_id` |
@@ -297,7 +297,6 @@ Per-table operational settings map.
 | Table Key | Nested Key | Type | Usage & Description |
 |---|---|---|---|
 | `<table_name>` | `buffer_limit` | `int` | Overrides `config_buffer_limit_default` write-buffer threshold |
-| `<table_name>` | `retention_day` | `int` | Enables retention cleanup for the table; the manual Postgres cleaner deletes rows older than this many days based on `created_at`. Omit or set to `None` to skip cleanup. |
 
 ---
 
