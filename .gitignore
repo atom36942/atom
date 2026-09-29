@@ -26,6 +26,9 @@
 !script/**
 !docs/
 !docs/**
+!.github/
+!.github/workflows/
+!.github/workflows/**
 
 # ignore
 __pycache__/
