@@ -1,7 +1,7 @@
 # ⚛️ Atom
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.14+-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Status](https://img.shields.io/badge/status-active-brightgreen?style=flat-square)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-6366f1?style=flat-square)
 
@@ -49,7 +49,7 @@ Atom gives you authentication, generic CRUD over any table, caching, rate-limiti
 
 ## Requirements
 
-- **Python 3.11+**
+- **Python 3.14+**
 - **Git**
 - Optional database drivers for MSSQL support (**unixODBC** on Linux/macOS, **Microsoft ODBC Driver for SQL Server** on Windows).
 
