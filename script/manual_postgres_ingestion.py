@@ -10,7 +10,6 @@ import itertools
 import os
 import re
 import sys
-import time
 from datetime import datetime
 import asyncpg
 from dotenv import load_dotenv
@@ -42,7 +41,6 @@ async def execute():
     if crud_mode == "delete" and const_column: raise ValueError("'const_column' must be None for 'delete' mode.")
     if crud_mode == "delete" and ignore_column: raise ValueError("'ignore_column' must be None for 'delete' mode.")
     if crud_mode == "update" and ignore_column and "id" in ignore_column: raise ValueError("Cannot ignore 'id' column in 'update' mode.")
-    t_start = time.time()
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     csv_stem = os.path.splitext(os.path.basename(csv_path))[0]
     rej_path = f"tmp/{csv_stem}_rejected_{ts}.csv"

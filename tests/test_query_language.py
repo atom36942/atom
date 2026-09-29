@@ -2,7 +2,7 @@
 import unittest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
-from function import func_postgres_relation, func_postgres_serialize, func_postgres_where_build
+from function import func_postgres_relation, func_postgres_where_build
 
 
 class FilterLanguageTests(unittest.IsolatedAsyncioTestCase):
@@ -10,7 +10,7 @@ class FilterLanguageTests(unittest.IsolatedAsyncioTestCase):
         columns = [("id", "bigint"), ("name", "text"), ("rating", "numeric"), ("tags", "text[]"), ("nums", "integer[]"),
                    ("meta", "jsonb"), ("is_on", "boolean"), ("created_at", "timestamp with time zone"),
                    ("created_by_id", "bigint"), ("password", "text"), ("coordinate", "geography")]
-        self.common = dict(client_postgres=None, client_password_hasher=None, func_postgres_serialize=func_postgres_serialize,
+        self.common = dict(client_postgres=None, client_password_hasher=None,
                            cache_postgres_schema={"t": {name: {"datatype": dtype} for name, dtype in columns}}, table="t")
 
     async def where(self, *filters):

@@ -1,5 +1,19 @@
 """Atom middleware functions."""
 
+import asyncio
+import base64
+import gzip
+import re
+import sys
+import time
+import traceback
+from typing import Any
+from urllib.parse import parse_qsl, urlencode
+import asyncpg
+import httpx
+import jwt.exceptions
+import redis.exceptions
+from fastapi import Request, Response, responses
 from .request import func_query_bool_parse
 
 def func_api_error(*, message: str, status_code: int) -> Exception:
@@ -25,7 +39,7 @@ async def func_middleware_check_token(*, user_dict: dict, url_path: str, is_toke
             raise func_api_error(message="access token required", status_code=401)
     return None
 
-async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_deactivated: any, client_postgres: any, client_redis: any, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_deactivated: Any, client_postgres: Any, client_redis: Any, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is deactivated using a strictly configured mode from config_api."""
     cfg = user_check_deactivated
     if not cfg or not user_dict: return None
@@ -60,7 +74,7 @@ async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_
     if active_status == "absent": raise func_api_error(message="missing deactivated_at", status_code=500)
     if active_status is not None: raise func_api_error(message="user not active", status_code=403)
 
-async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_deleted: any, client_postgres: any, client_redis: any, cache_users_deleted: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_deleted: Any, client_postgres: Any, client_redis: Any, cache_users_deleted: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is deleted using a strictly configured mode from config_api."""
     cfg = user_check_deleted
     if not cfg or not user_dict: return None
@@ -95,7 +109,7 @@ async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_dele
     if deleted_status == "absent": raise func_api_error(message="missing deleted_at", status_code=500)
     if deleted_status is not None: raise func_api_error(message="user is deleted", status_code=403)
 
-async def func_middleware_check_role(*, user_dict: dict, user_check_role: any, client_postgres: any, client_redis: any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_role(*, user_dict: dict, user_check_role: Any, client_postgres: Any, client_redis: Any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
     """Ensure sufficient roles to access endpoints using a strictly configured mode from config_api."""
     cfg = user_check_role
     if not cfg: return None
@@ -145,9 +159,8 @@ async def func_middleware_check_role(*, user_dict: dict, user_check_role: any, c
             raise func_api_error(message="invalid user role type", status_code=403)
     if user_role not in roles: raise func_api_error(message="access denied", status_code=403)
 
-async def func_middleware_check_ratelimiter(*, client_redis: any, rate_limit: any = None, api_ratelimiting_times_sec: any = None, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
+async def func_middleware_check_ratelimiter(*, client_redis: Any, rate_limit: Any = None, api_ratelimiting_times_sec: Any = None, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
     """Check and enforce API rate limits using either Redis or in-memory storage."""
-    import time
     rl_config = rate_limit if rate_limit is not None else api_ratelimiting_times_sec
     if not rl_config: return None
     if isinstance(rl_config, dict):
@@ -184,10 +197,8 @@ async def func_middleware_check_ratelimiter(*, client_redis: any, rate_limit: an
         raise func_api_error(message=f"invalid ratelimiter mode: {mode}, allowed: redis, inmemory", status_code=500)
     return None
 
-async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, cache: any = None, api_cache_sec: any = None, client_redis: any = None, user_id: int = 0, cache_api_response: dict = None, response: any = None) -> any:
+async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, cache: Any = None, api_cache_sec: Any = None, client_redis: Any = None, user_id: int = 0, cache_api_response: dict = None, response: Any = None) -> Any:
     """Get or set middleware API cache for a request."""
-    from fastapi import Response
-    import gzip, base64, time
     if mode not in ("get", "set"): raise func_api_error(message=f"invalid cache operation: {mode}, allowed: get, set", status_code=500)
     cfg = cache if cache is not None else api_cache_sec
     if isinstance(cfg, dict):
@@ -219,10 +230,8 @@ async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict,
     response.is_cache_set = True
     return response
 
-async def func_middleware_api_background(*, scope: dict, body_bytes: bytes, api_function: callable) -> any:
+async def func_middleware_api_background(*, scope: dict, body_bytes: bytes, api_function: callable) -> Any:
     """Delegate the request execution to a background task and return a standard acknowledgment."""
-    import asyncio
-    from fastapi import Request, responses
     async def receive(): return {"type": "http.request", "body": body_bytes}
     async def task():
         try:
@@ -240,17 +249,14 @@ async def func_middleware_api_background(*, scope: dict, body_bytes: bytes, api_
     resp = responses.JSONResponse(status_code=200, content={"status": 1, "message": "added in background"})
     return resp
 
-def func_middleware_log_query_params(*, query_params: any) -> str:
+def func_middleware_log_query_params(*, query_params: Any) -> str:
     """Keep routine query metadata while redacting credentials and opaque payloads."""
-    import re
-    from urllib.parse import urlencode, parse_qsl
     items = query_params.multi_items() if hasattr(query_params, "multi_items") else parse_qsl(str(query_params), keep_blank_values=True)
     sensitive = re.compile(r"password|passwd|secret|token|authorization|credential|api.?key|access.?key|signature|(?:^|_)(?:otp|code|dsn|sql|url|urls|filter|payload|question|sig)(?:$|_)", re.IGNORECASE)
     return urlencode([(key, "[REDACTED]" if sensitive.search(key) else value) for key, value in items])
 
 
 def _redact_error_message(message):
-    import re
     message = re.sub(r"(\b[a-z][a-z0-9+.-]*://)[^/\s@]+@", r"\1[REDACTED]@", message, flags=re.IGNORECASE)
     message = re.sub(r"\bBearer\s+[^\s,;]+", "Bearer [REDACTED]", message, flags=re.IGNORECASE)
     return re.sub(r"((?:password|passwd|secret|token|api[_-]?key|access[_-]?key|sig)\s*[=:]\s*)(?:\"[^\"]*\"|'[^']*'|[^\s&;,]+)", r"\1[REDACTED]", message, flags=re.IGNORECASE)
@@ -258,8 +264,7 @@ def _redact_error_message(message):
 
 async def func_middleware_api_response_error(*, exception: Exception, is_traceback: bool, sentry_dsn: str) -> tuple:
     """Central API error handler: formats database, client, and system exceptions into a standard JSON response."""
-    import asyncio, traceback, asyncpg, re, botocore.exceptions, redis.exceptions, httpx, jwt.exceptions
-    from fastapi import responses
+    import botocore.exceptions
     # Plain Exception stays 400; func_api_error and known infrastructure failures get their real status.
     status_code = exception.status_code if isinstance(getattr(exception, "status_code", None), int) else 400
     if isinstance(exception, asyncpg.exceptions.UniqueViolationError):
@@ -306,7 +311,6 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
         error_msg = str(exception)
     error_msg = _redact_error_message(error_msg)
     if is_traceback:
-        import sys
         traceback.print_tb(exception.__traceback__)
         print(f"{type(exception).__name__}: {error_msg}", file=sys.stderr)
     if sentry_dsn:
@@ -314,7 +318,7 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
         sentry_sdk.capture_exception(exception)
     return error_msg, responses.JSONResponse(status_code=status_code, content={"status": 0, "message": error_msg})
 
-def func_middleware_security_headers(*, response: any) -> any:
+def func_middleware_security_headers(*, response: Any) -> Any:
     """Attach baseline HTTP security headers to response."""
     if hasattr(response, "headers"):
         response.headers.setdefault("X-Content-Type-Options", "nosniff")

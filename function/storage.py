@@ -1,11 +1,15 @@
 """Atom storage functions."""
 
+import asyncio
+import re
+import urllib.parse
+import uuid
+from datetime import datetime, timedelta, timezone
+from typing import Any
 from .middleware import func_api_error
 
-async def func_blob_url_delete(*, app_state: any, service: str, urls: list, user_id: int = None) -> list:
+async def func_blob_url_delete(*, app_state: Any, service: str, urls: list, user_id: int = None) -> list:
     """Deletes S3 or Azure blobs by their URLs, optionally enforcing user ownership."""
-    import urllib.parse
-    import asyncio
     if (service == "s3" and not app_state.client_s3) or (service == "azure" and not app_state.client_azure_blob):
         raise func_api_error(message="blob client not initialized", status_code=500)
     tasks = []
@@ -48,10 +52,8 @@ async def func_blob_url_delete(*, app_state: any, service: str, urls: list, user
                 if type(res).__name__ != "ResourceNotFoundError": raise res
         return deleted_urls
 
-async def func_blob_preview_urls_get(*, client_s3: any, client_azure_blob: any, config_azure_account_name: str, config_azure_account_key: str, config_blob_expire_sec_preview: int, service: str, urls: list, user_id: int = None) -> list:
+async def func_blob_preview_urls_get(*, client_s3: Any, client_azure_blob: Any, config_azure_account_name: str, config_azure_account_key: str, config_blob_expire_sec_preview: int, service: str, urls: list, user_id: int = None) -> list:
     """Return one signed preview URL per input, in order, including duplicates."""
-    import urllib.parse
-    from datetime import datetime, timedelta, timezone
     from azure.storage.blob import BlobSasPermissions, generate_blob_sas
     if service not in ("s3", "azure"): raise Exception("unsupported blob service")
     if not isinstance(urls, list): raise Exception("urls must be a list")
@@ -87,7 +89,7 @@ async def func_blob_preview_urls_get(*, client_s3: any, client_azure_blob: any, 
         output.append(preview_url)
     return output
 
-async def func_blob_delete_all(*, app_state: any, user_id: int, limit: int = 500) -> dict:
+async def func_blob_delete_all(*, app_state: Any, user_id: int, limit: int = 500) -> dict:
     """Fetches and deletes a batch of blobs for a user, marking them as deleted in the database."""
     if not app_state.client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     async with app_state.client_postgres.acquire() as conn:
@@ -104,9 +106,8 @@ async def func_blob_delete_all(*, app_state: any, user_id: int, limit: int = 500
         await conn.execute("UPDATE blob SET deleted_at = NOW(), deleted_by_id = $1 WHERE id = ANY($2::bigint[])", user_id, ids_to_update)
     return {"deleted_count": len(process_records), "has_more": has_more, "has_next_page": has_more}
 
-async def func_blob_upload_file(*, app_state: any, service: str, container: str, files: list, user_id: int = None) -> dict:
+async def func_blob_upload_file(*, app_state: Any, service: str, container: str, files: list, user_id: int = None) -> dict:
     """Uploads a list of UploadFile objects to S3 or Azure and logs them in the database."""
-    import uuid, re
     if service not in ("s3", "azure"): raise Exception("unsupported blob service")
     if not app_state.client_postgres or (service == "s3" and not app_state.client_s3) or (service == "azure" and not app_state.client_azure_blob):
         raise func_api_error(message="required postgres/blob client not initialized", status_code=500)
@@ -133,13 +134,11 @@ async def func_blob_upload_file(*, app_state: any, service: str, container: str,
         output[item.filename] = file_url
         blob_list.append({"created_by_id": user_id, "type": 1, "service": service, "file_url": file_url})
     if blob_list:
-        await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
+        await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
     return output
 
-async def func_blob_upload_url(*, app_state: any, service: str, container: str, count: int, user_id: int = None) -> list:
+async def func_blob_upload_url(*, app_state: Any, service: str, container: str, count: int, user_id: int = None) -> list:
     """Generates presigned upload URLs (S3 post fields or Azure SAS URLs) for client-side uploads and logs them in the database."""
-    import uuid
-    from datetime import datetime, timedelta, timezone
     from azure.storage.blob import BlobSasPermissions, generate_blob_sas
     if not app_state.client_postgres or (service == "s3" and not app_state.client_s3):
         raise func_api_error(message="required postgres/blob client not initialized", status_code=500)
@@ -164,10 +163,10 @@ async def func_blob_upload_url(*, app_state: any, service: str, container: str, 
             output.append({"upload_url": sas_url, "key": file_key, "file_url": file_url})
         blob_list.append({"created_by_id": user_id, "type": 2, "service": service, "file_url": file_url})
     if blob_list:
-        await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
+        await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
     return output
 
-async def func_blob_containers_read(*, client_s3: any, client_azure_blob: any, service: str) -> list:
+async def func_blob_containers_read(*, client_s3: Any, client_azure_blob: Any, service: str) -> list:
     """Lists names of all S3 buckets or Azure containers for the initialized client."""
     if (service == "s3" and not client_s3) or (service == "azure" and not client_azure_blob):
         raise func_api_error(message="blob client not initialized", status_code=500)
@@ -181,7 +180,7 @@ async def func_blob_containers_read(*, client_s3: any, client_azure_blob: any, s
         return output
     raise Exception(f"service {service} not supported")
 
-async def func_blob_container_ops(*, client_s3: any, client_s3_resource: any, client_azure_blob: any, config_aws_s3_region_name: str, service: str, container: str, mode: str) -> any:
+async def func_blob_container_ops(*, client_s3: Any, client_s3_resource: Any, client_azure_blob: Any, config_aws_s3_region_name: str, service: str, container: str, mode: str) -> Any:
     """Creates, makes public, empties, or deletes S3 buckets or Azure Blob containers."""
     if (service == "s3" and ((mode == "empty" and not client_s3_resource) or (mode != "empty" and not client_s3))) or (service == "azure" and not client_azure_blob):
         raise func_api_error(message="blob client not initialized", status_code=500)

@@ -1,5 +1,13 @@
 """Atom pgweb functions."""
 
+import csv
+import io
+from contextlib import suppress
+from typing import Any
+from urllib.parse import urlsplit, urlunsplit
+import orjson
+from .clients import func_client_postgres
+
 def func_pgweb_ident(*parts) -> str:
     """Validate and quote PostgreSQL identifiers."""
     out = []
@@ -32,7 +40,6 @@ def func_pgweb_orjson_default(obj):
 
 def func_pgweb_orjson_dumps(payload: dict) -> bytes:
     """Fast C/Rust JSON serialization with automatic fallback for PostgreSQL data types."""
-    import orjson
     return orjson.dumps(payload, default=func_pgweb_orjson_default)
 
 def func_pgweb_pack(records) -> dict:
@@ -43,7 +50,6 @@ def func_pgweb_pack(records) -> dict:
 
 def func_pgweb_dsn_safe(dsn: str) -> str:
     """Return connection context without exposing the password."""
-    from urllib.parse import urlsplit, urlunsplit
     try:
         parsed = urlsplit(dsn)
         if not parsed.scheme: return dsn
@@ -56,7 +62,7 @@ def func_pgweb_dsn_safe(dsn: str) -> str:
         return urlunsplit((parsed.scheme, f"{auth}{host}{port}", parsed.path, parsed.query, parsed.fragment))
     except Exception: return "connection URL unavailable"
 
-async def func_pgweb_tree(*, pool: any, timeout_sec: int = 30) -> dict:
+async def func_pgweb_tree(*, pool: Any, timeout_sec: int = 30) -> dict:
     """Read non-extension top-level tables, views, and materialized views in the public schema."""
     records = await pool.fetch("""
         SELECT n.nspname AS schema_name, c.relname AS name,
@@ -73,9 +79,8 @@ async def func_pgweb_tree(*, pool: any, timeout_sec: int = 30) -> dict:
     for row in records: tree.setdefault(row["schema_name"], {}).setdefault(row["kind"], []).append({"name": row["name"]})
     return tree
 
-async def func_pgweb_connect(*, client_postgres_pgweb: dict, func_client_postgres: callable, dsn: str = None, timeout_sec: int = 30) -> dict:
+async def func_pgweb_connect(*, client_postgres_pgweb: dict, dsn: str = None, timeout_sec: int = 30) -> dict:
     """Create and register the pgweb connection pool."""
-    from contextlib import suppress
     if not dsn: raise Exception("dsn is required")
     pool = await func_client_postgres(dsn=dsn, min_size=1, max_size=4)
     if not pool: raise Exception("could not connect")
@@ -94,7 +99,6 @@ async def func_pgweb_connect(*, client_postgres_pgweb: dict, func_client_postgre
 
 async def func_pgweb_disconnect(*, client_postgres_pgweb: dict) -> dict:
     """Close and remove the pgweb connection pool."""
-    from contextlib import suppress
     pool = client_postgres_pgweb.pop("pool", None)
     client_postgres_pgweb.pop("connection_url", None)
     client_postgres_pgweb.pop("active_queries", None)
@@ -102,11 +106,11 @@ async def func_pgweb_disconnect(*, client_postgres_pgweb: dict) -> dict:
         with suppress(Exception): await pool.close()
     return {}
 
-async def func_pgweb_schema(*, pool: any, timeout_sec: int = 30) -> dict:
+async def func_pgweb_schema(*, pool: Any, timeout_sec: int = 30) -> dict:
     """Return the current database name and public table tree."""
     return {"tree": await func_pgweb_tree(pool=pool, timeout_sec=timeout_sec), "database": await pool.fetchval("SELECT current_database()", timeout=timeout_sec)}
 
-async def func_pgweb_info(*, pool: any, connection_url: str, timeout_sec: int = 30) -> dict:
+async def func_pgweb_info(*, pool: Any, connection_url: str, timeout_sec: int = 30) -> dict:
     """Return database properties plus user-owned and managed public object counts."""
     row = await pool.fetchrow("""
         SELECT current_database() AS database, current_user AS user_name, current_setting('server_version') AS version,
@@ -168,7 +172,7 @@ async def func_pgweb_info(*, pool: any, connection_url: str, timeout_sec: int = 
             "triggers": int(triggers),
             **{k: (int(v) if k != "extension_names" else (v or "None")) for k, v in managed.items()}}
 
-async def func_pgweb_catalog(*, pool: any, kind: str, timeout_sec: int = 30) -> dict:
+async def func_pgweb_catalog(*, pool: Any, kind: str, timeout_sec: int = 30) -> dict:
     """Return one lazily requested database-wide public-schema catalog."""
     columns_by_kind = {
         "tables": ["schema", "name", "type", "owner", "columns", "indexes", "constraints", "triggers", "policies", "size", "estimated_rows"],
@@ -327,8 +331,8 @@ async def func_pgweb_catalog(*, pool: any, kind: str, timeout_sec: int = 30) -> 
     rows = [{key: func_pgweb_jsonable(value) for key, value in dict(record).items()} for record in records]
     return {"columns": columns_by_kind[kind], "rows": rows}
 
-async def func_pgweb_rows(*, pool: any, table: str, limit: int = 1000, offset: int = None, after: any = None,
-                          filter_col: str = None, filter_op: str = None, filter_value: any = None, where: str = None,
+async def func_pgweb_rows(*, pool: Any, table: str, limit: int = 1000, offset: int = None, after: Any = None,
+                          filter_col: str = None, filter_op: str = None, filter_value: Any = None, where: str = None,
                           order: str = None, is_desc: bool = False, pk: str = None, is_meta: bool = False, timeout_sec: int = 30) -> dict:
     """Read one public table page and optional grid metadata."""
     if not table: raise Exception("table is required")
@@ -401,7 +405,7 @@ async def func_pgweb_rows(*, pool: any, table: str, limit: int = 1000, offset: i
     if meta is not None: out["meta"] = meta
     return out
 
-async def func_pgweb_query(*, pool: any, sql: str, is_confirmed: bool = False, is_read_only: bool = False,
+async def func_pgweb_query(*, pool: Any, sql: str, is_confirmed: bool = False, is_read_only: bool = False,
                            query_id: str = None, active_queries: dict = None, timeout_sec: int = 30) -> dict:
     """Execute query-runner SQL with write guards and optional read-only mode."""
     if not sql or not sql.strip(): raise Exception("sql is required")
@@ -431,10 +435,8 @@ async def func_pgweb_query(*, pool: any, sql: str, is_confirmed: bool = False, i
             if query_id and active_queries is not None and active_queries.get(query_id) == backend_pid:
                 active_queries.pop(query_id, None)
 
-async def func_pgweb_stream(*, pool: any, sql: str, is_confirmed: bool = False, is_read_only: bool = False, timeout_sec: int = 300) -> any:
+async def func_pgweb_stream(*, pool: Any, sql: str, is_confirmed: bool = False, is_read_only: bool = False, timeout_sec: int = 300) -> Any:
     """Stream every row returned by one query as CSV without buffering the result set."""
-    import csv
-    import io
     if not sql or not sql.strip(): raise Exception("sql is required")
     normalized = " ".join(sql.lower().split())
     if not is_read_only and not is_confirmed and (normalized.startswith(("truncate", "drop ")) or (normalized.startswith(("update ", "delete ")) and " where " not in normalized)): raise Exception("unbounded_write")
@@ -466,7 +468,7 @@ async def func_pgweb_stream(*, pool: any, sql: str, is_confirmed: bool = False, 
                 if pending: yield buffer.getvalue().encode("utf-8")
     return _iter()
 
-async def func_pgweb_detail(*, pool: any, table: str, part: str, timeout_sec: int = 30) -> dict:
+async def func_pgweb_detail(*, pool: Any, table: str, part: str, timeout_sec: int = 30) -> dict:
     """Read one lazily loaded public-table detail."""
     if not table: raise Exception("table is required")
     schema, reg = "public", f"public.{table}"
@@ -600,10 +602,10 @@ async def func_pgweb_detail(*, pool: any, table: str, part: str, timeout_sec: in
     else: raise Exception(f"invalid part: {part}")
     return {"rows": [dict(row) for row in await pool.fetch(query, *args, timeout=timeout_sec)]}
 
-async def func_pgweb(*, app_state: any, action: str, **params) -> dict:
+async def func_pgweb(*, app_state: Any, action: str, **params) -> dict:
     """Dispatch pgweb actions through focused app-state handlers."""
     client_postgres_pgweb = app_state.client_postgres_pgweb
-    if action == "connect": return await app_state.func_pgweb_connect(client_postgres_pgweb=client_postgres_pgweb, func_client_postgres=app_state.func_client_postgres, **params)
+    if action == "connect": return await app_state.func_pgweb_connect(client_postgres_pgweb=client_postgres_pgweb, **params)
     if action == "disconnect": return await app_state.func_pgweb_disconnect(client_postgres_pgweb=client_postgres_pgweb)
     pool = client_postgres_pgweb.get("pool")
     if not pool: raise Exception("not_connected")

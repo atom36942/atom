@@ -487,9 +487,9 @@ Restart Atom after changing these values. If the preflight still fails, inspect 
 </details>
 
 <details>
-<summary><strong>Login returns "incorrect password" — what's wrong?</strong></summary>
+<summary><strong>Login returns "invalid credentials" — what's wrong?</strong></summary>
 
-Atom looks up password logins by both the supplied identity and **role**. A valid username or email with the wrong role behaves like a missing user and returns the same generic password error.
+Atom looks up password logins by both the supplied identity and **role**. An unknown identity, a wrong role, a missing password hash, and a wrong password all return the same `invalid credentials` error, so the message never reveals which accounts exist.
 
 Check that:
 

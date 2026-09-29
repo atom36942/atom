@@ -1,10 +1,13 @@
 """Atom data import functions."""
 
+import csv
+import io
+from typing import Any
+import orjson
 from .middleware import func_api_error
 
-async def func_redis_import(*, client_redis: any, config_redis_cache_ttl_sec: int, mode: str, file: any) -> str:
+async def func_redis_import(*, client_redis: Any, config_redis_cache_ttl_sec: int, mode: str, file: Any) -> str:
     """Imports or deletes keys in Redis in batches from a CSV file."""
-    import orjson
     if not client_redis: raise func_api_error(message="redis client not initialized", status_code=500)
     count = 0; limit_batch = 5000
     async for ol in func_api_file_to_chunks(upload_file=file, chunk_size=limit_batch):
@@ -24,7 +27,7 @@ async def func_redis_import(*, client_redis: any, config_redis_cache_ttl_sec: in
         count += len(ol)
     return f"{count} rows processed"
 
-async def func_mongodb_import(*, client_mongodb: any, mode: str, database: str, table: str, file: any) -> str:
+async def func_mongodb_import(*, client_mongodb: Any, mode: str, database: str, table: str, file: Any) -> str:
     """Imports, updates, or deletes records in MongoDB from a CSV upload file in batches."""
     from pymongo import UpdateOne, DeleteOne
     if not client_mongodb: raise func_api_error(message="mongodb client not initialized", status_code=500)
@@ -54,7 +57,7 @@ async def func_mongodb_import(*, client_mongodb: any, mode: str, database: str, 
         count += len(ol)
     return f"{count} rows processed"
 
-async def func_postgres_import(*, app_state: any, mode: str, table: str, file: any, client_postgres: any = None, cache_postgres_schema: dict = None) -> str:
+async def func_postgres_import(*, app_state: Any, mode: str, table: str, file: Any, client_postgres: Any = None, cache_postgres_schema: dict = None) -> str:
     """Imports, updates, or deletes records in PostgreSQL from a CSV upload file in batches."""
     client_postgres = client_postgres or app_state.client_postgres
     cache_postgres_schema = cache_postgres_schema if cache_postgres_schema is not None else app_state.cache_postgres_schema
@@ -67,17 +70,16 @@ async def func_postgres_import(*, app_state: any, mode: str, table: str, file: a
                 if not ol: continue
                 if mode in ("update", "delete") and any("id" not in obj for obj in ol): raise Exception(f"CSV format error: Postgres {mode} requires 'id' column")
                 if mode == "create":
-                    await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table=table, obj_list=ol)
+                    await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table=table, obj_list=ol)
                 elif mode == "update":
-                    await app_state.func_postgres_update(client_postgres=client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=cache_postgres_schema, config_column_regex=app_state.config_column_regex, table=table, obj_list=ol, created_by_id=None)
+                    await app_state.func_postgres_update(client_postgres=client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=cache_postgres_schema, config_column_regex=app_state.config_column_regex, table=table, obj_list=ol, created_by_id=None)
                 elif mode == "delete":
                     await app_state.func_postgres_delete(client_postgres=client_postgres, client_postgres_conn=conn, cache_postgres_schema=cache_postgres_schema, table=table, ids=[obj["id"] for obj in ol], created_by_id=None)
                 count += len(ol)
     return f"{count} rows processed"
 
-async def func_api_file_to_chunks(*, upload_file: any, chunk_size: int):
+async def func_api_file_to_chunks(*, upload_file: Any, chunk_size: int):
     """Generator: reads an uploaded CSV file in chunks and yields lists of dictionaries."""
-    import csv, io
     is_wrapped_upload = hasattr(upload_file, "file")
     if is_wrapped_upload:
         await upload_file.seek(0)

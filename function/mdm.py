@@ -1,14 +1,23 @@
 """Atom MDM functions. Plain data, explicit dependencies, no shared mutable state."""
 
+import copy
+import csv
+import hashlib
+import io
+import json
+import re
+from uuid import UUID, uuid4
+from asyncpg import LockNotAvailableError
+from fastapi import HTTPException
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import Response, StreamingResponse
+
 def func_mdm_json_read(value, fallback=None):
     """Decode a database JSON value without changing the input."""
-    import json
     return json.loads(value) if isinstance(value, str) else (value if value is not None else fallback)
 
 def func_mdm_row_serialize(row):
     """Return an API-safe copy of one database row."""
-    import json
-    from fastapi.encoders import jsonable_encoder
     if row is None:
         return None
     result = dict(row)
@@ -20,9 +29,6 @@ def func_mdm_row_serialize(row):
 
 def func_mdm_command_validate(*, body: dict) -> dict:
     """Validate and copy a review command into a plain dictionary; no database access."""
-    import copy
-    from uuid import UUID
-    from fastapi import HTTPException
 
     defaults = {"request_id": None, "source": None, "run_id": None, "action": None,
                 "reason": None, "case_ids": [], "parts": [], "approved_id": None,
@@ -81,7 +87,6 @@ def func_mdm_command_validate(*, body: dict) -> dict:
 
 def func_mdm_query_validate(*, params: dict) -> dict:
     """Normalize source, pagination and literal text search without changing params."""
-    from fastapi import HTTPException
     source = params.get("source", "CW")
     if source not in ("CW", "SAP"):
         raise HTTPException(status_code=400, detail="Source must be CW or SAP.")
@@ -101,11 +106,9 @@ def func_mdm_query_validate(*, params: dict) -> dict:
 
 async def func_mdm_read(*, app_state, pool, kind: str, params: dict) -> dict:
     """Dispatch an allowed read through Atom's registered functions."""
-    from fastapi import HTTPException
     if kind not in ("overview", "groups", "detail", "candidates", "cw-search", "approved", "audit", "matches", "company", "case-matches"):
         raise HTTPException(status_code=404, detail="Unknown MDM operation.")
     func_read = getattr(app_state, "func_mdm_read_" + kind.replace("-", "_"))
-    from asyncpg import LockNotAvailableError
     try:
         result = await func_read(app_state=app_state, pool=pool, params=params)
         if kind in ("groups", "detail", "candidates"):
@@ -116,7 +119,6 @@ async def func_mdm_read(*, app_state, pool, kind: str, params: dict) -> dict:
 
 async def func_mdm_read_overview(*, app_state, pool, params: dict) -> dict:
     """Read overview with a supplied pool; callable without the API or dispatcher."""
-    from fastapi import HTTPException
     options = app_state.func_mdm_query_validate(params=params)
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
     async with pool.acquire() as conn:
@@ -145,7 +147,6 @@ async def func_mdm_read_overview(*, app_state, pool, params: dict) -> dict:
 
 async def func_mdm_read_groups(*, app_state, pool, params: dict) -> dict:
     """Read groups with a supplied pool; callable without the API or dispatcher."""
-    from fastapi import HTTPException
     options = app_state.func_mdm_query_validate(params=params)
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
     async with pool.acquire() as conn:
@@ -178,7 +179,6 @@ async def func_mdm_read_groups(*, app_state, pool, params: dict) -> dict:
 
 async def func_mdm_read_detail(*, app_state, pool, params: dict) -> dict:
     """Read detail with a supplied pool; callable without the API or dispatcher."""
-    from fastapi import HTTPException
     options = app_state.func_mdm_query_validate(params=params)
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
     async with pool.acquire() as conn:
@@ -203,7 +203,6 @@ async def func_mdm_read_detail(*, app_state, pool, params: dict) -> dict:
 
 async def func_mdm_read_candidates(*, app_state, pool, params: dict) -> dict:
     """Read candidates with a supplied pool; callable without the API or dispatcher."""
-    from fastapi import HTTPException
     options = app_state.func_mdm_query_validate(params=params)
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
     async with pool.acquire() as conn:
@@ -238,7 +237,6 @@ async def func_mdm_read_candidates(*, app_state, pool, params: dict) -> dict:
 
 async def func_mdm_read_cw_search(*, app_state, pool, params: dict) -> dict:
     """Read cw search with a supplied pool; callable without the API or dispatcher."""
-    from fastapi import HTTPException
     options = app_state.func_mdm_query_validate(params=params)
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
     async with pool.acquire() as conn:
@@ -254,7 +252,6 @@ async def func_mdm_read_cw_search(*, app_state, pool, params: dict) -> dict:
 
 async def func_mdm_read_approved(*, app_state, pool, params: dict) -> dict:
     """Read approved with a supplied pool; callable without the API or dispatcher."""
-    from fastapi import HTTPException
     options = app_state.func_mdm_query_validate(params=params)
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
     async with pool.acquire() as conn:
@@ -267,7 +264,6 @@ async def func_mdm_read_approved(*, app_state, pool, params: dict) -> dict:
 
 async def func_mdm_read_audit(*, app_state, pool, params: dict) -> dict:
     """Read audit with a supplied pool; callable without the API or dispatcher."""
-    from fastapi import HTTPException
     options = app_state.func_mdm_query_validate(params=params)
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
     async with pool.acquire() as conn:
@@ -280,7 +276,6 @@ async def func_mdm_read_audit(*, app_state, pool, params: dict) -> dict:
 
 async def func_mdm_read_matches(*, app_state, pool, params: dict) -> dict:
     """Read matches with a supplied pool; callable without the API or dispatcher."""
-    from fastapi import HTTPException
     options = app_state.func_mdm_query_validate(params=params)
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
     async with pool.acquire() as conn:
@@ -310,7 +305,6 @@ async def func_mdm_read_matches(*, app_state, pool, params: dict) -> dict:
 
 def func_mdm_validate_parts(*, records, parts, action, source):
     """Every source row must appear exactly once; survivors must belong to their part."""
-    from fastapi import HTTPException
     expected={r["entity_id"] for r in records}
     actual=[e for p in parts for e in p["entity_ids"]]
     if len(actual)!=len(set(actual)) or set(actual)!=expected:
@@ -335,8 +329,6 @@ def func_mdm_validate_parts(*, records, parts, action, source):
 
 def func_mdm_values_union(*, records, key: str) -> list:
     """Copy address/registration values with their source IDs; never mutate inputs."""
-    import copy
-    import json
     result=[]
     for r in records:
         values = json.loads(r[key]) if isinstance(r[key], str) else r[key]
@@ -354,7 +346,6 @@ def func_mdm_boolean_union(*, records, key: str):
 
 async def func_mdm_decision_create(*, conn, cmd: dict, actor: dict, digest: str):
     """Append an audit event using the caller's transaction and validated data."""
-    import json
     return await conn.fetchval("""INSERT INTO mdm_review_decision
         (request_id,request_hash,source,run_id,action,actor_id,actor_name,reason,payload)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb) RETURNING id""",
@@ -363,10 +354,6 @@ async def func_mdm_decision_create(*, conn, cmd: dict, actor: dict, digest: str)
 
 async def func_mdm_write(*, app_state, pool, actor: dict, body: dict) -> dict:
     """Apply a review atomically; resolve helper functions through Atom app_state."""
-    import hashlib
-    import json
-    from uuid import uuid4
-    from fastapi import HTTPException
     cmd = app_state.func_mdm_command_validate(body=body)
     prefix = cmd["source"].lower()
     digest = hashlib.sha256(json.dumps(cmd, ensure_ascii=False, separators=(",", ":"), default=str).encode()).hexdigest()
@@ -491,15 +478,9 @@ async def func_mdm_write(*, app_state, pool, actor: dict, body: dict) -> dict:
 
 async def func_mdm_export(*, app_state, pool, source: str):
     """Export approved handoff data using the supplied pool and Atom row formatter."""
-    import csv
-    import io
-    import json
-    from fastapi import HTTPException
-    from fastapi.responses import Response
     if source not in ("CW", "SAP"):
         raise HTTPException(status_code=400, detail="Source must be CW or SAP.")
     # Controlled handoff file, not a claim of CargoWise native import compatibility.
-    from asyncpg import LockNotAvailableError
     try:
         async with pool.acquire() as conn:
             async with conn.transaction():
@@ -550,8 +531,6 @@ def func_mdm_case_id(value):
 
 async def func_mdm_read_company(*, app_state, pool, params: dict) -> dict:
     """Read one imported source company, including its original source fields."""
-    import json
-    from fastapi import HTTPException
     options = app_state.func_mdm_query_validate(params=params)
     try:
         raw_id = func_mdm_case_id(params.get("id"))
@@ -579,13 +558,8 @@ async def func_mdm_read_company(*, app_state, pool, params: dict) -> dict:
 
 async def func_mdm_export_cases(*, app_state, pool, params: dict):
     """Download current cases as flat source-record rows, without pagination."""
-    import csv
-    import io
-    import json
-    from fastapi import HTTPException
-    from fastapi.responses import StreamingResponse
     options = app_state.func_mdm_query_validate(params=params)
-    source, prefix = options['source'], options['prefix']
+    source = options['source']
     status = params.get('status', 'pending')
     if status not in ('pending', 'approved', 'all'):
         raise HTTPException(status_code=400, detail='Invalid export status.')
@@ -596,7 +570,7 @@ async def func_mdm_export_cases(*, app_state, pool, params: dict):
             await conn.execute("SET LOCAL lock_timeout='1s'")
             await conn.execute("SET LOCAL statement_timeout='60s'")
             await conn.execute("SET LOCAL jit=off")
-            rows = await conn.fetch(f"""
+            rows = await conn.fetch("""
                 WITH current_run AS MATERIALIZED (SELECT run_id FROM mdm_runs_current WHERE source=$1),
                 reviewed AS MATERIALIZED (
                   SELECT DISTINCT cm.case_id FROM mdm_approved_member am
@@ -664,9 +638,6 @@ async def func_mdm_export_cases(*, app_state, pool, params: dict):
 
 def func_mdm_final_record_prepare(*, records, final_record, source):
     """Validate reviewed fields and retain server-owned source provenance."""
-    import copy
-    import re
-    from fastapi import HTTPException
     allowed = {'confirmed','addresses','registrations','role_flags','is_customer','is_vendor',
                'no_address_confirmed','registration_conflicts_confirmed'}
     if not isinstance(final_record, dict) or set(final_record) != allowed or final_record['confirmed'] is not True:
@@ -742,7 +713,6 @@ def func_mdm_final_record_prepare(*, records, final_record, source):
 
 async def func_mdm_read_case_matches(*, app_state, pool, params: dict) -> dict:
     """Read source CW records suggested for a current SAP case; no decision is made."""
-    from fastapi import HTTPException
     if params.get('source') != 'SAP':
         raise HTTPException(status_code=400, detail='CargoWise comparison is available for SAP cases.')
     try:

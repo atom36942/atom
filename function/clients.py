@@ -1,18 +1,22 @@
 """Atom clients functions."""
 
+from contextlib import suppress
+from typing import Any
+import asyncpg
+import httpx
+import redis.asyncio as redis
+from argon2 import PasswordHasher
+
 def func_client_password_hasher():
     """Initialize Argon2 password hasher."""
-    from argon2 import PasswordHasher
     return PasswordHasher()
 
 def func_client_http():
     """Initialize HTTP async client."""
-    import httpx
     return httpx.AsyncClient()
 
 async def func_client_postgres(*, dsn: str, min_size: int = 5, max_size: int = 20, is_read_only: bool = False):
     """Initialize a single asyncpg Postgres connection pool."""
-    import asyncpg
     if not dsn: return None
     pool_kwargs = {"min_size": min_size, "max_size": max_size}
     if is_read_only: pool_kwargs["server_settings"] = {"default_transaction_read_only": "on"}
@@ -20,7 +24,6 @@ async def func_client_postgres(*, dsn: str, min_size: int = 5, max_size: int = 2
 
 def func_client_redis(*, url: str):
     """Initialize a single Redis connection pool."""
-    import redis.asyncio as redis
     return redis.Redis.from_pool(redis.ConnectionPool.from_url(url)) if url else None
 
 def func_client_mongodb(*, url: str):
@@ -132,9 +135,8 @@ def func_client_msgraph(*, tenant_id: str, client_id: str, client_secret: str, s
     scopes = scopes or ["https://graph.microsoft.com/.default"]
     return GraphServiceClient(credentials=credential, scopes=scopes)
 
-async def func_client_close(*, app_state: any = None, clients: dict = None) -> None:
+async def func_client_close(*, app_state: Any = None, clients: dict = None) -> None:
     """Safely disconnect and close all active database, storage, messaging, and AI clients."""
-    from contextlib import suppress
     c = {}
     if app_state: c = {k: getattr(app_state, k, None) for k in dir(app_state) if k.startswith("client_")}
     elif isinstance(clients, dict): c = clients.copy()

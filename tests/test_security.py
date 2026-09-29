@@ -70,8 +70,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
         return SimpleNamespace(client_postgres=object(), client_s3=SimpleNamespace(put_object=AsyncMock()),
             client_azure_blob=None, config_blob_limit_upload=2, config_blob_limit_size_kb=1,
             config_aws_s3_region_name="ap-south-1",
-            func_postgres_create=AsyncMock(), client_password_hasher=None, func_postgres_serialize=None,
-            func_regex_check=None, cache_postgres_schema={}, cache_postgres_buffer_create={},
+            func_postgres_create=AsyncMock(), client_password_hasher=None, cache_postgres_schema={}, cache_postgres_buffer_create={},
             config_column_regex={}, config_buffer_limit_default=10)
 
     async def test_oversized_upload_reads_only_limit_plus_one_and_does_not_upload(self):

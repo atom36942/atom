@@ -1,6 +1,9 @@
 """Atom request functions."""
 
-def func_query_bool_parse(value: any, default: bool = False) -> bool:
+from typing import Any
+import orjson
+
+def func_query_bool_parse(value: Any, default: bool = False) -> bool:
     """Parse a query-string boolean, retaining legacy 1/0 compatibility."""
     if value is None: return default
     if isinstance(value, bool): return value
@@ -9,7 +12,7 @@ def func_query_bool_parse(value: any, default: bool = False) -> bool:
     if normalized in ("false", "0"): return False
     raise ValueError(f"invalid boolean query value: {value!r}; expected 'true' or 'false'")
 
-async def func_request_param_read(*, request: any, mode: str, param_specs: list, strict: bool = False, strict_types: bool = False, header_fallback: bool = True, reject_unknown: bool = False) -> dict:
+async def func_request_param_read(*, request: Any, mode: str, param_specs: list, strict: bool = False, strict_types: bool = False, header_fallback: bool = True, reject_unknown: bool = False) -> dict:
     """Read parameters with backward-compatible defaults.
 
     strict selects specified fields only; reject_unknown rejects extra fields.
@@ -47,7 +50,6 @@ async def func_request_param_read(*, request: any, mode: str, param_specs: list,
     if param_specs is None:
         if reject_unknown: raise Exception("reject_unknown requires parameter specifications")
         return params_dict
-    import orjson
     def smart_dict(v):
         if v is None: return {}
         if isinstance(v, dict): return v
@@ -158,20 +160,20 @@ async def func_request_param_read(*, request: any, mode: str, param_specs: list,
         output_dict[key] = val
     return output_dict
 
-def func_attach_user_audit_fields(*, request: any, obj_list: list, field: str = "created_by_id") -> list:
+def func_attach_user_audit_fields(*, request: Any, obj_list: list, field: str = "created_by_id") -> list:
     """Inject current user ID into payload objects for audit field tracking."""
     user_id = getattr(getattr(request, "state", None), "user", {}).get("id")
     if user_id:
         return [dict(item, **{field: user_id}) for item in obj_list]
     return obj_list
 
-async def func_extract_request_object_list(*, request: any) -> list:
+async def func_extract_request_object_list(*, request: Any) -> list:
     """Extract single or batch object payload list from request body."""
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[])
     return ob.get("obj_list", [ob])
 
-async def func_converter_number(*, datatype: str, mode: str, x: str) -> any:
+async def func_converter_number(*, datatype: str, mode: str, x: str) -> Any:
     """Encodes a string to an integer or decodes an integer to a string based on base-39 charset mapping."""
     type_limits = {"smallint": 2, "int": 5, "bigint": 11}
     charset = "abcdefghijklmnopqrstuvwxyz0123456789_-.@#"

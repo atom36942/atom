@@ -1,5 +1,8 @@
 """Atom postgres schema functions."""
 
+import hashlib
+from typing import Any
+
 def func_postgres_schema_config_validate(*, config_postgres: dict) -> None:
     """Validate configured tables, columns, indexes, and unique constraints before database changes."""
     if not config_postgres: raise Exception("config_postgres missing")
@@ -81,7 +84,7 @@ def func_postgres_schema_context_build(*, config_postgres: dict) -> dict:
             if legacy_key in control: return not control.get(legacy_key)
         return default
     catalog = {"idx": set(), "uni": set(), "chk": set(), "tg": set()}
-    def register_sql_catalog(sql_config: any) -> None:
+    def register_sql_catalog(sql_config: Any) -> None:
         if not isinstance(sql_config, dict): return None
         for key, val in sql_config.items():
             if isinstance(key, str) and isinstance(val, str):
@@ -94,9 +97,8 @@ def func_postgres_schema_context_build(*, config_postgres: dict) -> dict:
     register_sql_catalog(config_postgres.get("sql", {}))
     return {"catalog": catalog, "is_truncate_table": get_enable_control_switch("is_truncate_table", True, ("is_enable_truncate_disable", "is_disable_truncate")), "is_root_user_delete_disabled": control.get("is_root_user_delete_disabled", control.get("is_enable_users_protect_root", True)), "is_root_user_create": control.get("is_root_user_create", True), "is_log_users_password": control.get("is_log_users_password", True), "is_log_users_delete": control.get("is_log_users_delete", True), "is_protected_delete_disabled": control.get("is_protected_delete_disabled", True), "is_updated_at_set": control.get("is_updated_at_set", True), "bulk_blocked": control.get("table_row_delete_disable_bulk", control.get("table_delete_disable_row_bulk", control.get("disable_table_delete_row_bulk", []))), "table_blocked": control.get("table_row_delete_disable", control.get("table_row_delete_disable_all", control.get("table_delete_disable_row", control.get("disable_table_delete_row", []))))}
 
-def func_postgres_schema_hash(value: any) -> str:
+def func_postgres_schema_hash(value: Any) -> str:
     """Return the stable short hash used in managed PostgreSQL object names."""
-    import hashlib
     return hashlib.md5(str(value).encode()).hexdigest()[:4]
 
 def func_postgres_schema_identifier(name: str) -> str:
@@ -108,7 +110,7 @@ def func_postgres_schema_col_setting_enabled(col_cfg: dict, key: str) -> bool:
     """Return whether an optional column setting has a usable configured value."""
     return key in col_cfg and col_cfg.get(key) not in (None, "")
 
-def func_postgres_schema_sql_queries(sql_config: any):
+def func_postgres_schema_sql_queries(sql_config: Any):
     """Yield custom SQL strings from nested mapping and sequence configuration."""
     if isinstance(sql_config, dict):
         for val in sql_config.values(): yield from func_postgres_schema_sql_queries(val)
@@ -116,7 +118,7 @@ def func_postgres_schema_sql_queries(sql_config: any):
         for val in sql_config: yield from func_postgres_schema_sql_queries(val)
     elif isinstance(sql_config, str) and sql_config.strip(): yield sql_config
 
-async def func_postgres_schema_extensions_init(*, conn: any, extensions: list) -> None:
+async def func_postgres_schema_extensions_init(*, conn: Any, extensions: list) -> None:
     """Install configured PostgreSQL extensions when privileges permit."""
     for extension in extensions:
         try:
@@ -127,7 +129,7 @@ async def func_postgres_schema_extensions_init(*, conn: any, extensions: list) -
             else: raise e
     return None
 
-async def func_postgres_schema_tables_sync(*, conn: any, tables: dict, catalog: dict) -> None:
+async def func_postgres_schema_tables_sync(*, conn: Any, tables: dict, catalog: dict) -> None:
     """Synchronize configured tables, columns, indexes, and constraints."""
     for table_name, column_configs in tables.items():
         primary_cfg = column_configs[0]
@@ -266,7 +268,7 @@ async def func_postgres_schema_tables_sync(*, conn: any, tables: dict, catalog: 
             await conn.execute(f'ANALYZE "{table_name}";')
     return None
 
-async def func_postgres_schema_tables_read(*, conn: any) -> dict:
+async def func_postgres_schema_tables_read(*, conn: Any) -> dict:
     """Read public base-table columns needed by trigger and user setup."""
     db_schema_rows = await conn.fetch("SELECT c.table_name, c.column_name FROM information_schema.columns c JOIN information_schema.tables t ON c.table_name = t.table_name AND c.table_schema = t.table_schema WHERE c.table_schema = 'public' AND t.table_type = 'BASE TABLE'")
     db_tables = {}
@@ -274,7 +276,7 @@ async def func_postgres_schema_tables_read(*, conn: any) -> dict:
         db_tables.setdefault(row[0], []).append(row[1])
     return db_tables
 
-async def func_postgres_schema_users_init(*, conn: any, db_tables: dict, catalog: dict, context: dict, root_user_password_hash: str = None) -> None:
+async def func_postgres_schema_users_init(*, conn: Any, db_tables: dict, catalog: dict, context: dict, root_user_password_hash: str = None) -> None:
     """Initialize root-user protection, root credentials, and user audit triggers."""
     is_root_user_delete_disabled = context["is_root_user_delete_disabled"]
     is_root_user_create = context["is_root_user_create"]
@@ -300,7 +302,7 @@ async def func_postgres_schema_users_init(*, conn: any, db_tables: dict, catalog
             await conn.execute("DROP TRIGGER IF EXISTS trigger_log_users_delete ON users; CREATE TRIGGER trigger_log_users_delete AFTER UPDATE OF deleted_at OR DELETE ON users FOR EACH ROW EXECUTE FUNCTION func_log_users_delete();")
     return None
 
-async def func_postgres_schema_triggers_sync(*, conn: any, db_tables: dict, catalog: dict, context: dict) -> None:
+async def func_postgres_schema_triggers_sync(*, conn: Any, db_tables: dict, catalog: dict, context: dict) -> None:
     """Synchronize generic and table-specific protection/update triggers."""
     is_truncate_table = context["is_truncate_table"]
     is_protected_delete_disabled = context["is_protected_delete_disabled"]
@@ -347,7 +349,7 @@ async def func_postgres_schema_triggers_sync(*, conn: any, db_tables: dict, cata
             await conn.execute(f"CREATE TRIGGER {tab_tg_name} BEFORE DELETE ON {table} FOR EACH ROW EXECUTE FUNCTION func_delete_disable_table();")
     return None
 
-async def func_postgres_schema_cleanup(*, conn: any, tables: dict, catalog: dict) -> None:
+async def func_postgres_schema_cleanup(*, conn: Any, tables: dict, catalog: dict) -> None:
     """Remove obsolete generated triggers, constraints, and indexes from managed tables."""
     managed_tables = list(tables.keys())
     managed_tables_str = ",".join(f"'{t}'" for t in managed_tables) if managed_tables else "''"
@@ -378,12 +380,12 @@ async def func_postgres_schema_cleanup(*, conn: any, tables: dict, catalog: dict
         await conn.execute(f"""DO $$ DECLARE record RECORD; BEGIN FOR record IN SELECT {selection} FROM {info_tbl} {join_clause} WHERE {like_filter} LOOP IF NOT record.{selection.split(",")[0]} IN ({wants_str}) THEN EXECUTE format('{drop_fmt}', {drop_vars}); END IF; END LOOP; END $$;""")
     return None
 
-async def func_postgres_schema_sql_execute(*, conn: any, sql_config: any) -> None:
+async def func_postgres_schema_sql_execute(*, conn: Any, sql_config: Any) -> None:
     """Execute configured custom SQL after managed schema synchronization."""
     for query in func_postgres_schema_sql_queries(sql_config): await conn.execute(query)
     return None
 
-async def func_postgres_schema_init(*, app_state: any, client_postgres: any, config_postgres: dict, root_user_password_hash: str = None) -> str:
+async def func_postgres_schema_init(*, app_state: Any, client_postgres: Any, config_postgres: dict, root_user_password_hash: str = None) -> str:
     """Initialize PostgreSQL schema by composing focused helpers registered on app.state."""
     app_state.func_postgres_schema_config_validate(config_postgres=config_postgres)
     context = app_state.func_postgres_schema_context_build(config_postgres=config_postgres)

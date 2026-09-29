@@ -48,7 +48,7 @@ async def execute():
     print(f"Starting Dynamic Resume Parser Worker Script... ai={AI_SERVICE} batch_limit={BATCH_LIMIT} concurrency_limit={CONCURRENCY_LIMIT}")
     pool = await func_client_postgres(dsn=config_postgres_url, min_size=1, max_size=20)
     async with pool.acquire() as conn:
-        records = await conn.fetch(f"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1", TABLE_NAME)
+        records = await conn.fetch("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1", TABLE_NAME)
         if not records:
             print(f"Error: Table '{TABLE_NAME}' not found in database.")
             return
@@ -166,7 +166,7 @@ async def execute():
         try:
             def process_with_gemini():
                 schema = func_get_dynamic_schema()
-                prompt = f"""
+                prompt = """
                 You are an expert Talent Acquisition Specialist evaluating a candidate's resume.
                 
                 INSTRUCTIONS:

@@ -59,14 +59,14 @@ async def func_api_admin_object_create(*, request: Request):
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
     app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column="created_by_id", purpose="ownership tracking")
     obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="created_by_id")
-    return {"status": 1, "message": await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get(oq["table"], {}).get("buffer_limit", app_state.config_buffer_limit_default), mode=oq["mode"], table=oq["table"], obj_list=obj_list)}
+    return {"status": 1, "message": await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get(oq["table"], {}).get("buffer_limit", app_state.config_buffer_limit_default), mode=oq["mode"], table=oq["table"], obj_list=obj_list)}
 
 @router.get("/admin/object-read")
 async def func_api_admin_object_read(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "id desc"}, {"name": "column", "type": "str", "required": False, "allowed": None, "default": "*"}, {"name": "relation", "type": "list", "required": False, "allowed": None, "default": []}, {"name": "filter", "type": "list", "required": False, "allowed": None, "default": []}])
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
-    ol = await app_state.func_postgres_read(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_postgres_where_build=app_state.func_postgres_where_build, func_postgres_relation=app_state.func_postgres_relation, cache_postgres_schema=cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"], config_column_read_blocked=app_state.config_column_read_blocked)
+    ol = await app_state.func_postgres_read(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"], config_column_read_blocked=app_state.config_column_read_blocked)
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 
 @router.get("/admin/table-column-groupby")
@@ -95,7 +95,7 @@ async def func_api_admin_object_update(*, request: Request):
     app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column="updated_by_id", purpose="update tracking")
     obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="updated_by_id")
     created_by_id = None
-    result = await app_state.func_postgres_update(client_postgres=app_state.client_postgres, client_password_hasher=app_state.client_password_hasher, func_postgres_serialize=app_state.func_postgres_serialize, func_regex_check=app_state.func_regex_check, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], obj_list=obj_list, created_by_id=created_by_id, client_postgres_conn=None, config_column_regex=app_state.config_column_regex)
+    result = await app_state.func_postgres_update(client_postgres=app_state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema, table=oq["table"], obj_list=obj_list, created_by_id=created_by_id, client_postgres_conn=None, config_column_regex=app_state.config_column_regex)
     return {"status": 1, "message": result}
 
 @router.post("/admin/object-delete")
@@ -184,7 +184,7 @@ async def func_api_admin_postgres_query_ai(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}])
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "ai", "type": "str", "required": False, "allowed": app_state.config_ai_services, "default": "gemini"}, {"name": "question", "type": "str", "required": True, "allowed": None, "default": None}])
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
-    res = await app_state.func_postgres_query_generator_ai(client_postgres=client_postgres, client_gemini=app_state.client_gemini, client_openai=app_state.client_openai, func_postgres_schema_read_ai=app_state.func_postgres_schema_read_ai, cache_postgres_schema_ai=cache_postgres_schema_ai, config_query_runner_read_limit=app_state.config_query_runner_read_limit, ai=ob["ai"], question=ob["question"])
+    res = await app_state.func_postgres_query_generator_ai(client_postgres=client_postgres, client_gemini=app_state.client_gemini, client_openai=app_state.client_openai, cache_postgres_schema_ai=cache_postgres_schema_ai, config_query_runner_read_limit=app_state.config_query_runner_read_limit, ai=ob["ai"], question=ob["question"])
     return {"status": 1, "message": res}
 
 @router.post("/admin/mssql-query-runner-write")
@@ -233,5 +233,5 @@ async def func_api_admin_clickhouse_query_runner_read_export(*, request: Request
 async def func_api_admin_clickhouse_query_generator_ai(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "ai", "type": "str", "required": False, "allowed": app_state.config_ai_services, "default": "gemini"}, {"name": "question", "type": "str", "required": True, "allowed": None, "default": None}])
-    res = await app_state.func_clickhouse_query_generator_ai(client_clickhouse=app_state.client_clickhouse, client_gemini=app_state.client_gemini, client_openai=app_state.client_openai, func_clickhouse_schema_read_ai=app_state.func_clickhouse_schema_read_ai, cache_clickhouse_schema_ai=app_state.cache_clickhouse_schema_ai, config_query_runner_read_limit=app_state.config_query_runner_read_limit, ai=ob["ai"], question=ob["question"])
+    res = await app_state.func_clickhouse_query_generator_ai(client_clickhouse=app_state.client_clickhouse, client_gemini=app_state.client_gemini, client_openai=app_state.client_openai, cache_clickhouse_schema_ai=app_state.cache_clickhouse_schema_ai, config_query_runner_read_limit=app_state.config_query_runner_read_limit, ai=ob["ai"], question=ob["question"])
     return {"status": 1, "message": res}

@@ -5,7 +5,7 @@ from argon2 import PasswordHasher
 import jwt
 
 from function import (
-    func_auth_check_signup_role, func_auth_login_password,
+    func_auth_login_password,
     func_auth_signup_password, func_auth_user_find_or_create,
     func_otp_verify, func_token_encode, func_token_decode,
     func_middleware_check_token,
@@ -39,12 +39,18 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
     async def test_password_login_verifies_real_hash(self):
         self.assertEqual(await self.login(), self.user)
         self.assertEqual(self.conn.fetch.await_args.args[1:], (5, "alice"))
-        with self.assertRaisesRegex(Exception, "incorrect password"):
+        with self.assertRaisesRegex(Exception, "invalid credentials"):
             await self.login(password="wrong")
 
+    async def test_unknown_user_and_missing_hash_fail_like_a_wrong_password(self):
+        for rows in ([], [{**self.user, "password": None}]):
+            with self.subTest(rows=len(rows)):
+                self.conn.fetch.return_value = rows
+                with self.assertRaisesRegex(Exception, "^invalid credentials$"):
+                    await self.login()
+
     async def test_login_rejects_missing_ambiguous_and_invalid_identifiers(self):
-        for rows, changes, message in [([], {}, "not found"),
-                                     ([self.user, self.user], {"role": None}, "role is mandatory"),
+        for rows, changes, message in [([self.user, self.user], {"role": None}, "role is mandatory"),
                                      ([self.user], {"field": "username; DROP TABLE users"}, "invalid auth field")]:
             with self.subTest(message=message):
                 self.conn.fetch.reset_mock()
@@ -57,7 +63,6 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
     async def test_signup_hashes_password_before_insert(self):
         result = await func_auth_signup_password(
             client_postgres=self.pool, client_password_hasher=self.hasher,
-            func_auth_check_signup_role=func_auth_check_signup_role,
             role=5, username="alice", password="new-password", config_signup_allowed_roles=[5])
         self.assertEqual(result["id"], 7)
         sql, role, username, hashed, source = self.conn.fetch.await_args.args
@@ -71,12 +76,11 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
                 with self.assertRaisesRegex(Exception, "signup"):
                     await func_auth_signup_password(
                         client_postgres=self.pool, client_password_hasher=self.hasher,
-                        func_auth_check_signup_role=func_auth_check_signup_role,
                         role=role, username="alice", password="secret", config_signup_allowed_roles=allowed)
         self.conn.fetch.assert_not_awaited()
 
     async def test_existing_social_user_can_login_when_signup_disabled(self):
-        args = dict(client_postgres=self.pool, func_auth_check_signup_role=func_auth_check_signup_role,
+        args = dict(client_postgres=self.pool,
                     field="email", value="a@example.test", role=5, config_signup_allowed_roles=[])
         self.assertEqual(await func_auth_user_find_or_create(**args), self.user)
         self.conn.fetch.return_value = []

@@ -1,10 +1,17 @@
 """Atom queues functions."""
 
+import asyncio
+import os
+import sys
+import traceback
+from datetime import datetime, timezone
+from itertools import count
+from typing import Any
+import orjson
 from .middleware import func_api_error
 
-async def func_producer(*, queue: str, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, channel: str, payload: dict) -> any:
+async def func_producer(*, queue: str, client_celery_producer: Any, client_kafka_producer: Any, client_rabbitmq_producer: Any, client_redis_producer: Any, channel: str, payload: dict) -> Any:
     """Ultra-standardized producer orchestration. Handles multi-tech dispatch with explicit clients."""
-    import orjson
     allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
     if not queue: raise Exception("invalid queue format: queue missing")
     if queue not in allowed_queue_services: raise Exception(f"invalid queue: {queue}. allowed: {allowed_queue_services}")
@@ -24,9 +31,6 @@ async def func_producer(*, queue: str, client_celery_producer: any, client_kafka
     return None
 
 def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_callback: callable, execute_callback: callable):
-    import sys, asyncio, orjson, os, traceback
-    from datetime import datetime, timezone
-    from itertools import count
     if not channel: raise Exception("channel name required")
     _run_counter = count(1)
     def log_failure(q, p, e):

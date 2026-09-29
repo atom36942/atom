@@ -1,12 +1,14 @@
 """Atom messaging functions."""
 
+import asyncio
+import re
+from typing import Any
+import httpx
+import orjson
 from .middleware import func_api_error
 
-async def func_otp_send_email(*, app_state: any, service: str, sender: str, email: str, otp: int) -> str:
+async def func_otp_send_email(*, app_state: Any, service: str, sender: str, email: str, otp: int) -> str:
     """Sends OTP code via configured email service (ses, resend, azure)."""
-    import httpx
-    import orjson
-    import asyncio
     if service == "ses":
         if not app_state.client_ses: raise func_api_error(message="SES client not initialized", status_code=500)
         app_state.client_ses.send_email(Source=sender, Destination={"ToAddresses": [email]}, Message={"Subject": {"Data": "your otp code"}, "Body": {"Html": {"Data": str(otp)}}})
@@ -24,9 +26,8 @@ async def func_otp_send_email(*, app_state: any, service: str, sender: str, emai
         raise Exception(f"email service {service} not supported")
     return "done"
 
-async def func_otp_send_mobile(*, app_state: any, service: str, mobile: str, otp: int, sns_template: dict = None, sender: str = None) -> any:
+async def func_otp_send_mobile(*, app_state: Any, service: str, mobile: str, otp: int, sns_template: dict = None, sender: str = None) -> Any:
     """Sends OTP code via configured mobile service (sns, fast2sms, azure)."""
-    import httpx
     if service == "sns":
         if not app_state.client_sns: raise func_api_error(message="SNS client not initialized", status_code=500)
         if sns_template:
@@ -53,16 +54,13 @@ async def func_otp_send_mobile(*, app_state: any, service: str, mobile: str, otp
         if not app_state.client_azure_sms: raise func_api_error(message="azure sms client not configured", status_code=500)
         from_number = sender or app_state.config_azure_sms_from_number
         if not from_number: raise func_api_error(message="azure sms from_number not configured", status_code=500)
-        import asyncio
         await asyncio.to_thread(lambda: app_state.client_azure_sms.send(from_=from_number, to=[mobile], message=f"Your OTP code is {otp}"))
         return "done"
     else:
         raise Exception(f"mobile service {service} not supported")
 
-async def func_email_send(*, app_state: any, service: str, sender: str, to: list, subject: str, text: str, cc: list = None, bcc: list = None, reply_to: list = None) -> dict:
+async def func_email_send(*, app_state: Any, service: str, sender: str, to: list, subject: str, text: str, cc: list = None, bcc: list = None, reply_to: list = None) -> dict:
     """Sends a custom email via the specified service (ses, resend, azure)."""
-    import asyncio
-    import orjson
     if (service == "ses" and not app_state.client_ses) or (service == "resend" and not app_state.client_http) or (service == "azure" and not app_state.client_azure_email):
         raise func_api_error(message="email client not initialized", status_code=500)
     cc = cc or []
@@ -101,7 +99,6 @@ def func_message_pagination(*, limit: int, page: int, max_limit: int) -> tuple[i
     return limit + 1, (page - 1) * limit
 
 def func_message_order(*, order: str, cache_postgres_schema: dict) -> str:
-    import re
     schema = cache_postgres_schema.get("message", {})
     if not schema: raise Exception("table 'message' not found")
     order_list, ordered_columns = [], set()

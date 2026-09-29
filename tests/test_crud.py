@@ -2,7 +2,7 @@
 import unittest
 from function import (
     func_postgres_create, func_postgres_read, func_postgres_update, func_postgres_delete,
-    func_postgres_serialize, func_postgres_where_build, func_postgres_relation, func_regex_check,
+    func_postgres_where_build,
 )
 from tests.support import database
 
@@ -12,17 +12,15 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
         self.pool, self.conn = database()
         self.schema = {"product": {name: {"datatype": dtype} for name, dtype in
                        [("id", "bigint"), ("name", "text"), ("created_by_id", "bigint"), ("password", "text")]}}
-        self.common = dict(client_postgres=self.pool, client_password_hasher=None,
-                           func_postgres_serialize=func_postgres_serialize, cache_postgres_schema=self.schema, table="product")
-        self.write_args = self.common | dict(client_postgres_conn=None, func_regex_check=func_regex_check, config_column_regex={})
+        self.common = dict(client_postgres=self.pool, client_password_hasher=None, cache_postgres_schema=self.schema, table="product")
+        self.write_args = self.common | dict(client_postgres_conn=None, config_column_regex={})
 
     async def create(self, **changes):
         return await func_postgres_create(**(self.write_args | dict(cache_postgres_buffer={}, buffer_limit=10,
             mode="now", obj_list=[{"name": "item", "created_by_id": 7}]) | changes))
 
     async def read(self, **changes):
-        return await func_postgres_read(**(self.common | dict(func_postgres_where_build=func_postgres_where_build,
-            func_postgres_relation=func_postgres_relation, config_sql_read_limit_max=100,
+        return await func_postgres_read(**(self.common | dict( config_sql_read_limit_max=100,
             config_sql_read_relation_fetch_limit_max=100, filter=[], limit=10, page=1,
             order="id desc", column="*", relation=[]) | changes))
 
