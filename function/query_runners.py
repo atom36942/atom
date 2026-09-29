@@ -1,14 +1,16 @@
 """Atom query runners functions."""
 
+from .middleware import func_api_error
+
 async def func_postgres_query_generator_ai(*, client_postgres: any, client_gemini: any, client_openai: any, func_postgres_schema_read_ai: callable, cache_postgres_schema_ai: dict, config_query_runner_read_limit: int, ai: str, question: str) -> dict:
     """Generates and validates safe PostgreSQL SELECT queries using LLM (Gemini/OpenAI) based on the database schema."""
     import re
     import json
     import asyncio
     from google.genai import types
-    if ai == "gemini" and not client_gemini: raise Exception("Gemini client not initialized")
-    if ai == "openai" and not client_openai: raise Exception("OpenAI client not initialized")
-    if not client_postgres: raise Exception("postgres client not initialized")
+    if ai == "gemini" and not client_gemini: raise func_api_error(message="Gemini client not initialized", status_code=500)
+    if ai == "openai" and not client_openai: raise func_api_error(message="OpenAI client not initialized", status_code=500)
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     question = str(question or "").strip()
     default_limit = 10
     max_limit = config_query_runner_read_limit
@@ -166,7 +168,7 @@ def _mssql_read_sql(sql):
 async def func_mssql_query_runner_read_export(*, client_mssql: any, config_query_runner_export_limit: int, sql: str) -> any:
     """Runs a read-only MSSQL query and yields CSV lines up to the configured export limit."""
     import asyncio
-    if not client_mssql: raise Exception("MSSQL client not initialized")
+    if not client_mssql: raise func_api_error(message="MSSQL client not initialized", status_code=500)
     sql = _mssql_read_sql(sql)
     limit = config_query_runner_export_limit
     async def _iter():
@@ -196,7 +198,7 @@ async def func_mssql_query_runner_read_export(*, client_mssql: any, config_query
 async def func_mssql_query_runner_read(*, client_mssql: any, config_query_runner_read_limit: int, sql: str) -> list:
     """Runs a read-only MSSQL query and returns matching records up to the configured limit."""
     import asyncio
-    if not client_mssql: raise Exception("MSSQL client not initialized")
+    if not client_mssql: raise func_api_error(message="MSSQL client not initialized", status_code=500)
     sql = _mssql_read_sql(sql)
     limit = config_query_runner_read_limit
     for attempt in range(3):
@@ -220,7 +222,7 @@ async def func_mssql_query_runner_read(*, client_mssql: any, config_query_runner
 async def func_mssql_query_runner_write(*, client_mssql: any, sql: str) -> str:
     """Runs a write SQL query against the MSSQL instance and commits the transaction."""
     import asyncio
-    if not client_mssql: raise Exception("MSSQL client not initialized")
+    if not client_mssql: raise func_api_error(message="MSSQL client not initialized", status_code=500)
     ql = sql.lower().strip().lstrip("(").strip()
     if ql.startswith(("select", "with")): raise Exception("read SQL must use /admin/mssql-query-runner-read")
     for attempt in range(3):
@@ -242,7 +244,7 @@ async def func_postgres_query_runner_read(*, client_postgres: any, config_query_
     if not sql: raise Exception("SQL is required")
     if ";" in sql: raise Exception("Only one SQL statement is allowed")
     if not sql.lower().lstrip("(").strip().startswith(("select", "with")): raise Exception("Only SELECT/WITH queries are supported")
-    if not client_postgres: raise Exception("postgres client not initialized")
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     timeout_sec = 30
     async with client_postgres.acquire() as conn:
         async with conn.transaction(readonly=True):
@@ -259,7 +261,7 @@ async def func_postgres_query_runner_read_export(*, client_postgres: any, config
     if not sql: raise Exception("SQL is required")
     if ";" in sql: raise Exception("Only one SQL statement is allowed")
     if not sql.lower().lstrip("(").strip().startswith(("select", "with")): raise Exception("Only SELECT/WITH queries are supported")
-    if not client_postgres: raise Exception("postgres client not initialized")
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     timeout_sec = 30
     async def _iter():
         async with client_postgres.acquire() as conn:
@@ -280,7 +282,7 @@ async def func_postgres_query_runner_read_export(*, client_postgres: any, config
 
 async def func_postgres_query_runner_write(*, client_postgres: any, sql: str) -> str:
     """Runs a write SQL query against the PostgreSQL instance and returns the result command tag."""
-    if not client_postgres: raise Exception("postgres client not initialized")
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     ql = sql.lower().strip().lstrip("(").strip()
     if ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("read SQL must use /admin/postgres-query-runner-read")
     if "returning" in ql: raise Exception("RETURNING is not allowed in write mode")
@@ -298,14 +300,14 @@ def func_clickhouse_query_runner_read_sql(*, sql: str, limit: int) -> str:
 
 async def func_clickhouse_query_runner_read(*, client_clickhouse: any, config_query_runner_read_limit: int, sql: str) -> list:
     """Run a read-only ClickHouse query and return row mappings up to the configured limit."""
-    if not client_clickhouse: raise Exception("clickhouse client not initialized")
+    if not client_clickhouse: raise func_api_error(message="clickhouse client not initialized", status_code=500)
     sql = func_clickhouse_query_runner_read_sql(sql=sql, limit=config_query_runner_read_limit)
     result = await client_clickhouse.query(sql, settings={"readonly": 1, "max_execution_time": 30})
     return [dict(zip(result.column_names, row)) for row in result.result_rows]
 
 async def func_clickhouse_query_runner_read_export(*, client_clickhouse: any, config_query_runner_export_limit: int, sql: str) -> any:
     """Stream a read-only ClickHouse query as CSV up to the configured export limit."""
-    if not client_clickhouse: raise Exception("clickhouse client not initialized")
+    if not client_clickhouse: raise func_api_error(message="clickhouse client not initialized", status_code=500)
     sql = func_clickhouse_query_runner_read_sql(sql=sql, limit=config_query_runner_export_limit)
     async def _iter():
         stream = await client_clickhouse.raw_stream(sql, fmt="CSVWithNames", settings={"readonly": 1, "max_execution_time": 30})
@@ -316,7 +318,7 @@ async def func_clickhouse_query_runner_read_export(*, client_clickhouse: any, co
 
 async def func_clickhouse_query_runner_write(*, client_clickhouse: any, sql: str) -> str:
     """Run one non-read ClickHouse statement and return its command result."""
-    if not client_clickhouse: raise Exception("clickhouse client not initialized")
+    if not client_clickhouse: raise func_api_error(message="clickhouse client not initialized", status_code=500)
     sql = str(sql or "").strip().rstrip(";").strip()
     if not sql: raise Exception("SQL is required")
     if ";" in sql: raise Exception("Only one SQL statement is allowed")
@@ -327,7 +329,7 @@ async def func_clickhouse_query_runner_write(*, client_clickhouse: any, sql: str
 
 async def func_clickhouse_schema_read_ai(*, client_clickhouse: any) -> dict:
     """Read the current ClickHouse database schema in the compact form used by AI prompts."""
-    if not client_clickhouse: raise Exception("clickhouse client not initialized")
+    if not client_clickhouse: raise func_api_error(message="clickhouse client not initialized", status_code=500)
     result = await client_clickhouse.query("""
         SELECT database, table, name, type, is_in_primary_key, is_in_sorting_key
         FROM system.columns
@@ -345,9 +347,9 @@ async def func_clickhouse_query_generator_ai(*, client_clickhouse: any, client_g
     import json
     import re
     from google.genai import types
-    if not client_clickhouse: raise Exception("clickhouse client not initialized")
-    if ai == "gemini" and not client_gemini: raise Exception("Gemini client not initialized")
-    if ai == "openai" and not client_openai: raise Exception("OpenAI client not initialized")
+    if not client_clickhouse: raise func_api_error(message="clickhouse client not initialized", status_code=500)
+    if ai == "gemini" and not client_gemini: raise func_api_error(message="Gemini client not initialized", status_code=500)
+    if ai == "openai" and not client_openai: raise func_api_error(message="OpenAI client not initialized", status_code=500)
     question = str(question or "").strip()
     default_limit, max_limit = 10, int(config_query_runner_read_limit)
     schema = cache_clickhouse_schema_ai or await func_clickhouse_schema_read_ai(client_clickhouse=client_clickhouse)

@@ -94,8 +94,8 @@ async def func_otp_generate(*, client_postgres: any, email: str, mobile: str, co
         await conn.execute(sql, otp, email.strip().lower() if email else None, mobile.strip() if mobile else None)
     return otp
 
-async def func_otp_verify(*, client_postgres: any, otp: int, email: str, mobile: str, config_otp_expiry_sec: int, config_otp_static: int = None) -> None:
-    """Verify an OTP for email or mobile within its expiration window."""
+async def func_otp_verify(*, client_postgres: any, otp: int, email: str, mobile: str, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5) -> None:
+    """Verify an OTP for email or mobile within its expiration window; each code accepts at most config_otp_max_attempt guesses."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if config_otp_static is not None and otp == config_otp_static: return "done"
     if not otp: raise Exception("otp code missing")
@@ -110,8 +110,11 @@ async def func_otp_verify(*, client_postgres: any, otp: int, email: str, mobile:
     async with client_postgres.acquire() as conn:
         records = await conn.fetch(sql, identifier)
         if not records: raise Exception("otp not found")
-        if records[0]["otp"] != otp: raise Exception("invalid otp code")
         if not records[0]["is_valid"]: raise Exception("otp code expired")
+        # Count the guess before comparing; the conditional update caps guesses even under concurrent requests.
+        attempt = await conn.fetchval("UPDATE otp SET attempt = attempt + 1 WHERE id = $1 AND attempt < $2 RETURNING attempt;", records[0]["id"], config_otp_max_attempt)
+        if attempt is None: raise func_api_error(message="otp attempts exceeded, request a new code", status_code=429)
+        if records[0]["otp"] != otp: raise Exception("invalid otp code")
         await conn.execute("DELETE FROM otp WHERE id = $1;", records[0]["id"])
     return "done"
 

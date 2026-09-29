@@ -1,8 +1,10 @@
 """Atom postgres crud functions."""
 
+from .middleware import func_api_error
+
 async def func_postgres_table_column_groupby_read(*, app_state: any, client_postgres: any, cache_postgres_schema: dict, table: str, col: any, limit: int, page: int, agg: str = "count", agg_col: str = "*", order: str = "count desc", filter: list = None) -> dict:
     """Executes a PostgreSQL GROUP BY query dynamically across single or multiple columns and returns flat paginated results."""
-    if not client_postgres: raise Exception("postgres client not initialized")
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     import re
     if limit < 1: raise Exception("query limit must be greater than 0")
     if page < 1: raise Exception("page must be greater than 0")
@@ -68,7 +70,7 @@ async def func_postgres_table_column_groupby_read(*, app_state: any, client_post
 
 async def func_postgres_table_column_distinct_read(*, app_state: any, client_postgres: any, cache_postgres_schema: dict, table: str, col: str, limit: int, page: int, order: str = "item asc", filter: list = None) -> dict:
     """Read paginated distinct values for a single column."""
-    if not client_postgres: raise Exception("postgres client not initialized")
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     import re
     if limit < 1: raise Exception("query limit must be greater than 0")
     if page < 1: raise Exception("page must be greater than 0")
@@ -394,7 +396,7 @@ async def func_postgres_relation(*, client_postgres: any, client_postgres_conn: 
 
 async def func_postgres_create(*, client_postgres: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_column_regex: dict, buffer_limit: int, mode: str, table: str, obj_list: list) -> any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
-    if not client_postgres and not client_postgres_conn: raise Exception("postgres client not initialized")
+    if not client_postgres and not client_postgres_conn: raise func_api_error(message="postgres client not initialized", status_code=500)
     import re, orjson
     limit_chunk = 5000
     async def insert_serialized(tbl, serialized_list, connection=None):
@@ -491,7 +493,7 @@ async def func_postgres_create(*, client_postgres: any, client_postgres_conn: an
 
 async def func_postgres_read(*, client_postgres: any, client_password_hasher: any, func_postgres_serialize: callable, func_postgres_where_build: callable, func_postgres_relation: callable, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list, config_column_read_blocked: list = None, blocked_tables: list = None) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
-    if not client_postgres: raise Exception("postgres client not initialized")
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     import re
     blocked_cols = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
@@ -542,7 +544,7 @@ async def func_postgres_read(*, client_postgres: any, client_password_hasher: an
 
 async def func_postgres_update(*, client_postgres: any, client_postgres_conn: any, client_password_hasher: any, func_postgres_serialize: callable, func_regex_check: callable, cache_postgres_schema: dict, config_column_regex: dict, table: str, obj_list: list, created_by_id: int, ownership_column: str = "created_by_id") -> any:
     """Update PostgreSQL records immediately with support for owner validation and dynamic serialization."""
-    if not client_postgres and not client_postgres_conn: raise Exception("postgres client not initialized")
+    if not client_postgres and not client_postgres_conn: raise func_api_error(message="postgres client not initialized", status_code=500)
     import re
     if not obj_list: raise Exception("object list required")
     if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
@@ -589,7 +591,7 @@ async def func_postgres_update(*, client_postgres: any, client_postgres_conn: an
 
 async def func_postgres_delete(*, client_postgres: any, client_postgres_conn: any, cache_postgres_schema: dict = None, table: str, ids: list, created_by_id: int, ownership_column: str = "created_by_id") -> int:
     """Delete records by ID with schema-aware optional ownership restrictions."""
-    if not client_postgres and not client_postgres_conn: raise Exception("postgres client not initialized")
+    if not client_postgres and not client_postgres_conn: raise func_api_error(message="postgres client not initialized", status_code=500)
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if table == "spatial_ref_sys": raise Exception("system table protected")
@@ -623,7 +625,7 @@ async def func_postgres_delete(*, client_postgres: any, client_postgres_conn: an
 
 async def func_postgres_delete_all(*, client_postgres: any, client_postgres_conn: any = None, cache_postgres_schema: dict = None, table: str, ownership_column: str, user_id: int, limit: int = 5000) -> dict:
     """Delete records in a table matching an ownership column for a user in safe batches."""
-    if not client_postgres and not client_postgres_conn: raise Exception("postgres client not initialized")
+    if not client_postgres and not client_postgres_conn: raise func_api_error(message="postgres client not initialized", status_code=500)
     import re
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(ownership_column)): raise Exception(f"invalid identifier {ownership_column}")

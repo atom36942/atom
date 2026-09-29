@@ -1,11 +1,13 @@
 """Atom storage functions."""
 
+from .middleware import func_api_error
+
 async def func_blob_url_delete(*, app_state: any, service: str, urls: list, user_id: int = None) -> list:
     """Deletes S3 or Azure blobs by their URLs, optionally enforcing user ownership."""
     import urllib.parse
     import asyncio
     if (service == "s3" and not app_state.client_s3) or (service == "azure" and not app_state.client_azure_blob):
-        raise Exception("blob client not initialized")
+        raise func_api_error(message="blob client not initialized", status_code=500)
     tasks = []
     deleted_urls = []
     if service == "s3":
@@ -54,9 +56,9 @@ async def func_blob_preview_urls_get(*, client_s3: any, client_azure_blob: any, 
     if service not in ("s3", "azure"): raise Exception("unsupported blob service")
     if not isinstance(urls, list): raise Exception("urls must be a list")
     if (service == "s3" and not client_s3) or (service == "azure" and not client_azure_blob):
-        raise Exception("blob client not initialized")
+        raise func_api_error(message="blob client not initialized", status_code=500)
     if service == "azure" and (not config_azure_account_name or not config_azure_account_key):
-        raise Exception("azure storage credentials not configured")
+        raise func_api_error(message="azure storage credentials not configured", status_code=500)
     objects = []
     # Validate the whole batch before signing; never skip entries or deduplicate.
     for url in urls:
@@ -87,7 +89,7 @@ async def func_blob_preview_urls_get(*, client_s3: any, client_azure_blob: any, 
 
 async def func_blob_delete_all(*, app_state: any, user_id: int, limit: int = 500) -> dict:
     """Fetches and deletes a batch of blobs for a user, marking them as deleted in the database."""
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
+    if not app_state.client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     async with app_state.client_postgres.acquire() as conn:
         records = await conn.fetch("SELECT id, file_url, service FROM blob WHERE created_by_id = $1 AND deleted_at IS NULL LIMIT $2", user_id, limit + 1)
     if not records: return {"deleted_count": 0, "has_more": False, "has_next_page": False}
@@ -107,7 +109,7 @@ async def func_blob_upload_file(*, app_state: any, service: str, container: str,
     import uuid, re
     if service not in ("s3", "azure"): raise Exception("unsupported blob service")
     if not app_state.client_postgres or (service == "s3" and not app_state.client_s3) or (service == "azure" and not app_state.client_azure_blob):
-        raise Exception("required postgres/blob client not initialized")
+        raise func_api_error(message="required postgres/blob client not initialized", status_code=500)
     if len(files) > app_state.config_blob_limit_upload:
         raise Exception(f"maximum {app_state.config_blob_limit_upload} files allowed")
     output = {}
@@ -140,9 +142,9 @@ async def func_blob_upload_url(*, app_state: any, service: str, container: str, 
     from datetime import datetime, timedelta, timezone
     from azure.storage.blob import BlobSasPermissions, generate_blob_sas
     if not app_state.client_postgres or (service == "s3" and not app_state.client_s3):
-        raise Exception("required postgres/blob client not initialized")
+        raise func_api_error(message="required postgres/blob client not initialized", status_code=500)
     if service == "azure" and (not app_state.config_azure_account_name or not app_state.config_azure_account_key):
-        raise Exception("azure storage credentials not configured")
+        raise func_api_error(message="azure storage credentials not configured", status_code=500)
     if service not in ("s3", "azure"): raise Exception("unsupported blob service")
     if isinstance(count, bool) or not isinstance(count, int) or count < 1: raise Exception("count must be a positive integer")
     if count > app_state.config_blob_limit_upload:
@@ -168,7 +170,7 @@ async def func_blob_upload_url(*, app_state: any, service: str, container: str, 
 async def func_blob_containers_read(*, client_s3: any, client_azure_blob: any, service: str) -> list:
     """Lists names of all S3 buckets or Azure containers for the initialized client."""
     if (service == "s3" and not client_s3) or (service == "azure" and not client_azure_blob):
-        raise Exception("blob client not initialized")
+        raise func_api_error(message="blob client not initialized", status_code=500)
     if service == "s3":
         res = await client_s3.list_buckets()
         return [b["Name"] for b in res.get("Buckets", [])]
@@ -182,7 +184,7 @@ async def func_blob_containers_read(*, client_s3: any, client_azure_blob: any, s
 async def func_blob_container_ops(*, client_s3: any, client_s3_resource: any, client_azure_blob: any, config_aws_s3_region_name: str, service: str, container: str, mode: str) -> any:
     """Creates, makes public, empties, or deletes S3 buckets or Azure Blob containers."""
     if (service == "s3" and ((mode == "empty" and not client_s3_resource) or (mode != "empty" and not client_s3))) or (service == "azure" and not client_azure_blob):
-        raise Exception("blob client not initialized")
+        raise func_api_error(message="blob client not initialized", status_code=500)
     res = None
     if service == "s3":
         if mode == "create":

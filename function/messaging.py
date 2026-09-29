@@ -1,12 +1,14 @@
 """Atom messaging functions."""
 
+from .middleware import func_api_error
+
 async def func_otp_send_email(*, app_state: any, service: str, sender: str, email: str, otp: int) -> str:
     """Sends OTP code via configured email service (ses, resend, azure)."""
     import httpx
     import orjson
     import asyncio
     if service == "ses":
-        if not app_state.client_ses: raise Exception("SES client not initialized")
+        if not app_state.client_ses: raise func_api_error(message="SES client not initialized", status_code=500)
         app_state.client_ses.send_email(Source=sender, Destination={"ToAddresses": [email]}, Message={"Subject": {"Data": "your otp code"}, "Body": {"Html": {"Data": str(otp)}}})
     elif service == "resend":
         headers = {"Authorization": f"Bearer {app_state.config_resend_key}", "Content-Type": "application/json"}
@@ -15,7 +17,7 @@ async def func_otp_send_email(*, app_state: any, service: str, sender: str, emai
             response = await client.post(app_state.config_resend_url, headers=headers, data=orjson.dumps(payload).decode("utf-8"))
             if response.status_code != 200: raise Exception(f"failed to send email: {response.text}")
     elif service == "azure":
-        if not app_state.client_azure_email: raise Exception("azure email client not configured")
+        if not app_state.client_azure_email: raise func_api_error(message="azure email client not configured", status_code=500)
         message = {"senderAddress": sender, "recipients": {"to": [{"address": email}]}, "content": {"subject": "your otp code", "plainText": str(otp)}}
         await asyncio.to_thread(lambda: app_state.client_azure_email.begin_send(message).result())
     else:
@@ -26,7 +28,7 @@ async def func_otp_send_mobile(*, app_state: any, service: str, mobile: str, otp
     """Sends OTP code via configured mobile service (sns, fast2sms, azure)."""
     import httpx
     if service == "sns":
-        if not app_state.client_sns: raise Exception("SNS client not initialized")
+        if not app_state.client_sns: raise func_api_error(message="SNS client not initialized", status_code=500)
         if sns_template:
             app_state.client_sns.publish(
                 PhoneNumber=mobile,
@@ -48,9 +50,9 @@ async def func_otp_send_mobile(*, app_state: any, service: str, mobile: str, otp
             response = await client.get(app_state.config_fast2sms_url, params=params)
             return response.json()
     elif service == "azure":
-        if not app_state.client_azure_sms: raise Exception("azure sms client not configured")
+        if not app_state.client_azure_sms: raise func_api_error(message="azure sms client not configured", status_code=500)
         from_number = sender or app_state.config_azure_sms_from_number
-        if not from_number: raise Exception("azure sms from_number not configured")
+        if not from_number: raise func_api_error(message="azure sms from_number not configured", status_code=500)
         import asyncio
         await asyncio.to_thread(lambda: app_state.client_azure_sms.send(from_=from_number, to=[mobile], message=f"Your OTP code is {otp}"))
         return "done"
@@ -62,7 +64,7 @@ async def func_email_send(*, app_state: any, service: str, sender: str, to: list
     import asyncio
     import orjson
     if (service == "ses" and not app_state.client_ses) or (service == "resend" and not app_state.client_http) or (service == "azure" and not app_state.client_azure_email):
-        raise Exception("email client not initialized")
+        raise func_api_error(message="email client not initialized", status_code=500)
     cc = cc or []
     bcc = bcc or []
     reply_to = reply_to or []

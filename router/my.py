@@ -26,14 +26,14 @@ async def func_api_my_profile(*, request: Request):
 @router.post("/my/ping")
 async def func_api_my_ping(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
+    if not app_state.client_postgres: raise app_state.func_api_error(message="postgres client not initialized", status_code=500)
     await app_state.client_postgres.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", request.state.user["id"])
     return {"status": 1, "message": "pong"}
 
 @router.post("/my/token-refresh")
 async def func_api_my_token_refresh(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
+    if not app_state.client_postgres: raise app_state.func_api_error(message="postgres client not initialized", status_code=500)
     user = await app_state.func_user_read_single(client_postgres=app_state.client_postgres, user_id=request.state.user["id"])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
     return {"status": 1, "message": token}
@@ -137,7 +137,7 @@ async def func_api_my_message_thread(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "user_id", "type": "int", "required": True, "allowed": None, "default": None}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "id desc"}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}])
     client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
+    if not app_state.client_postgres: raise app_state.func_api_error(message="postgres client not initialized", status_code=500)
     user_one_id = request.state.user["id"]
     fetch_limit, offset = app_state.func_message_pagination(limit=oq["limit"], page=oq["page"], max_limit=app_state.config_sql_read_limit_max)
     order_sql = app_state.func_message_order(order=oq["order"], cache_postgres_schema=cache_postgres_schema)
@@ -151,7 +151,7 @@ async def func_api_my_message_thread(*, request: Request):
 @router.post("/my/object-create-mongodb")
 async def func_api_my_object_create_mongodb(*, request: Request):
     app_state = request.app.state
-    if not app_state.client_mongodb: raise Exception("mongodb client not initialized")
+    if not app_state.client_mongodb: raise app_state.func_api_error(message="mongodb client not initialized", status_code=500)
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "database", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": True, "allowed": None, "default": None}])
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[])
     obj_list = ob.get("obj_list", [ob])

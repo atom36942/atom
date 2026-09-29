@@ -1,5 +1,7 @@
 """Atom queues functions."""
 
+from .middleware import func_api_error
+
 async def func_producer(*, queue: str, client_celery_producer: any, client_kafka_producer: any, client_rabbitmq_producer: any, client_redis_producer: any, channel: str, payload: dict) -> any:
     """Ultra-standardized producer orchestration. Handles multi-tech dispatch with explicit clients."""
     import orjson
@@ -7,17 +9,17 @@ async def func_producer(*, queue: str, client_celery_producer: any, client_kafka
     if not queue: raise Exception("invalid queue format: queue missing")
     if queue not in allowed_queue_services: raise Exception(f"invalid queue: {queue}. allowed: {allowed_queue_services}")
     if queue == "celery":
-        if not client_celery_producer: raise Exception("celery producer not initialized")
+        if not client_celery_producer: raise func_api_error(message="celery producer not initialized", status_code=500)
         return client_celery_producer.send_task(channel, kwargs=payload, queue=channel).id
     elif queue == "rabbitmq":
         import aio_pika
-        if not client_rabbitmq_producer: raise Exception("rabbitmq producer not initialized")
+        if not client_rabbitmq_producer: raise func_api_error(message="rabbitmq producer not initialized", status_code=500)
         return await client_rabbitmq_producer.default_exchange.publish(aio_pika.Message(body=orjson.dumps(payload), delivery_mode=aio_pika.DeliveryMode.PERSISTENT), routing_key=channel)
     elif queue == "kafka":
-        if not client_kafka_producer: raise Exception("kafka producer not initialized")
+        if not client_kafka_producer: raise func_api_error(message="kafka producer not initialized", status_code=500)
         return await client_kafka_producer.send_and_wait(channel, orjson.dumps(payload))
     elif queue == "redis":
-        if not client_redis_producer: raise Exception("redis producer not initialized")
+        if not client_redis_producer: raise func_api_error(message="redis producer not initialized", status_code=500)
         return await client_redis_producer.lpush(channel, orjson.dumps(payload).decode("utf-8"))
     return None
 

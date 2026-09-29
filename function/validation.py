@@ -79,7 +79,7 @@ async def func_check_user_update_permission(*, app_state: any, table: str, obj_l
                 email=obj_list[0].get("email"),
                 mobile=obj_list[0].get("mobile"),
                 config_otp_expiry_sec=app_state.config_otp_expiry_sec,
-                config_otp_static=app_state.config_otp_static
+                config_otp_static=app_state.config_otp_static, config_otp_max_attempt=app_state.config_otp_max_attempt
             )
 
 def func_check_user_delete_permission(*, app_state: any, table: str, scope: str = "admin", ids: list = None, user_id: int = None) -> None:

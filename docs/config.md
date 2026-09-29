@@ -130,6 +130,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_postgres_pool_max_size` | Maximum connections per PostgreSQL pool (default: `20`) |
 | `config_otp_length` | Digit length generated for OTP codes (default: `6`) |
 | `config_otp_expiry_sec` | Expiry window for OTP codes in seconds (default: `600`) |
+| `config_otp_max_attempt` | Verification guesses allowed per OTP code before it is locked (default: `5`) |
 | `config_access_token_expires_sec` | JWT Access Token lifetime in seconds |
 | `config_refresh_token_expires_sec` | JWT Refresh Token lifetime in seconds |
 | `config_blob_limit_size_kb` | Maximum file upload size in KB (default: `500`) |

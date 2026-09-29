@@ -131,3 +131,26 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
                     await func_otp_verify(client_postgres=self.pool, otp=123456,
                                           email="a@example.test", mobile=None, config_otp_expiry_sec=300)
         self.conn.execute.assert_not_awaited()
+
+    async def test_each_guess_is_counted_against_the_attempt_cap_before_comparing(self):
+        self.conn.fetch.return_value = [{"id": 8, "otp": 654321, "is_valid": True}]
+        with self.assertRaisesRegex(Exception, "invalid otp"):
+            await func_otp_verify(client_postgres=self.pool, otp=123456, email="a@example.test", mobile=None,
+                                  config_otp_expiry_sec=300, config_otp_max_attempt=3)
+        sql, otp_id, cap = self.conn.fetchval.await_args.args
+        self.assertIn("SET attempt = attempt + 1 WHERE id = $1 AND attempt < $2", sql)
+        self.assertEqual((otp_id, cap), (8, 3))
+
+    async def test_exhausted_code_is_rejected_with_429_even_when_correct(self):
+        self.conn.fetch.return_value = [{"id": 8, "otp": 123456, "is_valid": True}]
+        self.conn.fetchval.return_value = None
+        with self.assertRaisesRegex(Exception, "attempts exceeded") as caught:
+            await func_otp_verify(client_postgres=self.pool, otp=123456, email="a@example.test", mobile=None, config_otp_expiry_sec=300)
+        self.assertEqual(caught.exception.status_code, 429)
+        self.conn.execute.assert_not_awaited()
+
+    async def test_expired_code_does_not_spend_an_attempt(self):
+        self.conn.fetch.return_value = [{"id": 8, "otp": 123456, "is_valid": False}]
+        with self.assertRaisesRegex(Exception, "expired"):
+            await func_otp_verify(client_postgres=self.pool, otp=123456, email="a@example.test", mobile=None, config_otp_expiry_sec=300)
+        self.conn.fetchval.assert_not_awaited()

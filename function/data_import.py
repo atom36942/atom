@@ -1,9 +1,11 @@
 """Atom data import functions."""
 
+from .middleware import func_api_error
+
 async def func_redis_import(*, client_redis: any, config_redis_cache_ttl_sec: int, mode: str, file: any) -> str:
     """Imports or deletes keys in Redis in batches from a CSV file."""
     import orjson
-    if not client_redis: raise Exception("redis client not initialized")
+    if not client_redis: raise func_api_error(message="redis client not initialized", status_code=500)
     count = 0; limit_batch = 5000
     async for ol in func_api_file_to_chunks(upload_file=file, chunk_size=limit_batch):
         if mode == "create":
@@ -25,7 +27,7 @@ async def func_redis_import(*, client_redis: any, config_redis_cache_ttl_sec: in
 async def func_mongodb_import(*, client_mongodb: any, mode: str, database: str, table: str, file: any) -> str:
     """Imports, updates, or deletes records in MongoDB from a CSV upload file in batches."""
     from pymongo import UpdateOne, DeleteOne
-    if not client_mongodb: raise Exception("mongodb client not initialized")
+    if not client_mongodb: raise func_api_error(message="mongodb client not initialized", status_code=500)
     count = 0
     limit_batch = 5000
     collection = client_mongodb[database][table]
@@ -56,7 +58,7 @@ async def func_postgres_import(*, app_state: any, mode: str, table: str, file: a
     """Imports, updates, or deletes records in PostgreSQL from a CSV upload file in batches."""
     client_postgres = client_postgres or app_state.client_postgres
     cache_postgres_schema = cache_postgres_schema if cache_postgres_schema is not None else app_state.cache_postgres_schema
-    if not client_postgres: raise Exception("postgres client not initialized")
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if mode == "delete": app_state.func_check_user_delete_permission(app_state=app_state, table=table, scope="admin")
     count = 0
     async with client_postgres.acquire() as conn:

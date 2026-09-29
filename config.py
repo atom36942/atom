@@ -57,6 +57,7 @@ config_postgres_pool_max_size = 20
 config_otp_length = 6
 config_otp_expiry_sec = 600
 config_otp_static = None
+config_otp_max_attempt = 5
 config_access_token_expires_sec = 604800
 config_refresh_token_expires_sec = 2592000
 config_blob_limit_size_kb = 500
@@ -244,6 +245,7 @@ config_postgres = {
 {"name":"otp","datatype":"integer","is_mandatory": True},
 {"name":"email","datatype":"text","index":"btree(email)"},
 {"name":"mobile","datatype":"text","index":"btree(mobile)"},
+{"name":"attempt","datatype":"smallint","default":0},
 ],
 "blob":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
