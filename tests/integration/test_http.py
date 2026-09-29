@@ -150,6 +150,20 @@ class HttpIntegrationTests(unittest.TestCase):
         statuses = [self.client.post("/public/password-hash", json={"password": "x"}).status_code for _ in range(6)]
         self.assertEqual(statuses, [200] * 5 + [429])
 
+    def test_rate_limit_and_log_use_the_forwarded_client_ip_behind_a_private_proxy(self):
+        from fastapi.testclient import TestClient
+        proxy = TestClient(self.app, client=("10.0.0.4", 50000))    # like Azure App Service's front end
+        direct = TestClient(self.app, client=("5.6.7.8", 50000))    # public client reaching the app directly
+        hash_as = lambda client, forwarded: client.post("/public/password-hash", json={"password": "x"}, headers={"X-Forwarded-For": forwarded}).status_code
+        self.assertEqual([hash_as(proxy, "49.36.10.5:54321") for _ in range(6)], [200] * 5 + [429])
+        self.assertEqual(hash_as(proxy, "103.21.4.9:1234"), 200)     # another user keeps their own limit
+        self.assertEqual([hash_as(direct, f"9.9.9.{i}") for i in range(6)], [200] * 5 + [429])   # fake headers do not help
+        deadline, rows = time.time() + 10, []
+        while time.time() < deadline and not rows:
+            rows = fetch(self.url, "SELECT ip_address FROM log_api WHERE ip_address = '49.36.10.5' LIMIT 1")
+            time.sleep(0.5)
+        self.assertEqual(rows, [{"ip_address": "49.36.10.5"}])
+
     def test_requests_are_written_to_log_api(self):
         self.client.get("/my/profile", headers=self.auth())
         self.client.get("/my/profile")

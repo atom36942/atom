@@ -7,19 +7,38 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import asyncpg
 import httpx
-from starlette.datastructures import QueryParams
+from starlette.datastructures import Headers, QueryParams
 from function import (
     func_postgres_query_runner_read, func_mssql_query_runner_read,
     func_mssql_query_runner_read_export, func_clickhouse_query_runner_read,
     func_clickhouse_query_runner_read_export, func_postgres_relation,
     func_blob_upload_file, func_blob_preview_urls_get, func_blob_upload_url,
     func_middleware_log_query_params, func_middleware_api_response_error,
-    func_middleware_check_role,
+    func_middleware_check_role, func_middleware_client_ip,
 )
 from tests.support import database
 
 
 class SecurityTests(unittest.IsolatedAsyncioTestCase):
+    def test_client_ip_trusts_forwarded_header_only_from_private_proxies(self):
+        def ip(connection, forwarded=None):
+            headers = Headers({"X-Forwarded-For": forwarded} if forwarded is not None else {})
+            return func_middleware_client_ip(request=SimpleNamespace(client=SimpleNamespace(host=connection) if connection else None, headers=headers))
+        for connection, forwarded, expected in [
+            ("10.0.0.4", "49.36.10.5:54321", "49.36.10.5"),                  # Azure App Service appends ip:port
+            ("10.0.0.4", "1.1.1.1, 49.36.10.5:54321", "49.36.10.5"),         # client-supplied entries are ignored
+            ("169.254.1.2", "49.36.10.5", "49.36.10.5"),                     # link-local front end, no port
+            ("10.0.0.4", "[2001:db8::1]:443", "2001:db8::1"),                # IPv6 with port
+            ("10.0.0.4", "2001:db8::1", "2001:db8::1"),                      # IPv6 without port
+            ("127.0.0.1", None, "127.0.0.1"),                                # local dev, no header
+            ("5.6.7.8", "9.9.9.9", "5.6.7.8"),                               # direct public client cannot spoof
+            ("10.0.0.4", "not-an-ip", "10.0.0.4"),                           # garbage header falls back
+            ("testclient", "9.9.9.9", "testclient"),                         # non-IP connection host is not trusted
+            (None, "9.9.9.9", None),                                         # no connection info
+        ]:
+            with self.subTest(connection=connection, forwarded=forwarded):
+                self.assertEqual(ip(connection, forwarded), expected)
+
     async def test_mssql_read_and_export_reject_batches_and_permission_changes(self):
         client = MagicMock()
         for sql in ("SELECT 1; GRANT CONTROL TO public", "SELECT 1 GRANT CONTROL TO public",

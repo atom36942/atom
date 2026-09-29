@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import gzip
+import ipaddress
 import re
 import sys
 import time
@@ -248,6 +249,24 @@ async def func_middleware_api_background(*, scope: dict, body_bytes: bytes, api_
         task_obj.add_done_callback(task_set.discard)
     resp = responses.JSONResponse(status_code=200, content={"status": 1, "message": "added in background"})
     return resp
+
+def func_middleware_client_ip(*, request: Any) -> Any:
+    """Real client IP: the last X-Forwarded-For entry when the connection comes from a private (proxy) address, else the connection IP."""
+    connection_ip = request.client.host if request.client else None
+    header = request.headers.get("x-forwarded-for")
+    if not header or not connection_ip: return connection_ip
+    try:
+        if not (ipaddress.ip_address(connection_ip).is_private or ipaddress.ip_address(connection_ip).is_loopback): return connection_ip
+    except ValueError:
+        return connection_ip
+    # The last entry is the one the proxy added; earlier entries are whatever the client sent.
+    value = header.split(",")[-1].strip()
+    if value.startswith("["): value = value[1:value.find("]")] if "]" in value else value[1:]
+    elif value.count(":") == 1: value = value.split(":")[0]
+    try:
+        return str(ipaddress.ip_address(value))
+    except ValueError:
+        return connection_ip
 
 def func_middleware_log_query_params(*, query_params: Any) -> str:
     """Keep routine query metadata while redacting credentials and opaque payloads."""
