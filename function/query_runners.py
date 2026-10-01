@@ -6,10 +6,11 @@ import io
 import json
 import re
 from typing import Any
+import asyncpg
 from .middleware import func_api_error
 from .postgres_metadata import func_postgres_schema_read_ai
 
-async def func_postgres_query_generator_ai(*, client_postgres: Any, client_gemini: Any, client_openai: Any, cache_postgres_schema_ai: dict, config_query_runner_read_limit: int, ai: str, question: str) -> dict:
+async def func_postgres_query_generator_ai(*, client_postgres: asyncpg.Pool | None, client_gemini: Any, client_openai: Any, cache_postgres_schema_ai: dict, config_query_runner_read_limit: int, ai: str, question: str) -> dict:
     """Generates and validates safe PostgreSQL SELECT queries using LLM (Gemini/OpenAI) based on the database schema."""
     from google.genai import types
     if ai == "gemini" and not client_gemini: raise func_api_error(message="Gemini client not initialized", status_code=500)
@@ -238,7 +239,7 @@ async def func_mssql_query_runner_write(*, client_mssql: Any, sql: str) -> str:
                 continue
             raise e
 
-async def func_postgres_query_runner_read(*, client_postgres: Any, config_query_runner_read_limit: int, sql: str) -> list:
+async def func_postgres_query_runner_read(*, client_postgres: asyncpg.Pool | None, config_query_runner_read_limit: int, sql: str) -> list:
     """Runs a read-only PostgreSQL SELECT/WITH query and returns row mappings up to the configured limit."""
     sql = str(sql or "").strip().rstrip(";").strip()
     if not sql: raise Exception("SQL is required")
@@ -253,7 +254,7 @@ async def func_postgres_query_runner_read(*, client_postgres: Any, config_query_
             records = await stmt.fetch(config_query_runner_read_limit, timeout=timeout_sec)
     return [dict(row) for row in records]
 
-async def func_postgres_query_runner_read_export(*, client_postgres: Any, config_query_runner_export_limit: int, sql: str) -> Any:
+async def func_postgres_query_runner_read_export(*, client_postgres: asyncpg.Pool | None, config_query_runner_export_limit: int, sql: str) -> Any:
     """Runs a read-only PostgreSQL SELECT/WITH query and yields CSV chunks up to the configured export limit."""
     sql = str(sql or "").strip().rstrip(";").strip()
     if not sql: raise Exception("SQL is required")
@@ -278,7 +279,7 @@ async def func_postgres_query_runner_read_export(*, client_postgres: Any, config
                     buffer.seek(0); buffer.truncate(0)
     return _iter()
 
-async def func_postgres_query_runner_write(*, client_postgres: Any, sql: str) -> str:
+async def func_postgres_query_runner_write(*, client_postgres: asyncpg.Pool | None, sql: str) -> str:
     """Runs a write SQL query against the PostgreSQL instance and returns the result command tag."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     ql = sql.lower().strip().lstrip("(").strip()

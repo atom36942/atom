@@ -2,6 +2,7 @@
 
 from typing import Any
 import orjson
+from fastapi import Request
 
 def func_query_bool_parse(value: Any, default: bool = False) -> bool:
     """Parse a query-string boolean, retaining legacy 1/0 compatibility."""
@@ -12,7 +13,7 @@ def func_query_bool_parse(value: Any, default: bool = False) -> bool:
     if normalized in ("false", "0"): return False
     raise ValueError(f"invalid boolean query value: {value!r}; expected 'true' or 'false'")
 
-async def func_request_param_read(*, request: Any, mode: str, param_specs: list, strict: bool = False, strict_types: bool = False, header_fallback: bool = True, reject_unknown: bool = False) -> dict:
+async def func_request_param_read(*, request: Request, mode: str, param_specs: list, strict: bool = False, strict_types: bool = False, header_fallback: bool = True, reject_unknown: bool = False) -> dict:
     """Read parameters with backward-compatible defaults.
 
     strict selects specified fields only; reject_unknown rejects extra fields.
@@ -160,14 +161,14 @@ async def func_request_param_read(*, request: Any, mode: str, param_specs: list,
         output_dict[key] = val
     return output_dict
 
-def func_attach_user_audit_fields(*, request: Any, obj_list: list, field: str = "created_by_id") -> list:
+def func_attach_user_audit_fields(*, request: Request, obj_list: list, field: str = "created_by_id") -> list:
     """Inject current user ID into payload objects for audit field tracking."""
     user_id = getattr(getattr(request, "state", None), "user", {}).get("id")
     if user_id:
         return [dict(item, **{field: user_id}) for item in obj_list]
     return obj_list
 
-async def func_extract_request_object_list(*, request: Any) -> list:
+async def func_extract_request_object_list(*, request: Request) -> list:
     """Extract single or batch object payload list from request body."""
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[])

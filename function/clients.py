@@ -1,11 +1,11 @@
 """Atom clients functions."""
 
 from contextlib import suppress
-from typing import Any
 import asyncpg
 import httpx
 import redis.asyncio as redis
 from argon2 import PasswordHasher
+from starlette.datastructures import State
 
 def func_client_password_hasher():
     """Initialize Argon2 password hasher."""
@@ -135,7 +135,7 @@ def func_client_msgraph(*, tenant_id: str, client_id: str, client_secret: str, s
     scopes = scopes or ["https://graph.microsoft.com/.default"]
     return GraphServiceClient(credentials=credential, scopes=scopes)
 
-async def func_client_close(*, app_state: Any = None, clients: dict = None) -> None:
+async def func_client_close(*, app_state: State = None, clients: dict = None) -> None:
     """Safely disconnect and close all active database, storage, messaging, and AI clients."""
     c = {}
     if app_state: c = {k: getattr(app_state, k, None) for k in dir(app_state) if k.startswith("client_")}

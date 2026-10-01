@@ -15,6 +15,7 @@ import httpx
 import jwt.exceptions
 import redis.exceptions
 from fastapi import Request, Response, responses
+from redis.asyncio import Redis
 from .request import func_query_bool_parse
 
 def func_api_error(*, message: str, status_code: int) -> Exception:
@@ -40,7 +41,7 @@ async def func_middleware_check_token(*, user_dict: dict, url_path: str, is_toke
             raise func_api_error(message="access token required", status_code=401)
     return None
 
-async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_deactivated: Any, client_postgres: Any, client_redis: Any, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_deactivated: Any, client_postgres: asyncpg.Pool | None, client_redis: Redis | None, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is deactivated using a strictly configured mode from config_api."""
     cfg = user_check_deactivated
     if not cfg or not user_dict: return None
@@ -75,7 +76,7 @@ async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_
     if active_status == "absent": raise func_api_error(message="missing deactivated_at", status_code=500)
     if active_status is not None: raise func_api_error(message="user not active", status_code=403)
 
-async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_deleted: Any, client_postgres: Any, client_redis: Any, cache_users_deleted: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_deleted: Any, client_postgres: asyncpg.Pool | None, client_redis: Redis | None, cache_users_deleted: dict, config_redis_cache_ttl_sec: int) -> None:
     """Check if the user is deleted using a strictly configured mode from config_api."""
     cfg = user_check_deleted
     if not cfg or not user_dict: return None
@@ -110,7 +111,7 @@ async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_dele
     if deleted_status == "absent": raise func_api_error(message="missing deleted_at", status_code=500)
     if deleted_status is not None: raise func_api_error(message="user is deleted", status_code=403)
 
-async def func_middleware_check_role(*, user_dict: dict, user_check_role: Any, client_postgres: Any, client_redis: Any, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_role(*, user_dict: dict, user_check_role: Any, client_postgres: asyncpg.Pool | None, client_redis: Redis | None, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
     """Ensure sufficient roles to access endpoints using a strictly configured mode from config_api."""
     cfg = user_check_role
     if not cfg: return None
@@ -160,7 +161,7 @@ async def func_middleware_check_role(*, user_dict: dict, user_check_role: Any, c
             raise func_api_error(message="invalid user role type", status_code=403)
     if user_role not in roles: raise func_api_error(message="access denied", status_code=403)
 
-async def func_middleware_check_ratelimiter(*, client_redis: Any, rate_limit: Any = None, api_ratelimiting_times_sec: Any = None, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
+async def func_middleware_check_ratelimiter(*, client_redis: Redis | None, rate_limit: Any = None, api_ratelimiting_times_sec: Any = None, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
     """Check and enforce API rate limits using either Redis or in-memory storage."""
     rl_config = rate_limit if rate_limit is not None else api_ratelimiting_times_sec
     if not rl_config: return None
@@ -198,7 +199,7 @@ async def func_middleware_check_ratelimiter(*, client_redis: Any, rate_limit: An
         raise func_api_error(message=f"invalid ratelimiter mode: {mode}, allowed: redis, inmemory", status_code=500)
     return None
 
-async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, cache: Any = None, api_cache_sec: Any = None, client_redis: Any = None, user_id: int = 0, cache_api_response: dict = None, response: Any = None) -> Any:
+async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, cache: Any = None, api_cache_sec: Any = None, client_redis: Redis | None = None, user_id: int = 0, cache_api_response: dict = None, response: Any = None) -> Any:
     """Get or set middleware API cache for a request."""
     if mode not in ("get", "set"): raise func_api_error(message=f"invalid cache operation: {mode}, allowed: get, set", status_code=500)
     cfg = cache if cache is not None else api_cache_sec
@@ -250,7 +251,7 @@ async def func_middleware_api_background(*, scope: dict, body_bytes: bytes, api_
     resp = responses.JSONResponse(status_code=200, content={"status": 1, "message": "added in background"})
     return resp
 
-def func_middleware_client_ip(*, request: Any) -> Any:
+def func_middleware_client_ip(*, request: Request) -> Any:
     """Real client IP: the last X-Forwarded-For entry when the connection comes from a private (proxy) address, else the connection IP."""
     connection_ip = request.client.host if request.client else None
     header = request.headers.get("x-forwarded-for")

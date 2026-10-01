@@ -11,8 +11,9 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.datastructures import State
 
-async def func_admin_sync(*, app_state: Any, app_routes: list = None) -> str:
+async def func_admin_sync(*, app_state: State, app_routes: list = None) -> str:
     """Synchronize and refresh all application state caches, schemas, OpenAPI spec, and config maps."""
     if getattr(app_state, "client_postgres", None):
         await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=app_state.cache_postgres_schema, mode="flush", table=None, obj_list=None, buffer_limit=None, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=None)
@@ -30,7 +31,7 @@ async def func_admin_sync(*, app_state: Any, app_routes: list = None) -> str:
     if hasattr(app_state, "cache_extend") and isinstance(app_state.cache_extend, dict): app_state.cache_extend.clear()
     return "done"
 
-def func_openapi_spec_generate(*, app_routes: list, app_state: Any) -> dict:
+def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
     """Generate a standard OpenAPI 3.0.0 specification from FastAPI routes using source inspection."""
     config_api = getattr(app_state, "config_api", {}) or {}
     TYPE_MAP = {
@@ -184,7 +185,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: Any) -> dict:
             spec["paths"][path][m_lower] = op
     return spec
 
-def func_app_router_add(*, app: Any, router_dir: Any, router_order: dict) -> None:
+def func_app_router_add(*, app: FastAPI, router_dir: Any, router_order: dict) -> None:
     """Load router modules from a directory in a configured order and include their routers."""
     router_dir = pathlib.Path(router_dir)
     router_paths = sorted(router_dir.glob("*.py"), key=lambda path: (router_order.get(path.stem, 100), path.stem))
@@ -203,11 +204,11 @@ def func_sentry_init(*, config_sentry_dsn: str):
     from sentry_sdk.integrations.fastapi import FastApiIntegration
     return sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=False)
 
-def func_app_static_add(*, app: Any, path: str = "/static", directory: str = "./static") -> None:
+def func_app_static_add(*, app: FastAPI, path: str = "/static", directory: str = "./static") -> None:
     """Mount static directory on FastAPI application."""
     app.mount(path, StaticFiles(directory=directory, check_dir=False), name="static")
 
-def func_app_cors_add(*, app: Any, allow_origins: list = None, allow_origin_regex: str = None, allow_methods: list = None, allow_headers: list = None, expose_headers: list = None, allow_credentials: bool = True) -> None:
+def func_app_cors_add(*, app: FastAPI, allow_origins: list = None, allow_origin_regex: str = None, allow_methods: list = None, allow_headers: list = None, expose_headers: list = None, allow_credentials: bool = True) -> None:
     """Configure CORS middleware on FastAPI application if origins are provided."""
     if not allow_origins and not allow_origin_regex: return
     app.add_middleware(CORSMiddleware, allow_origins=allow_origins or [], allow_origin_regex=allow_origin_regex, allow_methods=allow_methods or ["*"], allow_headers=allow_headers or ["*"], expose_headers=expose_headers or ["*"], allow_credentials=allow_credentials)
@@ -222,7 +223,7 @@ def func_structure_init(*, dir_list: tuple = ("tmp", "secret")) -> None:
     elif os.path.exists("tmp"): os.remove("tmp")
     for d in dir_list: os.makedirs(d, exist_ok=True)
 
-def func_app_state_add(*, app: Any, data_dict: dict, prefixes: tuple) -> None:
+def func_app_state_add(*, app: FastAPI, data_dict: dict, prefixes: tuple) -> None:
     """Bulk register objects matching specific key prefixes onto app.state."""
     for k, v in data_dict.items():
         if k.startswith(prefixes):

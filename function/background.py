@@ -3,8 +3,10 @@
 import asyncio
 import time
 from typing import Any
+import asyncpg
+from starlette.datastructures import State
 
-async def func_postgres_buffer_flush_all(*, app_state: Any, client_postgres: Any = None, cache_postgres_buffer_create: dict = None, client_postgres_log_api: Any = None, cache_postgres_buffer_log_api: dict = None) -> None:
+async def func_postgres_buffer_flush_all(*, app_state: State, client_postgres: asyncpg.Pool | None = None, cache_postgres_buffer_create: dict = None, client_postgres_log_api: Any = None, cache_postgres_buffer_log_api: dict = None) -> None:
     """Flush all PostgreSQL create buffers through their respective client pools."""
     if client_postgres and cache_postgres_buffer_create:
         try:
@@ -17,7 +19,7 @@ async def func_postgres_buffer_flush_all(*, app_state: Any, client_postgres: Any
                 await app_state.func_postgres_create(client_postgres=client_postgres_log_api, client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=cache_postgres_buffer_log_api, config_column_regex=None, buffer_limit=None, mode="flush", table=None, obj_list=None)
         except Exception as e: print(f"❌ log api buffer flush error: {e}")
 
-async def func_postgres_buffer_flush_periodic_task(*, app_state: Any, client_postgres: Any, cache_postgres_buffer_create: dict, client_postgres_log_api: Any, cache_postgres_buffer_log_api: dict, interval_sec: int = 60) -> None:
+async def func_postgres_buffer_flush_periodic_task(*, app_state: State, client_postgres: asyncpg.Pool | None, cache_postgres_buffer_create: dict, client_postgres_log_api: Any, cache_postgres_buffer_log_api: dict, interval_sec: int = 60) -> None:
     """Periodically flush all PostgreSQL buffers in a background task loop."""
     while True:
         try:
@@ -48,7 +50,7 @@ async def func_async_tasks_cancel(*, task_list: list, timeout_sec: int = 5) -> N
     if task_list: await asyncio.wait(task_list, timeout=timeout_sec)
     return None
 
-async def func_app_tasks_stop(*, app_state: Any, timeout_sec: int = 5) -> None:
+async def func_app_tasks_stop(*, app_state: State, timeout_sec: int = 5) -> None:
     """Cancel all runtime background tasks and periodic system tasks on app_state."""
     runtime_tasks = list(getattr(app_state, "runtime_background_tasks", set()))
     periodic_tasks = [getattr(app_state, "postgres_buffer_flush_task", None), getattr(app_state, "inmemory_cache_cleanup_task", None)]

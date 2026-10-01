@@ -1,9 +1,10 @@
 """Atom config functions."""
 
 import re
-from typing import Any
+from fastapi import FastAPI
+from starlette.datastructures import State
 
-def func_check_database_config(*, app_state: Any) -> None:
+def func_check_database_config(*, app_state: State) -> None:
     """Validate database pool sizing and named PostgreSQL connections."""
     def int_check(value, key):
         if isinstance(value, bool): raise Exception(f"invalid {key}: expected integer")
@@ -24,7 +25,7 @@ def func_check_database_config(*, app_state: Any) -> None:
     if log_db is not None and log_db not in url_dict: raise Exception(f"config_postgres_db_log_api '{log_db}' not found in config_postgres_url_dict")
     return None
 
-def func_check_runtime_config(*, app_state: Any) -> None:
+def func_check_runtime_config(*, app_state: State) -> None:
     """Validate query limits, buffer bounds, and background-task intervals."""
     def int_check(value, key):
         if isinstance(value, bool): raise Exception(f"invalid {key}: expected integer")
@@ -38,7 +39,7 @@ def func_check_runtime_config(*, app_state: Any) -> None:
     if buffer_limit is not None and (isinstance(buffer_limit, bool) or not isinstance(buffer_limit, int) or buffer_limit < 10 or buffer_limit > 5000): raise Exception("config_buffer_limit_default must be an integer between 10 and 5000")
     return None
 
-def func_check_api_config(*, app: Any) -> None:
+def func_check_api_config(*, app: FastAPI) -> None:
     """Validate registered API middleware configuration and its Redis dependencies."""
     config_api = getattr(app.state, "config_api", {})
     if not isinstance(config_api, dict): raise Exception("config_api must be dict")
@@ -144,7 +145,7 @@ def func_check_api_config(*, app: Any) -> None:
             raise Exception(f"{key} must be a valid Redis URL")
     return None
 
-def func_check(*, app: Any) -> None:
+def func_check(*, app: FastAPI) -> None:
     """Validate database, runtime, and API configuration before client initialization."""
     func_check_database_config(app_state=app.state)
     func_check_runtime_config(app_state=app.state)

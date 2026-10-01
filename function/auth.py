@@ -4,11 +4,13 @@ import re
 import secrets
 import time
 from typing import Any
+import asyncpg
 import jwt
 import orjson
+from argon2 import PasswordHasher
 from .middleware import func_api_error
 
-async def func_auth_user_login_fetch(*, conn: Any, field: str, value: Any, role: Any, is_missing_ok: bool = False) -> dict:
+async def func_auth_user_login_fetch(*, conn: asyncpg.Connection, field: str, value: Any, role: Any, is_missing_ok: bool = False) -> dict:
     """Fetch a single login user by a unique-ish field with optional role. Raise on ambiguity (role omitted but multiple rows) and on not-found unless is_missing_ok, which returns None."""
     allowed_fields = ("username", "email", "mobile", "id_ext")
     if field not in allowed_fields: raise Exception(f"invalid auth field: {field}")
@@ -24,7 +26,7 @@ def func_auth_check_signup_role(*, role: int, config_signup_allowed_roles: list)
     if not config_signup_allowed_roles: raise func_api_error(message="signup disabled", status_code=403)
     if role == 1 or role not in config_signup_allowed_roles: raise func_api_error(message=f"signup not allowed for role {role}", status_code=403)
 
-async def func_auth_signup_password(*, client_postgres: Any, client_password_hasher: Any, role: int, username: str, password: str, source: int = None, config_signup_allowed_roles: list = None) -> dict:
+async def func_auth_signup_password(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, role: int, username: str, password: str, source: int = None, config_signup_allowed_roles: list = None) -> dict:
     """Create a new user with hashed password after enforcing signup and role safety checks."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     func_auth_check_signup_role(role=role, config_signup_allowed_roles=config_signup_allowed_roles)
@@ -33,7 +35,7 @@ async def func_auth_signup_password(*, client_postgres: Any, client_password_has
         records = await conn.fetch('INSERT INTO users (role, username, password, source) VALUES ($1, $2, $3, $4) RETURNING *;', role, username, hashed_password, source)
         return dict(records[0])
 
-async def func_auth_login_password(*, client_postgres: Any, client_password_hasher: Any, field: str, value: Any, password: str, role: Any) -> dict:
+async def func_auth_login_password(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, field: str, value: Any, password: str, role: Any) -> dict:
     """Fetch user by identifier field and verify password hash; unknown users and wrong passwords get the same error."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     async with client_postgres.acquire() as conn:
@@ -45,7 +47,7 @@ async def func_auth_login_password(*, client_postgres: Any, client_password_hash
     if not is_valid: raise Exception("invalid credentials")
     return user
 
-async def func_auth_user_find_or_create(*, client_postgres: Any, field: str, value: Any, role: int, source: int = None, config_signup_allowed_roles: list = None, extra_cols: dict = None) -> dict:
+async def func_auth_user_find_or_create(*, client_postgres: asyncpg.Pool | None, field: str, value: Any, role: int, source: int = None, config_signup_allowed_roles: list = None, extra_cols: dict = None) -> dict:
     """Find existing user or create a new user (for OTP and Social Logins) with signup policy enforcement."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(field)): raise Exception(f"invalid identifier {field}")
@@ -90,7 +92,7 @@ async def func_token_decode(*, headers: dict, config_token_secret_key: str) -> d
     if isinstance(user, dict): user["_token_type"] = decoded_payload.get("type")
     return user
 
-async def func_otp_generate(*, client_postgres: Any, email: str, mobile: str, config_otp_length: int) -> int:
+async def func_otp_generate(*, client_postgres: asyncpg.Pool | None, email: str, mobile: str, config_otp_length: int) -> int:
     """Generate a random OTP and store it in PostgreSQL for a given email or mobile."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     otp = secrets.SystemRandom().randint(10**(config_otp_length - 1), 10**config_otp_length - 1)
@@ -99,7 +101,7 @@ async def func_otp_generate(*, client_postgres: Any, email: str, mobile: str, co
         await conn.execute(sql, otp, email.strip().lower() if email else None, mobile.strip() if mobile else None)
     return otp
 
-async def func_otp_verify(*, client_postgres: Any, otp: int, email: str, mobile: str, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5) -> None:
+async def func_otp_verify(*, client_postgres: asyncpg.Pool | None, otp: int, email: str, mobile: str, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5) -> None:
     """Verify an OTP for email or mobile within its expiration window; each code accepts at most config_otp_max_attempt guesses."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if config_otp_static is not None and otp == config_otp_static: return "done"
@@ -123,7 +125,7 @@ async def func_otp_verify(*, client_postgres: Any, otp: int, email: str, mobile:
         await conn.execute("DELETE FROM otp WHERE id = $1;", records[0]["id"])
     return "done"
 
-async def func_user_read_single(*, client_postgres: Any, user_id: int) -> dict:
+async def func_user_read_single(*, client_postgres: asyncpg.Pool | None, user_id: int) -> dict:
     """Read a single user by ID from PostgreSQL, raises Exception if not found."""
     async with client_postgres.acquire() as conn:
         record = await conn.fetchrow("SELECT * FROM users WHERE id=$1;", user_id)

@@ -5,9 +5,10 @@ import re
 from typing import Any
 import httpx
 import orjson
+from starlette.datastructures import State
 from .middleware import func_api_error
 
-async def func_otp_send_email(*, app_state: Any, service: str, sender: str, email: str, otp: int) -> str:
+async def func_otp_send_email(*, app_state: State, service: str, sender: str, email: str, otp: int) -> str:
     """Sends OTP code via configured email service (ses, resend, azure)."""
     if service == "ses":
         if not app_state.client_ses: raise func_api_error(message="SES client not initialized", status_code=500)
@@ -26,7 +27,7 @@ async def func_otp_send_email(*, app_state: Any, service: str, sender: str, emai
         raise Exception(f"email service {service} not supported")
     return "done"
 
-async def func_otp_send_mobile(*, app_state: Any, service: str, mobile: str, otp: int, sns_template: dict = None, sender: str = None) -> Any:
+async def func_otp_send_mobile(*, app_state: State, service: str, mobile: str, otp: int, sns_template: dict = None, sender: str = None) -> Any:
     """Sends OTP code via configured mobile service (sns, fast2sms, azure)."""
     if service == "sns":
         if not app_state.client_sns: raise func_api_error(message="SNS client not initialized", status_code=500)
@@ -59,7 +60,7 @@ async def func_otp_send_mobile(*, app_state: Any, service: str, mobile: str, otp
     else:
         raise Exception(f"mobile service {service} not supported")
 
-async def func_email_send(*, app_state: Any, service: str, sender: str, to: list, subject: str, text: str, cc: list = None, bcc: list = None, reply_to: list = None) -> dict:
+async def func_email_send(*, app_state: State, service: str, sender: str, to: list, subject: str, text: str, cc: list = None, bcc: list = None, reply_to: list = None) -> dict:
     """Sends a custom email via the specified service (ses, resend, azure)."""
     if (service == "ses" and not app_state.client_ses) or (service == "resend" and not app_state.client_http) or (service == "azure" and not app_state.client_azure_email):
         raise func_api_error(message="email client not initialized", status_code=500)

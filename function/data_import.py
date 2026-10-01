@@ -3,10 +3,13 @@
 import csv
 import io
 from typing import Any
+import asyncpg
 import orjson
+from redis.asyncio import Redis
+from starlette.datastructures import State
 from .middleware import func_api_error
 
-async def func_redis_import(*, client_redis: Any, config_redis_cache_ttl_sec: int, mode: str, file: Any) -> str:
+async def func_redis_import(*, client_redis: Redis | None, config_redis_cache_ttl_sec: int, mode: str, file: Any) -> str:
     """Imports or deletes keys in Redis in batches from a CSV file."""
     if not client_redis: raise func_api_error(message="redis client not initialized", status_code=500)
     count = 0; limit_batch = 5000
@@ -57,7 +60,7 @@ async def func_mongodb_import(*, client_mongodb: Any, mode: str, database: str, 
         count += len(ol)
     return f"{count} rows processed"
 
-async def func_postgres_import(*, app_state: Any, mode: str, table: str, file: Any, client_postgres: Any = None, cache_postgres_schema: dict = None) -> str:
+async def func_postgres_import(*, app_state: State, mode: str, table: str, file: Any, client_postgres: asyncpg.Pool | None = None, cache_postgres_schema: dict = None) -> str:
     """Imports, updates, or deletes records in PostgreSQL from a CSV upload file in batches."""
     client_postgres = client_postgres or app_state.client_postgres
     cache_postgres_schema = cache_postgres_schema if cache_postgres_schema is not None else app_state.cache_postgres_schema

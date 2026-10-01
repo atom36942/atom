@@ -6,9 +6,10 @@ import urllib.parse
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
+from starlette.datastructures import State
 from .middleware import func_api_error
 
-async def func_blob_url_delete(*, app_state: Any, service: str, urls: list, user_id: int = None) -> list:
+async def func_blob_url_delete(*, app_state: State, service: str, urls: list, user_id: int = None) -> list:
     """Deletes S3 or Azure blobs by their URLs, optionally enforcing user ownership."""
     if (service == "s3" and not app_state.client_s3) or (service == "azure" and not app_state.client_azure_blob):
         raise func_api_error(message="blob client not initialized", status_code=500)
@@ -89,7 +90,7 @@ async def func_blob_preview_urls_get(*, client_s3: Any, client_azure_blob: Any, 
         output.append(preview_url)
     return output
 
-async def func_blob_delete_all(*, app_state: Any, user_id: int, limit: int = 500) -> dict:
+async def func_blob_delete_all(*, app_state: State, user_id: int, limit: int = 500) -> dict:
     """Fetches and deletes a batch of blobs for a user, marking them as deleted in the database."""
     if not app_state.client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     async with app_state.client_postgres.acquire() as conn:
@@ -106,7 +107,7 @@ async def func_blob_delete_all(*, app_state: Any, user_id: int, limit: int = 500
         await conn.execute("UPDATE blob SET deleted_at = NOW(), deleted_by_id = $1 WHERE id = ANY($2::bigint[])", user_id, ids_to_update)
     return {"deleted_count": len(process_records), "has_more": has_more, "has_next_page": has_more}
 
-async def func_blob_upload_file(*, app_state: Any, service: str, container: str, files: list, user_id: int = None) -> dict:
+async def func_blob_upload_file(*, app_state: State, service: str, container: str, files: list, user_id: int = None) -> dict:
     """Uploads a list of UploadFile objects to S3 or Azure and logs them in the database."""
     if service not in ("s3", "azure"): raise Exception("unsupported blob service")
     if not app_state.client_postgres or (service == "s3" and not app_state.client_s3) or (service == "azure" and not app_state.client_azure_blob):
@@ -137,7 +138,7 @@ async def func_blob_upload_file(*, app_state: Any, service: str, container: str,
         await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
     return output
 
-async def func_blob_upload_url(*, app_state: Any, service: str, container: str, count: int, user_id: int = None) -> list:
+async def func_blob_upload_url(*, app_state: State, service: str, container: str, count: int, user_id: int = None) -> list:
     """Generates presigned upload URLs (S3 post fields or Azure SAS URLs) for client-side uploads and logs them in the database."""
     from azure.storage.blob import BlobSasPermissions, generate_blob_sas
     if not app_state.client_postgres or (service == "s3" and not app_state.client_s3):

@@ -1,9 +1,10 @@
 """Atom postgres metadata functions."""
 
-from typing import Any
+import asyncpg
 import orjson
+from starlette.datastructures import State
 
-async def func_postgres_schema_read(*, client_postgres: Any, mode: str = "table") -> dict:
+async def func_postgres_schema_read(*, client_postgres: asyncpg.Pool | None, mode: str = "table") -> dict:
     """Read PostgreSQL schema with relation and per-column index info."""
     sql = """
         WITH user_schemas AS (
@@ -154,7 +155,7 @@ async def func_postgres_schema_read(*, client_postgres: Any, mode: str = "table"
         }
     return schema
 
-async def func_postgres_schema_read_ai(*, client_postgres: Any) -> dict:
+async def func_postgres_schema_read_ai(*, client_postgres: asyncpg.Pool | None) -> dict:
     """Read compact external PostgreSQL schema/index metadata for AI SQL generation."""
     sql = """
         WITH user_schemas AS (
@@ -253,7 +254,7 @@ async def func_postgres_schema_read_ai(*, client_postgres: Any) -> dict:
         }
     return schema
 
-def func_postgres_db_select(*, app_state: Any, db: str = None) -> tuple:
+def func_postgres_db_select(*, app_state: State, db: str = None) -> tuple:
     """Select target PostgreSQL client, schema, and AI schema caches by database pool name."""
     if db is None:
         return app_state.client_postgres, app_state.cache_postgres_schema, app_state.cache_postgres_schema_ai
@@ -265,7 +266,7 @@ def func_postgres_db_select(*, app_state: Any, db: str = None) -> tuple:
         app_state.cache_postgres_schema_ai_dict.get(db, {}),
     )
 
-async def func_postgres_info_read(*, client_postgres: Any) -> dict:
+async def func_postgres_info_read(*, client_postgres: asyncpg.Pool | None) -> dict:
     """Read comprehensive PostgreSQL database statistics, storage, activity, and schema information."""
     async with client_postgres.acquire() as conn:
         database_info = dict(await conn.fetchrow("""
@@ -489,7 +490,7 @@ async def func_postgres_info_read(*, client_postgres: Any) -> dict:
     activity_info["connection_utilization_pct"] = round((connection_count / max_connections) * 100, 2) if max_connections else None
     return {**database_info, **relation_counts, **storage_info, **activity_info, **stats_info, **bgwriter_info, **table_stats_info, **table_io_info, "extension_count": len(extensions), "extensions": extensions, "largest_relations": largest_relations, "top_dead_tuple_relations": top_dead_tuple_relations}
 
-async def func_postgres_map_column(*, client_postgres: Any, config_sql: str, is_json_value: bool = False) -> dict:
+async def func_postgres_map_column(*, client_postgres: asyncpg.Pool | None, config_sql: str, is_json_value: bool = False) -> dict:
     """Execute a mapping SQL query and return a dictionary from the first two columns."""
     if not config_sql: return {}
     async with client_postgres.acquire() as conn:

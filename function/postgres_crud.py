@@ -5,11 +5,14 @@ import re
 from collections import defaultdict
 from datetime import date, datetime
 from typing import Any
+import asyncpg
 import orjson
+from argon2 import PasswordHasher
+from starlette.datastructures import State
 from .middleware import func_api_error
 from .validation import func_regex_check
 
-async def func_postgres_table_column_groupby_read(*, app_state: Any, client_postgres: Any, cache_postgres_schema: dict, table: str, col: Any, limit: int, page: int, agg: str = "count", agg_col: str = "*", order: str = "count desc", filter: list = None) -> dict:
+async def func_postgres_table_column_groupby_read(*, app_state: State, client_postgres: asyncpg.Pool | None, cache_postgres_schema: dict, table: str, col: Any, limit: int, page: int, agg: str = "count", agg_col: str = "*", order: str = "count desc", filter: list = None) -> dict:
     """Executes a PostgreSQL GROUP BY query dynamically across single or multiple columns and returns flat paginated results."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if limit < 1: raise Exception("query limit must be greater than 0")
@@ -74,7 +77,7 @@ async def func_postgres_table_column_groupby_read(*, app_state: Any, client_post
     ol = [dict(row) for row in rows]
     return {"obj_list": ol[:limit], "has_next_page": len(ol) > limit}
 
-async def func_postgres_table_column_distinct_read(*, app_state: Any, client_postgres: Any, cache_postgres_schema: dict, table: str, col: str, limit: int, page: int, order: str = "item asc", filter: list = None) -> dict:
+async def func_postgres_table_column_distinct_read(*, app_state: State, client_postgres: asyncpg.Pool | None, cache_postgres_schema: dict, table: str, col: str, limit: int, page: int, order: str = "item asc", filter: list = None) -> dict:
     """Read paginated distinct values for a single column."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if limit < 1: raise Exception("query limit must be greater than 0")
@@ -100,7 +103,7 @@ async def func_postgres_table_column_distinct_read(*, app_state: Any, client_pos
     items = [row["item"] for row in rows]
     return {"item_list": items[:limit], "has_next_page": len(items) > limit}
 
-async def func_postgres_serialize(*, client_postgres: Any, client_password_hasher: Any, cache_postgres_schema: dict, table: str, obj_list: list, is_base: bool) -> list:
+async def func_postgres_serialize(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, table: str, obj_list: list, is_base: bool) -> list:
     """Serialize Python objects (JSON, Arrays, Geog) to PostgreSQL compatible formats using schema-aware injection."""
     if table not in cache_postgres_schema: return obj_list
     output_list, schema = [], cache_postgres_schema[table]
@@ -179,7 +182,7 @@ async def func_postgres_serialize(*, client_postgres: Any, client_password_hashe
         output_list.append(new_item)
     return output_list
 
-async def func_postgres_where_build(*, client_postgres: Any, client_password_hasher: Any, cache_postgres_schema: dict, table: str, filter: list, prefix: str = "", config_column_read_blocked: list = None) -> tuple:
+async def func_postgres_where_build(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, table: str, filter: list, prefix: str = "", config_column_read_blocked: list = None) -> tuple:
     """Build a SQL WHERE clause with support for recursion, logical operators (_or, _and), flat SQL strings, and explicit operator syntax."""
     if not table: raise Exception("table required")
     if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
@@ -337,7 +340,7 @@ async def func_postgres_where_build(*, client_postgres: Any, client_password_has
     where_sql = await build_filter(filter)
     return where_sql, values
 
-async def func_postgres_relation(*, client_postgres: Any, client_postgres_conn: Any = None, obj_list: list, relation: list, config_sql_read_relation_fetch_limit_max: int, blocked_tables: list = None, config_column_read_blocked: list = None) -> list:
+async def func_postgres_relation(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None = None, obj_list: list, relation: list, config_sql_read_relation_fetch_limit_max: int, blocked_tables: list = None, config_column_read_blocked: list = None) -> list:
     """Standardized relationship logic: handles both aggregates (count, sum, etc) and associations (fetching rows) from source to target."""
     if not relation or not obj_list: return obj_list
     blocked_tables_set = set(blocked_tables) if blocked_tables is not None else set()
@@ -393,7 +396,7 @@ async def func_postgres_relation(*, client_postgres: Any, client_postgres_conn: 
         else: raise Exception(f"invalid operator: {op}")
     return obj_list
 
-async def func_postgres_create(*, client_postgres: Any, client_postgres_conn: Any, client_password_hasher: Any, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_column_regex: dict, buffer_limit: int, mode: str, table: str, obj_list: list) -> Any:
+async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_column_regex: dict, buffer_limit: int, mode: str, table: str, obj_list: list) -> Any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
     if not client_postgres and not client_postgres_conn: raise func_api_error(message="postgres client not initialized", status_code=500)
     limit_chunk = 5000
@@ -489,7 +492,7 @@ async def func_postgres_create(*, client_postgres: Any, client_postgres_conn: An
         async with client_postgres.acquire() as conn:
             return await _execute_now(conn)
 
-async def func_postgres_read(*, client_postgres: Any, client_password_hasher: Any, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list, config_column_read_blocked: list = None, blocked_tables: list = None) -> list:
+async def func_postgres_read(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list, config_column_read_blocked: list = None, blocked_tables: list = None) -> list:
     """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     blocked_cols = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
@@ -539,7 +542,7 @@ async def func_postgres_read(*, client_postgres: Any, client_password_hasher: An
             result_list = await func_postgres_relation(client_postgres=client_postgres, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_sql_read_relation_fetch_limit_max=config_sql_read_relation_fetch_limit_max, blocked_tables=blocked_tables, config_column_read_blocked=config_column_read_blocked)
         return result_list
 
-async def func_postgres_update(*, client_postgres: Any, client_postgres_conn: Any, client_password_hasher: Any, cache_postgres_schema: dict, config_column_regex: dict, table: str, obj_list: list, created_by_id: int, ownership_column: str = "created_by_id") -> Any:
+async def func_postgres_update(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_column_regex: dict, table: str, obj_list: list, created_by_id: int, ownership_column: str = "created_by_id") -> Any:
     """Update PostgreSQL records immediately with support for owner validation and dynamic serialization."""
     if not client_postgres and not client_postgres_conn: raise func_api_error(message="postgres client not initialized", status_code=500)
     if not obj_list: raise Exception("object list required")
@@ -585,7 +588,7 @@ async def func_postgres_update(*, client_postgres: Any, client_postgres_conn: An
         async with client_postgres.acquire() as conn: await _execute_update(conn)
     return returned_ids if returned_ids or len(obj_list) == 1 else "updated"
 
-async def func_postgres_delete(*, client_postgres: Any, client_postgres_conn: Any, cache_postgres_schema: dict = None, table: str, ids: list, created_by_id: int, ownership_column: str = "created_by_id") -> int:
+async def func_postgres_delete(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None, cache_postgres_schema: dict = None, table: str, ids: list, created_by_id: int, ownership_column: str = "created_by_id") -> int:
     """Delete records by ID with schema-aware optional ownership restrictions."""
     if not client_postgres and not client_postgres_conn: raise func_api_error(message="postgres client not initialized", status_code=500)
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
@@ -618,7 +621,7 @@ async def func_postgres_delete(*, client_postgres: Any, client_postgres_conn: An
         async with client_postgres.acquire() as conn:
             return await _execute_delete(conn)
 
-async def func_postgres_delete_all(*, client_postgres: Any, client_postgres_conn: Any = None, cache_postgres_schema: dict = None, table: str, ownership_column: str, user_id: int, limit: int = 5000) -> dict:
+async def func_postgres_delete_all(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None = None, cache_postgres_schema: dict = None, table: str, ownership_column: str, user_id: int, limit: int = 5000) -> dict:
     """Delete records in a table matching an ownership column for a user in safe batches."""
     if not client_postgres and not client_postgres_conn: raise func_api_error(message="postgres client not initialized", status_code=500)
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
@@ -644,7 +647,7 @@ async def func_postgres_delete_all(*, client_postgres: Any, client_postgres_conn
         async with client_postgres.acquire() as conn:
             return await _execute_delete_all(conn)
 
-def func_postgres_mark_read(*, client_postgres: Any, table: str, ownership_column: str, user_id: int, ids: list) -> None:
+def func_postgres_mark_read(*, client_postgres: asyncpg.Pool | None, table: str, ownership_column: str, user_id: int, ids: list) -> None:
     """Schedule a non-blocking read_at update for fetched objects owned by a user."""
     if not ids: return
     for identifier in (table, ownership_column):
