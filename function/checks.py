@@ -56,7 +56,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
     api_ids = []
     user_mode_allowed = ("redis", "realtime", "inmemory", "token")
     api_mode_allowed = ("redis", "inmemory")
-    api_keys_allowed = ("id", "is_active", "is_token", "is_db_param", "user_check_role", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec")
+    api_keys_allowed = ("id", "is_active", "is_token", "is_postgres_param", "user_check_role", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec")
     def flag_check(value, key):
         if not isinstance(value, bool): raise Exception(f"invalid {key}: expected bool")
     def int_check(value, key, min_value=0):
@@ -79,7 +79,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
         if api_id in api_ids: raise Exception(f"duplicate api id: {api_id}")
         api_ids.append(api_id)
         if "is_active" in cfg: flag_check(cfg["is_active"], f"{path} is_active")
-        if "is_db_param" in cfg: flag_check(cfg["is_db_param"], f"{path} is_db_param")
+        if "is_postgres_param" in cfg: flag_check(cfg["is_postgres_param"], f"{path} is_postgres_param")
         if "is_token" not in cfg: raise Exception(f"{path} missing required key: is_token")
         flag_check(cfg["is_token"], f"{path} is_token")
         role_val = cfg.get("user_check_role")

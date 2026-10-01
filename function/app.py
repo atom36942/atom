@@ -118,8 +118,8 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
             if is_token_required:
                 op["security"] = [{"BearerAuth": []}]
                 op["parameters"].append({"name": "Authorization", "in": "header", "required": True, "schema": {"type": "string", "default": "Bearer {token}"}})
-            if api_cfg.get("is_db_param"):
-                op["parameters"].append({"name": "db", "in": "query", "required": False, "description": "database name from config_postgres_url_<name>; default master", "schema": {"type": "string"}})
+            if api_cfg.get("is_postgres_param"):
+                op["parameters"].append({"name": "postgres", "in": "query", "required": False, "description": "database name from config_postgres_url_<name>; default master", "schema": {"type": "string"}})
             for p in re.findall(r"\{(\w+)\}", path):
                 op["parameters"].append({"name": p, "in": "path", "required": True, "schema": {"type": "string"}})
             try:

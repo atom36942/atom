@@ -42,7 +42,7 @@ Create does not accept `ownership_column`; `/my/object-create` always stamps `cr
 
 The server validates that the requested ownership column is allowed for that operation and exists on the requested table. It then adds `<ownership_column> = current_user.id` to the SQL condition. A caller may choose the ownership relationship but cannot choose the user ID. Table permissions remain a separate authorization layer.
 
-For reads, table/relation permissions, blocked columns, filters, pagination, and `db` selection still apply. Reading through `received_by_id` also marks fetched records as read when the table has `id` and `read_at` columns; those updates use the same database as the read.
+For reads, table/relation permissions, blocked columns, filters, pagination, and `postgres` selection still apply. Reading through `received_by_id` also marks fetched records as read when the table has `id` and `read_at` columns; those updates use the same database as the read.
 
 ---
 
@@ -89,7 +89,7 @@ Use `curl -G --data-urlencode` for query parameters containing spaces, JSON, com
 | `order` | `str` | `id desc` | Comma-separated sort columns and directions, e.g. `priority desc,id asc`. |
 | `page` | `int` | `1` | One-based page number; must be positive. |
 | `limit` | `int` | `config_sql_read_limit_default` (100) | Positive page size. Requests exceeding `config_sql_read_limit_max` (10,000) are rejected. |
-| `db` | `str` | master | Configured database name, e.g. `read` for `config_postgres_url_read`. Unknown name is 404. |
+| `postgres` | `str` | master | Configured database name, e.g. `read` for `config_postgres_url_read`. Unknown name is 404. |
 | `ownership_column` | `str` | `created_by_id` | `/my/object-read` only: column from `config_column_ownership_read` matched to the logged-in user's ID. |
 
 `/public/object-read` and `/admin/object-read` accept the same parameters except `ownership_column`. Public reads require permitted tables and relations; admin reads require admin authorization and do not add user ownership filtering. Blocked columns cannot be explicitly selected or filtered; `column=*` removes them from results.
@@ -244,11 +244,11 @@ curl -G "$BASE_URL/my/object-read" \
   --data-urlencode 'ownership_column=received_by_id' \
   --data-urlencode 'filter=["read_at is null"]' \
   --data-urlencode 'column=id,title,received_by_id,read_at' \
-  --data-urlencode 'db=read' \
+  --data-urlencode 'postgres=read' \
   --data-urlencode 'limit=20'
 ```
 
-`db=read` requires a configured named database; omit it for master. Base reads and relations use the selected pool. For `received_by_id`, tables with `id` and `read_at` automatically schedule mark-as-read updates on the same pool. Include `id` in the projection for that update. The current implementation marks all fetched IDs, including the extra look-ahead row used to detect another page.
+`postgres=read` requires a configured named database; omit it for master. Base reads and relations use the selected pool. For `received_by_id`, tables with `id` and `read_at` automatically schedule mark-as-read updates on the same pool. Include `id` in the projection for that update. The current implementation marks all fetched IDs, including the extra look-ahead row used to detect another page.
 
 ### All main parameters together
 
@@ -263,7 +263,7 @@ curl -G "$BASE_URL/my/object-read" \
   --data-urlencode 'order=priority desc,id asc' \
   --data-urlencode 'limit=20' \
   --data-urlencode 'page=1' \
-  --data-urlencode 'db=read'
+  --data-urlencode 'postgres=read'
 ```
 
 ### Distinct and group-by (separate admin endpoints)
@@ -293,7 +293,7 @@ curl -G "$BASE_URL/admin/table-column-groupby" \
   --data-urlencode 'page=1'
 ```
 
-Both accept optional `db` and `filter`. Distinct takes a string `col`; group-by takes a JSON list `col` and supports `agg=count|sum|avg|min|max`. For a numeric sum, use `agg=sum&agg_col=priority&order=sum desc`.
+Both accept optional `postgres` and `filter`. Distinct takes a string `col`; group-by takes a JSON list `col` and supports `agg=count|sum|avg|min|max`. For a numeric sum, use `agg=sum&agg_col=priority&order=sum desc`.
 
 ---
 

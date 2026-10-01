@@ -528,7 +528,7 @@ config_postgres_url_master=postgresql://atom:pass@main-host:5432/atom
 config_postgres_url_external=postgresql://reader:pass@other-host:5432/other
 ```
 
-Atom opens a pool for each name in `app.state.client_postgres_dict` and caches its schema in `app.state.cache_postgres_schema_dict`. Routes that accept `?db=` can then target it (`?db=external`); custom code can use `app_state.client_postgres_dict["external"]` directly. Keep credentials in `.env`, use parameterized queries, and give the second database account only the permissions it needs.
+Atom opens a pool for each name in `app.state.client_postgres_dict` and caches its schema in `app.state.cache_postgres_schema_dict`. Routes that accept `?postgres=` can then target it (`?postgres=external`); custom code can use `app_state.client_postgres_dict["external"]` directly. Keep credentials in `.env`, use parameterized queries, and give the second database account only the permissions it needs.
 
 </details>
 
@@ -677,11 +677,11 @@ Use the read-only URL as `config_postgres_url_master`, rather than configuring o
 </details>
 
 <details>
-<summary><strong>How do I select a database pool or read-replica using `?db=`?</strong></summary>
+<summary><strong>How do I select a database pool or read-replica using `?postgres=`?</strong></summary>
 
 Atom supports connecting to multiple PostgreSQL connection pools or read-replicas configured via environment variables (`config_postgres_url_<name>`).
 
-Routes flagged `"is_db_param": True` in `config_api` accept the optional **`?db=<name>`** query parameter (reads such as `/public/object-read`, `/my/object-read`, `/my/profile`, `/admin/object-read`, the Postgres query runners, and `/admin/postgres-import`).
+Routes flagged `"is_postgres_param": True` in `config_api` accept the optional **`?postgres=<name>`** query parameter (reads such as `/public/object-read`, `/my/object-read`, `/my/profile`, `/admin/object-read`, the Postgres query runners, and `/admin/postgres-import`).
 
 **How it works:** the middleware picks the pool once per request and sets it on `request.state`; routes just use it:
 
@@ -689,19 +689,19 @@ Routes flagged `"is_db_param": True` in `config_api` accept the optional **`?db=
 res = await app_state.func_postgres_read(client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, ...)
 ```
 
-- No `db` means master: `client_postgres_dict["master"]`.
-- `?db=read_india` on a flagged route uses `client_postgres_dict["read_india"]`.
-- An unknown name returns `404 database '<name>' not found`.
-- Routes without the flag reject `?db=` with `400 db not allowed on this route`; they always use master.
+- No `postgres` means master: `client_postgres_dict["master"]`.
+- `?postgres=read_india` on a flagged route uses `client_postgres_dict["read_india"]`.
+- An unknown name returns `404 postgres '<name>' not found`.
+- Routes without the flag reject `?postgres=` with `400 postgres not allowed on this route`; they always use master.
 - User, role and OTP checks always use master.
 
 Example API calls:
 ```bash
-curl "http://localhost:8000/my/profile?db=read" \
+curl "http://localhost:8000/my/profile?postgres=read" \
   -H "Authorization: Bearer <access-token>"
 ```
 ```bash
-curl "http://localhost:8000/public/object-read?db=read_india&table=products&limit=20"
+curl "http://localhost:8000/public/object-read?postgres=read_india&table=products&limit=20"
 ```
 
 </details>

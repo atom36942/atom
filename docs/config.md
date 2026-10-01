@@ -214,7 +214,7 @@ Per-endpoint security and execution policy table.
 | `id` | `int` | Unique numeric identifier for the endpoint |
 | `is_active` | `bool` | Toggles endpoint availability (`False` disables the endpoint via middleware) |
 | `is_token` | `bool` | `True` requires a valid JWT access token; `False` allows public unauthenticated access |
-| `is_db_param` | `bool` | `True` lets `?db=<name>` pick the database for this route (default master; unknown name is 404). Without it the route always uses master and `?db=` is 400 |
+| `is_postgres_param` | `bool` | `True` lets `?postgres=<name>` pick the database for this route (default master; unknown name is 404). Without it the route always uses master and `?postgres=` is 400 |
 | `user_check_role` | `{"mode": "...", "roles": [...]}` | Restricts access to users with listed role numbers |
 | `user_check_deactivated` | `{"mode": "..."}` | Blocks request if user has `deactivated_at` timestamp set |
 | `user_check_deleted` | `{"mode": "..."}` | Blocks request if user has `deleted_at` timestamp set |

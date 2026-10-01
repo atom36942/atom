@@ -55,7 +55,6 @@ async def func_lifespan(app: FastAPI):
         client_azure_sms = app.state.func_client_azure_sms(connection_string=app.state.config_azure_sms_connection_string)
         client_azure_blob = app.state.func_client_azure_blob(account_name=app.state.config_azure_account_name, account_key=app.state.config_azure_account_key)
         client_msgraph = app.state.func_client_msgraph(tenant_id=app.state.config_msgraph_tenant_id, client_id=app.state.config_msgraph_client_id, client_secret=app.state.config_msgraph_client_secret)
-        # client misc
         client_postgres_log_api = client_postgres_dict.get(app.state.config_postgres_db_log_api)
         client_postgres_pgweb = {}
         # postgres master
@@ -66,9 +65,8 @@ async def func_lifespan(app: FastAPI):
         cache_users_role = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("users_role")) if postgres_master else {}
         cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("users_deactivated")) if postgres_master else {}
         cache_users_deleted = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("users_deleted")) if postgres_master else {}
-        # postgres all
+        # cache schema
         cache_postgres_schema_dict = {name: postgres_master_schema if name == "master" else await app.state.func_postgres_schema_read(client_postgres=pool) for name, pool in client_postgres_dict.items()}
-        # cache misc
         cache_clickhouse_schema_ai = await app.state.func_clickhouse_schema_read_ai(client_clickhouse=client_clickhouse) if client_clickhouse else {}
         # func calls
         app.state.func_app_state_add(app=app, data_dict=locals(), prefixes=("client_", "cache_"))
@@ -122,7 +120,7 @@ async def middleware(request, api_function):
         user_check_deleted = api_cfg.get("user_check_deleted")
         rate_limit = api_cfg.get("rate_limit")
         cache = api_cfg.get("cache")
-        is_db_param = api_cfg.get("is_db_param", False)
+        is_postgres_param = api_cfg.get("is_postgres_param", False)
         # active check
         await app_state.func_middleware_check_active(is_active=is_active)
         # token
@@ -134,7 +132,7 @@ async def middleware(request, api_function):
         await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, user_check_deleted=user_check_deleted, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=app_state.client_redis_user_state, cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_ratelimiter(client_redis=app_state.client_redis_ratelimiter, rate_limit=rate_limit, url_path=path, identifier=request.state.user.get("id") if request.state.user else app_state.func_middleware_client_ip(request=request), cache_ratelimiter=app_state.cache_ratelimiter)
         # postgres select
-        request.state.client_postgres, request.state.cache_postgres_schema = app_state.func_middleware_postgres_select(client_postgres_dict=app_state.client_postgres_dict, cache_postgres_schema_dict=app_state.cache_postgres_schema_dict, is_db_param=is_db_param, db=request.query_params.get("db"))
+        request.state.client_postgres, request.state.cache_postgres_schema = app_state.func_middleware_postgres_select(client_postgres_dict=app_state.client_postgres_dict, cache_postgres_schema_dict=app_state.cache_postgres_schema_dict, is_postgres_param=is_postgres_param, postgres=request.query_params.get("postgres"))
         # cache
         user_id, query_params = (request.state.user.get("id") if request.state.user else 0), dict(request.query_params)
         response = await app_state.func_middleware_api_cache(mode="get", path=path, query_params=query_params, cache=cache, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response)

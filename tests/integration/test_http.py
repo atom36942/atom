@@ -29,7 +29,7 @@ class HttpIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.db_name, cls.url = create_database()
-        cls.reports_db_name, cls.reports_url = create_database()    # a second named database for ?db= switching
+        cls.reports_db_name, cls.reports_url = create_database()    # a second named database for ?postgres= switching
         fetch(cls.reports_url, "CREATE TABLE report (id bigserial PRIMARY KEY, title text)")
         fetch(cls.reports_url, "INSERT INTO report (title) VALUES ('from reports')")
         cls.workdir = tempfile.TemporaryDirectory()
@@ -142,27 +142,27 @@ class HttpIntegrationTests(unittest.TestCase):
                 self.assertNotIn("$argon2", response.text)
                 self.assertNotIn("password", keys(response.json()))
 
-    def test_db_query_param_switches_database_on_flagged_routes(self):
-        read = self.client.get("/admin/object-read", params={"db": "reports", "table": "report"}, headers=self.auth(self.admin_token))
+    def test_postgres_query_param_switches_database_on_flagged_routes(self):
+        read = self.client.get("/admin/object-read", params={"postgres": "reports", "table": "report"}, headers=self.auth(self.admin_token))
         self.assertEqual(read.status_code, 200, read.text)
         self.assertEqual([r["title"] for r in read.json()["message"]["obj_list"]], ["from reports"])
         master = self.client.get("/admin/object-read", params={"table": "report"}, headers=self.auth(self.admin_token))
         self.assertEqual(master.status_code, 400, master.text)    # report only exists in the reports database
 
-    def test_unknown_db_is_404(self):
-        response = self.client.get("/admin/object-read", params={"db": "nope", "table": "test"}, headers=self.auth(self.admin_token))
-        self.assertEqual((response.status_code, response.json()["message"]), (404, "database 'nope' not found"))
+    def test_unknown_postgres_is_404(self):
+        response = self.client.get("/admin/object-read", params={"postgres": "nope", "table": "test"}, headers=self.auth(self.admin_token))
+        self.assertEqual((response.status_code, response.json()["message"]), (404, "postgres 'nope' not found"))
 
-    def test_db_on_unflagged_route_is_400(self):
-        response = self.client.post("/my/object-create", params={"db": "reports", "table": "test"}, json={"title": "x"}, headers=self.auth())
-        self.assertEqual((response.status_code, response.json()["message"]), (400, "db not allowed on this route"))
+    def test_postgres_on_unflagged_route_is_400(self):
+        response = self.client.post("/my/object-create", params={"postgres": "reports", "table": "test"}, json={"title": "x"}, headers=self.auth())
+        self.assertEqual((response.status_code, response.json()["message"]), (400, "postgres not allowed on this route"))
 
-    def test_openapi_lists_db_only_on_flagged_routes(self):
+    def test_openapi_lists_postgres_only_on_flagged_routes(self):
         paths = self.client.get("/openapi.json").json()["paths"]
         names = lambda path, method: [p["name"] for p in paths[path][method]["parameters"]]
-        self.assertIn("db", names("/admin/object-read", "get"))
-        self.assertIn("db", names("/admin/postgres-import", "post"))
-        self.assertNotIn("db", names("/my/object-create", "post"))
+        self.assertIn("postgres", names("/admin/object-read", "get"))
+        self.assertIn("postgres", names("/admin/postgres-import", "post"))
+        self.assertNotIn("postgres", names("/my/object-create", "post"))
 
     def test_malformed_filter_is_400(self):
         response = self.client.get("/my/object-read", params={"table": "test", "filter": json.dumps(["title"])}, headers=self.auth())

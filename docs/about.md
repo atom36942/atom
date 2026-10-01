@@ -58,7 +58,7 @@ SHUTDOWN → stop background tasks → final buffer flush → close every client
 ```
 
 ### Startup Sequence:
-1. **Validation (`func_check`)**: Validates that `config_api` is well-formed: every entry uses allowed keys (`id`, `is_token`, `is_db_param`, `user_check_*`, `cache`, `rate_limit`), flags are booleans, check modes are valid (`redis` / `realtime` / `inmemory` / `token`). Misconfiguration causes fast-fail.
+1. **Validation (`func_check`)**: Validates that `config_api` is well-formed: every entry uses allowed keys (`id`, `is_token`, `is_postgres_param`, `user_check_*`, `cache`, `rate_limit`), flags are booleans, check modes are valid (`redis` / `realtime` / `inmemory` / `token`). Misconfiguration causes fast-fail.
 2. **Filesystem Prep**: Resets the working `tmp/` scratch directory and ensures `secret/` exists.
 3. **Client Initialization**: Initializes clients conditionally based on `.env` settings:
    - `client_password_hasher`: Argon2 password hasher.
@@ -100,7 +100,7 @@ Request
   │      ├── Deactivated check (user_check_deactivated)
   │      └── Deleted check (user_check_deleted)
   ├── 6. Distributed Rate Limiter Check (func_middleware_check_ratelimiter)
-  ├── 7. Postgres Selection (func_middleware_postgres_select -> request.state.client_postgres, request.state.cache_postgres_schema; master, or ?db= when is_db_param=True)
+  ├── 7. Postgres Selection (func_middleware_postgres_select -> request.state.client_postgres, request.state.cache_postgres_schema; master, or ?postgres= when is_postgres_param=True)
   ├── 8. Response Cache Lookup (func_middleware_api_cache, mode="get")
   │      └── [HIT] ──▶ Return cached response immediately
   │
@@ -132,7 +132,7 @@ Routers live in [`router/`](../router). Each file is auto-discovered and mounted
 @router.get("/my/api-usage")
 async def func_api_my_api_usage(*, request: Request):
     app_state = request.app.state                         # 1. Grab app.state once
-    if not request.state.client_postgres:                 # 2. Guard required clients (master, or ?db= when is_db_param)
+    if not request.state.client_postgres:                 # 2. Guard required clients (master, or ?postgres= when is_postgres_param)
         raise Exception("postgres client not initialized")
         
     oq = await app_state.func_request_param_read(         # 3. Read & validate params
@@ -188,7 +188,7 @@ By default, any unlisted route is public. To require authentication, rate limiti
 config_api["/my/report"] = {
     "id": 210,
     "is_token": True,
-    "is_db_param": True,
+    "is_postgres_param": True,
     "rate_limit": {"mode": "inmemory", "limit": 100, "window_sec": 60},
     "cache": {"mode": "inmemory", "ttl_sec": 30, "is_per_user": True}
 }
