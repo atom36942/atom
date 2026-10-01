@@ -16,10 +16,11 @@ Core files — `main.py`, upstream Atom files in `function/`, `config.py`, and t
 Configuration extensions are loaded after the defaults in `main.py`:
 
 ```python
-if importlib.util.find_spec("config_extend"): from config_extend import *
+config_modules = [config] + ([importlib.import_module("config_extend")] if importlib.util.find_spec("config_extend") else [])
+config_values = {key: value for module in config_modules for key, value in vars(module).items() if key.startswith("config_")}
 ```
 
-`config_extend.py` is imported after `config.py`, so its values override the defaults. It is kept out of the sync list. Custom function files are discovered by the `function` package.
+`config_extend.py` is read after `config.py`, so its `config_*` values override the defaults. Only `config_*` names are taken from it: functions defined there are ignored, so they cannot replace core functions. It is kept out of the sync list. Custom function files are discovered by the `function` package.
 
 ## 1. Override or add config
 
@@ -70,7 +71,7 @@ developer-only files untouched.
 Inside a function module, import shared helpers from their defining module
 (for example, `from .request import func_query_bool_parse`), rather than from
 `function`, whose exports are still being assembled during loading. Keep module
-dependencies acyclic. Only function names are exported by `from function import *`.
+dependencies acyclic. Only `func_*` names are exported by the `function` package and mounted onto `app.state`.
 
 Keep custom functions in uniquely named files in `function/`. Function names must
 also be unique across modules; duplicate definitions are not an override mechanism.

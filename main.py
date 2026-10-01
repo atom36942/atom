@@ -5,15 +5,17 @@ import os
 import time
 from contextlib import asynccontextmanager, suppress
 import uvicorn
-from function import *
+from fastapi import FastAPI
+import config
+import function
 
 # config
-from config import *
-if importlib.util.find_spec("config_extend"): from config_extend import *
+config_modules = [config] + ([importlib.import_module("config_extend")] if importlib.util.find_spec("config_extend") else [])
+config_values = {key: value for module in config_modules for key, value in vars(module).items() if key.startswith("config_")}
 
 # lifespan
 @asynccontextmanager
-async def func_lifespan(app:"FastAPI"):
+async def func_lifespan(app: FastAPI):
     try:
         # start
         start_journey = time.perf_counter()
@@ -25,40 +27,40 @@ async def func_lifespan(app:"FastAPI"):
         cache_postgres_buffer_create = {}
         cache_postgres_buffer_log_api = {}
         cache_extend = {}
-        func_check(app=app)
-        func_structure_init()
+        app.state.func_check(app=app)
+        app.state.func_structure_init()
         # client init
-        client_password_hasher = func_client_password_hasher()
-        client_http = func_client_http()
-        client_postgres = await func_client_postgres(dsn=app.state.config_postgres_url, **postgres_pool_kwargs)
-        client_postgres_dict = {name: await func_client_postgres(dsn=url, **postgres_pool_kwargs) for name, url in (app.state.config_postgres_url_dict or {}).items() if url}
-        client_redis = func_client_redis(url=app.state.config_redis_url)
-        client_redis_user_state = func_client_redis(url=app.state.config_redis_url_user_state)
-        client_redis_ratelimiter = func_client_redis(url=app.state.config_redis_url_ratelimiter)
-        client_redis_producer = func_client_redis(url=app.state.config_redis_url_queue)
-        client_mongodb = func_client_mongodb(url=app.state.config_mongodb_url)
-        client_mssql = await func_client_mssql(dsn=app.state.config_mssql_url)
-        client_clickhouse = await func_client_clickhouse(dsn=app.state.config_clickhouse_url)
-        client_s3 = await func_client_s3(region_name=app.state.config_aws_s3_region_name, **aws_kwargs)
-        client_s3_resource = func_client_s3_resource(region_name=app.state.config_aws_s3_region_name, **aws_kwargs)
-        client_sns = func_client_sns(region_name=app.state.config_aws_sns_region_name, **aws_kwargs)
-        client_ses = func_client_ses(region_name=app.state.config_aws_ses_region_name, **aws_kwargs)
-        client_openai = func_client_openai(api_key=app.state.config_openai_key)
-        client_gemini = func_client_gemini(api_key=app.state.config_gemini_key)
-        client_posthog = func_client_posthog(project_key=app.state.config_posthog_project_key, host=app.state.config_posthog_project_host)
-        client_celery_producer = func_client_celery(url=app.state.config_celery_url)
-        client_kafka_producer = await func_client_kafka(url=app.state.config_kafka_url, username=app.state.config_kafka_username, password=app.state.config_kafka_password)
-        client_rabbitmq, client_rabbitmq_producer = await func_client_rabbitmq(url=app.state.config_rabbitmq_url)
-        client_sftp = await func_client_sftp(host=app.state.config_sftp_host, port=app.state.config_sftp_port, username=app.state.config_sftp_username, password=app.state.config_sftp_password)
-        client_azure_email = func_client_azure_email(connection_string=app.state.config_azure_email_connection_string)
-        client_azure_sms = func_client_azure_sms(connection_string=app.state.config_azure_sms_connection_string)
-        client_azure_blob = func_client_azure_blob(account_name=app.state.config_azure_account_name, account_key=app.state.config_azure_account_key)
-        client_msgraph = func_client_msgraph(tenant_id=app.state.config_msgraph_tenant_id, client_id=app.state.config_msgraph_client_id, client_secret=app.state.config_msgraph_client_secret)
+        client_password_hasher = app.state.func_client_password_hasher()
+        client_http = app.state.func_client_http()
+        client_postgres = await app.state.func_client_postgres(dsn=app.state.config_postgres_url, **postgres_pool_kwargs)
+        client_postgres_dict = {name: await app.state.func_client_postgres(dsn=url, **postgres_pool_kwargs) for name, url in (app.state.config_postgres_url_dict or {}).items() if url}
+        client_redis = app.state.func_client_redis(url=app.state.config_redis_url)
+        client_redis_user_state = app.state.func_client_redis(url=app.state.config_redis_url_user_state)
+        client_redis_ratelimiter = app.state.func_client_redis(url=app.state.config_redis_url_ratelimiter)
+        client_redis_producer = app.state.func_client_redis(url=app.state.config_redis_url_queue)
+        client_mongodb = app.state.func_client_mongodb(url=app.state.config_mongodb_url)
+        client_mssql = await app.state.func_client_mssql(dsn=app.state.config_mssql_url)
+        client_clickhouse = await app.state.func_client_clickhouse(dsn=app.state.config_clickhouse_url)
+        client_s3 = await app.state.func_client_s3(region_name=app.state.config_aws_s3_region_name, **aws_kwargs)
+        client_s3_resource = app.state.func_client_s3_resource(region_name=app.state.config_aws_s3_region_name, **aws_kwargs)
+        client_sns = app.state.func_client_sns(region_name=app.state.config_aws_sns_region_name, **aws_kwargs)
+        client_ses = app.state.func_client_ses(region_name=app.state.config_aws_ses_region_name, **aws_kwargs)
+        client_openai = app.state.func_client_openai(api_key=app.state.config_openai_key)
+        client_gemini = app.state.func_client_gemini(api_key=app.state.config_gemini_key)
+        client_posthog = app.state.func_client_posthog(project_key=app.state.config_posthog_project_key, host=app.state.config_posthog_project_host)
+        client_celery_producer = app.state.func_client_celery(url=app.state.config_celery_url)
+        client_kafka_producer = await app.state.func_client_kafka(url=app.state.config_kafka_url, username=app.state.config_kafka_username, password=app.state.config_kafka_password)
+        client_rabbitmq, client_rabbitmq_producer = await app.state.func_client_rabbitmq(url=app.state.config_rabbitmq_url)
+        client_sftp = await app.state.func_client_sftp(host=app.state.config_sftp_host, port=app.state.config_sftp_port, username=app.state.config_sftp_username, password=app.state.config_sftp_password)
+        client_azure_email = app.state.func_client_azure_email(connection_string=app.state.config_azure_email_connection_string)
+        client_azure_sms = app.state.func_client_azure_sms(connection_string=app.state.config_azure_sms_connection_string)
+        client_azure_blob = app.state.func_client_azure_blob(account_name=app.state.config_azure_account_name, account_key=app.state.config_azure_account_key)
+        client_msgraph = app.state.func_client_msgraph(tenant_id=app.state.config_msgraph_tenant_id, client_id=app.state.config_msgraph_client_id, client_secret=app.state.config_msgraph_client_secret)
         # client misc
         client_postgres_log_api = client_postgres if app.state.config_postgres_db_log_api is None else client_postgres_dict[app.state.config_postgres_db_log_api]
         client_postgres_pgweb = {}
         # postgres master
-        if client_postgres and not app.state.config_is_read_only and app.state.config_is_postgres_schema_init: await app.state.func_postgres_schema_init(app_state=app.state, client_postgres=client_postgres, config_postgres=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(str(config_root_user_password)) if config_root_user_password else None)
+        if client_postgres and not app.state.config_is_read_only and app.state.config_is_postgres_schema_init: await app.state.func_postgres_schema_init(app_state=app.state, client_postgres=client_postgres, config_postgres=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(str(app.state.config_root_user_password)) if app.state.config_root_user_password else None)
         cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres=client_postgres) if client_postgres else {}
         cache_postgres_schema_ai = await app.state.func_postgres_schema_read_ai(client_postgres=client_postgres) if client_postgres else {}
         cache_config = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("config"), is_json_value=True) if client_postgres and "config" in cache_postgres_schema else {}
@@ -70,7 +72,7 @@ async def func_lifespan(app:"FastAPI"):
         cache_postgres_schema_ai_dict = {name: await app.state.func_postgres_schema_read_ai(client_postgres=client) for name, client in client_postgres_dict.items()}
         cache_clickhouse_schema_ai = await app.state.func_clickhouse_schema_read_ai(client_clickhouse=client_clickhouse) if client_clickhouse else {}
         # func calls
-        func_app_state_add(app=app, data_dict={**globals(), **locals()}, prefixes=("client_", "cache_"))
+        app.state.func_app_state_add(app=app, data_dict=locals(), prefixes=("client_", "cache_"))
         app.state.cache_openapi = app.state.func_openapi_spec_generate(app_routes=app.routes, app_state=app.state)
         # periodic tasks
         app.state.postgres_buffer_flush_lock = asyncio.Lock()
@@ -84,16 +86,17 @@ async def func_lifespan(app:"FastAPI"):
     try:
         await app.state.func_app_tasks_stop(app_state=app.state)
         if not app.state.config_is_read_only:await app.state.func_postgres_buffer_flush_all(app_state=app.state, client_postgres=client_postgres, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log_api=client_postgres_log_api, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api)
-        await func_client_close(app_state=app.state)
+        await app.state.func_client_close(app_state=app.state)
     except Exception as e:
         print(f"❌ shutdown error: {e}")
 
 # app
-app = func_app_fastapi_create(config_is_prod=config_is_prod, lifespan=func_lifespan)
-func_app_state_add(app=app, data_dict=globals(), prefixes=("func_", "config_"))
-func_app_router_add(app=app, router_dir=os.path.join(os.path.dirname(__file__), "router"), router_order={"index": 0, "auth": 1, "my": 2, "public": 3, "private": 4, "admin": 5})
-func_app_static_add(app=app)
-func_sentry_init(config_sentry_dsn=config_sentry_dsn)
+app = function.func_app_fastapi_create(config_is_prod=config_values["config_is_prod"], lifespan=func_lifespan)
+function.func_app_state_add(app=app, data_dict=vars(function), prefixes=("func_",))
+function.func_app_state_add(app=app, data_dict=config_values, prefixes=("config_",))
+app.state.func_app_router_add(app=app, router_dir=os.path.join(os.path.dirname(__file__), "router"), router_order={"index": 0, "auth": 1, "my": 2, "public": 3, "private": 4, "admin": 5})
+app.state.func_app_static_add(app=app)
+app.state.func_sentry_init(config_sentry_dsn=app.state.config_sentry_dsn)
 
 # middleware
 @app.middleware("http")
@@ -151,7 +154,7 @@ async def middleware(request, api_function):
     return response
 
 # cors
-func_app_cors_add(app=app, allow_origins=config_cors_allow_origins, allow_origin_regex=config_cors_allow_origin_regex, allow_methods=config_cors_allow_methods, allow_headers=config_cors_allow_headers, expose_headers=config_cors_expose_headers, allow_credentials=config_cors_allow_credentials)
+app.state.func_app_cors_add(app=app, allow_origins=app.state.config_cors_allow_origins, allow_origin_regex=app.state.config_cors_allow_origin_regex, allow_methods=app.state.config_cors_allow_methods, allow_headers=app.state.config_cors_allow_headers, expose_headers=app.state.config_cors_expose_headers, allow_credentials=app.state.config_cors_allow_credentials)
 
 # main
 if __name__ == "__main__":
