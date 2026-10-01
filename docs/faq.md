@@ -684,7 +684,7 @@ Read endpoints (such as `/public/object-read`, `/my/object-read`, `/my/profile`,
 Routers resolve database targets cleanly using `func_postgres_db_select`:
 
 ```python
-client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(
+client_postgres, cache_postgres_schema = app_state.func_postgres_db_select(
     app_state=app_state, db=oq["db"]
 )
 ```

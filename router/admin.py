@@ -39,7 +39,7 @@ async def func_api_admin_sync(*, request: Request):
 async def func_api_admin_postgres_info(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}])
-    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
+    client_postgres, cache_postgres_schema = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     info = await app_state.func_postgres_info_read(client_postgres=client_postgres)
     return {"status": 1, "message": info}
 
@@ -47,7 +47,7 @@ async def func_api_admin_postgres_info(*, request: Request):
 async def func_api_admin_postgres_schema(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}])
-    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
+    client_postgres, cache_postgres_schema = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     schema = await app_state.func_postgres_schema_read(client_postgres=client_postgres)
     return {"status": 1, "message": schema}
 
@@ -65,7 +65,7 @@ async def func_api_admin_object_create(*, request: Request):
 async def func_api_admin_object_read(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "id desc"}, {"name": "column", "type": "str", "required": False, "allowed": None, "default": "*"}, {"name": "relation", "type": "list", "required": False, "allowed": None, "default": []}, {"name": "filter", "type": "list", "required": False, "allowed": None, "default": []}])
-    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
+    client_postgres, cache_postgres_schema = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     ol = await app_state.func_postgres_read(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"], config_column_read_blocked=app_state.config_column_read_blocked)
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 
@@ -73,7 +73,7 @@ async def func_api_admin_object_read(*, request: Request):
 async def func_api_admin_table_column_groupby(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "col", "type": "list", "required": True, "allowed": None, "default": None}, {"name": "agg", "type": "str", "required": False, "allowed": ["count", "sum", "avg", "min", "max"], "default": "count"}, {"name": "agg_col", "type": "str", "required": False, "allowed": None, "default": "*"}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": 1000}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "count desc"}, {"name": "filter", "type": "list", "required": False, "allowed": None, "default": []}])
-    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
+    client_postgres, cache_postgres_schema = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     res = await app_state.func_postgres_table_column_groupby_read(app_state=app_state, client_postgres=client_postgres, cache_postgres_schema=cache_postgres_schema, table=oq["table"], col=oq["col"], limit=oq["limit"], page=oq["page"], agg=oq["agg"], agg_col=oq["agg_col"], order=oq["order"], filter=oq["filter"])
     return {"status": 1, "message": res}
 
@@ -81,7 +81,7 @@ async def func_api_admin_table_column_groupby(*, request: Request):
 async def func_api_admin_table_column_distinct(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "col", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": 1000}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": False, "allowed": ["item asc", "item desc", "asc", "desc"], "default": "item asc"}, {"name": "filter", "type": "list", "required": False, "allowed": None, "default": []}])
-    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
+    client_postgres, cache_postgres_schema = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     res = await app_state.func_postgres_table_column_distinct_read(app_state=app_state, client_postgres=client_postgres, cache_postgres_schema=cache_postgres_schema, table=oq["table"], col=oq["col"], limit=oq["limit"], page=oq["page"], order=oq["order"], filter=oq["filter"])
     return {"status": 1, "message": res}
 
@@ -112,7 +112,7 @@ async def func_api_admin_object_delete(*, request: Request):
 async def func_api_admin_postgres_import(*, request: Request):
     app_state = request.app.state
     of = await app_state.func_request_param_read(request=request, mode="form", param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "mode", "type": "str", "required": True, "allowed": ["create", "update", "delete"], "default": None}, {"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "file", "type": "file", "required": True, "allowed": None, "default": None}])
-    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=of["db"])
+    client_postgres, cache_postgres_schema = app_state.func_postgres_db_select(app_state=app_state, db=of["db"])
     res = await app_state.func_postgres_import(app_state=app_state, mode=of["mode"], table=of["table"], file=of["file"][-1], client_postgres=client_postgres, cache_postgres_schema=cache_postgres_schema)
     return {"status": 1, "message": res}
 
@@ -165,7 +165,7 @@ async def func_api_admin_postgres_query_runner_read(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}])
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True, "allowed": None, "default": None}])
-    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
+    client_postgres, cache_postgres_schema = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     res = await app_state.func_postgres_query_runner_read(client_postgres=client_postgres, config_query_runner_read_limit=app_state.config_query_runner_read_limit, sql=ob["sql"])
     return {"status": 1, "message": res}
 
@@ -174,7 +174,7 @@ async def func_api_admin_postgres_query_runner_read_export(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}])
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True, "allowed": None, "default": None}])
-    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
+    client_postgres, cache_postgres_schema = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     generator = await app_state.func_postgres_query_runner_read_export(client_postgres=client_postgres, config_query_runner_export_limit=app_state.config_query_runner_export_limit, sql=ob["sql"])
     return StreamingResponse(generator, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=postgres_query_result.csv"})
 
@@ -183,8 +183,8 @@ async def func_api_admin_postgres_query_ai(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}])
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "ai", "type": "str", "required": False, "allowed": app_state.config_ai_services, "default": "gemini"}, {"name": "question", "type": "str", "required": True, "allowed": None, "default": None}])
-    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
-    res = await app_state.func_postgres_query_generator_ai(client_postgres=client_postgres, client_gemini=app_state.client_gemini, client_openai=app_state.client_openai, cache_postgres_schema_ai=cache_postgres_schema_ai, config_query_runner_read_limit=app_state.config_query_runner_read_limit, ai=ob["ai"], question=ob["question"])
+    client_postgres, cache_postgres_schema = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
+    res = await app_state.func_postgres_query_generator_ai(client_postgres=client_postgres, client_gemini=app_state.client_gemini, client_openai=app_state.client_openai, cache_postgres_schema=cache_postgres_schema, config_query_runner_read_limit=app_state.config_query_runner_read_limit, ai=ob["ai"], question=ob["question"])
     return {"status": 1, "message": res}
 
 @router.post("/admin/mssql-query-runner-write")

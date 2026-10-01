@@ -8,9 +8,9 @@ import re
 from typing import Any
 import asyncpg
 from .middleware import func_api_error
-from .postgres_metadata import func_postgres_schema_read_ai
+from .postgres_metadata import func_postgres_schema_ai_view, func_postgres_schema_read
 
-async def func_postgres_query_generator_ai(*, client_postgres: asyncpg.Pool | None, client_gemini: Any, client_openai: Any, cache_postgres_schema_ai: dict, config_query_runner_read_limit: int, ai: str, question: str) -> dict:
+async def func_postgres_query_generator_ai(*, client_postgres: asyncpg.Pool | None, client_gemini: Any, client_openai: Any, cache_postgres_schema: dict, config_query_runner_read_limit: int, ai: str, question: str) -> dict:
     """Generates and validates safe PostgreSQL SELECT queries using LLM (Gemini/OpenAI) based on the database schema."""
     from google.genai import types
     if ai == "gemini" and not client_gemini: raise func_api_error(message="Gemini client not initialized", status_code=500)
@@ -88,9 +88,7 @@ async def func_postgres_query_generator_ai(*, client_postgres: asyncpg.Pool | No
         else:
             sql = f"{sql}\nLIMIT {default_limit}"
         return f"{sql.rstrip(';')};"
-    cache_postgres_schema_ai = cache_postgres_schema_ai or {}
-    if not cache_postgres_schema_ai:
-        cache_postgres_schema_ai = await func_postgres_schema_read_ai(client_postgres=client_postgres)
+    cache_postgres_schema_ai = func_postgres_schema_ai_view(cache_postgres_schema=cache_postgres_schema or await func_postgres_schema_read(client_postgres=client_postgres))
     prompt_schema = func_postgres_query_ai_schema_prompt(cache_postgres_schema_ai)
     response_schema = {
         "type": "OBJECT",

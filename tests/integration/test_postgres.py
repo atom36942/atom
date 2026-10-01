@@ -10,7 +10,7 @@ import function
 from function import (
     func_auth_login_password, func_auth_signup_password, func_otp_generate, func_otp_verify,
     func_postgres_create, func_postgres_delete, func_postgres_read, func_postgres_schema_init,
-    func_postgres_schema_read, func_postgres_update,
+    func_postgres_schema_ai_view, func_postgres_schema_read, func_postgres_update,
 )
 from tests.integration.support import config_postgres, create_database, drop_database, requires_postgres
 
@@ -75,6 +75,18 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
         admin = await self.pool.fetchrow("SELECT role, password FROM users WHERE username = 'admin'")
         self.assertEqual(admin["role"], 1)
         self.assertTrue(HASHER.verify(admin["password"], "root-test-password"))
+
+    async def test_ai_schema_view_is_derived_from_the_full_schema(self):
+        view = func_postgres_schema_ai_view(cache_postgres_schema=self.schema)
+        self.assertEqual(set(view), {f"public.{table}" for table in self.schema})
+        test = view["public.test"]
+        self.assertEqual((test["schema_name"], test["table_name"], test["relation_type"]), ("public", "test", "table"))
+        columns = test["columns"]
+        self.assertEqual(columns["id"], {"data_type": "bigint", "is_indexed": True, "index_methods": ["btree"], "is_primary": True, "is_unique": True})
+        self.assertEqual(columns["title"]["index_methods"], ["gin"])
+        self.assertEqual(columns["coordinate"]["index_methods"], ["gist"])
+        self.assertTrue(columns["code"]["is_unique"])
+        self.assertEqual((columns["description"]["is_indexed"], columns["description"]["index_methods"]), (False, []))
 
     async def test_filters_run_as_real_sql(self):
         await self.seed_tests()

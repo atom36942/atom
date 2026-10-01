@@ -16,7 +16,7 @@ async def func_api_my_blob_preview_urls(*, request: Request):
 async def func_api_my_profile(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}])
-    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
+    client_postgres, cache_postgres_schema = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     user_id = request.state.user["id"]
     user = await app_state.func_user_read_single(client_postgres=client_postgres, user_id=user_id)
     for column in app_state.config_column_read_blocked or ["password"]: user.pop(column, None)
@@ -43,7 +43,7 @@ async def func_api_my_token_refresh(*, request: Request):
 async def func_api_my_api_usage(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "days", "type": "int", "required": True, "allowed": None, "default": None}])
-    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
+    client_postgres, cache_postgres_schema = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     sql = "SELECT path AS api, count(*) FROM log_api WHERE created_at >= NOW() - ($1 * INTERVAL '1 day') AND created_by_id=$2 GROUP BY path LIMIT 1000;"
     async with client_postgres.acquire() as conn:
         records = await conn.fetch(sql, oq["days"], request.state.user["id"])
@@ -68,7 +68,7 @@ async def func_api_my_object_read(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "ownership_column", "type": "str", "required": False, "allowed": app_state.config_column_ownership_read, "default": "created_by_id"}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "id desc"}, {"name": "column", "type": "str", "required": False, "allowed": None, "default": "*"}, {"name": "relation", "type": "list", "required": False, "allowed": None, "default": []}, {"name": "filter", "type": "list", "required": False, "allowed": None, "default": []}])
     app_state.func_check_table_permission(app_state=app_state, table=oq["table"], relation=oq["relation"], scope="my", action="read")
-    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
+    client_postgres, cache_postgres_schema = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     app_state.func_check_table_column_exists(app_state=app_state, cache_postgres_schema=cache_postgres_schema, table=oq["table"], column=oq["ownership_column"], purpose="ownership tracking")
     filters = oq["filter"] + [f"""{oq["ownership_column"]} = {request.state.user["id"]}"""]
     ol = await app_state.func_postgres_read(client_postgres=client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"], config_column_read_blocked=app_state.config_column_read_blocked, blocked_tables=app_state.config_table_my_read_blocked)
@@ -124,7 +124,7 @@ async def func_api_my_object_delete_all(*, request: Request):
 async def func_api_my_message_inbox(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "mode", "type": "str", "required": True, "allowed": ["all", "unread", "read"], "default": None}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "id desc"}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}])
-    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
+    client_postgres, cache_postgres_schema = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     fetch_limit, offset = app_state.func_message_pagination(limit=oq["limit"], page=oq["page"], max_limit=app_state.config_sql_read_limit_max)
     order_sql = app_state.func_message_order(order=oq["order"], cache_postgres_schema=cache_postgres_schema)
     where_clause = {"read": "received_by_id=$1 AND read_at IS NOT NULL", "unread": "received_by_id=$1 AND read_at IS NULL"}.get(oq["mode"], "1=1")
@@ -137,7 +137,7 @@ async def func_api_my_message_inbox(*, request: Request):
 async def func_api_my_message_thread(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "db", "type": "str", "required": False, "allowed": None, "default": None}, {"name": "user_id", "type": "int", "required": True, "allowed": None, "default": None}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "id desc"}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}])
-    client_postgres, cache_postgres_schema, cache_postgres_schema_ai = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
+    client_postgres, cache_postgres_schema = app_state.func_postgres_db_select(app_state=app_state, db=oq["db"])
     if not app_state.client_postgres: raise app_state.func_api_error(message="postgres client not initialized", status_code=500)
     user_one_id = request.state.user["id"]
     fetch_limit, offset = app_state.func_message_pagination(limit=oq["limit"], page=oq["page"], max_limit=app_state.config_sql_read_limit_max)

@@ -19,7 +19,7 @@ async def func_api_mdm_read(*, request: Request):
         {"name": "ids", "type": "str", "default": ""},
         {"name": "id", "type": "int", "minimum": 1, "maximum": 9223372036854775807},
     ])
-    client_postgres, _, _ = app_state.func_postgres_db_select(app_state=app_state, db="mdm")
+    client_postgres, _ = app_state.func_postgres_db_select(app_state=app_state, db="mdm")
     res = await app_state.func_mdm_read(app_state=app_state, pool=client_postgres, kind=oq["kind"], params=oq)
     return {"status": 1, "message": res}
 
@@ -44,7 +44,7 @@ async def func_api_mdm_review(*, request: Request):
         {"name": "organization_name", "type": "str"},
         {"name": "addresses", "type": "list"},
     ])
-    client_postgres, _, _ = app_state.func_postgres_db_select(app_state=app_state, db="mdm")
+    client_postgres, _ = app_state.func_postgres_db_select(app_state=app_state, db="mdm")
     res = await app_state.func_mdm_write(app_state=app_state, pool=client_postgres, actor=request.state.user, body=ob)
     return {"status": 1, "message": res}
 
@@ -52,7 +52,7 @@ async def func_api_mdm_review(*, request: Request):
 async def func_api_mdm_export(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict_types=True, header_fallback=False, reject_unknown=True, param_specs=[{"name": "source", "type": "str", "allowed": ["CW", "SAP"], "default": "CW"}, {"name": "kind", "type": "str", "allowed": ["handoff", "cases"], "default": "handoff"}, {"name": "status", "type": "str", "allowed": ["pending", "approved", "all"], "default": "pending"}, {"name": "q", "type": "str", "default": ""}, {"name": "country", "type": "str", "default": "", "max_length": 7}])
-    client_postgres, _, _ = app_state.func_postgres_db_select(app_state=app_state, db="mdm")
+    client_postgres, _ = app_state.func_postgres_db_select(app_state=app_state, db="mdm")
     if oq["kind"] == "cases":
         return await app_state.func_mdm_export_cases(app_state=app_state, pool=client_postgres, params=oq)
     return await app_state.func_mdm_export(app_state=app_state, pool=client_postgres, source=oq["source"])
