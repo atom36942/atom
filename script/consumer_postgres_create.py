@@ -24,7 +24,7 @@ from config import config_kafka_password
 
 # logic
 async def setup():
-    client_postgres = await func_client_postgres(dsn=config_postgres_url_dict.get("master"), min_size=1, max_size=5)
+    client_postgres = await func_client_postgres(dsn=config_postgres_url_dict["master"], min_size=1, max_size=5)
     cache_postgres_buffer_create = {}
     cache_postgres_schema = await func_postgres_schema_read(client_postgres=client_postgres)
     client_password_hasher = func_client_password_hasher()
