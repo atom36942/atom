@@ -201,7 +201,8 @@ async def func_middleware_check_ratelimiter(*, client_redis: Redis | None, rate_
 
 def func_middleware_postgres_select(*, client_postgres_dict: dict, cache_postgres_schema_dict: dict, is_db_param: bool, db: str | None) -> tuple:
     """Pick the request's PostgreSQL pool and schema cache: master, or ?db= on routes flagged is_db_param."""
-    name = db if is_db_param and db else "master"
+    if db and not is_db_param: raise func_api_error(message="db not allowed on this route", status_code=400)
+    name = db or "master"
     if name not in client_postgres_dict and name != "master": raise func_api_error(message=f"database '{name}' not found", status_code=404)
     return client_postgres_dict.get(name), cache_postgres_schema_dict.get(name, {})
 

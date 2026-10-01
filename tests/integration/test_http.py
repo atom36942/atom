@@ -153,14 +153,9 @@ class HttpIntegrationTests(unittest.TestCase):
         response = self.client.get("/admin/object-read", params={"db": "nope", "table": "test"}, headers=self.auth(self.admin_token))
         self.assertEqual((response.status_code, response.json()["message"]), (404, "database 'nope' not found"))
 
-    def test_unflagged_routes_ignore_db_and_use_master(self):
-        created = self.client.post("/my/object-create", params={"db": "reports", "table": "test"}, json={"title": "stays in master"}, headers=self.auth())
-        self.assertEqual(created.status_code, 200, created.text)
-        deadline, rows = time.time() + 5, []
-        while time.time() < deadline and not rows:
-            rows = fetch(self.url, "SELECT title FROM test WHERE title = 'stays in master'")
-            time.sleep(0.2)
-        self.assertEqual(rows, [{"title": "stays in master"}])
+    def test_db_on_unflagged_route_is_400(self):
+        response = self.client.post("/my/object-create", params={"db": "reports", "table": "test"}, json={"title": "x"}, headers=self.auth())
+        self.assertEqual((response.status_code, response.json()["message"]), (400, "db not allowed on this route"))
 
     def test_openapi_lists_db_only_on_flagged_routes(self):
         paths = self.client.get("/openapi.json").json()["paths"]

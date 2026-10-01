@@ -121,7 +121,7 @@ Batch updates and deletes can affect only the requested IDs that match the owner
 ## Special cases
 
 - `users`: self-update and self-delete use account-ID checks. Explicit `ownership_column` is not supported for these operations.
-- `received_by_id` reads: when the table also has `id` and `read_at`, fetched rows are scheduled to be marked as read on the primary database.
+- `received_by_id` reads: when the table also has `id` and `read_at`, fetched rows are scheduled to be marked as read on the same database as the read.
 - Queued updates preserve the validated ownership column in the queued payload.
 - `/private/*` and `/admin/*` have different trust models and do not inherit `/my/*` ownership behavior.
 

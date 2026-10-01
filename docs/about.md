@@ -100,17 +100,18 @@ Request
   │      ├── Deactivated check (user_check_deactivated)
   │      └── Deleted check (user_check_deleted)
   ├── 6. Distributed Rate Limiter Check (func_middleware_check_ratelimiter)
-  ├── 7. Response Cache Lookup (func_middleware_api_cache, mode="get")
+  ├── 7. Postgres Selection (func_middleware_postgres_select -> request.state.client_postgres, request.state.cache_postgres_schema; master, or ?db= when is_db_param=True)
+  ├── 8. Response Cache Lookup (func_middleware_api_cache, mode="get")
   │      └── [HIT] ──▶ Return cached response immediately
   │
-  ├── 8. Request Dispatch:
+  ├── 9. Request Dispatch:
   │      ├── Background mode (?is_background=true) ──▶ Schedule & return 202
   │      └── Direct execution ──▶ Execute route handler (await api_function(request))
   │
-  ├── 9. Error Handling (catches exceptions, formats envelope, logs to Sentry)
-  ├── 10. Cache Store (stores response if route policy has cache enabled)
-  ├── 11. API Audit Logging (buffers one log_api row into cache_postgres_buffer_log_api)
-  ├── 12. Security Headers (attaches nosniff, DENY, strict-origin)
+  ├── 10. Error Handling (catches exceptions, formats envelope, logs to Sentry)
+  ├── 11. Cache Store (stores response if route policy has cache enabled)
+  ├── 12. API Audit Logging (buffers one log_api row into cache_postgres_buffer_log_api)
+  ├── 13. Security Headers (attaches nosniff, DENY, strict-origin)
   └── Return HTTP Response
 ```
 
@@ -131,7 +132,7 @@ Routers live in [`router/`](../router). Each file is auto-discovered and mounted
 @router.get("/my/api-usage")
 async def func_api_my_api_usage(*, request: Request):
     app_state = request.app.state                         # 1. Grab app.state once
-    if not app_state.client_postgres_dict.get("master"):  # 2. Guard required clients
+    if not request.state.client_postgres:                 # 2. Guard required clients (master, or ?db= when is_db_param)
         raise Exception("postgres client not initialized")
         
     oq = await app_state.func_request_param_read(         # 3. Read & validate params
@@ -139,7 +140,7 @@ async def func_api_my_api_usage(*, request: Request):
         param_specs=[{"name": "days", "type": "int", "required": True}]
     )
     
-    async with app_state.client_postgres_dict["master"].acquire() as conn:
+    async with request.state.client_postgres.acquire() as conn:
         records = await conn.fetch(sql, oq["days"], request.state.user["id"])
         obj_list = [dict(r) for r in records]
         
@@ -187,7 +188,8 @@ By default, any unlisted route is public. To require authentication, rate limiti
 config_api["/my/report"] = {
     "id": 210,
     "is_token": True,
-    "rate_limit": {"count": 100, "seconds": 60},
+    "is_db_param": True,
+    "rate_limit": {"mode": "inmemory", "limit": 100, "window_sec": 60},
     "cache": {"mode": "inmemory", "ttl_sec": 30, "is_per_user": True}
 }
 ```

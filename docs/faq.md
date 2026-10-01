@@ -692,7 +692,7 @@ res = await app_state.func_postgres_read(client_postgres=request.state.client_po
 - No `db` means master: `client_postgres_dict["master"]`.
 - `?db=read_india` on a flagged route uses `client_postgres_dict["read_india"]`.
 - An unknown name returns `404 database '<name>' not found`.
-- Routes without the flag ignore `?db=` and always use master.
+- Routes without the flag reject `?db=` with `400 db not allowed on this route`; they always use master.
 - User, role and OTP checks always use master.
 
 Example API calls:
