@@ -17,6 +17,8 @@ from google.genai import types
 from function import func_client_postgres
 from function import func_client_openai
 from function import func_client_gemini
+
+# config
 from config import config_postgres_url
 from config import config_openai_key
 from config import config_gemini_key

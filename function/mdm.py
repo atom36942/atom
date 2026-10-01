@@ -102,7 +102,10 @@ def func_mdm_query_validate(*, params: dict) -> dict:
         if value not in ("true", "1", "yes", "on", "ok", "false", "0", "no", "off"):
             raise HTTPException(status_code=400, detail="Invalid pending filter.")
         pending = value in ("true", "1", "yes", "on", "ok")
-    return {"source": source, "prefix": source.lower(), "page": page, "query": query, "search": search, "pending": pending}
+    country = str(params.get("country", "")).strip().upper()
+    if country and not re.fullmatch(r"[A-Z]{2}|UNKNOWN", country):
+        raise HTTPException(status_code=400, detail="Invalid country filter.")
+    return {"country": country, "source": source, "prefix": source.lower(), "page": page, "query": query, "search": search, "pending": pending}
 
 async def func_mdm_read(*, app_state, pool, kind: str, params: dict) -> dict:
     """Dispatch an allowed read through Atom's registered functions."""
@@ -144,7 +147,22 @@ async def func_mdm_read_overview(*, app_state, pool, params: dict) -> dict:
                     AND NOT EXISTS(SELECT 1 FROM reviewed v WHERE v.case_id=m.case_id)) pending_business_cases
                 """,source)
             review = app_state.func_mdm_row_serialize(queue)
-            return {"source": source, "review": review, "comparison": app_state.func_mdm_row_serialize(await conn.fetchrow("SELECT comparison_id,sap_run_id,cw_run_id,comparison_is_current,completed_at FROM mdm_sap_cw_comparison_current")) if source == "SAP" else None}
+            countries = []
+            if source == "CW":
+                countries = await conn.fetch("""
+                    WITH cases AS (
+                      SELECT c.* FROM cw_review_case c
+                      WHERE c.run_id=(SELECT run_id FROM mdm_runs_current WHERE source='CW')
+                      AND c.source_record_count>1
+                      AND NOT EXISTS (SELECT 1 FROM cw_review_case_member m JOIN cw_approved_member a USING(run_id,entity_id)
+                        WHERE m.run_id=c.run_id AND m.case_id=c.case_id)
+                    ) SELECT country,count(*) cases FROM cases c
+                    CROSS JOIN LATERAL (
+                      SELECT DISTINCT coalesce(nullif(upper(a->>'country'),''),'UNKNOWN') country
+                      FROM jsonb_array_elements(CASE WHEN jsonb_array_length(c.addresses)>0 THEN c.addresses ELSE '[{}]'::jsonb END) a
+                    ) countries GROUP BY country ORDER BY country
+                """)
+            return {"source": source, "review": review, "countries": [dict(r) for r in countries], "comparison": app_state.func_mdm_row_serialize(await conn.fetchrow("SELECT comparison_id,sap_run_id,cw_run_id,comparison_is_current,completed_at FROM mdm_sap_cw_comparison_current")) if source == "SAP" else None}
 
 async def func_mdm_read_groups(*, app_state, pool, params: dict) -> dict:
     """Read groups with a supplied pool; callable without the API or dispatcher."""
@@ -163,20 +181,27 @@ async def func_mdm_read_groups(*, app_state, pool, params: dict) -> dict:
                 rows = await conn.fetch(f"SELECT * FROM {prefix}_source_current WHERE NOT eligible AND (original_name ILIKE $1 OR source_code ILIKE $1) ORDER BY entity_id LIMIT 11 OFFSET $2", search, (page-1)*10)
             else:
                 run_id=await conn.fetchval("SELECT run_id FROM mdm_runs_current WHERE source=$1",source)
+                comparison_sql = "SELECT page.*,NULL::text cw_match_status,NULL::text[] strong_cw_codes,NULL::text[] possible_cw_codes,NULL::boolean cw_comparison_is_current FROM page"
+                if source == "SAP":
+                    comparison_sql = """SELECT page.*,coalesce(p.cw_match_status,'not_compared') cw_match_status,p.strong_cw_codes,p.possible_cw_codes,c.comparison_is_current cw_comparison_is_current
+                      FROM page LEFT JOIN mdm_sap_cw_comparison_current c ON c.sap_run_id=page.run_id
+                      LEFT JOIN mdm_sap_cw_presence p ON p.comparison_id=c.comparison_id AND p.sap_master_id=page.golden_id"""
                 rows = await conn.fetch(f"""WITH reviewed AS MATERIALIZED (
                   SELECT DISTINCT m.case_id FROM {prefix}_approved_member a
                   JOIN {prefix}_review_case_member m USING(run_id,entity_id) WHERE a.run_id=$1
                 ), page AS MATERIALIZED (
                   SELECT m.run_id,m.case_id golden_id,m.organization_name,m.source_record_count,m.is_customer,m.is_vendor,m.cw_codes,
+                    ARRAY(SELECT DISTINCT coalesce(nullif(upper(a->>'country'),''),'UNKNOWN') FROM jsonb_array_elements(CASE WHEN jsonb_array_length(m.addresses)>0 THEN m.addresses ELSE '[{{}}]'::jsonb END) a ORDER BY 1) countries,
+                    count(*) OVER() filtered_cases,
                     EXISTS(SELECT 1 FROM reviewed r WHERE r.case_id=m.case_id) reviewed
                   FROM {prefix}_review_case m WHERE m.run_id=$1 AND ($2='all' OR m.source_record_count>1)
                   AND (m.organization_name ILIKE $3 OR m.case_id::text=$4 OR EXISTS(SELECT 1 FROM unnest(m.cw_codes) c WHERE c ILIKE $3))
                   AND ($5::boolean=false OR NOT EXISTS(SELECT 1 FROM reviewed r WHERE r.case_id=m.case_id))
+                  AND ($7::text='' OR ($7='UNKNOWN' AND (jsonb_array_length(m.addresses)=0 OR EXISTS(SELECT 1 FROM jsonb_array_elements(m.addresses) a WHERE nullif(a->>'country','') IS NULL)))
+                    OR EXISTS(SELECT 1 FROM jsonb_array_elements(m.addresses) a WHERE upper(a->>'country')=$7))
                   ORDER BY m.source_record_count DESC,m.organization_name,m.case_id LIMIT 11 OFFSET $6
-                ) SELECT page.*,coalesce(p.cw_match_status,'not_compared') cw_match_status,p.strong_cw_codes,p.possible_cw_codes,c.comparison_is_current cw_comparison_is_current
-                  FROM page LEFT JOIN mdm_sap_cw_comparison_current c ON c.sap_run_id=page.run_id
-                  LEFT JOIN mdm_sap_cw_presence p ON p.comparison_id=c.comparison_id AND p.sap_master_id=page.golden_id
-                  ORDER BY page.source_record_count DESC,page.organization_name,page.golden_id""",run_id,mode,search,query,options["pending"],(page-1)*10)
+                ) {comparison_sql}
+                  ORDER BY page.source_record_count DESC,page.organization_name,page.golden_id""",run_id,mode,search,query,options["pending"],(page-1)*10,options["country"] if source=="CW" else "")
             return {"rows": [app_state.func_mdm_row_serialize(x) for x in rows[:10]], "has_more": len(rows)>10, "page": page}
 
 async def func_mdm_read_detail(*, app_state, pool, params: dict) -> dict:
@@ -201,6 +226,10 @@ async def func_mdm_read_detail(*, app_state, pool, params: dict) -> dict:
             records = await conn.fetch(f"SELECT s.*,a.approved_id FROM {prefix}_source_current s LEFT JOIN {prefix}_approved_member a USING(run_id,entity_id) WHERE s.golden_id=ANY($1::bigint[]) ORDER BY s.golden_id,s.entity_id LIMIT 2001", ids)
             if len(records)>2000:
                 raise HTTPException(status_code=400, detail="This selection has more than 2,000 records. Select fewer groups.")
+            if source == "CW":
+                activity = await conn.fetch("SELECT * FROM cw_organization_activity WHERE raw_id=ANY($1::bigint[])", [r["raw_cw_id"] for r in records])
+                by_id = {r["raw_id"]: app_state.func_mdm_row_serialize(r) for r in activity}
+                records = [dict(r, activity=by_id.get(r["raw_cw_id"])) for r in records]
             links = await conn.fetch(f"SELECT l.* FROM {prefix}_review_case_link l JOIN {prefix}_review_case_member m ON m.run_id=l.run_id AND m.entity_id=l.left_entity_id WHERE m.run_id=$1 AND m.case_id=ANY($2::bigint[]) LIMIT 150", masters[0]["run_id"], ids)
             return {"masters": [app_state.func_mdm_row_serialize(x) for x in masters], "records": [app_state.func_mdm_row_serialize(x) for x in records], "evidence": [app_state.func_mdm_row_serialize(x) for x in links], "evidence_limit": 150}
 
@@ -603,6 +632,8 @@ async def func_mdm_export_cases(*, app_state, pool, params: dict):
                   AND (c.organization_name ILIKE $2 OR c.case_id::text=$3
                     OR EXISTS(SELECT 1 FROM unnest(c.cw_codes) code WHERE code ILIKE $2))
                   AND ($4='all' OR ($4='approved')=(c.case_id IN (SELECT case_id FROM reviewed)))
+                  AND ($5::text='' OR ($5='UNKNOWN' AND (jsonb_array_length(c.addresses)=0 OR EXISTS(SELECT 1 FROM jsonb_array_elements(c.addresses) a WHERE nullif(a->>'country','') IS NULL)))
+                    OR EXISTS(SELECT 1 FROM jsonb_array_elements(c.addresses) a WHERE upper(a->>'country')=$5))
                 )
                 SELECT c.case_id golden_id,cm.entity_id,cm.is_customer,cm.is_vendor,
                   i.prepared_data->>'cw_code' cw_code,i.prepared_data->>'source_code' source_code,
@@ -618,12 +649,12 @@ async def func_mdm_export_cases(*, app_state, pool, params: dict):
                 LEFT JOIN {prefix}_approved_master a ON a.id=am.approved_id
                 LEFT JOIN {prefix}_review_decision d ON d.id=a.decision_id
                 ORDER BY c.source_record_count DESC,c.organization_name,c.case_id,cm.entity_id
-                """, source, options['search'], options['query'], status)
+                """, source, options['search'], options['query'], status, options['country'] if source=='CW' else '')
     def decoded(value):
         return json.loads(value) if isinstance(value, str) else value or []
     address_count = max((len(decoded(r['addresses'])) for r in rows), default=1)
     fields = ['Case ID','Status','Records in case','Source','Source record ID','Source code','Source file',
-              'Company name','Proposed company name','Account type','Account group','Registration numbers',
+              'Company name','Proposed company name','Financial role' if source=='CW' else 'Account type','Account group','Registration numbers',
               'Approved record ID','Approved company name','CargoWise code to keep','Reviewer','Review date','Decision','Reason']
     for i in range(1,address_count+1):
         fields += [f'Address {i}',f'City {i}',f'State {i}',f'Postcode {i}',f'Country {i}']
@@ -640,6 +671,8 @@ async def func_mdm_export_cases(*, app_state, pool, params: dict):
         yield buffer.getvalue(); buffer.seek(0); buffer.truncate(0)
         for r in rows:
             account = 'Customer & vendor' if r['is_customer'] and r['is_vendor'] else 'Customer' if r['is_customer'] else 'Vendor' if r['is_vendor'] else 'Unclassified'
+            if source=='CW':
+                account = 'Receivables & Payables' if r['is_customer'] and r['is_vendor'] else 'Receivables' if r['is_customer'] else 'Payables' if r['is_vendor'] else 'Not available' if r['is_customer'] is None or r['is_vendor'] is None else 'Neither'
             registrations = '; '.join(' | '.join(str(v) for v in (x.get('scheme'),x.get('country'),x.get('normalized')) if v) for x in decoded(r['registrations']))
             values = [r['golden_id'],'Approved' if r['approved_record_id'] else 'Pending',r['source_record_count'],source,r['entity_id'],r['cw_code'] or r['source_code'],r['source_file'],r['original_name'],r['proposed_name'],account,r['account_group_name'],registrations,r['approved_record_id'],r['approved_name'],r['selected_cw_code'],r['actor_name'],r['approved_at'],r['action'],r['reason']]
             addresses = decoded(r['addresses'])

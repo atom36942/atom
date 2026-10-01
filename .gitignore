@@ -12,6 +12,7 @@
 !readme.md
 !.gitignore
 !LICENSE
+!ruff.toml
 
 # folder
 !function/

@@ -6,6 +6,8 @@ import time
 from contextlib import asynccontextmanager, suppress
 import uvicorn
 from function import *
+
+# config
 from config import *
 if importlib.util.find_spec("config_extend"): from config_extend import *
 

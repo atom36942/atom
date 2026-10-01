@@ -1,0 +1,11 @@
+# Lint config for Atom (https://docs.astral.sh/ruff/). Run: ruff check .
+target-version = "py314"
+extend-exclude = ["scratch", "tmp"]
+
+[lint]
+# Pyflakes rules only: unused imports and variables, undefined names, duplicate keys.
+select = ["F"]
+
+[lint.per-file-ignores]
+# main.py builds the app.state registry from these star imports on purpose.
+"main.py" = ["F403", "F405"]

@@ -186,7 +186,7 @@ async def func_postgres_where_build(*, client_postgres: Any, client_password_has
     values = []
     blocked_cols = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
     filter_pattern = r'^((?:"[^"]+")|[a-zA-Z_][a-zA-Z0-9_]*)\s+(is\s+not\s+distinct\s+from|is\s+distinct\s+from|is\s+not|not\s+in|>=|<=|==|!=|<>|~\*|=|>|<|eq|neq|gt|lt|gte|lte|is|in|between|like|ilike|~|contains|exists|overlap|any|point)\s+(.*)$'
-    value_ops = {"=":"=","==":"=","eq":"=","!=":"!=","<>":"!=","neq":"!=","!=": "!=", ">":">","gt":">","<":"<","lt":"<",">=":">=","gte":">=","<=":"<=","lte":"<=","is":"IS","is not":"IS NOT","in":"IN","not in":"NOT IN","between":"BETWEEN","is distinct from":"IS DISTINCT FROM","is not distinct from":"IS NOT DISTINCT FROM"}
+    value_ops = {"=":"=","==":"=","eq":"=","!=":"!=","<>":"!=","neq":"!=",">":">","gt":">","<":"<","lt":"<",">=":">=","gte":">=","<=":"<=","lte":"<=","is":"IS","is not":"IS NOT","in":"IN","not in":"NOT IN","between":"BETWEEN","is distinct from":"IS DISTINCT FROM","is not distinct from":"IS NOT DISTINCT FROM"}
     string_ops = {"like":"LIKE","ilike":"ILIKE","~":"~","~*":"~*"}
     table_schema = cache_postgres_schema.get(table, {})
     def normalize_filter_value(operator, raw_val):
