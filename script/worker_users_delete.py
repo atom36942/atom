@@ -12,7 +12,7 @@ from function import func_client_postgres
 from function import func_client_azure_blob
 
 # config
-from config import config_postgres_url
+from config import config_postgres_url_dict
 from config import config_aws_access_key_id
 from config import config_aws_secret_access_key
 from config import config_azure_account_key
@@ -29,7 +29,7 @@ async def execute():
     worker_retry_delay_sec = [60, 300, 900, 3600, 21600]
     blob_purge_batch_limit = 5000
     blob_purge_azure_concurrency = 256
-    pool = await func_client_postgres(dsn=config_postgres_url, min_size=1, max_size=5)
+    pool = await func_client_postgres(dsn=config_postgres_url_dict.get("master"), min_size=1, max_size=5)
     clients = {"s3": None, "azure": None}
     if config_aws_s3_region_name:
         clients["s3"] = boto3.client("s3", region_name=config_aws_s3_region_name, aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_aws_secret_access_key)

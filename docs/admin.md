@@ -27,16 +27,16 @@ Lightweight browser-based PostgreSQL database manager:
 
 Access to `/admin/*` requires an authenticated user with **`role: 1`** (root superadmin).
 
-### 1. Raw SQL Query Runner (`POST /admin/query`)
-Executes direct SQL against primary or secondary database pools:
+### 1. Raw SQL Query Runner (`POST /admin/postgres-query-runner-read`)
+Executes read SQL on master, or on another database with `?db=<name>`:
 ```bash
-POST /admin/query
-{"sql": "SELECT count(*) FROM users;", "db": "primary"}
+POST /admin/postgres-query-runner-read?db=replica1
+{"sql": "SELECT count(*) FROM users;"}
 ```
 
 ### 2. Table Data Imports (`POST /admin/*-import`)
 Bulk import data from external systems into PostgreSQL:
-- **Postgres Import** (`/admin/postgres-import`): Stream records from an external Postgres table.
+- **Postgres Import** (`/admin/postgres-import`): Import a CSV into a table (form fields `mode`, `table`, `file`; target database with `?db=<name>`, default master).
 - **Redis Import** (`/admin/redis-import`): Ingest cached hashes or lists into Postgres.
 - **MongoDB Import** (`/admin/mongodb-import`): Ingest BSON collections into structured relational tables.
 

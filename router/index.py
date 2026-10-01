@@ -41,11 +41,11 @@ async def func_api_websocket(*, websocket:WebSocket):
         await websocket.close(code=1008, reason="endpoint disabled")
         return
     await websocket.accept()
-    if not app_state.client_postgres: raise Exception("postgres client not initialized")
+    if not app_state.client_postgres_dict.get("master"): raise Exception("postgres client not initialized")
     try:
         while True:
             message = await websocket.receive_text()
-            output = await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get("test", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="test", obj_list=[{"title":message}])
+            output = await app_state.func_postgres_create(client_postgres=app_state.client_postgres_dict.get("master"), client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get("master", {}), cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get("test", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="test", obj_list=[{"title":message}])
             await websocket.send_text(str(output))
     except WebSocketDisconnect:
         pass

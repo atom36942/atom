@@ -11,12 +11,12 @@ async def func_postgres_buffer_flush_all(*, app_state: State, client_postgres: a
     if client_postgres and cache_postgres_buffer_create:
         try:
             async with app_state.postgres_buffer_flush_lock:
-                await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=cache_postgres_buffer_create, config_column_regex=None, buffer_limit=None, mode="flush", table=None, obj_list=None)
+                await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=app_state.cache_postgres_schema_dict.get("master", {}), cache_postgres_buffer=cache_postgres_buffer_create, config_column_regex=None, buffer_limit=None, mode="flush", table=None, obj_list=None)
         except Exception as e: print(f"❌ primary buffer flush error: {e}")
     if client_postgres_log_api and cache_postgres_buffer_log_api:
         try:
             async with app_state.postgres_buffer_flush_lock:
-                await app_state.func_postgres_create(client_postgres=client_postgres_log_api, client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=cache_postgres_buffer_log_api, config_column_regex=None, buffer_limit=None, mode="flush", table=None, obj_list=None)
+                await app_state.func_postgres_create(client_postgres=client_postgres_log_api, client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=app_state.cache_postgres_schema_dict.get("master", {}), cache_postgres_buffer=cache_postgres_buffer_log_api, config_column_regex=None, buffer_limit=None, mode="flush", table=None, obj_list=None)
         except Exception as e: print(f"❌ log api buffer flush error: {e}")
 
 async def func_postgres_buffer_flush_periodic_task(*, app_state: State, client_postgres: asyncpg.Pool | None, cache_postgres_buffer_create: dict, client_postgres_log_api: Any, cache_postgres_buffer_log_api: dict, interval_sec: int = 60) -> None:

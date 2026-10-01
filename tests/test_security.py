@@ -86,10 +86,10 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
         client.fetch.assert_not_called()
 
     def storage_state(self):
-        return SimpleNamespace(client_postgres=object(), client_s3=SimpleNamespace(put_object=AsyncMock()),
+        return SimpleNamespace(client_postgres_dict={"master": object()}, client_s3=SimpleNamespace(put_object=AsyncMock()),
             client_azure_blob=None, config_blob_limit_upload=2, config_blob_limit_size_kb=1,
             config_aws_s3_region_name="ap-south-1",
-            func_postgres_create=AsyncMock(), client_password_hasher=None, cache_postgres_schema={}, cache_postgres_buffer_create={},
+            func_postgres_create=AsyncMock(), client_password_hasher=None, cache_postgres_schema_dict={"master": {}}, cache_postgres_buffer_create={},
             config_column_regex={}, config_buffer_limit_default=10)
 
     async def test_oversized_upload_reads_only_limit_plus_one_and_does_not_upload(self):
@@ -131,7 +131,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
         from router.admin import func_api_admin_blob_container_sas
         pool, conn = database()
         conn.fetch.return_value = [{"role": 5}]
-        state = SimpleNamespace(client_postgres=pool, func_middleware_check_role=func_middleware_check_role)
+        state = SimpleNamespace(client_postgres_dict={"master": pool}, func_middleware_check_role=func_middleware_check_role)
         request = SimpleNamespace(app=SimpleNamespace(state=state), state=SimpleNamespace(user={"id": 7, "role": 1}))
         with patch("router.admin.generate_container_sas") as sign:
             with self.assertRaisesRegex(Exception, "access denied"):
@@ -191,7 +191,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
         pool, conn = database()
         conn.fetch.return_value = [{"role": 1}]
         client = SimpleNamespace(generate_presigned_url=AsyncMock(return_value="signed-s3"))
-        state = SimpleNamespace(client_postgres=pool, func_middleware_check_role=func_middleware_check_role,
+        state = SimpleNamespace(client_postgres_dict={"master": pool}, func_middleware_check_role=func_middleware_check_role,
             func_request_param_read=AsyncMock(), func_blob_preview_urls_get=func_blob_preview_urls_get,
             client_s3=client, client_azure_blob=MagicMock(), config_blob_services=["s3", "azure"],
             config_azure_account_name="account", config_azure_account_key="dummy", config_blob_expire_sec_preview=60)
@@ -210,7 +210,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
     async def test_admin_preview_rejects_nonadmin_stale_and_missing_users(self):
         from router.admin import func_api_admin_blob_preview_urls
         pool, conn = database()
-        state = SimpleNamespace(client_postgres=pool, func_middleware_check_role=func_middleware_check_role,
+        state = SimpleNamespace(client_postgres_dict={"master": pool}, func_middleware_check_role=func_middleware_check_role,
                                 func_blob_preview_urls_get=AsyncMock(), func_request_param_read=AsyncMock())
         for user, rows in [({"id": 7, "role": 5}, [{"role": 5}]),
                            ({"id": 7, "role": 1}, [{"role": 5}]),

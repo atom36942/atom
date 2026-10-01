@@ -19,7 +19,7 @@ from function import func_client_openai
 from function import func_client_gemini
 
 # config
-from config import config_postgres_url
+from config import config_postgres_url_dict
 from config import config_openai_key
 from config import config_gemini_key
 from config import config_ai_services
@@ -48,7 +48,7 @@ async def execute():
         print("Error: config_openai_key is not set. Worker requires OpenAI.")
         return
     print(f"Starting Dynamic Resume Parser Worker Script... ai={AI_SERVICE} batch_limit={BATCH_LIMIT} concurrency_limit={CONCURRENCY_LIMIT}")
-    pool = await func_client_postgres(dsn=config_postgres_url, min_size=1, max_size=20)
+    pool = await func_client_postgres(dsn=config_postgres_url_dict.get("master"), min_size=1, max_size=20)
     async with pool.acquire() as conn:
         records = await conn.fetch("SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1", TABLE_NAME)
         if not records:

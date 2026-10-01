@@ -15,14 +15,16 @@ def func_check_database_config(*, app_state: State) -> None:
     pool_min = int_check(getattr(app_state, "config_postgres_pool_min_size", None), "config_postgres_pool_min_size")
     pool_max = int_check(getattr(app_state, "config_postgres_pool_max_size", None), "config_postgres_pool_max_size")
     if pool_max < pool_min: raise Exception("config_postgres_pool_max_size must be greater than or equal to config_postgres_pool_min_size")
+    if getattr(app_state, "config_postgres_url", None) is not None: raise Exception("config_postgres_url was renamed to config_postgres_url_master")
     url_dict_value = getattr(app_state, "config_postgres_url_dict", None)
     if url_dict_value is not None and not isinstance(url_dict_value, dict): raise Exception("config_postgres_url_dict must be dict or None")
     url_dict = url_dict_value or {}
     for name, url in url_dict.items():
         if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", name): raise Exception(f"invalid config_postgres_url_dict name: {name}")
         if not isinstance(url, str) or not url.strip().lower().startswith(("postgres://", "postgresql://")): raise Exception(f"invalid PostgreSQL URL for config_postgres_url_dict '{name}'")
+    if url_dict and "master" not in url_dict: raise Exception("config_postgres_url_master is required: master is the default database")
     log_db = getattr(app_state, "config_postgres_db_log_api", None)
-    if log_db is not None and log_db not in url_dict: raise Exception(f"config_postgres_db_log_api '{log_db}' not found in config_postgres_url_dict")
+    if url_dict and log_db is not None and log_db not in url_dict: raise Exception(f"config_postgres_db_log_api '{log_db}' not found in config_postgres_url_dict")
     return None
 
 def func_check_runtime_config(*, app_state: State) -> None:
@@ -54,7 +56,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
     api_ids = []
     user_mode_allowed = ("redis", "realtime", "inmemory", "token")
     api_mode_allowed = ("redis", "inmemory")
-    api_keys_allowed = ("id", "is_active", "is_token", "user_check_role", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec")
+    api_keys_allowed = ("id", "is_active", "is_token", "is_db_param", "user_check_role", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec")
     def flag_check(value, key):
         if not isinstance(value, bool): raise Exception(f"invalid {key}: expected bool")
     def int_check(value, key, min_value=0):
@@ -77,6 +79,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
         if api_id in api_ids: raise Exception(f"duplicate api id: {api_id}")
         api_ids.append(api_id)
         if "is_active" in cfg: flag_check(cfg["is_active"], f"{path} is_active")
+        if "is_db_param" in cfg: flag_check(cfg["is_db_param"], f"{path} is_db_param")
         if "is_token" not in cfg: raise Exception(f"{path} missing required key: is_token")
         flag_check(cfg["is_token"], f"{path} is_token")
         role_val = cfg.get("user_check_role")

@@ -32,7 +32,6 @@ async def func_lifespan(app: FastAPI):
         # client init
         client_password_hasher = app.state.func_client_password_hasher()
         client_http = app.state.func_client_http()
-        client_postgres = await app.state.func_client_postgres(dsn=app.state.config_postgres_url, **postgres_pool_kwargs)
         client_postgres_dict = {name: await app.state.func_client_postgres(dsn=url, **postgres_pool_kwargs) for name, url in (app.state.config_postgres_url_dict or {}).items() if url}
         client_redis = app.state.func_client_redis(url=app.state.config_redis_url)
         client_redis_user_state = app.state.func_client_redis(url=app.state.config_redis_url_user_state)
@@ -57,27 +56,29 @@ async def func_lifespan(app: FastAPI):
         client_azure_blob = app.state.func_client_azure_blob(account_name=app.state.config_azure_account_name, account_key=app.state.config_azure_account_key)
         client_msgraph = app.state.func_client_msgraph(tenant_id=app.state.config_msgraph_tenant_id, client_id=app.state.config_msgraph_client_id, client_secret=app.state.config_msgraph_client_secret)
         # client misc
-        client_postgres_log_api = client_postgres if app.state.config_postgres_db_log_api is None else client_postgres_dict[app.state.config_postgres_db_log_api]
+        client_postgres_log_api = client_postgres_dict.get(app.state.config_postgres_db_log_api)
         client_postgres_pgweb = {}
         # postgres master
-        if client_postgres and not app.state.config_is_read_only and app.state.config_is_postgres_schema_init: await app.state.func_postgres_schema_init(app_state=app.state, client_postgres=client_postgres, config_postgres=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(str(app.state.config_root_user_password)) if app.state.config_root_user_password else None)
-        cache_postgres_schema = await app.state.func_postgres_schema_read(client_postgres=client_postgres) if client_postgres else {}
-        cache_config = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("config"), is_json_value=True) if client_postgres and "config" in cache_postgres_schema else {}
-        cache_users_role = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("users_role")) if client_postgres else {}
-        cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("users_deactivated")) if client_postgres else {}
-        cache_users_deleted = await app.state.func_postgres_map_column(client_postgres=client_postgres, config_sql=app.state.config_sql.get("users_deleted")) if client_postgres else {}
+        postgres_master = client_postgres_dict.get("master")
+        if postgres_master and not app.state.config_is_read_only and app.state.config_is_postgres_schema_init: await app.state.func_postgres_schema_init(app_state=app.state, client_postgres=postgres_master, config_postgres=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(str(app.state.config_root_user_password)) if app.state.config_root_user_password else None)
+        postgres_master_schema = await app.state.func_postgres_schema_read(client_postgres=postgres_master) if postgres_master else {}
+        cache_config = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("config"), is_json_value=True) if postgres_master and "config" in postgres_master_schema else {}
+        cache_users_role = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("users_role")) if postgres_master else {}
+        cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("users_deactivated")) if postgres_master else {}
+        cache_users_deleted = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("users_deleted")) if postgres_master else {}
+        # postgres all
+        cache_postgres_schema_dict = {name: postgres_master_schema if name == "master" else await app.state.func_postgres_schema_read(client_postgres=pool) for name, pool in client_postgres_dict.items()}
         # cache misc
-        cache_postgres_schema_dict = {name: await app.state.func_postgres_schema_read(client_postgres=client) for name, client in client_postgres_dict.items()}
         cache_clickhouse_schema_ai = await app.state.func_clickhouse_schema_read_ai(client_clickhouse=client_clickhouse) if client_clickhouse else {}
         # func calls
         app.state.func_app_state_add(app=app, data_dict=locals(), prefixes=("client_", "cache_"))
         app.state.cache_openapi = app.state.func_openapi_spec_generate(app_routes=app.routes, app_state=app.state)
         # periodic tasks
         app.state.postgres_buffer_flush_lock = asyncio.Lock()
-        if not app.state.config_is_read_only: app.state.postgres_buffer_flush_task = asyncio.create_task(app.state.func_postgres_buffer_flush_periodic_task(app_state=app.state, client_postgres=client_postgres, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log_api=client_postgres_log_api, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api, interval_sec=app.state.config_postgres_buffer_flush_auto_sec))
+        if not app.state.config_is_read_only: app.state.postgres_buffer_flush_task = asyncio.create_task(app.state.func_postgres_buffer_flush_periodic_task(app_state=app.state, client_postgres=postgres_master, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log_api=client_postgres_log_api, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api, interval_sec=app.state.config_postgres_buffer_flush_auto_sec))
         if not app.state.config_is_read_only:
-            if client_postgres is not None and app.state.config_otp_retention_day is not None:
-                app.state.otp_cleanup_task = asyncio.create_task(app.state.func_cleanup_periodic_task(client_postgres=client_postgres, retention_day=app.state.config_otp_retention_day, cleanup=app.state.func_otp_cleanup, lock_id=1))
+            if postgres_master is not None and app.state.config_otp_retention_day is not None:
+                app.state.otp_cleanup_task = asyncio.create_task(app.state.func_cleanup_periodic_task(client_postgres=postgres_master, retention_day=app.state.config_otp_retention_day, cleanup=app.state.func_otp_cleanup, lock_id=1))
             if client_postgres_log_api is not None and app.state.config_log_api_retention_day is not None:
                 app.state.log_api_cleanup_task = asyncio.create_task(app.state.func_cleanup_periodic_task(client_postgres=client_postgres_log_api, retention_day=app.state.config_log_api_retention_day, cleanup=app.state.func_log_api_cleanup, lock_id=2))
         app.state.inmemory_cache_cleanup_task = asyncio.create_task(app.state.func_inmemory_cache_cleanup_periodic_task(cache_api_response=cache_api_response, cache_ratelimiter=cache_ratelimiter, interval_sec=app.state.config_inmemory_cache_cleanup_auto_sec))
@@ -88,7 +89,7 @@ async def func_lifespan(app: FastAPI):
     yield
     try:
         await app.state.func_app_tasks_stop(app_state=app.state)
-        if not app.state.config_is_read_only:await app.state.func_postgres_buffer_flush_all(app_state=app.state, client_postgres=client_postgres, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log_api=client_postgres_log_api, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api)
+        if not app.state.config_is_read_only:await app.state.func_postgres_buffer_flush_all(app_state=app.state, client_postgres=postgres_master, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log_api=client_postgres_log_api, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api)
         await app.state.func_client_close(app_state=app.state)
     except Exception as e:
         print(f"❌ shutdown error: {e}")
@@ -121,16 +122,19 @@ async def middleware(request, api_function):
         user_check_deleted = api_cfg.get("user_check_deleted")
         rate_limit = api_cfg.get("rate_limit")
         cache = api_cfg.get("cache")
+        is_db_param = api_cfg.get("is_db_param", False)
         # active check
         await app_state.func_middleware_check_active(is_active=is_active)
         # token
         request.state.user = await app_state.func_token_decode(headers=request.headers, config_token_secret_key=app_state.config_token_secret_key)
         # checks
         await app_state.func_middleware_check_token(user_dict=request.state.user, url_path=path, is_token=is_token, user_check_role=user_check_role, user_check_deactivated=user_check_deactivated, user_check_deleted=user_check_deleted)
-        await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role=user_check_role, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis_user_state, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
-        await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, user_check_deactivated=user_check_deactivated, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis_user_state, cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
-        await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, user_check_deleted=user_check_deleted, client_postgres=app_state.client_postgres, client_redis=app_state.client_redis_user_state, cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
+        await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role=user_check_role, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=app_state.client_redis_user_state, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
+        await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, user_check_deactivated=user_check_deactivated, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=app_state.client_redis_user_state, cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
+        await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, user_check_deleted=user_check_deleted, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=app_state.client_redis_user_state, cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
         await app_state.func_middleware_check_ratelimiter(client_redis=app_state.client_redis_ratelimiter, rate_limit=rate_limit, url_path=path, identifier=request.state.user.get("id") if request.state.user else app_state.func_middleware_client_ip(request=request), cache_ratelimiter=app_state.cache_ratelimiter)
+        # postgres
+        request.state.client_postgres, request.state.cache_postgres_schema = app_state.func_middleware_postgres_select(client_postgres_dict=app_state.client_postgres_dict, cache_postgres_schema_dict=app_state.cache_postgres_schema_dict, is_db_param=is_db_param, db=request.query_params.get("db"))
         # cache
         user_id, query_params = (request.state.user.get("id") if request.state.user else 0), dict(request.query_params)
         response = await app_state.func_middleware_api_cache(mode="get", path=path, query_params=query_params, cache=cache, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response)
@@ -151,7 +155,7 @@ async def middleware(request, api_function):
         error, response = await app_state.func_middleware_api_response_error(exception=e, is_traceback=True, sentry_dsn=app_state.config_sentry_dsn)
     # api log buffer
     if not app_state.config_is_read_only and getattr(app_state, "client_postgres_log_api", None):
-        with suppress(Exception): await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_log_api, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": app_state.func_middleware_client_ip(request=request), "path": request.url.path, "method": request.method, "query_param": app_state.func_middleware_log_query_params(query_params=request.query_params), "status_code": response.status_code if hasattr(response, "status_code") else None, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
+        with suppress(Exception): await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(app_state.config_postgres_db_log_api, {}), cache_postgres_buffer=app_state.cache_postgres_buffer_log_api, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": app_state.func_middleware_client_ip(request=request), "path": request.url.path, "method": request.method, "query_param": app_state.func_middleware_log_query_params(query_params=request.query_params), "status_code": response.status_code if hasattr(response, "status_code") else None, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
     # security headers
     app_state.func_middleware_security_headers(response=response)
     return response

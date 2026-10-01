@@ -8,23 +8,17 @@ Atom provides a comprehensive database layer powered by **asyncpg**, featuring c
 
 Atom manages asynchronous PostgreSQL connection pools initialized during startup in `main.py`.
 
-### Primary Pool (`client_postgres`)
-The default pool used for all writes and standard reads:
+### Databases by name (`client_postgres_dict`)
+Every database is one `.env` line, `config_postgres_url_<name>`. `master` is required and is the default database (writes, users, config, schema init):
 ```bash
-config_postgres_url=postgresql://atom:secret@localhost:5432/atom
+config_postgres_url_master=postgresql://atom:secret@localhost:5432/atom
+config_postgres_url_replica1=postgresql://reader:secret@replica-host:5432/atom
+config_postgres_url_analytics=postgresql://analyst:secret@analytics-host:5432/warehouse
 config_postgres_pool_min_size=5
 config_postgres_pool_max_size=20
 ```
-Bound to `app.state.client_postgres` and accessible in routes via `request.app.state.client_postgres`.
-
-### Named Pools & Read Replicas (`client_postgres_dict`)
-Configure secondary databases or read replicas by adding suffixes in `.env`:
-```bash
-config_postgres_url_replica1=postgresql://reader:secret@replica-host:5432/atom
-config_postgres_url_analytics=postgresql://analyst:secret@analytics-host:5432/warehouse
-```
-These are automatically mounted onto `app.state.client_postgres_dict["replica1"]`.
-Read queries can route to replicas using the query parameter `?db=replica1`:
+Each name becomes a pool in `app.state.client_postgres_dict` (for example `client_postgres_dict["master"]`) with its schema in `app.state.cache_postgres_schema_dict`. Code that always uses the main database reads `client_postgres_dict["master"]`. The old single `config_postgres_url` setting was renamed to `config_postgres_url_master`; startup stops with that message if it is still set.
+Routes flagged `"is_db_param": True` in `config_api` take `?db=<name>`; the middleware sets `request.state.client_postgres` and `request.state.cache_postgres_schema` (master when `db` is omitted, 404 for an unknown name). Other routes ignore `?db=` and use master:
 ```bash
 curl "http://localhost:8000/public/object-read?table=products&db=replica1"
 ```
@@ -42,18 +36,13 @@ When `config_is_postgres_schema_init = True`, Atom inspects and automatically mi
 
 ---
 
-## 3. Query Runner & AI SQL Engine (`/admin/query`)
+## 3. Query Runner & AI SQL Engine (`/admin/postgres-query-runner-*`)
 
-Administrators can execute raw SQL directly across multiple databases:
+Administrators can execute raw SQL. Reads accept `?db=<name>` to pick a database; writes always use master:
 ```bash
-curl -X POST "http://localhost:8000/admin/query"   -H "Authorization: Bearer <admin_token>"   -H "Content-Type: application/json"   -d '{"sql": "SELECT count(*) FROM users;", "db": "primary"}'
+curl -X POST "http://localhost:8000/admin/postgres-query-runner-read?db=replica1" -H "Authorization: Bearer <admin_token>" -H "Content-Type: application/json" -d '{"sql": "SELECT count(*) FROM users;"}'
 ```
-
-### Multi-Database Querying:
-Select the destination database via the `db` parameter:
-- `primary` or named replica keys in `client_postgres_dict`.
-- `mssql` (if `config_mssql_url` is configured).
-- `clickhouse` (if `config_clickhouse_url` is configured).
+MSSQL and ClickHouse have their own routes: `/admin/mssql-query-runner-*` and `/admin/clickhouse-query-runner-*`.
 
 ### Natural Language AI SQL Generation:
 When an OpenAI or Gemini API key is configured, Atom can translate natural language into optimized SQL queries using `func_ai_sql_generate`. The helper references the cached schema dictionary (`cache_postgres_schema`) to construct valid, context-aware SQL queries.
@@ -101,7 +90,7 @@ Atom captures structured telemetry for every incoming request in the `log_api` t
 To keep high-volume log writes from contending with business transactions, route API logs to a dedicated PostgreSQL database:
 ```bash
 # .env
-config_postgres_url=postgresql://atom:pass@primary-db:5432/atom
+config_postgres_url_master=postgresql://atom:pass@primary-db:5432/atom
 config_postgres_url_logs=postgresql://logger:pass@logs-db:5432/atom_logs
 config_postgres_db_log_api=logs
 ```

@@ -49,7 +49,7 @@ def func_check_table_permission(*, app_state: State, table: str, relation: list 
 
 def func_check_table_column_exists(*, app_state: State = None, cache_postgres_schema: dict = None, table: str, column: str, purpose: str = None) -> None:
     """Validate that table schema contains specified column."""
-    cache = cache_postgres_schema if cache_postgres_schema is not None else (getattr(app_state, "cache_postgres_schema", {}) or {})
+    cache = cache_postgres_schema if cache_postgres_schema is not None else (app_state.cache_postgres_schema_dict.get("master", {}) or {})
     if table not in cache:
         raise Exception(f"table '{table}' not found")
     if column not in cache[table]:
@@ -76,7 +76,7 @@ async def func_check_user_update_permission(*, app_state: State, table: str, obj
             if len(obj_list[0]) != 2:
                 raise Exception("sensitive fields must be updated individually (item length 2 required)")
             await app_state.func_otp_verify(
-                client_postgres=app_state.client_postgres,
+                client_postgres=app_state.client_postgres_dict.get("master"),
                 otp=otp,
                 email=obj_list[0].get("email"),
                 mobile=obj_list[0].get("mobile"),

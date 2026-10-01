@@ -67,7 +67,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 
 | Key | Usage |
 |---|---|
-| `config_postgres_url` | Primary PostgreSQL connection string DSN |
+| `config_postgres_url_<name>` | PostgreSQL connection DSN per named database, collected into `config_postgres_url_dict`; `config_postgres_url_master` is required and is the default |
 | `config_postgres_url_dict` | Runtime mapping of named PostgreSQL pools (populated via `config_postgres_url_<name>`) |
 | `config_redis_url` | Main Redis URL for response caching & imports |
 | `config_redis_url_user_state` | Dedicated Redis for user state/role/deactivation lookups |
@@ -120,7 +120,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_is_otp_require_users_update` | Boolean requiring OTP verification when updating user contact details |
 | `config_is_read_only` | Boolean system-wide read-only mode toggle |
 | `config_is_prod` | Boolean production-mode toggle (`True` disables debug and protects endpoints) |
-| `config_postgres_db_log_api` | Named Postgres pool key for API logging (`None` = primary pool) |
+| `config_postgres_db_log_api` | Named Postgres database for API logging (default: `master`) |
 
 ### Limits, OTP & Auth
 
@@ -214,6 +214,7 @@ Per-endpoint security and execution policy table.
 | `id` | `int` | Unique numeric identifier for the endpoint |
 | `is_active` | `bool` | Toggles endpoint availability (`False` disables the endpoint via middleware) |
 | `is_token` | `bool` | `True` requires a valid JWT access token; `False` allows public unauthenticated access |
+| `is_db_param` | `bool` | `True` lets `?db=<name>` pick the database for this route (default master; unknown name is 404). Without it the route always uses master |
 | `user_check_role` | `{"mode": "...", "roles": [...]}` | Restricts access to users with listed role numbers |
 | `user_check_deactivated` | `{"mode": "..."}` | Blocks request if user has `deactivated_at` timestamp set |
 | `user_check_deleted` | `{"mode": "..."}` | Blocks request if user has `deleted_at` timestamp set |

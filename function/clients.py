@@ -143,9 +143,6 @@ async def func_client_close(*, app_state: State = None, clients: dict = None) ->
     client_http = c.get("client_http")
     if client_http:
         with suppress(Exception): await client_http.aclose()
-    client_postgres = c.get("client_postgres")
-    if client_postgres:
-        with suppress(Exception): await client_postgres.close()
     client_postgres_dict = c.get("client_postgres_dict") or {}
     for client_postgres_item in client_postgres_dict.values():
         if client_postgres_item:

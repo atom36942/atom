@@ -58,13 +58,12 @@ SHUTDOWN → stop background tasks → final buffer flush → close every client
 ```
 
 ### Startup Sequence:
-1. **Validation (`func_check`)**: Validates that `config_api` is well-formed: every entry uses allowed keys (`id`, `is_token`, `user_check_*`, `cache`, `rate_limit`), flags are booleans, check modes are valid (`redis` / `realtime` / `inmemory` / `token`). Misconfiguration causes fast-fail.
+1. **Validation (`func_check`)**: Validates that `config_api` is well-formed: every entry uses allowed keys (`id`, `is_token`, `is_db_param`, `user_check_*`, `cache`, `rate_limit`), flags are booleans, check modes are valid (`redis` / `realtime` / `inmemory` / `token`). Misconfiguration causes fast-fail.
 2. **Filesystem Prep**: Resets the working `tmp/` scratch directory and ensures `secret/` exists.
 3. **Client Initialization**: Initializes clients conditionally based on `.env` settings:
    - `client_password_hasher`: Argon2 password hasher.
    - `client_http`: Shared `httpx.AsyncClient`.
-   - `client_postgres`: Primary `asyncpg` connection pool.
-   - `client_postgres_dict`: Named connection pools for read replicas or dedicated databases (e.g. `client_postgres_dict["logs"]`).
+   - `client_postgres_dict`: One pool per named database from `config_postgres_url_<name>`; `client_postgres_dict["master"]` is the default (e.g. `client_postgres_dict["logs"]` for a dedicated log database).
    - `client_redis`, `client_redis_user_state`, `client_redis_ratelimiter`, `client_redis_producer`: Isolated Redis clients.
    - Optional: MongoDB (Motor), MSSQL, S3, Azure Blob, Kafka, RabbitMQ, Celery, PostHog, OpenAI, Gemini.
 4. **Database Schema Init**: When `config_is_postgres_schema_init = True`, applies table schemas, indexes, and constraints from `config_postgres`, and seeds the root admin user (`admin` / `role: 1`).
@@ -132,7 +131,7 @@ Routers live in [`router/`](../router). Each file is auto-discovered and mounted
 @router.get("/my/api-usage")
 async def func_api_my_api_usage(*, request: Request):
     app_state = request.app.state                         # 1. Grab app.state once
-    if not app_state.client_postgres:                     # 2. Guard required clients
+    if not app_state.client_postgres_dict.get("master"):  # 2. Guard required clients
         raise Exception("postgres client not initialized")
         
     oq = await app_state.func_request_param_read(         # 3. Read & validate params
@@ -140,7 +139,7 @@ async def func_api_my_api_usage(*, request: Request):
         param_specs=[{"name": "days", "type": "int", "required": True}]
     )
     
-    async with app_state.client_postgres.acquire() as conn:
+    async with app_state.client_postgres_dict["master"].acquire() as conn:
         records = await conn.fetch(sql, oq["days"], request.state.user["id"])
         obj_list = [dict(r) for r in records]
         

@@ -7,7 +7,7 @@ Get up and running with Atom in less than 5 minutes.
 ## Prerequisites
 
 1. Server running on `http://localhost:8000` (see [Installation](../readme.md#installation)).
-2. PostgreSQL database connected via `config_postgres_url` in `.env`.
+2. PostgreSQL database connected via `config_postgres_url_master` in `.env`.
 3. Required security keys set in `.env`:
    ```dotenv
    config_token_secret_key="your-long-secret-key-at-least-32-chars"

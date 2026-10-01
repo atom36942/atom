@@ -92,8 +92,8 @@ async def func_blob_preview_urls_get(*, client_s3: Any, client_azure_blob: Any, 
 
 async def func_blob_delete_all(*, app_state: State, user_id: int, limit: int = 500) -> dict:
     """Fetches and deletes a batch of blobs for a user, marking them as deleted in the database."""
-    if not app_state.client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
-    async with app_state.client_postgres.acquire() as conn:
+    if not app_state.client_postgres_dict.get("master"): raise func_api_error(message="postgres client not initialized", status_code=500)
+    async with app_state.client_postgres_dict.get("master").acquire() as conn:
         records = await conn.fetch("SELECT id, file_url, service FROM blob WHERE created_by_id = $1 AND deleted_at IS NULL LIMIT $2", user_id, limit + 1)
     if not records: return {"deleted_count": 0, "has_more": False, "has_next_page": False}
     has_more = len(records) > limit
@@ -103,14 +103,14 @@ async def func_blob_delete_all(*, app_state: State, user_id: int, limit: int = 5
     if s3_urls: await app_state.func_blob_url_delete(app_state=app_state, service="s3", urls=s3_urls, user_id=user_id)
     if azure_urls: await app_state.func_blob_url_delete(app_state=app_state, service="azure", urls=azure_urls, user_id=user_id)
     ids_to_update = [r["id"] for r in process_records]
-    async with app_state.client_postgres.acquire() as conn:
+    async with app_state.client_postgres_dict.get("master").acquire() as conn:
         await conn.execute("UPDATE blob SET deleted_at = NOW(), deleted_by_id = $1 WHERE id = ANY($2::bigint[])", user_id, ids_to_update)
     return {"deleted_count": len(process_records), "has_more": has_more, "has_next_page": has_more}
 
 async def func_blob_upload_file(*, app_state: State, service: str, container: str, files: list, user_id: int = None) -> dict:
     """Uploads a list of UploadFile objects to S3 or Azure and logs them in the database."""
     if service not in ("s3", "azure"): raise Exception("unsupported blob service")
-    if not app_state.client_postgres or (service == "s3" and not app_state.client_s3) or (service == "azure" and not app_state.client_azure_blob):
+    if not app_state.client_postgres_dict.get("master") or (service == "s3" and not app_state.client_s3) or (service == "azure" and not app_state.client_azure_blob):
         raise func_api_error(message="required postgres/blob client not initialized", status_code=500)
     if len(files) > app_state.config_blob_limit_upload:
         raise Exception(f"maximum {app_state.config_blob_limit_upload} files allowed")
@@ -135,13 +135,13 @@ async def func_blob_upload_file(*, app_state: State, service: str, container: st
         output[item.filename] = file_url
         blob_list.append({"created_by_id": user_id, "type": 1, "service": service, "file_url": file_url})
     if blob_list:
-        await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
+        await app_state.func_postgres_create(client_postgres=app_state.client_postgres_dict.get("master"), client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get("master", {}), cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
     return output
 
 async def func_blob_upload_url(*, app_state: State, service: str, container: str, count: int, user_id: int = None) -> list:
     """Generates presigned upload URLs (S3 post fields or Azure SAS URLs) for client-side uploads and logs them in the database."""
     from azure.storage.blob import BlobSasPermissions, generate_blob_sas
-    if not app_state.client_postgres or (service == "s3" and not app_state.client_s3):
+    if not app_state.client_postgres_dict.get("master") or (service == "s3" and not app_state.client_s3):
         raise func_api_error(message="required postgres/blob client not initialized", status_code=500)
     if service == "azure" and (not app_state.config_azure_account_name or not app_state.config_azure_account_key):
         raise func_api_error(message="azure storage credentials not configured", status_code=500)
@@ -164,7 +164,7 @@ async def func_blob_upload_url(*, app_state: State, service: str, container: str
             output.append({"upload_url": sas_url, "key": file_key, "file_url": file_url})
         blob_list.append({"created_by_id": user_id, "type": 2, "service": service, "file_url": file_url})
     if blob_list:
-        await app_state.func_postgres_create(client_postgres=app_state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
+        await app_state.func_postgres_create(client_postgres=app_state.client_postgres_dict.get("master"), client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get("master", {}), cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table="blob", obj_list=blob_list)
     return output
 
 async def func_blob_containers_read(*, client_s3: Any, client_azure_blob: Any, service: str) -> list:

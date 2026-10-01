@@ -122,7 +122,7 @@ Access functions via `request.app.state`:
 ```python
 app_state = request.app.state
 product = await app_state.func_product_create(
-    client_postgres=app_state.client_postgres,
+    client_postgres=app_state.client_postgres_dict["master"],
     name=ob["name"],
     quantity=ob["quantity"],
     category=oq["category"],
@@ -521,11 +521,14 @@ Shorter windows reduce the time available for abuse but can frustrate users when
 <details>
 <summary><strong>How do I read/write a second (external) database?</strong></summary>
 
-`config_postgres_url` is Atom's primary Postgres connection and is used by CRUD, admin query runners, and schema endpoints. Pointing it at another database switches the application datastore; it does not create a separate named secondary connection.
+Add it as another named database in `.env`, next to the required `master`:
 
-If you need the main application and a second database at the same time, create an additional client in `function/custom_business.py` or your own lifespan integration, then expose narrowly scoped functions/routes for that database. Keep credentials in `.env`, use parameterized queries, and give the secondary database account only the permissions it needs.
+```dotenv
+config_postgres_url_master=postgresql://atom:pass@main-host:5432/atom
+config_postgres_url_external=postgresql://reader:pass@other-host:5432/other
+```
 
-For a one-database deployment, simply change `config_postgres_url` and restart Atom so the connection pool and schema cache are rebuilt.
+Atom opens a pool for each name in `app.state.client_postgres_dict` and caches its schema in `app.state.cache_postgres_schema_dict`. Routes that accept `?db=` can then target it (`?db=external`); custom code can use `app_state.client_postgres_dict["external"]` directly. Keep credentials in `.env`, use parameterized queries, and give the second database account only the permissions it needs.
 
 </details>
 
@@ -651,7 +654,7 @@ If you are fixing Atom itself for everyone, edit the core source and submit a pu
 Enable Atom's global read-only mode and use read-only database credentials as the primary connection:
 
 ```dotenv
-config_postgres_url=postgresql://readonly_user:password@host:5432/database
+config_postgres_url_master=postgresql://readonly_user:password@host:5432/database
 config_is_read_only=true
 ```
 
@@ -669,7 +672,7 @@ Use an actual read-only PostgreSQL role as well. `config_is_read_only` prevents 
 
 The setting only controls PostgreSQL activity created through the pools initialized by `main.py`. It does not disable writes to Redis, MongoDB, object storage, queues, local files, or independent PostgreSQL connections opened by standalone workers and scripts. Do not run write consumers, ingestion scripts, or deletion workers as part of a read-only deployment.
 
-Use the read-only URL as `config_postgres_url`, rather than configuring only a named URL such as `config_postgres_url_read`, when Atom needs its normal primary schema and authorization caches. Named pools are intended for explicitly selected read endpoints and do not replace the primary connection during startup.
+Use the read-only URL as `config_postgres_url_master`, rather than configuring only another name such as `config_postgres_url_read`: startup builds the schema and authorization caches from `master`. Other names are for explicitly selected read endpoints.
 
 </details>
 
@@ -678,21 +681,19 @@ Use the read-only URL as `config_postgres_url`, rather than configuring only a n
 
 Atom supports connecting to multiple PostgreSQL connection pools or read-replicas configured via environment variables (`config_postgres_url_<name>`).
 
-Read endpoints (such as `/public/object-read`, `/my/object-read`, `/my/profile`, `/my/message-thread`, `/admin/object-read`, etc.) accept the optional **`?db=<name>`** query parameter.
+Routes flagged `"is_db_param": True` in `config_api` accept the optional **`?db=<name>`** query parameter (reads such as `/public/object-read`, `/my/object-read`, `/my/profile`, `/admin/object-read`, the Postgres query runners, and `/admin/postgres-import`).
 
-**How it works in Python:**
-Routers resolve database targets cleanly using `func_postgres_db_select`:
+**How it works:** the middleware picks the pool once per request and sets it on `request.state`; routes just use it:
 
 ```python
-client_postgres, cache_postgres_schema = app_state.func_postgres_db_select(
-    app_state=app_state, db=oq["db"]
-)
+res = await app_state.func_postgres_read(client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, ...)
 ```
 
-- If `db` is omitted (`None`), it defaults to primary `app_state.client_postgres`.
-- If `db` is specified (e.g., `?db=read_india`), it resolves `client_postgres_dict["read_india"]`.
-- If `db` does not exist in `client_postgres_dict`, it raises a clear error: `database pool '<name>' not found`.
-- For hybrid endpoints like `/my/message-thread` or `/my/object-read`, `SELECT` queries run on the selected `client_postgres` pool, while state updates (like `read_at`) execute safely on primary `app_state.client_postgres`.
+- No `db` means master: `client_postgres_dict["master"]`.
+- `?db=read_india` on a flagged route uses `client_postgres_dict["read_india"]`.
+- An unknown name returns `404 database '<name>' not found`.
+- Routes without the flag ignore `?db=` and always use master.
+- User, role and OTP checks always use master.
 
 Example API calls:
 ```bash

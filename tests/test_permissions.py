@@ -47,12 +47,12 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
                                                         obj_list=objects, scope="my", user_id=7)
 
     async def test_email_change_requires_otp_and_propagates_failure(self):
-        state = SimpleNamespace(func_otp_verify=AsyncMock(), client_postgres=object(),
+        state = SimpleNamespace(func_otp_verify=AsyncMock(), client_postgres_dict={"master": object()},
                                 config_otp_expiry_sec=300, config_otp_static=None, config_otp_max_attempt=5)
         args = dict(app_state=state, table="users", obj_list=[{"id": 7, "email": "new@example.test"}],
                     scope="my", user_id=7, otp=123456)
         await func_check_user_update_permission(**args)
-        state.func_otp_verify.assert_awaited_once_with(client_postgres=state.client_postgres, otp=123456,
+        state.func_otp_verify.assert_awaited_once_with(client_postgres=state.client_postgres_dict["master"], otp=123456,
                                                      email="new@example.test", mobile=None,
                                                      config_otp_expiry_sec=300, config_otp_static=None, config_otp_max_attempt=5)
         state.func_otp_verify.side_effect = ValueError("invalid otp")

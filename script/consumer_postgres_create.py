@@ -11,7 +11,7 @@ from function import func_postgres_create
 from function import func_postgres_schema_read
 
 # config
-from config import config_postgres_url
+from config import config_postgres_url_dict
 from config import config_column_regex
 from config import config_table
 from config import config_buffer_limit_default
@@ -24,7 +24,7 @@ from config import config_kafka_password
 
 # logic
 async def setup():
-    client_postgres = await func_client_postgres(dsn=config_postgres_url, min_size=1, max_size=5)
+    client_postgres = await func_client_postgres(dsn=config_postgres_url_dict.get("master"), min_size=1, max_size=5)
     cache_postgres_buffer_create = {}
     cache_postgres_schema = await func_postgres_schema_read(client_postgres=client_postgres)
     client_password_hasher = func_client_password_hasher()

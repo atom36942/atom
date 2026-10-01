@@ -29,16 +29,19 @@ class HttpIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.db_name, cls.url = create_database()
+        cls.reports_db_name, cls.reports_url = create_database()    # a second named database for ?db= switching
+        fetch(cls.reports_url, "CREATE TABLE report (id bigserial PRIMARY KEY, title text)")
+        fetch(cls.reports_url, "INSERT INTO report (title) VALUES ('from reports')")
         cls.workdir = tempfile.TemporaryDirectory()
         cls.previous_cwd = os.getcwd()
         os.chdir(cls.workdir.name)
-        cls.env = patch.dict(os.environ, {**TEST_ENV, "config_postgres_url": cls.url})
+        cls.env = patch.dict(os.environ, {**TEST_ENV, **cls.database_env()})
         cls.env.start()
         # The app prints a traceback for every handled error; these tests trigger 4xx on purpose.
         cls.app_stderr = io.StringIO()
         cls.quiet = redirect_stderr(cls.app_stderr)
         cls.quiet.__enter__()
-        for key in [k for k in os.environ if k.lower().startswith("config_") and k not in TEST_ENV and k != "config_postgres_url"]:
+        for key in [k for k in os.environ if k.lower().startswith("config_") and k not in TEST_ENV and k not in cls.database_env()]:
             del os.environ[key]
         sys.path.insert(0, str(REPO_ROOT))
         for module in ("main", "config", "config_extend"): sys.modules.pop(module, None)
@@ -66,13 +69,18 @@ class HttpIntegrationTests(unittest.TestCase):
             for module in ("main", "config", "config_extend"): sys.modules.pop(module, None)
             cls.workdir.cleanup()
             drop_database(cls.db_name)
+            drop_database(cls.reports_db_name)
+
+    @classmethod
+    def database_env(cls):
+        return {"config_postgres_url_master": cls.url, "config_postgres_url_reports": cls.reports_url}
 
     def auth(self, token=None):
         return {"Authorization": f"Bearer {token or self.token}"}
 
     def test_app_started_with_test_settings_only(self):
-        self.assertEqual(self.app.state.config_postgres_url, self.url)
-        self.assertFalse(self.app.state.client_postgres_dict)
+        self.assertEqual(self.app.state.config_postgres_url_dict, {"master": self.url, "reports": self.reports_url})
+        self.assertEqual(sorted(self.app.state.client_postgres_dict), ["master", "reports"])
         self.assertIsNone(self.app.state.client_redis)
         self.assertTrue(os.path.isdir(os.path.join(self.workdir.name, "tmp")))
 
@@ -133,6 +141,33 @@ class HttpIntegrationTests(unittest.TestCase):
                 response = getattr(self.client, method)(path, params=params, headers=self.auth(token))
                 self.assertNotIn("$argon2", response.text)
                 self.assertNotIn("password", keys(response.json()))
+
+    def test_db_query_param_switches_database_on_flagged_routes(self):
+        read = self.client.get("/admin/object-read", params={"db": "reports", "table": "report"}, headers=self.auth(self.admin_token))
+        self.assertEqual(read.status_code, 200, read.text)
+        self.assertEqual([r["title"] for r in read.json()["message"]["obj_list"]], ["from reports"])
+        master = self.client.get("/admin/object-read", params={"table": "report"}, headers=self.auth(self.admin_token))
+        self.assertEqual(master.status_code, 400, master.text)    # report only exists in the reports database
+
+    def test_unknown_db_is_404(self):
+        response = self.client.get("/admin/object-read", params={"db": "nope", "table": "test"}, headers=self.auth(self.admin_token))
+        self.assertEqual((response.status_code, response.json()["message"]), (404, "database 'nope' not found"))
+
+    def test_unflagged_routes_ignore_db_and_use_master(self):
+        created = self.client.post("/my/object-create", params={"db": "reports", "table": "test"}, json={"title": "stays in master"}, headers=self.auth())
+        self.assertEqual(created.status_code, 200, created.text)
+        deadline, rows = time.time() + 5, []
+        while time.time() < deadline and not rows:
+            rows = fetch(self.url, "SELECT title FROM test WHERE title = 'stays in master'")
+            time.sleep(0.2)
+        self.assertEqual(rows, [{"title": "stays in master"}])
+
+    def test_openapi_lists_db_only_on_flagged_routes(self):
+        paths = self.client.get("/openapi.json").json()["paths"]
+        names = lambda path, method: [p["name"] for p in paths[path][method]["parameters"]]
+        self.assertIn("db", names("/admin/object-read", "get"))
+        self.assertIn("db", names("/admin/postgres-import", "post"))
+        self.assertNotIn("db", names("/my/object-create", "post"))
 
     def test_malformed_filter_is_400(self):
         response = self.client.get("/my/object-read", params={"table": "test", "filter": json.dumps(["title"])}, headers=self.auth())

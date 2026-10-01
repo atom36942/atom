@@ -2,7 +2,6 @@
 
 import asyncpg
 import orjson
-from starlette.datastructures import State
 
 async def func_postgres_schema_read(*, client_postgres: asyncpg.Pool | None, mode: str = "table") -> dict:
     """Read PostgreSQL schema with relation and per-column index info."""
@@ -171,14 +170,6 @@ def func_postgres_schema_ai_view(*, cache_postgres_schema: dict) -> dict:
                 "is_unique": bool(c["is_unique_constraint"] or c["is_unique_index"]),
             }
     return view
-
-def func_postgres_db_select(*, app_state: State, db: str = None) -> tuple:
-    """Select target PostgreSQL client and schema cache by database pool name."""
-    if db is None:
-        return app_state.client_postgres, app_state.cache_postgres_schema
-    if not app_state.client_postgres_dict or db not in app_state.client_postgres_dict:
-        raise Exception(f"database pool '{db}' not found")
-    return app_state.client_postgres_dict[db], app_state.cache_postgres_schema_dict.get(db, {})
 
 async def func_postgres_info_read(*, client_postgres: asyncpg.Pool | None) -> dict:
     """Read comprehensive PostgreSQL database statistics, storage, activity, and schema information."""
