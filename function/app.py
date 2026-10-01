@@ -19,7 +19,7 @@ async def func_admin_sync(*, app_state: State, app_routes: list = None) -> str:
     if postgres_master:
         await app_state.func_postgres_create(client_postgres=postgres_master, client_postgres_conn=None, client_password_hasher=None, cache_postgres_schema=app_state.cache_postgres_schema_dict.get("master", {}), mode="flush", table=None, obj_list=None, buffer_limit=None, cache_postgres_buffer=app_state.cache_postgres_buffer_create, config_column_regex=None)
     app_state.cache_postgres_schema_dict = {name: await app_state.func_postgres_schema_read(client_postgres=pool) for name, pool in app_state.client_postgres_dict.items()}
-    app_state.cache_clickhouse_schema_ai = await app_state.func_clickhouse_schema_read_ai(client_clickhouse=app_state.client_clickhouse) if getattr(app_state, "client_clickhouse", None) else {}
+    app_state.cache_clickhouse_schema = await app_state.func_clickhouse_schema_read(client_clickhouse=app_state.client_clickhouse) if getattr(app_state, "client_clickhouse", None) else {}
     if app_routes is not None:
         app_state.cache_openapi = app_state.func_openapi_spec_generate(app_routes=app_routes, app_state=app_state)
     app_state.cache_config = await app_state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app_state.config_sql.get("config"), is_json_value=True) if postgres_master and "config" in app_state.cache_postgres_schema_dict["master"] else {}

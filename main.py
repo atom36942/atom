@@ -67,7 +67,7 @@ async def func_lifespan(app: FastAPI):
         cache_users_deleted = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("users_deleted")) if postgres_master else {}
         # cache schema
         cache_postgres_schema_dict = {name: postgres_master_schema if name == "master" else await app.state.func_postgres_schema_read(client_postgres=pool) for name, pool in client_postgres_dict.items()}
-        cache_clickhouse_schema_ai = await app.state.func_clickhouse_schema_read_ai(client_clickhouse=client_clickhouse) if client_clickhouse else {}
+        cache_clickhouse_schema = await app.state.func_clickhouse_schema_read(client_clickhouse=client_clickhouse) if client_clickhouse else {}
         # func calls
         app.state.func_app_state_add(app=app, data_dict=locals(), prefixes=("client_", "cache_"))
         app.state.cache_openapi = app.state.func_openapi_spec_generate(app_routes=app.routes, app_state=app.state)

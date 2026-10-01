@@ -219,5 +219,5 @@ async def func_api_admin_clickhouse_query_runner_read_export(*, request: Request
 async def func_api_admin_clickhouse_query_generator_ai(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "ai", "type": "str", "required": False, "allowed": app_state.config_ai_services, "default": "gemini"}, {"name": "question", "type": "str", "required": True, "allowed": None, "default": None}])
-    res = await app_state.func_clickhouse_query_generator_ai(client_clickhouse=app_state.client_clickhouse, client_gemini=app_state.client_gemini, client_openai=app_state.client_openai, cache_clickhouse_schema_ai=app_state.cache_clickhouse_schema_ai, config_query_runner_read_limit=app_state.config_query_runner_read_limit, ai=ob["ai"], question=ob["question"])
+    res = await app_state.func_clickhouse_query_generator_ai(client_clickhouse=app_state.client_clickhouse, client_gemini=app_state.client_gemini, client_openai=app_state.client_openai, cache_clickhouse_schema=app_state.cache_clickhouse_schema, config_query_runner_read_limit=app_state.config_query_runner_read_limit, ai=ob["ai"], question=ob["question"])
     return {"status": 1, "message": res}

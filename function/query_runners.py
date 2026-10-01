@@ -324,8 +324,8 @@ async def func_clickhouse_query_runner_write(*, client_clickhouse: Any, sql: str
     result = await client_clickhouse.command(sql, settings={"max_execution_time": 30})
     return str(result)
 
-async def func_clickhouse_schema_read_ai(*, client_clickhouse: Any) -> dict:
-    """Read the current ClickHouse database schema in the compact form used by AI prompts."""
+async def func_clickhouse_schema_read(*, client_clickhouse: Any) -> dict:
+    """Read the ClickHouse schema: {table: {column: {data_type, is_primary_key, is_sorting_key}}}; compact enough for AI prompts as is."""
     if not client_clickhouse: raise func_api_error(message="clickhouse client not initialized", status_code=500)
     result = await client_clickhouse.query("""
         SELECT database, table, name, type, is_in_primary_key, is_in_sorting_key
@@ -335,10 +335,10 @@ async def func_clickhouse_schema_read_ai(*, client_clickhouse: Any) -> dict:
     """)
     schema = {}
     for database, table, name, data_type, is_primary, is_sorting in result.result_rows:
-        schema.setdefault(f"{database}.{table}", []).append({"name": name, "data_type": data_type, "is_primary_key": bool(is_primary), "is_sorting_key": bool(is_sorting)})
+        schema.setdefault(f"{database}.{table}", {})[name] = {"data_type": data_type, "is_primary_key": bool(is_primary), "is_sorting_key": bool(is_sorting)}
     return schema
 
-async def func_clickhouse_query_generator_ai(*, client_clickhouse: Any, client_gemini: Any, client_openai: Any, cache_clickhouse_schema_ai: dict, config_query_runner_read_limit: int, ai: str, question: str) -> dict:
+async def func_clickhouse_query_generator_ai(*, client_clickhouse: Any, client_gemini: Any, client_openai: Any, cache_clickhouse_schema: dict, config_query_runner_read_limit: int, ai: str, question: str) -> dict:
     """Generate schema-aware, read-only ClickHouse SQL with Gemini or OpenAI."""
     from google.genai import types
     if not client_clickhouse: raise func_api_error(message="clickhouse client not initialized", status_code=500)
@@ -346,7 +346,7 @@ async def func_clickhouse_query_generator_ai(*, client_clickhouse: Any, client_g
     if ai == "openai" and not client_openai: raise func_api_error(message="OpenAI client not initialized", status_code=500)
     question = str(question or "").strip()
     default_limit, max_limit = 10, int(config_query_runner_read_limit)
-    schema = cache_clickhouse_schema_ai or await func_clickhouse_schema_read_ai(client_clickhouse=client_clickhouse)
+    schema = cache_clickhouse_schema or await func_clickhouse_schema_read(client_clickhouse=client_clickhouse)
     if not schema: raise Exception("clickhouse schema is empty")
     response_schema = {"type": "OBJECT", "properties": {"sql": {"type": "STRING", "nullable": True}, "message": {"type": "STRING"}, "warnings": {"type": "ARRAY", "items": {"type": "STRING"}}}}
     response_json_schema = {"type": "object", "additionalProperties": False, "properties": {"sql": {"type": ["string", "null"]}, "message": {"type": "string"}, "warnings": {"type": "array", "items": {"type": "string"}}}, "required": ["sql", "message", "warnings"]}
