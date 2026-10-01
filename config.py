@@ -58,6 +58,8 @@ config_otp_length = 6
 config_otp_expiry_sec = 600
 config_otp_static = None
 config_otp_max_attempt = 5
+config_otp_retention_day = 1
+config_log_api_retention_day = 30
 config_access_token_expires_sec = 604800
 config_refresh_token_expires_sec = 2592000
 config_blob_limit_size_kb = 500
@@ -283,7 +285,7 @@ config_postgres = {
 ],
 "log_api":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
-{"name":"created_at","datatype":"timestamptz","default":"now()"},
+{"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
 {"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id,created_at)"},
 {"name":"ip_address","datatype":"text"},
 {"name":"response_type","datatype":"text"},

@@ -1,4 +1,4 @@
-"""Atom config functions."""
+"""Atom configuration checks."""
 
 import re
 from fastapi import FastAPI
@@ -35,6 +35,13 @@ def func_check_runtime_config(*, app_state: State) -> None:
         return value
     values = {key: int_check(getattr(app_state, key, None), key) for key in ("config_query_runner_read_limit", "config_query_runner_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec")}
     if values["config_sql_read_limit_default"] > values["config_sql_read_limit_max"]: raise Exception("config_sql_read_limit_default must not exceed config_sql_read_limit_max")
+    for key in ("config_otp_retention_day", "config_log_api_retention_day"):
+        retention = getattr(app_state, key, None)
+        if retention is None: continue
+        if isinstance(retention, bool) or not isinstance(retention, int) or not 1 <= retention <= 36500:
+            raise ValueError(f"{key} must be an integer from 1 to 36500, or None")
+        if key == "config_otp_retention_day" and retention * 86400 <= app_state.config_otp_expiry_sec:
+            raise ValueError("config_otp_retention_day must exceed the OTP expiry window")
     buffer_limit = getattr(app_state, "config_buffer_limit_default", None)
     if buffer_limit is not None and (isinstance(buffer_limit, bool) or not isinstance(buffer_limit, int) or buffer_limit < 10 or buffer_limit > 5000): raise Exception("config_buffer_limit_default must be an integer between 10 and 5000")
     return None

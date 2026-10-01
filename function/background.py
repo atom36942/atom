@@ -43,6 +43,38 @@ async def func_inmemory_cache_cleanup_periodic_task(*, cache_api_response: dict,
         except Exception as e: print(f"❌ in-memory cache cleanup task error: {e}")
     return None
 
+async def func_otp_cleanup(*, conn: asyncpg.Connection, cutoff, timeout_sec: float) -> int:
+    """Delete at most 5,000 old OTP rows; leave current codes untouched."""
+    result = await conn.execute("DELETE FROM otp WHERE id IN (SELECT id FROM otp WHERE created_at < $1 ORDER BY created_at LIMIT 5000 FOR UPDATE SKIP LOCKED)", cutoff, timeout=timeout_sec)
+    return int(result.split()[-1])
+
+async def func_log_api_cleanup(*, conn: asyncpg.Connection, cutoff, timeout_sec: float) -> int:
+    """Delete at most 5,000 old API logs from the supplied logging database."""
+    result = await conn.execute("DELETE FROM log_api WHERE id IN (SELECT id FROM log_api WHERE created_at < $1 ORDER BY created_at LIMIT 5000 FOR UPDATE SKIP LOCKED)", cutoff, timeout=timeout_sec)
+    return int(result.split()[-1])
+
+async def func_cleanup_periodic_task(*, client_postgres: asyncpg.Pool, retention_day: int | None, cleanup, lock_id: int) -> None:
+    """Run a fixed-table cleanup hourly, with a 30-second budget per run."""
+    if retention_day is None or client_postgres is None: return
+    while True:
+        try:
+            await asyncio.sleep(3600)
+            async with client_postgres.acquire(timeout=5) as conn:
+                # Stable session locks coordinate all app workers on this database.
+                locked = await conn.fetchval("SELECT pg_try_advisory_lock(1096044365, $1)", lock_id, timeout=5)
+                if not locked: continue
+                try:
+                    cutoff = await conn.fetchval("SELECT CURRENT_TIMESTAMP - ($1::integer * INTERVAL '1 day')", retention_day, timeout=5)
+                    deadline = time.monotonic() + 30
+                    while (remaining := deadline - time.monotonic()) > 0:
+                        deleted = await cleanup(conn=conn, cutoff=cutoff, timeout_sec=min(5, remaining))
+                        if deleted < 5000: break
+                        await asyncio.sleep(0.1)
+                finally:
+                    await conn.execute("SELECT pg_advisory_unlock(1096044365, $1)", lock_id, timeout=5)
+        except asyncio.CancelledError: break
+        except Exception as e: print(f"❌ {cleanup.__name__} periodic cleanup error: {e}")
+
 async def func_async_tasks_cancel(*, task_list: list, timeout_sec: int = 5) -> None:
     """Cancel asynchronous tasks and wait up to the configured timeout for them to finish."""
     task_list = [task for task in task_list if task]
@@ -53,5 +85,5 @@ async def func_async_tasks_cancel(*, task_list: list, timeout_sec: int = 5) -> N
 async def func_app_tasks_stop(*, app_state: State, timeout_sec: int = 5) -> None:
     """Cancel all runtime background tasks and periodic system tasks on app_state."""
     runtime_tasks = list(getattr(app_state, "runtime_background_tasks", set()))
-    periodic_tasks = [getattr(app_state, "postgres_buffer_flush_task", None), getattr(app_state, "inmemory_cache_cleanup_task", None)]
+    periodic_tasks = [getattr(app_state, "postgres_buffer_flush_task", None), getattr(app_state, "inmemory_cache_cleanup_task", None), getattr(app_state, "otp_cleanup_task", None), getattr(app_state, "log_api_cleanup_task", None)]
     await app_state.func_async_tasks_cancel(task_list=runtime_tasks + periodic_tasks, timeout_sec=timeout_sec)

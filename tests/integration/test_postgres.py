@@ -141,6 +141,20 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
         except Exception as error:
             return getattr(error, "status_code", 400), str(error)
 
+    async def test_cleanup_age_boundary_and_table_isolation(self):
+        from datetime import datetime, timezone, timedelta
+        from function.background import func_otp_cleanup, func_log_api_cleanup
+        cutoff = datetime.now(timezone.utc) - timedelta(days=1)
+        async with self.pool.acquire() as conn:
+            for created_at in (cutoff - timedelta(seconds=1), cutoff, cutoff + timedelta(seconds=1)):
+                await conn.execute("INSERT INTO otp (otp, created_at) VALUES (123456, $1)", created_at)
+                await conn.execute("INSERT INTO log_api (created_at) VALUES ($1)", created_at)
+            self.assertEqual(await func_otp_cleanup(conn=conn, cutoff=cutoff, timeout_sec=5), 1)
+            self.assertEqual(await conn.fetchval("SELECT count(*) FROM log_api"), 3)
+            self.assertEqual(await func_log_api_cleanup(conn=conn, cutoff=cutoff, timeout_sec=5), 1)
+            self.assertEqual(await conn.fetchval("SELECT count(*) FROM otp"), 2)
+            self.assertEqual(await conn.fetchval("SELECT count(*) FROM log_api"), 2)
+
     async def test_otp_success_consumes_code_and_wrong_guesses_are_capped(self):
         code = await func_otp_generate(client_postgres=self.pool, email="a@example.test", mobile=None, config_otp_length=6)
         self.assertEqual(await self.verify_otp(code + 1 if code < 999999 else code - 1), (400, "invalid otp code"))

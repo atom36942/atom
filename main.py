@@ -77,6 +77,11 @@ async def func_lifespan(app: FastAPI):
         # periodic tasks
         app.state.postgres_buffer_flush_lock = asyncio.Lock()
         if not app.state.config_is_read_only: app.state.postgres_buffer_flush_task = asyncio.create_task(app.state.func_postgres_buffer_flush_periodic_task(app_state=app.state, client_postgres=client_postgres, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log_api=client_postgres_log_api, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api, interval_sec=app.state.config_postgres_buffer_flush_auto_sec))
+        if not app.state.config_is_read_only:
+            if client_postgres is not None and app.state.config_otp_retention_day is not None:
+                app.state.otp_cleanup_task = asyncio.create_task(app.state.func_cleanup_periodic_task(client_postgres=client_postgres, retention_day=app.state.config_otp_retention_day, cleanup=app.state.func_otp_cleanup, lock_id=1))
+            if client_postgres_log_api is not None and app.state.config_log_api_retention_day is not None:
+                app.state.log_api_cleanup_task = asyncio.create_task(app.state.func_cleanup_periodic_task(client_postgres=client_postgres_log_api, retention_day=app.state.config_log_api_retention_day, cleanup=app.state.func_log_api_cleanup, lock_id=2))
         app.state.inmemory_cache_cleanup_task = asyncio.create_task(app.state.func_inmemory_cache_cleanup_periodic_task(cache_api_response=cache_api_response, cache_ratelimiter=cache_ratelimiter, interval_sec=app.state.config_inmemory_cache_cleanup_auto_sec))
     except Exception as e:
         print(f"❌ startup error: {e}")

@@ -131,6 +131,8 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_otp_length` | Digit length generated for OTP codes (default: `6`) |
 | `config_otp_expiry_sec` | Expiry window for OTP codes in seconds (default: `600`) |
 | `config_otp_max_attempt` | Verification guesses allowed per OTP code before it is locked (default: `5`) |
+| `config_otp_retention_day` | OTP row retention in days (`1`); `None` disables cleanup. Must exceed OTP expiry. |
+| `config_log_api_retention_day` | API-log row retention in days (`30`); `None` disables cleanup. |
 | `config_access_token_expires_sec` | JWT Access Token lifetime in seconds |
 | `config_refresh_token_expires_sec` | JWT Refresh Token lifetime in seconds |
 | `config_blob_limit_size_kb` | Maximum file upload size in KB (default: `500`) |
@@ -378,3 +380,11 @@ Permission IDs are integers in Python, but JSON object keys are strings: clients
 ---
 
 📚 [Back to README](../readme.md)
+
+### Automatic OTP and API-log cleanup
+
+Each enabled cleanup starts one hour after startup and repeats one hour after the previous run finishes. It permanently deletes only rows older than its retention cutoff, in batches of up to 5,000 with 0.1-second pauses. Each run has a 30-second deletion budget and each query a maximum five-second timeout; remaining backlog is handled on later runs. Failures are logged and retried next hour. Retention accepts whole days from 1 to 36500, or `None`.
+
+The tasks are skipped in read-only mode or without their database pool and are cancelled at shutdown. PostgreSQL advisory locks prevent overlapping runs for the same cleanup on the same database. OTP cleanup uses the primary pool; API logs use `client_postgres_log_api`, including the named database when configured. Successful OTP verification still deletes its code immediately; expiry alone does not delete it.
+
+Both tables have a `created_at` index in the schema configuration. Apply the updated schema to a separately managed logging database as well; the main application's schema initialization only manages the primary database. Disabling cleanup means no task or cleanup queries for that table. Deleted space can be reused by PostgreSQL after vacuuming; deletion does not necessarily shrink the database files on disk.
