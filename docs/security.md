@@ -38,7 +38,7 @@ Atom attaches standard baseline security headers to every HTTP response before r
 
 ## 4. Abuse Mitigation & Rate Limiting
 
-- **Distributed Rate Limiting**: Per-route `rate_limit` policies enforced via Redis or memory counters.
+- **Distributed Rate Limiting**: Per-route `rate_limit` policies enforced via Redis or memory counters. `inmemory` limits are per process: if you run more than one instance or worker, switch `rate_limit` to `"mode": "redis"` and set `config_redis_url_ratelimiter`, so all instances share one counter.
 - **Key Partitioning**: Rate limit windows are keyed by `user_id` for authenticated sessions and by client IP for anonymous callers.
 - **Client IP Behind a Proxy**: `func_middleware_client_ip` resolves the caller's IP for rate limits and `log_api.ip_address`. When the connection comes from a private address (a proxy such as Azure App Service's front end), it uses the last `X-Forwarded-For` entry with any port removed; the last entry is the one the proxy added, so client-supplied entries are ignored. Direct connections from public addresses always use the connection IP, so a forged header cannot bypass limits. `/pgweb` still checks the raw connection address.
 - **WebSocket Flooding Guard**: Unauthenticated WebSocket endpoints (such as `/websocket`) default to `is_active: False` and close immediately on connect.
