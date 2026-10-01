@@ -119,7 +119,7 @@ Boolean environment settings use case-insensitive `true` or `false`. The loader 
 
 ### ⚠️ Secrets to override in production
 
-Before deploying to production, ensure you override default system secrets in `.env` (refer to `docs/prod.md` and `docs/security.md`).
+Before deploying to production, ensure you override default system secrets in `.env` (see the [production hardening checklist](docs/security.md#5-production-hardening-checklist)).
 
 ## Extensibility
 
@@ -157,30 +157,34 @@ atom/
 Run regression tests with `venv/bin/python -m unittest discover -s tests -v`.
 See [test coverage and setup](tests/README.md).
 
-<details>
+<details open>
 <summary><strong>Full Documentation Index</strong></summary>
 
 <br>
 
 📖 **Getting Started & Architecture**
+
 - [quickstart.md](docs/quickstart.md) — 5-minute setup and CRUD walkthrough.
 - [about.md](docs/about.md) — Framework architecture, request pipeline, lifespan & routers.
 - [config.md](docs/config.md) — Configuration reference & dynamic `.env` discovery.
 - [security.md](docs/security.md) — Security model, headers & production hardening checklist.
+- [audit.md](docs/audit.md) — Security audit findings, fixes, verification & remaining deployment checks.
 
 🚀 **Core Engines & Features**
+
 - [auth.md](docs/auth.md) — Authentication, identities, user uniqueness & root superadmin.
-- [crud.md](docs/crud.md) — Generic CRUD engine, `/my/*` ownership matrix & advanced queries.
+- [crud.md](docs/crud.md) — Generic CRUD, filters, relations, pagination & `/my/*` ownership rules.
 - [ownership.md](docs/ownership.md) — Ownership conventions, operation-specific policies & `/my/*` enforcement.
-- [database.md](docs/database.md) — PostgreSQL pools, read replicas, write buffers & API logs.
-- [redis.md](docs/redis.md) — Multi-client Redis architecture & cache strategies.
+- [database.md](docs/database.md) — PostgreSQL pools, schema management, SQL/AI queries, write buffers & API logs.
+- [redis.md](docs/redis.md) — Redis clients, user state, response caching, rate limiting, queues & failure behavior.
 - [queue.md](docs/queue.md) — Asynchronous job queues, background consumers & retry workers.
 - [messaging.md](docs/messaging.md) — In-app messaging, notifications, transactional email & SMS.
 - [storage.md](docs/storage.md) — Complete blob guide: S3/Azure uploads, previews, SAS, ownership, and deletion.
 
 🧱 **Administration & Customization**
+
 - [admin.md](docs/admin.md) — Admin toolkit, data imports & built-in web UI (API Master & PgWeb).
-- [extend.md](docs/extend.md) — Extending Atom without forking core code & upstream sync.
+- [extend.md](docs/extend.md) — Custom config, functions, routes, tables & workers; upstream sync and recovery.
 - [faq.md](docs/faq.md) — Developer guidelines & frequently asked questions.
 
 </details>
