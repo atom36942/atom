@@ -3,7 +3,7 @@ import asyncio
 import importlib.util
 import os
 import time
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 import config
@@ -20,6 +20,7 @@ async def func_lifespan(app: FastAPI):
         # start
         start_journey = time.perf_counter()
         app.state.runtime_background_tasks = set()
+        app.state.runtime_error_count = {"log_api_write": 0, "buffer_flush": 0, "background_task": 0, "cleanup": 0}
         postgres_pool_kwargs = {"min_size": app.state.config_postgres_pool_min_size, "max_size": app.state.config_postgres_pool_max_size, "is_read_only": app.state.config_is_read_only}
         aws_kwargs = {"aws_access_key_id": app.state.config_aws_access_key_id, "aws_secret_access_key": app.state.config_aws_secret_access_key}
         cache_api_response = {}
@@ -79,10 +80,10 @@ async def func_lifespan(app: FastAPI):
         if not app.state.config_is_read_only: app.state.postgres_buffer_flush_task = asyncio.create_task(app.state.func_postgres_buffer_flush_periodic_task(app_state=app.state, client_postgres=postgres_master, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log_api=client_postgres_log_api, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api, interval_sec=app.state.config_postgres_buffer_flush_auto_sec))
         if not app.state.config_is_read_only:
             if postgres_master is not None and app.state.config_otp_retention_day is not None:
-                app.state.otp_cleanup_task = asyncio.create_task(app.state.func_cleanup_periodic_task(client_postgres=postgres_master, retention_day=app.state.config_otp_retention_day, cleanup=app.state.func_otp_cleanup, lock_id=1))
+                app.state.otp_cleanup_task = asyncio.create_task(app.state.func_cleanup_periodic_task(client_postgres=postgres_master, retention_day=app.state.config_otp_retention_day, cleanup=app.state.func_otp_cleanup, lock_id=1, runtime_error_count=app.state.runtime_error_count))
             if client_postgres_log_api is not None and app.state.config_log_api_retention_day is not None:
-                app.state.log_api_cleanup_task = asyncio.create_task(app.state.func_cleanup_periodic_task(client_postgres=client_postgres_log_api, retention_day=app.state.config_log_api_retention_day, cleanup=app.state.func_log_api_cleanup, lock_id=2))
-        app.state.inmemory_cache_cleanup_task = asyncio.create_task(app.state.func_inmemory_cache_cleanup_periodic_task(cache_api_response=cache_api_response, cache_ratelimiter=cache_ratelimiter, interval_sec=app.state.config_inmemory_cache_cleanup_auto_sec))
+                app.state.log_api_cleanup_task = asyncio.create_task(app.state.func_cleanup_periodic_task(client_postgres=client_postgres_log_api, retention_day=app.state.config_log_api_retention_day, cleanup=app.state.func_log_api_cleanup, lock_id=2, runtime_error_count=app.state.runtime_error_count))
+        app.state.inmemory_cache_cleanup_task = asyncio.create_task(app.state.func_inmemory_cache_cleanup_periodic_task(cache_api_response=cache_api_response, cache_ratelimiter=cache_ratelimiter, runtime_error_count=app.state.runtime_error_count, interval_sec=app.state.config_inmemory_cache_cleanup_auto_sec))
     except Exception as e:
         print(f"❌ startup error: {e}")
         raise
@@ -158,7 +159,8 @@ async def middleware(request, api_function):
     if response_type != "background_added": await app_state.func_request_form_close(request=request)
     # api log buffer
     if not app_state.config_is_read_only and getattr(app_state, "client_postgres_log_api", None):
-        with suppress(Exception): await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(app_state.config_postgres_db_log_api, {}), cache_postgres_buffer=app_state.cache_postgres_buffer_log_api, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": app_state.func_middleware_client_ip(request=request), "path": request.url.path, "method": request.method, "query_param": app_state.func_middleware_log_query_params(query_params=request.query_params), "status_code": response.status_code if hasattr(response, "status_code") else None, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
+        try: await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(app_state.config_postgres_db_log_api, {}), cache_postgres_buffer=app_state.cache_postgres_buffer_log_api, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": app_state.func_middleware_client_ip(request=request), "path": request.url.path, "method": request.method, "query_param": app_state.func_middleware_log_query_params(query_params=request.query_params), "status_code": response.status_code if hasattr(response, "status_code") else None, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
+        except Exception as e: app_state.func_runtime_error_record(runtime_error_count=app_state.runtime_error_count, key="log_api_write", error=e, print_every=100)
     # security headers
     app_state.func_middleware_security_headers(response=response)
     return response

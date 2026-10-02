@@ -36,6 +36,12 @@ async def func_api_admin_sync(*, request: Request):
     res = await app_state.func_admin_sync(app_state=app_state, app_routes=request.app.routes)
     return {"status": 1, "message": res}
 
+@router.get("/admin/runtime-status")
+async def func_api_admin_runtime_status(*, request: Request):
+    app_state = request.app.state
+    buffer_rows = lambda buffer: sum(len(rows) for rows in buffer.values())
+    return {"status": 1, "message": {"error_count": app_state.runtime_error_count, "buffer_rows_pending": {"create": buffer_rows(app_state.cache_postgres_buffer_create), "log_api": buffer_rows(app_state.cache_postgres_buffer_log_api)}, "background_tasks_running": len(app_state.runtime_background_tasks)}}
+
 @router.get("/admin/postgres-info")
 async def func_api_admin_postgres_info(*, request: Request):
     app_state = request.app.state

@@ -72,7 +72,7 @@ Atom runs a periodic background task (`func_postgres_buffer_flush_periodic_task`
 
 ## 5. API Logging & Telemetry (`log_api`)
 
-Atom captures structured telemetry for every incoming request in the `log_api` table:
+Atom captures structured telemetry for every incoming request in the `log_api` table (failed writes are counted in `GET /admin/runtime-status`; rows wait in the buffer and are retried):
 
 ### Telemetry Captured:
 - `created_at`: Timestamp of the request.

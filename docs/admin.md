@@ -39,9 +39,20 @@ Bulk import data from external systems into PostgreSQL:
 - **Postgres Import** (`/admin/postgres-import`): Import a CSV into a table (form fields `mode`, `table`, `file`; target database with `?postgres=<name>`, default master).
 - **MongoDB Import** (`/admin/mongodb-import`): Ingest BSON collections into structured relational tables.
 
-### 3. Schema Management
-- **Schema Introspection** (`GET /admin/schema`): Returns runtime schema cache `cache_postgres_schema`.
-- **Refresh Schema Cache** (`POST /admin/schema-refresh`): Re-queries PostgreSQL catalog to refresh table definitions without rebooting.
+### 3. Schema and Cache Refresh
+- **Schema** (`GET /admin/postgres-schema`): Reads the current PostgreSQL schema (master, or `?postgres=<name>`).
+- **Refresh caches** (`GET /admin/sync`): Flushes the create buffer, then re-reads every schema cache, the OpenAPI spec, `cache_config` and the user role/status caches without a restart.
 
-### 4. Downstream Sync Trigger (`POST /admin/sync`)
-Triggers the framework upstream updater (`sync.py`) programmatically.
+### 4. Runtime Status (`GET /admin/runtime-status`)
+Shows failures that happen outside a request's response, which are otherwise only printed:
+```json
+{"error_count": {"log_api_write": 0, "buffer_flush": 0, "background_task": 0, "cleanup": 0},
+ "buffer_rows_pending": {"create": 0, "log_api": 0},
+ "background_tasks_running": 0}
+```
+- `log_api_write`: API log rows that could not be written (printed on the 1st failure and every 100th, so an outage does not flood the log).
+- `buffer_flush`: failed buffer flushes. The rows stay in `buffer_rows_pending` and are retried on the next flush, so a growing number means the database has been unreachable for a while.
+- `background_task`: failed `?is_background=true` requests.
+- `cleanup`: failed OTP, API-log or in-memory cache cleanups.
+
+Counts are per process and reset on restart.

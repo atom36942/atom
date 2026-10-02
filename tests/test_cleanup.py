@@ -19,7 +19,7 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
     async def test_disabled_never_acquires_or_sleeps(self):
         pool, _ = self.setup_pool()
         with patch('function.background.asyncio.sleep', new_callable=AsyncMock) as sleep:
-            await func_cleanup_periodic_task(client_postgres=pool, retention_day=None, cleanup=AsyncMock(), lock_id=1)
+            await func_cleanup_periodic_task(client_postgres=pool, retention_day=None, cleanup=AsyncMock(), lock_id=1, runtime_error_count={})
         pool.acquire.assert_not_called()
         sleep.assert_not_called()
 
@@ -27,7 +27,7 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
         pool, conn = self.setup_pool(False)
         cleanup = AsyncMock()
         with patch('function.background.asyncio.sleep', AsyncMock(side_effect=[None, asyncio.CancelledError()])):
-            await func_cleanup_periodic_task(client_postgres=pool, retention_day=1, cleanup=cleanup, lock_id=1)
+            await func_cleanup_periodic_task(client_postgres=pool, retention_day=1, cleanup=cleanup, lock_id=1, runtime_error_count={})
         cleanup.assert_not_called()
         conn.execute.assert_not_called()
 
@@ -35,7 +35,7 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
         pool, conn = self.setup_pool()
         cleanup = AsyncMock(side_effect=[5000, 1])
         with patch('function.background.asyncio.sleep', AsyncMock(side_effect=[None, None, asyncio.CancelledError()])):
-            await func_cleanup_periodic_task(client_postgres=pool, retention_day=1, cleanup=cleanup, lock_id=1)
+            await func_cleanup_periodic_task(client_postgres=pool, retention_day=1, cleanup=cleanup, lock_id=1, runtime_error_count={})
         self.assertEqual(cleanup.await_count, 2)
         self.assertTrue(all(c.kwargs['cutoff'] == 'cutoff' for c in cleanup.await_args_list))
         conn.execute.assert_awaited_once_with('SELECT pg_advisory_unlock(1096044365, $1)', 1, timeout=5)
@@ -45,7 +45,7 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
             pool, conn = self.setup_pool()
             cleanup = AsyncMock(side_effect=error)
             with patch('function.background.asyncio.sleep', AsyncMock(side_effect=[None, asyncio.CancelledError()])), patch('builtins.print'):
-                await func_cleanup_periodic_task(client_postgres=pool, retention_day=30, cleanup=cleanup, lock_id=2)
+                await func_cleanup_periodic_task(client_postgres=pool, retention_day=30, cleanup=cleanup, lock_id=2, runtime_error_count={})
             conn.execute.assert_awaited_once()
 
     async def test_shutdown_includes_cleanup_tasks(self):

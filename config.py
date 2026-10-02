@@ -466,6 +466,7 @@ config_api = {
 "/public/password-hash": {"id": 100, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
 # admin
 "/admin/sync": {"id": 1, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
+"/admin/runtime-status": {"id": 120, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/object-create": {"id": 2, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/object-update": {"id": 3, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/object-read": {"id": 4, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "is_postgres_param": True},

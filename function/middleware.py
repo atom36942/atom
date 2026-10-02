@@ -18,6 +18,7 @@ from fastapi import Request, Response, responses
 from fastapi.routing import APIRoute
 from starlette.routing import Match
 from redis.asyncio import Redis
+from .background import func_runtime_error_record
 from .request import func_query_bool_parse, func_request_form_close
 
 def func_api_error(*, message: str, status_code: int) -> Exception:
@@ -257,7 +258,7 @@ async def func_middleware_api_background(*, scope: dict, body_bytes: bytes) -> A
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            print(f"❌ background api error: {e!r}")
+            func_runtime_error_record(runtime_error_count=scope["app"].state.runtime_error_count, key="background_task", error=e)
         finally:
             await func_request_form_close(request=request)
     task_obj = asyncio.create_task(task())
