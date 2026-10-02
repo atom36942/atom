@@ -134,7 +134,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
                 for node in ast.walk(tree):
                     if isinstance(node, ast.Return):
                         try: op["responses"]["200"]["content"] = {"application/json": {"schema": ast_to_schema(node.value)}}
-                        except: pass
+                        except Exception as e: print(f"⚠️ openapi {path}: response schema skipped: {e}")
                     if not isinstance(node, ast.Call): continue
                     func_id = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
                     if func_id == "func_extract_request_object_list":
@@ -180,8 +180,8 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
                                 dt = p.get("type", "str")
                                 props[p_name] = {"type": TYPE_MAP.get(dt.split(":")[0], "string"), "format": "binary" if dt == "file" else None, **({"items": {"type": TYPE_MAP.get(dt.split(":")[1], "string")}} if ":" in dt else {}), "enum": p.get("allowed") if isinstance(p.get("allowed"), (list, tuple)) else None, "default": p.get("default"), "pattern": reg_info[0] if reg_info and len(reg_info) > 0 else None, "description": reg_info[1] if reg_info and len(reg_info) > 1 else None}
                                 if bool(p.get("required", False)): reqs.append(p_name)
-                    except: pass
-            except: pass
+                    except Exception as e: print(f"⚠️ openapi {path}: parameters skipped: {e}")
+            except Exception as e: print(f"⚠️ openapi {path}: route skipped: {e}")
             spec["paths"][path][m_lower] = op
     return spec
 
