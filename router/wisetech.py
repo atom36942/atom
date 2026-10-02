@@ -10,7 +10,7 @@ async def func_api_wisetech_countries(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict_types=True, header_fallback=False, reject_unknown=True, param_specs=[
         {"name": "moduleType", "type": "str", "allowed": ["ImportHS", "ExportHS"], "default": "ImportHS"},
-        {"name": "effectiveDate", "type": "str", "default": None},
+        {"name": "effectiveDate", "type": "str"},
     ])
     result = await app_state.func_wisetech_countries(app_state=app_state, module_type=oq['moduleType'], effective_date=oq.get('effectiveDate'))
     return {"status": 1, "message": result}
@@ -20,7 +20,7 @@ async def func_api_wisetech_reference(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", strict_types=True, header_fallback=False, reject_unknown=True, param_specs=[
         {"name": "kind", "type": "str", "required": True, "allowed": ["countries", "destinations", "currencies", "incoterms", "charges"]},
-        {"name": "effectiveDate", "type": "str", "default": None},
+        {"name": "effectiveDate", "type": "str"},
     ])
     result = await app_state.func_wisetech_reference(app_state=app_state, kind=oq['kind'], effective_date=oq.get('effectiveDate'))
     return {"status": 1, "message": result}

@@ -8,7 +8,7 @@ router = APIRouter()
 @router.post("/public/object-create")
 async def func_api_public_object_create(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "mode", "type": "str", "required": False, "allowed": ["now", "buffer"], "default": "now"}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "mode", "type": "str", "allowed": ["now", "buffer"], "default": "now"}])
     app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="public", action="create")
     obj_list = await app_state.func_extract_request_object_list(request=request)
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
@@ -20,7 +20,7 @@ async def func_api_public_object_create(*, request: Request):
 @router.get("/public/object-read")
 async def func_api_public_object_read(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "id desc"}, {"name": "column", "type": "str", "required": False, "allowed": None, "default": "*"}, {"name": "relation", "type": "list", "required": False, "allowed": None, "default": []}, {"name": "filter", "type": "list", "required": False, "allowed": None, "default": []}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "limit", "type": "int", "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "default": 1}, {"name": "order", "type": "str", "default": "id desc"}, {"name": "column", "type": "str", "default": "*"}, {"name": "relation", "type": "list", "default": []}, {"name": "filter", "type": "list", "default": []}])
     app_state.func_check_table_permission(app_state=app_state, table=oq["table"], relation=oq["relation"], scope="public", action="read")
     ol = await app_state.func_postgres_read(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"], config_column_read_blocked=app_state.config_column_read_blocked)
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
@@ -28,20 +28,20 @@ async def func_api_public_object_read(*, request: Request):
 @router.get("/public/converter-number")
 async def func_api_public_converter_number(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "datatype", "type": "str", "required": True, "allowed": ["smallint", "int", "bigint"], "default": None}, {"name": "mode", "type": "str", "required": True, "allowed": ["encode", "decode"], "default": None}, {"name": "x", "type": "str", "required": True, "allowed": None, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "datatype", "type": "str", "required": True, "allowed": ["smallint", "int", "bigint"]}, {"name": "mode", "type": "str", "required": True, "allowed": ["encode", "decode"]}, {"name": "x", "type": "str", "required": True}])
     res = await app_state.func_converter_number(datatype=oq["datatype"], mode=oq["mode"], x=oq["x"])
     return {"status": 1, "message": res}
 
 @router.get("/public/otp-verify")
 async def func_api_public_otp_verify(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "type", "type": "str", "required": True, "allowed": ["email", "mobile"], "default": None}, {"name": "value", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "otp", "type": "int", "required": True, "allowed": None, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "type", "type": "str", "required": True, "allowed": ["email", "mobile"]}, {"name": "value", "type": "str", "required": True}, {"name": "otp", "type": "int", "required": True}])
     return {"status": 1, "message": await app_state.func_otp_verify(client_postgres=request.state.client_postgres, otp=oq["otp"], email=oq["value"] if oq["type"] == "email" else None, mobile=oq["value"] if oq["type"] == "mobile" else None, config_otp_expiry_sec=app_state.config_otp_expiry_sec, config_otp_static=app_state.config_otp_static, config_otp_max_attempt=app_state.config_otp_max_attempt)}
 
 @router.post("/public/otp-send-email")
 async def func_api_public_otp_send_email(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_email_services, "default": None}, {"name": "sender", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "email", "type": "str", "required": True, "allowed": None, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_email_services}, {"name": "sender", "type": "str", "required": True}, {"name": "email", "type": "str", "required": True}])
     otp = await app_state.func_otp_generate(client_postgres=request.state.client_postgres, email=oq["email"], mobile=None, config_otp_length=app_state.config_otp_length)
     res = await app_state.func_otp_send_email(app_state=app_state, service=oq["service"], sender=oq["sender"], email=oq["email"], otp=otp)
     return {"status": 1, "message": res}
@@ -49,7 +49,7 @@ async def func_api_public_otp_send_email(*, request: Request):
 @router.post("/public/otp-send-mobile")
 async def func_api_public_otp_send_mobile(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_mobile_services, "default": None}, {"name": "mobile", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "sender", "type": "str", "required": False, "allowed": None, "default": None}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_mobile_services}, {"name": "mobile", "type": "str", "required": True}, {"name": "sender", "type": "str"}])
     otp = await app_state.func_otp_generate(client_postgres=request.state.client_postgres, mobile=oq["mobile"], email=None, config_otp_length=app_state.config_otp_length)
     res = await app_state.func_otp_send_mobile(app_state=app_state, service=oq["service"], mobile=oq["mobile"], otp=otp, sender=oq.get("sender"))
     return {"status": 1, "message": res}
@@ -57,7 +57,7 @@ async def func_api_public_otp_send_mobile(*, request: Request):
 @router.post("/public/otp-send-mobile-sns-template")
 async def func_api_public_otp_send_mobile_sns_template(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "mobile", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "message", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "template_id", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "entity_id", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "sender_id", "type": "str", "required": True, "allowed": None, "default": None}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "mobile", "type": "str", "required": True}, {"name": "message", "type": "str", "required": True}, {"name": "template_id", "type": "str", "required": True}, {"name": "entity_id", "type": "str", "required": True}, {"name": "sender_id", "type": "str", "required": True}])
     otp = await app_state.func_otp_generate(client_postgres=request.state.client_postgres, mobile=ob["mobile"], email=None, config_otp_length=app_state.config_otp_length)
     res = await app_state.func_otp_send_mobile(app_state=app_state, service="sns", mobile=ob["mobile"], otp=otp, sns_template=ob)
     return {"status": 1, "message": res}
@@ -65,7 +65,7 @@ async def func_api_public_otp_send_mobile_sns_template(*, request: Request):
 @router.get("/public/table-column-groupby")
 async def func_api_public_table_column_groupby(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "col", "type": "list", "required": True, "allowed": None, "default": None}, {"name": "agg", "type": "str", "required": False, "allowed": ["count", "sum", "avg", "min", "max"], "default": "count"}, {"name": "agg_col", "type": "str", "required": False, "allowed": None, "default": "*"}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": 1000}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "count desc"}, {"name": "filter", "type": "list", "required": False, "allowed": None, "default": []}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "col", "type": "list", "required": True}, {"name": "agg", "type": "str", "allowed": ["count", "sum", "avg", "min", "max"], "default": "count"}, {"name": "agg_col", "type": "str", "default": "*"}, {"name": "limit", "type": "int", "default": 1000}, {"name": "page", "type": "int", "default": 1}, {"name": "order", "type": "str", "default": "count desc"}, {"name": "filter", "type": "list", "default": []}])
     app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="public", action="read")
     res = await app_state.func_postgres_table_column_groupby_read(app_state=app_state, client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], col=oq["col"], limit=oq["limit"], page=oq["page"], agg=oq["agg"], agg_col=oq["agg_col"], order=oq["order"], filter=oq["filter"])
     return {"status": 1, "message": res}
@@ -73,7 +73,7 @@ async def func_api_public_table_column_groupby(*, request: Request):
 @router.get("/public/table-column-distinct")
 async def func_api_public_table_column_distinct(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "col", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": 1000}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "item asc"}, {"name": "filter", "type": "list", "required": False, "allowed": None, "default": []}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "col", "type": "str", "required": True}, {"name": "limit", "type": "int", "default": 1000}, {"name": "page", "type": "int", "default": 1}, {"name": "order", "type": "str", "default": "item asc"}, {"name": "filter", "type": "list", "default": []}])
     app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="public", action="read")
     res = await app_state.func_postgres_table_column_distinct_read(app_state=app_state, client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], col=oq["col"], limit=oq["limit"], page=oq["page"], order=oq["order"], filter=oq["filter"])
     return {"status": 1, "message": res}
@@ -81,19 +81,19 @@ async def func_api_public_table_column_distinct(*, request: Request):
 @router.post("/public/blob-upload-file")
 async def func_api_public_blob_upload_file(*, request: Request):
     app_state = request.app.state
-    of = await app_state.func_request_param_read(request=request, mode="form", param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services, "default": None}, {"name": "container", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "file", "type": "file", "required": True, "allowed": None, "default": None}])
+    of = await app_state.func_request_param_read(request=request, mode="form", param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services}, {"name": "container", "type": "str", "required": True}, {"name": "file", "type": "file", "required": True}])
     res = await app_state.func_blob_upload_file(app_state=app_state, service=of["service"], container=of["container"], files=of["file"], user_id=request.state.user.get("id"))
     return {"status": 1, "message": res}
 
 @router.post("/public/blob-upload-presigned")
 async def func_api_public_blob_upload_presigned(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services, "default": None}, {"name": "container", "type": "str", "required": True, "allowed": None, "default": None}, {"name": "count", "type": "int", "required": False, "allowed": None, "default": 1}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services}, {"name": "container", "type": "str", "required": True}, {"name": "count", "type": "int", "default": 1}])
     res = await app_state.func_blob_upload_url(app_state=app_state, service=oq["service"], container=oq["container"], count=oq["count"], user_id=request.state.user.get("id"))
     return {"status": 1, "message": res}
 
 @router.post("/public/password-hash")
 async def func_api_public_password_hash(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "password", "type": "str", "required": True, "allowed": None, "default": None}])
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "password", "type": "str", "required": True}])
     return {"status": 1, "message": app_state.client_password_hasher.hash(str(ob["password"]))}
