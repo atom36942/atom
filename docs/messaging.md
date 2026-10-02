@@ -33,7 +33,7 @@ Notifications live in the `notification` table, targeting `received_by_id` with 
 ### Managing Notifications:
 - **Create**: `POST /admin/object-create?table=notification`
 - **Fetch Unread**: `GET /my/object-read?table=notification&ownership_column=received_by_id&filter=["read_at is null"]`.
-- **Mark as Read**: The read request above automatically schedules `read_at` updates for fetched records on the same database as the read.
+- **Mark as Read**: The read request above automatically schedules `read_at` updates for fetched records on master, so reads can use a read replica (`?postgres=replica`).
 - **Delete Selected**: `POST /my/object-delete?ownership_column=received_by_id` with JSON body `{"table": "notification", "ids": [1, 2]}`.
 - **Bulk Clear**: `DELETE /my/object-delete-all?table=notification&ownership_column=received_by_id`.
 

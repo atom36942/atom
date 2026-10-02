@@ -2,7 +2,7 @@
 import unittest
 from types import SimpleNamespace
 
-from function import func_check_database_config
+from function import func_check_database_config, func_check_log_api_table
 
 URL = "postgresql://user@localhost:5432/db"
 
@@ -29,6 +29,14 @@ class DatabaseConfigCheckTests(unittest.TestCase):
     def test_log_api_database_must_exist(self):
         with self.assertRaisesRegex(Exception, "config_postgres_db_log_api 'audit' not found"):
             func_check_database_config(app_state=state(config_postgres_url_dict={"master": URL}, config_postgres_db_log_api="audit"))
+
+    def test_log_database_must_have_log_api_table(self):
+        log_state = lambda schema, **changes: SimpleNamespace(**({"config_postgres_db_log_api": "logs", "config_is_read_only": False, "client_postgres_dict": {"master": object(), "logs": object()}, "cache_postgres_schema_dict": {"master": {}, "logs": schema}} | changes))
+        with self.assertRaisesRegex(Exception, "config_postgres_db_log_api 'logs' has no log_api table"):
+            func_check_log_api_table(app_state=log_state({"other": {}}))
+        func_check_log_api_table(app_state=log_state({"log_api": {}}))
+        func_check_log_api_table(app_state=log_state({}, config_is_read_only=True))    # no logging in read-only mode
+        func_check_log_api_table(app_state=log_state({}, client_postgres_dict={}))    # no databases configured
 
 
 if __name__ == "__main__":

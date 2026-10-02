@@ -29,7 +29,7 @@ class HttpIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.db_name, cls.url = create_database()
-        cls.reports_db_name, cls.reports_url = create_database()    # a second named database for ?postgres= switching
+        cls.reports_db_name, cls.reports_url = create_database()    # second database: ?postgres= switching and the separate log_api database
         fetch(cls.reports_url, "CREATE TABLE report (id bigserial PRIMARY KEY, title text)")
         fetch(cls.reports_url, "INSERT INTO report (title) VALUES ('from reports')")
         cls.workdir = tempfile.TemporaryDirectory()
@@ -73,7 +73,7 @@ class HttpIntegrationTests(unittest.TestCase):
 
     @classmethod
     def database_env(cls):
-        return {"config_postgres_url_master": cls.url, "config_postgres_url_reports": cls.reports_url}
+        return {"config_postgres_url_master": cls.url, "config_postgres_url_reports": cls.reports_url, "config_postgres_db_log_api": "reports"}
 
     def auth(self, token=None):
         return {"Authorization": f"Bearer {token or self.token}"}
@@ -190,16 +190,32 @@ class HttpIntegrationTests(unittest.TestCase):
         self.assertEqual([hash_as(direct, f"9.9.9.{i}") for i in range(6)], [200] * 5 + [429])   # fake headers do not help
         deadline, rows = time.time() + 10, []
         while time.time() < deadline and not rows:
-            rows = fetch(self.url, "SELECT ip_address FROM log_api WHERE ip_address = '49.36.10.5' LIMIT 1")
+            rows = fetch(self.reports_url, "SELECT ip_address FROM log_api WHERE ip_address = '49.36.10.5' LIMIT 1")
             time.sleep(0.5)
         self.assertEqual(rows, [{"ip_address": "49.36.10.5"}])
+
+    def test_separate_log_database_gets_only_the_log_api_table(self):
+        tables = {r["tablename"] for r in fetch(self.reports_url, "SELECT tablename FROM pg_tables WHERE schemaname = 'public'")}
+        self.assertEqual(tables, {"report", "log_api"})
+        triggers = fetch(self.reports_url, "SELECT tgname FROM pg_trigger WHERE tgrelid = 'report'::regclass AND NOT tgisinternal")
+        self.assertEqual(triggers, [])    # tables Atom does not manage are left untouched
+
+    def test_api_usage_reads_the_log_database_and_rejects_postgres_param(self):
+        self.client.get("/my/profile", headers=self.auth())
+        deadline, usage = time.time() + 10, []
+        while time.time() < deadline and "/my/profile" not in [r["api"] for r in usage]:
+            usage = self.client.get("/my/api-usage", params={"days": 1}, headers=self.auth()).json()["message"]
+            time.sleep(0.5)
+        self.assertIn("/my/profile", [r["api"] for r in usage])
+        response = self.client.get("/my/api-usage", params={"days": 1, "postgres": "reports"}, headers=self.auth())
+        self.assertEqual((response.status_code, response.json()["message"]), (400, "postgres not allowed on this route"))
 
     def test_requests_are_written_to_log_api(self):
         self.client.get("/my/profile", headers=self.auth())
         self.client.get("/my/profile")
         deadline, rows = time.time() + 10, []
         while time.time() < deadline:
-            rows = fetch(self.url, "SELECT status_code, response_type FROM log_api WHERE path = '/my/profile'")
+            rows = fetch(self.reports_url, "SELECT status_code, response_type FROM log_api WHERE path = '/my/profile'")
             if {200, 401} <= {r["status_code"] for r in rows}: break
             time.sleep(0.5)
         self.assertTrue({200, 401} <= {r["status_code"] for r in rows}, rows)

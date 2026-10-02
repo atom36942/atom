@@ -431,7 +431,7 @@ config_api = {
 "/my/profile": {"id": 46, "is_token": True, "is_postgres_param": True},
 "/my/ping": {"id": 92, "is_token": True},
 "/my/token-refresh": {"id": 47, "is_token": True},
-"/my/api-usage": {"id": 48, "is_token": True, "is_postgres_param": True},
+"/my/api-usage": {"id": 48, "is_token": True},
 "/my/object-create": {"id": 49, "is_token": True},
 "/my/object-read": {"id": 50, "is_token": True, "is_postgres_param": True},
 "/my/object-update": {"id": 51, "is_token": True},

@@ -387,6 +387,15 @@ async def func_postgres_schema_sql_execute(*, conn: asyncpg.Connection, sql_conf
     for query in func_postgres_schema_sql_queries(sql_config): await conn.execute(query)
     return None
 
+async def func_postgres_schema_tables_init(*, app_state: State, client_postgres: asyncpg.Pool, tables: dict) -> str:
+    """Create or update only the given tables (columns, indexes, constraints); no extensions, users or triggers, so other tables in that database are untouched."""
+    config_postgres = {"table": tables}
+    app_state.func_postgres_schema_config_validate(config_postgres=config_postgres)
+    context = app_state.func_postgres_schema_context_build(config_postgres=config_postgres)
+    async with client_postgres.acquire() as conn:
+        await app_state.func_postgres_schema_tables_sync(conn=conn, tables=tables, catalog=context["catalog"])
+    return "tables init done"
+
 async def func_postgres_schema_init(*, app_state: State, client_postgres: asyncpg.Pool | None, config_postgres: dict, root_user_password_hash: str = None) -> str:
     """Initialize PostgreSQL schema by composing focused helpers registered on app.state."""
     app_state.func_postgres_schema_config_validate(config_postgres=config_postgres)

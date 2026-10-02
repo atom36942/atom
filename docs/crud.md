@@ -42,7 +42,7 @@ Create does not accept `ownership_column`; `/my/object-create` always stamps `cr
 
 The server validates that the requested ownership column is allowed for that operation and exists on the requested table. It then adds `<ownership_column> = current_user.id` to the SQL condition. A caller may choose the ownership relationship but cannot choose the user ID. Table permissions remain a separate authorization layer.
 
-For reads, table/relation permissions, blocked columns, filters, pagination, and `postgres` selection still apply. Reading through `received_by_id` also marks fetched records as read when the table has `id` and `read_at` columns; those updates use the same database as the read.
+For reads, table/relation permissions, blocked columns, filters, pagination, and `postgres` selection still apply. Reading through `received_by_id` also marks fetched records as read when the table has `id` and `read_at` columns; those updates always use master, so reads can use a read replica.
 
 ---
 
@@ -248,7 +248,7 @@ curl -G "$BASE_URL/my/object-read" \
   --data-urlencode 'limit=20'
 ```
 
-`postgres=read` requires a configured named database; omit it for master. Base reads and relations use the selected pool. For `received_by_id`, tables with `id` and `read_at` automatically schedule mark-as-read updates on the same pool. Include `id` in the projection for that update. The current implementation marks all fetched IDs, including the extra look-ahead row used to detect another page.
+`postgres=read` requires a configured named database; omit it for master. Base reads and relations use the selected pool. For `received_by_id`, tables with `id` and `read_at` automatically schedule mark-as-read updates on master. Include `id` in the projection for that update. The current implementation marks all fetched IDs, including the extra look-ahead row used to detect another page.
 
 ### All main parameters together
 

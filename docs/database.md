@@ -94,4 +94,4 @@ config_postgres_url_master=postgresql://atom:pass@primary-db:5432/atom
 config_postgres_url_logs=postgresql://logger:pass@logs-db:5432/atom_logs
 config_postgres_db_log_api=logs
 ```
-Atom automatically resolves `app.state.client_postgres_log_api = app.state.client_postgres_dict["logs"]`, routing log buffer flushes exclusively to the dedicated logging instance.
+Atom resolves `app.state.client_postgres_log_api = app.state.client_postgres_dict["logs"]` and routes log writes, cleanup and `/my/api-usage` to it. Schema init creates only the `log_api` table there and leaves other tables untouched; with schema init off, startup stops if `log_api` is missing.

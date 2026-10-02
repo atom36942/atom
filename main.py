@@ -55,7 +55,6 @@ async def func_lifespan(app: FastAPI):
         client_azure_sms = app.state.func_client_azure_sms(connection_string=app.state.config_azure_sms_connection_string)
         client_azure_blob = app.state.func_client_azure_blob(account_name=app.state.config_azure_account_name, account_key=app.state.config_azure_account_key)
         client_msgraph = app.state.func_client_msgraph(tenant_id=app.state.config_msgraph_tenant_id, client_id=app.state.config_msgraph_client_id, client_secret=app.state.config_msgraph_client_secret)
-        client_postgres_log_api = client_postgres_dict.get(app.state.config_postgres_db_log_api)
         client_postgres_pgweb = {}
         # postgres master
         postgres_master = client_postgres_dict.get("master")
@@ -65,11 +64,15 @@ async def func_lifespan(app: FastAPI):
         cache_users_role = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("users_role")) if postgres_master else {}
         cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("users_deactivated")) if postgres_master else {}
         cache_users_deleted = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("users_deleted")) if postgres_master else {}
+        # postgres log
+        client_postgres_log_api = client_postgres_dict.get(app.state.config_postgres_db_log_api)
+        if client_postgres_log_api and app.state.config_postgres_db_log_api != "master" and not app.state.config_is_read_only and app.state.config_is_postgres_schema_init: await app.state.func_postgres_schema_tables_init(app_state=app.state, client_postgres=client_postgres_log_api, tables={"log_api": app.state.config_postgres["table"]["log_api"]})
         # cache schema
         cache_postgres_schema_dict = {name: postgres_master_schema if name == "master" else await app.state.func_postgres_schema_read(client_postgres=pool) for name, pool in client_postgres_dict.items()}
         cache_clickhouse_schema = await app.state.func_clickhouse_schema_read(client_clickhouse=client_clickhouse) if client_clickhouse else {}
         # func calls
         app.state.func_app_state_add(app=app, data_dict=locals(), prefixes=("client_", "cache_"))
+        app.state.func_check_log_api_table(app_state=app.state)
         app.state.cache_openapi = app.state.func_openapi_spec_generate(app_routes=app.routes, app_state=app.state)
         # periodic tasks
         app.state.postgres_buffer_flush_lock = asyncio.Lock()

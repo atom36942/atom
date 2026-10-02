@@ -41,8 +41,9 @@ async def func_api_my_token_refresh(*, request: Request):
 async def func_api_my_api_usage(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "days", "type": "int", "required": True, "allowed": None, "default": None}])
+    if not app_state.client_postgres_log_api: raise app_state.func_api_error(message="postgres client not initialized", status_code=500)
     sql = "SELECT path AS api, count(*) FROM log_api WHERE created_at >= NOW() - ($1 * INTERVAL '1 day') AND created_by_id=$2 GROUP BY path LIMIT 1000;"
-    async with request.state.client_postgres.acquire() as conn:
+    async with app_state.client_postgres_log_api.acquire() as conn:
         records = await conn.fetch(sql, oq["days"], request.state.user["id"])
         obj_list = [dict(r) for r in records]
     return {"status": 1, "message": obj_list}
@@ -70,7 +71,7 @@ async def func_api_my_object_read(*, request: Request):
     ol = await app_state.func_postgres_read(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=filters, limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"], config_column_read_blocked=app_state.config_column_read_blocked, blocked_tables=app_state.config_table_my_read_blocked)
     schema_cols = request.state.cache_postgres_schema.get(oq["table"], {})
     if oq["ownership_column"] == "received_by_id" and "id" in schema_cols and "read_at" in schema_cols:
-        app_state.func_postgres_mark_read(client_postgres=request.state.client_postgres, table=oq["table"], ownership_column=oq["ownership_column"], user_id=request.state.user["id"], ids=[r.get("id") for r in ol if isinstance(r, dict)])
+        app_state.func_postgres_mark_read(client_postgres=app_state.client_postgres_dict.get("master"), table=oq["table"], ownership_column=oq["ownership_column"], user_id=request.state.user["id"], ids=[r.get("id") for r in ol if isinstance(r, dict)])
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_more": len(ol) > oq["limit"], "has_next_page": len(ol) > oq["limit"]}}
 
 @router.put("/my/object-update")
@@ -132,14 +133,14 @@ async def func_api_my_message_inbox(*, request: Request):
 async def func_api_my_message_thread(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "user_id", "type": "int", "required": True, "allowed": None, "default": None}, {"name": "order", "type": "str", "required": False, "allowed": None, "default": "id desc"}, {"name": "limit", "type": "int", "required": False, "allowed": None, "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "required": False, "allowed": None, "default": 1}])
-    if not request.state.client_postgres: raise app_state.func_api_error(message="postgres client not initialized", status_code=500)
+    if not app_state.client_postgres_dict.get("master"): raise app_state.func_api_error(message="postgres client not initialized", status_code=500)
     user_one_id = request.state.user["id"]
     fetch_limit, offset = app_state.func_message_pagination(limit=oq["limit"], page=oq["page"], max_limit=app_state.config_sql_read_limit_max)
     order_sql = app_state.func_message_order(order=oq["order"], cache_postgres_schema=request.state.cache_postgres_schema)
     sql = f"SELECT * FROM message WHERE ((created_by_id=$1 AND received_by_id=$2) OR (created_by_id=$2 AND received_by_id=$1)) ORDER BY {order_sql} LIMIT $3 OFFSET $4;"
     async with request.state.client_postgres.acquire() as conn:
         ol = [dict(r) for r in await conn.fetch(sql, user_one_id, oq["user_id"], fetch_limit, offset)]
-    async with request.state.client_postgres.acquire() as conn:
+    async with app_state.client_postgres_dict.get("master").acquire() as conn:
         await conn.execute("UPDATE message SET read_at=now() WHERE created_by_id=$1 AND received_by_id=$2 AND read_at IS NULL;", oq["user_id"], user_one_id)
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_more": len(ol) > oq["limit"], "has_next_page": len(ol) > oq["limit"]}}
 

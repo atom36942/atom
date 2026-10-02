@@ -694,6 +694,8 @@ res = await app_state.func_postgres_read(client_postgres=request.state.client_po
 - An unknown name returns `404 postgres '<name>' not found`.
 - Routes without the flag reject `?postgres=` with `400 postgres not allowed on this route`; they always use master.
 - User, role and OTP checks always use master.
+- Writes inside read routes (mark-as-read on `/my/object-read` and `/my/message-thread`) always use master, so `?postgres=` can point at a read replica.
+- `/my/api-usage` always reads the log database (`config_postgres_db_log_api`).
 
 Example API calls:
 ```bash
@@ -764,7 +766,7 @@ Also review automatic schema controls and remove or protect example data/routes 
 <details>
 <summary><strong>How can a user see their API usage?</strong></summary>
 
-Call `GET /my/api-usage?days=30` with the user's bearer token. The required `days` parameter defines the reporting window, and the response groups the authenticated user's `log_api` records by API path with a request count for each. This can support an account dashboard or basic usage troubleshooting.
+Call `GET /my/api-usage?days=30` with the user's bearer token. It always reads the log database (`config_postgres_db_log_api`). The required `days` parameter defines the reporting window, and the response groups the authenticated user's `log_api` records by API path with a request count for each. This can support an account dashboard or basic usage troubleshooting.
 
 Because request logs are buffered, the newest calls may not appear until the buffer is flushed. Treat this as operational usage information rather than a billing-grade meter: define explicit retention, aggregation, timezone, and idempotency rules before using it for quotas or invoices. For platform-wide reporting, query `log_api` through an authorized admin workflow or export it to your observability system.
 

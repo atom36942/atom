@@ -4,6 +4,13 @@ import re
 from fastapi import FastAPI
 from starlette.datastructures import State
 
+def func_check_log_api_table(*, app_state: State) -> None:
+    """Stop startup when API logging is on but the log database has no log_api table (rows would be dropped silently)."""
+    log_db = app_state.config_postgres_db_log_api
+    if app_state.config_is_read_only or log_db not in app_state.client_postgres_dict: return None
+    if "log_api" not in app_state.cache_postgres_schema_dict.get(log_db, {}): raise Exception(f"config_postgres_db_log_api '{log_db}' has no log_api table")
+    return None
+
 def func_check_database_config(*, app_state: State) -> None:
     """Validate database pool sizing and named PostgreSQL connections."""
     def int_check(value, key):
