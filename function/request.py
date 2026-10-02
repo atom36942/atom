@@ -13,6 +13,12 @@ def func_query_bool_parse(value: Any, default: bool = False) -> bool:
     if normalized in ("false", "0"): return False
     raise ValueError(f"invalid boolean query value: {value!r}; expected 'true' or 'false'")
 
+async def func_request_form_close(*, request: Request) -> None:
+    """Close the upload temp files of forms read by func_request_param_read; FastAPI only closes forms it parses itself."""
+    for form_data in getattr(request.state, "form_list", []): await form_data.close()
+    request.state.form_list = []
+    return None
+
 async def func_request_param_read(*, request: Request, mode: str, param_specs: list, strict: bool = False, strict_types: bool = False, header_fallback: bool = True, reject_unknown: bool = False) -> dict:
     """Read parameters with backward-compatible defaults.
 
@@ -30,6 +36,7 @@ async def func_request_param_read(*, request: Request, mode: str, param_specs: l
         params_dict = dict(request.query_params)
     elif mode == "form":
         form_data = await request.form()
+        request.state.form_list = [*getattr(request.state, "form_list", []), form_data]    # upload temp files, closed by func_request_form_close
         params_dict = {key: val for key, val in form_data.items() if isinstance(val, str)}
         for key in form_data.keys():
             files = [x for x in form_data.getlist(key) if not isinstance(x, str)]

@@ -8,7 +8,7 @@ from argon2 import PasswordHasher
 
 import function
 from function import (
-    func_auth_login_password, func_auth_signup_password, func_otp_generate, func_otp_verify,
+    func_auth_login_password, func_auth_signup_password, func_otp_generate, func_otp_save, func_otp_verify,
     func_postgres_create, func_postgres_delete, func_postgres_read, func_postgres_schema_init,
     func_postgres_schema_ai_view, func_postgres_schema_read, func_postgres_update,
 )
@@ -168,11 +168,13 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await conn.fetchval("SELECT count(*) FROM log_api"), 2)
 
     async def test_otp_success_consumes_code_and_wrong_guesses_are_capped(self):
-        code = await func_otp_generate(client_postgres=self.pool, email="a@example.test", mobile=None, config_otp_length=6)
+        code = func_otp_generate(client_postgres=self.pool, config_otp_length=6)
+        await func_otp_save(client_postgres=self.pool, otp=code, email="a@example.test", mobile=None)
         self.assertEqual(await self.verify_otp(code + 1 if code < 999999 else code - 1), (400, "invalid otp code"))
         self.assertEqual(await self.verify_otp(code), "done")
         self.assertEqual(await self.pool.fetchval("SELECT count(*) FROM otp"), 0)
-        code = await func_otp_generate(client_postgres=self.pool, email="a@example.test", mobile=None, config_otp_length=6)
+        code = func_otp_generate(client_postgres=self.pool, config_otp_length=6)
+        await func_otp_save(client_postgres=self.pool, otp=code, email="a@example.test", mobile=None)
         wrong = code + 1 if code < 999999 else code - 1
         results = await asyncio.gather(*[self.verify_otp(wrong) for _ in range(20)])
         self.assertEqual(sum(r == (400, "invalid otp code") for r in results), 5)

@@ -2,8 +2,10 @@
 
 Same real-app boot as test_http.py (support.app_start), against a throwaway database.
 """
+import gc
 import json
 import unittest
+import warnings
 
 from fastapi.routing import APIRoute
 
@@ -13,6 +15,7 @@ FILE = ("rows.csv", b"key\n1\n", "text/csv")
 
 # Routes that need a service the test app does not configure: (method, path, request kwargs, expected 500 message).
 MISSING_SERVICE_ROUTES = [
+    ("post", "/admin/blob-container-sas", {"params": {"service": "azure", "container": "c"}}, "blob client not initialized"),
     ("post", "/admin/blob-preview-urls", {"json": {"service": "s3", "urls": ["https://b.s3.amazonaws.com/x"]}}, "blob client not initialized"),
     ("get", "/admin/blob-container-read", {"params": {"service": "s3"}}, "blob client not initialized"),
     ("post", "/admin/blob-container-ops", {"params": {"service": "s3", "container": "c", "mode": "create"}}, "blob client not initialized"),
@@ -184,6 +187,23 @@ class HttpRouteTests(unittest.TestCase):
             with self.subTest(path=path):
                 response = getattr(self.client, method)(path, headers=self.auth(token), **kwargs)
                 self.assertEqual((response.status_code, response.json()["message"]), (500, expected))
+
+    def test_failed_otp_send_stores_no_code(self):
+        response = self.client.post("/public/otp-send-email", params={"service": "ses", "sender": "a@b.test", "email": "never-sent@example.test"})
+        self.assertEqual(response.status_code, 500, response.text)
+        self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM otp WHERE email = 'never-sent@example.test'"), [{"n": 0}])
+
+    def test_upload_temp_files_are_closed_after_the_request(self):
+        def unclosed_files(call):
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always", ResourceWarning)
+                call()
+                gc.collect()
+            return [str(w.message) for w in caught if "Unclosed file" in str(w.message)]
+        upload = lambda table: self.client.post("/admin/postgres-import", data={"mode": "create", "table": table}, files={"file": ("rows.csv", b"title\nimported\n", "text/csv")}, headers=self.auth(self.admin))
+        self.assertEqual(unclosed_files(lambda: self.assertEqual(upload("test").status_code, 200)), [])
+        self.assertEqual(unclosed_files(lambda: self.assertEqual(upload("missing_table").status_code, 400)), [])
+        self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM test WHERE title = 'imported'"), [{"n": 1}])
 
     # 7. small routes
     def test_root_health_info_ping_and_converter(self):

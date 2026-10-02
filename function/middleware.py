@@ -16,7 +16,7 @@ import jwt.exceptions
 import redis.exceptions
 from fastapi import Request, Response, responses
 from redis.asyncio import Redis
-from .request import func_query_bool_parse
+from .request import func_query_bool_parse, func_request_form_close
 
 def func_api_error(*, message: str, status_code: int) -> Exception:
     """Build an exception that func_middleware_api_response_error returns with this HTTP status; a plain Exception stays 400."""
@@ -243,12 +243,15 @@ async def func_middleware_api_background(*, scope: dict, body_bytes: bytes, api_
     """Delegate the request execution to a background task and return a standard acknowledgment."""
     async def receive(): return {"type": "http.request", "body": body_bytes}
     async def task():
+        request = Request(scope=scope, receive=receive)
         try:
-            await api_function(Request(scope=scope, receive=receive))
+            await api_function(request)
         except asyncio.CancelledError:
             raise
         except Exception as e:
             print(f"❌ background api error: {e}")
+        finally:
+            await func_request_form_close(request=request)
     task_obj = asyncio.create_task(task())
     app = scope.get("app")
     task_set = getattr(getattr(app, "state", None), "runtime_background_tasks", None) if app else None

@@ -1,5 +1,7 @@
 """Authentication contracts using real password hashing and JWT validation."""
 import asyncio
+import statistics
+import time
 import unittest
 
 from argon2 import PasswordHasher
@@ -162,15 +164,21 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_password_verify_does_not_block_the_event_loop(self):
         hasher = PasswordHasher()    # production cost, about 30 ms per verify
-        self.conn.fetch.return_value = [self.user | {"password": hasher.hash("correct")}]
-        ticks, done = 0, asyncio.Event()
+        password_hash = hasher.hash("correct")
+        started = time.perf_counter()
+        hasher.verify(password_hash, "correct")
+        one_verify = time.perf_counter() - started
+        self.conn.fetch.return_value = [self.user | {"password": password_hash}]
+        gaps, done = [], asyncio.Event()
         async def ticker():
-            nonlocal ticks
+            last = time.perf_counter()
             while not done.is_set():
                 await asyncio.sleep(0.001)
-                ticks += 1
+                now = time.perf_counter()
+                gaps.append(now - last)
+                last = now
         task = asyncio.create_task(ticker())
         await asyncio.gather(*(func_auth_login_password(client_postgres=self.pool, client_password_hasher=hasher, field="username", value="alice", password="correct", role=5) for _ in range(5)))
         done.set()
         await task
-        self.assertGreater(ticks, 20)    # blocking verifies would leave about one tick between each of the 5 hashes
+        self.assertLess(statistics.median(gaps), one_verify / 4)    # blocking verifies make every gap a whole verify long

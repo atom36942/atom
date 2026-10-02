@@ -93,14 +93,18 @@ async def func_token_decode(*, headers: dict, config_token_secret_key: str) -> d
     if isinstance(user, dict): user["_token_type"] = decoded_payload.get("type")
     return user
 
-async def func_otp_generate(*, client_postgres: asyncpg.Pool | None, email: str, mobile: str, config_otp_length: int) -> int:
-    """Generate a random OTP and store it in PostgreSQL for a given email or mobile."""
+def func_otp_generate(*, client_postgres: asyncpg.Pool | None, config_otp_length: int) -> int:
+    """Return a random OTP code; checks the database first so no code is sent that could not be saved."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
-    otp = secrets.SystemRandom().randint(10**(config_otp_length - 1), 10**config_otp_length - 1)
+    return secrets.SystemRandom().randint(10**(config_otp_length - 1), 10**config_otp_length - 1)
+
+async def func_otp_save(*, client_postgres: asyncpg.Pool | None, otp: int, email: str, mobile: str) -> None:
+    """Store an OTP after it was sent, so a failed delivery leaves no unused code behind."""
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     sql = "INSERT INTO otp (otp, email, mobile) VALUES ($1, $2, $3);"
     async with client_postgres.acquire() as conn:
         await conn.execute(sql, otp, email.strip().lower() if email else None, mobile.strip() if mobile else None)
-    return otp
+    return None
 
 async def func_otp_verify(*, client_postgres: asyncpg.Pool | None, otp: int, email: str, mobile: str, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5) -> None:
     """Verify an OTP for email or mobile within its expiration window; each code accepts at most config_otp_max_attempt guesses."""

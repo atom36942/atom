@@ -92,9 +92,9 @@ Compares the input against `config_login_password` configured in `.env`. If unco
 ## 4. OTP Flow
 
 For OTP logins, the client requests a verification code and then submits it:
-1. **Send**: `POST /public/otp-send-email` or `/public/otp-send-mobile` → `func_otp_generate` creates a random code of length `config_otp_length`, stores it in the `otp` table with `config_otp_expiry_sec`, and dispatches via configured provider.
+1. **Send**: `POST /public/otp-send-email` or `/public/otp-send-mobile` → `func_otp_generate` creates a random code of length `config_otp_length`, the configured provider sends it, and only then `func_otp_save` stores it in the `otp` table (valid for `config_otp_expiry_sec`). A failed send stores nothing.
 2. **Verify / Login**: `POST /auth/login-email-otp` validates code via `func_otp_verify`. Each code accepts at most `config_otp_max_attempt` guesses (default `5`), counted in `otp.attempt`; after that even the correct code returns HTTP 429 and the user must request a new one. Expired codes do not use up attempts.
-3. **Stand-alone check**: `POST /public/otp-verify` validates a code without issuing a JWT session.
+3. **Stand-alone check**: `GET /public/otp-verify` validates a code without issuing a JWT session.
 
 ---
 

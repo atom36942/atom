@@ -16,6 +16,7 @@ async def func_api_admin_blob_container_sas(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services}, {"name": "container", "type": "str", "required": True}])
     if oq["service"] == "s3":
         raise Exception("s3 is not allowed for this api")
+    if not app_state.client_azure_blob: raise app_state.func_api_error(message="blob client not initialized", status_code=500)
     container = oq["container"]
     if oq["service"] == "azure":
         sas_token = generate_container_sas(account_name=app_state.config_azure_account_name, account_key=app_state.config_azure_account_key, container_name=container, permission=ContainerSasPermissions(read=True), expiry=datetime.now(timezone.utc) + timedelta(seconds=app_state.config_blob_expire_sec_preview))
