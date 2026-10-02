@@ -1,11 +1,14 @@
 # Integrations
 config_postgres_url_dict = {}
-config_redis_url = None
+config_redis_url_api_response = None
 config_redis_url_user_state = None
 config_redis_url_ratelimiter = None
 config_redis_url_queue = None
 config_mongodb_url = None
 config_mssql_url = None
+
+
+
 config_clickhouse_url = None
 config_google_login_client_id = None
 config_openai_key = None
@@ -473,7 +476,6 @@ config_api = {
 "/admin/table-column-groupby": {"id": 104, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_postgres_param": True},
 "/admin/table-column-distinct": {"id": 106, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_postgres_param": True},
 "/admin/postgres-import": {"id": 8, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "is_postgres_param": True},
-"/admin/redis-import": {"id": 9, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/mongodb-import": {"id": 11, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/blob-container-sas": {"id": 64, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
 "/admin/blob-preview-urls": {"id": 113, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},

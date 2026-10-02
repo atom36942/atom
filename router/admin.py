@@ -108,13 +108,6 @@ async def func_api_admin_postgres_import(*, request: Request):
     res = await app_state.func_postgres_import(app_state=app_state, mode=of["mode"], table=of["table"], file=of["file"][-1], client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema)
     return {"status": 1, "message": res}
 
-@router.post("/admin/redis-import")
-async def func_api_admin_redis_import(*, request: Request):
-    app_state = request.app.state
-    of = await app_state.func_request_param_read(request=request, mode="form", param_specs=[{"name": "mode", "type": "str", "required": True, "allowed": ["create", "delete"], "default": None}, {"name": "file", "type": "file", "required": True, "allowed": None, "default": None}])
-    res = await app_state.func_redis_import(client_redis=app_state.client_redis, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec, mode=of["mode"], file=of["file"][-1])
-    return {"status": 1, "message": res}
-
 @router.post("/admin/mongodb-import")
 async def func_api_admin_mongodb_import(*, request: Request):
     app_state = request.app.state

@@ -33,7 +33,7 @@ async def func_lifespan(app: FastAPI):
         client_password_hasher = app.state.func_client_password_hasher()
         client_http = app.state.func_client_http()
         client_postgres_dict = {name: await app.state.func_client_postgres(dsn=url, **postgres_pool_kwargs) for name, url in (app.state.config_postgres_url_dict or {}).items() if url}
-        client_redis = app.state.func_client_redis(url=app.state.config_redis_url)
+        client_redis_api_response = app.state.func_client_redis(url=app.state.config_redis_url_api_response)
         client_redis_user_state = app.state.func_client_redis(url=app.state.config_redis_url_user_state)
         client_redis_ratelimiter = app.state.func_client_redis(url=app.state.config_redis_url_ratelimiter)
         client_redis_producer = app.state.func_client_redis(url=app.state.config_redis_url_queue)
@@ -138,7 +138,7 @@ async def middleware(request, api_function):
         request.state.client_postgres, request.state.cache_postgres_schema = app_state.func_middleware_postgres_select(client_postgres_dict=app_state.client_postgres_dict, cache_postgres_schema_dict=app_state.cache_postgres_schema_dict, is_postgres_param=is_postgres_param, postgres=request.query_params.get("postgres"))
         # cache
         user_id, query_params = (request.state.user.get("id") if request.state.user else 0), dict(request.query_params)
-        response = await app_state.func_middleware_api_cache(mode="get", path=path, query_params=query_params, cache=cache, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response)
+        response = await app_state.func_middleware_api_cache(mode="get", path=path, query_params=query_params, cache=cache, client_redis=app_state.client_redis_api_response, user_id=user_id, cache_api_response=app_state.cache_api_response)
         # execution
         if not response:
             if app_state.func_query_bool_parse(query_params.get("is_background"), default=False):
@@ -146,7 +146,7 @@ async def middleware(request, api_function):
                 response = await app_state.func_middleware_api_background(scope=request.scope, body_bytes=await request.body(), api_function=api_function)
             else:
                 response = await api_function(request)
-                response = await app_state.func_middleware_api_cache(mode="set", path=path, query_params=query_params, response=response, cache=cache, client_redis=app_state.client_redis, user_id=user_id, cache_api_response=app_state.cache_api_response)
+                response = await app_state.func_middleware_api_cache(mode="set", path=path, query_params=query_params, response=response, cache=cache, client_redis=app_state.client_redis_api_response, user_id=user_id, cache_api_response=app_state.cache_api_response)
                 if getattr(response, "is_cache_set", False): response_type = "direct_cache_set"
         else:
             response_type = "cache_response"

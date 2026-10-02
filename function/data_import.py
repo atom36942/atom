@@ -4,31 +4,8 @@ import csv
 import io
 from typing import Any
 import asyncpg
-import orjson
-from redis.asyncio import Redis
 from starlette.datastructures import State
 from .middleware import func_api_error
-
-async def func_redis_import(*, client_redis: Redis | None, config_redis_cache_ttl_sec: int, mode: str, file: Any) -> str:
-    """Imports or deletes keys in Redis in batches from a CSV file."""
-    if not client_redis: raise func_api_error(message="redis client not initialized", status_code=500)
-    count = 0; limit_batch = 5000
-    async for ol in func_api_file_to_chunks(upload_file=file, chunk_size=limit_batch):
-        if mode == "create":
-            if sorted(list(ol[0].keys())) != sorted(["key", "value"]): raise Exception("CSV format error: requires 'key' and 'value'")
-            async with client_redis.pipeline(transaction=False) as pipe:
-                for item in ol:
-                    val = orjson.dumps(item["value"]).decode("utf-8")
-                    if config_redis_cache_ttl_sec: pipe.setex(item["key"], config_redis_cache_ttl_sec, val)
-                    else: pipe.set(item["key"], val)
-                await pipe.execute()
-        elif mode == "delete":
-            if list(ol[0].keys()) != ["key"]: raise Exception("CSV format error: requires 'key' column")
-            async with client_redis.pipeline(transaction=False) as pipe:
-                pipe.delete(*[item["key"] for item in ol])
-                await pipe.execute()
-        count += len(ol)
-    return f"{count} rows processed"
 
 async def func_mongodb_import(*, client_mongodb: Any, mode: str, database: str, table: str, file: Any) -> str:
     """Imports, updates, or deletes records in MongoDB from a CSV upload file in batches."""

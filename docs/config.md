@@ -69,7 +69,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 |---|---|
 | `config_postgres_url_<name>` | PostgreSQL connection DSN per named database, collected into `config_postgres_url_dict`; `config_postgres_url_master` is required and is the default |
 | `config_postgres_url_dict` | Runtime mapping of named PostgreSQL pools (populated via `config_postgres_url_<name>`) |
-| `config_redis_url` | Main Redis URL for response caching & imports |
+| `config_redis_url_api_response` | Redis URL for the API response cache (`cache` mode `redis`) |
 | `config_redis_url_user_state` | Dedicated Redis for user state/role/deactivation lookups |
 | `config_redis_url_ratelimiter` | Dedicated Redis for distributed rate limiter counters |
 | `config_redis_url_queue` | Redis URL used as background job queue producer |

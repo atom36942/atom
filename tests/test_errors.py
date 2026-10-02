@@ -10,7 +10,7 @@ import redis.exceptions
 from function import (
     func_api_error, func_middleware_api_response_error, func_middleware_check_active, func_middleware_check_ratelimiter,
     func_middleware_check_role, func_middleware_check_token, func_middleware_check_user_deactivated,
-    func_auth_check_signup_role, func_token_decode, func_postgres_query_runner_read, func_producer, func_redis_import,
+    func_auth_check_signup_role, func_token_decode, func_postgres_query_runner_read, func_producer,
 )
 
 
@@ -56,7 +56,6 @@ class ErrorStatusTests(unittest.IsolatedAsyncioTestCase):
             ("postgres", lambda: func_postgres_query_runner_read(client_postgres=None, config_query_runner_read_limit=10, sql="SELECT 1")),
             ("redis queue", lambda: func_producer(queue="redis", client_celery_producer=None, client_kafka_producer=None,
                                                   client_rabbitmq_producer=None, client_redis_producer=None, channel="c", payload={})),
-            ("redis import", lambda: func_redis_import(client_redis=None, config_redis_cache_ttl_sec=60, mode="create", file=None)),
         ]:
             with self.subTest(label):
                 status, body = await self.raised(coro())

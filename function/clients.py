@@ -151,7 +151,7 @@ async def func_client_close(*, app_state: State = None, clients: dict = None) ->
     for client_postgres_session in client_postgres_pgweb.values():
         if client_postgres_session:
             with suppress(Exception): await client_postgres_session.close()
-    for redis_key in ("client_redis", "client_redis_user_state", "client_redis_ratelimiter", "client_redis_producer"):
+    for redis_key in ("client_redis_api_response", "client_redis_user_state", "client_redis_ratelimiter", "client_redis_producer"):
         r_client = c.get(redis_key)
         if r_client:
             with suppress(Exception): await r_client.aclose()

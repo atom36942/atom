@@ -37,7 +37,6 @@ POST /admin/postgres-query-runner-read?postgres=replica1
 ### 2. Table Data Imports (`POST /admin/*-import`)
 Bulk import data from external systems into PostgreSQL:
 - **Postgres Import** (`/admin/postgres-import`): Import a CSV into a table (form fields `mode`, `table`, `file`; target database with `?postgres=<name>`, default master).
-- **Redis Import** (`/admin/redis-import`): Ingest cached hashes or lists into Postgres.
 - **MongoDB Import** (`/admin/mongodb-import`): Ingest BSON collections into structured relational tables.
 
 ### 3. Schema Management

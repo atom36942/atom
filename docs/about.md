@@ -64,7 +64,7 @@ SHUTDOWN → stop background tasks → final buffer flush → close every client
    - `client_password_hasher`: Argon2 password hasher.
    - `client_http`: Shared `httpx.AsyncClient`.
    - `client_postgres_dict`: One pool per named database from `config_postgres_url_<name>`; `client_postgres_dict["master"]` is the default (e.g. `client_postgres_dict["logs"]` for a dedicated log database).
-   - `client_redis`, `client_redis_user_state`, `client_redis_ratelimiter`, `client_redis_producer`: Isolated Redis clients.
+   - `client_redis_api_response`, `client_redis_user_state`, `client_redis_ratelimiter`, `client_redis_producer`: Isolated Redis clients.
    - Optional: MongoDB (Motor), MSSQL, S3, Azure Blob, Kafka, RabbitMQ, Celery, PostHog, OpenAI, Gemini.
 4. **Database Schema Init**: When `config_is_postgres_schema_init = True`, applies table schemas, indexes, and constraints from `config_postgres`, and seeds the root admin user (`admin` / `role: 1`).
 5. **In-Memory Cache Building**: Preloads read-mostly metadata to avoid database hits during request routing:

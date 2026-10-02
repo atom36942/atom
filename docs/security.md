@@ -62,7 +62,6 @@ config_signup_allowed_roles=[] # Restrict open registration if applicable
 In production, set `"is_active": False` in `config_api` for sensitive write and runner endpoints:
 - `/admin/sync`
 - `/admin/postgres-import`
-- `/admin/redis-import`
 - `/admin/mongodb-import`
 - `/admin/postgres-query-runner-write`
 - `/admin/mssql-query-runner-write`

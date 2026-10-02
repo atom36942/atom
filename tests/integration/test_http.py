@@ -81,7 +81,7 @@ class HttpIntegrationTests(unittest.TestCase):
     def test_app_started_with_test_settings_only(self):
         self.assertEqual(self.app.state.config_postgres_url_dict, {"master": self.url, "reports": self.reports_url})
         self.assertEqual(sorted(self.app.state.client_postgres_dict), ["master", "reports"])
-        self.assertIsNone(self.app.state.client_redis)
+        self.assertIsNone(self.app.state.client_redis_api_response)
         self.assertTrue(os.path.isdir(os.path.join(self.workdir.name, "tmp")))
 
     def test_profile_with_token_and_security_headers(self):
