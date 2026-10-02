@@ -3,7 +3,46 @@
 /* jsongrid-style response grid */ .grid-tbl { border-collapse:separate; border-spacing:0; table-layout:auto; width:max-content; font-size:12px } .grid-tbl-root { min-width:100% } .grid-tbl th, .grid-tbl td { border-right:1px solid rgba(255, 255, 255, 0.06); border-bottom:1px solid rgba(255, 255, 255, 0.06); padding:6px 10px; text-align:left; vertical-align:top; white-space:nowrap } .grid-tbl th:last-child, .grid-tbl td:last-child { border-right:none } .grid-tbl th { background:#1a1d23; font-weight:600; color:var(--accent); font-size:12px; letter-spacing:0.5px; position:relative; user-select:none } .grid-tbl-root > thead > tr > th { position:sticky; top:0; z-index:2 } .grid-tbl td { color:#e6eef3 } .grid-tbl > tbody > tr:nth-child(even) > td { background:rgba(255, 255, 255, 0.015) } .grid-tbl th.grid-key, .grid-tbl td.grid-key { width:1%; white-space:nowrap } .grid-tbl td.grid-key { color:var(--accent); font-weight:600 } .grid-tbl th.grid-idx, .grid-tbl td.grid-idx { color:var(--muted); text-align:right; font-size:11px; min-width:24px } .grid-tbl td.grid-nest { padding:4px 6px } .grid-tbl td.grid-nest .grid-tbl { border:1px solid rgba(255, 255, 255, 0.08) } .grid-cell-text { display:inline-block; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:middle; font-family:'SF Mono', Menlo, monospace; font-size:12px } .copy-endpoint-btn { background:none; border:none; color:var(--muted); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; padding:4px; border-radius:4px; transition:all 0.2s; flex-shrink:0 } .copy-endpoint-btn:hover { color:#fff; background:rgba(255,255,255,0.05) }
   #infoModal > .modal-content > .modal-body { max-height:none } #infoModal .modal-card { flex-shrink:0 } #infoModal .modal-card:has(#apiInfoTags) { flex:1 0 auto } #infoModal #apiInfoTags { max-height:none !important }
   .action-divider { width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 4px } .auth-dot { display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor } .info-property { font-size:13px;color:var(--muted);display:flex;gap:12px;align-items:center } .info-property-label { opacity:0.6;flex:0 0 145px;min-width:0 } .curl-action { padding:4px;color:var(--muted);flex:0 0 auto }
-  </style></head><body><!-- API Master shell --><div id="appLoader" class="app-loader-overlay"><div class="app-loader-content"><div class="app-loader-title">API MASTER</div><div class="app-loader-bar-wrap"><div id="appLoaderFill" class="app-loader-bar-fill"></div></div><div id="appLoaderPct" class="app-loader-pct">0%</div><div id="appLoaderMsg" class="app-loader-msg">Initializing...</div></div></div><div class="container"><div class="card" style="padding:0;flex:1;display:flex;flex-direction:column;min-height:0;box-sizing:border-box"><div class="modal-header" style="border-top-left-radius:12px;border-top-right-radius:12px;padding:8px var(--card-pad,22px)"><div class="modal-title-block" style="display:flex;align-items:center;gap:12px;flex-direction:row"><h3 style="margin:0">API Master</h3></div><div class="modal-actions" style="display:flex;align-items:center;gap:6px"><button type="button" class="icon-btn" id="infoToggleBtn" title="View Documentation (D)" onclick="showModal('infoModal');setupIcons();"></button><button type="button" class="icon-btn" id="pasteCurlToggleBtn" title="Paste cURL" onclick="openPasteCurlModal()"></button><button type="button" class="icon-btn" id="pgwebToggleBtn" aria-label="Open PgWeb (PostgreSQL)" title="Open PgWeb" onclick="window.open('static/pgweb.html', '_blank')"></button><button id="loginIndicator" title="Auth Status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:6px 14px;border-radius:12px;background:rgba(220,53,69,0.1);color:var(--delete);border:none;cursor:pointer;transition:all 0.2s"><span class="auth-dot"></span> Login </button></div></div><div class="modal-body" style="padding:var(--card-pad,22px);max-height:none;flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden"><div style="display:flex;gap:12px;align-items:stretch;flex-wrap:wrap;margin-bottom:var(--card-pad,22px);flex-shrink:0"><div class="toolbar-search header-search" style="position:relative;display:flex;align-items:center;background:#14171c;border:1px solid rgba(255,255,255,0.08);border-radius:6px;box-sizing:border-box;height:42px;padding:2px 10px;gap:6px;transition:border-color 0.2s;flex:1 1 320px;min-width:280px" onfocusin="this.style.borderColor='var(--accent)'" onfocusout="this.style.borderColor='rgba(255,255,255,0.08)'"><input type="text" id="apiInfoSearch" placeholder="Search APIs..." style="padding:4px 24px 4px 6px !important;font-size:15px !important;font-weight:600 !important;color:#f87171 !important;background:transparent !important;border:none !important;flex:1 !important;min-width:60px !important;height:100% !important;box-sizing:border-box !important;outline:none !important;border-radius:0 !important;box-shadow:none !important" /><button type="button" id="apiInfoSearchClear" class="clear-api-btn" title="Clear Search" style="right:12px;font-size:21px;position:absolute;top:50%;transform:translateY(-50%);line-height:1;color:#f87171;font-weight:700;opacity:1">×</button></div></div><div class="modal-card panel-shell" style="flex:1;display:flex;flex-direction:column;min-height:0;margin-bottom:0"><div class="modal-card-body" style="padding:0;flex:1;display:flex;flex-direction:column;min-height:0"><div class="resp-tbl-wrap master-table-wrap"><table class="resp-tbl" id="apiInfoTbl"></table></div></div></div></div></div></div><script>
+
+/* Opt-in split layout preview: ?layout=split. */
+.split-preview .container { max-width:98vw !important; }
+.split-workspace { display:grid; grid-template-columns:minmax(300px, 30%) minmax(0, 1fr); gap:16px; flex:1; min-height:0; padding:16px; }
+.split-catalog { min-width:0; padding:0 !important; }
+.split-catalog > div:first-child { margin-bottom:12px !important; }
+.split-catalog .header-search { min-width:0 !important; }
+.split-catalog .panel-shell, .split-catalog .master-table-wrap { width:100% !important; }
+.split-preview #apiInfoTbl { width:100% !important; min-width:0 !important; table-layout:fixed !important; }
+.split-preview #apiInfoTbl .col-id, .split-preview #apiInfoTbl .col-run { display:none; }
+.split-preview #apiInfoTbl .col-method { width:62px; padding:12px 8px; }
+.split-preview #apiInfoTbl .col-path { width:auto; max-width:none; white-space:normal; overflow-wrap:anywhere; padding:12px 8px; }
+.split-preview #apiInfoTbl tr[data-i] { cursor:pointer; }
+.split-preview #apiInfoTbl tr[aria-selected="true"] { background:rgba(66,153,225,.14); box-shadow:inset 3px 0 var(--accent); }
+.split-preview #apiInfoTbl tr[data-i]:hover { background:rgba(66,153,225,.08); }
+.split-preview #apiInfoTbl tr[data-i]:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
+.split-runner-host { min-width:0; min-height:0; display:flex; flex-direction:column; }
+.docked-runner { position:static; width:100%; height:100%; background:none; backdrop-filter:none; min-height:0; }
+.docked-runner > .modal-content { width:100%; max-width:none !important; height:100% !important; max-height:100%; margin:0 !important; box-sizing:border-box; }
+.docked-runner > .modal-content > .modal-body { max-height:none; padding:16px; }
+.docked-runner .modal-header { padding:12px 16px; }
+.docked-runner .input-wrapper { min-width:0; }
+.docked-runner .modal-card-header { flex-shrink:0; }
+.split-empty { margin:auto; padding:24px; color:var(--muted); text-align:center; }
+.layout-switch { display:inline-flex; align-items:center; justify-content:center; color:var(--muted); text-decoration:none; border:1px solid transparent; border-radius:6px; padding:8px; flex-shrink:0; transition:all .2s; }
+.layout-switch:hover { color:#fff; background:rgba(255,255,255,.04); }
+.layout-switch:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+@media (min-width:901px) { .docked-runner #runnerCloseBtn, .docked-runner #wsRunnerCloseBtn { display:none; } }
+@media (max-width:900px) {
+  .split-workspace { grid-template-columns:minmax(0,1fr); padding:10px; }
+  .split-preview .container { max-width:100vw !important; padding:6px; margin:0; height:100dvh; }
+  .split-workspace:not(.show-runner) .split-runner-host, .split-workspace.show-runner .split-catalog { display:none !important; }
+  .split-preview .container > .card > .modal-header { flex-wrap:wrap; padding:8px 10px !important; }
+  .docked-runner .modal-header { flex-wrap:wrap; gap:8px; }
+  .docked-runner .input-row { flex-wrap:wrap; }
+  .docked-runner .input-row > div:first-child { flex-basis:100% !important; }
+  .docked-runner .modal-card-header:has(#rCode) { height:auto; min-height:40px; flex-wrap:wrap; padding:8px; }
+  .docked-runner .modal-card-header:has(#rCode) > div { flex-wrap:wrap; margin-left:0 !important; }
+}
+</style></head><body><!-- API Master shell --><div id="appLoader" class="app-loader-overlay"><div class="app-loader-content"><div class="app-loader-title">API MASTER</div><div class="app-loader-bar-wrap"><div id="appLoaderFill" class="app-loader-bar-fill"></div></div><div id="appLoaderPct" class="app-loader-pct">0%</div><div id="appLoaderMsg" class="app-loader-msg">Initializing...</div></div></div><div class="container"><div class="card" style="padding:0;flex:1;display:flex;flex-direction:column;min-height:0;box-sizing:border-box"><div class="modal-header" style="border-top-left-radius:12px;border-top-right-radius:12px;padding:8px var(--card-pad,22px)"><div class="modal-title-block" style="display:flex;align-items:center;gap:12px;flex-direction:row"><h3 style="margin:0">API Master</h3></div><div class="modal-actions" style="display:flex;align-items:center;gap:6px"><button type="button" class="icon-btn" id="infoToggleBtn" title="View Documentation (D)" onclick="showModal('infoModal');setupIcons();"></button><button type="button" class="icon-btn" id="pasteCurlToggleBtn" title="Paste cURL" onclick="openPasteCurlModal()"></button><button type="button" class="icon-btn" id="pgwebToggleBtn" aria-label="Open PgWeb (PostgreSQL)" title="Open PgWeb" onclick="window.open('static/pgweb.html', '_blank')"></button><button id="loginIndicator" title="Auth Status" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:6px 14px;border-radius:12px;background:rgba(220,53,69,0.1);color:var(--delete);border:none;cursor:pointer;transition:all 0.2s"><span class="auth-dot"></span> Login </button></div></div><div class="modal-body" style="padding:var(--card-pad,22px);max-height:none;flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden"><div style="display:flex;gap:12px;align-items:stretch;flex-wrap:wrap;margin-bottom:var(--card-pad,22px);flex-shrink:0"><div class="toolbar-search header-search" style="position:relative;display:flex;align-items:center;background:#14171c;border:1px solid rgba(255,255,255,0.08);border-radius:6px;box-sizing:border-box;height:42px;padding:2px 10px;gap:6px;transition:border-color 0.2s;flex:1 1 320px;min-width:280px" onfocusin="this.style.borderColor='var(--accent)'" onfocusout="this.style.borderColor='rgba(255,255,255,0.08)'"><input type="text" id="apiInfoSearch" placeholder="Search APIs..." style="padding:4px 24px 4px 6px !important;font-size:15px !important;font-weight:600 !important;color:#f87171 !important;background:transparent !important;border:none !important;flex:1 !important;min-width:60px !important;height:100% !important;box-sizing:border-box !important;outline:none !important;border-radius:0 !important;box-shadow:none !important" /><button type="button" id="apiInfoSearchClear" class="clear-api-btn" title="Clear Search" style="right:12px;font-size:21px;position:absolute;top:50%;transform:translateY(-50%);line-height:1;color:#f87171;font-weight:700;opacity:1">×</button></div></div><div class="modal-card panel-shell" style="flex:1;display:flex;flex-direction:column;min-height:0;margin-bottom:0"><div class="modal-card-body" style="padding:0;flex:1;display:flex;flex-direction:column;min-height:0"><div class="resp-tbl-wrap master-table-wrap"><table class="resp-tbl" id="apiInfoTbl"></table></div></div></div></div></div></div><script>
     // Modal markup
     const MODAL_HTML = `\n\x3c!-- API Runner Modal --\x3e<div id="apiRunnerModal" class="modal"><div class="modal-content" style="max-width:760px;margin:4vh auto;height:calc(100vh - 8vh);display:flex;flex-direction:column"><div class="modal-header"><div class="modal-title-block"><h3>API Runner</h3></div><div class="modal-actions"><button type="button" class="icon-btn" id="runnerCurlBtn" aria-label="View cURL" title="View cURL" onclick="openApiCurlModal(curr)"></button><button type="button" class="icon-btn" id="runnerDownloadCurlBtn" title="Download cURL (.txt)" onclick="downloadCurrentCurl()"></button><button type="button" class="btn btn-danger" id="stopRequestBtn" style="display:none;height:36px;padding:0 14px" aria-label="Stop request">Stop</button><button type="submit" class="btn btn-primary" id="subBtn" form="apiForm" title="Run API" style="height:36px;padding:0 16px;font-size:13px;flex:0 0 auto;gap:8px;display:flex;align-items:center"><div class="spinner"></div><span id="subBtnIcon" style="display:flex;align-items:center"></span><span id="subBtnText">Run</span></button><button type="button" class="icon-btn" id="runnerCloseBtn" title="Close"></button></div></div><div class="modal-body" style="flex:1;min-height:0;display:flex;flex-direction:column;gap:10px;padding-bottom:12px;overflow-y:auto"><div class="modal-card" style="flex:0 0 auto"><div class="modal-card-header"><div id="runnerPathHeader" style="font-size:13px;color:var(--muted);font-family:'SF Mono',Menlo,monospace;flex:1;min-width:0"></div></div><div id="runnerAdhocBanner" style="display:none;padding:10px 16px;background:rgba(237,137,54,0.1);border-bottom:1px solid rgba(237,137,54,0.3);color:#ed8936;font-size:11px;font-weight:600;line-height:1.5"></div><div class="modal-card-body"><form id="apiForm"><div class="section-group" id="hSec"><div class="section-label">Headers <button type="button" id="addH" class="add-btn-small" title="Add Custom Header">+</button></div><div id="hCont" class="dynamic-container"></div></div><div class="section-group" id="uSec"><div class="section-label">Path Params <button type="button" id="addU" class="add-btn-small" title="Add Custom Path Parameter">+</button></div><div id="uCont" class="dynamic-container"></div></div><div class="section-group" id="qSec"><div class="section-label">Query Params <button type="button" id="addQ" class="add-btn-small" title="Add Custom Query Parameter">+</button></div><div id="qCont" class="dynamic-container"></div></div><div class="section-group" id="fSec"><div class="section-label">Form Data <button type="button" id="addF" class="add-btn-small" title="Add Custom Form Data Field">+</button></div><div id="fCont" class="dynamic-container"></div></div><div class="section-group" id="jSec"><div class="section-label">JSON Body <button type="button" id="addJ" class="add-btn-small" title="Add Custom JSON Parameter">+</button></div><div id="jCont" class="dynamic-container"></div></div></form></div></div><div class="modal-card resp-box" id="rBox" style="flex:1;flex-direction:column;min-height:280px"><div class="modal-card-header"><h4>API RESPONSE <span id="rCode" style="font-weight:400;margin-left:8px"></span></h4><div style="display:flex;align-items:center;gap:6px;margin-left:auto"><button class="view-btn" data-view="raw" title="Raw View" id="btnRaw" disabled style="opacity:0.35;pointer-events:none"></button><button class="view-btn" data-view="headers" title="Headers View" id="btnHeaders" disabled style="opacity:0.35;pointer-events:none"></button><button id="rJson" class="icon-btn" title="Download JSON" disabled style="opacity:0.35;pointer-events:none"></button><button id="rCopy" class="icon-btn" title="Copy Response" disabled style="opacity:0.35;pointer-events:none"></button><div class="action-divider"></div><button class="view-btn" data-view="pretty" title="Tree View" id="btnPretty" disabled style="opacity:0.35;pointer-events:none"></button><button class="view-btn" data-view="chart" title="Chart View" id="btnChart" disabled style="opacity:0.35;pointer-events:none"></button><div class="action-divider"></div><button class="view-btn" data-view="table" title="Table View" id="btnTable" disabled style="opacity:0.35;pointer-events:none"></button><button id="rCsv" class="icon-btn" title="Download CSV" disabled style="opacity:0.35;pointer-events:none"></button><div class="action-divider"></div><button id="rCopyFull" class="icon-btn" title="Copy Curl & Response" disabled style="opacity:0.35;pointer-events:none"></button><button type="button" class="icon-btn delete" id="runnerResetBtn" title="Clear Response History"></button></div></div><div class="modal-card-body" style="padding:0;overflow-y:auto;display:flex;flex-direction:column"><div class="resp-content" style="flex:1"><div id="viewPretty" class="resp-view active"></div><div id="viewRaw" class="resp-view"><pre class="resp-pre" id="rawPre" style="margin:0"></pre></div><div id="viewTable" class="resp-view"></div><div id="viewChart" class="resp-view"></div><div id="viewHeaders" class="resp-view"><pre class="resp-pre" id="headersPre" style="margin:0"></pre></div></div></div></div></div></div></div>\x3c!-- WebSocket Runner Modal --\x3e<div id="wsRunnerModal" class="modal"><div class="modal-content" style="max-width:760px;margin:4vh auto"><div class="modal-header"><h3>WebSocket Runner</h3><div class="modal-actions"><button type="button" class="icon-btn" id="wsRunnerCloseBtn" title="Close"></button></div></div><div class="modal-body"><div id="wsIn" style="margin-bottom:20px;padding:12px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.08);font-family:'SF Mono',Menlo,monospace;font-size:13px"></div><div style="display:flex;gap:12px;margin-bottom:20px"><input type="text" id="wsUrlIn" readonly style="flex:1;background:rgba(255,255,255,0.02);color:var(--accent);font-weight:600"><button id="wsConnBtn" type="button" class="btn btn-primary" title="Connect to WebSocket" style="flex:0 0 120px">Connect</button></div><div style="margin-bottom:20px"><div class="section-label">Send Message</div><div style="display:flex;gap:8px"><input type="text" id="wsMsgIn" placeholder="Type a message..." style="flex:1"><button type="button" id="wsSendBtn" class="btn btn-primary" title="Send Message" style="flex:0 0 80px">Send</button></div></div><div class="resp-box show" id="wsBox" style="display:flex;max-height:400px"><div class="resp-header"><span>Connection Logs <span id="wsCode" style="font-weight:400"></span></span><button class="copy-btn" id="wsLogsClearBtn" title="Clear Logs"></button></div><div class="resp-content" id="wsLogs" style="padding:16px;font-family:'SF Mono',Menlo,monospace;font-size:12px;color:var(--muted)"></div></div></div></div></div>\x3c!-- API Detail Modal --\x3e<div id="apiDetailModal" class="modal"><div class="modal-content" style="max-width:700px;margin:4vh auto"><div class="modal-header"><h3 id="apiDetailTitle">API Response</h3><div class="modal-actions"><button type="button" class="icon-btn" id="apiDetailTreeBtn" title="Tree View"></button><button type="button" class="icon-btn" id="apiDetailTableBtn" title="Table View"></button><div class="action-divider"></div><button type="button" class="icon-btn" id="apiDetailDownloadCurlBtn" title="Download cURL (.txt)" style="display:none"></button><button type="button" class="icon-btn" id="apiDetailJson" title="Download JSON"></button><button type="button" class="icon-btn" id="apiDetailCopy" title="Copy Response"></button><button type="button" class="icon-btn" id="apiDetailCloseBtn" title="Close"></button></div></div><div class="modal-body"><div id="apiDetailContent" style="background:#14171c;border-radius:8px;border:1px solid rgba(255,255,255,.08)"></div></div></div></div>\x3c!-- Info Modal --\x3e<div id="infoModal" class="modal"><div class="modal-content" style="max-width:800px;margin:1vh auto;height:98vh;max-height:98vh"><div class="modal-header"><h3>Info</h3><div class="modal-actions"><button type="button" class="icon-btn" id="infoCloseBtn" title="Close"></button></div></div><div class="modal-body modal-card-grid" style="display:flex;flex-direction:column;gap:10px"><div class="modal-card"><div class="modal-card-header"><h4>GENERAL INFORMATION</h4></div><div class="modal-card-body"><div style="display:flex;flex-direction:column;gap:12px"><div class="info-property"><span class="info-property-label">Base URL:</span><span id="baseUrl" style="color:var(--accent);font-weight:600;letter-spacing:0.5px;min-width:0;word-break:break-all"></span></div><div class="info-property"><span class="info-property-label">OpenAPI Specification:</span><a href="/openapi.json" target="_blank" style="color:var(--primary);text-decoration:none;font-weight:600">/openapi.json</a></div><div class="info-property"><span class="info-property-label">API CSV Catalog:</span><a href="#" onclick="exportCatalogCsv(); return false;" style="color:var(--primary);text-decoration:none;font-weight:600" title="Export CSV Catalog (E)">Download CSV Catalog</a></div></div></div></div><div class="modal-card" style="margin-bottom:0"><div class="modal-card-header"><h4>Path Tags <span id="pathFilterTotal" style="font-weight:500;color:var(--muted)"></span></h4></div><div class="modal-card-body" id="apiInfoTags" style="padding:16px;max-height:162px;overflow-y:auto"></div></div></div></div></div>\x3c!-- Paste cURL Modal --\x3e<div id="pasteCurlModal" class="modal"><div class="modal-content" style="max-width:760px;margin:5vh auto"><div class="modal-header"><h3>Paste cURL Runner</h3><div class="modal-actions"><input type="file" id="pasteCurlFileInput" accept=".txt,.sh,.curl,text/plain" style="display:none"><button type="button" class="btn btn-secondary" id="pasteCurlUploadBtn" title="Upload cURL File (.txt, .sh)" style="height:36px;padding:0 14px;font-size:13px;flex:0 0 auto;gap:6px;display:flex;align-items:center;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:var(--secondary-text);cursor:pointer;transition:all 0.2s"><span id="pasteCurlUploadIcon" style="display:flex;align-items:center"></span><span>Upload File</span></button><button type="button" class="btn btn-primary" id="pasteCurlSubmitBtn" title="Run cURL" style="height:36px;padding:0 16px;font-size:13px;flex:0 0 auto;gap:8px;display:flex;align-items:center"><span id="pasteCurlRunIcon" style="display:flex;align-items:center"></span><span>Run</span></button><button type="button" class="icon-btn" id="pasteCurlCloseBtn" title="Close"></button></div></div><div class="modal-body" style="padding:20px;display:flex;flex-direction:column"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:8px"><span>cURL Command</span><span id="pasteCurlFileBadge" style="display:none;padding:2px 8px;border-radius:4px;background:rgba(66,153,225,0.15);color:var(--accent);border:1px solid rgba(66,153,225,0.25);font-size:11px;font-family:'SF Mono',Menlo,monospace;text-transform:none"></span></div><button type="button" id="pasteCurlBodyUploadBtn" title="Choose a text file" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px;padding:0"><span id="pasteCurlBodyUploadIcon" style="display:flex;align-items:center"></span><span>Upload .txt file</span></button></div><textarea id="pasteCurlInput" placeholder="Paste cURL here or upload a .txt file. If path matches an API in /openapi.json, Runner opens pre-filled; otherwise runs as-is in ad-hoc mode (response not saved)." spellcheck="false" style="width:100%;min-height:280px;padding:14px;font-family:'SF Mono',Menlo,monospace;font-size:13px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:#14171c;color:#e6eef3;box-sizing:border-box;resize:vertical;outline:none;line-height:1.5;transition:border-color 0.2s,background 0.2s"></textarea><div id="pasteCurlError" style="display:none;margin-top:10px;padding:10px 12px;background:rgba(220,53,69,0.1);border:1px solid rgba(220,53,69,0.3);border-radius:6px;color:var(--delete);font-size:12px;font-family:'SF Mono',Menlo,monospace"></div></div></div></div>\x3c!-- Param Info Modal --\x3e<div id="paramInfoModal" class="modal"><div class="modal-content" style="max-width:1000px;margin:4vh auto"><div class="modal-header"><h3 id="paramInfoTitle">Parameter Configuration</h3><div class="modal-actions"><button type="button" class="icon-btn" id="paramInfoCopyBtn" title="Copy Detail"></button><button type="button" class="icon-btn" id="paramInfoCloseBtn" title="Close"></button></div></div><div id="paramInfoBody" class="modal-body"></div></div></div>\x3c!-- Popups --\x3e<div id="cellPop" class="cell-pop"><span id="cellPopTxt"></span><button class="cell-pop-copy" id="cellPopCopy" title="Copy"></button></div>\n`;
     function injectModals() { const container = document.createElement("div"); container.id = "modalContainer"; container.innerHTML = MODAL_HTML; document.body.appendChild(container); tidyInfoModal(); injectPasteCurlUi() }
@@ -20,6 +59,62 @@
         ; submit.title = "Run cURL"; submit.style.gap = "8px"; submit.innerHTML = '<span id="pasteCurlRunIcon" style="display:flex;align-items:center"></span><span>Run</span>'
         ; input.style.minHeight = "280px"; input.style.padding = "14px"
     }
+// Reversible layout preview; classic remains the default.
+    const splitPreview = new URLSearchParams(location.search).get("layout") === "split";
+    function setupLayoutPreview() {
+      const card = d.querySelector(".container > .card");
+      const link = d.createElement("a");
+      const url = new URL(location.href);
+      if (splitPreview) url.searchParams.delete("layout"); else url.searchParams.set("layout", "split");
+      link.href = url.pathname + url.search + url.hash;
+      link.className = "layout-switch";
+      link.title = splitPreview ? "Switch to classic view" : "Switch to split view";
+      link.setAttribute("aria-label", link.title);
+      link.innerHTML = splitPreview ? ICON.table(18) : SVG(18, '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M10 3v18M3 9h7M3 15h7"/>');
+      link.querySelector("svg").setAttribute("aria-hidden", "true");
+      card.querySelector(".modal-actions").prepend(link);
+      if (!splitPreview) return;
+      d.body.classList.add("split-preview");
+      const catalog = card.querySelector(":scope > .modal-body");
+      catalog.classList.add("split-catalog");
+      const workspace = d.createElement("div");
+      workspace.id = "splitWorkspace"; workspace.className = "split-workspace";
+      card.append(workspace); workspace.append(catalog);
+      const host = d.createElement("section");
+      host.className = "split-runner-host"; host.setAttribute("aria-label", "API runner");
+      host.innerHTML = '<div id="splitEmpty" class="split-empty">Select an API to configure a request.</div>';
+      workspace.append(host);
+      ["apiRunnerModal", "wsRunnerModal"].forEach(id => {
+        const runner = UI(id); runner.classList.remove("modal"); runner.classList.add("docked-runner");
+        runner.style.display = "none"; host.append(runner);
+      });
+      UI("apiInfoTbl").addEventListener("keydown", event => {
+        if ((event.key === "Enter" || event.key === " ") && event.target.matches("tr[data-i]")) {
+          event.preventDefault(); event.target.click();
+        }
+      });
+    }
+    function highlightSelectedApi() {
+      if (!splitPreview) return;
+      UI("apiInfoTbl").querySelectorAll("tr[data-i]").forEach(row => {
+        row.setAttribute("aria-selected", String(Number(row.dataset.i) === activeMasterRunIndex));
+        row.tabIndex = 0;
+      });
+    }
+    function selectPreviewApi(index) {
+      const command = COMMANDS[index]; if (!command) return;
+      showModal(command.m === "WS" ? "wsRunnerModal" : "apiRunnerModal");
+      if (command.m === "WS") loadWs(index); else load(index);
+    }
+    function preparePreviewApi(index) {
+      if (!splitPreview) return;
+      const next = index === null ? null : COMMANDS[index];
+      if (curr && curr.m !== "WS") syncParams();
+      if (curr && curr !== next) { cancelCurrentRequest("closed"); wsDisconnect(); }
+      activeMasterRunIndex = index;
+      highlightSelectedApi();
+    }
+
 // Shared state
     let COMMANDS = []; let SPEC = null; let curr = null; let activeMasterRunIndex = null; let cellPopRaw = "";
 // DOM helpers
@@ -520,12 +615,27 @@
       ; const compactArrays = s => s.replace(/\[\n((\s+("(?:[^"\\]|\\.)*"|[\d.eE+-]+|true|false|null),?\n)+\s*)\]/g, m => m.replace(/\n\s*/g, " ").replace(/,\s*/g, ", "));
 // Modal controls
     const showModal = id => {
-      const el = UI(id); if (!el) return; const modalList = Array.from(d.querySelectorAll(".modal"))
+      const el = UI(id); if (!el) return;
+      if (el.classList.contains("docked-runner")) {
+        ["apiRunnerModal", "wsRunnerModal"].forEach(key => { UI(key).style.display = key === id ? "block" : "none"; });
+        UI("splitEmpty").style.display = "none";
+        UI("splitWorkspace").classList.add("show-runner");
+        return;
+      }
+      const modalList = Array.from(d.querySelectorAll(".modal"))
         ; const visibleList = modalList.filter(item => item.style.display === "block" && item.id !== id); const topZIndex = visibleList.reduce((max, item) => {
           const itemZIndex = parseInt(item.style.zIndex || "2000", 10); if (Number.isNaN(itemZIndex)) return max; if (itemZIndex > max) return itemZIndex; return max
         }, 1999)
         ; el.style.zIndex = String(topZIndex + 10); el.style.display = "block"
-    }; const hideModal = id => { if (id === "apiRunnerModal") cancelCurrentRequest("closed"); const el = UI(id); if (!el) return; el.style.display = "none"; el.style.zIndex = "" }; const ResponseView = {
+    }; const hideModal = id => {
+      if (UI(id)?.classList.contains("docked-runner")) {
+        if (window.matchMedia("(max-width:900px)").matches) {
+          UI("splitWorkspace").classList.remove("show-runner");
+          UI("apiInfoTbl").querySelector('tr[aria-selected="true"]')?.focus();
+        }
+        return;
+      }
+      if (id === "apiRunnerModal") cancelCurrentRequest("closed"); const el = UI(id); if (!el) return; el.style.display = "none"; el.style.zIndex = "" }; const ResponseView = {
       states: { runner: { data: null, status: null, time: null, index: null, view: "raw", headers: null } }, render(scope, data, status, time, index = null, headers = null) {
         const s = this.states.runner; s.data = data; s.status = status; s.time = time
           ; s.index = index; s.headers = headers; const codeColor = status >= 200 && status < 300 ? "var(--primary)" : status >= 400 ? "var(--delete)" : "var(--accent)"
@@ -642,6 +752,11 @@
         }; const tot = UI("pathFilterTotal"); if (tot) tot.textContent = `(${tags.length})`
           ; const tagContainer = UI("apiInfoTags"); if (tagContainer) tagContainer.innerHTML = `<div class="tag-group">${tags.map(renderTag).join("")}</div>`
     }; const applyMasterTableLayout = () => {
+      if (splitPreview) {
+        const wrap = UI("apiInfoTbl")?.closest(".master-table-wrap");
+        if (wrap) wrap.style.opacity = "1";
+        return;
+      }
       const root = d.documentElement
         ; const sourceCommands = COMMANDS
         ; const pathLengths = sourceCommands.map(c => c.p.length); const maxPathLength = pathLengths.length ? Math.max(...pathLengths) : 32
@@ -708,7 +823,20 @@
         ; UI("apiInfoTbl").innerHTML = `<thead><tr><th class="col-id">#</th><th class="col-method">Method</th><th class="col-path">Path</th><th class="col-run">Run</th></tr></thead>` + `<tbody>${filteredIndexes.map(globalIndex => {
           const c = COMMANDS[globalIndex]
             ; return `\n<tr data-i="${globalIndex}" class="clickable"><td class="col-id master-static-cell">${globalIndex + 1}</td><td class="col-method master-static-cell"><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td class="col-path master-static-cell" title="${c.p}">${c.p}</td><td class="col-run run-btn clickable" title="Run">${ICON.play(16)}</td></tr>`
-        }).join("")}</tbody>`; applyMasterTableLayout(); clearIconTooltips(UI("apiInfoTbl"))
+        }).join("")}</tbody>`; applyMasterTableLayout(); clearIconTooltips(UI("apiInfoTbl"));
+      if (splitPreview) {
+        if (!filteredIndexes.length) {
+          preparePreviewApi(null); curr = null;
+          ["apiRunnerModal", "wsRunnerModal"].forEach(id => { UI(id).style.display = "none"; });
+          UI("splitEmpty").textContent = "No APIs match your search."; UI("splitEmpty").style.display = "block";
+          UI("splitWorkspace").classList.remove("show-runner");
+          UI("apiInfoTbl").querySelector("tbody").innerHTML = '<tr><td colspan="4" style="padding:20px;color:var(--muted)">No matching APIs</td></tr>';
+        } else if (!filteredIndexes.includes(activeMasterRunIndex)) {
+          selectPreviewApi(filteredIndexes[0]);
+          if (window.matchMedia("(max-width:900px)").matches) UI("splitWorkspace").classList.remove("show-runner");
+        }
+        highlightSelectedApi();
+      }
     }; const renderRunnerEndpoint = command => {
       if (!command) return ""
         ; return `<div style="display:flex;align-items:center;gap:10px;font-family:'SF Mono',Menlo,monospace;line-height:1;width:100%"><span class="method-badge ${command.m.toLowerCase()}" style="margin:0;line-height:1.2">${command.m}</span><span class="runner-endpoint-path" style="display:inline;margin:0;line-height:1">${he(command.p)}</span><button type="button" class="copy-endpoint-btn" onclick="copyEndpointPath(this, '${command.m}', '${command.p.replace(/'/g, "\\'")}')" title="Copy Endpoint" style="margin-left:auto">${ICON.copy(14)}</button></div>`
@@ -748,6 +876,7 @@
           mkRow(UI(cont), x.k, val, x.t || "string", x.e, x.r || null, !!spec.find(s => s.k === x.k), !!spec.find(s => s.k === x.k && s.req), x.d || null)
         })
       }; const load = i => {
+        preparePreviewApi(i);
         curr = i === null ? null : COMMANDS[i]
           ; SECTIONS.forEach(([, sec, cont]) => { UI(cont).innerHTML = ""; UI(sec).classList.remove("active") }); const rBox = UI("rBox"); if (rBox) {
             rBox.classList.remove("show")
@@ -871,6 +1000,7 @@
         if (!ws || ws.readyState !== 1) return toast("Not connected"); const val = UI("wsMsgIn").value; if (!val) return; ws.send(val)
           ; wsLog(`Sent: ${val}`, "sent"); UI("wsMsgIn").value = ""
       }; const loadWs = i => {
+        preparePreviewApi(i);
         curr = COMMANDS[i]; const prot = window.location.protocol === "https:" ? "wss:" : "ws:"
           ; UI("wsUrlIn").value = `${prot}//${window.location.host}${curr.p}`; UI("wsIn").innerHTML = renderRunnerEndpoint(curr); UI("wsLogs").innerHTML = '<div style="color:var(--accent)">Waiting to connect...</div>'
           ; UI("wsConnBtn").textContent = "Connect"; UI("wsConnBtn").classList.remove("btn-danger"); UI("wsConnBtn").classList.add("btn-primary")
@@ -1035,6 +1165,7 @@
         syncParams(); setupIcons()
       }
       ; const loadAdhocCurl = parsed => {
+      preparePreviewApi(null);
         const synth = {
           p: parsed.path, m: parsed.method,
           h: parsed.headers.map(x => ({ k: x.k, v: x.v, t: "str", req: false })),
@@ -1085,7 +1216,7 @@
       };
 // Boot
     async function init() {
-      injectModals(); updateAppLoader(5, "Connecting to server..."); try {
+      injectModals(); setupLayoutPreview(); updateAppLoader(5, "Connecting to server..."); try {
         updateAppLoader(20, "Fetching OpenAPI spec..."); const specR = await fetch("/openapi.json", {
           cache: "no-cache"
         }); updateAppLoader(40, "Parsing specification..."); const spec = await specR.json(); SPEC = spec; if (!spec || !spec.paths) throw new Error("Invalid OpenAPI spec returned")
@@ -1106,7 +1237,7 @@
                   }, 100)
               }
           } renderApiInfoTable(initialSearch); updateLoginIndicator()
-          ; if (!runApi || UI("apiInfoSearch").value !== initialSearch) load(null); setupIcons(); setupEventListeners(); updateAppLoader(100, "Ready")
+          ; if (!splitPreview && (!runApi || UI("apiInfoSearch").value !== initialSearch)) load(null); setupIcons(); setupEventListeners(); updateAppLoader(100, "Ready")
       } catch (err) {
         updateAppLoader(100, "Error"); console.error("Failed to load API info", err)
           ; d.getElementById("apiInfoTbl").innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--delete);padding:20px">Failed to load API info: ${err.message}. Click Refresh to try again.</td></tr>`
