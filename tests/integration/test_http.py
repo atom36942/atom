@@ -4,24 +4,12 @@ The app starts from a temporary working directory with test-only environment
 variables: config.py loads .env from the working directory and startup resets
 ./tmp, so running from the repo root would read developer secrets and wipe tmp/.
 """
-import io
 import json
 import os
-from contextlib import redirect_stderr
-import sys
-import tempfile
 import time
 import unittest
-from unittest.mock import patch
 
-from tests.integration.support import REPO_ROOT, create_database, drop_database, fetch, requires_postgres
-
-TEST_ENV = {
-    "config_token_secret_key": "atom-http-test-secret-key-at-least-32-bytes",
-    "config_root_user_password": "root-test-password",
-    "config_signup_allowed_roles": "[5]",
-    "config_postgres_buffer_flush_auto_sec": "1",
-}
+from tests.integration.support import app_login, app_start, app_stop, create_database, drop_database, fetch, requires_postgres
 
 
 @requires_postgres
@@ -32,42 +20,16 @@ class HttpIntegrationTests(unittest.TestCase):
         cls.reports_db_name, cls.reports_url = create_database()    # second database: ?postgres= switching and the separate log_api database
         fetch(cls.reports_url, "CREATE TABLE report (id bigserial PRIMARY KEY, title text)")
         fetch(cls.reports_url, "INSERT INTO report (title) VALUES ('from reports')")
-        cls.workdir = tempfile.TemporaryDirectory()
-        cls.previous_cwd = os.getcwd()
-        os.chdir(cls.workdir.name)
-        cls.env = patch.dict(os.environ, {**TEST_ENV, **cls.database_env()})
-        cls.env.start()
-        # The app prints a traceback for every handled error; these tests trigger 4xx on purpose.
-        cls.app_stderr = io.StringIO()
-        cls.quiet = redirect_stderr(cls.app_stderr)
-        cls.quiet.__enter__()
-        for key in [k for k in os.environ if k.lower().startswith("config_") and k not in TEST_ENV and k not in cls.database_env()]:
-            del os.environ[key]
-        sys.path.insert(0, str(REPO_ROOT))
-        for module in ("main", "config", "config_extend"): sys.modules.pop(module, None)
-        import main
-        from fastapi.testclient import TestClient
-        cls.app = main.app
-        cls.client = TestClient(main.app)
-        cls.client.__enter__()
-        signup = cls.client.post("/auth/signup-username-password", json={"username": "alice", "password": "alice-pass", "role": 5})
-        assert signup.status_code == 200, signup.text
-        cls.token = signup.json()["message"]["access_token"]
-        admin = cls.client.post("/auth/login-username-password", json={"username": "admin", "password": "root-test-password"})
-        assert admin.status_code == 200, admin.text
-        cls.admin_token = admin.json()["message"]["access_token"]
+        cls.handle = app_start(env=cls.database_env())
+        cls.app, cls.client = cls.handle["app"], cls.handle["client"]
+        cls.workdir = cls.handle["workdir"]
+        cls.token = app_login(cls.client, path="/auth/signup-username-password", body={"username": "alice", "password": "alice-pass", "role": 5})
+        cls.admin_token = app_login(cls.client, path="/auth/login-username-password", body={"username": "admin", "password": "root-test-password"})
 
     @classmethod
     def tearDownClass(cls):
-        try:
-            cls.client.__exit__(None, None, None)
+        try: app_stop(cls.handle)
         finally:
-            cls.quiet.__exit__(None, None, None)
-            os.chdir(cls.previous_cwd)
-            cls.env.stop()
-            sys.path.remove(str(REPO_ROOT))
-            for module in ("main", "config", "config_extend"): sys.modules.pop(module, None)
-            cls.workdir.cleanup()
             drop_database(cls.db_name)
             drop_database(cls.reports_db_name)
 
