@@ -21,7 +21,7 @@ def func_mdm_row_serialize(row):
     if row is None:
         return None
     result = dict(row)
-    for key in ("addresses", "registrations", "roles", "role_flags", "cw_role_flags", "account_groups", "statistics", "cw_comparison_statistics", "payload", "prepared_data", "evidence"):
+    for key in ("addresses", "registrations", "roles", "role_flags", "cw_role_flags", "account_groups", "statistics", "cw_comparison_statistics", "payload", "prepared_data", "evidence", "counting_policy", "status_counts", "financial_transactions"):
         if key in result:
             result[key] = json.loads(result[key]) if isinstance(result[key], str) else result[key]
     return jsonable_encoder(result)
@@ -274,14 +274,17 @@ async def func_mdm_read_cw_search(*, app_state, pool, params: dict) -> dict:
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
     async with pool.acquire() as conn:
         async with conn.transaction():
-            await func_mdm_source_lock(conn=conn, source="CW")
+            await func_mdm_source_lock(conn=conn, source=source)
             if not await conn.fetchval("SELECT pg_try_advisory_xact_lock_shared(hashtext('mdm_fresh_publication'))"):
                 raise HTTPException(status_code=503, detail="Data refresh in progress. Please try again shortly.", headers={"Retry-After": "30"})
             await conn.execute("SET LOCAL lock_timeout='1s'; SET LOCAL statement_timeout='25s'; SET LOCAL jit=off")
             if len(query)<2:
                 return {"rows":[]}
-            masters=await conn.fetch("SELECT golden_id FROM cw_master_current WHERE organization_name ILIKE $1 OR EXISTS(SELECT 1 FROM unnest(cw_codes) c WHERE c ILIKE $1) ORDER BY organization_name,golden_id LIMIT 51",search)
-            rows = await conn.fetch("SELECT entity_id,cw_code,original_name,cleaned_name,addresses,is_active,is_customer,is_vendor FROM cw_source_current WHERE golden_id=ANY($1::bigint[]) ORDER BY cw_code LIMIT 51", [x["golden_id"] for x in masters])
+            if source == "SAP":
+                rows = await conn.fetch("SELECT entity_id,cw_code,original_name,cleaned_name,addresses,is_active,is_customer,is_vendor FROM mdm_sap_cw_record_current WHERE original_name ILIKE $1 OR cleaned_name ILIKE $1 OR cw_code ILIKE $1 ORDER BY cw_code LIMIT 51",search)
+            else:
+                masters=await conn.fetch("SELECT golden_id FROM cw_master_current WHERE organization_name ILIKE $1 OR EXISTS(SELECT 1 FROM unnest(cw_codes) c WHERE c ILIKE $1) ORDER BY organization_name,golden_id LIMIT 51",search)
+                rows = await conn.fetch("SELECT entity_id,cw_code,original_name,cleaned_name,addresses,is_active,is_customer,is_vendor FROM cw_source_current WHERE golden_id=ANY($1::bigint[]) ORDER BY cw_code LIMIT 51", [x["golden_id"] for x in masters])
             return {"rows":[app_state.func_mdm_row_serialize(x) for x in rows[:50]], "has_more":len(rows)>50}
 
 async def func_mdm_read_approved(*, app_state, pool, params: dict) -> dict:
@@ -319,7 +322,6 @@ async def func_mdm_read_matches(*, app_state, pool, params: dict) -> dict:
     async with pool.acquire() as conn:
         async with conn.transaction():
             await func_mdm_source_lock(conn=conn, source="SAP")
-            await func_mdm_source_lock(conn=conn, source="CW")
             if not await conn.fetchval("SELECT pg_try_advisory_xact_lock_shared(hashtext('mdm_fresh_publication'))"):
                 raise HTTPException(status_code=503, detail="Data refresh in progress. Please try again shortly.", headers={"Retry-After": "30"})
             await conn.execute("SET LOCAL lock_timeout='1s'; SET LOCAL statement_timeout='25s'; SET LOCAL jit=off")
@@ -336,12 +338,12 @@ async def func_mdm_read_matches(*, app_state, pool, params: dict) -> dict:
                 FROM mdm_sap_cw_comparison_current c JOIN sap_review_case_member m ON m.run_id=c.sap_run_id
                 JOIN mdm_sap_cw_name_match p ON p.comparison_id=c.comparison_id AND p.sap_name_id=m.name_id
                 JOIN mdm_review_name n ON n.name_id=p.cw_name_id
-                JOIN cw_source_name w ON w.run_id=c.cw_run_id AND w.name_id=p.cw_name_id
+                JOIN mdm_sap_cw_name_source w ON w.comparison_id=c.comparison_id AND w.name_id=p.cw_name_id
                 WHERE m.entity_id=ANY($1::text[]) ORDER BY p.name_similarity DESC LIMIT 101""",master["source_entity_ids"])
             # Include exact original OrgCodes and addresses, with a bounded response.
             eids=list(dict.fromkeys(e for r in rows[:100] for e in r["cw_source_ids"]))
-            records=await conn.fetch("SELECT entity_id,cw_code,original_name,addresses,is_active FROM cw_source_current WHERE entity_id=ANY($1::text[]) ORDER BY cw_code LIMIT 501",eids)
-            return {"master":app_state.func_mdm_row_serialize(master),"candidates":[app_state.func_mdm_row_serialize(x) for x in rows[:100]],"records":[app_state.func_mdm_row_serialize(x) for x in records[:500]],"truncated":len(rows)>100 or len(records)>500,"comparison":app_state.func_mdm_row_serialize(await conn.fetchrow("SELECT comparison_id,comparison_is_current FROM mdm_sap_cw_comparison_current"))}
+            records=await conn.fetch("SELECT entity_id,cw_code,original_name,addresses,is_active FROM mdm_sap_cw_record_current WHERE entity_id=ANY($1::text[]) ORDER BY cw_code LIMIT 501",eids)
+            return {"master":app_state.func_mdm_row_serialize(master),"candidates":[app_state.func_mdm_row_serialize(x) for x in rows[:100]],"records":[app_state.func_mdm_row_serialize(x) for x in records[:500]],"truncated":len(rows)>100 or len(records)>500,"comparison":app_state.func_mdm_row_serialize(await conn.fetchrow("SELECT comparison_id,comparison_is_current,completed_at FROM mdm_sap_cw_comparison_current"))}
 
 def func_mdm_validate_parts(*, records, parts, action, source):
     """Every source row must appear exactly once; survivors must belong to their part."""
@@ -401,8 +403,6 @@ async def func_mdm_write(*, app_state, pool, actor: dict, body: dict) -> dict:
     async with pool.acquire() as conn:
         async with conn.transaction():
             await func_mdm_source_lock(conn=conn, source=cmd["source"])
-            if cmd["source"] == "SAP" and cmd["action"] in ("confirm_existing", "reject_match", "approve_new", "record_success"):
-                await func_mdm_source_lock(conn=conn, source="CW")
             await conn.execute("SET LOCAL statement_timeout='30s'")
             await conn.execute("SET LOCAL jit=off")
             if not await conn.fetchval("SELECT pg_try_advisory_xact_lock_shared(hashtext('mdm_fresh_publication'))"):
@@ -471,11 +471,11 @@ async def func_mdm_write(*, app_state, pool, actor: dict, body: dict) -> dict:
                     raise HTTPException(status_code=400, detail="Destination matching is available only for SAP records.")
                 comparison=await conn.fetchrow("SELECT * FROM mdm_sap_cw_comparison_current")
                 if not comparison or not comparison["comparison_is_current"] or comparison["comparison_id"]!=cmd["comparison_id"]:
-                    raise HTTPException(status_code=409, detail="The CargoWise comparison changed or is stale. Refresh it before deciding.")
+                    raise HTTPException(status_code=409, detail="The saved CargoWise comparison changed or is missing. Refresh this page before deciding.")
                 if cmd["action"] in ("confirm_existing","reject_match"):
-                    exists=await conn.fetchval("SELECT EXISTS(SELECT 1 FROM cw_source_current WHERE cw_code=$1)",cmd["cw_code"])
+                    exists=await conn.fetchval("SELECT EXISTS(SELECT 1 FROM mdm_sap_cw_record_current WHERE cw_code=$1)",cmd["cw_code"])
                     if not exists:
-                        raise HTTPException(status_code=400, detail="Choose a valid CargoWise code from the current snapshot.")
+                        raise HTTPException(status_code=400, detail="Choose a valid CargoWise code from the saved SAP comparison.")
                 if cmd["action"]=="approve_new" and not cmd["confirmed"]:
                     raise HTTPException(status_code=400, detail="Confirm that you checked the CargoWise matches and search results.")
                 event=await app_state.func_mdm_decision_create(conn=conn, cmd=cmd, actor=actor, digest=digest)
@@ -506,7 +506,7 @@ async def func_mdm_write(*, app_state, pool, actor: dict, body: dict) -> dict:
                     raise HTTPException(status_code=400, detail="Enter the resulting CargoWise OrgCode.")
                 if cmd["action"]=="record_success" and cmd["source"]=="CW" and cmd["cw_code"]!=master["selected_cw_code"]:
                     raise HTTPException(status_code=400, detail="The result must use the approved surviving CargoWise code.")
-                if cmd["action"]=="record_success" and cmd["source"]=="SAP" and await conn.fetchval("SELECT EXISTS(SELECT 1 FROM cw_source_current WHERE cw_code=$1)",cmd["cw_code"]):
+                if cmd["action"]=="record_success" and cmd["source"]=="SAP" and await conn.fetchval("SELECT EXISTS(SELECT 1 FROM mdm_sap_cw_record_current WHERE cw_code=$1)",cmd["cw_code"]):
                     raise HTTPException(status_code=400, detail="That code already exists in the snapshot. Confirm an existing match instead.")
                 if cmd["action"]=="record_success" and cmd["source"]=="SAP":
                     await conn.execute("SELECT pg_advisory_xact_lock(hashtextextended($1,0))","mdm-result:"+cmd["cw_code"])
@@ -775,20 +775,21 @@ async def func_mdm_read_case_matches(*, app_state, pool, params: dict) -> dict:
     async with pool.acquire() as conn:
         async with conn.transaction():
             await func_mdm_source_lock(conn=conn, source="SAP")
-            await func_mdm_source_lock(conn=conn, source="CW")
             if not await conn.fetchval("SELECT pg_try_advisory_xact_lock_shared(hashtext('mdm_fresh_publication'))"):
                 raise HTTPException(status_code=503, detail='Data refresh in progress. Please try again shortly.')
             await conn.execute("SET LOCAL lock_timeout='1s'; SET LOCAL statement_timeout='25s'; SET LOCAL jit=off")
             case = await conn.fetchrow('SELECT golden_id,organization_name,cw_match_status,strong_cw_codes,possible_cw_codes,cw_comparison_is_current FROM sap_master_current WHERE golden_id=$1',case_id)
             if not case:
                 raise HTTPException(status_code=404, detail='This SAP case is no longer current. Refresh the list.')
+            compared_at = await conn.fetchval('SELECT completed_at FROM mdm_sap_cw_comparison_current')
             strong = list(case['strong_cw_codes'] or [])
             codes = sorted(set(strong) | set(case['possible_cw_codes'] or []))
             rows = await conn.fetch('''SELECT entity_id,cw_code,original_name,is_customer,is_vendor,is_active,
-                addresses,registrations,cw_role_flags FROM cw_source_current
+                addresses,registrations,cw_role_flags FROM mdm_sap_cw_record_current
                 WHERE cw_code=ANY($1::text[]) ORDER BY (cw_code=ANY($2::text[])) DESC,cw_code LIMIT 101''',codes,strong) if codes else []
             return {'case_id':case_id,'organization_name':case['organization_name'],
                 'status':case['cw_match_status'],'comparison_is_current':case['cw_comparison_is_current'],
+                'compared_at':compared_at.isoformat() if compared_at else None,
                 'codes':codes,'strong_codes':strong,'total_codes':len(codes),'truncated':len(rows)>100,
                 'records':[app_state.func_mdm_row_serialize(r) for r in rows[:100]]}
 

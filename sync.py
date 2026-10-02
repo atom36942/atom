@@ -27,6 +27,7 @@ sync_root_files = [
     "config.py",
     "main.py",
     "readme.md",
+    "ruff.toml",
     "sync.py",
 ]
 
