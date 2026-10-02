@@ -1,4 +1,5 @@
 """Authentication contracts using real password hashing and JWT validation."""
+import asyncio
 import unittest
 
 from argon2 import PasswordHasher
@@ -158,3 +159,18 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(Exception, "expired"):
             await func_otp_verify(client_postgres=self.pool, otp=123456, email="a@example.test", mobile=None, config_otp_expiry_sec=300)
         self.conn.fetchval.assert_not_awaited()
+
+    async def test_password_verify_does_not_block_the_event_loop(self):
+        hasher = PasswordHasher()    # production cost, about 30 ms per verify
+        self.conn.fetch.return_value = [self.user | {"password": hasher.hash("correct")}]
+        ticks, done = 0, asyncio.Event()
+        async def ticker():
+            nonlocal ticks
+            while not done.is_set():
+                await asyncio.sleep(0.001)
+                ticks += 1
+        task = asyncio.create_task(ticker())
+        await asyncio.gather(*(func_auth_login_password(client_postgres=self.pool, client_password_hasher=hasher, field="username", value="alice", password="correct", role=5) for _ in range(5)))
+        done.set()
+        await task
+        self.assertGreater(ticks, 20)    # blocking verifies would leave about one tick between each of the 5 hashes

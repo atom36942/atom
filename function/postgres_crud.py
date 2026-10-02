@@ -169,7 +169,7 @@ async def func_postgres_serialize(*, client_postgres: asyncpg.Pool | None, clien
         new_item = {}
         for col, val in item.items():
             if table == "users" and col == "password" and val:
-                val = client_password_hasher.hash(str(val))
+                val = await asyncio.to_thread(client_password_hasher.hash, str(val))
             if col not in schema:
                 if col == "id":
                     new_item[col] = val

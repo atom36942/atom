@@ -1,5 +1,6 @@
 """Atom auth functions."""
 
+import asyncio
 import re
 import secrets
 import time
@@ -30,7 +31,7 @@ async def func_auth_signup_password(*, client_postgres: asyncpg.Pool | None, cli
     """Create a new user with hashed password after enforcing signup and role safety checks."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     func_auth_check_signup_role(role=role, config_signup_allowed_roles=config_signup_allowed_roles)
-    hashed_password = client_password_hasher.hash(str(password))
+    hashed_password = await asyncio.to_thread(client_password_hasher.hash, str(password))
     async with client_postgres.acquire() as conn:
         records = await conn.fetch('INSERT INTO users (role, username, password, source) VALUES ($1, $2, $3, $4) RETURNING *;', role, username, hashed_password, source)
         return dict(records[0])
@@ -41,7 +42,7 @@ async def func_auth_login_password(*, client_postgres: asyncpg.Pool | None, clie
     async with client_postgres.acquire() as conn:
         user = await func_auth_user_login_fetch(conn=conn, field=field, value=value, role=role, is_missing_ok=True)
     try:
-        is_valid = bool(user and user.get("password")) and client_password_hasher.verify(user["password"], str(password))
+        is_valid = bool(user and user.get("password")) and await asyncio.to_thread(client_password_hasher.verify, user["password"], str(password))
     except Exception:
         is_valid = False
     if not is_valid: raise Exception("invalid credentials")

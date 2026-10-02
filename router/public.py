@@ -1,4 +1,5 @@
 # import
+import asyncio
 from fastapi import APIRouter, Request
 
 # router
@@ -96,4 +97,4 @@ async def func_api_public_blob_upload_presigned(*, request: Request):
 async def func_api_public_password_hash(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "password", "type": "str", "required": True}])
-    return {"status": 1, "message": app_state.client_password_hasher.hash(str(ob["password"]))}
+    return {"status": 1, "message": await asyncio.to_thread(app_state.client_password_hasher.hash, str(ob["password"]))}
