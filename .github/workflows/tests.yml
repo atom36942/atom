@@ -22,9 +22,9 @@ jobs:
     env:
       ATOM_TEST_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/postgres
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
           cache: pip
@@ -44,10 +44,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build image
         run: docker build -t atom-ci .
 
       - name: App imports inside the image
         run: docker run --rm atom-ci python -c "import main; print(len(main.app.routes), 'routes')"
+
+      - name: Container runs as non-root and serves /health
+        run: |
+          docker run -d --name atom-ci -p 8000:8000 -e config_token_secret_key=atom-ci-secret-key-at-least-32-bytes atom-ci
+          for i in $(seq 1 30); do curl -fs localhost:8000/health && break; sleep 1; done
+          curl -fs localhost:8000/health || { docker logs atom-ci; exit 1; }
+          test "$(docker exec atom-ci id -u)" != "0"
+          docker exec atom-ci test -d /app/tmp

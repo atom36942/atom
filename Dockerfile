@@ -25,6 +25,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy the rest of the application codebase into the container
 COPY . .
 
+# Run as a non-root user; it owns /app because startup resets ./tmp
+RUN useradd --create-home --uid 1000 atom && chown -R atom /app
+USER atom
+
 # Document the port that the application listens on
 EXPOSE 8000
 
