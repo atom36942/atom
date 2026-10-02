@@ -53,6 +53,8 @@ def func_check_runtime_config(*, app_state: State) -> None:
             raise ValueError("config_otp_retention_day must exceed the OTP expiry window")
     buffer_limit = getattr(app_state, "config_buffer_limit_default", None)
     if buffer_limit is not None and (isinstance(buffer_limit, bool) or not isinstance(buffer_limit, int) or buffer_limit < 10 or buffer_limit > 5000): raise Exception("config_buffer_limit_default must be an integer between 10 and 5000")
+    buffer_rows_max = getattr(app_state, "config_buffer_rows_max", None)
+    if buffer_rows_max is not None and (isinstance(buffer_rows_max, bool) or not isinstance(buffer_rows_max, int) or buffer_rows_max < 1000): raise Exception("config_buffer_rows_max must be an integer of at least 1000")
     return None
 
 def func_check_api_config(*, app: FastAPI) -> None:

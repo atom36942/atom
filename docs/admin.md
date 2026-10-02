@@ -46,12 +46,13 @@ Bulk import data from external systems into PostgreSQL:
 ### 4. Runtime Status (`GET /admin/runtime-status`)
 Shows failures that happen outside a request's response, which are otherwise only printed:
 ```json
-{"error_count": {"log_api_write": 0, "buffer_flush": 0, "background_task": 0, "cleanup": 0},
+{"error_count": {"log_api_write": 0, "buffer_flush": 0, "buffer_dropped": 0, "background_task": 0, "cleanup": 0},
  "buffer_rows_pending": {"create": 0, "log_api": 0},
  "background_tasks_running": 0}
 ```
 - `log_api_write`: API log rows that could not be written (printed on the 1st failure and every 100th, so an outage does not flood the log).
 - `buffer_flush`: failed buffer flushes. The rows stay in `buffer_rows_pending` and are retried on the next flush, so a growing number means the database has been unreachable for a while.
+- `buffer_dropped`: API-log rows dropped because the log buffer reached `config_buffer_rows_max` during an outage (user-data buffers reject new rows with 503 instead).
 - `background_task`: failed `?is_background=true` requests.
 - `cleanup`: failed OTP, API-log or in-memory cache cleanups.
 

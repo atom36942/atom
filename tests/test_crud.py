@@ -66,6 +66,29 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
         self.conn.fetch.assert_awaited_once()
         self.assertTrue(all(not values for values in buffer.values()))
 
+    async def test_full_buffer_rejects_user_rows_with_503_and_keeps_pending(self):
+        buffer = {}
+        for i in range(5):
+            await self.create(mode="buffer", cache_postgres_buffer=buffer, buffer_rows_max=5, obj_list=[{"name": f"row-{i}", "created_by_id": 7}])
+        with self.assertRaisesRegex(Exception, "buffer full, retry later") as raised:
+            await self.create(mode="buffer", cache_postgres_buffer=buffer, buffer_rows_max=5, obj_list=[{"name": "row-5", "created_by_id": 7}])
+        self.assertEqual(raised.exception.status_code, 503)
+        self.assertEqual([r["name"] for rows in buffer.values() for r in rows], [f"row-{i}" for i in range(5)])
+        self.conn.fetch.assert_not_awaited()
+
+    async def test_full_log_buffer_drops_the_oldest_rows_and_counts_them(self):
+        buffer, runtime_error_count = {}, {}
+        for i in range(8):
+            await self.create(mode="buffer", cache_postgres_buffer=buffer, buffer_rows_max=5, buffer_full_mode="drop_oldest", runtime_error_count=runtime_error_count, obj_list=[{"name": f"row-{i}", "created_by_id": 7}])
+        self.assertEqual([r["name"] for rows in buffer.values() for r in rows], [f"row-{i}" for i in range(3, 8)])
+        self.assertEqual(runtime_error_count, {"buffer_dropped": 3})
+
+    async def test_buffer_without_cap_keeps_every_row(self):
+        buffer = {}
+        for i in range(8):
+            await self.create(mode="buffer", cache_postgres_buffer=buffer, obj_list=[{"name": f"row-{i}", "created_by_id": 7}])
+        self.assertEqual(sum(len(rows) for rows in buffer.values()), 8)
+
     async def test_failed_buffer_flush_retains_pending_rows(self):
         buffer = {}
         await self.create(mode="buffer", cache_postgres_buffer=buffer)

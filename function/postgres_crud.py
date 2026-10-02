@@ -396,8 +396,13 @@ async def func_postgres_relation(*, client_postgres: asyncpg.Pool | None, client
         else: raise Exception(f"invalid operator: {op}")
     return obj_list
 
-async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_column_regex: dict, buffer_limit: int, mode: str, table: str, obj_list: list) -> Any:
-    """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization."""
+async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_column_regex: dict, buffer_limit: int, mode: str, table: str, obj_list: list, buffer_rows_max: int = None, buffer_full_mode: str = "reject", runtime_error_count: dict = None) -> Any:
+    """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization.
+
+    buffer_rows_max caps the rows pending in cache_postgres_buffer (None: no cap), so a long outage cannot exhaust memory.
+    When full, buffer_full_mode "reject" raises 503 (user data is never dropped silently) and "drop_oldest" drops the
+    oldest rows of that buffer key, counted as runtime_error_count["buffer_dropped"] (for best-effort logs).
+    """
     if not client_postgres and not client_postgres_conn: raise func_api_error(message="postgres client not initialized", status_code=500)
     limit_chunk = 5000
     async def insert_serialized(tbl, serialized_list, connection=None):
@@ -472,7 +477,14 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
         result = "buffered"
         async for serialized_list in serialize_batches():
             key = f"{table}|{','.join(sorted(serialized_list[0].keys()))}"
+            if buffer_full_mode not in ("reject", "drop_oldest"): raise Exception(f"invalid buffer_full_mode: {buffer_full_mode}")
+            excess = sum(len(rows) for rows in cache_postgres_buffer.values()) + len(serialized_list) - buffer_rows_max if buffer_rows_max is not None else 0
+            if excess > 0 and buffer_full_mode == "reject": raise func_api_error(message="buffer full, retry later", status_code=503)
             cache_postgres_buffer.setdefault(key, []).extend(serialized_list)
+            if excess > 0:
+                dropped = min(excess, len(cache_postgres_buffer[key]))
+                del cache_postgres_buffer[key][:dropped]
+                if runtime_error_count is not None: runtime_error_count["buffer_dropped"] = runtime_error_count.get("buffer_dropped", 0) + dropped
             if len(cache_postgres_buffer[key]) >= buffer_limit:
                 items = cache_postgres_buffer[key]
                 await insert_serialized(table, items)

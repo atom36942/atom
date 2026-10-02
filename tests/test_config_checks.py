@@ -2,7 +2,7 @@
 import unittest
 from types import SimpleNamespace
 
-from function import func_check_database_config, func_check_log_api_table
+from function import func_check_database_config, func_check_log_api_table, func_check_runtime_config
 
 URL = "postgresql://user@localhost:5432/db"
 
@@ -37,6 +37,15 @@ class DatabaseConfigCheckTests(unittest.TestCase):
         func_check_log_api_table(app_state=log_state({"log_api": {}}))
         func_check_log_api_table(app_state=log_state({}, config_is_read_only=True))    # no logging in read-only mode
         func_check_log_api_table(app_state=log_state({}, client_postgres_dict={}))    # no databases configured
+
+    def test_buffer_rows_max_must_be_an_integer_of_at_least_1000(self):
+        limits = {key: 100 for key in ("config_query_runner_read_limit", "config_query_runner_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec")}
+        runtime_state = lambda value: SimpleNamespace(**limits, config_otp_retention_day=None, config_log_api_retention_day=None, config_buffer_limit_default=100, config_buffer_rows_max=value)
+        for value in (1000, 100000):
+            func_check_runtime_config(app_state=runtime_state(value))
+        for value in (999, "100000", True):
+            with self.subTest(value=value), self.assertRaisesRegex(Exception, "config_buffer_rows_max must be an integer of at least 1000"):
+                func_check_runtime_config(app_state=runtime_state(value))
 
 
 if __name__ == "__main__":

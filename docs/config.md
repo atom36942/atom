@@ -140,6 +140,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_blob_expire_sec_upload` | Presigned upload URL lifetime in seconds (`3600`) |
 | `config_blob_expire_sec_preview` | Presigned preview URL lifetime in seconds (`360000`) |
 | `config_buffer_limit_default` | In-memory buffer size before flushing rows to Postgres (`100`) |
+| `config_buffer_rows_max` | Max rows pending in each in-memory buffer during an outage (`100000`, at least `1000`). When full, `mode=buffer` creates return `503 buffer full, retry later` and API-log rows drop the oldest (counted as `buffer_dropped` in `/admin/runtime-status`) |
 | `config_postgres_buffer_flush_auto_sec` | Timer interval in seconds to auto-flush write buffers (`60`) |
 | `config_inmemory_cache_cleanup_auto_sec` | Timer interval in seconds to purge expired cache entries (`300`) |
 | `config_batch_item_limit` | Maximum objects allowed per batch CRUD request (`1000`) |
