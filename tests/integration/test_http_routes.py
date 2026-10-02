@@ -3,9 +3,12 @@
 Same real-app boot as test_http.py (support.app_start), against a throwaway database.
 """
 import gc
+import io
 import json
+import time
 import unittest
 import warnings
+from contextlib import redirect_stdout
 
 from fastapi.routing import APIRoute
 
@@ -204,6 +207,38 @@ class HttpRouteTests(unittest.TestCase):
         self.assertEqual(unclosed_files(lambda: self.assertEqual(upload("test").status_code, 200)), [])
         self.assertEqual(unclosed_files(lambda: self.assertEqual(upload("missing_table").status_code, 400)), [])
         self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM test WHERE title = 'imported'"), [{"n": 1}])
+
+    # background mode
+    def wait_for_rows(self, sql):
+        deadline, rows = time.time() + 5, []
+        while time.time() < deadline and not rows:
+            rows = fetch(self.url, sql)
+            time.sleep(0.1)
+        return rows
+
+    def test_background_request_returns_202_and_runs_later(self):
+        response = self.client.post("/my/object-create", params={"table": "test", "is_background": "true"}, json={"title": "created in background"}, headers=self.auth(self.alice))
+        self.assertEqual(self.message(response, 202), "added in background")
+        self.assertEqual(self.wait_for_rows("SELECT created_by_id FROM test WHERE title = 'created in background'"), [{"created_by_id": self.alice_id}])
+
+    def test_background_upload_runs_and_closes_its_temp_files(self):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", ResourceWarning)
+            response = self.client.post("/admin/postgres-import", params={"is_background": "true"}, data={"mode": "create", "table": "test"}, files={"file": ("rows.csv", b"title\nimported in background\n", "text/csv")}, headers=self.auth(self.admin))
+            self.assertEqual(self.message(response, 202), "added in background")
+            self.assertEqual(len(self.wait_for_rows("SELECT id FROM test WHERE title = 'imported in background'")), 1)
+            gc.collect()
+        self.assertEqual([str(w.message) for w in caught if "Unclosed file" in str(w.message)], [])
+
+    def test_background_error_is_logged_with_its_type(self):
+        log = io.StringIO()
+        with redirect_stdout(log):
+            response = self.client.post("/my/object-create", params={"table": "no_such_table", "is_background": "true"}, json={"title": "x"}, headers=self.auth(self.alice))
+            self.assertEqual(response.status_code, 202, response.text)
+            deadline = time.time() + 5
+            while time.time() < deadline and "background api error" not in log.getvalue(): time.sleep(0.05)
+        self.assertIn("❌ background api error: Exception(\"table 'no_such_table' not found\")", log.getvalue())
+        self.assertEqual(self.message(self.client.get("/health")), "ok")
 
     # 7. small routes
     def test_root_health_info_ping_and_converter(self):

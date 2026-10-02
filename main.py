@@ -143,7 +143,7 @@ async def middleware(request, api_function):
         if not response:
             if app_state.func_query_bool_parse(query_params.get("is_background"), default=False):
                 response_type = "background_added"
-                response = await app_state.func_middleware_api_background(scope=request.scope, body_bytes=await request.body(), api_function=api_function)
+                response = await app_state.func_middleware_api_background(scope=request.scope, body_bytes=await request.body())
             else:
                 response = await api_function(request)
                 response = await app_state.func_middleware_api_cache(mode="set", path=path, query_params=query_params, response=response, cache=cache, client_redis=app_state.client_redis_api_response, user_id=user_id, cache_api_response=app_state.cache_api_response)

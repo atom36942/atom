@@ -35,7 +35,7 @@ When `queue` is provided:
 3. The API immediately responds with `{"status": 1, "message": {"queued": true, "queue": "redis"}}`.
 
 ### App-Process Background Tasks (`?is_background=true`):
-For lighter asynchronous tasks that don't need external queue broker infrastructure, append `?is_background=true` to any request. The middleware hands the job to FastAPI's background task executor and returns immediate acknowledgment (HTTP 202).
+For lighter asynchronous tasks that don't need external queue broker infrastructure, append `?is_background=true` to any request. The middleware returns `202 added in background` at once and runs the route in an in-process task (tracked, and cancelled at shutdown). Errors are printed as `❌ background api error: ...`; nothing is retried, so use a queue for work that must not be lost.
 
 ---
 

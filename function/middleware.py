@@ -15,6 +15,8 @@ import httpx
 import jwt.exceptions
 import redis.exceptions
 from fastapi import Request, Response, responses
+from fastapi.routing import APIRoute
+from starlette.routing import Match
 from redis.asyncio import Redis
 from .request import func_query_bool_parse, func_request_form_close
 
@@ -239,17 +241,23 @@ async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict,
     response.is_cache_set = True
     return response
 
-async def func_middleware_api_background(*, scope: dict, body_bytes: bytes, api_function: callable) -> Any:
-    """Delegate the request execution to a background task and return a standard acknowledgment."""
+async def func_middleware_api_background(*, scope: dict, body_bytes: bytes) -> Any:
+    """Run the route's endpoint in a background task and return 202 at once.
+
+    The endpoint is called directly: the middleware's call_next only works while the middleware is running, and this task outlives it.
+    The middleware runs before routing, so the route is matched here the way Starlette's router does.
+    """
+    route = next((r for r in scope["app"].router.routes if isinstance(r, APIRoute) and r.matches(scope)[0] == Match.FULL), None)
+    if route is None: raise func_api_error(message="is_background is not supported on this path", status_code=400)
     async def receive(): return {"type": "http.request", "body": body_bytes}
     async def task():
         request = Request(scope=scope, receive=receive)
         try:
-            await api_function(request)
+            await route.endpoint(request=request)
         except asyncio.CancelledError:
             raise
         except Exception as e:
-            print(f"❌ background api error: {e}")
+            print(f"❌ background api error: {e!r}")
         finally:
             await func_request_form_close(request=request)
     task_obj = asyncio.create_task(task())
@@ -258,7 +266,7 @@ async def func_middleware_api_background(*, scope: dict, body_bytes: bytes, api_
     if task_set is not None:
         task_set.add(task_obj)
         task_obj.add_done_callback(task_set.discard)
-    resp = responses.JSONResponse(status_code=200, content={"status": 1, "message": "added in background"})
+    resp = responses.JSONResponse(status_code=202, content={"status": 1, "message": "added in background"})
     return resp
 
 def func_middleware_client_ip(*, request: Request) -> Any:

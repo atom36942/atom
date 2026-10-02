@@ -91,6 +91,8 @@ venv\Scripts\uvicorn main:app --reload
 
 Server runs on **http://localhost:8000** (`/` built-in API console, `/health`, `/info`, `/openapi.json`).
 
+Start Atom from its own folder; `.env`, `static/` and `tmp/` are resolved from the folder it is started in.
+
 *Or run with Docker (Cross-Platform):*
 ```bash
 docker build -t atom .
