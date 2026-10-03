@@ -51,7 +51,6 @@ Atom gives you authentication, generic CRUD over any table, caching, rate-limiti
 
 - **Python 3.14+**
 - **Git**
-- Optional database drivers for MSSQL support (**unixODBC** on Linux/macOS, **Microsoft ODBC Driver for SQL Server** on Windows).
 
 ## Installation
 
