@@ -54,24 +54,25 @@ Atom gives you authentication, generic CRUD over any table, caching, rate-limiti
 
 ## Installation
 
-**Linux / macOS:**
+
+To clone into a folder with a new name, add the folder name after the repository URL:
 
 ```bash
-git clone https://github.com/atom36942/atom.git
-cd atom
-python3 -m venv venv
-venv/bin/pip install --upgrade pip
-venv/bin/pip install -r requirements.txt
-venv/bin/uvicorn main:app --reload
+git clone https://github.com/atom36942/atom.git new-name
+cd new-name
 ```
 
-**macOS + Homebrew (pinned Python):**
+Replace `new-name` with your preferred local folder name. Then continue with the setup commands for your operating system below, skipping their `git clone` and `cd atom` lines. This changes only the local folder name.
+
+**Linux / macOS:**
+
+Check that `python3 --version` reports Python 3.14 or newer. `rm -rf venv` removes an existing virtual environment before recreating it.
 
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom
 rm -rf venv
-/opt/homebrew/bin/python3.14 -m venv venv   # adjust version to your Homebrew Python
+python3 -m venv venv
 venv/bin/pip install --upgrade pip
 venv/bin/pip install -r requirements.txt
 venv/bin/uvicorn main:app --reload
