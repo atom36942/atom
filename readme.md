@@ -120,10 +120,10 @@ Before deploying to production, ensure you override default system secrets in `.
 Keep application-specific settings and logic in your own extension files:
 
 - **`config_extend.py`** — Create this optional file in the project root to override configuration, define tables, and configure API routes. Its `config_*` values take precedence over `config.py`.
-- **`router/<your_name>.py`** — Add an endpoint in a router file with a module-level `APIRouter`.
-- **`function/<your_name>.py`** — Add custom business logic with unique `func_*` names; Atom loads these modules automatically.
+- **`router/<name>.py`** — Add an endpoint in a router file with a module-level `APIRouter`.
+- **`function/<name>.py`** — Add custom business logic with unique `func_*` names; Atom loads these modules automatically.
 
-Choose any filename; the `custom_` prefix is optional. Avoid filenames used by synced framework files, which sync replaces, and keep `func_*` names unique. Use filenames that do not start with `_` so Atom loads them automatically. Sync does not create or modify `config_extend.py`.
+Avoid filenames used by synced framework files, which sync replaces, and keep `func_*` names unique. Use filenames that do not start with `_` so Atom loads them automatically. Sync does not create or modify `config_extend.py`.
 
 Follow the complete flow: **1. add `config_extend.py` → 2. add a router file in `router/` → 3. add a function file in `function/`**. Restart Atom and call the endpoint to verify it.
 
