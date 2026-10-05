@@ -86,10 +86,7 @@ class SyncTests(unittest.TestCase):
         for name in ("function/custom_tracked.py", "function/custom_untracked.py", "router/custom_tracked.py", "router/custom_untracked.py", ".env"):
             self.assertEqual(self.snapshot()[name], before[name])
         self.assertEqual((self.root / "requirements.txt").read_text(), "fastapi==0.9\nmy-package==2.0\norjson==3.0\n")
-        extension = (self.root / "config_extend.py").read_text()
-        self.assertIn("config_api: dict = {'custom': True}", extension)
-        self.assertEqual(extension.count("config_api"), 1)
-        self.assertIn("config_postgres = {}", extension)
+        self.assertEqual(self.snapshot()["config_extend.py"], before["config_extend.py"])
         state = json.loads((self.root / sync.STATE_PATH).read_text())
         self.assertNotIn("function/custom_tracked.py", state["files"])
         self.assertNotIn("router/custom_tracked.py", state["files"])
@@ -97,6 +94,18 @@ class SyncTests(unittest.TestCase):
         self.assertIn("router/index.py", state["files"])
         self.assertIn("function/auth.py", state["files"])
         self.assertEqual({p.name for p in (self.root / ".atom-sync").iterdir()}, {"state.json"})
+
+    def test_sync_does_not_create_config_extension(self):
+        (self.root / "config_extend.py").unlink()
+        self.run_sync()
+        self.assertFalse((self.root / "config_extend.py").exists())
+
+    def test_sync_preserves_empty_or_invalid_config_extension(self):
+        for content in ("", "config_postgres = None\n", "not valid python: !!!\n"):
+            with self.subTest(content=content):
+                self.write(self.root, "config_extend.py", content)
+                self.run_sync()
+                self.assertEqual((self.root / "config_extend.py").read_text(), content)
 
     def test_fetch_failure_does_not_use_stale_fetch_head(self):
         self.run_sync()

@@ -117,12 +117,26 @@ Before deploying to production, ensure you override default system secrets in `.
 
 ## Extensibility
 
-Atom is designed to be extended without forking core framework files. Add custom routes, custom database schemas, and custom helper logic in drop-in extension files:
+Keep application-specific settings and logic in your own extension files:
 
-- **`config_extend.py`** — Custom configurations, table schema definitions, and API route rules.
-- **`function/custom_<your>.py`** — Automatically loaded custom business logic with unique `func_*` names.
+- **`config_extend.py`** — Create this optional file in the project root to override configuration, define tables, and configure API routes. Its `config_*` values take precedence over `config.py`.
+- **`function/custom_<your>.py`** — Add custom business logic with unique `func_*` names; Atom loads these modules automatically.
 
-This decouples your application code from the framework core, enabling seamless upstream updates via `python sync.py`.
+Use distinctive filenames and avoid modifying Atom-owned files, which sync replaces. Sync does not create or modify `config_extend.py`.
+
+See the [extension guide](docs/extend.md) for configuration examples, custom functions, routes, and tables.
+
+## Sync
+
+Update Atom from the project root:
+
+```bash
+python3 sync.py
+```
+
+Sync fetches Atom's upstream `main`, installs the latest updater, and updates framework files. Developer-only files and `.env` are preserved; missing dependencies are appended to `requirements.txt`. Save your work in Git before syncing, then restart the app and reinstall dependencies if requirements changed.
+
+See [sync details and recovery](docs/extend.md#updating-the-framework) for update behavior and recovery instructions.
 
 ## Built-in Web Interfaces
 

@@ -125,7 +125,7 @@ New standalone processes go in `script/` and are run as separate processes (they
 When new Atom versions ship, pull the latest core files with `sync.py`:
 
 ```bash
-venv/bin/python sync.py
+python3 sync.py
 ```
 
 The updater first fetches upstream `main`, pins that commit, validates its
@@ -150,8 +150,8 @@ If the new process cannot be launched, the old updater is restored from memory.
   created or replaced, including newly added Atom modules. Developer-only files in
   both folders and `.env` are preserved. A path also present in upstream belongs to Atom.
 - Existing requirement entries are preserved; missing packages are appended.
-  Existing configuration overrides are preserved; missing `config_postgres` and
-  `config_api` assignments are seeded in `config_extend.py`.
+- `config_extend.py` is developer-managed: sync does not create, read, or modify it.
+  Create it manually when you need configuration overrides.
 - `.atom-sync/state.json` records the last synced Atom files. On later updates,
   unchanged Atom files removed upstream are also removed locally. If such a file
   has local edits, sync stops so you can move those edits to a custom module.

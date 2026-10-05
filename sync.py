@@ -6,7 +6,6 @@ and rolled back from memory on write failure. No backup files are saved.
 The Git index is never changed. See docs/extend.md for recovery instructions.
 """
 
-import ast
 from contextlib import contextmanager
 import hashlib
 import json
@@ -58,7 +57,7 @@ sync_exclude = [
 
 files_to_sync = [*sync_root_files, *sync_folder_files, *sync_folders]
 
-# requirements.txt and config_extend.py are merged separately, not overwritten.
+# requirements.txt is merged separately; config_extend.py stays developer-managed.
 STATE_PATH = ".atom-sync/state.json"
 LOCK_TOKEN_ENV = "ATOM_SYNC_LOCK_TOKEN"
 
@@ -112,26 +111,6 @@ def merge_requirements(local, upstream):
     return local + ("\n" if local and not local.endswith("\n") else "") + "\n".join(missing) + "\n"
 
 
-def merge_config_extension(local, config):
-    """Seed missing config maps without executing code or replacing overrides."""
-    tree = ast.parse(local)
-    assigned = set()
-    for node in tree.body:
-        if isinstance(node, ast.Assign):
-            assigned.update(n.id for target in node.targets for n in ast.walk(target) if isinstance(n, ast.Name))
-        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            assigned.add(node.target.id)
-        elif isinstance(node, (ast.Import, ast.ImportFrom)):
-            assigned.update(alias.asname or alias.name for alias in node.names)
-    additions = []
-    for node in ast.parse(config).body:
-        if isinstance(node, (ast.Assign, ast.AnnAssign)):
-            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            if any(isinstance(target, ast.Name) and target.id in ("config_postgres", "config_api") and target.id not in assigned for target in targets):
-                additions.append(ast.get_source_segment(config, node))
-    return local + ("\n\n" + "\n\n".join(additions) + "\n" if additions else "")
-
-
 def prepare_update(root, revision):
     entries = {}
     for record in git(root, "ls-tree", "-r", "-z", revision).split(b"\0"):
@@ -181,10 +160,6 @@ def prepare_update(root, revision):
     merged = merge_requirements(local_requirements, plan["requirements.txt"][0].decode())
     plan["requirements.txt"] = (merged.encode(), requirements.stat().st_mode & 0o777 if requirements.exists() else 0o644)
 
-    extension = safe_path(root, "config_extend.py")
-    local_extension = extension.read_text() if extension.exists() else "# config_extend.py\n"
-    merged = merge_config_extension(local_extension, plan["config.py"][0].decode())
-    plan["config_extend.py"] = (merged.encode(), extension.stat().st_mode & 0o777 if extension.exists() else 0o644)
     state = {"version": 1, "revision": revision, "files": owned}
     plan[STATE_PATH] = ((json.dumps(state, indent=2, sort_keys=True) + "\n").encode(), 0o600)
     return plan
