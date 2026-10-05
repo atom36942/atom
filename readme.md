@@ -104,16 +104,12 @@ All configuration defaults live in `config.py`. Override settings without editin
 config_postgres_url_master=postgresql://postgres:postgres@localhost:5432/postgres
 config_root_user_password="your-strong-root-password"
 config_token_secret_key="your-secret-key-at-least-32-chars"
-config_login_password="your-strong-login-password"
-config_cors_allow_origins=["http://localhost:3000", "https://app.example.com"]
-config_signup_allowed_roles=[5]
+config_signup_allowed_roles=[2]
 ```
 
 Boolean environment settings use case-insensitive `true` or `false`. The loader also accepts `1`/`0`, `yes`/`no`, and `on`/`off`, but `true`/`false` is the project convention.
 
-### ⚠️ Secrets to override in production
-
-Before deploying to production, ensure you override default system secrets in `.env` (see the [production hardening checklist](docs/security.md#5-production-hardening-checklist)).
+**Production secrets:** Before deploying, override default system secrets in `.env`. See the [production hardening checklist](docs/security.md#5-production-hardening-checklist).
 
 ## Extend
 

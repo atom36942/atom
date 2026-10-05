@@ -9,7 +9,7 @@ All auth endpoints live in [`router/auth.py`](../router/auth.py) and are **publi
 ## 1. Users, Roles & Multi-Tenancy
 
 Users live in the `users` database table. Core authorization attributes include:
-- **`role`** (`smallint`): The user's permission tier, validated against `config_allowed_users_role` (default `[1, 2, 3, 4, 5]`).
+- **`role`** (`smallint`): The user's permission tier. Login validates a supplied role against `config_login_allowed_roles` (default: roles `1` through `20`); public signup uses `config_signup_allowed_roles`.
   - **Role `1` is the root/superadmin role** and cannot be registered via public signup routes.
 - **Identity columns**: `username`, `email`, `mobile`, `google_login_id`, `id_ext`.
 
@@ -71,6 +71,24 @@ Uniqueness constraints are declared under `config_postgres["table"]["users"]`:
 ---
 
 ## 3. Signup & Login Methods
+
+### Signup and login role settings
+
+Configure these settings together in `config.py` or your configuration overrides:
+
+```python
+config_signup_allowed_roles = [5]
+config_login_allowed_roles = [1, 2, 5]
+```
+
+In this example, new users can register only with role `5`. Login requests can supply roles `1`, `2`, or `5`.
+
+- `config_signup_allowed_roles` defaults to `[]`, which disables public registration. It applies to username/password signup and to new users created through email OTP, mobile OTP, or Google login. Existing users can still log in when registration is disabled. Role `1` is always rejected for public registration, even if listed.
+- `config_login_allowed_roles` defaults to roles `1` through `20`. It validates the supplied `role` in username, email, mobile, and external-ID password login, plus email OTP, mobile OTP, and Google login. OTP and Google login require `role`; password login allows it to be omitted. When omitted, password login does not apply this list and requires the identity to resolve to a single user.
+
+For new users created through OTP or Google login, the requested role must pass both lists. These settings do not define role permissions or apply to the static `/auth/login-password` endpoint.
+
+`config_login_allowed_roles` replaces the former `config_allowed_users_role` name. Update existing configuration overrides to use the new name.
 
 | Endpoint | Credentials | Notes |
 | :--- | :--- | :--- |

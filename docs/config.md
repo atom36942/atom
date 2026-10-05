@@ -116,7 +116,8 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_root_html_path` | Path to static HTML file served at `/` (`static/api.html`) |
 | `config_is_user_delete` | Enables single-user hard deletion through `/my/object-delete` and `/admin/object-delete`; `False` blocks both without blocking other tables |
 | `config_is_postgres_schema_init` | Boolean toggle for database schema initialization on startup |
-| `config_signup_allowed_roles` | List of allowed roles for public user signup (`[]` disables signup) |
+| `config_signup_allowed_roles` | Roles allowed for public signup, including new users created by OTP/Google login (default: `[]` disables signup; role `1` is always rejected). See [role settings](auth.md#signup-and-login-role-settings). |
+| `config_login_allowed_roles` | Allowed values for the supplied login `role` parameter (default: roles `1` through `20`; optional for password login) |
 | `config_is_otp_require_users_update` | Boolean requiring OTP verification when updating user contact details |
 | `config_is_read_only` | Boolean system-wide read-only mode toggle |
 | `config_is_prod` | Boolean production-mode toggle (`True` disables debug and protects endpoints) |
@@ -149,7 +150,6 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_sql_read_relation_fetch_limit_max` | Maximum rows fetched per joined relation (`100`) |
 | `config_query_runner_read_limit` | Maximum row cap for admin SQL query runner (`5000`) |
 | `config_query_runner_export_limit` | Maximum row cap for admin CSV query exports (`50000`) |
-| `config_allowed_users_role` | Valid role numbers accepted at signup/login (`[1, 2, 3, 4, 5]`) |
 | `config_redis_cache_ttl_sec` | TTL for Redis-cached role/user status lookups (`3600`) |
 | `config_users_delete_retention_day` | Retention grace period in days before soft-deleted users are purged (`30`) |
 
