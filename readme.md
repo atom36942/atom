@@ -54,23 +54,15 @@ Atom gives you authentication, generic CRUD over any table, caching, rate-limiti
 
 ## Installation
 
-
-To clone into a folder with a new name, add the folder name after the repository URL:
-
-```bash
-git clone https://github.com/atom36942/atom.git new-name
-cd new-name
-```
-
-Replace `new-name` with your preferred local folder name. Then continue with the setup commands for your operating system below, skipping their `git clone` and `cd atom` lines. This changes only the local folder name.
+Replace `<new-name>` in the commands below with your preferred folder name (without the angle brackets).
 
 **Linux / macOS:**
 
 Check that `python3 --version` reports Python 3.14 or newer. `rm -rf venv` removes an existing virtual environment before recreating it.
 
 ```bash
-git clone https://github.com/atom36942/atom.git
-cd atom
+git clone https://github.com/atom36942/atom.git <new-name>
+cd <new-name>
 rm -rf venv
 python3 -m venv venv
 venv/bin/pip install --upgrade pip
@@ -81,8 +73,8 @@ venv/bin/uvicorn main:app --reload
 **Windows (Command Prompt / PowerShell):**
 
 ```cmd
-git clone https://github.com/atom36942/atom.git
-cd atom
+git clone https://github.com/atom36942/atom.git <new-name>
+cd <new-name>
 python -m venv venv
 venv\Scripts\pip install --upgrade pip
 venv\Scripts\pip install -r requirements.txt
@@ -159,10 +151,7 @@ atom/
 Run regression tests with `venv/bin/python -m unittest discover -s tests -v`.
 See [test coverage and setup](tests/README.md).
 
-<details open>
-<summary><strong>Full Documentation Index</strong></summary>
-
-<br>
+### Full Documentation Index
 
 📖 **Getting Started & Architecture**
 
@@ -188,14 +177,6 @@ See [test coverage and setup](tests/README.md).
 - [admin.md](docs/admin.md) — Admin toolkit, data imports & built-in web UI (API Master & PgWeb).
 - [extend.md](docs/extend.md) — Custom config, functions, routes, tables & workers; upstream sync and recovery.
 - [faq.md](docs/faq.md) — Developer guidelines & frequently asked questions.
-
-</details>
-
-## Contributing
-
-Contributions are welcome! Extend functionality via `config_extend.py` and custom modules in `function/` so downstream projects remain updateable via `sync.py`.
-
-Check out open issues and pull requests on GitHub.
 
 ## License
 
