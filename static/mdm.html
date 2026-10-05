@@ -2241,7 +2241,8 @@
               title="Table view"
               ><svg viewBox="0 0 24 24" aria-hidden="true">
                 <rect x="3" y="4" width="18" height="16" rx="2" />
-                <path d="M3 10h18M3 15h18M9 4v16" /></svg></button><button
+                <path d="M3 10h18M3 15h18M9 4v16" /></svg></button
+            ><button
               type="button"
               data-case-layout="cards"
               aria-pressed="false"
@@ -2251,8 +2252,7 @@
                 <rect x="3" y="3" width="7" height="7" rx="1" />
                 <rect x="14" y="3" width="7" height="7" rx="1" />
                 <rect x="3" y="14" width="7" height="7" rx="1" />
-                <rect x="14" y="14" width="7" height="7" rx="1" /></svg></button
-            ></div
+                <rect x="14" y="14" width="7" height="7" rx="1" /></svg></button></div
           ><div id="topPagination" class="top-pagination" role="group" aria-label="Pages"
             ><button
               id="prevTop"
@@ -2379,7 +2379,8 @@
         listController: null,
       };
       const COUNT_CACHE_MS = 5 * 60 * 1000;
-      const COUNT_CACHE_VERSION = 5;
+      const COUNT_CACHE_VERSION = 6;
+      const CW_MIN_ACTIVE_RECORDS = 2;
 
       // Session and profile storage
       function saveSession() {
@@ -2503,7 +2504,13 @@
       }
       async function read(kind, params = {}, options = {}) {
         return api(
-          "/mdm/read?" + new URLSearchParams({ source: S.source, ...params, kind }),
+          "/mdm/read?" +
+            new URLSearchParams({
+              source: S.source,
+              min_active_records: CW_MIN_ACTIVE_RECORDS,
+              ...params,
+              kind,
+            }),
           options,
         );
       }
@@ -2698,7 +2705,11 @@
       }
       async function overview(force = false, source = S.source) {
         const token = S.token,
-          cached = S.counts[source]?.version === COUNT_CACHE_VERSION ? S.counts[source] : null;
+          cached =
+            S.counts[source]?.version === COUNT_CACHE_VERSION &&
+            (source !== "CW" || S.counts[source]?.min_active_records === CW_MIN_ACTIVE_RECORDS)
+              ? S.counts[source]
+              : null;
         if (source === S.source && cached?.data?.review) showCounts(cached.data);
         if (
           !force &&
@@ -2711,7 +2722,12 @@
         const request = (async () => {
           const d = await read("overview", { source });
           if (S.token !== token) return;
-          S.counts[source] = { version: COUNT_CACHE_VERSION, updated_at: Date.now(), data: d };
+          S.counts[source] = {
+            version: COUNT_CACHE_VERSION,
+            min_active_records: CW_MIN_ACTIVE_RECORDS,
+            updated_at: Date.now(),
+            data: d,
+          };
           saveSession();
           if (source === S.source) showCounts(d);
         })();
@@ -3136,10 +3152,12 @@
       // Company cards
       function companyCodeBar(r, i) {
         const code = r.cw_code || r.source_code || "";
-        const status = r.is_active === true ? "Active" : r.is_active === false ? "Inactive" : "Unknown";
-        const statusBadge = S.source === "CW"
-          ? `<span class="badge${r.is_active === false ? " warn" : ""}" aria-label="Status: ${status}">${status}</span>`
-          : "";
+        const status =
+          r.is_active === true ? "Active" : r.is_active === false ? "Inactive" : "Unknown";
+        const statusBadge =
+          S.source === "CW"
+            ? `<span class="badge${r.is_active === false ? " warn" : ""}" aria-label="Status: ${status}">${status}</span>`
+            : "";
         return `<div class="company-code-bar"><label for="recordCode${i}">${S.source === "CW" ? "CW code" : "SAP code"}</label><input id="recordCode${i}" readonly value="${esc(code)}" placeholder="Not available" aria-label="${S.source === "CW" ? "CargoWise" : "SAP"} code ${esc(code)}"><button type="button" class="copy-code-button" data-copy-code="${i}" aria-label="Copy code" title="Copy code" ${code ? "" : "disabled"}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h4"/></svg></button><button type="button" class="company-info-button" data-company-info="${i}" aria-label="Company details for ${esc(code)}" title="View company details"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/></svg></button>${statusBadge}</div>`;
       }
       function recordCard(r, i) {
@@ -4008,7 +4026,14 @@
             try {
               const blob = await api(
                   "/mdm/export?" +
-                    new URLSearchParams({ kind: "cases", source, status, q, country }),
+                    new URLSearchParams({
+                      kind: "cases",
+                      source,
+                      status,
+                      q,
+                      country,
+                      min_active_records: CW_MIN_ACTIVE_RECORDS,
+                    }),
                   { raw: true },
                 ),
                 url = URL.createObjectURL(blob),

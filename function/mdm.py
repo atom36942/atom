@@ -102,10 +102,29 @@ def func_mdm_query_validate(*, params: dict) -> dict:
         if value not in ("true", "1", "yes", "on", "ok", "false", "0", "no", "off"):
             raise HTTPException(status_code=400, detail="Invalid pending filter.")
         pending = value in ("true", "1", "yes", "on", "ok")
+    minimum = params.get("min_active_records", 2)
+    if type(minimum) not in (int, str) or not str(minimum).isascii() or not str(minimum).isdigit() or not 0 <= int(minimum) <= 2147483647:
+        raise HTTPException(status_code=400, detail="Invalid minimum active records filter.")
+    minimum = int(minimum)
     country = str(params.get("country", "")).strip().upper()
     if country and not re.fullmatch(r"[A-Z]{2}|UNKNOWN", country):
         raise HTTPException(status_code=400, detail="Invalid country filter.")
-    return {"country": country, "source": source, "prefix": source.lower(), "page": page, "query": query, "search": search, "pending": pending}
+    return {"country": country, "source": source, "prefix": source.lower(), "page": page, "query": query, "search": search, "pending": pending, "min_active_records": minimum}
+
+def func_mdm_pending_activity_filter(*, source: str, alias: str, min_active_records: int) -> str:
+    """Filter CW pending cases by active-member count; zero includes all cases."""
+    if source != "CW" or min_active_records == 0:
+        return "TRUE"
+    if alias not in ("m", "c") or type(min_active_records) is not int or not 0 <= min_active_records <= 2147483647:
+        raise ValueError("Invalid internal activity filter")
+    return f"""(
+        SELECT count(*) FROM cw_review_case_member activity_member
+        JOIN mdm_match_input activity_input
+          ON activity_input.run_id=activity_member.input_run_id
+          AND activity_input.entity_id=activity_member.entity_id
+        WHERE activity_member.run_id={alias}.run_id AND activity_member.case_id={alias}.case_id
+          AND activity_input.prepared_data->>'is_active'='true'
+    ) >= {min_active_records}"""
 
 async def func_mdm_read(*, app_state, pool, kind: str, params: dict) -> dict:
     """Dispatch an allowed read through Atom's registered functions."""
@@ -124,6 +143,8 @@ async def func_mdm_read_overview(*, app_state, pool, params: dict) -> dict:
     """Read overview with a supplied pool; callable without the API or dispatcher."""
     options = app_state.func_mdm_query_validate(params=params)
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
+    activity_filter = func_mdm_pending_activity_filter(source=source, alias="m", min_active_records=options["min_active_records"])
+    country_activity_filter = func_mdm_pending_activity_filter(source=source, alias="c", min_active_records=options["min_active_records"])
     async with pool.acquire() as conn:
         async with conn.transaction():
             await func_mdm_source_lock(conn=conn, source=source)
@@ -143,23 +164,23 @@ async def func_mdm_read_overview(*, app_state, pool, params: dict) -> dict:
                     JOIN mdm_match_input i ON i.run_id=m.input_run_id AND i.entity_id=m.entity_id
                     WHERE m.run_id=(SELECT run_id FROM current_run) AND NOT i.eligible) name_exceptions,
                   (SELECT count(*) FROM {prefix}_review_case m
-                    WHERE m.run_id=(SELECT run_id FROM current_run) AND m.source_record_count>1
+                    WHERE m.run_id=(SELECT run_id FROM current_run) AND m.source_record_count>1 AND {activity_filter}
                     AND NOT EXISTS(SELECT 1 FROM reviewed v WHERE v.case_id=m.case_id)) pending_business_cases
                 """,source)
             review = app_state.func_mdm_row_serialize(queue)
             countries = []
             if source == "CW":
-                countries = await conn.fetch("""
+                countries = await conn.fetch(f"""
                     WITH cases AS (
                       SELECT c.* FROM cw_review_case c
                       WHERE c.run_id=(SELECT run_id FROM mdm_runs_current WHERE source='CW')
-                      AND c.source_record_count>1
+                      AND c.source_record_count>1 AND {country_activity_filter}
                       AND NOT EXISTS (SELECT 1 FROM cw_review_case_member m JOIN cw_approved_member a USING(run_id,entity_id)
                         WHERE m.run_id=c.run_id AND m.case_id=c.case_id)
                     ) SELECT country,count(*) cases FROM cases c
                     CROSS JOIN LATERAL (
                       SELECT DISTINCT coalesce(nullif(upper(a->>'country'),''),'UNKNOWN') country
-                      FROM jsonb_array_elements(CASE WHEN jsonb_array_length(c.addresses)>0 THEN c.addresses ELSE '[{}]'::jsonb END) a
+                      FROM jsonb_array_elements(CASE WHEN jsonb_array_length(c.addresses)>0 THEN c.addresses ELSE '[{{}}]'::jsonb END) a
                     ) countries GROUP BY country ORDER BY country
                 """)
             return {"source": source, "review": review, "countries": [dict(r) for r in countries], "comparison": app_state.func_mdm_row_serialize(await conn.fetchrow("SELECT comparison_id,sap_run_id,cw_run_id,comparison_is_current,completed_at FROM mdm_sap_cw_comparison_current")) if source == "SAP" else None}
@@ -168,6 +189,7 @@ async def func_mdm_read_groups(*, app_state, pool, params: dict) -> dict:
     """Read groups with a supplied pool; callable without the API or dispatcher."""
     options = app_state.func_mdm_query_validate(params=params)
     source, prefix, page, query, search = (options[key] for key in ("source", "prefix", "page", "query", "search"))
+    activity_filter = func_mdm_pending_activity_filter(source=source, alias="m", min_active_records=options["min_active_records"] if options["pending"] else 0)
     async with pool.acquire() as conn:
         async with conn.transaction():
             await func_mdm_source_lock(conn=conn, source=source)
@@ -196,6 +218,7 @@ async def func_mdm_read_groups(*, app_state, pool, params: dict) -> dict:
                     EXISTS(SELECT 1 FROM reviewed r WHERE r.case_id=m.case_id) reviewed
                   FROM {prefix}_review_case m WHERE m.run_id=$1 AND ($2='all' OR m.source_record_count>1)
                   AND (m.organization_name ILIKE $3 OR m.case_id::text=$4 OR EXISTS(SELECT 1 FROM unnest(m.cw_codes) c WHERE c ILIKE $3))
+                  AND {activity_filter}
                   AND ($5::boolean=false OR NOT EXISTS(SELECT 1 FROM reviewed r WHERE r.case_id=m.case_id))
                   AND ($7::text='' OR ($7='UNKNOWN' AND (jsonb_array_length(m.addresses)=0 OR EXISTS(SELECT 1 FROM jsonb_array_elements(m.addresses) a WHERE nullif(a->>'country','') IS NULL)))
                     OR EXISTS(SELECT 1 FROM jsonb_array_elements(m.addresses) a WHERE upper(a->>'country')=$7))
@@ -611,6 +634,7 @@ async def func_mdm_export_cases(*, app_state, pool, params: dict):
     status = params.get('status', 'pending')
     if status not in ('pending', 'approved', 'all'):
         raise HTTPException(status_code=400, detail='Invalid export status.')
+    activity_filter = func_mdm_pending_activity_filter(source=source, alias="c", min_active_records=options["min_active_records"] if status == "pending" else 0)
     async with pool.acquire() as conn:
         async with conn.transaction():
             await func_mdm_source_lock(conn=conn, source=source)
@@ -631,6 +655,7 @@ async def func_mdm_export_cases(*, app_state, pool, params: dict):
                   AND (c.source_record_count>1 OR c.case_id IN (SELECT case_id FROM reviewed))
                   AND (c.organization_name ILIKE $2 OR c.case_id::text=$3
                     OR EXISTS(SELECT 1 FROM unnest(c.cw_codes) code WHERE code ILIKE $2))
+                  AND {activity_filter}
                   AND ($4='all' OR ($4='approved')=(c.case_id IN (SELECT case_id FROM reviewed)))
                   AND ($5::text='' OR ($5='UNKNOWN' AND (jsonb_array_length(c.addresses)=0 OR EXISTS(SELECT 1 FROM jsonb_array_elements(c.addresses) a WHERE nullif(a->>'country','') IS NULL)))
                     OR EXISTS(SELECT 1 FROM jsonb_array_elements(c.addresses) a WHERE upper(a->>'country')=$5))
