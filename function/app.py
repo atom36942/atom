@@ -108,7 +108,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
             tag = path.split("/")[1] if len(path.split("/")) > 1 and path.split("/")[1] else "system"
             op = {"tags": [tag], "parameters": [], "responses": {"200": {"description": "Successful Response"}}}
             api_cfg = config_api.get(path, {})
-            is_token_required = api_cfg.get("is_token", False) or "user_check_role" in api_cfg
+            is_token_required = api_cfg.get("is_token", False) is True
             op["x-auth-required"] = is_token_required
             op["x-roles-allowed"] = api_cfg.get("user_check_role", None)
             op["x-check-deactivated"] = "user_check_deactivated" in api_cfg
