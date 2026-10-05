@@ -45,7 +45,7 @@ Atom gives you authentication, generic CRUD over any table, caching, rate-limiti
 - 🛠️ **Admin & Dev toolkit** — Built-in SQL runner, AI SQL generation, data import, and live schema introspection.
 - 📦 **Background workers** — Queue consumers and durable retries with Postgres or dedicated message brokers.
 - 🧾 **Self-documenting** — Generated OpenAPI spec + built-in interactive API console at `/`.
-- 🔧 **Extend without forking** — Add custom routes and logic in `config_extend.py` and custom modules in `function/`.
+- 🔧 **Easy to customize** — Add custom routes and logic in `config_extend.py` and custom modules in `function/`.
 
 ## Requirements
 
