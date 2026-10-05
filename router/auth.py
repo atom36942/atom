@@ -6,6 +6,8 @@ from fastapi import APIRouter, Request
 from google.auth.transport import requests
 from google.oauth2 import id_token
 
+from function.auth import func_token_check_secret_key
+
 # router
 router = APIRouter()
 
@@ -13,6 +15,7 @@ router = APIRouter()
 @router.post("/auth/signup-username-password")
 async def func_api_auth_signup_username_password(*, request: Request):
     app_state = request.app.state
+    func_token_check_secret_key(config_token_secret_key=app_state.config_token_secret_key)
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "username", "type": "str", "required": True}, {"name": "password", "type": "str", "required": True}, {"name": "role", "type": "int", "required": True, "allowed": app_state.config_signup_allowed_roles}, {"name": "source", "type": "int"}])
     if ob.get("username"): ob["username"] = ob["username"].strip()
     await app_state.func_regex_check(config_column_regex=app_state.config_column_regex, obj_list=[ob])
@@ -23,6 +26,7 @@ async def func_api_auth_signup_username_password(*, request: Request):
 @router.post("/auth/login-username-password")
 async def func_api_auth_login_username_password(*, request: Request):
     app_state = request.app.state
+    func_token_check_secret_key(config_token_secret_key=app_state.config_token_secret_key)
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "username", "type": "str", "required": True}, {"name": "password", "type": "str", "required": True}, {"name": "role", "type": "int", "allowed": app_state.config_login_allowed_roles}])
     if ob.get("username"): ob["username"] = ob["username"].strip()
     await app_state.func_regex_check(config_column_regex=app_state.config_column_regex, obj_list=[ob])
@@ -33,6 +37,7 @@ async def func_api_auth_login_username_password(*, request: Request):
 @router.post("/auth/login-email-password")
 async def func_api_auth_login_email_password(*, request: Request):
     app_state = request.app.state
+    func_token_check_secret_key(config_token_secret_key=app_state.config_token_secret_key)
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "email", "type": "str", "required": True}, {"name": "password", "type": "str", "required": True}, {"name": "role", "type": "int", "allowed": app_state.config_login_allowed_roles}])
     if ob.get("email"): ob["email"] = ob["email"].strip()
     await app_state.func_regex_check(config_column_regex=app_state.config_column_regex, obj_list=[ob])
@@ -43,6 +48,7 @@ async def func_api_auth_login_email_password(*, request: Request):
 @router.post("/auth/login-mobile-password")
 async def func_api_auth_login_mobile_password(*, request: Request):
     app_state = request.app.state
+    func_token_check_secret_key(config_token_secret_key=app_state.config_token_secret_key)
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "mobile", "type": "str", "required": True}, {"name": "password", "type": "str", "required": True}, {"name": "role", "type": "int", "allowed": app_state.config_login_allowed_roles}])
     if ob.get("mobile"): ob["mobile"] = ob["mobile"].strip()
     await app_state.func_regex_check(config_column_regex=app_state.config_column_regex, obj_list=[ob])
@@ -53,6 +59,7 @@ async def func_api_auth_login_mobile_password(*, request: Request):
 @router.post("/auth/login-id-ext-password")
 async def func_api_auth_login_id_ext_password(*, request: Request):
     app_state = request.app.state
+    func_token_check_secret_key(config_token_secret_key=app_state.config_token_secret_key)
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "id_ext", "type": "str", "required": True}, {"name": "password", "type": "str", "required": True}, {"name": "role", "type": "int", "allowed": app_state.config_login_allowed_roles}])
     if ob.get("id_ext"): ob["id_ext"] = ob["id_ext"].strip()
     await app_state.func_regex_check(config_column_regex=app_state.config_column_regex, obj_list=[ob])
@@ -63,6 +70,7 @@ async def func_api_auth_login_id_ext_password(*, request: Request):
 @router.post("/auth/login-email-otp")
 async def func_api_auth_login_email_otp(*, request: Request):
     app_state = request.app.state
+    func_token_check_secret_key(config_token_secret_key=app_state.config_token_secret_key)
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "email", "type": "str", "required": True}, {"name": "otp", "type": "int", "required": True}, {"name": "role", "type": "int", "required": True, "allowed": app_state.config_login_allowed_roles}, {"name": "source", "type": "int"}])
     if ob.get("email"): ob["email"] = ob["email"].strip()
     await app_state.func_regex_check(config_column_regex=app_state.config_column_regex, obj_list=[ob])
@@ -74,6 +82,7 @@ async def func_api_auth_login_email_otp(*, request: Request):
 @router.post("/auth/login-mobile-otp")
 async def func_api_auth_login_mobile_otp(*, request: Request):
     app_state = request.app.state
+    func_token_check_secret_key(config_token_secret_key=app_state.config_token_secret_key)
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "mobile", "type": "str", "required": True}, {"name": "otp", "type": "int", "required": True}, {"name": "role", "type": "int", "required": True, "allowed": app_state.config_login_allowed_roles}, {"name": "source", "type": "int"}])
     if ob.get("mobile"): ob["mobile"] = ob["mobile"].strip()
     await app_state.func_regex_check(config_column_regex=app_state.config_column_regex, obj_list=[ob])
@@ -85,6 +94,7 @@ async def func_api_auth_login_mobile_otp(*, request: Request):
 @router.post("/auth/login-google")
 async def func_api_auth_login_google(*, request: Request):
     app_state = request.app.state
+    func_token_check_secret_key(config_token_secret_key=app_state.config_token_secret_key)
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "google_token", "type": "str", "required": True}, {"name": "role", "type": "int", "required": True, "allowed": app_state.config_login_allowed_roles}, {"name": "source", "type": "int"}])
     id_info = await asyncio.to_thread(id_token.verify_oauth2_token, id_token=ob["google_token"], request=requests.Request(), audience=app_state.config_google_login_client_id)
     if not id_info: raise Exception("invalid google token")

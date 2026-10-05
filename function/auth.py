@@ -68,10 +68,14 @@ async def func_auth_user_find_or_create(*, client_postgres: asyncpg.Pool | None,
         created = await conn.fetch(sql, *list(insert_dict.values()))
         return dict(created[0])
 
+def func_token_check_secret_key(*, config_token_secret_key: str) -> None:
+    """Reject missing JWT configuration before authentication side effects."""
+    if config_token_secret_key in (None, ""): raise func_api_error(message="token secret key missing", status_code=500)
+
 async def func_token_encode(*, user: dict, config_token_secret_key: str, config_access_token_expires_sec: int, config_refresh_token_expires_sec: int, config_column_token_encode: list) -> dict:
     """Generate access and refresh JWT tokens for a user object."""
     if user is None: return None
-    if config_token_secret_key in (None, ""): raise func_api_error(message="token secret key missing", status_code=500)
+    func_token_check_secret_key(config_token_secret_key=config_token_secret_key)
     token_secret_key = str(config_token_secret_key)
     payload_dict = {k: user.get(k) for k in config_column_token_encode} if config_column_token_encode else dict(user) if isinstance(user, dict) else user
     serialized_payload = orjson.dumps(payload_dict, default=str).decode("utf-8")
@@ -87,7 +91,7 @@ async def func_token_decode(*, headers: dict, config_token_secret_key: str) -> d
     auth_header = headers.get("Authorization")
     token = auth_header.split("Bearer ", 1)[1] if auth_header and auth_header.startswith("Bearer ") else None
     if not token: return {}
-    if config_token_secret_key in (None, ""): raise func_api_error(message="token secret key missing", status_code=500)
+    func_token_check_secret_key(config_token_secret_key=config_token_secret_key)
     decoded_payload = jwt.decode(token, str(config_token_secret_key), algorithms="HS256")
     user = orjson.loads(decoded_payload["data"])
     if isinstance(user, dict): user["_token_type"] = decoded_payload.get("type")

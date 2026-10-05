@@ -3,6 +3,8 @@ import asyncio
 import statistics
 import time
 import unittest
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 from argon2 import PasswordHasher
 import jwt
@@ -14,6 +16,7 @@ from function import (
     func_middleware_check_token,
 )
 from tests.support import database
+from router.auth import router
 
 
 class AuthTests(unittest.IsolatedAsyncioTestCase):
@@ -115,6 +118,28 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
         for policy in ({"is_token": True}, {"user_check_role": [5]}, {"user_check_deleted": ["token"]}):
             with self.subTest(policy=policy), self.assertRaisesRegex(Exception, "authorization token missing"):
                 await func_middleware_check_token(user_dict={}, url_path="/my/profile", **policy)
+
+    async def test_missing_secret_stops_auth_routes_before_side_effects(self):
+        for route in router.routes:
+            if route.path == "/auth/login-password":
+                continue
+            for secret in (None, ""):
+                with self.subTest(path=route.path, secret=secret):
+                    state = SimpleNamespace(
+                        config_token_secret_key=secret,
+                        func_request_param_read=AsyncMock(),
+                        func_auth_signup_password=AsyncMock(),
+                        func_auth_user_find_or_create=AsyncMock(),
+                        func_auth_login_password=AsyncMock(),
+                        func_otp_verify=AsyncMock(),
+                        func_token_encode=AsyncMock())
+                    request = SimpleNamespace(app=SimpleNamespace(state=state))
+                    with self.assertRaisesRegex(Exception, "token secret key missing") as caught:
+                        await route.endpoint(request=request)
+                    self.assertEqual(caught.exception.status_code, 500)
+                    for value in vars(state).values():
+                        if isinstance(value, AsyncMock):
+                            value.assert_not_awaited()
 
     async def test_missing_secret_fails_token_creation(self):
         with self.assertRaisesRegex(Exception, "token secret key missing"):
