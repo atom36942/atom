@@ -133,13 +133,29 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
                         func_auth_login_password=AsyncMock(),
                         func_otp_verify=AsyncMock(),
                         func_token_encode=AsyncMock())
-                    request = SimpleNamespace(app=SimpleNamespace(state=state))
+                    request = SimpleNamespace(app=SimpleNamespace(state=state), state=SimpleNamespace(client_postgres=self.pool))
                     with self.assertRaisesRegex(Exception, "token secret key missing") as caught:
                         await route.endpoint(request=request)
                     self.assertEqual(caught.exception.status_code, 500)
                     for value in vars(state).values():
                         if isinstance(value, AsyncMock):
                             value.assert_not_awaited()
+
+    async def test_missing_postgres_is_reported_before_missing_token_secret(self):
+        for route in router.routes:
+            if route.path == "/auth/login-password":
+                continue
+            for secret in (None, "", self.secret):
+                with self.subTest(path=route.path, secret=secret):
+                    read = AsyncMock()
+                    request = SimpleNamespace(
+                        app=SimpleNamespace(state=SimpleNamespace(
+                            config_token_secret_key=secret, func_request_param_read=read)),
+                        state=SimpleNamespace(client_postgres=None))
+                    with self.assertRaisesRegex(Exception, "postgres client not initialized") as caught:
+                        await route.endpoint(request=request)
+                    self.assertEqual(caught.exception.status_code, 500)
+                    read.assert_not_awaited()
 
     async def test_missing_secret_fails_token_creation(self):
         with self.assertRaisesRegex(Exception, "token secret key missing"):

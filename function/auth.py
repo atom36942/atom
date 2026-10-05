@@ -31,6 +31,7 @@ async def func_auth_signup_password(*, client_postgres: asyncpg.Pool | None, cli
     """Create a new user with hashed password after enforcing signup and role safety checks."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     func_auth_check_signup_role(role=role, config_signup_allowed_roles=config_signup_allowed_roles)
+    if not client_password_hasher: raise func_api_error(message="password hasher not initialized", status_code=500)
     hashed_password = await asyncio.to_thread(client_password_hasher.hash, str(password))
     async with client_postgres.acquire() as conn:
         records = await conn.fetch('INSERT INTO users (role, username, password, source) VALUES ($1, $2, $3, $4) RETURNING *;', role, username, hashed_password, source)
@@ -39,6 +40,7 @@ async def func_auth_signup_password(*, client_postgres: asyncpg.Pool | None, cli
 async def func_auth_login_password(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, field: str, value: Any, password: str, role: Any) -> dict:
     """Fetch user by identifier field and verify password hash; unknown users and wrong passwords get the same error."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
+    if not client_password_hasher: raise func_api_error(message="password hasher not initialized", status_code=500)
     async with client_postgres.acquire() as conn:
         user = await func_auth_user_login_fetch(conn=conn, field=field, value=value, role=role, is_missing_ok=True)
     try:
@@ -67,6 +69,11 @@ async def func_auth_user_find_or_create(*, client_postgres: asyncpg.Pool | None,
         sql = f'INSERT INTO users ({", ".join(f"{c}" for c in cols)}) VALUES ({", ".join(placeholders)}) RETURNING *;'
         created = await conn.fetch(sql, *list(insert_dict.values()))
         return dict(created[0])
+
+def func_auth_check_config(*, client_postgres: asyncpg.Pool | None, config_token_secret_key: str) -> None:
+    """Check authentication prerequisites in order before any side effects."""
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
+    func_token_check_secret_key(config_token_secret_key=config_token_secret_key)
 
 def func_token_check_secret_key(*, config_token_secret_key: str) -> None:
     """Reject missing JWT configuration before authentication side effects."""
@@ -136,6 +143,7 @@ async def func_otp_verify(*, client_postgres: asyncpg.Pool | None, otp: int, ema
 
 async def func_user_read_single(*, client_postgres: asyncpg.Pool | None, user_id: int) -> dict:
     """Read a single user by ID from PostgreSQL, raises Exception if not found."""
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     async with client_postgres.acquire() as conn:
         record = await conn.fetchrow("SELECT * FROM users WHERE id=$1;", user_id)
     if not record: raise Exception("user not found")

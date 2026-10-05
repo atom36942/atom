@@ -346,6 +346,8 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
         error_msg, status_code = f"external api error: {exception.response.status_code}", 502
     elif isinstance(exception, httpx.RequestError):
         error_msg, status_code = "external service request failed", 502
+    elif isinstance(exception, (AttributeError, TypeError, KeyError)):
+        error_msg, status_code = "internal server error", 500
     else:
         error_msg = str(exception)
     error_msg = _redact_error_message(error_msg)

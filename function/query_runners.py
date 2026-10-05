@@ -13,9 +13,9 @@ from .postgres_metadata import func_postgres_schema_ai_view, func_postgres_schem
 async def func_postgres_query_generator_ai(*, client_postgres: asyncpg.Pool | None, client_gemini: Any, client_openai: Any, cache_postgres_schema: dict, config_query_runner_read_limit: int, ai: str, question: str) -> dict:
     """Generates and validates safe PostgreSQL SELECT queries using LLM (Gemini/OpenAI) based on the database schema."""
     from google.genai import types
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if ai == "gemini" and not client_gemini: raise func_api_error(message="Gemini client not initialized", status_code=500)
     if ai == "openai" and not client_openai: raise func_api_error(message="OpenAI client not initialized", status_code=500)
-    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     question = str(question or "").strip()
     default_limit = 10
     max_limit = config_query_runner_read_limit
