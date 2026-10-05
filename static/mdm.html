@@ -1156,6 +1156,9 @@
         background: transparent;
         color: var(--green);
       }
+      .company-code-bar > .badge {
+        flex-shrink: 0;
+      }
       .company-code-bar button:hover {
         background: var(--light);
       }
@@ -3133,7 +3136,11 @@
       // Company cards
       function companyCodeBar(r, i) {
         const code = r.cw_code || r.source_code || "";
-        return `<div class="company-code-bar"><label for="recordCode${i}">${S.source === "CW" ? "CW code" : "SAP code"}</label><input id="recordCode${i}" readonly value="${esc(code)}" placeholder="Not available" aria-label="${S.source === "CW" ? "CargoWise" : "SAP"} code ${esc(code)}"><button type="button" class="copy-code-button" data-copy-code="${i}" aria-label="Copy code" title="Copy code" ${code ? "" : "disabled"}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h4"/></svg></button><button type="button" class="company-info-button" data-company-info="${i}" aria-label="Company details for ${esc(code)}" title="View company details"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/></svg></button></div>`;
+        const status = r.is_active === true ? "Active" : r.is_active === false ? "Inactive" : "Unknown";
+        const statusBadge = S.source === "CW"
+          ? `<span class="badge${r.is_active === false ? " warn" : ""}" aria-label="Status: ${status}">${status}</span>`
+          : "";
+        return `<div class="company-code-bar"><label for="recordCode${i}">${S.source === "CW" ? "CW code" : "SAP code"}</label><input id="recordCode${i}" readonly value="${esc(code)}" placeholder="Not available" aria-label="${S.source === "CW" ? "CargoWise" : "SAP"} code ${esc(code)}"><button type="button" class="copy-code-button" data-copy-code="${i}" aria-label="Copy code" title="Copy code" ${code ? "" : "disabled"}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h4"/></svg></button><button type="button" class="company-info-button" data-company-info="${i}" aria-label="Company details for ${esc(code)}" title="View company details"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/></svg></button>${statusBadge}</div>`;
       }
       function recordCard(r, i) {
         const activeRoles = Object.entries(r.cw_role_flags || {})
