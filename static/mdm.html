@@ -2231,9 +2231,17 @@
           ><div id="caseViewToggle" class="case-view-toggle" role="group" aria-label="Case display"
             ><button
               type="button"
-              data-case-layout="cards"
+              data-case-layout="table"
               class="active"
               aria-pressed="true"
+              aria-label="Table view"
+              title="Table view"
+              ><svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <path d="M3 10h18M3 15h18M9 4v16" /></svg></button><button
+              type="button"
+              data-case-layout="cards"
+              aria-pressed="false"
               aria-label="Card view"
               title="Card view"
               ><svg viewBox="0 0 24 24" aria-hidden="true">
@@ -2241,15 +2249,7 @@
                 <rect x="14" y="3" width="7" height="7" rx="1" />
                 <rect x="3" y="14" width="7" height="7" rx="1" />
                 <rect x="14" y="14" width="7" height="7" rx="1" /></svg></button
-            ><button
-              type="button"
-              data-case-layout="table"
-              aria-pressed="false"
-              aria-label="Table view"
-              title="Table view"
-              ><svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="3" y="4" width="18" height="16" rx="2" />
-                <path d="M3 10h18M3 15h18M9 4v16" /></svg></button></div
+            ></div
           ><div id="topPagination" class="top-pagination" role="group" aria-label="Pages"
             ><button
               id="prevTop"
@@ -2361,7 +2361,7 @@
       const S = {
         source: "CW",
         view: "groups",
-        caseLayout: "cards",
+        caseLayout: "table",
         page: 1,
         rows: [],
         token: null,
