@@ -115,16 +115,19 @@ Boolean environment settings use case-insensitive `true` or `false`. The loader 
 
 Before deploying to production, ensure you override default system secrets in `.env` (see the [production hardening checklist](docs/security.md#5-production-hardening-checklist)).
 
-## Extensibility
+## Extend
 
 Keep application-specific settings and logic in your own extension files:
 
 - **`config_extend.py`** — Create this optional file in the project root to override configuration, define tables, and configure API routes. Its `config_*` values take precedence over `config.py`.
+- **`router/custom_<your>.py`** — Add an endpoint in a router file with a module-level `APIRouter`.
 - **`function/custom_<your>.py`** — Add custom business logic with unique `func_*` names; Atom loads these modules automatically.
 
 Use distinctive filenames and avoid modifying Atom-owned files, which sync replaces. Sync does not create or modify `config_extend.py`.
 
-See the [extension guide](docs/extend.md) for configuration examples, custom functions, routes, and tables.
+Follow the complete flow: **1. add `config_extend.py` → 2. add a router file in `router/` → 3. add a function file in `function/`**. Restart Atom and call the endpoint to verify it.
+
+See the [extension guide](docs/extend.md) for a complete working example, configuration, tables, and workers.
 
 ## Sync
 
@@ -136,7 +139,7 @@ python3 sync.py
 
 Sync fetches Atom's upstream `main`, installs the latest updater, and updates framework files. Developer-only files and `.env` are preserved; missing dependencies are appended to `requirements.txt`. Save your work in Git before syncing, then restart the app and reinstall dependencies if requirements changed.
 
-See [sync details and recovery](docs/extend.md#updating-the-framework) for update behavior and recovery instructions.
+See [sync details and recovery](docs/sync.md) for update behavior and recovery instructions.
 
 ## Built-in Web Interfaces
 
@@ -189,7 +192,8 @@ See [test coverage and setup](tests/README.md).
 🧱 **Administration & Customization**
 
 - [admin.md](docs/admin.md) — Admin toolkit, data imports & built-in web UI (API Master & PgWeb).
-- [extend.md](docs/extend.md) — Custom config, functions, routes, tables & workers; upstream sync and recovery.
+- [extend.md](docs/extend.md) — Complete config → router → function flow, tables & workers.
+- [sync.md](docs/sync.md) — Framework updates, preserved files & recovery.
 - [faq.md](docs/faq.md) — Developer guidelines & frequently asked questions.
 
 ## License

@@ -29,7 +29,7 @@ async def func_lifespan(app: FastAPI):
         cache_postgres_buffer_log_api = {}
         cache_extend = {}
         app.state.func_check(app=app)
-        app.state.func_structure_init()
+        app.state.func_structure_init(is_tmp_reset=app.state.config_is_tmp_reset)
         # client init
         client_password_hasher = app.state.func_client_password_hasher()
         client_http = app.state.func_client_http()

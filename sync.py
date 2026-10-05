@@ -3,7 +3,7 @@
 Run from the project root with ``python sync.py``. The latest upstream updater
 is installed and run first. Project updates are then prepared before writing
 and rolled back from memory on write failure. No backup files are saved.
-The Git index is never changed. See docs/extend.md for recovery instructions.
+The Git index is never changed. See docs/sync.md for recovery instructions.
 """
 
 from contextlib import contextmanager
@@ -18,8 +18,8 @@ import sys
 import tempfile
 
 REPO_URL = "https://github.com/atom36942/atom.git"
-# Root files, replaced from upstream.
-sync_root_files = [
+# 1. Files to sync: individual files replaced from upstream.
+sync_files = [
     ".dockerignore",
     ".gitignore",
     "Dockerfile",
@@ -28,10 +28,12 @@ sync_root_files = [
     "readme.md",
     "ruff.toml",
     "sync.py",
-]
-
-# Selected files inside folders; other files in these folders stay local-only.
-sync_folder_files = [
+    "router/index.py",
+    "router/auth.py",
+    "router/my.py",
+    "router/public.py",
+    "router/private.py",
+    "router/admin.py",
     "static/api.html",
     "static/pgweb.html",
     "script/consumer_postgres_create.py",
@@ -39,23 +41,20 @@ sync_folder_files = [
     "script/worker_users_delete.py",
 ]
 
-# Whole folders: every upstream file is synced, new upstream files arrive
+# 2. Folders to sync: every upstream file is synced, new upstream files arrive
 # automatically, and files removed upstream are retired locally.
 sync_folders = [
     "docs",
     "function",
-    "router",
 ]
 
-# Paths inside sync_folders that are not Atom's: never written or retired.
+# 3. Exclude: these files or folders are never written or retired.
 sync_exclude = [
     "function/mdm.py",
     "function/wisetech.py",
-    "router/mdm.py",
-    "router/wisetech.py",
 ]
 
-files_to_sync = [*sync_root_files, *sync_folder_files, *sync_folders]
+files_to_sync = [*sync_files, *sync_folders]
 
 # requirements.txt is merged separately; config_extend.py stays developer-managed.
 STATE_PATH = ".atom-sync/state.json"

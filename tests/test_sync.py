@@ -161,17 +161,18 @@ class SyncTests(unittest.TestCase):
         self.assertTrue((self.root / "function/login.py").exists())
         self.assertTrue((self.root / "function/custom_tracked.py").exists())
 
-    def test_new_and_renamed_upstream_routers_sync_without_listing_individual_files(self):
-        self.run_sync()
-        self.git(self.upstream, "mv", "router/index.py", "router/home.py")
-        self.write(self.upstream, "router/reports.py", "# newly shipped router\n")
+    def test_only_listed_upstream_routers_are_synced(self):
+        self.write(self.upstream, "router/reports.py", "# unlisted upstream router\n")
+        self.write(self.upstream, "router/custom_tracked.py", "# upstream collision\n")
         self.commit(self.upstream)
         self.run_sync()
-        self.assertFalse((self.root / "router/index.py").exists())
-        self.assertEqual((self.root / "router/home.py").read_text(), "# upstream router\n")
-        self.assertEqual((self.root / "router/reports.py").read_text(), "# newly shipped router\n")
+        self.assertFalse((self.root / "router/reports.py").exists())
         self.assertEqual((self.root / "router/custom_tracked.py").read_text(), "# developer router\n")
-        self.assertEqual((self.root / "router/custom_untracked.py").read_text(), "# untracked developer router\n")
+        for name in ("index", "auth", "my", "public", "private", "admin"):
+            self.assertEqual(
+                (self.root / f"router/{name}.py").read_bytes(),
+                (self.upstream / f"router/{name}.py").read_bytes(),
+            )
 
     def test_late_failure_restores_removed_files_and_previous_state(self):
         self.run_sync()
@@ -235,21 +236,21 @@ class SyncTests(unittest.TestCase):
         self.assertFalse(set(sync.sync_exclude) & set(state["files"]))
 
     def test_newly_excluded_file_is_kept_and_forgotten_even_when_removed_upstream(self):
-        self.write(self.upstream, "router/mdm.py", "# poc v1\n")
+        self.write(self.upstream, "function/mdm.py", "# poc v1\n")
         self.commit(self.upstream)
         with patch.object(sync, "sync_exclude", []):
             self.run_sync()
-        self.assertEqual((self.root / "router/mdm.py").read_text(), "# poc v1\n")
-        self.git(self.upstream, "rm", "-q", "router/mdm.py")
+        self.assertEqual((self.root / "function/mdm.py").read_text(), "# poc v1\n")
+        self.git(self.upstream, "rm", "-q", "function/mdm.py")
         self.commit(self.upstream)
         self.run_sync()
-        self.assertEqual((self.root / "router/mdm.py").read_text(), "# poc v1\n")
-        self.assertNotIn("router/mdm.py", json.loads((self.root / sync.STATE_PATH).read_text())["files"])
+        self.assertEqual((self.root / "function/mdm.py").read_text(), "# poc v1\n")
+        self.assertNotIn("function/mdm.py", json.loads((self.root / sync.STATE_PATH).read_text())["files"])
 
-    def test_removed_folder_selection_preserves_its_files(self):
+    def test_removed_router_selection_preserves_its_files(self):
         self.run_sync()
         self.write(self.root, "router/index.py", "# developer edits\n")
-        with patch.object(sync, "files_to_sync", [p for p in sync.files_to_sync if p != "router"]):
+        with patch.object(sync, "files_to_sync", [p for p in sync.files_to_sync if not p.startswith("router/")]):
             self.run_sync()
         self.assertEqual((self.root / "router/index.py").read_text(), "# developer edits\n")
         state = json.loads((self.root / sync.STATE_PATH).read_text())

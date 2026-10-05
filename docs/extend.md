@@ -10,7 +10,7 @@ Core files — `main.py`, upstream Atom files in `function/`, `config.py`, and t
 |-----------|---------|---------------------|
 | `config_extend.py` | Override / add any config value | ✅ yes |
 | `function/custom_<your>.py` | Add functions with unique names | ✅ yes, if the path is absent from upstream Atom |
-| `router/<your>.py` | Add new API endpoints | ✅ yes, if the path is absent from upstream Atom |
+| `router/<your>.py` | Add new API endpoints | ✅ yes, unless it is one of the six synced core routers |
 | `.env` | Secrets & connection strings | ✅ yes |
 
 Configuration extensions are loaded after the defaults in `main.py`:
@@ -22,68 +22,35 @@ config_values = {key: value for module in config_modules for key, value in vars(
 
 `config_extend.py` is read after `config.py`, so its `config_*` values override the defaults. Only `config_*` names are taken from it: functions defined there are ignored, so they cannot replace core functions. It is kept out of the sync list. Custom function files are discovered by the `function` package.
 
-## 1. Override or add config
+## Complete flow: config → router → function
 
-Create `config_extend.py` in the project root. Any name you define replaces the core value; new names are simply added.
+For a custom endpoint, create these three files in order. This example adds `GET /custom/hello`, which returns a greeting. Finish all three steps before restarting Atom.
+
+## 1. Add `config_extend.py`
+
+Create this optional file in the project root. Merge the default route configuration so existing endpoints keep their policies:
 
 ```python
 # config_extend.py
+from config import config_api as base_config_api
 
-# turn features on/off
-config_signup_allowed_roles = [5]
-config_is_prod = True
-
-# enable an integration just by setting its config
-config_openai_key = "sk-..."
-
-# extend a config map — import the base and merge
-from config import config_api
+config_custom_greeting = "Hello"
 config_api = {
-    **config_api,
+    **base_config_api,
     "/custom/hello": {"id": 200, "is_token": False},
 }
 ```
 
-> Registering a route in `config_api` is what the middleware uses to enforce auth, roles, rate limits, and caching for that path. A route with no entry defaults to open/no-token.
+Choose an unused API ID. The `config_api` entry defines the endpoint's auth, roles, rate limits, and caching; it does not create the endpoint. This example is public. Set `is_token` to `True` for a route that requires a token, and configure role checks as needed. A route without a policy entry defaults to no token requirement.
 
-## 2. Override or add logic
+Only `config_*` names from this file are loaded. They override defaults from `config.py` and are available through `request.app.state`. Use `.env` for secrets and connection strings; see the [configuration guide](config.md).
 
-To add functions, create a Python file directly inside the shared `function/` folder:
+## 2. Add the router file
 
-```python
-# function/custom_payments.py
-async def func_payment_create(*, amount: int):
-    return {"amount": amount}
-```
-
-After restart, `from function import func_payment_create` and
-`request.app.state.func_payment_create` are available automatically. No edits to
-`main.py` or `function/__init__.py` are needed.
-
-The loader imports modules alphabetically and exports the `func_*` functions
-defined in each module. Files beginning with `_` and nested packages are not
-auto-loaded. Imported helpers are not exported a second time. Duplicate function
-names defined in different modules stop startup with an error naming both files.
-Use distinctive filenames such as `custom_payments.py`: sync replaces any path
-also present in upstream Atom, including `function/__init__.py`, but leaves
-developer-only files untouched.
-
-Inside a function module, import shared helpers from their defining module
-(for example, `from .request import func_query_bool_parse`), rather than from
-`function`, whose exports are still being assembled during loading. Keep module
-dependencies acyclic. Only `func_*` names are exported by the `function` package and mounted onto `app.state`.
-
-Keep custom functions in uniquely named files in `function/`. Function names must
-also be unique across modules; duplicate definitions are not an override mechanism.
-
-Everything set on `app.state` (all `func_*` and `config_*` names) is available to routers as `request.app.state.func_...` — so your new functions are reachable from endpoints just like core ones.
-
-## 3. Add new API endpoints
-
-Drop a `.py` file into `router/`. It's auto-discovered and mounted by `func_app_router_add` — the only requirement is a module-level `router = APIRouter()`.
+Create a uniquely named Python file directly in `router/`, with a module-level `router = APIRouter()`:
 
 ```python
-# router/custom.py
+# router/custom_greeting.py
 from fastapi import APIRouter, Request
 
 router = APIRouter()
@@ -91,11 +58,55 @@ router = APIRouter()
 @router.get("/custom/hello")
 async def func_api_custom_hello(*, request: Request):
     app_state = request.app.state
-    res = await app_state.func_my_helper(user_id=1)
-    return {"status": 1, "message": res}
+    name = request.query_params.get("name", "World")
+    message = await app_state.func_custom_greeting(
+        name=name,
+        greeting=app_state.config_custom_greeting,
+    )
+    return {"status": 1, "message": message}
 ```
 
-Load order is controlled by `router_order` in `main.py` (files not listed load after the known tiers, alphabetically). Add the path to `config_api` (step 1) if it needs auth, rate-limiting, or caching.
+Use the same path in the router and `config_api`. Keep request handling in the router and business logic in `function/`. Atom discovers router files automatically; no edits to `main.py` are needed. Files beginning with `_` or `.` are skipped. Custom routers load alphabetically after the built-in tiers defined by `router_order` in `main.py`.
+
+## 3. Add the function file
+
+Create a uniquely named Python file directly in `function/`:
+
+```python
+# function/custom_greeting.py
+async def func_custom_greeting(*, name: str, greeting: str):
+    return f"{greeting}, {name}!"
+```
+
+Atom automatically exports functions defined in these modules whose names start with `func_`, then registers them on `app.state`. The router calls `request.app.state.func_custom_greeting`; no edits to `function/__init__.py` are needed.
+
+The loader imports modules alphabetically. Files beginning with `_` and nested packages are not auto-loaded. Imported helpers are not exported a second time. Duplicate function names defined in different modules stop startup with an error naming both files, so use unique `func_*` names.
+
+Inside a function module, import shared helpers from their defining module (for example, `from .request import func_query_bool_parse`), rather than from `function`, whose exports are still being assembled during loading. Keep module dependencies acyclic.
+
+### Restart and verify
+
+Restart Atom after creating the three files:
+
+```bash
+venv/bin/uvicorn main:app --reload
+```
+
+Call the endpoint:
+
+```bash
+curl "http://localhost:8000/custom/hello?name=Atom"
+```
+
+Expected response:
+
+```json
+{"status": 1, "message": "Hello, Atom!"}
+```
+
+At runtime, Atom loads configuration and functions onto `app.state`, mounts the router, applies the route policy to the request, and runs the router handler. The handler reads the request, calls the business function, and returns the response. You can also inspect the endpoint in the API console at `/`.
+
+Use distinctive filenames: sync replaces selected upstream function files and the six core routers (`index.py`, `auth.py`, `my.py`, `public.py`, `private.py`, `admin.py`), while preserving custom router files and developer-only function files. See the [sync guide](sync.md) for update behavior and recovery.
 
 ## 4. Add or change database tables
 
@@ -120,63 +131,6 @@ Column specs support `is_primary`, `is_mandatory`, `default`, `unique`, `check`,
 
 New standalone processes go in `script/` and are run as separate processes (they're not part of the API). Use them for queue consumers or batch jobs; they read the same `config.py` and can import from `function`.
 
-## Updating the framework
-
-When new Atom versions ship, pull the latest core files with `sync.py`:
-
-```bash
-python3 sync.py
-```
-
-The updater first fetches upstream `main`, pins that commit, validates its
-`sync.py`, and replaces the local updater. It then starts that latest version in a
-fresh process using the same Python interpreter. The latest version applies its
-sync rules immediately, in this same invocation; there is no second manual run.
-The child uses the pinned commit without re-fetching or restarting again, while
-the parent holds the sync lock. A per-run token passed to the child validates
-the handoff without depending on parent process IDs, which Windows virtual
-environment launchers can change.
-
-The latest updater prepares and validates the selected project files before
-replacing them. Missing required files, invalid Python, failed Git commands, or
-symlinked destinations stop the update. Files are written to the working tree;
-the Git index is left unchanged. If the project sync fails, the newly installed
-`sync.py` remains in place, while project write failures use in-memory rollback.
-If the new process cannot be launched, the old updater is restored from memory.
-
-- If a file or folder is removed from the updater's sync selection, its local
-  files are preserved and its old ownership records are dropped on successful sync.
-- All upstream files in `function/` and `router/` are discovered automatically and
-  created or replaced, including newly added Atom modules. Developer-only files in
-  both folders and `.env` are preserved. A path also present in upstream belongs to Atom.
-- Existing requirement entries are preserved; missing packages are appended.
-- `config_extend.py` is developer-managed: sync does not create, read, or modify it.
-  Create it manually when you need configuration overrides.
-- `.atom-sync/state.json` records the last synced Atom files. On later updates,
-  unchanged Atom files removed upstream are also removed locally. If such a file
-  has local edits, sync stops so you can move those edits to a custom module.
-  On the first run, unknown files are preserved.
-- Write failures trigger rollback using previous contents held in memory. No
-  backup files are saved. No success message is printed on failure, and
-  the command exits nonzero. A lock prevents overlapping updater runs.
-
-Ownership state and the sync lock are excluded from Git and Docker builds. Keep the
-state file for future ownership tracking. Re-run the dependency install if
-`requirements.txt` changed, then restart the app:
-
-```bash
-venv/bin/pip install -r requirements.txt
-```
-
-### Recovering an interrupted update
-
-Rollback is available only while the updater process is running. If rollback
-cannot finish, or the process is forcibly killed, review the working tree and
-recover affected files from your saved Git version. Uncommitted changes have no
-persistent recovery copy. Remove `.atom-sync/lock` only after confirming no updater
-is running. Review the diff and run your application tests before deploying;
-syntax validation does not verify runtime compatibility.
-
 ## Summary
 
 | Goal | Do this |
@@ -187,7 +141,7 @@ syntax validation does not verify runtime compatibility.
 | Add a table | Extend `config_postgres["table"]` in `config_extend.py` |
 | Add a worker | New script in `script/` |
 | Enable a service | Set its `config_*_url` / key (in `.env` or `config_extend.py`) |
-| Update Atom | `python sync.py` — extensions are preserved |
+| Update Atom | See the separate [sync guide](sync.md) |
 
 ---
 

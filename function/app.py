@@ -217,10 +217,11 @@ def func_app_fastapi_create(*, config_is_prod: bool = True, lifespan: Any = None
     """Create and configure the primary FastAPI application instance."""
     return FastAPI(debug=not config_is_prod, lifespan=lifespan, openapi_url=None, docs_url=None, redoc_url=None)
 
-def func_structure_init(*, dir_list: tuple = ("tmp", "secret")) -> None:
-    """Reset working tmp/ directory and ensure required application directories exist."""
-    if os.path.isdir("tmp") and not os.path.islink("tmp"): shutil.rmtree("tmp")
-    elif os.path.exists("tmp"): os.remove("tmp")
+def func_structure_init(*, dir_list: tuple = ("tmp", "secret"), is_tmp_reset: bool = True) -> None:
+    """Optionally reset working tmp/ directory and ensure required application directories exist."""
+    if is_tmp_reset:
+        if os.path.isdir("tmp") and not os.path.islink("tmp"): shutil.rmtree("tmp")
+        elif os.path.exists("tmp"): os.remove("tmp")
     for d in dir_list: os.makedirs(d, exist_ok=True)
 
 def func_app_state_add(*, app: FastAPI, data_dict: dict, prefixes: tuple) -> None:

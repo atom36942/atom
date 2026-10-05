@@ -441,7 +441,7 @@ venv/bin/python sync.py
 
 Run the command from the project root and review its output. The updater refreshes framework-managed files while preserving your `.env`, `config_extend.py`, `function/custom_business.py`, and custom routers.
 
-Commit or back up your work first, then review the Git diff after syncing and run the application/tests before deploying. Keeping custom behavior in the extension files reduces conflicts with future framework updates. See [extend.md](extend.md#updating-the-framework).
+Commit or back up your work first, then review the Git diff after syncing and run the application/tests before deploying. Keeping custom behavior in the extension files reduces conflicts with future framework updates. See [sync.md](sync.md).
 
 </details>
 
