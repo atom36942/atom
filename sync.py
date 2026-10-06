@@ -36,9 +36,6 @@ sync_files = [
 # These folders belong entirely to Atom, including all local files inside them.
 sync_folders = ["docs", "router", "function", "script"]
 
-# Developer extensions are never managed, even if present upstream.
-sync_exclude = ["docs_extend", "router_extend", "function_extend", "script_extend", "config_extend.py"]
-
 files_to_sync = [*sync_files, *sync_folders]
 
 # requirements.txt is merged separately; config_extend.py stays developer-managed.
@@ -67,8 +64,6 @@ def safe_path(root, name):
 
 
 def is_owned_path(name):
-    if any(name == item or name.startswith(item + "/") for item in sync_exclude):
-        return False
     return any(name == item or name.startswith(item + "/") for item in files_to_sync)
 
 

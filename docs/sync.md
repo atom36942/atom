@@ -26,7 +26,7 @@ If the new process cannot be launched, the old updater is restored from memory.
 
 - `docs/`, `router/`, `function/`, and `script/` belong entirely to Atom. Sync mirrors all upstream files and removes every local file absent upstream, including edited files, local-only modules, and caches, on every run including the first.
 - `config.py` and files listed in `sync_files` are replaced from upstream. Other paths are preserved.
-- `docs_extend/`, `router_extend/`, `function_extend/`, `script_extend/`, `config_extend.py`, and `.env` are never touched. Extensions are protected even if upstream contains the same paths.
+- `docs_extend/`, `router_extend/`, `function_extend/`, `script_extend/`, `config_extend.py`, and `.env` are never touched. They are outside the explicit sync file and folder lists, so upstream copies of these paths are also ignored.
 - Existing requirement entries are preserved; missing packages are appended.
 - `.atom-sync/state.json` records the synced revision and files; deletion inside Atom folders no longer depends on previous ownership records.
 - Write failures trigger rollback using previous contents held in memory. No

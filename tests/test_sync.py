@@ -232,13 +232,14 @@ class SyncTests(unittest.TestCase):
                 self.assertNotIn("static/pulse.html", state["files"])
 
     def test_extensions_are_never_written_even_when_upstream_has_them(self):
-        for name in sync.sync_exclude:
+        extensions = ["docs_extend", "router_extend", "function_extend", "script_extend", "config_extend.py"]
+        for name in extensions:
             path = name if name.endswith(".py") else f"{name}/custom.py"
             self.write(self.root, path, "# developer\n")
             self.write(self.upstream, path, "# upstream collision\n")
         self.commit(self.upstream)
         self.run_sync()
-        for name in sync.sync_exclude:
+        for name in extensions:
             path = name if name.endswith(".py") else f"{name}/custom.py"
             self.assertEqual((self.root / path).read_text(), "# developer\n")
 
