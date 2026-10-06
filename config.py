@@ -4,6 +4,7 @@ config_redis_url_api_response = None
 config_redis_url_user_state = None
 config_redis_url_ratelimiter = None
 config_redis_url_queue = None
+config_redis_url_misc = None
 config_mongodb_url = None
 config_mssql_url = None
 config_clickhouse_url = None

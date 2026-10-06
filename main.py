@@ -38,6 +38,7 @@ async def func_lifespan(app: FastAPI):
         client_redis_user_state = app.state.func_client_redis(url=app.state.config_redis_url_user_state)
         client_redis_ratelimiter = app.state.func_client_redis(url=app.state.config_redis_url_ratelimiter)
         client_redis_producer = app.state.func_client_redis(url=app.state.config_redis_url_queue)
+        client_redis_misc = app.state.func_client_redis(url=app.state.config_redis_url_misc)
         client_mongodb = app.state.func_client_mongodb(url=app.state.config_mongodb_url)
         client_mssql = await app.state.func_client_mssql(dsn=app.state.config_mssql_url)
         client_clickhouse = await app.state.func_client_clickhouse(dsn=app.state.config_clickhouse_url)
