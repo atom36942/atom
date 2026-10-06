@@ -76,6 +76,26 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([chunk async for chunk in output], [b"id\n1\n"])
         self.assertEqual(client.raw_stream.await_args.kwargs["settings"], {"readonly": 1, "max_execution_time": 30})
 
+    async def test_clickhouse_read_and_export_preserve_server_readonly_profiles(self):
+        for readonly in ("1", "2"):
+            with self.subTest(readonly=readonly):
+                client = MagicMock()
+                client.server_settings = {"readonly": SimpleNamespace(value=readonly, readonly=True)}
+                client.query = AsyncMock(return_value=SimpleNamespace(column_names=["uptime()"], result_rows=[(42,)]))
+                rows = await func_clickhouse_query_runner_read(client_clickhouse=client,
+                    config_query_runner_read_limit=10, sql="SELECT uptime();")
+                self.assertEqual(rows, [{"uptime()": 42}])
+                self.assertEqual(client.query.await_args.kwargs["settings"], {"max_execution_time": 30})
+                self.assertIn("LIMIT 10", client.query.await_args.args[0])
+                stream = MagicMock()
+                stream.__aiter__.return_value = [b"uptime()\n42\n"]
+                client.raw_stream = AsyncMock(return_value=stream)
+                output = await func_clickhouse_query_runner_read_export(client_clickhouse=client,
+                    config_query_runner_export_limit=20, sql="SELECT uptime();")
+                self.assertEqual([chunk async for chunk in output], [b"uptime()\n42\n"])
+                self.assertEqual(client.raw_stream.await_args.kwargs["settings"], {"max_execution_time": 30})
+                self.assertIn("LIMIT 20", client.raw_stream.await_args.args[0])
+
     async def test_relations_cannot_join_on_secrets_or_bypass_wildcard_block(self):
         client = MagicMock()
         for relation, blocked in [("id,users,password,count,*", []),

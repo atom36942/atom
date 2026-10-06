@@ -295,11 +295,20 @@ def func_clickhouse_query_runner_read_sql(*, sql: str, limit: int) -> str:
     if not sql.lower().lstrip("(").strip().startswith(("select", "with")): raise Exception("Only SELECT/WITH queries are supported")
     return f"SELECT * FROM ({sql}) AS clickhouse_query LIMIT {int(limit)}"
 
+def _clickhouse_read_settings(client_clickhouse: Any) -> dict:
+    """Keep server-enforced read-only profiles without trying to change them."""
+    settings = {"readonly": 1, "max_execution_time": 30}
+    readonly = client_clickhouse.server_settings.get("readonly")
+    if readonly is not None and str(readonly.value) in {"1", "2"}:
+        # Both modes prohibit writes; mode 2 also prohibits changing readonly.
+        settings.pop("readonly")
+    return settings
+
 async def func_clickhouse_query_runner_read(*, client_clickhouse: Any, config_query_runner_read_limit: int, sql: str) -> list:
     """Run a read-only ClickHouse query and return row mappings up to the configured limit."""
     if not client_clickhouse: raise func_api_error(message="clickhouse client not initialized", status_code=500)
     sql = func_clickhouse_query_runner_read_sql(sql=sql, limit=config_query_runner_read_limit)
-    result = await client_clickhouse.query(sql, settings={"readonly": 1, "max_execution_time": 30})
+    result = await client_clickhouse.query(sql, settings=_clickhouse_read_settings(client_clickhouse))
     return [dict(zip(result.column_names, row)) for row in result.result_rows]
 
 async def func_clickhouse_query_runner_read_export(*, client_clickhouse: Any, config_query_runner_export_limit: int, sql: str) -> Any:
@@ -307,7 +316,7 @@ async def func_clickhouse_query_runner_read_export(*, client_clickhouse: Any, co
     if not client_clickhouse: raise func_api_error(message="clickhouse client not initialized", status_code=500)
     sql = func_clickhouse_query_runner_read_sql(sql=sql, limit=config_query_runner_export_limit)
     async def _iter():
-        stream = await client_clickhouse.raw_stream(sql, fmt="CSVWithNames", settings={"readonly": 1, "max_execution_time": 30})
+        stream = await client_clickhouse.raw_stream(sql, fmt="CSVWithNames", settings=_clickhouse_read_settings(client_clickhouse))
         async with stream:
             async for chunk in stream:
                 yield chunk
