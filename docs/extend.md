@@ -4,14 +4,17 @@ Atom is opinionated but not closed. You extend it **without editing core files**
 
 ## The Golden Rule
 
-Core files — `main.py`, upstream Atom files in `function/`, `config.py`, and the shipped routers — are **overwritten by `sync.py`** on update. Put custom logic in uniquely named function modules or the drop-in extension files:
+Atom owns all contents of `docs/`, `router/`, `function/`, and `script/`, plus `config.py` and selected core files. Sync replaces these folders completely, removing local-only files even on the first run. Keep your work in separate extension paths:
 
-| Your file | Purpose | Survives `sync.py`? |
-|-----------|---------|---------------------|
-| `config_extend.py` | Override / add any config value | ✅ yes |
-| `function/custom_<your>.py` | Add functions with unique names | ✅ yes, if the path is absent from upstream Atom |
-| `router/<your>.py` | Add new API endpoints | ✅ yes, unless it is one of the six synced core routers |
-| `.env` | Secrets & connection strings | ✅ yes |
+| Atom path | Developer path | Purpose |
+|-----------|----------------|---------|
+| `config.py` | `config_extend.py` | Configuration overrides |
+| `router/` | `router_extend/` | Custom API endpoints |
+| `function/` | `function_extend/` | Custom `func_*` business logic |
+| `script/` | `script_extend/` | Standalone workers and jobs |
+| `docs/` | `docs_extend/` | Project documentation |
+
+Create only the extension paths you need. Sync never creates or modifies them. `.env` is also preserved.
 
 Configuration extensions are loaded after the defaults in `main.py`:
 
@@ -20,7 +23,7 @@ config_modules = [config] + ([importlib.import_module("config_extend")] if impor
 config_values = {key: value for module in config_modules for key, value in vars(module).items() if key.startswith("config_")}
 ```
 
-`config_extend.py` is read after `config.py`, so its `config_*` values override the defaults. Only `config_*` names are taken from it: functions defined there are ignored, so they cannot replace core functions. It is kept out of the sync list. Custom function files are discovered by the `function` package.
+`config_extend.py` is read after `config.py`, so its `config_*` values override the defaults. Only `config_*` names are taken from it: functions defined there are ignored, so they cannot replace core functions. It is kept out of the sync list. The `function` package discovers both Atom functions and modules directly inside the optional `function_extend/` folder; no `__init__.py` is required there.
 
 ## Complete flow: config → router → function
 
@@ -47,10 +50,10 @@ Only `config_*` names from this file are loaded. They override defaults from `co
 
 ## 2. Add the router file
 
-Create a uniquely named Python file directly in `router/`, with a module-level `router = APIRouter()`:
+Create a uniquely named Python file directly in `router_extend/`, with a module-level `router = APIRouter()`:
 
 ```python
-# router/custom_greeting.py
+# router_extend/custom_greeting.py
 from fastapi import APIRouter, Request
 
 router = APIRouter()
@@ -66,14 +69,14 @@ async def func_api_custom_hello(*, request: Request):
     return {"status": 1, "message": message}
 ```
 
-Use the same path in the router and `config_api`. Keep request handling in the router and business logic in `function/`. Atom discovers router files automatically; no edits to `main.py` are needed. Files beginning with `_` or `.` are skipped. Custom routers load alphabetically after the built-in tiers defined by `router_order` in `main.py`.
+Use the same path in the router and `config_api`. Keep request handling in the router and business logic in `function_extend/`. Atom discovers router files automatically; no edits to `main.py` are needed. Files beginning with `_` or `.` are skipped. Extension routers load alphabetically after all core routers. Keep route paths unique; extensions do not replace existing core routes.
 
 ## 3. Add the function file
 
-Create a uniquely named Python file directly in `function/`:
+Create a uniquely named Python file directly in `function_extend/`:
 
 ```python
-# function/custom_greeting.py
+# function_extend/custom_greeting.py
 async def func_custom_greeting(*, name: str, greeting: str):
     return f"{greeting}, {name}!"
 ```
@@ -82,7 +85,7 @@ Atom automatically exports functions defined in these modules whose names start 
 
 The loader imports modules alphabetically. Files beginning with `_` and nested packages are not auto-loaded. Imported helpers are not exported a second time. Duplicate function names defined in different modules stop startup with an error naming both files, so use unique `func_*` names.
 
-Inside a function module, import shared helpers from their defining module (for example, `from .request import func_query_bool_parse`), rather than from `function`, whose exports are still being assembled during loading. Keep module dependencies acyclic.
+Inside a function module, import shared helpers from their defining module (for example, `from function.request import func_query_bool_parse`), rather than from `function`, whose exports are still being assembled during loading. Keep module dependencies acyclic.
 
 ### Restart and verify
 
@@ -106,7 +109,11 @@ Expected response:
 
 At runtime, Atom loads configuration and functions onto `app.state`, mounts the router, applies the route policy to the request, and runs the router handler. The handler reads the request, calls the business function, and returns the response. You can also inspect the endpoint in the API console at `/`.
 
-Use distinctive filenames: sync replaces selected upstream function files and the six core routers (`index.py`, `auth.py`, `my.py`, `public.py`, `private.py`, `admin.py`), while preserving custom router files and developer-only function files. See the [sync guide](sync.md) for update behavior and recovery.
+## Migrating existing custom files
+
+Before the first sync with this layout, move custom functions, routers, scripts, and docs out of Atom folders into their matching `*_extend/` folders. Update imports and worker commands to use the new paths. Keep `config_extend.py` in the project root. Restart and verify your endpoints before syncing. Files left inside Atom folders will be replaced or removed.
+
+See the [sync guide](sync.md) for update behavior and recovery.
 
 ## 4. Add or change database tables
 
@@ -129,17 +136,17 @@ Column specs support `is_primary`, `is_mandatory`, `default`, `unique`, `check`,
 
 ## 5. Add background workers
 
-New standalone processes go in `script/` and are run as separate processes (they're not part of the API). Use them for queue consumers or batch jobs; they read the same `config.py` and can import from `function`.
+New standalone processes go in `script_extend/` and are run as separate processes (they're not part of the API). Use them for queue consumers or batch jobs; they can load `config.py` and optional overrides from `config_extend.py`, and import from `function`. Run them from the project root with `python3 -m script_extend.<worker_name>` so project imports are available. Scripts and docs are not auto-loaded by the API.
 
 ## Summary
 
 | Goal | Do this |
 |------|---------|
 | Change a setting | Set it in `config_extend.py` |
-| Add functions | New `function/custom_<your>.py` with unique `func_*` names |
-| Add an endpoint | New file in `router/` + entry in `config_api` |
+| Add functions | New `function_extend/custom_<your>.py` with unique `func_*` names |
+| Add an endpoint | New file in `router_extend/` + entry in `config_api` |
 | Add a table | Extend `config_postgres["table"]` in `config_extend.py` |
-| Add a worker | New script in `script/` |
+| Add a worker | New script in `script_extend/` |
 | Enable a service | Set its `config_*_url` / key (in `.env` or `config_extend.py`) |
 | Update Atom | See the separate [sync guide](sync.md) |
 

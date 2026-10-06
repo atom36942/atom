@@ -23,23 +23,25 @@ class SyncTests(unittest.TestCase):
         self.upstream.mkdir()
         self.git(self.upstream, "init", "-b", "main")
         for name in sync.files_to_sync:
-            if name in ("function", "router", "docs"):
+            if name in sync.sync_folders:
                 continue
             self.write(self.upstream, name, "# upstream\n")
         self.write(self.upstream, "function/__init__.py", "# loader\n")
         self.write(self.upstream, "function/auth.py", "def func_auth(): return 'upstream'\n")
         self.write(self.upstream, "router/index.py", "# upstream router\n")
         self.write(self.upstream, "docs/extend.md", "upstream docs\n")
+        self.write(self.upstream, "tests/test_example.py", "# upstream test\n")
+        self.write(self.upstream, "script/worker.py", "# upstream worker\n")
         self.write(self.upstream, "config.py", "config_postgres = {}\nconfig_api = {}\n")
         self.write(self.upstream, "requirements.txt", "fastapi==1.0\norjson==3.0\n")
         self.commit(self.upstream)
         self.root = self.base / "developer"
         self.git(self.base, "clone", str(self.upstream), str(self.root))
-        self.write(self.root, "function/custom_tracked.py", "def func_custom(): return 7\n")
-        self.write(self.root, "router/custom_tracked.py", "# developer router\n")
+        self.write(self.root, "function_extend/custom_tracked.py", "def func_custom(): return 7\n")
+        self.write(self.root, "router_extend/custom_tracked.py", "# developer router\n")
         self.commit(self.root)
-        self.write(self.root, "function/custom_untracked.py", "def func_other(): return 8\n")
-        self.write(self.root, "router/custom_untracked.py", "# untracked developer router\n")
+        self.write(self.root, "function_extend/custom_untracked.py", "def func_other(): return 8\n")
+        self.write(self.root, "router_extend/custom_untracked.py", "# untracked developer router\n")
         self.write(self.root, "function/auth.py", "def func_auth(): return 'local edit'\n")
         self.write(self.root, "router/index.py", "# local edit\n")
         self.write(self.root, "requirements.txt", "fastapi==0.9\nmy-package==2.0\n")
@@ -83,14 +85,14 @@ class SyncTests(unittest.TestCase):
         self.assertTrue((self.root / "function/__init__.py").exists())
         self.assertIn("upstream", (self.root / "function/auth.py").read_text())
         self.assertEqual((self.root / "router/index.py").read_text(), "# upstream router\n")
-        for name in ("function/custom_tracked.py", "function/custom_untracked.py", "router/custom_tracked.py", "router/custom_untracked.py", ".env"):
+        for name in ("function_extend/custom_tracked.py", "function_extend/custom_untracked.py", "router_extend/custom_tracked.py", "router_extend/custom_untracked.py", ".env"):
             self.assertEqual(self.snapshot()[name], before[name])
         self.assertEqual((self.root / "requirements.txt").read_text(), "fastapi==0.9\nmy-package==2.0\norjson==3.0\n")
         self.assertEqual(self.snapshot()["config_extend.py"], before["config_extend.py"])
         state = json.loads((self.root / sync.STATE_PATH).read_text())
-        self.assertNotIn("function/custom_tracked.py", state["files"])
-        self.assertNotIn("router/custom_tracked.py", state["files"])
-        self.assertNotIn("router/custom_untracked.py", state["files"])
+        self.assertNotIn("function_extend/custom_tracked.py", state["files"])
+        self.assertNotIn("router_extend/custom_tracked.py", state["files"])
+        self.assertNotIn("router_extend/custom_untracked.py", state["files"])
         self.assertIn("router/index.py", state["files"])
         self.assertIn("function/auth.py", state["files"])
         self.assertEqual({p.name for p in (self.root / ".atom-sync").iterdir()}, {"state.json"})
@@ -106,6 +108,16 @@ class SyncTests(unittest.TestCase):
                 self.write(self.root, "config_extend.py", content)
                 self.run_sync()
                 self.assertEqual((self.root / "config_extend.py").read_text(), content)
+
+    def test_sync_leaves_tests_folder_untouched(self):
+        self.write(self.root, "tests/test_example.py", "# developer test\n")
+        self.write(self.root, "tests/local_test.py", "# local test\n")
+        self.write(self.upstream, "tests/new_test.py", "# upstream new test\n")
+        self.commit(self.upstream)
+        self.run_sync()
+        self.assertEqual((self.root / "tests/test_example.py").read_text(), "# developer test\n")
+        self.assertEqual((self.root / "tests/local_test.py").read_text(), "# local test\n")
+        self.assertFalse((self.root / "tests/new_test.py").exists())
 
     def test_fetch_failure_does_not_use_stale_fetch_head(self):
         self.run_sync()
@@ -159,20 +171,17 @@ class SyncTests(unittest.TestCase):
         self.run_sync()
         self.assertFalse((self.root / "function/auth.py").exists())
         self.assertTrue((self.root / "function/login.py").exists())
-        self.assertTrue((self.root / "function/custom_tracked.py").exists())
+        self.assertTrue((self.root / "function_extend/custom_tracked.py").exists())
 
-    def test_only_listed_upstream_routers_are_synced(self):
-        self.write(self.upstream, "router/reports.py", "# unlisted upstream router\n")
-        self.write(self.upstream, "router/custom_tracked.py", "# upstream collision\n")
+    def test_all_atom_folders_are_mirrored_on_first_run(self):
+        for folder in sync.sync_folders:
+            self.write(self.root, f"{folder}/local/nested.py", "# local only\n")
+            self.write(self.upstream, f"{folder}/new.py", "# upstream new\n")
         self.commit(self.upstream)
         self.run_sync()
-        self.assertFalse((self.root / "router/reports.py").exists())
-        self.assertEqual((self.root / "router/custom_tracked.py").read_text(), "# developer router\n")
-        for name in ("index", "auth", "my", "public", "private", "admin"):
-            self.assertEqual(
-                (self.root / f"router/{name}.py").read_bytes(),
-                (self.upstream / f"router/{name}.py").read_bytes(),
-            )
+        for folder in sync.sync_folders:
+            self.assertFalse((self.root / folder / "local").exists())
+            self.assertEqual((self.root / folder / "new.py").read_text(), "# upstream new\n")
 
     def test_late_failure_restores_removed_files_and_previous_state(self):
         self.run_sync()
@@ -194,15 +203,13 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(self.snapshot(), before)
         self.assertEqual((self.root / sync.STATE_PATH).read_bytes(), state)
 
-    def test_modified_retired_file_stops_update(self):
+    def test_modified_retired_file_is_removed(self):
         self.run_sync()
         self.write(self.root, "function/auth.py", "# developer edits\n")
         (self.upstream / "function/auth.py").unlink()
         self.commit(self.upstream)
-        before = self.snapshot()
-        with self.assertRaisesRegex(ValueError, "Retired Atom file has local edits"):
-            self.run_sync()
-        self.assertEqual(self.snapshot(), before)
+        self.run_sync()
+        self.assertFalse((self.root / "function/auth.py").exists())
 
     def test_removed_sync_selection_is_preserved_and_forgotten(self):
         self.write(self.upstream, "static/pulse.html", "upstream pulse\n")
@@ -224,37 +231,23 @@ class SyncTests(unittest.TestCase):
                 state = json.loads((self.root / sync.STATE_PATH).read_text())
                 self.assertNotIn("static/pulse.html", state["files"])
 
-    def test_excluded_folder_files_are_never_written(self):
-        self.write(self.upstream, "router/mdm.py", "# upstream-only poc\n")
-        self.write(self.upstream, "function/wisetech.py", "def func_poc(): return 1\n")
+    def test_extensions_are_never_written_even_when_upstream_has_them(self):
+        for name in sync.sync_exclude:
+            path = name if name.endswith(".py") else f"{name}/custom.py"
+            self.write(self.root, path, "# developer\n")
+            self.write(self.upstream, path, "# upstream collision\n")
         self.commit(self.upstream)
         self.run_sync()
-        self.assertFalse((self.root / "router/mdm.py").exists())
-        self.assertFalse((self.root / "function/wisetech.py").exists())
-        self.assertEqual((self.root / "router/index.py").read_text(), "# upstream router\n")
-        state = json.loads((self.root / sync.STATE_PATH).read_text())
-        self.assertFalse(set(sync.sync_exclude) & set(state["files"]))
-
-    def test_newly_excluded_file_is_kept_and_forgotten_even_when_removed_upstream(self):
-        self.write(self.upstream, "function/mdm.py", "# poc v1\n")
-        self.commit(self.upstream)
-        with patch.object(sync, "sync_exclude", []):
-            self.run_sync()
-        self.assertEqual((self.root / "function/mdm.py").read_text(), "# poc v1\n")
-        self.git(self.upstream, "rm", "-q", "function/mdm.py")
-        self.commit(self.upstream)
-        self.run_sync()
-        self.assertEqual((self.root / "function/mdm.py").read_text(), "# poc v1\n")
-        self.assertNotIn("function/mdm.py", json.loads((self.root / sync.STATE_PATH).read_text())["files"])
+        for name in sync.sync_exclude:
+            path = name if name.endswith(".py") else f"{name}/custom.py"
+            self.assertEqual((self.root / path).read_text(), "# developer\n")
 
     def test_removed_router_selection_preserves_its_files(self):
         self.run_sync()
         self.write(self.root, "router/index.py", "# developer edits\n")
-        with patch.object(sync, "files_to_sync", [p for p in sync.files_to_sync if not p.startswith("router/")]):
+        with patch.object(sync, "files_to_sync", [p for p in sync.files_to_sync if p != "router"]):
             self.run_sync()
         self.assertEqual((self.root / "router/index.py").read_text(), "# developer edits\n")
-        state = json.loads((self.root / sync.STATE_PATH).read_text())
-        self.assertFalse(any(name.startswith("router/") for name in state["files"]))
 
     def test_symlink_cannot_redirect_update_outside_project(self):
         outside = self.base / "outside.py"

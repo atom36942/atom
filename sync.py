@@ -28,31 +28,16 @@ sync_files = [
     "readme.md",
     "ruff.toml",
     "sync.py",
-    "router/index.py",
-    "router/auth.py",
-    "router/my.py",
-    "router/public.py",
-    "router/private.py",
-    "router/admin.py",
     "static/api.html",
     "static/pgweb.html",
-    "script/consumer_postgres_create.py",
-    "script/consumer_postgres_update.py",
-    "script/worker_users_delete.py",
+
 ]
 
-# 2. Folders to sync: every upstream file is synced, new upstream files arrive
-# automatically, and files removed upstream are retired locally.
-sync_folders = [
-    "docs",
-    "function",
-]
+# These folders belong entirely to Atom, including all local files inside them.
+sync_folders = ["docs", "router", "function", "script"]
 
-# 3. Exclude: these files or folders are never written or retired.
-sync_exclude = [
-    "function/mdm.py",
-    "function/wisetech.py",
-]
+# Developer extensions are never managed, even if present upstream.
+sync_exclude = ["docs_extend", "router_extend", "function_extend", "script_extend", "config_extend.py"]
 
 files_to_sync = [*sync_files, *sync_folders]
 
@@ -137,22 +122,26 @@ def prepare_update(root, revision):
         if is_owned_path(name):
             owned[name] = hashlib.sha256(content).hexdigest()
 
-    state_file = safe_path(root, STATE_PATH)
-    if state_file.exists():
-        state = json.loads(state_file.read_text())
-        if not isinstance(state, dict) or state.get("version") != 1 or not isinstance(state.get("files"), dict):
-            raise ValueError("Unsupported or invalid sync ownership state")
-        for name, digest in state["files"].items():
-            if not is_owned_path(name):
-                # A newer updater may stop managing a selected file or folder.
-                # Leave it untouched and omit it from the next ownership state.
-                continue
-            if name not in owned:
-                path = safe_path(root, name)
-                if path.exists():
-                    if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
-                        raise ValueError(f"Retired Atom file has local edits: {name}. Move your code to a custom module before syncing.")
-                    plan[name] = None
+    # Mirror complete Atom folders on every run, including the first sync.
+    # Reject symlinks rather than following them while inventorying local files.
+    for folder in sync_folders:
+        if folder not in files_to_sync:
+            continue
+        directory = root / folder
+        if directory.is_symlink():
+            raise ValueError(f"Refusing symlinked Atom folder: {folder}")
+        if directory.exists() and not directory.is_dir():
+            raise ValueError(f"Expected a directory: {folder}")
+        for parent, directories, filenames in os.walk(directory, followlinks=False):
+            for child in directories:
+                if (Path(parent) / child).is_symlink():
+                    raise ValueError(f"Refusing symlinked Atom folder: {Path(parent) / child}")
+            for filename in filenames:
+                name = (Path(parent) / filename).relative_to(root).as_posix()
+                if is_owned_path(name):
+                    safe_path(root, name)
+                    if name not in owned:
+                        plan[name] = None
 
     requirements = safe_path(root, "requirements.txt")
     local_requirements = requirements.read_text() if requirements.exists() else None
@@ -212,6 +201,15 @@ def apply_update(root, plan):
         else:
             print("Update failed; previous files restored.", file=sys.stderr)
         raise
+
+    for folder in sync_folders:
+        if folder not in files_to_sync:
+            continue
+        for parent, directories, filenames in os.walk(root / folder, topdown=False):
+            for child in directories:
+                path = Path(parent) / child
+                if not any(path.iterdir()):
+                    path.rmdir()
 
 
 @contextmanager

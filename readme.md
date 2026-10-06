@@ -45,7 +45,7 @@ Atom gives you authentication, generic CRUD over any table, caching, rate-limiti
 - 🛠️ **Admin & Dev toolkit** — Built-in SQL runner, AI SQL generation, data import, and live schema introspection.
 - 📦 **Background workers** — Queue consumers and durable retries with Postgres or dedicated message brokers.
 - 🧾 **Self-documenting** — Generated OpenAPI spec + built-in interactive API console at `/`.
-- 🔧 **Easy to customize** — Add custom routes and logic in `config_extend.py` and custom modules in `function/`.
+- 🔧 **Easy to customize** — Add custom routes and logic in `config_extend.py` and custom modules in `function_extend/`.
 
 ## Requirements
 
@@ -116,12 +116,12 @@ Boolean environment settings use case-insensitive `true` or `false`. The loader 
 Keep application-specific settings and logic in your own extension files:
 
 - **`config_extend.py`** — Create this optional file in the project root to override configuration, define tables, and configure API routes. Its `config_*` values take precedence over `config.py`.
-- **`router/<name>.py`** — Add an endpoint in a router file with a module-level `APIRouter`.
-- **`function/<name>.py`** — Add custom business logic with unique `func_*` names; Atom loads these modules automatically.
+- **`router_extend/<name>.py`** — Add an endpoint in a router file with a module-level `APIRouter`.
+- **`function_extend/<name>.py`** — Add custom business logic with unique `func_*` names; Atom loads these modules automatically.
 
-Avoid filenames used by synced framework files, which sync replaces, and keep `func_*` names unique. Use filenames that do not start with `_` so Atom loads them automatically. Sync does not create or modify `config_extend.py`.
+Atom owns `docs/`, `router/`, `function/`, and `script/`. Create your own `docs_extend/`, `router_extend/`, `function_extend/`, and `script_extend/` folders as needed. Keep configuration overrides in `config_extend.py`. Sync leaves all extensions untouched. Keep `func_*` names unique; files starting with `_` are not auto-loaded.
 
-Follow the complete flow: **1. add `config_extend.py` → 2. add a router file in `router/` → 3. add a function file in `function/`**. Restart Atom and call the endpoint to verify it.
+Follow the complete flow: **1. add `config_extend.py` → 2. add a router file in `router_extend/` → 3. add a function file in `function_extend/`**. Restart Atom and call the endpoint to verify it.
 
 See the [extension guide](docs/extend.md) for a complete working example, configuration, tables, and workers.
 
@@ -133,7 +133,7 @@ Update Atom from the project root:
 python3 sync.py
 ```
 
-Sync fetches Atom's upstream `main`, installs the latest updater, and updates framework files. Developer-only files and `.env` are preserved; missing dependencies are appended to `requirements.txt`. Save your work in Git before syncing, then restart the app and reinstall dependencies if requirements changed.
+Sync fetches Atom's upstream `main`, installs the latest updater, and updates framework files. It completely replaces the contents of `docs/`, `router/`, `function/`, and `script/`, including removing local-only files. `config.py` and selected core files are replaced. The `*_extend/` folders, `config_extend.py`, and `.env` are preserved; missing dependencies are appended to `requirements.txt`. Save your work in Git before syncing, then restart the app and reinstall dependencies if requirements changed.
 
 See [sync details and recovery](docs/sync.md) for update behavior and recovery instructions.
 
@@ -149,7 +149,12 @@ Atom comes with zero-dependency, single-page web applications stored in `static/
 ```
 atom/
 ├── main.py         # FastAPI app entry point & client lifecycle
-├── function/       # Auto-loaded core and custom function modules
+├── function/       # Atom function modules
+├── function_extend/ # Your function modules (optional)
+├── router_extend/   # Your API routers (optional)
+├── script_extend/   # Your workers (optional)
+├── docs_extend/     # Your documentation (optional)
+├── config_extend.py # Your config overrides (optional)
 ├── config.py       # Single source of truth for config defaults
 ├── router/         # API endpoint routers grouped by access control
 ├── static/         # Static web assets & built-in API console

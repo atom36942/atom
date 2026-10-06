@@ -186,15 +186,19 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
     return spec
 
 def func_app_router_add(*, app: FastAPI, router_dir: Any, router_order: dict) -> None:
-    """Load router modules from a directory in a configured order and include their routers."""
+    """Load core routers in configured order, then optional sibling router_extend modules."""
     router_dir = pathlib.Path(router_dir)
-    router_paths = sorted(router_dir.glob("*.py"), key=lambda path: (router_order.get(path.stem, 100), path.stem))
-    for router_path in router_paths:
-        if router_path.name.startswith(("_", ".")): continue
-        spec = importlib.util.spec_from_file_location(f"router.{router_path.stem}", router_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        if hasattr(module, "router"): app.include_router(module.router)
+    directories = [(router_dir, router_order)]
+    if router_dir.name == "router":
+        directories.append((router_dir.with_name("router_extend"), {}))
+    for directory, order in directories:
+        router_paths = sorted(directory.glob("*.py"), key=lambda path: (order.get(path.stem, 100), path.stem))
+        for router_path in router_paths:
+            if router_path.name.startswith(("_", ".")): continue
+            spec = importlib.util.spec_from_file_location(f"{directory.name}.{router_path.stem}", router_path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            if hasattr(module, "router"): app.include_router(module.router)
     return None
 
 def func_sentry_init(*, config_sentry_dsn: str):

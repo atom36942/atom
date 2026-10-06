@@ -11,7 +11,7 @@ Atom is a batteries-included, opinionated async Python framework built on top of
 - **Config-Driven & Optional Everything**: Core dependencies (PostgreSQL, Redis, Mongo, S3, Azure, Kafka, RabbitMQ, Celery, AI models) are completely optional. Integrations activate only when their connection URLs or keys are present in [`config.py`](config.md) or `.env`.
 - **Pure Async Architecture**: Uses non-blocking drivers (`asyncpg`, `redis.asyncio`, `aiohttp`, `httpx`) to maximize concurrency and throughput.
 - **Flat & Transparent Layering**: Avoids heavy ORM abstractions or scattered middleware classes. Execution flows cleanly through `main.py` (runtime) and `function.py` (pure functions).
-- **Non-Forking Extensibility**: Maintainers can extend routes and logic via `config_extend.py` and custom modules in `function/` without mutating core framework files, enabling upstream updates via `sync.py`. Learn more in [`extend.md`](extend.md).
+- **Non-Forking Extensibility**: Maintainers can extend routes and logic via `config_extend.py` and custom modules in `function_extend/` without mutating core framework files, enabling upstream updates via `sync.py`. Learn more in [`extend.md`](extend.md).
 
 ---
 
@@ -193,3 +193,7 @@ config_api["/my/report"] = {
     "cache": {"mode": "inmemory", "ttl_sec": 30, "is_per_user": True}
 }
 ```
+
+## Developer extensions
+
+Atom owns `docs/`, `router/`, `function/`, and `script/`. Use `docs_extend/`, `router_extend/`, `function_extend/`, `script_extend/`, and `config_extend.py` for project-specific work. Extension functions are registered alongside core functions; extension routers load after core routers. Scripts run separately and docs are not loaded by the API. See [extensions](extend.md) and [sync](sync.md).

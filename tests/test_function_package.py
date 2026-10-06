@@ -20,7 +20,8 @@ class FunctionPackageTests(unittest.TestCase):
         shutil.copytree(PACKAGE, self.root / "function", ignore=shutil.ignore_patterns("__pycache__"))
 
     def write_module(self, filename, content):
-        (self.root / "function" / filename).write_text(textwrap.dedent(content))
+        (self.root / "function_extend").mkdir(exist_ok=True)
+        (self.root / "function_extend" / filename).write_text(textwrap.dedent(content))
 
     def run_python(self, code):
         return subprocess.run(
@@ -51,6 +52,33 @@ class FunctionPackageTests(unittest.TestCase):
             assert app.state.func_payment_create(amount=3) == 3
         """))
 
+    def test_extension_router_and_function_work_together(self):
+        self.write_module("greeting.py", "def func_greeting(): return 'hello'\n")
+        (self.root / "router").mkdir()
+        (self.root / "router" / "core.py").write_text(
+            "from fastapi import APIRouter\nrouter = APIRouter()\n"
+            "@router.get('/core')\nasync def core(): return 'core'\n"
+        )
+        (self.root / "router_extend").mkdir()
+        (self.root / "router_extend" / "greeting.py").write_text(
+            "from fastapi import APIRouter, Request\n"
+            "router = APIRouter()\n"
+            "@router.get('/custom/hello')\n"
+            "async def hello(request: Request): return request.app.state.func_greeting()\n"
+        )
+        self.assert_success(self.run_python("""
+            import function
+            from fastapi import FastAPI
+            from fastapi.testclient import TestClient
+            app = FastAPI()
+            function.func_app_state_add(app=app, data_dict=vars(function), prefixes=("func_",))
+            function.func_app_router_add(app=app, router_dir="router", router_order={})
+            assert TestClient(app).get("/custom/hello").json() == "hello"
+            assert TestClient(app).get("/core").json() == "core"
+            paths = [route.path for route in app.routes]
+            assert paths.index("/core") < paths.index("/custom/hello")
+        """))
+
     def test_duplicate_definitions_report_both_files(self):
         self.write_module("custom_auth.py", "def func_token_encode(): pass\n")
         result = self.run_python("import function")
@@ -61,7 +89,7 @@ class FunctionPackageTests(unittest.TestCase):
 
     def test_imported_helpers_do_not_conflict_with_definitions(self):
         self.write_module("custom_parser.py", """
-            from .request import func_query_bool_parse
+            from function.request import func_query_bool_parse
             def func_custom_parse(value):
                 return func_query_bool_parse(value)
         """)

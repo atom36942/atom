@@ -27,6 +27,15 @@
 !script/**
 !docs/
 !docs/**
+# developer extensions (tracked in the developer's repository)
+!function_extend/
+!function_extend/**
+!router_extend/
+!router_extend/**
+!script_extend/
+!script_extend/**
+!docs_extend/
+!docs_extend/**
 !.github/
 !.github/workflows/
 !.github/workflows/**

@@ -1,5 +1,7 @@
 # 🔄 Syncing Atom
 
+Move existing custom files into the matching `*_extend/` folders before syncing, and save your work in Git. Files left in Atom folders will be replaced or removed. See [migration instructions](extend.md#migrating-existing-custom-files).
+
 When new Atom versions ship, pull the latest core files with `sync.py`:
 
 ```bash
@@ -22,26 +24,16 @@ the Git index is left unchanged. If the project sync fails, the newly installed
 `sync.py` remains in place, while project write failures use in-memory rollback.
 If the new process cannot be launched, the old updater is restored from memory.
 
-- If a file or folder is removed from the updater's sync selection, its local
-  files are preserved and its old ownership records are dropped on successful sync.
-- All upstream files in `docs/` and `function/` are discovered automatically, except excluded paths.
-- Only six router files are synced: `index.py`, `auth.py`, `my.py`, `public.py`,
-  `private.py`, and `admin.py`. Other router files are preserved, even if upstream
-  contains a file with the same name.
-- Developer-only function files and `.env` are preserved. Selected upstream paths belong to Atom.
+- `docs/`, `router/`, `function/`, and `script/` belong entirely to Atom. Sync mirrors all upstream files and removes every local file absent upstream, including edited files, local-only modules, and caches, on every run including the first.
+- `config.py` and files listed in `sync_files` are replaced from upstream. Other paths are preserved.
+- `docs_extend/`, `router_extend/`, `function_extend/`, `script_extend/`, `config_extend.py`, and `.env` are never touched. Extensions are protected even if upstream contains the same paths.
 - Existing requirement entries are preserved; missing packages are appended.
-- `config_extend.py` is developer-managed: sync does not create, read, or modify it.
-  Create it manually when you need configuration overrides.
-- `.atom-sync/state.json` records the last synced Atom files. On later updates,
-  unchanged Atom files removed upstream are also removed locally. If such a file
-  has local edits, sync stops so you can move those edits to a custom module.
-  On the first run, unknown files are preserved.
+- `.atom-sync/state.json` records the synced revision and files; deletion inside Atom folders no longer depends on previous ownership records.
 - Write failures trigger rollback using previous contents held in memory. No
   backup files are saved. No success message is printed on failure, and
   the command exits nonzero. A lock prevents overlapping updater runs.
 
-Ownership state and the sync lock are excluded from Git and Docker builds. Keep the
-state file for future ownership tracking. Re-run the dependency install if
+Ownership state and the sync lock are excluded from Git and Docker builds. The state file records the last successful update. Re-run the dependency install if
 `requirements.txt` changed, then restart the app:
 
 ```bash

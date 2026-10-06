@@ -20,7 +20,7 @@ Keep the router small: accept and validate the request, call a reusable `func_*`
 
 ### 1. Create a router file
 
-Create a Python file inside `router/`, for example: `router/product.py`. Router files are discovered automatically. Every router file must define a module-level `router = APIRouter()`.
+Create a Python file inside `router_extend/`, for example: `router_extend/product.py`. Router files are discovered automatically. Every router file must define a module-level `router = APIRouter()`.
 
 ### 2. Import the required packages
 
@@ -32,7 +32,7 @@ from fastapi import APIRouter, Request
 router = APIRouter()
 ```
 
-Put imports needed only by core logic in `function/custom_business.py`, not in the router.
+Put imports needed only by core logic in `function_extend/custom_business.py`, not in the router.
 
 ### 3. Add the route and follow existing naming conventions
 
@@ -85,12 +85,12 @@ Use:
 - `mode="header"` for headers
 - `strict=True` to return only declared parameters
 
-### 5. Move core logic to `function/custom_business.py`
+### 5. Move core logic to `function_extend/custom_business.py`
 
-Business logic, database work, and reusable transformations belong in a `func_*` helper in `function/custom_business.py`. Use keyword-only arguments and pass dependencies explicitly:
+Business logic, database work, and reusable transformations belong in a `func_*` helper in `function_extend/custom_business.py`. Use keyword-only arguments and pass dependencies explicitly:
 
 ```python
-# function/custom_business.py
+# function_extend/custom_business.py
 async def func_product_create(
     *,
     client_postgres,
@@ -372,7 +372,7 @@ Use `app.state.cache_extend` (accessible in route handlers as `request.app.state
 ### 1. Read and write in your route
 
 ```python
-# router/custom.py
+# router_extend/custom.py
 from fastapi import APIRouter, Request
 
 router = APIRouter()
@@ -439,7 +439,7 @@ Both responses are cached by default. If you changed the database directly and t
 venv/bin/python sync.py
 ```
 
-Run the command from the project root and review its output. The updater refreshes framework-managed files while preserving your `.env`, `config_extend.py`, `function/custom_business.py`, and custom routers.
+Run the command from the project root and review its output. The updater refreshes framework-managed files while preserving your `.env`, `config_extend.py`, `function_extend/custom_business.py`, and `router_extend/` routers.
 
 Commit or back up your work first, then review the Git diff after syncing and run the application/tests before deploying. Keeping custom behavior in the extension files reduces conflicts with future framework updates. See [sync.md](sync.md).
 
@@ -638,11 +638,11 @@ Use buffering for high-volume, low-urgency records where delayed visibility and 
 Keep project-specific changes outside framework-managed files:
 
 - Put configuration overrides in `config_extend.py`.
-- Put new `func_*` logic with unique names in `function/custom_<your>.py`.
-- Add endpoints in a new `router/<name>.py` containing an `APIRouter`.
-- Add standalone consumers and jobs under `script/`.
+- Put new `func_*` logic with unique names in `function_extend/custom_<your>.py`.
+- Add endpoints in a new `router_extend/<name>.py` containing an `APIRouter`.
+- Add standalone consumers and jobs under `script_extend/`.
 
-Register every custom route in `config_api`; use `"is_token": False` for an intentionally public route, then add role checks, caching, or rate limiting as needed. `sync.py` overwrites core files and the shipped documentation, but preserves extension files, custom routers, and `.env`.
+Register every custom route in `config_api`; use `"is_token": False` for an intentionally public route, then add role checks, caching, or rate limiting as needed. `sync.py` overwrites core files and the shipped documentation, but preserves `*_extend/` folders, `config_extend.py`, and `.env`.
 
 If you are fixing Atom itself for everyone, edit the core source and submit a pull request instead. See [extend.md](extend.md).
 

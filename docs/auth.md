@@ -66,7 +66,7 @@ Uniqueness constraints are declared under `config_postgres["table"]["users"]`:
    {"name": "github_login_id", "datatype": "text", "unique": "github_login_id"},
    ```
 2. Include in token claims via `config_column_token_encode` if needed in `request.state.user`.
-3. Add a dedicated login route in `router/auth.py` (e.g. `POST /auth/login-github`).
+3. Add a dedicated login route in `router_extend/auth_custom.py` (e.g. `POST /auth/login-github`).
 
 ---
 
