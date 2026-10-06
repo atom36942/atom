@@ -253,7 +253,8 @@
   <div id="toast" class="toast hidden" role="status"></div>
 
   <script>
-    const PULSE_ROLE=4,PAGE_SIZE=10,KANBAN_PAGE_SIZE=10,EXPORT_PAGE_SIZE=1000,EXPORT_DEFAULT_COUNT=5000,EXPORT_MAX_COUNT=10000,TASK_TITLE_MAX=100,TASK_TAG_MAX=5,CACHE_TTL_MS=3600000,TOKEN_KEY="pulse_token",PROFILE_KEY="pulse_user",INFO_CACHE_KEY="pulse_info",USER_CACHE_KEY="pulse_users",TAG_CACHE_KEY="pulse_tags",CACHED_AT_KEY="pulse_cached_at",DASHBOARD_CACHE_KEY="pulse_dashboard",CALENDAR_CACHE_KEY="pulse_calendar";
+    const TASK_STATUS={TODO:1,IN_PROGRESS:2,BLOCKED:3,REVIEW:4,DONE:5};
+    const PULSE_ROLE=4,PAGE_SIZE=10,KANBAN_PAGE_SIZE=10,EXPORT_PAGE_SIZE=1000,EXPORT_DEFAULT_COUNT=5000,EXPORT_MAX_COUNT=10000,TASK_TITLE_MAX=100,TASK_TAG_MAX=5,CACHE_TTL_MS=3600000,TOKEN_KEY="pulse_token",PROFILE_KEY="pulse_user",INFO_CACHE_KEY="pulse_info_status_v2",USER_CACHE_KEY="pulse_users",TAG_CACHE_KEY="pulse_tags",CACHED_AT_KEY="pulse_cached_at",DASHBOARD_CACHE_KEY="pulse_dashboard_status_v2",CALENDAR_CACHE_KEY="pulse_calendar_status_v2";
     function storedToken(){try{const token=JSON.parse(localStorage.getItem(TOKEN_KEY)||"null");return token?.access_token?token:null}catch{return null}}
     const state={token:storedToken(),profile:null,users:[],userById:new Map(),tasks:[],kanbanColumns:new Map(),kanbanRequestId:0,tableStatusFilter:"",comments:[],mapping:{},page:1,hasNext:false,view:"tasks",taskLayout:"table",dashboardTab:"assignee",draggingTaskId:null,updatingStatusIds:new Set(),editing:null,editingComment:null,commentTask:null,taskTagsDraft:[],search:"",filters:{},initialAssigneeApplied:false,calendarMonth:new Date(new Date().getFullYear(),new Date().getMonth(),1),calendarAssignee:"",exportController:null,confirmResolve:null,confirmBlocking:false,blockingErrorOpen:false,blockingErrors:[],blockingErrorTimer:null,taskRequestId:0,commentRequestId:0,dashboardRequestId:0,calendarRequestId:0};
     const elementCache=new Map();
@@ -291,7 +292,7 @@
     function taskMapping(column){return state.mapping?.task?.[column]||{}}
     function storedUser(){return storedJson(PROFILE_KEY)}
     function refreshOptions(target,map,first){const current=target.value;options(target,map,first);if(current&&Object.hasOwn(map,current))target.value=current}
-    function refreshStatusOptions(target,first){const current=target.value,map=taskMapping("status"),entries=Object.entries(map),done=entries.find(([,label])=>String(label).trim().toLowerCase()==="done")?.[0],ordered=[...entries.filter(([value])=>String(value)!==String(done)),...entries.filter(([value])=>String(value)===String(done))];target.innerHTML=first?`<option value="">${first}</option>`:"";ordered.forEach(([value,label])=>target.add(new Option(label,value)));if(current&&Object.hasOwn(map,current))target.value=current}
+    function refreshStatusOptions(target,first){const current=target.value,map=taskMapping("status"),ordered=kanbanStatuses();target.innerHTML=first?`<option value="">${first}</option>`:"";ordered.forEach(([value,label])=>target.add(new Option(label,value)));if(current&&Object.hasOwn(map,current))target.value=current}
     function applyInfo(info){
       state.mapping=info?.config_column_int_mapping||info?.mapping||{};
       refreshStatusOptions($("statusFilter"),"Any status");refreshOptions($("projectFilter"),taskMapping("project"),"Any project");
@@ -304,7 +305,7 @@
     function wasUpdated(result,id){return Array.isArray(result)&&result.some(value=>String(value)===String(id))}
     function deletedCount(result){const match=String(result??"").match(/^(\d+)\s+ids?\s+deleted$/i);return match?Number(match[1]):null}
     function localDate(value){if(!value)return "-";const date=new Date(`${String(value).slice(0,10)}T00:00:00`);if(Number.isNaN(date.getTime()))return "-";const day=String(date.getDate()).padStart(2,"0"),month=date.toLocaleDateString("en-US",{month:"short"}),year=date.getFullYear();return `${day}-${month}-${year}`}
-    function isTaskOverdue(task){if(!task.due_date)return false;const doneStatus=Object.entries(taskMapping("status")).find(([,label])=>String(label).trim().toLowerCase()==="done")?.[0]||"3",due=new Date(`${task.due_date}T00:00:00`),today=new Date();today.setHours(0,0,0,0);return !Number.isNaN(due.getTime())&&due<today&&String(task.status)!==String(doneStatus)}
+    function isTaskOverdue(task){if(!task.due_date)return false;const doneStatus=doneStatusId(),due=new Date(`${task.due_date}T00:00:00`),today=new Date();today.setHours(0,0,0,0);return !Number.isNaN(due.getTime())&&due<today&&Number(task.status)!==doneStatus}
     function timeAgo(value){if(!value)return "-";const timestamp=new Date(value).getTime();if(Number.isNaN(timestamp))return "-";const seconds=Math.max(0,Math.round((Date.now()-timestamp)/1000)),units=[[31536000,"yr"],[2592000,"mo"],[86400,"day"],[3600,"hr"],[60,"min"],[1,"sec"]];for(const [size,label] of units)if(seconds>=size){const amount=Math.floor(seconds/size),unit=label==="day"&&amount!==1?"days":label;return `${amount} ${unit} ago`}return "0 sec ago"}
     function taskAgeing(value,compact=false){const created=new Date(value);if(Number.isNaN(created.getTime()))return "-";const today=new Date(),todayDay=Date.UTC(today.getFullYear(),today.getMonth(),today.getDate()),createdDay=Date.UTC(created.getFullYear(),created.getMonth(),created.getDate()),days=Math.max(0,Math.round((todayDay-createdDay)/86400000));return compact?`${days}d`:String(days)}
     function safeFilterText(value){return value.replace(/[%|,]/g," ").replace(/\s+/g," ").trim().slice(0,80)}
@@ -359,14 +360,14 @@
     }
     function closeDashboard(){$("dashboardView").classList.add("hidden");state.view="tasks"}
     function invalidateTaskAggregateCaches(){sessionStorage.removeItem(DASHBOARD_CACHE_KEY);sessionStorage.removeItem(CALENDAR_CACHE_KEY)}
-    function doneStatusId(){const entry=Object.entries(taskMapping("status")).find(([,label])=>String(label).trim().toLowerCase()==="done");return entry?.[0]||"3"}
+    function doneStatusId(){return TASK_STATUS.DONE}
     function pendingStatuses(){const done=doneStatusId(),entries=Object.entries(taskMapping("status")).filter(([id])=>String(id)!==String(done));return entries.length?entries:[["1","To Do"],["2","In Progress"]]}
     function calendarCacheKey(){return `status-v2|${localIsoDate(state.calendarMonth).slice(0,7)}|${state.calendarAssignee||"all"}`}
     function calendarFilters(start,end){const filters=[`status != ${doneStatusId()}`,`due_date between ${start}|${end}`];if(state.calendarAssignee)filters.push(`assigned_to_id = ${state.calendarAssignee}`);return filters}
     function renderCalendar(data){
       const month=state.calendarMonth,year=month.getFullYear(),monthIndex=month.getMonth(),days=new Date(year,monthIndex+1,0).getDate(),offset=new Date(year,monthIndex,1).getDay(),today=localIsoDate(new Date()),statuses=pendingStatuses(),counts=new Map();
       (data.rows||[]).forEach(row=>{const date=String(row.due_date??row.item??"").slice(0,10),status=String(row.status);if(date)counts.set(`${date}|${status}`,Number(row.count)||0)});
-      const statusMarkup=date=>statuses.map(([status,label])=>{const count=counts.get(`${date}|${status}`)||0;if(!count)return"";const kind=String(label).toLowerCase().includes("progress")?" progress":" todo";return `<button class="calendar-status-count${kind}" type="button" data-calendar-date="${date}" data-calendar-status="${escapeHtml(status)}" title="View ${escapeHtml(label)} tasks"><span>${escapeHtml(label)}</span><span>${Number(count)}</span></button>`}).join("");
+      const statusMarkup=date=>statuses.map(([status,label])=>{const count=counts.get(`${date}|${status}`)||0;if(!count)return"";const kind=Number(status)===TASK_STATUS.IN_PROGRESS?" progress":Number(status)===TASK_STATUS.TODO?" todo":"";return `<button class="calendar-status-count${kind}" type="button" data-calendar-date="${date}" data-calendar-status="${escapeHtml(status)}" title="View ${escapeHtml(label)} tasks"><span>${escapeHtml(label)}</span><span>${Number(count)}</span></button>`}).join("");
       $("calendarMonthLabel").textContent=month.toLocaleDateString(undefined,{month:"long",year:"numeric"});
       const cells=Array.from({length:offset},()=>'<div class="calendar-blank" aria-hidden="true"></div>');for(let day=1;day<=days;day++){const date=localIsoDate(new Date(year,monthIndex,day)),buttons=statusMarkup(date),hasTasks=!!buttons;cells.push(`<div class="calendar-day${date===today?" today":""}${date<today&&hasTasks?" past":""}"><span class="calendar-day-number">${day}</span>${hasTasks?`<div class="calendar-statuses">${buttons}</div>`:""}</div>`)}$("calendarGrid").innerHTML=cells.join("");
     }

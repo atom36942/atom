@@ -27,6 +27,95 @@ config_values = {key: value for module in config_modules for key, value in vars(
 
 `config_extend.py` is read after `config.py`, so its `config_*` values override the defaults. Only `config_*` names are taken from it: functions defined there are ignored, so they cannot replace core functions. It is kept out of the sync list. The `function` package discovers both Atom functions and modules directly inside the optional `function_extend/` folder; no `__init__.py` is required there.
 
+## Override the three configuration dictionaries
+
+Define each configuration name once in `config_extend.py`. `main.py` uses the extension value in place of the core value; it does not merge nested dictionaries for you. Start with the base entries, then add your changes:
+
+```python
+# config_extend.py
+from copy import deepcopy
+from config import config_column_int_mapping as base_mapping
+from config import config_api as base_config_api
+from config import config_postgres as base_config_postgres
+
+# 1. Add a table mapping and replace only the users role mapping.
+config_column_int_mapping = {
+    **base_mapping,
+    "task": {
+        "status": {1: "To Do", 2: "In Progress", 3: "Done"},
+        "priority": {1: "Low", 2: "Medium", 3: "High"},
+    },
+    "users": {
+        **base_mapping["users"],
+        "role": {1: "Admin", 10: "MDM", 11: "WiseTech"},
+    },
+}
+
+# 2. Add a route policy and override one setting on a core route.
+config_api = {
+    **base_config_api,
+    "/custom/hello": {"id": 200, "is_token": False},
+    "/my/object-read": {
+        **base_config_api["/my/object-read"],
+        "is_active": False,
+    },
+}
+
+# 3. Add a table and append a column to the core users table.
+config_postgres = deepcopy(base_config_postgres)
+config_postgres["table"].update({
+    "task": [
+        {"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True},
+        {"name": "created_by_id", "datatype": "bigint"},
+        {"name": "title", "datatype": "text"},
+        {"name": "status", "datatype": "smallint", "default": 1},
+        {"name": "priority", "datatype": "smallint"},
+    ],
+})
+config_postgres["table"]["users"].append({
+    "name": "department", "datatype": "text",
+})
+```
+
+These examples are alternatives to existing definitions: merge the snippets into your current dictionaries rather than assigning the same configuration name again later. Choose an unused API ID. The custom route policy needs a matching router, as shown below. Integer mappings provide labels; they do not change role permissions or validate database values.
+
+### Replace a whole table mapping or route policy
+
+Dictionary unpacking (`**base`) copies entries into the new dictionary. A later duplicate key replaces the earlier value; the finished dictionary has only one entry for that key.
+
+To replace every mapping for `users`, omit `**base_mapping["users"]` and supply all the columns you want to keep:
+
+```python
+# Use this users entry inside config_column_int_mapping.
+"users": {
+    "role": {1: "Admin", 10: "MDM", 11: "WiseTech"},
+    "source": {1: "Website", 2: "Import"},
+    "permissions": {1: "invoice.export", 2: "invoice.filter.apply", 3: "invoice.delete"},
+},
+```
+
+Similarly, omitting `**base_config_api["/my/object-read"]` replaces that route's entire policy. Include every setting you need, including its existing ID and authentication requirements. This changes policy, not the route handler.
+
+Unpacking is a shallow copy: unchanged nested values remain shared. Use dictionary construction for overrides as shown, or deep-copy the base if you intend to mutate inherited nested values afterward.
+
+### Replace or modify a core table's columns
+
+`.update()` operates on dictionary keys. A new table name adds a table; an existing table name replaces its entire column list. It does not merge columns. To replace `users`, put a complete column definition list under `"users"`:
+
+```python
+# Build a complete independent list from the core columns, then customize it.
+users_columns = deepcopy(base_config_postgres["table"]["users"])
+for column in users_columns:
+    if column["name"] == "title":
+        column["datatype"] = "varchar(200)"
+
+config_postgres["table"].update({"users": users_columns})
+```
+
+You can instead paste the complete users column list and edit it, but then you must maintain all columns required by Atom's authentication and other features yourself. Prefer `.append({...})` for one new column, or `.extend([{...}, {...}])` for several, so future core additions remain inherited. Do not append a column name that already exists; modify its definition instead.
+
+`deepcopy` keeps nested column changes separate from `config.config_postgres`. These operations update Python configuration; PostgreSQL changes happen during schema initialization when enabled. Review schema changes before applying them to existing data.
+
 ## Complete flow: config → router → function
 
 For a custom endpoint, create these three files in order. This example adds `GET /custom/hello`, which returns a greeting. Finish all three steps before restarting Atom.

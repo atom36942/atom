@@ -131,15 +131,21 @@ config_column_regex = {
 "password": ["^(?=.{6,120}\\Z)\\S+\\Z", "Password must be 6-120 characters and contain no spaces"],
 }
 
-config_column_dropdown = {"gender": ["male", "female"],}
-
-config_permissions_mapping = {
-1: "invoice.export",
-2: "invoice.filter.apply",
-3: "invoice.delete",
-}
+config_dropdown = {"gender": ["male", "female"],}
 
 config_column_int_mapping = {
+"test": {
+"type": {1: "Sample Type 1", 2: "Sample Type 2"},
+"status": {1: "Active", 2: "Inactive"},
+},
+"users": {
+"role": {1: "Admin", 2: "Sample Role 2", 3: "Sample Role 3"},
+"source": {1: "Sample Source 1", 2: "Sample Source 2"},
+"permissions": {1: "invoice.export", 2: "invoice.filter.apply", 3: "invoice.delete"},
+},
+"notification": {
+"type": {1: "Sample Notification 1", 2: "Sample Notification 2"},
+},
 "blob": {
 "type": {1: "File", 2: "Presigned Url"},
 },

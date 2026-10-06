@@ -315,7 +315,7 @@ Write-time regex validation rules enforced by `func_regex_check`.
 
 ---
 
-### `config_column_dropdown`
+### `config_dropdown`
 
 Enumerated option lists for frontend UI dropdowns exposed via `/info`.
 
@@ -342,19 +342,23 @@ Human-readable label mapping for integer-coded database columns.
 | `blob.type` | `1` | File |
 | `blob.type` | `2` | Presigned Url |
 
+Sample mappings also cover `test.type`, `test.status`, `users.role`, `users.source`, `users.permissions`, and `notification.type`. Except for root role `1`, the role/type/source/status samples are illustrative labels, not enforced meanings. Customize them to match your data. Labels do not grant access. When overriding the entire mapping in `config_extend.py`, include every core entry you want retained.
+
 Mappings use the lookup order `config_column_int_mapping[table][column][value]`.
 
-### `config_permissions_mapping`
+### Permission labels
 
-Maps stable permission IDs to action names for per-user capabilities within a role:
+Permission labels use the same dictionary, including for the `users.permissions` integer array:
 
 ```python
-config_permissions_mapping = {
+config_column_int_mapping["users"]["permissions"] = {
     1: "invoice.export",
     2: "invoice.filter.apply",
     3: "invoice.delete",
 }
 ```
+
+Resolve each assigned permission ID separately. The former standalone permission mapping has been removed; update consumers to use this nested location.
 
 Assigned IDs are stored in `config_postgres["table"]["users"]` using this optional column:
 
@@ -366,18 +370,17 @@ Assigned IDs are stored in `config_postgres["table"]["users"]` using this option
 
 ### `/info` Response Keys
 
-`GET /info` exposes the full permission mapping directly under `message`, alongside the other metadata. There is no nested `config` object.
+`GET /info` exposes permission labels inside `message.config_column_int_mapping.users.permissions`, alongside the other column mappings. There is no nested `config` object.
 
 | Key under `message` | Source / Meaning |
 |---|---|
 | `api_list` | Registered route paths |
 | `config_column_int_mapping` | `config_column_int_mapping` (formerly returned as `mapping`) |
-| `dropdown` | `config_column_dropdown` |
-| `config_permissions_mapping` | Full permission ID-to-action mapping |
+| `dropdown` | `config_dropdown` |
 | `config_query_runner_read_limit` | Query runner read limit |
 | `config_query_runner_export_limit` | Query runner export limit |
 
-Permission IDs are integers in Python, but JSON object keys are strings: clients read entries such as `message.config_permissions_mapping["1"]`. This public catalog describes available actions; it does not list the current user's assigned permissions.
+Permission IDs are integers in Python, but JSON object keys are strings: clients read entries such as `message.config_column_int_mapping.users.permissions["1"]`. This public catalog describes available actions; it does not list the current user's assigned permissions.
 
 ---
 

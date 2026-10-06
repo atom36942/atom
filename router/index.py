@@ -21,8 +21,7 @@ async def func_api_index_info(*, request:Request):
         "message": {
             "api_list": [route.path for route in request.app.routes if hasattr(route, "path")],
             "config_column_int_mapping": app_state.config_column_int_mapping,
-            "dropdown": app_state.config_column_dropdown,
-            "config_permissions_mapping": app_state.config_permissions_mapping,
+            "dropdown": app_state.config_dropdown,
             "config_query_runner_read_limit": app_state.config_query_runner_read_limit,
             "config_query_runner_export_limit": app_state.config_query_runner_export_limit,
         }

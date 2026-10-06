@@ -2,19 +2,18 @@
 from copy import deepcopy
 from config import config_postgres as base_config_postgres
 from config import config_api as base_config_api
+from config import config_column_int_mapping as base_mapping
 
 #column int mapping
 config_column_int_mapping = {
-"blob": {
-"type": {1: "File", 2: "Presigned Url"},
-},
-"log_users_delete": {
-"type": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
-"worker_status": {None: "Pending", 1: "Processing", 2: "Completed", 3: "Failed", 4: "Dead"},
+**base_mapping,
+"users": {
+**base_mapping["users"],
+"role": {1: "Admin", 4: "Pulse", 10: "MDM", 11: "WiseTech"},
 },
 "task": {
 "project": {1: "Myshipment", 2: "Portal", 3: "Hirex", 4: "OBhai", 5: "Amazon", 6: "Quotation", 7: "Tradelane", 8: "Misc"},
-"status": {1: "To Do", 2: "In Progress", 3: "Done", 4: "Blocked", 5: "Review"},
+"status": {1: "To Do", 2: "In Progress", 3: "Blocked", 4: "Review", 5: "Done"},
 },
 "jobseeker": {
 "worker_status": {None: "Pending", 1: "Processing", 2: "Completed", 3: "Failed", 4: "Dead"},
