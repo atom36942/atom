@@ -24,7 +24,8 @@ the Git index is left unchanged. If the project sync fails, the newly installed
 `sync.py` remains in place, while project write failures use in-memory rollback.
 If the new process cannot be launched, the old updater is restored from memory.
 
-- `docs/`, `router/`, `function/`, and `script/` belong entirely to Atom. Sync mirrors all upstream files and removes every local file absent upstream, including edited files, local-only modules, and caches, on every run including the first.
+- `docs/`, `router/`, and `function/` belong entirely to Atom. Sync mirrors all upstream files and removes every local file absent upstream, including edited files, local-only modules, and caches, on every run including the first.
+- Only `script/consumer_postgres_create.py` and `script/consumer_postgres_update.py` are synced inside `script/`, like the selected files in `static/`. All other scripts are preserved, even if upstream has matching paths. The whole `script/` folder is not replaced.
 - `config.py` and files listed in `sync_files` are replaced from upstream. Other paths are preserved.
 - `docs_extend/`, `router_extend/`, `function_extend/`, `script_extend/`, `config_extend.py`, and `.env` are never touched. They are outside the explicit sync file and folder lists, so upstream copies of these paths are also ignored.
 - Existing requirement entries are preserved; missing packages are appended.

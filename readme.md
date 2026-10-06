@@ -119,7 +119,7 @@ Keep application-specific settings and logic in your own extension files:
 - **`router_extend/<name>.py`** — Add an endpoint in a router file with a module-level `APIRouter`.
 - **`function_extend/<name>.py`** — Add custom business logic with unique `func_*` names; Atom loads these modules automatically.
 
-Atom owns `docs/`, `router/`, `function/`, and `script/`. Create your own `docs_extend/`, `router_extend/`, `function_extend/`, and `script_extend/` folders as needed. Keep configuration overrides in `config_extend.py`. Sync leaves all extensions untouched. Keep `func_*` names unique; files starting with `_` are not auto-loaded.
+Atom owns `docs/`, `router/`, and `function/`. Create your own `docs_extend/`, `router_extend/`, `function_extend/`, and `script_extend/` folders as needed. Keep configuration overrides in `config_extend.py`. Sync leaves all extensions untouched. Keep `func_*` names unique; files starting with `_` are not auto-loaded.
 
 Follow the complete flow: **1. add `config_extend.py` → 2. add a router file in `router_extend/` → 3. add a function file in `function_extend/`**. Restart Atom and call the endpoint to verify it.
 
@@ -133,7 +133,7 @@ Update Atom from the project root:
 python3 sync.py
 ```
 
-Sync fetches Atom's upstream `main`, installs the latest updater, and updates framework files. It completely replaces the contents of `docs/`, `router/`, `function/`, and `script/`, including removing local-only files. `config.py` and selected core files are replaced. The `*_extend/` folders, `config_extend.py`, and `.env` are preserved; missing dependencies are appended to `requirements.txt`. Save your work in Git before syncing, then restart the app and reinstall dependencies if requirements changed.
+Sync fetches Atom's upstream `main`, installs the latest updater, and updates framework files. It completely replaces the contents of `docs/`, `router/`, and `function/`, including removing local-only files. `config.py` and selected core files are replaced. Like `static/`, `script/` syncs only selected files: `consumer_postgres_create.py` and `consumer_postgres_update.py`; other scripts are untouched. The `*_extend/` folders, `config_extend.py`, and `.env` are preserved; missing dependencies are appended to `requirements.txt`. Save your work in Git before syncing, then restart the app and reinstall dependencies if requirements changed.
 
 See [sync details and recovery](docs/sync.md) for update behavior and recovery instructions.
 

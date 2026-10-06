@@ -4,15 +4,17 @@ Atom is opinionated but not closed. You extend it **without editing core files**
 
 ## The Golden Rule
 
-Atom owns all contents of `docs/`, `router/`, `function/`, and `script/`, plus `config.py` and selected core files. Sync replaces these folders completely, removing local-only files even on the first run. Keep your work in separate extension paths:
+Atom owns all contents of `docs/`, `router/`, and `function/`, plus `config.py` and selected core files. Sync replaces these folders completely, removing local-only files even on the first run. Keep your work in separate extension paths:
 
 | Atom path | Developer path | Purpose |
 |-----------|----------------|---------|
 | `config.py` | `config_extend.py` | Configuration overrides |
 | `router/` | `router_extend/` | Custom API endpoints |
 | `function/` | `function_extend/` | Custom `func_*` business logic |
-| `script/` | `script_extend/` | Standalone workers and jobs |
+| Two selected `script/consumer_postgres_*.py` files | `script_extend/` | Standalone workers and jobs |
 | `docs/` | `docs_extend/` | Project documentation |
+
+Only `script/consumer_postgres_create.py` and `script/consumer_postgres_update.py` are synced in `script/`; other scripts are left untouched. Keep new custom workers in `script_extend/` for a clear separation.
 
 Create only the extension paths you need. Sync never creates or modifies them. `.env` is also preserved.
 

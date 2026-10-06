@@ -243,6 +243,20 @@ class SyncTests(unittest.TestCase):
             path = name if name.endswith(".py") else f"{name}/custom.py"
             self.assertEqual((self.root / path).read_text(), "# developer\n")
 
+    def test_only_selected_consumer_scripts_are_synced(self):
+        self.write(self.root, "script/worker.py", "# developer worker\n")
+        self.write(self.root, "script/local.py", "# local script\n")
+        self.write(self.upstream, "script/new_worker.py", "# upstream new worker\n")
+        self.write(self.upstream, "script/consumer_postgres_create.py", "# updated create consumer\n")
+        self.write(self.upstream, "script/consumer_postgres_update.py", "# updated update consumer\n")
+        self.commit(self.upstream)
+        self.run_sync()
+        self.assertEqual((self.root / "script/worker.py").read_text(), "# developer worker\n")
+        self.assertEqual((self.root / "script/local.py").read_text(), "# local script\n")
+        self.assertFalse((self.root / "script/new_worker.py").exists())
+        for name in ("consumer_postgres_create.py", "consumer_postgres_update.py"):
+            self.assertEqual((self.root / "script" / name).read_bytes(), (self.upstream / "script" / name).read_bytes())
+
     def test_removed_router_selection_preserves_its_files(self):
         self.run_sync()
         self.write(self.root, "router/index.py", "# developer edits\n")

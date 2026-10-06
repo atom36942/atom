@@ -30,11 +30,13 @@ sync_files = [
     "sync.py",
     "static/api.html",
     "static/pgweb.html",
+    "script/consumer_postgres_create.py",
+    "script/consumer_postgres_update.py",
 
 ]
 
 # These folders belong entirely to Atom, including all local files inside them.
-sync_folders = ["docs", "router", "function", "script"]
+sync_folders = ["docs", "router", "function"]
 
 files_to_sync = [*sync_files, *sync_folders]
 
