@@ -34,19 +34,19 @@ Define each configuration name once in `config_extend.py`. `main.py` uses the ex
 ```python
 # config_extend.py
 from copy import deepcopy
-from config import config_column_int_mapping as base_mapping
+from config import config_column_int_mapping as base_int_mapping
 from config import config_api as base_config_api
 from config import config_postgres as base_config_postgres
 
 # 1. Add a table mapping and replace only the users role mapping.
 config_column_int_mapping = {
-    **base_mapping,
+    **base_int_mapping,
     "task": {
         "status": {1: "To Do", 2: "In Progress", 3: "Done"},
         "priority": {1: "Low", 2: "Medium", 3: "High"},
     },
     "users": {
-        **base_mapping["users"],
+        **base_int_mapping["users"],
         "role": {1: "Admin", 10: "MDM", 11: "WiseTech"},
     },
 }
@@ -83,7 +83,7 @@ These examples are alternatives to existing definitions: merge the snippets into
 
 Dictionary unpacking (`**base`) copies entries into the new dictionary. A later duplicate key replaces the earlier value; the finished dictionary has only one entry for that key.
 
-To replace every mapping for `users`, omit `**base_mapping["users"]` and supply all the columns you want to keep:
+To replace every mapping for `users`, omit `**base_int_mapping["users"]` and supply all the columns you want to keep:
 
 ```python
 # Use this users entry inside config_column_int_mapping.
