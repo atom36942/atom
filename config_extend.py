@@ -2,13 +2,13 @@
 from copy import deepcopy
 from config import config_postgres as base_config_postgres
 from config import config_api as base_config_api
-from config import config_column_int_mapping as base_mapping
+from config import config_column_int_mapping as base_int_mapping
 
 #column int mapping
 config_column_int_mapping = {
-**base_mapping,
+**base_int_mapping,
 "users": {
-**base_mapping["users"],
+**base_int_mapping["users"],
 "role": {1: "Admin", 4: "Pulse", 10: "MDM", 11: "WiseTech"},
 },
 "task": {
