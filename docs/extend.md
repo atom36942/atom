@@ -123,8 +123,10 @@ Tables are declared as data in `config.py` under `config_postgres["table"]` and 
 
 ```python
 # config_extend.py
-from config import config_postgres
+from copy import deepcopy
+from config import config_postgres as base_config_postgres
 
+config_postgres = deepcopy(base_config_postgres)
 config_postgres["table"]["product"] = [
     {"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True},
     {"name": "created_at", "datatype": "timestamptz", "default": "now()", "index": "btree(created_at)"},
@@ -133,6 +135,8 @@ config_postgres["table"]["product"] = [
     {"name": "price", "datatype": "numeric(10,2)"},
 ]
 ```
+
+`config.py` holds Atom core tables. Keep application tables in `config_extend.py` and deep-copy the base map before extending it, so core defaults remain unchanged in memory.
 
 Column specs support `is_primary`, `is_mandatory`, `default`, `unique`, `check`, `regex`, `index` (btree / gin / gist / gin_trgm), array types, PostGIS geography, and `old` (for renames). Once a table has a `created_by_id` column it works with the generic `object-create` / `object-read` ownership flow out of the box.
 
