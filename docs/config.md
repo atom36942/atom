@@ -27,7 +27,7 @@ Developers can declare **any** custom variable in `.env` without modifying `conf
 ### Example `.env`:
 ```dotenv
 # String values
-CONFIG_PAYMENT_GATEWAY_API_KEY="sk_live_123456789"
+CONFIG_PAYMENT_GATEWAY_API_KEY="sk_test_123456789"
 CONFIG_EXTERNAL_WEBHOOK_URL="https://hooks.example.com/events"
 
 # Booleans (case-insensitive true/false, yes/no, on/off)
@@ -48,7 +48,7 @@ CONFIG_TIER_LIMITS={"free": 100, "pro": 1000}
 @router.get("/checkout/status")
 async def get_checkout_status(request: Request):
     app_state = request.app.state
-    api_key = app_state.config_payment_gateway_api_key   # "sk_live_123456789" (str)
+    api_key = app_state.config_payment_gateway_api_key   # "sk_test_123456789" (str)
     is_beta = app_state.config_enable_beta_checkout      # True (bool)
     retries = app_state.config_max_retry_attempts        # 5 (int)
     ips = app_state.config_whitelisted_ips               # ("192.168.1.1", "10.0.0.1") (tuple)

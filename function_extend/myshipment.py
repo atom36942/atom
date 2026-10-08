@@ -1,4 +1,4 @@
-"""WiseTech buyer calculations. Functions are registered on app.state by Atom."""
+"""Myshipment landed-cost comparison, using the WiseTech Trade Services API. Functions are registered on app.state by Atom."""
 import asyncio
 import re
 from datetime import date
@@ -30,7 +30,7 @@ async def func_wisetech_request(*, app_state, endpoint, params=None, body=None, 
         raise HTTPException(502, "WiseTech returned an invalid response.") from None
 
 
-def func_wisetech_date(value):
+def func_myshipment_date(value):
     try:
         if not isinstance(value, str) or date.fromisoformat(value).isoformat() != value: raise ValueError()
     except ValueError:
@@ -38,7 +38,7 @@ def func_wisetech_date(value):
     return value
 
 
-def func_wisetech_amount(value, name, positive=False):
+def func_myshipment_amount(value, name, positive=False):
     try:
         if isinstance(value, bool): raise ValueError()
         amount = Decimal(str(value))
@@ -48,25 +48,25 @@ def func_wisetech_amount(value, name, positive=False):
     return amount
 
 
-def func_wisetech_list(value):
+def func_myshipment_list(value):
     if not isinstance(value, list) or any(not isinstance(item, dict) for item in value):
         raise HTTPException(502, "WiseTech returned an invalid list.")
     return value
 
 
-async def func_wisetech_countries(*, app_state, module_type="ImportHS", effective_date=None):
+async def func_myshipment_countries(*, app_state, module_type="ImportHS", effective_date=None):
     if module_type not in ("ImportHS", "ExportHS"): raise HTTPException(400, "Invalid moduleType.")
     params = {"moduleType": module_type}
-    if effective_date: params["effectiveDate"] = func_wisetech_date(effective_date)
-    return func_wisetech_list(await func_wisetech_request(app_state=app_state, endpoint="get-supported-countries", params=params))
+    if effective_date: params["effectiveDate"] = func_myshipment_date(effective_date)
+    return func_myshipment_list(await func_wisetech_request(app_state=app_state, endpoint="get-supported-countries", params=params))
 
 
-async def func_wisetech_reference(*, app_state, kind, effective_date=None):
+async def func_myshipment_landed_cost_options(*, app_state, kind, effective_date=None):
     endpoints = {"countries": "get-countries", "destinations": "get-supported-countries", "currencies": "get-currencies", "incoterms": "get-incoterms", "charges": "get-charges"}
     if kind not in endpoints: raise HTTPException(400, "Invalid reference kind.")
     params = {"moduleType": "ImportHS"} if kind == "destinations" else {}
-    if effective_date: params["effectiveDate"] = func_wisetech_date(effective_date)
-    rows = func_wisetech_list(await func_wisetech_request(app_state=app_state, endpoint=endpoints[kind], params=params))
+    if effective_date: params["effectiveDate"] = func_myshipment_date(effective_date)
+    rows = func_myshipment_list(await func_wisetech_request(app_state=app_state, endpoint=endpoints[kind], params=params))
     if kind in ("countries", "destinations"):
         rows = [row for row in rows if re.fullmatch(r"[A-Z]{2}", str(row.get("code", "")))]
     if kind == "incoterms":
@@ -74,7 +74,19 @@ async def func_wisetech_reference(*, app_state, kind, effective_date=None):
     return rows
 
 
-def func_wisetech_validate(*, body):
+async def func_myshipment_landed_cost_units(*, app_state, destination, hs_code, effective_date):
+    """Check the HS code and return the per-unit measurements WiseTech needs for it (e.g. KILOGRAMS)."""
+    if not isinstance(destination, str) or not re.fullmatch(r"[A-Z]{2}", destination): raise HTTPException(400, "Select a destination country.")
+    if not isinstance(hs_code, str) or not re.fullmatch(r"[0-9]{6,12}", hs_code): raise HTTPException(400, "Enter a 6–12 digit destination HS code.")
+    params = {"tradeType": "Import", "countryCode": destination, "hsCode": hs_code, "effectiveDate": func_myshipment_date(effective_date)}
+    valid = await func_wisetech_request(app_state=app_state, endpoint="validate-hs", params={**params, "isFinalHSValidation": "true"})
+    if not isinstance(valid, dict) or valid.get("isValid") is not True: return {"valid": False, "units": []}
+    required = await func_wisetech_request(app_state=app_state, endpoint="get-hs-uoms", params=params)
+    if not isinstance(required, list) or any(not isinstance(x, str) for x in required): raise HTTPException(502, "WiseTech returned invalid units.")
+    return {"valid": True, "units": required}
+
+
+def func_myshipment_landed_cost_validate(*, body):
     if not isinstance(body, dict): raise HTTPException(400, "A JSON object is required.")
     if not isinstance(body.get("productDescription", ""), str) or len(body.get("productDescription", "")) > 500:
         raise HTTPException(400, "Product description must be at most 500 characters.")
@@ -86,8 +98,8 @@ def func_wisetech_validate(*, body):
     if not isinstance(hs, str) or not re.fullmatch(r"[0-9]{6,12}", hs): raise HTTPException(400, "Enter a 6–12 digit destination HS code.")
     if body.get("incoterm") not in ("EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"): raise HTTPException(400, "Select a valid Incoterm.")
     if body.get("transport") not in ("SEA", "AIR", "LAND"): raise HTTPException(400, "Select a transport mode.")
-    func_wisetech_date(body.get("effectiveDate"))
-    quantity = func_wisetech_amount(body.get("quantity"), "Quantity", True)
+    func_myshipment_date(body.get("effectiveDate"))
+    quantity = func_myshipment_amount(body.get("quantity"), "Quantity", True)
     scenarios = body.get("scenarios")
     if not isinstance(scenarios, list) or not 1 <= len(scenarios) <= 4: raise HTTPException(400, "Provide 1–4 origin scenarios.")
     origins = set()
@@ -98,36 +110,46 @@ def func_wisetech_validate(*, body):
         if not isinstance(origin, str) or not re.fullmatch(r"[A-Z]{2}", origin): raise HTTPException(400, "Select an origin country.")
         if origin in origins: raise HTTPException(400, "Origins must be unique.")
         origins.add(origin)
-        func_wisetech_amount(scenario.get("unitPrice"), "Unit price", True)
+        func_myshipment_amount(scenario.get("unitPrice"), "Unit price", True)
         charges = scenario.get("charges", {})
         if not isinstance(charges, dict) or len(charges) > 20: raise HTTPException(400, "Invalid charges.")
         for code, amount in charges.items():
             if not re.fullmatch(r"[A-Za-z0-9_-]{1,30}", code): raise HTTPException(400, "Invalid charge code.")
-            func_wisetech_amount(amount, "Charge amount")
+            func_myshipment_amount(amount, "Charge amount")
     uoms = body.get("unitUomQuantities", [])
     if not isinstance(uoms, list) or len(uoms) > 10: raise HTTPException(400, "Invalid quantities.")
     for item in uoms:
         if not isinstance(item, dict) or not isinstance(item.get("uom"), str) or not re.fullmatch(r"[A-Za-z0-9_ /.-]{1,80}", item["uom"]): raise HTTPException(400, "Invalid quantity unit.")
-        func_wisetech_amount(item.get("qty"), "Unit quantity", True)
+        func_myshipment_amount(item.get("qty"), "Unit quantity", True)
     if len({x['uom'] for x in uoms}) != len(uoms): raise HTTPException(400, "Quantity units must be unique.")
     return quantity
 
 
-async def func_wisetech_scenario(*, app_state, body, scenario):
-    result = {"origin": scenario["origin"], "status": "needs_review", "currency": body["currency"], "issues": [], "assumptions": ["General duty treatment; preferential eligibility is not assumed.", "Prices and charges are buyer-supplied estimates.", "Pilot calculation: charge basis and total reconciliation require brokerage validation."]}
+async def func_myshipment_landed_cost_scenario(*, app_state, body, scenario):
+    result = {"origin": scenario["origin"], "status": "needs_review", "currency": body["currency"], "issues": [], "assumptions": ["Prices and charges are buyer-supplied estimates.", "Pilot calculation: charge basis and total reconciliation require brokerage validation."]}
     common = {"countryOfImportCode": body["destination"], "hsCode": body["hsCode"], "effectiveDate": body["effectiveDate"]}
     lane = {**common, "countryOfOriginCode": scenario["origin"], "countryOfExportCode": scenario["origin"]}
     async def lookup(endpoint, params, method="GET"):
-        return func_wisetech_list(await func_wisetech_request(app_state=app_state, endpoint=endpoint, params=params, method=method))
+        return func_myshipment_list(await func_wisetech_request(app_state=app_state, endpoint=endpoint, params=params, method=method))
     try:
         # Sequential calls per scenario keep total upstream concurrency at four.
         duties = await lookup("determine-duties", lane)
         accepted = ("Yes", "Maybe") if scenario.get("assumeGeneralRates") else ("Yes",)
-        general = next((x for x in duties if x.get("code") == "GR" and x.get("systemDecision") in accepted), None)
         if scenario.get("assumeGeneralRates"):
             result["assumptions"].append("Buyer selected a scenario assuming general duty and candidate standard taxes/fees apply; applicability is unconfirmed.")
         result["dutyOptions"] = [{"code": row.get("code"), "description": row.get("description"), "rate": row.get("dutyRateExpression"), "decision": row.get("systemDecision")} for row in duties]
-        if general is None: result["issues"].append("General duty treatment needs brokerage review.")
+        # Use the lowest ad-valorem rate among accepted duty programs (e.g. GSP/EBA); fall back to the general rate when rates can't be compared.
+        candidates = [x for x in duties if x.get("code") and x.get("systemDecision") in accepted]
+        def func_rate(row):
+            match = re.match(r"\s*(\d+(?:\.\d+)?)\s*%", str(row.get("dutyRateExpression") or ""))
+            return Decimal(match.group(1)) if match else None
+        rated = [x for x in candidates if func_rate(x) is not None]
+        chosen = min(rated, key=lambda x: (func_rate(x), x.get("code") != "GR")) if rated else next((x for x in candidates if x.get("code") == "GR"), None)
+        if chosen is None: result["issues"].append("General duty treatment needs brokerage review.")
+        else:
+            result["dutyProgram"] = {"code": chosen["code"], "description": chosen.get("description") or chosen["code"], "rate": str(func_rate(chosen)) if func_rate(chosen) is not None else None, "preferential": chosen["code"] not in ("GR", "555")}
+            if result["dutyProgram"]["preferential"]: result["assumptions"].append(f"Duty uses {result['dutyProgram']['description']} ({chosen.get('dutyRateExpression')}). This needs valid proof of origin; confirm eligibility with your broker.")
+            else: result["assumptions"].append("General duty treatment; no lower-rate program was applied.")
         selections = {}
         for endpoint, field, transaction in [("determine-taxes", "taxDetails", False), ("determine-fees", "feeDetails", False), ("determine-transaction-taxes", "transactionTaxDetails", True), ("determine-transaction-fees", "transactionFeeDetails", True)]:
             params = {"countryOfImportCode": body["destination"], "effectiveDate": body["effectiveDate"], "modeOfTransport": body["transport"]} if transaction else {**common, "mot": body["transport"], "provinceOfImportCode": "ZZ"}
@@ -145,19 +167,20 @@ async def func_wisetech_scenario(*, app_state, body, scenario):
         supplemental = await lookup("determine-supplemental-hs", {k: v for k, v in lane.items() if k != "hsCode"} | {"primaryHs": body["hsCode"]})
         if any(row.get("systemDecision") != "No" for row in supplemental): result["issues"].append("Supplemental tariff codes require brokerage review.")
         if result["issues"]: return result
-        payload = {"countryOfImportCode": body["destination"], "countryOfOriginCode": scenario["origin"], "effectiveDate": body["effectiveDate"], "currencyCode": body["currency"], "unitPrice": float(scenario["unitPrice"]), "quantity": float(body["quantity"]), "incoTerms": body["incoterm"], "modeOfTransport": body["transport"], "hsCode": body["hsCode"], "provinceOfImportCode": "ZZ", "spiCode": "GR", "unitUomQuantities": body.get("unitUomQuantities", []), "charges": {k: float(v) for k,v in scenario.get("charges", {}).items()}, **selections}
+        payload = {"countryOfImportCode": body["destination"], "countryOfOriginCode": scenario["origin"], "effectiveDate": body["effectiveDate"], "currencyCode": body["currency"], "unitPrice": float(scenario["unitPrice"]), "quantity": float(body["quantity"]), "incoTerms": body["incoterm"], "modeOfTransport": body["transport"], "hsCode": body["hsCode"], "provinceOfImportCode": "ZZ", "spiCode": chosen["code"], "unitUomQuantities": body.get("unitUomQuantities", []), "charges": {k: float(v) for k,v in scenario.get("charges", {}).items()}, **selections}
         calculated = await func_wisetech_request(app_state=app_state, endpoint="calculate-landed-cost", method="POST", body=payload)
         if not isinstance(calculated, dict) or not re.fullmatch(r"[A-Z]{3}", str(calculated.get("currency", ""))): raise HTTPException(502, "WiseTech returned an invalid calculation currency.")
         calculation_currency = calculated["currency"]
         rate = Decimal(1)
         if calculation_currency != body["currency"]:
             converted = await func_wisetech_request(app_state=app_state, endpoint="convert-currency", params={"sourceCurrency": calculation_currency, "targetCurrency": body["currency"], "value": 1, "effectiveDate": body["effectiveDate"]})
-            rate = func_wisetech_amount(converted, "Exchange rate", True)
+            rate = func_myshipment_amount(converted, "Exchange rate", True)
+            result["exchangeRate"] = str(rate)
             result["assumptions"].append(f"Totals converted from {calculation_currency} to {body['currency']} at {rate} for {body['effectiveDate']}.")
         totals = {}
         for target, source in [("landed", "totalAmount"), ("duty", "totalDutyAmount"), ("tax", "totalTaxAmount"), ("fees", "totalFeeAmount"), ("transactionFees", "totalTransactionLevelFeeAmount")]:
             if source not in calculated: raise HTTPException(502, "WiseTech returned an incomplete calculation.")
-            totals[target] = str(func_wisetech_amount(calculated[source], "Calculated amount") * rate)
+            totals[target] = str(func_myshipment_amount(calculated[source], "Calculated amount") * rate)
         totals["perUnit"] = str(Decimal(totals["landed"]) / Decimal(str(body["quantity"])))
         totals["goods"] = str(Decimal(str(scenario["unitPrice"])) * Decimal(str(body["quantity"])))
         result.update(status="estimate", totals=totals, breakdownCurrency=calculation_currency, breakdown={k: calculated.get(k, []) for k in ("dutyBreakUp", "taxBreakUp", "feeBreakUp", "transactionLevelFeeBreakUp", "chargeAdjustments")})
@@ -167,20 +190,17 @@ async def func_wisetech_scenario(*, app_state, body, scenario):
         return result
 
 
-async def func_wisetech_search(*, app_state, body):
-    func_wisetech_validate(body=body)
-    supported = await func_wisetech_countries(app_state=app_state, effective_date=body["effectiveDate"])
+async def func_myshipment_landed_cost_compare(*, app_state, body):
+    func_myshipment_landed_cost_validate(body=body)
+    supported = await func_myshipment_countries(app_state=app_state, effective_date=body["effectiveDate"])
     if body["destination"] not in {x.get("code") for x in supported}: raise HTTPException(400, "Destination HS coverage is unavailable.")
-    params = {"tradeType": "Import", "countryCode": body["destination"], "hsCode": body["hsCode"], "effectiveDate": body["effectiveDate"]}
-    valid = await func_wisetech_request(app_state=app_state, endpoint="validate-hs", params={**params, "isFinalHSValidation": "true"})
-    if not isinstance(valid, dict) or valid.get("isValid") is not True: raise HTTPException(400, "HS code is not a valid final destination code. Confirm it with your broker.")
-    required = await func_wisetech_request(app_state=app_state, endpoint="get-hs-uoms", params=params)
-    if not isinstance(required, list) or any(not isinstance(x, str) for x in required): raise HTTPException(502, "WiseTech returned invalid units.")
-    missing = [x for x in required if x not in {item['uom'] for item in body.get('unitUomQuantities', [])}]
+    hs = await func_myshipment_landed_cost_units(app_state=app_state, destination=body["destination"], hs_code=body["hsCode"], effective_date=body["effectiveDate"])
+    if not hs["valid"]: raise HTTPException(400, "HS code is not a valid final destination code. Confirm it with your broker.")
+    missing = [x for x in hs["units"] if x not in {item['uom'] for item in body.get('unitUomQuantities', [])}]
     if missing: return {"status": "needs_input", "requiredUnits": missing, "results": []}
-    charges = await func_wisetech_reference(app_state=app_state, kind="charges", effective_date=body["effectiveDate"])
+    charges = await func_myshipment_landed_cost_options(app_state=app_state, kind="charges", effective_date=body["effectiveDate"])
     charge_codes = {x.get("code") for x in charges}
     if any(code not in charge_codes for s in body['scenarios'] for code in s.get('charges', {})): raise HTTPException(400, "An unsupported charge was supplied.")
-    results = await asyncio.gather(*(func_wisetech_scenario(app_state=app_state, body=body, scenario=s) for s in body['scenarios']))
+    results = await asyncio.gather(*(func_myshipment_landed_cost_scenario(app_state=app_state, body=body, scenario=s) for s in body['scenarios']))
     results.sort(key=lambda x: (x['status'] != 'estimate', Decimal(x.get('totals', {}).get('landed', 'Infinity'))))
     return {"status": "finished", "effectiveDate": body["effectiveDate"], "currency": body["currency"], "results": results}

@@ -47,7 +47,7 @@ config_column_int_mapping = {
     },
     "users": {
         **base_int_mapping["users"],
-        "role": {1: "Admin", 10: "MDM", 11: "WiseTech"},
+        "role": {1: "Admin", 10: "Editor", 11: "Viewer"},
     },
 }
 
@@ -88,7 +88,7 @@ To replace every mapping for `users`, omit `**base_int_mapping["users"]` and sup
 ```python
 # Use this users entry inside config_column_int_mapping.
 "users": {
-    "role": {1: "Admin", 10: "MDM", 11: "WiseTech"},
+    "role": {1: "Admin", 10: "Editor", 11: "Viewer"},
     "source": {1: "Website", 2: "Import"},
     "permissions": {1: "invoice.export", 2: "invoice.filter.apply", 3: "invoice.delete"},
 },

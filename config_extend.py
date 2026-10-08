@@ -9,7 +9,7 @@ config_column_int_mapping = {
 **base_int_mapping,
 "users": {
 **base_int_mapping["users"],
-"role": {1: "Admin", 4: "Pulse", 10: "MDM", 11: "WiseTech"},
+"role": {1: "Admin", 4: "Pulse", 10: "MDM", 11: "Myshipment"},
 },
 "task": {
 "project": {1: "Myshipment", 2: "Portal", 3: "Hirex", 4: "OBhai", 5: "Amazon", 6: "Quotation", 7: "Tradelane", 8: "Misc"},
@@ -110,7 +110,8 @@ config_api = {
 "/mdm/read": {"id": 114, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [10]}},
 "/mdm/review": {"id": 115, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [10]}},
 "/mdm/export": {"id": 116, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [10]}},
-# wisetech
-"/wisetech/reference": {"id": 118, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [11]}},
-"/wisetech/search": {"id": 119, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [11]}},
+# myshipment
+"/myshipment/landed-cost-units": {"id": 117, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [11]}},
+"/myshipment/landed-cost-options": {"id": 118, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [11]}},
+"/myshipment/landed-cost-compare": {"id": 119, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [11]}},
 }
