@@ -289,28 +289,47 @@
             } if (e.key.toLowerCase() === "e") { e.preventDefault(); exportCatalogCsv() }
           }
         });
-    }; var STORAGE_KEY_TOKEN = "token";
-// Auth persistence state
+    }; var STORAGE_KEY_API = "api";
+// Auth persists under the app key; responses remain in memory.
+    function readApiStorage() {
+      try {
+        const data = JSON.parse(localStorage.getItem(STORAGE_KEY_API) || "{}");
+        return data && typeof data === "object" && !Array.isArray(data) ? data : {};
+      } catch { return {}; }
+    }
+    (function migrateApiStorage() {
+      try {
+        const legacy = localStorage.getItem("token");
+        if (legacy === null) return;
+        const data = readApiStorage();
+        if (!Object.hasOwn(data, "token")) {
+          try { data.token = JSON.parse(legacy); } catch { data.token = legacy; }
+        }
+        localStorage.setItem(STORAGE_KEY_API, JSON.stringify(data));
+        localStorage.removeItem("token");
+      } catch {}
+    })();
     let memoryResponses = {};
     const Store = {
       get tokenObject() {
-        const t = localStorage.getItem(STORAGE_KEY_TOKEN);
-        if (!t) return null;
-        try { const obj = JSON.parse(t); return obj && typeof obj === "object" ? obj : null; } catch(e) { return null; }
+        const token = readApiStorage().token;
+        return token && typeof token === "object" ? token : null;
       },
       get token() {
-        let t = localStorage.getItem(STORAGE_KEY_TOKEN);
-        if (!t) return "";
-        try { let obj = JSON.parse(t); return obj.access_token || t; } catch(e) { return t; }
+        const token = readApiStorage().token;
+        return typeof token === "string" ? token : token?.access_token || "";
       }, set token(v) {
-        if (!v) localStorage.removeItem(STORAGE_KEY_TOKEN); else localStorage.setItem(STORAGE_KEY_TOKEN, typeof v === 'object' ? JSON.stringify(v) : v);
+        const data = readApiStorage();
+        if (!v) delete data.token; else data.token = v;
+        if (Object.keys(data).length) localStorage.setItem(STORAGE_KEY_API, JSON.stringify(data));
+        else localStorage.removeItem(STORAGE_KEY_API);
       },
       get refreshToken() {
         const obj = this.tokenObject;
         return obj?.refresh_token || "";
       },
       clearAuth() {
-        localStorage.clear();
+        localStorage.removeItem(STORAGE_KEY_API);
         memoryResponses = {};
       },
       get responses() { return memoryResponses }, set responses(v) { memoryResponses = v || {} },

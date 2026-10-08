@@ -746,13 +746,24 @@ const DETAIL_ROWS={
 };
 const DETAILS=Object.keys(DETAIL_ROWS);
 
+// Related persistent UI preferences share one app key; drafts and connections stay separate.
+function pgwebPreferences(){
+  try{const data=JSON.parse(localStorage.getItem('pgweb')||'{}');return data&&typeof data==='object'&&!Array.isArray(data)?data:{}}catch{return {}}
+}
+function getPreference(field){return pgwebPreferences()[field]??null}
+function setPreference(field,value){const data=pgwebPreferences();data[field]=String(value);localStorage.setItem('pgweb',JSON.stringify(data))}
+(function migratePreferences(){
+  const fields=['readOnly','sideCollapsed','sideTab','theme','editorHeight','sideWidth'];
+  try{const data=pgwebPreferences();let found=false;for(const field of fields){const value=localStorage.getItem('pgweb.'+field);if(value!==null){found=true;if(!Object.hasOwn(data,field))data[field]=value}}if(found){localStorage.setItem('pgweb',JSON.stringify(data));for(const field of fields)localStorage.removeItem('pgweb.'+field)}}catch{}
+})();
+
 const S = { db:'', table:'', kind:'', pk:null, cols:[], widths:[], total:0,
             chunks:new Map(), pending:new Map(), local:null, where:null, meta:null, tree:{},
             viewPx:0, scale:1, loaded:{}, connected:false, hasMore:false, pageStart:0, latestFirst:false,
             activeQueryId:null, cancelRequested:false,
-            readOnly:localStorage.getItem('pgweb.readOnly') === '1',
-            sideCollapsed:localStorage.getItem('pgweb.sideCollapsed') === '1',
-            sideTab:localStorage.getItem('pgweb.sideTab') || 'table',
+            readOnly:getPreference('readOnly') === '1',
+            sideCollapsed:getPreference('sideCollapsed') === '1',
+            sideTab:getPreference('sideTab') || 'table',
             sideItems:[], sideShown:0, queryCleared:false,
             filterApplied:{col:'',op:'=',val:''}, dbInfo:null, dbCatalog:{}, dbCatalogKind:'' };
 let pool=[], lastFirst=-1, ticking=false;
@@ -787,7 +798,7 @@ async function api(body){
 }
 /* ---------------- theme ---------------- */
 (function theme(){
-  document.documentElement.dataset.theme = localStorage.getItem('pgweb.theme') || 'light';
+  document.documentElement.dataset.theme = getPreference('theme') || 'light';
   const draw = () => {
     const dark = document.documentElement.dataset.theme === 'dark';
     $('theme').innerHTML = icon(dark ? 'sun' : 'moon');
@@ -797,7 +808,7 @@ async function api(body){
   $('theme').onclick = () => {
     const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
-    localStorage.setItem('pgweb.theme', next);
+    setPreference('theme', next);
     draw();
     toast(next === 'dark' ? 'Dark theme enabled' : 'Light theme enabled');
   };
@@ -822,7 +833,7 @@ $('readonly').onclick = () => {
   $('dlg').showModal();
   $('modeyes').onclick = e => {
     e.preventDefault(); S.readOnly=next;
-    localStorage.setItem('pgweb.readOnly', S.readOnly ? '1' : '0');
+    setPreference('readOnly', S.readOnly ? '1' : '0');
     drawReadOnly(); $('dlg').close();
     toast(S.readOnly ? 'Read-only mode enabled' : 'Writes enabled');
   };
@@ -850,7 +861,7 @@ function updateSidebarVisibility(){
 function toggleSidebar(forceCollapse){
   const next = forceCollapse !== undefined ? forceCollapse : !S.sideCollapsed;
   S.sideCollapsed = next;
-  localStorage.setItem('pgweb.sideCollapsed', next ? '1' : '0');
+  setPreference('sideCollapsed', next ? '1' : '0');
   updateSidebarVisibility();
   toast(next ? 'Sidebar collapsed' : 'Sidebar expanded');
 }
@@ -977,7 +988,7 @@ async function connectFromHome(rawDsn, isReadOnly = false){
   try{
     const isRo = !!isReadOnly;
     S.readOnly = isRo;
-    localStorage.setItem('pgweb.readOnly', isRo ? '1' : '0');
+    setPreference('readOnly', isRo ? '1' : '0');
     drawReadOnly();
     await doConnect(dsn);
     saveConnection(dsn);
@@ -1249,7 +1260,7 @@ function getKindMeta(kind){
 
 function setSideTab(kind, triggerRender = true){
   S.sideTab = kind || 'table';
-  localStorage.setItem('pgweb.sideTab', S.sideTab);
+  setPreference('sideTab', S.sideTab);
   for(const btn of document.querySelectorAll('#sidetabs .side-tab')){
     btn.classList.toggle('on', btn.dataset.kind === S.sideTab);
   }
@@ -2217,7 +2228,7 @@ $('sql').addEventListener('scroll',()=>{
 (function initSqlResizer(){
   const resizer=$('sqlresizer'), sqlwrap=$('sqlwrap');
   if(!resizer || !sqlwrap) return;
-  const saved=parseInt(localStorage.getItem('pgweb.editorHeight'),10);
+  const saved=parseInt(getPreference('editorHeight'),10);
   if(saved && saved>=70 && saved<=2000) sqlwrap.style.height=saved+'px';
   let drag=null;
   resizer.addEventListener('pointerdown',e=>{
@@ -2240,7 +2251,7 @@ $('sql').addEventListener('scroll',()=>{
     if(!drag || (e && e.pointerId!==drag.id)) return;
     try{ resizer.releasePointerCapture(drag.id); }catch(_){}
     const finalH=Math.round(sqlwrap.getBoundingClientRect().height);
-    localStorage.setItem('pgweb.editorHeight', finalH);
+    setPreference('editorHeight', finalH);
     drag=null;
     resizer.classList.remove('dragging');
     document.body.classList.remove('resizing-sql');
@@ -2249,7 +2260,7 @@ $('sql').addEventListener('scroll',()=>{
   resizer.addEventListener('pointercancel', stopDrag);
   resizer.addEventListener('dblclick',()=>{
     sqlwrap.style.height='210px';
-    localStorage.setItem('pgweb.editorHeight','210px');
+    setPreference('editorHeight','210px');
   });
   resizer.addEventListener('keydown',e=>{
     if(e.key==='ArrowUp'||e.key==='ArrowDown'){
@@ -2260,11 +2271,11 @@ $('sql').addEventListener('scroll',()=>{
       const maxH=Math.max(minH, ($('v-query').clientHeight||window.innerHeight)-120);
       const newH=Math.min(maxH, Math.max(minH, Math.round(currentH + step)));
       sqlwrap.style.height=newH+'px';
-      localStorage.setItem('pgweb.editorHeight', newH);
+      setPreference('editorHeight', newH);
     }else if(e.key==='Home'){
       e.preventDefault();
       sqlwrap.style.height='210px';
-      localStorage.setItem('pgweb.editorHeight','210px');
+      setPreference('editorHeight','210px');
     }
   });
   addEventListener('resize',()=>{
@@ -2288,12 +2299,12 @@ $('sql').addEventListener('scroll',()=>{
     const maxW=getMaxW();
     const clamped=Math.min(maxW, Math.max(MIN_W, Math.round(w)));
     document.documentElement.style.setProperty('--side-w', clamped + 'px');
-    if(save) localStorage.setItem('pgweb.sideWidth', clamped);
+    if(save) setPreference('sideWidth', clamped);
     return clamped;
   }
 
   // Restore saved width
-  const savedW=parseInt(localStorage.getItem('pgweb.sideWidth'), 10);
+  const savedW=parseInt(getPreference('sideWidth'), 10);
   if(savedW && savedW >= MIN_W && savedW <= 1200){
     setSidebarWidth(savedW, false);
   } else {
@@ -2328,7 +2339,7 @@ $('sql').addEventListener('scroll',()=>{
       toggleSidebar(true);
     } else {
       const finalW=Math.round(side.getBoundingClientRect().width);
-      localStorage.setItem('pgweb.sideWidth', finalW);
+      setPreference('sideWidth', finalW);
     }
     drag=null;
     resizer.classList.remove('dragging');
