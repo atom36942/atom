@@ -12,6 +12,7 @@ import function
 # config
 config_modules = [config] + ([importlib.import_module("config_extend")] if importlib.util.find_spec("config_extend") else [])
 config_values = {key: value for module in config_modules for key, value in vars(module).items() if key.startswith("config_")}
+function.func_config_load_env(global_dict=config_values)
 
 # lifespan
 @asynccontextmanager
