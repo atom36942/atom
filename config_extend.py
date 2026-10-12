@@ -1,18 +1,20 @@
 #import
 from copy import deepcopy
 from config import config_postgres as base_config_postgres
-from config import config_api as base_config_api
 from config import config_column_int_mapping as base_int_mapping
+
+# misc
+config_table_private_read_allowed = ["test", "task", "task_comment"]
 
 #column int mapping
 config_column_int_mapping = {
 **base_int_mapping,
 "users": {
 **base_int_mapping["users"],
-"role": {1: "Admin", 4: "Pulse", 10: "MDM", 11: "Myshipment"},
+"role": {1: "Admin", 4: "Pulse"},
 },
 "task": {
-"project": {1: "Myshipment", 2: "Portal", 3: "Hirex", 4: "OBhai", 5: "Amazon", 6: "Quotation", 7: "Tradelane", 8: "Misc"},
+"project": {2: "Portal", 3: "Hirex", 4: "OBhai", 5: "Amazon", 6: "Quotation", 7: "Tradelane", 8: "Misc"},
 "status": {1: "To Do", 2: "In Progress", 3: "Blocked", 4: "Review", 5: "Done"},
 },
 "jobseeker": {
@@ -102,16 +104,3 @@ config_postgres["table"].update({
 {"name":"description","datatype":"text","is_mandatory": True}
 ],
 })
-
-# config api
-config_api = {
-**base_config_api,
-# mdm
-"/mdm/read": {"id": 114, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [10]}},
-"/mdm/review": {"id": 115, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [10]}},
-"/mdm/export": {"id": 116, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [10]}},
-# myshipment
-"/myshipment/landed-cost-units": {"id": 117, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [11]}},
-"/myshipment/landed-cost-options": {"id": 118, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [11]}},
-"/myshipment/landed-cost-compare": {"id": 119, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [11]}},
-}
