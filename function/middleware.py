@@ -340,6 +340,12 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
         error_msg, status_code = "cache service unavailable", 503
     elif isinstance(exception, redis.exceptions.RedisError):
         error_msg, status_code = "cache service error", 500
+    elif isinstance(exception, jwt.exceptions.ExpiredSignatureError):
+        error_msg, status_code = "authentication token expired", 401
+    elif isinstance(exception, jwt.exceptions.InvalidSignatureError):
+        error_msg, status_code = "authentication token signature invalid", 401
+    elif isinstance(exception, jwt.exceptions.DecodeError):
+        error_msg, status_code = "authentication token malformed", 401
     elif isinstance(exception, jwt.exceptions.PyJWTError):
         error_msg, status_code = "authentication token invalid", 401
     elif isinstance(exception, httpx.HTTPStatusError):

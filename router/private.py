@@ -37,9 +37,9 @@ async def func_api_private_object_read(*, request: Request):
 @router.get("/private/users-list")
 async def func_api_private_users_list(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "limit", "type": "int", "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "default": 1}])
-    role = int(request.state.user["role"])
-    ol = await app_state.func_postgres_read(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table="users", filter=[f"role = {role}"], limit=oq["limit"], page=oq["page"], order="username asc", column="id,username", relation=[], config_column_read_blocked=app_state.config_column_read_blocked)
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "limit", "type": "int", "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "default": 1}, {"name": "role", "type": "int"}])
+    filters = [f"role = {oq['role']}"] if oq.get("role") is not None else []
+    ol = await app_state.func_postgres_read(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table="users", filter=filters, limit=oq["limit"], page=oq["page"], order="username asc", column="id,username", relation=[], config_column_read_blocked=app_state.config_column_read_blocked)
     return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
 
 @router.get("/private/table-column-groupby")

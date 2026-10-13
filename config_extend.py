@@ -11,7 +11,7 @@ config_column_int_mapping = {
 **base_int_mapping,
 "users": {
 **base_int_mapping["users"],
-"role": {1: "Admin", 4: "Pulse"},
+"role": {1: "Admin", 2: "Pulse"},
 },
 "task": {
 "project": {2: "Portal", 3: "Hirex", 4: "OBhai", 5: "Amazon", 6: "Quotation", 7: "Tradelane", 8: "Misc"},

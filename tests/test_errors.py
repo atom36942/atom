@@ -79,10 +79,17 @@ class ErrorStatusTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_bad_or_expired_tokens_are_401(self):
         expired = jwt.encode({"exp": 1, "data": "{}", "type": "access"}, "k" * 32)
-        for token in ("not-a-jwt", expired):
+        wrong_signature = jwt.encode({"data": "{}", "type": "access"}, "x" * 32)
+        for token, message in [("not-a-jwt", "authentication token malformed"),
+                               (expired, "authentication token expired"),
+                               (wrong_signature, "authentication token signature invalid")]:
             with self.subTest(token=token[:12]):
                 status, body = await self.raised(func_token_decode(headers={"Authorization": f"Bearer {token}"}, config_token_secret_key="k" * 32))
-                self.assertEqual((status, body["message"]), (401, "authentication token invalid"))
+                self.assertEqual((status, body), (401, {"status": 0, "message": message}))
+
+    async def test_other_token_validation_errors_keep_generic_401(self):
+        self.assertEqual(await status_of(jwt.InvalidAudienceError("details")),
+                         (401, {"status": 0, "message": "authentication token invalid"}))
 
     async def test_infrastructure_failures_are_server_side_statuses(self):
         request = httpx.Request("GET", "https://service.test")

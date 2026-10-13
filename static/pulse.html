@@ -254,7 +254,7 @@
 
   <script>
     const TASK_STATUS={TODO:1,IN_PROGRESS:2,BLOCKED:3,REVIEW:4,DONE:5};
-    const PULSE_ROLE=4,PAGE_SIZE=10,KANBAN_PAGE_SIZE=10,EXPORT_PAGE_SIZE=1000,EXPORT_DEFAULT_COUNT=5000,EXPORT_MAX_COUNT=10000,TASK_TITLE_MAX=100,TASK_TAG_MAX=5,CACHE_TTL_MS=3600000,TOKEN_KEY="token",PROFILE_KEY="user",INFO_CACHE_KEY="info",USER_CACHE_KEY="users",TAG_CACHE_KEY="tags",CACHED_AT_KEY="cachedAt",DASHBOARD_CACHE_KEY="pulse_dashboard_status_v2",CALENDAR_CACHE_KEY="pulse_calendar_status_v2";
+    const PULSE_ROLE=2,PAGE_SIZE=10,KANBAN_PAGE_SIZE=10,EXPORT_PAGE_SIZE=1000,EXPORT_DEFAULT_COUNT=5000,EXPORT_MAX_COUNT=10000,TASK_TITLE_MAX=100,TASK_TAG_MAX=5,CACHE_TTL_MS=3600000,TOKEN_KEY="token",PROFILE_KEY="user",INFO_CACHE_KEY="info",USER_CACHE_KEY="users",TAG_CACHE_KEY="tags",CACHED_AT_KEY="cachedAt",DASHBOARD_CACHE_KEY="pulse_dashboard_status_v2",CALENDAR_CACHE_KEY="pulse_calendar_status_v2";
     // Move existing persistent data into the app object before restoring login.
     function pulseLocalData(){const data=readStorage(localStorage,"pulse");return data&&typeof data==="object"&&!Array.isArray(data)?data:{}}
     function migratePulseStorage(){
@@ -343,7 +343,7 @@
       const assigneeFilter=$("assigneeFilter"),selected=assigneeFilter.value;assigneeFilter.innerHTML='<option value="">Any assignee</option>';state.users.forEach(user=>assigneeFilter.add(new Option(user.username||`User ${user.id}`,user.id)));assigneeFilter.value=selected;
       const calendarAssignee=$("calendarAssignee"),calendarSelected=state.calendarAssignee||calendarAssignee.value;calendarAssignee.innerHTML='<option value="">All assignees</option>';state.users.forEach(user=>calendarAssignee.add(new Option(user.name||user.username||`User ${user.id}`,user.id)));if([...calendarAssignee.options].some(option=>option.value===String(calendarSelected)))calendarAssignee.value=String(calendarSelected);applyInitialAssigneeFilter();
     }
-    async function loadUsers(force=false){const cached=!force&&storedJson(USER_CACHE_KEY);if(cached){applyUsers(cached);return}const result=await api("/private/users-list",{query:{limit:1000,page:1}});const users=result.obj_list||[];applyUsers(users);writeStorage(localStorage,USER_CACHE_KEY,users)}
+    async function loadUsers(force=false){const cached=!force&&storedJson(USER_CACHE_KEY);if(cached){applyUsers(cached);return}const result=await api("/private/users-list",{query:{role:PULSE_ROLE,limit:1000,page:1}});const users=result.obj_list||[];applyUsers(users);writeStorage(localStorage,USER_CACHE_KEY,users)}
     function applyTags(rows){const selected=$("tagFilter").value;$("tagFilter").innerHTML='<option value="">Any tag</option>';(rows||[]).forEach(row=>{const tag=row.tags??row.item;if(tag!=null&&tag!=="")$("tagFilter").add(new Option(`${tag} (${Number(row.count)||0})`,tag))});$("tagFilter").value=selected}
     async function loadTags(force=false){const cached=!force&&storedJson(TAG_CACHE_KEY);if(cached){applyTags(cached);return}const result=await api("/private/table-column-groupby",{query:{table:"task",col:"tags",limit:1000,page:1,order:"item asc"}}),rows=result.obj_list||[];applyTags(rows);writeStorage(localStorage,TAG_CACHE_KEY,rows)}
     async function refreshTaskTagsAfterSave(){try{await loadTags(true)}catch{}}

@@ -55,7 +55,7 @@ class HttpIntegrationTests(unittest.TestCase):
         self.assertEqual(response.headers["x-frame-options"], "DENY")
 
     def test_missing_or_invalid_token_is_401(self):
-        for headers, message in [({}, "authorization token missing"), (self.auth("not-a-jwt"), "authentication token invalid")]:
+        for headers, message in [({}, "authorization token missing"), (self.auth("not-a-jwt"), "authentication token malformed")]:
             with self.subTest(message=message):
                 response = self.client.get("/my/profile", headers=headers)
                 self.assertEqual((response.status_code, response.json()), (401, {"status": 0, "message": message}))
