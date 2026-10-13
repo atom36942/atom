@@ -1,6 +1,7 @@
 #import
 from copy import deepcopy
 from config import config_postgres as base_config_postgres
+from config import config_api as base_config_api
 from config import config_column_int_mapping as base_int_mapping
 
 # misc
@@ -104,3 +105,10 @@ config_postgres["table"].update({
 {"name":"description","datatype":"text","is_mandatory": True}
 ],
 })
+
+# config api
+config_api = {
+**base_config_api,
+# Add only after creating the matching router endpoint; choose an unused ID:
+# "/custom/hello": {"id": 200, "is_token": True},
+}
