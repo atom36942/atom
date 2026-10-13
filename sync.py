@@ -23,6 +23,7 @@ sync_files = [
     ".dockerignore",
     ".gitignore",
     "Dockerfile",
+    "AGENTS.md",
     "config.py",
     "main.py",
     "readme.md",

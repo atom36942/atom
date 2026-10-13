@@ -10,6 +10,7 @@
 !Dockerfile
 !.dockerignore
 !readme.md
+!AGENTS.md
 !.gitignore
 !LICENSE
 !ruff.toml
