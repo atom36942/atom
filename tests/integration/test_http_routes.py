@@ -123,15 +123,20 @@ class HttpRouteTests(unittest.TestCase):
         def users(**params):
             return self.message(self.client.get("/private/users-list", params=params, headers=self.auth(self.alice)))
 
-        self.assertEqual(users(role=5)["obj_list"], [{"id": self.alice_id, "username": "alice"}, {"id": self.bob_id, "username": "bob"}])
+        expected_role_users = fetch(self.url, "SELECT id, username FROM users WHERE role = 5 ORDER BY id")
+        self.assertEqual(sorted(users(role=5)["obj_list"], key=lambda user: user["id"]), expected_role_users)
         self.assertEqual([u["username"] for u in users(role=1)["obj_list"]], ["admin"])
         self.assertEqual(users(role=20), {"obj_list": [], "has_next_page": False})
-        all_users = users()["obj_list"]
-        self.assertEqual({u["username"] for u in all_users}, {"admin", "alice", "bob"})
-        for page in range(1, 4):
+        all_users = users(limit=1000)["obj_list"]
+        self.assertEqual({u["id"] for u in all_users}, {u["id"] for u in fetch(self.url, "SELECT id FROM users")})
+        self.assertTrue({"admin", "alice", "bob"} <= {u["username"] for u in all_users})
+        # One page boundary verifies pagination without relying on the order of
+        # extra accounts that share a NULL username in this class's fixture.
+        for page in (1, 2):
             result = users(limit=1, page=page)
             self.assertEqual(result["obj_list"], all_users[page-1:page])
-            self.assertEqual(result["has_next_page"], page < 3)
+            self.assertTrue(result["has_next_page"])
+        self.assertEqual(users(limit=1, page=len(all_users)+1), {"obj_list": [], "has_next_page": False})
         self.message(self.client.get("/private/users-list", params={"role": "invalid"}, headers=self.auth(self.alice)), 400)
 
     def test_groupby_and_distinct_on_public_and_private(self):
