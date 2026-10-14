@@ -10,7 +10,7 @@ from argon2 import PasswordHasher
 import jwt
 
 from function import (
-    func_auth_login_password,
+    func_auth_check_config, func_auth_login_password,
     func_auth_signup_password, func_auth_user_find_or_create,
     func_otp_verify, func_token_encode, func_token_decode,
     func_middleware_check_token,
@@ -127,6 +127,7 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
                 with self.subTest(path=route.path, secret=secret):
                     state = SimpleNamespace(
                         config_token_secret_key=secret,
+                        func_auth_check_config=func_auth_check_config,
                         func_request_param_read=AsyncMock(),
                         func_auth_signup_password=AsyncMock(),
                         func_auth_user_find_or_create=AsyncMock(),
@@ -150,7 +151,7 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
                     read = AsyncMock()
                     request = SimpleNamespace(
                         app=SimpleNamespace(state=SimpleNamespace(
-                            config_token_secret_key=secret, func_request_param_read=read)),
+                            config_token_secret_key=secret, func_auth_check_config=func_auth_check_config, func_request_param_read=read)),
                         state=SimpleNamespace(client_postgres=None))
                     with self.assertRaisesRegex(Exception, "postgres client not initialized") as caught:
                         await route.endpoint(request=request)
