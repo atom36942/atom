@@ -30,7 +30,8 @@ async def func_lifespan(app: FastAPI):
         cache_postgres_buffer_log_api = {}
         cache_extend = {}
         app.state.func_check(app=app)
-        app.state.func_structure_init(is_tmp_reset=app.state.config_is_tmp_reset)
+        # with several workers, main resets tmp once before they start; a worker resetting it would delete files others are using
+        app.state.func_structure_init(is_tmp_reset=app.state.config_is_tmp_reset and app.state.config_uvicorn_workers == 1)
         # client init
         client_password_hasher = app.state.func_client_password_hasher()
         client_http = app.state.func_client_http()
@@ -59,9 +60,11 @@ async def func_lifespan(app: FastAPI):
         client_azure_blob = app.state.func_client_azure_blob(account_name=app.state.config_azure_account_name, account_key=app.state.config_azure_account_key)
         client_msgraph = app.state.func_client_msgraph(tenant_id=app.state.config_msgraph_tenant_id, client_id=app.state.config_msgraph_client_id, client_secret=app.state.config_msgraph_client_secret)
         client_postgres_pgweb = {}
+        await app.state.func_check_postgres_connections(app_state=app.state, client_postgres_dict=client_postgres_dict)
         # postgres master
         postgres_master = client_postgres_dict.get("master")
-        if postgres_master and not app.state.config_is_read_only and app.state.config_is_postgres_schema_init: await app.state.func_postgres_schema_init(app_state=app.state, client_postgres=postgres_master, config_postgres=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(str(app.state.config_root_user_password)) if app.state.config_root_user_password else None)
+        if postgres_master and not app.state.config_is_read_only and app.state.config_is_postgres_schema_init:
+            async with app.state.func_postgres_advisory_lock(client_postgres=postgres_master, lock_id=3): await app.state.func_postgres_schema_init(app_state=app.state, client_postgres=postgres_master, config_postgres=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(str(app.state.config_root_user_password)) if app.state.config_root_user_password else None)
         postgres_master_schema = await app.state.func_postgres_schema_read(client_postgres=postgres_master) if postgres_master else {}
         cache_config = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("config"), is_json_value=True) if postgres_master and "config" in postgres_master_schema else {}
         cache_users_role = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("users_role")) if postgres_master else {}
@@ -69,7 +72,8 @@ async def func_lifespan(app: FastAPI):
         cache_users_deleted = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("users_deleted")) if postgres_master else {}
         # postgres log
         client_postgres_log_api = client_postgres_dict.get(app.state.config_postgres_db_log_api)
-        if client_postgres_log_api and app.state.config_postgres_db_log_api != "master" and not app.state.config_is_read_only and app.state.config_is_postgres_schema_init: await app.state.func_postgres_schema_tables_init(app_state=app.state, client_postgres=client_postgres_log_api, tables={"log_api": app.state.config_postgres["table"]["log_api"]})
+        if client_postgres_log_api and app.state.config_postgres_db_log_api != "master" and not app.state.config_is_read_only and app.state.config_is_postgres_schema_init:
+            async with app.state.func_postgres_advisory_lock(client_postgres=client_postgres_log_api, lock_id=3): await app.state.func_postgres_schema_tables_init(app_state=app.state, client_postgres=client_postgres_log_api, tables={"log_api": app.state.config_postgres["table"]["log_api"]})
         # cache schema
         cache_postgres_schema_dict = {name: postgres_master_schema if name == "master" else await app.state.func_postgres_schema_read(client_postgres=pool) for name, pool in client_postgres_dict.items()}
         cache_clickhouse_schema = await app.state.func_clickhouse_schema_read(client_clickhouse=client_clickhouse) if client_clickhouse else {}
@@ -172,4 +176,10 @@ app.state.func_app_cors_add(app=app, allow_origins=app.state.config_cors_allow_o
 
 # main
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+    workers = app.state.config_uvicorn_workers
+    if workers == 1: uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+    else:
+        # check config once here: uvicorn restarts workers that fail startup, so a bad config would loop instead of exiting
+        app.state.func_check(app=app)
+        function.func_structure_init(is_tmp_reset=app.state.config_is_tmp_reset)
+        uvicorn.run("main:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), workers=workers, app_dir=os.path.dirname(os.path.abspath(__file__)))

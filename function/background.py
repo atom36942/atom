@@ -2,6 +2,7 @@
 
 import asyncio
 import time
+from contextlib import asynccontextmanager
 from typing import Any
 import asyncpg
 from starlette.datastructures import State
@@ -58,6 +59,14 @@ async def func_log_api_cleanup(*, conn: asyncpg.Connection, cutoff, timeout_sec:
     """Delete at most 5,000 old API logs from the supplied logging database."""
     result = await conn.execute("DELETE FROM log_api WHERE id IN (SELECT id FROM log_api WHERE created_at < $1 ORDER BY created_at LIMIT 5000 FOR UPDATE SKIP LOCKED)", cutoff, timeout=timeout_sec)
     return int(result.split()[-1])
+
+@asynccontextmanager
+async def func_postgres_advisory_lock(*, client_postgres: asyncpg.Pool, lock_id: int):
+    """Hold a session advisory lock so only one app worker runs the block at a time; others wait their turn."""
+    async with client_postgres.acquire(timeout=30) as conn:
+        await conn.execute("SELECT pg_advisory_lock(1096044365, $1)", lock_id)
+        try: yield
+        finally: await conn.execute("SELECT pg_advisory_unlock(1096044365, $1)", lock_id, timeout=5)
 
 async def func_cleanup_periodic_task(*, client_postgres: asyncpg.Pool, retention_day: int | None, cleanup, lock_id: int, runtime_error_count: dict) -> None:
     """Run a fixed-table cleanup hourly, with a 30-second budget per run."""

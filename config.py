@@ -54,6 +54,7 @@ config_is_otp_require_users_update = False
 config_is_read_only = False
 config_is_prod = True
 config_is_tmp_reset = True
+config_uvicorn_workers = 1
 config_postgres_pool_min_size = 5
 config_postgres_pool_max_size = 20
 config_otp_length = 6
