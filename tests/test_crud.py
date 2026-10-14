@@ -1,5 +1,8 @@
 """CRUD contracts with actual builders/serializers and a mocked database."""
+import asyncio
+import pathlib
 import unittest
+import orjson
 from function import (
     func_postgres_create, func_postgres_read, func_postgres_update, func_postgres_delete,
     func_postgres_where_build,
@@ -96,6 +99,40 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(RuntimeError, "database unavailable"):
             await self.create(mode="flush", cache_postgres_buffer=buffer)
         self.assertEqual(sum(map(len, buffer.values())), 1)
+
+    async def test_concurrent_buffered_writers_insert_every_row_exactly_once(self):
+        buffer, inserted = {}, []
+        async def fetch(sql, *args):
+            await asyncio.sleep(0.005)    # other requests keep buffering while this insert waits
+            inserted.extend([r["name"] for r in orjson.loads(args[0])] if "jsonb_to_recordset" in sql else [args[0]])
+            return []
+        self.conn.fetch.side_effect = fetch
+        await asyncio.gather(*(self.create(mode="buffer", cache_postgres_buffer=buffer, obj_list=[{"name": f"row-{i}", "created_by_id": 7}]) for i in range(300)))
+        await self.create(mode="flush", cache_postgres_buffer=buffer)
+        self.assertEqual(sorted(inserted), sorted(f"row-{i}" for i in range(300)))
+
+    async def test_failed_buffered_insert_puts_rows_back_ahead_of_new_ones(self):
+        buffer = {}
+        self.conn.fetch.side_effect = RuntimeError("database unavailable")
+        await self.create(mode="buffer", cache_postgres_buffer=buffer, buffer_limit=2, obj_list=[{"name": "row-0", "created_by_id": 7}])
+        with self.assertRaisesRegex(RuntimeError, "database unavailable"):
+            await self.create(mode="buffer", cache_postgres_buffer=buffer, buffer_limit=2, obj_list=[{"name": "row-1", "created_by_id": 7}])
+        with self.assertRaisesRegex(RuntimeError, "database unavailable"):
+            await self.create(mode="buffer", cache_postgres_buffer=buffer, buffer_limit=2, obj_list=[{"name": "row-2", "created_by_id": 7}])
+        self.assertEqual([r["name"] for rows in buffer.values() for r in rows], ["row-0", "row-1", "row-2"])
+
+    async def test_trusted_create_skips_value_checks_but_not_identifier_checks(self):
+        regex = {"name": ["^[0-9]+$", "invalid name"]}
+        self.assertEqual(await self.create(mode="buffer", is_trusted=True, config_column_regex=regex, obj_list=[{"name": "abc", "extra": 1}]), "buffered")
+        for changes, message in [({"obj_list": [{'bad"col': 1}]}, "invalid identifier"), ({"table": "bad;table"}, "invalid identifier"), ({"table": "spatial_ref_sys"}, "system table protected")]:
+            with self.subTest(changes=changes), self.assertRaisesRegex(Exception, message):
+                await self.create(mode="now", is_trusted=True, **changes)
+
+    def test_no_route_passes_is_trusted(self):
+        root = pathlib.Path(__file__).resolve().parent.parent
+        for folder in ("router", "router_extend"):
+            for path in (root / folder).glob("*.py"):
+                self.assertNotIn("is_trusted", path.read_text(), f"{path.name}: request data must never skip validation")
 
     async def test_read_binds_filters_and_pagination_and_removes_password(self):
         self.conn.fetch.return_value = [{"id": 3, "name": "item", "password": "private"}]

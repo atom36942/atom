@@ -32,6 +32,7 @@ Atom attaches standard baseline security headers to every HTTP response before r
 - **Sensitive Column Exfiltration Shield**: Projections, filters, distinct queries, and group-by aggregations strictly block sensitive fields declared in `config_column_read_blocked` and `"password"`.
 - **Server-Managed Column Protections**: Clients cannot mutate fields in `config_column_admin` (`created_at`, `role`, `verified_at`).
 - **Single-Field Update Guards**: High-risk identity fields (`password`, `email`, `mobile`) cannot be updated in bulk; `config_column_single_update` forces isolated, single-field mutations.
+- **Trusted Writes Are Internal Only**: `func_postgres_create(..., is_trusted=True)` skips column, regex and type checks for rows Atom builds itself (the API log). Never pass it for request data; a test fails if any `router/` or `router_extend/` file uses it.
 - **Database Trigger Protections**: Superadmin user (`id: 1`) is guarded by PostgreSQL triggers (`trigger_protect_root_users`) preventing deletion.
 
 ---

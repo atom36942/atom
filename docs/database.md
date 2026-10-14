@@ -63,7 +63,9 @@ Lifespan initializes two independent buffer dictionaries on `app.state`:
 | :--- | :--- |
 | `now` | Validate and insert records immediately into PostgreSQL (default). |
 | `buffer` | Validate records and append to memory buffer. Returns immediate ack. |
-| `flush` | Internal mode: locks buffer, bulk-inserts all pending records via `COPY` or multi-row `INSERT`, and clears buffer. |
+| `flush` | Internal mode: bulk-inserts all pending records with a multi-row `INSERT`. |
+
+Rows are taken out of the buffer before each insert, so concurrent requests never insert the same rows twice or lose rows added meanwhile. A failed insert puts its rows back at the front for the next flush.
 
 ### Periodic Background Flush Loop:
 Atom runs a periodic background task (`func_postgres_buffer_flush_periodic_task`) draining both buffers every `config_postgres_buffer_flush_auto_sec` (default 60s). It acquires `postgres_buffer_flush_lock` to serialize flushes and ensure no lost writes.

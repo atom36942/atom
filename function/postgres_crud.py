@@ -396,12 +396,16 @@ async def func_postgres_relation(*, client_postgres: asyncpg.Pool | None, client
         else: raise Exception(f"invalid operator: {op}")
     return obj_list
 
-async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_column_regex: dict, buffer_limit: int, mode: str, table: str, obj_list: list, buffer_rows_max: int = None, buffer_full_mode: str = "reject", runtime_error_count: dict = None) -> Any:
+async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, cache_postgres_buffer: dict, config_column_regex: dict, buffer_limit: int, mode: str, table: str, obj_list: list, buffer_rows_max: int = None, buffer_full_mode: str = "reject", runtime_error_count: dict = None, is_trusted: bool = False) -> Any:
     """Create PostgreSQL records with support for buffering, batch insertion, and dynamic serialization.
 
     buffer_rows_max caps the rows pending in cache_postgres_buffer (None: no cap), so a long outage cannot exhaust memory.
     When full, buffer_full_mode "reject" raises 503 (user data is never dropped silently) and "drop_oldest" drops the
     oldest rows of that buffer key, counted as runtime_error_count["buffer_dropped"] (for best-effort logs).
+    Buffered rows are taken out of the buffer before inserting and put back at the front if the insert fails, so
+    concurrent requests never insert the same rows twice or lose rows added during the insert.
+    is_trusted skips column, regex and type checks for rows Atom builds itself (API logs). Never set it for
+    request data: table and column names are still validated, but values reach Postgres unchecked.
     """
     if not client_postgres and not client_postgres_conn: raise func_api_error(message="postgres client not initialized", status_code=500)
     limit_chunk = 5000
@@ -447,19 +451,25 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
                     await _execute_bulk(conn)
             ids = all_ids
         return [r["id"] for r in ids] if ids and "id" in ids[0] else "created"
+    def buffer_restore(key, items):
+        cache_postgres_buffer[key] = items + cache_postgres_buffer.get(key, [])
     async def serialize_batches():
         for i in range(0, len(obj_list), limit_chunk):
             batch = obj_list[i:i+limit_chunk]
+            if is_trusted:
+                yield batch
+                continue
             await func_regex_check(config_column_regex=config_column_regex, obj_list=batch)
             yield await func_postgres_serialize(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=batch, is_base=False if len(batch) > 1 else 1)
     if mode not in ("now", "buffer", "flush"): raise Exception(f"invalid mode: {mode}")
     if mode == "flush":
-        for key, buffer_list in list(cache_postgres_buffer.items()):
-            if buffer_list:
-                parts = key.split("|")
-                tbl = parts[0]
-                await insert_serialized(tbl, buffer_list)
-                cache_postgres_buffer[key] = []
+        for key in list(cache_postgres_buffer.keys()):
+            items = cache_postgres_buffer.pop(key, None)
+            if not items: continue
+            try: await insert_serialized(key.split("|")[0], items)
+            except Exception:
+                buffer_restore(key, items)
+                raise
         return "flushed"
     if not obj_list: raise Exception("object list required")
     if len(obj_list) == 1 and not obj_list[0]: raise Exception("object data required")
@@ -467,7 +477,7 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
     if table == "spatial_ref_sys": raise Exception("system table protected")
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
-    if cache_postgres_schema is not None and table in cache_postgres_schema:
+    if cache_postgres_schema is not None and table in cache_postgres_schema and not is_trusted:
         schema = cache_postgres_schema[table]
         for item in obj_list:
             for c in item.keys():
@@ -486,9 +496,11 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
                 del cache_postgres_buffer[key][:dropped]
                 if runtime_error_count is not None: runtime_error_count["buffer_dropped"] = runtime_error_count.get("buffer_dropped", 0) + dropped
             if len(cache_postgres_buffer[key]) >= buffer_limit:
-                items = cache_postgres_buffer[key]
-                await insert_serialized(table, items)
-                cache_postgres_buffer[key] = []
+                items = cache_postgres_buffer.pop(key)
+                try: await insert_serialized(table, items)
+                except Exception:
+                    buffer_restore(key, items)
+                    raise
                 result = "buffered released"
         return result
     if mode == "now":

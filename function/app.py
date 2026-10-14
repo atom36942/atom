@@ -1,6 +1,7 @@
 """Atom app functions."""
 
 import ast
+import functools
 import importlib.util
 import inspect
 import os
@@ -8,7 +9,12 @@ import pathlib
 import re
 import shutil
 from typing import Any
+import orjson
 from fastapi import FastAPI
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+from fastapi.routing import APIRoute
+from starlette.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import State
@@ -192,6 +198,30 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
             spec["paths"][path][m_lower] = op
     return spec
 
+def func_response_json(*, content: Any, status_code: int = 200) -> Response:
+    """Encode a route's return value with orjson, matching FastAPI's default JSON output.
+
+    Types orjson lacks, plus dates and dataclasses, go through FastAPI's jsonable_encoder, so output matches it.
+    Anything orjson still refuses (e.g. integers above 64 bits) falls back to FastAPI's own encoding.
+    """
+    try: body = orjson.dumps(content, default=jsonable_encoder, option=orjson.OPT_NON_STR_KEYS | orjson.OPT_PASSTHROUGH_DATETIME | orjson.OPT_PASSTHROUGH_DATACLASS)
+    except (TypeError, orjson.JSONEncodeError): return JSONResponse(content=jsonable_encoder(content), status_code=status_code)
+    return Response(content=body, status_code=status_code, media_type="application/json")
+
+def func_endpoint_json_wrap(*, endpoint: Any, status_code: int | None) -> Any:
+    """Wrap a route so a returned dict or list is encoded by func_response_json; FastAPI skips its slower encoding for a returned Response."""
+    if getattr(endpoint, "__atom_json_wrapped__", False): return endpoint
+    def to_response(result):
+        return result if isinstance(result, Response) else func_response_json(content=result, status_code=status_code or 200)
+    if inspect.iscoroutinefunction(endpoint):
+        @functools.wraps(endpoint)
+        async def wrapper(*args, **kwargs): return to_response(await endpoint(*args, **kwargs))
+    else:
+        @functools.wraps(endpoint)
+        def wrapper(*args, **kwargs): return to_response(endpoint(*args, **kwargs))
+    wrapper.__atom_json_wrapped__ = True
+    return wrapper
+
 def func_app_router_add(*, app: FastAPI, router_dir: Any, router_order: dict) -> None:
     """Load core routers in configured order, then optional sibling router_extend modules."""
     router_dir = pathlib.Path(router_dir)
@@ -205,7 +235,10 @@ def func_app_router_add(*, app: FastAPI, router_dir: Any, router_order: dict) ->
             spec = importlib.util.spec_from_file_location(f"{directory.name}.{router_path.stem}", router_path)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            if hasattr(module, "router"): app.include_router(module.router)
+            if not hasattr(module, "router"): continue
+            for route in module.router.routes:
+                if isinstance(route, APIRoute) and route.response_model is None: route.endpoint = func_endpoint_json_wrap(endpoint=route.endpoint, status_code=route.status_code)
+            app.include_router(module.router)
     return None
 
 def func_sentry_init(*, config_sentry_dsn: str):

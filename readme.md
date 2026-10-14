@@ -189,6 +189,7 @@ See [test coverage and setup](tests/README.md).
 - [queue.md](docs/queue.md) — Asynchronous job queues, background consumers & retry workers.
 - [messaging.md](docs/messaging.md) — In-app messaging, notifications, transactional email & SMS.
 - [storage.md](docs/storage.md) — Complete blob guide: S3/Azure uploads, previews, SAS, ownership, and deletion.
+- [performance.md](docs/performance.md) — Load testing, profiling, slow queries, workers & pool sizing.
 
 🧱 **Administration & Customization**
 
