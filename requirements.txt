@@ -4,7 +4,7 @@ aiobotocore==3.6.0
 aiokafka==0.14.0
 argon2-cffi==25.1.0
 asyncpg==0.31.0
-asyncssh==2.24.0
+asyncssh==2.24.1
 azure-storage-blob==12.19.0
 azure-communication-email==1.1.0
 azure-communication-sms==1.1.0
