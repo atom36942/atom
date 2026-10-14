@@ -19,7 +19,7 @@ Atom attaches standard baseline security headers to every HTTP response before r
 
 ## 2. Identity & Token Security
 
-- **Stateless HS256 JWTs**: Signed using `config_token_secret_key`. No session state is held server-side.
+- **Stateless HS256 JWTs**: Signed using `config_token_secret_key`. No session state is held server-side. In production startup refuses a key shorter than 32 bytes, since a short key can be brute-forced from any issued token and then used to forge admin tokens.
 - **Minimal Token Claims**: Encodes only non-sensitive routing fields (`id`, `role`, `username`, `id_ext`, `deactivated_at`, `deleted_at`) declared in `config_column_token_encode`.
 - **Argon2 Password Hashing**: Passwords are never stored or logged in plaintext; hashed via Argon2id (`m=65536, t=3, p=4`).
 - **Constant-Time Verification**: Endpoint checks (such as `/auth/login-password`) use `hmac.compare_digest` to thwart timing attacks.

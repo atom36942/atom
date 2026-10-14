@@ -112,7 +112,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 |---|---|
 | `config_root_user_password` | Password for seeded root admin (hashed at startup) |
 | `config_login_password` | Static login password for `/auth/login-password` (Must set in `.env` if used) |
-| `config_token_secret_key` | HMAC secret key for signing/verifying JWT tokens *(Must change)* |
+| `config_token_secret_key` | HMAC secret key for signing/verifying JWT tokens *(Must change)*. With `config_is_prod` on, startup refuses keys shorter than 32 bytes; generate one with `python3 -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `config_root_html_path` | Path to static HTML file served at `/` (`static/api.html`) |
 | `config_is_user_delete` | Enables single-user hard deletion through `/my/object-delete` and `/admin/object-delete`; `False` blocks both without blocking other tables |
 | `config_is_postgres_schema_init` | Boolean toggle for database schema initialization on startup |

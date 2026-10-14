@@ -55,6 +55,9 @@ def func_check_runtime_config(*, app_state: State) -> None:
     if buffer_limit is not None and (isinstance(buffer_limit, bool) or not isinstance(buffer_limit, int) or buffer_limit < 10 or buffer_limit > 5000): raise Exception("config_buffer_limit_default must be an integer between 10 and 5000")
     buffer_rows_max = getattr(app_state, "config_buffer_rows_max", None)
     if buffer_rows_max is not None and (isinstance(buffer_rows_max, bool) or not isinstance(buffer_rows_max, int) or buffer_rows_max < 1000): raise Exception("config_buffer_rows_max must be an integer of at least 1000")
+    secret = getattr(app_state, "config_token_secret_key", None)
+    if getattr(app_state, "config_is_prod", True) is not False and secret not in (None, "") and len(str(secret).encode()) < 32:
+        raise Exception("config_token_secret_key must be at least 32 bytes in production (a short key lets tokens be forged); generate one with: python3 -c \"import secrets; print(secrets.token_urlsafe(48))\"")
     return None
 
 def func_check_api_config(*, app: FastAPI) -> None:
