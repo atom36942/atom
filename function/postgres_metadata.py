@@ -171,6 +171,34 @@ def func_postgres_schema_ai_view(*, cache_postgres_schema: dict) -> dict:
             }
     return view
 
+PG_STAT_STATEMENTS_HELP = "pg_stat_statements is not enabled: add it to shared_preload_libraries, restart Postgres, then run CREATE EXTENSION pg_stat_statements; see docs/performance.md"
+
+async def func_postgres_slow_queries_read(*, client_postgres: asyncpg.Pool | None, limit: int, order: str) -> dict:
+    """Read this database's most expensive statements from pg_stat_statements; values in query text are already $n placeholders."""
+    order_map = {"total_time": "total_exec_time", "mean_time": "mean_exec_time", "calls": "calls"}
+    if order not in order_map: raise Exception(f"invalid order: {order}, allowed: {list(order_map)}")
+    async with client_postgres.acquire() as conn:
+        if not await conn.fetchval("SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements'"): return {"is_enabled": False, "help": PG_STAT_STATEMENTS_HELP, "query_list": []}
+        try:
+            since = await conn.fetchval("SELECT stats_reset FROM pg_stat_statements_info")
+            total_ms = float(await conn.fetchval("SELECT coalesce(sum(total_exec_time), 0) FROM pg_stat_statements WHERE dbid = (SELECT oid FROM pg_database WHERE datname = current_database())")) or 1
+            rows = await conn.fetch(f"""
+                SELECT calls, round(total_exec_time::numeric, 2) AS total_ms, round(mean_exec_time::numeric, 3) AS mean_ms, round(max_exec_time::numeric, 2) AS max_ms,
+                       rows, shared_blks_hit, shared_blks_read, query
+                FROM pg_stat_statements
+                WHERE dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
+                ORDER BY {order_map[order]} DESC LIMIT $1""", limit)
+        except asyncpg.ObjectNotInPrerequisiteStateError: return {"is_enabled": False, "help": PG_STAT_STATEMENTS_HELP, "query_list": []}
+    query_list = [{**{k: (float(v) if k.endswith("_ms") else v) for k, v in dict(r).items()}, "share_pct": round(100 * float(r["total_ms"]) / total_ms, 1)} for r in rows]
+    return {"is_enabled": True, "since": since, "order": order, "query_list": query_list}
+
+async def func_postgres_slow_queries_reset(*, client_postgres: asyncpg.Pool | None) -> str:
+    """Clear pg_stat_statements counters for the current database only."""
+    async with client_postgres.acquire() as conn:
+        if not await conn.fetchval("SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements'"): raise Exception(PG_STAT_STATEMENTS_HELP)
+        await conn.execute("SELECT pg_stat_statements_reset(0, (SELECT oid FROM pg_database WHERE datname = current_database()), 0)")
+    return "reset"
+
 async def func_postgres_info_read(*, client_postgres: asyncpg.Pool | None) -> dict:
     """Read comprehensive PostgreSQL database statistics, storage, activity, and schema information."""
     async with client_postgres.acquire() as conn:

@@ -125,7 +125,7 @@ config_sql = {
 }
 
 config_table = {
-"log_api": {"buffer_limit": 10},
+"log_api": {"buffer_limit": 100},
 }
 
 config_column_regex = {
@@ -408,6 +408,8 @@ config_api = {
 "/admin/blob-delete-url": {"id": 13, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/postgres-info": {"id": 84, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "cache": {"mode": "inmemory", "ttl_sec": 300, "is_per_user": False}, "is_postgres_param": True},
 "/admin/postgres-schema": {"id": 85, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "cache": {"mode": "inmemory", "ttl_sec": 300, "is_per_user": False}, "is_postgres_param": True},
+"/admin/postgres-slow-queries": {"id": 121, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "is_postgres_param": True},
+"/admin/postgres-slow-queries-reset": {"id": 122, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "is_postgres_param": True},
 "/admin/postgres-query-runner-write": {"id": 6, "is_active": True, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
 "/admin/postgres-query-runner-read": {"id": 22, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "is_postgres_param": True},
 "/admin/postgres-query-runner-read-export": {"id": 7, "is_token": True, "user_check_role": {"mode": "inmemory", "roles": [1]}, "is_postgres_param": True},

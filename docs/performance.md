@@ -57,6 +57,8 @@ FROM pg_stat_statements ORDER BY total_exec_time DESC LIMIT 20;
 
 High `total_ms` queries are the ones worth an index or a rewrite. Use `EXPLAIN ANALYZE` on them.
 
+Without SQL access, admins can read the same report from `GET /admin/postgres-slow-queries` and clear it with `POST /admin/postgres-slow-queries-reset`. See [admin.md](admin.md#5-slow-queries-get-adminpostgres-slow-queries).
+
 ## 4. Workers and Pools
 
 - `config_uvicorn_workers` starts that many server processes with `python main.py`. A good starting point is the number of CPU cores. See [config.md](config.md).

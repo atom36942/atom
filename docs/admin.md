@@ -57,3 +57,13 @@ Shows failures that happen outside a request's response, which are otherwise onl
 - `cleanup`: failed OTP, API-log or in-memory cache cleanups.
 
 Counts are per process and reset on restart.
+
+### 5. Slow Queries (`GET /admin/postgres-slow-queries`)
+Lists this database's most expensive statements from `pg_stat_statements` (master, or `?postgres=<name>`). Values in the query text are already `$1`, `$2` placeholders.
+
+- `limit`: rows to return, `1`–`100` (default `20`).
+- `order`: `total_time` (default; where the database spends its time), `mean_time` (slowest single calls) or `calls`.
+- Each row has `calls`, `total_ms`, `mean_ms`, `max_ms`, `rows`, cache `shared_blks_hit`/`shared_blks_read`, the `query` and `share_pct` of all statement time in this database. `since` is when the counters were last reset.
+- When the extension is not enabled the response is `{"is_enabled": false, "help": ...}` instead of an error. See [performance.md](performance.md#3-slow-queries) to enable it.
+
+`POST /admin/postgres-slow-queries-reset` clears the counters for the current database only, so you can measure a fresh period: reset, use the app or run the load test, then read the report.

@@ -48,6 +48,20 @@ async def func_api_admin_postgres_info(*, request: Request):
     info = await app_state.func_postgres_info_read(client_postgres=request.state.client_postgres)
     return {"status": 1, "message": info}
 
+@router.get("/admin/postgres-slow-queries")
+async def func_api_admin_postgres_slow_queries(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "limit", "type": "int", "default": 20, "minimum": 1, "maximum": 100}, {"name": "order", "type": "str", "allowed": ["total_time", "mean_time", "calls"], "default": "total_time"}, {"name": "postgres", "type": "str"}], strict=True, strict_types=True, reject_unknown=True)
+    res = await app_state.func_postgres_slow_queries_read(client_postgres=request.state.client_postgres, limit=oq["limit"], order=oq["order"])
+    return {"status": 1, "message": res}
+
+@router.post("/admin/postgres-slow-queries-reset")
+async def func_api_admin_postgres_slow_queries_reset(*, request: Request):
+    app_state = request.app.state
+    await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "postgres", "type": "str"}], strict=True, reject_unknown=True)
+    res = await app_state.func_postgres_slow_queries_reset(client_postgres=request.state.client_postgres)
+    return {"status": 1, "message": res}
+
 @router.get("/admin/postgres-schema")
 async def func_api_admin_postgres_schema(*, request: Request):
     app_state = request.app.state
