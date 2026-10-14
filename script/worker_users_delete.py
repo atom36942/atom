@@ -68,12 +68,12 @@ async def execute():
         owner_where = " OR ".join(f"{func_quote_ident(col)} = $1" for col in ownership_columns)
         protected_where = ' AND ("is_protected" IS NULL OR "is_protected" IS FALSE)' if has_is_protected else ""
         null_where = ' AND "deleted_at" IS NULL' if require_null else ' AND "deleted_at" IS NOT NULL'
-        result = await conn.execute(f'UPDATE {table_sql} SET "deleted_at" = {value_sql} WHERE ({owner_where}) {null_where} {protected_where}', user_id)
+        result = await conn.execute(f'UPDATE {table_sql} SET "deleted_at" = {value_sql} WHERE ({owner_where}) {null_where} {protected_where}', user_id)  # noqa: S608 - identifiers quoted by func_quote_ident, value is NOW() or NULL
         return int(result.rsplit(" ", 1)[-1])
     async def func_purge_retained_rows(conn: asyncpg.Connection, table: str, has_is_protected: bool) -> int:
         table_sql = func_quote_ident(table)
         protected_where = ' AND ("is_protected" IS NULL OR "is_protected" IS FALSE)' if has_is_protected else ""
-        result = await conn.execute(f'DELETE FROM {table_sql} WHERE ctid IN (SELECT ctid FROM {table_sql} WHERE "deleted_at" < NOW() - ($1 * INTERVAL \'1 day\') {protected_where} LIMIT 5000)', config_users_delete_retention_day)
+        result = await conn.execute(f'DELETE FROM {table_sql} WHERE ctid IN (SELECT ctid FROM {table_sql} WHERE "deleted_at" < NOW() - ($1 * INTERVAL \'1 day\') {protected_where} LIMIT 5000)', config_users_delete_retention_day)  # noqa: S608 - identifiers quoted by func_quote_ident, value is NOW() or NULL
         return int(result.rsplit(" ", 1)[-1])
     async def func_process_task(conn: asyncpg.Connection, task: asyncpg.Record, owned_tables: list) -> None:
         user_id = task["user_id"]

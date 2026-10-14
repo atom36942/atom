@@ -8,7 +8,9 @@ from urllib.parse import urlsplit, urlunsplit
 import asyncpg
 import orjson
 from starlette.datastructures import State
+from starlette.requests import Request
 from .clients import func_client_postgres
+from .middleware import func_api_error
 
 def func_pgweb_ident(*parts) -> str:
     """Validate and quote PostgreSQL identifiers."""
@@ -36,9 +38,24 @@ def func_pgweb_orjson_default(obj):
     if isinstance(obj, (bytes, bytearray, memoryview)):
         return "\\x" + bytes(obj).hex()
     if hasattr(obj, "isoformat"):
-        try: return obj.isoformat()
-        except Exception: pass
+        with suppress(Exception): return obj.isoformat()
     return str(obj)
+
+def func_pgweb_request_check(*, request: Request, config_is_pgweb_enabled: bool) -> None:
+    """Allow pgweb only when enabled, from this machine, directly (not via a proxy or tunnel) and from its own page.
+
+    pgweb runs any SQL on any database it can reach, so each layer closes a different hole: proxies and tunnels make
+    internet traffic look local, and a website open in the developer's browser can send requests to localhost.
+    """
+    if config_is_pgweb_enabled is not True: raise func_api_error(message="pgweb is disabled; set config_is_pgweb_enabled=true to use it locally", status_code=404)
+    proxy_headers = ("x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "forwarded", "x-real-ip", "cf-connecting-ip", "true-client-ip")
+    if any(header in request.headers for header in proxy_headers): raise func_api_error(message="pgweb is not available through a proxy or tunnel", status_code=403)
+    client_ip = request.client.host if request.client else None
+    if client_ip not in ("127.0.0.1", "::1", "localhost", "testclient"): raise func_api_error(message="pgweb is restricted to localhost", status_code=403)
+    origin = request.headers.get("origin")
+    if origin and urlsplit(origin).netloc.lower() != request.headers.get("host", "").lower(): raise func_api_error(message="pgweb only accepts requests from its own page", status_code=403)
+    if request.headers.get("content-type", "").split(";")[0].strip().lower() != "application/json": raise func_api_error(message="pgweb requires Content-Type: application/json", status_code=415)
+    return None
 
 def func_pgweb_orjson_dumps(payload: dict) -> bytes:
     """Fast C/Rust JSON serialization with automatic fallback for PostgreSQL data types."""
@@ -224,7 +241,7 @@ async def func_pgweb_catalog(*, pool: asyncpg.Pool, kind: str, timeout_sec: int 
             WHERE n.nspname='public' AND c.relkind IN ({relkinds}) AND NOT c.relispartition
               AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid=c.oid
                 AND d.classid='pg_class'::regclass AND d.deptype='e')
-            ORDER BY c.relname"""
+            ORDER BY c.relname"""  # noqa: S608 - fixed relkind values only
         args = (label,)
     elif kind == "columns":
         query, args = """
@@ -401,7 +418,7 @@ async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, 
     order_col = order or pk
     order_sql = f' ORDER BY {func_pgweb_ident(order_col)}{" DESC" if is_desc else ""}' if order_col else ""
     offset_sql = f" OFFSET {int(offset)}" if offset else ""
-    records = await pool.fetch(f"SELECT * FROM {func_pgweb_ident(schema, table)}{where_sql}{order_sql} LIMIT {limit + 1}{offset_sql}", *args, timeout=timeout_sec)
+    records = await pool.fetch(f"SELECT * FROM {func_pgweb_ident(schema, table)}{where_sql}{order_sql} LIMIT {limit + 1}{offset_sql}", *args, timeout=timeout_sec)  # noqa: S608 - identifiers via func_pgweb_ident, limit and offset are integers
     out = func_pgweb_pack(records[:limit])
     out["has_more"] = len(records) > limit
     if meta is not None: out["meta"] = meta

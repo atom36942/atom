@@ -39,8 +39,8 @@ async def func_middleware_check_token(*, user_dict: dict, url_path: str, is_toke
         if not user_dict: raise func_api_error(message="authorization token missing", status_code=401)
         token_type = user_dict.get("_token_type") if isinstance(user_dict, dict) else None
         if url_path == "/my/token-refresh":
-            if token_type != "refresh": raise func_api_error(message="refresh token required", status_code=401)
-        elif token_type != "access":
+            if token_type != "refresh": raise func_api_error(message="refresh token required", status_code=401)  # noqa: S105 - token kind, not a secret
+        elif token_type != "access":  # noqa: S105 - token kind, not a secret
             raise func_api_error(message="access token required", status_code=401)
     return None
 
@@ -161,7 +161,7 @@ async def func_middleware_check_role(*, user_dict: dict, user_check_role: Any, c
         try:
             user_role = int(user_role)
         except Exception:
-            raise func_api_error(message="invalid user role type", status_code=403)
+            raise func_api_error(message="invalid user role type", status_code=403) from None
     if user_role not in roles: raise func_api_error(message="access denied", status_code=403)
 
 async def func_middleware_check_ratelimiter(*, client_redis: Redis | None, rate_limit: Any = None, api_ratelimiting_times_sec: Any = None, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:

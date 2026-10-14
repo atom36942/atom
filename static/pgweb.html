@@ -459,6 +459,12 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 #home-dsn::placeholder{color:var(--dim);opacity:.6}
 .login-err{color:var(--err);font-size:12px;margin-bottom:12px;font-weight:500;line-height:1.4;word-break:break-word}
 .login-err[hidden]{display:none}
+.login-blocked{display:flex;gap:10px;align-items:flex-start;margin:0 0 18px;padding:12px 14px;border:1px solid var(--err);border-left-width:4px;
+  border-radius:6px;background:var(--hl);color:var(--fg);font-size:12.5px;line-height:1.5}
+.login-blocked[hidden]{display:none}
+.login-blocked svg{flex:none;width:18px;height:18px;margin-top:1px;stroke:var(--err);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.login-blocked strong{display:block;color:var(--err);margin-bottom:2px}
+.login-blocked code{font-family:Menlo,Monaco,Consolas,"Courier New",monospace;font-size:11.5px;word-break:break-all}
 .login-actions{display:flex;gap:12px;align-items:center}
 .login-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:1;height:38px;font-size:13px;font-weight:600;
   border-radius:4px;cursor:pointer;transition:all .15s;text-decoration:none;user-select:none;box-sizing:border-box}
@@ -565,6 +571,11 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
               </svg>
             </div>
             <h2>Connect to PostgreSQL</h2>
+          </div>
+
+          <div id="home-blocked" class="login-blocked" role="alert" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+            <div><strong id="home-blocked-title">pgweb is unavailable</strong><span id="home-blocked-msg"></span></div>
           </div>
 
           <form id="login-form" onsubmit="return false;">
@@ -808,7 +819,8 @@ async function api(body){
   if(!r.ok || j.status !== 1){
     const msg = String(j?.message ?? j?.detail ?? r.statusText ?? 'request failed');
     if(msg.includes('not_connected')){ disconnected(); throw new Error('not_connected'); }
-    throw new Error(msg);
+    const err = new Error(msg); err.status = r.status;
+    throw err;
   }
   $('st-time').textContent = ms.toFixed(1)+' ms';
   return j.message;
@@ -2733,8 +2745,27 @@ async function restorePage(){
     setSideTab(S.sideTab || 'table', false);
     drawTree();
     await restorePage();
-  }catch{ setConnected(false); }                     // shell stays, just empty
+  }catch(e){
+    setConnected(false);                             // shell stays, just empty
+    if([403, 404, 415].includes(e?.status)) showBlocked(e.message);
+  }
 })();
+
+/* the server refuses pgweb (disabled, or not reached directly from this machine): say so before anyone types a DSN */
+function showBlocked(message){
+  const disabled = message.includes('config_is_pgweb_enabled');
+  $('home-blocked-title').textContent = disabled ? 'pgweb is disabled on this server' : 'pgweb refused this request';
+  $('home-blocked-msg').innerHTML = '';
+  $('home-blocked-msg').append(disabled ? 'Set ' : message + '. ');
+  if(disabled){
+    const code = document.createElement('code'); code.textContent = 'config_is_pgweb_enabled=true';
+    $('home-blocked-msg').append(code, ' in .env on your own machine, restart Atom, then reload this page.');
+  }else{
+    $('home-blocked-msg').append('Open pgweb directly at http://localhost on the machine running Atom.');
+  }
+  $('home-blocked').hidden = false;
+  for(const id of ['home-dsn', 'home-connect-btn', 'home-connect-ro-btn']) if($(id)) $(id).disabled = true;
+}
 </script>
 </body>
 </html>

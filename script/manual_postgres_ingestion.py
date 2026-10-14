@@ -33,7 +33,7 @@ async def execute():
     csv.field_size_limit(sys.maxsize)
     if not pg_dsn: raise ValueError("PG_DSN is required")
     if not csv_path: raise ValueError("csv_path is required")
-    if not os.path.isfile(csv_path): raise ValueError(f"csv_path not found: {csv_path}")
+    if not os.path.isfile(csv_path): raise ValueError(f"csv_path not found: {csv_path}")  # noqa: ASYNC240 - one-shot CLI, nothing else runs on the loop
     if not table: raise ValueError("table is required")
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", table): raise ValueError(f"invalid table name: {table}")
     if crud_mode not in ("create", "update", "delete"): raise ValueError(f"Invalid crud_mode: '{crud_mode}'")
@@ -57,7 +57,7 @@ async def execute():
         if not columns_records: raise ValueError(f"Table '{table}' not found")
         col_type_map = {r['column_name']: r['udt_name'] for r in columns_records}
         db_cols_all = [r['column_name'] for r in columns_records]
-        with open(csv_path, newline='', encoding='utf-8') as f:
+        with open(csv_path, newline='', encoding='utf-8') as f:  # noqa: ASYNC230 - one-shot CLI, nothing else runs on the loop
             reader = csv.DictReader(f)
             csv_header_original = reader.fieldnames or []
             if not csv_header_original: raise Exception("Missing CSV header")
@@ -87,13 +87,13 @@ async def execute():
                                 dt = datetime.strptime(v_str, fmt)
                                 v_str = dt.isoformat()
                                 break
-                            except:
+                            except ValueError:
                                 continue
                         else:
                             raise ValueError("Invalid date format")
                 except Exception:
-                    if validation_mode == "strict": raise ValueError(f"Column '{col_name}' error")
-                    if validation_mode == "reject": raise RowReject(col_name)
+                    if validation_mode == "strict": raise ValueError(f"Column '{col_name}' error") from None
+                    if validation_mode == "reject": raise RowReject(col_name) from None
                     return None
                 return v_str
             return converter
@@ -116,7 +116,7 @@ async def execute():
                     for row in items:
                         try:
                             line = []
-                            for plan, col in zip(col_plan, final_cols):
+                            for plan, col in zip(col_plan, final_cols, strict=True):
                                 if col in valid_c_names:
                                     line.append(plan(c_vals[c_names.index(col)]))
                                 else:
@@ -144,14 +144,14 @@ async def execute():
                     return f'ROUND(s."{cl}"::numeric)::{ct}'
                 return f's."{cl}"::{ct}'
             if crud_mode == "delete":
-                await conn.execute(f'DELETE FROM "{table}" m USING "{staging_table}" s WHERE m."id" = {get_cast("id")}')
+                await conn.execute(f'DELETE FROM "{table}" m USING "{staging_table}" s WHERE m."id" = {get_cast("id")}')  # noqa: S608 - table pattern-checked, columns limited to existing database columns
             elif crud_mode == "create":
                 c_sql = ", ".join([f'"{c}"' for c in final_cols])
                 ct_sql = ", ".join([get_cast(c) for c in final_cols])
-                await conn.execute(f'INSERT INTO "{table}" ({c_sql}) SELECT {ct_sql} FROM "{staging_table}" s')
+                await conn.execute(f'INSERT INTO "{table}" ({c_sql}) SELECT {ct_sql} FROM "{staging_table}" s')  # noqa: S608 - table pattern-checked, columns limited to existing database columns
             else:
                 s_sql = ", ".join([f'"{c}" = {get_cast(c)}' for c in [x for x in final_cols if x != "id"]])
-                await conn.execute(f'UPDATE "{table}" m SET {s_sql} FROM "{staging_table}" s WHERE m."id" = {get_cast("id")}')
+                await conn.execute(f'UPDATE "{table}" m SET {s_sql} FROM "{staging_table}" s WHERE m."id" = {get_cast("id")}')  # noqa: S608 - table pattern-checked, columns limited to existing database columns
             await conn.execute(f'DROP TABLE IF EXISTS "{staging_table}"')
         return "done"
     finally:

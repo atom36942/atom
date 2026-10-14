@@ -101,7 +101,7 @@ def func_postgres_schema_context_build(*, config_postgres: dict) -> dict:
 
 def func_postgres_schema_hash(value: Any) -> str:
     """Return the stable short hash used in managed PostgreSQL object names."""
-    return hashlib.md5(str(value).encode()).hexdigest()[:4]
+    return hashlib.md5(str(value).encode(), usedforsecurity=False).hexdigest()[:4]
 
 def func_postgres_schema_identifier(name: str) -> str:
     """Clamp a managed PostgreSQL identifier to PostgreSQL's 63-byte naming convention."""
@@ -144,7 +144,7 @@ async def func_postgres_schema_tables_sync(*, conn: asyncpg.Connection, tables: 
         meta_rows = await conn.fetch("SELECT indexname as name FROM pg_indexes WHERE tablename=$1 UNION ALL SELECT conname as name FROM pg_constraint WHERE conrelid=$1::regclass", table_name)
         existing_meta = {r[0] for r in meta_rows}
         table_changed = False
-        await conn.execute(f"DO $$ DECLARE r RECORD; BEGIN FOR r IN SELECT tgname FROM pg_trigger JOIN pg_class ON pg_trigger.tgrelid = pg_class.oid WHERE relname = '{table_name}' AND tgname LIKE 'trigger_%%' LOOP EXECUTE format('DROP TRIGGER IF EXISTS %I ON %I', r.tgname, '{table_name}'); END LOOP; END $$;")
+        await conn.execute(f"DO $$ DECLARE r RECORD; BEGIN FOR r IN SELECT tgname FROM pg_trigger JOIN pg_class ON pg_trigger.tgrelid = pg_class.oid WHERE relname = '{table_name}' AND tgname LIKE 'trigger_%%' LOOP EXECUTE format('DROP TRIGGER IF EXISTS %I ON %I', r.tgname, '{table_name}'); END LOOP; END $$;")  # noqa: S608 - table names come from config_postgres, not requests
         renamed_cols = {}
         for col_cfg in column_configs:
             if col_cfg.get("is_primary") is True:
@@ -379,7 +379,7 @@ async def func_postgres_schema_cleanup(*, conn: asyncpg.Connection, tables: dict
             drop_fmt = "ALTER TABLE %I DROP CONSTRAINT IF EXISTS %I"
             drop_vars = "record.relname, record.conname"
             like_filter = f"(conname LIKE 'unique_%%' OR conname LIKE 'check_%%') AND relname IN ({managed_tables_str})"
-        await conn.execute(f"""DO $$ DECLARE record RECORD; BEGIN FOR record IN SELECT {selection} FROM {info_tbl} {join_clause} WHERE {like_filter} LOOP IF NOT record.{selection.split(",")[0]} IN ({wants_str}) THEN EXECUTE format('{drop_fmt}', {drop_vars}); END IF; END LOOP; END $$;""")
+        await conn.execute(f"""DO $$ DECLARE record RECORD; BEGIN FOR record IN SELECT {selection} FROM {info_tbl} {join_clause} WHERE {like_filter} LOOP IF NOT record.{selection.split(",")[0]} IN ({wants_str}) THEN EXECUTE format('{drop_fmt}', {drop_vars}); END IF; END LOOP; END $$;""")  # noqa: S608 - table names come from config_postgres, not requests
     return None
 
 async def func_postgres_schema_sql_execute(*, conn: asyncpg.Connection, sql_config: Any) -> None:

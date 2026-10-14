@@ -64,7 +64,7 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
         func_check_user_delete_permission(app_state=state, table="users", scope="my", ids=[7], user_id=7)
         for changes in ({"ids": [8]}, {"ids": [7, 8]}, {"scope": "public"}, {"user_id": None}):
             args = dict(app_state=state, table="users", scope="my", ids=[7], user_id=7) | changes
-            with self.subTest(changes=changes), self.assertRaises(Exception):
+            with self.subTest(changes=changes), self.assertRaisesRegex(Exception, "users table delete"):
                 func_check_user_delete_permission(**args)
         state.config_is_user_delete = False
         with self.assertRaisesRegex(Exception, "disabled"):
@@ -87,7 +87,7 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
                     "client_redis": None, "config_redis_cache_ttl_sec": 60}
             await func(user_dict={"id": 7, field: None}, **args)
             for user in ({"id": 7, field: "2026-01-01"}, {"id": 7}):
-                with self.subTest(field=field, user=user), self.assertRaises(Exception):
+                with self.subTest(field=field, user=user), self.assertRaisesRegex(Exception, "missing deactivated_at|missing deleted_at|user is deleted|user not active"):
                     await func(user_dict=user, **args)
 
     def test_audit_owner_cannot_be_spoofed_and_input_is_not_mutated(self):

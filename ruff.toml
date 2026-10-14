@@ -2,5 +2,14 @@
 target-version = "py314"
 
 [lint]
-# Pyflakes rules only: unused imports and variables, undefined names, duplicate keys.
-select = ["F"]
+# F: unused imports and variables, undefined names, duplicate keys.
+# E9: syntax errors. B: common bug patterns. ASYNC: blocking calls inside async code.
+# S: security risks. A reviewed, safe case keeps a "# noqa: <rule> - <reason>" comment so new cases still get flagged.
+select = ["F", "E9", "B", "ASYNC", "S"]
+
+[lint.per-file-ignores]
+# Tests use fixed fake secrets, temp paths, asserts, subprocesses and eval on their own fixtures.
+"tests/**" = ["S101", "S105", "S106", "S108", "S307", "S603", "S607"]
+# Project code is the developer's own: synced lint rules stay at F/E9 there, so a sync never breaks a project's CI.
+"*_extend/**" = ["B", "ASYNC", "S"]
+"config_extend.py" = ["B", "ASYNC", "S"]

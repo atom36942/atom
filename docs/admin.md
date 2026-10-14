@@ -21,6 +21,12 @@ Lightweight browser-based PostgreSQL database manager:
 - **SQL Runner**: Execute queries directly from the browser with tabular result visualization.
 - **Data Browser**: Browse, sort, and filter live table data.
 
+PgWeb can run any SQL on any database it connects to, so `/pgweb` is off by default. Set `config_is_pgweb_enabled=true` in `.env` on a developer machine only. Even then it accepts a request only when:
+
+- it comes directly from this machine (`127.0.0.1`/`::1`), with no proxy or tunnel headers such as `X-Forwarded-For`, so `ngrok`, `cloudflared`, nginx or a sidecar cannot expose it;
+- its `Origin`, if any, is Atom's own address, so other websites open in your browser cannot send it SQL;
+- it is sent as `Content-Type: application/json`, which browsers cannot send cross-site without a CORS preflight.
+
 ---
 
 ## 2. Administrative APIs (`/admin/*`)

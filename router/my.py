@@ -124,7 +124,7 @@ async def func_api_my_message_inbox(*, request: Request):
     fetch_limit, offset = app_state.func_message_pagination(limit=oq["limit"], page=oq["page"], max_limit=app_state.config_sql_read_limit_max)
     order_sql = app_state.func_message_order(order=oq["order"], cache_postgres_schema=request.state.cache_postgres_schema)
     where_clause = {"read": "received_by_id=$1 AND read_at IS NOT NULL", "unread": "received_by_id=$1 AND read_at IS NULL"}.get(oq["mode"], "1=1")
-    sql = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - received_by_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR received_by_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {order_sql} LIMIT $2 OFFSET $3;"
+    sql = f"WITH chat_summary AS (SELECT id, ABS(created_by_id - received_by_id) AS conversation_id FROM message WHERE (created_by_id=$1 OR received_by_id=$1)), latest_messages AS (SELECT MAX(id) AS id FROM chat_summary GROUP BY conversation_id), inbox_data AS (SELECT m.* FROM latest_messages LEFT JOIN message AS m ON latest_messages.id=m.id) SELECT * FROM inbox_data WHERE {where_clause} ORDER BY {order_sql} LIMIT $2 OFFSET $3;"  # noqa: S608 - ORDER BY built by func_message_order from known columns
     async with request.state.client_postgres.acquire() as conn:
         ol = [dict(r) for r in await conn.fetch(sql, request.state.user["id"], fetch_limit, offset)]
         return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_more": len(ol) > oq["limit"], "has_next_page": len(ol) > oq["limit"]}}
@@ -137,7 +137,7 @@ async def func_api_my_message_thread(*, request: Request):
     user_one_id = request.state.user["id"]
     fetch_limit, offset = app_state.func_message_pagination(limit=oq["limit"], page=oq["page"], max_limit=app_state.config_sql_read_limit_max)
     order_sql = app_state.func_message_order(order=oq["order"], cache_postgres_schema=request.state.cache_postgres_schema)
-    sql = f"SELECT * FROM message WHERE ((created_by_id=$1 AND received_by_id=$2) OR (created_by_id=$2 AND received_by_id=$1)) ORDER BY {order_sql} LIMIT $3 OFFSET $4;"
+    sql = f"SELECT * FROM message WHERE ((created_by_id=$1 AND received_by_id=$2) OR (created_by_id=$2 AND received_by_id=$1)) ORDER BY {order_sql} LIMIT $3 OFFSET $4;"  # noqa: S608 - ORDER BY built by func_message_order from known columns
     async with request.state.client_postgres.acquire() as conn:
         ol = [dict(r) for r in await conn.fetch(sql, user_one_id, oq["user_id"], fetch_limit, offset)]
     async with app_state.client_postgres_dict.get("master").acquire() as conn:

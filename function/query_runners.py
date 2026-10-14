@@ -211,7 +211,7 @@ async def func_mssql_query_runner_read(*, client_mssql: Any, config_query_runner
                 while len(result) < limit:
                     rows = await cursor.fetchmany(min(500, limit - len(result)))
                     if not rows: break
-                    result.extend(dict(zip(columns, row)) for row in rows)
+                    result.extend(dict(zip(columns, row, strict=True)) for row in rows)
                 return result
         except Exception as e:
             if "08S01" in str(e) and attempt < 2:
@@ -248,7 +248,7 @@ async def func_postgres_query_runner_read(*, client_postgres: asyncpg.Pool | Non
     async with client_postgres.acquire() as conn:
         async with conn.transaction(readonly=True):
             await conn.execute(f"SET LOCAL statement_timeout = '{timeout_sec * 1000}ms'")
-            stmt = await conn.prepare(f"SELECT * FROM ({sql}) AS postgres_query LIMIT $1")
+            stmt = await conn.prepare(f"SELECT * FROM ({sql}) AS postgres_query LIMIT $1")  # noqa: S608 - admin SQL runner by design, read-only transaction
             records = await stmt.fetch(config_query_runner_read_limit, timeout=timeout_sec)
     return [dict(row) for row in records]
 
@@ -264,7 +264,7 @@ async def func_postgres_query_runner_read_export(*, client_postgres: asyncpg.Poo
         async with client_postgres.acquire() as conn:
             async with conn.transaction(readonly=True):
                 await conn.execute(f"SET LOCAL statement_timeout = '{timeout_sec * 1000}ms'")
-                stmt = await conn.prepare(f"SELECT * FROM ({sql}) AS postgres_query LIMIT $1")
+                stmt = await conn.prepare(f"SELECT * FROM ({sql}) AS postgres_query LIMIT $1")  # noqa: S608 - admin SQL runner by design, read-only transaction
                 columns = [attr.name for attr in stmt.get_attributes()]
                 buffer = io.StringIO()
                 writer = csv.writer(buffer)
@@ -293,7 +293,7 @@ def func_clickhouse_query_runner_read_sql(*, sql: str, limit: int) -> str:
     if not sql: raise Exception("SQL is required")
     if ";" in sql: raise Exception("Only one SQL statement is allowed")
     if not sql.lower().lstrip("(").strip().startswith(("select", "with")): raise Exception("Only SELECT/WITH queries are supported")
-    return f"SELECT * FROM ({sql}) AS clickhouse_query LIMIT {int(limit)}"
+    return f"SELECT * FROM ({sql}) AS clickhouse_query LIMIT {int(limit)}"  # noqa: S608 - admin SQL runner by design, limit is an integer
 
 def _clickhouse_read_settings(client_clickhouse: Any) -> dict:
     """Keep server-enforced read-only profiles without trying to change them."""
@@ -309,7 +309,7 @@ async def func_clickhouse_query_runner_read(*, client_clickhouse: Any, config_qu
     if not client_clickhouse: raise func_api_error(message="clickhouse client not initialized", status_code=500)
     sql = func_clickhouse_query_runner_read_sql(sql=sql, limit=config_query_runner_read_limit)
     result = await client_clickhouse.query(sql, settings=_clickhouse_read_settings(client_clickhouse))
-    return [dict(zip(result.column_names, row)) for row in result.result_rows]
+    return [dict(zip(result.column_names, row, strict=True)) for row in result.result_rows]
 
 async def func_clickhouse_query_runner_read_export(*, client_clickhouse: Any, config_query_runner_export_limit: int, sql: str) -> Any:
     """Stream a read-only ClickHouse query as CSV up to the configured export limit."""

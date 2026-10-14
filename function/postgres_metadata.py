@@ -187,7 +187,7 @@ async def func_postgres_slow_queries_read(*, client_postgres: asyncpg.Pool | Non
                        rows, shared_blks_hit, shared_blks_read, query
                 FROM pg_stat_statements
                 WHERE dbid = (SELECT oid FROM pg_database WHERE datname = current_database())
-                ORDER BY {order_map[order]} DESC LIMIT $1""", limit)
+                ORDER BY {order_map[order]} DESC LIMIT $1""", limit)  # noqa: S608 - ORDER BY column from a fixed map
         except asyncpg.ObjectNotInPrerequisiteStateError: return {"is_enabled": False, "help": PG_STAT_STATEMENTS_HELP, "query_list": []}
     query_list = [{**{k: (float(v) if k.endswith("_ms") else v) for k, v in dict(r).items()}, "share_pct": round(100 * float(r["total_ms"]) / total_ms, 1)} for r in rows]
     return {"is_enabled": True, "since": since, "order": order, "query_list": query_list}

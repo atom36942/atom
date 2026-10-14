@@ -15,7 +15,7 @@ async def func_auth_user_login_fetch(*, conn: asyncpg.Connection, field: str, va
     """Fetch a single login user by a unique-ish field with optional role. Raise on ambiguity (role omitted but multiple rows) and on not-found unless is_missing_ok, which returns None."""
     allowed_fields = ("username", "email", "mobile", "id_ext")
     if field not in allowed_fields: raise Exception(f"invalid auth field: {field}")
-    records = await conn.fetch(f'SELECT * FROM users WHERE "{field}"=$2 AND ($1::smallint IS NULL OR role=$1) ORDER BY id DESC LIMIT 2;', role, value)
+    records = await conn.fetch(f'SELECT * FROM users WHERE "{field}"=$2 AND ($1::smallint IS NULL OR role=$1) ORDER BY id DESC LIMIT 2;', role, value)  # noqa: S608 - column from a fixed allow-list
     if not records:
         if is_missing_ok: return None
         raise Exception(f"{field} not found")
@@ -55,7 +55,7 @@ async def func_auth_user_find_or_create(*, client_postgres: asyncpg.Pool | None,
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(field)): raise Exception(f"invalid identifier {field}")
     async with client_postgres.acquire() as conn:
-        records = await conn.fetch(f'SELECT * FROM users WHERE "{field}"=$1 AND role=$2 ORDER BY id DESC LIMIT 1;', value, role)
+        records = await conn.fetch(f'SELECT * FROM users WHERE "{field}"=$1 AND role=$2 ORDER BY id DESC LIMIT 1;', value, role)  # noqa: S608 - column name pattern-checked
         if records:
             return dict(records[0])
         func_auth_check_signup_role(role=role, config_signup_allowed_roles=config_signup_allowed_roles)
@@ -66,7 +66,7 @@ async def func_auth_user_find_or_create(*, client_postgres: asyncpg.Pool | None,
                     insert_dict[k] = v
         cols = list(insert_dict.keys())
         placeholders = [f"${i+1}" for i in range(len(cols))]
-        sql = f'INSERT INTO users ({", ".join(f"{c}" for c in cols)}) VALUES ({", ".join(placeholders)}) RETURNING *;'
+        sql = f'INSERT INTO users ({", ".join(f"{c}" for c in cols)}) VALUES ({", ".join(placeholders)}) RETURNING *;'  # noqa: S608 - column names pattern-checked
         created = await conn.fetch(sql, *list(insert_dict.values()))
         return dict(created[0])
 
@@ -125,13 +125,13 @@ async def func_otp_verify(*, client_postgres: asyncpg.Pool | None, otp: int, ema
     if not email and not mobile: raise Exception("missing both email and mobile")
     if email and mobile: raise Exception("provide only one identifier")
     if email:
-        sql = f"SELECT id, otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_otp_expiry_sec}s') as is_valid FROM otp WHERE email=$1 ORDER BY id DESC LIMIT 1"
+        sql = "SELECT id, otp, (created_at > CURRENT_TIMESTAMP - make_interval(secs => $2)) as is_valid FROM otp WHERE email=$1 ORDER BY id DESC LIMIT 1"
         identifier = email.strip().lower()
     else:
-        sql = f"SELECT id, otp, (created_at > CURRENT_TIMESTAMP - INTERVAL '{config_otp_expiry_sec}s') as is_valid FROM otp WHERE mobile=$1 ORDER BY id DESC LIMIT 1"
+        sql = "SELECT id, otp, (created_at > CURRENT_TIMESTAMP - make_interval(secs => $2)) as is_valid FROM otp WHERE mobile=$1 ORDER BY id DESC LIMIT 1"
         identifier = mobile.strip()
     async with client_postgres.acquire() as conn:
-        records = await conn.fetch(sql, identifier)
+        records = await conn.fetch(sql, identifier, float(config_otp_expiry_sec))
         if not records: raise Exception("otp not found")
         if not records[0]["is_valid"]: raise Exception("otp code expired")
         # Count the guess before comparing; the conditional update caps guesses even under concurrent requests.

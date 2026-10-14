@@ -49,7 +49,7 @@ async def func_client_s3(*, region_name: str, aws_access_key_id: str, aws_secret
     if not region_name: return None
     s3_context = aiobotocore.session.get_session().create_client("s3", region_name=region_name, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
     s3_client = await s3_context.__aenter__()
-    setattr(s3_client, "_context", s3_context)
+    s3_client._context = s3_context
     return s3_client
 
 def func_client_s3_resource(*, region_name: str, aws_access_key_id: str, aws_secret_access_key: str):

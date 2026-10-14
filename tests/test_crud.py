@@ -145,7 +145,7 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_read_invalid_pagination_and_restricted_column_never_query(self):
         for changes in ({"limit": 0}, {"page": 0}, {"limit": 101}, {"column": "password"}):
-            with self.subTest(changes=changes), self.assertRaises(Exception):
+            with self.subTest(changes=changes), self.assertRaisesRegex(Exception, "restricted from reading|exceeds maximum allowed|must be greater than 0"):
                 await self.read(**changes)
         self.conn.fetch.assert_not_awaited()
 
@@ -157,7 +157,7 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_filter_rejects_unknown_and_restricted_columns(self):
         for column in ("missing", "password"):
-            with self.subTest(column=column), self.assertRaises(Exception):
+            with self.subTest(column=column), self.assertRaisesRegex(Exception, "filtering on column 'password' is blocked|invalid filter column"):
                 await func_postgres_where_build(**self.common, filter=[{column: "eq,hello"}])
 
     async def test_update_includes_owner_in_query_and_returns_updated_ids(self):
@@ -171,7 +171,7 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_update_invalid_batches_never_write(self):
         for objects in ([{"name": "no id"}], [{"id": 3}], [{"id": 3, "name": "a"}, {"id": 4, "created_by_id": 7}]):
-            with self.subTest(objects=objects), self.assertRaises(Exception):
+            with self.subTest(objects=objects), self.assertRaisesRegex(Exception, "missing required field: 'id'|object keys mismatch|update field required"):
                 await self.update(obj_list=objects)
         self.conn.fetch.assert_not_awaited()
 

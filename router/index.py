@@ -51,10 +51,8 @@ async def func_api_websocket(*, websocket:WebSocket):
 
 @router.post("/pgweb")
 async def func_api_pgweb(*, request: Request):
-    client_ip = request.client.host if request.client else None
-    if client_ip not in ("127.0.0.1", "::1", "localhost", "testclient"):
-        raise Exception("pgweb is restricted to localhost")
     app_state = request.app.state
+    app_state.func_pgweb_request_check(request=request, config_is_pgweb_enabled=app_state.config_is_pgweb_enabled)
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[])
     if ob.get("action") == "stream":
         pool = app_state.client_postgres_pgweb.get("pool")

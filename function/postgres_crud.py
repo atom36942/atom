@@ -70,7 +70,7 @@ async def func_postgres_table_column_groupby_read(*, app_state: State, client_po
     group_sql = ", ".join(group_exprs)
     source_sql = f' {" ".join(unnest_clauses)}' if unnest_clauses else ""
     bind_idx = len(values) + 1
-    sql = f'SELECT {select_sql} FROM "{table}" x{source_sql} {where_clause} GROUP BY {group_sql} ORDER BY {order_sql} LIMIT ${bind_idx} OFFSET ${bind_idx + 1}'
+    sql = f'SELECT {select_sql} FROM "{table}" x{source_sql} {where_clause} GROUP BY {group_sql} ORDER BY {order_sql} LIMIT ${bind_idx} OFFSET ${bind_idx + 1}'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
     values.extend([limit + 1, (page - 1) * limit])
     async with client_postgres.acquire() as conn:
         rows = await conn.fetch(sql, *values)
@@ -96,7 +96,7 @@ async def func_postgres_table_column_distinct_read(*, app_state: State, client_p
     bind_idx = len(values) + 1
     source_sql = f'CROSS JOIN LATERAL unnest(x.{q_col}) item_col' if is_array else ""
     item_sql = "item_col" if is_array else f'x.{q_col}'
-    sql = f'SELECT DISTINCT {item_sql} AS item FROM "{table}" x {source_sql} {where_clause} ORDER BY item {order_direction} LIMIT ${bind_idx} OFFSET ${bind_idx + 1}'
+    sql = f'SELECT DISTINCT {item_sql} AS item FROM "{table}" x {source_sql} {where_clause} ORDER BY item {order_direction} LIMIT ${bind_idx} OFFSET ${bind_idx + 1}'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
     values.extend([limit + 1, (page - 1) * limit])
     async with client_postgres.acquire() as conn:
         rows = await conn.fetch(sql, *values)
@@ -368,7 +368,7 @@ async def func_postgres_relation(*, client_postgres: asyncpg.Pool | None, client
         client = client_postgres_conn or client_postgres
         if op_main in ("count", "sum", "avg", "min", "max"):
             val_sql = "*" if val == "*" else f'"{val}"'
-            sql = f'SELECT "{target_col}" AS id, {op_main}({val_sql}) AS value FROM "{target_table}" WHERE "{target_col}" = ANY($1) GROUP BY "{target_col}";'
+            sql = f'SELECT "{target_col}" AS id, {op_main}({val_sql}) AS value FROM "{target_table}" WHERE "{target_col}" = ANY($1) GROUP BY "{target_col}";'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
             rows = await client.fetch(sql, list(source_ids))
             mapping = {str(r["id"]): r["value"] for r in rows}
             for obj in obj_list:
@@ -380,7 +380,7 @@ async def func_postgres_relation(*, client_postgres: asyncpg.Pool | None, client
             if custom_limit > config_sql_read_relation_fetch_limit_max: raise Exception(f"relation fetch limit {custom_limit} exceeds maximum allowed: {config_sql_read_relation_fetch_limit_max}")
             cols_sql = "*" if val == "*" else ",".join([f'"{v.strip()}"' for v in val.split(",")])
             if val != "*" and "id" not in val.split(",") and target_col != "id": cols_sql += f',"{target_col}"'
-            sql = f'SELECT * FROM (SELECT {cols_sql}, "{target_col}" AS relation_id, ROW_NUMBER() OVER(PARTITION BY "{target_col}" ORDER BY id DESC) as rn FROM "{target_table}" WHERE "{target_col}" = ANY($1)) t WHERE rn <= $2'
+            sql = f'SELECT * FROM (SELECT {cols_sql}, "{target_col}" AS relation_id, ROW_NUMBER() OVER(PARTITION BY "{target_col}" ORDER BY id DESC) as rn FROM "{target_table}" WHERE "{target_col}" = ANY($1)) t WHERE rn <= $2'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
             rows = await client.fetch(sql, list(source_ids), custom_limit)
             mapping = defaultdict(list)
             for r in rows:
@@ -414,7 +414,7 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
         cols_sql = ",".join([f'"{c}"' for c in columns])
         if len(serialized_list) == 1:
             placeholders = ",".join([f"${i+1}" for i in range(len(columns))])
-            sql = f'INSERT INTO "{tbl}" ({cols_sql}) VALUES ({placeholders}) RETURNING id;'
+            sql = f'INSERT INTO "{tbl}" ({cols_sql}) VALUES ({placeholders}) RETURNING id;'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
             args = [serialized_list[0][c] for c in columns]
             if connection: ids = await connection.fetch(sql, *args)
             elif client_postgres_conn: ids = await client_postgres_conn.fetch(sql, *args)
@@ -439,7 +439,7 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
                 async with connection.transaction():
                     for i in range(0, len(serialized_list), limit_chunk):
                         batch = serialized_list[i : i + limit_chunk]
-                        sql = f'INSERT INTO "{tbl}" ({col_list}) SELECT {cast_list} FROM jsonb_to_recordset($1::jsonb) AS x({def_list}) RETURNING id'
+                        sql = f'INSERT INTO "{tbl}" ({col_list}) SELECT {cast_list} FROM jsonb_to_recordset($1::jsonb) AS x({def_list}) RETURNING id'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
                         ids_batch = await connection.fetch(sql, orjson.dumps(batch, default=str).decode('utf-8'))
                         all_ids.extend([dict(r) for r in ids_batch])
             if connection:
@@ -553,7 +553,7 @@ async def func_postgres_read(*, client_postgres: asyncpg.Pool | None, client_pas
     where_statement, values = await func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, filter=filters, prefix="", config_column_read_blocked=config_column_read_blocked)
     fetch_limit = limit + 1
     bind_idx = len(values) + 1
-    sql_select = f'SELECT {column_list} FROM "{table}" {where_statement} ORDER BY {order_clause} LIMIT ${bind_idx} OFFSET ${bind_idx+1}'
+    sql_select = f'SELECT {column_list} FROM "{table}" {where_statement} ORDER BY {order_clause} LIMIT ${bind_idx} OFFSET ${bind_idx+1}'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
     values.extend([fetch_limit, (page - 1) * limit])
     async with client_postgres.acquire() as conn:
         records = await conn.fetch(sql_select, *values)
@@ -605,7 +605,7 @@ async def func_postgres_update(*, client_postgres: asyncpg.Pool | None, client_p
                 if created_by_id is not None: where_clause += f' AND "{ownership_column}"=${len(batch_vals)+len(id_list)+1}'
                 batch_vals.extend(id_list)
                 if created_by_id is not None: batch_vals.append(created_by_id)
-                sql = f'UPDATE "{table}" SET {", ".join(set_clauses)} WHERE {where_clause} RETURNING id;'
+                sql = f'UPDATE "{table}" SET {", ".join(set_clauses)} WHERE {where_clause} RETURNING id;'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
                 returned_ids.extend([r["id"] for r in (await connection.fetch(sql, *batch_vals))])
     if client_postgres_conn: await _execute_update(client_postgres_conn)
     else:
@@ -636,7 +636,7 @@ async def func_postgres_delete(*, client_postgres: asyncpg.Pool | None, client_p
                 if created_by_id is not None:
                     where_clause += f' AND "{ownership_column}"=$2::bigint'
                     values.append(created_by_id)
-                sql_delete = f'WITH deleted AS (DELETE FROM "{table}" WHERE {where_clause} RETURNING 1) SELECT COUNT(*) FROM deleted;'
+                sql_delete = f'WITH deleted AS (DELETE FROM "{table}" WHERE {where_clause} RETURNING 1) SELECT COUNT(*) FROM deleted;'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
                 deleted_count += await connection.fetchval(sql_delete, *values)
         return deleted_count
     if client_postgres_conn:
@@ -657,13 +657,13 @@ async def func_postgres_delete_all(*, client_postgres: asyncpg.Pool | None, clie
     id_col = '"id"' if (not schema or "id" in schema) else "ctid"
     batch_limit = limit if limit and limit > 0 else 5000
     async def _execute_delete_all(connection):
-        sql = f'WITH to_delete AS (SELECT {id_col} FROM "{table}" WHERE "{ownership_column}"=$1 LIMIT $2) DELETE FROM "{table}" WHERE {id_col} IN (SELECT {id_col} FROM to_delete)'
+        sql = f'WITH to_delete AS (SELECT {id_col} FROM "{table}" WHERE "{ownership_column}"=$1 LIMIT $2) DELETE FROM "{table}" WHERE {id_col} IN (SELECT {id_col} FROM to_delete)'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
         result = await connection.execute(sql, user_id, batch_limit)
         deleted_count = int(result.rsplit(" ", 1)[-1])
         if deleted_count < batch_limit:
             has_more = False
         else:
-            has_more = bool(await connection.fetchval(f'SELECT EXISTS(SELECT 1 FROM "{table}" WHERE "{ownership_column}"=$1 LIMIT 1)', user_id))
+            has_more = bool(await connection.fetchval(f'SELECT EXISTS(SELECT 1 FROM "{table}" WHERE "{ownership_column}"=$1 LIMIT 1)', user_id))  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
         return {"deleted_count": deleted_count, "has_more": has_more, "has_next_page": has_more}
     if client_postgres_conn:
         return await _execute_delete_all(client_postgres_conn)
@@ -680,7 +680,7 @@ def func_postgres_mark_read(*, client_postgres: asyncpg.Pool | None, table: str,
     if not read_ids: return
     async def update_read_at():
         async with client_postgres.acquire() as conn:
-            await conn.execute(f'UPDATE "{table}" SET read_at=now() WHERE "{ownership_column}"=$1 AND "id"=ANY($2::bigint[]) AND read_at IS NULL', user_id, read_ids)
+            await conn.execute(f'UPDATE "{table}" SET read_at=now() WHERE "{ownership_column}"=$1 AND "id"=ANY($2::bigint[]) AND read_at IS NULL', user_id, read_ids)  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
     task = asyncio.create_task(update_read_at())
     task.add_done_callback(lambda t: (t.exception() if not t.cancelled() else None))
     return None

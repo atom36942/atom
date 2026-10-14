@@ -120,6 +120,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_login_allowed_roles` | Allowed values for the supplied login `role` parameter (default: roles `1` through `20`; optional for password login) |
 | `config_is_otp_require_users_update` | Boolean requiring OTP verification when updating user contact details |
 | `config_is_read_only` | Boolean system-wide read-only mode toggle |
+| `config_is_pgweb_enabled` | Enable the PgWeb SQL console at `/pgweb` (default: `False`). Turn on only on a developer machine; even then it accepts only direct localhost requests from its own page |
 | `config_is_prod` | Boolean production-mode toggle (`True` disables debug and protects endpoints) |
 | `config_postgres_db_log_api` | Named Postgres database for API logging (default: `master`) |
 | `config_uvicorn_workers` | Server processes started by `python main.py` (default: `1`). Above `1`, every `inmemory` cache, rate limit and user check in `config_api` must switch to `redis` (user checks may also use `realtime` or `token`), and startup warns if workers x pools x `config_postgres_pool_max_size` can exceed Postgres `max_connections` |

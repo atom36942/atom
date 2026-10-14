@@ -177,9 +177,10 @@ app.state.func_app_cors_add(app=app, allow_origins=app.state.config_cors_allow_o
 # main
 if __name__ == "__main__":
     workers = app.state.config_uvicorn_workers
-    if workers == 1: uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+    host = "0.0.0.0"  # noqa: S104 - a server (and its container) must accept connections on every interface
+    if workers == 1: uvicorn.run(app, host=host, port=int(os.environ.get("PORT", 8000)))
     else:
         # check config once here: uvicorn restarts workers that fail startup, so a bad config would loop instead of exiting
         app.state.func_check(app=app)
         function.func_structure_init(is_tmp_reset=app.state.config_is_tmp_reset)
-        uvicorn.run("main:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), workers=workers, app_dir=os.path.dirname(os.path.abspath(__file__)))
+        uvicorn.run("main:app", host=host, port=int(os.environ.get("PORT", 8000)), workers=workers, app_dir=os.path.dirname(os.path.abspath(__file__)))

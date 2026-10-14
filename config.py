@@ -52,6 +52,7 @@ config_signup_allowed_roles = []
 config_login_allowed_roles = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 config_is_otp_require_users_update = False
 config_is_read_only = False
+config_is_pgweb_enabled = False
 config_is_prod = True
 config_is_tmp_reset = True
 config_uvicorn_workers = 1

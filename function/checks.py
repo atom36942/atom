@@ -16,7 +16,7 @@ def func_check_database_config(*, app_state: State) -> None:
     def int_check(value, key):
         if isinstance(value, bool): raise Exception(f"invalid {key}: expected integer")
         try: value = int(value)
-        except Exception: raise Exception(f"invalid {key}: expected integer")
+        except Exception: raise Exception(f"invalid {key}: expected integer") from None
         if value < 1: raise Exception(f"invalid {key}: minimum 1")
         return value
     pool_min = int_check(getattr(app_state, "config_postgres_pool_min_size", None), "config_postgres_pool_min_size")
@@ -39,7 +39,7 @@ def func_check_runtime_config(*, app_state: State) -> None:
     def int_check(value, key):
         if isinstance(value, bool): raise Exception(f"invalid {key}: expected integer")
         try: value = int(value)
-        except Exception: raise Exception(f"invalid {key}: expected integer")
+        except Exception: raise Exception(f"invalid {key}: expected integer") from None
         if value < 1: raise Exception(f"invalid {key}: minimum 1")
         return value
     values = {key: int_check(getattr(app_state, key, None), key) for key in ("config_query_runner_read_limit", "config_query_runner_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_uvicorn_workers")}
@@ -74,7 +74,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
     def int_check(value, key, min_value=0):
         if isinstance(value, bool): raise Exception(f"invalid {key}: expected integer")
         try: value = int(value)
-        except Exception: raise Exception(f"invalid {key}: expected integer")
+        except Exception: raise Exception(f"invalid {key}: expected integer") from None
         if value < min_value: raise Exception(f"invalid {key}: minimum {min_value}")
         return value
     requires_redis = False

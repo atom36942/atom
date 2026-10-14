@@ -4,11 +4,14 @@
 
 # import
 import asyncio
+import contextlib
 import json
 import os
+import tempfile
 import time
 import urllib.parse
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 import aiohttp
 import asyncpg
 import boto3
@@ -79,11 +82,11 @@ async def execute():
                 properties[col_name] = {"type": "STRING", "nullable": True}
         return {"type": "OBJECT", "properties": properties}
     async def func_claim_candidates(conn: asyncpg.Connection, batch_limit: int) -> list:
-        return await conn.fetch(f"WITH claim AS (SELECT c.id FROM {TABLE_NAME} c WHERE (c.worker_status IS NULL OR c.worker_status IN (1, 3)) AND (c.worker_next_retry_at <= NOW() OR c.worker_next_retry_at IS NULL) AND (c.resume_url IS NOT NULL OR c.resume_content IS NOT NULL) AND c.deleted_at IS NULL AND c.deactivated_at IS NULL ORDER BY c.created_at, c.id LIMIT $1 FOR UPDATE OF c SKIP LOCKED) UPDATE {TABLE_NAME} u SET worker_status = 1, worker_next_retry_at = NOW() + INTERVAL '15 minutes' FROM claim JOIN {TABLE_NAME} c ON c.id = claim.id WHERE u.id = claim.id RETURNING u.id, u.resume_url, c.resume_content, c.worker_retry_count", batch_limit)
+        return await conn.fetch(f"WITH claim AS (SELECT c.id FROM {TABLE_NAME} c WHERE (c.worker_status IS NULL OR c.worker_status IN (1, 3)) AND (c.worker_next_retry_at <= NOW() OR c.worker_next_retry_at IS NULL) AND (c.resume_url IS NOT NULL OR c.resume_content IS NOT NULL) AND c.deleted_at IS NULL AND c.deactivated_at IS NULL ORDER BY c.created_at, c.id LIMIT $1 FOR UPDATE OF c SKIP LOCKED) UPDATE {TABLE_NAME} u SET worker_status = 1, worker_next_retry_at = NOW() + INTERVAL '15 minutes' FROM claim JOIN {TABLE_NAME} c ON c.id = claim.id WHERE u.id = claim.id RETURNING u.id, u.resume_url, c.resume_content, c.worker_retry_count", batch_limit)  # noqa: S608 - constant table, columns limited to existing database columns
     async def func_mark_completed(conn: asyncpg.Connection, candidate_id: int, data: dict) -> None:
         update_data = {k: v for k, v in data.items() if k in candidate_col_names and k not in BASE_COLUMNS}
         if not update_data:
-            await conn.execute(f"UPDATE {TABLE_NAME} SET worker_status = 2, worker_processed_at = NOW(), worker_last_error = NULL, updated_at = NOW() WHERE id = $1", candidate_id)
+            await conn.execute(f"UPDATE {TABLE_NAME} SET worker_status = 2, worker_processed_at = NOW(), worker_last_error = NULL, updated_at = NOW() WHERE id = $1", candidate_id)  # noqa: S608 - constant table, columns limited to existing database columns
             return
         set_clauses = ["worker_status = 2", "worker_processed_at = NOW()", "worker_last_error = NULL", "updated_at = NOW()"]
         values = [candidate_id]
@@ -101,7 +104,7 @@ async def execute():
                 set_clauses.append(f'"{key}" = ${i}')
             values.append(value)
         set_query = ", ".join(set_clauses)
-        query = f"UPDATE {TABLE_NAME} SET {set_query} WHERE id = $1"
+        query = f"UPDATE {TABLE_NAME} SET {set_query} WHERE id = $1"  # noqa: S608 - constant table, columns limited to existing database columns
         await conn.execute(query, *values)
     def func_retry_delay_sec(retry_count: int) -> int:
         index = min(max(retry_count, 0), len(worker_retry_delay_sec) - 1)
@@ -109,10 +112,10 @@ async def execute():
     async def func_mark_failed(conn: asyncpg.Connection, candidate_id: int, retry_count: int, error: Exception) -> None:
         error_str = str(error)[:1000]
         if retry_count >= len(worker_retry_delay_sec):
-            await conn.execute(f"UPDATE {TABLE_NAME} SET worker_status = 4, worker_last_error = $2, worker_retry_count = worker_retry_count + 1, updated_at = NOW() WHERE id = $1", candidate_id, f"AI Parsing Failed (DEAD): {error_str}")
+            await conn.execute(f"UPDATE {TABLE_NAME} SET worker_status = 4, worker_last_error = $2, worker_retry_count = worker_retry_count + 1, updated_at = NOW() WHERE id = $1", candidate_id, f"AI Parsing Failed (DEAD): {error_str}")  # noqa: S608 - constant table, columns limited to existing database columns
         else:
             delay_sec = func_retry_delay_sec(retry_count)
-            await conn.execute(f"UPDATE {TABLE_NAME} SET worker_status = 3, worker_last_error = $2, worker_retry_count = worker_retry_count + 1, worker_next_retry_at = NOW() + ($3 * INTERVAL '1 second'), updated_at = NOW() WHERE id = $1", candidate_id, f"AI Parsing Failed: {error_str}", delay_sec)
+            await conn.execute(f"UPDATE {TABLE_NAME} SET worker_status = 3, worker_last_error = $2, worker_retry_count = worker_retry_count + 1, worker_next_retry_at = NOW() + ($3 * INTERVAL '1 second'), updated_at = NOW() WHERE id = $1", candidate_id, f"AI Parsing Failed: {error_str}", delay_sec)  # noqa: S608 - constant table, columns limited to existing database columns
     async def func_process_candidate(candidate: asyncpg.Record) -> dict:
         candidate_id = candidate["id"]
         resume_url = candidate["resume_url"]
@@ -126,7 +129,8 @@ async def execute():
             ext = os.path.splitext(parsed_url.path)[1].lower()
             if ext not in ['.pdf', '.docx', '.txt', '.doc']:
                 ext = '.pdf'
-            temp_file_path = f"/tmp/resume_parser_{candidate_id}{ext}"
+            fd, temp_file_path = tempfile.mkstemp(prefix=f"resume_parser_{candidate_id}_", suffix=ext)    # unique and created safely, unlike a fixed /tmp name
+            os.close(fd)
             download_url = resume_url
             if "blob.core.windows.net" in download_url and "?" not in download_url and config_azure_account_name and config_azure_account_key:
                 try:
@@ -150,18 +154,17 @@ async def execute():
                         bucket, key = parts[0], parts[1]
                     s3_client = boto3.client('s3', aws_access_key_id=config_aws_access_key_id, aws_secret_access_key=config_aws_secret_access_key)
                     download_url = s3_client.generate_presigned_url('get_object', Params={'Bucket': bucket, 'Key': urllib.parse.unquote(key)}, ExpiresIn=300)
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[resume-parser-worker] s3 presign failed candidate_id={candidate_id}, trying the plain url: {str(e)[:200]}")
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(download_url) as resp:
                         if resp.status != 200:
                             raise Exception(f"HTTP {resp.status} downloading {resume_url}")
                         file_bytes = await resp.read()
-                with open(temp_file_path, "wb") as f:
-                    f.write(file_bytes)
+                await asyncio.to_thread(Path(temp_file_path).write_bytes, file_bytes)    # other resumes keep parsing meanwhile
             except Exception as e:
-                raise Exception(f"Failed to download resume: {e}")
+                raise Exception(f"Failed to download resume: {e}") from e
         else:
             raise Exception("Neither resume_url nor resume_content was provided")
 
@@ -203,8 +206,8 @@ async def execute():
             extracted_text = await asyncio.to_thread(process_with_gemini)
             return json.loads(extracted_text)
         finally:
-            if temp_file_path and os.path.exists(temp_file_path):
-                os.remove(temp_file_path)
+            if temp_file_path:
+                with contextlib.suppress(FileNotFoundError): os.remove(temp_file_path)
     async def process_and_update(candidate: asyncpg.Record):
         try:
             data = await func_process_candidate(candidate)
@@ -229,7 +232,7 @@ async def execute():
                 async with semaphore:
                     await process_and_update(candidate)
             results = await asyncio.gather(*(process_with_limit(candidate) for candidate in candidates), return_exceptions=True)
-            for candidate, result in zip(candidates, results):
+            for candidate, result in zip(candidates, results, strict=True):
                 if isinstance(result, Exception):
                     print(f"[resume-parser-worker] unexpected task error candidate_id={candidate['id']} error={str(result)[:300]}")
         return len(candidates)

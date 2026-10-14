@@ -45,7 +45,7 @@ async def func_request_param_read(*, request: Request, mode: str, param_specs: l
         try:
             json_payload = await request.json()
         except Exception:
-            if strict_types: raise Exception("request body must contain valid JSON")
+            if strict_types: raise Exception("request body must contain valid JSON") from None
             json_payload = None
         if strict_types and not isinstance(json_payload, dict):
             raise Exception("request body must be a JSON object")
@@ -146,7 +146,7 @@ async def func_request_param_read(*, request: Request, mode: str, param_specs: l
                 else:
                     val = TYPE_MAP[dtype](val)
             except Exception:
-                raise Exception(f"parameter '{key}' invalid type {dtype}")
+                raise Exception(f"parameter '{key}' invalid type {dtype}") from None
         if is_required:
             if dtype == "file" and (not isinstance(val, list) or len(val) == 0):
                 raise Exception(f"parameter '{key}' missing or invalid file upload")
@@ -203,7 +203,7 @@ async def func_converter_number(*, datatype: str, mode: str, x: str) -> Any:
         return result_num
     elif mode == "decode":
         try: num_val = int(x)
-        except Exception: raise ValueError("invalid integer for decoding")
+        except Exception: raise ValueError("invalid integer for decoding") from None
         decoded_chars = []
         while num_val > 0:
             num_val, reminder = divmod(num_val, base)

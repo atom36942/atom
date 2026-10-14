@@ -49,12 +49,12 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
         if hasattr(ast, "Num") and isinstance(n, ast.Num): return n.n
         if hasattr(ast, "NameConstant") and isinstance(n, ast.NameConstant): return n.value
         if isinstance(n, (ast.List, ast.Tuple)): return [eval_node(e) for e in n.elts]
-        if isinstance(n, ast.Dict): return {eval_node(k): eval_node(v) for k, v in zip(n.keys, n.values)}
+        if isinstance(n, ast.Dict): return {eval_node(k): eval_node(v) for k, v in zip(n.keys, n.values, strict=True)}
         if isinstance(n, ast.Attribute) and hasattr(n.value, "id") and n.value.id == "app_state" and app_state: return getattr(app_state, n.attr, None)
         if isinstance(n, ast.IfExp): return eval_node(n.body) if eval_node(n.test) else eval_node(n.orelse)
         if isinstance(n, ast.Compare):
             left = eval_node(n.left)
-            for op, r_node in zip(n.ops, n.comparators):
+            for op, r_node in zip(n.ops, n.comparators, strict=True):
                 right = eval_node(r_node)
                 if isinstance(op, ast.NotEq) and not (left != right): return False
                 if isinstance(op, ast.Eq) and not (left == right): return False
@@ -87,7 +87,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
         return None
     def ast_to_schema(n):
         if isinstance(n, ast.Dict):
-            return {"type": "object", "properties": {eval_node(k): ast_to_schema(v) for k, v in zip(n.keys, n.values) if eval_node(k)}}
+            return {"type": "object", "properties": {eval_node(k): ast_to_schema(v) for k, v in zip(n.keys, n.values, strict=True) if eval_node(k)}}
         if isinstance(n, (ast.List, ast.Tuple)):
             return {"type": "array", "items": ast_to_schema(n.elts[0]) if n.elts else {"type": "string"}}
         if isinstance(n, ast.BinOp) and isinstance(n.op, ast.BitOr):

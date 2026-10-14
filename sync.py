@@ -44,12 +44,12 @@ files_to_sync = [*sync_files, *sync_folders]
 
 # requirements.txt is merged separately; config_extend.py stays developer-managed.
 STATE_PATH = ".atom-sync/state.json"
-LOCK_TOKEN_ENV = "ATOM_SYNC_LOCK_TOKEN"
+LOCK_TOKEN_ENV = "ATOM_SYNC_LOCK_TOKEN"  # noqa: S105 - name of the environment variable, not a secret
 
 
 def git(root, *args):
     """Never consume stale FETCH_HEAD or partial output after a failed command."""
-    result = subprocess.run(["git", *args], cwd=root, capture_output=True, check=True)
+    result = subprocess.run(["git", *args], cwd=root, capture_output=True, check=True)  # noqa: S603, S607 - fixed git command from PATH, arguments as a list, no shell
     return result.stdout
 
 
@@ -204,7 +204,7 @@ def apply_update(root, plan):
     for folder in sync_folders:
         if folder not in files_to_sync:
             continue
-        for parent, directories, filenames in os.walk(root / folder, topdown=False):
+        for parent, directories, _filenames in os.walk(root / folder, topdown=False):
             for child in directories:
                 path = Path(parent) / child
                 if not any(path.iterdir()):
@@ -281,7 +281,7 @@ def bootstrap_sync(root, repo_url=REPO_URL):
             # Windows venv launchers may insert another process between us and Python.
             child_env = os.environ.copy()
             child_env[LOCK_TOKEN_ENV] = lock_token
-            result = subprocess.run([sys.executable, str(script), "--apply-revision", revision], cwd=root, env=child_env)
+            result = subprocess.run([sys.executable, str(script), "--apply-revision", revision], cwd=root, env=child_env)  # noqa: S603 - runs the validated sync.py with this interpreter, no shell
         except OSError:
             if previous is None:
                 script.unlink(missing_ok=True)

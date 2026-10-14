@@ -166,7 +166,7 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
         result = await func_otp_verify(client_postgres=self.pool, otp=123456,
                                       email=" A@Example.Test ", mobile=None, config_otp_expiry_sec=300)
         self.assertEqual(result, "done")
-        self.assertEqual(self.conn.fetch.await_args.args[1:], ("a@example.test",))
+        self.assertEqual(self.conn.fetch.await_args.args[1:], ("a@example.test", 300.0))
         self.conn.execute.assert_awaited_once_with("DELETE FROM otp WHERE id = $1;", 8)
 
     async def test_missing_wrong_and_expired_otps_are_not_consumed(self):

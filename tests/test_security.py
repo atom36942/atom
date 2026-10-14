@@ -46,7 +46,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
                     "SELECT 1; WAITFOR DELAY '00:01:00'", "SELECT * FROM OPENROWSET('provider','secret','query')"):
             for runner, limit in ((func_mssql_query_runner_read, "config_query_runner_read_limit"),
                                   (func_mssql_query_runner_read_export, "config_query_runner_export_limit")):
-                with self.subTest(sql=sql, runner=runner.__name__), self.assertRaises(Exception):
+                with self.subTest(sql=sql, runner=runner.__name__), self.assertRaisesRegex(Exception, "Only one read SQL statement is allowed|read mode restricted"):
                     await runner(client_mssql=client, sql=sql, **{limit: 10})
         client.acquire.assert_not_called()
 
@@ -183,7 +183,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
                                ("azure", "https://account.blob.core.windows.net/container/user_7/file")]:
             for invalid in ("", None, 123, "not-a-url", "https://s3.amazonaws.com/", valid.replace("user_7", "user_8")):
                 with self.subTest(service=service, invalid=invalid), patch("azure.storage.blob.generate_blob_sas") as sign:
-                    with self.assertRaises(Exception):
+                    with self.assertRaisesRegex(Exception, "allowed only for own files|invalid blob URL"):
                         await func_blob_preview_urls_get(**args, service=service, urls=[valid, invalid])
                     sign.assert_not_called()
         client.generate_presigned_url.assert_not_awaited()
@@ -237,7 +237,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
                            ({"id": 7, "role": 1}, []), ({}, [])]:
             conn.fetch.return_value = rows
             request = SimpleNamespace(app=SimpleNamespace(state=state), state=SimpleNamespace(user=user))
-            with self.subTest(user=user, rows=rows), self.assertRaises(Exception):
+            with self.subTest(user=user, rows=rows), self.assertRaisesRegex(Exception, "access denied|authorization token missing|user not found"):
                 await func_api_admin_blob_preview_urls(request=request)
         state.func_blob_preview_urls_get.assert_not_awaited()
         state.func_request_param_read.assert_not_awaited()
