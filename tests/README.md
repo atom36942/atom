@@ -21,6 +21,17 @@ libraries. Git must be installed for the updater tests.
 | Security | Read-runner restrictions, blob signing authorization, bounded upload reads, credential redaction |
 | Errors | HTTP status for `func_api_error`, each middleware check (401/403/404/429/500), token decoding, and database, Redis, and external-API failures; plain exceptions stay 400 |
 
+## Coverage
+
+`coverage` records which lines of core code (`function/`, `router/`, `main.py`, `config.py`) the tests run:
+
+```bash
+venv/bin/python -m coverage run --source=function,router,main,config -m unittest discover -s tests
+venv/bin/python -m coverage report --show-missing --sort=cover
+```
+
+`coverage html` writes a browsable report to `htmlcov/`. The data files are not committed (`.gitignore` denies everything not listed). Without `ATOM_TEST_POSTGRES_URL` the integration tests are skipped, so the local number is lower than CI's. CI fails when total coverage drops below 70%.
+
 ## Unit tests
 
 Everything outside `tests/integration/` mocks the database. These tests exercise

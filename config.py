@@ -108,7 +108,7 @@ config_mongodb_my_create_allowed = {"test": ["post"]}
 config_table_private_read_allowed = ["test"]
 
 # Column
-config_column_token_encode = ["id", "role", "username", "id_ext" ,"deactivated_at", "deleted_at"]
+config_column_token_encode = ["id", "role", "username", "id_ext" ,"deactivated_at", "deleted_at", "permissions"]
 config_column_ownership_read = ["created_by_id", "received_by_id", "assigned_to_id", "user_id"]
 config_column_ownership_update = ["created_by_id", "assigned_to_id"]
 config_column_ownership_delete = ["created_by_id", "received_by_id", "assigned_to_id"]

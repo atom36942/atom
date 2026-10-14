@@ -37,8 +37,12 @@ jobs:
       - name: Ruff
         run: ruff check --output-format github .
 
-      - name: Unit and integration tests
-        run: python -m unittest discover -s tests -v
+      - name: Unit and integration tests, with coverage
+        run: python -m coverage run --source=function,router,main,config -m unittest discover -s tests -v
+
+      # Lists untested lines per file; fails if coverage of core code drops below the floor (73% when this was added).
+      - name: Coverage report
+        run: python -m coverage report --show-missing --sort=cover --fail-under=70
 
   docker:
     runs-on: ubuntu-latest

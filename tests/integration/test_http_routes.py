@@ -255,13 +255,14 @@ class HttpRouteTests(unittest.TestCase):
 
     def test_log_database_outage_is_counted_buffered_and_recovered(self):
         before = self.runtime_status()["error_count"]
+        requests_sent = self.client.app.state.config_table["log_api"]["buffer_limit"] + 5    # enough to fill the buffer, so a request writes too
         health_logged = lambda: fetch(self.url, "SELECT count(*) AS n FROM log_api WHERE path = '/health'")[0]["n"]
         time.sleep(1.2)    # let earlier requests flush so the baseline is complete
         logged_before = health_logged()
         fetch(self.url, "ALTER TABLE log_api RENAME TO log_api_offline")
         try:
             with redirect_stdout(io.StringIO()):
-                self.assertEqual({self.client.get("/health").status_code for _ in range(25)}, {200})    # the API keeps answering
+                self.assertEqual({self.client.get("/health").status_code for _ in range(requests_sent)}, {200})    # the API keeps answering
                 time.sleep(1.5)    # at least one periodic flush attempt (config_postgres_buffer_flush_auto_sec=1)
                 during = self.runtime_status()
         finally:
@@ -270,10 +271,10 @@ class HttpRouteTests(unittest.TestCase):
         self.assertGreater(during["error_count"]["buffer_flush"], before["buffer_flush"])
         self.assertGreater(during["buffer_rows_pending"]["log_api"], 0)    # rows wait in memory instead of being lost
         deadline, logged = time.time() + 5, 0
-        while time.time() < deadline and logged < logged_before + 25:
+        while time.time() < deadline and logged < logged_before + requests_sent:
             logged = health_logged()
             time.sleep(0.2)
-        self.assertGreaterEqual(logged, logged_before + 25)    # the outage's rows are written once the table is back
+        self.assertGreaterEqual(logged, logged_before + requests_sent)    # the outage's rows are written once the table is back
 
     def test_background_error_is_logged_with_its_type(self):
         count_before = self.runtime_status()["error_count"]["background_task"]
