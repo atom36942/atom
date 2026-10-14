@@ -92,6 +92,16 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
         if isinstance(v, list): return {"type": "array", "items": {"type": "string"}}
         if isinstance(v, dict): return {"type": "object", "properties": {k: {"type": "string", "default": str(val)} for k, val in v.items()}}
         return {"type": "string", "default": str(v) if v is not None else None}
+    def spec_schema(p, reg_info):
+        dt = p.get("type", "str")
+        schema = {"type": TYPE_MAP.get(dt.split(":")[0], "string"), "format": "binary" if dt == "file" else None, "default": p.get("default"), "pattern": reg_info[0] if reg_info and len(reg_info) > 0 else None}
+        if ":" in dt: schema["items"] = {"type": TYPE_MAP.get(dt.split(":")[1], "string")}
+        if isinstance(p.get("allowed"), (list, tuple)): schema["enum"] = list(p["allowed"])
+        is_array = schema["type"] == "array"
+        bounds = {"minimum": "minimum", "maximum": "maximum", "min_length": "minItems" if is_array else "minLength", "max_length": "maxItems" if is_array else "maxLength"}
+        for key, name in bounds.items():
+            if p.get(key) is not None: schema[name] = p[key]
+        return {k: v for k, v in schema.items() if v is not None}
     spec = {
         "openapi": "3.0.0",
         "info": {"title": "API Documentation", "version": "1.0.0"},
@@ -159,26 +169,23 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
                             for p in p_list:
                                 if not isinstance(p, dict) or "name" not in p: continue
                                 p_name = p["name"]
-                                dt = p.get("type", "str")
                                 op["parameters"] = [x for x in op["parameters"] if x["name"] != p_name]
-                                tp = TYPE_MAP.get(dt.split(":")[0], "string")
-                                itms = {"type": TYPE_MAP.get(dt.split(":")[1], "string")} if ":" in dt else None
                                 reg_info = getattr(app_state, "config_column_regex", {}).get(p_name) if is_regex_enabled else None
                                 op["parameters"].append({
                                     "name": p_name, "in": p_loc, "required": bool(p.get("required", False)),
-                                    "description": reg_info[1] if reg_info and len(reg_info) > 1 else None,
-                                    "schema": {"type": tp, "format": "binary" if dt == "file" else None, **({"items": itms} if itms else {}), "enum": p.get("allowed") if isinstance(p.get("allowed"), (list, tuple)) else None, "default": p.get("default"), "pattern": reg_info[0] if reg_info and len(reg_info) > 0 else None}
+                                    **({"description": reg_info[1]} if reg_info and len(reg_info) > 1 else {}),
+                                    "schema": spec_schema(p, reg_info)
                                 })
                         elif p_list is not None and p_loc in ["body", "form"]:
                             media_type = "application/json" if p_loc == "body" else "multipart/form-data"
                             if "requestBody" not in op: op["requestBody"] = {"content": {media_type: {"schema": {"type": "object", "properties": {}, "required": []}}}}
                             props, reqs = op["requestBody"]["content"][media_type]["schema"]["properties"], op["requestBody"]["content"][media_type]["schema"]["required"]
+                            if any(kw.arg == "reject_unknown" and eval_node(kw.value) is True for kw in node.keywords): op["requestBody"]["content"][media_type]["schema"]["additionalProperties"] = False
                             for p in p_list:
                                 if not isinstance(p, dict) or "name" not in p: continue
                                 p_name = p["name"]
                                 reg_info = getattr(app_state, "config_column_regex", {}).get(p_name) if is_regex_enabled else None
-                                dt = p.get("type", "str")
-                                props[p_name] = {"type": TYPE_MAP.get(dt.split(":")[0], "string"), "format": "binary" if dt == "file" else None, **({"items": {"type": TYPE_MAP.get(dt.split(":")[1], "string")}} if ":" in dt else {}), "enum": p.get("allowed") if isinstance(p.get("allowed"), (list, tuple)) else None, "default": p.get("default"), "pattern": reg_info[0] if reg_info and len(reg_info) > 0 else None, "description": reg_info[1] if reg_info and len(reg_info) > 1 else None}
+                                props[p_name] = {**spec_schema(p, reg_info), **({"description": reg_info[1]} if reg_info and len(reg_info) > 1 else {})}
                                 if bool(p.get("required", False)): reqs.append(p_name)
                     except Exception as e: print(f"⚠️ openapi {path}: parameters skipped: {e}")
             except Exception as e: print(f"⚠️ openapi {path}: route skipped: {e}")

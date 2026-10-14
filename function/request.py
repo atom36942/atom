@@ -1,5 +1,6 @@
 """Atom request functions."""
 
+import math
 from typing import Any
 import orjson
 from fastapi import Request
@@ -19,19 +20,17 @@ async def func_request_form_close(*, request: Request) -> None:
     request.state.form_list = []
     return None
 
-async def func_request_param_read(*, request: Request, mode: str, param_specs: list, strict: bool = False, strict_types: bool = False, header_fallback: bool = True, reject_unknown: bool = False) -> dict:
-    """Read parameters with backward-compatible defaults.
+async def func_request_param_read(*, request: Request, mode: str, param_specs: list, strict: bool = False, strict_types: bool = False, reject_unknown: bool = False) -> dict:
+    """Read and validate parameters from query, form, body or header.
 
     strict selects specified fields only; reject_unknown rejects extra fields.
     strict_types rejects malformed/non-object JSON bodies, lossy integer conversion
-    and invalid objects. header_fallback controls implicit header lookup.
-    Specs support minimum/maximum and min_length/max_length after conversion.
+    and invalid objects. Specs support minimum/maximum and min_length/max_length after conversion.
     """
     if not isinstance(strict, bool): raise Exception("strict must be bool")
-    for name, value in (("strict_types", strict_types), ("header_fallback", header_fallback), ("reject_unknown", reject_unknown)):
+    for name, value in (("strict_types", strict_types), ("reject_unknown", reject_unknown)):
         if not isinstance(value, bool): raise Exception(f"{name} must be bool")
     params_dict = {}
-    header_params = {k.lower(): v for k, v in request.headers.items()}
     if mode == "query":
         params_dict = dict(request.query_params)
     elif mode == "form":
@@ -52,7 +51,7 @@ async def func_request_param_read(*, request: Request, mode: str, param_specs: l
             raise Exception("request body must be a JSON object")
         params_dict = json_payload if isinstance(json_payload, dict) else {"body": json_payload}
     elif mode == "header":
-        params_dict = header_params
+        params_dict = {k.lower(): v for k, v in request.headers.items()}
     else:
         raise Exception(f"invalid mode: {mode}")
     if param_specs is None:
@@ -91,10 +90,16 @@ async def func_request_param_read(*, request: Request, mode: str, param_specs: l
             if not isinstance(v, (int, str)):
                 if not isinstance(v, float) or not v.is_integer():
                     raise ValueError("expected a whole number")
+            if isinstance(v, str) and "_" in v: raise ValueError("underscore digit separators not allowed")
         return int(v)
+    def smart_float(v):
+        if strict_types and isinstance(v, bool): raise ValueError("boolean is not a number")
+        val = float(v)
+        if not math.isfinite(val): raise ValueError("number must be finite")
+        return val
     TYPE_MAP = {
         "int": smart_int, "bigint": smart_int, "smallint": smart_int, "integer": smart_int, "int4": smart_int, "int8": smart_int,
-        "float": float, "number": float, "numeric": float,
+        "float": smart_float, "number": smart_float, "numeric": smart_float,
         "str": str, "any": lambda v: v, 
         "bool": smart_bool,
         "dict": smart_dict, "object": smart_dict,
@@ -120,8 +125,6 @@ async def func_request_param_read(*, request: Request, mode: str, param_specs: l
             raise Exception(f"parameter '{key}' default '{default_value}' violating allowed_values: {allowed_values}")
         if allowed_values is not None and not isinstance(allowed_values, (list, tuple)): raise Exception(f"parameter '{key}' allowed_values must be a list or tuple")
         val = params_dict.get(key)
-        if val is None and header_fallback:
-            val = header_params.get(key.lower())
         if val is None:
             val = default_value
         if isinstance(val, str) and val.lower() in ("null", "undefined"):

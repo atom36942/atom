@@ -102,6 +102,7 @@ config_table_my_read_blocked = ["users", "config", "log_users_password", "otp", 
 config_table_my_delete_all_allowed = ["test", "message", "notification"]
 config_table_public_create_allowed = ["test"]
 config_table_public_read_allowed = ["test"]
+config_mongodb_my_create_allowed = {"test": ["post"]}
 config_table_private_read_allowed = ["test"]
 
 # Column

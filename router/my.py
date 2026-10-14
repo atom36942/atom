@@ -148,9 +148,14 @@ async def func_api_my_message_thread(*, request: Request):
 async def func_api_my_object_create_mongodb(*, request: Request):
     app_state = request.app.state
     if not app_state.client_mongodb: raise app_state.func_api_error(message="mongodb client not initialized", status_code=500)
-    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "database", "type": "str", "required": True}, {"name": "table", "type": "str", "required": True}])
-    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[])
-    obj_list = ob.get("obj_list", [ob])
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "database", "type": "str", "required": True}, {"name": "table", "type": "str", "required": True}], strict=True, reject_unknown=True)
+    if oq["table"] not in app_state.config_mongodb_my_create_allowed.get(oq["database"], []): raise app_state.func_api_error(message=f"creation disabled for mongodb collection: {oq['database']}.{oq['table']}", status_code=403)
+    obj_list = await app_state.func_extract_request_object_list(request=request)
+    if not isinstance(obj_list, list) or not obj_list or not all(isinstance(x, dict) for x in obj_list): raise Exception("obj_list must be a non-empty list of objects")
+    app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
+    for obj in obj_list:
+        if any(k in ("_id", "created_by_id") or k.startswith("$") or "." in k for k in obj): raise Exception("fields _id, created_by_id, $-prefixed and dotted keys are not allowed")
+    obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="created_by_id")
     res = await app_state.client_mongodb[oq["database"]][oq["table"]].insert_many(obj_list)
     output=[str(id) for id in res.inserted_ids]
     return {"status": 1, "message": output}
