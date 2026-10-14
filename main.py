@@ -80,7 +80,7 @@ async def func_lifespan(app: FastAPI):
         # func calls
         app.state.func_app_state_add(app=app, data_dict=locals(), prefixes=("client_", "cache_"))
         app.state.func_check_log_api_table(app_state=app.state)
-        app.state.cache_openapi = app.state.func_openapi_spec_generate(app_routes=app.routes, app_state=app.state)
+        app.state.cache_openapi = app.state.func_openapi_spec_generate(app_routes=app.state.func_app_route_list(app=app), app_state=app.state)
         # periodic tasks
         app.state.postgres_buffer_flush_lock = asyncio.Lock()
         if not app.state.config_is_read_only: app.state.postgres_buffer_flush_task = asyncio.create_task(app.state.func_postgres_buffer_flush_periodic_task(app_state=app.state, client_postgres=postgres_master, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log_api=client_postgres_log_api, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api, interval_sec=app.state.config_postgres_buffer_flush_auto_sec))

@@ -248,7 +248,7 @@ async def func_middleware_api_background(*, scope: dict, body_bytes: bytes) -> A
     The endpoint is called directly: the middleware's call_next only works while the middleware is running, and this task outlives it.
     The middleware runs before routing, so the route is matched here the way Starlette's router does.
     """
-    route = next((r for r in scope["app"].router.routes if isinstance(r, APIRoute) and r.matches(scope)[0] == Match.FULL), None)
+    route = next((r for r in scope["app"].state.func_app_route_list(app=scope["app"]) if isinstance(r, APIRoute) and r.matches(scope)[0] == Match.FULL), None)
     if route is None: raise func_api_error(message="is_background is not supported on this path", status_code=400)
     async def receive(): return {"type": "http.request", "body": body_bytes}
     async def task():

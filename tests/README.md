@@ -32,6 +32,16 @@ venv/bin/python -m coverage report --show-missing --sort=cover
 
 `coverage html` writes a browsable report to `htmlcov/`. The data files are not committed (`.gitignore` denies everything not listed). Without `ATOM_TEST_POSTGRES_URL` the integration tests are skipped, so the local number is lower than CI's. CI fails when total coverage drops below 70%.
 
+## Dependency checks
+
+CI runs `pip-audit` after installing `requirements.txt` and fails when an installed package has a known vulnerability; the log names the package and the fixed version. To check locally:
+
+```bash
+venv/bin/pip install pip-audit && venv/bin/pip-audit
+```
+
+Dependabot (`.github/dependabot.yml`) opens weekly pull requests for newer pinned packages and GitHub Actions, waiting until a release is a week old. CI tests each one before you merge it.
+
 ## Unit tests
 
 Everything outside `tests/integration/` mocks the database. These tests exercise

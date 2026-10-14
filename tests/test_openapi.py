@@ -60,7 +60,7 @@ class OpenApiTests(unittest.TestCase):
             cls.workdir.cleanup()
 
     def routes(self):
-        return [(route, method.lower()) for route in self.app.routes if isinstance(route, APIRoute) for method in route.methods]
+        return [(route, method.lower()) for route in self.app.state.func_app_route_list(app=self.app) if isinstance(route, APIRoute) for method in route.methods]
 
     def test_spec_generation_logs_no_skipped_routes(self):
         self.assertNotIn("⚠️ openapi", self.startup_log.getvalue())

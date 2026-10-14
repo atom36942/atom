@@ -75,7 +75,7 @@ class HttpRouteTests(unittest.TestCase):
 
     # 1. admin permission matrix
     def test_every_admin_route_is_401_without_token_and_403_for_users(self):
-        admin_routes = [(route.path, method.lower()) for route in self.app.routes if isinstance(route, APIRoute) and route.path.startswith("/admin/") for method in route.methods]
+        admin_routes = [(route.path, method.lower()) for route in self.app.state.func_app_route_list(app=self.app) if isinstance(route, APIRoute) and route.path.startswith("/admin/") for method in route.methods]
         self.assertGreater(len(admin_routes), 20)
         for path, method in admin_routes:
             with self.subTest(path=path):

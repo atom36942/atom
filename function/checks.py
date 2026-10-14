@@ -3,6 +3,7 @@
 import re
 from fastapi import FastAPI
 from starlette.datastructures import State
+from .app import func_app_route_list
 
 def func_check_log_api_table(*, app_state: State) -> None:
     """Stop startup when API logging is on but the log database has no log_api table (rows would be dropped silently)."""
@@ -64,7 +65,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
     """Validate registered API middleware configuration and its Redis dependencies."""
     config_api = getattr(app.state, "config_api", {})
     if not isinstance(config_api, dict): raise Exception("config_api must be dict")
-    route_paths = {route.path for route in app.routes if hasattr(route, "path")}
+    route_paths = {route.path for route in func_app_route_list(app=app) if hasattr(route, "path")}
     api_ids = []
     user_mode_allowed = ("redis", "realtime", "inmemory", "token")
     api_mode_allowed = ("redis", "inmemory")

@@ -34,11 +34,36 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # Fails when an installed package has a known vulnerability. If one has no fix yet, skip it with --ignore-vuln <id> and a comment saying why.
+      - name: Known vulnerabilities (pip-audit)
+        run: |
+          pip install pip-audit==2.10.1
+          pip-audit --progress-spinner off
+
       - name: Ruff
         run: ruff check --output-format github .
 
       - name: Unit and integration tests, with coverage
         run: python -m coverage run --source=function,router,main,config -m unittest discover -s tests -v
+
+      # The summary and HTML report are produced even when tests fail, as long as coverage data was written.
+      - name: Coverage summary on the run page
+        if: ${{ !cancelled() && hashFiles('.coverage') != '' }}
+        run: |
+          echo "## Coverage (function, router, main, config)" >> "$GITHUB_STEP_SUMMARY"
+          python -m coverage report --format=markdown --sort=cover >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Coverage HTML report
+        if: ${{ !cancelled() && hashFiles('.coverage') != '' }}
+        run: python -m coverage html
+
+      - name: Upload coverage HTML report
+        if: ${{ !cancelled() && hashFiles('htmlcov/index.html') != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-html
+          path: htmlcov/
+          retention-days: 14
 
       # Lists untested lines per file; fails if coverage of core code drops below the floor (73% when this was added).
       - name: Coverage report

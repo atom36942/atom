@@ -75,7 +75,7 @@ class FunctionPackageTests(unittest.TestCase):
             function.func_app_router_add(app=app, router_dir="router", router_order={})
             assert TestClient(app).get("/custom/hello").json() == "hello"
             assert TestClient(app).get("/core").json() == "core"
-            paths = [route.path for route in app.routes]
+            paths = [route.path for route in function.func_app_route_list(app=app)]
             assert paths.index("/core") < paths.index("/custom/hello")
         """))
 

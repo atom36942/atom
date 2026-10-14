@@ -38,6 +38,7 @@
 !docs_extend/
 !docs_extend/**
 !.github/
+!.github/dependabot.yml
 !.github/workflows/
 !.github/workflows/**
 

@@ -33,7 +33,7 @@ async def func_api_admin_blob_preview_urls(*, request: Request):
 @router.get("/admin/sync")
 async def func_api_admin_sync(*, request: Request):
     app_state = request.app.state
-    res = await app_state.func_admin_sync(app_state=app_state, app_routes=request.app.routes)
+    res = await app_state.func_admin_sync(app_state=app_state, app_routes=app_state.func_app_route_list(app=request.app))
     return {"status": 1, "message": res}
 
 @router.get("/admin/runtime-status")

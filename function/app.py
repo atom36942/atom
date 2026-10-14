@@ -13,7 +13,7 @@ import orjson
 from fastapi import FastAPI
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-from fastapi.routing import APIRoute
+from fastapi.routing import APIRoute, iter_route_contexts
 from starlette.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -197,6 +197,13 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
             except Exception as e: print(f"⚠️ openapi {path}: route skipped: {e}")
             spec["paths"][path][m_lower] = op
     return spec
+
+def func_app_route_list(*, app: FastAPI) -> list:
+    """Every route the app serves. FastAPI 0.137+ keeps each included router as one nested entry in app.routes, so flatten them.
+
+    Atom includes routers without an extra prefix, so each original route's path is the full request path.
+    """
+    return [context.original_route for context in iter_route_contexts(app.routes)]
 
 def func_response_json(*, content: Any, status_code: int = 200) -> Response:
     """Encode a route's return value with orjson, matching FastAPI's default JSON output.
