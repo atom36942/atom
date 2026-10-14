@@ -78,6 +78,8 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
   stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #productname{font-size:15px;font-weight:700;letter-spacing:-.15px;line-height:18px;cursor:pointer;user-select:none;transition:opacity .15s}
 #productname:hover{opacity:.85}
+#brand{display:flex;flex-direction:column;justify-content:center;min-width:0}
+#dbname{font-size:11px;font-weight:500;line-height:14px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 
 #sidetabs{display:flex;padding:6px 8px 5px;gap:4px;background:var(--side);border-bottom:1px solid var(--line)}
 #sidetabs[hidden]{display:none!important}
@@ -502,7 +504,7 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 <div id="app">
   <aside id="side" hidden>
     <div id="dbline">
-      <span id="productname">pgweb</span>
+      <div id="brand"><span id="productname">pgweb</span><span id="dbname" hidden></span></div>
       <button class="headicon" id="sidetoggle" title="Collapse sidebar (Ctrl+B)" aria-label="Collapse sidebar"></button>
     </div>
     <div id="sidetabs" role="tablist" aria-label="Object types" hidden>
@@ -746,15 +748,30 @@ const DETAIL_ROWS={
 };
 const DETAILS=Object.keys(DETAIL_ROWS);
 
-// Related persistent UI preferences share one app key; drafts and connections stay separate.
+// All persistent state (preferences, saved connections, SQL draft, column widths) lives under one 'pgweb' key.
 function pgwebPreferences(){
   try{const data=JSON.parse(localStorage.getItem('pgweb')||'{}');return data&&typeof data==='object'&&!Array.isArray(data)?data:{}}catch{return {}}
 }
-function getPreference(field){return pgwebPreferences()[field]??null}
-function setPreference(field,value){const data=pgwebPreferences();data[field]=String(value);localStorage.setItem('pgweb',JSON.stringify(data))}
+function getStored(field){return pgwebPreferences()[field]??null}
+function setStored(field,value){try{const data=pgwebPreferences();if(value===undefined)delete data[field];else data[field]=value;localStorage.setItem('pgweb',JSON.stringify(data))}catch{}}
+function removeStored(field){setStored(field,undefined)}
+function getPreference(field){return getStored(field)}
+function setPreference(field,value){setStored(field,String(value))}
 (function migratePreferences(){
   const fields=['readOnly','sideCollapsed','sideTab','theme','editorHeight','sideWidth'];
-  try{const data=pgwebPreferences();let found=false;for(const field of fields){const value=localStorage.getItem('pgweb.'+field);if(value!==null){found=true;if(!Object.hasOwn(data,field))data[field]=value}}if(found){localStorage.setItem('pgweb',JSON.stringify(data));for(const field of fields)localStorage.removeItem('pgweb.'+field)}}catch{}
+  try{
+    const data=pgwebPreferences(),legacy=[];
+    for(const field of fields){const value=localStorage.getItem('pgweb.'+field);if(value!==null){legacy.push('pgweb.'+field);if(!Object.hasOwn(data,field))data[field]=value}}
+    const sql=localStorage.getItem('pgweb.sql');
+    if(sql!==null){legacy.push('pgweb.sql');if(!Object.hasOwn(data,'sql'))data.sql=sql}
+    const dsns=localStorage.getItem('pgweb.saved_dsns');
+    if(dsns!==null){legacy.push('pgweb.saved_dsns');if(!Object.hasOwn(data,'savedDsns'))try{const v=JSON.parse(dsns);if(Array.isArray(v))data.savedDsns=v}catch{}}
+    const widths=data.widths&&typeof data.widths==='object'&&!Array.isArray(data.widths)?data.widths:{};
+    for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key&&key.startsWith('pgweb.w.')){legacy.push(key);const table=key.slice(8);if(!Object.hasOwn(widths,table))try{const v=JSON.parse(localStorage.getItem(key));if(Array.isArray(v))widths[table]=v}catch{}}}
+    if(Object.keys(widths).length)data.widths=widths;
+    if(localStorage.getItem('pgweb.currentPage')!==null)legacy.push('pgweb.currentPage');
+    if(legacy.length){localStorage.setItem('pgweb',JSON.stringify(data));for(const key of legacy)localStorage.removeItem(key)}
+  }catch{}
 })();
 
 const S = { db:'', table:'', kind:'', pk:null, cols:[], widths:[], total:0,
@@ -872,6 +889,7 @@ function setConnected(on){
   S.connected = on;
   updateSidebarVisibility();
   $('connbtn').hidden = !on;
+  $('dbname').hidden = !on; $('dbname').textContent = on ? S.db : ''; $('dbname').title = on ? S.db : '';
   $('connbtn').textContent = 'Disconnect';
   $('connbtn').title = 'Disconnect from this database';
   $('optionswrap').hidden = !on;
@@ -915,10 +933,9 @@ function disconnected(){ setConnected(false); }
 
 $('connbtn').onclick = () => S.connected ? askDisconnect() : askConnect();
 
-const SAVED_DSNS_KEY = 'pgweb.saved_dsns';
 function getSavedDsns(){
   try{
-    const raw = JSON.parse(localStorage.getItem(SAVED_DSNS_KEY) || '[]');
+    const raw = getStored('savedDsns') || [];
     if(!Array.isArray(raw)) return [];
     const seenNames = new Set(), seenDsns = new Set(), unique = [];
     let modified = false;
@@ -948,7 +965,7 @@ function getSavedDsns(){
   }
 }
 function setSavedDsns(items){
-  localStorage.setItem(SAVED_DSNS_KEY, JSON.stringify(items));
+  setStored('savedDsns', items);
 }
 function saveConnection(dsn){
   dsn = cleanDsn(dsn);
@@ -1344,8 +1361,8 @@ function updateSqlHighlight(){
 }
 function seedQuery(){
   if($('sql').value.trim() || S.queryCleared) return;
-  const savedSql = localStorage.getItem('pgweb.sql');
-  if(savedSql !== null && savedSql.trim()){
+  const savedSql = getStored('sql');
+  if(typeof savedSql === 'string' && savedSql.trim()){
     $('sql').value = savedSql;
   }else{
     $('sql').value = DEFAULT_SQL;
@@ -1545,7 +1562,7 @@ async function loadDetail(part){
 /* ---------------- grid ---------------- */
 const widthCache = new Map();
 function measure(){
-  const saved = JSON.parse(localStorage.getItem('pgweb.w.'+S.table)||'null');
+  const saved = (getStored('widths')||{})[S.table];
   if(saved && saved.length===S.cols.length){ S.widths = saved; return; }
   const cacheKey = (S.table||'') + ':' + S.cols.join(',');
   if(widthCache.has(cacheKey)){ S.widths = widthCache.get(cacheKey).slice(); return; }
@@ -1707,7 +1724,7 @@ addEventListener('mousemove', e=>{
 addEventListener('mouseup', ()=>{
   if(!drag) return;
   if(S.table){
-    localStorage.setItem('pgweb.w.'+S.table, JSON.stringify(S.widths));
+    setStored('widths', {...(getStored('widths')||{}), [S.table]:S.widths});
     const cacheKey = (S.table||'') + ':' + S.cols.join(',');
     widthCache.set(cacheKey, S.widths.slice());
   }
@@ -2139,7 +2156,7 @@ async function runQuery(confirmed){
 $('run').onclick = ()=>runQuery(false);
 $('resetsql').onclick = ()=>{
   $('sql').value=DEFAULT_SQL; S.queryCleared=false;
-  try{ localStorage.removeItem('pgweb.sql'); }catch{}
+  removeStored('sql');
   S.local=null; S.cols=[]; S.total=0; S.chunks.clear(); lastFirst=-1; pool=[];
   headEl.textContent=''; rowsEl.textContent=''; inner.style.width=''; canvas.style.height='0'; canvas.classList.remove('has-rows'); vp.scrollTop=0; vp.scrollLeft=0;
   $('empty').classList.remove('on'); $('qmsg').textContent=''; $('qmsg').className=''; hideQueryError();
@@ -2218,7 +2235,7 @@ $('sql').addEventListener('keydown', e=>{
 });
 $('sql').addEventListener('input', ()=>{
   S.queryCleared=!$('sql').value.trim(); drawResetSql(); updateSqlHighlight();
-  try{ localStorage.setItem('pgweb.sql', $('sql').value); }catch{}
+  setStored('sql', $('sql').value);
 });
 $('sql').addEventListener('scroll',()=>{
   $('sqlhl').scrollTop=$('sql').scrollTop; $('sqlhl').scrollLeft=$('sql').scrollLeft;
@@ -2710,7 +2727,6 @@ async function restorePage(){
 /* the server holds one connection, so a reload just picks it back up */
 (async function boot(){
   try{
-    try{ localStorage.removeItem('pgweb.currentPage'); }catch{}
     const m = await api({action:'schema'});          // one call: tree + database name
     S.tree=m.tree; S.db=m.database;
     setConnected(true);
