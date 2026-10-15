@@ -42,7 +42,7 @@ sync_folders = ["docs", "router", "function"]
 
 files_to_sync = [*sync_files, *sync_folders]
 
-# requirements.txt is merged separately; config_extend.py stays developer-managed.
+# requirements.txt is merged separately (Atom's packages are upserted, the project's own are kept); config_extend.py stays developer-managed.
 STATE_PATH = ".atom-sync/state.json"
 LOCK_TOKEN_ENV = "ATOM_SYNC_LOCK_TOKEN"  # noqa: S105 - name of the environment variable, not a secret
 
@@ -80,18 +80,32 @@ def get_pkg_name(line):
 
 
 def merge_requirements(local, upstream):
+    """Create the project's requirements.txt from Atom's, or upsert Atom's packages into it.
+
+    A package Atom lists takes Atom's line, so version updates reach the project; later duplicate lines of
+    that package are dropped. Packages Atom does not list, comments and option lines stay exactly as they
+    are, in place. Atom packages the project lacks are appended. Packages Atom stops listing are kept.
+    """
     if local is None:
         return upstream if upstream.endswith("\n") else upstream + "\n"
-    names = {get_pkg_name(line) for line in local.splitlines()}
-    missing = []
+    atom = {}
     for line in upstream.splitlines():
         name = get_pkg_name(line)
-        if name and name not in names:
-            missing.append(line.strip())
-            names.add(name)
-    if not missing:
+        if name and name not in atom:
+            atom[name] = line.strip()
+    merged, placed = [], set()
+    for line in local.splitlines():
+        name = get_pkg_name(line)
+        if name in atom:
+            if name not in placed:
+                merged.append(atom[name])
+                placed.add(name)
+            continue
+        merged.append(line)
+    merged += [line for name, line in atom.items() if name not in placed]
+    if merged == local.splitlines():
         return local
-    return local + ("\n" if local and not local.endswith("\n") else "") + "\n".join(missing) + "\n"
+    return "\n".join(merged) + "\n"
 
 
 def prepare_update(root, revision):

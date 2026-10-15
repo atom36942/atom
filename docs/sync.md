@@ -28,7 +28,7 @@ If the new process cannot be launched, the old updater is restored from memory.
 - Only `script/consumer_postgres_create.py`, `script/consumer_postgres_update.py`, `script/worker_users_delete.py` and `script/load_test.py` are synced inside `script/`, like the selected files in `static/`. All other scripts are preserved, even if upstream has matching paths. The whole `script/` folder is not replaced.
 - `config.py` and files listed in `sync_files` are replaced from upstream. Other paths are preserved.
 - `docs_extend/`, `router_extend/`, `function_extend/`, `script_extend/`, `config_extend.py`, and `.env` are never touched. They are outside the explicit sync file and folder lists, so upstream copies of these paths are also ignored.
-- Existing requirement entries are preserved; missing packages are appended.
+- `requirements.txt` is created from Atom's when the project has none. Otherwise Atom's packages are upserted: a package Atom lists takes Atom's line (so version and security updates arrive), duplicate lines of it collapse to one, and Atom packages the project lacks are appended. Your own packages, comments and option lines (`-e`, `--index-url`) stay untouched and in place, and a package Atom stops listing is kept. Names match the way pip does (`PyJWT` = `pyjwt`, `python_multipart` = `python-multipart`). To pin a different version of an Atom package, change it after syncing; the next sync sets Atom's version again.
 - `.atom-sync/state.json` records the synced revision and files; deletion inside Atom folders no longer depends on previous ownership records.
 - Write failures trigger rollback using previous contents held in memory. No
   backup files are saved. No success message is printed on failure, and

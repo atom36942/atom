@@ -87,7 +87,7 @@ class SyncTests(unittest.TestCase):
         self.assertEqual((self.root / "router/index.py").read_text(), "# upstream router\n")
         for name in ("function_extend/custom_tracked.py", "function_extend/custom_untracked.py", "router_extend/custom_tracked.py", "router_extend/custom_untracked.py", ".env"):
             self.assertEqual(self.snapshot()[name], before[name])
-        self.assertEqual((self.root / "requirements.txt").read_text(), "fastapi==0.9\nmy-package==2.0\norjson==3.0\n")
+        self.assertEqual((self.root / "requirements.txt").read_text(), "fastapi==1.0\nmy-package==2.0\norjson==3.0\n")
         self.assertEqual(self.snapshot()["config_extend.py"], before["config_extend.py"])
         state = json.loads((self.root / sync.STATE_PATH).read_text())
         self.assertNotIn("function_extend/custom_tracked.py", state["files"])
@@ -281,6 +281,30 @@ class SyncTests(unittest.TestCase):
             self.run_sync()
         self.assertEqual(self.snapshot(), before)
         self.assertEqual((self.root / ".atom-sync/lock").read_text(), "other sync")
+
+    def test_requirements_are_created_when_missing(self):
+        self.assertEqual(sync.merge_requirements(None, "fastapi==1.0\norjson==3.0"), "fastapi==1.0\norjson==3.0\n")
+
+    def test_requirements_upsert_atom_packages_and_keep_project_packages(self):
+        local = "# project deps\nFastAPI==0.9  # old pin\nmy-package==2.0\n-e ./libs/tool\npyjwt>=2.0\npandas\n"
+        upstream = "fastapi==1.0\nPyJWT==2.15.1\norjson==3.0\n"
+        self.assertEqual(sync.merge_requirements(local, upstream),
+                         "# project deps\nfastapi==1.0\nmy-package==2.0\n-e ./libs/tool\nPyJWT==2.15.1\npandas\norjson==3.0\n")
+
+    def test_requirements_names_match_like_pip(self):
+        local = "python_multipart==0.0.20\nAzure.Identity\n"
+        upstream = "python-multipart==0.0.32\nazure-identity==1.25.3\n"
+        self.assertEqual(sync.merge_requirements(local, upstream), "python-multipart==0.0.32\nazure-identity==1.25.3\n")
+
+    def test_requirements_duplicate_atom_lines_collapse_to_one(self):
+        self.assertEqual(sync.merge_requirements("fastapi==0.8\nmy-package\nfastapi==0.9\n", "fastapi==1.0\n"), "fastapi==1.0\nmy-package\n")
+
+    def test_requirements_unchanged_file_is_returned_as_is(self):
+        local = "fastapi==1.0\nmy-package==2.0"    # no trailing newline, already up to date
+        self.assertIs(sync.merge_requirements(local, "fastapi==1.0\n"), local)
+
+    def test_requirements_package_dropped_by_atom_is_kept(self):
+        self.assertEqual(sync.merge_requirements("fastapi==1.0\nold-atom-dep==1.0\n", "fastapi==1.1\n"), "fastapi==1.1\nold-atom-dep==1.0\n")
 
     def test_import_has_no_side_effects(self):
         result = subprocess.run([sys.executable, "-c", "import sync"],
