@@ -13,13 +13,22 @@ Atom owns all contents of `docs/`, `router/`, and `function/`, plus `config.py` 
 | `function/` | `function_extend/` | Custom `func_*` business logic |
 | Synced `script/` files (Postgres consumers, users-delete worker, load test) | `script_extend/` | Standalone workers and jobs |
 | `docs/` | `docs_extend/` | Project documentation |
-| — | `shared/` | Shared files your code reads: sample JSON, AI prompts and contexts, templates, seed CSVs |
+| — | `shared/` | Constants and data used in several places: reusable `param_specs`, sample JSON, AI prompts and contexts, templates, seed CSVs |
 
 Only `script/consumer_postgres_create.py`, `script/consumer_postgres_update.py`, `script/worker_users_delete.py` and `script/load_test.py` are synced in `script/`; other scripts are left untouched. Keep new custom workers in `script_extend/` for a clear separation.
 
 Create only the extension paths you need. Sync never creates or modifies them. `.env` is also preserved.
 
-`shared/` holds files your code reads, not code. Open them by path from the project root, where Atom runs:
+`shared/` holds constants and data used in several places. Python modules there are imported as `shared.<module>`; other files are opened by path from the project root, where Atom runs:
+
+```python
+# shared/specs.py
+ORDER_ID = [{"name": "order_id", "type": "int", "required": True}]
+
+# router_extend/order.py (inside a route)
+from shared.specs import ORDER_ID
+oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=ORDER_ID, strict=True, reject_unknown=True)
+```
 
 ```python
 # function_extend/summary.py
