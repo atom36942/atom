@@ -1,4 +1,4 @@
-# Lint config for Atom (https://docs.astral.sh/ruff/). Run: ruff check .
+# Lint config for Atom (https://docs.astral.sh/ruff/). Run: venv/bin/ruff check .
 target-version = "py314"
 
 [lint]

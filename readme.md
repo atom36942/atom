@@ -167,6 +167,7 @@ atom/
 
 ## Documentation
 
+Check code with `venv/bin/ruff check .` (rules in `ruff.toml`; `All checks passed!` means no problems).
 Run regression tests with `venv/bin/python -m unittest discover -s tests -v`.
 See [test coverage and setup](tests/README.md).
 

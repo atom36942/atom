@@ -48,5 +48,5 @@ Rules Atom enforces at import, startup, sync, and CI. Follow exactly.
 - Headers, lowercase singular: routers `# import`/`# router`/`# api`; functions `# import`/`# function`; scripts `# import`/`# config`/`# logic`/`# main`. No module docstrings.
 
 ## Verify
-- `venv/bin/ruff check .` (core strict; `*_extend/`, `config_extend.py` errors only) and `python main.py` (not `uvicorn main:app`; startup checks catch `config_api`, duplicate `func_*`, secret, and worker errors).
+- `venv/bin/ruff check .` (core strict; `*_extend/`, `config_extend.py` errors only), then start the app with `venv/bin/python main.py` or `venv/bin/uvicorn main:app --reload`; startup checks catch `config_api`, duplicate `func_*`, and secret errors. Use `venv/bin/python main.py` when `config_uvicorn_workers` > 1.
 - Examples: `docs/extend.md`, `docs/auth.md`, `docs/security.md`.
