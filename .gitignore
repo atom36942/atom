@@ -37,6 +37,9 @@
 !script_extend/**
 !docs_extend/
 !docs_extend/**
+# project shared files: sample JSON, prompts and contexts, templates (never synced)
+!shared/
+!shared/**
 !.github/
 !.github/dependabot.yml
 !.github/workflows/

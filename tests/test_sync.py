@@ -243,6 +243,15 @@ class SyncTests(unittest.TestCase):
             path = name if name.endswith(".py") else f"{name}/custom.py"
             self.assertEqual((self.root / path).read_text(), "# developer\n")
 
+    def test_shared_folder_is_never_written_or_removed(self):
+        self.write(self.root, "shared/prompts/summary.txt", "developer prompt\n")
+        self.write(self.root, "shared/sample.json", "{}\n")
+        self.write(self.upstream, "shared/prompts/summary.txt", "upstream collision\n")
+        self.commit(self.upstream)
+        self.run_sync()
+        self.assertEqual((self.root / "shared/prompts/summary.txt").read_text(), "developer prompt\n")
+        self.assertEqual((self.root / "shared/sample.json").read_text(), "{}\n")
+
     def test_only_selected_consumer_scripts_are_synced(self):
         self.write(self.root, "script/worker.py", "# developer worker\n")
         self.write(self.root, "script/local.py", "# local script\n")

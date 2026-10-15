@@ -155,6 +155,7 @@ atom/
 ├── script_extend/   # Your workers (optional)
 ├── docs_extend/     # Your documentation (optional)
 ├── config_extend.py # Your config overrides (optional)
+├── shared/          # Your shared files: sample JSON, prompts, templates (optional)
 ├── config.py       # Single source of truth for config defaults
 ├── router/         # API endpoint routers grouped by access control
 ├── static/         # Static web assets & built-in API console

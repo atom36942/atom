@@ -13,10 +13,27 @@ Atom owns all contents of `docs/`, `router/`, and `function/`, plus `config.py` 
 | `function/` | `function_extend/` | Custom `func_*` business logic |
 | Synced `script/` files (Postgres consumers, users-delete worker, load test) | `script_extend/` | Standalone workers and jobs |
 | `docs/` | `docs_extend/` | Project documentation |
+| — | `shared/` | Shared files your code reads: sample JSON, AI prompts and contexts, templates, seed CSVs |
 
 Only `script/consumer_postgres_create.py`, `script/consumer_postgres_update.py`, `script/worker_users_delete.py` and `script/load_test.py` are synced in `script/`; other scripts are left untouched. Keep new custom workers in `script_extend/` for a clear separation.
 
 Create only the extension paths you need. Sync never creates or modifies them. `.env` is also preserved.
+
+`shared/` holds files your code reads, not code. Open them by path from the project root, where Atom runs:
+
+```python
+# function_extend/summary.py
+import json
+from pathlib import Path
+
+def func_summary_prompt() -> str:
+    return Path("shared/prompts/summary.txt").read_text()
+
+def func_sample_orders() -> list:
+    return json.loads(Path("shared/sample/orders.json").read_text())
+```
+
+Files in `shared/` are committed and included in the Docker image. Runtime output such as uploads and exports belongs in `tmp/` or blob storage, not `shared/`; keep secrets in `.env`.
 
 Configuration extensions are loaded after the defaults in `main.py`:
 
