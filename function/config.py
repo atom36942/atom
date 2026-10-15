@@ -1,10 +1,10 @@
-"""Atom configuration loading from .env and environment variables."""
-
+# import
 import contextlib
 import os
 import orjson
 from dotenv import load_dotenv
 
+# function
 def func_config_load_env(*, global_dict: dict) -> None:
     """Override config_* values in global_dict from .env and the environment; config_postgres_url_<name> fills config_postgres_url_dict."""
     load_dotenv(".env")

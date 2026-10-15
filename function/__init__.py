@@ -6,12 +6,14 @@ are private. Import dependencies from their defining modules, not this package,
 because package exports are assembled only after all modules have loaded.
 """
 
+# import
 from importlib import import_module as _import_module
 from importlib.util import find_spec as _find_spec
 from inspect import isfunction as _isfunction
 from pkgutil import iter_modules as _iter_modules
 
 
+# function
 def _discover_functions():
     exports = {}
     owners = {}

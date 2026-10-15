@@ -1,5 +1,4 @@
-"""Atom auth functions."""
-
+# import
 import asyncio
 import re
 import secrets
@@ -11,6 +10,7 @@ import orjson
 from argon2 import PasswordHasher
 from .middleware import func_api_error
 
+# function
 async def func_auth_user_login_fetch(*, conn: asyncpg.Connection, field: str, value: Any, role: Any, is_missing_ok: bool = False) -> dict:
     """Fetch a single login user by a unique-ish field with optional role. Raise on ambiguity (role omitted but multiple rows) and on not-found unless is_missing_ok, which returns None."""
     allowed_fields = ("username", "email", "mobile", "id_ext")

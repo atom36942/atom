@@ -1,5 +1,4 @@
-"""Atom clients functions."""
-
+# import
 from contextlib import suppress
 import asyncpg
 import httpx
@@ -7,6 +6,7 @@ import redis.asyncio as redis
 from argon2 import PasswordHasher
 from starlette.datastructures import State
 
+# function
 def func_client_password_hasher():
     """Initialize Argon2 password hasher."""
     return PasswordHasher()

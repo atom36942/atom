@@ -1,5 +1,4 @@
-"""Atom queues functions."""
-
+# import
 import asyncio
 import os
 import sys
@@ -10,6 +9,7 @@ from typing import Any
 import orjson
 from .middleware import func_api_error
 
+# function
 async def func_producer(*, queue: str, client_celery_producer: Any, client_kafka_producer: Any, client_rabbitmq_producer: Any, client_redis_producer: Any, channel: str, payload: dict) -> Any:
     """Ultra-standardized producer orchestration. Handles multi-tech dispatch with explicit clients."""
     allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]

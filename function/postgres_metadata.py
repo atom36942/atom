@@ -1,8 +1,8 @@
-"""Atom postgres metadata functions."""
-
+# import
 import asyncpg
 import orjson
 
+# function
 async def func_postgres_schema_read(*, client_postgres: asyncpg.Pool | None, mode: str = "table") -> dict:
     """Read PostgreSQL schema with relation and per-column index info."""
     sql = """

@@ -1,5 +1,4 @@
-"""Atom query runners functions."""
-
+# import
 import asyncio
 import csv
 import io
@@ -10,6 +9,7 @@ import asyncpg
 from .middleware import func_api_error
 from .postgres_metadata import func_postgres_schema_ai_view, func_postgres_schema_read
 
+# function
 async def func_postgres_query_generator_ai(*, client_postgres: asyncpg.Pool | None, client_gemini: Any, client_openai: Any, cache_postgres_schema: dict, config_query_runner_read_limit: int, ai: str, question: str) -> dict:
     """Generates and validates safe PostgreSQL SELECT queries using LLM (Gemini/OpenAI) based on the database schema."""
     from google.genai import types

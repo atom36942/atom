@@ -251,6 +251,6 @@ async def execute():
     finally:
         await pool.close()
 
-# init
+# main
 if __name__ == "__main__":
     asyncio.run(execute())

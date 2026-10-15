@@ -14,10 +14,8 @@ from datetime import datetime
 import asyncpg
 from dotenv import load_dotenv
 
-# env load
-load_dotenv(".env")
-
 # config
+load_dotenv(".env")
 pg_dsn = os.getenv("PG_DSN")
 csv_path = os.getenv("csv_path")
 table = os.getenv("table")
@@ -157,6 +155,6 @@ async def execute():
     finally:
         await conn.close()
 
-# init
+# main
 if __name__ == "__main__":
     asyncio.run(execute())

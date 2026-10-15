@@ -173,6 +173,6 @@ async def execute():
         if clients.get("azure"): await clients["azure"].close()
         await pool.close()
 
-# init
+# main
 if __name__ == "__main__":
     asyncio.run(execute())

@@ -6,6 +6,7 @@ and rolled back from memory on write failure. No backup files are saved.
 The Git index is never changed. See docs/sync.md for recovery instructions.
 """
 
+# import
 from contextlib import contextmanager
 import hashlib
 import json
@@ -17,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 
+# config
 REPO_URL = "https://github.com/atom36942/atom.git"
 # 1. Files to sync: individual files replaced from upstream.
 sync_files = [
@@ -47,6 +49,7 @@ STATE_PATH = ".atom-sync/state.json"
 LOCK_TOKEN_ENV = "ATOM_SYNC_LOCK_TOKEN"  # noqa: S105 - name of the environment variable, not a secret
 
 
+# function
 def git(root, *args):
     """Never consume stale FETCH_HEAD or partial output after a failed command."""
     result = subprocess.run(["git", *args], cwd=root, capture_output=True, check=True)  # noqa: S603, S607 - fixed git command from PATH, arguments as a list, no shell
@@ -344,5 +347,6 @@ def main():
     return 0
 
 
+# main
 if __name__ == "__main__":
     sys.exit(main())

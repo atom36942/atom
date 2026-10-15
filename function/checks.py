@@ -1,10 +1,10 @@
-"""Atom configuration checks."""
-
+# import
 import re
 from fastapi import FastAPI
 from starlette.datastructures import State
 from .app import func_app_route_list
 
+# function
 def func_check_log_api_table(*, app_state: State) -> None:
     """Stop startup when API logging is on but the log database has no log_api table (rows would be dropped silently)."""
     log_db = app_state.config_postgres_db_log_api

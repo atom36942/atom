@@ -35,7 +35,7 @@ async def execute(payload, client_postgres, cache_postgres_buffer_create, cache_
     table = payload.get("table")
     return await func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, cache_postgres_buffer=cache_postgres_buffer_create, buffer_rows_max=config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=config_column_regex, buffer_limit=config_table.get(table, {}).get("buffer_limit", config_buffer_limit_default), mode=payload.get("mode", "now"), table=table, obj_list=payload.get("obj_list"))
 
-# init
+# main
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Error: queue is required. Usage: python script/consumer_postgres_create.py <redis|rabbitmq|kafka|celery>")

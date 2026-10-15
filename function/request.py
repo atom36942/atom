@@ -1,10 +1,10 @@
-"""Atom request functions."""
-
+# import
 import math
 from typing import Any
 import orjson
 from fastapi import Request
 
+# function
 def func_query_bool_parse(value: Any, default: bool = False) -> bool:
     """Parse a query-string boolean, retaining legacy 1/0 compatibility."""
     if value is None: return default

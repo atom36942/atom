@@ -1,5 +1,4 @@
-"""Atom app functions."""
-
+# import
 import ast
 import functools
 import importlib.util
@@ -19,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import State
 
+# function
 async def func_admin_sync(*, app_state: State, app_routes: list = None) -> str:
     """Synchronize and refresh all application state caches, schemas, OpenAPI spec, and config maps."""
     postgres_master = app_state.client_postgres_dict.get("master")

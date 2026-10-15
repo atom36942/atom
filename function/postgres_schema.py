@@ -1,10 +1,10 @@
-"""Atom postgres schema functions."""
-
+# import
 import hashlib
 from typing import Any
 import asyncpg
 from starlette.datastructures import State
 
+# function
 def func_postgres_schema_config_validate(*, config_postgres: dict) -> None:
     """Validate configured tables, columns, indexes, and unique constraints before database changes."""
     if not config_postgres: raise Exception("config_postgres missing")

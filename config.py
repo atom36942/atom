@@ -1,4 +1,4 @@
-# Integrations
+# integration
 config_postgres_url_dict = {}
 config_redis_url_api_response = None
 config_redis_url_user_state = None
@@ -41,7 +41,7 @@ config_kafka_password = None
 config_rabbitmq_url = None
 config_celery_url = None
 
-# System
+# system
 config_root_user_password = None
 config_login_password = None
 config_token_secret_key = None
@@ -90,14 +90,14 @@ config_cors_expose_headers = ["*"]
 config_cors_allow_credentials = True
 config_postgres_db_log_api = "master"
 
-# Services
+# service
 config_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
 config_blob_services = ["s3", "azure"]
 config_email_services = ["ses", "resend", "azure"]
 config_mobile_services = ["sns", "fast2sms", "azure"]
 config_ai_services = ["gemini", "openai"]
 
-# Table
+# table
 config_table_exclude_from_users_delete = ["spatial_ref_sys", "users", "log_users_delete"]
 config_table_my_create_blocked = ["users", "log_api", "log_users_password", "otp", "spatial_ref_sys"]
 config_table_my_read_blocked = ["users", "config", "log_users_password", "otp", "spatial_ref_sys"]
@@ -107,7 +107,7 @@ config_table_public_read_allowed = ["test"]
 config_mongodb_my_create_allowed = {"test": ["post"]}
 config_table_private_read_allowed = ["test"]
 
-# Column
+# column
 config_column_token_encode = ["id", "role", "username", "id_ext" ,"deactivated_at", "deleted_at", "permissions"]
 config_column_ownership_read = ["created_by_id", "received_by_id", "assigned_to_id", "user_id"]
 config_column_ownership_update = ["created_by_id", "assigned_to_id"]
@@ -116,7 +116,7 @@ config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "ver
 config_column_single_update = ["username", "password", "email", "mobile", "deleted_at"]
 config_column_read_blocked = ["password"]
 
-# Dict
+# dict
 config_sql = {
 "config": "select key,value from config where deactivated_at is null order by id asc limit 1000",
 "users_role": "select id,role from users where role is not null order by id asc limit 1000",

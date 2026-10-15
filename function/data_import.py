@@ -1,5 +1,4 @@
-"""Atom data import functions."""
-
+# import
 import csv
 import io
 from typing import Any
@@ -7,6 +6,7 @@ import asyncpg
 from starlette.datastructures import State
 from .middleware import func_api_error
 
+# function
 async def func_mongodb_import(*, client_mongodb: Any, mode: str, database: str, table: str, file: Any) -> str:
     """Imports, updates, or deletes records in MongoDB from a CSV upload file in batches."""
     from pymongo import UpdateOne, DeleteOne

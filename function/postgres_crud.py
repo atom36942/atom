@@ -1,5 +1,4 @@
-"""Atom postgres crud functions."""
-
+# import
 import asyncio
 import re
 from collections import defaultdict
@@ -12,6 +11,7 @@ from starlette.datastructures import State
 from .middleware import func_api_error
 from .validation import func_regex_check
 
+# function
 async def func_postgres_table_column_groupby_read(*, app_state: State, client_postgres: asyncpg.Pool | None, cache_postgres_schema: dict, table: str, col: Any, limit: int, page: int, agg: str = "count", agg_col: str = "*", order: str = "count desc", filter: list = None) -> dict:
     """Executes a PostgreSQL GROUP BY query dynamically across single or multiple columns and returns flat paginated results."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)

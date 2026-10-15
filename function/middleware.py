@@ -1,5 +1,4 @@
-"""Atom middleware functions."""
-
+# import
 import asyncio
 import base64
 import gzip
@@ -21,6 +20,7 @@ from redis.asyncio import Redis
 from .background import func_runtime_error_record
 from .request import func_query_bool_parse, func_request_form_close
 
+# function
 def func_api_error(*, message: str, status_code: int) -> Exception:
     """Build an exception that func_middleware_api_response_error returns with this HTTP status; a plain Exception stays 400."""
     error = Exception(message)

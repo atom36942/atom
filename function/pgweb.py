@@ -1,5 +1,4 @@
-"""Atom pgweb functions."""
-
+# import
 import csv
 import io
 from contextlib import suppress
@@ -12,6 +11,7 @@ from starlette.requests import Request
 from .clients import func_client_postgres
 from .middleware import func_api_error
 
+# function
 def func_pgweb_ident(*parts) -> str:
     """Validate and quote PostgreSQL identifiers."""
     out = []

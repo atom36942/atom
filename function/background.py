@@ -1,5 +1,4 @@
-"""Atom background functions."""
-
+# import
 import asyncio
 import time
 from contextlib import asynccontextmanager
@@ -7,6 +6,7 @@ from typing import Any
 import asyncpg
 from starlette.datastructures import State
 
+# function
 def func_runtime_error_record(*, runtime_error_count: dict, key: str, error: Exception, print_every: int = 1) -> None:
     """Count a background failure (shown by /admin/runtime-status) and print it; print_every > 1 thins out per-request errors."""
     runtime_error_count[key] = runtime_error_count.get(key, 0) + 1

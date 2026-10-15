@@ -1,8 +1,8 @@
-"""Atom validation functions."""
-
+# import
 import re
 from starlette.datastructures import State
 
+# function
 async def func_regex_check(*, config_column_regex: dict, obj_list: list) -> None:
     """Validate fields in a list of objects against regex patterns defined in config."""
     if not config_column_regex: return None

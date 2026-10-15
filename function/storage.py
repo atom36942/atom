@@ -1,5 +1,4 @@
-"""Atom storage functions."""
-
+# import
 import asyncio
 import re
 import urllib.parse
@@ -9,6 +8,7 @@ from typing import Any
 from starlette.datastructures import State
 from .middleware import func_api_error
 
+# function
 async def func_blob_url_delete(*, app_state: State, service: str, urls: list, user_id: int = None) -> list:
     """Deletes S3 or Azure blobs by their URLs, optionally enforcing user ownership."""
     if (service == "s3" and not app_state.client_s3) or (service == "azure" and not app_state.client_azure_blob):

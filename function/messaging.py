@@ -1,5 +1,4 @@
-"""Atom messaging functions."""
-
+# import
 import asyncio
 import re
 from typing import Any
@@ -8,6 +7,7 @@ import orjson
 from starlette.datastructures import State
 from .middleware import func_api_error
 
+# function
 async def func_otp_send_email(*, app_state: State, service: str, sender: str, email: str, otp: int) -> str:
     """Sends OTP code via configured email service (ses, resend, azure)."""
     if service == "ses":
