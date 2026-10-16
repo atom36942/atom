@@ -28,7 +28,7 @@ python-multipart==0.0.32
 redis==7.4.0
 ruff==0.16.9
 coverage==7.16.2
-sentry-sdk==2.58.0
+sentry-sdk==2.71.0
 starlette==1.7.0
 uvicorn==0.46.0
 uvloop==0.23.0; sys_platform != "win32"
