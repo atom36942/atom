@@ -40,7 +40,7 @@ CI runs `pip-audit` after installing `requirements.txt` and fails when an instal
 venv/bin/pip install pip-audit && venv/bin/pip-audit
 ```
 
-Dependabot (`.github/dependabot.yml`) opens weekly pull requests for newer pinned packages and GitHub Actions, waiting until a release is a week old. CI tests each one before you merge it.
+Dependabot (`.github/dependabot.yml`) opens one weekly pull request for newer pinned packages and one for GitHub Actions, waiting until a release is a week old. CI tests each one before you merge it. `boto3` and `aiobotocore` are excluded: `boto3` must stay inside the `botocore` range the installed `aiobotocore` supports, so update them by hand together (newest `aiobotocore` first, then the `boto3` version in its range) and check with `venv/bin/pip check`.
 
 ## Unit tests
 

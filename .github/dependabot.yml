@@ -1,4 +1,4 @@
-# Weekly pull requests for newer Python packages (requirements.txt) and GitHub Actions; CI tests each one.
+# One weekly pull request for newer Python packages (requirements.txt) and one for GitHub Actions; CI tests each.
 # cooldown waits until a release is a week old before proposing it, so a broken or tampered release can be pulled first.
 version: 2
 updates:
@@ -8,7 +8,15 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
-    open-pull-requests-limit: 10
+    groups:
+      python:
+        patterns: ["*"]
+    # boto3 must match the botocore range aiobotocore supports, which Dependabot does not check for requirements.txt.
+    # Update both by hand together: pick the newest aiobotocore, then the boto3 version inside its botocore range.
+    ignore:
+      - dependency-name: boto3
+      - dependency-name: aiobotocore
+    open-pull-requests-limit: 5
 
   - package-ecosystem: github-actions
     directory: "/"
@@ -16,3 +24,6 @@ updates:
       interval: weekly
     cooldown:
       default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
