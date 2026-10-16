@@ -23,7 +23,7 @@ async def func_api_index_info(*, request:Request):
             "config_column_int_mapping": app_state.config_column_int_mapping,
             "dropdown": app_state.config_dropdown,
             "config_query_runner_read_limit": app_state.config_query_runner_read_limit,
-            "config_query_runner_export_limit": app_state.config_query_runner_export_limit,
+            "config_export_limit": app_state.config_export_limit,
         }
     }
 

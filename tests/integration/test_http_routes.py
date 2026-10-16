@@ -2,6 +2,7 @@
 
 Same real-app boot as test_http.py (support.app_start), against a throwaway database.
 """
+import csv
 import gc
 import io
 import json
@@ -94,6 +95,43 @@ class HttpRouteTests(unittest.TestCase):
         read = self.message(self.client.get("/my/object-read", params={"table": "test", "filter": json.dumps([f"id = {row_id}"])}, headers=self.auth(self.alice)))
         self.assertEqual([(r["title"], r["updated_by_id"]) for r in read["obj_list"]], [("edited", self.alice_id)])
         self.assertEqual(self.message(self.client.post("/my/object-delete", json={"table": "test", "ids": [row_id]}, headers=self.auth(self.alice))), "1 ids deleted")
+
+    def test_object_read_export_streams_only_the_callers_rows_as_csv(self):
+        self.client.post("/my/object-create", params={"table": "test"}, json={"obj_list": [{"title": "alice-export-1"}, {"title": "=HYPERLINK(1)"}]}, headers=self.auth(self.alice))
+        self.client.post("/my/object-create", params={"table": "test"}, json={"title": "bob-export"}, headers=self.auth(self.bob))
+        response = self.client.get("/my/object-read-export", params={"table": "test", "column": "id,title,created_by_id"}, headers=self.auth(self.alice))
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.headers["content-type"].split(";")[0], "text/csv")
+        self.assertIn('filename="test.csv"', response.headers["content-disposition"])
+        rows = list(csv.DictReader(io.StringIO(response.text)))
+        titles = {r["title"] for r in rows}
+        self.assertIn("alice-export-1", titles)
+        self.assertIn("'=HYPERLINK(1)", titles)    # spreadsheet formulas are neutralised
+        self.assertNotIn("bob-export", titles)
+        self.assertEqual({r["created_by_id"] for r in rows}, {str(self.alice_id)})
+
+    def test_object_read_export_rejects_bad_input_before_streaming(self):
+        self.assertEqual(self.client.get("/my/object-read-export", params={"table": "test"}).status_code, 401)
+        self.assertEqual(self.message(self.client.get("/my/object-read-export", params={"table": "users"}, headers=self.auth(self.alice)), 400), "read disabled for table: users")
+        self.assertEqual(self.message(self.client.get("/my/object-read-export", params={"table": "test", "limit": 5}, headers=self.auth(self.alice)), 400), "request contains unknown parameters")
+        self.assertEqual(self.client.get("/my/object-read-export", params={"table": "test", "column": "password"}, headers=self.auth(self.alice)).status_code, 400)
+
+    def test_public_private_admin_exports_follow_their_read_rules(self):
+        self.client.post("/my/object-create", params={"table": "test"}, json={"title": "shared-export"}, headers=self.auth(self.alice))
+        csv_rows = lambda response: list(csv.DictReader(io.StringIO(response.text)))
+        public = self.client.get("/public/object-read-export", params={"table": "test", "column": "id,title"})
+        self.assertEqual(public.status_code, 200, public.text)
+        self.assertIn("shared-export", {r["title"] for r in csv_rows(public)})
+        self.assertEqual(self.message(self.client.get("/public/object-read-export", params={"table": "users"}), 400), "read disabled for table: users")
+        self.assertEqual(self.client.get("/private/object-read-export", params={"table": "test"}).status_code, 401)
+        private = self.client.get("/private/object-read-export", params={"table": "test", "column": "id,title"}, headers=self.auth(self.bob))
+        self.assertIn("shared-export", {r["title"] for r in csv_rows(private)})
+        self.assertEqual(self.client.get("/admin/object-read-export", params={"table": "users"}, headers=self.auth(self.alice)).status_code, 403)
+        admin = self.client.get("/admin/object-read-export", params={"table": "users"}, headers=self.auth(self.admin))
+        self.assertEqual(admin.status_code, 200, admin.text)
+        header = admin.text.splitlines()[0].split(",")
+        self.assertIn("username", header)
+        self.assertNotIn("password", header)    # blocked columns never leave, even for admins
 
     def test_my_delete_all_only_removes_own_rows(self):
         self.client.post("/my/object-create", params={"table": "test"}, json={"obj_list": [{"title": "bob-1"}, {"title": "bob-2"}]}, headers=self.auth(self.bob))

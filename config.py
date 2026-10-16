@@ -79,7 +79,7 @@ config_sql_read_limit_default = 100
 config_sql_read_limit_max = 10000
 config_sql_read_relation_fetch_limit_max = 100
 config_query_runner_read_limit = 5000
-config_query_runner_export_limit = 50000
+config_export_limit = 50000
 config_redis_cache_ttl_sec = 3600
 config_users_delete_retention_day = 30
 config_cors_allow_origins = []
@@ -361,6 +361,7 @@ config_api = {
 "/my/api-usage": {"id": 48, "is_token": True},
 "/my/object-create": {"id": 49, "is_token": True},
 "/my/object-read": {"id": 50, "is_token": True, "is_postgres_param": True},
+"/my/object-read-export": {"id": 123, "is_token": True, "is_postgres_param": True},
 "/my/object-update": {"id": 51, "is_token": True},
 "/my/object-delete": {"id": 52, "is_token": True},
 "/my/object-delete-all": {"id": 53, "is_token": True},
@@ -375,11 +376,13 @@ config_api = {
 "/private/blob-upload-file": {"id": 62, "is_token": True},
 "/private/blob-upload-presigned": {"id": 63, "is_token": True},
 "/private/object-read": {"id": 102, "is_token": True, "is_postgres_param": True},
+"/private/object-read-export": {"id": 125, "is_token": True, "is_postgres_param": True},
 "/private/users-list": {"id": 112, "is_token": True, "is_postgres_param": True},
 "/private/table-column-groupby": {"id": 107, "is_token": True, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_postgres_param": True},
 "/private/table-column-distinct": {"id": 108, "is_token": True, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_postgres_param": True},
 # public
 "/public/object-create": {"id": 66, "is_token": False},
+"/public/object-read-export": {"id": 124, "is_token": False, "is_postgres_param": True},
 "/public/object-read": {"id": 14, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 100, "is_per_user": False}, "is_postgres_param": True},
 "/public/converter-number": {"id": 67, "is_token": False},
 "/public/otp-verify": {"id": 68, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
@@ -397,6 +400,7 @@ config_api = {
 "/admin/object-create": {"id": 2, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/object-update": {"id": 3, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/object-read": {"id": 4, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "is_postgres_param": True},
+"/admin/object-read-export": {"id": 126, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "is_postgres_param": True},
 "/admin/object-delete": {"id": 5, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 "/admin/table-column-groupby": {"id": 104, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_postgres_param": True},
 "/admin/table-column-distinct": {"id": 106, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_postgres_param": True},

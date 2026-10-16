@@ -35,6 +35,7 @@ Create does not accept `ownership_column`; `/my/object-create` always stamps `cr
 | :--- | :--- | :--- | :--- |
 | **Create** | `POST /my/object-create` | *(N/A)* | Stamped with `created_by_id = current_user.id`. |
 | **Read** | `GET /my/object-read` | `GET /my/object-read?ownership_column=received_by_id` | Query records created by or assigned to current user. |
+| **Export** | `GET /my/object-read-export` | `GET /my/object-read-export?ownership_column=received_by_id` | Download the same records as CSV. |
 | **Update** | `PUT /my/object-update` | `PUT /my/object-update?ownership_column=assigned_to_id` | Updates matching owned/assigned records; stamps `updated_by_id`. |
 | **Delete (IDs)** | `POST /my/object-delete` | `POST /my/object-delete?ownership_column=received_by_id` | Deletes specific IDs matching ownership. |
 | **Delete (All)** | `DELETE /my/object-delete-all` | `DELETE /my/object-delete-all?ownership_column=received_by_id` | Bulk wipes matching user rows (allowlist guarded). |
@@ -265,6 +266,30 @@ curl -G "$BASE_URL/my/object-read" \
   --data-urlencode 'page=1' \
   --data-urlencode 'postgres=read'
 ```
+
+### CSV export (`GET /*/object-read-export`)
+
+Each object-read route has a CSV export with the same access and rules, downloaded as `<table>.csv`:
+
+| Export | Access | Rows |
+|---|---|---|
+| `/my/object-read-export` | token | the caller's rows (ownership condition from the token; accepts `ownership_column`) |
+| `/private/object-read-export` | token | tables in the private read policy |
+| `/public/object-read-export` | none | tables in the public read policy |
+| `/admin/object-read-export` | admin role | any table |
+
+They accept `table`, `filter`, `order`, `column`, and `postgres` with the same meaning as the matching object-read route, and nothing else: no `limit`, `page`, or `relation`. Blocked columns such as `password` are never exported, including by admins.
+
+```bash
+curl -G "$BASE_URL/my/object-read-export" \
+  -H "Authorization: Bearer $TOKEN" \
+  --data-urlencode "table=task" \
+  --data-urlencode "column=id,title,status,created_at" \
+  --data-urlencode 'filter=["status = 2"]' \
+  -o task.csv
+```
+
+Rows are read in batches of 1000 and streamed, up to `config_export_limit` rows (default 50000). Invalid input returns a normal JSON error before the download starts. Dates are ISO 8601, JSON and array columns are JSON text, and text starting with `=`, `+`, `-`, `@`, tab, or carriage return gets a leading `'` so spreadsheets show it instead of running it as a formula. Unlike `/my/object-read`, `/my/object-read-export` with `received_by_id` does not mark messages as read.
 
 ### Distinct and group-by (separate admin endpoints)
 

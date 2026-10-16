@@ -41,7 +41,7 @@ class DatabaseConfigCheckTests(unittest.TestCase):
         func_check_log_api_table(app_state=log_state({}, client_postgres_dict={}))    # no databases configured
 
     def test_buffer_rows_max_must_be_an_integer_of_at_least_1000(self):
-        limits = {key: 100 for key in ("config_query_runner_read_limit", "config_query_runner_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_uvicorn_workers")}
+        limits = {key: 100 for key in ("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_uvicorn_workers")}
         runtime_state = lambda value: SimpleNamespace(**limits, config_otp_retention_day=None, config_log_api_retention_day=None, config_buffer_limit_default=100, config_buffer_rows_max=value)
         for value in (1000, 100000):
             func_check_runtime_config(app_state=runtime_state(value))
@@ -73,7 +73,7 @@ class WorkerConfigCheckTests(unittest.TestCase):
         func_check_api_config(app=self.app(4, {"rate_limit": {"mode": "redis", "limit": 5, "window_sec": 60}, "cache": {"mode": "redis", "ttl_sec": 10}, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deleted": {"mode": "token"}}))
 
     def test_production_rejects_short_token_secret(self):
-        limits = {key: 100 for key in ("config_query_runner_read_limit", "config_query_runner_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_uvicorn_workers")}
+        limits = {key: 100 for key in ("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_uvicorn_workers")}
         check = lambda **values: func_check_runtime_config(app_state=SimpleNamespace(**limits, config_otp_retention_day=None, config_log_api_retention_day=None, config_buffer_limit_default=100, config_buffer_rows_max=1000, **values))
         for secret in ("short", 123456, "x" * 31):
             with self.subTest(secret=secret), self.assertRaisesRegex(Exception, "at least 32 bytes"):
@@ -83,7 +83,7 @@ class WorkerConfigCheckTests(unittest.TestCase):
         check(config_is_prod=False, config_token_secret_key="short")
 
     def test_workers_must_be_a_positive_integer(self):
-        limits = {key: 100 for key in ("config_query_runner_read_limit", "config_query_runner_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec")}
+        limits = {key: 100 for key in ("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec")}
         for value in (0, True, None):
             with self.subTest(value=value), self.assertRaisesRegex(Exception, "config_uvicorn_workers"):
                 func_check_runtime_config(app_state=SimpleNamespace(**limits, config_uvicorn_workers=value, config_otp_retention_day=None, config_log_api_retention_day=None, config_buffer_limit_default=100, config_buffer_rows_max=1000))

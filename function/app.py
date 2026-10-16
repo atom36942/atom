@@ -43,8 +43,14 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
         "float": "number", "number": "number", "numeric": "number",
         "bool": "boolean", "dict": "object", "object": "object", "file": "string", "list": "array"
     }
+    route_globals = {}    # names visible in the route's module, so param_specs imported from e.g. shared/ resolve too
+    def plain(v):
+        if isinstance(v, (list, tuple)): return all(plain(x) for x in v)
+        if isinstance(v, dict): return all(isinstance(k, str) and plain(x) for k, x in v.items())
+        return v is None or isinstance(v, (str, int, float, bool))
     def eval_node(n):
         if hasattr(ast, "Constant") and isinstance(n, ast.Constant): return n.value
+        if isinstance(n, ast.Name) and n.id in route_globals and plain(route_globals[n.id]): return route_globals[n.id]
         if hasattr(ast, "Str") and isinstance(n, ast.Str): return n.s
         if hasattr(ast, "Num") and isinstance(n, ast.Num): return n.n
         if hasattr(ast, "NameConstant") and isinstance(n, ast.NameConstant): return n.value
@@ -145,6 +151,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
                     if name in ["request", "websocket", "req"] or any(x in p_type for x in ["Request", "Response", "WebSocket", "BackgroundTasks"]): continue
                     if any(x["name"] == name for x in op["parameters"]): continue
                     op["parameters"].append({"name": name, "in": "query", "required": par.default == inspect.Parameter.empty, "schema": {"type": "integer" if p_type == "int" else "string", "default": None if par.default == inspect.Parameter.empty else par.default}})
+                route_globals = inspect.unwrap(route.endpoint).__globals__
                 source = inspect.getsource(route.endpoint)
                 tree = ast.parse(source)
                 for node in ast.walk(tree):

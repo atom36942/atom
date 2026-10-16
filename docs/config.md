@@ -151,7 +151,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_sql_read_limit_max` | Hard cap limit for object read page size (`10000`) |
 | `config_sql_read_relation_fetch_limit_max` | Maximum rows fetched per joined relation (`100`) |
 | `config_query_runner_read_limit` | Maximum row cap for admin SQL query runner (`5000`) |
-| `config_query_runner_export_limit` | Maximum row cap for admin CSV query exports (`50000`) |
+| `config_export_limit` | Maximum rows in a CSV export: the admin query-runner exports and `/my/object-read-export` (`50000`) |
 | `config_redis_cache_ttl_sec` | TTL for Redis-cached role/user status lookups (`3600`) |
 | `config_users_delete_retention_day` | Retention grace period in days before soft-deleted users are purged (`30`) |
 
@@ -381,7 +381,7 @@ Assigned IDs are stored in `config_postgres["table"]["users"]` using this option
 | `config_column_int_mapping` | `config_column_int_mapping` (formerly returned as `mapping`) |
 | `dropdown` | `config_dropdown` |
 | `config_query_runner_read_limit` | Query runner read limit |
-| `config_query_runner_export_limit` | Query runner export limit |
+| `config_export_limit` | CSV export row limit |
 
 Permission IDs are integers in Python, but JSON object keys are strings: clients read entries such as `message.config_column_int_mapping.users.permissions["1"]`. This public catalog describes available actions; it does not list the current user's assigned permissions.
 

@@ -1,10 +1,14 @@
 """CRUD contracts with actual builders/serializers and a mocked database."""
 import asyncio
+import csv
+import io
 import pathlib
 import unittest
+from datetime import date
+from unittest.mock import patch
 import orjson
 from function import (
-    func_postgres_create, func_postgres_read, func_postgres_update, func_postgres_delete,
+    func_csv_cell, func_postgres_create, func_postgres_read, func_postgres_read_export, func_postgres_update, func_postgres_delete,
     func_postgres_where_build,
 )
 from tests.support import database
@@ -133,6 +137,36 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
         for folder in ("router", "router_extend"):
             for path in (root / folder).glob("*.py"):
                 self.assertNotIn("is_trusted", path.read_text(), f"{path.name}: request data must never skip validation")
+
+    async def export(self, rows, **changes):
+        pages = []
+        async def fake_read(**kwargs):
+            pages.append(kwargs["page"])
+            start = (kwargs["page"] - 1) * kwargs["limit"]
+            return rows[start:start + kwargs["limit"] + 1]
+        with patch("function.postgres_crud.func_postgres_read", side_effect=fake_read):
+            generator = await func_postgres_read_export(**(dict(client_postgres=self.pool, client_password_hasher=None, cache_postgres_schema=self.schema, config_sql_read_limit_max=10000, table="product", filter=[], order="id desc", column="*", export_limit=50000) | changes))
+            body = "".join([chunk async for chunk in generator])
+        return list(csv.reader(io.StringIO(body))), pages
+
+    async def test_export_reads_in_batches_and_stops_at_the_limit(self):
+        rows = [{"id": i, "name": f"n{i}"} for i in range(2500)]
+        lines, pages = await self.export(rows, export_limit=2100)
+        self.assertEqual(lines[0], ["id", "name"])
+        self.assertEqual(len(lines) - 1, 2100)
+        self.assertEqual(pages, [1, 2, 3])
+        lines, pages = await self.export(rows)
+        self.assertEqual((len(lines) - 1, pages), (2500, [1, 2, 3]))
+
+    async def test_export_without_rows_still_writes_a_header_without_blocked_columns(self):
+        lines, _ = await self.export([])
+        self.assertEqual(lines, [["id", "name", "created_by_id"]])
+        lines, _ = await self.export([], column="id, name")
+        self.assertEqual(lines, [["id", "name"]])
+
+    def test_csv_cells_are_readable_and_formula_safe(self):
+        self.assertEqual([func_csv_cell(v) for v in (None, 5, -5, "plain", "-1+1", "=SUM(A1)", "@x", {"a": 1}, [1, 2], date(2026, 1, 2))],
+                         ["", 5, -5, "plain", "'-1+1", "'=SUM(A1)", "'@x", '{"a":1}', "[1,2]", "2026-01-02"])
 
     async def test_read_binds_filters_and_pagination_and_removes_password(self):
         self.conn.fetch.return_value = [{"id": 3, "name": "item", "password": "private"}]

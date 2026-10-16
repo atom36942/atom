@@ -8,10 +8,10 @@ Rules Atom enforces at import, startup, sync, and CI. Follow exactly.
 ## Flow: build features only in project paths
 1. API → `router_extend/<feature>.py` (`router = APIRouter()`): read params, call a `func_*`, return. No business logic.
 2. Logic → `function_extend/<feature>.py`: `func_*` business logic and helpers reused by several APIs; available as `app_state.func_*`.
-3. Shared → `shared/`: constants and data reused across APIs (`param_specs` modules as `shared.<module>`, JSON, prompts, templates read by path from the project root).
+3. Files → `files/`: anything extra the project needs: constants and `param_specs` reused across APIs (Python modules imported as `files.<module>`), JSON, prompts, templates, and other files (read by path from the project root).
 4. Config → `config_extend.py`: `config_api` policy, new tables in `config_postgres`, `config_*` settings.
 5. Jobs → `script_extend/`; docs → `docs_extend/`; packages → append to `requirements.txt` pinned `==`.
-- Request path: middleware applies `config_api` → route → `func_*` (with `shared/` and core helpers) → DB → `{"status": 1, "message": ...}`.
+- Request path: middleware applies `config_api` → route → `func_*` (with `files/` and core helpers) → DB → `{"status": 1, "message": ...}`.
 - Never edit core (`function/`, `router/`, `docs/`, `config.py`, `main.py`, `sync.py`, `AGENTS.md`, `ruff.toml`, `.gitignore`, `Dockerfile`, `readme.md`, `static/api.html`, `static/pgweb.html`, scripts listed in `sync.py`) unless asked for a framework change: `python sync.py` overwrites them and deletes extra files in `function/`, `router/`, `docs/`.
 - `.gitignore` ignores unlisted paths and is synced: new top-level files/folders are never committed. Sync resets Atom's package pins in `requirements.txt`.
 

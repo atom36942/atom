@@ -167,11 +167,11 @@ def _mssql_read_sql(sql):
     return sql
 
 
-async def func_mssql_query_runner_read_export(*, client_mssql: Any, config_query_runner_export_limit: int, sql: str) -> Any:
+async def func_mssql_query_runner_read_export(*, client_mssql: Any, config_export_limit: int, sql: str) -> Any:
     """Runs a read-only MSSQL query and yields CSV lines up to the configured export limit."""
     if not client_mssql: raise func_api_error(message="MSSQL client not initialized", status_code=500)
     sql = _mssql_read_sql(sql)
-    limit = config_query_runner_export_limit
+    limit = config_export_limit
     async def _iter():
         for attempt in range(3):
             try:
@@ -252,7 +252,7 @@ async def func_postgres_query_runner_read(*, client_postgres: asyncpg.Pool | Non
             records = await stmt.fetch(config_query_runner_read_limit, timeout=timeout_sec)
     return [dict(row) for row in records]
 
-async def func_postgres_query_runner_read_export(*, client_postgres: asyncpg.Pool | None, config_query_runner_export_limit: int, sql: str) -> Any:
+async def func_postgres_query_runner_read_export(*, client_postgres: asyncpg.Pool | None, config_export_limit: int, sql: str) -> Any:
     """Runs a read-only PostgreSQL SELECT/WITH query and yields CSV chunks up to the configured export limit."""
     sql = str(sql or "").strip().rstrip(";").strip()
     if not sql: raise Exception("SQL is required")
@@ -271,7 +271,7 @@ async def func_postgres_query_runner_read_export(*, client_postgres: asyncpg.Poo
                 writer.writerow(columns)
                 yield buffer.getvalue()
                 buffer.seek(0); buffer.truncate(0)
-                async for record in stmt.cursor(config_query_runner_export_limit, prefetch=250, timeout=timeout_sec):
+                async for record in stmt.cursor(config_export_limit, prefetch=250, timeout=timeout_sec):
                     writer.writerow([record[column] for column in columns])
                     yield buffer.getvalue()
                     buffer.seek(0); buffer.truncate(0)
@@ -311,10 +311,10 @@ async def func_clickhouse_query_runner_read(*, client_clickhouse: Any, config_qu
     result = await client_clickhouse.query(sql, settings=_clickhouse_read_settings(client_clickhouse))
     return [dict(zip(result.column_names, row, strict=True)) for row in result.result_rows]
 
-async def func_clickhouse_query_runner_read_export(*, client_clickhouse: Any, config_query_runner_export_limit: int, sql: str) -> Any:
+async def func_clickhouse_query_runner_read_export(*, client_clickhouse: Any, config_export_limit: int, sql: str) -> Any:
     """Stream a read-only ClickHouse query as CSV up to the configured export limit."""
     if not client_clickhouse: raise func_api_error(message="clickhouse client not initialized", status_code=500)
-    sql = func_clickhouse_query_runner_read_sql(sql=sql, limit=config_query_runner_export_limit)
+    sql = func_clickhouse_query_runner_read_sql(sql=sql, limit=config_export_limit)
     async def _iter():
         stream = await client_clickhouse.raw_stream(sql, fmt="CSVWithNames", settings=_clickhouse_read_settings(client_clickhouse))
         async with stream:

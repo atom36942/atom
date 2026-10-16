@@ -45,7 +45,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
                     "SELECT 1 REVOKE SELECT TO public", "SELECT 1 DENY SELECT TO public",
                     "SELECT 1; WAITFOR DELAY '00:01:00'", "SELECT * FROM OPENROWSET('provider','secret','query')"):
             for runner, limit in ((func_mssql_query_runner_read, "config_query_runner_read_limit"),
-                                  (func_mssql_query_runner_read_export, "config_query_runner_export_limit")):
+                                  (func_mssql_query_runner_read_export, "config_export_limit")):
                 with self.subTest(sql=sql, runner=runner.__name__), self.assertRaisesRegex(Exception, "Only one read SQL statement is allowed|read mode restricted"):
                     await runner(client_mssql=client, sql=sql, **{limit: 10})
         client.acquire.assert_not_called()
@@ -72,7 +72,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
         stream.__aiter__.return_value = [b"id\n1\n"]
         client.raw_stream = AsyncMock(return_value=stream)
         output = await func_clickhouse_query_runner_read_export(client_clickhouse=client,
-                        config_query_runner_export_limit=20, sql="SELECT id FROM product")
+                        config_export_limit=20, sql="SELECT id FROM product")
         self.assertEqual([chunk async for chunk in output], [b"id\n1\n"])
         self.assertEqual(client.raw_stream.await_args.kwargs["settings"], {"readonly": 1, "max_execution_time": 30})
 
@@ -91,7 +91,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
                 stream.__aiter__.return_value = [b"uptime()\n42\n"]
                 client.raw_stream = AsyncMock(return_value=stream)
                 output = await func_clickhouse_query_runner_read_export(client_clickhouse=client,
-                    config_query_runner_export_limit=20, sql="SELECT uptime();")
+                    config_export_limit=20, sql="SELECT uptime();")
                 self.assertEqual([chunk async for chunk in output], [b"uptime()\n42\n"])
                 self.assertEqual(client.raw_stream.await_args.kwargs["settings"], {"max_execution_time": 30})
                 self.assertIn("LIMIT 20", client.raw_stream.await_args.args[0])

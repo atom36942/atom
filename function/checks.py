@@ -43,7 +43,7 @@ def func_check_runtime_config(*, app_state: State) -> None:
         except Exception: raise Exception(f"invalid {key}: expected integer") from None
         if value < 1: raise Exception(f"invalid {key}: minimum 1")
         return value
-    values = {key: int_check(getattr(app_state, key, None), key) for key in ("config_query_runner_read_limit", "config_query_runner_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_uvicorn_workers")}
+    values = {key: int_check(getattr(app_state, key, None), key) for key in ("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_uvicorn_workers")}
     if values["config_sql_read_limit_default"] > values["config_sql_read_limit_max"]: raise Exception("config_sql_read_limit_default must not exceed config_sql_read_limit_max")
     for key in ("config_otp_retention_day", "config_log_api_retention_day"):
         retention = getattr(app_state, key, None)

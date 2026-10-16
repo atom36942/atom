@@ -98,5 +98,42 @@ class OpenApiTests(unittest.TestCase):
                 self.assertEqual("postgres" in names, bool(self.app.state.config_api.get(route.path, {}).get("is_postgres_param")))
 
 
+
+class OpenApiImportedSpecTests(unittest.TestCase):
+    def test_param_specs_imported_by_name_are_documented(self):
+        import importlib.util, pathlib, textwrap
+        from fastapi import FastAPI
+        from starlette.datastructures import State
+        from function import func_app_route_list, func_endpoint_json_wrap, func_openapi_spec_generate
+        source = textwrap.dedent('''
+            from fastapi import APIRouter, Request
+            SPEC = [{"name": "order_id", "type": "int", "required": True}]
+            router = APIRouter()
+            @router.get("/imported")
+            async def imported(*, request: Request):
+                return await request.app.state.func_request_param_read(request=request, mode="query", param_specs=SPEC)
+            @router.get("/imported-plus-extra")
+            async def imported_plus_extra(*, request: Request):
+                return await request.app.state.func_request_param_read(request=request, mode="query", param_specs=SPEC + [{"name": "note", "type": "str"}])
+            @router.get("/not-plain-data")
+            async def not_plain_data(*, request: Request):
+                return await request.app.state.func_request_param_read(request=request, mode="query", param_specs=router)
+        ''')
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "imported_spec_router.py"
+            path.write_text(source)
+            spec = importlib.util.spec_from_file_location("imported_spec_router", path)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            for route in module.router.routes: route.endpoint = func_endpoint_json_wrap(endpoint=route.endpoint, status_code=route.status_code)
+            app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
+            app.include_router(module.router)
+            paths = func_openapi_spec_generate(app_routes=func_app_route_list(app=app), app_state=State())["paths"]
+        names = {path: [p["name"] for p in paths[path]["get"]["parameters"]] for path in paths}
+        self.assertEqual(names["/imported"], ["order_id"])
+        self.assertEqual(names["/imported-plus-extra"], ["order_id", "note"])
+        self.assertEqual(names["/not-plain-data"], [])
+
+
 if __name__ == "__main__":
     unittest.main()
