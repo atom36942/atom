@@ -375,11 +375,9 @@ Assigned IDs are stored in `config_postgres["table"]["users"]` using this option
 
 | Key under `message` | Source / Meaning |
 |---|---|
-| `api_list` | Registered route paths |
+| `api_list` | Paths of all registered routes |
 | `config_column_int_mapping` | `config_column_int_mapping` (formerly returned as `mapping`) |
 | `dropdown` | `config_dropdown` |
-| `config_query_runner_read_limit` | Query runner read limit |
-| `config_export_limit` | CSV export row limit |
 
 Permission IDs are integers in Python, but JSON object keys are strings: clients read entries such as `message.config_column_int_mapping.users.permissions["1"]`. This public catalog describes available actions; it does not list the current user's assigned permissions.
 

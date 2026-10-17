@@ -19,6 +19,7 @@ async def func_api_index_info(*, request:Request):
     return {
         "status": 1,
         "message": {
+            "api_list": [route.path for route in app_state.func_app_route_list(app=request.app) if hasattr(route, "path")],
             "config_column_int_mapping": app_state.config_column_int_mapping,
             "dropdown": app_state.config_dropdown,
         }
