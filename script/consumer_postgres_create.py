@@ -16,7 +16,7 @@ from config import config_column_regex
 from config import config_table
 from config import config_buffer_limit_default
 from config import config_buffer_rows_max
-from config import config_redis_url_queue
+from config import config_redis_url_dict
 from config import config_rabbitmq_url
 from config import config_celery_url
 from config import config_kafka_url
@@ -42,5 +42,5 @@ if __name__ == "__main__":
         sys.exit(1)
     queue = sys.argv[1]
     channel = "func_postgres_create"
-    broker_settings = {"config_redis_url_queue": config_redis_url_queue, "config_rabbitmq_url": config_rabbitmq_url, "config_kafka_url": config_kafka_url, "config_kafka_username": config_kafka_username, "config_kafka_password": config_kafka_password, "config_celery_url": config_celery_url}
+    broker_settings = {"config_redis_url_queue": (config_redis_url_dict or {}).get("queue"), "config_rabbitmq_url": config_rabbitmq_url, "config_kafka_url": config_kafka_url, "config_kafka_username": config_kafka_username, "config_kafka_password": config_kafka_password, "config_celery_url": config_celery_url}
     func_run_broker(queue=queue, channel=channel, broker_settings=broker_settings, setup_callback=setup, execute_callback=execute)

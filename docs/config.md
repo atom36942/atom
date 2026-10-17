@@ -69,10 +69,8 @@ Disabled (`None`) by default; activated automatically when connection credential
 |---|---|
 | `config_postgres_url_<name>` | PostgreSQL connection DSN per named database, collected into `config_postgres_url_dict`; `config_postgres_url_master` is required and is the default |
 | `config_postgres_url_dict` | Runtime mapping of named PostgreSQL pools (populated via `config_postgres_url_<name>`) |
-| `config_redis_url_api_response` | Redis URL for the API response cache (`cache` mode `redis`) |
-| `config_redis_url_user_state` | Dedicated Redis for user state/role/deactivation lookups |
-| `config_redis_url_ratelimiter` | Dedicated Redis for distributed rate limiter counters |
-| `config_redis_url_queue` | Redis URL used as background job queue producer |
+| `config_redis_url_<name>` | Redis URL per named connection, collected into `config_redis_url_dict`. Built-in roles: `api_response` (response cache), `user_state` (role and status lookups), `ratelimiter` (rate-limit counters), `queue` (job producer), `misc`; any other name is a project connection in `client_redis_dict` |
+| `config_redis_url_dict` | Runtime mapping of named Redis URLs (populated via `config_redis_url_<name>`) |
 | `config_mongodb_url` | MongoDB (Motor) connection string DSN |
 | `config_mssql_url` | MSSQL connection pool connection string |
 | `config_clickhouse_url` | ClickHouse async DSN for query runner |

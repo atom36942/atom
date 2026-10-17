@@ -36,11 +36,7 @@ async def func_lifespan(app: FastAPI):
         client_password_hasher = app.state.func_client_password_hasher()
         client_http = app.state.func_client_http()
         client_postgres_dict = {name: await app.state.func_client_postgres(dsn=url, **postgres_pool_kwargs) for name, url in (app.state.config_postgres_url_dict or {}).items() if url}
-        client_redis_api_response = app.state.func_client_redis(url=app.state.config_redis_url_api_response)
-        client_redis_user_state = app.state.func_client_redis(url=app.state.config_redis_url_user_state)
-        client_redis_ratelimiter = app.state.func_client_redis(url=app.state.config_redis_url_ratelimiter)
-        client_redis_producer = app.state.func_client_redis(url=app.state.config_redis_url_queue)
-        client_redis_misc = app.state.func_client_redis(url=app.state.config_redis_url_misc)
+        client_redis_dict = {name: app.state.func_client_redis(url=url) for name, url in (app.state.config_redis_url_dict or {}).items() if url}
         client_mongodb = app.state.func_client_mongodb(url=app.state.config_mongodb_url)
         client_mssql = await app.state.func_client_mssql(dsn=app.state.config_mssql_url)
         client_clickhouse = await app.state.func_client_clickhouse(dsn=app.state.config_clickhouse_url)
@@ -137,15 +133,15 @@ async def middleware(request, api_function):
         request.state.user = await app_state.func_token_decode(headers=request.headers, config_token_secret_key=app_state.config_token_secret_key)
         # checks
         await app_state.func_middleware_check_token(user_dict=request.state.user, url_path=path, is_token=is_token, user_check_role=user_check_role, user_check_deactivated=user_check_deactivated, user_check_deleted=user_check_deleted)
-        await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role=user_check_role, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=app_state.client_redis_user_state, cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
-        await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, user_check_deactivated=user_check_deactivated, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=app_state.client_redis_user_state, cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
-        await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, user_check_deleted=user_check_deleted, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=app_state.client_redis_user_state, cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
-        await app_state.func_middleware_check_ratelimiter(client_redis=app_state.client_redis_ratelimiter, rate_limit=rate_limit, url_path=path, identifier=request.state.user.get("id") if request.state.user else app_state.func_middleware_client_ip(request=request), cache_ratelimiter=app_state.cache_ratelimiter)
+        await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role=user_check_role, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=app_state.client_redis_dict.get("user_state"), cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
+        await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, user_check_deactivated=user_check_deactivated, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=app_state.client_redis_dict.get("user_state"), cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
+        await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, user_check_deleted=user_check_deleted, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=app_state.client_redis_dict.get("user_state"), cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)
+        await app_state.func_middleware_check_ratelimiter(client_redis=app_state.client_redis_dict.get("ratelimiter"), rate_limit=rate_limit, url_path=path, identifier=request.state.user.get("id") if request.state.user else app_state.func_middleware_client_ip(request=request), cache_ratelimiter=app_state.cache_ratelimiter)
         # postgres select
         request.state.client_postgres, request.state.cache_postgres_schema = app_state.func_middleware_postgres_select(client_postgres_dict=app_state.client_postgres_dict, cache_postgres_schema_dict=app_state.cache_postgres_schema_dict, is_postgres_param=is_postgres_param, postgres=request.query_params.get("postgres"))
         # cache
         user_id, query_params = (request.state.user.get("id") if request.state.user else 0), dict(request.query_params)
-        response = await app_state.func_middleware_api_cache(mode="get", path=path, query_params=query_params, cache=cache, client_redis=app_state.client_redis_api_response, user_id=user_id, cache_api_response=app_state.cache_api_response)
+        response = await app_state.func_middleware_api_cache(mode="get", path=path, query_params=query_params, cache=cache, client_redis=app_state.client_redis_dict.get("api_response"), user_id=user_id, cache_api_response=app_state.cache_api_response)
         # execution
         if not response:
             if app_state.func_query_bool_parse(query_params.get("is_background"), default=False):
@@ -153,7 +149,7 @@ async def middleware(request, api_function):
                 response = await app_state.func_middleware_api_background(scope=request.scope, body_bytes=await request.body())
             else:
                 response = await api_function(request)
-                response = await app_state.func_middleware_api_cache(mode="set", path=path, query_params=query_params, response=response, cache=cache, client_redis=app_state.client_redis_api_response, user_id=user_id, cache_api_response=app_state.cache_api_response)
+                response = await app_state.func_middleware_api_cache(mode="set", path=path, query_params=query_params, response=response, cache=cache, client_redis=app_state.client_redis_dict.get("api_response"), user_id=user_id, cache_api_response=app_state.cache_api_response)
                 if getattr(response, "is_cache_set", False): response_type = "direct_cache_set"
         else:
             response_type = "cache_response"

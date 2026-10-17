@@ -1,17 +1,35 @@
 # 🟥 Redis
 
-Atom uses four separate asynchronous Redis clients. Each client has one responsibility and is enabled by its own connection URL. This separation lets API cache, user-state cache, rate-limiter, and queue workloads use different Redis databases or servers and prevents one workload from consuming another workload's capacity.
+Atom uses five separate asynchronous Redis clients, one per built-in role, and projects can add their own. Each client is enabled by its own connection URL. This separation lets API cache, user-state cache, rate-limiter, and queue workloads use different Redis databases or servers and prevents one workload from consuming another workload's capacity.
 
 ## Clients at a glance
 
 | Configuration | Runtime client | Purpose |
 |---------------|----------------|---------|
-| `config_redis_url_api_response` | `app.state.client_redis_api_response` | API response cache (`"cache": {"mode": "redis"}`) |
-| `config_redis_url_user_state` | `app.state.client_redis_user_state` | User authorization and account status lookups |
-| `config_redis_url_ratelimiter` | `app.state.client_redis_ratelimiter` | Distributed API rate-limit counters |
-| `config_redis_url_queue` | `app.state.client_redis_producer` | Background-job queue producer |
+| `config_redis_url_api_response` | `app.state.client_redis_dict["api_response"]` | API response cache (`"cache": {"mode": "redis"}`) |
+| `config_redis_url_user_state` | `app.state.client_redis_dict["user_state"]` | User authorization and account status lookups |
+| `config_redis_url_ratelimiter` | `app.state.client_redis_dict["ratelimiter"]` | Distributed API rate-limit counters |
+| `config_redis_url_queue` | `app.state.client_redis_dict["queue"]` | Background-job queue producer |
+| `config_redis_url_misc` | `app.state.client_redis_dict["misc"]` | General-purpose Redis for custom use |
+| `config_redis_url_<name>` | `app.state.client_redis_dict["<name>"]` | A project's own Redis connection |
 
-All four settings default to `None`. The old `config_redis_url` was renamed to `config_redis_url_api_response`; startup stops with that message if it is still set. `main.py` creates a `redis.asyncio.Redis` client only when the corresponding URL is configured, exposes it through `app.state`, and closes it during application shutdown.
+Every `config_redis_url_<name>` key in `.env` fills `config_redis_url_dict["<name>"]`, like `config_postgres_url_<name>` for PostgreSQL. At startup `main.py` creates one client per entry in `app.state.client_redis_dict`; Atom reads its five built-in roles (`api_response`, `user_state`, `ratelimiter`, `queue`, `misc`) from there with `.get("<role>")`, which is `None` when the role is not configured. Any other name is a project connection. The old `config_redis_url` was renamed to `config_redis_url_api_response`; startup stops with that message if it is still set. `main.py` creates a `redis.asyncio.Redis` client only when the corresponding URL is configured, exposes it through `app.state`, and closes it during application shutdown.
+
+## Project Redis connections
+
+Add a `.env` key with any name to get a dedicated client, for example for sessions:
+
+```bash
+config_redis_url_sessions=redis://localhost:6379/4
+```
+
+```python
+# router_extend/session.py (inside a route)
+redis = request.app.state.client_redis_dict["sessions"]
+await redis.set(f"session:{request.state.user['id']}", "active", ex=3600)
+```
+
+The client is created at startup and closed at shutdown with the others. A misspelled role name (e.g. `config_redis_url_api_respone`) simply becomes an unused project connection; a route that needs the real role then fails startup with `config_redis_url_api_response is missing`.
 
 ## Configuration
 
@@ -43,7 +61,7 @@ Only configure clients that the application uses. A missing URL leaves its clien
 
 ## User-state client
 
-`config_redis_url_user_state` creates `client_redis_user_state`. Routes can choose Redis for role, deactivation, and deletion checks:
+`config_redis_url_user_state` creates `client_redis_dict["user_state"]`. Routes can choose Redis for role, deactivation, and deletion checks:
 
 ```python
 "/private/example": {
@@ -67,7 +85,7 @@ This mode reduces Postgres reads but permits values to remain stale until the TT
 
 ## API response client
 
-`config_redis_url_api_response` creates `client_redis_api_response`. Only the middleware response cache uses it. Set a route's `cache` mode to `redis`:
+`config_redis_url_api_response` creates `client_redis_dict["api_response"]`. Only the middleware response cache uses it. Set a route's `cache` mode to `redis`:
 
 ```python
 "/public/example": {
@@ -87,7 +105,7 @@ Responses are gzip-compressed and Base64-encoded before storage. Clients can byp
 
 ## Rate-limiter client
 
-`config_redis_url_ratelimiter` creates `client_redis_ratelimiter`. Only `func_middleware_check_ratelimiter` receives this client.
+`config_redis_url_ratelimiter` creates `client_redis_dict["ratelimiter"]`. Only `func_middleware_check_ratelimiter` receives this client.
 
 Enable distributed rate limiting for a route with:
 
@@ -113,7 +131,7 @@ At startup, configuration validation requires `config_redis_url_ratelimiter` whe
 
 ## Queue client
 
-`config_redis_url_queue` creates `client_redis_producer`. Routes whose object configuration selects the `redis` queue pass jobs to `func_producer`, which serializes each payload as JSON and runs:
+`config_redis_url_queue` creates `client_redis_dict["queue"]`. Routes whose object configuration selects the `redis` queue pass jobs to `func_producer`, which serializes each payload as JSON and runs:
 
 ```text
 LPUSH {channel} {payload}

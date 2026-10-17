@@ -9,7 +9,7 @@ from function.config import func_config_load_env
 
 def override(env, **config):
     """Run the loader from an empty temp cwd (so no real .env is read) with only the given environment."""
-    global_dict = {"config_postgres_url_dict": {}} | config
+    global_dict = {"config_postgres_url_dict": {}, "config_redis_url_dict": {}} | config
     previous_cwd = os.getcwd()
     with tempfile.TemporaryDirectory() as workdir, patch.dict(os.environ, env, clear=True):
         os.chdir(workdir)
@@ -36,6 +36,11 @@ class ConfigOverrideTests(unittest.TestCase):
         result = override({"config_postgres_url_master": "postgresql://m", "config_postgres_url_reports": "postgresql://r"})
         self.assertEqual(result["config_postgres_url_dict"], {"master": "postgresql://m", "reports": "postgresql://r"})
         self.assertNotIn("config_postgres_url_master", result)
+
+    def test_redis_urls_fill_the_named_dict_including_project_names(self):
+        result = override({"config_redis_url_api_response": "redis://a", "CONFIG_REDIS_URL_QUEUE": "redis://q", "config_redis_url_sessions": "redis://s"})
+        self.assertEqual(result["config_redis_url_dict"], {"api_response": "redis://a", "queue": "redis://q", "sessions": "redis://s"})
+        self.assertNotIn("config_redis_url_api_response", result)
 
     def test_unknown_config_keys_are_added_with_a_parsed_type(self):
         result = override({"config_new_flag": "yes", "config_new_limit": "-3", "config_new_list": "[1, 2]", "config_new_text": "hello", "other_key": "x"})

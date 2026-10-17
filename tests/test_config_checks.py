@@ -56,7 +56,7 @@ class WorkerConfigCheckTests(unittest.TestCase):
         app.get("/x")(lambda: None)
         app.state.config_api = {"/x": {"id": 1, "is_token": False, **cfg}}
         app.state.config_uvicorn_workers = workers
-        app.state.config_redis_url_api_response = app.state.config_redis_url_ratelimiter = app.state.config_redis_url_user_state = "redis://localhost"
+        app.state.config_redis_url_dict = {"api_response": "redis://localhost", "ratelimiter": "redis://localhost", "user_state": "redis://localhost"}
         return app
 
     def test_inmemory_is_rejected_only_with_several_workers(self):
@@ -68,6 +68,19 @@ class WorkerConfigCheckTests(unittest.TestCase):
                 func_check_api_config(app=self.app(1, cfg))
                 with self.assertRaisesRegex(Exception, f"config_uvicorn_workers=4 .*{label}"):
                     func_check_api_config(app=self.app(4, cfg))
+
+    def test_redis_modes_need_their_role_in_the_redis_dict(self):
+        for cfg, role in (({"cache": {"mode": "redis", "ttl_sec": 10}}, "api_response"), ({"rate_limit": {"mode": "redis", "limit": 5, "window_sec": 60}}, "ratelimiter"), ({"user_check_role": {"mode": "redis", "roles": [1]}}, "user_state")):
+            with self.subTest(role=role):
+                app = self.app(1, cfg)
+                app.state.config_redis_url_dict = {"sessions": "redis://localhost"}    # a project's own Redis does not satisfy a role
+                with self.assertRaisesRegex(Exception, f"config_redis_url_{role} is missing"):
+                    func_check_api_config(app=app)
+                app.state.config_redis_url_dict = {role: "http://not-redis"}
+                with self.assertRaisesRegex(Exception, f"config_redis_url_{role} must be a valid Redis URL"):
+                    func_check_api_config(app=app)
+                app.state.config_redis_url_dict = {role: "redis://localhost"}
+                func_check_api_config(app=app)
 
     def test_shared_modes_pass_with_several_workers(self):
         func_check_api_config(app=self.app(4, {"rate_limit": {"mode": "redis", "limit": 5, "window_sec": 60}, "cache": {"mode": "redis", "ttl_sec": 10}, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deleted": {"mode": "token"}}))

@@ -158,18 +158,19 @@ def func_check_api_config(*, app: FastAPI) -> None:
         if path not in config_api:
             raise Exception(f"CRITICAL: Route '{path}' is missing from config_api. All routes must be explicitly configured.")
     if getattr(app.state, "config_redis_url", None) is not None: raise Exception("config_redis_url was renamed to config_redis_url_api_response")
-    if requires_redis and not getattr(app.state, "config_redis_url_api_response", None):
+    redis_url_dict = getattr(app.state, "config_redis_url_dict", None) or {}
+    if requires_redis and not redis_url_dict.get("api_response"):
         raise Exception("config_api uses redis cache mode but config_redis_url_api_response is missing")
-    if requires_redis_user_state and not getattr(app.state, "config_redis_url_user_state", None):
+    if requires_redis_user_state and not redis_url_dict.get("user_state"):
         raise Exception("config_api uses redis user state check but config_redis_url_user_state is missing")
-    if requires_redis_ratelimiter and not getattr(app.state, "config_redis_url_ratelimiter", None):
+    if requires_redis_ratelimiter and not redis_url_dict.get("ratelimiter"):
         raise Exception("config_api uses redis rate limiting but config_redis_url_ratelimiter is missing")
     redis_urls_required = []
     if requires_redis: redis_urls_required.append("config_redis_url_api_response")
     if requires_redis_user_state: redis_urls_required.append("config_redis_url_user_state")
     if requires_redis_ratelimiter: redis_urls_required.append("config_redis_url_ratelimiter")
     for key in redis_urls_required:
-        url = getattr(app.state, key, None)
+        url = redis_url_dict.get(key.removeprefix("config_redis_url_"))
         if not isinstance(url, str) or not url.strip().lower().startswith(("redis://", "rediss://", "unix://")):
             raise Exception(f"{key} must be a valid Redis URL")
     workers = int(getattr(app.state, "config_uvicorn_workers", 1) or 1)

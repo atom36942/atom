@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 # function
 def func_config_load_env(*, global_dict: dict) -> None:
-    """Override config_* values in global_dict from .env and the environment; config_postgres_url_<name> fills config_postgres_url_dict."""
+    """Override config_* values in global_dict from .env and the environment; config_postgres_url_<name> and config_redis_url_<name> fill config_postgres_url_dict and config_redis_url_dict."""
     load_dotenv(".env")
     env = {k.lower(): v for k, v in os.environ.items()}
     env.update({k: v for k, v in os.environ.items() if k == k.lower()})
@@ -24,9 +24,9 @@ def func_config_load_env(*, global_dict: dict) -> None:
                 with contextlib.suppress(Exception): global_dict[k] = orjson.loads(ev)
             else: global_dict[k] = int(ev) if ev.lstrip("-").isdigit() else ev
             if isinstance(global_dict[k], list): global_dict[k] = tuple(global_dict[k])
-    postgres_url_prefix = "config_postgres_url_"
+    url_dicts = {"config_postgres_url_": "config_postgres_url_dict", "config_redis_url_": "config_redis_url_dict"}
     for k, ev in env.items():
-        if k.startswith("config_") and not k.startswith(postgres_url_prefix) and k not in global_dict:
+        if k.startswith("config_") and not k.startswith(tuple(url_dicts)) and k not in global_dict:
             val = ev.strip()
             if val.lower() in ("true", "yes", "on"):
                 global_dict[k] = True
@@ -43,8 +43,9 @@ def func_config_load_env(*, global_dict: dict) -> None:
             if isinstance(global_dict.get(k), list):
                 global_dict[k] = tuple(global_dict[k])
     for k, v in env.items():
-        if k.startswith(postgres_url_prefix) and k not in (postgres_url_prefix, "config_postgres_url_dict"):
-            if not isinstance(global_dict["config_postgres_url_dict"], dict):
-                global_dict["config_postgres_url_dict"] = {}
-            global_dict["config_postgres_url_dict"][k.removeprefix(postgres_url_prefix)] = v
+        for prefix, dict_key in url_dicts.items():
+            if k.startswith(prefix) and k not in (prefix, dict_key):
+                if not isinstance(global_dict.get(dict_key), dict):
+                    global_dict[dict_key] = {}
+                global_dict[dict_key][k.removeprefix(prefix)] = v
     return None

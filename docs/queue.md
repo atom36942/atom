@@ -10,7 +10,7 @@ All queue brokers are optional and configured via `.env`:
 
 | Broker | Configuration Key | Runtime Client | Use Case |
 | :--- | :--- | :--- | :--- |
-| **Redis Streams** | `config_redis_url_queue` | `client_redis_producer` | High throughput, lightweight streaming. |
+| **Redis Streams** | `config_redis_url_queue` | `client_redis_dict["queue"]` | High throughput, lightweight streaming. |
 | **RabbitMQ** | `config_rabbitmq_url` | `client_rabbitmq_channel` | Traditional AMQP message queuing with ACKs. |
 | **Apache Kafka** | `config_kafka_url` | `client_kafka_producer` | Partitioned distributed log streaming. |
 | **Celery** | `config_celery_broker_url` | `client_celery` | Task queue with built-in retries and task states. |

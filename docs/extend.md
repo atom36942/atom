@@ -44,6 +44,8 @@ def func_sample_orders() -> list:
     return json.loads(Path("files/sample/orders.json").read_text())
 ```
 
+For a project's own Redis, add `config_redis_url_<name>` to `.env` and use `request.app.state.client_redis_dict["<name>"]`; see [redis.md](redis.md#project-redis-connections).
+
 Files in `files/` are committed and included in the Docker image. Runtime output such as uploads and exports belongs in `tmp/` or blob storage, not `files/`; keep secrets in `.env`.
 
 Configuration extensions are loaded after the defaults in `main.py`:
