@@ -72,8 +72,10 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_redis_url_<name>` | Redis URL per named connection, collected into `config_redis_url_dict`. Built-in roles: `api_response` (response cache), `user_state` (role and status lookups), `ratelimiter` (rate-limit counters), `queue` (job producer), `misc`; any other name is a project connection in `client_redis_dict` |
 | `config_redis_url_dict` | Runtime mapping of named Redis URLs (populated via `config_redis_url_<name>`) |
 | `config_mongodb_url` | MongoDB (Motor) connection string DSN |
-| `config_mssql_url` | MSSQL connection pool connection string |
-| `config_clickhouse_url` | ClickHouse async DSN for query runner |
+| `config_mssql_url_<name>` | MSSQL connection string per named server, collected into `config_mssql_url_dict`; the `/admin/mssql-*` routes pick one with body param `mssql` (default `master`; unknown name → 400) |
+| `config_mssql_url_dict` | Runtime mapping of named MSSQL connection strings; pools in `client_mssql_dict` |
+| `config_clickhouse_url_<name>` | ClickHouse DSN per named server, collected into `config_clickhouse_url_dict`; the `/admin/clickhouse-*` routes pick one with body param `clickhouse` (default `master`; unknown name → 400) |
+| `config_clickhouse_url_dict` | Runtime mapping of named ClickHouse URLs; clients in `client_clickhouse_dict`, schemas in `cache_clickhouse_schema_dict` |
 | `config_google_login_client_id` | Google OAuth Client ID for token verification |
 | `config_openai_key` | OpenAI API key |
 | `config_gemini_key` | Google Gemini API key |

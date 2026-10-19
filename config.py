@@ -1,9 +1,9 @@
 # integration
 config_postgres_url_dict = {}
 config_redis_url_dict = {}
+config_mssql_url_dict = {}
+config_clickhouse_url_dict = {}
 config_mongodb_url = None
-config_mssql_url = None
-config_clickhouse_url = None
 config_google_login_client_id = None
 config_openai_key = None
 config_gemini_key = None

@@ -157,14 +157,14 @@ async def func_client_close(*, app_state: State = None, clients: dict = None) ->
     client_mongodb = c.get("client_mongodb")
     if client_mongodb:
         with suppress(Exception): client_mongodb.close()
-    client_mssql = c.get("client_mssql")
-    if client_mssql:
-        with suppress(Exception):
-            client_mssql.close()
-            await client_mssql.wait_closed()
-    client_clickhouse = c.get("client_clickhouse")
-    if client_clickhouse:
-        with suppress(Exception): await client_clickhouse.close()
+    for client_mssql in (c.get("client_mssql_dict") or {}).values():
+        if client_mssql:
+            with suppress(Exception):
+                client_mssql.close()
+                await client_mssql.wait_closed()
+    for client_clickhouse in (c.get("client_clickhouse_dict") or {}).values():
+        if client_clickhouse:
+            with suppress(Exception): await client_clickhouse.close()
     client_s3 = c.get("client_s3")
     if client_s3:
         s3_ctx = getattr(client_s3, "_context", None)

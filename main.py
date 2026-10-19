@@ -38,8 +38,8 @@ async def func_lifespan(app: FastAPI):
         client_postgres_dict = {name: await app.state.func_client_postgres(dsn=url, **postgres_pool_kwargs) for name, url in (app.state.config_postgres_url_dict or {}).items() if url}
         client_redis_dict = {name: app.state.func_client_redis(url=url) for name, url in (app.state.config_redis_url_dict or {}).items() if url}
         client_mongodb = app.state.func_client_mongodb(url=app.state.config_mongodb_url)
-        client_mssql = await app.state.func_client_mssql(dsn=app.state.config_mssql_url)
-        client_clickhouse = await app.state.func_client_clickhouse(dsn=app.state.config_clickhouse_url)
+        client_mssql_dict = {name: await app.state.func_client_mssql(dsn=url) for name, url in (app.state.config_mssql_url_dict or {}).items() if url}
+        client_clickhouse_dict = {name: await app.state.func_client_clickhouse(dsn=url) for name, url in (app.state.config_clickhouse_url_dict or {}).items() if url}
         client_s3 = await app.state.func_client_s3(region_name=app.state.config_aws_s3_region_name, **aws_kwargs)
         client_s3_resource = app.state.func_client_s3_resource(region_name=app.state.config_aws_s3_region_name, **aws_kwargs)
         client_sns = app.state.func_client_sns(region_name=app.state.config_aws_sns_region_name, **aws_kwargs)
@@ -72,7 +72,7 @@ async def func_lifespan(app: FastAPI):
             async with app.state.func_postgres_advisory_lock(client_postgres=client_postgres_log_api, lock_id=3): await app.state.func_postgres_schema_tables_init(app_state=app.state, client_postgres=client_postgres_log_api, tables={"log_api": app.state.config_postgres["table"]["log_api"]})
         # cache schema
         cache_postgres_schema_dict = {name: postgres_master_schema if name == "master" else await app.state.func_postgres_schema_read(client_postgres=pool) for name, pool in client_postgres_dict.items()}
-        cache_clickhouse_schema = await app.state.func_clickhouse_schema_read(client_clickhouse=client_clickhouse) if client_clickhouse else {}
+        cache_clickhouse_schema_dict = {name: await app.state.func_clickhouse_schema_read(client_clickhouse=client) for name, client in client_clickhouse_dict.items()}
         # func calls
         app.state.func_app_state_add(app=app, data_dict=locals(), prefixes=("client_", "cache_"))
         app.state.func_check_log_api_table(app_state=app.state)

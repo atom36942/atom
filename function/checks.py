@@ -33,6 +33,12 @@ def func_check_database_config(*, app_state: State) -> None:
     if url_dict and "master" not in url_dict: raise Exception("config_postgres_url_master is required: master is the default database")
     log_db = getattr(app_state, "config_postgres_db_log_api", None)
     if url_dict and log_db is not None and log_db not in url_dict: raise Exception(f"config_postgres_db_log_api '{log_db}' not found in config_postgres_url_dict")
+    for key in ("config_clickhouse_url_dict", "config_mssql_url_dict"):
+        named_url_dict = getattr(app_state, key, None)
+        if named_url_dict is not None and not isinstance(named_url_dict, dict): raise Exception(f"{key} must be dict or None")
+        for name, url in (named_url_dict or {}).items():
+            if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", name): raise Exception(f"invalid {key} name: {name}")
+            if url is not None and not isinstance(url, str): raise Exception(f"invalid URL for {key} '{name}'")
     return None
 
 def func_check_runtime_config(*, app_state: State) -> None:

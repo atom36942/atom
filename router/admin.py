@@ -197,48 +197,48 @@ async def func_api_admin_postgres_query_ai(*, request: Request):
 @router.post("/admin/mssql-query-runner-write")
 async def func_api_admin_mssql_query_runner_write(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}])
-    res = await app_state.func_mssql_query_runner_write(client_mssql=app_state.client_mssql, sql=ob["sql"])
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}, {"name": "mssql", "type": "str", "default": "master"}])
+    res = await app_state.func_mssql_query_runner_write(client_mssql=app_state.func_mssql_client_read(client_mssql_dict=app_state.client_mssql_dict, name=ob["mssql"]), sql=ob["sql"])
     return {"status": 1, "message": res}
 
 @router.post("/admin/mssql-query-runner-read")
 async def func_api_admin_mssql_query_runner_read(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}])
-    res = await app_state.func_mssql_query_runner_read(client_mssql=app_state.client_mssql, config_query_runner_read_limit=app_state.config_query_runner_read_limit, sql=ob["sql"])
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}, {"name": "mssql", "type": "str", "default": "master"}])
+    res = await app_state.func_mssql_query_runner_read(client_mssql=app_state.func_mssql_client_read(client_mssql_dict=app_state.client_mssql_dict, name=ob["mssql"]), config_query_runner_read_limit=app_state.config_query_runner_read_limit, sql=ob["sql"])
     return {"status": 1, "message": res}
 
 @router.post("/admin/mssql-query-runner-read-export")
 async def func_api_admin_mssql_query_runner_read_export(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}])
-    generator = await app_state.func_mssql_query_runner_read_export(client_mssql=app_state.client_mssql, config_export_limit=app_state.config_export_limit, sql=ob["sql"])
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}, {"name": "mssql", "type": "str", "default": "master"}])
+    generator = await app_state.func_mssql_query_runner_read_export(client_mssql=app_state.func_mssql_client_read(client_mssql_dict=app_state.client_mssql_dict, name=ob["mssql"]), config_export_limit=app_state.config_export_limit, sql=ob["sql"])
     return StreamingResponse(generator, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=mssql_query_runner_read_export.csv"})
 
 @router.post("/admin/clickhouse-query-runner-write")
 async def func_api_admin_clickhouse_query_runner_write(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}])
-    res = await app_state.func_clickhouse_query_runner_write(client_clickhouse=app_state.client_clickhouse, sql=ob["sql"])
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}, {"name": "clickhouse", "type": "str", "default": "master"}])
+    res = await app_state.func_clickhouse_query_runner_write(client_clickhouse=app_state.func_clickhouse_client_read(client_clickhouse_dict=app_state.client_clickhouse_dict, name=ob["clickhouse"]), sql=ob["sql"])
     return {"status": 1, "message": res}
 
 @router.post("/admin/clickhouse-query-runner-read")
 async def func_api_admin_clickhouse_query_runner_read(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}])
-    res = await app_state.func_clickhouse_query_runner_read(client_clickhouse=app_state.client_clickhouse, config_query_runner_read_limit=app_state.config_query_runner_read_limit, sql=ob["sql"])
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}, {"name": "clickhouse", "type": "str", "default": "master"}])
+    res = await app_state.func_clickhouse_query_runner_read(client_clickhouse=app_state.func_clickhouse_client_read(client_clickhouse_dict=app_state.client_clickhouse_dict, name=ob["clickhouse"]), config_query_runner_read_limit=app_state.config_query_runner_read_limit, sql=ob["sql"])
     return {"status": 1, "message": res}
 
 @router.post("/admin/clickhouse-query-runner-read-export")
 async def func_api_admin_clickhouse_query_runner_read_export(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}])
-    generator = await app_state.func_clickhouse_query_runner_read_export(client_clickhouse=app_state.client_clickhouse, config_export_limit=app_state.config_export_limit, sql=ob["sql"])
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}, {"name": "clickhouse", "type": "str", "default": "master"}])
+    generator = await app_state.func_clickhouse_query_runner_read_export(client_clickhouse=app_state.func_clickhouse_client_read(client_clickhouse_dict=app_state.client_clickhouse_dict, name=ob["clickhouse"]), config_export_limit=app_state.config_export_limit, sql=ob["sql"])
     return StreamingResponse(generator, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=clickhouse_query_runner_read_export.csv"})
 
 @router.post("/admin/clickhouse-query-generator-ai")
 async def func_api_admin_clickhouse_query_generator_ai(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "ai", "type": "str", "allowed": app_state.config_ai_services, "default": "gemini"}, {"name": "question", "type": "str", "required": True}])
-    res = await app_state.func_clickhouse_query_generator_ai(client_clickhouse=app_state.client_clickhouse, client_gemini=app_state.client_gemini, client_openai=app_state.client_openai, cache_clickhouse_schema=app_state.cache_clickhouse_schema, config_query_runner_read_limit=app_state.config_query_runner_read_limit, ai=ob["ai"], question=ob["question"])
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "ai", "type": "str", "allowed": app_state.config_ai_services, "default": "gemini"}, {"name": "question", "type": "str", "required": True}, {"name": "clickhouse", "type": "str", "default": "master"}])
+    res = await app_state.func_clickhouse_query_generator_ai(client_clickhouse=app_state.func_clickhouse_client_read(client_clickhouse_dict=app_state.client_clickhouse_dict, name=ob["clickhouse"]), client_gemini=app_state.client_gemini, client_openai=app_state.client_openai, cache_clickhouse_schema=app_state.cache_clickhouse_schema_dict.get(ob["clickhouse"], {}), config_query_runner_read_limit=app_state.config_query_runner_read_limit, ai=ob["ai"], question=ob["question"])
     return {"status": 1, "message": res}

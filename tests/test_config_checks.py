@@ -28,6 +28,18 @@ class DatabaseConfigCheckTests(unittest.TestCase):
         with self.assertRaisesRegex(Exception, "config_postgres_url_master is required"):
             func_check_database_config(app_state=state(config_postgres_url_dict={"logs": URL}))
 
+    def test_clickhouse_dict_names_and_urls_are_checked(self):
+        func_check_database_config(app_state=state(config_clickhouse_url_dict={"master": "clickhouse://localhost", "events": "https://ch:8443"}))
+        with self.assertRaisesRegex(Exception, "invalid config_clickhouse_url_dict name"):
+            func_check_database_config(app_state=state(config_clickhouse_url_dict={"bad-name": "clickhouse://localhost"}))
+        with self.assertRaisesRegex(Exception, "must be dict"):
+            func_check_database_config(app_state=state(config_clickhouse_url_dict="clickhouse://localhost"))
+
+    def test_mssql_dict_names_are_checked(self):
+        func_check_database_config(app_state=state(config_mssql_url_dict={"master": "SERVER=m", "erp": "SERVER=e"}))
+        with self.assertRaisesRegex(Exception, "invalid config_mssql_url_dict name"):
+            func_check_database_config(app_state=state(config_mssql_url_dict={"1erp": "SERVER=e"}))
+
     def test_log_api_database_must_exist(self):
         with self.assertRaisesRegex(Exception, "config_postgres_db_log_api 'audit' not found"):
             func_check_database_config(app_state=state(config_postgres_url_dict={"master": URL}, config_postgres_db_log_api="audit"))

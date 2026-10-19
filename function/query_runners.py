@@ -152,6 +152,11 @@ async def func_postgres_query_generator_ai(*, client_postgres: asyncpg.Pool | No
     sql = func_postgres_query_ai_validate_sql(sql=data.get("sql"), default_limit=default_limit, max_limit=max_limit, cache_postgres_schema_ai=cache_postgres_schema_ai)
     return {"sql": sql, "message": "SQL generated in the editor. Review before Run or Export.", "warnings": data.get("warnings") or []}
 
+def func_mssql_client_read(*, client_mssql_dict: dict, name: str) -> Any:
+    """Return the named MSSQL pool; 400 for a name not in config_mssql_url_dict, None when none are configured."""
+    if client_mssql_dict and name not in client_mssql_dict: raise func_api_error(message=f"mssql '{name}' not configured", status_code=400)
+    return client_mssql_dict.get(name)
+
 def _mssql_read_sql(sql):
     """Reject write/batch commands before sending SQL to a read runner.
 
@@ -286,6 +291,11 @@ async def func_postgres_query_runner_write(*, client_postgres: asyncpg.Pool | No
     async with client_postgres.acquire() as conn:
         result = await conn.execute(sql, timeout=15)
     return result
+
+def func_clickhouse_client_read(*, client_clickhouse_dict: dict, name: str) -> Any:
+    """Return the named ClickHouse client; 400 for a name not in config_clickhouse_url_dict, None when none are configured."""
+    if client_clickhouse_dict and name not in client_clickhouse_dict: raise func_api_error(message=f"clickhouse '{name}' not configured", status_code=400)
+    return client_clickhouse_dict.get(name)
 
 def func_clickhouse_query_runner_read_sql(*, sql: str, limit: int) -> str:
     """Validate a ClickHouse read query and wrap it with a server-side row limit."""

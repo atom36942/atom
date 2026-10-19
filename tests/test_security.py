@@ -10,8 +10,8 @@ import httpx
 from starlette.datastructures import Headers, QueryParams
 from function import (
     func_postgres_query_runner_read, func_mssql_query_runner_read,
-    func_mssql_query_runner_read_export, func_clickhouse_query_runner_read,
-    func_clickhouse_query_runner_read_export, func_postgres_relation,
+    func_mssql_query_runner_read_export, func_mssql_client_read, func_clickhouse_query_runner_read,
+    func_clickhouse_query_runner_read_export, func_clickhouse_client_read, func_postgres_relation,
     func_blob_upload_file, func_blob_preview_urls_get, func_blob_upload_url,
     func_middleware_log_query_params, func_middleware_api_response_error,
     func_middleware_check_role, func_middleware_client_ip,
@@ -61,6 +61,22 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("LIMIT $1", conn.prepare.await_args.args[0])
         statement.fetch.assert_awaited_once_with(10, timeout=30)
         self.assertIn("statement_timeout", conn.execute.await_args.args[0])
+
+    def test_mssql_client_read_picks_by_name(self):
+        master, erp = object(), object()
+        self.assertIs(func_mssql_client_read(client_mssql_dict={"master": master, "erp": erp}, name="erp"), erp)
+        self.assertIsNone(func_mssql_client_read(client_mssql_dict={}, name="master"))
+        with self.assertRaises(Exception) as caught:
+            func_mssql_client_read(client_mssql_dict={"erp": erp}, name="master")
+        self.assertEqual((caught.exception.status_code, str(caught.exception)), (400, "mssql 'master' not configured"))
+
+    def test_clickhouse_client_read_picks_by_name(self):
+        master, events = object(), object()
+        self.assertIs(func_clickhouse_client_read(client_clickhouse_dict={"master": master, "events": events}, name="events"), events)
+        self.assertIsNone(func_clickhouse_client_read(client_clickhouse_dict={}, name="master"))
+        with self.assertRaises(Exception) as caught:
+            func_clickhouse_client_read(client_clickhouse_dict={"events": events}, name="master")
+        self.assertEqual((caught.exception.status_code, str(caught.exception)), (400, "clickhouse 'master' not configured"))
 
     async def test_clickhouse_read_and_export_request_readonly_timeout(self):
         client = MagicMock()
