@@ -1,6 +1,6 @@
 # 🟥 Redis
 
-Atom uses five separate asynchronous Redis clients, one per built-in role, and projects can add their own. Each client is enabled by its own connection URL. This separation lets API cache, user-state cache, rate-limiter, and queue workloads use different Redis databases or servers and prevents one workload from consuming another workload's capacity.
+Atom uses four separate asynchronous Redis clients, one per built-in role, and projects can add their own. Each client is enabled by its own connection URL. This separation lets API cache, user-state cache, rate-limiter, and queue workloads use different Redis databases or servers and prevents one workload from consuming another workload's capacity.
 
 ## Clients at a glance
 
@@ -10,10 +10,9 @@ Atom uses five separate asynchronous Redis clients, one per built-in role, and p
 | `config_redis_url_user_state` | `app.state.client_redis_dict["user_state"]` | User authorization and account status lookups |
 | `config_redis_url_ratelimiter` | `app.state.client_redis_dict["ratelimiter"]` | Distributed API rate-limit counters |
 | `config_redis_url_queue` | `app.state.client_redis_dict["queue"]` | Background-job queue producer |
-| `config_redis_url_misc` | `app.state.client_redis_dict["misc"]` | General-purpose Redis for custom use |
 | `config_redis_url_<name>` | `app.state.client_redis_dict["<name>"]` | A project's own Redis connection |
 
-Every `config_redis_url_<name>` key in `.env` fills `config_redis_url_dict["<name>"]`, like `config_postgres_url_<name>` for PostgreSQL. At startup `main.py` creates one client per entry in `app.state.client_redis_dict`; Atom reads its five built-in roles (`api_response`, `user_state`, `ratelimiter`, `queue`, `misc`) from there with `.get("<role>")`, which is `None` when the role is not configured. Any other name is a project connection. The old `config_redis_url` was renamed to `config_redis_url_api_response`; startup stops with that message if it is still set. `main.py` creates a `redis.asyncio.Redis` client only when the corresponding URL is configured, exposes it through `app.state`, and closes it during application shutdown.
+Every `config_redis_url_<name>` key in `.env` fills `config_redis_url_dict["<name>"]`, like `config_postgres_url_<name>` for PostgreSQL. At startup `main.py` creates one client per entry in `app.state.client_redis_dict`; Atom reads its four built-in roles (`api_response`, `user_state`, `ratelimiter`, `queue`) from there with `.get("<role>")`, which is `None` when the role is not configured. Any other name is a project connection. An unsuffixed `config_redis_url` or empty `config_redis_url_` stops startup. `main.py` creates a `redis.asyncio.Redis` client only when the corresponding URL is configured, exposes it through `app.state`, and closes it during application shutdown.
 
 ## Project Redis connections
 

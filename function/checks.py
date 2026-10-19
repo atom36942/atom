@@ -23,7 +23,8 @@ def func_check_database_config(*, app_state: State) -> None:
     pool_min = int_check(getattr(app_state, "config_postgres_pool_min_size", None), "config_postgres_pool_min_size")
     pool_max = int_check(getattr(app_state, "config_postgres_pool_max_size", None), "config_postgres_pool_max_size")
     if pool_max < pool_min: raise Exception("config_postgres_pool_max_size must be greater than or equal to config_postgres_pool_min_size")
-    if getattr(app_state, "config_postgres_url", None) is not None: raise Exception("config_postgres_url was renamed to config_postgres_url_master")
+    for key, example in (("config_postgres_url", "master"), ("config_redis_url", "api_response"), ("config_clickhouse_url", "master"), ("config_mssql_url", "master")):
+        if getattr(app_state, key, None) is not None: raise Exception(f"{key} needs a name suffix, e.g. {key}_{example}")
     url_dict_value = getattr(app_state, "config_postgres_url_dict", None)
     if url_dict_value is not None and not isinstance(url_dict_value, dict): raise Exception("config_postgres_url_dict must be dict or None")
     url_dict = url_dict_value or {}
@@ -163,7 +164,6 @@ def func_check_api_config(*, app: FastAPI) -> None:
     for path in route_paths:
         if path not in config_api:
             raise Exception(f"CRITICAL: Route '{path}' is missing from config_api. All routes must be explicitly configured.")
-    if getattr(app.state, "config_redis_url", None) is not None: raise Exception("config_redis_url was renamed to config_redis_url_api_response")
     redis_url_dict = getattr(app.state, "config_redis_url_dict", None) or {}
     if requires_redis and not redis_url_dict.get("api_response"):
         raise Exception("config_api uses redis cache mode but config_redis_url_api_response is missing")

@@ -42,6 +42,11 @@ class ConfigOverrideTests(unittest.TestCase):
         self.assertEqual(result["config_redis_url_dict"], {"api_response": "redis://a", "queue": "redis://q", "sessions": "redis://s"})
         self.assertNotIn("config_redis_url_api_response", result)
 
+    def test_url_with_empty_name_is_rejected(self):
+        for key in ("config_postgres_url_", "config_redis_url_", "config_clickhouse_url_", "config_mssql_url_"):
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, f"{key} needs a name"):
+                override({key: "x"})
+
     def test_clickhouse_urls_fill_the_named_dict(self):
         result = override({"config_clickhouse_url_master": "clickhouse://m", "CONFIG_CLICKHOUSE_URL_EVENTS": "clickhouse://e"})
         self.assertEqual(result["config_clickhouse_url_dict"], {"master": "clickhouse://m", "events": "clickhouse://e"})

@@ -17,7 +17,7 @@ config_postgres_url_analytics=postgresql://analyst:secret@analytics-host:5432/wa
 config_postgres_pool_min_size=5
 config_postgres_pool_max_size=20
 ```
-Each name becomes a pool in `app.state.client_postgres_dict` (for example `client_postgres_dict["master"]`) with its schema in `app.state.cache_postgres_schema_dict`. Code that always uses the main database reads `client_postgres_dict["master"]`. The old single `config_postgres_url` setting was renamed to `config_postgres_url_master`; startup stops with that message if it is still set.
+Each name becomes a pool in `app.state.client_postgres_dict` (for example `client_postgres_dict["master"]`) with its schema in `app.state.cache_postgres_schema_dict`. Code that always uses the main database reads `client_postgres_dict["master"]`. Every URL needs a name: an unsuffixed `config_postgres_url` (also `config_redis_url`, `config_clickhouse_url`, `config_mssql_url`) or an empty `config_postgres_url_` stops startup.
 Routes flagged `"is_postgres_param": True` in `config_api` take `?postgres=<name>`; the middleware sets `request.state.client_postgres` and `request.state.cache_postgres_schema` (master when `postgres` is omitted, 404 for an unknown name). Other routes always use master and reject `?postgres=` with 400:
 ```bash
 curl "http://localhost:8000/public/object-read?table=products&postgres=replica1"

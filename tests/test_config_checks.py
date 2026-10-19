@@ -20,9 +20,10 @@ class DatabaseConfigCheckTests(unittest.TestCase):
             with self.subTest(url_dict=url_dict):
                 func_check_database_config(app_state=state(config_postgres_url_dict=url_dict))
 
-    def test_old_single_url_setting_is_rejected_with_rename_hint(self):
-        with self.assertRaisesRegex(Exception, "config_postgres_url was renamed to config_postgres_url_master"):
-            func_check_database_config(app_state=state(config_postgres_url=URL, config_postgres_url_dict={"master": URL}))
+    def test_url_without_name_suffix_is_rejected(self):
+        for key in ("config_postgres_url", "config_redis_url", "config_clickhouse_url", "config_mssql_url"):
+            with self.subTest(key=key), self.assertRaisesRegex(Exception, f"{key} needs a name suffix"):
+                func_check_database_config(app_state=state(**{key: "x"}))
 
     def test_master_is_required_once_any_database_is_set(self):
         with self.assertRaisesRegex(Exception, "config_postgres_url_master is required"):

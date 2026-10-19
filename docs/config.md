@@ -69,7 +69,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 |---|---|
 | `config_postgres_url_<name>` | PostgreSQL connection DSN per named database, collected into `config_postgres_url_dict`; `config_postgres_url_master` is required and is the default |
 | `config_postgres_url_dict` | Runtime mapping of named PostgreSQL pools (populated via `config_postgres_url_<name>`) |
-| `config_redis_url_<name>` | Redis URL per named connection, collected into `config_redis_url_dict`. Built-in roles: `api_response` (response cache), `user_state` (role and status lookups), `ratelimiter` (rate-limit counters), `queue` (job producer), `misc`; any other name is a project connection in `client_redis_dict` |
+| `config_redis_url_<name>` | Redis URL per named connection, collected into `config_redis_url_dict`. Built-in roles: `api_response` (response cache), `user_state` (role and status lookups), `ratelimiter` (rate-limit counters), `queue` (job producer); any other name is a project connection in `client_redis_dict` |
 | `config_redis_url_dict` | Runtime mapping of named Redis URLs (populated via `config_redis_url_<name>`) |
 | `config_mongodb_url` | MongoDB (Motor) connection string DSN |
 | `config_mssql_url_<name>` | MSSQL connection string per named server, collected into `config_mssql_url_dict`; the `/admin/mssql-*` routes pick one with body param `mssql` (default `master`; unknown name → 400) |

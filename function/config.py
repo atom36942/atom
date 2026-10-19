@@ -44,7 +44,8 @@ def func_config_load_env(*, global_dict: dict) -> None:
                 global_dict[k] = tuple(global_dict[k])
     for k, v in env.items():
         for prefix, dict_key in url_dicts.items():
-            if k.startswith(prefix) and k not in (prefix, dict_key):
+            if k == prefix: raise ValueError(f"{prefix} needs a name, e.g. {prefix}master")
+            if k.startswith(prefix) and k != dict_key:
                 if not isinstance(global_dict.get(dict_key), dict):
                     global_dict[dict_key] = {}
                 global_dict[dict_key][k.removeprefix(prefix)] = v
