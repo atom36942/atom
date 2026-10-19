@@ -1,4 +1,4 @@
-# command: venv/bin/python -m script.manual_postgres_ingestion
+# command: venv/bin/python -m script.postgres_ingestion
 
 # info: Performs high-performance bulk operations (create, update, delete) from a CSV file into PostgreSQL using staging tables and copy_records_to_table.
 

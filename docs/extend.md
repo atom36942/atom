@@ -15,7 +15,7 @@ Atom owns all contents of `docs/`, `router/`, and `function/`, plus `config.py` 
 | `docs/` | `docs_extend/` | Project documentation |
 | — | `files/` | Anything extra: constants and reusable `param_specs`, sample JSON, AI prompts and contexts, templates, seed CSVs |
 
-Only `script/consumer_postgres_create.py`, `script/consumer_postgres_update.py`, `script/worker_users_delete.py` and `script/load_test.py` are synced in `script/`; other scripts are left untouched. Keep new custom workers in `script_extend/` for a clear separation.
+Only `script/consumer_postgres_create.py`, `script/consumer_postgres_update.py` and `script/worker_users_delete.py` are synced in `script/`; other scripts are left untouched. Keep new custom workers in `script_extend/` for a clear separation.
 
 Create only the extension paths you need. Sync never creates or modifies them. `.env` is also preserved.
 

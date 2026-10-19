@@ -36,7 +36,6 @@ sync_files = [
     "script/consumer_postgres_create.py",
     "script/consumer_postgres_update.py",
     "script/worker_users_delete.py",
-    "script/load_test.py",
 ]
 
 # These folders belong entirely to Atom, including all local files inside them.
