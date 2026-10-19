@@ -37,6 +37,8 @@
 !script_extend/**
 !docs_extend/
 !docs_extend/**
+!tests_extend/
+!tests_extend/**
 # project files: constants, param specs, sample JSON, prompts, templates, anything extra (never synced)
 !files/
 !files/**

@@ -11,8 +11,9 @@ Atom owns all contents of `docs/`, `router/`, and `function/`, plus `config.py` 
 | `config.py` | `config_extend.py` | Configuration overrides |
 | `router/` | `router_extend/` | Custom API endpoints |
 | `function/` | `function_extend/` | Custom `func_*` business logic |
-| Synced `script/` files (Postgres consumers, users-delete worker, load test) | `script_extend/` | Standalone workers and jobs |
+| Synced `script/` files (Postgres consumers, users-delete worker) | `script_extend/` | Standalone workers and jobs |
 | `docs/` | `docs_extend/` | Project documentation |
+| `tests/` (Atom's, not synced) | `tests_extend/` | Project tests (`venv/bin/python -m unittest discover -s tests_extend -t .`) |
 | — | `files/` | Anything extra: constants and reusable `param_specs`, sample JSON, AI prompts and contexts, templates, seed CSVs |
 
 Only `script/consumer_postgres_create.py`, `script/consumer_postgres_update.py` and `script/worker_users_delete.py` are synced in `script/`; other scripts are left untouched. Keep new custom workers in `script_extend/` for a clear separation.

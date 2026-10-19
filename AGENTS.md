@@ -9,10 +9,11 @@ Rules Atom enforces at import, startup, sync, and CI. Follow exactly.
 1. API → `router_extend/<feature>.py` (`router = APIRouter()`): read params, call a `func_*`, return. No business logic.
 2. Logic → `function_extend/<feature>.py`: `func_*` business logic and helpers reused by several APIs; available as `app_state.func_*`.
 3. Files → `files/`: anything extra the project needs: constants and `param_specs` reused across APIs (Python modules imported as `files.<module>`), JSON, prompts, templates, and other files (read by path from the project root).
-4. Config → `config_extend.py`: `config_api` policy, new tables in `config_postgres`, `config_*` settings.
-5. Jobs → `script_extend/`; docs → `docs_extend/`; packages → append to `requirements.txt` pinned `==`.
+4. Config → `config_extend.py`: `config_api` policy, new tables in `config_postgres["table"]` (column spec: `docs/extend.md` "Add or change database tables"), `config_*` settings.
+5. Jobs → `script_extend/` (enqueue from a route with `app_state.func_producer`, `docs/queue.md`); tests → `tests_extend/` (with `__init__.py`; never `tests/`, which is Atom's); docs → `docs_extend/`; packages → append to `requirements.txt` pinned `==`.
 - Request path: middleware applies `config_api` → route → `func_*` (with `files/` and core helpers) → DB → `{"status": 1, "message": ...}`.
-- Never edit core (`function/`, `router/`, `docs/`, `config.py`, `main.py`, `sync.py`, `AGENTS.md`, `ruff.toml`, `.gitignore`, `Dockerfile`, `readme.md`, `static/api.html`, `static/pgweb.html`, scripts listed in `sync.py`) unless asked for a framework change: `python sync.py` overwrites them and deletes extra files in `function/`, `router/`, `docs/`.
+- Never edit core (`function/`, `router/`, `docs/`, `config.py`, `main.py`, `sync.py`, `AGENTS.md`, `ruff.toml`, `.gitignore`, `.dockerignore`, `Dockerfile`, `readme.md`, `static/api.html`, `static/pgweb.html`, scripts listed in `sync.py`; `sync_files` and `sync_folders` in `sync.py` are the full list) unless asked for a framework change: `python sync.py` overwrites them and deletes extra files in `function/`, `router/`, `docs/`.
+- Refactors, renames, cleanups, formatting, and lint fixes touch only project files; leave core as is even if it looks wrong or inconsistent. If core blocks the work, solve it in project paths or report it; never patch core.
 - `.gitignore` ignores unlisted paths and is synced: new top-level files/folders are never committed. Sync resets Atom's package pins in `requirements.txt`.
 
 ## config_extend.py
@@ -42,11 +43,12 @@ Rules Atom enforces at import, startup, sync, and CI. Follow exactly.
 - Table access via `func_check_table_permission` and `func_postgres_create/read/update/delete`; ownership via `created_by_id` (`docs/crud.md`, `docs/ownership.md`).
 - SQL: values as `$1, $2`, never in f-strings; identifiers only after `^[a-zA-Z_][a-zA-Z0-9_]*$` or an allow-list, quoted. Reviewed core f-string SQL carries `# noqa: S608 - <reason>`.
 - Never `is_trusted=True` in `func_postgres_create` with request data.
+- Connections: `.env` `config_<db>_url_<name>` → `app_state.client_postgres_dict` / `client_redis_dict` / `client_mssql_dict` / `client_clickhouse_dict["<name>"]`; Postgres, MSSQL, ClickHouse default to `master`. Redis roles `api_response`, `user_state`, `ratelimiter`, `queue` are Atom's; use your own name for project Redis. MongoDB and other services: one `client_*`.
 - Production: `config_token_secret_key` 32+ bytes. `config_uvicorn_workers` > 1: every `inmemory` cache, rate limit, and user check must be `redis`.
 
 ## Style
 - Headers, lowercase singular: routers `# import`/`# router`/`# api`; functions `# import`/`# function`; scripts `# import`/`# config`/`# logic`/`# main`. No module docstrings.
 
 ## Verify
-- `venv/bin/ruff check .` (core strict; `*_extend/`, `config_extend.py` errors only), then start the app with `venv/bin/python main.py` or `venv/bin/uvicorn main:app --reload`; startup checks catch `config_api`, duplicate `func_*`, and secret errors. Use `venv/bin/python main.py` when `config_uvicorn_workers` > 1.
+- `venv/bin/ruff check .` (core strict; `*_extend/`, `files/`, `config_extend.py` errors only), project tests with `venv/bin/python -m unittest discover -s tests_extend -t .`, then start the app with `venv/bin/python main.py` or `venv/bin/uvicorn main:app --reload`; startup checks catch `config_api`, duplicate `func_*`, and secret errors. Use `venv/bin/python main.py` when `config_uvicorn_workers` > 1.
 - Examples: `docs/extend.md`, `docs/auth.md`, `docs/security.md`.

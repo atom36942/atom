@@ -13,3 +13,4 @@ select = ["F", "E9", "B", "ASYNC", "S"]
 # Project code is the developer's own: synced lint rules stay at F/E9 there, so a sync never breaks a project's CI.
 "*_extend/**" = ["B", "ASYNC", "S"]
 "config_extend.py" = ["B", "ASYNC", "S"]
+"files/**" = ["B", "ASYNC", "S"]

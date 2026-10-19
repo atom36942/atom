@@ -119,7 +119,7 @@ Keep application-specific settings and logic in your own extension files:
 - **`router_extend/<name>.py`** — Add an endpoint in a router file with a module-level `APIRouter`.
 - **`function_extend/<name>.py`** — Add custom business logic with unique `func_*` names; Atom loads these modules automatically.
 
-Atom owns `docs/`, `router/`, and `function/`. Create your own `docs_extend/`, `router_extend/`, `function_extend/`, and `script_extend/` folders as needed. Keep configuration overrides in `config_extend.py`. Sync leaves all extensions untouched. Keep `func_*` names unique; files starting with `_` are not auto-loaded.
+Atom owns `docs/`, `router/`, and `function/`. Create your own `docs_extend/`, `router_extend/`, `function_extend/`, `script_extend/`, and `tests_extend/` folders as needed. Keep configuration overrides in `config_extend.py`. Sync leaves all extensions untouched. Keep `func_*` names unique; files starting with `_` are not auto-loaded.
 
 Follow the complete flow: **1. add `config_extend.py` → 2. add a router file in `router_extend/` → 3. add a function file in `function_extend/`**. Restart Atom and call the endpoint to verify it.
 
@@ -154,6 +154,7 @@ atom/
 ├── router_extend/   # Your API routers (optional)
 ├── script_extend/   # Your workers (optional)
 ├── docs_extend/     # Your documentation (optional)
+├── tests_extend/    # Your tests (optional)
 ├── config_extend.py # Your config overrides (optional)
 ├── files/           # Your extra files: constants, param specs, sample JSON, prompts (optional)
 ├── config.py       # Single source of truth for config defaults
