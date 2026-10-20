@@ -42,7 +42,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
         "float": "number", "number": "number", "numeric": "number",
         "bool": "boolean", "dict": "object", "object": "object", "file": "string", "list": "array"
     }
-    route_globals = {}    # names visible in the route's module, so param_specs imported from e.g. shared/ resolve too
+    route_globals = {}    # names visible in the route's module, so param_specs imported from e.g. files_extend/ resolve too
     def plain(v):
         if isinstance(v, (list, tuple)): return all(plain(x) for x in v)
         if isinstance(v, dict): return all(isinstance(k, str) and plain(x) for k, x in v.items())

@@ -99,10 +99,10 @@ class SyncTests(unittest.TestCase):
         self.assertIn("function/auth.py", state["files"])
         self.assertEqual({p.name for p in (self.root / ".atom-sync").iterdir()}, {"state.json"})
 
-    def test_sync_does_not_create_config_extension(self):
+    def test_sync_creates_missing_config_extension(self):
         (self.root / "config_extend.py").unlink()
         self.run_sync()
-        self.assertFalse((self.root / "config_extend.py").exists())
+        self.assertEqual((self.root / "config_extend.py").read_text(), sync.extend_files["config_extend.py"])
 
     def test_sync_preserves_empty_or_invalid_config_extension(self):
         for content in ("", "config_postgres = None\n", "not valid python: !!!\n"):
@@ -232,6 +232,18 @@ class SyncTests(unittest.TestCase):
                     self.assertEqual(path.read_text(), content)
                 state = json.loads((self.root / sync.STATE_PATH).read_text())
                 self.assertNotIn("extra/pulse.html", state["files"])
+
+    def test_missing_extend_paths_are_created_once_and_existing_ones_kept(self):
+        self.run_sync()
+        for name in sync.extend_folders:
+            self.assertTrue((self.root / name).is_dir())
+        self.assertEqual((self.root / "tests_extend/__init__.py").read_text(), "")
+        self.assertEqual([p.name for p in (self.root / "files_extend").iterdir()], [])
+        self.assertEqual((self.root / "config_extend.py").read_text(), "config_api: dict = {'custom': True}\n")
+        self.assertEqual({p.name for p in (self.root / "function_extend").iterdir()}, {"custom_tracked.py", "custom_untracked.py"})
+        (self.root / "tests_extend/__init__.py").unlink()
+        self.run_sync()
+        self.assertFalse((self.root / "tests_extend/__init__.py").exists())
 
     def test_extensions_are_never_written_even_when_upstream_has_them(self):
         extensions = ["docs_extend", "router_extend", "function_extend", "script_extend", "static_extend", "files_extend", "tests_extend", "config_extend.py"]

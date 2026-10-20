@@ -38,6 +38,13 @@ sync_folders = ["docs", "router", "function", "script", "static", "files"]
 
 files_to_sync = [*sync_files, *sync_folders]
 
+# Project paths created locally only when missing, never modified afterwards.
+extend_folders = ["router_extend", "function_extend", "script_extend", "static_extend", "files_extend", "docs_extend", "tests_extend"]
+extend_files = {
+    "tests_extend/__init__.py": "",
+    "config_extend.py": "# config\n# Project settings and overrides: see docs/extend.md\n",
+}
+
 # requirements.txt is merged separately (Atom's packages are upserted, the project's own are kept); config_extend.py stays developer-managed.
 STATE_PATH = ".atom-sync/state.json"
 LOCK_TOKEN_ENV = "ATOM_SYNC_LOCK_TOKEN"  # noqa: S105 - name of the environment variable, not a secret
@@ -256,9 +263,23 @@ def fetch_revision(root, repo_url):
     return git(root, "rev-parse", "--verify", "FETCH_HEAD^{commit}").decode().strip()
 
 
+def create_extend_paths(root):
+    for name, content in extend_files.items():
+        top = name.split("/")[0]
+        if not (root / top).exists() and not (root / top).is_symlink():
+            atomic_write(safe_path(root, name), content.encode(), 0o644)
+            print(f" -> created {name}")
+    for name in extend_folders:
+        path = root / name
+        if not path.exists() and not path.is_symlink():
+            path.mkdir()
+            print(f" -> created {name}/")
+
+
 def apply_revision(root, revision):
     plan = prepare_update(root, revision)
     apply_update(root, plan)
+    create_extend_paths(root)
     print("Files synced successfully! Restart the app; reinstall dependencies if requirements.txt changed.")
 
 

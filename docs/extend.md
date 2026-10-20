@@ -19,7 +19,7 @@ Atom owns all contents of `docs/`, `router/`, `function/`, `script/`, `static/`,
 
 One rule: Atom owns every unsuffixed folder and sync fully replaces it, deleting any other file inside; the project owns every `<name>_extend` folder. A file with the same path in `static/` and `static_extend/` stops startup, so a project cannot shadow an Atom page.
 
-Create only the extension paths you need. Sync never creates or modifies them. `.env` is also preserved.
+Sync creates each missing `_extend` folder locally (empty; `tests_extend/` gets an `__init__.py`) and a starter `config_extend.py`; it never modifies existing ones. Git commits a folder only once it holds a file. `.env` is also preserved.
 
 `files_extend/` holds anything extra the project needs. Python modules there are imported as `files_extend.<module>`; other files are opened by path from the project root, where Atom runs:
 
