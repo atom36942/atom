@@ -28,7 +28,6 @@ async def func_lifespan(app: FastAPI):
         cache_ratelimiter = {}
         cache_postgres_buffer_create = {}
         cache_postgres_buffer_log_api = {}
-        cache_extend = {}
         app.state.func_check(app=app)
         # with several workers, main resets tmp once before they start; a worker resetting it would delete files others are using
         app.state.func_structure_init(is_tmp_reset=app.state.config_is_tmp_reset and app.state.config_uvicorn_workers == 1)
@@ -77,6 +76,8 @@ async def func_lifespan(app: FastAPI):
         app.state.func_app_state_add(app=app, data_dict=locals(), prefixes=("client_", "cache_"))
         app.state.func_check_log_api_table(app_state=app.state)
         app.state.cache_openapi = app.state.func_openapi_spec_generate(app_routes=app.state.func_app_route_list(app=app), app_state=app.state)
+        # project startup: func_extend in function_extend/ returns app.state.extend
+        app.state.extend = await app.state.func_app_extend_run(app_state=app.state, name="func_extend")
         # periodic tasks
         app.state.postgres_buffer_flush_lock = asyncio.Lock()
         if not app.state.config_is_read_only: app.state.postgres_buffer_flush_task = asyncio.create_task(app.state.func_postgres_buffer_flush_periodic_task(app_state=app.state, client_postgres=postgres_master, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log_api=client_postgres_log_api, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api, interval_sec=app.state.config_postgres_buffer_flush_auto_sec))
@@ -94,6 +95,9 @@ async def func_lifespan(app: FastAPI):
     try:
         await app.state.func_app_tasks_stop(app_state=app.state)
         if not app.state.config_is_read_only:await app.state.func_postgres_buffer_flush_all(app_state=app.state, client_postgres=postgres_master, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log_api=client_postgres_log_api, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api)
+        # project shutdown runs before Atom's clients close; its errors never block that
+        try: await app.state.func_app_extend_run(app_state=app.state, name="func_extend_shutdown")
+        except Exception as e: print(f"❌ func_extend_shutdown error: {e}")
         await app.state.func_client_close(app_state=app.state)
     except Exception as e:
         print(f"❌ shutdown error: {e}")

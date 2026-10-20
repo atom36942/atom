@@ -97,10 +97,6 @@ FOR UPDATE SKIP LOCKED;
 
 ---
 
-## 5. Buffer Flush Workers
+## 5. Buffer Flushes
 
-To decouple write buffer flushes from the web process during massive spikes:
-```bash
-venv/bin/python script/worker_flush_buffer_postgres_log_api.py
-```
-This worker locks the logging buffer, flushes all pending `log_api` records to the logging database, and clears memory.
+Buffered writes (`mode="buffer"` creates and `log_api` rows) live in the web process's memory, so no separate worker can flush them. Each process flushes its own buffers every `config_postgres_buffer_flush_auto_sec` seconds, when a buffer reaches its limit, and once more on shutdown; `/admin/sync` also flushes the create buffer.

@@ -59,6 +59,24 @@ config_values = {key: value for module in config_modules for key, value in vars(
 
 `config_extend.py` is read after `config.py`, so its `config_*` values override the defaults. Only `config_*` names are taken from it: functions defined there are ignored, so they cannot replace core functions. It is kept out of the sync list. The `function` package discovers both Atom functions and modules directly inside the optional `function_extend/` folder; no `__init__.py` is required there.
 
+## Startup and shutdown: `func_extend`
+
+`main.py` is Atom's. To create your own clients or load data once at startup, define `func_extend` in any `function_extend/` module; Atom calls it after its own clients and caches are ready and stores the return value, whatever it is, in `app.state.extend` (`None` when `func_extend` is not defined). `func_extend_shutdown` runs on shutdown before Atom closes its clients, so it can still use them. Both are optional, take `app_state`, and may be sync or async.
+
+```python
+# function_extend/extend.py
+async def func_extend(*, app_state):
+    return {"stripe": StripeClient(api_key=app_state.config_stripe_key), "plans": await func_plans_load(app_state=app_state)}
+
+async def func_extend_shutdown(*, app_state):
+    await app_state.extend["stripe"].close()
+
+# router_extend/billing.py (inside a route)
+plans = app_state.extend["plans"]
+```
+
+An error in `func_extend` stops startup. An error in `func_extend_shutdown` is printed and Atom's own shutdown continues. With several workers, each worker runs both once. Restart the app to rebuild `extend`; `/admin/sync` does not touch it.
+
 ## Override the three configuration dictionaries
 
 Define each configuration name once in `config_extend.py`. `main.py` uses the extension value in place of the core value; it does not merge nested dictionaries for you. Start with the base entries, then add your changes:

@@ -38,6 +38,7 @@ Rules Atom enforces at import, startup, sync, and CI. Follow exactly.
 
 ## Functions
 - `func_*`, keyword-only (`*,`), unique across `function/` and `function_extend/` (duplicates fail at import; core cannot be overridden).
+- Startup state: optional `func_extend(*, app_state)` in `function_extend/` runs once after Atom's clients are ready; its return value is `app_state.extend` (`None` if undefined). Optional `func_extend_shutdown(*, app_state)` runs before Atom's clients close. Never edit `main.py` for this.
 - In `function_extend/` import from defining modules (`from function.request import func_query_bool_parse`), not `function`. `_*.py` files and subfolders are not loaded.
 
 ## Data and security
@@ -53,3 +54,6 @@ Rules Atom enforces at import, startup, sync, and CI. Follow exactly.
 ## Verify
 - `venv/bin/ruff check .` (core strict; `*_extend/`, `config_extend.py` errors only), project tests with `venv/bin/python -m unittest discover -s tests_extend -t .`, then start the app with `venv/bin/python main.py` or `venv/bin/uvicorn main:app --reload`; startup checks catch `config_api`, duplicate `func_*`, and secret errors. Use `venv/bin/python main.py` when `config_uvicorn_workers` > 1.
 - Examples: `docs/extend.md`, `docs/auth.md`, `docs/security.md`.
+
+## Project rules
+- Also read `docs_extend/AGENTS.md` if present: project-specific rules, written by the project and never synced. Atom's rules above win on conflict.

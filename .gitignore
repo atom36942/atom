@@ -34,9 +34,7 @@
 !*_extend/
 !*_extend/**
 !.github/
-!.github/dependabot.yml
-!.github/workflows/
-!.github/workflows/**
+!.github/**
 
 # ignore
 __pycache__/

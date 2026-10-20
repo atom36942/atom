@@ -32,7 +32,6 @@ async def func_admin_sync(*, app_state: State, app_routes: list = None) -> str:
     app_state.cache_users_role = await app_state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app_state.config_sql.get("users_role")) if postgres_master else {}
     app_state.cache_users_deactivated = await app_state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app_state.config_sql.get("users_deactivated")) if postgres_master else {}
     app_state.cache_users_deleted = await app_state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app_state.config_sql.get("users_deleted")) if postgres_master else {}
-    if hasattr(app_state, "cache_extend") and isinstance(app_state.cache_extend, dict): app_state.cache_extend.clear()
     return "done"
 
 def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
@@ -261,6 +260,13 @@ def func_sentry_init(*, config_sentry_dsn: str):
     import sentry_sdk
     from sentry_sdk.integrations.fastapi import FastApiIntegration
     return sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=False)
+
+async def func_app_extend_run(*, app_state: State, name: str) -> Any:
+    """Call the project's optional func_extend or func_extend_shutdown (function_extend/) with app_state; sync or async; None when not defined."""
+    extend_function = getattr(app_state, name, None)
+    if extend_function is None: return None
+    result = extend_function(app_state=app_state)
+    return await result if inspect.isawaitable(result) else result
 
 def func_app_static_add(*, app: FastAPI, path: str = "/static", directories: tuple = ("static", "static_extend")) -> None:
     """Serve Atom's static/ and the project's static_extend/ at one path; a file in both stops startup."""
