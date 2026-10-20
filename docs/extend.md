@@ -4,30 +4,31 @@ Atom is opinionated but not closed. You extend it **without editing core files**
 
 ## The Golden Rule
 
-Atom owns all contents of `docs/`, `router/`, and `function/`, plus `config.py` and selected core files. Sync replaces these folders completely, removing local-only files even on the first run. Keep your work in separate extension paths:
+Atom owns all contents of `docs/`, `router/`, `function/`, `script/`, `static/`, and `files/`, plus `config.py` and selected core files. Sync replaces these folders completely, removing local-only files even on the first run. Keep your work in separate extension paths:
 
 | Atom path | Developer path | Purpose |
 |-----------|----------------|---------|
 | `config.py` | `config_extend.py` | Configuration overrides |
 | `router/` | `router_extend/` | Custom API endpoints |
 | `function/` | `function_extend/` | Custom `func_*` business logic |
-| Synced `script/` files (Postgres consumers, users-delete worker) | `script_extend/` | Standalone workers and jobs |
+| `script/` | `script_extend/` | Standalone workers and jobs |
+| `static/` | `static_extend/` | Web assets, served at `/static/<name>` together with Atom's `static/` |
 | `docs/` | `docs_extend/` | Project documentation |
 | `tests/` (Atom's, not synced) | `tests_extend/` | Project tests (`venv/bin/python -m unittest discover -s tests_extend -t .`) |
-| — | `files/` | Anything extra: constants and reusable `param_specs`, sample JSON, AI prompts and contexts, templates, seed CSVs |
+| `files/` | `files_extend/` | Anything extra: constants and reusable `param_specs`, sample JSON, AI prompts and contexts, templates, seed CSVs |
 
-Only `script/consumer_postgres_create.py`, `script/consumer_postgres_update.py` and `script/worker_users_delete.py` are synced in `script/`; other scripts are left untouched. Keep new custom workers in `script_extend/` for a clear separation.
+One rule: Atom owns every unsuffixed folder and sync fully replaces it, deleting any other file inside; the project owns every `<name>_extend` folder. A file with the same path in `static/` and `static_extend/` stops startup, so a project cannot shadow an Atom page.
 
 Create only the extension paths you need. Sync never creates or modifies them. `.env` is also preserved.
 
-`files/` holds anything extra the project needs. Python modules there are imported as `files.<module>`; other files are opened by path from the project root, where Atom runs:
+`files_extend/` holds anything extra the project needs. Python modules there are imported as `files_extend.<module>`; other files are opened by path from the project root, where Atom runs:
 
 ```python
-# files/specs.py
+# files_extend/specs.py
 ORDER_ID = [{"name": "order_id", "type": "int", "required": True}]
 
 # router_extend/order.py (inside a route)
-from files.specs import ORDER_ID
+from files_extend.specs import ORDER_ID
 oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=ORDER_ID, strict=True, reject_unknown=True)
 ```
 
@@ -39,15 +40,15 @@ import json
 from pathlib import Path
 
 def func_summary_prompt() -> str:
-    return Path("files/prompts/summary.txt").read_text()
+    return Path("files_extend/prompts/summary.txt").read_text()
 
 def func_sample_orders() -> list:
-    return json.loads(Path("files/sample/orders.json").read_text())
+    return json.loads(Path("files_extend/sample/orders.json").read_text())
 ```
 
 For a project's own Redis, add `config_redis_url_<name>` to `.env` and use `request.app.state.client_redis_dict["<name>"]`; see [redis.md](redis.md#project-redis-connections).
 
-Files in `files/` are committed and included in the Docker image. Runtime output such as uploads and exports belongs in `tmp/` or blob storage, not `files/`; keep secrets in `.env`.
+Files in `files_extend/` are committed and included in the Docker image. Runtime output such as uploads and exports belongs in `tmp/` or blob storage, not `files_extend/`; keep secrets in `.env`.
 
 Configuration extensions are loaded after the defaults in `main.py`:
 

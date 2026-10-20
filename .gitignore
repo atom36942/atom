@@ -28,20 +28,11 @@
 !script/**
 !docs/
 !docs/**
-# developer extensions (tracked in the developer's repository)
-!function_extend/
-!function_extend/**
-!router_extend/
-!router_extend/**
-!script_extend/
-!script_extend/**
-!docs_extend/
-!docs_extend/**
-!tests_extend/
-!tests_extend/**
-# project files: constants, param specs, sample JSON, prompts, templates, anything extra (never synced)
 !files/
 !files/**
+# project folders: <name>_extend/ for router, function, script, static, files, docs, tests (never synced)
+!*_extend/
+!*_extend/**
 !.github/
 !.github/dependabot.yml
 !.github/workflows/

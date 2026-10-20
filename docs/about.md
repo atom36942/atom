@@ -196,4 +196,4 @@ config_api["/my/report"] = {
 
 ## Developer extensions
 
-Atom owns `docs/`, `router/`, and `function/`. Only `script/consumer_postgres_create.py`, `script/consumer_postgres_update.py` and `script/worker_users_delete.py` are synced in `script/`; all other scripts are preserved. Use `docs_extend/`, `router_extend/`, `function_extend/`, `script_extend/`, and `config_extend.py` for project-specific work. Extension functions are registered alongside core functions; extension routers load after core routers. Scripts run separately and docs are not loaded by the API. See [extensions](extend.md) and [sync](sync.md).
+Atom owns every unsuffixed folder (`docs/`, `router/`, `function/`, `script/`, `static/`, `files/`); sync fully replaces them. Use the matching `<name>_extend/` folders and `config_extend.py` for project-specific work. Extension functions are registered alongside core functions; extension routers load after core routers. Scripts run separately and docs are not loaded by the API. See [extensions](extend.md) and [sync](sync.md).

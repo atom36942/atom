@@ -4,7 +4,7 @@ Measure first, then change one thing and measure again. Atom spends most request
 
 ## 1. Load Test
 
-[`script/load_test.py`](../script/load_test.py) (in the Atom repo only; not synced to projects) runs many concurrent virtual users against a running server, one route at a time, and prints requests/sec, latency percentiles and error rate.
+[`script/load_test.py`](../script/load_test.py) runs many concurrent virtual users against a running server, one route at a time, and prints requests/sec, latency percentiles and error rate.
 
 ```bash
 venv/bin/python -m script.load_test --concurrency 50 --duration 20

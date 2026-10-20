@@ -133,7 +133,7 @@ Update Atom from the project root:
 python3 sync.py
 ```
 
-Sync fetches Atom's upstream `main`, installs the latest updater, and updates framework files. It completely replaces the contents of `docs/`, `router/`, and `function/`, including removing local-only files. `config.py` and selected core files are replaced. Like `static/`, `script/` syncs only selected files: `consumer_postgres_create.py` and `consumer_postgres_update.py`; other scripts are untouched. The `*_extend/` folders, `config_extend.py`, and `.env` are preserved; missing dependencies are appended to `requirements.txt`. Save your work in Git before syncing, then restart the app and reinstall dependencies if requirements changed.
+Sync fetches Atom's upstream `main`, installs the latest updater, and updates framework files. It completely replaces the contents of `docs/`, `router/`, `function/`, `script/`, `static/`, and `files/`, including removing local-only files. `config.py` and selected core files are replaced. The `*_extend/` folders, `config_extend.py`, and `.env` are preserved; missing dependencies are appended to `requirements.txt`. Save your work in Git before syncing, then restart the app and reinstall dependencies if requirements changed.
 
 See [sync details and recovery](docs/sync.md) for update behavior and recovery instructions.
 
@@ -156,7 +156,9 @@ atom/
 ├── docs_extend/     # Your documentation (optional)
 ├── tests_extend/    # Your tests (optional)
 ├── config_extend.py # Your config overrides (optional)
-├── files/           # Your extra files: constants, param specs, sample JSON, prompts (optional)
+├── files_extend/    # Your extra files: constants, param specs, sample JSON, prompts (optional)
+├── static_extend/   # Your web assets, served at /static (optional)
+├── files/          # Atom's shared data files
 ├── config.py       # Single source of truth for config defaults
 ├── router/         # API endpoint routers grouped by access control
 ├── static/         # Static web assets & built-in API console

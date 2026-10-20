@@ -32,6 +32,8 @@ class SyncTests(unittest.TestCase):
         self.write(self.upstream, "docs/extend.md", "upstream docs\n")
         self.write(self.upstream, "tests/test_example.py", "# upstream test\n")
         self.write(self.upstream, "script/worker.py", "# upstream worker\n")
+        self.write(self.upstream, "static/api.html", "upstream api page\n")
+        self.write(self.upstream, "files/README.md", "upstream files\n")
         self.write(self.upstream, "config.py", "config_postgres = {}\nconfig_api = {}\n")
         self.write(self.upstream, "requirements.txt", "fastapi==1.0\norjson==3.0\n")
         self.commit(self.upstream)
@@ -212,13 +214,13 @@ class SyncTests(unittest.TestCase):
         self.assertFalse((self.root / "function/auth.py").exists())
 
     def test_removed_sync_selection_is_preserved_and_forgotten(self):
-        self.write(self.upstream, "static/pulse.html", "upstream pulse\n")
+        self.write(self.upstream, "extra/pulse.html", "upstream pulse\n")
         self.commit(self.upstream)
         for content in ("upstream pulse\n", "developer pulse\n", None):
             with self.subTest(content=content):
-                with patch.object(sync, "files_to_sync", [*sync.files_to_sync, "static/pulse.html"]):
+                with patch.object(sync, "files_to_sync", [*sync.files_to_sync, "extra/pulse.html"]):
                     self.run_sync()
-                path = self.root / "static/pulse.html"
+                path = self.root / "extra/pulse.html"
                 if content is None:
                     path.unlink()
                 else:
@@ -229,10 +231,10 @@ class SyncTests(unittest.TestCase):
                 else:
                     self.assertEqual(path.read_text(), content)
                 state = json.loads((self.root / sync.STATE_PATH).read_text())
-                self.assertNotIn("static/pulse.html", state["files"])
+                self.assertNotIn("extra/pulse.html", state["files"])
 
     def test_extensions_are_never_written_even_when_upstream_has_them(self):
-        extensions = ["docs_extend", "router_extend", "function_extend", "script_extend", "config_extend.py"]
+        extensions = ["docs_extend", "router_extend", "function_extend", "script_extend", "static_extend", "files_extend", "tests_extend", "config_extend.py"]
         for name in extensions:
             path = name if name.endswith(".py") else f"{name}/custom.py"
             self.write(self.root, path, "# developer\n")
@@ -242,29 +244,6 @@ class SyncTests(unittest.TestCase):
         for name in extensions:
             path = name if name.endswith(".py") else f"{name}/custom.py"
             self.assertEqual((self.root / path).read_text(), "# developer\n")
-
-    def test_files_folder_is_never_written_or_removed(self):
-        self.write(self.root, "files/prompts/summary.txt", "developer prompt\n")
-        self.write(self.root, "files/sample.json", "{}\n")
-        self.write(self.upstream, "files/prompts/summary.txt", "upstream collision\n")
-        self.commit(self.upstream)
-        self.run_sync()
-        self.assertEqual((self.root / "files/prompts/summary.txt").read_text(), "developer prompt\n")
-        self.assertEqual((self.root / "files/sample.json").read_text(), "{}\n")
-
-    def test_only_selected_consumer_scripts_are_synced(self):
-        self.write(self.root, "script/worker.py", "# developer worker\n")
-        self.write(self.root, "script/local.py", "# local script\n")
-        self.write(self.upstream, "script/new_worker.py", "# upstream new worker\n")
-        self.write(self.upstream, "script/consumer_postgres_create.py", "# updated create consumer\n")
-        self.write(self.upstream, "script/consumer_postgres_update.py", "# updated update consumer\n")
-        self.commit(self.upstream)
-        self.run_sync()
-        self.assertEqual((self.root / "script/worker.py").read_text(), "# developer worker\n")
-        self.assertEqual((self.root / "script/local.py").read_text(), "# local script\n")
-        self.assertFalse((self.root / "script/new_worker.py").exists())
-        for name in ("consumer_postgres_create.py", "consumer_postgres_update.py"):
-            self.assertEqual((self.root / "script" / name).read_bytes(), (self.upstream / "script" / name).read_bytes())
 
     def test_removed_router_selection_preserves_its_files(self):
         self.run_sync()

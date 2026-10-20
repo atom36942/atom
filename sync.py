@@ -31,15 +31,10 @@ sync_files = [
     "readme.md",
     "ruff.toml",
     "sync.py",
-    "static/api.html",
-    "static/pgweb.html",
-    "script/consumer_postgres_create.py",
-    "script/consumer_postgres_update.py",
-    "script/worker_users_delete.py",
 ]
 
-# These folders belong entirely to Atom, including all local files inside them.
-sync_folders = ["docs", "router", "function"]
+# These folders belong entirely to Atom: sync mirrors them and removes any other file inside. Project files go in <folder>_extend/.
+sync_folders = ["docs", "router", "function", "script", "static", "files"]
 
 files_to_sync = [*sync_files, *sync_folders]
 

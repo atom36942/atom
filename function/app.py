@@ -262,9 +262,18 @@ def func_sentry_init(*, config_sentry_dsn: str):
     from sentry_sdk.integrations.fastapi import FastApiIntegration
     return sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=False)
 
-def func_app_static_add(*, app: FastAPI, path: str = "/static", directory: str = "./static") -> None:
-    """Mount static directory on FastAPI application."""
-    app.mount(path, StaticFiles(directory=directory, check_dir=False), name="static")
+def func_app_static_add(*, app: FastAPI, path: str = "/static", directories: tuple = ("static", "static_extend")) -> None:
+    """Serve Atom's static/ and the project's static_extend/ at one path; a file in both stops startup."""
+    existing, owner = [d for d in directories if os.path.isdir(d)], {}
+    for directory in existing:
+        for parent, _, filenames in os.walk(directory):
+            for filename in filenames:
+                name = os.path.relpath(os.path.join(parent, filename), directory)
+                if name in owner: raise Exception(f"{directory}/{name} clashes with {owner[name]}/{name}")
+                owner[name] = directory
+    static_files = StaticFiles(directory=directories[0], check_dir=False)
+    static_files.all_directories = existing
+    app.mount(path, static_files, name="static")
 
 def func_app_cors_add(*, app: FastAPI, allow_origins: list = None, allow_origin_regex: str = None, allow_methods: list = None, allow_headers: list = None, expose_headers: list = None, allow_credentials: bool = True) -> None:
     """Configure CORS middleware on FastAPI application if origins are provided."""
