@@ -709,7 +709,7 @@ Run schema initialization in a controlled deployment phase when possible rather 
 </details>
 
 <details>
-<summary><strong>Is the built-in `/websocket` endpoint ready for production use?</strong></summary>
+<summary><strong>Is the built-in `/websocket-test-create` endpoint ready for production use?</strong></summary>
 
 Treat it as a minimal example, not a complete chat or event system. The shipped endpoint accepts a text message, buffers it into the `test` table, and echoes the operation result. It does not authenticate the connection, enforce a role, manage rooms, or provide delivery guarantees.
 

@@ -1,5 +1,5 @@
 # import
-from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect, responses
+from fastapi import APIRouter, Request, WebSocket, responses
 
 # router
 router = APIRouter()
@@ -30,47 +30,13 @@ async def func_api_openapi_json(*, request:Request):
     app_state = request.app.state
     return app_state.cache_openapi
     
-@router.websocket("/websocket")
-async def func_api_websocket(*, websocket:WebSocket):
-    app_state = websocket.app.state
-    api_cfg = app_state.config_api.get("/websocket", {})
-    if not api_cfg.get("is_active", True):
-        await websocket.close(code=1008, reason="endpoint disabled")
-        return
-    await websocket.accept()
-    if not app_state.client_postgres_dict.get("master"): raise Exception("postgres client not initialized")
-    try:
-        while True:
-            message = await websocket.receive_text()
-            output = await app_state.func_postgres_create(client_postgres=app_state.client_postgres_dict.get("master"), client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get("master", {}), cache_postgres_buffer=app_state.cache_postgres_buffer_create, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get("test", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="test", obj_list=[{"title":message}])
-            await websocket.send_text(str(output))
-    except WebSocketDisconnect:
-        pass
+@router.websocket("/websocket-test-create")
+async def func_api_websocket_test_create(*, websocket: WebSocket):
+    await websocket.app.state.func_websocket_test_create(app_state=websocket.app.state, websocket=websocket)
 
 @router.post("/pgweb")
 async def func_api_pgweb(*, request: Request):
     app_state = request.app.state
     app_state.func_pgweb_request_check(request=request, config_is_pgweb_enabled=app_state.config_is_pgweb_enabled)
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[])
-    if ob.get("action") == "stream":
-        pool = app_state.client_postgres_pgweb.get("pool")
-        if not pool: return responses.JSONResponse({"status": 0, "message": "not_connected"}, status_code=400)
-        params = {key: value for key, value in ob.items() if key != "action"}
-        try: generator = await app_state.func_pgweb_stream(pool=pool, **params)
-        except Exception as exc: return responses.JSONResponse({"status": 0, "message": str(exc)}, status_code=400)
-        return responses.StreamingResponse(generator, media_type="text/csv; charset=utf-8", headers={
-            "Content-Disposition": 'attachment; filename="query-result-all.csv"',
-            "Cache-Control": "no-store",
-        })
-    try:
-        result = await app_state.func_pgweb(app_state=app_state, **ob)
-        return responses.Response(
-            content=app_state.func_pgweb_orjson_dumps({"status": 1, "message": result}),
-            media_type="application/json"
-        )
-    except Exception as exc:
-        return responses.Response(
-            content=app_state.func_pgweb_orjson_dumps({"status": 0, "message": str(exc)}),
-            status_code=400,
-            media_type="application/json"
-        )
+    return await app_state.func_pgweb_response(app_state=app_state, ob=ob)

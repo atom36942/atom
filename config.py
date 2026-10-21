@@ -346,7 +346,7 @@ config_api = {
 "/openapi.json": {"id": 37, "is_token": False},
 "/static": {"id": 77, "is_token": False},
 "/pgweb": {"id": 99, "is_token": False},
-"/websocket": {"id": 38, "is_token": False, "is_active": False},
+"/websocket-test-create": {"id": 38, "is_token": False, "is_active": False},
 # auth
 "/auth/login-password": {"id": 91, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 "/auth/signup-username-password": {"id": 39, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},

@@ -8,6 +8,7 @@ import asyncpg
 import orjson
 from starlette.datastructures import State
 from starlette.requests import Request
+from starlette.responses import Response, StreamingResponse
 from .clients import func_client_postgres
 from .middleware import func_api_error
 
@@ -642,3 +643,16 @@ async def func_pgweb(*, app_state: State, action: str, **params) -> dict:
     if action == "info": params["connection_url"] = client_postgres_pgweb.get("connection_url", "—")
     if action == "query": params["active_queries"] = active_queries
     return await handler(pool=pool, **params)
+
+async def func_pgweb_response(*, app_state: State, ob: dict) -> Response:
+    """Run a /pgweb action and build its response; errors keep their status (400 by default) and the raw Postgres message, which a SQL console needs."""
+    def error(exc: Exception) -> Response: return Response(content=func_pgweb_orjson_dumps({"status": 0, "message": str(exc)}), status_code=getattr(exc, "status_code", 400), media_type="application/json")
+    try:
+        if ob.get("action") == "stream":
+            pool = app_state.client_postgres_pgweb.get("pool")
+            if not pool: return Response(content=func_pgweb_orjson_dumps({"status": 0, "message": "not_connected"}), status_code=400, media_type="application/json")
+            generator = await func_pgweb_stream(pool=pool, **{key: value for key, value in ob.items() if key != "action"})
+            return StreamingResponse(generator, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": 'attachment; filename="query-result-all.csv"', "Cache-Control": "no-store"})
+        return Response(content=func_pgweb_orjson_dumps({"status": 1, "message": await func_pgweb(app_state=app_state, **ob)}), media_type="application/json")
+    except Exception as exc:
+        return error(exc)
