@@ -299,3 +299,37 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
                 self.assertNotIn("secret-value", message)
                 self.assertNotIn(b"secret-value", response.body)
                 self.assertNotIn("secret-value", stderr.getvalue())
+
+
+class MessageSocketAuthTests(unittest.IsolatedAsyncioTestCase):
+    async def auth(self, first, wait_sec=1):
+        import asyncio
+        from function import func_message_socket_auth
+        async def silent(): await asyncio.sleep(5)
+        socket = SimpleNamespace(receive_text=AsyncMock(return_value=first) if first is not None else silent)
+        return await func_message_socket_auth(websocket=socket, config_token_secret_key="k" * 32, auth_timeout_sec=wait_sec)
+
+    def token(self, kind="access", exp=None, data='{"id": 7}'):
+        import time as _time
+        return jwt_encode({"exp": exp or int(_time.time()) + 60, "data": data, "type": kind})
+
+    async def test_valid_access_token_returns_user_and_expiry(self):
+        user_id, expires_at = await self.auth('{"token": "%s"}' % self.token())
+        self.assertEqual(user_id, 7)
+        self.assertGreater(expires_at, 0)
+
+    async def test_bad_first_messages_are_rejected_with_a_reason(self):
+        import time as _time
+        cases = (("hi", "first message"), ('{"x": 1}', "first message"), ('{"token": "a.b.c"}', "invalid token"), ('{"token": "%s"}' % self.token(kind="refresh"), "access token required"), ('{"token": "%s"}' % self.token(exp=int(_time.time()) - 5), "token expired"), ('{"token": "%s"}' % self.token(data='{"id": "x"}'), "invalid token"))
+        for first, reason in cases:
+            with self.subTest(first=first[:20]), self.assertRaisesRegex(ValueError, reason):
+                await self.auth(first)
+
+    async def test_missing_token_times_out(self):
+        with self.assertRaisesRegex(ValueError, "token not sent"):
+            await self.auth(None, wait_sec=0.05)
+
+
+def jwt_encode(payload):
+    import jwt
+    return jwt.encode(payload, "k" * 32, algorithm="HS256")

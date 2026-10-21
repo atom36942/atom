@@ -1,5 +1,5 @@
 # import
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, WebSocket
 from fastapi.responses import StreamingResponse
 
 # router
@@ -23,6 +23,10 @@ async def func_api_my_profile(*, request: Request):
     user["metadata"] = metadata
     if app_state.config_is_profile_update_last_active_at and not app_state.config_is_read_only: app_state.func_background_run(app_state=app_state, coroutine=app_state.func_user_last_active_update(client_postgres=app_state.client_postgres_dict.get("master"), user_id=user_id))
     return {"status": 1, "message": user}
+
+@router.websocket("/my/message-socket")
+async def func_api_my_message_socket(*, websocket: WebSocket):
+    await websocket.app.state.func_message_socket(app_state=websocket.app.state, websocket=websocket)
 
 @router.post("/my/ping")
 async def func_api_my_ping(*, request: Request):

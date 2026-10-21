@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Atom Chat</title>
+<style>
+/* reference client for /my/message-socket; palette matches api.html */
+:root{--bg:#0b0d10;--card:#0f1114;--muted:#9aa0a6;--fg:#e6eef3;--primary:#38a169;--primary-text:#031013;--line:rgba(255,255,255,.08);--mine:#1f3a2b;--theirs:#1f2933;--error:#dc3545}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,sans-serif;line-height:1.5;height:100vh;display:flex;justify-content:center}
+main{width:100%;max-width:720px;height:100vh;display:flex;flex-direction:column;padding:16px;gap:12px}
+h1{margin:0;font-size:18px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:8px}
+#status{font-size:12px;font-weight:500;color:var(--muted)}
+#chatState{align-self:center;font-size:12px;color:var(--muted)}
+#chatState.on{color:var(--primary)}
+#chatState.on::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--primary);margin-right:6px}
+.who{display:flex;align-items:center;gap:10px}
+button.link{background:none;color:var(--muted);padding:2px 0;font-size:12px;font-weight:500;text-decoration:underline;text-underline-offset:3px}
+button.link:hover{color:var(--fg)}
+.bar{display:flex;gap:8px;flex-wrap:wrap}
+input,textarea{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:inherit;font-size:14px;min-width:0}
+input:focus,textarea:focus{outline:2px solid var(--primary);outline-offset:-1px}
+.grow{flex:1 1 180px}
+#role,#peer{flex:0 0 130px}
+button{background:var(--primary);color:var(--primary-text);border:0;border-radius:8px;padding:9px 16px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+button.secondary{background:var(--theirs);color:var(--fg)}
+button:disabled{opacity:.5;cursor:default}
+[hidden]{display:none!important}
+#log{flex:1;overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:78%;padding:8px 12px;border-radius:12px;white-space:pre-wrap;word-wrap:break-word;font-size:14px}
+.msg time{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.mine{align-self:flex-end;background:var(--mine);border-bottom-right-radius:4px}
+.theirs{align-self:flex-start;background:var(--theirs);border-bottom-left-radius:4px}
+.note{align-self:center;font-size:12px;color:var(--muted);text-align:center}
+.note.error{color:var(--error)}
+#send{display:flex;gap:8px}
+#text{flex:1;resize:none;height:44px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Atom Chat <span class="who"><span id="status"></span><button id="logout" class="link" hidden>Log out</button></span></h1>
+  <form id="login" class="bar">
+    <input id="username" class="grow" placeholder="Username" autocomplete="username" required/>
+    <input id="password" class="grow" type="password" placeholder="Password" autocomplete="current-password" required/>
+    <input id="role" type="number" min="1" placeholder="Role (optional)"/>
+    <button>Log in</button>
+  </form>
+  <div id="chatBar" class="bar" hidden>
+    <input id="peer" type="number" min="1" placeholder="Other user id"/>
+    <button id="connect">Connect</button>
+    <span id="chatState"></span>
+  </div>
+  <div id="log" aria-live="polite"><div class="note">Turn on "/my/message-socket" in config_api, log in, enter the other user's id, then connect. Use a second browser profile as the other user.</div></div>
+  <form id="send"><textarea id="text" placeholder="Type a message, Enter to send" disabled></textarea><button id="sendBtn" disabled>Send</button></form>
+</main>
+<script>
+// everything this page keeps lives in one localStorage object: {access_token, refresh_token, username, peer_id}
+const STORE_KEY = "chat";
+const $ = (id) => document.getElementById(id);
+let ws = null, myId = null, isRefreshing = false, retryTimer = null, retryCount = 0;
+
+function store(patch) {
+  let data = {};
+  try { data = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) {}
+  if (patch === null) { try { localStorage.removeItem(STORE_KEY); } catch (e) {} return {}; }
+  if (patch) { data = {...data, ...patch}; try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (e) {} }
+  return data;
+}
+
+function note(text, isError) {
+  const el = document.createElement("div");
+  el.className = "note" + (isError ? " error" : "");
+  el.textContent = text;
+  $("log").appendChild(el);
+  $("log").scrollTop = $("log").scrollHeight;
+}
+
+function show(message) {
+  const el = document.createElement("div");
+  el.className = "msg " + (message.created_by_id === myId ? "mine" : "theirs");
+  el.textContent = message.description;
+  const time = document.createElement("time");
+  time.textContent = new Date(message.created_at).toLocaleString();
+  el.appendChild(time);
+  $("log").appendChild(el);
+  $("log").scrollTop = $("log").scrollHeight;
+}
+
+function render() {
+  const data = store(), signedIn = !!data.access_token, connected = !!ws && myId !== null;
+  $("login").hidden = signedIn;
+  $("chatBar").hidden = !signedIn;
+  $("logout").hidden = !signedIn;
+  $("status").textContent = signedIn ? data.username : "";
+  $("chatState").textContent = connected ? "connected as user " + myId + ", chatting with user " + $("peer").value : "";
+  $("chatState").className = connected ? "on" : "";
+  $("connect").textContent = connected ? "Disconnect" : "Connect";
+  $("connect").className = connected ? "secondary" : "";
+  $("peer").disabled = connected;
+  $("text").disabled = !connected;
+  $("sendBtn").disabled = !connected;
+  if (signedIn && data.peer_id && !$("peer").value) $("peer").value = data.peer_id;
+}
+
+async function api(path, options) {
+  const response = await fetch(path, options);
+  const body = await response.json().catch(() => ({status: 0, message: "HTTP " + response.status}));
+  if (body.status !== 1) throw Object.assign(new Error(body.message), {status: response.status});
+  return body.message;
+}
+
+async function login(event) {
+  event.preventDefault();
+  const payload = {username: $("username").value.trim(), password: $("password").value};
+  if ($("role").value) payload.role = parseInt($("role").value, 10);
+  try {
+    const token = await api("/auth/login-username-password", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload)});
+    store({access_token: token.access_token, refresh_token: token.refresh_token, username: payload.username});
+    $("password").value = "";
+    $("log").innerHTML = "";
+    note("Logged in. Enter the other user's id and connect.");
+    render();
+    if (store().peer_id) connect();
+  } catch (e) { note("Login failed: " + e.message, true); }
+}
+
+async function refreshToken() {
+  // the refresh token goes in the Authorization header of /my/token-refresh, which returns a new pair
+  const token = await api("/my/token-refresh", {method: "POST", headers: {Authorization: "Bearer " + store().refresh_token}});
+  store({access_token: token.access_token, refresh_token: token.refresh_token});
+}
+
+async function loadHistory(peerId) {
+  // history comes from the HTTP thread API; the socket only pushes new messages
+  const read = () => api("/my/message-thread?user_id=" + peerId + "&limit=50", {headers: {Authorization: "Bearer " + store().access_token}});
+  try {
+    let page;
+    try { page = await read(); }
+    catch (e) { if (e.status !== 401) throw e; await refreshToken(); page = await read(); }
+    page.obj_list.slice().reverse().forEach(show);
+    if (!page.obj_list.length) note("No earlier messages");
+  } catch (e) { note("History: " + e.message, true); }
+}
+
+function connect() {
+  clearTimeout(retryTimer); retryTimer = null;
+  const peerId = parseInt($("peer").value, 10);
+  if (!peerId) return note("Enter the other user's id", true);
+  store({peer_id: peerId});
+  $("log").innerHTML = "";
+  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/my/message-socket");
+  // the token goes in the first message, never in the URL, where proxies log it
+  ws.onopen = () => ws.send(JSON.stringify({token: store().access_token}));
+  ws.onmessage = async (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === "connected") {
+      myId = data.message.user_id;
+      retryCount = 0;
+      render();
+      await loadHistory(peerId);
+    } else if (data.type === "message") {
+      const m = data.message;
+      if ((m.created_by_id === myId && m.received_by_id === peerId) || (m.created_by_id === peerId && m.received_by_id === myId)) show(m);
+    } else if (data.type === "error") {
+      note(data.message, true);
+    }
+  };
+  ws.onclose = async (event) => {
+    ws = null; myId = null; render();
+    if (event.reason === "token expired" && !isRefreshing) {
+      // renew once with the refresh token and reconnect; if that fails, sign out
+      isRefreshing = true;
+      try { await refreshToken(); isRefreshing = false; return connect(); }
+      catch (e) { isRefreshing = false; logout(); return note("Session expired, log in again", true); }
+    }
+    if (event.code === 1000) return;
+    // 1001 going away, 1006 network drop, 1012 server restart, 1013 try again later: retry with backoff (2s, 4s, 8s ... up to 30s); Connect, Disconnect or Log out stops it
+    if ([1001, 1006, 1012, 1013].includes(event.code) && store().access_token) {
+      const delay = Math.min(2000 * 2 ** retryCount++, 30000);
+      note("Connection lost, retrying in " + delay / 1000 + "s", true);
+      retryTimer = setTimeout(connect, delay);
+      return;
+    }
+    note("Chat closed: " + (event.reason || "connection lost") + " (code " + event.code + ")", true);
+  };
+}
+
+function logout() {
+  clearTimeout(retryTimer); retryCount = 0;
+  if (ws) ws.close(1000);
+  store(null);
+  ws = null; myId = null;
+  $("peer").value = "";
+  $("log").innerHTML = "";
+  render();
+}
+
+$("login").onsubmit = login;
+// one button: Connect opens the chat with the typed user id; Disconnect closes it so the id can be changed
+$("connect").onclick = () => {
+  if (ws) { ws.close(1000); note("Disconnected"); return; }
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; retryCount = 0; }
+  connect();
+};
+$("logout").onclick = () => { logout(); note("Logged out"); };
+$("send").onsubmit = (event) => {
+  event.preventDefault();
+  const description = $("text").value.trim();
+  if (!description || !ws) return;
+  ws.send(JSON.stringify({received_by_id: parseInt($("peer").value, 10), description}));
+  $("text").value = "";
+};
+$("text").onkeydown = (event) => {
+  if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); $("send").requestSubmit(); }
+};
+render();
+if (store().access_token && store().peer_id) connect();
+</script>
+</body>
+</html>

@@ -27,6 +27,7 @@ Rules Atom enforces at import, startup, sync, and CI. Follow exactly.
 - `user_check_role: {"mode": m, "roles": [..]}` (403); `user_check_deactivated` / `user_check_deleted: {"mode": m}` block users with `deactivated_at` / `deleted_at` set.
 - `m`: `token` (claims in token, fastest, stale until re-login), `redis` (cached DB lookup), `realtime` (DB every request; admin and destructive routes), `inmemory` (startup snapshot, single worker).
 - `rate_limit: {"mode": "redis"|"inmemory", "limit": N, "window_sec": S}` per user or IP (429). `cache: {"mode": "redis"|"inmemory", "ttl_sec": S, "is_per_user": bool}` keyed by path and query; `is_per_user` for user-specific data.
+- WebSocket routes: `config_api` entry takes only `id` and `is_active` (other keys fail startup); the socket function checks `is_active` and authenticates itself (token as first message, like `/my/message-socket`).
 - `is_postgres_param: True` allows `?postgres=<name>` (sets `request.state.client_postgres`); `is_active: False` disables the route (404).
 - Caller: `request.state.user` = decoded token (`config_column_token_encode` columns: `id`, `role`, …) or `{}`. Use `request.state.user["id"]` for ownership; never take user id or role from params. Rules `config_api` cannot express (e.g. row ownership) go in a `func_*`.
 

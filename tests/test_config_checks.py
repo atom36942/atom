@@ -77,6 +77,28 @@ class DatabaseConfigCheckTests(unittest.TestCase):
                 func_check_runtime_config(app_state=runtime_state(value))
 
 
+class WebsocketConfigCheckTests(unittest.TestCase):
+    def app(self, socket_cfg, http_cfg=None):
+        app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
+        app.get("/x")(lambda: None)
+        async def socket(websocket): pass
+        app.websocket("/ws")(socket)
+        app.state.config_api = {"/x": http_cfg or {"id": 1, "is_token": False}, "/ws": socket_cfg}
+        app.state.config_uvicorn_workers = 1
+        return app
+
+    def test_websocket_entry_takes_only_id_and_is_active(self):
+        func_check_api_config(app=self.app({"id": 2}))
+        func_check_api_config(app=self.app({"id": 2, "is_active": False}))
+        for key, value in (("is_token", False), ("user_check_role", {"mode": "token", "roles": [1]}), ("rate_limit", {"mode": "inmemory", "limit": 5, "window_sec": 60})):
+            with self.subTest(key=key), self.assertRaisesRegex(Exception, f"websocket routes accept only id and is_active \\({key} is HTTP-only"):
+                func_check_api_config(app=self.app({"id": 2, key: value}))
+
+    def test_http_entry_still_needs_is_token(self):
+        with self.assertRaisesRegex(Exception, "/x missing required key: is_token"):
+            func_check_api_config(app=self.app({"id": 2}, http_cfg={"id": 1}))
+
+
 class WorkerConfigCheckTests(unittest.TestCase):
     def app(self, workers, cfg):
         app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)

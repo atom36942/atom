@@ -2,6 +2,7 @@
 import re
 import sys
 from fastapi import FastAPI
+from starlette.routing import WebSocketRoute
 from starlette.datastructures import State
 from .app import func_app_route_list
 
@@ -74,6 +75,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
     config_api = getattr(app.state, "config_api", {})
     if not isinstance(config_api, dict): raise Exception("config_api must be dict")
     route_paths = {route.path for route in func_app_route_list(app=app) if hasattr(route, "path")}
+    websocket_paths = {route.path for route in func_app_route_list(app=app) if isinstance(route, WebSocketRoute)}
     api_ids = []
     user_mode_allowed = ("redis", "realtime", "inmemory", "token")
     api_mode_allowed = ("redis", "inmemory")
@@ -101,6 +103,11 @@ def func_check_api_config(*, app: FastAPI) -> None:
         if api_id in api_ids: raise Exception(f"duplicate api id: {api_id}")
         api_ids.append(api_id)
         if "is_active" in cfg: flag_check(cfg["is_active"], f"{path} is_active")
+        if path in websocket_paths:
+            # the HTTP middleware never runs for websockets, so only id and is_active (checked inside the socket) mean anything
+            for key in cfg:
+                if key not in ("id", "is_active"): raise Exception(f"config_api {path}: websocket routes accept only id and is_active ({key} is HTTP-only; check it inside the socket)")
+            continue
         if "is_postgres_param" in cfg: flag_check(cfg["is_postgres_param"], f"{path} is_postgres_param")
         if "is_token" not in cfg: raise Exception(f"{path} missing required key: is_token")
         flag_check(cfg["is_token"], f"{path} is_token")
@@ -181,6 +188,8 @@ def func_check_api_config(*, app: FastAPI) -> None:
         if not isinstance(url, str) or not url.strip().lower().startswith(("redis://", "rediss://", "unix://")):
             raise Exception(f"{key} must be a valid Redis URL")
     workers = int(getattr(app.state, "config_uvicorn_workers", 1) or 1)
+    if workers > 1 and "/my/message-socket" in config_api and config_api["/my/message-socket"].get("is_active", True):
+        raise Exception(f"config_uvicorn_workers={workers}: /my/message-socket delivers only to sockets in the same worker; keep it inactive or run 1 worker")
     if workers > 1 and inmemory_list:
         raise Exception(f"config_uvicorn_workers={workers} needs state shared across workers; inmemory is per worker. Switch these to redis (user checks may also use realtime or token): {', '.join(inmemory_list)}")
     return None

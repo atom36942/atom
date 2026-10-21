@@ -709,11 +709,9 @@ Run schema initialization in a controlled deployment phase when possible rather 
 </details>
 
 <details>
-<summary><strong>Is the built-in `/websocket-test-create` endpoint ready for production use?</strong></summary>
+<summary><strong>Is the built-in `/my/message-socket` WebSocket ready for production use?</strong></summary>
 
-Treat it as a minimal example, not a complete chat or event system. The shipped endpoint accepts a text message, buffers it into the `test` table, and echoes the operation result. It does not authenticate the connection, enforce a role, manage rooms, or provide delivery guarantees.
-
-HTTP middleware and `config_api` policies do not automatically secure WebSocket connections. For production, add a custom WebSocket route that validates a token during connection setup, checks authorization for every subscribed resource, applies message-size and rate limits, and handles disconnects and backpressure. Use an external broker when messages must reach clients connected to different API instances.
+It is a live chat over the `message` table for a single worker: token sent as the first message, sender taken from the token, per-connection rate limit, size limit, and a cap on connections per user. It is off by default (`is_active: True` turns it on). It does not deliver across workers or servers, recheck deactivated or deleted users during a connection, or provide rooms and delivery receipts; offline users read messages through `/my/message-inbox` and `/my/message-thread`. See [messaging](messaging.md#live-chat-mymessage-socket-websocket). Its `config_api` entry accepts only `id` and `is_active`.
 
 </details>
 

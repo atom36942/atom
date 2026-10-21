@@ -2,8 +2,7 @@
 import math
 from typing import Any
 import orjson
-from fastapi import Request, WebSocket, WebSocketDisconnect
-from starlette.datastructures import State
+from fastapi import Request
 
 # function
 def func_query_bool_parse(value: Any, default: bool = False) -> bool:
@@ -212,18 +211,3 @@ async def func_converter_number(*, datatype: str, mode: str, x: str) -> Any:
         return "".join(decoded_chars[::-1][1:]) if decoded_chars else ""
     else:
         raise ValueError(f"invalid mode: {mode}")
-
-async def func_websocket_test_create(*, app_state: State, websocket: WebSocket) -> None:
-    """Demo websocket: each text message is buffered as a row in the test table and the create result is sent back; closes when its config_api entry is inactive."""
-    if not app_state.config_api.get(websocket.url.path, {}).get("is_active", True): return await websocket.close(code=1008, reason="endpoint disabled")
-    client_postgres = app_state.client_postgres_dict.get("master")
-    if not client_postgres: return await websocket.close(code=1011, reason="postgres client not initialized")
-    await websocket.accept()
-    buffer_limit = app_state.config_table.get("test", {}).get("buffer_limit", app_state.config_buffer_limit_default)
-    try:
-        while True:
-            message = await websocket.receive_text()
-            output = await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get("master", {}), cache_postgres_buffer=app_state.cache_postgres_buffer_create, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.config_column_regex, buffer_limit=buffer_limit, mode="buffer", table="test", obj_list=[{"title": message}])
-            await websocket.send_text(str(output))
-    except WebSocketDisconnect:
-        return None

@@ -298,6 +298,12 @@ Pre-cached SQL queries executed at startup.
 
 ---
 
+### `config_message_socket`
+
+Limits for the `/my/message-socket` live chat: `auth_timeout_sec` (5, wait for the first `{"token"}` message), `description_length_max` (4000), `rate_limit_per_minute` (60 messages per connection), `connection_per_user_max` (5 open sockets per user).
+
+---
+
 ### `config_table`
 
 Per-table operational settings map.

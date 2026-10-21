@@ -128,6 +128,8 @@ config_sql = {
 "profile_metadata": {},
 }
 
+config_message_socket = {"auth_timeout_sec": 5, "description_length_max": 4000, "rate_limit_per_minute": 60, "connection_per_user_max": 5}
+
 config_table = {
 "log_api": {"buffer_limit": 100},
 }
@@ -346,7 +348,6 @@ config_api = {
 "/openapi.json": {"id": 37, "is_token": False},
 "/static": {"id": 77, "is_token": False},
 "/pgweb": {"id": 99, "is_token": False},
-"/websocket-test-create": {"id": 38, "is_token": False, "is_active": False},
 # auth
 "/auth/login-password": {"id": 91, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 "/auth/signup-username-password": {"id": 39, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
@@ -370,6 +371,7 @@ config_api = {
 "/my/object-delete-all": {"id": 53, "is_token": True},
 "/my/message-inbox": {"id": 56, "is_token": True, "is_postgres_param": True},
 "/my/message-thread": {"id": 57, "is_token": True, "is_postgres_param": True},
+"/my/message-socket": {"id": 38, "is_active": False},
 "/my/object-create-mongodb": {"id": 58, "is_token": True},
 "/my/blob-preview-urls": {"id": 65, "is_token": True},
 "/my/blob-delete-all": {"id": 59, "is_token": True},

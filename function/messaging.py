@@ -2,9 +2,14 @@
 import asyncio
 import re
 from typing import Any
+import time
+from collections import deque
 import httpx
+import jwt
 import orjson
 from starlette.datastructures import State
+from starlette.websockets import WebSocket, WebSocketDisconnect
+from .auth import func_token_check_secret_key
 from .middleware import func_api_error
 
 # function
@@ -122,3 +127,71 @@ def func_message_order(*, order: str, cache_postgres_schema: dict) -> str:
         ordered_columns.add(parts[0])
     if "id" not in ordered_columns: order_list.append('"id" DESC')
     return ", ".join(order_list)
+
+async def func_message_socket_auth(*, websocket: WebSocket, config_token_secret_key: str, auth_timeout_sec: int) -> tuple:
+    """Read the first websocket message {"token": "<access token>"}; return (user_id, token_expires_at) or raise ValueError with the close reason."""
+    try: first = orjson.loads(await asyncio.wait_for(websocket.receive_text(), timeout=auth_timeout_sec))
+    except TimeoutError: raise ValueError("token not sent") from None
+    except orjson.JSONDecodeError: raise ValueError("first message must be {\"token\": \"...\"}") from None
+    token = first.get("token") if isinstance(first, dict) else None
+    if not isinstance(token, str) or not token: raise ValueError("first message must be {\"token\": \"...\"}")
+    func_token_check_secret_key(config_token_secret_key=config_token_secret_key)
+    try: payload = jwt.decode(token, str(config_token_secret_key), algorithms="HS256")
+    except jwt.ExpiredSignatureError: raise ValueError("token expired") from None
+    except jwt.PyJWTError: raise ValueError("invalid token") from None
+    if payload.get("type") != "access": raise ValueError("access token required")
+    user = orjson.loads(payload.get("data") or "{}")
+    if not isinstance(user, dict) or not isinstance(user.get("id"), int): raise ValueError("invalid token")
+    return user["id"], payload["exp"]
+
+async def func_message_socket_send(*, sockets: dict, user_ids: tuple, payload: dict) -> None:
+    """Push a payload to every open socket of the given users in this worker; a socket that fails is dropped."""
+    text = orjson.dumps(payload).decode()
+    for user_id in set(user_ids):
+        for socket in list(sockets.get(user_id, ())):
+            try: await socket.send_text(text)
+            except Exception: sockets.get(user_id, set()).discard(socket)
+    return None
+
+async def func_message_socket(*, app_state: State, websocket: WebSocket) -> None:
+    """Live chat over the message table: authenticate with a first {"token"} message, then each {"received_by_id", "description"} is saved and pushed to both users' open sockets."""
+    # accept before any close, so browsers receive the code and reason instead of a bare 1006 handshake failure
+    await websocket.accept()
+    if not app_state.config_api.get(websocket.url.path, {}).get("is_active", True): return await websocket.close(code=1008, reason="endpoint disabled")
+    client_postgres = app_state.client_postgres_dict.get("master")
+    if not client_postgres: return await websocket.close(code=1011, reason="postgres client not initialized")
+    limits = app_state.config_message_socket
+    try: user_id, token_expires_at = await func_message_socket_auth(websocket=websocket, config_token_secret_key=app_state.config_token_secret_key, auth_timeout_sec=limits["auth_timeout_sec"])
+    except ValueError as e: return await websocket.close(code=1008, reason=str(e))
+    sockets = app_state.runtime_message_socket
+    if len(sockets.get(user_id, ())) >= limits["connection_per_user_max"]: return await websocket.close(code=1008, reason="too many connections")
+    sockets.setdefault(user_id, set()).add(websocket)
+    sent_at = deque()
+    try:
+        await websocket.send_text(orjson.dumps({"type": "connected", "message": {"user_id": user_id}}).decode())
+        while True:
+            try: text = await asyncio.wait_for(websocket.receive_text(), timeout=max(token_expires_at - time.time(), 0))
+            except TimeoutError: return await websocket.close(code=1008, reason="token expired")
+            now = time.monotonic()
+            while sent_at and now - sent_at[0] > 60: sent_at.popleft()
+            try:
+                if len(sent_at) >= limits["rate_limit_per_minute"]: raise ValueError("rate limit exceeded")
+                ob = orjson.loads(text) if text else None
+                if not isinstance(ob, dict): raise ValueError("message must be {\"received_by_id\": int, \"description\": str}")
+                received_by_id, description = ob.get("received_by_id"), ob.get("description")
+                if not isinstance(received_by_id, int) or isinstance(received_by_id, bool) or received_by_id == user_id: raise ValueError("received_by_id must be another user's id")
+                if not isinstance(description, str) or not description.strip(): raise ValueError("description is required")
+                if len(description) > limits["description_length_max"]: raise ValueError(f"description is longer than {limits['description_length_max']} characters")
+                async with client_postgres.acquire() as conn:
+                    if not await conn.fetchval("SELECT 1 FROM users WHERE id=$1", received_by_id): raise ValueError("received_by_id not found")
+                    row = dict(await conn.fetchrow("INSERT INTO message (created_by_id, received_by_id, description) VALUES ($1, $2, $3) RETURNING *", user_id, received_by_id, description))
+            except (ValueError, orjson.JSONDecodeError) as e:
+                await websocket.send_text(orjson.dumps({"type": "error", "message": str(e) if isinstance(e, ValueError) else "invalid JSON"}).decode())
+                continue
+            sent_at.append(now)
+            await func_message_socket_send(sockets=sockets, user_ids=(user_id, received_by_id), payload={"type": "message", "message": row})
+    except WebSocketDisconnect:
+        return None
+    finally:
+        sockets.get(user_id, set()).discard(websocket)
+        if not sockets.get(user_id): sockets.pop(user_id, None)

@@ -1,5 +1,5 @@
 # import
-from fastapi import APIRouter, Request, WebSocket, responses
+from fastapi import APIRouter, Request, responses
 
 # router
 router = APIRouter()
@@ -30,10 +30,6 @@ async def func_api_openapi_json(*, request:Request):
     app_state = request.app.state
     return app_state.cache_openapi
     
-@router.websocket("/websocket-test-create")
-async def func_api_websocket_test_create(*, websocket: WebSocket):
-    await websocket.app.state.func_websocket_test_create(app_state=websocket.app.state, websocket=websocket)
-
 @router.post("/pgweb")
 async def func_api_pgweb(*, request: Request):
     app_state = request.app.state

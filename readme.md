@@ -142,6 +142,7 @@ See [sync details and recovery](docs/sync.md) for update behavior and recovery i
 Atom comes with zero-dependency, single-page web applications stored in `static/`:
 
 - ⚡ **API Master** (`static/api.html`) — Interactive API console, endpoint inspector, cURL importer, response viewer, and WebSocket tester served at `/`.
+- 💬 **Chat** (`static/chat.html`) — Reference client for the `/my/message-socket` live chat, served at `/static/chat.html`.
 - 🗃️ **PgWeb** (`static/pgweb.html`) — Built-in PostgreSQL database browser, schema inspector, and SQL query runner served at `/static/pgweb.html`.
 
 ## Structure

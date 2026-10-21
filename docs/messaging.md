@@ -24,6 +24,18 @@ Returns the **latest message per conversation** (one row per chat participant), 
 Fetches the full back-and-forth conversation with another participant:
 - Automatically marks incoming unread messages as read (`read_at = now()`).
 
+### Live Chat (`/my/message-socket` WebSocket):
+Off by default; turn it on with `"/my/message-socket": {"id": 38, "is_active": True}` in `config_extend.py`. WebSocket entries in `config_api` accept only `id` and `is_active` (startup fails on any other key, since the HTTP middleware never runs for WebSockets), so the socket authenticates itself:
+
+1. Connect to `ws://<host>/my/message-socket`, then send the access token as the first message (never in the URL, where proxies log it): `{"token": "<access_token>"}`. A missing (after `auth_timeout_sec`), invalid, expired, or refresh token closes with code 1008. Reply: `{"type": "connected", "message": {"user_id": 1}}`.
+2. Send `{"received_by_id": 42, "description": "Hello"}`. The row is inserted into `message` on master with `created_by_id` from the token, then `{"type": "message", "message": <row>}` is pushed to every open socket of both users. A recipient who is offline reads it later through the inbox and thread APIs, which stay the source of truth.
+3. Bad input, an unknown recipient, or the rate limit returns `{"type": "error", "message": "..."}` and keeps the connection open.
+4. When the access token expires, the socket closes with 1008 `token expired`; refresh with `/my/token-refresh` and reconnect.
+
+Reference client: `/static/chat.html`. Log in with username and password (`/auth/login-username-password`), enter the other user's id, and chat; it loads history from `/my/message-thread`, shows new messages live, and renews an expired access token with `/my/token-refresh` before reconnecting. It keeps `{access_token, refresh_token, username, peer_id}` in one localStorage key, `chat` (never the password), so a reload reconnects; Log out clears it. localStorage is per browser, so use a second browser profile for the other user.
+
+Limits come from `config_message_socket` (`auth_timeout_sec`, `description_length_max`, `rate_limit_per_minute`, `connection_per_user_max`). Delivery reaches sockets in the same worker only, so startup fails if the socket is active with `config_uvicorn_workers` > 1. Account status (deactivated or deleted) is not rechecked during a connection.
+
 ---
 
 ## 2. In-App Notifications
