@@ -325,6 +325,17 @@ Enumerated option lists for frontend UI dropdowns exposed via `/info`.
 | Dropdown Key | Values | Usage |
 |---|---|---|
 | `gender` | `["male", "female"]` | Option list for gender dropdown selector |
+| `country` | `"files/country.txt"` | 249 countries (ISO 3166), loaded from the file |
+| `country_dial_code` | `"files/country_dial_code.json"` | 244 countries with phone codes: `{"code": "IN", "name": "India", "dial_code": "+91"}` (uninhabited territories without a code are left out) |
+| `currency` | `"files/currency.json"` | 154 active ISO 4217 currencies: `{"code": "INR", "name": "Indian Rupee", "symbol": "₹"}` |
+
+A value can be a list or a file path (relative to the project root, wherever the app is started from): `.txt` holds one item per line (blank lines skipped), `.json` holds a JSON list. Files load once at startup, after `config_extend.py` and `.env`, so `/info` always returns lists. A missing file, another extension, or invalid JSON stops startup. Keep project files in `files_extend/`:
+
+```python
+# config_extend.py
+from config import config_dropdown as base_config_dropdown
+config_dropdown = {**base_config_dropdown, "city": "files_extend/city.txt"}
+```
 
 ---
 

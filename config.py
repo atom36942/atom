@@ -130,7 +130,7 @@ config_column_regex = {
 "password": ["^(?=.{6,120}\\Z)\\S+\\Z", "Password must be 6-120 characters and contain no spaces"],
 }
 
-config_dropdown = {"gender": ["male", "female"],}
+config_dropdown = {"gender": ["male", "female"], "country": "files/country.txt", "country_dial_code": "files/country_dial_code.json", "currency": "files/currency.json"}
 
 config_column_int_mapping = {
 "test": {
@@ -425,5 +425,5 @@ config_api = {
 }
 
 # override
-from function.config import func_config_load_env
-func_config_load_env(global_dict=globals())
+from function.config import func_config_load
+func_config_load(global_dict=globals())

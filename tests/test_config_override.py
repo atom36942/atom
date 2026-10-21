@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from function.config import func_config_load_env
+from function.config import func_config_load
 
 
 def override(env, **config):
@@ -13,7 +13,7 @@ def override(env, **config):
     previous_cwd = os.getcwd()
     with tempfile.TemporaryDirectory() as workdir, patch.dict(os.environ, env, clear=True):
         os.chdir(workdir)
-        try: func_config_load_env(global_dict=global_dict)
+        try: func_config_load(global_dict=global_dict)
         finally: os.chdir(previous_cwd)
     return global_dict
 
@@ -46,6 +46,23 @@ class ConfigOverrideTests(unittest.TestCase):
         for key in ("config_postgres_url_", "config_redis_url_", "config_clickhouse_url_", "config_mssql_url_"):
             with self.subTest(key=key), self.assertRaisesRegex(ValueError, f"{key} needs a name"):
                 override({key: "x"})
+
+    def test_dropdown_file_paths_load_into_lists(self):
+        with tempfile.TemporaryDirectory() as folder:
+            txt, js = os.path.join(folder, "city.txt"), os.path.join(folder, "currency.json")
+            with open(txt, "w") as file: file.write("Pune\n\n Delhi \n")
+            with open(js, "w") as file: file.write('["INR", "USD"]')
+            result = override({}, config_dropdown={"gender": ["male"], "city": txt, "currency": js})
+        self.assertEqual(result["config_dropdown"], {"gender": ["male"], "city": ["Pune", "Delhi"], "currency": ["INR", "USD"]})
+
+    def test_dropdown_bad_file_stops_loading(self):
+        with tempfile.TemporaryDirectory() as folder:
+            bad_json, not_list = os.path.join(folder, "a.json"), os.path.join(folder, "b.json")
+            with open(bad_json, "w") as file: file.write("[")
+            with open(not_list, "w") as file: file.write("{}")
+            for path, message in ((os.path.join(folder, "missing.txt"), "file not found"), (os.path.join(folder, "x.csv"), "use a .txt or .json"), (bad_json, "invalid JSON"), (not_list, "must hold a JSON list")):
+                with self.subTest(message=message), self.assertRaisesRegex(ValueError, f"config_dropdown 'city': .*{message}|config_dropdown 'city': {message}"):
+                    override({}, config_dropdown={"city": path})
 
     def test_clickhouse_urls_fill_the_named_dict(self):
         result = override({"config_clickhouse_url_master": "clickhouse://m", "CONFIG_CLICKHOUSE_URL_EVENTS": "clickhouse://e"})

@@ -5,8 +5,20 @@ import orjson
 from dotenv import load_dotenv
 
 # function
-def func_config_load_env(*, global_dict: dict) -> None:
-    """Override config_* values in global_dict from .env and the environment; config_postgres_url_<name>, config_redis_url_<name>, config_clickhouse_url_<name>, and config_mssql_url_<name> fill the matching *_url_dict."""
+def func_config_dropdown_file_read(*, key: str, path: str) -> list:
+    """Read a config_dropdown file, relative to the project root whatever the working directory: .txt one item per line (blank lines skipped) or .json list."""
+    if not path.endswith((".txt", ".json")): raise ValueError(f"config_dropdown '{key}': use a .txt or .json file, got {path}")
+    full_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), path)
+    if not os.path.isfile(full_path): raise ValueError(f"config_dropdown '{key}': file not found {path}")
+    with open(full_path, encoding="utf-8") as file: text = file.read()
+    if path.endswith(".txt"): return [line.strip() for line in text.splitlines() if line.strip()]
+    try: items = orjson.loads(text)
+    except orjson.JSONDecodeError: raise ValueError(f"config_dropdown '{key}': invalid JSON in {path}") from None
+    if not isinstance(items, list): raise ValueError(f"config_dropdown '{key}': {path} must hold a JSON list")
+    return items
+
+def func_config_load(*, global_dict: dict) -> None:
+    """Override config_* values in global_dict from .env and the environment; config_postgres_url_<name>, config_redis_url_<name>, config_clickhouse_url_<name>, and config_mssql_url_<name> fill the matching *_url_dict; a config_dropdown value that is a file path is loaded into its list."""
     load_dotenv(".env")
     env = {k.lower(): v for k, v in os.environ.items()}
     env.update({k: v for k, v in os.environ.items() if k == k.lower()})
@@ -49,4 +61,6 @@ def func_config_load_env(*, global_dict: dict) -> None:
                 if not isinstance(global_dict.get(dict_key), dict):
                     global_dict[dict_key] = {}
                 global_dict[dict_key][k.removeprefix(prefix)] = v
+    dropdown = global_dict.get("config_dropdown")
+    if isinstance(dropdown, dict): global_dict["config_dropdown"] = {key: func_config_dropdown_file_read(key=key, path=value) if isinstance(value, str) else value for key, value in dropdown.items()}
     return None
