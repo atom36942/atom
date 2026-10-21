@@ -11,7 +11,6 @@ router = APIRouter()
 @router.post("/admin/blob-container-sas")
 async def func_api_admin_blob_container_sas(*, request: Request):
     app_state = request.app.state
-    # Container SAS grants access beyond one user's prefix, so require a current admin role.
     await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role={"mode": "realtime", "roles": [1]}, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=0)
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services}, {"name": "container", "type": "str", "required": True}])
     if oq["service"] == "s3":
