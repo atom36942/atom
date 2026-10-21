@@ -272,6 +272,8 @@ curl -X POST http://localhost:8000/my/ping \
   -H "Authorization: Bearer <access_token>"
 ```
 
+`GET /my/profile` also updates `last_active_at` by default, in the background on the master database, so apps that load the profile on open get it for free; set `config_is_profile_update_last_active_at = False` to turn that off.
+
 Call it on a reasonable interval—such as every few minutes while the app is focused—instead of on every mouse movement or keystroke. Stop pinging when the user logs out or the app becomes inactive.
 
 </details>

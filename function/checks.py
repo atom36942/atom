@@ -1,5 +1,6 @@
 # import
 import re
+import sys
 from fastapi import FastAPI
 from starlette.datastructures import State
 from .app import func_app_route_list
@@ -202,8 +203,18 @@ async def func_check_postgres_connections(*, app_state: State, client_postgres_d
             print(f"⚠️ postgres {name}: {workers} workers x {pool_max} pool max x {len(client_postgres_dict)} pools = up to {needed} connections, above max_connections {max_connections} minus {reserved} reserved; lower config_postgres_pool_max_size or config_uvicorn_workers")
     return None
 
+def func_check_config_extend_alias(*, config_module, config_extend_module) -> None:
+    """Stop startup when config_extend.py names an imported base value config_*: every config_* name is read as a setting, so aliases must not start with config_."""
+    if config_module is None or config_extend_module is None: return None
+    base = {id(value): key for key, value in vars(config_module).items() if key.startswith("config_") and isinstance(value, (dict, list, set, tuple))}
+    for key, value in vars(config_extend_module).items():
+        if key.startswith("config_") and key not in vars(config_module) and id(value) in base:
+            raise Exception(f"config_extend.py: {key} is an alias of {base[id(value)]}; name it base_{base[id(value)]} (names starting with config_ are read as settings)")
+    return None
+
 def func_check(*, app: FastAPI) -> None:
     """Validate database, runtime, and API configuration before client initialization."""
+    func_check_config_extend_alias(config_module=sys.modules.get("config"), config_extend_module=sys.modules.get("config_extend"))
     func_check_database_config(app_state=app.state)
     func_check_runtime_config(app_state=app.state)
     func_check_api_config(app=app)

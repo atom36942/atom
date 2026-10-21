@@ -2,16 +2,18 @@
 from copy import deepcopy
 from config import config_postgres as base_config_postgres
 from config import config_api as base_config_api
-from config import config_column_int_mapping as base_int_mapping
+from config import config_column_int_mapping as base_config_column_int_mapping
+from config import config_dropdown as base_config_dropdown
+
 
 # misc
 config_table_private_read_allowed = ["test", "task", "task_comment"]
 
 #column int mapping
 config_column_int_mapping = {
-**base_int_mapping,
+**base_config_column_int_mapping,
 "users": {
-**base_int_mapping["users"],
+**base_config_column_int_mapping["users"],
 "role": {1: "Admin", 4: "Pulse"},
 },
 "task": {
@@ -21,6 +23,10 @@ config_column_int_mapping = {
 "jobseeker": {
 "worker_status": {None: "Pending", 1: "Processing", 2: "Completed", 3: "Failed", 4: "Dead"},
 },
+}
+
+config_dropdown={
+**base_config_dropdown,
 }
 
 # config postgres

@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from fastapi import FastAPI
 
-from function import func_check_api_config, func_check_database_config, func_check_log_api_table, func_check_runtime_config
+from function import func_check_api_config, func_check_config_extend_alias, func_check_database_config, func_check_log_api_table, func_check_runtime_config
 
 URL = "postgresql://user@localhost:5432/db"
 
@@ -12,6 +12,20 @@ URL = "postgresql://user@localhost:5432/db"
 def state(**changes):
     return SimpleNamespace(**({"config_postgres_pool_min_size": 1, "config_postgres_pool_max_size": 5, "config_postgres_url_dict": {},
                                "config_postgres_db_log_api": "master"} | changes))
+
+
+class ConfigExtendAliasTests(unittest.TestCase):
+    def test_alias_starting_with_config_is_rejected(self):
+        base = SimpleNamespace(config_dropdown={"gender": []}, config_is_prod=True)
+        with self.assertRaisesRegex(Exception, "config_dropdown_base is an alias of config_dropdown; name it base_config_dropdown"):
+            func_check_config_extend_alias(config_module=base, config_extend_module=SimpleNamespace(config_dropdown_base=base.config_dropdown))
+
+    def test_normal_extend_names_pass(self):
+        base = SimpleNamespace(config_dropdown={"gender": []}, config_is_prod=True)
+        extend = SimpleNamespace(base_config_dropdown=base.config_dropdown, config_dropdown={**base.config_dropdown}, config_new_flag=True, config_new_list=[1])
+        func_check_config_extend_alias(config_module=base, config_extend_module=extend)
+        func_check_config_extend_alias(config_module=base, config_extend_module=SimpleNamespace(config_dropdown=base.config_dropdown))
+        func_check_config_extend_alias(config_module=base, config_extend_module=None)
 
 
 class DatabaseConfigCheckTests(unittest.TestCase):

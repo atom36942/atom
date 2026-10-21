@@ -120,6 +120,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_login_allowed_roles` | Allowed values for the supplied login `role` parameter (default: roles `1` through `20`; optional for password login) |
 | `config_is_otp_require_users_update` | Boolean requiring OTP verification when updating user contact details |
 | `config_is_read_only` | Boolean system-wide read-only mode toggle |
+| `config_is_profile_update_last_active_at` | `GET /my/profile` also sets the user's `last_active_at` in the background without delaying the response, always on the master database even when `?postgres=` reads the profile from a replica (default: `True`; skipped when `config_is_read_only`) |
 | `config_is_pgweb_enabled` | Enable the PgWeb SQL console at `/pgweb` (default: `False`). Turn on only on a developer machine; even then it accepts only direct localhost requests from its own page |
 | `config_is_prod` | Boolean production-mode toggle (`True` disables debug and protects endpoints) |
 | `config_postgres_db_log_api` | Named Postgres database for API logging (default: `master`) |

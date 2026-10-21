@@ -141,6 +141,12 @@ async def func_otp_verify(*, client_postgres: asyncpg.Pool | None, otp: int, ema
         await conn.execute("DELETE FROM otp WHERE id = $1;", records[0]["id"])
     return "done"
 
+async def func_user_last_active_update(*, client_postgres: asyncpg.Pool | None, user_id: int) -> None:
+    """Set users.last_active_at to now for one user; pass the master pool, since read replicas cannot write."""
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
+    await client_postgres.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id)
+    return None
+
 async def func_user_read_single(*, client_postgres: asyncpg.Pool | None, user_id: int) -> dict:
     """Read a single user by ID from PostgreSQL, raises Exception if not found."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)

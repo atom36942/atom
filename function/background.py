@@ -7,6 +7,17 @@ import asyncpg
 from starlette.datastructures import State
 
 # function
+def func_background_run(*, app_state: State, coroutine: Any) -> None:
+    """Run a coroutine without blocking the response; tracked so shutdown waits for it, failures counted under background_task."""
+    async def run():
+        try: await coroutine
+        except asyncio.CancelledError: raise
+        except Exception as e: func_runtime_error_record(runtime_error_count=app_state.runtime_error_count, key="background_task", error=e)
+    task = asyncio.create_task(run())
+    app_state.runtime_background_tasks.add(task)
+    task.add_done_callback(app_state.runtime_background_tasks.discard)
+    return None
+
 def func_runtime_error_record(*, runtime_error_count: dict, key: str, error: Exception, print_every: int = 1) -> None:
     """Count a background failure (shown by /admin/runtime-status) and print it; print_every > 1 thins out per-request errors."""
     runtime_error_count[key] = runtime_error_count.get(key, 0) + 1

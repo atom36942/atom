@@ -21,13 +21,13 @@ async def func_api_my_profile(*, request: Request):
     for column in app_state.config_column_read_blocked or ["password"]: user.pop(column, None)
     metadata = {k: [dict(r) for r in await request.state.client_postgres.fetch(v, user_id)] for k, v in app_state.config_sql.get("profile_metadata", {}).items()}
     user["metadata"] = metadata
+    if app_state.config_is_profile_update_last_active_at and not app_state.config_is_read_only: app_state.func_background_run(app_state=app_state, coroutine=app_state.func_user_last_active_update(client_postgres=app_state.client_postgres_dict.get("master"), user_id=user_id))
     return {"status": 1, "message": user}
 
 @router.post("/my/ping")
 async def func_api_my_ping(*, request: Request):
     app_state = request.app.state
-    if not request.state.client_postgres: raise app_state.func_api_error(message="postgres client not initialized", status_code=500)
-    await request.state.client_postgres.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", request.state.user["id"])
+    await app_state.func_user_last_active_update(client_postgres=app_state.client_postgres_dict.get("master"), user_id=request.state.user["id"])
     return {"status": 1, "message": "pong"}
 
 @router.post("/my/token-refresh")

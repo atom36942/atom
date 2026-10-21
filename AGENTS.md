@@ -9,7 +9,7 @@ Rules Atom enforces at import, startup, sync, and CI. Follow exactly.
 - One rule: Atom owns every unsuffixed path; the project owns `<name>_extend` (`router_extend/`, `function_extend/`, `files_extend/`, `static_extend/`, `script_extend/`, `tests_extend/`, `docs_extend/`, `config_extend.py`). Shared: `.env` (project), `requirements.txt` (merged), `.github/` (per repo).
 1. API → `router_extend/<feature>.py` (`router = APIRouter()`): read params, call a `func_*`, return. No business logic.
 2. Logic → `function_extend/<feature>.py`: `func_*` business logic and helpers reused by several APIs; available as `app_state.func_*`.
-3. Files → `files_extend/`: anything extra the project needs: constants and `param_specs` reused across APIs (Python modules imported as `files_extend.<module>`), JSON, prompts, templates, and other files (read by path from the project root). Web assets → `static_extend/`, served at `/static/<name>` with Atom's `static/` (same name in both stops startup).
+3. Files → `files_extend/`: anything extra the project needs: constants and `param_specs` reused across APIs (Python modules imported as `files_extend.<module>`), JSON, prompts, templates, and other files (read by path from the project root). Web assets → `static_extend/`, served at `/static/<name>` with Atom's `static/` (same name in both stops startup). `/static_extend/...` is not a URL; no `.env` setting; restart after creating the folder.
 4. Config → `config_extend.py`: `config_api` policy, new tables in `config_postgres["table"]` (column spec: `docs/extend.md` "Add or change database tables"), `config_*` settings.
 5. Jobs → `script_extend/`, never `script/` (enqueue from a route with `app_state.func_producer`, `docs/queue.md`); tests → `tests_extend/` (with `__init__.py`; never `tests/`, which is Atom's); docs → `docs_extend/`; packages → append to `requirements.txt` pinned `==`.
 - Request path: middleware applies `config_api` → route → `func_*` (with `files_extend/` and core helpers) → DB → `{"status": 1, "message": ...}`.
@@ -19,7 +19,7 @@ Rules Atom enforces at import, startup, sync, and CI. Follow exactly.
 
 ## config_extend.py
 - Extend, never replace; define each `config_*` once (no auto-merge); `deepcopy` nested dicts:
-  `config_api = {**base_config_api, "/order/read": {"id": 200, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}}}` with `from config import config_api as base_config_api`.
+  `config_api = {**base_config_api, "/order/read": {"id": 200, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}}}` with `from config import config_api as base_config_api`. Import base values as `base_config_*`, never under another `config_*` name (every `config_*` is read as a setting; startup fails).
 - Every route needs a `config_api` entry with a unique `id` (200+ for project routes); startup fails on a missing entry, an entry without a route, or a repeated ID.
 
 ## config_api: the middleware enforces it before the route runs; never code these checks in a route

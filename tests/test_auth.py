@@ -10,6 +10,7 @@ from argon2 import PasswordHasher
 import jwt
 
 from function import (
+    func_user_last_active_update, func_background_run,
     func_auth_check_config, func_auth_login_password,
     func_auth_signup_password, func_auth_user_find_or_create,
     func_otp_verify, func_token_encode, func_token_decode,
@@ -20,6 +21,25 @@ from router.auth import router
 
 
 class AuthTests(unittest.IsolatedAsyncioTestCase):
+    async def test_last_active_update_writes_to_the_given_pool(self):
+        pool = SimpleNamespace(execute=AsyncMock())
+        await func_user_last_active_update(client_postgres=pool, user_id=7)
+        pool.execute.assert_awaited_once_with("UPDATE users SET last_active_at=NOW() WHERE id=$1", 7)
+        with self.assertRaisesRegex(Exception, "postgres client not initialized"):
+            await func_user_last_active_update(client_postgres=None, user_id=7)
+
+    async def test_background_run_is_tracked_and_counts_failures(self):
+        app_state = SimpleNamespace(runtime_background_tasks=set(), runtime_error_count={"background_task": 0})
+        done = asyncio.Event()
+        async def work(): done.set()
+        async def fail(): raise RuntimeError("db down")
+        func_background_run(app_state=app_state, coroutine=work())
+        func_background_run(app_state=app_state, coroutine=fail())
+        self.assertEqual(len(app_state.runtime_background_tasks), 2)
+        await asyncio.wait_for(done.wait(), 1)
+        for _ in range(5): await asyncio.sleep(0)
+        self.assertEqual((app_state.runtime_background_tasks, app_state.runtime_error_count["background_task"]), (set(), 1))
+
     def setUp(self):
         self.pool, self.conn = database()
         self.hasher = PasswordHasher(time_cost=1, memory_cost=1024, parallelism=1)

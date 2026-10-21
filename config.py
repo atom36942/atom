@@ -37,54 +37,61 @@ config_kafka_password = None
 config_rabbitmq_url = None
 config_celery_url = None
 
-# system
-config_root_user_password = None
-config_login_password = None
-config_token_secret_key = None
-config_root_html_path = "static/api.html"
-config_is_user_delete = False
-config_is_postgres_schema_init = True
-config_signup_allowed_roles = []
-config_login_allowed_roles = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-config_is_otp_require_users_update = False
-config_is_read_only = False
-config_is_pgweb_enabled = False
+# app
 config_is_prod = True
+config_is_read_only = False
 config_is_tmp_reset = True
 config_uvicorn_workers = 1
-config_postgres_pool_min_size = 5
-config_postgres_pool_max_size = 20
-config_otp_length = 6
-config_otp_expiry_sec = 600
-config_otp_static = None
-config_otp_max_attempt = 5
-config_otp_retention_day = 1
-config_log_api_retention_day = 30
-config_access_token_expires_sec = 604800
-config_refresh_token_expires_sec = 2592000
-config_blob_limit_size_kb = 500
-config_blob_limit_upload = 100
-config_blob_expire_sec_upload = 3600
-config_blob_expire_sec_preview = 360000
-config_buffer_limit_default = 100
-config_buffer_rows_max = 100000
-config_postgres_buffer_flush_auto_sec = 60
-config_inmemory_cache_cleanup_auto_sec = 300
-config_batch_item_limit = 1000
-config_sql_read_limit_default = 100
-config_sql_read_limit_max = 10000
-config_sql_read_relation_fetch_limit_max = 100
-config_query_runner_read_limit = 5000
-config_export_limit = 50000
+config_root_html_path = "static/api.html"
+config_is_pgweb_enabled = False
 config_redis_cache_ttl_sec = 3600
-config_users_delete_retention_day = 30
+config_inmemory_cache_cleanup_auto_sec = 300
 config_cors_allow_origins = []
 config_cors_allow_origin_regex = None
 config_cors_allow_methods = ["*"]
 config_cors_allow_headers = ["*"]
 config_cors_expose_headers = ["*"]
 config_cors_allow_credentials = True
+
+# auth
+config_root_user_password = None
+config_login_password = None
+config_token_secret_key = None
+config_access_token_expires_sec = 604800
+config_refresh_token_expires_sec = 2592000
+config_signup_allowed_roles = []
+config_login_allowed_roles = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+config_otp_length = 6
+config_otp_expiry_sec = 600
+config_otp_static = None
+config_otp_max_attempt = 5
+config_otp_retention_day = 1
+config_is_otp_require_users_update = False
+config_is_user_delete = False
+config_users_delete_retention_day = 30
+config_is_profile_update_last_active_at = True
+
+# postgres
+config_is_postgres_schema_init = True
+config_postgres_pool_min_size = 5
+config_postgres_pool_max_size = 20
 config_postgres_db_log_api = "master"
+config_log_api_retention_day = 30
+config_buffer_limit_default = 100
+config_buffer_rows_max = 100000
+config_postgres_buffer_flush_auto_sec = 60
+config_batch_item_limit = 1000
+config_sql_read_limit_default = 100
+config_sql_read_limit_max = 10000
+config_sql_read_relation_fetch_limit_max = 100
+config_query_runner_read_limit = 5000
+config_export_limit = 50000
+
+# blob
+config_blob_limit_size_kb = 500
+config_blob_limit_upload = 100
+config_blob_expire_sec_upload = 3600
+config_blob_expire_sec_preview = 360000
 
 # service
 config_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
