@@ -286,9 +286,10 @@ def func_app_cors_add(*, app: FastAPI, allow_origins: list = None, allow_origin_
     if not allow_origins and not allow_origin_regex: return
     app.add_middleware(CORSMiddleware, allow_origins=allow_origins or [], allow_origin_regex=allow_origin_regex, allow_methods=allow_methods or ["*"], allow_headers=allow_headers or ["*"], expose_headers=expose_headers or ["*"], allow_credentials=allow_credentials)
 
-def func_app_fastapi_create(*, config_is_prod: bool = True, lifespan: Any = None):
-    """Create and configure the primary FastAPI application instance."""
-    return FastAPI(debug=not config_is_prod, lifespan=lifespan, openapi_url=None, docs_url=None, redoc_url=None)
+def func_app_fastapi_create(*, config_is_prod: bool = True, lifespan: Any = None, config_is_fastapi_telemetry: bool = False):
+    """Create the FastAPI app; FastAPI's native OpenTelemetry stays off unless config_is_fastapi_telemetry, so requests skip its per-request provider lookup."""
+    telemetry = None if config_is_fastapi_telemetry else {"tracing": False, "metrics": False, "logs": False}
+    return FastAPI(debug=not config_is_prod, lifespan=lifespan, openapi_url=None, docs_url=None, redoc_url=None, telemetry=telemetry)
 
 def func_structure_init(*, dir_list: tuple = ("tmp", "secret"), is_tmp_reset: bool = True) -> None:
     """Optionally reset working tmp/ directory and ensure required application directories exist."""

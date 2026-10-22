@@ -69,3 +69,7 @@ Without SQL access, admins can read the same report from `GET /admin/postgres-sl
 ## 5. Token Cache
 
 Every request with a token was verified by PyJWT, about 18–34 µs each. `config_token_cache_max` (default `10000` per worker, about 9 MB when full) keeps verified tokens until their own `exp`, so repeat requests take about 0.2 µs. In an A/B load test on one worker, `/info` went from 3,702 to 4,710 req/s (+27%) and `/my/object-read` from 1,946 to 2,302 req/s (+18%). Over the cap, the oldest entry is dropped and its next request is verified again, so speed falls back toward the uncached rate but results never change. Set it to `0` to verify every request: nothing is stored and behaviour matches having no cache (same results, uncached speed). Use `0` while debugging auth, when a project adds token revocation (such as "log out everywhere") and wants every request checked, or on very tight memory. Set it in `config_extend.py` (`config_token_cache_max = 0`) or `.env` (`config_token_cache_max=0`); a negative or non-integer value stops startup.
+
+## 6. FastAPI Telemetry
+
+FastAPI ships native OpenTelemetry support and, by default, checks on every request whether an OpenTelemetry backend is configured (about 2.3 µs). Atom turns it off with `config_is_fastapi_telemetry = False`, which drops that check to about 0.07 µs, roughly a 1% gain. Set it to `True` only when you configure an OpenTelemetry provider.

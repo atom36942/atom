@@ -44,6 +44,7 @@ config_is_tmp_reset = True
 config_uvicorn_workers = 1
 config_root_html_path = "static/api.html"
 config_is_pgweb_enabled = False
+config_is_fastapi_telemetry = False
 config_redis_cache_ttl_sec = 3600
 config_inmemory_cache_cleanup_auto_sec = 300
 config_cors_allow_origins = []
