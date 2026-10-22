@@ -84,7 +84,7 @@ SHUTDOWN → stop background tasks → final buffer flush → close every client
 
 ## 4. Single HTTP Middleware Pipeline
 
-Every HTTP request to Atom passes through **one** unified HTTP middleware in `main.py` (`@app.middleware("http")`). The middleware orchestrates cross-cutting concerns, delegating logic to pure functions:
+Every HTTP request to Atom passes through **one** unified plain ASGI middleware in `main.py` (`app.add_middleware(middleware)`; about a third faster than `@app.middleware("http")`, see [performance.md](performance.md#7-asgi-middleware)). WebSockets skip it. The middleware orchestrates cross-cutting concerns, delegating logic to pure functions:
 
 ```
 Request
@@ -106,13 +106,12 @@ Request
   │
   ├── 9. Request Dispatch:
   │      ├── Background mode (?is_background=true) ──▶ Schedule & return 202
-  │      └── Direct execution ──▶ Execute route handler (await api_function(request))
+  │      └── Direct execution ──▶ Execute route handler inline (await asgi_app(scope, receive, send_wrapped))
   │
   ├── 10. Error Handling (catches exceptions, formats envelope, logs to Sentry)
-  ├── 11. Cache Store (stores response if route policy has cache enabled)
-  ├── 12. API Audit Logging (buffers one log_api row into cache_postgres_buffer_log_api)
-  ├── 13. Security Headers (attaches nosniff, DENY, strict-origin)
-  └── Return HTTP Response
+  ├── 11. Cache Store (stores a 200 body if route policy has cache enabled)
+  ├── 12. Security Headers (added by the wrapped send on every response)
+  └── 13. API Audit Logging (after the response is sent, buffers one log_api row into cache_postgres_buffer_log_api)
 ```
 
 ### Baseline Security Headers Attached:

@@ -14,12 +14,16 @@ from function import (
     func_clickhouse_query_runner_read_export, func_clickhouse_client_read, func_postgres_relation,
     func_blob_upload_file, func_blob_preview_urls_get, func_blob_upload_url,
     func_middleware_log_query_params, func_middleware_api_response_error,
-    func_middleware_check_role, func_middleware_client_ip,
+    func_middleware_check_role, func_middleware_client_ip, func_middleware_security_headers,
 )
 from tests.support import database
 
 
 class SecurityTests(unittest.IsolatedAsyncioTestCase):
+    def test_security_headers_are_added_without_replacing_route_headers(self):
+        headers = func_middleware_security_headers(headers=[(b"content-type", b"text/csv"), (b"X-Frame-Options", b"SAMEORIGIN")])
+        self.assertEqual(headers, [(b"content-type", b"text/csv"), (b"X-Frame-Options", b"SAMEORIGIN"), (b"x-content-type-options", b"nosniff"), (b"referrer-policy", b"strict-origin-when-cross-origin"), (b"x-xss-protection", b"0")])
+
     def test_client_ip_trusts_forwarded_header_only_from_private_proxies(self):
         def ip(connection, forwarded=None):
             headers = Headers({"X-Forwarded-For": forwarded} if forwarded is not None else {})

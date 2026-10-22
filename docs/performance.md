@@ -73,3 +73,7 @@ Every request with a token was verified by PyJWT, about 18–34 µs each. `confi
 ## 6. FastAPI Telemetry
 
 FastAPI ships native OpenTelemetry support and, by default, checks on every request whether an OpenTelemetry backend is configured (about 2.3 µs). Atom turns it off with `config_is_fastapi_telemetry = False`, which drops that check to about 0.07 µs, roughly a 1% gain. Set it to `True` only when you configure an OpenTelemetry provider.
+
+## 7. ASGI Middleware
+
+The `config_api` middleware in `main.py` is plain ASGI (`app.add_middleware(middleware)`), not `@app.middleware("http")`. The decorator form runs every route in a separate task and copies the response through a stream; plain ASGI runs the route inline and watches the response through a wrapped `send`. In an A/B load test on one worker, `/info` went from 4,924 to 6,564 req/s (+33%), `/public/object-read` from 2,164 to 2,898 (+34%) and `/my/object-read` from 2,302 to 3,096 (+34%); `/info` p99 fell from about 77 ms to about 11 ms. Behaviour notes: only routes with `cache` in `config_api` have their body copied (others, like CSV exports, stream straight through), and only status 200 is stored; security headers are added to every response; the `log_api` row is buffered after the response is sent; an error raised after a response has started is logged but cannot replace it.

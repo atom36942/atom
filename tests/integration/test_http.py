@@ -138,6 +138,19 @@ class HttpIntegrationTests(unittest.TestCase):
         self.assertEqual(second.headers.get("x-cache"), "hit")
         self.assertEqual(first.json(), second.json())
 
+    def test_only_successful_responses_are_cached(self):
+        params = {"table": "no_such_table"}
+        first, second = self.client.get("/public/object-read", params=params), self.client.get("/public/object-read", params=params)
+        self.assertEqual((first.status_code, second.status_code), (400, 400))
+        self.assertNotEqual(second.headers.get("x-cache"), "hit")
+
+    def test_security_headers_on_errors_and_unknown_paths(self):
+        for path in ["/no-such-path", "/my/profile"]:
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertIn(response.status_code, (401, 404))
+                self.assertEqual(response.headers["x-content-type-options"], "nosniff")
+
     def test_rate_limit_returns_429(self):
         statuses = [self.client.post("/public/password-hash", json={"password": "x"}).status_code for _ in range(6)]
         self.assertEqual(statuses, [200] * 5 + [429])
