@@ -1,6 +1,5 @@
 # import
 from datetime import datetime, timedelta, timezone
-from azure.storage.blob import ContainerSasPermissions, generate_container_sas
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
@@ -18,6 +17,7 @@ async def func_api_admin_blob_container_sas(*, request: Request):
     if not app_state.client_azure_blob: raise app_state.func_api_error(message="blob client not initialized", status_code=500)
     container = oq["container"]
     if oq["service"] == "azure":
+        from azure.storage.blob import ContainerSasPermissions, generate_container_sas
         sas_token = generate_container_sas(account_name=app_state.config_azure_account_name, account_key=app_state.config_azure_account_key, container_name=container, permission=ContainerSasPermissions(read=True), expiry=datetime.now(timezone.utc) + timedelta(seconds=app_state.config_blob_expire_sec_preview))
         return {"status": 1, "message": {"sas_token": sas_token, "expiry_sec": app_state.config_blob_expire_sec_preview}}
 

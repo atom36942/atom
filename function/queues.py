@@ -17,7 +17,7 @@ async def func_producer(*, queue: str, client_celery_producer: Any, client_kafka
     if queue not in allowed_queue_services: raise Exception(f"invalid queue: {queue}. allowed: {allowed_queue_services}")
     if queue == "celery":
         if not client_celery_producer: raise func_api_error(message="celery producer not initialized", status_code=500)
-        return client_celery_producer.send_task(channel, kwargs=payload, queue=channel).id
+        return (await asyncio.to_thread(client_celery_producer.send_task, channel, kwargs=payload, queue=channel)).id
     elif queue == "rabbitmq":
         import aio_pika
         if not client_rabbitmq_producer: raise func_api_error(message="rabbitmq producer not initialized", status_code=500)

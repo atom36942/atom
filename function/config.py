@@ -32,6 +32,9 @@ def func_config_load(*, global_dict: dict) -> None:
                     global_dict[k] = False
                 else:
                     raise ValueError(f"invalid boolean value for {k}: {ev!r}; expected true or false")
+            elif isinstance(v, float):
+                try: global_dict[k] = float(ev)
+                except ValueError: raise ValueError(f"invalid number for {k}: {ev!r}") from None
             elif isinstance(v, (list, tuple, dict)):
                 with contextlib.suppress(Exception): global_dict[k] = orjson.loads(ev)
             else: global_dict[k] = int(ev) if ev.lstrip("-").isdigit() else ev

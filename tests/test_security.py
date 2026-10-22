@@ -192,7 +192,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
         conn.fetch.return_value = [{"role": 5}]
         state = SimpleNamespace(client_postgres_dict={"master": pool}, func_middleware_check_role=func_middleware_check_role)
         request = SimpleNamespace(app=SimpleNamespace(state=state), state=SimpleNamespace(user={"id": 7, "role": 1}))
-        with patch("router.admin.generate_container_sas") as sign:
+        with patch("azure.storage.blob.generate_container_sas") as sign:
             with self.assertRaisesRegex(Exception, "access denied"):
                 await func_api_admin_blob_container_sas(request=request)
             sign.assert_not_called()

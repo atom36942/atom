@@ -1,6 +1,6 @@
 # command: python3 sync.py
 
-# info: Updates Atom-owned files while preserving developer-only files. Run from the project root. The latest upstream updater is installed and run first. Project updates are then prepared before writing and rolled back from memory on write failure. No backup files are saved. The Git index is never changed. See docs/sync.md for recovery instructions.
+# info: Replaces Atom-owned files with upstream and deletes local-only files in Atom folders, keeping *_extend, config_extend.py and .env. Run from the project root after committing: rolls back from memory on write failure, but saves no backups and never touches the Git index. See docs/sync.md.
 
 # import
 from contextlib import contextmanager

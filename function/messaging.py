@@ -17,7 +17,7 @@ async def func_otp_send_email(*, app_state: State, service: str, sender: str, em
     """Sends OTP code via configured email service (ses, resend, azure)."""
     if service == "ses":
         if not app_state.client_ses: raise func_api_error(message="SES client not initialized", status_code=500)
-        app_state.client_ses.send_email(Source=sender, Destination={"ToAddresses": [email]}, Message={"Subject": {"Data": "your otp code"}, "Body": {"Html": {"Data": str(otp)}}})
+        await asyncio.to_thread(app_state.client_ses.send_email, Source=sender, Destination={"ToAddresses": [email]}, Message={"Subject": {"Data": "your otp code"}, "Body": {"Html": {"Data": str(otp)}}})
     elif service == "resend":
         if not app_state.config_resend_key: raise func_api_error(message="resend API key not configured", status_code=500)
         if not app_state.config_resend_url: raise func_api_error(message="resend URL not configured", status_code=500)
@@ -39,7 +39,8 @@ async def func_otp_send_mobile(*, app_state: State, service: str, mobile: str, o
     if service == "sns":
         if not app_state.client_sns: raise func_api_error(message="SNS client not initialized", status_code=500)
         if sns_template:
-            app_state.client_sns.publish(
+            await asyncio.to_thread(
+                app_state.client_sns.publish,
                 PhoneNumber=mobile,
                 Message=sns_template["message"].replace("{otp}", str(otp)),
                 MessageAttributes={
@@ -51,7 +52,7 @@ async def func_otp_send_mobile(*, app_state: State, service: str, mobile: str, o
             )
             return "done"
         else:
-            app_state.client_sns.publish(PhoneNumber=mobile, Message=str(otp))
+            await asyncio.to_thread(app_state.client_sns.publish, PhoneNumber=mobile, Message=str(otp))
             return "done"
     elif service == "fast2sms":
         if not app_state.config_fast2sms_key: raise func_api_error(message="fast2sms API key not configured", status_code=500)
@@ -83,7 +84,7 @@ async def func_email_send(*, app_state: State, service: str, sender: str, to: li
     if service == "ses":
         params = {"Source": sender, "Destination": {"ToAddresses": to, "CcAddresses": cc, "BccAddresses": bcc}, "Message": {"Subject": {"Data": subject}, "Body": {"Text": {"Data": text}}}}
         if reply_to: params["ReplyToAddresses"] = reply_to
-        response = app_state.client_ses.send_email(**params)
+        response = await asyncio.to_thread(app_state.client_ses.send_email, **params)
         message = {"id": response.get("MessageId")}
     elif service == "resend":
         if not app_state.config_resend_key: raise func_api_error(message="resend API key not configured", status_code=500)

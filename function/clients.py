@@ -28,25 +28,27 @@ def func_client_redis(*, url: str):
 
 def func_client_mongodb(*, url: str):
     """Initialize Motor MongoDB client."""
+    if not url: return None
     import motor.motor_asyncio
-    return motor.motor_asyncio.AsyncIOMotorClient(url) if url else None
+    return motor.motor_asyncio.AsyncIOMotorClient(url)
 
 async def func_client_mssql(*, dsn: str):
     """Initialize MSSQL connection pool."""
-    import pyodbc, aioodbc
     if not dsn: return None
+    import pyodbc, aioodbc
     pyodbc.pooling = False
     return await aioodbc.create_pool(dsn=dsn, minsize=1, maxsize=10, pool_recycle=60)
 
 async def func_client_clickhouse(*, dsn: str):
     """Initialize ClickHouse async client."""
+    if not dsn: return None
     import clickhouse_connect
-    return await clickhouse_connect.get_async_client(dsn=dsn) if dsn else None
+    return await clickhouse_connect.get_async_client(dsn=dsn)
 
 async def func_client_s3(*, region_name: str, aws_access_key_id: str, aws_secret_access_key: str):
     """Initialize AWS S3 async botocore client session."""
-    import aiobotocore.session
     if not region_name: return None
+    import aiobotocore.session
     s3_context = aiobotocore.session.get_session().create_client("s3", region_name=region_name, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
     s3_client = await s3_context.__aenter__()
     s3_client._context = s3_context
@@ -54,65 +56,73 @@ async def func_client_s3(*, region_name: str, aws_access_key_id: str, aws_secret
 
 def func_client_s3_resource(*, region_name: str, aws_access_key_id: str, aws_secret_access_key: str):
     """Initialize AWS S3 boto3 resource."""
+    if not region_name: return None
     import boto3
-    return boto3.resource("s3", region_name=region_name, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key) if region_name else None
+    return boto3.resource("s3", region_name=region_name, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 
 def func_client_sns(*, region_name: str, aws_access_key_id: str, aws_secret_access_key: str):
     """Initialize AWS SNS boto3 client."""
+    if not region_name: return None
     import boto3
-    return boto3.client("sns", region_name=region_name, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key) if region_name else None
+    return boto3.client("sns", region_name=region_name, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 
 def func_client_ses(*, region_name: str, aws_access_key_id: str, aws_secret_access_key: str):
     """Initialize AWS SES boto3 client."""
+    if not region_name: return None
     import boto3
-    return boto3.client("ses", region_name=region_name, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key) if region_name else None
+    return boto3.client("ses", region_name=region_name, aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key)
 
 def func_client_openai(*, api_key: str):
     """Initialize OpenAI client."""
+    if not api_key: return None
     import openai
-    return openai.OpenAI(api_key=api_key) if api_key else None
+    return openai.OpenAI(api_key=api_key)
 
 def func_client_gemini(*, api_key: str):
     """Initialize Google Gemini client."""
+    if not api_key: return None
     from google import genai
-    return genai.Client(api_key=api_key) if api_key else None
+    return genai.Client(api_key=api_key)
 
 def func_client_posthog(*, project_key: str, host: str):
     """Initialize PostHog client."""
+    if not project_key: return None
     from posthog import Posthog
-    return Posthog(project_key, host=host) if project_key else None
+    return Posthog(project_key, host=host)
 
 def func_client_celery(*, url: str):
     """Initialize Celery producer client."""
+    if not url: return None
     from celery import Celery
-    return Celery("atom", broker=url, backend=url) if url else None
+    return Celery("atom", broker=url, backend=url)
 
 async def func_client_kafka(*, url: str, username: str = None, password: str = None):
     """Initialize and start AIOKafkaProducer."""
-    from aiokafka import AIOKafkaProducer
     if not url: return None
+    from aiokafka import AIOKafkaProducer
     producer = (AIOKafkaProducer(bootstrap_servers=url, security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=username, sasl_plain_password=password) if username else AIOKafkaProducer(bootstrap_servers=url))
     await producer.start()
     return producer
 
 async def func_client_rabbitmq(*, url: str):
     """Initialize aio_pika RabbitMQ robust connection and channel."""
-    import aio_pika
     if not url: return None, None
+    import aio_pika
     connection = await aio_pika.connect_robust(url)
     channel = await connection.channel()
     return connection, channel
 
 async def func_client_sftp(*, host: str, port: int, username: str, password: str):
     """Initialize SFTP asyncssh connection."""
-    import asyncssh
     if not host: return None
+    import asyncssh
     return await asyncssh.connect(host=host, port=int(port), username=username, password=password, known_hosts=None)
 
 def func_client_azure_email(*, connection_string: str):
     """Initialize Azure EmailClient."""
+    if not connection_string: return None
     from azure.communication.email import EmailClient
-    return EmailClient.from_connection_string(connection_string) if connection_string else None
+    return EmailClient.from_connection_string(connection_string)
 
 def func_client_azure_sms(*, connection_string: str):
     """Initialize Azure SmsClient."""
@@ -122,8 +132,8 @@ def func_client_azure_sms(*, connection_string: str):
 
 def func_client_azure_blob(*, account_name: str, account_key: str):
     """Initialize Azure BlobServiceClient."""
-    from azure.storage.blob.aio import BlobServiceClient
     if not (account_name and account_key): return None
+    from azure.storage.blob.aio import BlobServiceClient
     return BlobServiceClient.from_connection_string(f"DefaultEndpointsProtocol=https;AccountName={account_name};AccountKey={account_key};EndpointSuffix=core.windows.net")
 
 def func_client_msgraph(*, tenant_id: str, client_id: str, client_secret: str, scopes: list = None):

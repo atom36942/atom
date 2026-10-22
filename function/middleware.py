@@ -1,6 +1,5 @@
 # import
 import asyncio
-import base64
 import gzip
 import ipaddress
 import re
@@ -62,7 +61,7 @@ async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_
         active_status = None
         cached_val = await client_redis.get(cache_key)
         if cached_val is not None:
-            active_status = cached_val if cached_val != 'None' else None
+            active_status = None if cached_val in (b"None", "None") else cached_val
         else:
             active_status = await fetch_deactivated_status(user_dict["id"])
             await client_redis.setex(cache_key, config_redis_cache_ttl_sec, str(active_status))
@@ -97,7 +96,7 @@ async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_dele
         deleted_status = None
         cached_val = await client_redis.get(cache_key)
         if cached_val is not None:
-            deleted_status = cached_val if cached_val != "None" else None
+            deleted_status = None if cached_val in (b"None", "None") else cached_val
         else:
             deleted_status = await fetch_deleted(user_dict["id"])
             await client_redis.setex(cache_key, config_redis_cache_ttl_sec, str(deleted_status))
@@ -140,7 +139,7 @@ async def func_middleware_check_role(*, user_dict: dict, user_check_role: Any, c
         user_role = None
         cached_val = await client_redis.get(cache_key)
         if cached_val is not None:
-            user_role = int(cached_val)
+            user_role = int(cached_val) if cached_val not in (b"", "") else None
         else:
             user_role = await fetch_role(user_dict["id"])
             await client_redis.setex(cache_key, config_redis_cache_ttl_sec, str(user_role if user_role is not None else ""))
@@ -181,14 +180,9 @@ async def func_middleware_check_ratelimiter(*, client_redis: Redis | None, rate_
     cache_key = f"ratelimiter:{url_path}:{identifier}"
     if mode == "redis":
         if not client_redis: raise func_api_error(message="redis client missing", status_code=500)
-        current_count = await client_redis.get(cache_key)
-        if current_count and int(current_count) + 1 > limit:
-            raise func_api_error(message="ratelimiter exceeded", status_code=429)
-        pipeline = client_redis.pipeline()
-        pipeline.incr(cache_key)
-        if not current_count:
-            pipeline.expire(cache_key, window)
-        await pipeline.execute()
+        # one atomic round trip: count the request and give a new (or expiry-less) key its window
+        current_count = await client_redis.eval("local count = redis.call('INCR', KEYS[1]) if count == 1 or redis.call('TTL', KEYS[1]) == -1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end return count", 1, cache_key, window)
+        if int(current_count) > limit: raise func_api_error(message="ratelimiter exceeded", status_code=429)
     elif mode == "inmemory":
         now = time.time()
         item = cache_ratelimiter.get(cache_key)
@@ -230,12 +224,12 @@ async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict,
     if mode == "get" and not is_enabled: return None
     if cache_api_response is None: cache_api_response = {}
     uid = user_id if is_user_cache else 0
-    key = f"cache:{path}?{'&'.join(f'{k}={v}' for k, v in sorted(query_params.items()))}:{uid}"
+    key = f"cache:api:{path}?{'&'.join(f'{k}={v}' for k, v in sorted(query_params.items()))}:{uid}"
     if mode == "get":
         data = await client_redis.get(key) if cache_mode == "redis" else (item["data"] if (item := cache_api_response.get(key)) and item["expire_at"] > time.time() else None)
-        return Response(content=gzip.decompress(base64.b64decode(data)).decode(), status_code=200, media_type="application/json", headers={"x-cache": "hit"}) if data else None
+        return Response(content=gzip.decompress(data), status_code=200, media_type="application/json", headers={"x-cache": "hit"}) if data else None
     body = getattr(response, "body", None) or b"".join([chunk async for chunk in response.body_iterator])
-    comp = base64.b64encode(gzip.compress(body)).decode()
+    comp = gzip.compress(body, compresslevel=1)    # stored as raw bytes: level 1 is several times faster than the default 9 for JSON of this size
     if cache_mode == "redis": await client_redis.setex(key, ttl, comp)
     else: cache_api_response[key] = {"data": comp, "expire_at": time.time() + ttl}
     response = Response(content=body, status_code=response.status_code, media_type=response.media_type, headers=dict(response.headers))
@@ -368,7 +362,7 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
 async def func_middleware_log_api_write(*, app_state: Any, request: Request, response_type: str, status_code: int | None, start: float, error: str | None) -> None:
     """Buffer one log_api row for a finished request; skipped when read-only or no log_api database, and write errors are counted, never raised."""
     if app_state.config_is_read_only or not getattr(app_state, "client_postgres_log_api", None): return None
-    try: await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(app_state.config_postgres_db_log_api, {}), cache_postgres_buffer=app_state.cache_postgres_buffer_log_api, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="drop_oldest", runtime_error_count=app_state.runtime_error_count, is_trusted=True, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": func_middleware_client_ip(request=request), "path": request.url.path, "method": request.method, "query_param": func_middleware_log_query_params(query_params=request.query_params), "status_code": status_code, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
+    try: await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(app_state.config_postgres_db_log_api, {}), cache_postgres_buffer=app_state.cache_postgres_buffer_log_api, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="drop_oldest", runtime_error_count=app_state.runtime_error_count, is_trusted=True, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": func_middleware_client_ip(request=request), "path": request.scope["path"], "method": request.method, "query_param": func_middleware_log_query_params(query_params=request.query_params), "status_code": status_code, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
     except Exception as e: func_runtime_error_record(runtime_error_count=app_state.runtime_error_count, key="log_api_write", error=e, print_every=100)
     return None
 

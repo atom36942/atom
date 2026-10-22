@@ -82,6 +82,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_posthog_project_host` | PostHog analytics host URL |
 | `config_posthog_project_key` | PostHog analytics project key |
 | `config_sentry_dsn` | Sentry DSN for error tracking |
+| `config_sentry_traces_sample_rate` | Share of requests Sentry traces and profiles, 0 to 1 (default `0.05`). Every error is still sent. Tracing every request (`1.0`) adds noticeable overhead to each one; raise it briefly while investigating a slow route. |
 | `config_fast2sms_url` | Fast2SMS gateway URL |
 | `config_fast2sms_key` | Fast2SMS API key |
 | `config_resend_url` | Resend email API URL |
@@ -124,6 +125,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_is_pgweb_enabled` | Enable the PgWeb SQL console at `/pgweb` (default: `False`). Turn on only on a developer machine; even then it accepts only direct localhost requests from its own page |
 | `config_is_fastapi_telemetry` | FastAPI's built-in OpenTelemetry tracing, metrics, and logs (default `False`). Off, each request skips FastAPI's check for an OpenTelemetry backend (about 2 µs); turn on only when an OpenTelemetry provider is configured. Errors still go to Sentry either way |
 | `config_is_uvicorn_access_log` | uvicorn's per-request console line (default `False`). Atom already records every request in `log_api`, and printing each line cost 12–31% throughput in a load test (see [performance.md](performance.md#8-uvicorn-access-log)). Set `True` to see requests in the console while debugging. Applies to `python main.py`; with `uvicorn main:app` pass `--no-access-log` yourself. |
+| `config_uvicorn_timeout_keep_alive_sec` | Seconds uvicorn keeps an idle client connection open (default `250`; uvicorn's own default is 5). Behind a load balancer or proxy it must be longer than the proxy's idle timeout (Azure App Service 240 s, nginx 75 s, AWS ALB 60 s), so the proxy never reuses a connection uvicorn has just closed, which shows up as occasional 502 errors. Lower it only when clients connect to uvicorn directly with no proxy. Applies to `python main.py`. |
 | `config_is_prod` | Boolean production-mode toggle (`True` disables debug and protects endpoints) |
 | `config_postgres_db_log_api` | Named Postgres database for API logging (default: `master`) |
 | `config_uvicorn_workers` | Server processes started by `python main.py` (default: `1`). Above `1`, every `inmemory` cache, rate limit and user check in `config_api` must switch to `redis` (user checks may also use `realtime` or `token`), and startup warns if workers x pools x `config_postgres_pool_max_size` can exceed Postgres `max_connections` |

@@ -50,7 +50,7 @@ Rules Atom enforces at import, startup, sync, and CI. Follow exactly.
 - Production: `config_token_secret_key` 32+ bytes. `config_uvicorn_workers` > 1: every `inmemory` cache, rate limit, and user check must be `redis`.
 
 ## Style
-- Headers, lowercase singular: routers `# import`/`# router`/`# api`; functions `# import`/`# function`; scripts `# import`/`# config`/`# logic`/`# main`. No module docstrings.
+- Headers, lowercase singular: routers `# import`/`# router`/`# api`; functions `# import`/`# function`; scripts start with `# command: <how to run>` and `# info: <one line>`, then `# import`/`# config`/`# logic`/`# main`. No module docstrings.
 
 ## Verify
 - `venv/bin/ruff check .` (core strict; `*_extend/`, `config_extend.py` errors only), project tests with `venv/bin/python -m unittest discover -s tests_extend -t .`, then start the app with `venv/bin/python main.py` or `venv/bin/uvicorn main:app --reload`; startup checks catch `config_api`, duplicate `func_*`, and secret errors. Use `venv/bin/python main.py` when `config_uvicorn_workers` > 1.

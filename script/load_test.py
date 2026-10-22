@@ -1,6 +1,6 @@
 # command: venv/bin/python -m script.load_test --concurrency 50 --duration 20
 
-# info: Load test a running Atom server: many concurrent virtual users per route, reporting requests/sec, p50/p95/p99 latency and error rate. Never point it at production.
+# info: Load tests a running Atom server: many concurrent virtual users per route, reporting requests/sec, p50/p95/p99 latency and error rate. Never point it at production.
 
 # import
 import argparse

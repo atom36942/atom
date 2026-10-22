@@ -61,6 +61,8 @@ def func_check_runtime_config(*, app_state: State) -> None:
             raise ValueError(f"{key} must be an integer from 1 to 36500, or None")
         if key == "config_otp_retention_day" and retention * 86400 <= app_state.config_otp_expiry_sec:
             raise ValueError("config_otp_retention_day must exceed the OTP expiry window")
+    keep_alive = getattr(app_state, "config_uvicorn_timeout_keep_alive_sec", 250)
+    if isinstance(keep_alive, bool) or not isinstance(keep_alive, int) or keep_alive < 1: raise Exception("config_uvicorn_timeout_keep_alive_sec must be an integer, 1 or more")
     token_cache_max = getattr(app_state, "config_token_cache_max", 0)
     if isinstance(token_cache_max, bool) or not isinstance(token_cache_max, int) or token_cache_max < 0: raise Exception("config_token_cache_max must be an integer, 0 or more (0 turns the token cache off)")
     buffer_limit = getattr(app_state, "config_buffer_limit_default", None)

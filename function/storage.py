@@ -193,7 +193,7 @@ async def func_blob_container_ops(*, client_s3: Any, client_s3_resource: Any, cl
             await client_s3.put_public_access_block(Bucket=container, PublicAccessBlockConfiguration={"BlockPublicAcls": False, "IgnorePublicAcls": False, "BlockPublicPolicy": False, "RestrictPublicBuckets": False})
             res = await client_s3.put_bucket_policy(Bucket=container, Policy="""{"Version":"2012-10-17","Statement":[{"Sid":"PublicRead","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":["arn:aws:s3:::bucket_name/*"]}]}""".replace("bucket_name", container))
         elif mode == "empty":
-            res = client_s3_resource.Bucket(container).objects.all().delete()
+            res = await asyncio.to_thread(lambda: client_s3_resource.Bucket(container).objects.all().delete())
         elif mode == "delete":
             res = await client_s3.delete_bucket(Bucket=container)
     elif service == "azure":

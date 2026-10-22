@@ -25,6 +25,12 @@ class ConfigOverrideTests(unittest.TestCase):
         self.assertEqual((result["config_is_prod"], result["config_otp_length"], result["config_cors_allow_origins"], result["config_sentry_dsn"]),
                          (False, 8, ("https://a.com",), "https://x"))
 
+    def test_decimal_settings_are_parsed_as_numbers(self):
+        result = override({"config_sentry_traces_sample_rate": "0.2"}, config_sentry_traces_sample_rate=0.05)
+        self.assertEqual(result["config_sentry_traces_sample_rate"], 0.2)
+        with self.assertRaisesRegex(ValueError, "invalid number for config_sentry_traces_sample_rate"):
+            override({"config_sentry_traces_sample_rate": "high"}, config_sentry_traces_sample_rate=0.05)
+
     def test_invalid_boolean_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "invalid boolean value for config_is_prod"):
             override({"config_is_prod": "maybe"}, config_is_prod=True)

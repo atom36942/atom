@@ -18,6 +18,7 @@ from starlette.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import State
+from starlette.routing import Match
 
 # function
 async def func_admin_sync(*, app_state: State, app_routes: list = None) -> str:
@@ -259,12 +260,13 @@ def func_app_router_add(*, app: FastAPI, router_dir: Any, router_order: dict) ->
             app.include_router(module.router)
     return None
 
-def func_sentry_init(*, config_sentry_dsn: str):
-    """Initialize Sentry SDK monitoring if DSN is configured."""
+def func_sentry_init(*, config_sentry_dsn: str, config_sentry_traces_sample_rate: float = 0.05):
+    """Initialize Sentry SDK monitoring if DSN is configured: every error is sent; config_sentry_traces_sample_rate of requests are traced (and profiled)."""
     if not config_sentry_dsn: return None
+    if isinstance(config_sentry_traces_sample_rate, bool) or not isinstance(config_sentry_traces_sample_rate, (int, float)) or not 0 <= config_sentry_traces_sample_rate <= 1: raise Exception("config_sentry_traces_sample_rate must be a number from 0 to 1")
     import sentry_sdk
     from sentry_sdk.integrations.fastapi import FastApiIntegration
-    return sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=1.0, profiles_sample_rate=1.0, send_default_pii=False)
+    return sentry_sdk.init(dsn=config_sentry_dsn, integrations=[FastApiIntegration()], traces_sample_rate=config_sentry_traces_sample_rate, profiles_sample_rate=1.0, send_default_pii=False)
 
 async def func_app_extend_run(*, app_state: State, name: str) -> Any:
     """Call the project's optional func_extend or func_extend_shutdown (function_extend/) with app_state; sync or async; None when not defined."""
@@ -308,3 +310,47 @@ def func_app_state_add(*, app: FastAPI, data_dict: dict, prefixes: tuple) -> Non
     for k, v in data_dict.items():
         if k.startswith(prefixes):
             setattr(app.state, k, v)
+
+def func_app_route_lookup_add(*, app: FastAPI) -> int:
+    """Find fixed-path HTTP routes with one dict lookup instead of FastAPI checking every route in order.
+
+    Only (method, path) pairs that FastAPI's own matching resolves to the same route at startup go in the table; anything else
+    (static files, websockets, path parameters, 404, 405) runs FastAPI's normal matching. Returns the number of entries.
+    """
+    try: from fastapi.routing import _FASTAPI_EFFECTIVE_ROUTE_CONTEXT_KEY, _FASTAPI_INCLUDED_ROUTER_KEY, _IncludedRouter, _get_fastapi_scope
+    except ImportError: return 0    # FastAPI internals moved: keep normal matching
+    router = app.router
+    if router.middleware_stack != router.app: return 0    # router-level middleware present: keep normal matching
+    def normal_match(method, path):
+        scope = {"type": "http", "method": method, "path": path, "root_path": "", "app": app, "headers": [], "query_string": b""}
+        for top in router.routes:
+            match, _ = top.matches(scope)
+            if match == Match.FULL: return top, (top._match(scope)[3] if isinstance(top, _IncludedRouter) else None)
+        return None, None
+    table = {}
+    for top in router.routes:
+        if not isinstance(top, _IncludedRouter): continue
+        for context in top.effective_candidates():
+            route = getattr(context, "original_route", None)
+            if not isinstance(route, APIRoute) or route.param_convertors or context.starlette_route is not None: continue
+            for method in route.methods:
+                key = (method, route.path)
+                if key in table: continue
+                winner, winner_context = normal_match(method, route.path)
+                if winner is top and winner_context is context: table[key] = (top, context, route)
+    normal_app = router.middleware_stack
+    async def lookup_app(scope, receive, send):
+        entry = table.get((scope.get("method"), scope.get("path"))) if scope["type"] == "http" and not scope.get("root_path") else None
+        if entry is None: return await normal_app(scope, receive, send)
+        top, context, route = entry
+        match, child_scope = route.matches(scope)
+        if match != Match.FULL: return await normal_app(scope, receive, send)
+        if "router" not in scope: scope["router"] = router
+        scope.update(child_scope)
+        fastapi_scope = _get_fastapi_scope(scope)
+        fastapi_scope[_FASTAPI_INCLUDED_ROUTER_KEY] = top
+        fastapi_scope[_FASTAPI_EFFECTIVE_ROUTE_CONTEXT_KEY] = context
+        scope["route"] = route
+        await route.handle(scope, receive, send)
+    router.middleware_stack = lookup_app
+    return len(table)

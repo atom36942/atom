@@ -1,3 +1,7 @@
+# command: venv/bin/python main.py
+
+# info: FastAPI app entry point: builds the app, wires Atom's clients, routers and middleware, and runs uvicorn with config_uvicorn_workers workers. For development use venv/bin/uvicorn main:app --reload.
+
 # import
 import importlib.util
 import os
@@ -103,7 +107,8 @@ function.func_app_state_add(app=app, data_dict=vars(function), prefixes=("func_"
 function.func_app_state_add(app=app, data_dict=config_values, prefixes=("config_",))
 app.state.func_app_router_add(app=app, router_dir=os.path.join(os.path.dirname(__file__), "router"), router_order={"index": 0, "auth": 1, "my": 2, "public": 3, "private": 4, "admin": 5})
 app.state.func_app_static_add(app=app)
-app.state.func_sentry_init(config_sentry_dsn=app.state.config_sentry_dsn)
+app.state.func_app_route_lookup_add(app=app)
+app.state.func_sentry_init(config_sentry_dsn=app.state.config_sentry_dsn, config_sentry_traces_sample_rate=app.state.config_sentry_traces_sample_rate)
 
 # middleware
 def middleware(asgi_app):
@@ -123,7 +128,7 @@ def middleware(asgi_app):
             await send(message)
         try:
             # config
-            path = request.url.path
+            path = scope["path"]
             api_cfg = app_state.config_api.get(path, {})
             is_active = api_cfg.get("is_active", True)
             is_token = api_cfg.get("is_token", False)
@@ -183,9 +188,9 @@ app.state.func_app_cors_add(app=app, allow_origins=app.state.config_cors_allow_o
 if __name__ == "__main__":
     workers = app.state.config_uvicorn_workers
     host = "0.0.0.0"  # noqa: S104 - a server (and its container) must accept connections on every interface
-    if workers == 1: uvicorn.run(app, host=host, port=int(os.environ.get("PORT", 8000)), access_log=app.state.config_is_uvicorn_access_log)
+    if workers == 1: uvicorn.run(app, host=host, port=int(os.environ.get("PORT", 8000)), access_log=app.state.config_is_uvicorn_access_log, timeout_keep_alive=app.state.config_uvicorn_timeout_keep_alive_sec)
     else:
         # check config once here: uvicorn restarts workers that fail startup, so a bad config would loop instead of exiting
         app.state.func_check(app=app)
         function.func_structure_init(is_tmp_reset=app.state.config_is_tmp_reset)
-        uvicorn.run("main:app", host=host, port=int(os.environ.get("PORT", 8000)), workers=workers, app_dir=os.path.dirname(os.path.abspath(__file__)), access_log=app.state.config_is_uvicorn_access_log)
+        uvicorn.run("main:app", host=host, port=int(os.environ.get("PORT", 8000)), workers=workers, app_dir=os.path.dirname(os.path.abspath(__file__)), access_log=app.state.config_is_uvicorn_access_log, timeout_keep_alive=app.state.config_uvicorn_timeout_keep_alive_sec)
