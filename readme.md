@@ -1,7 +1,7 @@
 # ⚛️ Atom
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.14+-3776AB?style=flat-square&logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Status](https://img.shields.io/badge/status-active-brightgreen?style=flat-square)
 ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-6366f1?style=flat-square)
 
@@ -49,22 +49,27 @@ Atom gives you authentication, generic CRUD over any table, caching, rate-limiti
 
 ## Requirements
 
-- **Python 3.14+**
+- **Python 3.14**
 - **Git**
 
 ## Installation
 
 Replace `<new-name>` in the commands below with your preferred folder name (without the angle brackets).
 
-**Linux / macOS:**
+**macOS / Linux:**
 
-Check that `python3 --version` reports Python 3.14 or newer. `rm -rf venv` removes an existing virtual environment before recreating it.
+Atom runs on Python 3.14, the same version as the `Dockerfile`. macOS needs [Homebrew](https://brew.sh); on Linux, skip the `brew` steps and install `python3.14` from your distribution. `python3 --version` shows your Mac's default Python, which can differ; Atom only uses `python3.14`. `rm -rf venv` removes an existing virtual environment before recreating it, so the same steps also move a project to a new Python.
 
 ```bash
 git clone https://github.com/atom36942/atom.git <new-name>
 cd <new-name>
+brew update
+brew list --versions | grep python
+brew install python@3.14
+python3 --version
+python3.14 --version
 rm -rf venv
-python3 -m venv venv
+python3.14 -m venv venv
 venv/bin/pip install --upgrade pip
 venv/bin/pip install -r requirements.txt
 venv/bin/uvicorn main:app --reload
@@ -87,6 +92,7 @@ Start Atom from its own folder; `.env`, `static/` and `tmp/` are resolved from t
 
 *Or run with Docker (Cross-Platform):*
 ```bash
+touch .env
 docker build -t atom .
 docker run --rm -p 8000:8000 --env-file .env atom
 ```
@@ -105,6 +111,7 @@ config_postgres_url_master=postgresql://postgres:postgres@localhost:5432/postgre
 config_root_user_password="your-strong-root-password"
 config_token_secret_key="your-secret-key-at-least-32-chars"
 config_signup_allowed_roles=[2]
+config_is_pgweb_enabled=True
 ```
 
 Boolean environment settings use case-insensitive `true` or `false`. The loader also accepts `1`/`0`, `yes`/`no`, and `on`/`off`, but `true`/`false` is the project convention.
