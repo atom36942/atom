@@ -3,6 +3,7 @@ import asyncio
 import re
 import secrets
 import time
+from collections import OrderedDict
 from typing import Any
 import asyncpg
 import jwt
@@ -93,15 +94,24 @@ async def func_token_encode(*, user: dict, config_token_secret_key: str, config_
     refresh_token = jwt.encode({"exp": refresh_token_expires_at, "data": serialized_payload, "type": "refresh"}, token_secret_key)
     return {"access_token": access_token, "refresh_token": refresh_token, "access_token_expires_at": access_token_expires_at, "refresh_token_expires_at": refresh_token_expires_at}
 
-async def func_token_decode(*, headers: dict, config_token_secret_key: str) -> dict:
-    """Decode Bearer token if present; return decoded user dict or empty dict."""
+async def func_token_decode(*, headers: dict, config_token_secret_key: str, cache_token: OrderedDict | None = None, config_token_cache_max: int = 0) -> dict:
+    """Decode Bearer token if present; return decoded user dict or empty dict. With a cache, a verified token is reused until its own exp (the key is the full signed token, so an edited token misses and is verified again)."""
     auth_header = headers.get("Authorization")
     token = auth_header.split("Bearer ", 1)[1] if auth_header and auth_header.startswith("Bearer ") else None
     if not token: return {}
+    is_cache = cache_token is not None and config_token_cache_max > 0
+    if is_cache:
+        entry = cache_token.get(token)
+        if entry and entry[1] > time.time(): return {k: v.copy() if isinstance(v, (list, dict)) else v for k, v in entry[0].items()}
+        cache_token.pop(token, None)
     func_token_check_secret_key(config_token_secret_key=config_token_secret_key)
     decoded_payload = jwt.decode(token, str(config_token_secret_key), algorithms="HS256")
     user = orjson.loads(decoded_payload["data"])
     if isinstance(user, dict): user["_token_type"] = decoded_payload.get("type")
+    if is_cache and isinstance(user, dict) and isinstance(decoded_payload.get("exp"), (int, float)):
+        while len(cache_token) >= config_token_cache_max: cache_token.popitem(last=False)
+        cache_token[token] = (user, decoded_payload["exp"])
+        return {k: v.copy() if isinstance(v, (list, dict)) else v for k, v in user.items()}
     return user
 
 def func_otp_generate(*, client_postgres: asyncpg.Pool | None, config_otp_length: int) -> int:

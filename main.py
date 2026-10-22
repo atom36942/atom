@@ -3,6 +3,7 @@ import asyncio
 import importlib.util
 import os
 import time
+from collections import OrderedDict
 from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
@@ -29,6 +30,7 @@ async def func_lifespan(app: FastAPI):
         cache_ratelimiter = {}
         cache_postgres_buffer_create = {}
         cache_postgres_buffer_log_api = {}
+        cache_token = OrderedDict()
         app.state.func_check(app=app)
         # with several workers, main resets tmp once before they start; a worker resetting it would delete files others are using
         app.state.func_structure_init(is_tmp_reset=app.state.config_is_tmp_reset and app.state.config_uvicorn_workers == 1)
@@ -87,7 +89,7 @@ async def func_lifespan(app: FastAPI):
                 app.state.otp_cleanup_task = asyncio.create_task(app.state.func_cleanup_periodic_task(client_postgres=postgres_master, retention_day=app.state.config_otp_retention_day, cleanup=app.state.func_otp_cleanup, lock_id=1, runtime_error_count=app.state.runtime_error_count))
             if client_postgres_log_api is not None and app.state.config_log_api_retention_day is not None:
                 app.state.log_api_cleanup_task = asyncio.create_task(app.state.func_cleanup_periodic_task(client_postgres=client_postgres_log_api, retention_day=app.state.config_log_api_retention_day, cleanup=app.state.func_log_api_cleanup, lock_id=2, runtime_error_count=app.state.runtime_error_count))
-        app.state.inmemory_cache_cleanup_task = asyncio.create_task(app.state.func_inmemory_cache_cleanup_periodic_task(cache_api_response=cache_api_response, cache_ratelimiter=cache_ratelimiter, runtime_error_count=app.state.runtime_error_count, interval_sec=app.state.config_inmemory_cache_cleanup_auto_sec))
+        app.state.inmemory_cache_cleanup_task = asyncio.create_task(app.state.func_inmemory_cache_cleanup_periodic_task(cache_api_response=cache_api_response, cache_ratelimiter=cache_ratelimiter, cache_token=cache_token, runtime_error_count=app.state.runtime_error_count, interval_sec=app.state.config_inmemory_cache_cleanup_auto_sec))
     except Exception as e:
         print(f"❌ startup error: {e}")
         raise
@@ -135,7 +137,7 @@ async def middleware(request, api_function):
         # active check
         await app_state.func_middleware_check_active(is_active=is_active)
         # token
-        request.state.user = await app_state.func_token_decode(headers=request.headers, config_token_secret_key=app_state.config_token_secret_key)
+        request.state.user = await app_state.func_token_decode(headers=request.headers, config_token_secret_key=app_state.config_token_secret_key, cache_token=app_state.cache_token, config_token_cache_max=app_state.config_token_cache_max)
         # checks
         await app_state.func_middleware_check_token(user_dict=request.state.user, url_path=path, is_token=is_token, user_check_role=user_check_role, user_check_deactivated=user_check_deactivated, user_check_deleted=user_check_deleted)
         await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role=user_check_role, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=app_state.client_redis_dict.get("user_state"), cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec)

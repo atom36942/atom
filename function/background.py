@@ -47,8 +47,8 @@ async def func_postgres_buffer_flush_periodic_task(*, app_state: State, client_p
         except Exception as e: func_runtime_error_record(runtime_error_count=app_state.runtime_error_count, key="buffer_flush", error=e)
     return None
 
-async def func_inmemory_cache_cleanup_periodic_task(*, cache_api_response: dict, cache_ratelimiter: dict, runtime_error_count: dict, interval_sec: int = 300) -> None:
-    """Periodically purges expired items from in-memory cache and ratelimiter dictionaries in a background task loop."""
+async def func_inmemory_cache_cleanup_periodic_task(*, cache_api_response: dict, cache_ratelimiter: dict, runtime_error_count: dict, cache_token: dict = None, interval_sec: int = 300) -> None:
+    """Periodically purges expired items from the in-memory response cache, ratelimiter, and token cache in a background task loop."""
     while True:
         try:
             await asyncio.sleep(interval_sec)
@@ -57,6 +57,7 @@ async def func_inmemory_cache_cleanup_periodic_task(*, cache_api_response: dict,
             for k in expired_api_keys: cache_api_response.pop(k, None)
             expired_rl_keys = [k for k, v in cache_ratelimiter.items() if isinstance(v, dict) and v.get("expire_at", 0) <= now]
             for k in expired_rl_keys: cache_ratelimiter.pop(k, None)
+            for k in [k for k, (_, expires_at) in (cache_token or {}).items() if expires_at <= now]: cache_token.pop(k, None)
         except asyncio.CancelledError: break
         except Exception as e: func_runtime_error_record(runtime_error_count=runtime_error_count, key="cleanup", error=e)
     return None

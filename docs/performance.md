@@ -65,3 +65,7 @@ Without SQL access, admins can read the same report from `GET /admin/postgres-sl
 - With more than one worker, every `inmemory` cache, rate limit and user check in `config_api` must use `redis` (user checks may also use `realtime` or `token`); startup refuses otherwise.
 - Each worker opens its own pools: up to workers × pools × `config_postgres_pool_max_size` connections. Startup warns when that can exceed Postgres `max_connections`.
 - Start `python main.py` directly. Running `uvicorn main:app --workers N` skips the worker checks and the one-time `tmp/` reset.
+
+## 5. Token Cache
+
+Every request with a token was verified by PyJWT, about 18–34 µs each. `config_token_cache_max` (default `10000` per worker, about 9 MB when full) keeps verified tokens until their own `exp`, so repeat requests take about 0.2 µs. In an A/B load test on one worker, `/info` went from 3,702 to 4,710 req/s (+27%) and `/my/object-read` from 1,946 to 2,302 req/s (+18%). Over the cap, the oldest entry is dropped and its next request is verified again, so speed falls back toward the uncached rate but results never change. Set it to `0` to verify every request: nothing is stored and behaviour matches having no cache (same results, uncached speed). Use `0` while debugging auth, when a project adds token revocation (such as "log out everywhere") and wants every request checked, or on very tight memory. Set it in `config_extend.py` (`config_token_cache_max = 0`) or `.env` (`config_token_cache_max=0`); a negative or non-integer value stops startup.

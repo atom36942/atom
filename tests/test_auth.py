@@ -62,6 +62,43 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
         return await func_token_decode(**(dict(headers={"Authorization": "Bearer " + token},
                                               config_token_secret_key=self.secret) | changes))
 
+    async def test_token_cache_reuses_verified_tokens_until_exp(self):
+        from collections import OrderedDict
+        cache, token = OrderedDict(), (await self.tokens())["access_token"]
+        first = await self.decode(token, cache_token=cache, config_token_cache_max=10)
+        self.assertEqual(list(cache), [token])
+        first["permissions"] = "changed"
+        second = await self.decode(token, cache_token=cache, config_token_cache_max=10)
+        self.assertNotEqual(second.get("permissions"), "changed")
+        self.assertEqual(second["id"], self.user["id"])
+        cache[token] = (cache[token][0], time.time() - 1)
+        with self.assertRaises(jwt.ExpiredSignatureError):
+            await self.decode(self.expired_copy(token), cache_token=cache, config_token_cache_max=10)
+
+    def expired_copy(self, token):
+        payload = jwt.decode(token, self.secret, algorithms="HS256")
+        return jwt.encode({**payload, "exp": int(time.time()) - 5}, self.secret, algorithm="HS256")
+
+    async def test_token_cache_never_trusts_an_edited_or_expired_entry(self):
+        from collections import OrderedDict
+        cache, token = OrderedDict(), (await self.tokens())["access_token"]
+        await self.decode(token, cache_token=cache, config_token_cache_max=10)
+        with self.assertRaises(jwt.InvalidSignatureError):
+            await self.decode(token[:-2] + ("AA" if not token.endswith("AA") else "BB"), cache_token=cache, config_token_cache_max=10)
+        cache[token] = (cache[token][0], time.time() - 1)
+        await self.decode(token, cache_token=cache, config_token_cache_max=10)
+        self.assertGreater(cache[token][1], time.time())
+
+    async def test_token_cache_cap_and_off_switch(self):
+        from collections import OrderedDict
+        cache = OrderedDict()
+        tokens = [(await self.tokens(user={**self.user, "id": i}))["access_token"] for i in range(1, 5)]
+        for token in tokens: await self.decode(token, cache_token=cache, config_token_cache_max=3)
+        self.assertEqual(list(cache), tokens[1:])
+        off = OrderedDict()
+        await self.decode(tokens[0], cache_token=off, config_token_cache_max=0)
+        self.assertEqual(len(off), 0)
+
     async def test_password_login_verifies_real_hash(self):
         self.assertEqual(await self.login(), self.user)
         self.assertEqual(self.conn.fetch.await_args.args[1:], (5, "alice"))

@@ -139,6 +139,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_log_api_retention_day` | API-log row retention in days (`30`); `None` disables cleanup. |
 | `config_access_token_expires_sec` | JWT Access Token lifetime in seconds |
 | `config_refresh_token_expires_sec` | JWT Refresh Token lifetime in seconds |
+| `config_token_cache_max` | Verified tokens cached per worker (`10000`, about 1 KB each); `0` turns the cache off. A token is fully verified on first use, then reused until its own `exp`; the key is the whole signed token, so an edited token is verified again. Expired entries are swept every `config_inmemory_cache_cleanup_auto_sec`; when full, the oldest entry is dropped |
 | `config_blob_limit_size_kb` | Maximum file upload size in KB (default: `500`) |
 | `config_blob_limit_upload` | Maximum files allowed per upload request (default: `100`) |
 | `config_blob_expire_sec_upload` | Presigned upload URL lifetime in seconds (`3600`) |
@@ -410,5 +411,17 @@ Permission IDs are integers in Python, but JSON object keys are strings: clients
 Each enabled cleanup starts one hour after startup and repeats one hour after the previous run finishes. It permanently deletes only rows older than its retention cutoff, in batches of up to 5,000 with 0.1-second pauses. Each run has a 30-second deletion budget and each query a maximum five-second timeout; remaining backlog is handled on later runs. Failures are logged and retried next hour. Retention accepts whole days from 1 to 36500, or `None`.
 
 The tasks are skipped in read-only mode or without their database pool and are cancelled at shutdown. PostgreSQL advisory locks prevent overlapping runs for the same cleanup on the same database. OTP cleanup uses the primary pool; API logs use `client_postgres_log_api`, including the named database when configured. Successful OTP verification still deletes its code immediately; expiry alone does not delete it.
+
+#### Sizing `config_log_api_retention_day`
+
+Atom writes one `log_api` row per request, so the table holds roughly requests per day × retention days. Rows take about 150–200 bytes plus indexes:
+
+| Traffic | Rows kept at 30 days | Approx. size |
+|---|---|---|
+| 100k requests/day | 3M | ~1 GB |
+| 1M requests/day | 30M | ~10 GB |
+| 10M requests/day | 300M | ~100 GB |
+
+The default of 30 days suits most projects: it covers incident and audit questions that surface weeks later, and `/my/api-usage?days=N` reads this table, so a shorter retention also shortens what users can see. For high traffic, lower it in `config_extend.py` or `.env` (for example `config_log_api_retention_day=7`), or keep logs off the main database with `config_postgres_db_log_api` pointing at a separate `config_postgres_url_<name>`. Load tests create log rows too; they are removed once they pass the retention cutoff.
 
 Both tables have a `created_at` index in the schema configuration. When `config_postgres_db_log_api` is not `master`, schema init creates or updates only the `log_api` table there (no extensions, users or triggers; other tables are untouched). With schema init off, the log database must already have `log_api`; otherwise startup stops with `config_postgres_db_log_api '<name>' has no log_api table`. Disabling cleanup means no task or cleanup queries for that table. Deleted space can be reused by PostgreSQL after vacuuming; deletion does not necessarily shrink the database files on disk.
