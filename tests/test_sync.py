@@ -377,7 +377,7 @@ class SyncTests(unittest.TestCase):
             first = self.run_cli()
         self.assertNotEqual(first.returncode, 0)
         self.assertIn("no handoff token was received", first.stderr)
-        self.assertIn("run python sync.py again", first.stderr)
+        self.assertIn("run python3 sync.py again", first.stderr)
         self.assertEqual(local.read_text(), latest)
         self.assertFalse((self.root / ".atom-sync/lock").exists())
         # The fixture's upstream URL is deliberately invalid for child fetches;

@@ -1,10 +1,6 @@
-"""Update Atom-owned files while preserving developer-only files.
+# command: python3 sync.py
 
-Run from the project root with ``python sync.py``. The latest upstream updater
-is installed and run first. Project updates are then prepared before writing
-and rolled back from memory on write failure. No backup files are saved.
-The Git index is never changed. See docs/sync.md for recovery instructions.
-"""
+# info: Updates Atom-owned files while preserving developer-only files. Run from the project root. The latest upstream updater is installed and run first. Project updates are then prepared before writing and rolled back from memory on write failure. No backup files are saved. The Git index is never changed. See docs/sync.md for recovery instructions.
 
 # import
 from contextlib import contextmanager
@@ -332,7 +328,7 @@ def apply_bootstrapped_revision(root, revision):
     lock = safe_path(root, ".atom-sync/lock")
     token = os.environ.pop(LOCK_TOKEN_ENV, "")
     if not token:
-        raise ValueError("Internal sync mode requires the parent updater's lock: no handoff token was received. If you ran python sync.py, the previous updater may have just installed this version; run python sync.py again.")
+        raise ValueError("Internal sync mode requires the parent updater's lock: no handoff token was received. If you ran python3 sync.py, the previous updater may have just installed this version; run python3 sync.py again.")
     if not lock.exists():
         raise ValueError("Internal sync mode requires the parent updater's lock: .atom-sync/lock is missing")
     if not secrets.compare_digest(lock.read_bytes(), token.encode()):
@@ -350,7 +346,7 @@ def main():
         elif len(sys.argv) == 1:
             bootstrap_sync(root)
         else:
-            raise ValueError("Usage: python sync.py")
+            raise ValueError("Usage: python3 sync.py")
     except (OSError, ValueError, SyntaxError, subprocess.CalledProcessError) as error:
         # Avoid printing command arguments or fetched contents containing credentials.
         message = f"Git command failed (exit {error.returncode})" if isinstance(error, subprocess.CalledProcessError) else str(error)
