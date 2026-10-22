@@ -1,5 +1,4 @@
 # import
-import asyncio
 import importlib.util
 import os
 import time
@@ -82,14 +81,7 @@ async def func_lifespan(app: FastAPI):
         # project startup: func_extend in function_extend/ returns app.state.extend
         app.state.extend = await app.state.func_app_extend_run(app_state=app.state, name="func_extend")
         # periodic tasks
-        app.state.postgres_buffer_flush_lock = asyncio.Lock()
-        if not app.state.config_is_read_only: app.state.postgres_buffer_flush_task = asyncio.create_task(app.state.func_postgres_buffer_flush_periodic_task(app_state=app.state, client_postgres=postgres_master, cache_postgres_buffer_create=cache_postgres_buffer_create, client_postgres_log_api=client_postgres_log_api, cache_postgres_buffer_log_api=cache_postgres_buffer_log_api, interval_sec=app.state.config_postgres_buffer_flush_auto_sec))
-        if not app.state.config_is_read_only:
-            if postgres_master is not None and app.state.config_otp_retention_day is not None:
-                app.state.otp_cleanup_task = asyncio.create_task(app.state.func_cleanup_periodic_task(client_postgres=postgres_master, retention_day=app.state.config_otp_retention_day, cleanup=app.state.func_otp_cleanup, lock_id=1, runtime_error_count=app.state.runtime_error_count))
-            if client_postgres_log_api is not None and app.state.config_log_api_retention_day is not None:
-                app.state.log_api_cleanup_task = asyncio.create_task(app.state.func_cleanup_periodic_task(client_postgres=client_postgres_log_api, retention_day=app.state.config_log_api_retention_day, cleanup=app.state.func_log_api_cleanup, lock_id=2, runtime_error_count=app.state.runtime_error_count))
-        app.state.inmemory_cache_cleanup_task = asyncio.create_task(app.state.func_inmemory_cache_cleanup_periodic_task(cache_api_response=cache_api_response, cache_ratelimiter=cache_ratelimiter, cache_token=cache_token, runtime_error_count=app.state.runtime_error_count, interval_sec=app.state.config_inmemory_cache_cleanup_auto_sec))
+        app.state.func_app_tasks_start(app_state=app.state)
     except Exception as e:
         print(f"❌ startup error: {e}")
         raise
@@ -180,9 +172,7 @@ def middleware(asgi_app):
         # form close (a background request closes its own when the task ends)
         if response_type != "background_added": await app_state.func_request_form_close(request=request)
         # api log buffer, written after the response was sent
-        if not app_state.config_is_read_only and getattr(app_state, "client_postgres_log_api", None):
-            try: await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(app_state.config_postgres_db_log_api, {}), cache_postgres_buffer=app_state.cache_postgres_buffer_log_api, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="drop_oldest", runtime_error_count=app_state.runtime_error_count, is_trusted=True, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": app_state.func_middleware_client_ip(request=request), "path": request.url.path, "method": request.method, "query_param": app_state.func_middleware_log_query_params(query_params=request.query_params), "status_code": sent["status"], "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
-            except Exception as e: app_state.func_runtime_error_record(runtime_error_count=app_state.runtime_error_count, key="log_api_write", error=e, print_every=100)
+        await app_state.func_middleware_log_api_write(app_state=app_state, request=request, response_type=response_type, status_code=sent["status"], start=start, error=error)
     return run
 app.add_middleware(middleware)
 
@@ -193,9 +183,9 @@ app.state.func_app_cors_add(app=app, allow_origins=app.state.config_cors_allow_o
 if __name__ == "__main__":
     workers = app.state.config_uvicorn_workers
     host = "0.0.0.0"  # noqa: S104 - a server (and its container) must accept connections on every interface
-    if workers == 1: uvicorn.run(app, host=host, port=int(os.environ.get("PORT", 8000)))
+    if workers == 1: uvicorn.run(app, host=host, port=int(os.environ.get("PORT", 8000)), access_log=app.state.config_is_uvicorn_access_log)
     else:
         # check config once here: uvicorn restarts workers that fail startup, so a bad config would loop instead of exiting
         app.state.func_check(app=app)
         function.func_structure_init(is_tmp_reset=app.state.config_is_tmp_reset)
-        uvicorn.run("main:app", host=host, port=int(os.environ.get("PORT", 8000)), workers=workers, app_dir=os.path.dirname(os.path.abspath(__file__)))
+        uvicorn.run("main:app", host=host, port=int(os.environ.get("PORT", 8000)), workers=workers, app_dir=os.path.dirname(os.path.abspath(__file__)), access_log=app.state.config_is_uvicorn_access_log)

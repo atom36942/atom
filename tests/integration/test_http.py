@@ -137,6 +137,11 @@ class HttpIntegrationTests(unittest.TestCase):
         self.assertNotEqual(first.headers.get("x-cache"), "hit")
         self.assertEqual(second.headers.get("x-cache"), "hit")
         self.assertEqual(first.json(), second.json())
+        deadline, types = time.time() + 10, set()
+        while time.time() < deadline and not {"direct_cache_set", "cache_response"} <= types:
+            types = {r["response_type"] for r in fetch(self.reports_url, "SELECT response_type FROM log_api WHERE path = '/public/object-read' AND query_param LIKE '%order=id+desc%'")}
+            time.sleep(0.5)
+        self.assertTrue({"direct_cache_set", "cache_response"} <= types, types)
 
     def test_only_successful_responses_are_cached(self):
         params = {"table": "no_such_table"}
@@ -150,6 +155,21 @@ class HttpIntegrationTests(unittest.TestCase):
                 response = self.client.get(path)
                 self.assertIn(response.status_code, (401, 404))
                 self.assertEqual(response.headers["x-content-type-options"], "nosniff")
+
+    def test_error_after_response_started_is_logged_without_a_second_response(self):
+        from fastapi.responses import StreamingResponse
+        async def rows():
+            yield "id\n1\n"
+            raise RuntimeError("export failed midway")
+        self.app.add_api_route("/test-stream-error", lambda: StreamingResponse(rows(), media_type="text/csv"))
+        response = self.client.get("/test-stream-error")
+        self.assertEqual(response.status_code, 200)    # the started CSV response stands; no JSON error is sent after it
+        self.assertNotIn("export failed", response.text)
+        deadline, rows_logged = time.time() + 10, []
+        while time.time() < deadline and not rows_logged:
+            rows_logged = fetch(self.reports_url, "SELECT status_code, response_type, error FROM log_api WHERE path = '/test-stream-error'")
+            time.sleep(0.5)
+        self.assertEqual(rows_logged, [{"status_code": 200, "response_type": "error", "error": "export failed midway"}])
 
     def test_rate_limit_returns_429(self):
         statuses = [self.client.post("/public/password-hash", json={"password": "x"}).status_code for _ in range(6)]

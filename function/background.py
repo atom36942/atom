@@ -109,6 +109,18 @@ async def func_async_tasks_cancel(*, task_list: list, timeout_sec: int = 5) -> N
     if task_list: await asyncio.wait(task_list, timeout=timeout_sec)
     return None
 
+def func_app_tasks_start(*, app_state: State) -> None:
+    """Start the periodic system tasks that func_app_tasks_stop cancels; call after clients and caches are on app_state."""
+    app_state.postgres_buffer_flush_lock = asyncio.Lock()
+    postgres_master, client_postgres_log_api = app_state.client_postgres_dict.get("master"), app_state.client_postgres_log_api
+    if not app_state.config_is_read_only:
+        app_state.postgres_buffer_flush_task = asyncio.create_task(app_state.func_postgres_buffer_flush_periodic_task(app_state=app_state, client_postgres=postgres_master, cache_postgres_buffer_create=app_state.cache_postgres_buffer_create, client_postgres_log_api=client_postgres_log_api, cache_postgres_buffer_log_api=app_state.cache_postgres_buffer_log_api, interval_sec=app_state.config_postgres_buffer_flush_auto_sec))
+        if postgres_master is not None and app_state.config_otp_retention_day is not None:
+            app_state.otp_cleanup_task = asyncio.create_task(app_state.func_cleanup_periodic_task(client_postgres=postgres_master, retention_day=app_state.config_otp_retention_day, cleanup=app_state.func_otp_cleanup, lock_id=1, runtime_error_count=app_state.runtime_error_count))
+        if client_postgres_log_api is not None and app_state.config_log_api_retention_day is not None:
+            app_state.log_api_cleanup_task = asyncio.create_task(app_state.func_cleanup_periodic_task(client_postgres=client_postgres_log_api, retention_day=app_state.config_log_api_retention_day, cleanup=app_state.func_log_api_cleanup, lock_id=2, runtime_error_count=app_state.runtime_error_count))
+    app_state.inmemory_cache_cleanup_task = asyncio.create_task(app_state.func_inmemory_cache_cleanup_periodic_task(cache_api_response=app_state.cache_api_response, cache_ratelimiter=app_state.cache_ratelimiter, cache_token=app_state.cache_token, runtime_error_count=app_state.runtime_error_count, interval_sec=app_state.config_inmemory_cache_cleanup_auto_sec))
+
 async def func_app_tasks_stop(*, app_state: State, timeout_sec: int = 5) -> None:
     """Cancel all runtime background tasks and periodic system tasks on app_state."""
     runtime_tasks = list(getattr(app_state, "runtime_background_tasks", set()))

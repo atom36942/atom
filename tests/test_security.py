@@ -8,18 +8,37 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import asyncpg
 import httpx
 from starlette.datastructures import Headers, QueryParams
+from starlette.requests import Request
 from function import (
     func_postgres_query_runner_read, func_mssql_query_runner_read,
     func_mssql_query_runner_read_export, func_mssql_client_read, func_clickhouse_query_runner_read,
     func_clickhouse_query_runner_read_export, func_clickhouse_client_read, func_postgres_relation,
     func_blob_upload_file, func_blob_preview_urls_get, func_blob_upload_url,
     func_middleware_log_query_params, func_middleware_api_response_error,
-    func_middleware_check_role, func_middleware_client_ip, func_middleware_security_headers,
+    func_middleware_check_role, func_middleware_client_ip, func_middleware_security_headers, func_middleware_log_api_write,
 )
 from tests.support import database
 
 
 class SecurityTests(unittest.IsolatedAsyncioTestCase):
+    async def test_log_api_write_skips_when_off_and_counts_write_errors(self):
+        request = Request({"type": "http", "method": "GET", "path": "/my/profile", "query_string": b"token=abc&limit=5", "headers": [], "client": ("1.2.3.4", 5000)})
+        def state(**changes):
+            return SimpleNamespace(**{"config_is_read_only": False, "client_postgres_log_api": object(), "func_postgres_create": AsyncMock(), "runtime_error_count": {}, "client_password_hasher": None,
+                "cache_postgres_schema_dict": {}, "config_postgres_db_log_api": "master", "cache_postgres_buffer_log_api": {}, "config_buffer_rows_max": 10, "config_column_regex": {},
+                "config_table": {}, "config_buffer_limit_default": 10, **changes})
+        write = lambda app_state: func_middleware_log_api_write(app_state=app_state, request=request, response_type="error", status_code=401, start=0.0, error="token missing")
+        for app_state in (state(config_is_read_only=True), state(client_postgres_log_api=None)):
+            await write(app_state)
+            app_state.func_postgres_create.assert_not_awaited()
+        app_state = state()
+        await write(app_state)
+        row = app_state.func_postgres_create.call_args.kwargs["obj_list"][0]
+        self.assertEqual({key: row[key] for key in ("path", "method", "status_code", "response_type", "error", "ip_address", "query_param")}, {"path": "/my/profile", "method": "GET", "status_code": 401, "response_type": "error", "error": "token missing", "ip_address": "1.2.3.4", "query_param": "token=%5BREDACTED%5D&limit=5"})
+        app_state = state(func_postgres_create=AsyncMock(side_effect=RuntimeError("log db down")))
+        with patch("builtins.print"): await write(app_state)
+        self.assertEqual(app_state.runtime_error_count, {"log_api_write": 1})
+
     def test_security_headers_are_added_without_replacing_route_headers(self):
         headers = func_middleware_security_headers(headers=[(b"content-type", b"text/csv"), (b"X-Frame-Options", b"SAMEORIGIN")])
         self.assertEqual(headers, [(b"content-type", b"text/csv"), (b"X-Frame-Options", b"SAMEORIGIN"), (b"x-content-type-options", b"nosniff"), (b"referrer-policy", b"strict-origin-when-cross-origin"), (b"x-xss-protection", b"0")])

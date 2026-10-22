@@ -73,7 +73,7 @@ SHUTDOWN → stop background tasks → final buffer flush → close every client
    - `cache_users_role`, `cache_users_deactivated`, `cache_users_deleted`: Backs in-memory auth checks.
    - Write buffers: `cache_postgres_buffer_create` and `cache_postgres_buffer_log_api`.
 6. **Register on `app.state`**: All local `client_*`, `cache_*`, `config_*`, and `func_*` are bulk-mounted onto `app.state`, accessible in routes as `request.app.state.<name>`.
-7. **Periodic Buffer Flush Loop**: Launches background task `func_postgres_buffer_flush_periodic_task` draining in-memory write buffers every `config_postgres_buffer_flush_auto_sec`.
+7. **Periodic Tasks (`func_app_tasks_start`)**: Launches the buffer flush loop (`func_postgres_buffer_flush_periodic_task`, every `config_postgres_buffer_flush_auto_sec`), OTP and `log_api` retention cleanup, and in-memory cache cleanup; `func_app_tasks_stop` cancels them at shutdown.
 
 ### Shutdown Sequence:
 1. **Stop Tasks (`func_app_tasks_stop`)**: Cancels runtime background tasks and periodic flush loops with a 5-second graceful window.

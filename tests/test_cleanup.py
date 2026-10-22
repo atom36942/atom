@@ -4,7 +4,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from function.background import func_cleanup_periodic_task, func_app_tasks_stop
+from function.background import func_cleanup_periodic_task, func_app_tasks_start, func_app_tasks_stop, func_async_tasks_cancel
 from function.checks import func_check_runtime_config
 
 
@@ -55,6 +55,22 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(state.otp_cleanup_task, tasks)
         self.assertIn(state.log_api_cleanup_task, tasks)
 
+
+    async def test_tasks_start_respects_read_only_and_stop_cancels_them(self):
+        async def forever(**kwargs): await asyncio.Event().wait()
+        names = ("postgres_buffer_flush_task", "otp_cleanup_task", "log_api_cleanup_task", "inmemory_cache_cleanup_task")
+        for is_read_only, expected in ((False, names), (True, ("inmemory_cache_cleanup_task",))):
+            with self.subTest(is_read_only=is_read_only):
+                state = SimpleNamespace(config_is_read_only=is_read_only, client_postgres_dict={"master": object()}, client_postgres_log_api=object(), runtime_error_count={},
+                    cache_postgres_buffer_create={}, cache_postgres_buffer_log_api={}, cache_api_response={}, cache_ratelimiter={}, cache_token={},
+                    config_postgres_buffer_flush_auto_sec=1, config_otp_retention_day=30, config_log_api_retention_day=30, config_inmemory_cache_cleanup_auto_sec=1,
+                    func_postgres_buffer_flush_periodic_task=forever, func_cleanup_periodic_task=forever, func_inmemory_cache_cleanup_periodic_task=forever,
+                    func_otp_cleanup=AsyncMock(), func_log_api_cleanup=AsyncMock(), func_async_tasks_cancel=func_async_tasks_cancel)
+                func_app_tasks_start(app_state=state)
+                self.assertEqual(tuple(name for name in names if hasattr(state, name)), expected)
+                tasks = [getattr(state, name) for name in expected]
+                await func_app_tasks_stop(app_state=state)
+                self.assertTrue(all(task.cancelled() for task in tasks))
 
 class RetentionConfigTests(unittest.TestCase):
     def state(self, retention):

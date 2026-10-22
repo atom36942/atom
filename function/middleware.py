@@ -365,6 +365,13 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
         sentry_sdk.capture_exception(exception)
     return error_msg, responses.JSONResponse(status_code=status_code, content={"status": 0, "message": error_msg})
 
+async def func_middleware_log_api_write(*, app_state: Any, request: Request, response_type: str, status_code: int | None, start: float, error: str | None) -> None:
+    """Buffer one log_api row for a finished request; skipped when read-only or no log_api database, and write errors are counted, never raised."""
+    if app_state.config_is_read_only or not getattr(app_state, "client_postgres_log_api", None): return None
+    try: await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(app_state.config_postgres_db_log_api, {}), cache_postgres_buffer=app_state.cache_postgres_buffer_log_api, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="drop_oldest", runtime_error_count=app_state.runtime_error_count, is_trusted=True, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": func_middleware_client_ip(request=request), "path": request.url.path, "method": request.method, "query_param": func_middleware_log_query_params(query_params=request.query_params), "status_code": status_code, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
+    except Exception as e: func_runtime_error_record(runtime_error_count=app_state.runtime_error_count, key="log_api_write", error=e, print_every=100)
+    return None
+
 def func_middleware_security_headers(*, headers: list) -> list:
     """Return ASGI response headers with the baseline security headers added, keeping any the route already set."""
     present = {key.lower() for key, _ in headers}
