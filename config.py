@@ -172,7 +172,7 @@ config_postgres = {
 "test":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
-{"name":"created_by_id","datatype":"bigint"},
+{"name":"created_by_id","datatype":"bigint","index":"btree(created_by_id,id)"},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"type","datatype":"smallint","index":"btree(type)"},
@@ -193,7 +193,7 @@ config_postgres = {
 "test_comment":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()"},
-{"name":"created_by_id","datatype":"bigint","is_mandatory": True},
+{"name":"created_by_id","datatype":"bigint","is_mandatory": True,"index":"btree(created_by_id,id)"},
 {"name":"updated_at","datatype":"timestamptz"},
 {"name":"updated_by_id","datatype":"bigint"},
 {"name":"test_id","datatype":"bigint","is_mandatory": True,"index":"btree(test_id)"},

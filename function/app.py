@@ -7,10 +7,11 @@ import os
 import pathlib
 import re
 import shutil
+from decimal import Decimal
 from typing import Any
 import orjson
 from fastapi import FastAPI
-from fastapi.encoders import jsonable_encoder
+from fastapi.encoders import decimal_encoder, jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute, iter_route_contexts
 from starlette.responses import Response
@@ -211,13 +212,17 @@ def func_app_route_list(*, app: FastAPI) -> list:
     """
     return [context.original_route for context in iter_route_contexts(app.routes)]
 
+def _response_json_default(value: Any) -> Any:
+    """orjson fallback: Decimal as FastAPI writes it (int when whole, else float), anything else through jsonable_encoder."""
+    return decimal_encoder(value) if isinstance(value, Decimal) else jsonable_encoder(value)
+
 def func_response_json(*, content: Any, status_code: int = 200) -> Response:
     """Encode a route's return value with orjson, matching FastAPI's default JSON output.
 
-    Types orjson lacks, plus dates and dataclasses, go through FastAPI's jsonable_encoder, so output matches it.
+    orjson writes dates itself (same ISO text as FastAPI, without a Python call per value); Decimal and types orjson lacks, plus dataclasses, go through _response_json_default.
     Anything orjson still refuses (e.g. integers above 64 bits) falls back to FastAPI's own encoding.
     """
-    try: body = orjson.dumps(content, default=jsonable_encoder, option=orjson.OPT_NON_STR_KEYS | orjson.OPT_PASSTHROUGH_DATETIME | orjson.OPT_PASSTHROUGH_DATACLASS)
+    try: body = orjson.dumps(content, default=_response_json_default, option=orjson.OPT_NON_STR_KEYS | orjson.OPT_PASSTHROUGH_DATACLASS)
     except (TypeError, orjson.JSONEncodeError): return JSONResponse(content=jsonable_encoder(content), status_code=status_code)
     return Response(content=body, status_code=status_code, media_type="application/json")
 

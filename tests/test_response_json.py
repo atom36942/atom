@@ -39,6 +39,8 @@ IST = timezone(timedelta(hours=5, minutes=30))
 CASES = {
     "scalars": {"status": 1, "message": "ok", "none": None, "flag": True, "float": 1.5, "unicode": "नमस्ते ✓ \"q\" \\ \n"},
     "datetimes": [datetime(2026, 9, 29, 8, 30, 10, 144902, tzinfo=timezone.utc), datetime(2026, 1, 1, tzinfo=IST), datetime(2026, 1, 1, 9, 5), date(2026, 2, 3), time(4, 5, 6, 7), time(4, 5, tzinfo=timezone.utc), timedelta(days=1, seconds=3)],
+    "datetime_edges": [datetime(2026, 1, 2, 3, 4, 5, 999999), datetime(1, 1, 1), datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone(-timedelta(hours=3, minutes=30))), datetime(2026, 1, 2, 3, 4, 5, 6, tzinfo=timezone(timedelta(hours=14)))],
+    "date_keys": {date(2026, 1, 2): "date", datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc): "datetime", time(1, 2): "time"},
     "decimals": [Decimal("10"), Decimal("1.25"), Decimal("1E+2"), Decimal("-0.001")],
     "types": [uuid.UUID("12345678-1234-5678-1234-567812345678"), {1, 2}, frozenset({3}), (4, 5), b"bytes", Color.RED, Point(1, 2), ipaddress.ip_address("10.0.0.1"), pathlib.PurePosixPath("/tmp/a")],
     "model": Item(name="a", created_at=datetime(2026, 1, 1, tzinfo=timezone.utc)),
