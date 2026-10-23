@@ -120,6 +120,7 @@ def middleware(asgi_app):
         start, error, response_type, request.state.user = time.perf_counter(), None, "direct_no_cache_set", {}
         app_state = scope["app"].state
         sent, capture = {"status": None, "is_started": False}, None
+        api_cfg = app_state.config_api.get(scope["path"], {})
         async def send_wrapped(message):
             if message["type"] == "http.response.start":
                 sent["status"], sent["is_started"] = message["status"], True
@@ -129,7 +130,6 @@ def middleware(asgi_app):
         try:
             # config
             path = scope["path"]
-            api_cfg = app_state.config_api.get(path, {})
             is_active = api_cfg.get("is_active", True)
             is_token = api_cfg.get("is_token", False)
             user_check_role = api_cfg.get("user_check_role")
@@ -176,8 +176,8 @@ def middleware(asgi_app):
             if not sent["is_started"]: await response(scope, receive, send_wrapped)
         # form close (a background request closes its own when the task ends)
         if response_type != "background_added": await app_state.func_request_form_close(request=request)
-        # api log buffer, written after the response was sent
-        await app_state.func_middleware_log_api_write(app_state=app_state, request=request, response_type=response_type, status_code=sent["status"], start=start, error=error)
+        # api log buffer, written after the response was sent (config_api is_log_api: False skips it, e.g. /pgweb)
+        if api_cfg.get("is_log_api", True): await app_state.func_middleware_log_api_write(app_state=app_state, request=request, response_type=response_type, status_code=sent["status"], start=start, error=error)
     return run
 app.add_middleware(middleware)
 

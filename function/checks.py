@@ -83,7 +83,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
     api_ids = []
     user_mode_allowed = ("redis", "realtime", "inmemory", "token")
     api_mode_allowed = ("redis", "inmemory")
-    api_keys_allowed = ("id", "is_active", "is_token", "is_postgres_param", "user_check_role", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec")
+    api_keys_allowed = ("id", "is_active", "is_token", "is_postgres_param", "user_check_role", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec", "is_log_api")
     def flag_check(value, key):
         if not isinstance(value, bool): raise Exception(f"invalid {key}: expected bool")
     def int_check(value, key, min_value=0):
@@ -113,6 +113,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
                 if key not in ("id", "is_active"): raise Exception(f"config_api {path}: websocket routes accept only id and is_active ({key} is HTTP-only; check it inside the socket)")
             continue
         if "is_postgres_param" in cfg: flag_check(cfg["is_postgres_param"], f"{path} is_postgres_param")
+        if "is_log_api" in cfg: flag_check(cfg["is_log_api"], f"{path} is_log_api")
         if "is_token" not in cfg: raise Exception(f"{path} missing required key: is_token")
         flag_check(cfg["is_token"], f"{path} is_token")
         role_val = cfg.get("user_check_role")

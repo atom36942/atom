@@ -11,11 +11,11 @@ Rules Atom enforces at import, startup, sync, and CI. Follow exactly.
 2. Logic → `function_extend/<feature>.py`: `func_*` business logic and helpers reused by several APIs; available as `app_state.func_*`.
 3. Files → `files_extend/`: anything extra the project needs: constants and `param_specs` reused across APIs (Python modules imported as `files_extend.<module>`), JSON, prompts, templates, and other files (read by path from the project root). Web assets → `static_extend/`, served at `/static/<name>` with Atom's `static/` (same name in both stops startup). `/static_extend/...` is not a URL; no `.env` setting; restart after creating the folder.
 4. Config → `config_extend.py`: `config_api` policy, new tables in `config_postgres["table"]` (column spec: `docs/extend.md` "Add or change database tables"; owner columns get `"index": "btree(created_by_id,id)"`), `config_*` settings.
-5. Jobs → `script_extend/`, never `script/` (enqueue from a route with `app_state.func_producer`, `docs/queue.md`); tests → `tests_extend/` (with `__init__.py`; never `tests/`, which is Atom's); docs → `docs_extend/`; packages → append to `requirements.txt` pinned `==`.
+5. Jobs → `script_extend/`, never `script/` (enqueue from a route with `app_state.func_producer`, `docs/queue.md`); tests → `tests_extend/` (with `__init__.py`; never `tests/`, which is Atom's); docs → `docs_extend/`; packages → `requirements.txt` under `# extend`, pinned `==` (`# atom` is Atom's, reset by sync).
 - Request path: middleware applies `config_api` → route → `func_*` (with `files_extend/` and core helpers) → DB → `{"status": 1, "message": ...}`.
 - Never edit core (`function/`, `router/`, `docs/`, `script/`, `static/`, `files/`, `config.py`, `main.py`, `sync.py`, `AGENTS.md`, `ruff.toml`, `.gitignore`, `.dockerignore`, `Dockerfile`, `readme.md`; `sync_files` and `sync_folders` in `sync.py` are the full list) unless asked for a framework change: `python3 sync.py` overwrites them and deletes any other file inside Atom folders.
 - Refactors, renames, cleanups, formatting, and lint fixes touch only project files; leave core as is even if it looks wrong or inconsistent. If core blocks the work, solve it in project paths or report it; never patch core.
-- `.gitignore` ignores unlisted paths and is synced: new top-level files/folders are never committed unless named `*_extend`. Sync resets Atom's package pins in `requirements.txt`.
+- `.gitignore` ignores unlisted paths and is synced: new top-level files/folders are never committed unless named `*_extend`. Sync resets the `# atom` section of `requirements.txt` and rebuilds `venv/` to match it exactly (`--no-venv` skips that).
 
 ## config_extend.py
 - Extend, never replace; define each `config_*` once (no auto-merge); `deepcopy` nested dicts:
@@ -28,7 +28,7 @@ Rules Atom enforces at import, startup, sync, and CI. Follow exactly.
 - `m`: `token` (claims in token, fastest, stale until re-login), `redis` (cached DB lookup), `realtime` (DB every request; admin and destructive routes), `inmemory` (startup snapshot, single worker).
 - `rate_limit: {"mode": "redis"|"inmemory", "limit": N, "window_sec": S}` per user or IP (429). `cache: {"mode": "redis"|"inmemory", "ttl_sec": S, "is_per_user": bool}` keyed by path and query; `is_per_user` for user-specific data.
 - WebSocket routes: `config_api` entry takes only `id` and `is_active` (other keys fail startup); the socket function checks `is_active` and authenticates itself (token as first message, like `/my/message-socket`).
-- `is_postgres_param: True` allows `?postgres=<name>` (sets `request.state.client_postgres`); `is_active: False` disables the route (404).
+- `is_postgres_param: True` allows `?postgres=<name>` (sets `request.state.client_postgres`); `is_active: False` disables the route (404); `is_log_api: False` keeps the route's requests out of `log_api`.
 - Caller: `request.state.user` = decoded token (`config_column_token_encode` columns: `id`, `role`, …) or `{}`. Use `request.state.user["id"]` for ownership; never take user id or role from params. Rules `config_api` cannot express (e.g. row ownership) go in a `func_*`.
 
 ## Routes

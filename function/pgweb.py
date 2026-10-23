@@ -1,6 +1,7 @@
 # import
 import csv
 import io
+import time
 from contextlib import suppress
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
@@ -35,13 +36,6 @@ def func_pgweb_jsonable(value):
         except (TypeError, ValueError): pass
     return str(value)
 
-def func_pgweb_orjson_default(obj):
-    if isinstance(obj, (bytes, bytearray, memoryview)):
-        return "\\x" + bytes(obj).hex()
-    if hasattr(obj, "isoformat"):
-        with suppress(Exception): return obj.isoformat()
-    return str(obj)
-
 def func_pgweb_request_check(*, request: Request, config_is_pgweb_enabled: bool) -> None:
     """Allow pgweb only when enabled, from this machine, directly (not via a proxy or tunnel) and from its own page.
 
@@ -60,7 +54,7 @@ def func_pgweb_request_check(*, request: Request, config_is_pgweb_enabled: bool)
 
 def func_pgweb_orjson_dumps(payload: dict) -> bytes:
     """Fast C/Rust JSON serialization with automatic fallback for PostgreSQL data types."""
-    return orjson.dumps(payload, default=func_pgweb_orjson_default)
+    return orjson.dumps(payload, default=func_pgweb_jsonable)
 
 def func_pgweb_pack(records) -> dict:
     """Pack asyncpg records for the browser grid with zero-copy row packing."""
@@ -82,6 +76,16 @@ def func_pgweb_dsn_safe(dsn: str) -> str:
         return urlunsplit((parsed.scheme, f"{auth}{host}{port}", parsed.path, parsed.query, parsed.fragment))
     except Exception: return "connection URL unavailable"
 
+def func_pgweb_write_check(*, sql: str, is_confirmed: bool = False, is_read_only: bool = False) -> None:
+    """Refuse empty SQL, and DROP, TRUNCATE or UPDATE/DELETE without WHERE unless confirmed (read-only mode cannot write anyway)."""
+    if not sql or not sql.strip(): raise Exception("sql is required")
+    normalized = " ".join(sql.lower().split())
+    if not is_read_only and not is_confirmed and (normalized.startswith(("truncate", "drop ")) or (normalized.startswith(("update ", "delete ")) and " where " not in normalized)): raise Exception("unbounded_write")
+
+async def func_pgweb_column_type(*, pool: asyncpg.Pool, table: str, column: str, timeout_sec: int = 30) -> str:
+    """Full type of a public table's column (e.g. numeric(10,2)), or None when the column does not exist."""
+    return await pool.fetchval("SELECT format_type(atttypid, atttypmod) FROM pg_attribute WHERE attrelid = $1::regclass AND attname = $2 AND attnum > 0 AND NOT attisdropped", f"public.{table}", column, timeout=timeout_sec)
+
 async def func_pgweb_tree(*, pool: asyncpg.Pool, timeout_sec: int = 30) -> dict:
     """Read non-extension top-level tables, views, and materialized views in the public schema."""
     records = await pool.fetch("""
@@ -93,7 +97,7 @@ async def func_pgweb_tree(*, pool: asyncpg.Pool, timeout_sec: int = 30) -> dict:
                END AS kind
         FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE c.relkind IN ('r','p','v','m') AND n.nspname = 'public' AND NOT c.relispartition
-          AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.classid = 'pg_class'::regclass AND d.deptype = 'e')
+          AND (c.oid, 'pg_class'::regclass) NOT IN (SELECT objid, classid FROM pg_depend WHERE deptype = 'e')
         ORDER BY n.nspname, c.relname""", timeout=timeout_sec)
     tree = {}
     for row in records: tree.setdefault(row["schema_name"], {}).setdefault(row["kind"], []).append({"name": row["name"]})
@@ -115,7 +119,7 @@ async def func_pgweb_connect(*, client_postgres_pgweb: dict, dsn: str = None, ti
         with suppress(Exception): await previous.close()
     client_postgres_pgweb["pool"] = pool
     client_postgres_pgweb["connection_url"] = func_pgweb_dsn_safe(dsn)
-    return {"tree": tree, "database": info["db"], "version": info["version"].split(" on ")[0]}
+    return {"tree": tree, "database": info["db"], "version": info["version"].split(" on ")[0], "connection_url": client_postgres_pgweb["connection_url"]}
 
 async def func_pgweb_disconnect(*, client_postgres_pgweb: dict) -> dict:
     """Close and remove the pgweb connection pool."""
@@ -131,118 +135,57 @@ async def func_pgweb_schema(*, pool: asyncpg.Pool, timeout_sec: int = 30) -> dic
     return {"tree": await func_pgweb_tree(pool=pool, timeout_sec=timeout_sec), "database": await pool.fetchval("SELECT current_database()", timeout=timeout_sec)}
 
 async def func_pgweb_info(*, pool: asyncpg.Pool, connection_url: str, timeout_sec: int = 30) -> dict:
-    """Return database properties plus user-owned and managed public object counts."""
+    """Return database properties plus user-owned and extension-owned public object counts, in one round trip."""
     row = await pool.fetchrow("""
+        WITH ext AS (SELECT classid, objid FROM pg_depend WHERE deptype = 'e'),
+        rel AS (SELECT c.oid, c.relkind, c.relispartition, (c.oid, 'pg_class'::regclass) IN (SELECT objid, classid FROM ext) AS is_ext
+                FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public'),
+        routine AS (SELECT p.prokind, (p.oid, 'pg_proc'::regclass) IN (SELECT objid, classid FROM ext) AS is_ext
+                    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public'),
+        user_table AS (SELECT oid FROM rel WHERE relkind IN ('r','p') AND NOT relispartition AND NOT is_ext)
         SELECT current_database() AS database, current_user AS user_name, current_setting('server_version') AS version,
                pg_size_pretty(pg_database_size(current_database())) AS database_size,
-               pg_encoding_to_char(d.encoding) AS encoding, d.datcollate AS collation, current_setting('TimeZone') AS time_zone
+               pg_encoding_to_char(d.encoding) AS encoding, d.datcollate AS collation, current_setting('TimeZone') AS time_zone,
+               (SELECT count(*) FROM user_table) AS tables,
+               (SELECT count(*) FROM rel WHERE relkind = 'v' AND NOT is_ext) AS views,
+               (SELECT count(*) FROM rel WHERE relkind = 'm' AND NOT is_ext) AS materialized_views,
+               (SELECT count(*) FROM rel WHERE relkind IN ('i','I') AND NOT is_ext) AS indexes,
+               (SELECT count(*) FROM rel WHERE relkind = 'S' AND NOT is_ext) AS sequences,
+               (SELECT count(*) FROM routine WHERE prokind IN ('f','w') AND NOT is_ext) AS functions,
+               (SELECT count(*) FROM routine WHERE prokind = 'p' AND NOT is_ext) AS procedures,
+               (SELECT count(*) FROM pg_attribute a JOIN user_table t ON t.oid = a.attrelid WHERE a.attnum > 0 AND NOT a.attisdropped) AS columns,
+               (SELECT count(*) FROM pg_constraint c JOIN user_table t ON t.oid = c.conrelid) AS constraints,
+               (SELECT count(*) FROM pg_constraint c JOIN user_table t ON t.oid = c.conrelid WHERE c.contype = 'p') AS primary_keys,
+               (SELECT count(*) FROM pg_constraint c JOIN user_table t ON t.oid = c.conrelid WHERE c.contype = 'f') AS foreign_keys,
+               (SELECT count(*) FROM pg_constraint c JOIN user_table t ON t.oid = c.conrelid WHERE c.contype = 'u') AS unique_constraints,
+               (SELECT count(*) FROM pg_policy p JOIN user_table t ON t.oid = p.polrelid) AS policies,
+               (SELECT count(*) FROM pg_trigger t JOIN rel r ON r.oid = t.tgrelid
+                WHERE NOT t.tgisinternal AND NOT r.is_ext AND (t.oid, 'pg_trigger'::regclass) NOT IN (SELECT objid, classid FROM ext)) AS triggers,
+               (SELECT count(*) FROM pg_trigger t JOIN rel r ON r.oid = t.tgrelid WHERE t.tgisinternal) AS internal_triggers,
+               (SELECT count(*) FROM pg_extension) AS extension_count,
+               (SELECT count(*) FROM rel WHERE is_ext) AS extension_relations,
+               (SELECT count(*) FROM routine WHERE is_ext) AS extension_routines
         FROM pg_database d WHERE d.datname = current_database()""", timeout=timeout_sec)
-    relations = await pool.fetchrow("""
-        SELECT count(*) FILTER (WHERE c.relkind IN ('r','p') AND NOT c.relispartition) AS tables,
-               count(*) FILTER (WHERE c.relkind = 'v') AS views, count(*) FILTER (WHERE c.relkind = 'm') AS materialized_views,
-               count(*) FILTER (WHERE c.relkind IN ('i','I')) AS indexes, count(*) FILTER (WHERE c.relkind = 'S') AS sequences
-        FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE n.nspname = 'public'
-          AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.classid = 'pg_class'::regclass AND d.deptype = 'e')""", timeout=timeout_sec)
-    routines = await pool.fetchrow("""
-        SELECT count(*) FILTER (WHERE p.prokind IN ('f','w')) AS functions, count(*) FILTER (WHERE p.prokind = 'p') AS procedures
-        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-        WHERE n.nspname = 'public'
-          AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = p.oid AND d.classid = 'pg_proc'::regclass AND d.deptype = 'e')""", timeout=timeout_sec)
-    table_metadata = await pool.fetchrow("""
-        WITH user_tables AS (
-          SELECT c.oid FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-          WHERE n.nspname='public' AND c.relkind IN ('r','p') AND NOT c.relispartition
-            AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid=c.oid
-              AND d.classid='pg_class'::regclass AND d.deptype='e')
-        )
-        SELECT
-          (SELECT count(*) FROM pg_attribute a JOIN user_tables t ON t.oid=a.attrelid
-             WHERE a.attnum>0 AND NOT a.attisdropped) AS columns,
-          (SELECT count(*) FROM pg_constraint c JOIN user_tables t ON t.oid=c.conrelid) AS constraints,
-          (SELECT count(*) FROM pg_constraint c JOIN user_tables t ON t.oid=c.conrelid WHERE c.contype='p') AS primary_keys,
-          (SELECT count(*) FROM pg_constraint c JOIN user_tables t ON t.oid=c.conrelid WHERE c.contype='f') AS foreign_keys,
-          (SELECT count(*) FROM pg_constraint c JOIN user_tables t ON t.oid=c.conrelid WHERE c.contype='u') AS unique_constraints,
-          (SELECT count(*) FROM pg_policy p JOIN user_tables t ON t.oid=p.polrelid) AS policies
-    """, timeout=timeout_sec)
-    triggers = await pool.fetchval("""
-        SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE n.nspname = 'public' AND NOT t.tgisinternal
-          AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = t.oid AND d.classid = 'pg_trigger'::regclass AND d.deptype = 'e')
-          AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.classid = 'pg_class'::regclass AND d.deptype = 'e')""", timeout=timeout_sec)
-    managed = await pool.fetchrow("""
-        SELECT
-          (SELECT count(*) FROM pg_extension) AS extension_count,
-          (SELECT string_agg(extname || ' ' || extversion, ', ' ORDER BY extname) FROM pg_extension) AS extension_names,
-          (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-             WHERE n.nspname = 'public' AND EXISTS (
-               SELECT 1 FROM pg_depend d WHERE d.objid = c.oid
-                 AND d.classid = 'pg_class'::regclass AND d.deptype = 'e')) AS extension_relations,
-          (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-             WHERE n.nspname = 'public' AND EXISTS (
-               SELECT 1 FROM pg_depend d WHERE d.objid = p.oid
-                 AND d.classid = 'pg_proc'::regclass AND d.deptype = 'e')) AS extension_routines,
-          (SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
-             JOIN pg_namespace n ON n.oid = c.relnamespace
-             WHERE n.nspname = 'public' AND t.tgisinternal) AS internal_triggers
-    """, timeout=timeout_sec)
-    return {**{k: func_pgweb_jsonable(v) for k, v in row.items()}, "connection_url": connection_url,
-            "schema_scope": "public", **{k: int(v) for k, v in relations.items()},
-            **{k: int(v) for k, v in table_metadata.items()}, **{k: int(v) for k, v in routines.items()},
-            "triggers": int(triggers),
-            **{k: (int(v) if k != "extension_names" else (v or "None")) for k, v in managed.items()}}
+    return {**{key: func_pgweb_jsonable(value) for key, value in row.items()}, "connection_url": connection_url, "schema_scope": "public"}
 
 async def func_pgweb_catalog(*, pool: asyncpg.Pool, kind: str, timeout_sec: int = 30) -> dict:
-    """Return one lazily requested database-wide public-schema catalog."""
-    columns_by_kind = {
-        "tables": ["schema", "name", "type", "owner", "columns", "indexes", "constraints", "triggers", "policies", "size", "estimated_rows"],
-        "columns": ["schema", "table_name", "position", "name", "type", "nullable", "default_value", "generated"],
-        "views": ["schema", "name", "type", "owner", "size", "estimated_rows"],
-        "materialized_views": ["schema", "name", "type", "owner", "size", "estimated_rows"],
-        "indexes": ["schema", "name", "table_name", "method", "unique", "primary", "size", "definition"],
-        "constraints": ["schema", "table_name", "name", "type", "columns", "references", "validated", "definition"],
-        "primary_keys": ["schema", "table_name", "name", "type", "columns", "references", "validated", "definition"],
-        "foreign_keys": ["schema", "table_name", "name", "type", "columns", "references", "validated", "definition"],
-        "unique_constraints": ["schema", "table_name", "name", "type", "columns", "references", "validated", "definition"],
-        "policies": ["schema", "table_name", "name", "mode", "command", "roles", "using_expression", "check_expression"],
-        "sequences": ["schema", "name", "owner", "data_type", "start_value", "min_value", "max_value", "increment_by", "cycle"],
-        "functions": ["schema", "name", "owner", "type", "arguments", "result", "language", "definition"],
-        "procedures": ["schema", "name", "owner", "type", "arguments", "result", "language", "definition"],
-        "triggers": ["schema", "table_name", "name", "enabled", "function", "definition"],
-        "internal_triggers": ["schema", "table_name", "name", "enabled", "function", "definition"],
-        "extensions": ["name", "version", "schema", "owner", "description"],
-        "extension_relations": ["extension", "schema", "name", "type"],
-        "extension_routines": ["extension", "schema", "name", "type", "arguments", "language"],
-    }
-    relation_kinds = {"tables": ("'r','p'", "Table"), "views": ("'v'", "View"),
-                      "materialized_views": ("'m'", "Materialized view")}
+    """Return one lazily requested public-schema catalog; its columns come from the query itself."""
+    relation_kinds = {"tables": ("'r','p'", "Table"), "views": ("'v'", "View"), "materialized_views": ("'m'", "Materialized view")}
     if kind in relation_kinds:
         relkinds, label = relation_kinds[kind]
+        table_counts = """(SELECT count(*) FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped) AS columns,
+                   (SELECT count(*) FROM pg_index i WHERE i.indrelid=c.oid) AS indexes,
+                   (SELECT count(*) FROM pg_constraint con WHERE con.conrelid=c.oid) AS constraints,
+                   (SELECT count(*) FROM pg_trigger t WHERE t.tgrelid=c.oid AND NOT t.tgisinternal) AS triggers,
+                   (SELECT count(*) FROM pg_policy p WHERE p.polrelid=c.oid) AS policies,""" if kind == "tables" else ""
         query = f"""
-            SELECT n.nspname AS schema, c.relname AS name, $1::text AS type,
-                   pg_get_userbyid(c.relowner) AS owner,
-                   CASE WHEN c.relkind IN ('r','p') THEN
-                     (SELECT count(*) FROM pg_attribute a WHERE a.attrelid=c.oid AND a.attnum>0 AND NOT a.attisdropped)
-                   END AS columns,
-                   CASE WHEN c.relkind IN ('r','p') THEN
-                     (SELECT count(*) FROM pg_index i WHERE i.indrelid=c.oid)
-                   END AS indexes,
-                   CASE WHEN c.relkind IN ('r','p') THEN
-                     (SELECT count(*) FROM pg_constraint con WHERE con.conrelid=c.oid)
-                   END AS constraints,
-                   CASE WHEN c.relkind IN ('r','p') THEN
-                     (SELECT count(*) FROM pg_trigger t WHERE t.tgrelid=c.oid AND NOT t.tgisinternal)
-                   END AS triggers,
-                   CASE WHEN c.relkind IN ('r','p') THEN
-                     (SELECT count(*) FROM pg_policy p WHERE p.polrelid=c.oid)
-                   END AS policies,
+            SELECT n.nspname AS schema, c.relname AS name, $1::text AS type, pg_get_userbyid(c.relowner) AS owner, {table_counts}
                    CASE WHEN c.relkind IN ('r','p','m') THEN pg_size_pretty(pg_total_relation_size(c.oid)) ELSE '—' END AS size,
                    c.reltuples::bigint AS estimated_rows
             FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname='public' AND c.relkind IN ({relkinds}) AND NOT c.relispartition
-              AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid=c.oid
-                AND d.classid='pg_class'::regclass AND d.deptype='e')
-            ORDER BY c.relname"""  # noqa: S608 - fixed relkind values only
+              AND (c.oid, 'pg_class'::regclass) NOT IN (SELECT objid, classid FROM pg_depend WHERE deptype='e')
+            ORDER BY c.relname"""  # noqa: S608 - fixed relkind values and column list only
         args = (label,)
     elif kind == "columns":
         query, args = """
@@ -255,8 +198,7 @@ async def func_pgweb_catalog(*, pool: asyncpg.Pool, kind: str, timeout_sec: int 
             LEFT JOIN pg_attrdef ad ON ad.adrelid=a.attrelid AND ad.adnum=a.attnum
             WHERE n.nspname='public' AND c.relkind IN ('r','p') AND NOT c.relispartition
               AND a.attnum>0 AND NOT a.attisdropped
-              AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid=c.oid
-                AND d.classid='pg_class'::regclass AND d.deptype='e')
+              AND (c.oid, 'pg_class'::regclass) NOT IN (SELECT objid, classid FROM pg_depend WHERE deptype='e')
             ORDER BY c.relname,a.attnum""", ()
     elif kind == "indexes":
         query, args = """
@@ -265,8 +207,7 @@ async def func_pgweb_catalog(*, pool: asyncpg.Pool, kind: str, timeout_sec: int 
                    pg_size_pretty(pg_relation_size(i.oid)) AS size, pg_get_indexdef(i.oid) AS definition
             FROM pg_index x JOIN pg_class i ON i.oid=x.indexrelid JOIN pg_class t ON t.oid=x.indrelid
             JOIN pg_namespace n ON n.oid=i.relnamespace JOIN pg_am am ON am.oid=i.relam
-            WHERE n.nspname='public' AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid=i.oid
-              AND d.classid='pg_class'::regclass AND d.deptype='e') ORDER BY i.relname""", ()
+            WHERE n.nspname='public' AND (i.oid, 'pg_class'::regclass) NOT IN (SELECT objid, classid FROM pg_depend WHERE deptype='e') ORDER BY i.relname""", ()
     elif kind in ("constraints", "primary_keys", "foreign_keys", "unique_constraints"):
         constraint_type = {"constraints": None, "primary_keys": "p", "foreign_keys": "f", "unique_constraints": "u"}[kind]
         query, args = """
@@ -281,8 +222,7 @@ async def func_pgweb_catalog(*, pool: asyncpg.Pool, kind: str, timeout_sec: int 
                    con.convalidated AS validated, pg_get_constraintdef(con.oid,true) AS definition
             FROM pg_constraint con JOIN pg_class c ON c.oid=con.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace
             WHERE n.nspname='public' AND ($1::text IS NULL OR con.contype::text=$1)
-              AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid=c.oid
-                AND d.classid='pg_class'::regclass AND d.deptype='e')
+              AND (c.oid, 'pg_class'::regclass) NOT IN (SELECT objid, classid FROM pg_depend WHERE deptype='e')
             ORDER BY c.relname,con.conname""", (constraint_type,)
     elif kind == "policies":
         query, args = """
@@ -291,9 +231,7 @@ async def func_pgweb_catalog(*, pool: asyncpg.Pool, kind: str, timeout_sec: int 
                    cmd AS command, COALESCE(array_to_string(roles,', '),'') AS roles,
                    qual AS using_expression, with_check AS check_expression
             FROM pg_policies p WHERE p.schemaname='public'
-              AND NOT EXISTS (SELECT 1 FROM pg_depend d
-                WHERE d.objid=(format('%I.%I',p.schemaname,p.tablename)::regclass)::oid
-                  AND d.classid='pg_class'::regclass AND d.deptype='e')
+              AND (format('%I.%I',p.schemaname,p.tablename)::regclass::oid, 'pg_class'::regclass) NOT IN (SELECT objid, classid FROM pg_depend WHERE deptype='e')
             ORDER BY tablename,policyname""", ()
     elif kind == "sequences":
         query, args = """
@@ -310,8 +248,7 @@ async def func_pgweb_catalog(*, pool: asyncpg.Pool, kind: str, timeout_sec: int 
                    pg_get_functiondef(p.oid) AS definition
             FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_language l ON l.oid=p.prolang
             WHERE n.nspname='public' AND p.prokind::text = ANY($1::text[])
-              AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid=p.oid
-                AND d.classid='pg_proc'::regclass AND d.deptype='e')
+              AND (p.oid, 'pg_proc'::regclass) NOT IN (SELECT objid, classid FROM pg_depend WHERE deptype='e')
             ORDER BY p.proname, pg_get_function_identity_arguments(p.oid)""", (list(prokind),)
     elif kind in ("triggers", "internal_triggers"):
         internal = kind == "internal_triggers"
@@ -321,8 +258,7 @@ async def func_pgweb_catalog(*, pool: asyncpg.Pool, kind: str, timeout_sec: int 
                    p.proname AS function, pg_get_triggerdef(t.oid) AS definition
             FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
             JOIN pg_proc p ON p.oid=t.tgfoid WHERE n.nspname='public' AND t.tgisinternal=$1
-              AND ($1 OR NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.objid=t.oid
-                AND d.classid='pg_trigger'::regclass AND d.deptype='e'))
+              AND ($1 OR (t.oid, 'pg_trigger'::regclass) NOT IN (SELECT objid, classid FROM pg_depend WHERE deptype='e'))
             ORDER BY c.relname,t.tgname""", (internal,)
     elif kind == "extensions":
         query, args = """
@@ -347,18 +283,17 @@ async def func_pgweb_catalog(*, pool: asyncpg.Pool, kind: str, timeout_sec: int 
             JOIN pg_extension e ON e.oid=d.refobjid WHERE n.nspname='public' ORDER BY e.extname,p.proname""", ()
     else:
         raise Exception(f"invalid catalog: {kind}")
-    records = await pool.fetch(query, *args, timeout=timeout_sec)
-    rows = [{key: func_pgweb_jsonable(value) for key, value in dict(record).items()} for record in records]
-    return {"columns": columns_by_kind[kind], "rows": rows}
+    async with pool.acquire() as conn:
+        statement = await conn.prepare(query, timeout=timeout_sec)
+        columns, records = [attribute.name for attribute in statement.get_attributes()], await statement.fetch(*args, timeout=timeout_sec)
+    return {"columns": columns, "rows": [{key: func_pgweb_jsonable(value) for key, value in record.items()} for record in records]}
 
-async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, offset: int = None, after: Any = None,
-                          filter_col: str = None, filter_op: str = None, filter_value: Any = None, where: str = None,
-                          order: str = None, is_desc: bool = False, pk: str = None, is_meta: bool = False, timeout_sec: int = 30) -> dict:
+async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, after: Any = None,
+                          filter_col: str = None, filter_op: str = None, filter_value: Any = None, order: str = None, is_desc: bool = False, pk: str = None, is_meta: bool = False, timeout_sec: int = 30) -> dict:
     """Read one public table page and optional grid metadata."""
     if not table: raise Exception("table is required")
-    schema, limit, meta = "public", max(1, min(int(limit or 1000), 5000)), None
+    limit, meta = max(1, min(int(limit or 1000), 5000)), None
     if is_meta:
-        reg = f"{schema}.{table}"
         catalog = await pool.fetch("""
             SELECT a.attnum AS position, a.attname AS name, format_type(a.atttypid, a.atttypmod) AS type,
                    NOT a.attnotnull AS nullable,
@@ -377,7 +312,7 @@ async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, 
                    pg_size_pretty(c.relpages::bigint * 8192) AS total_size
             FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid
             LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
-            WHERE a.attrelid = $1::regclass AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum""", reg, timeout=timeout_sec)
+            WHERE a.attrelid = $1::regclass AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum""", f"public.{table}", timeout=timeout_sec)
         first_meta = catalog[0] if catalog else None
         detected_pk = first_meta["pk"] if first_meta else None
         pk_type = next((str(row["type"]).lower() for row in catalog if row["name"] == detected_pk), "")
@@ -390,24 +325,14 @@ async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, 
     args, clauses = [], []
     if after not in (None, ""):
         if not pk: raise Exception("keyset paging requires a primary key")
-        pk_type = await pool.fetchval("""
-            SELECT format_type(a.atttypid, a.atttypmod)
-            FROM pg_attribute a
-            WHERE a.attrelid = $1::regclass AND a.attname = $2 AND a.attnum > 0 AND NOT a.attisdropped
-        """, f"{schema}.{table}", pk, timeout=timeout_sec)
+        pk_type = await func_pgweb_column_type(pool=pool, table=table, column=pk, timeout_sec=timeout_sec)
         if not pk_type: raise Exception(f"unknown primary key column: {pk}")
         args.append(str(after))
         clauses.append(f'{func_pgweb_ident(pk)} {"<" if is_desc else ">"} ($1::text)::{pk_type}')
-    if where: raise Exception("raw where filters are not supported")
     if filter_col:
         operator = str(filter_op or "=").upper()
-        allowed_operators = {"=", "<>", ">", "<", ">=", "<=", "LIKE", "ILIKE", "IS NULL", "IS NOT NULL"}
-        if operator not in allowed_operators: raise Exception("invalid filter operator")
-        column_type = await pool.fetchval("""
-            SELECT format_type(a.atttypid, a.atttypmod)
-            FROM pg_attribute a
-            WHERE a.attrelid = $1::regclass AND a.attname = $2 AND a.attnum > 0 AND NOT a.attisdropped
-        """, f"{schema}.{table}", filter_col, timeout=timeout_sec)
+        if operator not in ("=", "<>", ">", "<", ">=", "<=", "LIKE", "ILIKE", "IS NULL", "IS NOT NULL"): raise Exception("invalid filter operator")
+        column_type = await func_pgweb_column_type(pool=pool, table=table, column=filter_col, timeout_sec=timeout_sec)
         if not column_type: raise Exception(f"unknown filter column: {filter_col}")
         column_sql = func_pgweb_ident(filter_col)
         if operator.startswith("IS "):
@@ -418,19 +343,18 @@ async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, 
     where_sql = (" WHERE " + " AND ".join(clauses)) if clauses else ""
     order_col = order or pk
     order_sql = f' ORDER BY {func_pgweb_ident(order_col)}{" DESC" if is_desc else ""}' if order_col else ""
-    offset_sql = f" OFFSET {int(offset)}" if offset else ""
-    records = await pool.fetch(f"SELECT * FROM {func_pgweb_ident(schema, table)}{where_sql}{order_sql} LIMIT {limit + 1}{offset_sql}", *args, timeout=timeout_sec)  # noqa: S608 - identifiers via func_pgweb_ident, limit and offset are integers
+    started = time.perf_counter()
+    records = await pool.fetch(f"SELECT * FROM {func_pgweb_ident("public", table)}{where_sql}{order_sql} LIMIT {limit + 1}", *args, timeout=timeout_sec)  # noqa: S608 - identifiers via func_pgweb_ident, limit is an integer
     out = func_pgweb_pack(records[:limit])
     out["has_more"] = len(records) > limit
+    out["ms"] = round((time.perf_counter() - started) * 1000, 1)    # the page query alone, so the page can explain a slow filter
     if meta is not None: out["meta"] = meta
     return out
 
 async def func_pgweb_query(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool = False, is_read_only: bool = False,
                            query_id: str = None, active_queries: dict = None, timeout_sec: int = 30) -> dict:
     """Execute query-runner SQL with write guards and optional read-only mode."""
-    if not sql or not sql.strip(): raise Exception("sql is required")
-    normalized = " ".join(sql.lower().split())
-    if not is_read_only and not is_confirmed and (normalized.startswith(("truncate", "drop ")) or (normalized.startswith(("update ", "delete ")) and " where " not in normalized)): raise Exception("unbounded_write")
+    func_pgweb_write_check(sql=sql, is_confirmed=is_confirmed, is_read_only=is_read_only)
     result_limit = 10000
     async with pool.acquire() as conn:
         backend_pid = await conn.fetchval("SELECT pg_backend_pid()", timeout=timeout_sec)
@@ -457,9 +381,7 @@ async def func_pgweb_query(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool =
 
 async def func_pgweb_stream(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool = False, is_read_only: bool = False, timeout_sec: int = 300) -> Any:
     """Stream every row returned by one query as CSV without buffering the result set."""
-    if not sql or not sql.strip(): raise Exception("sql is required")
-    normalized = " ".join(sql.lower().split())
-    if not is_read_only and not is_confirmed and (normalized.startswith(("truncate", "drop ")) or (normalized.startswith(("update ", "delete ")) and " where " not in normalized)): raise Exception("unbounded_write")
+    func_pgweb_write_check(sql=sql, is_confirmed=is_confirmed, is_read_only=is_read_only)
     async with pool.acquire() as conn:
         try: statement = await conn.prepare(sql, timeout=timeout_sec)
         except Exception as exc:
@@ -487,6 +409,75 @@ async def func_pgweb_stream(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool 
                         buffer.seek(0); buffer.truncate(0); pending = 0
                 if pending: yield buffer.getvalue().encode("utf-8")
     return _iter()
+
+async def func_pgweb_editable_table(*, pool: asyncpg.Pool, table: str, pk_value: Any, column: str = None, is_read_only: bool = False, timeout_sec: int = 30) -> dict:
+    """Checks shared by cell edits and row deletes: not read-only, a real table with a single-column primary key, a key value the browser sent exactly, and (for edits) an editable column."""
+    if is_read_only: raise Exception("read-only mode: turn it off to change data")
+    if isinstance(pk_value, bool) or pk_value in (None, ""): raise Exception("primary key value is required")
+    if isinstance(pk_value, (int, float)) and abs(pk_value) > 9007199254740991: raise Exception("this row's key is too large for the browser to send exactly; use the SQL runner")
+    func_pgweb_ident(table)
+    if column is not None: func_pgweb_ident(column)
+    info = await pool.fetchrow("""
+        SELECT c.relkind::text AS relkind, k.pk, k.pk_type,
+               format_type(a.atttypid, a.atttypmod) AS column_type, a.attidentity::text AS attidentity, a.attgenerated::text AS attgenerated, t.typcategory::text AS typcategory
+        FROM pg_class c
+        LEFT JOIN LATERAL (SELECT pa.attname AS pk, format_type(pa.atttypid, pa.atttypmod) AS pk_type
+                           FROM pg_index i JOIN pg_attribute pa ON pa.attrelid = i.indrelid AND pa.attnum = i.indkey[0]
+                           WHERE i.indrelid = c.oid AND i.indisprimary AND i.indnkeyatts = 1) k ON true
+        LEFT JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = $2 AND a.attnum > 0 AND NOT a.attisdropped
+        LEFT JOIN pg_type t ON t.oid = a.atttypid
+        WHERE c.oid = $1::regclass""", f"public.{table}", column, timeout=timeout_sec)
+    if not info or info["relkind"] not in ("r", "p"): raise Exception("only tables can be changed here")
+    if not info["pk"]: raise Exception("this needs a single-column primary key; use the SQL runner")
+    if column is not None:
+        if not info["column_type"]: raise Exception(f"unknown column: {column}")
+        if column == info["pk"]: raise Exception("the primary key column cannot be edited here")
+        if info["attgenerated"] or info["attidentity"]: raise Exception("generated and identity columns cannot be edited")
+        if info["typcategory"] == "A" or info["column_type"] == "bytea": raise Exception("array and binary columns cannot be edited here; use the SQL runner")
+    return dict(info)
+
+def func_pgweb_same_value(*, loaded: Any, original: Any) -> bool:
+    """Compare a value as the page received it (same JSON encoding) with what the page sent back; numbers compare by value."""
+    if loaded == original: return True
+    if isinstance(loaded, (int, float)) and isinstance(original, (int, float)) and not isinstance(loaded, bool) and not isinstance(original, bool): return float(loaded) == float(original)
+    return False
+
+async def func_pgweb_update_cell(*, pool: asyncpg.Pool, table: str, column: str, pk_value: Any, original: Any = None, value: Any = None, is_null: bool = False,
+                                 is_read_only: bool = False, timeout_sec: int = 30) -> dict:
+    """Change one cell, finding the row by its single-column primary key; returns the updated row.
+
+    The row is locked and the cell compared with the value the page loaded, so a change made meanwhile is never overwritten;
+    any update that would not change exactly one row is rolled back.
+    """
+    info = await func_pgweb_editable_table(pool=pool, table=table, pk_value=pk_value, column=column, is_read_only=is_read_only, timeout_sec=timeout_sec)
+    table_sql, column_sql, pk_sql = func_pgweb_ident("public", table), func_pgweb_ident(column), func_pgweb_ident(info["pk"])
+    pk_cast, column_cast = info["pk_type"], info["column_type"]
+    async with pool.acquire() as conn, conn.transaction():
+        current = await conn.fetchrow(f"SELECT {column_sql} AS value FROM {table_sql} WHERE {pk_sql} = ($1::text)::{pk_cast} FOR UPDATE", str(pk_value), timeout=timeout_sec)  # noqa: S608 - identifiers via func_pgweb_ident, types from pg_catalog
+        if current is None: raise Exception("row not found: it was deleted or its key changed; reload the rows")
+        if not func_pgweb_same_value(loaded=orjson.loads(func_pgweb_orjson_dumps({"value": current["value"]}))["value"], original=original): raise Exception("this cell changed since the rows were loaded; reload and try again")
+        set_sql = "NULL" if is_null else f"($2::text)::{column_cast}"
+        args = [str(pk_value)] + ([] if is_null else ["" if value is None else str(value)])
+        records = await conn.fetch(f"UPDATE {table_sql} SET {column_sql} = {set_sql} WHERE {pk_sql} = ($1::text)::{pk_cast} RETURNING *", *args, timeout=timeout_sec)  # noqa: S608 - identifiers via func_pgweb_ident, types from pg_catalog, values as parameters
+        if len(records) != 1: raise Exception(f"expected to change 1 row, would change {len(records)}; nothing was saved")
+    return func_pgweb_pack(records)
+
+async def func_pgweb_delete_row(*, pool: asyncpg.Pool, table: str, pk_value: Any, original: dict = None, is_read_only: bool = False, timeout_sec: int = 30) -> dict:
+    """Delete one row, found by its single-column primary key, only if it still matches the row the page showed (original: {column: value}).
+
+    The row is locked first; a row changed meanwhile is refused, and any delete that would not remove exactly one row is rolled back.
+    """
+    info = await func_pgweb_editable_table(pool=pool, table=table, pk_value=pk_value, is_read_only=is_read_only, timeout_sec=timeout_sec)
+    if not isinstance(original, dict) or not original: raise Exception("the row as shown is required, to check it did not change")
+    table_sql, pk_sql, pk_cast = func_pgweb_ident("public", table), func_pgweb_ident(info["pk"]), info["pk_type"]
+    async with pool.acquire() as conn, conn.transaction():
+        current = await conn.fetchrow(f"SELECT * FROM {table_sql} WHERE {pk_sql} = ($1::text)::{pk_cast} FOR UPDATE", str(pk_value), timeout=timeout_sec)  # noqa: S608 - identifiers via func_pgweb_ident, type from pg_catalog
+        if current is None: raise Exception("row not found: it was already deleted or its key changed; reload the rows")
+        loaded = orjson.loads(func_pgweb_orjson_dumps(dict(current)))
+        if set(loaded) != set(original) or not all(func_pgweb_same_value(loaded=loaded[key], original=original[key]) for key in loaded): raise Exception("this row changed since it was loaded; reload and try again")
+        records = await conn.fetch(f"DELETE FROM {table_sql} WHERE {pk_sql} = ($1::text)::{pk_cast} RETURNING {pk_sql}", str(pk_value), timeout=timeout_sec)  # noqa: S608 - identifiers via func_pgweb_ident, type from pg_catalog
+        if len(records) != 1: raise Exception(f"expected to delete 1 row, would delete {len(records)}; nothing was deleted")
+    return {"deleted": 1}
 
 async def func_pgweb_detail(*, pool: asyncpg.Pool, table: str, part: str, timeout_sec: int = 30) -> dict:
     """Read one lazily loaded public-table detail."""
@@ -637,12 +628,14 @@ async def func_pgweb(*, app_state: State, action: str, **params) -> dict:
         return {"canceled": canceled}
     handlers = {"schema": app_state.func_pgweb_schema, "info": app_state.func_pgweb_info,
                 "catalog": app_state.func_pgweb_catalog, "rows": app_state.func_pgweb_rows,
-                "query": app_state.func_pgweb_query, "detail": app_state.func_pgweb_detail}
+                "query": app_state.func_pgweb_query, "detail": app_state.func_pgweb_detail, "update_cell": app_state.func_pgweb_update_cell, "delete_row": app_state.func_pgweb_delete_row}
     handler = handlers.get(action)
     if not handler: raise Exception(f"invalid action: {action}")
     if action == "info": params["connection_url"] = client_postgres_pgweb.get("connection_url", "—")
     if action == "query": params["active_queries"] = active_queries
-    return await handler(pool=pool, **params)
+    result = await handler(pool=pool, **params)
+    if action == "schema": result["connection_url"] = client_postgres_pgweb.get("connection_url", "")    # lets a reloaded page show which server it is on
+    return result
 
 async def func_pgweb_response(*, app_state: State, ob: dict) -> Response:
     """Run a /pgweb action and build its response; errors keep their status (400 by default) and the raw Postgres message, which a SQL console needs."""
@@ -650,7 +643,7 @@ async def func_pgweb_response(*, app_state: State, ob: dict) -> Response:
     try:
         if ob.get("action") == "stream":
             pool = app_state.client_postgres_pgweb.get("pool")
-            if not pool: return Response(content=func_pgweb_orjson_dumps({"status": 0, "message": "not_connected"}), status_code=400, media_type="application/json")
+            if not pool: return error(Exception("not_connected"))
             generator = await func_pgweb_stream(pool=pool, **{key: value for key, value in ob.items() if key != "action"})
             return StreamingResponse(generator, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": 'attachment; filename="query-result-all.csv"', "Cache-Control": "no-store"})
         return Response(content=func_pgweb_orjson_dumps({"status": 1, "message": await func_pgweb(app_state=app_state, **ob)}), media_type="application/json")

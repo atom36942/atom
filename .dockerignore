@@ -15,6 +15,7 @@ __pycache__/
 .mypy_cache/
 .atom-sync/
 venv/
+venv_old/
 
 # Temp & scratch
 tmp/

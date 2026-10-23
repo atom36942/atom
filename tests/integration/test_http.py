@@ -216,6 +216,16 @@ class HttpIntegrationTests(unittest.TestCase):
         self.assertTrue({200, 401} <= {r["status_code"] for r in rows}, rows)
         self.assertIn("error", {r["response_type"] for r in rows})
 
+    def test_route_with_is_log_api_false_is_not_logged(self):
+        self.client.post("/pgweb", json={"action": "schema"})    # config_api /pgweb: is_log_api False (pgweb itself is off here, so it answers 404)
+        self.client.get("/health")    # logged as usual; once it is in log_api, the /pgweb row would be too if it were written
+        deadline, health = time.time() + 10, []
+        while time.time() < deadline and not health:
+            health = fetch(self.reports_url, "SELECT 1 FROM log_api WHERE path = '/health' LIMIT 1")
+            time.sleep(0.5)
+        self.assertTrue(health)
+        self.assertEqual(fetch(self.reports_url, "SELECT count(*) AS n FROM log_api WHERE path = '/pgweb'"), [{"n": 0}])
+
 
 if __name__ == "__main__":
     unittest.main()

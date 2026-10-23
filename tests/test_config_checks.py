@@ -94,6 +94,11 @@ class WebsocketConfigCheckTests(unittest.TestCase):
             with self.subTest(key=key), self.assertRaisesRegex(Exception, f"websocket routes accept only id and is_active \\({key} is HTTP-only"):
                 func_check_api_config(app=self.app({"id": 2, key: value}))
 
+    def test_is_log_api_must_be_a_boolean(self):
+        func_check_api_config(app=self.app({"id": 2}, http_cfg={"id": 1, "is_token": False, "is_log_api": False}))
+        with self.assertRaisesRegex(Exception, "invalid /x is_log_api: expected bool"):
+            func_check_api_config(app=self.app({"id": 2}, http_cfg={"id": 1, "is_token": False, "is_log_api": "no"}))
+
     def test_http_entry_still_needs_is_token(self):
         with self.assertRaisesRegex(Exception, "/x missing required key: is_token"):
             func_check_api_config(app=self.app({"id": 2}, http_cfg={"id": 1}))

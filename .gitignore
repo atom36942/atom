@@ -53,5 +53,6 @@ drive/
 tmp/
 scratch/
 venv/
+venv_old/
 .env
 *.log

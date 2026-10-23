@@ -89,7 +89,7 @@ class SyncTests(unittest.TestCase):
         self.assertEqual((self.root / "router/index.py").read_text(), "# upstream router\n")
         for name in ("function_extend/custom_tracked.py", "function_extend/custom_untracked.py", "router_extend/custom_tracked.py", "router_extend/custom_untracked.py", ".env"):
             self.assertEqual(self.snapshot()[name], before[name])
-        self.assertEqual((self.root / "requirements.txt").read_text(), "fastapi==1.0\nmy-package==2.0\norjson==3.0\n")
+        self.assertEqual((self.root / "requirements.txt").read_text(), self.requirements(["fastapi==1.0", "orjson==3.0"], ["my-package==2.0"]))
         self.assertEqual(self.snapshot()["config_extend.py"], before["config_extend.py"])
         state = json.loads((self.root / sync.STATE_PATH).read_text())
         self.assertNotIn("function_extend/custom_tracked.py", state["files"])
@@ -282,29 +282,111 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(self.snapshot(), before)
         self.assertEqual((self.root / ".atom-sync/lock").read_text(), "other sync")
 
-    def test_requirements_are_created_when_missing(self):
-        self.assertEqual(sync.merge_requirements(None, "fastapi==1.0\norjson==3.0"), "fastapi==1.0\norjson==3.0\n")
+    def requirements(self, atom, extend):
+        return "\n".join([sync.REQUIREMENTS_ATOM_HEADER, *atom, "", sync.REQUIREMENTS_EXTEND_HEADER, *extend]) + "\n"
 
-    def test_requirements_upsert_atom_packages_and_keep_project_packages(self):
+    def test_requirements_are_created_from_atom_with_an_empty_extend_section(self):
+        self.assertEqual(sync.merge_requirements(None, "fastapi==1.0\norjson==3.0"), (self.requirements(["fastapi==1.0", "orjson==3.0"], []), []))
+
+    def test_requirements_file_without_sections_keeps_project_lines_as_extend(self):
         local = "# project deps\nFastAPI==0.9  # old pin\nmy-package==2.0\n-e ./libs/tool\npyjwt>=2.0\npandas\n"
         upstream = "fastapi==1.0\nPyJWT==2.15.1\norjson==3.0\n"
-        self.assertEqual(sync.merge_requirements(local, upstream),
-                         "# project deps\nfastapi==1.0\nmy-package==2.0\n-e ./libs/tool\nPyJWT==2.15.1\npandas\norjson==3.0\n")
+        self.assertEqual(sync.merge_requirements(local, upstream), (self.requirements(["fastapi==1.0", "PyJWT==2.15.1", "orjson==3.0"], ["# project deps", "my-package==2.0", "-e ./libs/tool", "pandas"]), []))
 
-    def test_requirements_names_match_like_pip(self):
-        local = "python_multipart==0.0.20\nAzure.Identity\n"
-        upstream = "python-multipart==0.0.32\nazure-identity==1.25.3\n"
-        self.assertEqual(sync.merge_requirements(local, upstream), "python-multipart==0.0.32\nazure-identity==1.25.3\n")
+    def test_requirements_atom_section_is_replaced_and_extend_kept(self):
+        local = self.requirements(["fastapi==0.9", "my-edit==1.0"], ["pandas==2.2.0", "", "# reports", "openpyxl==3.1.5"])
+        text, notes = sync.merge_requirements(local, self.requirements(["fastapi==1.0", "orjson==3.0"], []))
+        self.assertEqual(text, self.requirements(["fastapi==1.0", "orjson==3.0"], ["pandas==2.2.0", "", "# reports", "openpyxl==3.1.5"]))
+        self.assertEqual(notes, ["Atom no longer lists my-edit; add any your project still imports under # extend"])
 
-    def test_requirements_duplicate_atom_lines_collapse_to_one(self):
-        self.assertEqual(sync.merge_requirements("fastapi==0.8\nmy-package\nfastapi==0.9\n", "fastapi==1.0\n"), "fastapi==1.0\nmy-package\n")
+    def test_requirements_extend_line_for_an_atom_package_is_removed_and_reported(self):
+        text, notes = sync.merge_requirements(self.requirements(["fastapi==1.0"], ["Python_Multipart==0.0.20", "pandas==2.2.0"]), self.requirements(["fastapi==1.0", "python-multipart==0.0.32"], []))
+        self.assertEqual(text, self.requirements(["fastapi==1.0", "python-multipart==0.0.32"], ["pandas==2.2.0"]))
+        self.assertEqual(notes, ["removed 'Python_Multipart==0.0.20' from # extend: Atom lists python-multipart, and Atom's version is installed"])
 
-    def test_requirements_unchanged_file_is_returned_as_is(self):
-        local = "fastapi==1.0\nmy-package==2.0"    # no trailing newline, already up to date
-        self.assertIs(sync.merge_requirements(local, "fastapi==1.0\n"), local)
+    def test_requirements_second_merge_changes_nothing(self):
+        upstream = self.requirements(["fastapi==1.0"], [])
+        text, _ = sync.merge_requirements("fastapi==0.9\nmy-package==2.0\n", upstream)
+        self.assertEqual(sync.merge_requirements(text, upstream), (text, []))
 
-    def test_requirements_package_dropped_by_atom_is_kept(self):
-        self.assertEqual(sync.merge_requirements("fastapi==1.0\nold-atom-dep==1.0\n", "fastapi==1.1\n"), "fastapi==1.1\nold-atom-dep==1.0\n")
+    def test_python_version_comes_from_the_dockerfile(self):
+        self.write(self.root, "Dockerfile", "# base\nFROM python:3.14-slim\nRUN true\n")
+        self.assertEqual(sync.python_version_required(self.root), "3.14")
+        self.write(self.root, "Dockerfile", "FROM ubuntu:24.04\n")
+        with self.assertRaisesRegex(ValueError, "FROM python"): sync.python_version_required(self.root)
+
+    def fake_venv_tools(self, fail_on=None):
+        """Stand-ins for python -m venv and pip: record commands, create the venv folder, optionally fail one step."""
+        calls = []
+        def run_command(args, cwd=None):
+            calls.append(args[1:3] if args[1] == "-m" else args)
+            if fail_on and fail_on in " ".join(str(a) for a in args): raise ValueError(f"{fail_on} failed (exit 1)")
+            if args[1:3] == ["-m", "venv"]: (Path(args[3]) / "bin").mkdir(parents=True)
+        return calls, run_command
+
+    def test_venv_is_rebuilt_then_skipped_while_it_matches(self):
+        self.write(self.root, "Dockerfile", "FROM python:3.14-slim\n")
+        calls, run_command = self.fake_venv_tools()
+        packages = {"value": b"fastapi==1.0\n"}
+        freeze = lambda root, venv, version: {"python": version, "requirements": "r", "packages": packages["value"].decode()}
+        with patch.object(sync, "run_command", run_command), patch.object(sync, "venv_fingerprint", freeze), patch.object(sync, "python_command", lambda version: ["python3.14"]):
+            sync.sync_venv(self.root)
+            self.assertEqual(calls, [["-m", "venv"], ["-m", "pip"], ["-m", "pip"]])
+            calls.clear(); sync.sync_venv(self.root)
+            self.assertEqual(calls, [])    # nothing changed: no rebuild
+            packages["value"] = b"fastapi==1.0\nextra==9.9\n"    # someone pip-installed a package by hand
+            sync.sync_venv(self.root)
+            self.assertEqual(len(calls), 3)
+        self.assertFalse((self.root / sync.VENV_OLD_DIR).exists())
+
+    def test_failed_rebuild_restores_the_previous_venv(self):
+        self.write(self.root, "Dockerfile", "FROM python:3.14-slim\n")
+        self.write(self.root, "venv/marker.txt", "old venv\n")
+        calls, run_command = self.fake_venv_tools(fail_on="requirements.txt")
+        with patch.object(sync, "run_command", run_command), patch.object(sync, "python_command", lambda version: ["python3.14"]):
+            with self.assertRaisesRegex(ValueError, "failed"): sync.sync_venv(self.root)
+        self.assertEqual((self.root / "venv/marker.txt").read_text(), "old venv\n")
+        self.assertFalse((self.root / sync.VENV_OLD_DIR).exists())
+
+    def test_interrupted_rebuild_puts_the_old_venv_back(self):
+        self.write(self.root, "Dockerfile", "FROM python:3.14-slim\n")
+        self.write(self.root, "venv_old/marker.txt", "old venv\n")    # a previous rebuild stopped after moving venv away
+        calls, run_command = self.fake_venv_tools(fail_on="venv")
+        with patch.object(sync, "run_command", run_command), patch.object(sync, "python_command", lambda version: ["python3.14"]):
+            with self.assertRaises(ValueError): sync.sync_venv(self.root)
+        self.assertEqual((self.root / "venv/marker.txt").read_text(), "old venv\n")
+
+    def test_venv_in_use_leaves_it_unchanged_with_clear_steps(self):
+        self.write(self.root, "Dockerfile", "FROM python:3.14-slim\n")
+        self.write(self.root, "venv/marker.txt", "old venv\n")
+        calls, run_command = self.fake_venv_tools()
+        real_rename = Path.rename
+        def locked_rename(path, target):
+            if path.name == sync.VENV_DIR: raise PermissionError("[WinError 32] being used by another process")
+            return real_rename(path, target)
+        with patch.object(sync, "run_command", run_command), patch.object(sync, "python_command", lambda version: ["python3.14"]), patch.object(Path, "rename", locked_rename):
+            with self.assertRaisesRegex(ValueError, "venv is in use.*files are synced, the venv is unchanged.*py sync.py"): sync.sync_venv(self.root)
+        self.assertEqual(calls, [])
+        self.assertEqual((self.root / "venv/marker.txt").read_text(), "old venv\n")
+
+    def test_locked_leftover_venv_old_stops_with_clear_steps(self):
+        self.write(self.root, "Dockerfile", "FROM python:3.14-slim\n")
+        self.write(self.root, "venv/marker.txt", "venv\n")
+        self.write(self.root, "venv_old/marker.txt", "leftover\n")
+        with patch.object(sync.shutil, "rmtree", lambda path, ignore_errors=False: None):
+            with self.assertRaisesRegex(ValueError, "venv_old from an earlier rebuild is still in use"): sync.sync_venv(self.root)
+        self.assertEqual((self.root / "venv/marker.txt").read_text(), "venv\n")
+
+    def test_windows_sync_run_from_the_venv_is_stopped_before_touching_it(self):
+        self.write(self.root, "Dockerfile", "FROM python:3.14-slim\n")
+        self.write(self.root, "venv/marker.txt", "venv\n")
+        with patch.object(sync.sys, "platform", "win32"), patch.object(sync.sys, "prefix", str(self.root / "venv")):
+            with self.assertRaisesRegex(ValueError, "sync is running from venv.*py sync.py"): sync.sync_venv(self.root)
+        self.assertEqual((self.root / "venv/marker.txt").read_text(), "venv\n")
+
+    def test_missing_python_names_how_to_install_it(self):
+        with patch.object(sync.shutil, "which", lambda name: None):
+            with self.assertRaisesRegex(ValueError, "Python 9.99 .*not installed: macOS: brew install python@9.99"): sync.python_command("9.99")
 
     def test_import_has_no_side_effects(self):
         result = subprocess.run([sys.executable, "-c", "import sync"],
@@ -327,7 +409,7 @@ class SyncTests(unittest.TestCase):
         return latest
 
     def run_cli(self):
-        return subprocess.run([sys.executable, str(self.root / "sync.py")], cwd=self.root,
+        return subprocess.run([sys.executable, str(self.root / "sync.py"), "--no-venv"], cwd=self.root,
                               capture_output=True, text=True, timeout=30)
 
     def test_cli_restarts_latest_updater_and_applies_new_rules_in_one_run(self):

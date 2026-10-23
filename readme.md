@@ -140,7 +140,7 @@ Update Atom from the project root:
 python3 sync.py
 ```
 
-Sync fetches Atom's upstream `main`, installs the latest updater, and updates framework files. It completely replaces the contents of `docs/`, `router/`, `function/`, `script/`, `static/`, and `files/`, including removing local-only files. `config.py` and selected core files are replaced. The `*_extend/` folders, `config_extend.py`, and `.env` are preserved; missing dependencies are appended to `requirements.txt`. Save your work in Git before syncing, then restart the app and reinstall dependencies if requirements changed.
+Sync fetches Atom's upstream `main`, installs the latest updater, and updates framework files. It completely replaces the contents of `docs/`, `router/`, `function/`, `script/`, `static/`, and `files/`, including removing local-only files. `config.py` and selected core files are replaced. The `*_extend/` folders, `config_extend.py`, and `.env` are preserved. In `requirements.txt`, the `# atom` section is reset to Atom's packages and your `# extend` section is kept; then `venv/` is rebuilt to match `requirements.txt` exactly, on the Python version in the `Dockerfile` (skipped when nothing changed; `--no-venv` skips it). Save your work in Git and stop the app before syncing, then restart it.
 
 See [sync details and recovery](docs/sync.md) for update behavior and recovery instructions.
 

@@ -1,3 +1,4 @@
+# atom: Atom's packages, replaced by sync.py on every run; add project packages under # extend
 PyJWT==2.15.1
 aio-pika==9.6.2
 aiobotocore==3.9.2
@@ -37,3 +38,5 @@ pyodbc==5.3.0
 aioodbc==0.4.1
 msgraph-sdk==1.64.0
 azure-identity==1.26.0
+
+# extend: this project's packages, pinned with ==; sync.py never changes them

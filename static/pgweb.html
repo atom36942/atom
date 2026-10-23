@@ -10,6 +10,7 @@
 :root{
   color-scheme:light;
   --nav:#79589f; --nav-fg:#d6cce2; --nav-on-bg:#fff; --nav-on-fg:#000;
+  --rp-head:#f1ecf7;
   --side:#f9f9f9; --bg:#fff; --fg:#3a3633; --dim:#aaa; --line:#ddd;
   --th-fg:#333; --th-line:#eae9e9; --th-hover:#fafafa;
   --row-odd:#f9f9f9; --row-even:#fff; --row-line:#f2f2f2; --row-hover:#fff7d6;
@@ -26,6 +27,7 @@
 :root[data-theme=dark]{
   color-scheme:dark;
   --nav:#79589f; --nav-fg:#d6cce2; --nav-on-bg:#141419; --nav-on-fg:#f2f0ee;
+  --rp-head:#241f2e;
   --side:#191920; --bg:#141419; --fg:#d9d5d1; --dim:#7a7a84; --line:#2e2e37;
   --th-fg:#cfcac5; --th-line:#2e2e37; --th-hover:#20202a;
   --row-odd:#191920; --row-even:#141419; --row-line:#22222b; --row-hover:#2d2d1e;
@@ -45,12 +47,13 @@ html,body{height:100%;margin:0;overflow:hidden}
 body{background:var(--bg);color:var(--fg);display:flex;
   font:13px/1.42857143 "Helvetica Neue",Helvetica,Arial,sans-serif}
 button,input,select,textarea{font:inherit;color:inherit}
-button{background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:4px 11px;
+button{background:var(--bg);border:1px solid var(--line);border-radius:5px;transition:background .12s,border-color .12s,color .12s,box-shadow .12s;padding:4px 11px;
   cursor:pointer;color:var(--fg)}
 button:hover:not(:disabled){border-color:#8a8a8a;background:var(--hl)}
 button:disabled{opacity:.45;cursor:default}
-button.primary{border-color:var(--green);color:var(--green)}
-button.primary:hover:not(:disabled){border-color:var(--green-h);color:var(--green-h);background:var(--bg)}
+button.primary{background:var(--green);border-color:var(--green);color:#fff;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+button.primary:hover:not(:disabled){background:var(--green-h);border-color:var(--green-h);color:#fff;box-shadow:0 2px 8px rgba(100,144,62,.35)}
+:root[data-theme=dark] button.primary,:root[data-theme=dark] button.primary:hover:not(:disabled){color:#141419}
 .iconbtn{width:32px;height:29px;padding:0;display:inline-flex;align-items:center;justify-content:center}
 .iconbtn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:3px;
@@ -83,10 +86,11 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 
 #sidetabs{display:flex;padding:6px 8px 5px;gap:4px;background:var(--side);border-bottom:1px solid var(--line)}
 #sidetabs[hidden]{display:none!important}
-.side-tab{flex:1;text-align:center;padding:4px 6px;font-size:11.5px;font-weight:500;border-radius:4px;
+.side-tab{flex:1 0 auto;text-align:center;padding:4px 7px;font-size:11.5px;font-weight:500;border-radius:4px;
   border:1px solid transparent;background:transparent;color:var(--dim);cursor:pointer;white-space:nowrap;
   user-select:none;transition:background .15s ease,color .15s ease,border-color .15s ease}
 .side-tab:hover{color:var(--fg);background:var(--hl)}
+.side-tab .side-count{margin-left:3px;font-weight:400;color:var(--dim)}
 .side-tab.on{background:var(--bg);color:var(--fg);font-weight:600;border-color:var(--line);
   box-shadow:0 1px 2px rgba(0,0,0,.04)}
 :root[data-theme=dark] .side-tab.on{background:#22222a;color:#fff;border-color:var(--line)}
@@ -110,17 +114,16 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 #tree:hover::-webkit-scrollbar-thumb{background:rgba(0,0,0,.2)}
 :root[data-theme=dark] #tree:hover::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2)}
 #tree::-webkit-scrollbar-thumb:hover{background:var(--dim)}
-#tablecount{height:28px;flex:none;display:flex;align-items:center;padding:0 12px;border-top:1px solid var(--line);
-  background:var(--side);color:var(--dim);font-size:11px}
-#tablecount[hidden]{display:none}
 .obj{display:flex;align-items:center;gap:8px;height:29px;padding:0 12px;cursor:pointer;white-space:nowrap;
   border-bottom:1px solid var(--row-line)}
 .obj[hidden]{display:none}   /* author display:flex would otherwise beat the UA [hidden] rule */
 .obj:hover{background:var(--hl)}
 .obj.on{background:var(--side-on);color:var(--side-on-fg);font-weight:700;box-shadow:inset 4px 0 0 var(--sel)}
 .obj .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
-.obj .ct{color:var(--dim);font-size:11px;flex:none;font-weight:normal}
-.obj.on .ct{color:var(--side-on-fg)}
+.obj .obj-copy{flex:none;width:22px;height:22px;margin-right:-6px;padding:0;display:none;align-items:center;justify-content:center;border:0;border-radius:3px;background:transparent;color:var(--dim)}
+.obj:hover .obj-copy,.obj .obj-copy:focus-visible{display:inline-flex}
+.obj .obj-copy:hover{color:var(--fg);background:var(--bg)}
+.obj .obj-copy svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 #main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
 #tabs{height:var(--bar-h);flex:none;display:flex;align-items:stretch;background:var(--nav);overflow:hidden;position:relative;z-index:10;padding-right:12px}
@@ -135,7 +138,13 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 #morewrap[hidden]{display:none}
 #moretab{border:0;border-radius:0;background:transparent;color:var(--nav-fg);padding:0 14px;font-size:13px;white-space:nowrap}
 #moretab:hover:not(:disabled){background:transparent;color:#fff;border:0}
-#moretab.on{background:var(--nav-on-bg);color:var(--nav-on-fg)}
+#moretab.on,#moretab.on:hover:not(:disabled){background:var(--nav-on-bg);color:var(--nav-on-fg)}
+#moretab.open{background:var(--nav-on-bg);color:var(--nav-on-fg)}    /* menu open: looks selected, like .on */
+body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only one white tab: the current one steps back while More is open */
+#moretab.open:hover:not(:disabled){background:var(--nav-on-bg);color:var(--nav-on-fg)}
+#moretab::after{content:'';display:inline-block;margin-left:7px;vertical-align:2px;border:4px solid transparent;border-top-color:currentColor;border-bottom:0}
+#moretab:focus-visible{outline:2px solid rgba(255,255,255,.6);outline-offset:-3px}
+#moretab:focus:not(:focus-visible){outline:none}
 #moremenu{position:fixed;z-index:50;min-width:170px;padding:5px;background:var(--bg);border:1px solid var(--line);
   border-radius:4px;box-shadow:0 6px 20px rgba(0,0,0,.22)}
 #moremenu[hidden]{display:none}
@@ -147,19 +156,16 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 #tabs > button:hover:not(:disabled),#tabs > #optionswrap > button:not(.sql-runner-pill):hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
 #optionswrap{align-self:stretch;display:flex;align-items:center;gap:4px;flex:none;margin:0 6px 0 12px;
   background:var(--nav);position:relative;z-index:2}
-#optionswrap[hidden]{display:none}
-.sql-runner-pill{align-self:center;height:26px;line-height:24px;padding:0 10px;margin:0 4px 0 0;
+#optionswrap[hidden],#optionswrap > [hidden]{display:none!important}
+.sql-runner-pill{align-self:center;height:26px;line-height:24px;padding:0 12px;margin:0 0 0 8px;
   display:inline-flex;align-items:center;gap:6px;border-radius:3px;font-size:12px;font-weight:500;
   color:#fff;background:transparent;border:1px solid rgba(255,255,255,.5);
   cursor:pointer;white-space:nowrap;user-select:none;outline:none;transition:all .15s ease}
-.sql-runner-pill .pill-icon{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;flex:none}
-.sql-runner-pill .pill-icon svg{width:13px;height:13px;stroke:currentColor;stroke-width:2.2;fill:none;display:block}
 .sql-runner-pill:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
 .sql-runner-pill.on{background:#fff;color:var(--nav);border-color:#fff;font-weight:600}
 :root[data-theme=dark] .sql-runner-pill{border-color:rgba(255,255,255,.5);color:#fff}
 :root[data-theme=dark] .sql-runner-pill:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
 :root[data-theme=dark] .sql-runner-pill.on{background:#262632;color:#fff;border-color:rgba(255,255,255,.6)}
-.opt-sep{width:1px;height:18px;background:rgba(255,255,255,.22);margin:0 4px;flex:none;align-self:center}
 #tabs .headicon{width:30px;height:30px;padding:0;margin:0 2px;border:0;border-radius:3px;
   font-size:16px;line-height:28px;text-align:center;align-self:center;background:transparent;color:#fff}
 #tabs .headicon:hover:not(:disabled){background:rgba(255,255,255,.2);color:#fff;border-color:transparent}
@@ -167,11 +173,11 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 #tabs .headicon svg{display:block;width:17px;height:17px;margin:auto;fill:none;
   stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #tabs #readonly.off{color:#ffd0cc}
-#tabs #theme{margin:0 4px 0 6px;align-self:center}
+#tabs #theme{align-self:center}
 #tabs #connbtn{align-self:center;height:26px;line-height:24px;padding:0 12px;margin:0 0 0 10px;
   font-size:12px;font-weight:500;border-radius:3px;border:1px solid rgba(255,255,255,.5);
   background:transparent;color:#fff;cursor:pointer;white-space:nowrap;flex:none}
-#tabs #connbtn:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
+#tabs #connbtn:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}    /* same look as SQL Runner */
 @media (max-width:1000px){.tab,#moretab{padding-left:10px;padding-right:10px}#optionswrap{margin-left:8px;padding-left:6px}}
 
 #tools{display:flex;align-items:center;gap:7px;padding:8px 10px;border-top:1px solid var(--line);
@@ -188,11 +194,12 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 .fcol-btn-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
 .fcol-btn-arrow{display:inline-flex;align-items:center;justify-content:center;color:var(--dim);flex:none;margin-left:auto}
 .fcol-btn-arrow svg{display:block;width:11px;height:11px;stroke:var(--dim)}
-#fop{height:32px;min-width:68px;padding:4px 28px 4px 10px;font-size:12px;appearance:none;
+#tools #fop,#tools #pagesize{height:32px;min-width:68px;flex:none;padding:4px 28px 4px 10px;    /* #tools beats '#tools select', which would reset the arrow's room */
+  font-size:12px;appearance:none;
   -webkit-appearance:none;-moz-appearance:none;cursor:pointer;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 10px center;background-size:11px 11px}
-:root[data-theme=dark] #fop{
+:root[data-theme=dark] #tools #fop,:root[data-theme=dark] #tools #pagesize{
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aaaaaa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");}
 .fcol-menu{position:absolute;top:calc(100% + 4px);left:0;z-index:100;width:240px;
   background:var(--bg);border:1px solid var(--line);border-radius:4px;
@@ -227,6 +234,12 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 :root[data-theme=dark] #fclr:focus,:root[data-theme=dark] #fclr:focus-visible{box-shadow:0 0 0 3px rgba(100,116,139,.4)}
 #fval{width:180px}
 #tools .sp{flex:1}
+#ftxt{white-space:nowrap}
+#fslow{display:flex;align-items:center;gap:8px;flex:none;padding:5px 10px;font-size:12px;color:#7a4a00;background:#fff6e0;border-bottom:1px solid #f1dfb0}
+#fslow[hidden]{display:none}
+#fslow span{overflow:hidden;text-overflow:ellipsis}
+#fslow button{height:24px;padding:0 9px;font-size:11.5px;flex:none}
+:root[data-theme=dark] #fslow{color:#f0c27a;background:#2a2214;border-bottom-color:#4a3a1c}
 #ftxt{color:#888;font-size:12px}
 .detail-tools{height:50px;flex:none;display:flex;align-items:center;gap:8px;padding:8px 10px;
   border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--filter-bg)}
@@ -268,6 +281,48 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 .td:first-child{border-left:1px solid var(--row-line)}
 .td:last-child{border-right:1px solid var(--th-line)}
 .td.null{color:var(--null);text-transform:uppercase}
+/* ---------- row panel: one row's fields beside the grid ---------- */
+#v-rows.rp-open #vp{margin-right:var(--rp-w,min(520px,50%))}
+.tr.rp-sel,.tr.rp-sel:nth-child(odd){background:var(--row-hover)}    /* the panel's row stays lit in the hover colour */
+#rows .td{cursor:pointer}
+#rowpanel .iconbtn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#rowpanel[hidden]{display:none}
+#rowpanel{position:absolute;right:0;bottom:0;width:var(--rp-w,min(520px,50%));z-index:5;display:flex;flex-direction:column;min-height:0;
+  background:var(--bg);border-left:1px solid var(--th-line);box-shadow:-6px 0 18px rgba(0,0,0,.08)}
+#rp-resize{position:absolute;left:-3px;top:0;bottom:0;width:6px;cursor:col-resize;z-index:1}
+#rp-resize:hover,#rp-resize.dragging{background:var(--nav)}
+.rp-head{display:flex;align-items:center;gap:4px;padding:8px 8px 8px 14px;border-bottom:1px solid var(--th-line);background:var(--rp-head)}    /* purple tint, like the top bar */
+.rp-title{flex:1;min-width:0}
+.rp-title b{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#rowpanel .iconbtn{width:26px;height:26px}
+#rp-delete:not(:disabled):hover{color:var(--err);border-color:var(--err)}
+#rp-search{width:180px;flex:none;margin-right:4px;padding:4px 8px;font-size:12px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg)}
+.rp-body{flex:1;min-height:0;overflow:auto;padding-bottom:12px}
+.rp-field{padding:8px 14px;border-bottom:1px solid var(--row-line)}
+.rp-label{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--th-fg);min-height:22px}
+.rp-label .rp-type{font-weight:400;color:var(--dim)}
+.rp-label .rp-actions{margin-left:auto;display:flex;gap:2px;opacity:0;transition:opacity .1s}
+.rp-field:hover .rp-actions,.rp-actions:focus-within{opacity:1}
+.rp-actions .iconbtn{width:22px;height:22px;border-color:transparent}
+.rp-actions .iconbtn:hover:not(:disabled){border-color:var(--line)}
+.rp-value{margin:2px 0 0;max-height:12em;overflow:auto;white-space:pre-wrap;word-break:break-word;
+  font:12px/1.5 Menlo,Monaco,Consolas,"Courier New",monospace;color:var(--fg)}
+.rp-value.json{white-space:pre;word-break:normal}
+.rp-value.null{color:var(--null);font-style:italic}
+.rp-edit textarea{box-sizing:border-box;width:100%;min-height:72px;max-height:40vh;resize:vertical;margin-top:4px;padding:6px 8px;border:1px solid var(--line);border-radius:4px;
+  background:var(--bg);color:var(--fg);font:12px/1.5 Menlo,Monaco,Consolas,"Courier New",monospace}
+.rp-edit textarea:focus{outline:none;border-color:var(--dim)}
+.rp-edit .rp-buttons{display:flex;gap:6px;justify-content:flex-end;margin-top:6px}
+.rp-edit .rp-buttons button{height:28px;padding:0 14px;font-size:12px}
+.rp-edit .rp-err{color:var(--err);font-size:12px;margin-top:4px;white-space:pre-wrap}
+.rp-empty{padding:16px;text-align:center;color:var(--dim);font-size:12px}
+#qbar #resetsql{background:var(--rp-head);border-color:var(--nav);color:var(--nav);font-weight:600}    /* highlighted: a query has run or the SQL changed */
+#qbar #resetsql:hover:not(:disabled){background:var(--nav);border-color:var(--nav);color:#fff}
+:root[data-theme=dark] #qbar #resetsql{color:var(--nav-fg)}
+:root[data-theme=dark] #qbar #resetsql:hover:not(:disabled){color:#fff}
+button.danger{background:var(--err);border-color:var(--err);color:#fff;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+button.danger:hover:not(:disabled){background:var(--err);border-color:var(--err);filter:brightness(.92);box-shadow:0 2px 8px rgba(192,57,43,.35)}
+:root[data-theme=dark] button.danger,:root[data-theme=dark] button.danger:hover:not(:disabled){color:#141419}
 #empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:var(--dim);
   pointer-events:none}
 #v-rows > #empty{top:50px}
@@ -286,7 +341,7 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 .detail-grid td{height:30px;line-height:29px;color:var(--fg);cursor:default}
 .detail-grid th:last-child,.detail-grid td:last-child{border-right:0}
 .detail-grid td.null{color:var(--null);text-transform:uppercase}
-.detail-grid .empty-detail{height:90px;line-height:90px;text-align:center;color:var(--dim);font-family:inherit}
+.detail-grid .empty-detail,#dbcat-table .empty-detail{height:90px;line-height:90px;text-align:center;color:var(--dim);font-family:inherit}
 
 #sqlwrap{height:210px;min-height:70px;flex:none;position:relative;overflow:hidden;
   background:var(--bg)}
@@ -302,8 +357,8 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
   transition:opacity .15s ease,background .15s ease,width .15s ease}
 #sqlresizer:hover .sqlresizer-grip,#sqlresizer.dragging .sqlresizer-grip,#sqlresizer:focus-visible .sqlresizer-grip{
   opacity:1;background:var(--sel);width:52px}
-body.resizing-sql{cursor:row-resize!important;user-select:none!important}
-body.resizing-sql *{user-select:none!important}
+body.resizing-row{cursor:row-resize!important;user-select:none!important}
+body.resizing-row *{user-select:none!important}
 #sideresizer{width:9px;margin:0 -4px 0 -5px;position:relative;z-index:12;cursor:col-resize;
   display:flex;align-items:center;justify-content:center;flex:none;
   touch-action:none;user-select:none;outline:none}
@@ -312,9 +367,8 @@ body.resizing-sql *{user-select:none!important}
   background:transparent;transition:background .15s ease,width .15s ease,box-shadow .15s ease}
 #sideresizer:hover::before,#sideresizer.dragging::before,#sideresizer:focus-visible::before{
   background:var(--nav);width:2px;box-shadow:0 0 6px rgba(121,88,159,.45)}
-.sideresizer-grip{display:none}
-body.resizing-side{cursor:col-resize!important;user-select:none!important}
-body.resizing-side *{user-select:none!important}
+body.resizing-col{cursor:col-resize!important;user-select:none!important}
+body.resizing-col *{user-select:none!important}
 #sidetoggle-expand{margin-left:8px;cursor:pointer}
 #sidetoggle-expand[hidden]{display:none!important}
 #sql,#sqlhl{position:absolute;inset:0;width:100%;height:100%;margin:0;border:0;border-radius:0;
@@ -364,36 +418,6 @@ dialog .bd{padding:14px 15px;max-height:72vh;overflow:auto;font-size:12px}
 dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;gap:8px;justify-content:flex-end}
 dialog.structured{width:min(760px,calc(100vw - 32px));min-width:min(540px,92vw);max-width:none}
 dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
-/* width:100% has no intrinsic size, so the dialog would shrink-wrap to nothing */
-.conn-form{display:flex;flex-direction:column;gap:10px}
-.conn-field{display:flex;flex-direction:column;gap:4px}
-.conn-label{font-size:11px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.4px}
-.conn-label .req{color:var(--err)}
-#dsn2{display:block;width:100%;min-height:44px;padding:8px 10px;resize:none;
-      overflow-x:hidden;overflow-y:hidden;overflow-wrap:anywhere;white-space:pre-wrap;font-size:12.5px;line-height:1.5;
-      font-family:Menlo,Monaco,Consolas,"Courier New",monospace}
-.saved-dsns-wrap{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
-.saved-dsns-head{display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:600;color:var(--th-fg);margin-bottom:8px}
-.saved-dsns-head .cnt{font-size:11px;color:var(--dim);font-weight:normal}
-.saved-dsns-list{display:flex;flex-direction:column;gap:6px;max-height:190px;overflow-y:auto;padding-right:2px}
-.saved-dsn-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border:1px solid var(--line);border-radius:4px;background:var(--side);transition:border-color .15s,background .15s}
-.saved-dsn-item:hover{background:var(--hl);border-color:#999}
-.saved-dsn-info{flex:1;min-width:0;cursor:pointer}
-.saved-dsn-name{font-size:12px;font-weight:600;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.saved-dsn-url{font-size:11px;color:var(--dim);font-family:Menlo,Monaco,Consolas,"Courier New",monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
-.saved-dsn-actions{display:flex;align-items:center;gap:6px;flex:none}
-.saved-dsns-empty{padding:12px;text-align:center;font-size:11px;color:var(--dim);background:var(--table-list-bg);border:1px dashed var(--line);border-radius:4px}
-.sm-btn{padding:3px 8px;font-size:11px;height:26px}
-.iconbtn.sm-btn{width:26px;height:26px;padding:0;display:inline-flex;align-items:center;justify-content:center}
-.iconbtn.sm-btn svg{width:13px;height:13px}
-.dsn-connect-btn{color:var(--green);border-color:var(--line)}
-.dsn-connect-btn:hover:not(:disabled){color:var(--green-h);border-color:var(--green);background:var(--apply-bg)}
-.dsn-del-btn{color:var(--dim);border-color:var(--line)}
-.dsn-del-btn:hover:not(:disabled){color:var(--err);border-color:var(--err);background:var(--cancel-bg)}
-#dconn{background:var(--green);color:#fff;border-color:var(--green);font-weight:600;padding:5px 16px}
-#dconn:hover:not(:disabled){background:var(--green-h);border-color:var(--green-h);color:#fff}
-:root[data-theme=dark] #dconn{color:#141419}
-#derr{color:var(--err);margin-top:2px;min-height:16px;font-size:12px;white-space:pre-wrap}
 #cellbox{white-space:pre-wrap;word-break:break-word;margin:0;
          font:12px/1.6 Menlo,Monaco,Consolas,"Courier New",monospace}
 #cellbox.json{box-sizing:border-box;width:100%;max-height:60vh;padding:16px 18px;overflow:auto;
@@ -401,21 +425,26 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 .json-key{color:var(--sql-ident)}.json-string{color:var(--sql-string)}.json-number{color:var(--sql-number)}
 .json-bool{color:var(--sql-key)}.json-null{color:var(--null);font-style:italic}
 #v-info{overflow:hidden;padding:0}
-#dbinfo-summary{height:100%;overflow:auto;padding:16px}
-#dbinfo-table{width:max-content;min-width:min(760px,100%);border-collapse:collapse;border:1px solid var(--th-line);font-size:12px}
-#dbinfo-table th,#dbinfo-table td{height:30px;padding:5px 9px;border:1px solid var(--th-line);text-align:left;vertical-align:middle}
-#dbinfo-table th{width:190px;padding-right:20px;color:var(--dim);font-weight:500;white-space:nowrap}
-#dbinfo-table td{color:var(--fg);font-family:Menlo,Monaco,Consolas,"Courier New",monospace;word-break:break-word}
-#dbinfo-table tr:not(.section):nth-child(odd){background:var(--row-odd)}
-#dbinfo-table tr:not(.section):hover{background:var(--row-hover)}
-#dbinfo-table tr.drill{cursor:pointer}
-#dbinfo-table tr.drill td{position:relative;padding-right:30px}
-#dbinfo-table tr.drill td::after{content:'›';position:absolute;right:12px;color:var(--dim);font:20px/18px Arial,sans-serif}
-#dbinfo-table tr.drill:hover td::after{color:var(--fg)}
-#dbinfo-table tr.drill-disabled td{position:relative;padding-right:30px}
-#dbinfo-table tr.drill-disabled td::after{content:'›';position:absolute;right:12px;color:var(--dim);opacity:.35;font:20px/18px Arial,sans-serif}
-#dbinfo-table tr:last-child th,#dbinfo-table tr:last-child td{border-bottom:0}
-#dbinfo-table .section th{width:auto;height:40px;padding:0 9px;color:var(--th-fg);font-weight:700;background:var(--bg)}
+#dbinfo-summary{height:100%;overflow:auto;padding:22px 26px}
+.dbi{max-width:1000px;display:flex;flex-direction:column;gap:24px}
+.dbi-msg{color:var(--dim);font-size:13px}
+.dbi-title{margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--dim)}
+.dbi-note{margin-left:6px;font-weight:400;letter-spacing:0;text-transform:none;opacity:.8}
+.dbi-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.dbi-tile{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer;transition:border-color .12s,background .12s}
+.dbi-tile:hover,.dbi-tile:focus-visible{border-color:var(--nav);background:var(--rp-head);outline:none}
+.dbi-tile.off{cursor:default;opacity:.5}
+.dbi-tile.off:hover{border-color:var(--line);background:var(--bg)}
+.dbi-tile .n{font-size:22px;font-weight:700;line-height:1.15;color:var(--fg)}
+.dbi-tile .l{font-size:12px;color:var(--dim)}
+.dbi-tile .sub{display:flex;flex-wrap:wrap;gap:2px 8px;margin-top:6px}
+.dbi-sub{height:auto;padding:0;border:0;background:transparent;font-size:11px;color:var(--dim);text-decoration:underline;text-underline-offset:2px}
+.dbi-sub:hover:not(:disabled){background:transparent;color:var(--nav)}
+.dbi-sub:disabled{text-decoration:none}
+.dbi-kv{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:8px 18px;margin:0;font-size:12.5px}
+.dbi-kv dt{color:var(--dim)}
+.dbi-kv dd{display:flex;align-items:center;gap:6px;margin:0;min-width:0;color:var(--fg);font-family:Menlo,Monaco,Consolas,"Courier New",monospace;word-break:break-all}
+.dbi-kv dd .iconbtn{width:24px;height:24px;flex:none}
 #dbinfo-catalog{height:100%;display:flex;flex-direction:column;min-height:0}
 #dbinfo-catalog[hidden],#dbinfo-summary[hidden]{display:none}
 #dbcat-tools{height:50px;display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--filter-bg)}
@@ -426,7 +455,7 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 #dbcat-table th,#dbcat-table td{height:30px;padding:0 9px;border-right:1px solid var(--th-line);border-bottom:1px solid var(--row-line);text-align:left;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #dbcat-table th{height:40px;line-height:39px;color:var(--th-fg);font-weight:700;background:var(--bg);position:sticky;top:0;z-index:2}
 #dbcat-table tbody tr:nth-child(odd){background:var(--row-odd)}#dbcat-table tbody tr:hover{background:var(--row-hover)}
-.dbcat-action-cell{padding:0 8px;white-space:nowrap}
+#dbcat-table td.dbcat-action-cell{text-overflow:clip}
 .cat-action-btn{display:inline-flex;align-items:center;justify-content:center;height:22px;padding:0 8px;font-size:11px;font-weight:600;line-height:20px;cursor:pointer;border-radius:3px;vertical-align:middle}
 #toast{position:fixed;right:24px;bottom:24px;z-index:9999;padding:9px 16px;
   border-radius:4px;background:#1e1e24;color:#fff;border:1px solid rgba(255,255,255,.15);
@@ -482,18 +511,22 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 .login-saved{margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
 .login-saved-head{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:700;
   color:var(--dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
-.login-saved-list{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;padding-right:4px;
+.login-saved-list{display:flex;flex-direction:column;gap:3px;max-height:max(240px,calc(100vh - 430px));overflow-y:auto;padding-right:4px;
   overscroll-behavior:contain}
+.login-saved-count{font-weight:500;margin-left:4px}
+.login-saved-search{width:min(240px,55%);padding:4px 8px;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg)}
+.login-saved-search:focus{outline:none;border-color:var(--dim)}
+.login-saved-empty{padding:8px;text-align:center;font-size:11px;color:var(--dim)}
 .login-saved-list::-webkit-scrollbar{width:6px}
 .login-saved-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
 .login-saved-list::-webkit-scrollbar-thumb:hover{background:var(--dim)}
-.saved-conn-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;
+.saved-conn-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 4px 3px 10px;
   border:1px solid var(--line);border-radius:4px;background:var(--bg);cursor:pointer;transition:all .12s}
 .saved-conn-row:hover{border-color:#888;background:var(--hl)}
-.saved-conn-meta{flex:1;min-width:0}
-.saved-conn-name{font-size:12px;font-weight:600;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.saved-conn-url{font-size:11px;color:var(--dim);font-family:Menlo,Monaco,Consolas,"Courier New",monospace;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+.saved-conn-meta{flex:1;min-width:0;display:flex;align-items:baseline;gap:10px}
+.saved-conn-name{flex:none;max-width:40%;font-size:12px;font-weight:600;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.saved-conn-url{flex:1;min-width:0;font-size:11px;color:var(--dim);font-family:Menlo,Monaco,Consolas,"Courier New",monospace;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .saved-conn-actions{display:flex;align-items:center;gap:4px;flex:none}
 .saved-conn-btn{color:var(--dim);border:1px solid transparent;background:transparent;padding:3px;cursor:pointer;
   border-radius:3px;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;transition:all .12s}
@@ -511,7 +544,6 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
   <aside id="side" hidden>
     <div id="dbline">
       <div id="brand"><span id="productname">pgweb</span><span id="dbname" hidden></span></div>
-      <button class="headicon" id="sidetoggle" title="Collapse sidebar (Ctrl+B)" aria-label="Collapse sidebar"></button>
     </div>
     <div id="sidetabs" role="tablist" aria-label="Object types" hidden>
       <button type="button" class="side-tab on" data-kind="table">Tables</button>
@@ -523,10 +555,9 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
       <button id="qclr" title="Clear" hidden>×</button>
     </div>
     <div id="tree" hidden></div>
-    <div id="tablecount" hidden></div>
   </aside>
 
-  <div id="sideresizer" role="separator" aria-orientation="vertical" tabindex="0" title="Drag to adjust sidebar width (double-click to auto-fit or reset)" hidden><div class="sideresizer-grip"></div></div>
+  <div id="sideresizer" role="separator" aria-orientation="vertical" tabindex="0" title="Drag to adjust sidebar width (double-click to auto-fit or reset)" hidden></div>
 
   <main id="main">
     <div id="tabs">
@@ -545,17 +576,16 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
         <div class="tab secondary" data-v="privileges" hidden>Privileges</div>
         <div class="tab secondary" data-v="partitions" hidden>Partitions</div>
         <div class="tab secondary" data-v="dependencies" hidden>Dependencies</div>
-        <div id="morewrap" hidden><button id="moretab" type="button">More ▾</button></div>
+        <div id="morewrap" hidden><button id="moretab" type="button">More</button></div>
         <div class="tab" data-v="info" hidden>Database info</div>
       </div>
-      <div id="optionswrap" hidden>
-        <button id="queryrunner" class="sql-runner-pill" title="Query runner (SQL Editor)" aria-label="SQL Runner"></button>
-        <span class="opt-sep"></span>
-        <button class="headicon" id="dbinfo" title="Database info" aria-label="Database info"></button>
-        <button class="headicon on" id="readonly" title="Read only: On" aria-label="Read only: On"></button>
-        <button class="headicon" id="reload" title="Refresh schema" aria-label="Refresh schema"></button>
+      <div id="optionswrap">
+        <button class="headicon" id="theme" title="Use dark theme" aria-label="Use dark theme"></button>
+        <button class="headicon on conn-only" id="readonly" title="Read only: On" aria-label="Read only: On" hidden></button>
+        <button class="headicon conn-only" id="dbinfo" title="Database info" aria-label="Database info" hidden></button>
+        <button class="headicon conn-only" id="reload" title="Refresh schema" aria-label="Refresh schema" hidden></button>
+        <button id="queryrunner" class="sql-runner-pill conn-only" title="Query runner (SQL Editor)" hidden>SQL Runner</button>
       </div>
-      <button class="headicon" id="theme" title="Use dark theme" aria-label="Use dark theme"></button>
       <button id="connbtn" hidden>Connect</button>
     </div>
 
@@ -599,14 +629,15 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 
           <div class="login-saved" id="login-saved" hidden>
             <div class="login-saved-head">
-              <span>Saved Connections</span>
+              <span>Saved Connections <span id="home-saved-count" class="login-saved-count"></span></span>
+              <input type="search" id="home-saved-search" class="login-saved-search" placeholder="Search name, user, host, database" aria-label="Search saved connections" autocomplete="off" spellcheck="false" hidden>
             </div>
             <div class="login-saved-list" id="home-saved-list"></div>
           </div>
         </div>
       </div>
       <div class="view" id="v-info">
-        <div id="dbinfo-summary"><table id="dbinfo-table"><tbody></tbody></table></div>
+        <div id="dbinfo-summary"></div>
         <div id="dbinfo-catalog" hidden>
           <div id="dbcat-tools"><button id="dbcat-back" type="button">Back</button><strong id="dbcat-title"></strong><span class="dbcat-sp"></span><span id="dbcat-count"></span><button class="iconbtn" id="dbcat-download" type="button" title="Download CSV"></button><input id="dbcat-search" type="search" placeholder="Search"/></div>
           <div id="dbcat-wrap"><table id="dbcat-table"><thead></thead><tbody></tbody></table></div>
@@ -637,6 +668,7 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
           <button id="fgo" hidden>Apply</button>
           <button id="fclr" title="Reset filter" hidden>Reset</button>
           <span class="sp"></span><span id="ftxt"></span>
+          <select id="pagesize" title="Rows per page" aria-label="Rows per page"></select>
           <div class="pagenav" id="pagenav" hidden>
             <button class="iconbtn pagebtn" id="prevbatch" title="Previous page" aria-label="Previous page"></button>
             <span class="pagenum" id="pagenum">Page 1</span>
@@ -645,11 +677,24 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
           <button class="iconbtn" id="rowrefresh" title="Refresh table data" aria-label="Refresh table data"></button>
           <button class="iconbtn" id="rowcsv" title="Download rows as CSV" aria-label="Download rows as CSV" disabled></button>
         </div>
+        <div id="fslow" role="status" hidden></div>
         <div id="vp"><div id="inner">
           <div id="head"></div>
           <div id="canvas"><div id="rows"></div></div>
         </div></div>
         <div id="empty">No rows</div>
+        <aside id="rowpanel" aria-label="Row details" hidden>
+          <div id="rp-resize" title="Drag to resize (double-click to reset)"></div>
+          <div class="rp-head">
+            <div class="rp-title"><b id="rp-title"></b></div>
+            <input type="search" id="rp-search" placeholder="Filter fields" aria-label="Filter fields" autocomplete="off" spellcheck="false">
+            <button type="button" class="iconbtn" id="rp-prev" title="Previous row (↑)" aria-label="Previous row"></button>
+            <button type="button" class="iconbtn" id="rp-next" title="Next row (↓)" aria-label="Next row"></button>
+            <button type="button" class="iconbtn" id="rp-delete" aria-label="Delete this row"></button>
+            <button type="button" class="iconbtn" id="rp-close" title="Close (Esc)" aria-label="Close"></button>
+          </div>
+          <div class="rp-body" id="rp-body"></div>
+        </aside>
       </div>
       <div class="view" id="v-struct"><div class="detail-tools"><input class="detail-search" data-grid="g-struct" data-one="column" data-many="columns" type="search" placeholder="Search columns"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-struct"><thead><tr><th>#</th><th>Column</th><th>Type</th><th>Key</th><th>Nullable</th><th>Default</th><th>Generated</th></tr></thead><tbody></tbody></table></div></div>
       <div class="view" id="v-overview"><div class="detail-tools"><input class="detail-search" data-grid="g-overview" data-one="item" data-many="items" type="search" placeholder="Search overview"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-overview"><thead><tr><th>#</th><th>Schema</th><th>Owner</th><th>Kind</th><th>Estimated rows</th><th>Table size</th><th>Index size</th><th>Total size</th><th>Tablespace</th><th>Persistence</th><th>RLS</th><th>Comment</th></tr></thead><tbody></tbody></table></div></div>
@@ -672,14 +717,14 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
           <button id="explain" title="Show the estimated query plan without executing the query">Explain</button>
           <button id="analyze" title="Execute the query and show actual timing and row counts">Analyze</button>
           <button id="stream" title="Download all returned rows as a streaming CSV">Stream</button>
-          <button class="primary" id="run" title="Run query">Run</button>
+          <button class="primary" id="run" title="Execute the query">Execute</button>
+          <button id="resetsql" title="Reset to default SQL" hidden>Reset</button>
           <button id="cancelquery" hidden>Cancel</button>
           <span id="streamprogress" hidden><progress id="streambar"></progress><span id="streammsg"></span></span>
           <span id="qmsg"></span>
           <button class="export" data-format="json" disabled>JSON</button>
           <button class="export" data-format="xml" disabled>XML</button>
           <button class="export" data-format="csv" disabled>CSV</button>
-          <button id="resetsql" title="Reset to default SQL" hidden>Reset</button>
         </div>
         <div id="qres">
           <div id="qerror" hidden><div id="qerrorbox"><div id="qerrorhead"><span class="title" id="qerrortitle"></span><button type="button" class="iconbtn" id="qerrorcopy" title="Copy error" aria-label="Copy error"></button></div><pre id="qerrorbody"></pre></div></div>
@@ -709,16 +754,17 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 
 <script>
 'use strict';
-const ROW_H = 30, CHUNK = 10, SIDE_BATCH = 200, OVER = 6, MAXW = 440, MINW = 64;   /* 29px cell + 1px rule; matches --row-h */
+const ROW_H = 30, PAGE_SIZES = [50, 100, 500], SIDE_BATCH = 200, OVER = 6, MAXW = 440, MINW = 64;   /* 29px cell + 1px rule; matches --row-h */
 const DEFAULT_SQL = 'SELECT * FROM test LIMIT 10;';
 const DEFAULT_DSN = 'postgresql://postgres:postgres@localhost:5432/postgres';
 // browsers clamp element height near 2^24 px; past that the spacer stops growing and the
 // tail of a big table becomes unreachable, so the scrollbar is scaled instead of 1:1
 const MAXH = 16000000;
 const $ = s => document.getElementById(s);
+const el=(tag,cls,text)=>{ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=String(text); return e; };
+const copyText=async(text,message)=>{ try{ await navigator.clipboard.writeText(text); toast(message); }catch{ toast('Could not copy'); } };
+const iconButton=(name,title,cls='iconbtn')=>{ const b=el('button',cls); b.type='button'; b.innerHTML=icon(name); b.title=b.ariaLabel=title; return b; };
 const icon = name => ({
-  database:'<svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
-  terminal:'<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>',
   info:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></svg>',
   lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/></svg>',
   unlock:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2M12 14v2"/></svg>',
@@ -728,22 +774,26 @@ const icon = name => ({
   copy:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
   trash:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
   plug:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22v-5M9 8V2M15 8V2M18 8v4a6 6 0 0 1-12 0V8z"/></svg>',
+  expand:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>',
+  pencil:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  close:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  chevronUp:'<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>',
+  chevronDown:'<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>',
   chevronLeft:'<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>',
   chevronRight:'<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>',
   download:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg>',
-  panelLeftClose:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><polyline points="15 15 12 12 15 9"/></svg>',
   panelLeftOpen:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><polyline points="12 15 15 12 12 9"/></svg>'
 })[name];
 const sqlEscape=value=>String(value??'').replace(/[&<>]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
 const vp=$('vp'), inner=$('inner'), headEl=$('head'), canvas=$('canvas'), rowsEl=$('rows');
-$('queryrunner').innerHTML='<span class="pill-icon">'+icon('terminal')+'</span><span class="pill-text">SQL Runner</span>'; $('dbinfo').innerHTML=icon('info'); $('reload').innerHTML=icon('refresh');
+const RP={index:-1,row:null,table:''};    // the row shown in the row panel (index -1: closed)
+$('dbinfo').innerHTML=icon('info'); $('reload').innerHTML=icon('refresh');
 $('rowrefresh').innerHTML=icon('refresh');
 $('rowcsv').innerHTML=icon('download');
 $('prevbatch').innerHTML=icon('chevronLeft');
 $('nextbatch').innerHTML=icon('chevronRight');
 $('dbcat-download').innerHTML=icon('download');
-if($('sidetoggle')) $('sidetoggle').innerHTML=icon('panelLeftClose');
-if($('sidetoggle-expand')) $('sidetoggle-expand').innerHTML=icon('panelLeftOpen');
+$('sidetoggle-expand').innerHTML=icon('panelLeftOpen');
 const yesNo=value=>value?'Yes':'No';
 const DETAIL_ROWS={
   overview:rows=>rows.map((r,i)=>[i+1,r.schema,r.owner,r.kind,r.estimated_rows,r.table_size,r.index_size,r.total_size,r.tablespace,r.persistence,r.rls,r.comment]),
@@ -766,32 +816,15 @@ function pgwebPreferences(){
 function getStored(field){return pgwebPreferences()[field]??null}
 function setStored(field,value){try{const data=pgwebPreferences();if(value===undefined)delete data[field];else data[field]=value;localStorage.setItem('pgweb',JSON.stringify(data))}catch{}}
 function removeStored(field){setStored(field,undefined)}
-function getPreference(field){return getStored(field)}
 function setPreference(field,value){setStored(field,String(value))}
-(function migratePreferences(){
-  const fields=['readOnly','sideCollapsed','sideTab','theme','editorHeight','sideWidth'];
-  try{
-    const data=pgwebPreferences(),legacy=[];
-    for(const field of fields){const value=localStorage.getItem('pgweb.'+field);if(value!==null){legacy.push('pgweb.'+field);if(!Object.hasOwn(data,field))data[field]=value}}
-    const sql=localStorage.getItem('pgweb.sql');
-    if(sql!==null){legacy.push('pgweb.sql');if(!Object.hasOwn(data,'sql'))data.sql=sql}
-    const dsns=localStorage.getItem('pgweb.saved_dsns');
-    if(dsns!==null){legacy.push('pgweb.saved_dsns');if(!Object.hasOwn(data,'savedDsns'))try{const v=JSON.parse(dsns);if(Array.isArray(v))data.savedDsns=v}catch{}}
-    const widths=data.widths&&typeof data.widths==='object'&&!Array.isArray(data.widths)?data.widths:{};
-    for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key&&key.startsWith('pgweb.w.')){legacy.push(key);const table=key.slice(8);if(!Object.hasOwn(widths,table))try{const v=JSON.parse(localStorage.getItem(key));if(Array.isArray(v))widths[table]=v}catch{}}}
-    if(Object.keys(widths).length)data.widths=widths;
-    if(localStorage.getItem('pgweb.currentPage')!==null)legacy.push('pgweb.currentPage');
-    if(legacy.length){localStorage.setItem('pgweb',JSON.stringify(data));for(const key of legacy)localStorage.removeItem(key)}
-  }catch{}
-})();
 
 const S = { db:'', table:'', kind:'', pk:null, cols:[], widths:[], total:0,
-            chunks:new Map(), pending:new Map(), local:null, where:null, meta:null, tree:{},
+            rows:[], pageSize:PAGE_SIZES.includes(+getStored('pageSize'))?+getStored('pageSize'):100, local:null, where:null, meta:null, tree:{},
             viewPx:0, scale:1, loaded:{}, connected:false, hasMore:false, pageStart:0, latestFirst:false,
             activeQueryId:null, cancelRequested:false,
-            readOnly:getPreference('readOnly') === '1',
-            sideCollapsed:getPreference('sideCollapsed') === '1',
-            sideTab:getPreference('sideTab') || 'table',
+            readOnly:getStored('readOnly') === '1',
+            sideCollapsed:getStored('sideCollapsed') === '1',
+            sideTab:getStored('sideTab') || 'table',
             sideItems:[], sideShown:0, queryCleared:false,
             filterApplied:{col:'',op:'=',val:''}, dbInfo:null, dbCatalog:{}, dbCatalogKind:'' };
 let pool=[], lastFirst=-1, ticking=false;
@@ -800,6 +833,30 @@ let toastTimer;
 function toast(message){
   clearTimeout(toastTimer); $('toast').textContent=message; $('toast').hidden=false;
   toastTimer=setTimeout(()=>$('toast').hidden=true, 3500);
+}
+
+// Pointer-drag resize handle (also arrow keys, Home and double-click to reset). set(px) clamps and applies a size and returns it;
+// sign -1 for a handle on the left edge of what it resizes; drop(start,delta) returning true skips saving.
+function makeResizer(handle,{vertical=false,sign=1,size,set,save,reset,drop}){
+  const at=e=>vertical?e.clientY:e.clientX, cls=vertical?'resizing-row':'resizing-col';
+  let drag=null;
+  handle.addEventListener('pointerdown', e=>{
+    if(e.button!==0) return; e.preventDefault();
+    drag={id:e.pointerId, from:at(e), start:size()}; handle.setPointerCapture(e.pointerId); handle.classList.add('dragging'); document.body.classList.add(cls);
+  });
+  handle.addEventListener('pointermove', e=>{ if(drag?.id===e.pointerId) set(drag.start+(at(e)-drag.from)*sign); });
+  const stop=e=>{
+    if(drag?.id!==e.pointerId) return;
+    const {from,start}=drag; drag=null; handle.classList.remove('dragging'); document.body.classList.remove(cls);
+    if(!drop?.(start,(at(e)-from)*sign)) save(size());
+  };
+  handle.addEventListener('pointerup', stop); handle.addEventListener('pointercancel', stop);
+  handle.addEventListener('dblclick', reset);
+  handle.addEventListener('keydown', e=>{
+    const grow=(vertical?{ArrowDown:1,ArrowUp:-1}:{ArrowRight:sign,ArrowLeft:-sign})[e.key];
+    if(grow){ e.preventDefault(); save(set(size()+(e.shiftKey?50:20)*grow)); }
+    else if(e.key==='Home'){ e.preventDefault(); reset(); }
+  });
 }
 
 // Native dialogs close on Escape but not on backdrop clicks by default.
@@ -827,7 +884,7 @@ async function api(body){
 }
 /* ---------------- theme ---------------- */
 (function theme(){
-  document.documentElement.dataset.theme = getPreference('theme') || 'light';
+  document.documentElement.dataset.theme = getStored('theme') || 'light';
   const draw = () => {
     const dark = document.documentElement.dataset.theme === 'dark';
     $('theme').innerHTML = icon(dark ? 'sun' : 'moon');
@@ -847,7 +904,7 @@ async function api(body){
 function drawReadOnly(){
   const b=$('readonly');
   b.innerHTML = icon(S.readOnly ? 'lock' : 'unlock');
-  b.className = S.readOnly ? 'headicon on' : 'headicon off';
+  b.classList.toggle('on', !!S.readOnly); b.classList.toggle('off', !S.readOnly);    // toggle, not replace: other classes (conn-only) stay
   b.title = b.ariaLabel = S.readOnly
     ? 'Queries run inside a PostgreSQL read-only transaction'
     : 'Write queries are allowed';
@@ -870,22 +927,9 @@ $('readonly').onclick = () => {
 drawReadOnly();
 
 function updateSidebarVisibility(){
-  const resizer=$('sideresizer'), expandBtn=$('sidetoggle-expand'), brand=$('brandname');
-  if(!S.connected){
-    $('side').hidden=true;
-    $('side').classList.remove('collapsed');
-    if(resizer) resizer.hidden=true;
-    if(expandBtn) expandBtn.hidden=true;
-    if(brand) brand.hidden=false;
-    return;
-  }
-  const isCollapsed=S.sideCollapsed;
-  $('side').hidden=isCollapsed;
-  if(isCollapsed) $('side').classList.add('collapsed');
-  else $('side').classList.remove('collapsed');
-  if(resizer) resizer.hidden=isCollapsed;
-  if(expandBtn) expandBtn.hidden=!isCollapsed;
-  if(brand) brand.hidden=!isCollapsed;
+  const collapsed=S.connected&&S.sideCollapsed;
+  $('side').hidden=!S.connected||collapsed; $('side').classList.toggle('collapsed',collapsed);
+  $('sideresizer').hidden=!S.connected||collapsed; $('sidetoggle-expand').hidden=!collapsed; $('brandname').hidden=S.connected&&!collapsed;
 }
 function toggleSidebar(forceCollapse){
   const next = forceCollapse !== undefined ? forceCollapse : !S.sideCollapsed;
@@ -901,29 +945,31 @@ function setConnected(on){
   S.connected = on;
   updateSidebarVisibility();
   $('connbtn').hidden = !on;
-  $('dbname').hidden = !on; $('dbname').textContent = on ? S.db : ''; $('dbname').title = on ? S.db : '';
+  // show which server and database this is (user, host and port in the tooltip), not just the database name
+  const where = (on && S.connectionUrl ? shortDsn(S.connectionUrl, false) : (on ? S.db : '')) + (on ? ' / public' : '');    // pgweb browses the public schema only
+  $('dbname').hidden = !on; $('dbname').textContent = where; $('dbname').title = on ? (S.connectionUrl ? shortDsn(S.connectionUrl) : S.db) : '';
   $('connbtn').textContent = 'Disconnect';
   $('connbtn').title = 'Disconnect from this database';
-  $('optionswrap').hidden = !on;
+  for(const el of $('optionswrap').querySelectorAll('.conn-only')) el.hidden = !on;    // the theme button stays, connected or not
   $('pane').hidden = false;
   $('status').hidden = true;
   $('queryrunner').disabled = !on;
   $('sidetabs').hidden = !on;
   $('tablesearch').hidden = !on;
   $('tree').hidden = !on;
-  $('tablecount').hidden = !on;
   $('reload').disabled = !on;
   $('rowrefresh').disabled = !on;
   $('run').disabled = $('stream').disabled = $('explain').disabled = $('analyze').disabled = $('resetsql').disabled = $('sql').disabled = !on;
   $('cancelquery').hidden=true; $('pagenav').hidden=true;
   if(!on) setExports(false);
   if(!on){
-    S.tree={}; S.dbInfo=null; S.dbCatalog={}; S.dbCatalogKind=''; S.chunks.clear(); S.pending.clear();
+    S.tree={}; S.dbInfo=null; S.dbCatalog={}; S.dbCatalogKind=''; S.rows=[];
     S.local=null; S.table=''; S.kind=''; S.cols=[]; S.total=0; S.hasMore=false; S.pageStart=0; S.latestFirst=false; S.activeQueryId=null; lastFirst=-1;
     $('tree').textContent=''; $('q').value=''; $('qclr').hidden=true;
     $('tools').style.display='none';
     for(const t of document.querySelectorAll('.tab')) t.hidden = true;
     $('morewrap').hidden=true; $('moremenu').hidden=true;
+    rowPanelClose();
     show('home');
     renderHome();
     headEl.textContent=''; rowsEl.textContent=''; canvas.classList.remove('has-rows'); pool=[];
@@ -936,41 +982,28 @@ function setConnected(on){
 async function doConnect(dsn){
   dsn = cleanDsn(dsn);
   const m = await api({action:'connect', dsn});
-  S.db = m.database; S.tree = m.tree; S.dbInfo=null; S.dbCatalog={}; S.dbCatalogKind='';
+  S.db = m.database; S.connectionUrl = m.connection_url || ''; S.tree = m.tree; S.dbInfo=null; S.dbCatalog={}; S.dbCatalogKind='';
   setConnected(true);
   setSideTab(S.sideTab || 'table', false);
   drawTree(); openRunner();
 }
 function disconnected(){ setConnected(false); }
 
-$('connbtn').onclick = () => S.connected ? askDisconnect() : askConnect();
+$('connbtn').onclick = askDisconnect;    // shown only while connected; connecting happens on the home screen
 
 function getSavedDsns(){
   try{
     const raw = getStored('savedDsns') || [];
     if(!Array.isArray(raw)) return [];
-    const seenNames = new Set(), seenDsns = new Set(), unique = [];
-    let modified = false;
+    const seenDsns = new Set(), unique = [];
     for(const item of raw){
       if(!item || !item.dsn) continue;
-      // Strip old auto-appended (host) from saved names to keep minimal
-      if(item.name && /\s*\([^)]+\)$/.test(item.name)){
-        try{
-          const u = new URL(cleanDsn(item.dsn).replace(/^postgres(ql)?:\/\//i, 'http://'));
-          if(u.hostname && item.name.endsWith(` (${u.hostname})`)){
-            item.name = item.name.slice(0, -(` (${u.hostname})`.length)).trim() || u.hostname;
-            modified = true;
-          }
-        }catch{}
-      }
-      const nameKey = String(item.name || '').trim().toLowerCase();
-      const dsnKey = String(item.dsn || '').trim();
-      if(!nameKey || !dsnKey || seenNames.has(nameKey) || seenDsns.has(dsnKey)) continue;
-      seenNames.add(nameKey);
+      // one entry per user, host, port and database: the same database name on two servers stays two entries
+      const dsnKey = maskDsn(item.dsn);
+      if(!String(item.name || '').trim() || !dsnKey || seenDsns.has(dsnKey)) continue;
       seenDsns.add(dsnKey);
       unique.push(item);
     }
-    if(modified) setSavedDsns(unique);
     return unique;
   }catch{
     return [];
@@ -983,9 +1016,8 @@ function saveConnection(dsn){
   dsn = cleanDsn(dsn);
   if(!dsn) return;
   const finalName = parseDsnDb(dsn);
-  const finalNameLower = finalName.toLowerCase();
   let items = getSavedDsns();
-  items = items.filter(i => String(i.name || '').trim().toLowerCase() !== finalNameLower && String(i.dsn || '').trim() !== dsn);
+  items = items.filter(i => maskDsn(i.dsn) !== maskDsn(dsn));    // same user, host, port and database (a changed password replaces it)
   items.unshift({
     id: 'dsn_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
     name: finalName,
@@ -1037,74 +1069,37 @@ async function connectFromHome(rawDsn, isReadOnly = false){
     }
   }
 }
-function renderHome(){
-  const items = getSavedDsns();
-  const savedSec = $('login-saved');
-  const listEl = $('home-saved-list');
-  
-  if(!items.length){
-    if(savedSec) savedSec.hidden = true;
-    return;
+// Short, readable form of a DSN: user @ host / db (no scheme, password, default port, or cloud domain suffix); host / db without the user
+function shortDsn(dsn, withUser = true){
+  try{
+    const u = new URL(cleanDsn(dsn).replace(/^postgres(ql)?:\/\//i, 'http://'));
+    const ip = /^[\d.]+$/.test(u.hostname) || u.hostname.includes(':');
+    const host = ip ? u.hostname : u.hostname.replace(/\.(postgres\.database\.azure\.com|database\.windows\.net|rds\.amazonaws\.com|[a-z0-9-]+\.rds\.amazonaws\.com|supabase\.co|neon\.tech|cloudsql\.com)$/i, '').replace(/\.[a-z0-9-]+\.rds\.amazonaws\.com$/i, '');
+    const user = decodeURIComponent(u.username || '');
+    const db = u.pathname.replace(/^\//, '');
+    return (withUser && user ? user + ' @ ' : '') + host + (u.port && u.port !== '5432' ? ':' + u.port : '') + (db ? ' / ' + db : '');
+  }catch{
+    return maskDsn(dsn);
   }
-  if(savedSec) savedSec.hidden = false;
-  if(listEl){
-    listEl.textContent = '';
-    items.forEach(item => {
-      const row = document.createElement('div');
-      row.className = 'saved-conn-row';
-      row.title = 'Click to use this connection';
-      
-      const meta = document.createElement('div');
-      meta.className = 'saved-conn-meta';
-      
-      const name = document.createElement('div');
-      name.className = 'saved-conn-name';
-      name.textContent = item.name || 'PostgreSQL';
-      
-      const url = document.createElement('div');
-      url.className = 'saved-conn-url';
-      url.textContent = maskDsn(item.dsn);
-      meta.append(name, url);
-      
-      meta.onclick = () => {
-        $('home-dsn').value = item.dsn;
-        $('home-dsn').focus();
-        $('home-dsn').select();
-      };
-
-      const actions = document.createElement('div');
-      actions.className = 'saved-conn-actions';
-
-      const connBtn = document.createElement('button');
-      connBtn.type = 'button';
-      connBtn.className = 'saved-conn-btn connect';
-      connBtn.title = 'Connect to this database';
-      connBtn.setAttribute('aria-label', 'Connect');
-      connBtn.innerHTML = icon('plug');
-      connBtn.onclick = (e) => {
-        e.stopPropagation();
-        $('home-dsn').value = item.dsn;
-        connectFromHome(item.dsn);
-      };
-
-      const delBtn = document.createElement('button');
-      delBtn.type = 'button';
-      delBtn.className = 'saved-conn-btn delete';
-      delBtn.title = 'Remove saved connection';
-      delBtn.setAttribute('aria-label', 'Remove');
-      delBtn.innerHTML = icon('trash');
-      delBtn.onclick = (e) => {
-        e.stopPropagation();
-        const updated = getSavedDsns().filter(i => (i.id ? i.id !== item.id : i.dsn !== item.dsn));
-        setSavedDsns(updated);
-        renderHome();
-        toast('Connection removed');
-      };
-
-      actions.append(connBtn, delBtn);
-      row.append(meta, actions);
-      listEl.appendChild(row);
-    });
+}
+function renderHome(){
+  const items=getSavedDsns(), search=$('home-saved-search'), list=$('home-saved-list');
+  $('login-saved').hidden=!items.length; if(!items.length) return;
+  search.hidden=items.length<=5; if(search.hidden) search.value=''; search.oninput=renderHome;
+  const query=search.value.trim().toLowerCase();
+  const shown=query ? items.filter(item=>((item.name||'')+' '+shortDsn(item.dsn)).toLowerCase().includes(query)) : items;
+  $('home-saved-count').textContent=query ? `(${shown.length} of ${items.length})` : `(${items.length})`;
+  list.textContent='';
+  if(!shown.length) list.appendChild(el('div','login-saved-empty','No saved connection matches'));
+  for(const item of shown){
+    const row=list.appendChild(el('div','saved-conn-row')); row.title=maskDsn(item.dsn)+'\nClick to use this connection';
+    const meta=row.appendChild(el('div','saved-conn-meta'));
+    meta.append(el('div','saved-conn-name',item.name||'PostgreSQL'), el('div','saved-conn-url',shortDsn(item.dsn)));
+    meta.onclick=()=>{ $('home-dsn').value=item.dsn; $('home-dsn').focus(); $('home-dsn').select(); };
+    const connect=iconButton('plug','Connect to this database','saved-conn-btn connect'), remove=iconButton('trash','Remove saved connection','saved-conn-btn delete');
+    connect.onclick=e=>{ e.stopPropagation(); $('home-dsn').value=item.dsn; connectFromHome(item.dsn); };
+    remove.onclick=e=>{ e.stopPropagation(); setSavedDsns(getSavedDsns().filter(i=>i.id ? i.id!==item.id : i.dsn!==item.dsn)); renderHome(); toast('Connection removed'); };
+    row.appendChild(el('div','saved-conn-actions')).append(connect, remove);
   }
 }
 function cleanDsn(raw){
@@ -1134,140 +1129,6 @@ function parseDsnDb(dsn){
   }
 }
 
-function askConnect(){
-  $('dlg-t').textContent = 'Connect to a database';
-  $('dlg-b').innerHTML = `
-    <div class="conn-form">
-      <div class="conn-field">
-        <label for="dsn2" class="conn-label">PostgreSQL Database URL (DSN) <span class="req">*</span></label>
-        <textarea id="dsn2" rows="1" wrap="soft" placeholder="${DEFAULT_DSN}" autocomplete="off" spellcheck="false"></textarea>
-      </div>
-      <div id="derr"></div>
-      <div class="saved-dsns-wrap" id="saved-dsns-wrap">
-        <div class="saved-dsns-head">
-          <span>Saved URLs</span>
-          <span id="saved-dsns-cnt" class="cnt"></span>
-        </div>
-        <div id="saved-dsns-list" class="saved-dsns-list"></div>
-      </div>
-    </div>
-  `;
-  $('dlg-f').innerHTML = '<button value="cancel">Close</button><button type="button" id="dconn">Connect</button>';
-  $('dlg').showModal();
-
-  const dsnInp = $('dsn2');
-  const connBtn = $('dconn');
-  const fit = () => { dsnInp.style.height='auto'; dsnInp.style.height=Math.min(dsnInp.scrollHeight+2,140)+'px'; };
-  dsnInp.value = ''; fit();
-  dsnInp.oninput = fit;
-
-  const saveConnModal = (dsn) => {
-    saveConnection(dsn);
-    renderSavedList();
-  };
-
-  const renderSavedList = () => {
-    const listEl = $('saved-dsns-list');
-    const cntEl = $('saved-dsns-cnt');
-    if(!listEl) return;
-    const items = getSavedDsns();
-    cntEl.textContent = items.length ? `${items.length} saved` : '';
-    if(!items.length){
-      listEl.innerHTML = '<div class="saved-dsns-empty">No saved URLs yet. Enter a URL above and click "Connect".</div>';
-      return;
-    }
-    listEl.textContent = '';
-    items.forEach(item => {
-      const row = document.createElement('div');
-      row.className = 'saved-dsn-item';
-
-      const info = document.createElement('div');
-      info.className = 'saved-dsn-info';
-      info.title = 'Click to fill form';
-
-      const nameDiv = document.createElement('div');
-      nameDiv.className = 'saved-dsn-name';
-      nameDiv.textContent = item.name || 'PostgreSQL';
-
-      const urlDiv = document.createElement('div');
-      urlDiv.className = 'saved-dsn-url';
-      urlDiv.textContent = maskDsn(item.dsn);
-
-      info.append(nameDiv, urlDiv);
-      info.onclick = () => {
-        dsnInp.value = item.dsn || '';
-        fit();
-        dsnInp.focus();
-      };
-
-      const actions = document.createElement('div');
-      actions.className = 'saved-dsn-actions';
-
-      const quickConnBtn = document.createElement('button');
-      quickConnBtn.type = 'button';
-      quickConnBtn.className = 'iconbtn sm-btn dsn-connect-btn';
-      quickConnBtn.title = 'Connect to this database';
-      quickConnBtn.ariaLabel = 'Connect to this database';
-      quickConnBtn.innerHTML = icon('plug');
-      quickConnBtn.onclick = async (e) => {
-        e.stopPropagation();
-        await executeConnect(item.dsn);
-      };
-
-      const delBtn = document.createElement('button');
-      delBtn.type = 'button';
-      delBtn.className = 'iconbtn sm-btn dsn-del-btn';
-      delBtn.title = 'Delete URL from list';
-      delBtn.ariaLabel = 'Delete URL';
-      delBtn.innerHTML = icon('trash');
-      delBtn.onclick = (e) => {
-        e.stopPropagation();
-        const updated = getSavedDsns().filter(i => (i.id ? i.id !== item.id : i.dsn !== item.dsn));
-        setSavedDsns(updated);
-        renderSavedList();
-        renderHome();
-        toast('URL removed');
-      };
-
-      actions.append(quickConnBtn, delBtn);
-      row.append(info, actions);
-      listEl.appendChild(row);
-    });
-  };
-
-  const executeConnect = async (rawDsn) => {
-    const dsn = cleanDsn(rawDsn);
-    if(!dsn){ $('derr').textContent = 'Please enter a PostgreSQL URL'; return; }
-    connBtn.disabled = dsnInp.disabled = true;
-    $('derr').textContent = 'connecting…';
-    try{
-      await doConnect(dsn);
-      saveConnection(dsn);
-      $('dlg').close();
-      toast('Connected and URL saved');
-    }catch(e){
-      $('derr').textContent = e.message;
-    }finally{
-      connBtn.disabled = dsnInp.disabled = false;
-    }
-  };
-
-  connBtn.onclick = ev => {
-    ev?.preventDefault();
-    executeConnect(dsnInp.value);
-  };
-
-  dsnInp.onkeydown = e => {
-    if(e.key === 'Enter' && !e.shiftKey){
-      e.preventDefault();
-      executeConnect(dsnInp.value);
-    }
-  };
-
-  renderSavedList();
-  dsnInp.focus(); dsnInp.select();
-}
-
 function askDisconnect(){
   $('dlg-t').textContent = 'Disconnect';
   $('dlg-b').textContent = `Disconnect from ${S.db}? Any unsaved query text stays in the editor.`;
@@ -1287,6 +1148,28 @@ function getKindMeta(kind){
   return { singular: 'table', plural: 'tables', label: 'Tables' };
 }
 
+// each side tab shows how many objects it has, e.g. Tables (12); the sidebar is kept wide enough for them on one line
+function drawSideTabCounts(){
+  for(const btn of document.querySelectorAll('#sidetabs .side-tab')){
+    btn.dataset.label ||= btn.textContent.trim();
+    const count=((S.tree.public||{})[btn.dataset.kind]||[]).length;
+    const label=el('span',null,btn.dataset.label);
+    const badge=el('span','side-count',`(${count})`);
+    btn.replaceChildren(label,badge);
+  }
+  fitSidebarToTabs();
+}
+function sideTabsWidth(){
+  const tabs=$('sidetabs'); if(!tabs||tabs.hidden) return 0;
+  const style=getComputedStyle(tabs);
+  // the text's own width (spans do not stretch with the tab), plus each tab's padding and border
+  const tab=b=>[...b.children].reduce((w,span)=>w+span.getBoundingClientRect().width+parseFloat(getComputedStyle(span).marginLeft||0),0)+parseFloat(getComputedStyle(b).paddingLeft)*2+2;
+  return Math.ceil([...tabs.children].reduce((sum,b)=>sum+tab(b),0) + (tabs.children.length-1)*parseFloat(style.columnGap||4) + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight));
+}
+function fitSidebarToTabs(){
+  const need=sideTabsWidth(), side=$('side');
+  if(need && side && !side.classList.contains('collapsed') && side.getBoundingClientRect().width<need) document.documentElement.style.setProperty('--side-w', need+'px');
+}
 function setSideTab(kind, triggerRender = true){
   S.sideTab = kind || 'table';
   setPreference('sideTab', S.sideTab);
@@ -1304,6 +1187,7 @@ for(const btn of document.querySelectorAll('#sidetabs .side-tab')){
 
 // All public schema objects stay in memory; DOM rows are appended in small batches.
 function drawTree(){
+  drawSideTabCounts();
   const kind = S.sideTab || 'table';
   S.sideItems = ((S.tree.public||{})[kind]||[]).map(o=>o.name).sort((a,b)=>a.localeCompare(b));
   renderTreeBatch(true);
@@ -1313,24 +1197,21 @@ function renderTreeBatch(reset=false){
   const kind = S.sideTab || 'table';
   const meta = getKindMeta(kind);
   const matches=term ? S.sideItems.filter(name=>name.toLowerCase().includes(term)) : S.sideItems;
-  const total=S.sideItems.length, shown=matches.length;
-  $('tablecount').textContent = term
-    ? `${shown} of ${total} ${total===1?meta.singular:meta.plural}`
-    : `${total} ${total===1?meta.singular:meta.plural}`;
   if(reset){ box.textContent=''; S.sideShown=0; }
   const next=matches.slice(S.sideShown, S.sideShown+SIDE_BATCH);
   const frag = document.createDocumentFragment();
   for(const name of next){
-    const d = document.createElement('div'); d.className='obj'+(S.table===name?' on':'');
+    const d=el('div'); d.className='obj'+(S.table===name?' on':'');
     d.dataset.table=name; d.dataset.kind=kind;
-    const nm=document.createElement('span'); nm.className='nm'; nm.textContent=name; nm.title=name;
-    d.appendChild(nm);
+    const nm=el('span','nm',name); nm.title=name;
+    const copy=iconButton('copy',`Copy ${name}`,'obj-copy'); copy.onclick=e=>{ e.stopPropagation(); copyText(name,`${name} copied`); };    // copy without opening
+    d.append(nm,copy);
     d.onclick=()=>openObject(name, kind);
     frag.appendChild(d);
   }
   S.sideShown+=next.length; box.appendChild(frag);
   if(reset && !matches.length){
-    const empty=document.createElement('div'); empty.className='obj'; empty.style.cssText='color:var(--dim);cursor:default';
+    const empty=el('div','obj'); empty.style.cssText='color:var(--dim);cursor:default';
     empty.textContent=term?`No matching ${meta.plural}`:`No ${meta.plural} in public`; box.appendChild(empty);
   }
 }
@@ -1446,23 +1327,24 @@ function highlightJson(value){
   }
   return html+sqlEscape(source.slice(last));
 }
-function sizeDetailGrid(table,rows){
-  const headers=[...table.tHead.rows[0].cells];
-  const widths=headers.map((header,index)=>{
-    let length=header.textContent.length;
-    for(const row of rows.slice(0,200)) length=Math.max(length,compactCellValue(row[index]).length);
-    const name=header.textContent.toLowerCase();
-    const max=/definition/.test(name)?420:/default|predicate|condition|using|check/.test(name)?300:240;
-    const min=index===0?44:64;
-    return Math.max(min,Math.min(max,Math.ceil(length*7.25)+24));
-  });
+// width of a column from its label and first 200 values (~7.25px a character), capped by what such a column holds
+function columnWidth(label,values,min=60){
+  let length=label.length; for(const value of values.slice(0,200)) length=Math.max(length,compactCellValue(value).length);
+  const name=label.toLowerCase();
+  const max=/definition|query|sql/.test(name)?460:/description/.test(name)?360:/argument|result|using|check|condition/.test(name)?320
+           :/name/.test(name)?300:/default|predicate|reference/.test(name)?260:240;
+  return Math.max(min,Math.min(max,Math.ceil(length*7.25)+24));
+}
+function setColumnWidths(table,widths){
   table.querySelector('colgroup')?.remove();
-  const colgroup=document.createElement('colgroup');
-  for(const width of widths){ const col=document.createElement('col'); col.style.width=width+'px'; colgroup.appendChild(col); }
+  const colgroup=el('colgroup'); for(const width of widths) colgroup.appendChild(el('col')).style.width=width+'px';
   table.insertBefore(colgroup,table.tHead);
-  const width=widths.reduce((sum,value)=>sum+value,0);
-  table.style.width=width+'px'; table.style.minWidth='0';
-  table.style.marginRight=width>$('pane').clientWidth?'16px':'0';
+  const total=widths.reduce((sum,value)=>sum+value,0); table.style.width=total+'px'; table.style.minWidth='0';
+  return total;
+}
+function sizeDetailGrid(table,rows){
+  const total=setColumnWidths(table,[...table.tHead.rows[0].cells].map((header,index)=>index ? columnWidth(header.textContent,rows.map(row=>row[index])) : columnWidth('#',[rows.length],44)));
+  table.style.marginRight=total>$('pane').clientWidth?'16px':'0';
 }
 function fillDetailGrid(id, rows, emptyText='No data'){
   const table=$(id), body=table.tBodies[0]; body.textContent=''; table.dataset.total=rows.length;
@@ -1503,7 +1385,7 @@ for(const input of document.querySelectorAll('.detail-search')){
 }
 for(const tools of document.querySelectorAll('.detail-tools')){
   const input=tools.querySelector('.detail-search');
-  const refBtn=document.createElement('button');
+  const refBtn=el('button');
   refBtn.type='button'; refBtn.className='iconbtn detail-refresh'; refBtn.title=refBtn.ariaLabel='Refresh tab data';
   refBtn.dataset.grid=input.dataset.grid; refBtn.innerHTML=icon('refresh');
   refBtn.onclick=()=>{
@@ -1517,7 +1399,7 @@ for(const tools of document.querySelectorAll('.detail-tools')){
   };
   tools.appendChild(refBtn);
 
-  const button=document.createElement('button');
+  const button=el('button');
   button.type='button'; button.className='iconbtn detail-download'; button.title=button.ariaLabel='Download tab data as CSV';
   button.dataset.grid=input.dataset.grid; button.innerHTML=icon('download'); button.disabled=true; tools.appendChild(button);
 }
@@ -1532,23 +1414,23 @@ async function openObject(table, kind, initialTab = 'rows'){
     targetObj.classList.add('on');
     targetObj.scrollIntoView({block:'nearest'});
   }
-  S.table=table; S.kind=targetKind; S.where=null; S.local=null; S.loaded={};
+  S.table=table; S.kind=targetKind; S.where=null; S.local=null; S.loaded={}; drawSlowFilterHint(0);
   setExports(false);
-  S.chunks.clear(); S.pending.clear(); lastFirst=-1;
+  S.rows=[]; lastFirst=-1;
   $('fval').value=''; $('ftxt').textContent='';
   mountGrid($('v-rows'));
   for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v==='info';
   $('morewrap').hidden=false;
 
-  const m = await api({action:'rows', table, limit:CHUNK, is_meta:1});
+  const m = await api({action:'rows', table, limit:S.pageSize, is_meta:1});
   S.meta=m.meta; S.cols=m.meta.columns.map(c=>c.name); S.pk=m.meta.pk; S.latestFirst=!!m.meta.latest_first;
   S.total=m.rows.length; S.hasMore=!!m.has_more; S.pageStart=0;
-  S.chunks.set(0, m.rows);
+  S.rows=m.rows;
 
   for(const input of document.querySelectorAll('.detail-search')) input.value='';
   $('fcol').textContent='';
   for(const column of m.meta.columns){
-    const option=document.createElement('option'); option.value=column.name; option.textContent=column.name;
+    const option=el('option'); option.value=column.name; option.textContent=column.name;
     $('fcol').appendChild(option);
   }
   renderFcolPicker(m.meta.columns);
@@ -1578,7 +1460,7 @@ function measure(){
   if(saved && saved.length===S.cols.length){ S.widths = saved; return; }
   const cacheKey = (S.table||'') + ':' + S.cols.join(',');
   if(widthCache.has(cacheKey)){ S.widths = widthCache.get(cacheKey).slice(); return; }
-  const sample = (S.local || S.chunks.get(0) || []).slice(0, 40);
+  const sample = (S.local || S.rows).slice(0, 40);
   S.widths = S.cols.map((c,i) => {
     let n = c.length;
     for(const r of sample){
@@ -1608,18 +1490,18 @@ function buildGrid(){
   $('rowcsv').disabled=S.total===0;
   headEl.textContent='';
   S.cols.forEach((c,i)=>{
-    const th=document.createElement('div'); th.className='th'; th.style.width=S.widths[i]+'px';
+    const th=el('div','th'); th.style.width=S.widths[i]+'px';
     th.textContent=c; th.title=c;
-    const g=document.createElement('div'); g.className='grip'; g.dataset.i=i; th.appendChild(g);
+    const g=el('div','grip'); g.dataset.i=i; th.appendChild(g);
     headEl.appendChild(th);
   });
   const need = Math.ceil(vp.clientHeight/ROW_H) + OVER*2;
   rowsEl.textContent=''; pool=[];
   const frag=document.createDocumentFragment();
   for(let i=0;i<need;i++){
-    const tr=document.createElement('div'); tr.className='tr';
+    const tr=el('div','tr');
     for(let c=0;c<S.cols.length;c++){
-      const td=document.createElement('div'); td.className='td'; td.style.width=S.widths[c]+'px';
+      const td=el('div','td'); td.style.width=S.widths[c]+'px';
       td.dataset.c=c; tr.appendChild(td);
     }
     frag.appendChild(tr); pool.push(tr);
@@ -1629,9 +1511,7 @@ function buildGrid(){
   $('empty').classList.toggle('on', S.total===0);
 }
 function rowAt(i){
-  if(S.local) return S.local[i];
-  const ci = Math.floor(i/CHUNK), c = S.chunks.get(ci);
-  return c ? c[i - ci*CHUNK] : null;
+  return (S.local || S.rows)[i] ?? null;
 }
 function filterParams(){
   return S.where?{filter_col:S.where.col,filter_op:S.where.op,filter_value:S.where.val}:{};
@@ -1641,15 +1521,15 @@ function drawBatchNav(){
   $('pagenav').hidden=false;
   $('prevbatch').disabled=!supported||S.pageStart===0;
   $('nextbatch').disabled=!supported||!S.hasMore;
-  const page=Math.floor(S.pageStart/CHUNK)+1;
+  const page=Math.floor(S.pageStart/S.pageSize)+1;
   $('pagenum').textContent=`Page ${page}`;
   const unsupported='Requires a single-column primary key';
   $('prevbatch').title=!supported?unsupported:S.pageStart===0?'First page':`Go to Page ${page-1}`;
   $('nextbatch').title=!supported?unsupported:!S.hasMore?'No more rows':`Go to Page ${page+1}`;
-  $('ftxt').textContent=S.total?`${S.pageStart+1}–${S.pageStart+S.total} rows`:'0 rows';
+  $('ftxt').textContent=`${S.total.toLocaleString()} ${S.total===1?'row':'rows'}`;    // the rows shown on this page
 }
 async function changeBatch(direction){
-  const current=S.chunks.get(0)||[], pkIndex=S.cols.indexOf(S.pk);
+  const current=S.rows, pkIndex=S.cols.indexOf(S.pk);
   if(!S.pk||pkIndex<0||!current.length) return;
   const forward=direction==='next';
   if(forward&&!S.hasMore||!forward&&S.pageStart===0) return;
@@ -1657,32 +1537,23 @@ async function changeBatch(direction){
   try{
     const cursor=String((forward?current[current.length-1]:current[0])[pkIndex]);
     const requestDesc=forward?S.latestFirst:!S.latestFirst;
-    const page=await api({action:'rows',table:S.table,pk:S.pk,order:S.pk,limit:CHUNK,
+    const page=await api({action:'rows',table:S.table,pk:S.pk,order:S.pk,limit:S.pageSize,
                           after:cursor,is_desc:requestDesc?1:0,...filterParams()});
     const rows=forward?page.rows:[...page.rows].reverse();
     S.pageStart=forward?S.pageStart+S.total:Math.max(0,S.pageStart-rows.length);
-    S.chunks.clear(); S.chunks.set(0,rows); S.total=rows.length; S.hasMore=forward?!!page.has_more:true;
+    S.rows=rows; S.total=rows.length; drawSlowFilterHint(page.ms); S.hasMore=forward?!!page.has_more:true;
     drawBatchNav(); buildGrid(); vp.scrollTop=0; lastFirst=-1; render(true);
   }catch(err){ drawBatchNav(); alertBox('Batch navigation failed',err.message); }
 }
 $('prevbatch').onclick=()=>changeBatch('previous');
+// rows per page: remembered; changing it reloads the first page with the same filter
+for(const size of PAGE_SIZES){ const o=el('option'); o.value=size; o.textContent=`${size} / page`; $('pagesize').appendChild(o); }
+$('pagesize').value=S.pageSize;
+$('pagesize').onchange=()=>{ S.pageSize=+$('pagesize').value; setPreference('pageSize',S.pageSize); if(S.table) applyFilter(); };
 $('nextbatch').onclick=()=>changeBatch('next');
-function ensure(ci){
-  if(S.local || ci<0 || S.chunks.has(ci) || S.pending.has(ci)) return;
-  if(ci*CHUNK >= S.total) return;
-  S.pending.set(ci, 1);
-  api({action:'rows', table:S.table, pk:S.pk, limit:CHUNK,
-       offset:ci*CHUNK, ...filterParams()})
-    .then(m=>{
-      S.chunks.set(ci, m.rows); S.pending.delete(ci);
-      if(S.chunks.size > 60){
-        for(const k of S.chunks.keys()) if(Math.abs(k-ci)>14){ S.chunks.delete(k); break; }
-      }
-      lastFirst=-1; render(true);
-    })
-    .catch(()=>S.pending.delete(ci));
-}
 function render(force){
+  // the panel's row was replaced (another table, a filter, a refresh): its data is gone, so close it
+  if(RP.index>=0 && (RP.table!==S.table || (rowAt(RP.index) && rowAt(RP.index)!==RP.row) || RP.index>=S.total)) rowPanelClose();
   const top = vp.scrollTop, scaled = S.scale > 1.0001;
   // unscaled: pixel-exact. scaled: map scroll position onto the row range and pin the
   // block to the viewport, since one pixel now covers several rows.
@@ -1691,12 +1562,12 @@ function render(force){
   if(!force && first===lastFirst) return;
   lastFirst = first;
   rowsEl.style.transform = `translateY(${scaled ? top : first*ROW_H}px)`;
-  if(!S.local){ const ci=Math.floor(first/CHUNK); ensure(ci); ensure(ci+1); }
   for(let p=0;p<pool.length;p++){
     const idx=first+p, tr=pool[p];
     if(idx >= S.total){ tr.hidden=true; continue; }
     tr.hidden=false; tr.dataset.i=idx;
     const row=rowAt(idx), cells=tr.children;
+    tr.classList.toggle('rp-sel', idx===RP.index);
     for(let c=0;c<cells.length;c++){
       const td=cells[c];
       if(!row){ td.textContent=''; td.className='td'; continue; }
@@ -1748,19 +1619,15 @@ function openCellValue(column,rawValue,copiedMessage='Cell value copied'){
   const structured=structuredCellValue(rawValue);
   $('dlg').classList.toggle('structured',!!structured);
   $('dlg-t').textContent='';
-  const title=document.createElement('span'); title.className='title'; title.textContent=column;
-  const copy=document.createElement('button'); copy.type='button'; copy.className='iconbtn'; copy.id='copycell';
-  copy.title=copy.ariaLabel='Copy cell value'; copy.innerHTML=icon('copy');
+  const title=el('span','title',column);
+  const copy=iconButton('copy','Copy cell value');
   $('dlg-t').append(title,copy);
   $('dlg-b').innerHTML='<pre id="cellbox"></pre>';
   const value=prettyCellValue(rawValue);
   if(structured){ $('cellbox').className='json'; $('cellbox').innerHTML=highlightJson(structured); }
   else $('cellbox').textContent=value;
   $('dlg-f').innerHTML='<button value="cancel">Close</button>';
-  $('copycell').onclick=async()=>{
-    try{ await navigator.clipboard.writeText(value); toast(copiedMessage); }
-    catch{ toast('Could not copy'); }
-  };
+  copy.onclick=()=>copyText(value,copiedMessage);
   $('dlg').showModal();
 }
 $('dlg').addEventListener('close',()=>$('dlg').classList.remove('structured'));
@@ -1769,10 +1636,196 @@ rowsEl.addEventListener('dblclick', e=>{
   const row=rowAt(+td.parentElement.dataset.i); if(!row) return;
   const c=+td.dataset.c; openCellValue(S.cols[c],row[c]);
 });
+
+/* ---------------- edit a cell ---------------- */
+// one value of one table row, edited in the row panel and found by its primary key; the server repeats every check and refuses a cell changed since it was loaded
+function cellEditBlock(colIndex,row){
+  if(S.local||S.kind!=='table'||!S.meta) return 'Only rows of a table can be edited';
+  if(S.readOnly) return 'Read-only mode is on';
+  if(!S.pk) return 'Editing needs a single-column primary key; use the SQL runner';
+  const meta=S.meta.columns.find(col=>col.name===S.cols[colIndex]);
+  if(!meta) return 'Unknown column';
+  if(meta.name===S.pk) return 'The primary key cannot be edited here';
+  if(meta.generated) return 'Generated and identity columns cannot be edited';
+  const type=String(meta.type||'').toLowerCase();
+  if(type.endsWith('[]')||type==='bytea') return 'Array and binary columns cannot be edited here; use the SQL runner';
+  const key=row[S.cols.indexOf(S.pk)];
+  if(typeof key==='number'&&!Number.isSafeInteger(key)) return "This row's key is too large for the browser to send exactly; use the SQL runner";
+  return '';
+}
+// save one cell and put what Postgres stored into the grid's row (and the open row panel); throws the server's message
+async function saveCellEdit(column,row,original,value,isNull){
+  const m=await api({action:'update_cell',table:S.table,column,pk_value:row[S.cols.indexOf(S.pk)],original,
+                     value,is_null:isNull,is_read_only:!!S.readOnly});
+  const fresh=m.rows[0];
+  m.cols.forEach((name,i)=>{const at=S.cols.indexOf(name); if(at>=0) row[at]=fresh[i];});
+  lastFirst=-1; render(true);
+  if(RP.row===row) rowPanelDraw();
+  toast(`Saved ${column}`);
+}
 for(const table of document.querySelectorAll('.detail-grid')) table.tBodies[0].addEventListener('dblclick',e=>{
   const td=e.target.closest('td'); if(!td || td.classList.contains('empty-detail')) return;
   const column=table.tHead.rows[0].cells[td.cellIndex]?.textContent||'Value';
   openCellValue(column,detailCellValues.has(td)?detailCellValues.get(td):(td.classList.contains('null')?null:td.textContent));
+});
+
+/* ---------------- row panel ---------------- */
+// one row's fields beside the grid: open from the button on a row's left edge; ↑/↓ move between rows, Esc closes
+$('rp-prev').innerHTML=icon('chevronUp'); $('rp-next').innerHTML=icon('chevronDown');
+$('rp-delete').innerHTML=icon('trash'); $('rp-close').innerHTML=icon('close');
+// a click on a cell opens its row here; selecting text to copy does not
+rowsEl.addEventListener('click', e=>{
+  const td=e.target.closest('.td'); if(!td||!S.cols.length) return;
+  if(String(window.getSelection()||'')) return;
+  const tr=td.parentElement; if(tr.hidden) return;
+  rowPanelOpen(+tr.dataset.i);
+});
+// drag the panel's left edge to widen it for long values; the width is remembered, double-click resets it
+{
+  const host=$('v-rows'), panel=$('rowpanel');
+  const saved=+getStored('rowPanelWidth'); if(saved>0) host.style.setProperty('--rp-w', saved+'px');
+  makeResizer($('rp-resize'), {sign:-1, size:()=>panel.offsetWidth,
+    set:px=>{ const w=Math.round(Math.min(host.clientWidth*.8, Math.max(300, px))); host.style.setProperty('--rp-w', w+'px'); return w; },
+    save:px=>setStored('rowPanelWidth', px), reset:()=>{ host.style.removeProperty('--rp-w'); setStored('rowPanelWidth', undefined); }});
+}
+function rowPanelOpen(index){
+  if(index<0||index>=S.total) return;
+  const row=rowAt(index); if(!row) return;
+  const isNew=RP.index<0;
+  Object.assign(RP,{index,row,table:S.table});
+  $('rowpanel').style.top=vp.offsetTop+'px';    // below the toolbar and the slow-filter bar, when shown
+  $('rowpanel').hidden=false; $('v-rows').classList.add('rp-open');
+  if(isNew) $('rp-search').value='';
+  // keep the row in view as ↑/↓ move through the table
+  if(S.scale<=1.0001){
+    const y=index*ROW_H;
+    if(y<vp.scrollTop||y+ROW_H>vp.scrollTop+vp.clientHeight-ROW_H) vp.scrollTop=Math.max(0,y-vp.clientHeight/2);
+  }
+  lastFirst=-1; render(true);
+  rowPanelDraw();
+  if(isNew) $('rp-body').scrollTop=0;    // a fresh panel starts at the first field; moving between rows keeps the place
+}
+function rowPanelClose(){
+  if(RP.index<0) return;
+  Object.assign(RP,{index:-1,row:null,table:''});
+  $('rowpanel').hidden=true; $('v-rows').classList.remove('rp-open');
+  $('rp-body').textContent='';
+  lastFirst=-1; render(true);
+}
+function rowDeleteBlock(row){
+  if(S.local||S.kind!=='table') return 'Only rows of a table can be deleted';
+  if(S.readOnly) return 'Read-only mode is on';
+  if(!S.pk) return 'Deleting needs a single-column primary key; use the SQL runner';
+  const key=row[S.cols.indexOf(S.pk)];
+  if(typeof key==='number'&&!Number.isSafeInteger(key)) return "This row's key is too large for the browser to send exactly; use the SQL runner";
+  return '';
+}
+function rowPanelDraw(){
+  const {index,row}=RP; if(index<0||!row) return;
+  const pkAt=S.pk?S.cols.indexOf(S.pk):-1;
+  $('rp-title').textContent=`${S.table||'Query result'}${pkAt>=0?` · ${S.pk} = ${compactCellValue(row[pkAt])}`:''}`;
+  $('rp-title').title=$('rp-title').textContent;
+  $('rp-prev').disabled=index<=0; $('rp-next').disabled=index>=S.total-1;
+  const blocked=rowDeleteBlock(row);
+  $('rp-delete').disabled=!!blocked; $('rp-delete').title=blocked||'Delete this row';
+  const query=$('rp-search').value.trim().toLowerCase();
+  const body=$('rp-body'); body.textContent='';
+  let shown=0;
+  S.cols.forEach((column,c)=>{
+    if(query&&!column.toLowerCase().includes(query)) return;
+    shown++;
+    const meta=S.meta?.columns?.find(col=>col.name===column);
+    const value=row[c];
+    const field=el('div','rp-field');
+    const label=el('div','rp-label');
+    const name=el('span',null,column);
+    const type=el('span','rp-type',meta?.type||'');
+    const actions=el('span','rp-actions');
+    const copy=iconButton('copy',`Copy ${column}`), expand=iconButton('expand',`Open ${column} in a large view`);
+    copy.onclick=()=>copyText(prettyCellValue(value),`${column} copied`); expand.onclick=()=>openCellValue(column,value);
+    actions.append(expand,copy);
+    if(!S.local&&S.kind==='table'){
+      const editBlocked=cellEditBlock(c,row);
+      const edit=iconButton('pencil',`Edit ${column}`); edit.disabled=!!editBlocked; edit.title=editBlocked||edit.title;
+      edit.onclick=()=>rowPanelEdit(field,column,c);
+      actions.append(edit);
+    }
+    label.append(name,type,actions);
+    const box=el('pre','rp-value');
+    const structured=value===null?null:structuredCellValue(value);
+    if(value===null){ box.classList.add('null'); box.textContent='NULL'; }
+    else if(structured){ box.classList.add('json'); box.innerHTML=highlightJson(structured); }
+    else box.textContent=prettyCellValue(value);
+    field.append(label,box);
+    body.appendChild(field);
+  });
+  if(!shown){ const empty=el('div','rp-empty','No field matches'); body.appendChild(empty); }
+}
+function rowPanelEdit(field,column,colIndex){
+  const row=RP.row, value=row[colIndex];
+  const meta=S.meta.columns.find(col=>col.name===column);
+  const box=field.querySelector('.rp-value');
+  const editor=el('div','rp-edit');
+  const area=el('textarea'); area.spellcheck=false;
+  const initial=value===null||value===undefined?'':typeof value==='object'?JSON.stringify(value,null,2):String(value);
+  area.value=initial;
+  const err=el('div','rp-err'); err.hidden=true;
+  const buttons=el('div','rp-buttons');
+  const make=(text,cls)=>{ const b=el('button'); b.type='button'; b.textContent=text; if(cls) b.className=cls; buttons.append(b); return b; };
+  const nullBtn=meta.nullable?make('Set NULL'):null, cancel=make('Cancel'), save=make('Save','primary');
+  const run=async isNull=>{
+    if(isNull?value===null:area.value===initial){ rowPanelDraw(); toast('No change'); return; }    // untouched (a NULL field's empty box included): no server call
+    for(const b of buttons.children) b.disabled=true; err.hidden=true;
+    try{ await saveCellEdit(column,row,value,isNull?null:area.value,!!isNull); }
+    catch(e){ err.textContent=e.message; err.hidden=false; for(const b of buttons.children) b.disabled=false; }
+  };
+  save.onclick=()=>run(false); if(nullBtn) nullBtn.onclick=()=>run(true);
+  cancel.onclick=()=>rowPanelDraw();
+  area.onkeydown=e=>{
+    if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){ e.preventDefault(); run(false); }
+    if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); rowPanelDraw(); }
+  };
+  editor.append(area,err,buttons);
+  box.replaceWith(editor);
+  area.focus(); area.select();
+}
+$('rp-close').onclick=rowPanelClose;
+$('rp-prev').onclick=()=>rowPanelOpen(RP.index-1);
+$('rp-next').onclick=()=>rowPanelOpen(RP.index+1);
+$('rp-search').oninput=rowPanelDraw;
+$('rp-delete').onclick=()=>{
+  const row=RP.row; if(!row||rowDeleteBlock(row)) return;
+  const pkAt=S.cols.indexOf(S.pk), key=row[pkAt];
+  $('dlg-t').textContent='Delete row';
+  $('dlg-b').textContent=`Delete the row ${S.pk} = ${compactCellValue(key)} from ${S.table}? This cannot be undone.`;
+  $('dlg-f').innerHTML='<button value="cancel">Cancel</button><button class="danger" id="dyes">Delete</button>';
+  $('dlg').showModal();
+  $('dyes').onclick=async ev=>{
+    ev.preventDefault(); $('dyes').disabled=true;
+    try{
+      await api({action:'delete_row',table:S.table,pk_value:key,original:Object.fromEntries(S.cols.map((name,i)=>[name,row[i]])),is_read_only:!!S.readOnly});
+      $('dlg').close(); rowPanelClose();
+      const deleted=`Deleted ${S.pk} = ${compactCellValue(key)}`;
+      await refreshTableData();
+      toast(deleted);    // after the refresh, whose own message would replace it
+    }catch(e){
+      $('dlg-b').textContent=e.message; $('dlg-f').innerHTML='<button value="cancel">Close</button>';
+    }
+  };
+};
+document.addEventListener('pointerdown', e=>{
+  if(RP.index<0||$('dlg').open) return;
+  const t=e.target;
+  if($('rowpanel').contains(t)||$('dlg').contains(t)||t.closest?.('#rows .td,.grip,#toast')) return;    // a cell switches rows, a grip resizes a column
+  if(t===vp&&(e.offsetX>=vp.clientWidth||e.offsetY>=vp.clientHeight)) return;    // the grid's scrollbars scroll
+  rowPanelClose();
+});
+document.addEventListener('keydown', e=>{
+  if(RP.index<0||$('dlg').open||!$('moremenu').hidden||!$('v-rows').classList.contains('on')) return;    // Esc closes an open More menu first
+  if(e.target.closest('input,textarea,select,[contenteditable]')) return;
+  if(e.key==='Escape'){ rowPanelClose(); e.preventDefault(); }
+  else if(e.key==='ArrowDown'){ rowPanelOpen(RP.index+1); e.preventDefault(); }
+  else if(e.key==='ArrowUp'){ rowPanelOpen(RP.index-1); e.preventDefault(); }
 });
 
 /* ---------------- filter ---------------- */
@@ -1802,15 +1855,11 @@ function renderFcolList(term = ''){
   const selected = $('fcol').value;
   for(let i = 0; i < filtered.length; i++){
     const col = filtered[i];
-    const item = document.createElement('div');
+    const item=el('div');
     item.className = 'fcol-item' + (col.name === selected ? ' selected' : '') + (i === 0 && q ? ' active' : '');
     item.dataset.col = col.name;
-    const nameSpan = document.createElement('span');
-    nameSpan.className = 'col-name';
-    nameSpan.textContent = col.name;
-    const typeSpan = document.createElement('span');
-    typeSpan.className = 'col-type';
-    typeSpan.textContent = col.type || '';
+    const nameSpan=el('span','col-name',col.name);
+    const typeSpan=el('span','col-type',col.type || '');
     item.append(nameSpan, typeSpan);
     item.onclick = (e) => {
       e.stopPropagation();
@@ -1939,13 +1988,26 @@ $('fclr').onclick = async () => {
     drawFilterActions();
   }
 };
+// a %text% LIKE/ILIKE filter cannot use a normal index, so Postgres reads every row; when that is slow, say so and offer the index that fixes it
+function drawSlowFilterHint(ms){
+  const w=S.where, el=$('fslow');
+  const slow=!!w&&/LIKE$/.test(w.op)&&String(w.val).startsWith('%')&&ms>=100;    // 100 ms: about where a delay is noticeable
+  el.hidden=!slow; el.textContent=''; if(!slow) return;
+  const ident=name=>'"'+String(name).replace(/"/g,'""')+'"';
+  const sql=`CREATE EXTENSION IF NOT EXISTS pg_trgm;\nCREATE INDEX ON ${ident(S.table)} USING gin (${ident(w.col)} gin_trgm_ops);`;
+  const text=el('span',null,`Full scan: ${Math.round(ms)} ms. A trigram index makes %text% search fast.`); text.title=sql;
+  const copy=el('button'); copy.type='button'; copy.textContent='Copy SQL'; copy.title=sql;
+  copy.onclick=()=>copyText(sql,'Index SQL copied');
+  el.append(text,copy);
+}
 async function applyFilter(){
-  S.chunks.clear(); S.pending.clear(); lastFirst=-1;
+  S.rows=[]; lastFirst=-1;
   try{
     const first = await api({action:'rows', table:S.table, pk:S.pk, order:S.pk,
-                             is_desc:S.latestFirst?1:0,limit:CHUNK, ...filterParams()});
-    S.chunks.set(0, first.rows);
+                             is_desc:S.latestFirst?1:0,limit:S.pageSize, ...filterParams()});
+    S.rows=first.rows;
     S.total=first.rows.length; S.hasMore=!!first.has_more; S.pageStart=0;
+    drawSlowFilterHint(first.ms);
     drawBatchNav(); buildGrid(); vp.scrollTop=0; render(true);
     return true;
   }catch(err){ alertBox('Filter failed', err.message); return false; }
@@ -1961,10 +2023,7 @@ function showQueryError(title,message){
   $('qerrortitle').textContent=title; $('qerrorbody').textContent=message; $('qerror').hidden=false;
   drawResetSql();
   $('qerrorcopy').innerHTML=icon('copy');
-  $('qerrorcopy').onclick=async()=>{
-    try{ await navigator.clipboard.writeText(message); toast('Error copied'); }
-    catch{ toast('Could not copy'); }
-  };
+  $('qerrorcopy').onclick=()=>copyText(message,'Error copied');
 }
 function setExports(on){
   for(const b of document.querySelectorAll('#qbar .export')) b.disabled=!on;
@@ -1974,7 +2033,7 @@ function downloadCsv(headers,data,filename){
   if(!data.length) return;
   const text=[headers.map(csvCell),...data.map(row=>row.map(csvCell))].map(row=>row.join(',')).join('\r\n');
   const url=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'}));
-  const a=document.createElement('a'); a.href=url; a.download=filename; a.click();
+  const a=el('a'); a.href=url; a.download=filename; a.click();
   setTimeout(()=>URL.revokeObjectURL(url),0);
 }
 async function refreshTableData(){
@@ -1983,11 +2042,11 @@ async function refreshTableData(){
   if(btn) btn.disabled=true;
   try{
     const m = await api({action:'rows', table:S.table, pk:S.pk, order:S.pk,
-                         is_desc:S.latestFirst?1:0, limit:CHUNK, is_meta:1, ...filterParams()});
+                         is_desc:S.latestFirst?1:0, limit:S.pageSize, is_meta:1, ...filterParams()});
     S.meta=m.meta; S.cols=m.meta.columns.map(c=>c.name); S.pk=m.meta.pk; S.latestFirst=!!m.meta.latest_first;
-    S.chunks.clear(); S.pending.clear(); lastFirst=-1;
-    S.chunks.set(0, m.rows);
-    S.total=m.rows.length; S.hasMore=!!m.has_more; S.pageStart=0;
+    S.rows=[]; lastFirst=-1;
+    S.rows=m.rows;
+    S.total=m.rows.length; S.hasMore=!!m.has_more; S.pageStart=0; drawSlowFilterHint(m.ms);
     $('st-obj').innerHTML = `<b>${S.table}</b>`;
     $('st-rows').textContent = `${m.rows.length} rows loaded`;
     $('st-size').textContent = m.meta?.stats?.total_size || '';
@@ -2009,7 +2068,7 @@ async function refreshTableData(){
 }
 function safeFilePart(value){return String(value||'table').replace(/[^a-z0-9_.-]+/gi,'-').replace(/^-|-$/g,'');}
 $('rowrefresh').onclick=refreshTableData;
-$('rowcsv').onclick=()=>downloadCsv(S.cols,S.local||S.chunks.get(0)||[],`${safeFilePart(S.table)}-rows.csv`);
+$('rowcsv').onclick=()=>downloadCsv(S.cols,S.local||S.rows,`${safeFilePart(S.table)}-rows.csv`);
 for(const button of document.querySelectorAll('.detail-download')) button.onclick=()=>{
   const table=$(button.dataset.grid), headers=[...table.tHead.rows[0].cells].map(cell=>cell.textContent);
   const data=[...table.tBodies[0].rows].filter(row=>!row.hidden&&detailRowValues.has(row)).map(row=>detailRowValues.get(row));
@@ -2032,7 +2091,7 @@ function exportResult(format){
     type='application/xml';
   }
   const url=URL.createObjectURL(new Blob([text],{type:type+';charset=utf-8'}));
-  const a=document.createElement('a'); a.href=url; a.download='query-result.'+format; a.click();
+  const a=el('a'); a.href=url; a.download='query-result.'+format; a.click();
   setTimeout(()=>URL.revokeObjectURL(url),0);
 }
 for(const b of document.querySelectorAll('#qbar .export')) b.onclick=()=>exportResult(b.dataset.format);
@@ -2097,7 +2156,7 @@ async function streamQuery(confirmed=false){
       chunks.push(value);
     }
     const url=URL.createObjectURL(new Blob(chunks,{type:'text/csv;charset=utf-8'}));
-    const a=document.createElement('a'); a.href=url; a.download=filename;
+    const a=el('a'); a.href=url; a.download=filename;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(()=>URL.revokeObjectURL(url),1000); chunks=[];
     $('streambar').value=1; $('streammsg').textContent=`${streamSize(bytes)} downloaded`;
@@ -2138,7 +2197,7 @@ async function runQuery(confirmed){
     const m = await api({action:'query', sql, is_confirmed: confirmed?1:0,
                          is_read_only:S.readOnly?1:0,query_id:queryId});
     S.local=m.rows; S.cols=m.cols; S.total=m.rows.length; S.pk=null;
-    S.chunks.clear(); lastFirst=-1;
+    S.rows=[]; lastFirst=-1;
     $('tools').style.display='none';       // column filters belong to a table, not a result set
     mountGrid($('qres'));
     buildGrid(); vp.scrollTop=0; render(true);
@@ -2155,7 +2214,7 @@ async function runQuery(confirmed){
       $('qmsg').textContent='';
       $('dlg-t').textContent='Unbounded write';
       $('dlg-b').textContent='This statement has no WHERE clause and will affect every row. Run it?';
-      $('dlg-f').innerHTML='<button value="cancel">Cancel</button><button class="primary" id="yes">Run anyway</button>';
+      $('dlg-f').innerHTML='<button value="cancel">Cancel</button><button class="primary" id="yes">Execute anyway</button>';
       $('dlg').showModal();
       $('yes').onclick=ev=>{ ev.preventDefault(); $('dlg').close(); runQuery(true); };
     } else {
@@ -2169,7 +2228,7 @@ $('run').onclick = ()=>runQuery(false);
 $('resetsql').onclick = ()=>{
   $('sql').value=DEFAULT_SQL; S.queryCleared=false;
   removeStored('sql');
-  S.local=null; S.cols=[]; S.total=0; S.chunks.clear(); lastFirst=-1; pool=[];
+  S.local=null; S.cols=[]; S.total=0; S.rows=[]; lastFirst=-1; pool=[];
   headEl.textContent=''; rowsEl.textContent=''; inner.style.width=''; canvas.style.height='0'; canvas.classList.remove('has-rows'); vp.scrollTop=0; vp.scrollLeft=0;
   $('empty').classList.remove('on'); $('qmsg').textContent=''; $('qmsg').className=''; hideQueryError();
   setExports(false); drawResetSql(); updateSqlHighlight(); $('sql').focus();
@@ -2182,7 +2241,7 @@ async function explainQuery(analyze=false){
   try{
     const m = await api({action:'query', sql:(analyze?'EXPLAIN ANALYZE ':'EXPLAIN ')+sql,
                          is_read_only:S.readOnly?1:0,query_id:queryId});
-    S.local=m.rows; S.cols=m.cols; S.total=m.rows.length; S.pk=null; S.chunks.clear(); lastFirst=-1;
+    S.local=m.rows; S.cols=m.cols; S.total=m.rows.length; S.pk=null; S.rows=[]; lastFirst=-1;
     $('tools').style.display='none';
     mountGrid($('qres'));
     buildGrid(); vp.scrollTop=0; render(true);
@@ -2254,188 +2313,36 @@ $('sql').addEventListener('scroll',()=>{
 },{passive:true});
 
 /* query editor resizer */
-(function initSqlResizer(){
-  const resizer=$('sqlresizer'), sqlwrap=$('sqlwrap');
-  if(!resizer || !sqlwrap) return;
-  const saved=parseInt(getPreference('editorHeight'),10);
-  if(saved && saved>=70 && saved<=2000) sqlwrap.style.height=saved+'px';
-  let drag=null;
-  resizer.addEventListener('pointerdown',e=>{
-    if(e.button!==0) return;
-    e.preventDefault();
-    drag={id:e.pointerId, startY:e.clientY, startH:sqlwrap.getBoundingClientRect().height};
-    resizer.setPointerCapture(e.pointerId);
-    resizer.classList.add('dragging');
-    document.body.classList.add('resizing-sql');
-  });
-  resizer.addEventListener('pointermove',e=>{
-    if(!drag || e.pointerId!==drag.id) return;
-    const delta=e.clientY - drag.startY;
-    const minH=70;
-    const maxH=Math.max(minH, ($('v-query').clientHeight||window.innerHeight)-120);
-    const newH=Math.min(maxH, Math.max(minH, Math.round(drag.startH + delta)));
-    sqlwrap.style.height=newH+'px';
-  });
-  const stopDrag=e=>{
-    if(!drag || (e && e.pointerId!==drag.id)) return;
-    try{ resizer.releasePointerCapture(drag.id); }catch(_){}
-    const finalH=Math.round(sqlwrap.getBoundingClientRect().height);
-    setPreference('editorHeight', finalH);
-    drag=null;
-    resizer.classList.remove('dragging');
-    document.body.classList.remove('resizing-sql');
-  };
-  resizer.addEventListener('pointerup', stopDrag);
-  resizer.addEventListener('pointercancel', stopDrag);
-  resizer.addEventListener('dblclick',()=>{
-    sqlwrap.style.height='210px';
-    setPreference('editorHeight','210px');
-  });
-  resizer.addEventListener('keydown',e=>{
-    if(e.key==='ArrowUp'||e.key==='ArrowDown'){
-      e.preventDefault();
-      const currentH=sqlwrap.getBoundingClientRect().height;
-      const step=(e.shiftKey?50:20)*(e.key==='ArrowDown'?1:-1);
-      const minH=70;
-      const maxH=Math.max(minH, ($('v-query').clientHeight||window.innerHeight)-120);
-      const newH=Math.min(maxH, Math.max(minH, Math.round(currentH + step)));
-      sqlwrap.style.height=newH+'px';
-      setPreference('editorHeight', newH);
-    }else if(e.key==='Home'){
-      e.preventDefault();
-      sqlwrap.style.height='210px';
-      setPreference('editorHeight','210px');
-    }
-  });
-  addEventListener('resize',()=>{
-    if(!sqlwrap) return;
-    const currentH=sqlwrap.getBoundingClientRect().height;
-    const maxH=Math.max(70, ($('v-query').clientHeight||window.innerHeight)-120);
-    if(currentH > maxH){
-      sqlwrap.style.height=maxH+'px';
-    }
-  });
-})();
+// drag the line under the SQL editor to resize it (remembered; double-click or Home resets, arrow keys step)
+{
+  const sqlwrap=$('sqlwrap'), DEFAULT_H=210;
+  const set=px=>{ const h=Math.round(Math.min(Math.max(70, ($('v-query').clientHeight||innerHeight)-120), Math.max(70, px))); sqlwrap.style.height=h+'px'; return h; };
+  const saved=parseInt(getStored('editorHeight'),10); if(saved>=70 && saved<=2000) sqlwrap.style.height=saved+'px';
+  makeResizer($('sqlresizer'), {vertical:true, size:()=>sqlwrap.offsetHeight, set, save:px=>setPreference('editorHeight', px),
+    reset:()=>{ sqlwrap.style.height=DEFAULT_H+'px'; setPreference('editorHeight', DEFAULT_H); }});
+  addEventListener('resize', ()=>{ if(sqlwrap.offsetHeight) set(sqlwrap.offsetHeight); });
+}
 
 /* sidebar resizer & collapse/expand */
-(function initSideResizer(){
-  const resizer=$('sideresizer'), side=$('side');
-  if(!resizer || !side) return;
-  const DEFAULT_W=240, MIN_W=140;
-  const getMaxW=()=>Math.max(MIN_W, Math.min(window.innerWidth - 200, 800));
-
-  function setSidebarWidth(w, save=true){
-    const maxW=getMaxW();
-    const clamped=Math.min(maxW, Math.max(MIN_W, Math.round(w)));
-    document.documentElement.style.setProperty('--side-w', clamped + 'px');
-    if(save) setPreference('sideWidth', clamped);
-    return clamped;
-  }
-
-  // Restore saved width
-  const savedW=parseInt(getPreference('sideWidth'), 10);
-  if(savedW && savedW >= MIN_W && savedW <= 1200){
-    setSidebarWidth(savedW, false);
-  } else {
-    setSidebarWidth(DEFAULT_W, false);
-  }
-
-  // Pointer dragging
-  let drag=null;
-  resizer.addEventListener('pointerdown', e=>{
-    if(e.button!==0) return;
-    e.preventDefault();
-    drag={id:e.pointerId, startX:e.clientX, startW:side.getBoundingClientRect().width};
-    resizer.setPointerCapture(e.pointerId);
-    resizer.classList.add('dragging');
-    document.body.classList.add('resizing-side');
+// drag the sidebar's edge to resize it (remembered; never narrower than its tabs); dragging it almost shut collapses it, Ctrl+B toggles it
+{
+  const side=$('side'), DEFAULT_W=240, MIN_W=140;
+  const set=px=>{ const w=Math.min(Math.max(MIN_W, Math.min(innerWidth-200, 800)), Math.max(MIN_W, sideTabsWidth(), Math.round(px))); document.documentElement.style.setProperty('--side-w', w+'px'); return w; };
+  const saved=parseInt(getStored('sideWidth'), 10); set(saved>=MIN_W && saved<=1200 ? saved : DEFAULT_W);
+  makeResizer($('sideresizer'), {size:()=>side.offsetWidth, set, save:px=>setPreference('sideWidth', px),
+    drop:(start,delta)=>{ if(start+delta<70){ toggleSidebar(true); return true; } },
+    reset:()=>{    // double-click: fit the longest visible name, or back to the default when already there
+      let target=DEFAULT_W;
+      if(Math.abs(side.offsetWidth-DEFAULT_W)<20){ const longest=Math.max(0, ...[...document.querySelectorAll('#tree .obj .nm')].map(el=>el.scrollWidth)); target=longest ? Math.max(DEFAULT_W, longest+80) : 360; }
+      setPreference('sideWidth', set(target));
+    }});
+  addEventListener('resize', ()=>{ if(!side.hidden && side.offsetWidth>Math.min(innerWidth-200, 800)) set(side.offsetWidth); });
+  $('sidetoggle-expand').onclick = () => toggleSidebar(false);
+  addEventListener('keydown', e=>{
+    if(!(e.ctrlKey||e.metaKey) || e.key.toLowerCase()!=='b' || !S.connected || ['INPUT','TEXTAREA'].includes(e.target?.tagName)) return;
+    e.preventDefault(); toggleSidebar();
   });
-
-  resizer.addEventListener('pointermove', e=>{
-    if(!drag || e.pointerId!==drag.id) return;
-    const delta=e.clientX - drag.startX;
-    if(drag.startW + delta < 60){
-      setSidebarWidth(MIN_W, false);
-      return;
-    }
-    setSidebarWidth(drag.startW + delta, false);
-  });
-
-  const stopDrag=e=>{
-    if(!drag || (e && e.pointerId!==drag.id)) return;
-    try{ resizer.releasePointerCapture(drag.id); }catch(_){}
-    if(e && drag.startX && (drag.startW + (e.clientX - drag.startX) < 70)){
-      toggleSidebar(true);
-    } else {
-      const finalW=Math.round(side.getBoundingClientRect().width);
-      setPreference('sideWidth', finalW);
-    }
-    drag=null;
-    resizer.classList.remove('dragging');
-    document.body.classList.remove('resizing-side');
-  };
-
-  resizer.addEventListener('pointerup', stopDrag);
-  resizer.addEventListener('pointercancel', stopDrag);
-
-  // Double click: auto-fit to visible table names or reset to default
-  resizer.addEventListener('dblclick', ()=>{
-    const currentW=Math.round(side.getBoundingClientRect().width);
-    let targetW=DEFAULT_W;
-    if(Math.abs(currentW - DEFAULT_W) < 20){
-      let maxNameW=0;
-      for(const el of document.querySelectorAll('#tree .obj .nm')){
-        maxNameW=Math.max(maxNameW, el.scrollWidth);
-      }
-      if(maxNameW > 0){
-        targetW=Math.min(Math.max(DEFAULT_W, maxNameW + 80), getMaxW());
-      } else {
-        targetW=360;
-      }
-    }
-    setSidebarWidth(targetW, true);
-    toast(`Sidebar width: ${targetW}px`);
-  });
-
-  // Keyboard navigation
-  resizer.addEventListener('keydown', e=>{
-    if(e.key==='ArrowLeft' || e.key==='ArrowRight'){
-      e.preventDefault();
-      const currentW=side.getBoundingClientRect().width;
-      const step=(e.shiftKey?50:15)*(e.key==='ArrowRight'?1:-1);
-      const newW=setSidebarWidth(currentW + step, true);
-      toast(`Sidebar width: ${newW}px`);
-    } else if(e.key==='Home'){
-      e.preventDefault();
-      setSidebarWidth(DEFAULT_W, true);
-      toast(`Sidebar reset to ${DEFAULT_W}px`);
-    }
-  });
-
-  // Window resize bounds check
-  addEventListener('resize', ()=>{
-    if(!side || side.hidden) return;
-    const currentW=side.getBoundingClientRect().width;
-    const maxW=getMaxW();
-    if(currentW > maxW){
-      setSidebarWidth(maxW, false);
-    }
-  });
-
-  // Button clicks & shortcuts
-  if($('sidetoggle')) $('sidetoggle').onclick = () => toggleSidebar(true);
-  if($('sidetoggle-expand')) $('sidetoggle-expand').onclick = () => toggleSidebar(false);
-
-  window.addEventListener('keydown', e=>{
-    if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==='b'){
-      const tag=(e.target && e.target.tagName)||'';
-      if(tag==='INPUT' || tag==='TEXTAREA') return;
-      if(!S.connected) return;
-      e.preventDefault();
-      toggleSidebar();
-    }
-  });
-})();
+}
 
 /* ---------------- chrome ---------------- */
 function savePageState(state){
@@ -2464,7 +2371,7 @@ function show(v){
   for(const t of document.querySelectorAll('.tab')) t.classList.toggle('on', t.dataset.v===v);
   for(const x of document.querySelectorAll('.view')) x.classList.toggle('on', x.id==='v-'+v);
   $('moretab').classList.toggle('on',!!secondary);
-  $('moretab').textContent=secondary?secondary.textContent+' ▾':'More ▾';
+  $('moretab').textContent=secondary?secondary.textContent:'More';    // the arrow is drawn by CSS, with its own spacing
   for(const item of $('moremenu').querySelectorAll('button')) item.classList.toggle('on',item.dataset.v===v);
   $('moremenu').hidden=true;
   $('status').hidden = true;
@@ -2508,7 +2415,13 @@ $('moretab').onclick=e=>{
 };
 for(const item of $('moremenu').querySelectorAll('button')) item.onclick=()=>show(item.dataset.v);
 addEventListener('click',e=>{if(!e.target.closest('#morewrap,#moremenu')) $('moremenu').hidden=true;});
+// the More tab looks pressed while its menu is open, however the menu opens or closes
+new MutationObserver(()=>{
+  const open=!$('moremenu').hidden;
+  $('moretab').classList.toggle('open',open); document.body.classList.toggle('more-open',open);
+}).observe($('moremenu'),{attributes:true,attributeFilter:['hidden']});
 addEventListener('resize',()=>$('moremenu').hidden=true);
+addEventListener('keydown',e=>{ if(e.key==='Escape'&&!$('moremenu').hidden){ $('moremenu').hidden=true; $('moretab').focus(); } });
 // re-reads the object list too, so DDL run in the query runner shows up without a page reload
 $('reload').onclick = async () => {
   try{
@@ -2520,41 +2433,54 @@ $('reload').onclick = async () => {
     toast('Schema refreshed');
   }catch(e){ alertBox('Refresh failed', e.message); }
 };
+// database info: a summary line, clickable object tiles, connection settings, extensions; PostgreSQL-managed counts stay folded away
 function drawDatabaseInfo(m){
-  const body=$('dbinfo-table').tBodies[0];
-  const labels={connection_url:'Connection URL',database:'Database',schema_scope:'Schema scope',user_name:'User',version:'PostgreSQL version',
-    database_size:'Database size',encoding:'Encoding',collation:'Collation',time_zone:'Time zone',tables:'Tables',
-    columns:'Columns',indexes:'Indexes',constraints:'Constraints',primary_keys:'Primary keys',foreign_keys:'Foreign keys',
-    unique_constraints:'Unique constraints',policies:'Policies',views:'Views',materialized_views:'Materialized views',sequences:'Sequences',
-    functions:'Functions',procedures:'Procedures',triggers:'Triggers',extension_count:'Installed extensions',
-    extension_names:'Extensions and versions',extension_relations:'Extension-owned relations in public',
-    extension_routines:'Extension-owned routines in public',internal_triggers:'Internal triggers in public'};
-  const sections={connection_url:'Database and connection',tables:'Public schema user objects',
-    extension_count:'Extensions and PostgreSQL-managed objects (excluded above)'};
-  const drill={tables:'tables',columns:'columns',indexes:'indexes',constraints:'constraints',
-    primary_keys:'primary_keys',foreign_keys:'foreign_keys',unique_constraints:'unique_constraints',policies:'policies',
-    views:'views',materialized_views:'materialized_views',sequences:'sequences',functions:'functions',procedures:'procedures',triggers:'triggers',
-    extension_count:'extensions',extension_relations:'extension_relations',
-    extension_routines:'extension_routines',internal_triggers:'internal_triggers'};
-  body.textContent='';
-  for(const [key,label] of Object.entries(labels)){
-    if(sections[key]){
-      const section=document.createElement('tr'), heading=document.createElement('th');
-      section.className='section'; heading.colSpan=2; heading.textContent=sections[key];
-      section.appendChild(heading); body.appendChild(section);
+  const root=$('dbinfo-summary'); root.textContent='';
+  const section=title=>{ const s=el('section'); s.appendChild(el('h3','dbi-title',title)); return s; };
+  const count=key=>Number(m[key])||0;
+  const wrap=el('div','dbi');
+
+  const info=section('Database info'), kv=el('dl','dbi-kv');
+  const row=(label,value,copyable)=>{
+    kv.appendChild(el('dt',null,label)); const dd=el('dd'); dd.appendChild(el('span',null,value??'—'));
+    if(copyable&&value){
+      dd.appendChild(iconButton('copy',`Copy ${label.toLowerCase()}`)).onclick=()=>copyText(value,`${label} copied`);
     }
-    const tr=document.createElement('tr'), th=document.createElement('th'), td=document.createElement('td');
-    th.textContent=label; td.textContent=m[key] ?? '—'; tr.append(th,td); body.appendChild(tr);
-    if(drill[key]){
-      if(Number(m[key])>0){
-        tr.className='drill'; tr.tabIndex=0; tr.title=`View ${label.toLowerCase()}`;
-        tr.onclick=()=>openDatabaseCatalog(drill[key],label);
-        tr.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); tr.click(); } };
-      }else{
-        tr.className='drill-disabled'; tr.title='No objects';
+    kv.appendChild(dd);
+  };
+  row('Database',m.database); row('PostgreSQL',m.version); row('Size',m.database_size); row('User',m.user_name); row('Time zone',m.time_zone);
+  row('Connection URL',m.connection_url,true); row('Schema',m.schema_scope); row('Encoding',m.encoding); row('Collation',m.collation);
+  info.appendChild(kv); wrap.appendChild(info);
+
+  const objects=section(`Objects in ${m.schema_scope||'public'}`), tiles=el('div','dbi-tiles');
+  objects.firstChild.appendChild(el('span','dbi-note','· extensions count the whole database'));
+  const tile=(key,label,kind,parts=[])=>{
+    const n=count(key), t=el('div','dbi-tile'+(n?'':' off'));
+    t.append(el('span','n',n.toLocaleString()), el('span','l',label));
+    if(n){
+      t.tabIndex=0; t.setAttribute('role','button'); t.title=`View ${label.toLowerCase()}`;
+      t.onclick=()=>openDatabaseCatalog(kind,label);
+      t.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); t.click(); } };
+    }
+    if(parts.length){
+      const sub=el('span','sub');
+      for(const [partKey,partLabel,partKind,partTitle] of parts){
+        const b=el('button','dbi-sub',`${count(partKey).toLocaleString()} ${partLabel}`); b.type='button'; b.disabled=!count(partKey);
+        b.title=`View ${partTitle.toLowerCase()}`; b.onclick=e=>{ e.stopPropagation(); openDatabaseCatalog(partKind,partTitle); };
+        sub.appendChild(b);
       }
+      t.appendChild(sub);
     }
-  }
+    tiles.appendChild(t);
+  };
+  tile('tables','Tables','tables'); tile('views','Views','views'); tile('materialized_views','Materialized views','materialized_views');
+  tile('columns','Columns','columns'); tile('indexes','Indexes','indexes');
+  tile('constraints','Constraints','constraints',[['primary_keys','primary','primary_keys','Primary keys'],['foreign_keys','foreign','foreign_keys','Foreign keys'],['unique_constraints','unique','unique_constraints','Unique constraints']]);
+  tile('sequences','Sequences','sequences'); tile('functions','Functions','functions'); tile('procedures','Procedures','procedures');
+  tile('triggers','Triggers','triggers',[['internal_triggers','internal','internal_triggers','Internal triggers']]); tile('policies','Policies','policies');
+  tile('extension_count','Extensions','extensions',[['extension_relations','relations','extension_relations','Extension-owned relations'],['extension_routines','routines','extension_routines','Extension-owned routines']]);
+  objects.appendChild(tiles); wrap.appendChild(objects);
+  root.appendChild(wrap);
 }
 const RUNNABLE_CATALOG_KINDS=new Set(['views','materialized_views','tables','extension_relations']);
 function runCatalogObject(schema, name){
@@ -2569,75 +2495,33 @@ function runCatalogObject(schema, name){
   runQuery(false);
 }
 const catalogLabel=key=>key.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase());
-function sizeDatabaseCatalog(table, columns, rows, isRunnable){
-  const widths = [];
-  const maxIndexLen = String(Math.max((rows||[]).length, 9)).length;
-  widths.push(Math.max(44, Math.ceil(maxIndexLen * 7.25) + 24));
-  if(isRunnable) widths.push(64);
-  const sample = (rows || []).slice(0, 200);
-  for(const key of columns){
-    const label = catalogLabel(key);
-    let maxLen = label.length;
-    for(const r of sample){
-      const val = r[key];
-      if(val != null){
-        const str = typeof val === 'string' ? val : compactCellValue(val);
-        if(str.length > maxLen) maxLen = str.length;
-      }
-    }
-    const name = key.toLowerCase();
-    const max = /definition|query|sql/.test(name) ? 460
-              : /arguments|result|using|check|condition/.test(name) ? 320
-              : /description/.test(name) ? 360
-              : /name/.test(name) ? 300
-              : /default|predicate|references/.test(name) ? 260
-              : 220;
-    const min = /estimated_rows|total_size|size|owner|type|schema|language|enabled|unique|primary/.test(name) ? 60 : 54;
-    widths.push(Math.max(min, Math.min(max, Math.ceil(maxLen * 7.25) + 24)));
-  }
-  table.querySelector('colgroup')?.remove();
-  const colgroup = document.createElement('colgroup');
-  for(const width of widths){
-    const col = document.createElement('col');
-    col.style.width = width + 'px';
-    colgroup.appendChild(col);
-  }
-  table.insertBefore(colgroup, table.tHead);
-  const totalWidth = widths.reduce((a, b) => a + b, 0);
-  table.style.width = totalWidth + 'px';
-  table.style.minWidth = '0';
-}
 function drawDatabaseCatalog(){
-  const data=S.dbCatalog[S.dbCatalogKind]||{columns:[],rows:[]};
+  const data=S.dbCatalog[S.dbCatalogKind]||{columns:[],rows:[]}, table=$('dbcat-table');
   const term=$('dbcat-search').value.trim().toLowerCase();
   const rows=data.rows.filter(row=>!term||data.columns.some(key=>String(row[key]??'').toLowerCase().includes(term)));
-  const thead=$('dbcat-table').tHead, tbody=$('dbcat-table').tBodies[0]; thead.textContent=''; tbody.textContent='';
+  const thead=table.tHead, tbody=table.tBodies[0]; thead.textContent=''; tbody.textContent='';
   const isRunnable=RUNNABLE_CATALOG_KINDS.has(S.dbCatalogKind);
-  const hr=document.createElement('tr');
-  const thNum=document.createElement('th'); thNum.textContent='#'; hr.appendChild(thNum);
-  if(isRunnable){ const thAct=document.createElement('th'); thAct.textContent='Action'; hr.appendChild(thAct); }
-  for(const label of data.columns.map(catalogLabel)){ const th=document.createElement('th'); th.textContent=label; hr.appendChild(th); }
-  thead.appendChild(hr);
+  const hr=thead.appendChild(el('tr'));
+  for(const label of ['#', ...(isRunnable?['Action']:[]), ...data.columns.map(catalogLabel)]) hr.appendChild(el('th',null,label));
   if(!rows.length){
-    const tr=document.createElement('tr'),td=document.createElement('td'); td.colSpan=Math.max(1,data.columns.length+(isRunnable?2:1));
-    td.textContent=term?'No matching objects':'No objects'; td.style.textAlign='center'; td.style.color='var(--dim)'; tr.appendChild(td); tbody.appendChild(tr);
+    const td=tbody.appendChild(el('tr')).appendChild(el('td','empty-detail',term?'No matching objects':'No objects')); td.colSpan=hr.cells.length;
   }else rows.forEach((row,index)=>{
-    const tr=document.createElement('tr'), number=document.createElement('td'); number.textContent=String(index+1); tr.appendChild(number);
+    const tr=tbody.appendChild(el('tr')); tr.appendChild(el('td',null,index+1));
     if(isRunnable){
-      const actTd=document.createElement('td'); actTd.className='dbcat-action-cell';
-      const runBtn=document.createElement('button'); runBtn.type='button'; runBtn.className='primary cat-action-btn'; runBtn.textContent='Run';
-      runBtn.title=`Run query for ${row.name || 'object'} in Query Runner`;
-      runBtn.onclick=e=>{ e.stopPropagation(); runCatalogObject(row.schema, row.name); };
-      actTd.appendChild(runBtn); tr.appendChild(actTd);
+      const run=tr.appendChild(el('td','dbcat-action-cell')).appendChild(el('button','primary cat-action-btn','Execute')); run.type='button';
+      run.title=`Execute the query for ${row.name || 'object'} in the SQL Runner`; run.onclick=e=>{ e.stopPropagation(); runCatalogObject(row.schema, row.name); };
     }
     for(const key of data.columns){
-      const td=document.createElement('td'), value=row[key]; td.textContent=compactCellValue(value);
-      if(value==null) td.className='null';
-      td.title=td.textContent; td.onclick=()=>openCellValue(catalogLabel(key),value,'Value copied'); tr.appendChild(td);
+      const value=row[key], td=tr.appendChild(el('td',value==null?'null':null,compactCellValue(value)));
+      td.title=td.textContent; td.onclick=()=>openCellValue(catalogLabel(key),value,'Value copied');
     }
-    tbody.appendChild(tr);
   });
-  sizeDatabaseCatalog($('dbcat-table'), data.columns, data.rows || [], isRunnable);
+  const widths=[columnWidth('#',[data.rows.length],44)];
+  if(isRunnable){    // the Execute button's real width plus the cell's 9px padding each side and border
+    const probe=document.body.appendChild(el('button','primary cat-action-btn','Execute')); probe.style.cssText='position:absolute;visibility:hidden';
+    widths.push(Math.ceil(probe.getBoundingClientRect().width)+19); probe.remove();
+  }
+  setColumnWidths(table,[...widths, ...data.columns.map(key=>columnWidth(catalogLabel(key),data.rows.map(row=>row[key]),54))]);
   $('dbcat-count').textContent=term?`${rows.length} of ${data.rows.length}`:`${data.rows.length} objects`;
   $('dbcat-download').disabled=!rows.length;
 }
@@ -2645,11 +2529,13 @@ async function openDatabaseCatalog(kind,title){
   S.dbCatalogKind=kind; $('dbcat-title').textContent=title; $('dbcat-search').placeholder=`Search ${title.toLowerCase()}`;
   $('dbcat-search').value=''; $('dbinfo-summary').hidden=true; $('dbinfo-catalog').hidden=false;
   if(S.dbCatalog[kind]){ drawDatabaseCatalog(); return; }
-  $('dbcat-count').textContent='Loading…'; $('dbcat-download').disabled=true;
-  $('dbcat-table').querySelector('colgroup')?.remove(); $('dbcat-table').style.width=''; $('dbcat-table').style.minWidth='';
-  $('dbcat-table').tHead.textContent=''; $('dbcat-table').tBodies[0].innerHTML='<tr><td>Loading…</td></tr>';
+  const table=$('dbcat-table'), message=text=>{
+    table.querySelector('colgroup')?.remove(); table.style.width=table.style.minWidth=''; table.tHead.textContent='';
+    table.tBodies[0].textContent=''; table.tBodies[0].appendChild(el('tr')).appendChild(el('td',null,text));
+  };
+  $('dbcat-count').textContent='Loading…'; $('dbcat-download').disabled=true; message('Loading…');
   try{ S.dbCatalog[kind]=await api({action:'catalog',kind}); drawDatabaseCatalog(); }
-  catch(e){ $('dbcat-count').textContent=''; $('dbcat-table').querySelector('colgroup')?.remove(); $('dbcat-table').style.width=''; $('dbcat-table').style.minWidth=''; $('dbcat-table').tBodies[0].innerHTML='<tr><td></td></tr>'; $('dbcat-table').tBodies[0].rows[0].cells[0].textContent='Error: '+e.message; }
+  catch(e){ $('dbcat-count').textContent=''; message('Error: '+e.message); }
 }
 $('dbcat-back').onclick=()=>{ $('dbinfo-catalog').hidden=true; $('dbinfo-summary').hidden=false; };
 $('dbcat-search').oninput=drawDatabaseCatalog;
@@ -2667,11 +2553,11 @@ async function openDbInfo(){
   $('morewrap').hidden=true; $('moremenu').hidden=true;
   show('info');
   $('dbinfo-catalog').hidden=true; $('dbinfo-summary').hidden=false;
-  const body=$('dbinfo-table').tBodies[0];
+  const box=$('dbinfo-summary'), message=text=>{ box.textContent=''; const p=el('p','dbi-msg',text); box.appendChild(p); };
   if(S.dbInfo){ drawDatabaseInfo(S.dbInfo); $('dbinfo').disabled=false; return; }
-  body.innerHTML='<tr><td colspan="2">Loading database info…</td></tr>';
+  message('Loading database info…');
   try{ S.dbInfo=await api({action:'info'}); drawDatabaseInfo(S.dbInfo); }
-  catch(e){ body.innerHTML='<tr><td colspan="2"></td></tr>'; body.rows[0].cells[0].textContent='Error: '+e.message; }
+  catch(e){ message('Error: '+e.message); }
   finally{ $('dbinfo').disabled=false; }
 }
 $('dbinfo').onclick = openDbInfo;
@@ -2740,7 +2626,7 @@ async function restorePage(){
 (async function boot(){
   try{
     const m = await api({action:'schema'});          // one call: tree + database name
-    S.tree=m.tree; S.db=m.database;
+    S.tree=m.tree; S.db=m.database; S.connectionUrl=m.connection_url || '';
     setConnected(true);
     setSideTab(S.sideTab || 'table', false);
     drawTree();
@@ -2758,7 +2644,7 @@ function showBlocked(message){
   $('home-blocked-msg').innerHTML = '';
   $('home-blocked-msg').append(disabled ? 'Set ' : message + '. ');
   if(disabled){
-    const code = document.createElement('code'); code.textContent = 'config_is_pgweb_enabled=true';
+    const code=el('code',null,'config_is_pgweb_enabled=true');
     $('home-blocked-msg').append(code, ' in .env on your own machine, restart Atom, then reload this page.');
   }else{
     $('home-blocked-msg').append('Open pgweb directly at http://localhost on the machine running Atom.');

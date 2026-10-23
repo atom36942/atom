@@ -352,7 +352,7 @@ config_api = {
 "/info": {"id": 17, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 300, "is_per_user": False}},
 "/openapi.json": {"id": 37, "is_token": False},
 "/static": {"id": 77, "is_token": False},
-"/pgweb": {"id": 99, "is_token": False},
+"/pgweb": {"id": 99, "is_token": False, "is_log_api": False},
 # auth
 "/auth/login-password": {"id": 91, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 "/auth/signup-username-password": {"id": 39, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
