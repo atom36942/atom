@@ -22,13 +22,16 @@ from config import config_table_exclude_from_users_delete
 from config import config_column_ownership_delete
 from config import config_users_delete_retention_day
 
+# setting
+USERS_DELETE_BATCH_LIMIT = 100
+WORKER_RETRY_DELAY_SEC = [60, 300, 900, 3600, 21600]
+BLOB_PURGE_BATCH_LIMIT = 5000
+BLOB_PURGE_AZURE_CONCURRENCY = 256
+POLL_INTERVAL_SEC = 5
+
 # logic
-async def execute():
+async def main():
     print("Starting Users Delete Worker Script...")
-    users_delete_batch_limit = 100
-    worker_retry_delay_sec = [60, 300, 900, 3600, 21600]
-    blob_purge_batch_limit = 5000
-    blob_purge_azure_concurrency = 256
     pool = await func_client_postgres(dsn=config_postgres_url_dict["master"], min_size=1, max_size=5)
     clients = {"s3": None, "azure": None}
     if config_aws_s3_region_name:
@@ -38,8 +41,8 @@ async def execute():
     def func_quote_ident(name: str) -> str:
         return '"' + name.replace('"', '""') + '"'
     def func_retry_delay_sec(retry_count: int) -> int:
-        index = min(max(retry_count, 0), len(worker_retry_delay_sec) - 1)
-        return worker_retry_delay_sec[index]
+        index = min(max(retry_count, 0), len(WORKER_RETRY_DELAY_SEC) - 1)
+        return WORKER_RETRY_DELAY_SEC[index]
     async def func_schema_columns(conn: asyncpg.Connection) -> dict:
         rows = await conn.fetch("SELECT c.table_name, c.column_name FROM information_schema.columns c JOIN information_schema.tables t ON c.table_name = t.table_name AND c.table_schema = t.table_schema WHERE c.table_schema = 'public' AND t.table_type = 'BASE TABLE'")
         schema = {}
@@ -58,7 +61,7 @@ async def execute():
     async def func_mark_completed(conn: asyncpg.Connection, task_id: int) -> None:
         await conn.execute("UPDATE log_users_delete SET worker_status = 2, worker_processed_at = NOW(), worker_last_error = NULL WHERE id = $1", task_id)
     async def func_mark_failed(conn: asyncpg.Connection, task_id: int, retry_count: int, error: Exception) -> None:
-        if retry_count >= len(worker_retry_delay_sec):
+        if retry_count >= len(WORKER_RETRY_DELAY_SEC):
             await conn.execute("UPDATE log_users_delete SET worker_status = 4, worker_retry_count = worker_retry_count + 1, worker_last_error = $2 WHERE id = $1", task_id, str(error)[:5000])
         else:
             delay_sec = func_retry_delay_sec(retry_count)
@@ -114,8 +117,8 @@ async def execute():
             for i in range(0, len(keys), 1000):
                 response = await asyncio.to_thread(clients["s3"].delete_objects, Bucket=bucket, Delete={"Objects": keys[i:i+1000], "Quiet": True})
                 if response.get("Errors"): raise Exception(f"S3 blob delete failed: {response['Errors'][:3]}")
-        for i in range(0, len(azure_tasks), blob_purge_azure_concurrency):
-            results = await asyncio.gather(*azure_tasks[i:i+blob_purge_azure_concurrency], return_exceptions=True)
+        for i in range(0, len(azure_tasks), BLOB_PURGE_AZURE_CONCURRENCY):
+            results = await asyncio.gather(*azure_tasks[i:i+BLOB_PURGE_AZURE_CONCURRENCY], return_exceptions=True)
             for result in results:
                 if isinstance(result, ResourceNotFoundError): continue
                 if isinstance(result, Exception): raise result
@@ -123,7 +126,7 @@ async def execute():
         total_deleted = 0
         deleted_count = -1
         while deleted_count != 0:
-            rows = await conn.fetch('SELECT id, service, file_url FROM "blob" WHERE "deleted_at" < NOW() - ($1 * INTERVAL \'1 day\') LIMIT $2', config_users_delete_retention_day, blob_purge_batch_limit)
+            rows = await conn.fetch('SELECT id, service, file_url FROM "blob" WHERE "deleted_at" < NOW() - ($1 * INTERVAL \'1 day\') LIMIT $2', config_users_delete_retention_day, BLOB_PURGE_BATCH_LIMIT)
             if not rows:
                 deleted_count = 0
                 continue
@@ -138,7 +141,7 @@ async def execute():
             schema = await func_schema_columns(conn)
             owned_tables = func_owned_tables(schema)
             async with conn.transaction():
-                tasks = await func_claim_tasks(conn, users_delete_batch_limit)
+                tasks = await func_claim_tasks(conn, USERS_DELETE_BATCH_LIMIT)
         if tasks: print(f"[users-delete-worker] claimed {len(tasks)} task(s)")
         for task in tasks:
             async with pool.acquire() as task_conn:
@@ -168,11 +171,11 @@ async def execute():
                 idle_count += 1
                 if idle_count == 1 or idle_count % 12 == 0:
                     print("[users-delete-worker] no pending tasks; sleeping...")
-                await asyncio.sleep(5)
+                await asyncio.sleep(POLL_INTERVAL_SEC)
     finally:
         if clients.get("azure"): await clients["azure"].close()
         await pool.close()
 
 # main
 if __name__ == "__main__":
-    asyncio.run(execute())
+    asyncio.run(main())

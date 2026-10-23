@@ -53,7 +53,7 @@ class HttpRouteTests(unittest.TestCase):
     def setUpClass(cls):
         cls.db_name, cls.url = create_database()
         # "/" serves config_root_html_path, which is relative to the working directory; the test app runs from a temp dir
-        cls.handle = app_start(env={"config_postgres_url_master": cls.url, "config_root_html_path": str(REPO_ROOT / "static" / "api.html")})
+        cls.handle = app_start(env={"config_postgres_url_master": cls.url, "config_root_html_path": str(REPO_ROOT / "static" / "home.html")})
         cls.app, cls.client = cls.handle["app"], cls.handle["client"]
         cls.admin = app_login(cls.client, path="/auth/login-username-password", body={"username": "admin", "password": "root-test-password"})
         cls.alice = app_login(cls.client, path="/auth/signup-username-password", body={"username": "alice", "password": "alice-pass", "role": 5})
@@ -288,6 +288,21 @@ class HttpRouteTests(unittest.TestCase):
             gc.collect()
         self.assertEqual([str(w.message) for w in caught if "Unclosed file" in str(w.message)], [])
 
+    def test_memory_report_is_admin_only_and_traces_on_demand(self):
+        self.assertEqual(self.client.get("/admin/memory").status_code, 401)
+        self.assertEqual(self.client.get("/admin/memory", headers=self.auth(self.alice)).status_code, 403)
+        report = self.message(self.client.get("/admin/memory", headers=self.auth(self.admin)))
+        self.assertGreater(report["process"]["rss_bytes"], 0)
+        names = {item["name"] for item in report["app_state"]}
+        self.assertIn("cache_users_role", names)
+        self.assertFalse(any(name.startswith(("func_", "client_")) for name in names))    # functions are skipped, clients only counted
+        self.assertIn("client_postgres_dict", {client["name"] for client in report["clients"]})
+        memory = lambda **params: self.message(self.client.get("/admin/memory", params=params, headers=self.auth(self.admin)))
+        self.assertTrue(memory(trace="start")["trace"]["is_tracing"])
+        self.assertTrue(memory()["trace"]["is_tracing"])    # still on until stopped (or 5 minutes)
+        self.assertFalse(memory(trace="stop")["trace"]["is_tracing"])
+        self.assertEqual(self.client.get("/admin/memory", params={"trace": "forever"}, headers=self.auth(self.admin)).status_code, 400)
+
     def runtime_status(self):
         return self.message(self.client.get("/admin/runtime-status", headers=self.auth(self.admin)))
 
@@ -331,6 +346,8 @@ class HttpRouteTests(unittest.TestCase):
     def test_root_health_info_ping_and_converter(self):
         root = self.client.get("/")
         self.assertEqual((root.status_code, root.headers["content-type"].split(";")[0]), (200, "text/html"))
+        self.assertIn('fetch("/static-pages")', root.text)
+        self.assertIsInstance(self.message(self.client.get("/static-pages")), list)    # the app runs from a temp dir, so its static/ is empty
         self.assertEqual(self.message(self.client.get("/health")), "ok")
         self.assertIn("/health", self.message(self.client.get("/info"))["api_list"])
         self.assertEqual(self.message(self.client.post("/my/ping", headers=self.auth(self.alice))), "pong")

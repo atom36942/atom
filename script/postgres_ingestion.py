@@ -25,8 +25,12 @@ rename_column = ast.literal_eval(os.getenv("rename_column")) if os.getenv("renam
 ignore_column = ast.literal_eval(os.getenv("ignore_column")) if os.getenv("ignore_column") else None
 const_column = ast.literal_eval(os.getenv("const_column")) if os.getenv("const_column") else None
 
+# setting
+STAGING_TABLE_PREFIX = "staging_sync_"
+COPY_TIMEOUT_SEC = 28800    # 8 hours, for very large files
+
 # logic
-async def execute():
+async def main():
     """Performs high-performance bulk operations from a CSV to Postgres."""
     csv.field_size_limit(sys.maxsize)
     if not pg_dsn: raise ValueError("PG_DSN is required")
@@ -42,7 +46,7 @@ async def execute():
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     csv_stem = os.path.splitext(os.path.basename(csv_path))[0]
     rej_path = f"tmp/{csv_stem}_rejected_{ts}.csv"
-    staging_table = f"staging_sync_{table}"
+    staging_table = f"{STAGING_TABLE_PREFIX}{table}"
     valid_consts = [c for c in const_column if isinstance(c, (tuple, list)) and len(c) == 2] if const_column else []
     valid_renames = [r for r in rename_column if isinstance(r, (tuple, list)) and len(r) == 2] if rename_column else []
     c_names, c_vals = [c[0] for c in valid_consts], [c[1] for c in valid_consts]
@@ -134,7 +138,7 @@ async def execute():
         staging_cols_sql = ", ".join([f'"{c}" TEXT' for c in final_cols])
         await conn.execute(f'DROP TABLE IF EXISTS "{staging_table}"')
         await conn.execute(f'CREATE TEMP TABLE "{staging_table}" ({staging_cols_sql})')
-        await conn.copy_records_to_table(staging_table, records=row_generator(0), columns=final_cols, timeout=28800)
+        await conn.copy_records_to_table(staging_table, records=row_generator(0), columns=final_cols, timeout=COPY_TIMEOUT_SEC)
         async with conn.transaction():
             def get_cast(cl):
                 ct = col_type_map[cl]
@@ -157,4 +161,4 @@ async def execute():
 
 # main
 if __name__ == "__main__":
-    asyncio.run(execute())
+    asyncio.run(main())

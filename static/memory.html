@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Memory</title>
+<style>
+:root{--bg:#0b0d10;--card:#0f1114;--panel:#1a1d23;--field:#14171c;--line:rgba(255,255,255,.08);--text:#e6eef3;--muted:#9aa0a6;--primary:#38a169;--accent:#4299e1;--warn:#ed8936;--danger:#f87171;--mono:"SF Mono",Menlo,monospace}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:Inter,system-ui;line-height:1.5}
+[hidden]{display:none!important}
+.wrap{max-width:1040px;margin:0 auto;padding:32px 20px 48px}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+h1{margin:0;font-size:22px;font-weight:700}
+.sub{margin:2px 0 0;color:var(--muted);font-size:13px}
+.actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+button,select,input{font:inherit;font-size:13px;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:8px;height:34px;padding:0 12px}
+button{cursor:pointer;transition:border-color .15s,background .15s}
+button:hover:not(:disabled){border-color:rgba(66,153,225,.5);background:var(--panel)}
+button:disabled{opacity:.5;cursor:default}
+button.primary{background:rgba(56,161,105,.12);border-color:rgba(56,161,105,.35);color:var(--primary)}
+button.danger{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.3);color:var(--danger)}
+select{padding-right:8px;cursor:pointer}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+.user{color:var(--muted);font-size:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:18px}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.card-head h2{margin:0;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.card-head .note{color:var(--muted);font-size:12px}
+.card-body{padding:16px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.tile .label{color:var(--muted);font-size:12px}
+.tile .value{font-size:22px;font-weight:700;line-height:1.3}
+.tile .hint{color:var(--muted);font-size:11px}
+.meter{height:6px;margin-top:8px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden}
+.meter span{display:block;height:100%;background:var(--accent);border-radius:3px}
+.meter span.high{background:var(--warn)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{padding:9px 16px;text-align:left;font-size:12px;font-weight:600;color:var(--accent);border-bottom:1px solid rgba(255,255,255,.1);white-space:nowrap}
+td{padding:8px 16px;border-bottom:1px solid rgba(255,255,255,.05);white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:rgba(255,255,255,.03)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:12px}
+.muted{color:var(--muted)}
+.share{width:30%;min-width:120px}
+.bar{height:6px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden}
+.bar span{display:block;height:100%;background:var(--accent)}
+.file{max-width:0;width:100%;overflow:hidden;text-overflow:ellipsis}
+.empty{padding:18px 16px;color:var(--muted);font-size:13px}
+.message{margin-bottom:18px;padding:12px 16px;border-radius:10px;font-size:13px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--danger)}
+.login{max-width:360px;margin:12vh auto 0}
+.login form{display:flex;flex-direction:column;gap:12px}
+.login label{display:flex;flex-direction:column;gap:4px;color:var(--muted);font-size:12px}
+.login input{height:40px;font-size:14px}
+.login input:disabled{color:var(--muted);background:rgba(255,255,255,.02);cursor:not-allowed}
+.login button{height:40px}
+.login p{margin:0 0 4px;color:var(--muted);font-size:13px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.two .card{margin-bottom:18px}
+@media (max-width:760px){.two{grid-template-columns:1fr}.share{display:none}.wrap{padding:20px 12px 40px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="login card" id="loginView" hidden>
+    <div class="card-head"><h2>Memory · admin login</h2></div>
+    <div class="card-body">
+      <form id="loginForm">
+        <p>Sign in with an admin account of this server.</p>
+        <label>Role<input id="role" value="1" disabled title="This page is for admins (role 1) only"></label>
+        <label>Username<input id="username" autocomplete="username" required></label>
+        <label>Password<input id="password" type="password" autocomplete="current-password" required></label>
+        <button type="submit" class="primary" id="loginBtn">Log in</button>
+        <div class="message" id="loginError" hidden></div>
+      </form>
+    </div>
+  </section>
+
+  <div id="appView" hidden>
+    <header>
+      <div>
+        <h1>Memory</h1>
+        <p class="sub" id="subtitle">Loading...</p>
+      </div>
+      <div class="actions">
+        <label class="user" for="refreshSelect">Auto refresh</label>
+        <select id="refreshSelect" aria-label="Auto refresh">
+          <option value="0">Off</option><option value="5">5 s</option><option value="15">15 s</option><option value="30">30 s</option>
+        </select>
+        <button type="button" id="refreshBtn">Refresh</button>
+        <span class="user" id="userLabel"></span>
+        <button type="button" id="logoutBtn">Log out</button>
+      </div>
+    </header>
+    <div class="message" id="error" hidden></div>
+    <div class="tiles" id="tiles"></div>
+    <section class="card">
+      <div class="card-head"><h2>Atom in-memory data</h2><span class="note" id="stateTotal"></span></div>
+      <table><thead><tr><th>Name</th><th>Type</th><th class="num">Entries</th><th class="num">Size</th><th class="share">Share</th></tr></thead><tbody id="stateRows"></tbody></table>
+    </section>
+    <div class="two">
+      <section class="card">
+        <div class="card-head"><h2>Python objects</h2><span class="note" id="objectsNote"></span></div>
+        <table><thead><tr><th>Type</th><th class="num">Count</th><th class="num">Size</th></tr></thead><tbody id="objectRows"></tbody></table>
+      </section>
+      <div>
+        <section class="card">
+          <div class="card-head"><h2>Clients</h2></div>
+          <table><thead><tr><th>Name</th><th>Type</th><th class="num">Count</th></tr></thead><tbody id="clientRows"></tbody></table>
+        </section>
+        <section class="card">
+          <div class="card-head"><h2>Garbage collector</h2></div>
+          <table><thead><tr><th>Generation</th><th class="num">Collections</th><th class="num">Collected</th><th class="num">Uncollectable</th></tr></thead><tbody id="gcRows"></tbody></table>
+        </section>
+      </div>
+    </div>
+    <section class="card">
+      <div class="card-head">
+        <h2>Allocation tracing</h2>
+        <div class="actions"><span class="note" id="traceNote"></span><button type="button" class="primary" id="traceStartBtn">Start (5 min)</button><button type="button" class="danger" id="traceStopBtn" hidden>Stop</button></div>
+      </div>
+      <div class="empty" id="traceHelp">Off. Tracing shows which source lines allocated the memory still in use. It slows this worker while on, and stops by itself after 5 minutes.</div>
+      <table id="traceTable" hidden><thead><tr><th>File</th><th class="num">Line</th><th class="num">Size</th><th class="num">Blocks</th></tr></thead><tbody id="traceRows"></tbody></table>
+    </section>
+  </div>
+</div>
+<script>
+// this page keeps its own login and settings under the "memory" key, so it works without any other Atom page
+const STORAGE_KEY = "memory";
+const $ = id => document.getElementById(id);
+const he = v => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const readStore = () => {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    return data && typeof data === "object" && !Array.isArray(data) ? data : {};
+  } catch { return {} }
+};
+const writeStore = patch => {
+  const data = { ...readStore(), ...patch };
+  Object.keys(data).forEach(key => { if (data[key] === undefined) delete data[key] });
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) } catch {}
+};
+const formatBytes = n => {
+  if (n == null) return "—";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let i = 0;
+  while (Math.abs(n) >= 1024 && i < units.length - 1) { n /= 1024; i++ }
+  return `${n.toFixed(i && n < 10 ? 1 : 0)} ${units[i]}`;
+};
+const formatDuration = sec => {
+  const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
+  return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : m ? `${m}m ${sec % 60}s` : `${sec}s`;
+};
+const showError = (el, text) => { el.textContent = text || ""; el.hidden = !text };
+
+// login: the server's own username/password login; the token is stored for this page only
+const showLogin = message => {
+  stopTimer();
+  $("appView").hidden = true;
+  $("loginView").hidden = false;
+  showError($("loginError"), message);
+  $("username").focus();
+};
+const api = async (path, options = {}) => {
+  const token = readStore().token?.access_token;
+  if (!token) throw Object.assign(new Error("Not logged in"), { status: 401 });
+  const response = await fetch(path, { ...options, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...options.headers } });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || body.status !== 1) throw Object.assign(new Error(body.message || response.statusText), { status: response.status });
+  return body.message;
+};
+$("loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("loginBtn").disabled = true;
+  showError($("loginError"), "");
+  try {
+    const response = await fetch("/auth/login-username-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: $("username").value.trim(), password: $("password").value, role: Number($("role").value) }) });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body.status !== 1 || !body.message?.access_token) throw new Error(body.message || "Login failed");
+    writeStore({ token: body.message, username: $("username").value.trim() });
+    $("password").value = "";
+    start();
+  } catch (error) {
+    showError($("loginError"), error.message);
+  } finally {
+    $("loginBtn").disabled = false;
+  }
+});
+$("logoutBtn").addEventListener("click", () => {
+  writeStore({ token: undefined, username: undefined });
+  showLogin("");
+});
+
+// rendering
+const tile = (label, value, hint = "", percent = null) => `<div class="tile"><div class="label">${he(label)}</div><div class="value">${he(value)}</div>${hint ? `<div class="hint">${he(hint)}</div>` : ""}${percent == null ? "" : `<div class="meter"><span class="${percent >= 85 ? "high" : ""}" style="width:${Math.min(100, percent)}%"></span></div>`}</div>`;
+const rows = (list, render, empty, columns) => list.length ? list.map(render).join("") : `<tr><td colspan="${columns}" class="empty">${empty}</td></tr>`;
+const render = report => {
+  const p = report.process, sys = report.system;
+  const workers = p.workers > 1 ? `worker pid ${p.pid}, one of ${p.workers}: each worker has its own memory, and a refresh may reach another` : `pid ${p.pid}`;
+  $("subtitle").textContent = `${workers} · Python ${p.python} · updated ${new Date().toLocaleTimeString()}`;
+  const ramShare = sys.total_bytes ? p.rss_bytes / sys.total_bytes * 100 : null;
+  $("tiles").innerHTML = [
+    tile("Process RAM (RSS)", formatBytes(p.rss_bytes), ramShare == null ? "" : `${ramShare.toFixed(1)}% of this machine`, ramShare),
+    tile("Peak RAM", formatBytes(p.peak_rss_bytes), "highest RSS since start"),
+    tile("Machine memory", `${sys.used_percent}%`, `used · ${formatBytes(sys.available_bytes)} free of ${formatBytes(sys.total_bytes)}`, sys.used_percent),
+    tile("Atom data", formatBytes(report.app_state.reduce((sum, item) => sum + item.bytes, 0)), "caches, buffers and settings below"),
+    tile("Uptime", formatDuration(p.uptime_sec), `${p.threads} threads`),
+    tile("CPU time", `${(p.cpu_user_sec + p.cpu_system_sec).toFixed(1)} s`, `user ${p.cpu_user_sec} s · system ${p.cpu_system_sec} s`),
+  ].join("");
+  const stateTotal = report.app_state.reduce((sum, item) => sum + item.bytes, 0) || 1;
+  $("stateTotal").textContent = `${formatBytes(stateTotal)} in ${report.app_state.length} items`;
+  $("stateRows").innerHTML = rows(report.app_state, item => `<tr><td class="mono">${he(item.name)}</td><td class="muted">${he(item.type)}</td><td class="num">${item.entries == null ? "—" : item.entries.toLocaleString()}</td><td class="num" title="${item.bytes.toLocaleString()} bytes">${item.is_partial ? "≥ " : ""}${formatBytes(item.bytes)}</td><td class="share"><div class="bar"><span style="width:${item.bytes / stateTotal * 100}%"></span></div></td></tr>`, "No in-memory data.", 5);
+  $("objectsNote").textContent = `${report.objects.tracked.toLocaleString()} tracked`;
+  $("objectRows").innerHTML = rows(report.objects.top, o => `<tr><td class="mono">${he(o.type)}</td><td class="num">${o.count.toLocaleString()}</td><td class="num">${formatBytes(o.bytes)}</td></tr>`, "No objects.", 3);
+  $("clientRows").innerHTML = rows(report.clients, c => `<tr><td class="mono">${he(c.name)}</td><td class="muted">${he(c.type)}</td><td class="num">${c.count}</td></tr>`, "No clients.", 3);
+  $("gcRows").innerHTML = rows(report.objects.gc, g => `<tr><td>${g.generation}</td><td class="num">${g.collections.toLocaleString()}</td><td class="num">${g.collected.toLocaleString()}</td><td class="num">${g.uncollectable}</td></tr>`, "—", 4);
+  renderTrace(report.trace);
+};
+const renderTrace = trace => {
+  $("traceStartBtn").hidden = trace.is_tracing;
+  $("traceStopBtn").hidden = !trace.is_tracing;
+  $("traceHelp").hidden = trace.is_tracing;
+  $("traceTable").hidden = !trace.is_tracing;
+  $("traceNote").textContent = trace.is_tracing ? `${formatBytes(trace.traced_bytes)} traced (peak ${formatBytes(trace.traced_peak_bytes)}) · stops ${new Date(trace.stops_at * 1000).toLocaleTimeString()}` : "";
+  if (trace.is_tracing) $("traceRows").innerHTML = rows(trace.top, t => `<tr><td class="mono file" title="${he(t.file)}">${he(t.file)}</td><td class="num">${t.line}</td><td class="num">${formatBytes(t.bytes)}</td><td class="num">${t.count.toLocaleString()}</td></tr>`, "Nothing allocated since tracing started.", 4);
+};
+
+// loading
+let timer = null, loading = false;
+const stopTimer = () => { clearInterval(timer); timer = null };
+// one route: ?trace=start|stop changes tracing first, and every call returns the full report
+const load = async (trace = "") => {
+  if (loading) return;
+  loading = true;
+  $("refreshBtn").disabled = true;
+  try {
+    render(await api(`/admin/memory${trace ? `?trace=${trace}` : ""}`));
+    showError($("error"), "");
+  } catch (error) {
+    if (error.status === 401) return showLogin("Your session expired. Log in again.");
+    showError($("error"), error.status === 403 ? "This account is not an admin (role 1)." : `Could not load the memory report: ${error.message}`);
+  } finally {
+    loading = false;
+    $("refreshBtn").disabled = false;
+  }
+};
+const setRefresh = sec => {
+  stopTimer();
+  writeStore({ refresh_sec: sec });
+  if (sec > 0) timer = setInterval(() => { if (!document.hidden) load() }, sec * 1000);
+};
+$("refreshBtn").addEventListener("click", () => load());
+$("refreshSelect").addEventListener("change", e => setRefresh(Number(e.target.value)));
+$("traceStartBtn").addEventListener("click", () => load("start"));
+$("traceStopBtn").addEventListener("click", () => load("stop"));
+const start = () => {
+  const store = readStore();
+  if (!store.token?.access_token) return showLogin("");
+  $("loginView").hidden = true;
+  $("appView").hidden = false;
+  $("userLabel").textContent = store.username ? `Signed in as ${store.username}` : "";
+  const refresh = [0, 5, 15, 30].includes(store.refresh_sec) ? store.refresh_sec : 5;
+  $("refreshSelect").value = String(refresh);
+  setRefresh(refresh);
+  load();
+};
+start();
+</script>
+</body>
+</html>

@@ -9,6 +9,10 @@ router = APIRouter()
 async def func_api_index(*, request: Request):
     return responses.FileResponse(request.app.state.config_root_html_path)
 
+@router.get("/static-pages")
+async def func_api_index_static_pages(*, request: Request):
+    return {"status": 1, "message": request.app.state.func_app_static_page_list()}
+
 @router.get("/health")
 async def func_api_index_health(*, request:Request):
     return {"status":1,"message":"ok"}

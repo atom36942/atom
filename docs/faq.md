@@ -176,11 +176,11 @@ The console reads `/info` and `/openapi.json`, so restart the app after changing
 </details>
 
 <details>
-<summary><strong>What is `api.html` / the page at `/`?</strong></summary>
+<summary><strong>What is the page at `/`, and `api.html`?</strong></summary>
 
-`static/api.html` is Atom's **built-in API console**, served at `/`. It discovers endpoints from `/info` and `/openapi.json`, then provides fields for path/query parameters, request bodies, and bearer tokens so you can test the API without Postman or another external tool.
+`/` serves `static/home.html`, which links every HTML app in `static/` and `static_extend/` (a `.html` file, or a folder with an `index.html`). `static/api.html` is Atom's **built-in API console**, served at `/static/api.html`. It discovers endpoints from `/info` and `/openapi.json`, then provides fields for path/query parameters, request bodies, and bearer tokens so you can test the API without Postman or another external tool.
 
-To brand the console, copy `static/api.html` to `static_extend/` under a new name (sync replaces `static/`) and point `config_root_html_path` at it; any HTML file works as the root page. This affects the browser UI only; the API routes and OpenAPI document continue to work independently.
+To brand the console, copy `static/api.html` to `static_extend/` under a new name (sync replaces `static/`); it appears on the home page. Any HTML file works as the root page: point `config_root_html_path` at it. This affects the browser UI only; the API routes and OpenAPI document continue to work independently.
 
 </details>
 

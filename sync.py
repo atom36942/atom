@@ -16,7 +16,7 @@ import subprocess
 import sys
 import tempfile
 
-# config
+# setting
 REPO_URL = "https://github.com/atom36942/atom.git"
 # 1. Files to sync: individual files replaced from upstream.
 sync_files = [
@@ -38,9 +38,39 @@ files_to_sync = [*sync_files, *sync_folders]
 
 # Project paths created locally only when missing, never modified afterwards.
 extend_folders = ["router_extend", "function_extend", "script_extend", "static_extend", "files_extend", "docs_extend", "tests_extend"]
+# The starter config_extend.py sync creates when it is missing: # base (Atom's values), # atom (Atom's three dicts, each starting from its base; startup checks they keep Atom's entries), # misc (everything else).
+CONFIG_EXTEND_STARTER = """# base
+from config import config_column_int_mapping as base_config_column_int_mapping
+from config import config_postgres as base_config_postgres
+from config import config_api as base_config_api
+
+# atom
+config_column_int_mapping = {
+**base_config_column_int_mapping,
+# "task": {"status": {1: "To Do", 2: "Done"}},
+}
+
+config_postgres = {
+**base_config_postgres,
+"table": {
+**base_config_postgres["table"],
+# "task": [{"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True}],
+},
+}
+
+config_api = {
+**base_config_api,
+# Add only after creating the matching router endpoint; choose an unused ID (200+):
+# "/task/list": {"id": 200, "is_token": True},
+}
+
+# misc
+# config_table_private_read_allowed = ["test", "task"]
+"""
+
 extend_files = {
     "tests_extend/__init__.py": "",
-    "config_extend.py": "# config\n# Project settings and overrides: see docs/extend.md\n",
+    "config_extend.py": CONFIG_EXTEND_STARTER,
 }
 
 # requirements.txt has two sections: # atom is replaced with Atom's packages on every run, # extend (the project's packages) is kept; config_extend.py stays developer-managed.

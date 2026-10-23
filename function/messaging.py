@@ -154,18 +154,20 @@ async def func_message_socket_send(*, sockets: dict, user_ids: tuple, payload: d
             except Exception: sockets.get(user_id, set()).discard(socket)
     return None
 
-async def func_message_socket(*, app_state: State, websocket: WebSocket) -> None:
-    """Live chat over the message table: authenticate with a first {"token"} message, then each {"received_by_id", "description"} is saved and pushed to both users' open sockets."""
+async def func_message_socket(*, app_state: State, websocket: WebSocket, auth_timeout_sec: int = 5, description_length_max: int = 4000, rate_limit_per_minute: int = 60, connection_per_user_max: int = 5) -> None:
+    """Live chat over the message table: authenticate with a first {"token"} message, then each {"received_by_id", "description"} is saved and pushed to both users' open sockets.
+
+    Limits: auth_timeout_sec to send the token, description_length_max characters per message, rate_limit_per_minute messages per connection, connection_per_user_max open sockets per user.
+    """
     # accept before any close, so browsers receive the code and reason instead of a bare 1006 handshake failure
     await websocket.accept()
     if not app_state.config_api.get(websocket.url.path, {}).get("is_active", True): return await websocket.close(code=1008, reason="endpoint disabled")
     client_postgres = app_state.client_postgres_dict.get("master")
     if not client_postgres: return await websocket.close(code=1011, reason="postgres client not initialized")
-    limits = app_state.config_message_socket
-    try: user_id, token_expires_at = await func_message_socket_auth(websocket=websocket, config_token_secret_key=app_state.config_token_secret_key, auth_timeout_sec=limits["auth_timeout_sec"])
+    try: user_id, token_expires_at = await func_message_socket_auth(websocket=websocket, config_token_secret_key=app_state.config_token_secret_key, auth_timeout_sec=auth_timeout_sec)
     except ValueError as e: return await websocket.close(code=1008, reason=str(e))
     sockets = app_state.runtime_message_socket
-    if len(sockets.get(user_id, ())) >= limits["connection_per_user_max"]: return await websocket.close(code=1008, reason="too many connections")
+    if len(sockets.get(user_id, ())) >= connection_per_user_max: return await websocket.close(code=1008, reason="too many connections")
     sockets.setdefault(user_id, set()).add(websocket)
     sent_at = deque()
     try:
@@ -176,13 +178,13 @@ async def func_message_socket(*, app_state: State, websocket: WebSocket) -> None
             now = time.monotonic()
             while sent_at and now - sent_at[0] > 60: sent_at.popleft()
             try:
-                if len(sent_at) >= limits["rate_limit_per_minute"]: raise ValueError("rate limit exceeded")
+                if len(sent_at) >= rate_limit_per_minute: raise ValueError("rate limit exceeded")
                 ob = orjson.loads(text) if text else None
                 if not isinstance(ob, dict): raise ValueError("message must be {\"received_by_id\": int, \"description\": str}")
                 received_by_id, description = ob.get("received_by_id"), ob.get("description")
                 if not isinstance(received_by_id, int) or isinstance(received_by_id, bool) or received_by_id == user_id: raise ValueError("received_by_id must be another user's id")
                 if not isinstance(description, str) or not description.strip(): raise ValueError("description is required")
-                if len(description) > limits["description_length_max"]: raise ValueError(f"description is longer than {limits['description_length_max']} characters")
+                if len(description) > description_length_max: raise ValueError(f"description is longer than {description_length_max} characters")
                 async with client_postgres.acquire() as conn:
                     if not await conn.fetchval("SELECT 1 FROM users WHERE id=$1", received_by_id): raise ValueError("received_by_id not found")
                     row = dict(await conn.fetchrow("INSERT INTO message (created_by_id, received_by_id, description) VALUES ($1, $2, $3) RETURNING *", user_id, received_by_id, description))

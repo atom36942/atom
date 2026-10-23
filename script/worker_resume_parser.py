@@ -31,14 +31,17 @@ from config import config_azure_account_key
 from config import config_aws_access_key_id
 from config import config_aws_secret_access_key
 
+# setting
+AI_SERVICE = "gemini"
+TABLE_NAME = "jobseeker"
+BASE_COLUMNS = {"id", "created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id", "deactivated_at", "deactivated_by_id", "verified_at", "verified_by_id", "resume_url", "resume_content", "status", "worker_status", "worker_last_error", "metadata", "worker_retry_count", "worker_next_retry_at", "worker_processed_at", "rating", "remark"}
+BATCH_LIMIT = 100
+WORKER_RETRY_DELAY_SEC = [60, 300, 3600, 86400]
+CONCURRENCY_LIMIT = 20
+POLL_INTERVAL_SEC = 5
+
 # logic
-async def execute():
-    AI_SERVICE = "gemini"
-    TABLE_NAME = "jobseeker"
-    BASE_COLUMNS = {"id", "created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id", "deactivated_at", "deactivated_by_id", "verified_at", "verified_by_id", "resume_url", "resume_content", "status", "worker_status", "worker_last_error", "metadata", "worker_retry_count", "worker_next_retry_at", "worker_processed_at", "rating", "remark"}
-    BATCH_LIMIT = 100
-    worker_retry_delay_sec = [60, 300, 3600, 86400]
-    CONCURRENCY_LIMIT = 20
+async def main():
     if AI_SERVICE not in config_ai_services:
         print(f"Error: AI_SERVICE must be one of {config_ai_services}.")
         return
@@ -107,11 +110,11 @@ async def execute():
         query = f"UPDATE {TABLE_NAME} SET {set_query} WHERE id = $1"  # noqa: S608 - constant table, columns limited to existing database columns
         await conn.execute(query, *values)
     def func_retry_delay_sec(retry_count: int) -> int:
-        index = min(max(retry_count, 0), len(worker_retry_delay_sec) - 1)
-        return worker_retry_delay_sec[index]
+        index = min(max(retry_count, 0), len(WORKER_RETRY_DELAY_SEC) - 1)
+        return WORKER_RETRY_DELAY_SEC[index]
     async def func_mark_failed(conn: asyncpg.Connection, candidate_id: int, retry_count: int, error: Exception) -> None:
         error_str = str(error)[:1000]
-        if retry_count >= len(worker_retry_delay_sec):
+        if retry_count >= len(WORKER_RETRY_DELAY_SEC):
             await conn.execute(f"UPDATE {TABLE_NAME} SET worker_status = 4, worker_last_error = $2, worker_retry_count = worker_retry_count + 1, updated_at = NOW() WHERE id = $1", candidate_id, f"AI Parsing Failed (DEAD): {error_str}")  # noqa: S608 - constant table, columns limited to existing database columns
         else:
             delay_sec = func_retry_delay_sec(retry_count)
@@ -247,10 +250,10 @@ async def execute():
                 idle_count += 1
                 if idle_count == 1 or idle_count % 12 == 0:
                     print("[resume-parser-worker] no pending candidates; sleeping...")
-                await asyncio.sleep(5)
+                await asyncio.sleep(POLL_INTERVAL_SEC)
     finally:
         await pool.close()
 
 # main
 if __name__ == "__main__":
-    asyncio.run(execute())
+    asyncio.run(main())

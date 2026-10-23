@@ -32,6 +32,9 @@ async def func_producer(*, queue: str, client_celery_producer: Any, client_kafka
 
 def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_callback: callable, execute_callback: callable):
     if not channel: raise Exception("channel name required")
+    url_key = {"redis": "config_redis_url_queue", "rabbitmq": "config_rabbitmq_url", "kafka": "config_kafka_url", "celery": "config_celery_url"}.get(queue)
+    if not url_key: raise Exception(f"invalid queue: {queue}; use redis, rabbitmq, kafka or celery")
+    if not broker_settings.get(url_key): raise Exception(f"{queue} consumer needs {url_key}: set it in .env")
     _run_counter = count(1)
     def log_failure(q, p, e):
         os.makedirs("tmp", exist_ok=True)

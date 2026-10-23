@@ -86,7 +86,7 @@ venv\Scripts\pip install -r requirements.txt
 venv\Scripts\uvicorn main:app --reload
 ```
 
-Server runs on **http://localhost:8000** (`/` built-in API console, `/health`, `/info`, `/openapi.json`).
+Server runs on **http://localhost:8000** (`/` home page linking the built-in apps, `/static/api.html` API console, `/health`, `/info`, `/openapi.json`).
 
 Start Atom from its own folder; `.env`, `static/` and `tmp/` are resolved from the folder it is started in.
 
@@ -148,7 +148,7 @@ See [sync details and recovery](docs/sync.md) for update behavior and recovery i
 
 Atom comes with zero-dependency, single-page web applications stored in `static/`:
 
-- ⚡ **API Master** (`static/api.html`) — Interactive API console, endpoint inspector, cURL importer, response viewer, and WebSocket tester served at `/`.
+- ⚡ **API Master** (`static/api.html`) — Interactive API console, endpoint inspector, cURL importer, response viewer, and WebSocket tester at `/static/api.html`; `/` lists every HTML app in `static/` and `static_extend/`.
 - 💬 **Chat** (`static/chat.html`) — Reference client for the `/my/message-socket` live chat, served at `/static/chat.html`.
 - 🗃️ **PgWeb** (`static/pgweb.html`) — Built-in PostgreSQL database browser, schema inspector, and SQL query runner served at `/static/pgweb.html`.
 

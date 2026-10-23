@@ -1,23 +1,16 @@
-#import
-from copy import deepcopy
+# base
+from config import config_column_int_mapping as base_config_column_int_mapping
 from config import config_postgres as base_config_postgres
 from config import config_api as base_config_api
-from config import config_column_int_mapping as base_config_column_int_mapping
-from config import config_dropdown as base_config_dropdown
 
-
-# misc
-config_table_private_read_allowed = ["test", "task", "task_comment"]
-
-#column int mapping
+# atom
 config_column_int_mapping = {
 **base_config_column_int_mapping,
 "users": {
-**base_config_column_int_mapping["users"],
 "role": {1: "Admin", 4: "Pulse"},
 },
 "task": {
-"project": {2: "Portal", 3: "Hirex", 4: "OBhai", 5: "Amazon", 6: "Quotation", 7: "Tradelane", 8: "Misc"},
+"project": {1: "Sample Project 1", 2: "Sample Project 2", 3: "Sample Project 3"},
 "status": {1: "To Do", 2: "In Progress", 3: "Blocked", 4: "Review", 5: "Done"},
 },
 "jobseeker": {
@@ -25,13 +18,10 @@ config_column_int_mapping = {
 },
 }
 
-config_dropdown={
-**base_config_dropdown,
-}
-
-# config postgres
-config_postgres = deepcopy(base_config_postgres)
-config_postgres["table"].update({
+config_postgres = {
+**base_config_postgres,
+"table": {
+**base_config_postgres["table"],
 "jobseeker":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
 {"name":"created_at","datatype":"timestamptz","default":"now()","index":"btree(created_at)"},
@@ -110,11 +100,14 @@ config_postgres["table"].update({
 {"name":"task_id","datatype":"bigint","is_mandatory": True,"index":"btree(task_id,id)"},
 {"name":"description","datatype":"text","is_mandatory": True}
 ],
-})
+},
+}
 
-# config api
 config_api = {
 **base_config_api,
 # Add only after creating the matching router endpoint; choose an unused ID:
 # "/custom/hello": {"id": 200, "is_token": True},
 }
+
+# misc
+config_table_private_read_allowed = ["test", "task", "task_comment"]

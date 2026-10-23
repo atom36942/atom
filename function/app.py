@@ -288,6 +288,22 @@ def func_app_static_add(*, app: FastAPI, path: str = "/static", directories: tup
     static_files.all_directories = existing
     app.mount(path, static_files, name="static")
 
+def func_app_static_page_list(*, directories: tuple = ("static", "static_extend"), exclude: tuple = ("home.html",)) -> list:
+    """The HTML apps served at /static: top-level .html files and folders with an index.html; other files are skipped.
+
+    Each is {"name" (the file name without .html, or the folder name, first letter capital and the rest lowercase), "url", "folder" (the directory it is in)}, sorted by name.
+    """
+    pages = []
+    for directory in directories:
+        if not os.path.isdir(directory): continue
+        for entry in os.scandir(directory):
+            if entry.name.startswith(".") or entry.name in exclude: continue
+            if entry.is_file() and entry.name.endswith(".html"): name, url = entry.name.removesuffix(".html"), f"/static/{entry.name}"
+            elif entry.is_dir() and os.path.isfile(os.path.join(entry.path, "index.html")): name, url = entry.name, f"/static/{entry.name}/index.html"
+            else: continue
+            pages.append({"name": name.capitalize(), "url": url, "folder": os.path.basename(os.path.normpath(directory))})
+    return sorted(pages, key=lambda page: page["name"])
+
 def func_app_cors_add(*, app: FastAPI, allow_origins: list = None, allow_origin_regex: str = None, allow_methods: list = None, allow_headers: list = None, expose_headers: list = None, allow_credentials: bool = True) -> None:
     """Configure CORS middleware on FastAPI application if origins are provided."""
     if not allow_origins and not allow_origin_regex: return

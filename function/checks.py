@@ -226,9 +226,39 @@ def func_check_config_extend_alias(*, config_module, config_extend_module) -> No
             raise Exception(f"config_extend.py: {key} is an alias of {base[id(value)]}; name it base_{base[id(value)]} (names starting with config_ are read as settings)")
     return None
 
+def func_check_config_extend_keeps_atom(*, config_module, config_extend_module) -> None:
+    """Stop startup when config_extend.py defines config_api, config_postgres or config_column_int_mapping without Atom's entries.
+
+    config_api: Atom's routes. config_postgres: Atom's parts (extension, table, control, sql) and, inside each, Atom's extensions,
+    tables, switches and SQL entries. config_column_int_mapping: Atom's mapped codes. Values and labels may change and anything may be added.
+    What counts as Atom's is read from config.py on every start, so new entries there are covered without changing this check.
+    """
+    if config_module is None or config_extend_module is None: return None
+    def missing(atom, extended, path):    # Atom's entries absent from extended: dict keys, or list items
+        if isinstance(atom, dict): return [f"{path}{key}" for key in atom if not isinstance(extended, dict) or key not in extended]
+        if isinstance(atom, list): return [f"{path}{item}" for item in atom if not isinstance(extended, (list, tuple)) or item not in extended]
+        return []
+    fixes = {"config_api": "{**base_config_api, ...}", "config_postgres": "{**base_config_postgres, \"table\": {**base_config_postgres[\"table\"], ...}}", "config_column_int_mapping": "keep Atom's codes, labels may change"}
+    for name, fix in fixes.items():
+        if name not in vars(config_extend_module): continue
+        atom, extended = getattr(config_module, name), getattr(config_extend_module, name)
+        if name == "config_postgres":    # two levels: each part, then each entry inside it
+            dropped = missing(atom, extended, "")
+            dropped += [item for part, value in atom.items() if isinstance(extended, dict) and part in extended for item in missing(value, extended[part], f"{part}.")]
+            label = "entries"
+        elif name == "config_column_int_mapping":    # table -> column -> codes: each of Atom's codes must remain
+            kept = {(table, column): codes for table, columns in (extended.items() if isinstance(extended, dict) else []) if isinstance(columns, dict) for column, codes in columns.items() if isinstance(codes, dict)}
+            dropped = [f"{table}.{column} {code}" for table, columns in atom.items() for column, codes in columns.items() for code in codes if code not in kept.get((table, column), {})]
+            label = "codes"
+        else:
+            dropped, label = missing(atom, extended, ""), "routes"
+        if dropped: raise Exception(f"config_extend.py: {name} drops {len(dropped)} of Atom's {label} ({', '.join(str(item) for item in dropped[:5])}{', ...' if len(dropped) > 5 else ''}); fix: {fix}")
+    return None
+
 def func_check(*, app: FastAPI) -> None:
     """Validate database, runtime, and API configuration before client initialization."""
     func_check_config_extend_alias(config_module=sys.modules.get("config"), config_extend_module=sys.modules.get("config_extend"))
+    func_check_config_extend_keeps_atom(config_module=sys.modules.get("config"), config_extend_module=sys.modules.get("config_extend"))
     func_check_database_config(app_state=app.state)
     func_check_runtime_config(app_state=app.state)
     func_check_api_config(app=app)

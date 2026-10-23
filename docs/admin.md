@@ -6,10 +6,13 @@ Atom includes high-privilege administrative utilities, schema inspection tools, 
 
 ## 1. Built-in Web Interfaces
 
-Atom embeds two single-page browser interfaces in `static/`:
+Atom embeds single-page browser interfaces in `static/`. The page at `/` (`config_root_html_path = "static/home.html"`) lists them all.
+
+### Home (`static/home.html`)
+Served at `/`: a table of every HTML app, from `GET /static-pages` (public, kept out of `log_api`). An app is a top-level `.html` file or a folder with an `index.html` (`static/report/index.html` opens at `/static/report/index.html`), in Atom's `static/` and the project's `static_extend/`; other files (CSV, scripts, images, folders without `index.html`) are skipped. Each row shows the app's name (its file or folder name with the first letter capitalized) and its path; clicking the row opens the app in a new tab. Search with `/`, Enter opens the first match.
 
 ### A. API Master (`static/api.html`)
-Served by default at `/` (`config_root_html_path = "static/api.html"`):
+Served at `/static/api.html`:
 - **Live Endpoint Introspection**: Dynamically displays all endpoints, schemas, and parameter requirements.
 - **Interactive Request Runner**: Test GET, POST, PUT, DELETE, and WebSocket connections with headers and request payloads.
 - **cURL Importer**: Paste raw curl commands to auto-populate request inputs.
@@ -31,6 +34,17 @@ PgWeb's own requests are not written to `log_api` (`"is_log_api": False` on `/pg
 - it is sent as `Content-Type: application/json`, which browsers cannot send cross-site without a CORS preflight.
 
 ---
+
+### C. Memory (`static/memory.html`)
+Shows the RAM of the worker that answers, so developers can see what uses memory:
+- **Process**: current RAM (RSS), peak RAM, the machine's memory, uptime, threads and CPU time.
+- **Atom in-memory data**: each item Atom keeps on `app_state` (the OpenAPI and schema caches, user role/status caches, the in-memory API cache and rate-limit counters, buffers, all settings together) with its entries and size, biggest first. Sizes and counts only, never values. Clients (database pools, SDKs) are counted, not measured.
+- **Python objects**: the 20 most common object types with counts and sizes, and garbage-collector stats, to spot leaks.
+- **Allocation tracing**: Start turns on Python's `tracemalloc` and lists the source lines holding the most memory. It slows the worker, so it stops by itself after 5 minutes.
+
+It refreshes every 5 seconds by default (off, 5, 15 or 30 seconds). With `config_uvicorn_workers` above 1, each refresh may reach a different worker; the header names the one shown.
+
+The page is independent of the other pages: it logs in itself (username and password, role 1 only) and keeps its token and settings under its own `memory` key in the browser, so it works on a server without `api.html`. It reads `GET /admin/memory` (admin only, kept out of `log_api`); `?trace=start` or `?trace=stop` changes tracing first, and every call returns the full report. Current RAM uses the `psutil` package.
 
 ## 2. Administrative APIs (`/admin/*`)
 
@@ -66,6 +80,9 @@ Shows failures that happen outside a request's response, which are otherwise onl
 - `cleanup`: failed OTP, API-log or in-memory cache cleanups.
 
 Counts are per process and reset on restart.
+
+### 4b. Memory (`GET /admin/memory`)
+The report behind the Memory page (see above): process and machine memory, the size of each `app_state` item, the most common Python object types, and allocation tracing. `?trace=start` starts `tracemalloc` for 5 minutes, `?trace=stop` stops it; the response is always the full report.
 
 ### 5. Slow Queries (`GET /admin/postgres-slow-queries`)
 Lists this database's most expensive statements from `pg_stat_statements` (master, or `?postgres=<name>`). Values in the query text are already `$1`, `$2` placeholders.

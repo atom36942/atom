@@ -43,7 +43,7 @@ config_is_prod = True
 config_is_read_only = False
 config_is_tmp_reset = True
 config_uvicorn_workers = 1
-config_root_html_path = "static/api.html"
+config_root_html_path = "static/home.html"
 config_is_pgweb_enabled = False
 config_is_fastapi_telemetry = False
 config_is_uvicorn_access_log = False
@@ -133,7 +133,6 @@ config_sql = {
 "profile_metadata": {},
 }
 
-config_message_socket = {"auth_timeout_sec": 5, "description_length_max": 4000, "rate_limit_per_minute": 60, "connection_per_user_max": 5}
 
 config_table = {
 "log_api": {"buffer_limit": 100},
@@ -144,21 +143,14 @@ config_column_regex = {
 "password": ["^(?=.{6,120}\\Z)\\S+\\Z", "Password must be 6-120 characters and contain no spaces"],
 }
 
-config_dropdown = {"gender": ["male", "female"], "country": "files/country.txt", "country_dial_code": "files/country_dial_code.json", "currency": "files/currency.json"}
+config_dropdown = {
+"gender": ["male", "female"],
+"country": "files/country.txt",
+"country_dial_code": "files/country_dial_code.json",
+"currency": "files/currency.json",
+}
 
 config_column_int_mapping = {
-"test": {
-"type": {1: "Sample Type 1", 2: "Sample Type 2"},
-"status": {1: "Active", 2: "Inactive"},
-},
-"users": {
-"role": {1: "Admin", 2: "Sample Role 2", 3: "Sample Role 3"},
-"source": {1: "Sample Source 1", 2: "Sample Source 2"},
-"permissions": {1: "invoice.export", 2: "invoice.filter.apply", 3: "invoice.delete"},
-},
-"notification": {
-"type": {1: "Sample Notification 1", 2: "Sample Notification 2"},
-},
 "blob": {
 "type": {1: "File", 2: "Presigned Url"},
 },
@@ -352,6 +344,7 @@ config_api = {
 "/info": {"id": 17, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 300, "is_per_user": False}},
 "/openapi.json": {"id": 37, "is_token": False},
 "/static": {"id": 77, "is_token": False},
+"/static-pages": {"id": 127, "is_token": False, "is_log_api": False},
 "/pgweb": {"id": 99, "is_token": False, "is_log_api": False},
 # auth
 "/auth/login-password": {"id": 91, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
@@ -407,6 +400,7 @@ config_api = {
 # admin
 "/admin/sync": {"id": 1, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
 "/admin/runtime-status": {"id": 120, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
+"/admin/memory": {"id": 128, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "is_log_api": False},
 "/admin/object-create": {"id": 2, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/object-update": {"id": 3, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/object-read": {"id": 4, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "is_postgres_param": True},

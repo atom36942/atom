@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from fastapi import FastAPI
 
-from function import func_check_api_config, func_check_config_extend_alias, func_check_database_config, func_check_log_api_table, func_check_runtime_config
+from function import func_check_api_config, func_check_config_extend_alias, func_check_config_extend_keeps_atom, func_check_database_config, func_check_log_api_table, func_check_runtime_config
 
 URL = "postgresql://user@localhost:5432/db"
 
@@ -12,6 +12,44 @@ URL = "postgresql://user@localhost:5432/db"
 def state(**changes):
     return SimpleNamespace(**({"config_postgres_pool_min_size": 1, "config_postgres_pool_max_size": 5, "config_postgres_url_dict": {},
                                "config_postgres_db_log_api": "master"} | changes))
+
+
+class ConfigExtendKeepsAtomTests(unittest.TestCase):
+    BASE = SimpleNamespace(config_api={"/health": {"id": 1}, "/info": {"id": 2}}, config_postgres={"extension": ["postgis", "pg_trgm"], "table": {"users": [], "log_api": []}, "control": {"is_index_drop": True}, "sql": {}},
+                           config_column_int_mapping={"blob": {"type": {1: "File", 2: "Presigned Url"}}, "log_users_delete": {"worker_status": {None: "Pending", 1: "Processing"}}})
+
+    def check(self, **extend):
+        func_check_config_extend_keeps_atom(config_module=self.BASE, config_extend_module=SimpleNamespace(**extend))
+
+    def test_extending_any_way_passes(self):
+        postgres = {**self.BASE.config_postgres, "table": {**self.BASE.config_postgres["table"]}}    # Atom's top level and tables, as config_extend.py writes it
+        postgres["table"].update({"task": [], "users": [{"name": "id"}]})    # a new table, and Atom's users columns changed
+        self.check(config_api={**self.BASE.config_api, "/health": {"id": 1, "is_active": False}, "/task": {"id": 200}}, config_postgres=postgres)
+        self.check(config_api=dict(self.BASE.config_api))    # a copy works as well as **base
+        self.check(config_dropdown={})    # other dicts are not checked
+        self.check()
+        func_check_config_extend_keeps_atom(config_module=self.BASE, config_extend_module=None)
+
+    def test_postgres_keeps_every_part_and_entry_atom_defines(self):
+        base = self.BASE.config_postgres
+        self.check(config_postgres={**base, "extension": [*base["extension"], "hstore"], "control": {"is_index_drop": False, "is_new": True}, "table": {**base["table"], "task": []}})    # values change, additions are free
+        with self.assertRaisesRegex(Exception, r"config_postgres drops 4 of Atom's entries \(extension, control, sql, table.log_api\)"):
+            self.check(config_postgres={"table": {"users": []}})    # written from scratch: Atom's parts are gone
+        with self.assertRaisesRegex(Exception, r"drops 2 of Atom's entries \(extension.pg_trgm, control.is_index_drop\)"):
+            self.check(config_postgres={**base, "extension": ["postgis"], "control": {}})
+
+    def test_int_mapping_keeps_atom_codes_but_labels_and_additions_are_free(self):
+        self.check(config_column_int_mapping={**self.BASE.config_column_int_mapping, "blob": {"type": {1: "Upload", 2: "Signed link", 3: "Mine"}}, "users": {"role": {1: "Admin"}}})
+        with self.assertRaisesRegex(Exception, r"config_column_int_mapping drops 2 of Atom's codes \(blob.type 2, log_users_delete.worker_status None\); fix: keep Atom's codes, labels may change"):
+            self.check(config_column_int_mapping={"blob": {"type": {1: "File"}}, "log_users_delete": {"worker_status": {1: "Processing"}}})
+        with self.assertRaisesRegex(Exception, r"drops 4 of Atom's codes"):
+            self.check(config_column_int_mapping={"blob": ["not", "a", "dict"]})    # an odd value gets the same clear message
+
+    def test_dropping_atom_routes_or_tables_stops_startup(self):
+        with self.assertRaisesRegex(Exception, r"config_api drops 2 of Atom's routes \(/health, /info\); fix: \{\*\*base_config_api, \.\.\.\}"):
+            self.check(config_api={"/task": {"id": 200}})
+        with self.assertRaisesRegex(Exception, r"config_postgres drops 1 of Atom's entries \(table.log_api\); fix: \{\*\*base_config_postgres, \"table\": \{\*\*base_config_postgres\[\"table\"\], \.\.\.\}\}"):
+            self.check(config_postgres={**self.BASE.config_postgres, "table": {"users": [], "task": []}})
 
 
 class ConfigExtendAliasTests(unittest.TestCase):

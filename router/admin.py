@@ -41,6 +41,13 @@ async def func_api_admin_runtime_status(*, request: Request):
     buffer_rows = lambda buffer: sum(len(rows) for rows in buffer.values())
     return {"status": 1, "message": {"error_count": app_state.runtime_error_count, "buffer_rows_pending": {"create": buffer_rows(app_state.cache_postgres_buffer_create), "log_api": buffer_rows(app_state.cache_postgres_buffer_log_api)}, "background_tasks_running": len(app_state.runtime_background_tasks)}}
 
+@router.get("/admin/memory")
+async def func_api_admin_memory(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "trace", "type": "str", "allowed": ["start", "stop"]}], strict=True, strict_types=True, reject_unknown=True)
+    if oq.get("trace"): app_state.func_memory_trace(app_state=app_state, action=oq["trace"])
+    return {"status": 1, "message": await app_state.func_memory_report(app_state=app_state)}    # on the event loop (a thread could read the caches while requests change them), yielding as it goes
+
 @router.get("/admin/postgres-info")
 async def func_api_admin_postgres_info(*, request: Request):
     app_state = request.app.state

@@ -34,7 +34,7 @@ Off by default; turn it on with `"/my/message-socket": {"id": 38, "is_active": T
 
 Reference client: `/static/chat.html`. Log in with username and password (`/auth/login-username-password`), enter the other user's id, and chat; it loads history from `/my/message-thread`, shows new messages live, and renews an expired access token with `/my/token-refresh` before reconnecting. It keeps `{access_token, refresh_token, username, peer_id}` in one localStorage key, `chat` (never the password), so a reload reconnects; Log out clears it. localStorage is per browser, so use a second browser profile for the other user.
 
-Limits come from `config_message_socket` (`auth_timeout_sec`, `description_length_max`, `rate_limit_per_minute`, `connection_per_user_max`). Delivery reaches sockets in the same worker only, so startup fails if the socket is active with `config_uvicorn_workers` > 1. Account status (deactivated or deleted) is not rechecked during a connection.
+Limits are keyword defaults of `func_message_socket`: `auth_timeout_sec` (5), `description_length_max` (4000 characters), `rate_limit_per_minute` (60 messages per connection), `connection_per_user_max` (5 open sockets per user). Delivery reaches sockets in the same worker only, so startup fails if the socket is active with `config_uvicorn_workers` > 1. Account status (deactivated or deleted) is not rechecked during a connection.
 
 ---
 

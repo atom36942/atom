@@ -10,7 +10,7 @@ Config values are resolved in three tiers (later wins):
 
 1. **`config.py`** — Shipped framework defaults.
 2. **Environment variables / `.env`** — Values in `.env` or the system environment automatically override defaults with automatic type casting (booleans, ints, JSON arrays/dicts).
-3. **`config_extend.py`** — Drop-in module (git-ignored, survives `sync.py`) for code-level overrides and schema extensions. See [extend.md](extend.md).
+3. **`config_extend.py`** — Drop-in module (git-ignored, survives `sync.py`) for code-level overrides and schema extensions. See [extend.md](extend.md); startup stops if its `config_api`, `config_postgres` or `config_column_int_mapping` drops any of Atom's routes, Postgres entries or mapped codes ([what is checked](extend.md#what-startup-checks-in-config_extendpy)).
 
 > **Rule of Thumb**: Use `.env` for secrets, credentials, and environment flags; use `config_extend.py` for structural changes (tables, custom route policies).
 
@@ -114,7 +114,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_root_user_password` | Password for seeded root admin (hashed at startup) |
 | `config_login_password` | Static login password for `/auth/login-password` (Must set in `.env` if used) |
 | `config_token_secret_key` | HMAC secret key for signing/verifying JWT tokens *(Must change)*. With `config_is_prod` on, startup refuses keys shorter than 32 bytes; generate one with `python3 -c "import secrets; print(secrets.token_urlsafe(48))"` |
-| `config_root_html_path` | Path to static HTML file served at `/` (`static/api.html`) |
+| `config_root_html_path` | Path to static HTML file served at `/` (`static/home.html`, which lists every HTML app in `static/` and `static_extend/`) |
 | `config_is_user_delete` | Enables single-user hard deletion through `/my/object-delete` and `/admin/object-delete`; `False` blocks both without blocking other tables |
 | `config_is_postgres_schema_init` | Boolean toggle for database schema initialization on startup |
 | `config_signup_allowed_roles` | Roles allowed for public signup, including new users created by OTP/Google login (default: `[]` disables signup; role `1` is always rejected). See [role settings](auth.md#signup-and-login-role-settings). |
@@ -304,12 +304,6 @@ Pre-cached SQL queries executed at startup.
 
 ---
 
-### `config_message_socket`
-
-Limits for the `/my/message-socket` live chat: `auth_timeout_sec` (5, wait for the first `{"token"}` message), `description_length_max` (4000), `rate_limit_per_minute` (60 messages per connection), `connection_per_user_max` (5 open sockets per user).
-
----
-
 ### `config_table`
 
 Per-table operational settings map.
@@ -354,7 +348,7 @@ config_dropdown = {**base_config_dropdown, "city": "files_extend/city.txt"}
 
 ### `config_column_int_mapping`
 
-Human-readable label mapping for integer-coded database columns.
+Human-readable labels for integer-coded database columns. Atom ships only the codes its own code writes:
 
 | Table / Column Key | Integer Code | String Label / Meaning |
 |---|---|---|
@@ -369,23 +363,25 @@ Human-readable label mapping for integer-coded database columns.
 | `blob.type` | `1` | File |
 | `blob.type` | `2` | Presigned Url |
 
-Sample mappings also cover `test.type`, `test.status`, `users.role`, `users.source`, `users.permissions`, and `notification.type`. Except for root role `1`, the role/type/source/status samples are illustrative labels, not enforced meanings. Customize them to match your data. Labels do not grant access. When overriding the entire mapping in `config_extend.py`, include every core entry you want retained.
+Projects add their own tables and columns (roles, statuses, types) in `config_extend.py` with `{**base_config_column_int_mapping, ...}`. Startup stops if `config_extend.py` drops any of the codes above; their labels may be renamed and codes added. Labels are display text only: they do not grant access (role `1` is admin because routes check `roles: [1]`, not because of a label).
 
 Mappings use the lookup order `config_column_int_mapping[table][column][value]`.
 
 ### Permission labels
 
-Permission labels use the same dictionary, including for the `users.permissions` integer array:
+Atom ships no permission labels. A project that uses the `users.permissions` integer array defines them in `config_extend.py`, in the same dictionary:
 
 ```python
-config_column_int_mapping["users"]["permissions"] = {
-    1: "invoice.export",
-    2: "invoice.filter.apply",
-    3: "invoice.delete",
+# config_extend.py
+config_column_int_mapping = {
+**base_config_column_int_mapping,
+"users": {
+"permissions": {1: "invoice.export", 2: "invoice.filter.apply", 3: "invoice.delete"},
+},
 }
 ```
 
-Resolve each assigned permission ID separately. The former standalone permission mapping has been removed; update consumers to use this nested location.
+Resolve each assigned permission ID separately.
 
 Assigned IDs are stored in `config_postgres["table"]["users"]` using this optional column:
 
@@ -397,7 +393,7 @@ Assigned IDs are stored in `config_postgres["table"]["users"]` using this option
 
 ### `/info` Response Keys
 
-`GET /info` exposes permission labels inside `message.config_column_int_mapping.users.permissions`, alongside the other column mappings. There is no nested `config` object.
+`GET /info` returns the whole mapping in `message.config_column_int_mapping`, including any permission labels the project defines (`...users.permissions`). There is no nested `config` object.
 
 | Key under `message` | Source / Meaning |
 |---|---|

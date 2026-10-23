@@ -10,13 +10,23 @@ import redis.exceptions
 from function import (
     func_api_error, func_middleware_api_response_error, func_middleware_check_active, func_middleware_check_ratelimiter,
     func_middleware_check_role, func_middleware_check_token, func_middleware_check_user_deactivated,
-    func_auth_check_signup_role, func_token_decode, func_postgres_query_runner_read, func_producer,
+    func_auth_check_signup_role, func_token_decode, func_postgres_query_runner_read, func_producer, func_run_broker,
 )
 
 
 async def status_of(error):
     message, response = await func_middleware_api_response_error(exception=error, is_traceback=False, sentry_dsn=None)
     return response.status_code, orjson.loads(response.body)
+
+
+class BrokerConfigTests(unittest.TestCase):
+    def test_consumer_without_its_broker_url_stops_with_the_setting_to_add(self):
+        settings = {"config_redis_url_queue": None, "config_rabbitmq_url": None, "config_kafka_url": None, "config_celery_url": None}
+        for queue, key in (("redis", "config_redis_url_queue"), ("rabbitmq", "config_rabbitmq_url"), ("kafka", "config_kafka_url"), ("celery", "config_celery_url")):
+            with self.subTest(queue=queue), self.assertRaisesRegex(Exception, f"{queue} consumer needs {key}: set it in .env"):
+                func_run_broker(queue=queue, channel="c", broker_settings=settings, setup_callback=None, execute_callback=None)
+        with self.assertRaisesRegex(Exception, "invalid queue: sqs"):
+            func_run_broker(queue="sqs", channel="c", broker_settings=settings, setup_callback=None, execute_callback=None)
 
 
 class ErrorStatusTests(unittest.IsolatedAsyncioTestCase):

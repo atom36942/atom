@@ -12,6 +12,17 @@ import orjson
 try: import uvloop
 except ImportError: uvloop = None
 
+# config
+parser = argparse.ArgumentParser(description="Load test a running Atom server.")
+parser.add_argument("--url", default="http://localhost:8000")
+parser.add_argument("--concurrency", type=int, default=50, help="virtual users per route")
+parser.add_argument("--duration", type=float, default=20, help="seconds per route")
+parser.add_argument("--route", action="append", help="route name to run; repeat for several (default: all that apply)")
+parser.add_argument("--write", action="store_true", help="include routes that create rows")
+parser.add_argument("--allow-remote", action="store_true", help="allow a non-localhost url")
+token = os.environ.get("ATOM_LOAD_TOKEN")    # a test user's access token, for routes that need one
+
+# setting
 # routes: (name, method, path, body, needs_token, writes)
 ROUTE_LIST = [
     ("info", "GET", "/info", None, False, False),
@@ -80,19 +91,11 @@ def request_build(*, method: str, host: str, port: int, path: str, body: dict | 
     if token: head.append(f"Authorization: Bearer {token}")
     return ("\r\n".join(head) + "\r\n\r\n").encode() + data
 
-async def execute():
-    parser = argparse.ArgumentParser(description="Load test a running Atom server.")
-    parser.add_argument("--url", default="http://localhost:8000")
-    parser.add_argument("--concurrency", type=int, default=50, help="virtual users per route")
-    parser.add_argument("--duration", type=float, default=20, help="seconds per route")
-    parser.add_argument("--route", action="append", help="route name to run; repeat for several (default: all that apply)")
-    parser.add_argument("--write", action="store_true", help="include routes that create rows")
-    parser.add_argument("--allow-remote", action="store_true", help="allow a non-localhost url")
+async def main():
     args = parser.parse_args()
     host = urllib.parse.urlparse(args.url).hostname or ""
     if not args.allow_remote and host not in LOCAL_HOSTS and not host.endswith((".localhost", ".test")): raise SystemExit(f"refusing non-local url {args.url}; pass --allow-remote for a test server, never production")
     if args.concurrency < 1 or args.duration <= 0: raise SystemExit("concurrency must be >= 1 and duration > 0")
-    token = os.environ.get("ATOM_LOAD_TOKEN")
     route_names = {name for name, *_ in ROUTE_LIST}
     if args.route and (unknown := set(args.route) - route_names): raise SystemExit(f"unknown route: {', '.join(sorted(unknown))}; choose from {', '.join(sorted(route_names))}")
     selected = []
@@ -117,5 +120,5 @@ async def execute():
 
 # main
 if __name__ == "__main__":
-    if uvloop: uvloop.run(execute())
-    else: asyncio.run(execute())
+    if uvloop: uvloop.run(main())
+    else: asyncio.run(main())
