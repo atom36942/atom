@@ -369,6 +369,22 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(calls, [])
         self.assertEqual((self.root / "venv/marker.txt").read_text(), "old venv\n")
 
+    def test_windows_briefly_locked_venv_is_retried_then_rebuilt(self):
+        self.write(self.root, "Dockerfile", "FROM python:3.14-slim\n")
+        self.write(self.root, "venv/marker.txt", "old venv\n")
+        calls, run_command = self.fake_venv_tools()
+        real_rename, failures = Path.rename, {"left": 2}
+        def briefly_locked_rename(path, target):    # antivirus scanning files pip just wrote
+            if path.name == sync.VENV_DIR and failures["left"]:
+                failures["left"] -= 1; raise PermissionError("[WinError 5] Access is denied")
+            return real_rename(path, target)
+        with patch.object(sync, "run_command", run_command), patch.object(sync, "python_command", lambda version: ["python3.14"]), patch.object(sync, "venv_fingerprint", lambda root, venv, version: {}), \
+             patch.object(Path, "rename", briefly_locked_rename), patch.object(sync.sys, "platform", "win32"), patch.object(sync.time, "sleep", lambda seconds: None):
+            sync.sync_venv(self.root)
+        self.assertEqual(failures["left"], 0)
+        self.assertEqual(len(calls), 3)
+        self.assertFalse((self.root / sync.VENV_OLD_DIR).exists())
+
     def test_locked_leftover_venv_old_stops_with_clear_steps(self):
         self.write(self.root, "Dockerfile", "FROM python:3.14-slim\n")
         self.write(self.root, "venv/marker.txt", "venv\n")
