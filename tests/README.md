@@ -69,7 +69,7 @@ existing databases on that server are never touched. CI runs these against a
 ATOM_TEST_REDIS_URL=redis://localhost:6379/15 venv/bin/python -m unittest tests.test_redis_checks -v
 ```
 
-`tests/test_sync_venv_real.py` builds real venvs with `sync.py` (build, skip when unchanged, drop a hand-installed package, restore after a failed install, and on Windows leave a venv in use untouched). It needs network for pip and is skipped unless `ATOM_TEST_VENV_REAL=1`; CI runs it on Linux, macOS and Windows:
+`tests/test_sync_venv_real.py` builds real venvs with `sync.py` (build, skip when unchanged, drop a hand-installed package, restore after a failed install). It needs network for pip and is skipped unless `ATOM_TEST_VENV_REAL=1`; CI runs it on Linux and macOS:
 
 ```bash
 ATOM_TEST_VENV_REAL=1 python3.14 -m unittest tests.test_sync_venv_real -v

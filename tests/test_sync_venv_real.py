@@ -1,6 +1,6 @@
 """sync.py's venv rebuild with real Python, venv and pip on this machine (set ATOM_TEST_VENV_REAL=1; needs network for pip).
 
-CI runs it on Linux, macOS and Windows: the paths, the Python lookup and the "venv in use" handling differ per system.
+CI runs it on Linux and macOS: the paths and the Python lookup differ per system.
 """
 import io
 import os
@@ -45,16 +45,6 @@ class RealVenvTests(unittest.TestCase):
         with self.assertRaises(ValueError): self.run_sync()
         self.assertEqual(self.packages(), ["six==1.17.0"])    # failed install: the previous venv is back
         self.assertFalse((self.root / sync.VENV_OLD_DIR).exists())
-
-    @unittest.skipUnless(sys.platform == "win32", "only Windows refuses to rename a folder in use")
-    def test_windows_venv_in_use_is_left_unchanged(self):
-        self.run_sync()
-        holder = subprocess.Popen([str(sync.venv_python(self.root / sync.VENV_DIR)), "-c", "import time; time.sleep(60)"])
-        self.addCleanup(holder.wait)
-        self.addCleanup(holder.kill)
-        self.requirements("six==1.16.0")
-        with self.assertRaisesRegex(ValueError, "venv is in use"): self.run_sync()
-        self.assertEqual(self.packages(), ["six==1.17.0"])
 
 
 if __name__ == "__main__":

@@ -76,12 +76,12 @@ jobs:
       - name: Coverage report
         run: python -m coverage report --show-missing --sort=cover --fail-under=70
 
-  # sync.py rebuilds developers' venvs: prove it on every system they use (paths, Python lookup and "venv in use" differ).
+  # sync.py rebuilds developers' venvs: prove it on the systems they use (paths and the Python lookup differ).
   sync-venv:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:

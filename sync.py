@@ -1,4 +1,5 @@
 # command: python3 sync.py
+# command (Windows): py sync.py --no-venv, then venv\Scripts\pip install -r requirements.txt
 
 # info: Replaces Atom-owned files with upstream and deletes local-only files in Atom folders, keeping *_extend, config_extend.py and .env; resets the # atom section of requirements.txt and rebuilds venv/ to match requirements.txt exactly (skip with --no-venv). Run from the project root after committing: rolls back from memory on write failure, but saves no backups and never touches the Git index. See docs/sync.md.
 
@@ -14,7 +15,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import time
 
 # config
 REPO_URL = "https://github.com/atom36942/atom.git"
@@ -327,23 +327,6 @@ def run_command(args, cwd=None):
     except subprocess.CalledProcessError as error: raise ValueError(f"{' '.join(str(arg) for arg in args[1:3])} failed (exit {error.returncode})") from None
 
 
-def retry_locked(action):
-    """Run a rename or delete; on Windows retry for about 5 seconds, since antivirus and search indexing briefly lock files pip just wrote."""
-    attempts = 20 if sys.platform == "win32" else 1
-    for attempt in range(attempts):
-        try: return action()
-        except OSError:
-            if attempt == attempts - 1: raise
-            time.sleep(0.25)
-
-
-def remove_tree(path):
-    """Delete a folder (retrying on Windows); whatever stays locked is left, and callers check whether it still exists."""
-    if not path.exists(): return
-    try: retry_locked(lambda: shutil.rmtree(path))
-    except OSError: shutil.rmtree(path, ignore_errors=True)
-
-
 def venv_fingerprint(root, venv, version):
     """What the venv must keep matching: the Python version, requirements.txt, and the exact installed packages."""
     try: packages = subprocess.run([str(venv_python(venv)), "-m", "pip", "freeze"], capture_output=True, check=True).stdout  # noqa: S603 - the venv's own pip, no shell
@@ -364,8 +347,8 @@ def sync_venv(root):
     if sys.platform == "win32" and venv.exists() and Path(sys.prefix).resolve() == venv.resolve(): raise ValueError(f"sync is running from {VENV_DIR}, which Windows cannot replace while it runs; files are synced, the venv is unchanged: {in_use}")
     if venv_old.exists():
         # left by an interrupted rebuild
-        if venv.exists(): remove_tree(venv_old)
-        else: retry_locked(lambda: venv_old.rename(venv))
+        if venv.exists(): shutil.rmtree(venv_old, ignore_errors=True)
+        else: venv_old.rename(venv)
         if venv_old.exists(): raise ValueError(f"{VENV_OLD_DIR} from an earlier rebuild is still in use; files are synced, the venv is unchanged: {in_use}")
     state = venv / VENV_STATE
     if state.exists():
@@ -377,7 +360,7 @@ def sync_venv(root):
     command = python_command(version)
     print(f"Rebuilding venv on Python {version} to match requirements.txt exactly; stop the app first. This can take a few minutes...", flush=True)
     if venv.exists():
-        try: retry_locked(lambda: venv.rename(venv_old))
+        try: venv.rename(venv_old)
         except OSError as error: raise ValueError(f"{VENV_DIR} is in use, so it cannot be replaced ({error}); files are synced, the venv is unchanged: {in_use}") from None
     try:
         run_command([*command, "-m", "venv", str(venv)])
@@ -387,11 +370,11 @@ def sync_venv(root):
         if fingerprint is None: raise ValueError("pip freeze failed in the new venv")
         state.write_text(json.dumps(fingerprint, indent=2) + "\n")
     except BaseException:
-        remove_tree(venv)
-        if venv_old.exists(): retry_locked(lambda: venv_old.rename(venv))
+        shutil.rmtree(venv, ignore_errors=True)
+        if venv_old.exists(): venv_old.rename(venv)
         print("venv rebuild failed; the previous venv is back in place.", file=sys.stderr)
         raise
-    remove_tree(venv_old)
+    shutil.rmtree(venv_old, ignore_errors=True)
     print("venv rebuilt: it matches requirements.txt exactly.")
 
 
