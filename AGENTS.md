@@ -17,6 +17,7 @@ Rules Atom enforces at import, startup, sync, and CI. Follow exactly.
 3. Files → `files_extend/`: shared constants and `param_specs` (import `files_extend.<module>`), JSON, prompts, templates (read by path from the project root).
 4. Web pages → `static_extend/`, served at `/static/<name>` with Atom's `static/` (same name in both stops startup; `/static_extend/...` is not a URL; restart after creating the folder). A top-level `.html` file, or a folder with `index.html`, is listed on the home page at `/`. A page is standalone: its own login and its own `localStorage` key.
 5. Config → `config_extend.py` (below). Jobs → `script_extend/` (enqueue with `app_state.func_producer`, `docs/queue.md`). Tests → `tests_extend/` (with `__init__.py`). Docs → `docs_extend/`. Packages → `requirements.txt` under `# extend`, pinned `==`.
+- Temporary and generated files (exports, scratch, compile or download folders, logs) → `tmp/<feature>/` in the project root (gitignored), never tracked folders or the system temp folder; `tmp/` is wiped at app start while `config_is_tmp_reset` is true, so keep data that must survive in the database.
 - Request path: middleware applies `config_api` → route → `func_*` → DB → `{"status": 1, "message": ...}`.
 
 ## Settings
@@ -54,7 +55,7 @@ Rules Atom enforces at import, startup, sync, and CI. Follow exactly.
 - Headers, lowercase singular, no module docstrings: routers `# import`/`# router`/`# api`; functions `# import`/`# function`.
 - Scripts (and `sync.py`): `# command: <how to run>`, `# info: <one line>`, then `# import`, `# config` (every outside value, read only here: `from config import ...`, `os.getenv("NAME", default)`, CLI flags), `# setting` (fixed values, UPPER_CASE), `# logic` (helpers, then `main()`), `# main` (only `if __name__ == "__main__":` calling `main()`). Every section present, even empty; no blank lines inside `# config`/`# setting`.
 - Script `# logic`: one top-level helper per named step (`noun_verb`: `task_claim`, `batch_fetch`), keyword-only, getting `# config` values as arguments (`# setting` constants may be read directly); `main()` is last, at most 30 lines, defines no functions, reads like steps (read config, open clients, call helpers, close in `finally`). Exception: `func_run_broker` callbacks take its positional arguments.
-- Atom's `script/` holds only scripts that work in every project: imports are stdlib, packages, `config` and `function` (never `files`, `router` or `*_extend`; `sync.py` stdlib only); outside values are read only in `# config`; writes go only to `tmp/` or the system temp folder. Scripts tied to a project's tables go in `script_extend/`.
+- Atom's `script/` holds only scripts that work in every project: imports are stdlib, packages, `config` and `function` (never `files`, `router` or `*_extend`; `sync.py` stdlib only); outside values are read only in `# config`; writes go only to `tmp/`. Scripts tied to a project's tables go in `script_extend/`.
 
 ## Verify
 - `venv/bin/ruff check .`; `venv/bin/python -m unittest discover -s tests_extend -t .`; start with `venv/bin/python main.py` (startup checks catch config, duplicate `func_*` and secret errors).

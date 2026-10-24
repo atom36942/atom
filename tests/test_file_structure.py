@@ -86,7 +86,7 @@ class FileStructureTests(unittest.TestCase):
             with self.subTest(script=path.name):
                 self.assertEqual(sorted({module for module in modules if module in local or module.endswith("_extend")} - allowed), [], "Atom scripts import only packages, config and function")
                 if path.name == "sync.py": self.assertEqual(sorted(modules - set(sys.stdlib_module_names)), [], "sync.py imports only the standard library")
-                else: self.assertEqual(folders, [], "scripts write only to tmp/ or the system temp folder")
+                else: self.assertEqual(folders, [], "scripts write only to tmp/")
 
     def test_script_logic_is_small_helpers_then_main(self):
         for path in SCRIPT_PATHS:
