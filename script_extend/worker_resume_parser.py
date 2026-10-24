@@ -1,4 +1,4 @@
-# command: venv/bin/python -m script.worker_resume_parser
+# command: venv/bin/python -m script_extend.worker_resume_parser
 
 # info: Polls resume files from S3/Azure storage and parses them with LLM providers into PostgreSQL.
 

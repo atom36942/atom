@@ -2,6 +2,7 @@
 import ast
 import io
 import re
+import sys
 import tokenize
 import unittest
 from pathlib import Path
@@ -74,6 +75,18 @@ class FileStructureTests(unittest.TestCase):
                 self.assertIn("__name__", ast.unparse(body[0].test))
                 self.assertIn("main()", ast.unparse(body[0]))
                 self.assertTrue(any(isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "main" for node in ast.parse(path.read_text()).body), "a main() function in # logic")
+
+    def test_scripts_import_only_packages_config_and_function(self):
+        local = {path.stem for path in ROOT.iterdir() if path.suffix == ".py" or (path.is_dir() and not path.name.startswith("."))}
+        for path in SCRIPT_PATHS:
+            tree = ast.parse(path.read_text())
+            modules = {alias.name.split(".")[0] for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names} | {node.module.split(".")[0] for node in ast.walk(tree) if isinstance(node, ast.ImportFrom) and node.module}
+            allowed = set() if path.name == "sync.py" else {"config", "function"}    # sync.py runs on the system Python before venv/ exists: stdlib only
+            folders = [node.value for node in ast.walk(tree) if isinstance(node, ast.Constant) and isinstance(node.value, str) and re.match(r"(files|static|router|function|script|docs)(_extend)?/", node.value)]
+            with self.subTest(script=path.name):
+                self.assertEqual(sorted({module for module in modules if module in local or module.endswith("_extend")} - allowed), [], "Atom scripts import only packages, config and function")
+                if path.name == "sync.py": self.assertEqual(sorted(modules - set(sys.stdlib_module_names)), [], "sync.py imports only the standard library")
+                else: self.assertEqual(folders, [], "scripts write only to tmp/ or the system temp folder")
 
     def test_script_logic_is_small_helpers_then_main(self):
         for path in SCRIPT_PATHS:
