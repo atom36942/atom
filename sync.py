@@ -17,7 +17,6 @@ import sys
 import tempfile
 
 # config
-cli_args = sys.argv[1:]    # [--no-venv] from users; --apply-revision <revision> [--no-venv] from the parent updater
 
 # setting
 REPO_URL = "https://github.com/atom36942/atom.git"
@@ -453,6 +452,7 @@ def apply_bootstrapped_revision(*, root, revision, is_venv_sync=True):
 def main():
     try:
         root = Path(__file__).resolve().parent
+        cli_args = sys.argv[1:]    # [--no-venv] from users; --apply-revision <revision> [--no-venv] from the parent updater
         is_venv_sync = "--no-venv" not in cli_args
         args = [arg for arg in cli_args if arg != "--no-venv"]
         if len(args) == 2 and args[0] == "--apply-revision":

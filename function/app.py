@@ -288,8 +288,8 @@ def func_app_static_add(*, app: FastAPI, path: str = "/static", directories: tup
     static_files.all_directories = existing
     app.mount(path, static_files, name="static")
 
-def func_app_static_page_list(*, directories: tuple = ("static", "static_extend"), exclude: tuple = ("home.html",)) -> list:
-    """The HTML apps served at /static: top-level .html files and folders with an index.html; other files are skipped.
+def func_app_static_page_list(*, directories: tuple = ("static", "static_extend"), name_regex: str = r"[a-z0-9_-]+") -> list:
+    """Every HTML app served at /static, home page included: top-level .html files and folders with an index.html; hidden entries and other files are skipped. Each opens at /page/<name>.
 
     Each is {"name" (the file name without .html, or the folder name, first letter capital and the rest lowercase), "url", "folder" (the directory it is in)}, sorted by name.
     """
@@ -297,12 +297,21 @@ def func_app_static_page_list(*, directories: tuple = ("static", "static_extend"
     for directory in directories:
         if not os.path.isdir(directory): continue
         for entry in os.scandir(directory):
-            if entry.name.startswith(".") or entry.name in exclude: continue
+            if entry.name.startswith("."): continue
             if entry.is_file() and entry.name.endswith(".html"): name, url = entry.name.removesuffix(".html"), f"/static/{entry.name}"
             elif entry.is_dir() and os.path.isfile(os.path.join(entry.path, "index.html")): name, url = entry.name, f"/static/{entry.name}/index.html"
             else: continue
+            if re.fullmatch(name_regex, name): url = f"/page/{name}"    # served by GET /page/{name}; other names keep their /static URL
             pages.append({"name": name.capitalize(), "url": url, "folder": os.path.basename(os.path.normpath(directory))})
     return sorted(pages, key=lambda page: page["name"])
+
+def func_app_static_page_path(*, name: str, directories: tuple = ("static", "static_extend"), name_regex: str = r"[a-z0-9_-]+") -> str | None:
+    """The file GET /page/{name} serves: <name>.html or <name>/index.html at the top of static/ or static_extend/; None for an unknown or unsafe name."""
+    if not re.fullmatch(name_regex, name or ""): return None
+    for directory in directories:
+        for path in (os.path.join(directory, f"{name}.html"), os.path.join(directory, name, "index.html")):
+            if os.path.isfile(path): return path
+    return None
 
 def func_app_cors_add(*, app: FastAPI, allow_origins: list = None, allow_origin_regex: str = None, allow_methods: list = None, allow_headers: list = None, expose_headers: list = None, allow_credentials: bool = True) -> None:
     """Configure CORS middleware on FastAPI application if origins are provided."""

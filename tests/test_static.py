@@ -3,10 +3,11 @@ import os
 import tempfile
 import unittest
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
+from fastapi.responses import FileResponse
 from fastapi.testclient import TestClient
 
-from function import func_app_static_add, func_app_static_page_list
+from function import func_app_static_add, func_app_static_page_list, func_app_static_page_path
 
 
 class StaticTests(unittest.TestCase):
@@ -24,6 +25,10 @@ class StaticTests(unittest.TestCase):
     def client(self):
         app = FastAPI()
         func_app_static_add(app=app, directories=(self.atom, self.project))
+        @app.get("/page/{name}")
+        def page(name: str):    # what router/index.py does with the same helper
+            path = func_app_static_page_path(name=name, directories=(self.atom, self.project))
+            return FileResponse(path) if path else Response(status_code=404)
         return TestClient(app)
 
     def test_both_folders_are_served_at_static(self):
@@ -49,9 +54,10 @@ class StaticTests(unittest.TestCase):
         self.write(self.project, "PULSE.html", "")
         pages = func_app_static_page_list(directories=(self.atom, self.project))
         self.assertEqual(pages, [
-            {"name": "Api", "url": "/static/api.html", "folder": "static"},
-            {"name": "Pulse", "url": "/static/PULSE.html", "folder": "static_extend"},    # the name is capitalized the same way for every app; the URL keeps the file's case
-            {"name": "Report", "url": "/static/report/index.html", "folder": "static"},
+            {"name": "Api", "url": "/page/api", "folder": "static"},
+            {"name": "Home", "url": "/page/home", "folder": "static"},    # every page is listed, the home page too
+            {"name": "Pulse", "url": "/static/PULSE.html", "folder": "static_extend"},    # not a lowercase name, so it keeps its /static URL; the name is capitalized the same way for every app
+            {"name": "Report", "url": "/page/report", "folder": "static"},
         ])
 
     def test_page_list_without_folders_is_empty(self):
@@ -62,3 +68,16 @@ class StaticTests(unittest.TestCase):
         client = self.client()
         for page in func_app_static_page_list(directories=(self.atom, self.project)):
             with self.subTest(page=page["url"]): self.assertEqual(client.get(page["url"]).status_code, 200)
+
+    def test_page_by_name_serves_the_file_or_the_folder_index(self):
+        self.write(os.path.join(self.project, "cdd"), "index.html", "cdd app")
+        client = self.client()
+        self.assertEqual(client.get("/page/api").text, "atom page")
+        self.assertEqual(client.get("/page/cdd").text, "cdd app")
+        self.assertEqual(client.get("/page/cdd?tab=overview").text, "cdd app")    # the query is the page's own; the server ignores it
+        for name in ("missing", "API", "cdd/overview", "..", ".env", "cdd.html"):
+            with self.subTest(name=name): self.assertEqual(client.get(f"/page/{name}").status_code, 404)
+
+    def test_page_path_rejects_unsafe_names(self):
+        for name in ("", "../static/api", "api.html", "a/b", "Api", None):
+            with self.subTest(name=name): self.assertIsNone(func_app_static_page_path(name=name, directories=(self.atom, self.project)))

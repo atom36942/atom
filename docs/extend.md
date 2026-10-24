@@ -19,7 +19,7 @@ Atom owns all contents of `docs/`, `router/`, `function/`, `script/`, `static/`,
 
 One rule: Atom owns every unsuffixed folder and sync fully replaces it, deleting any other file inside; the project owns every `<name>_extend` folder. A file with the same path in `static/` and `static_extend/` stops startup, so a project cannot shadow an Atom page.
 
-Files in `static_extend/` are served at `/static/<file>`: `static_extend/logo.png` is `/static/logo.png`. `/static_extend/...` is not a URL, and no `.env` setting is needed. Restart the app after creating `static_extend/` for the first time; new files in an existing folder are served right away. Each `.html` file there, and each folder with an `index.html` (a page split into several files), gets a row on the home page at `/`.
+Files in `static_extend/` are served at `/static/<file>`: `static_extend/logo.png` is `/static/logo.png`. `/static_extend/...` is not a URL, and no `.env` setting is needed. Restart the app after creating `static_extend/` for the first time; new files in an existing folder are served right away. Each `.html` file there, and each folder with an `index.html` (a page split into several files), opens by name at `/page/<name>` and gets a row on the home page at `/`. Names are lowercase (`a-z`, `0-9`, `-`, `_`); a folder page links its own files absolutely (`/static/<name>/js/app.js`), because relative links would resolve under `/page/`. A page has no sub-paths: put state such as a tab in the query (`/page/<name>?tab=overview`) and read it in the page's JS.
 
 Sync creates each missing `_extend` folder locally (empty; `tests_extend/` gets an `__init__.py`) and a starter `config_extend.py`; it never modifies existing ones. Git commits a folder only once it holds a file. `.env` is also preserved.
 
@@ -306,15 +306,18 @@ from function import func_client_postgres
 
 # config
 from config import config_postgres_url_dict                         # Atom settings, from config.py / .env
-WAREHOUSE_URL = os.getenv("WAREHOUSE_URL")                          # or the environment, for a script that stands alone
-parser = argparse.ArgumentParser()
-parser.add_argument("--dry-run", action="store_true")              # and command-line flags
+warehouse_url = os.getenv("WAREHOUSE_URL")                          # or the environment, for a script that stands alone
 
 # setting
 BATCH_SIZE = 500
 POLL_INTERVAL_SEC = 60
 
 # logic
+def args_read():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dry-run", action="store_true")          # command-line flags are read here, not in # config
+    return parser.parse_args()
+
 async def batch_fetch(*, pool, batch_size: int) -> list:
     ...
 
@@ -322,12 +325,12 @@ async def batch_copy(*, warehouse_url: str, rows: list, dry_run: bool) -> int:
     ...
 
 async def main():
-    args = parser.parse_args()
+    args = args_read()
     pool = await func_client_postgres(dsn=config_postgres_url_dict["master"], min_size=1, max_size=2)
     try:
         while True:
             rows = await batch_fetch(pool=pool, batch_size=BATCH_SIZE)
-            copied = await batch_copy(warehouse_url=WAREHOUSE_URL, rows=rows, dry_run=args.dry_run)
+            copied = await batch_copy(warehouse_url=warehouse_url, rows=rows, dry_run=args.dry_run)
             print(f"copied {copied}")
             await asyncio.sleep(POLL_INTERVAL_SEC)
     finally:
@@ -338,7 +341,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-`# config` is everything that can change without editing the file and is read only there; `# setting` is values fixed in the file (UPPER_CASE). Keep every section, even an empty one.
+`# config` holds only values from `config.py` or the environment (`from config import ...`, `os.getenv(...)`), read only there; `# setting` holds values hard-coded in the file (UPPER_CASE). Command-line flags are read in `# logic` (an `args_read()` helper called by `main()`). Keep every section, even an empty one.
 
 In `# logic`, write one small helper per step, named `noun_verb`, with keyword-only arguments; pass `# config` values in as arguments (`# setting` constants can be read directly). `main()` comes last and reads like a list of steps: read the config, open clients, call the helpers, close the clients in `finally`. Keep it short (Atom's own scripts keep it under 30 lines) and don't define functions inside it.
 

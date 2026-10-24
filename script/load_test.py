@@ -13,14 +13,7 @@ try: import uvloop
 except ImportError: uvloop = None
 
 # config
-parser = argparse.ArgumentParser(description="Load test a running Atom server.")
-parser.add_argument("--url", default="http://localhost:8000")
-parser.add_argument("--concurrency", type=int, default=50, help="virtual users per route")
-parser.add_argument("--duration", type=float, default=20, help="seconds per route")
-parser.add_argument("--route", action="append", help="route name to run; repeat for several (default: all that apply)")
-parser.add_argument("--write", action="store_true", help="include routes that create rows")
-parser.add_argument("--allow-remote", action="store_true", help="allow a non-localhost url")
-token = os.environ.get("ATOM_LOAD_TOKEN")    # a test user's access token, for routes that need one
+token = os.getenv("ATOM_LOAD_TOKEN")    # a test user's access token, for routes that need one
 
 # setting
 # routes: (name, method, path, body, needs_token, writes)
@@ -34,6 +27,16 @@ ROUTE_LIST = [
 LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1")
 
 # logic
+def args_read():
+    parser = argparse.ArgumentParser(description="Load test a running Atom server.")
+    parser.add_argument("--url", default="http://localhost:8000")
+    parser.add_argument("--concurrency", type=int, default=50, help="virtual users per route")
+    parser.add_argument("--duration", type=float, default=20, help="seconds per route")
+    parser.add_argument("--route", action="append", help="route name to run; repeat for several (default: all that apply)")
+    parser.add_argument("--write", action="store_true", help="include routes that create rows")
+    parser.add_argument("--allow-remote", action="store_true", help="allow a non-localhost url")
+    return parser.parse_args()
+
 def percentile(*, sorted_list: list, pct: float) -> float:
     if not sorted_list: return 0.0
     return sorted_list[min(len(sorted_list) - 1, int(len(sorted_list) * pct / 100))]
@@ -112,7 +115,7 @@ def route_select(*, route_names: list | None, token: str | None, write: bool) ->
     return selected
 
 async def main():
-    args = parser.parse_args()
+    args = args_read()
     if args.concurrency < 1 or args.duration <= 0: raise SystemExit("concurrency must be >= 1 and duration > 0")
     host, port = url_parse(url=args.url, allow_remote=args.allow_remote)
     selected = route_select(route_names=args.route, token=token, write=args.write)

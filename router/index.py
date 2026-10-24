@@ -13,6 +13,13 @@ async def func_api_index(*, request: Request):
 async def func_api_index_static_pages(*, request: Request):
     return {"status": 1, "message": request.app.state.func_app_static_page_list()}
 
+@router.get("/page/{name}")
+async def func_api_index_page(*, request: Request):
+    app_state = request.app.state
+    path = app_state.func_app_static_page_path(name=request.path_params["name"])
+    if not path: raise app_state.func_api_error(message="page not found", status_code=404)
+    return responses.FileResponse(path, headers={"Cache-Control": "no-cache"})    # revalidate every load, so a deployed change shows at once
+
 @router.get("/health")
 async def func_api_index_health(*, request:Request):
     return {"status":1,"message":"ok"}

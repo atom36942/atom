@@ -19,7 +19,6 @@ from config import config_celery_url
 from config import config_kafka_url
 from config import config_kafka_username
 from config import config_kafka_password
-queue = sys.argv[1] if len(sys.argv) > 1 else None    # the broker to listen on
 
 # setting
 CHANNEL = "func_postgres_update"
@@ -39,6 +38,7 @@ async def payload_execute(payload, client_postgres, cache_postgres_buffer_create
     return await func_postgres_update(client_postgres=client_postgres, client_postgres_conn=None, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, config_column_regex=config_column_regex, table=table, obj_list=payload.get("obj_list"), created_by_id=payload.get("created_by_id"), ownership_column=payload.get("ownership_column", "created_by_id"))
 
 def main():
+    queue = sys.argv[1] if len(sys.argv) > 1 else None    # the broker to listen on
     if queue not in QUEUES: raise SystemExit(f"Error: queue is required. Usage: venv/bin/python -m script.consumer_postgres_update <{'|'.join(QUEUES)}>")
     broker_settings = {"config_redis_url_queue": (config_redis_url_dict or {}).get("queue"), "config_rabbitmq_url": config_rabbitmq_url, "config_kafka_url": config_kafka_url, "config_kafka_username": config_kafka_username, "config_kafka_password": config_kafka_password, "config_celery_url": config_celery_url}
     func_run_broker(queue=queue, channel=CHANNEL, broker_settings=broker_settings, setup_callback=client_setup, execute_callback=payload_execute)

@@ -67,6 +67,14 @@ class FileStructureTests(unittest.TestCase):
                 blank = [token.start[0] for token in tokens(path) if token.type == tokenize.NL and not token.line.strip() and first <= token.start[0] < last]    # blank lines inside strings make no NL token
                 with self.subTest(script=path.name, section=name): self.assertEqual(blank, [])
 
+    def test_script_config_reads_only_config_and_env(self):
+        def is_env_read(node):
+            return any(isinstance(call, ast.Call) and ast.unparse(call.func) in ("os.getenv", "os.environ.get", "load_dotenv") for call in ast.walk(node))
+        for path in SCRIPT_PATHS:
+            body = ast.parse(section_body(path, "config")).body
+            other = [ast.unparse(node)[:60] for node in body if not ((isinstance(node, ast.ImportFrom) and node.module == "config") or (isinstance(node, (ast.Assign, ast.Expr)) and is_env_read(node)))]
+            with self.subTest(script=path.name): self.assertEqual(other, [], "# config holds only from config import ... and env reads; CLI flags and the rest go in # logic")
+
     def test_script_main_only_starts_main(self):
         for path in SCRIPT_PATHS:
             body = ast.parse(section_body(path, "main")).body

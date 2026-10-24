@@ -9,7 +9,7 @@ Atom includes high-privilege administrative utilities, schema inspection tools, 
 Atom embeds single-page browser interfaces in `static/`. The page at `/` (`config_root_html_path = "static/home.html"`) lists them all.
 
 ### Home (`static/home.html`)
-Served at `/`: a table of every HTML app, from `GET /static-pages` (public, kept out of `log_api`). An app is a top-level `.html` file or a folder with an `index.html` (`static/report/index.html` opens at `/static/report/index.html`), in Atom's `static/` and the project's `static_extend/`; other files (CSV, scripts, images, folders without `index.html`) are skipped. Each row shows the app's name (its file or folder name with the first letter capitalized) and its path; clicking the row opens the app in a new tab. Search with `/`, Enter opens the first match.
+Served at `/`: a table of every HTML app, from `GET /static-pages` (public, kept out of `log_api`). An app is a top-level `.html` file or a folder with an `index.html`, opened by name at `GET /page/<name>` (`static/pgweb.html` → `/page/pgweb`, `static_extend/report/index.html` → `/page/report`; public, revalidated on every load), in Atom's `static/` and the project's `static_extend/`, the home page included; other files (CSV, scripts, images, folders without `index.html`) are skipped. Each row shows the app's name (its file or folder name with the first letter capitalized) and its path; clicking the row opens the app in a new tab. Search with `/`, Enter opens the first match.
 
 ### A. API Master (`static/api.html`)
 Served at `/static/api.html`:

@@ -345,6 +345,7 @@ config_api = {
 "/openapi.json": {"id": 37, "is_token": False},
 "/static": {"id": 77, "is_token": False},
 "/static-pages": {"id": 127, "is_token": False, "is_log_api": False},
+"/page/{name}": {"id": 129, "is_token": False, "is_log_api": False},
 "/pgweb": {"id": 99, "is_token": False, "is_log_api": False},
 # auth
 "/auth/login-password": {"id": 91, "is_token": False, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
