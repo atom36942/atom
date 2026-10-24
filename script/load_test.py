@@ -34,11 +34,11 @@ ROUTE_LIST = [
 LOCAL_HOSTS = ("localhost", "127.0.0.1", "::1")
 
 # logic
-def percentile(sorted_list: list, pct: float) -> float:
+def percentile(*, sorted_list: list, pct: float) -> float:
     if not sorted_list: return 0.0
     return sorted_list[min(len(sorted_list) - 1, int(len(sorted_list) * pct / 100))]
 
-async def response_read(reader: asyncio.StreamReader) -> tuple:
+async def response_read(*, reader: asyncio.StreamReader) -> tuple:
     """Read one HTTP/1.1 response; returns (status, body, keep_alive)."""
     head = await reader.readuntil(b"\r\n\r\n")
     lines = head.decode("latin-1").split("\r\n")
@@ -65,7 +65,7 @@ async def route_run(*, host: str, port: int, request: bytes, concurrency: int, d
             try:
                 if writer is None: reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), 10)
                 writer.write(request)
-                status, body, keep_alive = await asyncio.wait_for(response_read(reader), 30)
+                status, body, keep_alive = await asyncio.wait_for(response_read(reader=reader), 30)
                 if status >= 400:
                     error_count += 1
                     error_sample = error_sample or f"HTTP {status}: {body[:120].decode(errors='replace')}"
@@ -82,7 +82,7 @@ async def route_run(*, host: str, port: int, request: bytes, concurrency: int, d
     elapsed = time.perf_counter() - started
     latency_list.sort()
     total = len(latency_list)
-    return {"req_sec": total / elapsed if elapsed else 0, "p50": percentile(latency_list, 50), "p95": percentile(latency_list, 95), "p99": percentile(latency_list, 99), "error_pct": 100 * error_count / total if total else 0, "total": total, "error_sample": error_sample}
+    return {"req_sec": total / elapsed if elapsed else 0, "p50": percentile(sorted_list=latency_list, pct=50), "p95": percentile(sorted_list=latency_list, pct=95), "p99": percentile(sorted_list=latency_list, pct=99), "error_pct": 100 * error_count / total if total else 0, "total": total, "error_sample": error_sample}
 
 def request_build(*, method: str, host: str, port: int, path: str, body: dict | None, token: str | None) -> bytes:
     data = orjson.dumps(body) if body is not None else b""
@@ -91,23 +91,31 @@ def request_build(*, method: str, host: str, port: int, path: str, body: dict | 
     if token: head.append(f"Authorization: Bearer {token}")
     return ("\r\n".join(head) + "\r\n\r\n").encode() + data
 
-async def main():
-    args = parser.parse_args()
-    host = urllib.parse.urlparse(args.url).hostname or ""
-    if not args.allow_remote and host not in LOCAL_HOSTS and not host.endswith((".localhost", ".test")): raise SystemExit(f"refusing non-local url {args.url}; pass --allow-remote for a test server, never production")
-    if args.concurrency < 1 or args.duration <= 0: raise SystemExit("concurrency must be >= 1 and duration > 0")
-    route_names = {name for name, *_ in ROUTE_LIST}
-    if args.route and (unknown := set(args.route) - route_names): raise SystemExit(f"unknown route: {', '.join(sorted(unknown))}; choose from {', '.join(sorted(route_names))}")
+def url_parse(*, url: str, allow_remote: bool) -> tuple:
+    """(host, port) of a plain-http url; refuses a non-local host unless allowed."""
+    parsed = urllib.parse.urlparse(url)
+    host = parsed.hostname or ""
+    if not allow_remote and host not in LOCAL_HOSTS and not host.endswith((".localhost", ".test")): raise SystemExit(f"refusing non-local url {url}; pass --allow-remote for a test server, never production")
+    if parsed.scheme != "http": raise SystemExit("only http:// urls are supported; test the app directly, not through a TLS proxy")
+    return host, parsed.port or 80
+
+def route_select(*, route_names: list | None, token: str | None, write: bool) -> list:
+    """(name, method, path, body) of the routes to run; skips ones that need a token or --write."""
+    if route_names and (unknown := set(route_names) - {name for name, *_ in ROUTE_LIST}): raise SystemExit(f"unknown route: {', '.join(sorted(unknown))}; choose from {', '.join(name for name, *_ in ROUTE_LIST)}")
     selected = []
     for name, method, path, body, needs_token, writes in ROUTE_LIST:
-        if args.route and name not in args.route: continue
+        if route_names and name not in route_names: continue
         if needs_token and not token: print(f"skip {name}: set ATOM_LOAD_TOKEN to a test user's access token"); continue
-        if writes and not args.write: print(f"skip {name}: pass --write to include routes that create rows"); continue
+        if writes and not write: print(f"skip {name}: pass --write to include routes that create rows"); continue
         selected.append((name, method, path, body))
     if not selected: raise SystemExit("no routes to run")
-    parsed = urllib.parse.urlparse(args.url)
-    if parsed.scheme != "http": raise SystemExit("only http:// urls are supported; test the app directly, not through a TLS proxy")
-    port = parsed.port or 80
+    return selected
+
+async def main():
+    args = parser.parse_args()
+    if args.concurrency < 1 or args.duration <= 0: raise SystemExit("concurrency must be >= 1 and duration > 0")
+    host, port = url_parse(url=args.url, allow_remote=args.allow_remote)
+    selected = route_select(route_names=args.route, token=token, write=args.write)
     print(f"\n{args.url} | {args.concurrency} users | {args.duration:g}s per route\n")
     print(f"{'route':<22}{'req/s':>9}{'p50 ms':>9}{'p95 ms':>9}{'p99 ms':>9}{'errors':>9}{'requests':>10}")
     for name, method, path, body in selected:

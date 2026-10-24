@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_SECTIONS = ["import", "config", "setting", "logic", "main"]
+MAIN_LINES_MAX = 30
 
 
 def sections(path):
@@ -53,6 +54,18 @@ class FileStructureTests(unittest.TestCase):
                 self.assertIn("__name__", ast.unparse(body[0].test))
                 self.assertIn("main()", ast.unparse(body[0]))
                 self.assertTrue(any(isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "main" for node in ast.parse(path.read_text()).body), "a main() function in # logic")
+
+    def test_script_logic_is_small_helpers_then_main(self):
+        for path in sorted((ROOT / "script").glob("*.py")):
+            text = path.read_text()
+            functions = [node for node in ast.parse(text).body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
+            callbacks = set(re.findall(r"_callback=(\w+)", text))    # func_run_broker calls these positionally
+            with self.subTest(script=path.name):
+                self.assertEqual(functions[-1].name, "main", "main() is the last function")
+                main = functions[-1]
+                self.assertLessEqual(main.end_lineno - main.lineno + 1, MAIN_LINES_MAX, "main() reads like steps; move work into helpers")
+                self.assertEqual([node.name for node in ast.walk(main) if node is not main and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))], [], "no functions defined inside main()")
+                self.assertEqual([node.name for node in functions if node.args.args and node.name not in callbacks], [], "helpers take keyword-only arguments")
 
 
 if __name__ == "__main__":

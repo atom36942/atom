@@ -315,12 +315,23 @@ BATCH_SIZE = 500
 POLL_INTERVAL_SEC = 60
 
 # logic
-async def copy_batch(pool):
+async def batch_fetch(*, pool, batch_size: int) -> list:
+    ...
+
+async def batch_copy(*, warehouse_url: str, rows: list, dry_run: bool) -> int:
     ...
 
 async def main():
     args = parser.parse_args()
-    ...
+    pool = await func_client_postgres(dsn=config_postgres_url_dict["master"], min_size=1, max_size=2)
+    try:
+        while True:
+            rows = await batch_fetch(pool=pool, batch_size=BATCH_SIZE)
+            copied = await batch_copy(warehouse_url=WAREHOUSE_URL, rows=rows, dry_run=args.dry_run)
+            print(f"copied {copied}")
+            await asyncio.sleep(POLL_INTERVAL_SEC)
+    finally:
+        await pool.close()
 
 # main
 if __name__ == "__main__":
@@ -328,6 +339,8 @@ if __name__ == "__main__":
 ```
 
 `# config` is everything that can change without editing the file and is read only there; `# setting` is values fixed in the file (UPPER_CASE). Keep every section, even an empty one.
+
+In `# logic`, write one small helper per step, named `noun_verb`, with keyword-only arguments; pass `# config` values in as arguments (`# setting` constants can be read directly). `main()` comes last and reads like a list of steps: read the config, open clients, call the helpers, close the clients in `finally`. Keep it short (Atom's own scripts keep it under 30 lines) and don't define functions inside it.
 
 ## Summary
 
