@@ -22,8 +22,8 @@ class SyncTests(unittest.TestCase):
         self.upstream = self.base / "upstream"
         self.upstream.mkdir()
         self.git(self.upstream, "init", "-b", "main")
-        for name in sync.files_to_sync:
-            if name in sync.sync_folders:
+        for name in sync.FILES_TO_SYNC:
+            if name in sync.SYNC_FOLDERS:
                 continue
             self.write(self.upstream, name, "# upstream\n")
         self.write(self.upstream, "function/__init__.py", "# loader\n")
@@ -71,7 +71,7 @@ class SyncTests(unittest.TestCase):
         self.git(root, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "fixture")
 
     def run_sync(self):
-        return sync.sync(self.root, str(self.upstream))
+        return sync.sync(root=self.root, repo_url=str(self.upstream))
 
     def snapshot(self):
         return {str(p.relative_to(self.root)): (p.read_bytes(), p.stat().st_mode & 0o777)
@@ -102,7 +102,7 @@ class SyncTests(unittest.TestCase):
     def test_sync_creates_missing_config_extension(self):
         (self.root / "config_extend.py").unlink()
         self.run_sync()
-        self.assertEqual((self.root / "config_extend.py").read_text(), sync.extend_files["config_extend.py"])
+        self.assertEqual((self.root / "config_extend.py").read_text(), sync.EXTEND_FILES["config_extend.py"])
 
     def test_sync_preserves_empty_or_invalid_config_extension(self):
         for content in ("", "config_postgres = None\n", "not valid python: !!!\n"):
@@ -126,7 +126,7 @@ class SyncTests(unittest.TestCase):
         before = self.snapshot()
         state = (self.root / sync.STATE_PATH).read_bytes()
         with self.assertRaises(subprocess.CalledProcessError):
-            sync.sync(self.root, str(self.base / "missing-repository"))
+            sync.sync(root=self.root, repo_url=str(self.base / "missing-repository"))
         self.assertEqual(self.snapshot(), before)
         self.assertEqual((self.root / sync.STATE_PATH).read_bytes(), state)
         self.assertFalse((self.root / ".atom-sync/lock").exists())
@@ -152,12 +152,12 @@ class SyncTests(unittest.TestCase):
         before = self.snapshot()
         original = sync.atomic_write
         failed = False
-        def fail_once(path, *args):
+        def fail_once(*, path, content, mode):
             nonlocal failed
             if path == self.root / "main.py" and not failed:
                 failed = True
                 raise OSError("simulated write failure")
-            return original(path, *args)
+            return original(path=path, content=content, mode=mode)
         with patch.object(sync, "atomic_write", side_effect=fail_once):
             with self.assertRaisesRegex(OSError, "simulated write failure"):
                 self.run_sync()
@@ -176,12 +176,12 @@ class SyncTests(unittest.TestCase):
         self.assertTrue((self.root / "function_extend/custom_tracked.py").exists())
 
     def test_all_atom_folders_are_mirrored_on_first_run(self):
-        for folder in sync.sync_folders:
+        for folder in sync.SYNC_FOLDERS:
             self.write(self.root, f"{folder}/local/nested.py", "# local only\n")
             self.write(self.upstream, f"{folder}/new.py", "# upstream new\n")
         self.commit(self.upstream)
         self.run_sync()
-        for folder in sync.sync_folders:
+        for folder in sync.SYNC_FOLDERS:
             self.assertFalse((self.root / folder / "local").exists())
             self.assertEqual((self.root / folder / "new.py").read_text(), "# upstream new\n")
 
@@ -193,12 +193,12 @@ class SyncTests(unittest.TestCase):
         state = (self.root / sync.STATE_PATH).read_bytes()
         original = sync.atomic_write
         failed = False
-        def fail_once(path, *args):
+        def fail_once(*, path, content, mode):
             nonlocal failed
             if path == self.root / sync.STATE_PATH and not failed:
                 failed = True
                 raise OSError("state write failure")
-            return original(path, *args)
+            return original(path=path, content=content, mode=mode)
         with patch.object(sync, "atomic_write", side_effect=fail_once):
             with self.assertRaisesRegex(OSError, "state write failure"):
                 self.run_sync()
@@ -218,7 +218,7 @@ class SyncTests(unittest.TestCase):
         self.commit(self.upstream)
         for content in ("upstream pulse\n", "developer pulse\n", None):
             with self.subTest(content=content):
-                with patch.object(sync, "files_to_sync", [*sync.files_to_sync, "extra/pulse.html"]):
+                with patch.object(sync, "FILES_TO_SYNC", [*sync.FILES_TO_SYNC, "extra/pulse.html"]):
                     self.run_sync()
                 path = self.root / "extra/pulse.html"
                 if content is None:
@@ -235,7 +235,7 @@ class SyncTests(unittest.TestCase):
 
     def test_missing_extend_paths_are_created_once_and_existing_ones_kept(self):
         self.run_sync()
-        for name in sync.extend_folders:
+        for name in sync.EXTEND_FOLDERS:
             self.assertTrue((self.root / name).is_dir())
         self.assertEqual((self.root / "tests_extend/__init__.py").read_text(), "")
         self.assertEqual([p.name for p in (self.root / "files_extend").iterdir()], [])
@@ -260,7 +260,7 @@ class SyncTests(unittest.TestCase):
     def test_removed_router_selection_preserves_its_files(self):
         self.run_sync()
         self.write(self.root, "router/index.py", "# developer edits\n")
-        with patch.object(sync, "files_to_sync", [p for p in sync.files_to_sync if p != "router"]):
+        with patch.object(sync, "FILES_TO_SYNC", [p for p in sync.FILES_TO_SYNC if p != "router"]):
             self.run_sync()
         self.assertEqual((self.root / "router/index.py").read_text(), "# developer edits\n")
 
@@ -286,39 +286,39 @@ class SyncTests(unittest.TestCase):
         return "\n".join([sync.REQUIREMENTS_ATOM_HEADER, *atom, "", sync.REQUIREMENTS_EXTEND_HEADER, *extend]) + "\n"
 
     def test_requirements_are_created_from_atom_with_an_empty_extend_section(self):
-        self.assertEqual(sync.merge_requirements(None, "fastapi==1.0\norjson==3.0"), (self.requirements(["fastapi==1.0", "orjson==3.0"], []), []))
+        self.assertEqual(sync.merge_requirements(local=None, upstream="fastapi==1.0\norjson==3.0"), (self.requirements(["fastapi==1.0", "orjson==3.0"], []), []))
 
     def test_requirements_file_without_sections_keeps_project_lines_as_extend(self):
         local = "# project deps\nFastAPI==0.9  # old pin\nmy-package==2.0\n-e ./libs/tool\npyjwt>=2.0\npandas\n"
         upstream = "fastapi==1.0\nPyJWT==2.15.1\norjson==3.0\n"
-        self.assertEqual(sync.merge_requirements(local, upstream), (self.requirements(["fastapi==1.0", "PyJWT==2.15.1", "orjson==3.0"], ["# project deps", "my-package==2.0", "-e ./libs/tool", "pandas"]), []))
+        self.assertEqual(sync.merge_requirements(local=local, upstream=upstream), (self.requirements(["fastapi==1.0", "PyJWT==2.15.1", "orjson==3.0"], ["# project deps", "my-package==2.0", "-e ./libs/tool", "pandas"]), []))
 
     def test_requirements_atom_section_is_replaced_and_extend_kept(self):
         local = self.requirements(["fastapi==0.9", "my-edit==1.0"], ["pandas==2.2.0", "", "# reports", "openpyxl==3.1.5"])
-        text, notes = sync.merge_requirements(local, self.requirements(["fastapi==1.0", "orjson==3.0"], []))
+        text, notes = sync.merge_requirements(local=local, upstream=self.requirements(["fastapi==1.0", "orjson==3.0"], []))
         self.assertEqual(text, self.requirements(["fastapi==1.0", "orjson==3.0"], ["pandas==2.2.0", "", "# reports", "openpyxl==3.1.5"]))
         self.assertEqual(notes, ["Atom no longer lists my-edit; add any your project still imports under # extend"])
 
     def test_requirements_extend_line_for_an_atom_package_is_removed_and_reported(self):
-        text, notes = sync.merge_requirements(self.requirements(["fastapi==1.0"], ["Python_Multipart==0.0.20", "pandas==2.2.0"]), self.requirements(["fastapi==1.0", "python-multipart==0.0.32"], []))
+        text, notes = sync.merge_requirements(local=self.requirements(["fastapi==1.0"], ["Python_Multipart==0.0.20", "pandas==2.2.0"]), upstream=self.requirements(["fastapi==1.0", "python-multipart==0.0.32"], []))
         self.assertEqual(text, self.requirements(["fastapi==1.0", "python-multipart==0.0.32"], ["pandas==2.2.0"]))
         self.assertEqual(notes, ["removed 'Python_Multipart==0.0.20' from # extend: Atom lists python-multipart, and Atom's version is installed"])
 
     def test_requirements_second_merge_changes_nothing(self):
         upstream = self.requirements(["fastapi==1.0"], [])
-        text, _ = sync.merge_requirements("fastapi==0.9\nmy-package==2.0\n", upstream)
-        self.assertEqual(sync.merge_requirements(text, upstream), (text, []))
+        text, _ = sync.merge_requirements(local="fastapi==0.9\nmy-package==2.0\n", upstream=upstream)
+        self.assertEqual(sync.merge_requirements(local=text, upstream=upstream), (text, []))
 
     def test_python_version_comes_from_the_dockerfile(self):
         self.write(self.root, "Dockerfile", "# base\nFROM python:3.14-slim\nRUN true\n")
-        self.assertEqual(sync.python_version_required(self.root), "3.14")
+        self.assertEqual(sync.python_version_required(root=self.root), "3.14")
         self.write(self.root, "Dockerfile", "FROM ubuntu:24.04\n")
-        with self.assertRaisesRegex(ValueError, "FROM python"): sync.python_version_required(self.root)
+        with self.assertRaisesRegex(ValueError, "FROM python"): sync.python_version_required(root=self.root)
 
     def fake_venv_tools(self, fail_on=None):
         """Stand-ins for python -m venv and pip: record commands, create the venv folder, optionally fail one step."""
         calls = []
-        def run_command(args, cwd=None):
+        def run_command(*, args, cwd=None):
             calls.append(args[1:3] if args[1] == "-m" else args)
             if fail_on and fail_on in " ".join(str(a) for a in args): raise ValueError(f"{fail_on} failed (exit 1)")
             if args[1:3] == ["-m", "venv"]: (Path(args[3]) / "bin").mkdir(parents=True)
@@ -328,14 +328,14 @@ class SyncTests(unittest.TestCase):
         self.write(self.root, "Dockerfile", "FROM python:3.14-slim\n")
         calls, run_command = self.fake_venv_tools()
         packages = {"value": b"fastapi==1.0\n"}
-        freeze = lambda root, venv, version: {"python": version, "requirements": "r", "packages": packages["value"].decode()}
-        with patch.object(sync, "run_command", run_command), patch.object(sync, "venv_fingerprint", freeze), patch.object(sync, "python_command", lambda version: ["python3.14"]):
-            sync.sync_venv(self.root)
+        freeze = lambda *, root, venv, version: {"python": version, "requirements": "r", "packages": packages["value"].decode()}
+        with patch.object(sync, "run_command", run_command), patch.object(sync, "venv_fingerprint", freeze), patch.object(sync, "python_command", lambda *, version: ["python3.14"]):
+            sync.sync_venv(root=self.root)
             self.assertEqual(calls, [["-m", "venv"], ["-m", "pip"], ["-m", "pip"]])
-            calls.clear(); sync.sync_venv(self.root)
+            calls.clear(); sync.sync_venv(root=self.root)
             self.assertEqual(calls, [])    # nothing changed: no rebuild
             packages["value"] = b"fastapi==1.0\nextra==9.9\n"    # someone pip-installed a package by hand
-            sync.sync_venv(self.root)
+            sync.sync_venv(root=self.root)
             self.assertEqual(len(calls), 3)
         self.assertFalse((self.root / sync.VENV_OLD_DIR).exists())
 
@@ -343,8 +343,8 @@ class SyncTests(unittest.TestCase):
         self.write(self.root, "Dockerfile", "FROM python:3.14-slim\n")
         self.write(self.root, "venv/marker.txt", "old venv\n")
         calls, run_command = self.fake_venv_tools(fail_on="requirements.txt")
-        with patch.object(sync, "run_command", run_command), patch.object(sync, "python_command", lambda version: ["python3.14"]):
-            with self.assertRaisesRegex(ValueError, "failed"): sync.sync_venv(self.root)
+        with patch.object(sync, "run_command", run_command), patch.object(sync, "python_command", lambda *, version: ["python3.14"]):
+            with self.assertRaisesRegex(ValueError, "failed"): sync.sync_venv(root=self.root)
         self.assertEqual((self.root / "venv/marker.txt").read_text(), "old venv\n")
         self.assertFalse((self.root / sync.VENV_OLD_DIR).exists())
 
@@ -352,8 +352,8 @@ class SyncTests(unittest.TestCase):
         self.write(self.root, "Dockerfile", "FROM python:3.14-slim\n")
         self.write(self.root, "venv_old/marker.txt", "old venv\n")    # a previous rebuild stopped after moving venv away
         calls, run_command = self.fake_venv_tools(fail_on="venv")
-        with patch.object(sync, "run_command", run_command), patch.object(sync, "python_command", lambda version: ["python3.14"]):
-            with self.assertRaises(ValueError): sync.sync_venv(self.root)
+        with patch.object(sync, "run_command", run_command), patch.object(sync, "python_command", lambda *, version: ["python3.14"]):
+            with self.assertRaises(ValueError): sync.sync_venv(root=self.root)
         self.assertEqual((self.root / "venv/marker.txt").read_text(), "old venv\n")
 
     def test_venv_in_use_leaves_it_unchanged_with_clear_steps(self):
@@ -364,8 +364,8 @@ class SyncTests(unittest.TestCase):
         def locked_rename(path, target):
             if path.name == sync.VENV_DIR: raise PermissionError("[WinError 32] being used by another process")
             return real_rename(path, target)
-        with patch.object(sync, "run_command", run_command), patch.object(sync, "python_command", lambda version: ["python3.14"]), patch.object(Path, "rename", locked_rename):
-            with self.assertRaisesRegex(ValueError, "venv is in use.*files are synced, the venv is unchanged.*py sync.py"): sync.sync_venv(self.root)
+        with patch.object(sync, "run_command", run_command), patch.object(sync, "python_command", lambda *, version: ["python3.14"]), patch.object(Path, "rename", locked_rename):
+            with self.assertRaisesRegex(ValueError, "venv is in use.*files are synced, the venv is unchanged.*py sync.py"): sync.sync_venv(root=self.root)
         self.assertEqual(calls, [])
         self.assertEqual((self.root / "venv/marker.txt").read_text(), "old venv\n")
 
@@ -374,19 +374,19 @@ class SyncTests(unittest.TestCase):
         self.write(self.root, "venv/marker.txt", "venv\n")
         self.write(self.root, "venv_old/marker.txt", "leftover\n")
         with patch.object(sync.shutil, "rmtree", lambda path, ignore_errors=False: None):
-            with self.assertRaisesRegex(ValueError, "venv_old from an earlier rebuild is still in use"): sync.sync_venv(self.root)
+            with self.assertRaisesRegex(ValueError, "venv_old from an earlier rebuild is still in use"): sync.sync_venv(root=self.root)
         self.assertEqual((self.root / "venv/marker.txt").read_text(), "venv\n")
 
     def test_windows_sync_run_from_the_venv_is_stopped_before_touching_it(self):
         self.write(self.root, "Dockerfile", "FROM python:3.14-slim\n")
         self.write(self.root, "venv/marker.txt", "venv\n")
         with patch.object(sync.sys, "platform", "win32"), patch.object(sync.sys, "prefix", str(self.root / "venv")):
-            with self.assertRaisesRegex(ValueError, "sync is running from venv.*py sync.py"): sync.sync_venv(self.root)
+            with self.assertRaisesRegex(ValueError, "sync is running from venv.*py sync.py"): sync.sync_venv(root=self.root)
         self.assertEqual((self.root / "venv/marker.txt").read_text(), "venv\n")
 
     def test_missing_python_names_how_to_install_it(self):
         with patch.object(sync.shutil, "which", lambda name: None):
-            with self.assertRaisesRegex(ValueError, "Python 9.99 .*not installed: macOS: brew install python@9.99"): sync.python_command("9.99")
+            with self.assertRaisesRegex(ValueError, "Python 9.99 .*not installed: macOS: brew install python@9.99"): sync.python_command(version="9.99")
 
     def test_import_has_no_side_effects(self):
         result = subprocess.run([sys.executable, "-c", "import sync"],
@@ -397,14 +397,14 @@ class SyncTests(unittest.TestCase):
     def install_bootstrap_fixture(self):
         source = Path(sync.__file__).read_text()
         # The child must not fetch: its repository URL is deliberately unusable.
-        latest = source.replace('files_to_sync = [', 'files_to_sync = [\n    "latest-only.txt",', 1)
+        latest = source.replace('SYNC_FILES = [', 'SYNC_FILES = [\n    "latest-only.txt",', 1)
         latest = latest.replace(f'REPO_URL = "{sync.REPO_URL}"', 'REPO_URL = "/missing/child-must-not-fetch"')
         self.write(self.upstream, "sync.py", latest)
         self.write(self.upstream, "latest-only.txt", "synced by the newest rules\n")
         self.commit(self.upstream)
         local = source.replace(f'REPO_URL = "{sync.REPO_URL}"', f'REPO_URL = {str(self.upstream)!r}')
-        local = local.replace('def prepare_update(root, revision):',
-                              'def prepare_update(root, revision):\n    raise RuntimeError("old sync logic must not run")')
+        local = local.replace('def prepare_update(*, root, revision):',
+                              'def prepare_update(*, root, revision):\n    raise RuntimeError("old sync logic must not run")')
         self.write(self.root, "sync.py", local)
         return latest
 
@@ -472,12 +472,12 @@ class SyncTests(unittest.TestCase):
 
     def test_child_rejects_missing_or_wrong_handoff_token(self):
         revision = self.git(self.root, "rev-parse", "HEAD").decode().strip()
-        with sync.sync_lock(self.root) as token:
+        with sync.sync_lock(root=self.root) as token:
             for supplied in ("", "wrong-token"):
                 with self.subTest(token=supplied), patch.dict(os.environ, {sync.LOCK_TOKEN_ENV: supplied}):
                     with patch.object(sync, "apply_revision") as apply:
                         with self.assertRaisesRegex(ValueError, "parent updater's lock"):
-                            sync.apply_bootstrapped_revision(self.root, revision)
+                            sync.apply_bootstrapped_revision(root=self.root, revision=revision)
                         apply.assert_not_called()
                 self.assertEqual((self.root / ".atom-sync/lock").read_text(), token)
 
@@ -499,7 +499,7 @@ class SyncTests(unittest.TestCase):
     def test_internal_child_mode_rejects_missing_parent_lock(self):
         revision = self.git(self.root, "rev-parse", "HEAD").decode().strip()
         with self.assertRaisesRegex(ValueError, "parent updater's lock"):
-            sync.apply_bootstrapped_revision(self.root, revision)
+            sync.apply_bootstrapped_revision(root=self.root, revision=revision)
 
 
 if __name__ == "__main__":

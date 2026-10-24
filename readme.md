@@ -82,6 +82,7 @@ rm -rf venv
 python3.14 -m venv venv
 venv/bin/pip install --upgrade pip
 venv/bin/pip install -r requirements.txt
+venv/bin/python main.py
 venv/bin/uvicorn main:app --reload
 ```
 
@@ -93,8 +94,11 @@ cd <new-name>
 python -m venv venv
 venv\Scripts\pip install --upgrade pip
 venv\Scripts\pip install -r requirements.txt
+venv\Scripts\python main.py
 venv\Scripts\uvicorn main:app --reload
 ```
+
+Run Atom with either of the last two commands: `python main.py` applies Atom's server settings (`config_uvicorn_workers`, `PORT`, access log, keep-alive, worker checks); `uvicorn main:app --reload` restarts on code changes while developing, with uvicorn's defaults.
 
 Server runs on **http://localhost:8000** (`/` home page linking the built-in apps, `/static/api.html` API console, `/health`, `/info`, `/openapi.json`).
 

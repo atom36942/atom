@@ -7,7 +7,7 @@ Rules Atom enforces at import, startup, sync, and CI. Follow exactly.
 
 ## Ownership
 - Atom owns every unsuffixed path; the project owns `<name>_extend` (`router_extend/`, `function_extend/`, `files_extend/`, `static_extend/`, `script_extend/`, `tests_extend/`, `docs_extend/`, `config_extend.py`). Shared: `.env` (project), `requirements.txt` (merged), `.github/` (per repo).
-- Never edit core (`function/`, `router/`, `docs/`, `script/`, `static/`, `files/`, `config.py`, `main.py`, `sync.py`, `AGENTS.md`, `ruff.toml`, `.gitignore`, `.dockerignore`, `Dockerfile`, `readme.md`; full list: `sync_files`/`sync_folders` in `sync.py`) unless asked for a framework change: `python3 sync.py` overwrites them and deletes other files in Atom folders. Refactors, renames, cleanups and lint fixes touch project files only; if core blocks the work, solve it in project paths or report it.
+- Never edit core (`function/`, `router/`, `docs/`, `script/`, `static/`, `files/`, `config.py`, `main.py`, `sync.py`, `AGENTS.md`, `ruff.toml`, `.gitignore`, `.dockerignore`, `Dockerfile`, `readme.md`; full list: `SYNC_FILES`/`SYNC_FOLDERS` in `sync.py`) unless asked for a framework change: `python3 sync.py` overwrites them and deletes other files in Atom folders. Refactors, renames, cleanups and lint fixes touch project files only; if core blocks the work, solve it in project paths or report it.
 - `.gitignore` is synced and ignores unlisted paths: new top-level paths are committed only if named `*_extend`.
 - Sync never modifies existing `*_extend` files; it creates missing ones (a starter `config_extend.py`), resets the `# atom` section of `requirements.txt`, and rebuilds `venv/` to match `requirements.txt` exactly (`--no-venv` skips).
 
@@ -52,7 +52,7 @@ Rules Atom enforces at import, startup, sync, and CI. Follow exactly.
 
 ## Style
 - Headers, lowercase singular, no module docstrings: routers `# import`/`# router`/`# api`; functions `# import`/`# function`.
-- Scripts: `# command: <how to run>`, `# info: <one line>`, then `# import`, `# config` (every outside value, read only here: `from config import ...`, `os.getenv("NAME", default)`, CLI flags), `# setting` (fixed values, UPPER_CASE), `# logic` (helpers, then `main()`), `# main` (only `if __name__ == "__main__":` calling `main()`). Every section present, even empty; no blank lines inside `# config`/`# setting`.
+- Scripts (and `sync.py`): `# command: <how to run>`, `# info: <one line>`, then `# import`, `# config` (every outside value, read only here: `from config import ...`, `os.getenv("NAME", default)`, CLI flags), `# setting` (fixed values, UPPER_CASE), `# logic` (helpers, then `main()`), `# main` (only `if __name__ == "__main__":` calling `main()`). Every section present, even empty; no blank lines inside `# config`/`# setting`.
 - Script `# logic`: one top-level helper per named step (`noun_verb`: `task_claim`, `batch_fetch`), keyword-only, getting `# config` values as arguments (`# setting` constants may be read directly); `main()` is last, at most 30 lines, defines no functions, reads like steps (read config, open clients, call helpers, close in `finally`). Exception: `func_run_broker` callbacks take its positional arguments.
 
 ## Verify

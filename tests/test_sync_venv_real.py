@@ -28,17 +28,17 @@ class RealVenvTests(unittest.TestCase):
 
     def run_sync(self):
         output = io.StringIO()
-        with redirect_stdout(output): sync.sync_venv(self.root)
+        with redirect_stdout(output): sync.sync_venv(root=self.root)
         return output.getvalue()
 
     def packages(self):
-        return subprocess.run([str(sync.venv_python(self.root / sync.VENV_DIR)), "-m", "pip", "freeze"], capture_output=True, text=True, check=True).stdout.split()
+        return subprocess.run([str(sync.venv_python(venv=self.root / sync.VENV_DIR)), "-m", "pip", "freeze"], capture_output=True, text=True, check=True).stdout.split()
 
     def test_venv_is_built_skipped_cleaned_and_restored(self):
         self.assertIn("venv rebuilt", self.run_sync())
         self.assertEqual(self.packages(), ["six==1.17.0"])
         self.assertIn("already matches", self.run_sync())
-        subprocess.run([str(sync.venv_python(self.root / sync.VENV_DIR)), "-m", "pip", "install", "--quiet", "idna==3.10"], check=True)
+        subprocess.run([str(sync.venv_python(venv=self.root / sync.VENV_DIR)), "-m", "pip", "install", "--quiet", "idna==3.10"], check=True)
         self.assertIn("venv rebuilt", self.run_sync())    # a hand-installed package triggers a rebuild that drops it
         self.assertEqual(self.packages(), ["six==1.17.0"])
         self.requirements("six==1.17.0", "atom-sync-test-no-such-package==1.0")
