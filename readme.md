@@ -56,18 +56,28 @@ Atom gives you authentication, generic CRUD over any table, caching, rate-limiti
 
 Replace `<new-name>` in the commands below with your preferred folder name (without the angle brackets).
 
-**macOS / Linux:**
+**1. Python 3.14 (once per machine)**
 
-Atom runs on Python 3.14, the same version as the `Dockerfile`. macOS needs [Homebrew](https://brew.sh); on Linux, skip the `brew` steps and install `python3.14` from your distribution. `python3 --version` shows your Mac's default Python, which can differ; Atom only uses `python3.14`. `rm -rf venv` removes an existing virtual environment before recreating it, so the same steps also move a project to a new Python.
+Atom runs on Python 3.14, the same version as the `Dockerfile`.
+
+macOS ([Homebrew](https://brew.sh)):
+
+```bash
+brew update
+brew install python@3.14
+python3 --version
+python3.14 --version
+```
+
+Linux: install `python3.14` from your distribution. Windows: install Python 3.14 from [python.org](https://www.python.org/downloads/).
+
+**2. Atom (macOS / Linux)**
+
+Atom uses `python3.14`, not your default `python3`. `rm -rf venv` removes an existing virtual environment, so the same steps also move a project to a new Python.
 
 ```bash
 git clone https://github.com/atom36942/atom.git <new-name>
 cd <new-name>
-brew update
-brew list --versions | grep python
-brew install python@3.14
-python3 --version
-python3.14 --version
 rm -rf venv
 python3.14 -m venv venv
 venv/bin/pip install --upgrade pip
@@ -75,7 +85,7 @@ venv/bin/pip install -r requirements.txt
 venv/bin/uvicorn main:app --reload
 ```
 
-**Windows (Command Prompt / PowerShell):**
+**2. Atom (Windows: Command Prompt / PowerShell)**
 
 ```cmd
 git clone https://github.com/atom36942/atom.git <new-name>
