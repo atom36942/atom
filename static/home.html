@@ -37,8 +37,6 @@ td.col-path{color:var(--muted);font:12px var(--mono)}
 .open:hover,.open:focus-visible{color:var(--accent);background:rgba(66,153,225,.12);outline:none}
 .message{padding:40px 20px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:12px}
 .message.error{color:#f87171}
-footer{margin-top:28px;color:var(--muted);font-size:12px}
-footer code{font-family:var(--mono);color:var(--text)}
 @media (max-width:560px){.wrap{padding:24px 14px}.search{flex:1 1 100%}.col-path{display:none}}
 </style>
 </head>
@@ -58,7 +56,6 @@ footer code{font-family:var(--mono);color:var(--text)}
     </table>
   </main>
   <p class="message" id="message" hidden></p>
-  <footer>Every <code>.html</code> file and every folder with an <code>index.html</code> in <code>static/</code> and <code>static_extend/</code> appears here.</footer>
 </div>
 <script>
 const he = v => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

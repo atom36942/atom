@@ -71,8 +71,8 @@ EXTEND_FILES = {
     "config_extend.py": CONFIG_EXTEND_STARTER,
 }
 # requirements.txt has two sections: # atom is replaced with Atom's packages on every run, # extend (the project's packages) is kept; config_extend.py stays developer-managed.
-REQUIREMENTS_ATOM_HEADER = "# atom: Atom's packages, replaced by sync.py on every run; add project packages under # extend"
-REQUIREMENTS_EXTEND_HEADER = "# extend: this project's packages, pinned with ==; sync.py never changes them"
+REQUIREMENTS_ATOM_HEADER = "# atom"
+REQUIREMENTS_EXTEND_HEADER = "# extend"
 # venv/ is rebuilt to match requirements.txt exactly, on the Python version the Dockerfile names; its fingerprint skips rebuilds when nothing changed.
 VENV_DIR = "venv"
 VENV_OLD_DIR = "venv_old"
