@@ -20,7 +20,7 @@ google-auth-oauthlib==1.5.0
 google-genai==2.31.0
 httpx==0.28.1
 motor==3.7.1
-openai==3.33.0
+openai==3.35.1
 orjson==3.13.0
 posthog==7.71.0
 psutil==7.2.2
