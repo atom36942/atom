@@ -2,10 +2,11 @@
 # command: python3 sync.py --no-outdated    (same, without the PyPI lookup)
 # command: python3 sync.py --no-venv    (files only: venv managed yourself, Docker)
 # command: python3 sync.py --no-venv --no-outdated    (CI: files only, no PyPI lookup)
+# command: python3 sync.py --status    (which Atom version this project has and the latest; changes nothing)
 # command (Windows): py sync.py    (same flags; from a new PowerShell window, outside the venv)
 
 # info: Updates a project to the latest Atom, or starts one in an empty Git folder. Steps:
-# - fetch Atom's main branch and hand over to its latest sync.py
+# - fetch Atom's main branch, print the version change (ATOM_VERSION below) and hand over to its latest sync.py
 # - replace Atom's files and folders; delete other files inside Atom folders
 # - keep *_extend, config_extend.py and .env; create each one only if missing:
 #   - folders router_extend/, function_extend/, files_extend/, static_extend/, script_extend/, tests_extend/, docs_extend/, each with a readme.md
@@ -37,6 +38,8 @@ from concurrent.futures import ThreadPoolExecutor
 # config
 
 # setting
+# Atom's version: raised (with a vX.Y.Z tag) only when releasing; a project's sync.py shows the version it has
+ATOM_VERSION = "1.0.0"
 REPO_URL = "https://github.com/atom36942/atom.git"
 # Single files replaced from upstream on every sync.
 SYNC_FILES = [
@@ -368,6 +371,34 @@ def project_root(*, root):
         raise ValueError("Run the updater in the Atom project's Git root")
     return root
 
+def atom_version(*, source):
+    """The ATOM_VERSION in a sync.py's source (bytes), or None for a sync.py from before versions."""
+    match = re.search(rb'^ATOM_VERSION = "([^"]+)"$', source, re.MULTILINE)
+    return match[1].decode() if match else None
+
+def synced_revision(*, root):
+    """The Atom commit this project was last synced to, or None."""
+    try: return json.loads((root / STATE_PATH).read_text()).get("revision")
+    except (OSError, ValueError): return None
+
+def version_change(*, old, new, is_same_revision):
+    """One line for the version change: "Atom 1.2.0 -> 1.3.0", "Already on Atom 1.3.0", or the same version with newer commits."""
+    if old != new: return f"Atom {old or 'unknown (synced before versions)'} -> {new or 'unknown'}"
+    if is_same_revision: return f"Already on Atom {new}"
+    return f"Atom {new} (newer commits on main)"
+
+def status(*, root, repo_url=REPO_URL):
+    """Print this project's Atom version and the latest on main; changes nothing."""
+    root = project_root(root=root)
+    script = root / "sync.py"
+    old = atom_version(source=script.read_bytes()) if script.exists() else None
+    revision = fetch_revision(root=root, repo_url=repo_url)
+    new = atom_version(source=git("show", f"{revision}:sync.py", root=root))
+    is_same = synced_revision(root=root) == revision
+    print(f"This project: Atom {old or 'unknown (synced before versions)'}{'' if is_same or old != new else ' (main has newer commits)'}")
+    print(f"Latest on main: Atom {new or 'unknown'} ({revision[:7]})")
+    print("Up to date." if is_same else "Run python3 sync.py to update.")
+
 def fetch_revision(*, root, repo_url):
     print("Fetching Atom main...", flush=True)
     git("fetch", "--no-tags", repo_url, "main", root=root)
@@ -492,6 +523,7 @@ def bootstrap_sync(*, root, repo_url=REPO_URL, is_venv_sync=True, is_outdated_ch
         compile(source, "sync.py", "exec")
         script = safe_path(root=root, name="sync.py")
         previous = (script.read_bytes(), script.stat().st_mode & 0o777) if script.exists() else None
+        print(version_change(old=atom_version(source=previous[0]) if previous else None, new=atom_version(source=source), is_same_revision=synced_revision(root=root) == revision), flush=True)
         atomic_write(path=script, content=source, mode=0o755 if mode == "100755" else 0o644)
         print("Running the latest Atom updater...", flush=True)
         try:
@@ -535,10 +567,12 @@ def main():
         args = [arg for arg in cli_args if arg not in ("--no-venv", "--no-outdated")]
         if len(args) == 2 and args[0] == "--apply-revision":
             apply_bootstrapped_revision(root=root, revision=args[1], is_venv_sync=is_venv_sync, is_outdated_check=is_outdated_check)
+        elif args == ["--status"]:
+            status(root=root)
         elif not args:
             bootstrap_sync(root=root, is_venv_sync=is_venv_sync, is_outdated_check=is_outdated_check)
         else:
-            raise ValueError("Usage: python3 sync.py [--no-venv] [--no-outdated]")
+            raise ValueError("Usage: python3 sync.py [--no-venv] [--no-outdated] | python3 sync.py --status")
     except (OSError, ValueError, SyntaxError, subprocess.CalledProcessError) as error:
         # Avoid printing command arguments or fetched contents containing credentials.
         message = f"Git command failed (exit {error.returncode})" if isinstance(error, subprocess.CalledProcessError) else str(error)

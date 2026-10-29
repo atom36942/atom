@@ -103,6 +103,28 @@ class SyncTests(unittest.TestCase):
         self.assertIn("function/auth.py", state["files"])
         self.assertEqual({p.name for p in (self.root / ".atom-sync").iterdir()}, {"state.json"})
 
+    def test_version_is_read_from_sync_source(self):
+        self.assertEqual(sync.atom_version(source=b'# x\nATOM_VERSION = "1.2.0"\n'), "1.2.0")
+        self.assertIsNone(sync.atom_version(source=b"# a sync.py from before versions\n"))
+        self.assertRegex(sync.atom_version(source=Path(sync.__file__).read_bytes()), r"^\d+\.\d+\.\d+$")
+
+    def test_version_change_lines(self):
+        self.assertEqual(sync.version_change(old="1.2.0", new="1.3.0", is_same_revision=False), "Atom 1.2.0 -> 1.3.0")
+        self.assertEqual(sync.version_change(old=None, new="1.3.0", is_same_revision=False), "Atom unknown (synced before versions) -> 1.3.0")
+        self.assertEqual(sync.version_change(old="1.3.0", new="1.3.0", is_same_revision=True), "Already on Atom 1.3.0")
+        self.assertEqual(sync.version_change(old="1.3.0", new="1.3.0", is_same_revision=False), "Atom 1.3.0 (newer commits on main)")
+
+    def test_status_shows_both_versions_and_changes_nothing(self):
+        self.write(self.upstream, "sync.py", 'ATOM_VERSION = "1.3.0"\n')
+        self.commit(self.upstream)
+        self.write(self.root, "sync.py", 'ATOM_VERSION = "1.2.0"\n')
+        before = self.snapshot()
+        sync.status(root=self.root, repo_url=str(self.upstream))
+        self.assertIn("This project: Atom 1.2.0", self.output.getvalue())
+        self.assertIn("Latest on main: Atom 1.3.0", self.output.getvalue())
+        self.assertIn("Run python3 sync.py to update.", self.output.getvalue())
+        self.assertEqual(self.snapshot(), before)
+
     def test_sync_creates_missing_config_extension(self):
         (self.root / "config_extend.py").unlink()
         self.run_sync()

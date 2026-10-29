@@ -37,6 +37,8 @@ async def func_lifespan(app: FastAPI):
         buffer_postgres_create = {}
         buffer_postgres_log_api = {}
         cache_token = OrderedDict()
+        cache_atom_version = app.state.func_atom_version()
+        print(f"Atom {cache_atom_version or 'version unknown'}", flush=True)
         app.state.func_check(app=app)
         # with several workers, main resets tmp once before they start; a worker resetting it would delete files others are using
         app.state.func_structure_init(is_tmp_reset=app.state.config_is_tmp_reset and app.state.config_uvicorn_workers == 1)

@@ -62,6 +62,7 @@ python3 sync.py                              # update files, rebuild venv/, list
 python3 sync.py --no-outdated                # same, without the PyPI lookup
 python3 sync.py --no-venv                    # files only
 python3 sync.py --no-venv --no-outdated      # CI
+python3 sync.py --status                     # Atom version of this project and the latest
 ```
 
 Details: [docs/sync.md](docs/sync.md)

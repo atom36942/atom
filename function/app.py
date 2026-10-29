@@ -335,6 +335,12 @@ def func_app_fastapi_create(*, config_is_prod: bool = True, lifespan: Any = None
     telemetry = {"auto_configure": True} if config_is_fastapi_telemetry else {"tracing": False, "metrics": False, "logs": False}
     return FastAPI(debug=not config_is_prod, lifespan=lifespan, openapi_url=None, docs_url=None, redoc_url=None, telemetry=telemetry)
 
+def func_atom_version(*, path: str = "sync.py") -> str | None:
+    """Atom's version: ATOM_VERSION in the project's sync.py (the file sync updates), or None when it is missing or from before versions."""
+    try: match = re.search(r'^ATOM_VERSION = "([^"]+)"$', pathlib.Path(path).read_text(), re.MULTILINE)
+    except OSError: return None
+    return match[1] if match else None
+
 def func_structure_init(*, dir_list: tuple = ("tmp", "secret"), is_tmp_reset: bool = True) -> None:
     """Optionally reset working tmp/ directory and ensure required application directories exist."""
     if is_tmp_reset:

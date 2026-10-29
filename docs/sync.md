@@ -42,6 +42,20 @@ If the new process cannot be launched, the old updater is restored from memory.
 
 Ownership state and the sync lock are excluded from Git and Docker builds. The state file records the last successful update. After a sync, restart the app.
 
+## Versions
+
+Atom's version is `ATOM_VERSION` in `sync.py` (for example `ATOM_VERSION = "1.2.0"`). Sync replaces `sync.py`, so a project's own `sync.py` always shows the Atom version it has, and its commit diff shows a version change.
+
+| Where | Shows |
+|---|---|
+| `sync.py` | `ATOM_VERSION = "1.2.0"` |
+| `python3 sync.py` | `Atom 1.2.0 -> 1.3.0` before it applies, `Already on Atom 1.3.0`, or `Atom 1.3.0 (newer commits on main)` |
+| `python3 sync.py --status` | This project's version and the latest on main; changes nothing |
+| App startup | `Atom 1.3.0` |
+| `GET /info` | `"atom_version": "1.3.0"` |
+
+Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. To release: raise `ATOM_VERSION` in the commit that finishes the release, then tag it `vX.Y.Z` (`git tag v1.3.0 && git push origin v1.3.0`). Commits between releases keep the last version. A project synced before versions existed shows `unknown` until its next sync.
+
 ## Recovering an interrupted update
 
 Rollback is available only while the updater process is running. If rollback
