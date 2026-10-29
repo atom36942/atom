@@ -511,6 +511,7 @@ class SyncTests(unittest.TestCase):
         self.assertEqual((self.root / "latest-only.txt").read_text(), "synced by the newest rules\n")
         self.assertEqual(result.stdout.count("Fetching Atom main..."), 1)
         self.assertEqual(result.stdout.count("Running the latest Atom updater..."), 1)
+        self.assertIn(f"Atom {sync.ATOM_VERSION} (newer commits on main)", result.stdout)
         self.assertEqual(result.stdout.count("Files synced successfully!"), 1)
         self.assertFalse((self.root / ".atom-sync/lock").exists())
         state = json.loads((self.root / sync.STATE_PATH).read_text())
@@ -585,6 +586,8 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(after, before)
         self.assertEqual((self.root / "sync.py").read_text(), latest)
         self.assertNotIn("Files synced successfully!", result.stdout)
+        self.assertIn(f"sync.py now shows Atom {sync.ATOM_VERSION}, but the other files may not be updated", result.stderr)
+        self.assertIn("run python3 sync.py again", result.stderr)
         self.assertFalse((self.root / ".atom-sync/lock").exists())
 
     def test_internal_child_mode_rejects_missing_parent_lock(self):
