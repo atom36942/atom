@@ -48,7 +48,7 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
 
     async def update_check(self, obj, **changes):
         args = dict(client_postgres=object(), obj=obj, is_admin=False, is_otp_required=True,
-                    config_column_single_update=["username", "password", "email", "mobile"], config_column_users_admin_only=["role", "deactivated_at"],
+                    config_column_single_update=["username", "password", "email", "mobile"], config_column_users_blocked=["created_by_id", "deleted_at"], config_column_users_my_blocked=["role", "deactivated_at"],
                     config_otp_expiry_sec=300, config_otp_static=None, config_otp_max_attempt=5)
         return await func_user_update_check(**(args | changes))
 

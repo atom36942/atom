@@ -16,14 +16,14 @@ async def func_user_create(*, client_postgres: asyncpg.Pool | None, client_passw
     hashed_password = await asyncio.to_thread(client_password_hasher.hash, str(password))
     return await client_postgres.fetchval("INSERT INTO users (role, username, password, created_by_id) VALUES ($1, $2, $3, $4) RETURNING id;", role, username, hashed_password, created_by_id)
 
-async def func_user_update_check(*, client_postgres: asyncpg.Pool | None, obj: dict, is_admin: bool, is_otp_required: bool, config_column_single_update: list, config_column_users_admin_only: list, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5, system_columns: tuple = ("created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id", "is_protected", "last_active_at")) -> dict:
-    """The columns of one user update after its rules: system columns refused (deletion has its own API), admin-only columns refused for the user's own update,
+async def func_user_update_check(*, client_postgres: asyncpg.Pool | None, obj: dict, is_admin: bool, is_otp_required: bool, config_column_single_update: list, config_column_users_blocked: list, config_column_users_my_blocked: list, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5) -> dict:
+    """The columns of one user update after its rules: config_column_users_blocked refused for everyone (deletion has its own API), config_column_users_my_blocked refused for the user's own update,
     a single-update column (password, email, ...) sent alone, email or mobile verified with the otp sent to the new value when is_otp_required, email lowercased."""
     obj = dict(obj)
     otp, user_id = obj.pop("otp", None), obj.pop("id", None)
     if not obj: raise Exception("update field required")
-    if column := next((c for c in obj if c in system_columns), None): raise Exception(f"{column} cannot be updated")
-    if not is_admin and (column := next((c for c in obj if c in (config_column_users_admin_only or [])), None)): raise Exception(f"{column} can be updated only by an admin")
+    if column := next((c for c in obj if c in (config_column_users_blocked or [])), None): raise Exception(f"{column} cannot be updated")
+    if not is_admin and (column := next((c for c in obj if c in (config_column_users_my_blocked or [])), None)): raise Exception(f"{column} can be updated only by an admin")
     if (column := next((c for c in obj if c in (config_column_single_update or [])), None)) and len(obj) > 1: raise Exception(f"{column} must be updated alone")
     if user_id == 1 and (column := next((c for c in obj if c in ("role", "permissions", "deactivated_at")), None)): raise Exception(f"root user {column} cannot be updated")
     if isinstance(obj.get("email"), str): obj["email"] = obj["email"].strip().lower()
