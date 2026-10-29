@@ -16,12 +16,18 @@ async def func_auth_user_login_fetch(*, conn: asyncpg.Connection, field: str, va
     """Fetch a single login user by a unique-ish field with optional role. Raise on ambiguity (role omitted but multiple rows) and on not-found unless is_missing_ok, which returns None."""
     allowed_fields = ("username", "email", "mobile", "id_ext")
     if field not in allowed_fields: raise Exception(f"invalid auth field: {field}")
-    records = await conn.fetch(f'SELECT * FROM users WHERE "{field}"=$2 AND ($1::smallint IS NULL OR role=$1) ORDER BY id DESC LIMIT 2;', role, value)  # noqa: S608 - column from a fixed allow-list
+    column = 'lower("email")' if field == "email" else f'"{field}"'    # emails match whatever their case
+    records = await conn.fetch(f'SELECT * FROM users WHERE {column}=$2 AND ($1::smallint IS NULL OR role=$1) ORDER BY id DESC LIMIT 2;', role, str(value).lower() if field == "email" else value)  # noqa: S608 - column from a fixed allow-list
     if not records:
         if is_missing_ok: return None
         raise Exception(f"{field} not found")
     if role is None and len(records) > 1: raise Exception("role is mandatory")
     return dict(records[0])
+
+def func_auth_check_user_active(*, user: dict) -> None:
+    """Refuse login for a deleted or deactivated user (checked after their credentials, so it reveals nothing to a stranger)."""
+    if user.get("deleted_at"): raise func_api_error(message="account deleted", status_code=403)
+    if user.get("deactivated_at"): raise func_api_error(message="account deactivated", status_code=403)
 
 def func_auth_check_signup_role(*, role: int, config_signup_allowed_roles: list) -> None:
     """Validate that public signup is enabled and the requested role is permitted."""
@@ -49,15 +55,19 @@ async def func_auth_login_password(*, client_postgres: asyncpg.Pool | None, clie
     except Exception:
         is_valid = False
     if not is_valid: raise Exception("invalid credentials")
+    func_auth_check_user_active(user=user)
     return user
 
 async def func_auth_user_find_or_create(*, client_postgres: asyncpg.Pool | None, field: str, value: Any, role: int, source: int = None, config_signup_allowed_roles: list = None, extra_cols: dict = None) -> dict:
     """Find existing user or create a new user (for OTP and Social Logins) with signup policy enforcement."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(field)): raise Exception(f"invalid identifier {field}")
+    if field == "email": value = str(value).strip().lower()
+    column = 'lower("email")' if field == "email" else f'"{field}"'    # emails match whatever their case
     async with client_postgres.acquire() as conn:
-        records = await conn.fetch(f'SELECT * FROM users WHERE "{field}"=$1 AND role=$2 ORDER BY id DESC LIMIT 1;', value, role)  # noqa: S608 - column name pattern-checked
+        records = await conn.fetch(f'SELECT * FROM users WHERE {column}=$1 AND role=$2 ORDER BY id DESC LIMIT 1;', value, role)  # noqa: S608 - column name pattern-checked
         if records:
+            func_auth_check_user_active(user=dict(records[0]))
             return dict(records[0])
         func_auth_check_signup_role(role=role, config_signup_allowed_roles=config_signup_allowed_roles)
         insert_dict = {"role": role, field: value, "source": source}
@@ -70,6 +80,16 @@ async def func_auth_user_find_or_create(*, client_postgres: asyncpg.Pool | None,
         sql = f'INSERT INTO users ({", ".join(f"{c}" for c in cols)}) VALUES ({", ".join(placeholders)}) RETURNING *;'  # noqa: S608 - column names pattern-checked
         created = await conn.fetch(sql, *list(insert_dict.values()))
         return dict(created[0])
+
+async def func_auth_google_user(*, client_postgres: asyncpg.Pool | None, id_info: dict, role: int, source: int = None, config_signup_allowed_roles: list = None) -> dict:
+    """The user of a verified Google sign-in: found by google_login_id; else the user with the same email and role, now linked to Google; else a new user (signup policy applies)."""
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
+    if not id_info.get("email") or id_info.get("email_verified") is not True: raise Exception("google email not verified")
+    email, metadata = str(id_info["email"]).strip().lower(), orjson.dumps(id_info).decode("utf-8")
+    async with client_postgres.acquire() as conn:
+        if not await conn.fetchval("SELECT 1 FROM users WHERE google_login_id=$1 AND role=$2 LIMIT 1;", id_info["sub"], role):
+            await conn.execute("UPDATE users SET google_login_id=$1, google_login_metadata=$2 WHERE id=(SELECT id FROM users WHERE google_login_id IS NULL AND lower(email)=$3 AND role=$4 ORDER BY id DESC LIMIT 1);", id_info["sub"], metadata, email, role)
+    return await func_auth_user_find_or_create(client_postgres=client_postgres, field="google_login_id", value=id_info["sub"], role=role, source=source, config_signup_allowed_roles=config_signup_allowed_roles, extra_cols={"email": email, "name": id_info.get("name"), "google_login_metadata": metadata})
 
 def func_auth_check_config(*, client_postgres: asyncpg.Pool | None, config_token_secret_key: str) -> None:
     """Check authentication prerequisites in order before any side effects."""

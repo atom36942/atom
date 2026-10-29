@@ -15,6 +15,7 @@ from function import func_auth_check_config
 from function import func_auth_login_password
 from function import func_auth_signup_password
 from function import func_auth_user_find_or_create
+from function import func_auth_google_user
 from function import func_otp_verify
 from function import func_token_encode
 from function import func_token_decode
@@ -153,6 +154,42 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(Exception, "signup disabled"):
             await func_auth_user_find_or_create(**args)
         self.assertEqual(self.conn.fetch.await_count, 2)  # Both calls only looked up a user.
+
+    async def test_deleted_or_deactivated_users_cannot_login(self):
+        for column, message in (("deleted_at", "account deleted"), ("deactivated_at", "account deactivated")):
+            with self.subTest(column=column):
+                self.conn.fetch.return_value = [{**self.user, column: "2026-01-01"}]
+                with self.assertRaisesRegex(Exception, message): await self.login()
+                with self.assertRaisesRegex(Exception, "^invalid credentials$"): await self.login(password="wrong")    # a stranger learns nothing
+                with self.assertRaisesRegex(Exception, message):
+                    await func_auth_user_find_or_create(client_postgres=self.pool, field="mobile", value="+911", role=5, config_signup_allowed_roles=[5])
+
+    async def test_emails_match_whatever_their_case(self):
+        self.user["email"] = "alice@example.test"
+        await self.login(field="email", value="Alice@Example.TEST")
+        self.assertIn('lower("email")=$2', self.conn.fetch.await_args.args[0])
+        self.assertEqual(self.conn.fetch.await_args.args[2], "alice@example.test")
+        self.conn.fetch.reset_mock()
+        self.conn.fetch.side_effect = [[], [self.user]]    # not found, then created
+        await func_auth_user_find_or_create(client_postgres=self.pool, field="email", value=" Alice@Example.TEST ", role=5, config_signup_allowed_roles=[5])
+        self.assertIn('lower("email")=$1', self.conn.fetch.await_args_list[0].args[0])
+        self.assertEqual(self.conn.fetch.await_args_list[0].args[1], "alice@example.test")
+        self.assertEqual(self.conn.fetch.await_args.args[1:], (5, "alice@example.test", None))    # created with the lowercase email
+
+    async def test_google_needs_a_verified_email_and_links_an_existing_user(self):
+        google = {"sub": "g-1", "email": "Alice@Example.TEST", "email_verified": True, "name": "Alice"}
+        for info in ({**google, "email_verified": False}, {**google, "email": None}):
+            with self.assertRaisesRegex(Exception, "google email not verified"):
+                await func_auth_google_user(client_postgres=self.pool, id_info=info, role=5, config_signup_allowed_roles=[5])
+        self.conn.fetchval.return_value = None    # no user has this Google account yet: link the same email and role
+        self.assertEqual(await func_auth_google_user(client_postgres=self.pool, id_info=google, role=5, config_signup_allowed_roles=[5]), self.user)
+        sql, sub, _, email, role = self.conn.execute.await_args.args
+        self.assertIn("UPDATE users SET google_login_id=$1", sql)
+        self.assertEqual((sub, email, role), ("g-1", "alice@example.test", 5))
+        self.conn.execute.reset_mock()
+        self.conn.fetchval.return_value = 1    # already linked: nothing is updated
+        await func_auth_google_user(client_postgres=self.pool, id_info=google, role=5, config_signup_allowed_roles=[5])
+        self.conn.execute.assert_not_awaited()
 
     async def test_tokens_round_trip_without_password_and_enforce_token_type(self):
         tokens = await self.tokens()

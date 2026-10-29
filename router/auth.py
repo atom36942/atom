@@ -1,7 +1,6 @@
 # import
 import asyncio
 import hmac
-import orjson
 from fastapi import APIRouter
 from fastapi import Request
 from google.auth.transport import requests
@@ -38,7 +37,7 @@ async def func_api_auth_login_email_password(*, request: Request):
     app_state = request.app.state
     app_state.func_auth_check_config(client_postgres=request.state.client_postgres, config_token_secret_key=app_state.config_token_secret_key)
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "email", "type": "str", "required": True}, {"name": "password", "type": "str", "required": True}, {"name": "role", "type": "int", "allowed": app_state.config_login_allowed_roles}])
-    if ob.get("email"): ob["email"] = ob["email"].strip()
+    if ob.get("email"): ob["email"] = ob["email"].strip().lower()
     await app_state.func_regex_check(config_column_regex=app_state.config_column_regex, obj_list=[ob])
     user = await app_state.func_auth_login_password(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, field="email", value=ob["email"], password=ob["password"], role=ob["role"])
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
@@ -71,7 +70,7 @@ async def func_api_auth_login_email_otp(*, request: Request):
     app_state = request.app.state
     app_state.func_auth_check_config(client_postgres=request.state.client_postgres, config_token_secret_key=app_state.config_token_secret_key)
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "email", "type": "str", "required": True}, {"name": "otp", "type": "int", "required": True}, {"name": "role", "type": "int", "required": True, "allowed": app_state.config_login_allowed_roles}, {"name": "source", "type": "int"}])
-    if ob.get("email"): ob["email"] = ob["email"].strip()
+    if ob.get("email"): ob["email"] = ob["email"].strip().lower()
     await app_state.func_regex_check(config_column_regex=app_state.config_column_regex, obj_list=[ob])
     await app_state.func_otp_verify(client_postgres=request.state.client_postgres, otp=ob["otp"], email=ob["email"], mobile=None, config_otp_expiry_sec=app_state.config_otp_expiry_sec, config_otp_static=app_state.config_otp_static, config_otp_max_attempt=app_state.config_otp_max_attempt)
     user = await app_state.func_auth_user_find_or_create(client_postgres=request.state.client_postgres, field="email", value=ob["email"], role=ob["role"], source=ob.get("source"), config_signup_allowed_roles=app_state.config_signup_allowed_roles)
@@ -97,8 +96,7 @@ async def func_api_auth_login_google(*, request: Request):
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "google_token", "type": "str", "required": True}, {"name": "role", "type": "int", "required": True, "allowed": app_state.config_login_allowed_roles}, {"name": "source", "type": "int"}])
     id_info = await asyncio.to_thread(id_token.verify_oauth2_token, id_token=ob["google_token"], request=requests.Request(), audience=app_state.config_google_login_client_id)
     if not id_info: raise Exception("invalid google token")
-    extra_cols = {"email": id_info.get("email"), "name": id_info.get("name"), "google_login_metadata": orjson.dumps(id_info).decode("utf-8")}
-    user = await app_state.func_auth_user_find_or_create(client_postgres=request.state.client_postgres, field="google_login_id", value=id_info["sub"], role=ob["role"], source=ob.get("source"), config_signup_allowed_roles=app_state.config_signup_allowed_roles, extra_cols=extra_cols)
+    user = await app_state.func_auth_google_user(client_postgres=request.state.client_postgres, id_info=id_info, role=ob["role"], source=ob.get("source"), config_signup_allowed_roles=app_state.config_signup_allowed_roles)
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
     return {"status": 1, "message": token}
 

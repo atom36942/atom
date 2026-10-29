@@ -88,6 +88,10 @@ In this example, new users can register only with role `5`. Login requests can s
 
 For new users created through OTP or Google login, the requested role must pass both lists. These settings do not define role permissions or apply to the static `/auth/login-password` endpoint.
 
+Every login (password, OTP, Google):
+- **Deleted or deactivated users are refused** with `account deleted` or `account deactivated` (403), checked only after valid credentials, so a stranger learns nothing about the account.
+- **Emails match whatever their case**: `Ravi@Example.com` and `ravi@example.com` are the same user; new users are saved with the email in lowercase.
+
 `config_login_allowed_roles` replaces the former `config_allowed_users_role` name. Update existing configuration overrides to use the new name.
 
 | Endpoint | Credentials | Notes |
@@ -100,7 +104,7 @@ For new users created through OTP or Google login, the requested role must pass 
 | `/auth/login-id-ext-password` | id_ext + password | |
 | `/auth/login-email-otp` | email + otp | Verifies OTP against `otp` table, auto-creates user on first login. |
 | `/auth/login-mobile-otp` | mobile + otp | Same as email OTP, sent via SMS. |
-| `/auth/login-google` | google_token (+ role) | Verifies Google ID token against `config_google_login_client_id`. |
+| `/auth/login-google` | google_token (+ role) | Verifies the Google ID token against `config_google_login_client_id` and requires Google's `email_verified`. Finds the user by `google_login_id`; else links the user with the same email and role to this Google account; else creates one (saving `email`, `name`, `google_login_metadata`). |
 
 ### `POST /auth/login-password`
 Compares the input against `config_login_password` configured in `.env`. If unconfigured, raises `"config_login_password not configured"`. Comparison uses `hmac.compare_digest` to prevent timing attacks.
