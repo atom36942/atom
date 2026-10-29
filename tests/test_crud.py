@@ -1,0 +1,229 @@
+"""CRUD contracts with actual builders/serializers and a mocked database."""
+import asyncio
+import csv
+import io
+import pathlib
+import unittest
+from datetime import date
+from unittest.mock import patch
+import orjson
+from function import func_csv_cell
+from function import func_postgres_create
+from function import func_postgres_read
+from function import func_postgres_read_export
+from function import func_postgres_update
+from function import func_postgres_delete
+from function import func_postgres_where_build
+from tests.support import database
+
+
+class CrudTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.pool, self.conn = database()
+        self.schema = {"product": {name: {"datatype": dtype} for name, dtype in
+                       [("id", "bigint"), ("name", "text"), ("created_by_id", "bigint"), ("password", "text")]}}
+        self.common = dict(client_postgres=self.pool, client_password_hasher=None, cache_postgres_schema=self.schema, table="product")
+        self.write_args = self.common | dict(client_postgres_conn=None, config_column_regex={})
+
+    async def create(self, **changes):
+        return await func_postgres_create(**(self.write_args | dict(buffer_postgres={}, buffer_limit=10,
+            mode="now", obj_list=[{"name": "item", "created_by_id": 7}]) | changes))
+
+    async def read(self, **changes):
+        return await func_postgres_read(**(self.common | dict( config_sql_read_limit_max=100,
+            config_sql_read_relation_fetch_limit_max=100, filter=[], limit=10, page=1,
+            order="id desc", column="*", relation=[]) | changes))
+
+    async def update(self, **changes):
+        return await func_postgres_update(**(self.write_args | dict(obj_list=[{"id": 3, "name": "new"}], created_by_id=7) | changes))
+
+    async def delete(self, **changes):
+        return await func_postgres_delete(**(dict(client_postgres=self.pool, client_postgres_conn=None,
+            cache_postgres_schema=self.schema, table="product", ids=[3], created_by_id=7) | changes))
+
+    async def test_create_binds_values_and_ignores_client_supplied_id(self):
+        self.conn.fetch.return_value = [{"id": 42}]
+        payload = [{"id": 999, "name": "O'Reilly", "created_by_id": 7}]
+        self.assertEqual(await self.create(obj_list=payload), [42])
+        sql, *values = self.conn.fetch.await_args.args
+        self.assertNotIn("O'Reilly", sql)
+        self.assertEqual(values, ["O'Reilly", 7])
+        self.assertEqual(payload[0]["id"], 999)
+        self.assertNotIn('"id"', sql.split("VALUES")[0])
+
+    async def test_create_invalid_fields_and_regex_never_write(self):
+        for changes, message in [({"obj_list": []}, "object list required"),
+                                 ({"obj_list": [{"missing": 1}]}, "not found"),
+                                 ({"config_column_regex": {"name": ["^[0-9]+$", "invalid name"]}}, "invalid name")]:
+            with self.subTest(changes=changes), self.assertRaisesRegex(Exception, message):
+                await self.create(**changes)
+        self.conn.fetch.assert_not_awaited()
+
+    async def test_create_database_failure_exits_transaction_with_error(self):
+        self.conn.fetch.side_effect = RuntimeError("database write failed")
+        with self.assertRaisesRegex(RuntimeError, "database write failed"):
+            await self.create()
+        exit_args = self.conn.transaction.return_value.__aexit__.await_args.args
+        self.assertIs(exit_args[0], RuntimeError)
+        self.pool.acquire.return_value.__aexit__.assert_awaited_once()
+
+    async def test_buffered_create_does_not_write_until_flush(self):
+        buffer = {}
+        self.assertEqual(await self.create(mode="buffer", buffer_postgres=buffer), "buffered")
+        self.conn.fetch.assert_not_awaited()
+        self.conn.fetch.return_value = [{"id": 42}]
+        self.assertEqual(await self.create(mode="flush", buffer_postgres=buffer), "flushed")
+        self.conn.fetch.assert_awaited_once()
+        self.assertTrue(all(not values for values in buffer.values()))
+
+    async def test_full_buffer_rejects_user_rows_with_503_and_keeps_pending(self):
+        buffer = {}
+        for i in range(5):
+            await self.create(mode="buffer", buffer_postgres=buffer, buffer_rows_max=5, obj_list=[{"name": f"row-{i}", "created_by_id": 7}])
+        with self.assertRaisesRegex(Exception, "buffer full, retry later") as raised:
+            await self.create(mode="buffer", buffer_postgres=buffer, buffer_rows_max=5, obj_list=[{"name": "row-5", "created_by_id": 7}])
+        self.assertEqual(raised.exception.status_code, 503)
+        self.assertEqual([r["name"] for rows in buffer.values() for r in rows], [f"row-{i}" for i in range(5)])
+        self.conn.fetch.assert_not_awaited()
+
+    async def test_full_log_buffer_drops_the_oldest_rows_and_counts_them(self):
+        buffer, runtime_error_count = {}, {}
+        for i in range(8):
+            await self.create(mode="buffer", buffer_postgres=buffer, buffer_rows_max=5, buffer_full_mode="drop_oldest", runtime_error_count=runtime_error_count, obj_list=[{"name": f"row-{i}", "created_by_id": 7}])
+        self.assertEqual([r["name"] for rows in buffer.values() for r in rows], [f"row-{i}" for i in range(3, 8)])
+        self.assertEqual(runtime_error_count, {"buffer_dropped": 3})
+
+    async def test_buffer_without_cap_keeps_every_row(self):
+        buffer = {}
+        for i in range(8):
+            await self.create(mode="buffer", buffer_postgres=buffer, obj_list=[{"name": f"row-{i}", "created_by_id": 7}])
+        self.assertEqual(sum(len(rows) for rows in buffer.values()), 8)
+
+    async def test_failed_buffer_flush_retains_pending_rows(self):
+        buffer = {}
+        await self.create(mode="buffer", buffer_postgres=buffer)
+        self.conn.fetch.side_effect = RuntimeError("database unavailable")
+        with self.assertRaisesRegex(RuntimeError, "database unavailable"):
+            await self.create(mode="flush", buffer_postgres=buffer)
+        self.assertEqual(sum(map(len, buffer.values())), 1)
+
+    async def test_concurrent_buffered_writers_insert_every_row_exactly_once(self):
+        buffer, inserted = {}, []
+        async def fetch(sql, *args):
+            await asyncio.sleep(0.005)    # other requests keep buffering while this insert waits
+            inserted.extend([r["name"] for r in orjson.loads(args[0])] if "jsonb_to_recordset" in sql else [args[0]])
+            return []
+        self.conn.fetch.side_effect = fetch
+        await asyncio.gather(*(self.create(mode="buffer", buffer_postgres=buffer, obj_list=[{"name": f"row-{i}", "created_by_id": 7}]) for i in range(300)))
+        await self.create(mode="flush", buffer_postgres=buffer)
+        self.assertEqual(sorted(inserted), sorted(f"row-{i}" for i in range(300)))
+
+    async def test_failed_buffered_insert_puts_rows_back_ahead_of_new_ones(self):
+        buffer = {}
+        self.conn.fetch.side_effect = RuntimeError("database unavailable")
+        await self.create(mode="buffer", buffer_postgres=buffer, buffer_limit=2, obj_list=[{"name": "row-0", "created_by_id": 7}])
+        with self.assertRaisesRegex(RuntimeError, "database unavailable"):
+            await self.create(mode="buffer", buffer_postgres=buffer, buffer_limit=2, obj_list=[{"name": "row-1", "created_by_id": 7}])
+        with self.assertRaisesRegex(RuntimeError, "database unavailable"):
+            await self.create(mode="buffer", buffer_postgres=buffer, buffer_limit=2, obj_list=[{"name": "row-2", "created_by_id": 7}])
+        self.assertEqual([r["name"] for rows in buffer.values() for r in rows], ["row-0", "row-1", "row-2"])
+
+    async def test_trusted_create_skips_value_checks_but_not_identifier_checks(self):
+        regex = {"name": ["^[0-9]+$", "invalid name"]}
+        self.assertEqual(await self.create(mode="buffer", is_trusted=True, config_column_regex=regex, obj_list=[{"name": "abc", "extra": 1}]), "buffered")
+        for changes, message in [({"obj_list": [{'bad"col': 1}]}, "invalid identifier"), ({"table": "bad;table"}, "invalid identifier"), ({"table": "spatial_ref_sys"}, "system table protected")]:
+            with self.subTest(changes=changes), self.assertRaisesRegex(Exception, message):
+                await self.create(mode="now", is_trusted=True, **changes)
+
+    def test_no_route_passes_is_trusted(self):
+        root = pathlib.Path(__file__).resolve().parent.parent
+        for folder in ("router", "router_extend"):
+            for path in (root / folder).glob("*.py"):
+                self.assertNotIn("is_trusted", path.read_text(), f"{path.name}: request data must never skip validation")
+
+    async def export(self, rows, **changes):
+        pages = []
+        async def fake_read(**kwargs):
+            pages.append(kwargs["page"])
+            start = (kwargs["page"] - 1) * kwargs["limit"]
+            return rows[start:start + kwargs["limit"] + 1]
+        with patch("function.postgres_crud.func_postgres_read", side_effect=fake_read):
+            generator = await func_postgres_read_export(**(dict(client_postgres=self.pool, client_password_hasher=None, cache_postgres_schema=self.schema, config_sql_read_limit_max=10000, table="product", filter=[], order="id desc", column="*", export_limit=50000) | changes))
+            body = "".join([chunk async for chunk in generator])
+        return list(csv.reader(io.StringIO(body))), pages
+
+    async def test_export_reads_in_batches_and_stops_at_the_limit(self):
+        rows = [{"id": i, "name": f"n{i}"} for i in range(2500)]
+        lines, pages = await self.export(rows, export_limit=2100)
+        self.assertEqual(lines[0], ["id", "name"])
+        self.assertEqual(len(lines) - 1, 2100)
+        self.assertEqual(pages, [1, 2, 3])
+        lines, pages = await self.export(rows)
+        self.assertEqual((len(lines) - 1, pages), (2500, [1, 2, 3]))
+
+    async def test_export_without_rows_still_writes_a_header_without_blocked_columns(self):
+        lines, _ = await self.export([])
+        self.assertEqual(lines, [["id", "name", "created_by_id"]])
+        lines, _ = await self.export([], column="id, name")
+        self.assertEqual(lines, [["id", "name"]])
+
+    def test_csv_cells_are_readable_and_formula_safe(self):
+        self.assertEqual([func_csv_cell(v) for v in (None, 5, -5, "plain", "-1+1", "=SUM(A1)", "@x", {"a": 1}, [1, 2], date(2026, 1, 2))],
+                         ["", 5, -5, "plain", "'-1+1", "'=SUM(A1)", "'@x", '{"a":1}', "[1,2]", "2026-01-02"])
+
+    async def test_read_binds_filters_and_pagination_and_removes_password(self):
+        self.conn.fetch.return_value = [{"id": 3, "name": "item", "password": "private"}]
+        result = await self.read(filter=[{"created_by_id": "eq,7"}], limit=10, page=2)
+        sql, *values = self.conn.fetch.await_args.args
+        self.assertEqual(values, [7, 11, 10])
+        self.assertIn('"created_by_id" = $1', sql)
+        self.assertIn("LIMIT $2 OFFSET $3", sql)
+        self.assertEqual(result, [{"id": 3, "name": "item"}])
+
+    async def test_read_invalid_pagination_and_restricted_column_never_query(self):
+        for changes in ({"limit": 0}, {"page": 0}, {"limit": 101}, {"column": "password"}):
+            with self.subTest(changes=changes), self.assertRaisesRegex(Exception, "restricted from reading|exceeds maximum allowed|must be greater than 0"):
+                await self.read(**changes)
+        self.conn.fetch.assert_not_awaited()
+
+    async def test_filter_values_stay_outside_sql(self):
+        value = "x' OR 1=1 --"
+        sql, values = await func_postgres_where_build(**self.common, filter=[{"name": "eq," + value}])
+        self.assertNotIn(value, sql)
+        self.assertEqual(values, [value])
+
+    async def test_filter_rejects_unknown_and_restricted_columns(self):
+        for column in ("missing", "password"):
+            with self.subTest(column=column), self.assertRaisesRegex(Exception, "filtering on column 'password' is blocked|invalid filter column"):
+                await func_postgres_where_build(**self.common, filter=[{column: "eq,hello"}])
+
+    async def test_update_includes_owner_in_query_and_returns_updated_ids(self):
+        self.conn.fetch.return_value = [{"id": 3}]
+        self.assertEqual(await self.update(), [3])
+        sql, *values = self.conn.fetch.await_args.args
+        self.assertIn('AND "created_by_id"=$4', sql)
+        self.assertEqual(values, [3, "new", 3, 7])
+        self.conn.fetch.return_value = []
+        self.assertEqual(await self.update(), [])
+
+    async def test_update_invalid_batches_never_write(self):
+        for objects in ([{"name": "no id"}], [{"id": 3}], [{"id": 3, "name": "a"}, {"id": 4, "created_by_id": 7}]):
+            with self.subTest(objects=objects), self.assertRaisesRegex(Exception, "missing required field: 'id'|object keys mismatch|update field required"):
+                await self.update(obj_list=objects)
+        self.conn.fetch.assert_not_awaited()
+
+    async def test_delete_binds_ids_and_owner_and_reports_zero_matches(self):
+        self.conn.fetchval.return_value = 1
+        self.assertEqual(await self.delete(), 1)
+        sql, *values = self.conn.fetchval.await_args.args
+        self.assertIn('AND "created_by_id"=$2::bigint', sql)
+        self.assertEqual(values, [[3], 7])
+        self.conn.fetchval.return_value = 0
+        self.assertEqual(await self.delete(), 0)
+
+    async def test_crud_rejects_invalid_table_identifier_before_query(self):
+        for operation in (self.create, self.read, self.update, self.delete):
+            with self.subTest(operation=operation.__name__), self.assertRaisesRegex(Exception, "invalid identifier"):
+                await operation(table='product"; DROP TABLE users; --')
+        self.conn.fetch.assert_not_awaited()
+        self.conn.fetchval.assert_not_awaited()

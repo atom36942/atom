@@ -1,0 +1,212 @@
+# import
+import math
+from typing import Any
+import orjson
+from fastapi import Request
+
+# function
+def func_query_bool_parse(value: Any, default: bool = False) -> bool:
+    """Parse a query-string boolean, retaining legacy 1/0 compatibility."""
+    if value is None: return default
+    if isinstance(value, bool): return value
+    normalized = str(value).strip().lower()
+    if normalized in ("true", "1"): return True
+    if normalized in ("false", "0"): return False
+    raise ValueError(f"invalid boolean query value: {value!r}; expected 'true' or 'false'")
+
+async def func_request_form_close(*, request: Request) -> None:
+    """Close the upload temp files of forms read by func_request_param_read; FastAPI only closes forms it parses itself."""
+    for form_data in getattr(request.state, "form_list", []): await form_data.close()
+    request.state.form_list = []
+    return
+
+async def func_request_param_read(*, request: Request, mode: str, param_specs: list, strict: bool = False, strict_types: bool = False, reject_unknown: bool = False) -> dict:
+    """Read and validate parameters from query, form, body or header.
+
+    strict selects specified fields only; reject_unknown rejects extra fields.
+    strict_types rejects malformed/non-object JSON bodies, lossy integer conversion
+    and invalid objects. Specs support minimum/maximum and min_length/max_length after conversion.
+    """
+    if not isinstance(strict, bool): raise Exception("strict must be bool")
+    for name, value in (("strict_types", strict_types), ("reject_unknown", reject_unknown)):
+        if not isinstance(value, bool): raise Exception(f"{name} must be bool")
+    params_dict = {}
+    if mode == "query":
+        params_dict = {k: v for k, v in request.query_params.items() if k not in ("is_disable_cache", "is_background")}    # middleware flags, never route params
+    elif mode == "form":
+        form_data = await request.form()
+        request.state.form_list = [*getattr(request.state, "form_list", []), form_data]    # upload temp files, closed by func_request_form_close
+        params_dict = {key: val for key, val in form_data.items() if isinstance(val, str)}
+        for key in form_data.keys():
+            files = [x for x in form_data.getlist(key) if not isinstance(x, str)]
+            if files:
+                params_dict[key] = files
+    elif mode == "body":
+        try:
+            json_payload = await request.json()
+        except Exception:
+            if strict_types: raise Exception("request body must contain valid JSON") from None
+            json_payload = None
+        if strict_types and not isinstance(json_payload, dict):
+            raise Exception("request body must be a JSON object")
+        params_dict = json_payload if isinstance(json_payload, dict) else {"body": json_payload}
+    elif mode == "header":
+        params_dict = {k.lower(): v for k, v in request.headers.items()}
+    else:
+        raise Exception(f"invalid mode: {mode}")
+    if param_specs is None:
+        if reject_unknown: raise Exception("reject_unknown requires parameter specifications")
+        return params_dict
+    def smart_dict(v):
+        if v is None: return {}
+        if isinstance(v, dict): return v
+        if isinstance(v, str):
+            v = v.strip()
+            if v.startswith("{"):
+                parsed = orjson.loads(v)
+                if isinstance(parsed, dict): return parsed
+        if strict_types: raise ValueError("expected an object")
+        return {}
+    def smart_list(v):
+        if v is None: return []
+        if isinstance(v, list): return v
+        if isinstance(v, str):
+            v = v.strip()
+            if not v: return []
+            if v.startswith("[") or v.startswith("{"):
+                parsed = orjson.loads(v)
+                return parsed if isinstance(parsed, list) else [parsed]
+            return [x.strip() for x in v.split(",") if x.strip()]
+        return [v]
+    def smart_bool(v):
+        if isinstance(v, bool): return v
+        value = str(v).strip().lower()
+        if value in ("true", "1", "yes", "on", "ok"): return True
+        if value in ("false", "0", "no", "off"): return False
+        raise ValueError(f"invalid boolean value: {v!r}")
+    def smart_int(v):
+        if strict_types:
+            if isinstance(v, bool): raise ValueError("boolean is not an integer")
+            if not isinstance(v, (int, str)):
+                if not isinstance(v, float) or not v.is_integer():
+                    raise ValueError("expected a whole number")
+            if isinstance(v, str) and "_" in v: raise ValueError("underscore digit separators not allowed")
+        return int(v)
+    def smart_float(v):
+        if strict_types and isinstance(v, bool): raise ValueError("boolean is not a number")
+        val = float(v)
+        if not math.isfinite(val): raise ValueError("number must be finite")
+        return val
+    TYPE_MAP = {
+        "int": smart_int, "bigint": smart_int, "smallint": smart_int, "integer": smart_int, "int4": smart_int, "int8": smart_int,
+        "float": smart_float, "number": smart_float, "numeric": smart_float,
+        "str": str, "any": lambda v: v, 
+        "bool": smart_bool,
+        "dict": smart_dict, "object": smart_dict,
+        "file": lambda v: [x for x in (v if isinstance(v, list) else [v] if v is not None else []) if hasattr(x, "file")],
+        "list": smart_list
+    }
+    if reject_unknown:
+        names = {spec["name"] for spec in param_specs}
+        if set(params_dict) - names: raise Exception("request contains unknown parameters")
+    output_dict = params_dict.copy() if not strict else {}
+    for param_spec in param_specs:
+        if not isinstance(param_spec, dict): raise Exception(f"invalid parameter specification: expected dict, got {type(param_spec)}")
+        if "name" not in param_spec or "type" not in param_spec: raise Exception("parameter specification requires 'name' and 'type'")
+        key = param_spec["name"]
+        dtype = param_spec["type"]
+        is_required = param_spec.get("required", False)
+        if not isinstance(is_required, bool): raise Exception(f"parameter '{key}' required must be bool")
+        allowed_values = param_spec.get("allowed")
+        default_value = param_spec.get("default")
+        if dtype not in TYPE_MAP and not dtype.startswith("list:"): raise Exception(f"parameter '{key}' has invalid dtype '{dtype}'")
+        if is_required and default_value is not None: raise Exception(f"parameter '{key}' is required, default must be None")
+        if default_value is not None and allowed_values is not None and default_value not in allowed_values:
+            raise Exception(f"parameter '{key}' default '{default_value}' violating allowed_values: {allowed_values}")
+        if allowed_values is not None and not isinstance(allowed_values, (list, tuple)): raise Exception(f"parameter '{key}' allowed_values must be a list or tuple")
+        val = params_dict.get(key)
+        if val is None:
+            val = default_value
+        if isinstance(val, str) and val.lower() in ("null", "undefined"):
+            val = default_value
+        if dtype == "file" and isinstance(val, str):
+            hint = f" received '{val}'" if val else ""
+            raise Exception(f"parameter '{key}' expected file upload but received text field{hint}; use curl -F '{key}=@/path/to/file'")
+        if is_required:
+            if val is None:
+                raise Exception(f"parameter '{key}' missing")
+            if isinstance(val, str) and not val.strip():
+                raise Exception(f"parameter '{key}' cannot be empty")
+        if val is not None:
+            try:
+                if dtype.startswith("list:") and ":" in dtype:
+                    inner_type = dtype.split(":")[1]
+                    val_list = TYPE_MAP["list"](val)
+                    val = [TYPE_MAP[inner_type](x) for x in val_list]
+                else:
+                    val = TYPE_MAP[dtype](val)
+            except Exception:
+                raise Exception(f"parameter '{key}' invalid type {dtype}") from None
+        if is_required:
+            if dtype == "file" and (not isinstance(val, list) or len(val) == 0):
+                raise Exception(f"parameter '{key}' missing or invalid file upload")
+            if dtype == "list" and (not isinstance(val, list) or len(val) == 0):
+                 raise Exception(f"parameter '{key}' missing or empty list")
+        if val is not None and allowed_values is not None and val not in allowed_values: raise Exception(f"parameter '{key}' value not allowed, allowed: {allowed_values}")
+        if val is not None:
+            for bound, operator in (("minimum", "lower"), ("maximum", "upper")):
+                limit = param_spec.get(bound)
+                if limit is not None:
+                    if isinstance(val, bool) or not isinstance(val, (int, float)):
+                        raise Exception(f"parameter '{key}' {bound} requires a number")
+                    if (operator == "lower" and not val >= limit) or (operator == "upper" and not val <= limit):
+                        raise Exception(f"parameter '{key}' violates {bound} {limit}")
+            for bound, operator in (("min_length", "lower"), ("max_length", "upper")):
+                limit = param_spec.get(bound)
+                if limit is not None:
+                    if not isinstance(val, (str, list, dict)):
+                        raise Exception(f"parameter '{key}' {bound} requires text, a list or an object")
+                    if (operator == "lower" and len(val) < limit) or (operator == "upper" and len(val) > limit):
+                        raise Exception(f"parameter '{key}' violates {bound} {limit}")
+        output_dict[key] = val
+    return output_dict
+
+def func_attach_user_audit_fields(*, request: Request, obj_list: list, field: str = "created_by_id") -> list:
+    """Inject current user ID into payload objects for audit field tracking."""
+    user_id = getattr(getattr(request, "state", None), "user", {}).get("id")
+    if user_id:
+        return [dict(item, **{field: user_id}) for item in obj_list]
+    return obj_list
+
+async def func_extract_request_object_list(*, request: Request) -> list:
+    """Extract single or batch object payload list from request body."""
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", strict=False, param_specs=[])
+    return ob.get("obj_list", [ob])
+
+async def func_converter_number(*, datatype: str, mode: str, x: str) -> Any:
+    """Encodes a string to an integer or decodes an integer to a string based on base-39 charset mapping."""
+    type_limits = {"smallint": 2, "int": 5, "bigint": 11}
+    charset = "abcdefghijklmnopqrstuvwxyz0123456789_-.@#"
+    if datatype not in type_limits: raise ValueError(f"invalid type: {datatype}, allowed: {list(type_limits.keys())}")
+    base = len(charset)
+    max_len = type_limits[datatype]
+    if mode == "encode":
+        val_str = str(x)
+        val_len = len(val_str)
+        if val_len > max_len: raise ValueError(f"input too long {val_len} > {max_len}")
+        result_num = val_len
+        for char in val_str:
+            char_idx = charset.find(char)
+            if char_idx == -1: raise ValueError("invalid character in input")
+            result_num = result_num * base + char_idx
+        return result_num
+    if mode == "decode":
+        try: num_val = int(x)
+        except Exception: raise ValueError("invalid integer for decoding") from None
+        decoded_chars = []
+        while num_val > 0:
+            num_val, reminder = divmod(num_val, base)
+            decoded_chars.append(charset[reminder])
+        return "".join(decoded_chars[::-1][1:]) if decoded_chars else ""
+    raise ValueError(f"invalid mode: {mode}")

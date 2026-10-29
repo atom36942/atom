@@ -1,0 +1,18 @@
+# Lint config for Atom (https://docs.astral.sh/ruff/). Run: venv/bin/ruff check .
+target-version = "py314"
+
+[lint]
+# F: unused imports and variables, undefined names, duplicate keys.
+# E9: syntax errors. B: common bug patterns. ASYNC: blocking calls inside async code.
+# S: security risks. A reviewed, safe case keeps a "# noqa: <rule> - <reason>" comment so new cases still get flagged.
+# UP: current Python syntax. C4, SIM, RET50x: simpler comprehensions, conditions and returns.
+select = ["F", "E9", "B", "ASYNC", "S", "UP", "C4", "SIM", "RET501", "RET502", "RET505"]
+# C408: dict(a=1) reads as well as {"a": 1}. SIM102, SIM117: nested if/with blocks stay readable. SIM112: config_* environment names are lowercase by design. SIM118: .keys() also serves non-dict mappings (asyncpg records iterate values).
+ignore = ["C408", "SIM102", "SIM112", "SIM117", "SIM118"]
+
+[lint.per-file-ignores]
+# Tests use fixed fake secrets, temp paths, asserts, subprocesses and eval on their own fixtures.
+"tests/**" = ["S101", "S105", "S106", "S108", "S307", "S603", "S607"]
+# Project code is the developer's own: synced lint rules stay at F/E9 there, so a sync never breaks a project's CI.
+"*_extend/**" = ["B", "ASYNC", "S", "UP", "C4", "SIM", "RET"]
+"config_extend.py" = ["B", "ASYNC", "S", "UP", "C4", "SIM", "RET"]

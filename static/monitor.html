@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Monitor</title>
+<style>
+:root{--bg:#0b0d10;--card:#0f1114;--panel:#1a1d23;--field:#14171c;--line:rgba(255,255,255,.08);--text:#e6eef3;--muted:#9aa0a6;--primary:#38a169;--accent:#4299e1;--warn:#ed8936;--danger:#f87171;--mono:"SF Mono",Menlo,monospace}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:Inter,system-ui;line-height:1.5}
+[hidden]{display:none!important}
+.wrap{max-width:1100px;margin:0 auto;padding:32px 20px 48px}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+h1{margin:0;font-size:22px;font-weight:700}
+.sub{margin:2px 0 0;color:var(--muted);font-size:13px}
+.actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+button,select,input{font:inherit;font-size:13px;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:8px;height:34px;padding:0 12px}
+button{cursor:pointer;transition:border-color .15s,background .15s}
+button:hover:not(:disabled){border-color:rgba(66,153,225,.5);background:var(--panel)}
+button:disabled{opacity:.5;cursor:default}
+button.primary{background:rgba(56,161,105,.12);border-color:rgba(56,161,105,.35);color:var(--primary)}
+button.danger{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.3);color:var(--danger)}
+select{padding-right:8px;cursor:pointer}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+/* account menu, same as api.html: avatar with the first letter, then who is logged in and Log out */
+.profile{position:relative;display:flex}
+.profile-avatar{width:24px;height:24px;margin:5px;border-radius:50%;border:none;padding:0;background:var(--accent);color:#fff;font-family:inherit;font-size:12px;font-weight:700;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.profile-avatar:hover:not(:disabled),.profile-avatar[aria-expanded="true"]{background:var(--accent);border-color:transparent;box-shadow:0 0 0 3px rgba(66,153,225,.35)}
+.profile-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;width:280px;padding:14px;border-radius:12px;background:var(--panel);border:1px solid var(--line);box-shadow:0 12px 32px rgba(0,0,0,.45);text-align:left}
+.profile-menu h4{margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.profile-menu dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0 0 12px;padding-bottom:12px;border-bottom:1px solid var(--line);font-size:12px}
+.profile-menu dt{color:var(--muted)}
+.profile-menu dd{margin:0;color:var(--text);font-weight:600;overflow-wrap:anywhere}
+.profile-menu button.logout{width:100%;height:auto;padding:8px;border-radius:8px;border:none;background:rgba(248,113,113,.1);color:var(--danger);font-size:12px;font-weight:600}
+.profile-menu button.logout:hover:not(:disabled){background:rgba(248,113,113,.18);border-color:transparent}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px;border-bottom:1px solid var(--line)}
+.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+.tab{height:38px;padding:0 14px;border:none;border-bottom:2px solid transparent;border-radius:0;background:none;color:var(--muted);font-weight:600;white-space:nowrap}
+.tab:hover:not(:disabled){background:none;border-color:transparent;border-bottom-color:var(--line);color:var(--text)}
+.tab.active,.tab.active:hover:not(:disabled){color:var(--text);border-bottom-color:var(--accent)}
+.filters{display:flex;gap:8px;padding-bottom:8px}
+.tab-note{margin:-6px 0 16px;color:var(--muted);font-size:13px}
+.tab-note b{color:var(--text);font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow-x:auto;margin-bottom:18px}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.card-head h2{margin:0;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.card-head .note{color:var(--muted);font-size:12px}
+.card-body{padding:16px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.tile .label{color:var(--muted);font-size:12px}
+.tile .value{font-size:22px;font-weight:700;line-height:1.3;overflow-wrap:anywhere}
+.tile .value.bad{color:var(--danger)}
+.tile .hint{color:var(--muted);font-size:11px}
+.meter{height:6px;margin-top:8px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden}
+.meter span{display:block;height:100%;background:var(--accent);border-radius:3px}
+.meter span.high{background:var(--warn)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{padding:9px 16px;text-align:left;font-size:12px;font-weight:600;color:var(--accent);border-bottom:1px solid rgba(255,255,255,.1);white-space:nowrap}
+td{padding:8px 16px;border-bottom:1px solid rgba(255,255,255,.05);white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:rgba(255,255,255,.03)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.mono{font-family:var(--mono);font-size:12px}
+.muted{color:var(--muted)}
+.bad{color:var(--danger)}
+.share{width:30%;min-width:120px}
+.bar{height:6px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden}
+.bar span{display:block;height:100%;background:var(--accent)}
+.wrap-text{white-space:normal;overflow-wrap:anywhere;min-width:240px}
+.file{max-width:0;width:100%;overflow:hidden;text-overflow:ellipsis}
+.empty{padding:18px 16px;color:var(--muted);font-size:13px}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;background:rgba(255,255,255,.06);color:var(--muted)}
+.pill.ok{background:rgba(56,161,105,.15);color:var(--primary)}
+.pill.bad{background:rgba(248,113,113,.15);color:var(--danger)}
+.pill.warn{background:rgba(237,137,54,.15);color:var(--warn)}
+.chart{display:flex;align-items:flex-end;gap:2px;height:120px;padding:16px 16px 0}
+.chart .col{flex:1;min-width:2px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;border-radius:2px 2px 0 0}
+.chart .col:hover{background:rgba(255,255,255,.04)}
+.chart .ok{background:var(--accent);border-radius:2px 2px 0 0}
+.chart .err{background:var(--danger)}
+.axis{display:flex;justify-content:space-between;padding:6px 16px 12px;color:var(--muted);font-size:11px}
+.legend{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px 14px;color:var(--muted);font-size:12px}
+.legend span{white-space:nowrap}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.message{margin-bottom:18px;padding:12px 16px;border-radius:10px;font-size:13px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--danger)}
+.info{margin-bottom:18px;padding:12px 16px;border-radius:10px;font-size:13px;background:var(--card);border:1px solid var(--line);color:var(--muted)}
+.login{max-width:360px;margin:12vh auto 0}
+.login form{display:flex;flex-direction:column;gap:12px}
+.login label{display:flex;flex-direction:column;gap:4px;color:var(--muted);font-size:12px}
+.login input{height:40px;font-size:14px}
+.login input:disabled{color:var(--muted);background:rgba(255,255,255,.02);cursor:not-allowed}
+.login button{height:40px}
+.login p{margin:0 0 4px;color:var(--muted);font-size:13px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.two>*{min-width:0}
+.search{height:28px;width:200px}
+@media (max-width:760px){.two{grid-template-columns:1fr}.share{display:none}.wrap{padding:20px 16px 40px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="login card" id="loginView" hidden>
+    <div class="card-head"><h2>Monitor · admin login</h2></div>
+    <div class="card-body">
+      <form id="loginForm">
+        <p>Sign in with an admin account of this server.</p>
+        <label>Username<input id="username" autocomplete="username" required></label>
+        <label>Password<input id="password" type="password" autocomplete="current-password" required></label>
+        <label>Role<input id="role" value="1" disabled title="This page is for admins (role 1) only"></label>
+        <button type="submit" class="primary" id="loginBtn">Log in</button>
+        <div class="message" id="loginError" hidden></div>
+      </form>
+    </div>
+  </section>
+
+  <div id="appView" hidden>
+    <header>
+      <div>
+        <h1>Monitor</h1>
+        <p class="sub" id="subtitle">Loading...</p>
+      </div>
+      <div class="actions">
+        <button type="button" class="primary" id="refreshBtn">Refresh</button>
+        <div class="profile" id="profile">
+          <button type="button" class="profile-avatar" id="profileAvatar" aria-haspopup="true" aria-expanded="false" aria-label="Account"></button>
+          <div class="profile-menu" id="profileMenu" role="menu" hidden>
+            <h4>Logged in</h4>
+            <dl>
+              <dt>Username</dt><dd id="profileName"></dd>
+              <dt>Role</dt><dd id="profileRole"></dd>
+              <dt>Access token</dt><dd id="profileAccess"></dd>
+              <dt>Refresh token</dt><dd id="profileRefresh"></dd>
+            </dl>
+            <button type="button" class="logout" id="logoutBtn" role="menuitem">Log out</button>
+          </div>
+        </div>
+      </div>
+    </header>
+    <div class="toolbar">
+      <nav class="tabs" id="tabs">
+        <button type="button" class="tab" data-tab="memory">Memory</button>
+        <button type="button" class="tab" data-tab="requests">Requests</button>
+        <button type="button" class="tab" data-tab="errors">Errors</button>
+        <button type="button" class="tab" data-tab="database">Database</button>
+        <button type="button" class="tab" data-tab="background">Background</button>
+        <button type="button" class="tab" data-tab="app">App</button>
+      </nav>
+      <div class="filters">
+        <select id="hoursSelect" aria-label="Time range" hidden><option value="1">Last hour</option><option value="24">Last 24 hours</option><option value="168">Last 7 days</option></select>
+        <select id="connectionSelect" aria-label="Connection" hidden></select>
+      </div>
+    </div>
+    <p class="tab-note" id="tabNote"></p>
+    <div class="message" id="error" hidden></div>
+    <div id="view"></div>
+  </div>
+</div>
+<script>
+// this page keeps its own login, user and choices under the "monitor" key, so it works without any other page
+const STORAGE_KEY = "monitor";
+const TABS = ["memory", "requests", "errors", "database", "background", "app"];
+// what each tab shows and for which scope: one worker (this process) or the whole server/database
+const TAB_NOTES = {
+  memory: "RAM of <b>the server worker that answered</b>: what it holds in memory. Sizes and counts only, never values.",
+  requests: "Every API request saved in <b>log_api</b> for the chosen range, from <b>all workers</b>.",
+  errors: "Requests that failed (status 400 and above) saved in <b>log_api</b> for the chosen range, from <b>all workers</b>. Background failures are on the Background tab.",
+  database: "Live statistics read from <b>PostgreSQL</b>. Connection pools are <b>this worker's</b>; everything else is for the <b>whole database</b>.",
+  background: "Work <b>the server worker that answered</b> does outside requests. Counters start at zero when the server restarts.",
+  app: "What <b>this server</b> runs and how it is configured. Secrets and connection URLs only show whether they are set.",
+};
+const $ = id => document.getElementById(id);
+const he = v => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const readStore = () => {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    return data && typeof data === "object" && !Array.isArray(data) ? data : {};
+  } catch { return {} }
+};
+const writeStore = patch => {
+  const data = { ...readStore(), ...patch };
+  Object.keys(data).forEach(key => { if (data[key] === undefined) delete data[key] });
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)) } catch {}
+};
+const formatBytes = n => {
+  if (n == null) return "—";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let i = 0;
+  while (Math.abs(n) >= 1024 && i < units.length - 1) { n /= 1024; i++ }
+  return `${n.toFixed(i && n < 10 ? 1 : 0)} ${units[i]}`;
+};
+const formatDuration = sec => {
+  const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
+  return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : m ? `${m}m ${sec % 60}s` : `${sec}s`;
+};
+const formatNumber = n => n == null ? "—" : Number(n).toLocaleString();
+const formatMs = n => n == null ? "—" : `${Number(n).toLocaleString()} ms`;
+const formatTime = value => value ? new Date(typeof value === "number" ? value * 1000 : value).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—";
+const showError = (el, text) => { el.textContent = text || ""; el.hidden = !text };
+
+// login: the server's own username/password login; the token is stored for this page only
+const showLogin = message => {
+  $("appView").hidden = true;
+  $("loginView").hidden = false;
+  showError($("loginError"), message);
+  $("username").focus();
+};
+const api = async (path, options = {}) => {
+  const token = readStore().token?.access_token;
+  if (!token) throw Object.assign(new Error("Not logged in"), { status: 401 });
+  const response = await fetch(path, { ...options, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...options.headers } });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || body.status !== 1) throw Object.assign(new Error(body.message || response.statusText), { status: response.status });
+  return body.message;
+};
+$("loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("loginBtn").disabled = true;
+  showError($("loginError"), "");
+  try {
+    const response = await fetch("/auth/login-username-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: $("username").value.trim(), password: $("password").value, role: Number($("role").value) }) });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body.status !== 1 || !body.message?.access_token) throw new Error(body.message || "Login failed");
+    writeStore({ token: body.message, username: $("username").value.trim(), user: undefined, user_at: undefined });
+    $("password").value = "";
+    await profileLoad(true);
+    start();
+  } catch (error) {
+    showError($("loginError"), error.message);
+  } finally {
+    $("loginBtn").disabled = false;
+  }
+});
+const logOut = message => {
+  writeStore({ token: undefined, username: undefined, user: undefined, user_at: undefined });
+  menuToggle(false);
+  showLogin(message);
+};
+$("logoutBtn").addEventListener("click", () => logOut(""));
+
+// account menu: avatar with the user's first letter; the menu lists who is logged in and when the tokens expire
+const tokenExpiresAt = token => {
+  try {
+    const part = String(token).split(".")[1];
+    const payload = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "=")));
+    return typeof payload.exp === "number" ? payload.exp : null;
+  } catch { return null }
+};
+const formatExpiry = sec => sec == null ? "—" : `expires ${new Date(sec * 1000).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`;
+const renderProfile = () => {
+  const store = readStore(), user = store.user || {}, name = String(user.username || store.username || user.email || user.mobile || "unknown");
+  $("profileAvatar").textContent = (name[0] || "?").toUpperCase();
+  $("profileAvatar").title = `${name} · role ${user.role ?? "unknown"}`;
+  $("profileName").textContent = name;
+  $("profileRole").textContent = user.role ?? "unknown";
+  $("profileAccess").textContent = formatExpiry(tokenExpiresAt(store.token?.access_token));
+  $("profileRefresh").textContent = formatExpiry(tokenExpiresAt(store.token?.refresh_token));
+};
+const menuToggle = open => {
+  const isOpen = open ?? $("profileMenu").hidden;
+  $("profileMenu").hidden = !isOpen;
+  $("profileAvatar").setAttribute("aria-expanded", String(isOpen));
+};
+$("profileAvatar").addEventListener("click", e => { e.stopPropagation(); menuToggle() });
+$("profileMenu").addEventListener("click", e => e.stopPropagation());
+document.addEventListener("click", () => menuToggle(false));
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("profileMenu").hidden) { menuToggle(false); $("profileAvatar").focus() } });
+// the user object (GET /my/profile), saved with the token and read again when it is over 3 hours old
+const PROFILE_MAX_AGE_MS = 3 * 3600 * 1000;
+const profileLoad = async (force = false) => {
+  const store = readStore();
+  if (!store.token?.access_token || (!force && store.user && Date.now() - (store.user_at || 0) < PROFILE_MAX_AGE_MS)) return;
+  try { writeStore({ user: await api("/my/profile"), user_at: Date.now() }) } catch { /* keep the saved user; sessionCheck handles an expired login */ }
+  renderProfile();
+};
+// keep the login alive on its own: under 5 minutes left → new tokens from the refresh token;
+// refresh token expired or refused → logged out, as if never logged in. A network failure keeps the token and tries again at the next check.
+const EXPIRED = "Your login has expired. Please log in again.";
+let isSessionChecking = false;
+const sessionCheck = async () => {
+  const store = readStore(), now = Date.now() / 1000;
+  if (isSessionChecking || !store.token?.access_token) return;
+  const exp = tokenExpiresAt(store.token.access_token);
+  if (exp != null && exp - now <= 300) {
+    const refreshExp = tokenExpiresAt(store.token.refresh_token);
+    if (refreshExp == null || refreshExp <= now) return logOut(EXPIRED);
+    isSessionChecking = true;
+    try {
+      const response = await fetch("/my/token-refresh", { method: "POST", headers: { Authorization: `Bearer ${store.token.refresh_token}` } });
+      const body = await response.json().catch(() => ({}));
+      if (response.ok && body.status === 1 && body.message?.access_token) writeStore({ token: body.message });
+      else if (response.status === 401 || response.status === 403) return logOut(EXPIRED);
+    } catch { /* offline or server down: keep the token, try again at the next check */ }
+    finally { isSessionChecking = false }
+  }
+  await profileLoad();
+  renderProfile();
+};
+document.addEventListener("visibilitychange", () => { if (!document.hidden) sessionCheck() });
+setInterval(sessionCheck, 60000);
+
+// building blocks
+const tile = (label, value, hint = "", percent = null, isBad = false) => `<div class="tile"><div class="label">${he(label)}</div><div class="value${isBad ? " bad" : ""}">${he(value)}</div>${hint ? `<div class="hint">${he(hint)}</div>` : ""}${percent == null ? "" : `<div class="meter"><span class="${percent >= 85 ? "high" : ""}" style="width:${Math.min(100, percent)}%"></span></div>`}</div>`;
+const tiles = list => `<div class="tiles">${list.join("")}</div>`;
+const rows = (list, render, empty, columns) => list.length ? list.map(render).join("") : `<tr><td colspan="${columns}" class="empty">${empty}</td></tr>`;
+// one card with a table: heads are [label, "num"?] pairs
+const table = (title, heads, list, render, empty, note = "") => `<section class="card"><div class="card-head"><h2>${he(title)}</h2>${note ? `<span class="note">${note}</span>` : ""}</div><table><thead><tr>${heads.map(([label, cls]) => `<th${cls ? ` class="${cls}"` : ""}>${he(label)}</th>`).join("")}</tr></thead><tbody>${rows(list, render, empty, heads.length)}</tbody></table></section>`;
+const info = html => `<div class="info">${html}</div>`;    // html: callers escape server values with he()
+const shareBar = (part, total) => `<div class="bar"><span style="width:${total ? part / total * 100 : 0}%"></span></div>`;
+const statusPill = code => `<span class="pill ${code >= 500 ? "bad" : code >= 400 ? "warn" : "ok"}">${he(code)}</span>`;
+const apiPath = (method, path) => `<span class="muted">${he(method)}</span> <span class="mono">${he(path)}</span>`;
+const LOG_OFF = info("API logging is off: this server has no <span class=\"mono\">log_api</span> database (<span class=\"mono\">config_postgres_db_log_api</span>), so there are no requests to show.");
+
+// memory: this worker's RAM and what holds it; kind comes from the app_state name prefix
+const KIND_CLASS = { cache: "ok", buffer: "warn", other: "bad" };
+const KIND_HELP = { cache: "kept for reuse; rebuilt if lost", buffer: "rows waiting to be written; lost if the server crashes", runtime: "live process state: tasks, locks, counters", config: "settings", extend: "the project's own data (func_extend)", other: "no known prefix: name it cache_, buffer_ or runtime_, or keep it in app_state.extend" };
+const renderMemory = report => {
+  const p = report.process, sys = report.system;
+  const ramShare = sys.total_bytes ? p.rss_bytes / sys.total_bytes * 100 : null;
+  const stateTotal = report.app_state.reduce((sum, item) => sum + item.bytes, 0);
+  const trace = report.trace;
+  return tiles([
+    tile("Process RAM (RSS)", formatBytes(p.rss_bytes), ramShare == null ? "" : `${ramShare.toFixed(1)}% of this machine`, ramShare),
+    tile("Peak RAM", formatBytes(p.peak_rss_bytes), "highest RSS since start"),
+    tile("Machine memory", `${sys.used_percent}%`, `used · ${formatBytes(sys.available_bytes)} free of ${formatBytes(sys.total_bytes)}`, sys.used_percent),
+    tile("App data", formatBytes(stateTotal), "caches, buffers and settings below"),
+    tile("Uptime", formatDuration(p.uptime_sec), `${p.threads} threads`),
+    tile("CPU time", `${(p.cpu_user_sec + p.cpu_system_sec).toFixed(1)} s`, `user ${p.cpu_user_sec} s · system ${p.cpu_system_sec} s`),
+  ]) + table("App in-memory data", [["Name"], ["Kind"], ["Type"], ["Entries", "num"], ["Size", "num"], ["Share", "share"]], report.app_state,
+    item => `<tr><td class="mono">${he(item.name)}</td><td><span class="pill ${KIND_CLASS[item.kind] ?? ""}" title="${he(KIND_HELP[item.kind] ?? "")}">${he(item.kind)}</span></td><td class="muted">${he(item.type)}</td><td class="num">${item.entries == null ? "—" : item.entries.toLocaleString()}</td><td class="num" title="${item.bytes.toLocaleString()} bytes">${item.is_partial ? "≥ " : ""}${formatBytes(item.bytes)}</td><td class="share">${shareBar(item.bytes, stateTotal)}</td></tr>`,
+    "No in-memory data.", `${formatBytes(stateTotal)} in ${report.app_state.length} items`)
+  + `<div class="two">${table("Python objects", [["Type"], ["Count", "num"], ["Size", "num"]], report.objects.top, o => `<tr><td class="mono">${he(o.type)}</td><td class="num">${o.count.toLocaleString()}</td><td class="num">${formatBytes(o.bytes)}</td></tr>`, "No objects.", `${report.objects.tracked.toLocaleString()} tracked`)}<div>`
+  + table("Garbage collector", [["Generation"], ["Collections", "num"], ["Collected", "num"], ["Uncollectable", "num"]], report.objects.gc, g => `<tr><td>${g.generation}</td><td class="num">${g.collections.toLocaleString()}</td><td class="num">${g.collected.toLocaleString()}</td><td class="num">${g.uncollectable}</td></tr>`, "—")
+  + `</div></div><section class="card"><div class="card-head"><h2>Allocation tracing</h2><div class="actions">${trace.is_tracing ? `<span class="note">${formatBytes(trace.traced_bytes)} traced (peak ${formatBytes(trace.traced_peak_bytes)}) · stops ${new Date(trace.stops_at * 1000).toLocaleTimeString()}</span><button type="button" class="danger" data-trace="stop">Stop</button>` : `<button type="button" class="primary" data-trace="start">Start (5 min)</button>`}</div></div>`
+  + (trace.is_tracing
+    ? `<table><thead><tr><th>File</th><th class="num">Line</th><th class="num">Size</th><th class="num">Blocks</th></tr></thead><tbody>${rows(trace.top, t => `<tr><td class="mono file" title="${he(t.file)}">${he(t.file)}</td><td class="num">${t.line}</td><td class="num">${formatBytes(t.bytes)}</td><td class="num">${t.count.toLocaleString()}</td></tr>`, "Nothing allocated since tracing started.", 4)}</tbody></table>`
+    : `<div class="empty">Off. Tracing shows which source lines allocated the memory still in use. It slows this worker while on, and stops by itself after 5 minutes.</div>`)
+  + `</section>`;
+};
+
+// requests: traffic from log_api
+const renderRequests = report => {
+  if (!report.is_enabled) return LOG_OFF;
+  const t = report.totals, failed = t.errors_4xx + t.errors_5xx;
+  const peak = Math.max(1, ...report.timeline.map(b => b.requests));
+  const label = b => new Date(b.bucket).toLocaleString([], report.unit === "minute" ? { hour: "2-digit", minute: "2-digit" } : { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  const first = report.timeline[0], last = report.timeline[report.timeline.length - 1];
+  const statusTotal = report.statuses.reduce((sum, s) => sum + s.requests, 0);
+  return tiles([
+    tile("Requests", formatNumber(t.requests), report.hours === 1 ? `${(t.requests / 60).toFixed(1)} per minute` : `${(t.requests / report.hours).toFixed(1)} per hour`),
+    tile("Error rate", t.requests ? `${(failed / t.requests * 100).toFixed(1)}%` : "—", `${formatNumber(t.errors_5xx)} server · ${formatNumber(t.errors_4xx)} client`, null, t.errors_5xx > 0),
+    tile("Avg response", formatMs(t.avg_ms), "all requests"),
+    tile("p95 response", formatMs(t.p95_ms), "95% are faster"),
+    tile("Users", formatNumber(t.users), "signed-in users seen"),
+  ])
+  + `<section class="card"><div class="card-head"><h2>Requests over time</h2><span class="legend"><span><i style="background:var(--accent)"></i>OK</span><span><i style="background:var(--danger)"></i>Failed</span><span>per ${report.unit}</span></span></div>`
+  + `<div class="chart">${report.timeline.map(b => `<div class="col" title="${he(label(b))}: ${b.requests} requests, ${b.errors} failed${b.avg_ms == null ? "" : `, avg ${b.avg_ms} ms`}"><div class="err" style="height:${b.errors / peak * 100}%"></div><div class="ok" style="height:${(b.requests - b.errors) / peak * 100}%"></div></div>`).join("")}</div>`
+  + `<div class="axis"><span>${first ? he(label(first)) : ""}</span><span>peak ${formatNumber(peak)}</span><span>${last ? he(label(last)) : ""}</span></div></section>`
+  + table("Busiest APIs", [["API"], ["Requests", "num"], ["Failed", "num"], ["Avg", "num"], ["p95", "num"], ["Max", "num"]], report.paths,
+    r => `<tr><td>${apiPath(r.method, r.path)}</td><td class="num">${formatNumber(r.requests)}</td><td class="num${r.errors ? " bad" : ""}">${formatNumber(r.errors)}</td><td class="num">${formatMs(r.avg_ms)}</td><td class="num">${formatMs(r.p95_ms)}</td><td class="num">${formatMs(r.max_ms)}</td></tr>`, "No requests in this range.")
+  + table("Slowest APIs (by p95)", [["API"], ["Requests", "num"], ["Avg", "num"], ["p95", "num"], ["Max", "num"]], report.slowest,
+    r => `<tr><td>${apiPath(r.method, r.path)}</td><td class="num">${formatNumber(r.requests)}</td><td class="num">${formatMs(r.avg_ms)}</td><td class="num">${formatMs(r.p95_ms)}</td><td class="num">${formatMs(r.max_ms)}</td></tr>`, "No requests in this range.")
+  + `<div class="two">${table("Status codes", [["Status"], ["Requests", "num"], ["Share", "share"]], report.statuses, s => `<tr><td>${statusPill(s.status_code)}</td><td class="num">${formatNumber(s.requests)}</td><td class="share">${shareBar(s.requests, statusTotal)}</td></tr>`, "No requests in this range.")}`
+  + `${table("Most active users", [["User id"], ["Requests", "num"], ["Failed", "num"], ["Last seen"]], report.users, u => `<tr><td class="mono">${he(u.user_id)}</td><td class="num">${formatNumber(u.requests)}</td><td class="num${u.errors ? " bad" : ""}">${formatNumber(u.errors)}</td><td class="muted">${formatTime(u.last_at)}</td></tr>`, "No signed-in requests in this range.")}</div>`;
+};
+
+// errors: failed requests and background failures
+const renderErrors = report => {
+  if (!report.is_enabled) return LOG_OFF;
+  const failed = report.groups.reduce((sum, g) => sum + g.requests, 0), server = report.groups.filter(g => g.status_code >= 500).reduce((sum, g) => sum + g.requests, 0);
+  return tiles([
+    tile("Failed requests", formatNumber(failed), "status 400 and above", null, failed > 0),
+    tile("Server errors", formatNumber(server), "status 500 and above: a bug or an outage", null, server > 0),
+    tile("Client errors", formatNumber(failed - server), "status 400–499: bad input, login or permission"),
+    tile("Failing APIs", formatNumber(new Set(report.groups.map(g => `${g.method} ${g.path}`)).size), "distinct method and path"),
+  ])
+  + table("Failing APIs", [["API"], ["Status"], ["Count", "num"], ["Last seen"], ["Last error"]], report.groups,
+    g => `<tr><td>${apiPath(g.method, g.path)}</td><td>${statusPill(g.status_code)}</td><td class="num">${formatNumber(g.requests)}</td><td class="muted">${formatTime(g.last_at)}</td><td class="wrap-text muted">${he(g.last_error || "—")}</td></tr>`, "No failed requests in this range.")
+  + table("Latest failed requests", [["Time"], ["API"], ["Status"], ["User id"], ["Time taken", "num"], ["Error"]], report.latest,
+    r => `<tr><td class="muted">${formatTime(r.created_at)}</td><td>${apiPath(r.method, r.path)}</td><td>${statusPill(r.status_code)}</td><td class="mono">${he(r.user_id ?? "—")}</td><td class="num">${formatMs(r.response_time_ms)}</td><td class="wrap-text muted">${he(r.error || "—")}</td></tr>`, "No failed requests in this range.");
+};
+
+// database: pools, size, activity and tables
+const renderDatabase = report => {
+  const names = report.pools.map(p => p.name), select = $("connectionSelect");
+  select.innerHTML = names.map(n => `<option value="${he(n)}">${he(n)}</option>`).join("");
+  select.value = report.connection;
+  select.hidden = false;    // always shown, so the tab says which connection it reads
+  const pools = table("Connection pools (this worker)", [["Connection"], ["Open", "num"], ["In use", "num"], ["Idle", "num"], ["Min", "num"], ["Max", "num"], ["Use", "share"]], report.pools,
+    p => `<tr><td class="mono">${he(p.name)}${p.is_log_api ? ` <span class="pill">log_api</span>` : ""}</td><td class="num">${p.size}</td><td class="num">${p.size - p.idle}</td><td class="num">${p.idle}</td><td class="num">${p.min}</td><td class="num">${p.max}</td><td class="share">${shareBar(p.size - p.idle, p.max)}</td></tr>`, "No PostgreSQL connections configured.");
+  if (!report.is_enabled) return info(`No PostgreSQL connection named <span class="mono">${he(report.connection)}</span>.`) + pools;
+  const i = report.info, slow = report.slow_queries;
+  const where = i.host ? `${he(i.host.includes(":") ? `[${i.host}]` : i.host)}:${he(i.port)}` : "a local socket";
+  return info(`Connection <b class="mono">${he(report.connection)}</b> → database <b class="mono">${he(i.name)}</b> on <b class="mono">${where}</b> · user <span class="mono">${he(i.user_name)}</span> · PostgreSQL ${he(String(i.version).split(" ")[0])}${report.pools.find(p => p.name === report.connection)?.is_log_api ? " · <b>log_api</b> is written here" : ""}`)
+  + tiles([
+    tile("Database size", formatBytes(i.size_bytes), "tables, indexes and their history"),
+    tile("Connections", `${i.connections} / ${i.max_connections}`, "server-wide, all apps", i.connections / i.max_connections * 100),
+    tile("Cache hit", i.cache_hit_percent == null ? "—" : `${i.cache_hit_percent}%`, "reads served from memory; aim for 99%", null, i.cache_hit_percent != null && i.cache_hit_percent < 95),
+    tile("Waiting locks", formatNumber(i.locks_waiting), "queries blocked by another", null, i.locks_waiting > 0),
+    tile("Long queries", formatNumber(report.long_queries.length), "running over 5 seconds", null, report.long_queries.length > 0),
+  ])
+  + `<div class="two">${pools}${table("Connections to this database, by state", [["State"], ["Connections", "num"]], report.states, s => `<tr><td>${he(s.state)}</td><td class="num">${s.connections}</td></tr>`, "No connections.")}</div>`
+  + table("Long-running queries (over 5 s)", [["PID", "num"], ["User"], ["State"], ["Waiting on"], ["Running", "num"], ["Query"]], report.long_queries,
+    q => `<tr><td class="num">${q.pid}</td><td>${he(q.user_name)}</td><td>${he(q.state)}</td><td class="muted">${he(q.wait_event_type || "—")}</td><td class="num">${formatDuration(q.running_sec)}</td><td class="mono wrap-text">${he(q.query)}</td></tr>`, "None right now.")
+  + table("Biggest tables", [["Table"], ["Rows", "num"], ["Dead rows", "num"], ["Size", "num"], ["Seq scans", "num"], ["Index scans", "num"], ["Vacuumed"]], report.tables,
+    t => `<tr><td class="mono">${he(t.name)}</td><td class="num">${formatNumber(t.rows)}</td><td class="num${t.dead_rows > t.rows * 0.2 && t.dead_rows > 1000 ? " bad" : ""}">${formatNumber(t.dead_rows)}</td><td class="num">${formatBytes(t.size_bytes)}</td><td class="num">${formatNumber(t.seq_scan)}</td><td class="num">${formatNumber(t.idx_scan)}</td><td class="muted">${formatTime(t.vacuumed_at)}</td></tr>`, "No tables.")
+  + (slow.is_enabled
+    ? table("Most expensive statements", [["Calls", "num"], ["Total", "num"], ["Mean", "num"], ["Share", "num"], ["Query"]], slow.query_list,
+      q => `<tr><td class="num">${formatNumber(q.calls)}</td><td class="num">${formatMs(Math.round(q.total_ms))}</td><td class="num">${formatMs(q.mean_ms)}</td><td class="num">${q.share_pct}%</td><td class="mono wrap-text">${he(q.query)}</td></tr>`, "No statements yet.", slow.since ? `since ${formatTime(slow.since)}` : "")
+    : info(`Most expensive statements: ${he(slow.help || "pg_stat_statements is not enabled.")}`));
+};
+
+// background: work outside requests
+const renderBackground = report => {
+  const buffered = report.buffers.reduce((sum, b) => sum + b.rows, 0), failedJobs = report.failed_jobs;
+  const statusClass = { running: "ok", off: "", cancelled: "warn", finished: "warn", failed: "bad" };
+  return tiles([
+    tile("Buffered rows", formatNumber(buffered), "waiting to be written to PostgreSQL"),
+    tile("Background tasks", formatNumber(report.background_tasks_running), "?is_background=true requests running"),
+    tile("Websockets", formatNumber(report.websockets), "open connections"),
+    tile("Background errors", formatNumber(report.errors.reduce((sum, e) => sum + e.count, 0)), "this worker, since start", null, report.errors.some(e => e.count)),
+    tile("Failed queue jobs", formatNumber(failedJobs.count), failedJobs.updated_at ? `last ${formatTime(failedJobs.updated_at)}` : "none recorded", null, failedJobs.count > 0),
+  ])
+  + `<div class="two">${table("Periodic tasks", [["Task"], ["Status"]], report.tasks, t => `<tr><td>${he(t.name)}</td><td><span class="pill ${statusClass[t.status] ?? ""}">${he(t.status)}</span></td></tr>`, "No tasks.")}`
+  + `${table("Error counters", [["Counter"], ["Count", "num"]], report.errors, e => `<tr><td class="mono">${he(e.name)}</td><td class="num${e.count ? " bad" : ""}">${formatNumber(e.count)}</td></tr>`, "No counters.")}</div>`
+  + table("Write buffers", [["Buffer"], ["Table"], ["Rows", "num"], ["Of limit", "share"]], report.buffers,
+    b => `<tr><td>${he(b.buffer)}</td><td class="mono">${he(b.table)}</td><td class="num">${formatNumber(b.rows)}</td><td class="share">${shareBar(b.rows, report.buffer_rows_max)}</td></tr>`, "Empty: nothing waiting to be written.", report.buffer_rows_max ? `limit ${formatNumber(report.buffer_rows_max)} rows each` : "")
+  + table("Failed queue jobs (latest)", [["Time"], ["Queue"], ["Channel"], ["Error"]], failedJobs.latest,
+    j => `<tr><td class="muted">${formatTime(j.time)}</td><td>${he(j.queue)}</td><td class="mono">${he(j.channel)}</td><td class="wrap-text"><span class="bad">${he(j.error_type)}</span> <span class="muted">${he(j.error)}</span></td></tr>`, "No failed jobs in tmp/consumer_failed_payload.jsonl.", failedJobs.count ? `${formatNumber(failedJobs.count)} in total · ${formatBytes(failedJobs.size_bytes)}` : "");
+};
+
+// app: what this server runs
+const renderApp = report => {
+  const s = report.server, onCount = report.clients.filter(c => c.is_on).length;
+  const showValue = v => v === null ? `<span class="muted">null</span>` : typeof v === "boolean" ? `<span class="pill ${v ? "ok" : ""}">${v}</span>` : v === "set" ? `<span class="pill ok">set</span>` : v === "not set" ? `<span class="pill">not set</span>` : `<span class="mono">${he(typeof v === "object" ? JSON.stringify(v) : v)}</span>`;
+  return tiles([
+    tile("Python", s.python, s.platform),
+    tile("Workers", formatNumber(s.workers), `this one is pid ${s.pid}`),
+    tile("Mode", s.is_prod ? "Production" : "Development", s.is_read_only ? "read only" : "read and write"),
+    tile("Routes", formatNumber(s.routes), `${formatNumber(s.apis_configured)} in config_api`),
+    tile("Clients", `${onCount} / ${report.clients.length}`, "connected services"),
+  ])
+  + `<div class="two">${table("Clients", [["Client"], ["Status"]], report.clients, c => `<tr><td class="mono">${he(c.name)}${c.detail ? ` <span class="muted">(${he(c.detail)})</span>` : ""}</td><td><span class="pill ${c.is_on ? "ok" : ""}">${c.is_on ? "on" : "off"}</span></td></tr>`, "No clients.")}`
+  + `${table("Packages", [["Package"], ["Version"]], report.packages, p => `<tr><td class="mono">${he(p.name)}</td><td class="mono">${he(p.version)}</td></tr>`, "—")}</div>`
+  + table("Settings", [["Name"], ["Value"]], report.config, c => `<tr data-name="${he(c.name)}"><td class="mono">${he(c.name)}</td><td class="wrap-text">${showValue(c.value)}</td></tr>`, "No settings.", `<input class="search" type="search" placeholder="Filter settings" aria-label="Filter settings" data-filter>`);
+};
+
+// loading: one route, /admin/monitor?view=<tab>, loaded when its tab opens or Refresh is pressed
+const RENDER = { memory: renderMemory, requests: renderRequests, errors: renderErrors, database: renderDatabase, background: renderBackground, app: renderApp };
+let current = "memory", loading = false;
+const load = async (trace = "") => {
+  if (loading) return;
+  loading = true;
+  $("refreshBtn").disabled = true;
+  await sessionCheck();    // renew before the request, not after a 401
+  if (!readStore().token?.access_token) { loading = false; $("refreshBtn").disabled = false; return }
+  const store = readStore(), tab = current;
+  const params = new URLSearchParams({ view: tab });
+  if (trace) params.set("trace", trace);
+  if (tab === "requests" || tab === "errors") params.set("hours", String(store.hours || 24));
+  if (tab === "database" && store.connection) params.set("connection", store.connection);
+  try {
+    const report = await api(`/admin/monitor?${params}`);
+    if (tab !== current) return;
+    $("view").innerHTML = RENDER[tab](report);
+    const workers = tab === "memory" && report.process.workers > 1 ? ` · worker pid ${report.process.pid}, one of ${report.process.workers}: a refresh may reach another` : "";
+    $("subtitle").textContent = `Updated ${new Date().toLocaleTimeString()}${workers}`;
+    showError($("error"), "");
+  } catch (error) {
+    if (error.status === 401) return logOut(EXPIRED);
+    showError($("error"), error.status === 403 ? "This account is not an admin (role 1)." : `Could not load ${tab}: ${error.message}`);
+  } finally {
+    loading = false;
+    $("refreshBtn").disabled = false;
+  }
+};
+const openTab = tab => {
+  current = TABS.includes(tab) ? tab : "memory";
+  writeStore({ tab: current });
+  $("tabNote").innerHTML = TAB_NOTES[current];
+  document.querySelectorAll("#tabs .tab").forEach(button => button.classList.toggle("active", button.dataset.tab === current));
+  $("hoursSelect").hidden = !["requests", "errors"].includes(current);
+  if (current !== "database") $("connectionSelect").hidden = true;
+  $("view").innerHTML = `<div class="info">Loading ${current}...</div>`;
+  loading = false;
+  load();
+};
+$("tabs").addEventListener("click", e => { const button = e.target.closest("[data-tab]"); if (button) openTab(button.dataset.tab) });
+$("refreshBtn").addEventListener("click", () => load());
+$("hoursSelect").addEventListener("change", e => { writeStore({ hours: Number(e.target.value) }); load() });
+$("connectionSelect").addEventListener("change", e => { writeStore({ connection: e.target.value }); load() });
+$("view").addEventListener("click", e => { const button = e.target.closest("[data-trace]"); if (button) load(button.dataset.trace) });
+$("view").addEventListener("input", e => {
+  if (!e.target.matches("[data-filter]")) return;
+  const text = e.target.value.trim().toLowerCase();
+  e.target.closest(".card").querySelectorAll("tbody tr[data-name]").forEach(row => { row.hidden = !row.dataset.name.toLowerCase().includes(text) });
+});
+const start = () => {
+  const store = readStore();
+  if (!store.token?.access_token) return showLogin("");
+  $("loginView").hidden = true;
+  $("appView").hidden = false;
+  renderProfile();
+  $("hoursSelect").value = String([1, 24, 168].includes(store.hours) ? store.hours : 24);
+  openTab(store.tab);
+};
+start();
+</script>
+</body>
+</html>

@@ -1,0 +1,2658 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PgWeb</title>
+<style>
+/* palette from pgweb's own app.css: #79589f chrome, #7eb54e primary, #f9f9f9 sidebar,
+   #ffe row hover, #3874d7 selection, #bbb nulls */
+:root{
+  color-scheme:light;
+  --nav:#79589f; --nav-fg:#d6cce2; --nav-on-bg:#fff; --nav-on-fg:#000;
+  --rp-head:#f1ecf7;
+  --side:#f9f9f9; --bg:#fff; --fg:#3a3633; --dim:#aaa; --line:#ddd;
+  --th-fg:#333; --th-line:#eae9e9; --th-hover:#fafafa;
+  --row-odd:#f9f9f9; --row-even:#fff; --row-line:#f2f2f2; --row-hover:#fff7d6;
+  --sel:#3874d7; --sel-fg:#fff; --null:#bbb; --hl:#f1f1f1;
+  --green:#7eb54e; --green-h:#64903e; --err:#c0392b;
+  --table-list-bg:#fbfbfc; --runner-neutral:#f1f1f3;
+  --side-on:#cfe0f8; --side-on-fg:#183f78;
+  --sql-key:#7a3fb0; --sql-string:#c33b45; --sql-ident:#087f8c; --sql-number:#d45d00;
+  --sql-comment:#7b8b78; --sql-param:#1769aa; --sql-type:#9b4d96; --sql-fn:#006d77;
+  --apply-bg:#edf7e7; --apply-border:#9fc783; --cancel-bg:#f1eef5; --cancel-border:#c4b8d1;
+  --filter-bg:#f6f4f8; --grid-edge:#c8c8c8;
+  --row-h:30px; --bar-h:50px; --side-w:240px;
+}
+:root[data-theme=dark]{
+  color-scheme:dark;
+  --nav:#79589f; --nav-fg:#d6cce2; --nav-on-bg:#141419; --nav-on-fg:#f2f0ee;
+  --rp-head:#241f2e;
+  --side:#191920; --bg:#141419; --fg:#d9d5d1; --dim:#7a7a84; --line:#2e2e37;
+  --th-fg:#cfcac5; --th-line:#2e2e37; --th-hover:#20202a;
+  --row-odd:#191920; --row-even:#141419; --row-line:#22222b; --row-hover:#2d2d1e;
+  --sel:#3874d7; --sel-fg:#fff; --null:#66666f; --hl:#24242e;
+  --green:#8fc95f; --green-h:#a5d977; --err:#f2645a;
+  --table-list-bg:#17171e; --runner-neutral:#202027;
+  --side-on:#263b5a; --side-on-fg:#eef5ff;
+  --sql-key:#c792ea; --sql-string:#f07178; --sql-ident:#89ddff; --sql-number:#f78c6c;
+  --sql-comment:#71806f; --sql-param:#82aaff; --sql-type:#ffcb6b; --sql-fn:#80cbc4;
+  --apply-bg:#24351f; --apply-border:#577a45; --cancel-bg:#292530; --cancel-border:#574c63;
+  --filter-bg:#1d1a22; --grid-edge:#484852;
+}
+/* light is the default regardless of OS preference — dark is opt-in via the toggle */
+
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden}
+body{background:var(--bg);color:var(--fg);display:flex;
+  font:13px/1.42857143 "Helvetica Neue",Helvetica,Arial,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button{background:var(--bg);border:1px solid var(--line);border-radius:5px;transition:background .12s,border-color .12s,color .12s,box-shadow .12s;padding:4px 11px;
+  cursor:pointer;color:var(--fg)}
+button:hover:not(:disabled){border-color:#8a8a8a;background:var(--hl)}
+button:disabled{opacity:.45;cursor:default}
+button.primary{background:var(--green);border-color:var(--green);color:#fff;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+button.primary:hover:not(:disabled){background:var(--green-h);border-color:var(--green-h);color:#fff;box-shadow:0 2px 8px rgba(100,144,62,.35)}
+:root[data-theme=dark] button.primary,:root[data-theme=dark] button.primary:hover:not(:disabled){color:#141419}
+.iconbtn{width:32px;height:29px;padding:0;display:inline-flex;align-items:center;justify-content:center}
+.iconbtn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+input,select,textarea{background:var(--bg);border:1px solid var(--line);border-radius:3px;
+  padding:4px 8px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:#999}
+input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6px;position:relative;right:-2px}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-thumb{background:#c7c7c7;border-radius:6px;border:3px solid var(--bg)}
+:root[data-theme=dark] ::-webkit-scrollbar-thumb{background:#3a3a45}
+::-webkit-scrollbar-thumb:hover{background:var(--dim)}
+
+/* ---------- shell: always present, empty until connected ---------- */
+#app{display:flex;flex:1;min-width:0}
+#side{width:var(--side-w,240px);flex:0 0 var(--side-w,240px);background:var(--side);display:flex;flex-direction:column;min-height:0;
+  border-right:1px solid var(--line);position:relative}
+#side.collapsed{display:none!important}
+#dbline{height:var(--bar-h);flex:none;background:var(--nav);color:#fff;position:relative;z-index:11;
+  display:flex;justify-content:space-between;align-items:center;padding:0 8px 0 12px;min-width:0;
+  border-bottom:1px solid rgba(0,0,0,.15)}
+#dbline::after{content:"";position:absolute;top:0;right:-1px;bottom:0;width:1px;background:rgba(255,255,255,.12)}
+#dbline .headicon{width:30px;height:30px;padding:0;margin:0;border:0;border-radius:3px;
+  font-size:16px;line-height:28px;text-align:center;align-self:center;background:transparent;color:#fff}
+#dbline .headicon:hover:not(:disabled){background:rgba(255,255,255,.2);color:#fff;border-color:transparent}
+#dbline .headicon svg{display:block;width:17px;height:17px;margin:auto;fill:none;
+  stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#productname{font-size:15px;font-weight:700;letter-spacing:-.15px;line-height:18px;cursor:pointer;user-select:none;transition:opacity .15s}
+#productname:hover{opacity:.85}
+#brand{display:flex;flex-direction:column;justify-content:center;min-width:0}
+#dbname{font-size:11px;font-weight:500;line-height:14px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+
+#sidetabs{display:flex;padding:6px 8px 5px;gap:4px;background:var(--side);border-bottom:1px solid var(--line)}
+#sidetabs[hidden]{display:none!important}
+.side-tab{flex:1 0 auto;text-align:center;padding:4px 7px;font-size:11.5px;font-weight:500;border-radius:4px;
+  border:1px solid transparent;background:transparent;color:var(--dim);cursor:pointer;white-space:nowrap;
+  user-select:none;transition:background .15s ease,color .15s ease,border-color .15s ease}
+.side-tab:hover{color:var(--fg);background:var(--hl)}
+.side-tab .side-count{margin-left:3px;font-weight:400;color:var(--dim)}
+.side-tab.on{background:var(--bg);color:var(--fg);font-weight:600;border-color:var(--line);
+  box-shadow:0 1px 2px rgba(0,0,0,.04)}
+:root[data-theme=dark] .side-tab.on{background:#22222a;color:#fff;border-color:var(--line)}
+
+#side .search{height:40px;padding:0 12px;position:relative;background:var(--bg);border-bottom:1px solid var(--line)}
+#side .search:focus-within{background:var(--hl)}
+#side .search input{width:100%;height:39px;padding:0 26px 0 0;border:0;border-radius:0;background:transparent;
+  box-shadow:none;font-size:12px}
+#side .search input:focus{border:0;box-shadow:none}
+#qclr{position:absolute;right:10px;top:10px;width:20px;height:20px;padding:0;line-height:17px;
+  text-align:center;border-radius:50%;font-size:14px;color:var(--dim);border-color:transparent;background:transparent}
+#qclr:hover:not(:disabled){background:var(--hl);color:var(--fg);border-color:transparent}
+#qclr[hidden]{display:none}
+#tree{flex:1;overflow-y:auto;overflow-x:hidden;padding-bottom:8px;font-size:12px;background:var(--table-list-bg);
+  scrollbar-width:thin;scrollbar-color:transparent transparent;transition:scrollbar-color .2s ease}
+#tree:hover{scrollbar-color:rgba(0,0,0,.25) transparent}
+:root[data-theme=dark] #tree:hover{scrollbar-color:rgba(255,255,255,.25) transparent}
+#tree::-webkit-scrollbar{width:5px}
+#tree::-webkit-scrollbar-track{background:transparent}
+#tree::-webkit-scrollbar-thumb{background:transparent;border-radius:3px;border:none;transition:background .2s ease}
+#tree:hover::-webkit-scrollbar-thumb{background:rgba(0,0,0,.2)}
+:root[data-theme=dark] #tree:hover::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2)}
+#tree::-webkit-scrollbar-thumb:hover{background:var(--dim)}
+.obj{display:flex;align-items:center;gap:8px;height:29px;padding:0 12px;cursor:pointer;white-space:nowrap;
+  border-bottom:1px solid var(--row-line)}
+.obj[hidden]{display:none}   /* author display:flex would otherwise beat the UA [hidden] rule */
+.obj:hover{background:var(--hl)}
+.obj.on{background:var(--side-on);color:var(--side-on-fg);font-weight:700;box-shadow:inset 4px 0 0 var(--sel)}
+.obj .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.obj .obj-copy{flex:none;width:22px;height:22px;margin-right:-6px;padding:0;display:none;align-items:center;justify-content:center;border:0;border-radius:3px;background:transparent;color:var(--dim)}
+.obj:hover .obj-copy,.obj .obj-copy:focus-visible{display:inline-flex}
+.obj .obj-copy:hover{color:var(--fg);background:var(--bg)}
+.obj .obj-copy svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+#main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+#tabs{height:var(--bar-h);flex:none;display:flex;align-items:stretch;background:var(--nav);overflow:hidden;position:relative;z-index:10;padding-right:12px}
+#tablist{display:flex;align-items:stretch;flex:1;min-width:0;overflow:hidden}
+.tab{padding:0 14px;line-height:var(--bar-h);font-size:13px;font-weight:500;color:var(--nav-fg);
+  cursor:pointer;margin:0;flex:none;white-space:nowrap;border:0;transition:color .12s,background .12s}
+.tab[hidden]{display:none}
+.tab:hover{color:#fff}
+.tab.on{background:var(--nav-on-bg);color:var(--nav-on-fg)}
+.tab.secondary{display:none!important}
+#morewrap{position:relative;display:flex;align-items:stretch;flex:none}
+#morewrap[hidden]{display:none}
+#moretab{border:0;border-radius:0;background:transparent;color:var(--nav-fg);padding:0 14px;font-size:13px;white-space:nowrap}
+#moretab:hover:not(:disabled){background:transparent;color:#fff;border:0}
+#moretab.on,#moretab.on:hover:not(:disabled){background:var(--nav-on-bg);color:var(--nav-on-fg)}
+#moretab.open{background:var(--nav-on-bg);color:var(--nav-on-fg)}    /* menu open: looks selected, like .on */
+body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only one white tab: the current one steps back while More is open */
+#moretab.open:hover:not(:disabled){background:var(--nav-on-bg);color:var(--nav-on-fg)}
+#moretab::after{content:'';display:inline-block;margin-left:7px;vertical-align:2px;border:4px solid transparent;border-top-color:currentColor;border-bottom:0}
+#moretab:focus-visible{outline:2px solid rgba(255,255,255,.6);outline-offset:-3px}
+#moretab:focus:not(:focus-visible){outline:none}
+#moremenu{position:fixed;z-index:50;min-width:170px;padding:5px;background:var(--bg);border:1px solid var(--line);
+  border-radius:4px;box-shadow:0 6px 20px rgba(0,0,0,.22)}
+#moremenu[hidden]{display:none}
+#moremenu button{display:block;width:100%;padding:7px 10px;border:0;text-align:left;background:transparent;white-space:nowrap}
+#moremenu button:hover,#moremenu button.on{background:var(--hl);color:var(--fg)}
+#tabs .sp{flex:1}
+#tabs > button,#tabs > #optionswrap > button:not(.sql-runner-pill){align-self:center;background:transparent;color:#fff;border-color:rgba(255,255,255,.6);
+  margin-right:8px;font-size:12px;flex:none;white-space:nowrap}
+#tabs > button:hover:not(:disabled),#tabs > #optionswrap > button:not(.sql-runner-pill):hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
+#optionswrap{align-self:stretch;display:flex;align-items:center;gap:4px;flex:none;margin:0 6px 0 12px;
+  background:var(--nav);position:relative;z-index:2}
+#optionswrap[hidden],#optionswrap > [hidden]{display:none!important}
+.sql-runner-pill{align-self:center;height:26px;line-height:24px;padding:0 12px;margin:0 0 0 8px;
+  display:inline-flex;align-items:center;gap:6px;border-radius:3px;font-size:12px;font-weight:500;
+  color:#fff;background:transparent;border:1px solid rgba(255,255,255,.5);
+  cursor:pointer;white-space:nowrap;user-select:none;outline:none;transition:all .15s ease}
+.sql-runner-pill:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
+.sql-runner-pill.on{background:#fff;color:var(--nav);border-color:#fff;font-weight:600}
+:root[data-theme=dark] .sql-runner-pill{border-color:rgba(255,255,255,.5);color:#fff}
+:root[data-theme=dark] .sql-runner-pill:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
+:root[data-theme=dark] .sql-runner-pill.on{background:#262632;color:#fff;border-color:rgba(255,255,255,.6)}
+#tabs .headicon{width:30px;height:30px;padding:0;margin:0 2px;border:0;border-radius:3px;
+  font-size:16px;line-height:28px;text-align:center;align-self:center;background:transparent;color:#fff}
+#tabs .headicon:hover:not(:disabled){background:rgba(255,255,255,.2);color:#fff;border-color:transparent}
+#tabs .headicon.on{background:rgba(255,255,255,.2);color:#fff}
+#tabs .headicon svg{display:block;width:17px;height:17px;margin:auto;fill:none;
+  stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#tabs #readonly.off{color:#ffd0cc}
+#tabs #theme{align-self:center}
+#tabs #connbtn{align-self:center;height:26px;line-height:24px;padding:0 12px;margin:0 0 0 10px;
+  font-size:12px;font-weight:500;border-radius:3px;border:1px solid rgba(255,255,255,.5);
+  background:transparent;color:#fff;cursor:pointer;white-space:nowrap;flex:none}
+#tabs #connbtn:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}    /* same look as SQL Runner */
+@media (max-width:1000px){.tab,#moretab{padding-left:10px;padding-right:10px}#optionswrap{margin-left:8px;padding-left:6px}}
+
+#tools{display:flex;align-items:center;gap:7px;padding:8px 10px;border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);background:var(--filter-bg);box-shadow:0 1px 0 rgba(0,0,0,.03)}
+#tools .filterlabel{flex:none;color:var(--dim);font-size:11px;font-weight:700;letter-spacing:.02em;
+  text-transform:uppercase;margin-right:3px;white-space:nowrap}
+#tools select,#tools input,#tools button{height:32px;padding:4px 9px;font-size:12px}
+.fcol-picker{position:relative;display:inline-flex}
+.fcol-btn{height:32px;padding:4px 12px 4px 10px;min-width:160px;max-width:260px;background:var(--bg);
+  border:1px solid var(--line);border-radius:3px;font-size:12px;color:var(--fg);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;outline:none}
+.fcol-btn:hover{border-color:#8a8a8a;background:var(--hl)}
+.fcol-btn:focus-visible{border-color:var(--sel);box-shadow:0 0 0 2px rgba(56,116,215,.2)}
+.fcol-btn-text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.fcol-btn-arrow{display:inline-flex;align-items:center;justify-content:center;color:var(--dim);flex:none;margin-left:auto}
+.fcol-btn-arrow svg{display:block;width:11px;height:11px;stroke:var(--dim)}
+#tools #fop,#tools #pagesize{height:32px;min-width:68px;flex:none;padding:4px 28px 4px 10px;    /* #tools beats '#tools select', which would reset the arrow's room */
+  font-size:12px;appearance:none;
+  -webkit-appearance:none;-moz-appearance:none;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888888' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;background-size:11px 11px}
+:root[data-theme=dark] #tools #fop,:root[data-theme=dark] #tools #pagesize{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aaaaaa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");}
+.fcol-menu{position:absolute;top:calc(100% + 4px);left:0;z-index:100;width:240px;
+  background:var(--bg);border:1px solid var(--line);border-radius:4px;
+  box-shadow:0 6px 22px rgba(0,0,0,.2);overflow:hidden;display:flex;flex-direction:column}
+.fcol-menu[hidden]{display:none}
+.fcol-search-wrap{padding:6px;border-bottom:1px solid var(--line);background:var(--side)}
+.fcol-search{width:100%!important;height:28px!important;padding:2px 8px!important;font-size:12px;
+  border:1px solid var(--line);border-radius:3px;background:var(--bg);outline:none}
+.fcol-search:focus{border-color:var(--sel)}
+.fcol-list{max-height:240px;overflow-y:auto;overflow-x:hidden;padding:4px 0}
+.fcol-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;
+  font-size:12px;cursor:pointer;user-select:none}
+.fcol-item:hover,.fcol-item.active{background:var(--hl);color:var(--fg)}
+.fcol-item.selected{background:var(--side-on);color:var(--side-on-fg);font-weight:600}
+.fcol-item .col-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fcol-item .col-type{font-size:11px;color:var(--dim);font-family:monospace;flex:none}
+.fcol-empty{padding:10px 12px;color:var(--dim);font-size:12px;text-align:center}
+#fgo,#fclr{height:32px;padding:0 14px;font-size:12px;font-weight:600;border-radius:4px;cursor:pointer;outline:none;transition:background .15s,border-color .15s,box-shadow .15s}
+#fgo{margin-left:4px;background:#2ea44f;border:1px solid #278842;color:#fff;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+#fgo:hover:not(:disabled){background:#2c974b;border-color:#247c3c;box-shadow:0 1px 3px rgba(0,0,0,.14)}
+#fgo:active:not(:disabled){background:#278842}
+#fgo:focus,#fgo:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(46,164,79,.3)}
+#fclr{margin-left:6px;background:#fff;border:1px solid #d0d7de;color:#475569;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+#fclr:hover:not(:disabled){background:#f3f4f6;color:#1e293b;border-color:#94a3b8}
+#fclr:active:not(:disabled){background:#e2e8f0}
+#fclr:focus,#fclr:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(148,163,184,.3)}
+:root[data-theme=dark] #fgo{background:#238636;border-color:#2ea043;color:#fff;box-shadow:none}
+:root[data-theme=dark] #fgo:hover:not(:disabled){background:#2ea043;border-color:#3fb950}
+:root[data-theme=dark] #fgo:focus,:root[data-theme=dark] #fgo:focus-visible{box-shadow:0 0 0 3px rgba(46,164,79,.4)}
+:root[data-theme=dark] #fclr{background:#21262d;border-color:#363b42;color:#cbd5e1;box-shadow:none}
+:root[data-theme=dark] #fclr:hover:not(:disabled){background:#30363d;border-color:#64748b;color:#f8fafc}
+:root[data-theme=dark] #fclr:focus,:root[data-theme=dark] #fclr:focus-visible{box-shadow:0 0 0 3px rgba(100,116,139,.4)}
+#fval{width:180px}
+#tools .sp{flex:1}
+#ftxt{white-space:nowrap}
+#fslow{display:flex;align-items:center;gap:8px;flex:none;padding:5px 10px;font-size:12px;color:#7a4a00;background:#fff6e0;border-bottom:1px solid #f1dfb0}
+#fslow[hidden]{display:none}
+#fslow span{overflow:hidden;text-overflow:ellipsis}
+#fslow button{height:24px;padding:0 9px;font-size:11.5px;flex:none}
+:root[data-theme=dark] #fslow{color:#f0c27a;background:#2a2214;border-bottom-color:#4a3a1c}
+#ftxt{color:#888;font-size:12px}
+.detail-tools{height:50px;flex:none;display:flex;align-items:center;gap:8px;padding:8px 10px;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--filter-bg)}
+.detail-tools input{width:210px;height:32px;padding:4px 6px 4px 9px;order:4}
+.detail-tools .sp{flex:1;order:1}.detail-count{order:2;color:var(--dim);font-size:12px;white-space:nowrap}
+.detail-refresh,.detail-download{order:3}
+.pagenav{display:inline-flex;align-items:center;gap:8px;flex:none}
+.pagenav[hidden]{display:none}
+.pagebtn{width:32px;height:32px;border-radius:6px;padding:0;display:inline-flex;align-items:center;justify-content:center}
+.pagebtn svg{width:14px;height:14px}
+.pagenum{font-size:13px;font-weight:700;color:var(--fg);user-select:none;min-width:48px;text-align:center}
+
+#pane{flex:1;position:relative;min-height:0}
+.view{position:absolute;inset:0;display:none;flex-direction:column;min-height:0}
+.view.on{display:flex}
+
+/* ---------- virtual grid ---------- */
+/* contain must not include size here: #rows is absolutely positioned and shrink-to-fit,
+   so size-contained rows would measure as empty and collapse to zero width */
+#vp{flex:1;overflow:auto;position:relative;contain:layout paint;font-size:12px}
+#inner{position:relative;box-sizing:content-box}
+#head{position:sticky;top:0;z-index:3;display:flex;background:var(--bg);border-bottom:1px solid var(--th-line);border-left:1px solid var(--th-line)}
+.th{flex:none;padding:0 9px;height:39px;line-height:39px;font-weight:bold;color:var(--th-fg);
+    position:relative;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;user-select:none;border-right:1px solid var(--th-line)}
+.th:hover{background:var(--th-hover)}
+.th:last-child{border-right:1px solid var(--th-line)}
+.th .grip{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize}
+.th .grip:hover{background:var(--nav)}
+#canvas{position:relative}
+#canvas.has-rows{border-bottom:2px solid var(--grid-edge)}
+#rows{position:absolute;top:0;left:0;width:100%;will-change:transform}
+.tr{display:flex;height:var(--row-h);contain:layout paint;background:var(--row-even);
+    border-bottom:1px solid var(--row-line)}
+.tr[hidden]{display:none}   /* same [hidden] vs display:flex trap as .obj */
+.tr:nth-child(odd){background:var(--row-odd)}
+.tr:hover{background:var(--row-hover)}
+.td{flex:none;padding:0 9px;height:29px;line-height:29px;color:var(--fg);
+    overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border-right:1px solid var(--row-line)}
+.td:first-child{border-left:1px solid var(--row-line)}
+.td:last-child{border-right:1px solid var(--th-line)}
+.td.null{color:var(--null);text-transform:uppercase}
+/* ---------- row panel: one row's fields beside the grid ---------- */
+#v-rows.rp-open #vp{margin-right:var(--rp-w,min(520px,50%))}
+.tr.rp-sel,.tr.rp-sel:nth-child(odd){background:var(--row-hover)}    /* the panel's row stays lit in the hover colour */
+#rows .td{cursor:pointer}
+#rowpanel .iconbtn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#rowpanel[hidden]{display:none}
+#rowpanel{position:absolute;right:0;bottom:0;width:var(--rp-w,min(520px,50%));z-index:5;display:flex;flex-direction:column;min-height:0;
+  background:var(--bg);border-left:1px solid var(--th-line);box-shadow:-6px 0 18px rgba(0,0,0,.08)}
+#rp-resize{position:absolute;left:-3px;top:0;bottom:0;width:6px;cursor:col-resize;z-index:1}
+#rp-resize:hover,#rp-resize.dragging{background:var(--nav)}
+.rp-head{display:flex;align-items:center;gap:4px;padding:8px 8px 8px 14px;border-bottom:1px solid var(--th-line);background:var(--rp-head)}    /* purple tint, like the top bar */
+.rp-title{flex:1;min-width:0}
+.rp-title b{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#rowpanel .iconbtn{width:26px;height:26px}
+#rp-delete:not(:disabled):hover{color:var(--err);border-color:var(--err)}
+#rp-search{width:180px;flex:none;margin-right:4px;padding:4px 8px;font-size:12px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg)}
+.rp-body{flex:1;min-height:0;overflow:auto;padding-bottom:12px}
+.rp-field{padding:8px 14px;border-bottom:1px solid var(--row-line)}
+.rp-label{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--th-fg);min-height:22px}
+.rp-label .rp-type{font-weight:400;color:var(--dim)}
+.rp-label .rp-actions{margin-left:auto;display:flex;gap:2px;opacity:0;transition:opacity .1s}
+.rp-field:hover .rp-actions,.rp-actions:focus-within{opacity:1}
+.rp-actions .iconbtn{width:22px;height:22px;border-color:transparent}
+.rp-actions .iconbtn:hover:not(:disabled){border-color:var(--line)}
+.rp-value{margin:2px 0 0;max-height:12em;overflow:auto;white-space:pre-wrap;word-break:break-word;
+  font:12px/1.5 Menlo,Monaco,Consolas,"Courier New",monospace;color:var(--fg)}
+.rp-value.json{white-space:pre;word-break:normal}
+.rp-value.null{color:var(--null);font-style:italic}
+.rp-edit textarea{box-sizing:border-box;width:100%;min-height:72px;max-height:40vh;resize:vertical;margin-top:4px;padding:6px 8px;border:1px solid var(--line);border-radius:4px;
+  background:var(--bg);color:var(--fg);font:12px/1.5 Menlo,Monaco,Consolas,"Courier New",monospace}
+.rp-edit textarea:focus{outline:none;border-color:var(--dim)}
+.rp-edit .rp-buttons{display:flex;gap:6px;justify-content:flex-end;margin-top:6px}
+.rp-edit .rp-buttons button{height:28px;padding:0 14px;font-size:12px}
+.rp-edit .rp-err{color:var(--err);font-size:12px;margin-top:4px;white-space:pre-wrap}
+.rp-empty{padding:16px;text-align:center;color:var(--dim);font-size:12px}
+#qbar #resetsql{background:var(--rp-head);border-color:var(--nav);color:var(--nav);font-weight:600}    /* highlighted: a query has run or the SQL changed */
+#qbar #resetsql:hover:not(:disabled){background:var(--nav);border-color:var(--nav);color:#fff}
+:root[data-theme=dark] #qbar #resetsql{color:var(--nav-fg)}
+:root[data-theme=dark] #qbar #resetsql:hover:not(:disabled){color:#fff}
+button.danger{background:var(--err);border-color:var(--err);color:#fff;font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+button.danger:hover:not(:disabled){background:var(--err);border-color:var(--err);filter:brightness(.92);box-shadow:0 2px 8px rgba(192,57,43,.35)}
+:root[data-theme=dark] button.danger,:root[data-theme=dark] button.danger:hover:not(:disabled){color:#141419}
+#empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:var(--dim);
+  pointer-events:none}
+#v-rows > #empty{top:50px}
+#empty.on{display:flex}
+
+/* ---------- detail panes ---------- */
+.detail-wrap{flex:1;min-height:0;overflow:auto}
+.detail-grid{width:auto;min-width:0;table-layout:fixed;border-collapse:separate;border-spacing:0;font-size:12px;
+  border-right:1px solid var(--th-line)}
+.detail-grid th,.detail-grid td{padding:0 9px;text-align:left;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border-right:1px solid var(--row-line);border-bottom:1px solid var(--row-line)}
+.detail-grid th{height:40px;line-height:39px;position:sticky;top:0;z-index:2;background:var(--bg);color:var(--th-fg);font-weight:700;
+  border-right-color:var(--th-line);border-bottom-color:var(--th-line)}
+.detail-grid tbody tr:nth-child(odd){background:var(--row-odd)}
+.detail-grid tbody tr:hover{background:var(--row-hover)}
+.detail-grid td{height:30px;line-height:29px;color:var(--fg);cursor:default}
+.detail-grid th:last-child,.detail-grid td:last-child{border-right:0}
+.detail-grid td.null{color:var(--null);text-transform:uppercase}
+.detail-grid .empty-detail,#dbcat-table .empty-detail{height:90px;line-height:90px;text-align:center;color:var(--dim);font-family:inherit}
+
+#sqlwrap{height:210px;min-height:70px;flex:none;position:relative;overflow:hidden;
+  background:var(--bg)}
+#sqlresizer{height:9px;margin:-4px 0 -4px 0;position:relative;z-index:10;cursor:row-resize;
+  display:flex;align-items:center;justify-content:center;flex:none;
+  touch-action:none;user-select:none;outline:none}
+#sqlresizer::before{content:"";position:absolute;left:0;right:0;top:4px;height:1px;
+  background:var(--line);transition:background .15s ease,height .15s ease}
+#sqlresizer:hover::before,#sqlresizer.dragging::before,#sqlresizer:focus-visible::before{
+  background:var(--sel);height:2px}
+.sqlresizer-grip{position:relative;z-index:2;width:38px;height:4px;border-radius:2px;
+  background:var(--dim);opacity:.5;
+  transition:opacity .15s ease,background .15s ease,width .15s ease}
+#sqlresizer:hover .sqlresizer-grip,#sqlresizer.dragging .sqlresizer-grip,#sqlresizer:focus-visible .sqlresizer-grip{
+  opacity:1;background:var(--sel);width:52px}
+body.resizing-row{cursor:row-resize!important;user-select:none!important}
+body.resizing-row *{user-select:none!important}
+#sideresizer{width:9px;margin:0 -4px 0 -5px;position:relative;z-index:12;cursor:col-resize;
+  display:flex;align-items:center;justify-content:center;flex:none;
+  touch-action:none;user-select:none;outline:none}
+#sideresizer[hidden]{display:none!important}
+#sideresizer::before{content:"";position:absolute;top:0;bottom:0;left:4px;width:1px;
+  background:transparent;transition:background .15s ease,width .15s ease,box-shadow .15s ease}
+#sideresizer:hover::before,#sideresizer.dragging::before,#sideresizer:focus-visible::before{
+  background:var(--nav);width:2px;box-shadow:0 0 6px rgba(121,88,159,.45)}
+body.resizing-col{cursor:col-resize!important;user-select:none!important}
+body.resizing-col *{user-select:none!important}
+#sidetoggle-expand{margin-left:8px;cursor:pointer}
+#sidetoggle-expand[hidden]{display:none!important}
+#sql,#sqlhl{position:absolute;inset:0;width:100%;height:100%;margin:0;border:0;border-radius:0;
+  padding:12px 14px;tab-size:2;white-space:pre;overflow:auto;
+  font:12.5px/1.7 Menlo,Monaco,Consolas,"Courier New",monospace}
+#sqlhl{pointer-events:none;color:var(--fg);background:transparent;scrollbar-width:none}
+#sqlhl::-webkit-scrollbar{display:none}
+#sql{resize:none;background:transparent;color:transparent;-webkit-text-fill-color:transparent;caret-color:var(--fg)}
+#sql::selection{background:rgba(56,116,215,.28)}
+#sql::placeholder{color:var(--dim);-webkit-text-fill-color:var(--dim)}
+.sql-key{color:var(--sql-key);font-weight:400}.sql-string{color:var(--sql-string)}
+.sql-ident{color:var(--sql-ident)}.sql-number{color:var(--sql-number)}.sql-comment{color:var(--sql-comment);font-style:italic}
+.sql-param{color:var(--sql-param)}.sql-type{color:var(--sql-type)}.sql-fn{color:var(--sql-fn)}
+#qbar{display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--th-line)}
+#qmsg{color:#888;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:auto}
+#qmsg.err{color:var(--err)}
+#qbar .export{padding:4px 10px}
+#streamprogress{display:flex;align-items:center;gap:7px;color:var(--dim);font-size:11px;white-space:nowrap}
+#streamprogress[hidden]{display:none}
+#streambar{width:110px;height:7px;accent-color:var(--green)}
+#qres{flex:1;position:relative;min-height:0;display:flex;flex-direction:column}
+#qerror{position:absolute;inset:0;z-index:12;display:flex;align-items:center;justify-content:center;
+  padding:24px;background:var(--bg)}
+#qerror[hidden]{display:none}
+#qerrorbox{width:min(720px,90%);max-height:75%;overflow:hidden;border:1px solid var(--line);border-radius:5px;
+  background:var(--bg);box-shadow:0 5px 18px rgba(0,0,0,.14)}
+#qerrorhead{display:flex;align-items:center;gap:10px;padding:9px 11px;border-bottom:1px solid var(--line);
+  color:var(--err);font-weight:700}
+#qerrorhead .title{flex:1}#qerrorbody{max-height:320px;overflow:auto;margin:0;padding:12px 14px;
+  white-space:pre-wrap;word-break:break-word;font:12px/1.6 Menlo,Monaco,Consolas,"Courier New",monospace}
+
+/* ---------- status ---------- */
+#status{height:26px;flex:none;display:flex;align-items:center;gap:14px;padding:0 11px;
+        border-top:1px solid var(--th-line);background:var(--side);color:#888;font-size:12px}
+#status[hidden]{display:none}
+#status .sp{flex:1}
+#status b{color:var(--fg);font-weight:bold}
+#status .t{color:var(--green)}
+
+dialog{border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg);padding:0;
+       box-shadow:0 8px 30px rgba(0,0,0,.3);min-width:min(500px,92vw);max-width:min(640px,92vw)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog .hd{padding:12px 15px;border-bottom:1px solid var(--th-line);font-weight:bold;font-size:14px;
+  display:flex;align-items:center;gap:10px}
+dialog .hd .title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+dialog .bd{padding:14px 15px;max-height:72vh;overflow:auto;font-size:12px}
+dialog .ft{padding:10px 15px;border-top:1px solid var(--th-line);display:flex;gap:8px;justify-content:flex-end}
+dialog.structured{width:min(760px,calc(100vw - 32px));min-width:min(540px,92vw);max-width:none}
+dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
+#cellbox{white-space:pre-wrap;word-break:break-word;margin:0;
+         font:12px/1.6 Menlo,Monaco,Consolas,"Courier New",monospace}
+#cellbox.json{box-sizing:border-box;width:100%;max-height:60vh;padding:16px 18px;overflow:auto;
+  white-space:pre;word-break:normal;line-height:1.7;tab-size:2}
+.json-key{color:var(--sql-ident)}.json-string{color:var(--sql-string)}.json-number{color:var(--sql-number)}
+.json-bool{color:var(--sql-key)}.json-null{color:var(--null);font-style:italic}
+#v-info{overflow:hidden;padding:0}
+#dbinfo-summary{height:100%;overflow:auto;padding:22px 26px}
+.dbi{max-width:1000px;display:flex;flex-direction:column;gap:24px}
+.dbi-msg{color:var(--dim);font-size:13px}
+.dbi-title{margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--dim)}
+.dbi-note{margin-left:6px;font-weight:400;letter-spacing:0;text-transform:none;opacity:.8}
+.dbi-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.dbi-tile{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer;transition:border-color .12s,background .12s}
+.dbi-tile:hover,.dbi-tile:focus-visible{border-color:var(--nav);background:var(--rp-head);outline:none}
+.dbi-tile.off{cursor:default;opacity:.5}
+.dbi-tile.off:hover{border-color:var(--line);background:var(--bg)}
+.dbi-tile .n{font-size:22px;font-weight:700;line-height:1.15;color:var(--fg)}
+.dbi-tile .l{font-size:12px;color:var(--dim)}
+.dbi-tile .sub{display:flex;flex-wrap:wrap;gap:2px 8px;margin-top:6px}
+.dbi-sub{height:auto;padding:0;border:0;background:transparent;font-size:11px;color:var(--dim);text-decoration:underline;text-underline-offset:2px}
+.dbi-sub:hover:not(:disabled){background:transparent;color:var(--nav)}
+.dbi-sub:disabled{text-decoration:none}
+.dbi-kv{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:8px 18px;margin:0;font-size:12.5px}
+.dbi-kv dt{color:var(--dim)}
+.dbi-kv dd{display:flex;align-items:center;gap:6px;margin:0;min-width:0;color:var(--fg);font-family:Menlo,Monaco,Consolas,"Courier New",monospace;word-break:break-all}
+.dbi-kv dd .iconbtn{width:24px;height:24px;flex:none}
+#dbinfo-catalog{height:100%;display:flex;flex-direction:column;min-height:0}
+#dbinfo-catalog[hidden],#dbinfo-summary[hidden]{display:none}
+#dbcat-tools{height:50px;display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--filter-bg)}
+#dbcat-title{font-weight:700}.dbcat-sp{flex:1}#dbcat-count{color:var(--dim);white-space:nowrap}
+#dbcat-search{width:190px;height:32px;padding:4px 6px 4px 9px}#dbcat-download{width:32px;height:32px;padding:0}
+#dbcat-wrap{flex:1;min-height:0;overflow:auto}
+#dbcat-table{border-collapse:separate;border-spacing:0;table-layout:fixed;width:auto;min-width:0;font-size:12px}
+#dbcat-table th,#dbcat-table td{height:30px;padding:0 9px;border-right:1px solid var(--th-line);border-bottom:1px solid var(--row-line);text-align:left;vertical-align:middle;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dbcat-table th{height:40px;line-height:39px;color:var(--th-fg);font-weight:700;background:var(--bg);position:sticky;top:0;z-index:2}
+#dbcat-table tbody tr:nth-child(odd){background:var(--row-odd)}#dbcat-table tbody tr:hover{background:var(--row-hover)}
+#dbcat-table td.dbcat-action-cell{text-overflow:clip}
+.cat-action-btn{display:inline-flex;align-items:center;justify-content:center;height:22px;padding:0 8px;font-size:11px;font-weight:600;line-height:20px;cursor:pointer;border-radius:3px;vertical-align:middle}
+#toast{position:fixed;right:24px;bottom:24px;z-index:9999;padding:9px 16px;
+  border-radius:4px;background:#1e1e24;color:#fff;border:1px solid rgba(255,255,255,.15);
+  box-shadow:0 4px 18px rgba(0,0,0,.35);font-size:13px;font-weight:500;
+  pointer-events:none;white-space:nowrap}
+#toast[hidden]{display:none}
+
+#side[hidden]{display:none!important}
+#brandname{font-size:15px;font-weight:700;color:#fff;padding:0 14px;line-height:var(--bar-h);user-select:none;flex:none;cursor:pointer}
+#brandname:hover{opacity:.85}
+#brandname[hidden]{display:none}
+
+/* ---------- simple centered login form (SSOT CTA) ---------- */
+#v-home{display:none;flex-direction:column;align-items:center;justify-content:flex-start;background:var(--bg);padding:44px 24px 32px;overflow-y:auto;box-sizing:border-box}
+#v-home.on{display:flex}
+.login-box{width:100%;max-width:680px;margin:0 auto;background:var(--side);border:1px solid var(--line);border-radius:8px;
+  padding:28px 32px;box-shadow:0 4px 20px rgba(0,0,0,.04);box-sizing:border-box}
+.login-header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.login-logo{width:36px;height:36px;margin:0;border-radius:8px;
+  background:linear-gradient(135deg,rgba(121,88,159,.18),rgba(121,88,159,.04));
+  border:1px solid rgba(121,88,159,.25);display:flex;align-items:center;justify-content:center;color:var(--nav);flex:none}
+:root[data-theme=dark] .login-logo{background:linear-gradient(135deg,rgba(121,88,159,.35),rgba(121,88,159,.1));color:#c792ea}
+.login-logo svg{width:20px;height:20px}
+.login-header h2{margin:0;font-size:17px;font-weight:700;color:var(--fg);letter-spacing:-.2px}
+.login-field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.login-field label{font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.4px}
+#home-dsn{display:block;width:100%;min-height:56px;padding:9px 12px;resize:none;font-size:12.5px;
+  line-height:1.5;font-family:Menlo,Monaco,Consolas,"Courier New",monospace;
+  border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg);box-sizing:border-box}
+#home-dsn::placeholder{color:var(--dim);opacity:.6}
+.login-err{color:var(--err);font-size:12px;margin-bottom:12px;font-weight:500;line-height:1.4;word-break:break-word}
+.login-err[hidden]{display:none}
+.login-blocked{display:flex;gap:10px;align-items:flex-start;margin:0 0 18px;padding:12px 14px;border:1px solid var(--err);border-left-width:4px;
+  border-radius:6px;background:var(--hl);color:var(--fg);font-size:12.5px;line-height:1.5}
+.login-blocked[hidden]{display:none}
+.login-blocked svg{flex:none;width:18px;height:18px;margin-top:1px;stroke:var(--err);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.login-blocked strong{display:block;color:var(--err);margin-bottom:2px}
+.login-blocked code{font-family:Menlo,Monaco,Consolas,"Courier New",monospace;font-size:11.5px;word-break:break-all}
+.login-actions{display:flex;gap:12px;align-items:center}
+.login-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:1;height:38px;font-size:13px;font-weight:600;
+  border-radius:4px;cursor:pointer;transition:all .15s;text-decoration:none;user-select:none;box-sizing:border-box}
+.login-btn svg{width:14px;height:14px;stroke-width:2;stroke:currentColor;fill:none;flex:none}
+.login-btn-primary{background:var(--green);color:#fff;border:1px solid var(--green)}
+.login-btn-primary:hover:not(:disabled){background:var(--green-h);border-color:var(--green-h)}
+:root[data-theme=dark] .login-btn-primary{color:#141419}
+.login-btn-ro{background:var(--bg);color:var(--fg);border:1px solid var(--line)}
+.login-btn-ro:hover:not(:disabled){background:var(--hl);border-color:#8a8a8a}
+:root[data-theme=dark] .login-btn-ro:hover:not(:disabled){border-color:#666}
+@media (max-width:480px){
+  .login-actions{flex-direction:column}
+  .login-btn{width:100%}
+}
+.login-saved{margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
+.login-saved-head{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:700;
+  color:var(--dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px}
+.login-saved-list{display:flex;flex-direction:column;gap:3px;max-height:max(240px,calc(100vh - 430px));overflow-y:auto;padding-right:4px;
+  overscroll-behavior:contain}
+.login-saved-count{font-weight:500;margin-left:4px}
+.login-saved-search{width:min(240px,55%);padding:4px 8px;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg)}
+.login-saved-search:focus{outline:none;border-color:var(--dim)}
+.login-saved-empty{padding:8px;text-align:center;font-size:11px;color:var(--dim)}
+.login-saved-list::-webkit-scrollbar{width:6px}
+.login-saved-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+.login-saved-list::-webkit-scrollbar-thumb:hover{background:var(--dim)}
+.saved-conn-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 4px 3px 10px;
+  border:1px solid var(--line);border-radius:4px;background:var(--bg);cursor:pointer;transition:all .12s}
+.saved-conn-row:hover{border-color:#888;background:var(--hl)}
+.saved-conn-meta{flex:1;min-width:0;display:flex;align-items:baseline;gap:10px}
+.saved-conn-name{flex:none;max-width:40%;font-size:12px;font-weight:600;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.saved-conn-url{flex:1;min-width:0;font-size:11px;color:var(--dim);font-family:Menlo,Monaco,Consolas,"Courier New",monospace;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.saved-conn-actions{display:flex;align-items:center;gap:4px;flex:none}
+.saved-conn-btn{color:var(--dim);border:1px solid transparent;background:transparent;padding:3px;cursor:pointer;
+  border-radius:3px;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;transition:all .12s}
+.saved-conn-btn svg{display:block;width:14px;height:14px;margin:auto;fill:none;
+  stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.saved-conn-btn.connect{color:var(--green)}
+.saved-conn-btn.connect:hover{color:var(--green-h);background:var(--apply-bg);border-color:var(--apply-border)}
+.saved-conn-btn.delete{color:var(--dim)}
+.saved-conn-btn.delete:hover{color:var(--err);background:var(--cancel-bg);border-color:var(--cancel-border)}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <aside id="side" hidden>
+    <div id="dbline">
+      <div id="brand"><span id="productname">PgWeb</span><span id="dbname" hidden></span></div>
+    </div>
+    <div id="sidetabs" role="tablist" aria-label="Object types" hidden>
+      <button type="button" class="side-tab on" data-kind="table">Tables</button>
+      <button type="button" class="side-tab" data-kind="view">Views</button>
+      <button type="button" class="side-tab" data-kind="materialized_view">Materialized</button>
+    </div>
+    <div class="search" id="tablesearch" hidden>
+      <input id="q" placeholder="Search tables" autocomplete="off" spellcheck="false"/>
+      <button id="qclr" title="Clear" hidden>×</button>
+    </div>
+    <div id="tree" hidden></div>
+  </aside>
+
+  <div id="sideresizer" role="separator" aria-orientation="vertical" tabindex="0" title="Drag to adjust sidebar width (double-click to auto-fit or reset)" hidden></div>
+
+  <main id="main">
+    <div id="tabs">
+      <button class="headicon" id="sidetoggle-expand" title="Expand sidebar (Ctrl+B)" aria-label="Expand sidebar" hidden></button>
+      <span id="brandname">PgWeb</span>
+      <div id="tablist" role="tablist" aria-label="Table views">
+        <div class="tab" data-v="rows" hidden>Rows</div>
+        <div class="tab" data-v="struct" hidden>Columns</div>
+        <div class="tab" data-v="overview" hidden>Overview</div>
+        <div class="tab" data-v="indexes" hidden>Indexes</div>
+        <div class="tab" data-v="constraints" hidden>Constraints</div>
+        <div class="tab secondary" data-v="statistics" hidden>Statistics</div>
+        <div class="tab secondary" data-v="ddl" hidden>DDL</div>
+        <div class="tab secondary" data-v="triggers" hidden>Triggers</div>
+        <div class="tab secondary" data-v="policies" hidden>Policies</div>
+        <div class="tab secondary" data-v="privileges" hidden>Privileges</div>
+        <div class="tab secondary" data-v="partitions" hidden>Partitions</div>
+        <div class="tab secondary" data-v="dependencies" hidden>Dependencies</div>
+        <div id="morewrap" hidden><button id="moretab" type="button">More</button></div>
+        <div class="tab" data-v="info" hidden>Database info</div>
+      </div>
+      <div id="optionswrap">
+        <button class="headicon" id="theme" title="Use dark theme" aria-label="Use dark theme"></button>
+        <button class="headicon on conn-only" id="readonly" title="Read only: On" aria-label="Read only: On" hidden></button>
+        <button class="headicon conn-only" id="dbinfo" title="Database info" aria-label="Database info" hidden></button>
+        <button class="headicon conn-only" id="reload" title="Refresh schema" aria-label="Refresh schema" hidden></button>
+        <button id="queryrunner" class="sql-runner-pill conn-only" title="Query runner (SQL Editor)" hidden>SQL Runner</button>
+      </div>
+      <button id="connbtn" hidden>Connect</button>
+    </div>
+
+    <div id="pane">
+      <div class="view" id="v-home">
+        <div class="login-box">
+          <div class="login-header">
+            <div class="login-logo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+              </svg>
+            </div>
+            <h2>Connect to PostgreSQL</h2>
+          </div>
+
+          <div id="home-blocked" class="login-blocked" role="alert" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+            <div><strong id="home-blocked-title">pgweb is unavailable</strong><span id="home-blocked-msg"></span></div>
+          </div>
+
+          <form id="login-form" onsubmit="return false;">
+            <div class="login-field">
+              <label for="home-dsn">Database URL (DSN)</label>
+              <textarea id="home-dsn" rows="2" wrap="soft" placeholder="postgresql://user:password@host:port/dbname" autocomplete="off" spellcheck="false"></textarea>
+            </div>
+
+            <div id="home-conn-err" class="login-err" hidden></div>
+
+            <div class="login-actions">
+              <button type="button" id="home-connect-ro-btn" class="login-btn login-btn-ro" title="Connect in read-only mode (blocks write operations)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/></svg>
+                <span>Connect Read-Only</span>
+              </button>
+              <button type="submit" id="home-connect-btn" class="login-btn login-btn-primary" title="Connect with full read and write access">
+                <span>Connect</span>
+              </button>
+            </div>
+          </form>
+
+          <div class="login-saved" id="login-saved" hidden>
+            <div class="login-saved-head">
+              <span>Saved Connections <span id="home-saved-count" class="login-saved-count"></span></span>
+              <input type="search" id="home-saved-search" class="login-saved-search" placeholder="Search name, user, host, database" aria-label="Search saved connections" autocomplete="off" spellcheck="false" hidden>
+            </div>
+            <div class="login-saved-list" id="home-saved-list"></div>
+          </div>
+        </div>
+      </div>
+      <div class="view" id="v-info">
+        <div id="dbinfo-summary"></div>
+        <div id="dbinfo-catalog" hidden>
+          <div id="dbcat-tools"><button id="dbcat-back" type="button">Back</button><strong id="dbcat-title"></strong><span class="dbcat-sp"></span><span id="dbcat-count"></span><button class="iconbtn" id="dbcat-download" type="button" title="Download CSV"></button><input id="dbcat-search" type="search" placeholder="Search"/></div>
+          <div id="dbcat-wrap"><table id="dbcat-table"><thead></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+      <div class="view" id="v-rows">
+        <div id="tools">
+          <span class="filterlabel">Filter rows</span>
+          <div class="fcol-picker" id="fcol-picker">
+            <button type="button" class="fcol-btn" id="fcol-btn" aria-haspopup="listbox" aria-expanded="false" title="Choose column to filter">
+              <span class="fcol-btn-text" id="fcol-btn-text">Select column</span>
+              <span class="fcol-btn-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+            </button>
+            <div class="fcol-menu" id="fcol-menu" hidden>
+              <div class="fcol-search-wrap">
+                <input type="search" id="fcol-search" class="fcol-search" placeholder="Search columns…" autocomplete="off" spellcheck="false"/>
+              </div>
+              <div class="fcol-list" id="fcol-list" role="listbox"></div>
+            </div>
+            <select id="fcol" hidden></select>
+          </div>
+          <select id="fop">
+            <option>=</option><option>≠</option><option>&gt;</option><option>&lt;</option>
+            <option>≥</option><option>≤</option><option>LIKE</option><option>ILIKE</option>
+            <option>IS NULL</option><option>IS NOT NULL</option>
+          </select>
+          <input id="fval" placeholder="Filter value" autocomplete="off"/>
+          <button id="fgo" hidden>Apply</button>
+          <button id="fclr" title="Reset filter" hidden>Reset</button>
+          <span class="sp"></span><span id="ftxt"></span>
+          <select id="pagesize" title="Rows per page" aria-label="Rows per page"></select>
+          <div class="pagenav" id="pagenav" hidden>
+            <button class="iconbtn pagebtn" id="prevbatch" title="Previous page" aria-label="Previous page"></button>
+            <span class="pagenum" id="pagenum">Page 1</span>
+            <button class="iconbtn pagebtn" id="nextbatch" title="Next page" aria-label="Next page"></button>
+          </div>
+          <button class="iconbtn" id="rowrefresh" title="Refresh table data" aria-label="Refresh table data"></button>
+          <button class="iconbtn" id="rowcsv" title="Download rows as CSV" aria-label="Download rows as CSV" disabled></button>
+        </div>
+        <div id="fslow" role="status" hidden></div>
+        <div id="vp"><div id="inner">
+          <div id="head"></div>
+          <div id="canvas"><div id="rows"></div></div>
+        </div></div>
+        <div id="empty">No rows</div>
+        <aside id="rowpanel" aria-label="Row details" hidden>
+          <div id="rp-resize" title="Drag to resize (double-click to reset)"></div>
+          <div class="rp-head">
+            <div class="rp-title"><b id="rp-title"></b></div>
+            <input type="search" id="rp-search" placeholder="Filter fields" aria-label="Filter fields" autocomplete="off" spellcheck="false">
+            <button type="button" class="iconbtn" id="rp-prev" title="Previous row (↑)" aria-label="Previous row"></button>
+            <button type="button" class="iconbtn" id="rp-next" title="Next row (↓)" aria-label="Next row"></button>
+            <button type="button" class="iconbtn" id="rp-delete" aria-label="Delete this row"></button>
+            <button type="button" class="iconbtn" id="rp-close" title="Close (Esc)" aria-label="Close"></button>
+          </div>
+          <div class="rp-body" id="rp-body"></div>
+        </aside>
+      </div>
+      <div class="view" id="v-struct"><div class="detail-tools"><input class="detail-search" data-grid="g-struct" data-one="column" data-many="columns" type="search" placeholder="Search columns"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-struct"><thead><tr><th>#</th><th>Column</th><th>Type</th><th>Key</th><th>Nullable</th><th>Default</th><th>Generated</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-overview"><div class="detail-tools"><input class="detail-search" data-grid="g-overview" data-one="item" data-many="items" type="search" placeholder="Search overview"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-overview"><thead><tr><th>#</th><th>Schema</th><th>Owner</th><th>Kind</th><th>Estimated rows</th><th>Table size</th><th>Index size</th><th>Total size</th><th>Tablespace</th><th>Persistence</th><th>RLS</th><th>Comment</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-indexes"><div class="detail-tools"><input class="detail-search" data-grid="g-indexes" data-one="index" data-many="indexes" type="search" placeholder="Search indexes"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-indexes"><thead><tr><th>#</th><th>Name</th><th>Method</th><th>Columns</th><th>Unique</th><th>Primary</th><th>Size</th><th>Predicate</th><th>Definition</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-constraints"><div class="detail-tools"><input class="detail-search" data-grid="g-constraints" data-one="constraint" data-many="constraints" type="search" placeholder="Search constraints"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-constraints"><thead><tr><th>#</th><th>Name</th><th>Kind</th><th>Columns</th><th>References</th><th>Deferrable</th><th>Validated</th><th>Definition</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-statistics"><div class="detail-tools"><input class="detail-search" data-grid="g-statistics" data-one="item" data-many="items" type="search" placeholder="Search statistics"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-statistics"><thead><tr><th>#</th><th>Seq scans</th><th>Index scans</th><th>Live rows</th><th>Dead rows</th><th>Inserts</th><th>Updates</th><th>Deletes</th><th>HOT updates</th><th>Last vacuum</th><th>Last autovacuum</th><th>Last analyze</th><th>Last autoanalyze</th><th>Heap hits</th><th>Heap reads</th><th>Index hits</th><th>Index reads</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-ddl"><div class="detail-tools"><input class="detail-search" data-grid="g-ddl" data-one="statement" data-many="statements" type="search" placeholder="Search DDL"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-ddl"><thead><tr><th>#</th><th>Object</th><th>Name</th><th>SQL</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-triggers"><div class="detail-tools"><input class="detail-search" data-grid="g-triggers" data-one="trigger" data-many="triggers" type="search" placeholder="Search triggers"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-triggers"><thead><tr><th>#</th><th>Name</th><th>Timing</th><th>Events</th><th>Level</th><th>Function</th><th>Enabled</th><th>Condition</th><th>Definition</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-policies"><div class="detail-tools"><input class="detail-search" data-grid="g-policies" data-one="policy" data-many="policies" type="search" placeholder="Search policies"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-policies"><thead><tr><th>#</th><th>Name</th><th>Mode</th><th>Command</th><th>Roles</th><th>Using</th><th>Check</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-privileges"><div class="detail-tools"><input class="detail-search" data-grid="g-privileges" data-one="grant" data-many="grants" type="search" placeholder="Search privileges"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-privileges"><thead><tr><th>#</th><th>Grantee</th><th>Privileges</th><th>Grantor</th><th>Grantable</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-partitions"><div class="detail-tools"><input class="detail-search" data-grid="g-partitions" data-one="partition" data-many="partitions" type="search" placeholder="Search partitions"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-partitions"><thead><tr><th>#</th><th>Schema</th><th>Partition</th><th>Bound</th><th>Estimated rows</th><th>Size</th><th>Tablespace</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-dependencies"><div class="detail-tools"><input class="detail-search" data-grid="g-dependencies" data-one="dependency" data-many="dependencies" type="search" placeholder="Search dependencies"/><span class="sp"></span><span class="detail-count"></span></div><div class="detail-wrap"><table class="detail-grid" id="g-dependencies"><thead><tr><th>#</th><th>Type</th><th>Name</th><th>Relationship</th></tr></thead><tbody></tbody></table></div></div>
+      <div class="view" id="v-query">
+        <div id="sqlwrap">
+          <pre id="sqlhl" aria-hidden="true"></pre>
+          <textarea id="sql" wrap="off" spellcheck="false" placeholder="select * from test limit 10;" title="Toggle line comments: ⌘+Enter / Ctrl+Enter" aria-keyshortcuts="Meta+Enter Control+Enter"></textarea>
+        </div>
+        <div id="sqlresizer" role="separator" aria-orientation="horizontal" tabindex="0" title="Drag to adjust query editor height (double-click to reset)"><div class="sqlresizer-grip"></div></div>
+        <div id="qbar">
+          <button id="explain" title="Show the estimated query plan without executing the query">Explain</button>
+          <button id="analyze" title="Execute the query and show actual timing and row counts">Analyze</button>
+          <button id="stream" title="Download all returned rows as a streaming CSV">Stream</button>
+          <button class="primary" id="run" title="Execute the query">Execute</button>
+          <button id="resetsql" title="Reset to default SQL" hidden>Reset</button>
+          <button id="cancelquery" hidden>Cancel</button>
+          <span id="streamprogress" hidden><progress id="streambar"></progress><span id="streammsg"></span></span>
+          <span id="qmsg"></span>
+          <button class="export" data-format="json" disabled>JSON</button>
+          <button class="export" data-format="xml" disabled>XML</button>
+          <button class="export" data-format="csv" disabled>CSV</button>
+        </div>
+        <div id="qres">
+          <div id="qerror" hidden><div id="qerrorbox"><div id="qerrorhead"><span class="title" id="qerrortitle"></span><button type="button" class="iconbtn" id="qerrorcopy" title="Copy error" aria-label="Copy error"></button></div><pre id="qerrorbody"></pre></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="status" hidden>
+      <span id="st-obj"></span><span id="st-rows"></span><span id="st-size"></span>
+      <span class="sp"></span><span id="st-time" class="t"></span>
+    </div>
+  </main>
+</div>
+
+<div id="moremenu" hidden>
+  <button data-v="statistics">Statistics</button><button data-v="ddl">DDL</button>
+  <button data-v="triggers">Triggers</button><button data-v="policies">Policies</button>
+  <button data-v="privileges">Privileges</button><button data-v="partitions">Partitions</button>
+  <button data-v="dependencies">Dependencies</button>
+</div>
+
+<dialog id="dlg"><form method="dialog">
+  <div class="hd" id="dlg-t"></div><div class="bd" id="dlg-b"></div>
+  <div class="ft" id="dlg-f"></div>
+</form></dialog>
+<div id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+'use strict';
+const ROW_H = 30, PAGE_SIZES = [50, 100, 500], DEFAULT_PAGE_SIZE = 100, SIDE_BATCH = 200, OVER = 6, MAXW = 440, MINW = 64;   /* 29px cell + 1px rule; matches --row-h */
+const DEFAULT_SQL = 'SELECT * FROM test LIMIT 10;';
+const DEFAULT_DSN = 'postgresql://postgres:postgres@localhost:5432/postgres';
+// browsers clamp element height near 2^24 px; past that the spacer stops growing and the
+// tail of a big table becomes unreachable, so the scrollbar is scaled instead of 1:1
+const MAXH = 16000000;
+const $ = s => document.getElementById(s);
+const el=(tag,cls,text)=>{ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=String(text); return e; };
+const copyText=async(text,message)=>{ try{ await navigator.clipboard.writeText(text); toast(message); }catch{ toast('Could not copy'); } };
+const iconButton=(name,title,cls='iconbtn')=>{ const b=el('button',cls); b.type='button'; b.innerHTML=icon(name); b.title=b.ariaLabel=title; return b; };
+const icon = name => ({
+  info:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></svg>',
+  lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"/></svg>',
+  unlock:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 7.5-2M12 14v2"/></svg>',
+  refresh:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 8a7 7 0 0 1 11.5-1L20 12M4 12l2.4 5a7 7 0 0 0 11.5-1"/></svg>',
+  moon:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15.5A8.5 8.5 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5Z"/></svg>',
+  sun:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  copy:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  plug:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22v-5M9 8V2M15 8V2M18 8v4a6 6 0 0 1-12 0V8z"/></svg>',
+  expand:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>',
+  pencil:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  close:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  chevronUp:'<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>',
+  chevronDown:'<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>',
+  chevronLeft:'<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>',
+  chevronRight:'<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>',
+  download:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg>',
+  panelLeftOpen:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><polyline points="12 15 15 12 12 9"/></svg>'
+})[name];
+const sqlEscape=value=>String(value??'').replace(/[&<>]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch]));
+const vp=$('vp'), inner=$('inner'), headEl=$('head'), canvas=$('canvas'), rowsEl=$('rows');
+const RP={index:-1,row:null,table:''};    // the row shown in the row panel (index -1: closed)
+$('dbinfo').innerHTML=icon('info'); $('reload').innerHTML=icon('refresh');
+$('rowrefresh').innerHTML=icon('refresh');
+$('rowcsv').innerHTML=icon('download');
+$('prevbatch').innerHTML=icon('chevronLeft');
+$('nextbatch').innerHTML=icon('chevronRight');
+$('dbcat-download').innerHTML=icon('download');
+$('sidetoggle-expand').innerHTML=icon('panelLeftOpen');
+const yesNo=value=>value?'Yes':'No';
+const DETAIL_ROWS={
+  overview:rows=>rows.map((r,i)=>[i+1,r.schema,r.owner,r.kind,r.estimated_rows,r.table_size,r.index_size,r.total_size,r.tablespace,r.persistence,r.rls,r.comment]),
+  indexes:rows=>rows.map((r,i)=>[i+1,r.name,r.method,r.columns,yesNo(r.is_unique),yesNo(r.is_primary),r.size,r.predicate,r.def]),
+  constraints:rows=>rows.map((r,i)=>[i+1,r.name,r.kind,r.columns,r.reference,yesNo(r.deferrable),yesNo(r.validated),r.def]),
+  statistics:rows=>rows.map((r,i)=>[i+1,r.seq_scan,r.idx_scan,r.live_rows,r.dead_rows,r.inserts,r.updates,r.deletes,r.hot_updates,r.last_vacuum,r.last_autovacuum,r.last_analyze,r.last_autoanalyze,r.heap_hits,r.heap_reads,r.index_hits,r.index_reads]),
+  ddl:rows=>rows.map((r,i)=>[i+1,r.kind,r.name,r.sql]),
+  triggers:rows=>rows.map((r,i)=>[i+1,r.name,r.timing,r.events,r.level,(r.function||'')+'()',r.enabled,r.condition,r.def]),
+  policies:rows=>rows.map((r,i)=>[i+1,r.name,r.mode,r.kind,r.roles||'public',r.using_expr,r.check_expr]),
+  privileges:rows=>rows.map((r,i)=>[i+1,r.grantee,r.privileges,r.grantor,r.grantable]),
+  partitions:rows=>rows.map((r,i)=>[i+1,r.schema,r.name,r.bound,r.estimated_rows,r.size,r.tablespace]),
+  dependencies:rows=>rows.map((r,i)=>[i+1,r.kind,r.name,r.relationship])
+};
+const DETAILS=Object.keys(DETAIL_ROWS);
+
+// All persistent state (preferences, saved connections, SQL draft, column widths) lives under one 'pgweb' key.
+function pgwebPreferences(){
+  try{const data=JSON.parse(localStorage.getItem('pgweb')||'{}');return data&&typeof data==='object'&&!Array.isArray(data)?data:{}}catch{return {}}
+}
+function getStored(field){return pgwebPreferences()[field]??null}
+function setStored(field,value){try{const data=pgwebPreferences();if(value===undefined)delete data[field];else data[field]=value;localStorage.setItem('pgweb',JSON.stringify(data))}catch{}}
+function removeStored(field){setStored(field,undefined)}
+function setPreference(field,value){setStored(field,String(value))}
+
+const S = { db:'', table:'', kind:'', pk:null, cols:[], widths:[], total:0,
+            rows:[], pageSize:DEFAULT_PAGE_SIZE, local:null, where:null, meta:null, tree:{},
+            viewPx:0, scale:1, loaded:{}, connected:false, hasMore:false, pageStart:0, latestFirst:false,
+            activeQueryId:null, cancelRequested:false,
+            readOnly:getStored('readOnly') === '1',
+            sideCollapsed:getStored('sideCollapsed') === '1',
+            sideTab:getStored('sideTab') || 'table',
+            sideItems:[], sideShown:0, queryCleared:false,
+            filterApplied:{col:'',op:'=',val:''}, dbInfo:null, dbCatalog:{}, dbCatalogKind:'' };
+let pool=[], lastFirst=-1, ticking=false;
+let toastTimer;
+
+function toast(message){
+  clearTimeout(toastTimer); $('toast').textContent=message; $('toast').hidden=false;
+  toastTimer=setTimeout(()=>$('toast').hidden=true, 3500);
+}
+
+// Pointer-drag resize handle (also arrow keys, Home and double-click to reset). set(px) clamps and applies a size and returns it;
+// sign -1 for a handle on the left edge of what it resizes; drop(start,delta) returning true skips saving.
+function makeResizer(handle,{vertical=false,sign=1,size,set,save,reset,drop}){
+  const at=e=>vertical?e.clientY:e.clientX, cls=vertical?'resizing-row':'resizing-col';
+  let drag=null;
+  handle.addEventListener('pointerdown', e=>{
+    if(e.button!==0) return; e.preventDefault();
+    drag={id:e.pointerId, from:at(e), start:size()}; handle.setPointerCapture(e.pointerId); handle.classList.add('dragging'); document.body.classList.add(cls);
+  });
+  handle.addEventListener('pointermove', e=>{ if(drag?.id===e.pointerId) set(drag.start+(at(e)-drag.from)*sign); });
+  const stop=e=>{
+    if(drag?.id!==e.pointerId) return;
+    const {from,start}=drag; drag=null; handle.classList.remove('dragging'); document.body.classList.remove(cls);
+    if(!drop?.(start,(at(e)-from)*sign)) save(size());
+  };
+  handle.addEventListener('pointerup', stop); handle.addEventListener('pointercancel', stop);
+  handle.addEventListener('dblclick', reset);
+  handle.addEventListener('keydown', e=>{
+    const grow=(vertical?{ArrowDown:1,ArrowUp:-1}:{ArrowRight:sign,ArrowLeft:-sign})[e.key];
+    if(grow){ e.preventDefault(); save(set(size()+(e.shiftKey?50:20)*grow)); }
+    else if(e.key==='Home'){ e.preventDefault(); reset(); }
+  });
+}
+
+// Native dialogs close on Escape but not on backdrop clicks by default.
+$('dlg').addEventListener('click', e => {
+  if(e.target !== $('dlg')) return;
+  const r=$('dlg').getBoundingClientRect();
+  if(e.clientX<r.left || e.clientX>r.right || e.clientY<r.top || e.clientY>r.bottom) $('dlg').close();
+});
+
+/* ---------------- api ---------------- */
+async function api(body){
+  const t0 = performance.now();
+  const r = await fetch('/pgweb', {method:'POST', headers:{'Content-Type':'application/json'},
+                                   body:JSON.stringify(body)});
+  let j; try{ j = await r.json(); }catch{ throw new Error('bad response from server'); }
+  const ms = performance.now() - t0;
+  if(!r.ok || j.status !== 1){
+    const msg = String(j?.message ?? j?.detail ?? r.statusText ?? 'request failed');
+    if(msg.includes('not_connected')){ disconnected(); throw new Error('not_connected'); }
+    const err = new Error(msg); err.status = r.status;
+    throw err;
+  }
+  $('st-time').textContent = ms.toFixed(1)+' ms';
+  return j.message;
+}
+/* ---------------- theme ---------------- */
+(function theme(){
+  document.documentElement.dataset.theme = getStored('theme') || 'light';
+  const draw = () => {
+    const dark = document.documentElement.dataset.theme === 'dark';
+    $('theme').innerHTML = icon(dark ? 'sun' : 'moon');
+    $('theme').title = $('theme').ariaLabel = dark ? 'Use light theme' : 'Use dark theme';
+  };
+  draw();
+  $('theme').onclick = () => {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    setPreference('theme', next);
+    draw();
+    toast(next === 'dark' ? 'Dark theme enabled' : 'Light theme enabled');
+  };
+})();
+
+/* ---------------- query safety ---------------- */
+function drawReadOnly(){
+  const b=$('readonly');
+  b.innerHTML = icon(S.readOnly ? 'lock' : 'unlock');
+  b.classList.toggle('on', !!S.readOnly); b.classList.toggle('off', !S.readOnly);    // toggle, not replace: other classes (conn-only) stay
+  b.title = b.ariaLabel = S.readOnly
+    ? 'Queries run inside a PostgreSQL read-only transaction'
+    : 'Write queries are allowed';
+}
+$('readonly').onclick = () => {
+  const next=!S.readOnly;
+  $('dlg-t').textContent = next ? 'Enable read-only mode' : 'Allow database writes';
+  $('dlg-b').textContent = next
+    ? 'Queries will run inside a PostgreSQL read-only transaction. INSERT, UPDATE, DELETE, and DDL will be blocked.'
+    : 'Full CRUD and DDL will be allowed in the query runner. Continue?';
+  $('dlg-f').innerHTML = `<button value="cancel">Cancel</button><button class="primary" id="modeyes">${next?'Enable read only':'Allow writes'}</button>`;
+  $('dlg').showModal();
+  $('modeyes').onclick = e => {
+    e.preventDefault(); S.readOnly=next;
+    setPreference('readOnly', S.readOnly ? '1' : '0');
+    drawReadOnly(); $('dlg').close();
+    toast(S.readOnly ? 'Read-only mode enabled' : 'Writes enabled');
+  };
+};
+drawReadOnly();
+
+function updateSidebarVisibility(){
+  const collapsed=S.connected&&S.sideCollapsed;
+  $('side').hidden=!S.connected||collapsed; $('side').classList.toggle('collapsed',collapsed);
+  $('sideresizer').hidden=!S.connected||collapsed; $('sidetoggle-expand').hidden=!collapsed; $('brandname').hidden=S.connected&&!collapsed;
+}
+function toggleSidebar(forceCollapse){
+  const next = forceCollapse !== undefined ? forceCollapse : !S.sideCollapsed;
+  S.sideCollapsed = next;
+  setPreference('sideCollapsed', next ? '1' : '0');
+  updateSidebarVisibility();
+  toast(next ? 'Sidebar collapsed' : 'Sidebar expanded');
+}
+
+/* ---------------- connect ---------------- */
+// the shell is always on screen; connection state only decides what's in it
+function setConnected(on){
+  S.connected = on;
+  updateSidebarVisibility();
+  $('connbtn').hidden = !on;
+  // show which server and database this is (user, host and port in the tooltip), not just the database name
+  const where = (on && S.connectionUrl ? shortDsn(S.connectionUrl, false) : (on ? S.db : '')) + (on ? ' / public' : '');    // pgweb browses the public schema only
+  $('dbname').hidden = !on; $('dbname').textContent = where; $('dbname').title = on ? (S.connectionUrl ? shortDsn(S.connectionUrl) : S.db) : '';
+  $('connbtn').textContent = 'Disconnect';
+  $('connbtn').title = 'Disconnect from this database';
+  for(const el of $('optionswrap').querySelectorAll('.conn-only')) el.hidden = !on;    // the theme button stays, connected or not
+  $('pane').hidden = false;
+  $('status').hidden = true;
+  $('queryrunner').disabled = !on;
+  $('sidetabs').hidden = !on;
+  $('tablesearch').hidden = !on;
+  $('tree').hidden = !on;
+  $('reload').disabled = !on;
+  $('rowrefresh').disabled = !on;
+  $('run').disabled = $('stream').disabled = $('explain').disabled = $('analyze').disabled = $('resetsql').disabled = $('sql').disabled = !on;
+  $('cancelquery').hidden=true; $('pagenav').hidden=true;
+  if(!on) setExports(false);
+  if(!on){
+    S.tree={}; S.dbInfo=null; S.dbCatalog={}; S.dbCatalogKind=''; S.rows=[];
+    S.local=null; S.table=''; S.kind=''; S.cols=[]; S.total=0; S.hasMore=false; S.pageStart=0; S.latestFirst=false; S.activeQueryId=null; lastFirst=-1;
+    $('tree').textContent=''; $('q').value=''; $('qclr').hidden=true;
+    $('tools').style.display='none';
+    for(const t of document.querySelectorAll('.tab')) t.hidden = true;
+    $('morewrap').hidden=true; $('moremenu').hidden=true;
+    rowPanelClose();
+    show('home');
+    renderHome();
+    headEl.textContent=''; rowsEl.textContent=''; canvas.classList.remove('has-rows'); pool=[];
+    $('empty').textContent='Not connected'; $('empty').classList.add('on');
+    for(const id of ['st-obj','st-rows','st-size','st-time']) $(id).textContent='';
+  }else{
+    $('empty').classList.remove('on'); $('empty').textContent='No rows';
+  }
+}
+async function doConnect(dsn){
+  dsn = cleanDsn(dsn);
+  const m = await api({action:'connect', dsn});
+  S.db = m.database; S.connectionUrl = m.connection_url || ''; S.tree = m.tree; S.dbInfo=null; S.dbCatalog={}; S.dbCatalogKind='';
+  setConnected(true);
+  setSideTab(S.sideTab || 'table', false);
+  drawTree(); openRunner();
+}
+function disconnected(){ setConnected(false); }
+
+$('connbtn').onclick = askDisconnect;    // shown only while connected; connecting happens on the home screen
+
+function getSavedDsns(){
+  try{
+    const raw = getStored('savedDsns') || [];
+    if(!Array.isArray(raw)) return [];
+    const seenDsns = new Set(), unique = [];
+    for(const item of raw){
+      if(!item || !item.dsn) continue;
+      // one entry per user, host, port and database: the same database name on two servers stays two entries
+      const dsnKey = maskDsn(item.dsn);
+      if(!String(item.name || '').trim() || !dsnKey || seenDsns.has(dsnKey)) continue;
+      seenDsns.add(dsnKey);
+      unique.push(item);
+    }
+    return unique;
+  }catch{
+    return [];
+  }
+}
+function setSavedDsns(items){
+  setStored('savedDsns', items);
+}
+function saveConnection(dsn){
+  dsn = cleanDsn(dsn);
+  if(!dsn) return;
+  const finalName = parseDsnDb(dsn);
+  let items = getSavedDsns();
+  items = items.filter(i => maskDsn(i.dsn) !== maskDsn(dsn));    // same user, host, port and database (a changed password replaces it)
+  items.unshift({
+    id: 'dsn_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    name: finalName,
+    dsn,
+    updatedAt: Date.now()
+  });
+  setSavedDsns(items);
+  renderHome();
+}
+async function connectFromHome(rawDsn, isReadOnly = false){
+  const dsn = cleanDsn(rawDsn || $('home-dsn')?.value);
+  const errEl = $('home-conn-err');
+  const btn = $('home-connect-btn');
+  const btnRo = $('home-connect-ro-btn');
+  if(!dsn){
+    if(errEl){ errEl.textContent = 'Please enter a PostgreSQL URL'; errEl.hidden = false; }
+    return;
+  }
+  if(errEl){ errEl.hidden = true; errEl.textContent = ''; }
+  if(btn) btn.disabled = true;
+  if(btnRo) btnRo.disabled = true;
+  if(isReadOnly && btnRo){
+    const sp = btnRo.querySelector('span');
+    if(sp) sp.textContent = 'Connecting…';
+  }else if(!isReadOnly && btn){
+    const sp = btn.querySelector('span');
+    if(sp) sp.textContent = 'Connecting…';
+  }
+  try{
+    const isRo = !!isReadOnly;
+    S.readOnly = isRo;
+    setPreference('readOnly', isRo ? '1' : '0');
+    drawReadOnly();
+    await doConnect(dsn);
+    saveConnection(dsn);
+    toast('Connected to ' + S.db + (isRo ? ' (read-only)' : ''));
+  }catch(e){
+    if(errEl){ errEl.textContent = e.message; errEl.hidden = false; }
+  }finally{
+    if(btn){
+      btn.disabled = false;
+      const sp = btn.querySelector('span');
+      if(sp) sp.textContent = 'Connect';
+    }
+    if(btnRo){
+      btnRo.disabled = false;
+      const sp = btnRo.querySelector('span');
+      if(sp) sp.textContent = 'Connect Read-Only';
+    }
+  }
+}
+// Short, readable form of a DSN: user @ host / db (no scheme, password, default port, or cloud domain suffix); host / db without the user
+function shortDsn(dsn, withUser = true){
+  try{
+    const u = new URL(cleanDsn(dsn).replace(/^postgres(ql)?:\/\//i, 'http://'));
+    const ip = /^[\d.]+$/.test(u.hostname) || u.hostname.includes(':');
+    const host = ip ? u.hostname : u.hostname.replace(/\.(postgres\.database\.azure\.com|database\.windows\.net|rds\.amazonaws\.com|[a-z0-9-]+\.rds\.amazonaws\.com|supabase\.co|neon\.tech|cloudsql\.com)$/i, '').replace(/\.[a-z0-9-]+\.rds\.amazonaws\.com$/i, '');
+    const user = decodeURIComponent(u.username || '');
+    const db = u.pathname.replace(/^\//, '');
+    return (withUser && user ? user + ' @ ' : '') + host + (u.port && u.port !== '5432' ? ':' + u.port : '') + (db ? ' / ' + db : '');
+  }catch{
+    return maskDsn(dsn);
+  }
+}
+function renderHome(){
+  const items=getSavedDsns(), search=$('home-saved-search'), list=$('home-saved-list');
+  $('login-saved').hidden=!items.length; if(!items.length) return;
+  search.hidden=items.length<=5; if(search.hidden) search.value=''; search.oninput=renderHome;
+  const query=search.value.trim().toLowerCase();
+  const shown=query ? items.filter(item=>((item.name||'')+' '+shortDsn(item.dsn)).toLowerCase().includes(query)) : items;
+  $('home-saved-count').textContent=query ? `(${shown.length} of ${items.length})` : `(${items.length})`;
+  list.textContent='';
+  if(!shown.length) list.appendChild(el('div','login-saved-empty','No saved connection matches'));
+  for(const item of shown){
+    const row=list.appendChild(el('div','saved-conn-row')); row.title=maskDsn(item.dsn)+'\nClick to use this connection';
+    const meta=row.appendChild(el('div','saved-conn-meta'));
+    meta.append(el('div','saved-conn-name',item.name||'PostgreSQL'), el('div','saved-conn-url',shortDsn(item.dsn)));
+    meta.onclick=()=>{ $('home-dsn').value=item.dsn; $('home-dsn').focus(); $('home-dsn').select(); };
+    const connect=iconButton('plug','Connect to this database','saved-conn-btn connect'), remove=iconButton('trash','Remove saved connection','saved-conn-btn delete');
+    connect.onclick=e=>{ e.stopPropagation(); $('home-dsn').value=item.dsn; connectFromHome(item.dsn); };
+    remove.onclick=e=>{ e.stopPropagation(); setSavedDsns(getSavedDsns().filter(i=>i.id ? i.id!==item.id : i.dsn!==item.dsn)); renderHome(); toast('Connection removed'); };
+    row.appendChild(el('div','saved-conn-actions')).append(connect, remove);
+  }
+}
+function cleanDsn(raw){
+  if(!raw) return '';
+  let str = String(raw).trim();
+  const uriMatch = str.match(/(postgres(?:ql)?:\/\/[^\s"']+)/i);
+  if(uriMatch) return uriMatch[1];
+  str = str.replace(/^['"]+|['"]+$/g, '').trim();
+  str = str.replace(/^psql\s+(?:-[d\w]+\s+)?/i, '').replace(/^['"]+|['"]+$/g, '').trim();
+  return str;
+}
+function maskDsn(dsn){
+  dsn = cleanDsn(dsn);
+  if(!dsn) return '';
+  return String(dsn).replace(/(:\/\/[^:]+:)([^@]+)(@)/, '$1••••$3');
+}
+function parseDsnDb(dsn){
+  try{
+    dsn = cleanDsn(dsn);
+    const u = new URL(dsn.startsWith('postgres') ? dsn.replace(/^postgres(ql)?:\/\//, 'http://') : 'http://' + dsn);
+    const db = u.pathname.replace(/^\//, '');
+    const host = u.hostname;
+    return db || host || 'PostgreSQL';
+  }catch{
+    const m = String(dsn).match(/\/([^/?#]+)(?:[?#]|$)/);
+    return m ? m[1] : 'PostgreSQL';
+  }
+}
+
+function askDisconnect(){
+  $('dlg-t').textContent = 'Disconnect';
+  $('dlg-b').textContent = `Disconnect from ${S.db}? Any unsaved query text stays in the editor.`;
+  $('dlg-f').innerHTML = '<button value="cancel">Cancel</button><button class="primary" id="dyes">Disconnect</button>';
+  $('dlg').showModal();
+  $('dyes').onclick = async ev => {
+    ev.preventDefault(); $('dlg').close();
+    try{ await api({action:'disconnect'}); }catch{}
+    setConnected(false);
+  };
+}
+
+/* ---------------- sidebar ---------------- */
+function getKindMeta(kind){
+  if(kind === 'view') return { singular: 'view', plural: 'views', label: 'Views' };
+  if(kind === 'materialized_view') return { singular: 'materialized view', plural: 'materialized views', label: 'Materialized' };
+  return { singular: 'table', plural: 'tables', label: 'Tables' };
+}
+
+// each side tab shows how many objects it has, e.g. Tables (12); the sidebar is kept wide enough for them on one line
+function drawSideTabCounts(){
+  for(const btn of document.querySelectorAll('#sidetabs .side-tab')){
+    btn.dataset.label ||= btn.textContent.trim();
+    const count=((S.tree.public||{})[btn.dataset.kind]||[]).length;
+    const label=el('span',null,btn.dataset.label);
+    const badge=el('span','side-count',`(${count})`);
+    btn.replaceChildren(label,badge);
+  }
+  fitSidebarToTabs();
+}
+function sideTabsWidth(){
+  const tabs=$('sidetabs'); if(!tabs||tabs.hidden) return 0;
+  const style=getComputedStyle(tabs);
+  // the text's own width (spans do not stretch with the tab), plus each tab's padding and border
+  const tab=b=>[...b.children].reduce((w,span)=>w+span.getBoundingClientRect().width+parseFloat(getComputedStyle(span).marginLeft||0),0)+parseFloat(getComputedStyle(b).paddingLeft)*2+2;
+  return Math.ceil([...tabs.children].reduce((sum,b)=>sum+tab(b),0) + (tabs.children.length-1)*parseFloat(style.columnGap||4) + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight));
+}
+function fitSidebarToTabs(){
+  const need=sideTabsWidth(), side=$('side');
+  if(need && side && !side.classList.contains('collapsed') && side.getBoundingClientRect().width<need) document.documentElement.style.setProperty('--side-w', need+'px');
+}
+function setSideTab(kind, triggerRender = true){
+  S.sideTab = kind || 'table';
+  setPreference('sideTab', S.sideTab);
+  for(const btn of document.querySelectorAll('#sidetabs .side-tab')){
+    btn.classList.toggle('on', btn.dataset.kind === S.sideTab);
+  }
+  const meta = getKindMeta(S.sideTab);
+  $('q').placeholder = `Search ${meta.plural}`;
+  if(triggerRender) drawTree();
+}
+
+for(const btn of document.querySelectorAll('#sidetabs .side-tab')){
+  btn.onclick = () => setSideTab(btn.dataset.kind);
+}
+
+// All public schema objects stay in memory; DOM rows are appended in small batches.
+function drawTree(){
+  drawSideTabCounts();
+  const kind = S.sideTab || 'table';
+  S.sideItems = ((S.tree.public||{})[kind]||[]).map(o=>o.name).sort((a,b)=>a.localeCompare(b));
+  renderTreeBatch(true);
+}
+function renderTreeBatch(reset=false){
+  const box=$('tree'), term=$('q').value.trim().toLowerCase();
+  const kind = S.sideTab || 'table';
+  const meta = getKindMeta(kind);
+  const matches=term ? S.sideItems.filter(name=>name.toLowerCase().includes(term)) : S.sideItems;
+  if(reset){ box.textContent=''; S.sideShown=0; }
+  const next=matches.slice(S.sideShown, S.sideShown+SIDE_BATCH);
+  const frag = document.createDocumentFragment();
+  for(const name of next){
+    const d=el('div'); d.className='obj'+(S.table===name?' on':'');
+    d.dataset.table=name; d.dataset.kind=kind;
+    const nm=el('span','nm',name); nm.title=name;
+    const copy=iconButton('copy',`Copy ${name}`,'obj-copy'); copy.onclick=e=>{ e.stopPropagation(); copyText(name,`${name} copied`); };    // copy without opening
+    d.append(nm,copy);
+    d.onclick=()=>openObject(name, kind);
+    frag.appendChild(d);
+  }
+  S.sideShown+=next.length; box.appendChild(frag);
+  if(reset && !matches.length){
+    const empty=el('div','obj'); empty.style.cssText='color:var(--dim);cursor:default';
+    empty.textContent=term?`No matching ${meta.plural}`:`No ${meta.plural} in public`; box.appendChild(empty);
+  }
+}
+function searchTables(){
+  const term = $('q').value.trim().toLowerCase();
+  $('qclr').hidden = !term;
+  renderTreeBatch(true);
+}
+$('tree').addEventListener('scroll', () => {
+  const box=$('tree');
+  if(box.scrollTop+box.clientHeight >= box.scrollHeight-60) renderTreeBatch();
+}, {passive:true});
+$('q').oninput = searchTables;
+$('q').onkeydown = e => { if(e.key==='Escape'){ $('q').value=''; searchTables(); } };
+$('qclr').onclick = () => { $('q').value=''; searchTables(); $('q').focus(); };
+
+/* ---------------- query runner (the default view) ---------------- */
+const SQL_KEYWORDS=new Set(('ALL ANALYSE ANALYZE AND ANY ARRAY AS ASC ASYMMETRIC AUTHORIZATION BEGIN BINARY BOTH BY CASE CASCADE CAST CHECK COLLATE COLLATION COLUMN COMMIT CONCURRENTLY CONFLICT CONSTRAINT CREATE CROSS CURRENT_CATALOG CURRENT_DATE CURRENT_ROLE CURRENT_SCHEMA CURRENT_TIME CURRENT_TIMESTAMP CURRENT_USER DATABASE DECLARE DEFAULT DEFERRABLE DELETE DESC DISTINCT DO DROP ELSE ELSIF END EXCEPT EXISTS EXPLAIN FALSE FETCH FOR FOREIGN FREEZE FROM FULL FUNCTION GRANT GROUP HAVING IF ILIKE IN INDEX INITIALLY INNER INSERT INTERSECT INTO IS ISNULL JOIN LANGUAGE LATERAL LEADING LEFT LIKE LIMIT LOCALTIME LOCALTIMESTAMP LOOP MATERIALIZED NATURAL NOT NOTHING NOTNULL NULL NULLS OFFSET ON ONLY OR ORDER OUTER OVER OVERLAPS PARTITION PLACING POLICY PRIMARY PROCEDURE RAISE RECURSIVE REFERENCES REPLACE RESTRICT RETURNS RETURNING RIGHT ROLLBACK SCHEMA SELECT SESSION_USER SET SIMILAR SOME SYMMETRIC TABLE TABLESAMPLE THEN TO TRAILING TRANSACTION TRIGGER TRUE UNION UNIQUE UPDATE USER USING VALUES VARIADIC VERBOSE VIEW WHEN WHERE WINDOW WITH').split(' '));
+const SQL_TYPES=new Set(('BIGINT BIGSERIAL BIT BOOL BOOLEAN BOX BYTEA CHAR CHARACTER CIDR CIRCLE DATE DEC DECIMAL DOUBLE ENUM FLOAT FLOAT4 FLOAT8 INET INT INT2 INT4 INT8 INTEGER INTERVAL JSON JSONB LINE LSEG MACADDR MONEY NUMERIC PATH POINT POLYGON REAL SERIAL SERIAL2 SERIAL4 SERIAL8 SMALLINT SMALLSERIAL TEXT TIME TIMESTAMP TIMESTAMPTZ TIMETZ TSQUERY TSVECTOR UUID VARCHAR VARYING XML').split(' '));
+const SQL_FUNCTIONS=new Set(('AVG COUNT MAX MIN SUM ARRAY_AGG JSON_AGG JSONB_AGG STRING_AGG COALESCE NULLIF GREATEST LEAST NOW CURRENT_DATABASE CURRENT_SCHEMA VERSION LOWER UPPER LENGTH SUBSTRING TRIM DATE_TRUNC EXTRACT TO_CHAR TO_DATE TO_TIMESTAMP ROW_NUMBER RANK DENSE_RANK LAG LEAD FIRST_VALUE LAST_VALUE GENERATE_SERIES UNNEST').split(' '));
+function updateSqlHighlight(){
+  const source=$('sql').value;
+  const token=/--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)|\$[A-Za-z_][A-Za-z0-9_]*\$[\s\S]*?(?:\$[A-Za-z_][A-Za-z0-9_]*\$|$)|\$\$[\s\S]*?(?:\$\$|$)|(?:[eEnNbBxX])?'(?:''|\\[\s\S]|[^'])*'|"(?:""|[^"])*"|\$\d+|\b(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\b|\b[A-Za-z_][A-Za-z0-9_$]*\b/g;
+  let html='',last=0,match;
+  while((match=token.exec(source))){
+    html+=sqlEscape(source.slice(last,match.index));
+    const value=match[0], upper=value.toUpperCase(); let cls='';
+    if(value.startsWith('--')||value.startsWith('/*')) cls='sql-comment';
+    else if(value.startsWith("'")||/^[eEnNbBxX]'/.test(value)||value.startsWith('$$')||/^\$[A-Za-z_]/.test(value)) cls='sql-string';
+    else if(value.startsWith('"')) cls='sql-ident';
+    else if(/^\$\d+$/.test(value)) cls='sql-param';
+    else if(/^(?:\d|\.\d)/.test(value)) cls='sql-number';
+    else if(SQL_KEYWORDS.has(upper)) cls='sql-key';
+    else if(SQL_TYPES.has(upper)) cls='sql-type';
+    else if(SQL_FUNCTIONS.has(upper)||source.slice(token.lastIndex).trimStart().startsWith('(')) cls='sql-fn';
+    const safe=sqlEscape(value); html+=cls?`<span class="${cls}">${safe}</span>`:safe; last=token.lastIndex;
+  }
+  $('sqlhl').innerHTML=html+sqlEscape(source.slice(last))+'\n';
+  $('sqlhl').scrollTop=$('sql').scrollTop; $('sqlhl').scrollLeft=$('sql').scrollLeft;
+}
+function seedQuery(){
+  if($('sql').value.trim() || S.queryCleared) return;
+  const savedSql = getStored('sql');
+  if(typeof savedSql === 'string' && savedSql.trim()){
+    $('sql').value = savedSql;
+  }else{
+    $('sql').value = DEFAULT_SQL;
+  }
+}
+function drawResetSql(){
+  $('resetsql').hidden=$('sql').value===DEFAULT_SQL && !S.local && $('qerror').hidden;
+}
+function openRunner(){
+  for(const el of document.querySelectorAll('.obj.on')) el.classList.remove('on');
+  S.table=''; S.kind='';
+  for(const t of document.querySelectorAll('.tab')) t.hidden = true;
+  $('morewrap').hidden=true; $('moremenu').hidden=true;
+  show('query');
+  $('st-obj').textContent=''; $('st-rows').textContent=''; $('st-size').textContent='';
+  seedQuery();
+  updateSqlHighlight();
+  drawResetSql();
+  $('sql').focus();
+}
+$('queryrunner').onclick = openRunner;
+
+/* ---------------- open a table ---------------- */
+const detailCellValues=new WeakMap();
+const detailRowValues=new WeakMap();
+function compactCellValue(value){
+  if(value===null || value===undefined) return 'NULL';
+  const t = typeof value;
+  if(t==='string') return value.length > 500 ? value.slice(0, 500) + '…' : value;
+  if(t==='number' || t==='boolean') return String(value);
+  if(t==='object'){
+    try{
+      const s = JSON.stringify(value);
+      return s.length > 300 ? s.slice(0, 300) + '…' : s;
+    }
+    catch{return String(value);}
+  }
+  const s = String(value);
+  return s.length > 500 ? s.slice(0, 500) + '…' : s;
+}
+function prettyCellValue(value){
+  if(value===null || value===undefined) return 'NULL';
+  if(typeof value==='object'){
+    try{return JSON.stringify(value,null,2);}
+    catch{return String(value);}
+  }
+  const text=String(value), trimmed=text.trim();
+  if((trimmed.startsWith('{')&&trimmed.endsWith('}'))||(trimmed.startsWith('[')&&trimmed.endsWith(']'))){
+    try{const parsed=JSON.parse(trimmed); if(parsed&&typeof parsed==='object') return JSON.stringify(parsed,null,2);}catch{}
+  }
+  return text;
+}
+function structuredCellValue(value){
+  if(value&&typeof value==='object') return value;
+  if(typeof value!=='string') return null;
+  const text=value.trim();
+  if(!((text.startsWith('{')&&text.endsWith('}'))||(text.startsWith('[')&&text.endsWith(']')))) return null;
+  try{const parsed=JSON.parse(text); return parsed&&typeof parsed==='object'?parsed:null;}catch{return null;}
+}
+function highlightJson(value){
+  const source=JSON.stringify(value,null,2);
+  const token=/"(?:\\.|[^"\\])*"(?=\s*:)|"(?:\\.|[^"\\])*"|\b(?:true|false)\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g;
+  let html='',last=0,match;
+  while((match=token.exec(source))){
+    html+=sqlEscape(source.slice(last,match.index));
+    const text=match[0], cls=text==='null'?'json-null':/^(?:true|false)$/.test(text)?'json-bool'
+      : text.startsWith('"')?(source.slice(token.lastIndex).trimStart().startsWith(':')?'json-key':'json-string'):'json-number';
+    html+=`<span class="${cls}">${sqlEscape(text)}</span>`; last=token.lastIndex;
+  }
+  return html+sqlEscape(source.slice(last));
+}
+// width of a column from its label and first 200 values (~7.25px a character), capped by what such a column holds
+function columnWidth(label,values,min=60){
+  let length=label.length; for(const value of values.slice(0,200)) length=Math.max(length,compactCellValue(value).length);
+  const name=label.toLowerCase();
+  const max=/definition|query|sql/.test(name)?460:/description/.test(name)?360:/argument|result|using|check|condition/.test(name)?320
+           :/name/.test(name)?300:/default|predicate|reference/.test(name)?260:240;
+  return Math.max(min,Math.min(max,Math.ceil(length*7.25)+24));
+}
+function setColumnWidths(table,widths){
+  table.querySelector('colgroup')?.remove();
+  const colgroup=el('colgroup'); for(const width of widths) colgroup.appendChild(el('col')).style.width=width+'px';
+  table.insertBefore(colgroup,table.tHead);
+  const total=widths.reduce((sum,value)=>sum+value,0); table.style.width=total+'px'; table.style.minWidth='0';
+  return total;
+}
+function sizeDetailGrid(table,rows){
+  const total=setColumnWidths(table,[...table.tHead.rows[0].cells].map((header,index)=>index ? columnWidth(header.textContent,rows.map(row=>row[index])) : columnWidth('#',[rows.length],44)));
+  table.style.marginRight=total>$('pane').clientWidth?'16px':'0';
+}
+function fillDetailGrid(id, rows, emptyText='No data'){
+  const table=$(id), body=table.tBodies[0]; body.textContent=''; table.dataset.total=rows.length;
+  if(!rows.length){
+    const tr=body.insertRow(), td=tr.insertCell(); td.colSpan=table.tHead.rows[0].cells.length;
+    td.className='empty-detail'; td.textContent=emptyText;
+  }else{
+    for(const values of rows){
+      const tr=body.insertRow(); detailRowValues.set(tr,values);
+      for(const value of values){
+        const td=tr.insertCell(); td.textContent=compactCellValue(value); detailCellValues.set(td,value);
+        if(value==null) td.classList.add('null');
+      }
+    }
+  }
+  sizeDetailGrid(table,rows);
+  const input=document.querySelector(`.detail-search[data-grid="${id}"]`); if(input) updateDetailSearch(input);
+}
+function updateDetailSearch(input){
+  const table=$(input.dataset.grid), term=input.value.trim().toLowerCase();
+  const rows=[...table.tBodies[0].rows].filter(row=>!row.cells[0]?.classList.contains('empty-detail'));
+  let shown=0;
+  for(const row of rows){
+    const match=!term||[...row.cells].slice(1).some(cell=>cell.textContent.toLowerCase().includes(term));
+    row.hidden=!match;
+    if(match){
+      shown++; row.cells[0].textContent=String(shown); detailCellValues.set(row.cells[0],shown);
+      const values=detailRowValues.get(row); if(values) values[0]=shown;
+    }
+  }
+  const total=+table.dataset.total||0, noun=total===1?input.dataset.one:input.dataset.many;
+  input.parentElement.querySelector('.detail-count').textContent=term?`${shown} of ${total} ${noun}`:`${total} ${noun}`;
+  const download=input.parentElement.querySelector('.detail-download'); if(download) download.disabled=shown===0;
+}
+for(const input of document.querySelectorAll('.detail-search')){
+  input.oninput=()=>updateDetailSearch(input);
+  input.onkeydown=e=>{ if(e.key==='Escape'){ input.value=''; updateDetailSearch(input); } };
+}
+for(const tools of document.querySelectorAll('.detail-tools')){
+  const input=tools.querySelector('.detail-search');
+  const refBtn=el('button');
+  refBtn.type='button'; refBtn.className='iconbtn detail-refresh'; refBtn.title=refBtn.ariaLabel='Refresh tab data';
+  refBtn.dataset.grid=input.dataset.grid; refBtn.innerHTML=icon('refresh');
+  refBtn.onclick=()=>{
+    const part=input.dataset.grid.replace(/^g-/,'');
+    if(part==='struct'){
+      refreshTableData();
+    }else{
+      S.loaded[part]=false;
+      loadDetail(part);
+    }
+  };
+  tools.appendChild(refBtn);
+
+  const button=el('button');
+  button.type='button'; button.className='iconbtn detail-download'; button.title=button.ariaLabel='Download tab data as CSV';
+  button.dataset.grid=input.dataset.grid; button.innerHTML=icon('download'); button.disabled=true; tools.appendChild(button);
+}
+async function openObject(table, kind, initialTab = 'rows'){
+  const targetKind = kind || 'table';
+  if(targetKind !== S.sideTab && (targetKind === 'table' || targetKind === 'view' || targetKind === 'materialized_view')){
+    setSideTab(targetKind, true);
+  }
+  for(const el of document.querySelectorAll('.obj.on')) el.classList.remove('on');
+  const targetObj = document.querySelector(`.obj[data-table="${table}"]`);
+  if(targetObj){
+    targetObj.classList.add('on');
+    targetObj.scrollIntoView({block:'nearest'});
+  }
+  if(table!==S.table){ S.pageSize=DEFAULT_PAGE_SIZE; $('pagesize').value=S.pageSize; }   /* a changed page size lasts while this table stays open */
+  S.table=table; S.kind=targetKind; S.where=null; S.local=null; S.loaded={}; drawSlowFilterHint(0);
+  setExports(false);
+  S.rows=[]; lastFirst=-1;
+  $('fval').value=''; $('ftxt').textContent='';
+  mountGrid($('v-rows'));
+  for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v==='info';
+  $('morewrap').hidden=false;
+
+  const m = await api({action:'rows', table, limit:S.pageSize, is_meta:1});
+  S.meta=m.meta; S.cols=m.meta.columns.map(c=>c.name); S.pk=m.meta.pk; S.latestFirst=!!m.meta.latest_first;
+  S.total=m.rows.length; S.hasMore=!!m.has_more; S.pageStart=0;
+  S.rows=m.rows;
+
+  for(const input of document.querySelectorAll('.detail-search')) input.value='';
+  $('fcol').textContent='';
+  for(const column of m.meta.columns){
+    const option=el('option'); option.value=column.name; option.textContent=column.name;
+    $('fcol').appendChild(option);
+  }
+  renderFcolPicker(m.meta.columns);
+  S.filterApplied={col:$('fcol').value,op:'=',val:''}; drawFilterOps(false); drawFilterActions();
+  $('st-obj').innerHTML = `<b>${table}</b>`;
+  $('st-rows').textContent = `${m.rows.length} rows loaded`;
+  $('st-size').textContent = m.meta.stats.total_size || '';
+  drawBatchNav(); buildGrid(); vp.scrollTop=0; render(true);
+  show(initialTab || 'rows');
+}
+
+/* per-table detail: one request, only when its tab is first opened */
+async function loadDetail(part){
+  if(S.loaded[part] || !S.table) return;
+  S.loaded[part] = true;
+  fillDetailGrid('g-'+part,[], 'Loading…');
+  try{
+    const m = await api({action:'detail', table:S.table, part});
+    fillDetailGrid('g-'+part,DETAIL_ROWS[part](m.rows),`No ${part}`);
+  }catch(err){ S.loaded[part]=false; fillDetailGrid('g-'+part,[], 'Error: '+err.message); }
+}
+
+/* ---------------- grid ---------------- */
+const widthCache = new Map();
+function measure(){
+  const saved = (getStored('widths')||{})[S.table];
+  if(saved && saved.length===S.cols.length){ S.widths = saved; return; }
+  const cacheKey = (S.table||'') + ':' + S.cols.join(',');
+  if(widthCache.has(cacheKey)){ S.widths = widthCache.get(cacheKey).slice(); return; }
+  const sample = (S.local || S.rows).slice(0, 40);
+  S.widths = S.cols.map((c,i) => {
+    let n = c.length;
+    for(const r of sample){
+      const v=r[i];
+      if(v!=null){
+        const L = typeof v==='string' ? Math.min(v.length, 60) : compactCellValue(v).length;
+        if(L>n) n=L;
+        if(n>=60) { n=60; break; }
+      }
+    }
+    return Math.max(MINW, Math.min(MAXW, Math.ceil(n*7.25) + 26));   /* 12px mono ≈ 7.22px/char + 18px padding */
+  });
+  if(widthCache.size > 200) widthCache.clear();
+  widthCache.set(cacheKey, S.widths.slice());
+}
+function geometry(){
+  const totalPx = S.total * ROW_H;
+  S.viewPx = Math.min(totalPx, MAXH);
+  S.scale = S.viewPx > 0 ? totalPx / S.viewPx : 1;   // >1 once the table exceeds the pixel ceiling
+}
+function buildGrid(){
+  measure(); geometry();
+  const gridWidth=S.widths.reduce((a,b)=>a+b,0);
+  inner.style.width=gridWidth+'px'; inner.style.paddingRight=gridWidth>vp.clientWidth?'16px':'0';
+  canvas.style.height = S.viewPx+'px';
+  canvas.classList.toggle('has-rows',S.total>0);
+  $('rowcsv').disabled=S.total===0;
+  headEl.textContent='';
+  S.cols.forEach((c,i)=>{
+    const th=el('div','th'); th.style.width=S.widths[i]+'px';
+    th.textContent=c; th.title=c;
+    const g=el('div','grip'); g.dataset.i=i; th.appendChild(g);
+    headEl.appendChild(th);
+  });
+  const need = Math.ceil(vp.clientHeight/ROW_H) + OVER*2;
+  rowsEl.textContent=''; pool=[];
+  const frag=document.createDocumentFragment();
+  for(let i=0;i<need;i++){
+    const tr=el('div','tr');
+    for(let c=0;c<S.cols.length;c++){
+      const td=el('div','td'); td.style.width=S.widths[c]+'px';
+      td.dataset.c=c; tr.appendChild(td);
+    }
+    frag.appendChild(tr); pool.push(tr);
+  }
+  rowsEl.appendChild(frag);
+  $('empty').textContent = 'No rows';
+  $('empty').classList.toggle('on', S.total===0);
+}
+function rowAt(i){
+  return (S.local || S.rows)[i] ?? null;
+}
+function filterParams(){
+  return S.where?{filter_col:S.where.col,filter_op:S.where.op,filter_value:S.where.val}:{};
+}
+function drawBatchNav(){
+  const supported=!!S.pk;
+  $('pagenav').hidden=false;
+  $('prevbatch').disabled=!supported||S.pageStart===0;
+  $('nextbatch').disabled=!supported||!S.hasMore;
+  const page=Math.floor(S.pageStart/S.pageSize)+1;
+  $('pagenum').textContent=`Page ${page}`;
+  const unsupported='Requires a single-column primary key';
+  $('prevbatch').title=!supported?unsupported:S.pageStart===0?'First page':`Go to Page ${page-1}`;
+  $('nextbatch').title=!supported?unsupported:!S.hasMore?'No more rows':`Go to Page ${page+1}`;
+  $('ftxt').textContent=`${S.total.toLocaleString()} ${S.total===1?'row':'rows'}`;    // the rows shown on this page
+}
+async function changeBatch(direction){
+  const current=S.rows, pkIndex=S.cols.indexOf(S.pk);
+  if(!S.pk||pkIndex<0||!current.length) return;
+  const forward=direction==='next';
+  if(forward&&!S.hasMore||!forward&&S.pageStart===0) return;
+  $('prevbatch').disabled=$('nextbatch').disabled=true;
+  try{
+    const cursor=String((forward?current[current.length-1]:current[0])[pkIndex]);
+    const requestDesc=forward?S.latestFirst:!S.latestFirst;
+    const page=await api({action:'rows',table:S.table,pk:S.pk,order:S.pk,limit:S.pageSize,
+                          after:cursor,is_desc:requestDesc?1:0,...filterParams()});
+    const rows=forward?page.rows:[...page.rows].reverse();
+    S.pageStart=forward?S.pageStart+S.total:Math.max(0,S.pageStart-rows.length);
+    S.rows=rows; S.total=rows.length; drawSlowFilterHint(page.ms); S.hasMore=forward?!!page.has_more:true;
+    drawBatchNav(); buildGrid(); vp.scrollTop=0; lastFirst=-1; render(true);
+  }catch(err){ drawBatchNav(); alertBox('Batch navigation failed',err.message); }
+}
+$('prevbatch').onclick=()=>changeBatch('previous');
+// rows per page: 100 for every table; a change applies to the open table only and reloads its first page with the same filter
+for(const size of PAGE_SIZES){ const o=el('option'); o.value=size; o.textContent=`${size} / page`; $('pagesize').appendChild(o); }
+$('pagesize').value=S.pageSize;
+$('pagesize').onchange=()=>{ S.pageSize=+$('pagesize').value; if(S.table) applyFilter(); };
+$('nextbatch').onclick=()=>changeBatch('next');
+function render(force){
+  // the panel's row was replaced (another table, a filter, a refresh): its data is gone, so close it
+  if(RP.index>=0 && (RP.table!==S.table || (rowAt(RP.index) && rowAt(RP.index)!==RP.row) || RP.index>=S.total)) rowPanelClose();
+  const top = vp.scrollTop, scaled = S.scale > 1.0001;
+  // unscaled: pixel-exact. scaled: map scroll position onto the row range and pin the
+  // block to the viewport, since one pixel now covers several rows.
+  let first = scaled ? Math.round(top * S.scale / ROW_H) : Math.floor(top/ROW_H) - OVER;
+  first = Math.max(0, Math.min(first, Math.max(0, S.total - pool.length)));
+  if(!force && first===lastFirst) return;
+  lastFirst = first;
+  rowsEl.style.transform = `translateY(${scaled ? top : first*ROW_H}px)`;
+  for(let p=0;p<pool.length;p++){
+    const idx=first+p, tr=pool[p];
+    if(idx >= S.total){ tr.hidden=true; continue; }
+    tr.hidden=false; tr.dataset.i=idx;
+    const row=rowAt(idx), cells=tr.children;
+    tr.classList.toggle('rp-sel', idx===RP.index);
+    for(let c=0;c<cells.length;c++){
+      const td=cells[c];
+      if(!row){ td.textContent=''; td.className='td'; continue; }
+      const v=row[c];
+      td.textContent = compactCellValue(v);
+      td.className = v===null ? 'td null' : 'td';
+    }
+  }
+}
+vp.addEventListener('scroll', ()=>{
+  if(ticking) return; ticking=true;
+  requestAnimationFrame(()=>{ ticking=false; render(false); });
+}, {passive:true});
+// the pool is sized to the viewport, so it has to follow it — a window resize, a pane that
+// starts collapsed, or a tab first painted in the background all land here
+new ResizeObserver(()=>{
+  if(!S.cols.length) return;
+  const need = Math.ceil(vp.clientHeight/ROW_H) + OVER*2;
+  if(need !== pool.length){ buildGrid(); lastFirst=-1; render(true); }
+}).observe(vp);
+
+/* column resize */
+let drag=null;
+headEl.addEventListener('mousedown', e=>{
+  const g=e.target.closest('.grip'); if(!g) return;
+  drag={i:+g.dataset.i, x:e.clientX, w:S.widths[+g.dataset.i]}; e.preventDefault();
+});
+addEventListener('mousemove', e=>{
+  if(!drag) return;
+  const w=Math.max(MINW, drag.w + (e.clientX-drag.x));
+  S.widths[drag.i]=w;
+  headEl.children[drag.i].style.width=w+'px';
+  for(const tr of pool) tr.children[drag.i].style.width=w+'px';
+  const gridWidth=S.widths.reduce((a,b)=>a+b,0);
+  inner.style.width=gridWidth+'px'; inner.style.paddingRight=gridWidth>vp.clientWidth?'16px':'0';
+});
+addEventListener('mouseup', ()=>{
+  if(!drag) return;
+  if(S.table){
+    setStored('widths', {...(getStored('widths')||{}), [S.table]:S.widths});
+    const cacheKey = (S.table||'') + ':' + S.cols.join(',');
+    widthCache.set(cacheKey, S.widths.slice());
+  }
+  drag=null;
+});
+
+/* shared read-only cell inspector — all writes go through the query runner */
+function openCellValue(column,rawValue,copiedMessage='Cell value copied'){
+  const structured=structuredCellValue(rawValue);
+  $('dlg').classList.toggle('structured',!!structured);
+  $('dlg-t').textContent='';
+  const title=el('span','title',column);
+  const copy=iconButton('copy','Copy cell value');
+  $('dlg-t').append(title,copy);
+  $('dlg-b').innerHTML='<pre id="cellbox"></pre>';
+  const value=prettyCellValue(rawValue);
+  if(structured){ $('cellbox').className='json'; $('cellbox').innerHTML=highlightJson(structured); }
+  else $('cellbox').textContent=value;
+  $('dlg-f').innerHTML='<button value="cancel">Close</button>';
+  copy.onclick=()=>copyText(value,copiedMessage);
+  $('dlg').showModal();
+}
+$('dlg').addEventListener('close',()=>$('dlg').classList.remove('structured'));
+rowsEl.addEventListener('dblclick', e=>{
+  const td=e.target.closest('.td'); if(!td) return;
+  const row=rowAt(+td.parentElement.dataset.i); if(!row) return;
+  const c=+td.dataset.c; openCellValue(S.cols[c],row[c]);
+});
+
+/* ---------------- edit a cell ---------------- */
+// one value of one table row, edited in the row panel and found by its primary key; the server repeats every check and refuses a cell changed since it was loaded
+function cellEditBlock(colIndex,row){
+  if(S.local||S.kind!=='table'||!S.meta) return 'Only rows of a table can be edited';
+  if(S.readOnly) return 'Read-only mode is on';
+  if(!S.pk) return 'Editing needs a single-column primary key; use the SQL runner';
+  const meta=S.meta.columns.find(col=>col.name===S.cols[colIndex]);
+  if(!meta) return 'Unknown column';
+  if(meta.name===S.pk) return 'The primary key cannot be edited here';
+  if(meta.generated) return 'Generated and identity columns cannot be edited';
+  const type=String(meta.type||'').toLowerCase();
+  if(type.endsWith('[]')||type==='bytea') return 'Array and binary columns cannot be edited here; use the SQL runner';
+  const key=row[S.cols.indexOf(S.pk)];
+  if(typeof key==='number'&&!Number.isSafeInteger(key)) return "This row's key is too large for the browser to send exactly; use the SQL runner";
+  return '';
+}
+// save one cell and put what Postgres stored into the grid's row (and the open row panel); throws the server's message
+async function saveCellEdit(column,row,original,value,isNull){
+  const m=await api({action:'update_cell',table:S.table,column,pk_value:row[S.cols.indexOf(S.pk)],original,
+                     value,is_null:isNull,is_read_only:!!S.readOnly});
+  const fresh=m.rows[0];
+  m.cols.forEach((name,i)=>{const at=S.cols.indexOf(name); if(at>=0) row[at]=fresh[i];});
+  lastFirst=-1; render(true);
+  if(RP.row===row) rowPanelDraw();
+  toast(`Saved ${column}`);
+}
+for(const table of document.querySelectorAll('.detail-grid')) table.tBodies[0].addEventListener('dblclick',e=>{
+  const td=e.target.closest('td'); if(!td || td.classList.contains('empty-detail')) return;
+  const column=table.tHead.rows[0].cells[td.cellIndex]?.textContent||'Value';
+  openCellValue(column,detailCellValues.has(td)?detailCellValues.get(td):(td.classList.contains('null')?null:td.textContent));
+});
+
+/* ---------------- row panel ---------------- */
+// one row's fields beside the grid: open from the button on a row's left edge; ↑/↓ move between rows, Esc closes
+$('rp-prev').innerHTML=icon('chevronUp'); $('rp-next').innerHTML=icon('chevronDown');
+$('rp-delete').innerHTML=icon('trash'); $('rp-close').innerHTML=icon('close');
+// a click on a cell opens its row here; selecting text to copy does not
+rowsEl.addEventListener('click', e=>{
+  const td=e.target.closest('.td'); if(!td||!S.cols.length) return;
+  if(String(window.getSelection()||'')) return;
+  const tr=td.parentElement; if(tr.hidden) return;
+  rowPanelOpen(+tr.dataset.i);
+});
+// drag the panel's left edge to widen it for long values; the width is remembered, double-click resets it
+{
+  const host=$('v-rows'), panel=$('rowpanel');
+  const saved=+getStored('rowPanelWidth'); if(saved>0) host.style.setProperty('--rp-w', saved+'px');
+  makeResizer($('rp-resize'), {sign:-1, size:()=>panel.offsetWidth,
+    set:px=>{ const w=Math.round(Math.min(host.clientWidth*.8, Math.max(300, px))); host.style.setProperty('--rp-w', w+'px'); return w; },
+    save:px=>setStored('rowPanelWidth', px), reset:()=>{ host.style.removeProperty('--rp-w'); setStored('rowPanelWidth', undefined); }});
+}
+function rowPanelOpen(index){
+  if(index<0||index>=S.total) return;
+  const row=rowAt(index); if(!row) return;
+  const isNew=RP.index<0;
+  Object.assign(RP,{index,row,table:S.table});
+  $('rowpanel').style.top=vp.offsetTop+'px';    // below the toolbar and the slow-filter bar, when shown
+  $('rowpanel').hidden=false; $('v-rows').classList.add('rp-open');
+  if(isNew) $('rp-search').value='';
+  // keep the row in view as ↑/↓ move through the table
+  if(S.scale<=1.0001){
+    const y=index*ROW_H;
+    if(y<vp.scrollTop||y+ROW_H>vp.scrollTop+vp.clientHeight-ROW_H) vp.scrollTop=Math.max(0,y-vp.clientHeight/2);
+  }
+  lastFirst=-1; render(true);
+  rowPanelDraw();
+  if(isNew) $('rp-body').scrollTop=0;    // a fresh panel starts at the first field; moving between rows keeps the place
+}
+function rowPanelClose(){
+  if(RP.index<0) return;
+  Object.assign(RP,{index:-1,row:null,table:''});
+  $('rowpanel').hidden=true; $('v-rows').classList.remove('rp-open');
+  $('rp-body').textContent='';
+  lastFirst=-1; render(true);
+}
+function rowDeleteBlock(row){
+  if(S.local||S.kind!=='table') return 'Only rows of a table can be deleted';
+  if(S.readOnly) return 'Read-only mode is on';
+  if(!S.pk) return 'Deleting needs a single-column primary key; use the SQL runner';
+  const key=row[S.cols.indexOf(S.pk)];
+  if(typeof key==='number'&&!Number.isSafeInteger(key)) return "This row's key is too large for the browser to send exactly; use the SQL runner";
+  return '';
+}
+function rowPanelDraw(){
+  const {index,row}=RP; if(index<0||!row) return;
+  const pkAt=S.pk?S.cols.indexOf(S.pk):-1;
+  $('rp-title').textContent=`${S.table||'Query result'}${pkAt>=0?` · ${S.pk} = ${compactCellValue(row[pkAt])}`:''}`;
+  $('rp-title').title=$('rp-title').textContent;
+  $('rp-prev').disabled=index<=0; $('rp-next').disabled=index>=S.total-1;
+  const blocked=rowDeleteBlock(row);
+  $('rp-delete').disabled=!!blocked; $('rp-delete').title=blocked||'Delete this row';
+  const query=$('rp-search').value.trim().toLowerCase();
+  const body=$('rp-body'); body.textContent='';
+  let shown=0;
+  S.cols.forEach((column,c)=>{
+    if(query&&!column.toLowerCase().includes(query)) return;
+    shown++;
+    const meta=S.meta?.columns?.find(col=>col.name===column);
+    const value=row[c];
+    const field=el('div','rp-field');
+    const label=el('div','rp-label');
+    const name=el('span',null,column);
+    const type=el('span','rp-type',meta?.type||'');
+    const actions=el('span','rp-actions');
+    const copy=iconButton('copy',`Copy ${column}`), expand=iconButton('expand',`Open ${column} in a large view`);
+    copy.onclick=()=>copyText(prettyCellValue(value),`${column} copied`); expand.onclick=()=>openCellValue(column,value);
+    actions.append(expand,copy);
+    if(!S.local&&S.kind==='table'){
+      const editBlocked=cellEditBlock(c,row);
+      const edit=iconButton('pencil',`Edit ${column}`); edit.disabled=!!editBlocked; edit.title=editBlocked||edit.title;
+      edit.onclick=()=>rowPanelEdit(field,column,c);
+      actions.append(edit);
+    }
+    label.append(name,type,actions);
+    const box=el('pre','rp-value');
+    const structured=value===null?null:structuredCellValue(value);
+    if(value===null){ box.classList.add('null'); box.textContent='NULL'; }
+    else if(structured){ box.classList.add('json'); box.innerHTML=highlightJson(structured); }
+    else box.textContent=prettyCellValue(value);
+    field.append(label,box);
+    body.appendChild(field);
+  });
+  if(!shown){ const empty=el('div','rp-empty','No field matches'); body.appendChild(empty); }
+}
+function rowPanelEdit(field,column,colIndex){
+  const row=RP.row, value=row[colIndex];
+  const meta=S.meta.columns.find(col=>col.name===column);
+  const box=field.querySelector('.rp-value');
+  const editor=el('div','rp-edit');
+  const area=el('textarea'); area.spellcheck=false;
+  const initial=value===null||value===undefined?'':typeof value==='object'?JSON.stringify(value,null,2):String(value);
+  area.value=initial;
+  const err=el('div','rp-err'); err.hidden=true;
+  const buttons=el('div','rp-buttons');
+  const make=(text,cls)=>{ const b=el('button'); b.type='button'; b.textContent=text; if(cls) b.className=cls; buttons.append(b); return b; };
+  const nullBtn=meta.nullable?make('Set NULL'):null, cancel=make('Cancel'), save=make('Save','primary');
+  const run=async isNull=>{
+    if(isNull?value===null:area.value===initial){ rowPanelDraw(); toast('No change'); return; }    // untouched (a NULL field's empty box included): no server call
+    for(const b of buttons.children) b.disabled=true; err.hidden=true;
+    try{ await saveCellEdit(column,row,value,isNull?null:area.value,!!isNull); }
+    catch(e){ err.textContent=e.message; err.hidden=false; for(const b of buttons.children) b.disabled=false; }
+  };
+  save.onclick=()=>run(false); if(nullBtn) nullBtn.onclick=()=>run(true);
+  cancel.onclick=()=>rowPanelDraw();
+  area.onkeydown=e=>{
+    if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){ e.preventDefault(); run(false); }
+    if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); rowPanelDraw(); }
+  };
+  editor.append(area,err,buttons);
+  box.replaceWith(editor);
+  area.focus(); area.select();
+}
+$('rp-close').onclick=rowPanelClose;
+$('rp-prev').onclick=()=>rowPanelOpen(RP.index-1);
+$('rp-next').onclick=()=>rowPanelOpen(RP.index+1);
+$('rp-search').oninput=rowPanelDraw;
+$('rp-delete').onclick=()=>{
+  const row=RP.row; if(!row||rowDeleteBlock(row)) return;
+  const pkAt=S.cols.indexOf(S.pk), key=row[pkAt];
+  $('dlg-t').textContent='Delete row';
+  $('dlg-b').textContent=`Delete the row ${S.pk} = ${compactCellValue(key)} from ${S.table}? This cannot be undone.`;
+  $('dlg-f').innerHTML='<button value="cancel">Cancel</button><button class="danger" id="dyes">Delete</button>';
+  $('dlg').showModal();
+  $('dyes').onclick=async ev=>{
+    ev.preventDefault(); $('dyes').disabled=true;
+    try{
+      await api({action:'delete_row',table:S.table,pk_value:key,original:Object.fromEntries(S.cols.map((name,i)=>[name,row[i]])),is_read_only:!!S.readOnly});
+      $('dlg').close(); rowPanelClose();
+      const deleted=`Deleted ${S.pk} = ${compactCellValue(key)}`;
+      await refreshTableData();
+      toast(deleted);    // after the refresh, whose own message would replace it
+    }catch(e){
+      $('dlg-b').textContent=e.message; $('dlg-f').innerHTML='<button value="cancel">Close</button>';
+    }
+  };
+};
+document.addEventListener('pointerdown', e=>{
+  if(RP.index<0||$('dlg').open) return;
+  const t=e.target;
+  if($('rowpanel').contains(t)||$('dlg').contains(t)||t.closest?.('#rows .td,.grip,#toast')) return;    // a cell switches rows, a grip resizes a column
+  if(t===vp&&(e.offsetX>=vp.clientWidth||e.offsetY>=vp.clientHeight)) return;    // the grid's scrollbars scroll
+  rowPanelClose();
+});
+document.addEventListener('keydown', e=>{
+  if(RP.index<0||$('dlg').open||!$('moremenu').hidden||!$('v-rows').classList.contains('on')) return;    // Esc closes an open More menu first
+  if(e.target.closest('input,textarea,select,[contenteditable]')) return;
+  if(e.key==='Escape'){ rowPanelClose(); e.preventDefault(); }
+  else if(e.key==='ArrowDown'){ rowPanelOpen(RP.index+1); e.preventDefault(); }
+  else if(e.key==='ArrowUp'){ rowPanelOpen(RP.index-1); e.preventDefault(); }
+});
+
+/* ---------------- filter ---------------- */
+let currentColumns = [];
+
+function syncFcolBtnText(){
+  const val = $('fcol').value;
+  $('fcol-btn-text').textContent = val || 'Select column';
+}
+
+function renderFcolPicker(columns){
+  currentColumns = columns || [];
+  syncFcolBtnText();
+  renderFcolList('');
+}
+
+function renderFcolList(term = ''){
+  const list = $('fcol-list');
+  if(!list) return;
+  list.innerHTML = '';
+  const q = term.trim().toLowerCase();
+  const filtered = q ? currentColumns.filter(c => (c.name||'').toLowerCase().includes(q) || (c.type||'').toLowerCase().includes(q)) : currentColumns;
+  if(!filtered.length){
+    list.innerHTML = '<div class="fcol-empty">No matching columns</div>';
+    return;
+  }
+  const selected = $('fcol').value;
+  for(let i = 0; i < filtered.length; i++){
+    const col = filtered[i];
+    const item=el('div');
+    item.className = 'fcol-item' + (col.name === selected ? ' selected' : '') + (i === 0 && q ? ' active' : '');
+    item.dataset.col = col.name;
+    const nameSpan=el('span','col-name',col.name);
+    const typeSpan=el('span','col-type',col.type || '');
+    item.append(nameSpan, typeSpan);
+    item.onclick = (e) => {
+      e.stopPropagation();
+      selectFcol(col.name);
+    };
+    list.appendChild(item);
+  }
+}
+
+function selectFcol(colName){
+  if(!colName) return;
+  $('fcol').value = colName;
+  syncFcolBtnText();
+  closeFcolMenu();
+  $('fcol').onchange?.();
+}
+
+function openFcolMenu(){
+  $('fcol-menu').hidden = false;
+  $('fcol-btn').setAttribute('aria-expanded', 'true');
+  $('fcol-search').value = '';
+  renderFcolList('');
+  setTimeout(() => $('fcol-search').focus(), 20);
+}
+
+function closeFcolMenu(){
+  $('fcol-menu').hidden = true;
+  $('fcol-btn').setAttribute('aria-expanded', 'false');
+}
+
+function toggleFcolMenu(){
+  if($('fcol-menu').hidden) openFcolMenu();
+  else closeFcolMenu();
+}
+
+$('fcol-btn').onclick = (e) => {
+  e.stopPropagation();
+  toggleFcolMenu();
+};
+
+$('fcol-search').oninput = () => {
+  renderFcolList($('fcol-search').value);
+};
+
+$('fcol-search').onkeydown = (e) => {
+  const items = Array.from($('fcol-list').querySelectorAll('.fcol-item'));
+  if(!items.length) return;
+  const active = $('fcol-list').querySelector('.fcol-item.active');
+  let idx = items.indexOf(active);
+  if(e.key === 'ArrowDown'){
+    e.preventDefault();
+    if(active) active.classList.remove('active');
+    idx = (idx + 1) % items.length;
+    items[idx].classList.add('active');
+    items[idx].scrollIntoView({block:'nearest'});
+  }else if(e.key === 'ArrowUp'){
+    e.preventDefault();
+    if(active) active.classList.remove('active');
+    idx = (idx - 1 + items.length) % items.length;
+    items[idx].classList.add('active');
+    items[idx].scrollIntoView({block:'nearest'});
+  }else if(e.key === 'Enter'){
+    e.preventDefault();
+    const target = active || items[0];
+    if(target && target.dataset.col){
+      selectFcol(target.dataset.col);
+    }
+  }else if(e.key === 'Escape'){
+    e.preventDefault();
+    closeFcolMenu();
+    $('fcol-btn').focus();
+  }
+};
+
+document.addEventListener('click', (e) => {
+  if(!e.target.closest('#fcol-picker')) closeFcolMenu();
+});
+
+const OPS={'=':'=','≠':'<>','>':'>','<':'<','≥':'>=','≤':'<=','LIKE':'LIKE','ILIKE':'ILIKE',
+           'IS NULL':'IS NULL','IS NOT NULL':'IS NOT NULL'};
+function filterOperators(){
+  const type=(S.meta?.columns.find(c=>c.name===$('fcol').value)?.type||'').toLowerCase();
+  if(/char|text|citext/.test(type)) return ['=','≠','LIKE','ILIKE','IS NULL','IS NOT NULL'];
+  if(/int|numeric|decimal|real|double|serial|date|time|timestamp|interval|money/.test(type))
+    return ['=','≠','>','<','≥','≤','IS NULL','IS NOT NULL'];
+  return ['=','≠','IS NULL','IS NOT NULL'];
+}
+function drawFilterOps(keep=true){
+  const previous=keep ? $('fop').value : S.filterApplied.op;
+  const choices=filterOperators();
+  $('fop').innerHTML=choices.map(op=>`<option>${op}</option>`).join('');
+  $('fop').value=choices.includes(previous) ? previous : choices[0];
+  const noValue=$('fop').value.startsWith('IS ');
+  $('fval').disabled=noValue; $('fval').placeholder=noValue?'No value required':'Filter value';
+}
+function filterChanged(){
+  return $('fcol').value!==S.filterApplied.col || $('fop').value!==S.filterApplied.op ||
+    $('fval').value!==S.filterApplied.val;
+}
+function drawFilterActions(){
+  $('fgo').hidden=$('fclr').hidden=!(filterChanged() || S.where);
+}
+$('fcol').onchange=()=>{ syncFcolBtnText(); drawFilterOps(); drawFilterActions(); };
+$('fop').onchange=()=>{ drawFilterOps(); drawFilterActions(); };
+$('fval').oninput=drawFilterActions;
+$('fgo').onclick = async () => {
+  const col=$('fcol').value, op=OPS[$('fop').value], val=$('fval').value;
+  if(!col) return;
+  const previous=S.where;
+  S.where=!val&&!op.startsWith('IS')?null:{col,op,val};
+  if(await applyFilter()){
+    S.filterApplied={col,op:$('fop').value,val}; drawFilterActions();
+  }else S.where=previous;
+};
+$('fclr').onclick = async () => {
+  if(filterChanged()){
+    $('fcol').value=S.filterApplied.col; syncFcolBtnText(); drawFilterOps(false);
+    $('fop').value=S.filterApplied.op; drawFilterOps();
+    $('fval').value=S.filterApplied.val; drawFilterActions();
+    return;
+  }
+  if(S.where){
+    S.where=null; $('fval').value='';
+    if(await applyFilter()) S.filterApplied={col:$('fcol').value,op:$('fop').value,val:''};
+    syncFcolBtnText();
+    drawFilterActions();
+  }
+};
+// a %text% LIKE/ILIKE filter cannot use a normal index, so Postgres reads every row; when that is slow, say so and offer the index that fixes it
+function drawSlowFilterHint(ms){
+  const w=S.where, el=$('fslow');
+  const slow=!!w&&/LIKE$/.test(w.op)&&String(w.val).startsWith('%')&&ms>=100;    // 100 ms: about where a delay is noticeable
+  el.hidden=!slow; el.textContent=''; if(!slow) return;
+  const ident=name=>'"'+String(name).replace(/"/g,'""')+'"';
+  const sql=`CREATE EXTENSION IF NOT EXISTS pg_trgm;\nCREATE INDEX ON ${ident(S.table)} USING gin (${ident(w.col)} gin_trgm_ops);`;
+  const text=el('span',null,`Full scan: ${Math.round(ms)} ms. A trigram index makes %text% search fast.`); text.title=sql;
+  const copy=el('button'); copy.type='button'; copy.textContent='Copy SQL'; copy.title=sql;
+  copy.onclick=()=>copyText(sql,'Index SQL copied');
+  el.append(text,copy);
+}
+async function applyFilter(){
+  S.rows=[]; lastFirst=-1;
+  try{
+    const first = await api({action:'rows', table:S.table, pk:S.pk, order:S.pk,
+                             is_desc:S.latestFirst?1:0,limit:S.pageSize, ...filterParams()});
+    S.rows=first.rows;
+    S.total=first.rows.length; S.hasMore=!!first.has_more; S.pageStart=0;
+    drawSlowFilterHint(first.ms);
+    drawBatchNav(); buildGrid(); vp.scrollTop=0; render(true);
+    return true;
+  }catch(err){ alertBox('Filter failed', err.message); return false; }
+}
+$('fval').onkeydown = e => { if(e.key==='Enter') $('fgo').click(); };
+
+/* ---------------- query ---------------- */
+function mountGrid(host){
+  if(vp.parentElement!==host) host.append(vp, $('empty'));
+}
+function hideQueryError(){ $('qerror').hidden=true; }
+function showQueryError(title,message){
+  $('qerrortitle').textContent=title; $('qerrorbody').textContent=message; $('qerror').hidden=false;
+  drawResetSql();
+  $('qerrorcopy').innerHTML=icon('copy');
+  $('qerrorcopy').onclick=()=>copyText(message,'Error copied');
+}
+function setExports(on){
+  for(const b of document.querySelectorAll('#qbar .export')) b.disabled=!on;
+}
+const csvCell=value=>'"'+(value==null?'':compactCellValue(value)).replace(/"/g,'""')+'"';
+function downloadCsv(headers,data,filename){
+  if(!data.length) return;
+  const text=[headers.map(csvCell),...data.map(row=>row.map(csvCell))].map(row=>row.join(',')).join('\r\n');
+  const url=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'}));
+  const a=el('a'); a.href=url; a.download=filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),0);
+}
+async function refreshTableData(){
+  if(!S.table) return;
+  const btn=$('rowrefresh');
+  if(btn) btn.disabled=true;
+  try{
+    const m = await api({action:'rows', table:S.table, pk:S.pk, order:S.pk,
+                         is_desc:S.latestFirst?1:0, limit:S.pageSize, is_meta:1, ...filterParams()});
+    S.meta=m.meta; S.cols=m.meta.columns.map(c=>c.name); S.pk=m.meta.pk; S.latestFirst=!!m.meta.latest_first;
+    S.rows=[]; lastFirst=-1;
+    S.rows=m.rows;
+    S.total=m.rows.length; S.hasMore=!!m.has_more; S.pageStart=0; drawSlowFilterHint(m.ms);
+    $('st-obj').innerHTML = `<b>${S.table}</b>`;
+    $('st-rows').textContent = `${m.rows.length} rows loaded`;
+    $('st-size').textContent = m.meta?.stats?.total_size || '';
+    drawBatchNav(); buildGrid(); vp.scrollTop=0; render(true);
+    S.loaded = {};
+    const activeTab = document.querySelector('.tab.on')?.dataset?.v;
+    if(activeTab === 'struct'){
+      S.loaded['struct'] = true;
+      fillDetailGrid('g-struct',m.meta.columns.map((c,i)=>[i+1,c.name,c.type,c.key_type,c.nullable?'Yes':'No',c.default_value,c.generated]));
+    }else if(DETAILS.includes(activeTab)){
+      loadDetail(activeTab);
+    }
+    toast('Table data refreshed');
+  }catch(err){
+    alertBox('Refresh failed', err.message);
+  }finally{
+    if(btn) btn.disabled=false;
+  }
+}
+function safeFilePart(value){return String(value||'table').replace(/[^a-z0-9_.-]+/gi,'-').replace(/^-|-$/g,'');}
+$('rowrefresh').onclick=refreshTableData;
+$('rowcsv').onclick=()=>downloadCsv(S.cols,S.local||S.rows,`${safeFilePart(S.table)}-rows.csv`);
+for(const button of document.querySelectorAll('.detail-download')) button.onclick=()=>{
+  const table=$(button.dataset.grid), headers=[...table.tHead.rows[0].cells].map(cell=>cell.textContent);
+  const data=[...table.tBodies[0].rows].filter(row=>!row.hidden&&detailRowValues.has(row)).map(row=>detailRowValues.get(row));
+  downloadCsv(headers,data,`${safeFilePart(S.table)}-${button.dataset.grid.replace(/^g-/,'')}.csv`);
+};
+function exportResult(format){
+  if(!S.local) return;
+  const objects=S.local.map(row=>Object.fromEntries(S.cols.map((col,i)=>[col,row[i]])));
+  let text, type;
+  if(format==='json'){
+    text=JSON.stringify(objects,null,2); type='application/json';
+  }else if(format==='csv'){
+    text=[S.cols.map(csvCell),...S.local.map(row=>row.map(csvCell))].map(row=>row.join(',')).join('\r\n');
+    type='text/csv';
+  }else{
+    const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[ch]));
+    text='<?xml version="1.0" encoding="UTF-8"?>\n<rows>\n'+objects.map(row=>'  <row>\n'+
+      Object.entries(row).map(([name,value])=>`    <column name="${esc(name)}"${value===null?' null="true"':''}>${value===null?'':esc(value)}</column>`).join('\n')+
+      '\n  </row>').join('\n')+'\n</rows>\n';
+    type='application/xml';
+  }
+  const url=URL.createObjectURL(new Blob([text],{type:type+';charset=utf-8'}));
+  const a=el('a'); a.href=url; a.download='query-result.'+format; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),0);
+}
+for(const b of document.querySelectorAll('#qbar .export')) b.onclick=()=>exportResult(b.dataset.format);
+const streamSize=bytes=>bytes<1024 ? `${bytes} B` : bytes<1048576 ? `${(bytes/1024).toFixed(1)} KB` : `${(bytes/1048576).toFixed(1)} MB`;
+function promptStreamFilename(){
+  return new Promise((resolve)=>{
+    const defaultName=`query-result-${S.db||'export'}.csv`;
+    $('dlg-t').textContent='Stream and save CSV';
+    $('dlg-b').innerHTML=`<div style="display:flex;flex-direction:column;gap:8px">
+      <label for="sfname" style="font-size:12px;color:var(--dim)">Save file as:</label>
+      <input id="sfname" type="text" value="${defaultName}" style="width:100%;height:32px;padding:4px 9px;box-sizing:border-box" autocomplete="off" spellcheck="false"/>
+      <span style="font-size:11px;color:var(--dim)">Stream all rows returned by this query as a CSV download without row limits.</span>
+    </div>`;
+    $('dlg-f').innerHTML='<button value="cancel">Cancel</button><button class="primary" type="button" id="streamgo">Save CSV</button>';
+    $('dlg').showModal();
+    const inp=$('sfname'); inp?.focus(); inp?.select();
+    inp?.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('streamgo').click(); } });
+    let resolved=false;
+    $('streamgo').onclick=()=>{
+      resolved=true;
+      const val=inp?.value.trim()||defaultName;
+      $('dlg').close();
+      resolve(val.endsWith('.csv')?val:`${val}.csv`);
+    };
+    $('dlg').addEventListener('close',function onClose(){
+      $('dlg').removeEventListener('close',onClose);
+      if(!resolved) resolve(null);
+    },{once:true});
+  });
+}
+async function streamQuery(confirmed=false){
+  const sql=$('sql').value.trim(); if(!sql) return;
+  hideQueryError();
+  const normalized=sql.toLowerCase().replace(/\s+/g,' ').trim();
+  if(!S.readOnly && !confirmed && (normalized.startsWith('truncate') || normalized.startsWith('drop ') ||
+     ((normalized.startsWith('update ') || normalized.startsWith('delete ')) && !normalized.includes(' where ')))){
+    $('dlg-t').textContent='Stream unbounded query';
+    $('dlg-b').textContent='This query can affect every row. Execute it and stream returned rows?';
+    $('dlg-f').innerHTML='<button value="cancel">Cancel</button><button class="primary" id="streamyes">Execute and stream</button>';
+    $('dlg').showModal();
+    $('streamyes').onclick=e=>{ e.preventDefault(); $('dlg').close(); streamQuery(true); };
+    return;
+  }
+  const filename=await promptStreamFilename();
+  if(!filename) return;
+
+  $('stream').disabled=true; $('streamprogress').hidden=false; $('streambar').removeAttribute('value');
+  $('streammsg').textContent='Starting…';
+  let bytes=0, chunks=[];
+  try{
+    const response=await fetch('/pgweb',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'stream',sql,is_confirmed:confirmed?1:0,is_read_only:S.readOnly?1:0})});
+    if(!response.ok){
+      let message=response.statusText||'stream failed';
+      try{ const body=await response.json(); message=String(body?.message??body?.detail??message); }catch{}
+      throw new Error(message);
+    }
+    const reader=response.body.getReader();
+    while(true){
+      const {done,value}=await reader.read(); if(done) break;
+      bytes+=value.byteLength; $('streammsg').textContent=streamSize(bytes);
+      chunks.push(value);
+    }
+    const url=URL.createObjectURL(new Blob(chunks,{type:'text/csv;charset=utf-8'}));
+    const a=el('a'); a.href=url; a.download=filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000); chunks=[];
+    $('streambar').value=1; $('streammsg').textContent=`${streamSize(bytes)} downloaded`;
+    toast(`Saved ${filename} (${streamSize(bytes)})`);
+  }catch(err){
+    $('streammsg').textContent='Download failed'; showQueryError('Stream failed',err.message);
+  }finally{
+    $('stream').disabled=!S.connected;
+    setTimeout(()=>$('streamprogress').hidden=true,3500);
+  }
+}
+$('stream').onclick=()=>streamQuery(false);
+function beginQuery(){
+  const id=globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`;
+  S.activeQueryId=id; S.cancelRequested=false;
+  $('run').disabled=$('explain').disabled=$('analyze').disabled=true;
+  $('cancelquery').hidden=false; $('cancelquery').disabled=false;
+  return id;
+}
+function finishQuery(id){
+  if(S.activeQueryId!==id) return;
+  S.activeQueryId=null; $('cancelquery').hidden=true; $('cancelquery').disabled=false;
+  $('run').disabled=$('explain').disabled=$('analyze').disabled=!S.connected;
+}
+$('cancelquery').onclick=async()=>{
+  const queryId=S.activeQueryId; if(!queryId) return;
+  S.cancelRequested=true; $('cancelquery').disabled=true; $('qmsg').className=''; $('qmsg').textContent='canceling…';
+  try{
+    const result=await api({action:'cancel',query_id:queryId});
+    $('qmsg').textContent=result.canceled?'canceling…':'query already finished';
+  }catch(err){ $('qmsg').textContent='cancel failed'; showQueryError('Cancel failed',err.message); }
+};
+async function runQuery(confirmed){
+  const sql=$('sql').value.trim(); if(!sql) return;
+  hideQueryError(); const queryId=beginQuery(); $('qmsg').className=''; $('qmsg').textContent='running…';
+  const t0=performance.now();
+  try{
+    const m = await api({action:'query', sql, is_confirmed: confirmed?1:0,
+                         is_read_only:S.readOnly?1:0,query_id:queryId});
+    S.local=m.rows; S.cols=m.cols; S.total=m.rows.length; S.pk=null;
+    S.rows=[]; lastFirst=-1;
+    $('tools').style.display='none';       // column filters belong to a table, not a result set
+    mountGrid($('qres'));
+    buildGrid(); vp.scrollTop=0; render(true);
+    for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v!=='query';
+    $('morewrap').hidden=true; $('moremenu').hidden=true;
+    show('query');
+    const elapsed=(performance.now()-t0).toFixed(1);
+    const count=m.rows.length.toLocaleString();
+    $('qmsg').textContent = `${m.truncated ? count+'+ rows · showing first '+count : count+' rows'} · ${elapsed} ms`;
+    setExports(true); drawResetSql();
+  }catch(err){
+    if(S.cancelRequested){ $('qmsg').className=''; $('qmsg').textContent='Canceled'; hideQueryError(); }
+    else if(err.message.includes('unbounded_write')){
+      $('qmsg').textContent='';
+      $('dlg-t').textContent='Unbounded write';
+      $('dlg-b').textContent='This statement has no WHERE clause and will affect every row. Run it?';
+      $('dlg-f').innerHTML='<button value="cancel">Cancel</button><button class="primary" id="yes">Execute anyway</button>';
+      $('dlg').showModal();
+      $('yes').onclick=ev=>{ ev.preventDefault(); $('dlg').close(); runQuery(true); };
+    } else {
+      const message=S.readOnly && /read.only|read-only/i.test(err.message)
+        ? 'Blocked by read-only mode' : err.message;
+      $('qmsg').className=''; $('qmsg').textContent=''; showQueryError('Query failed',message);
+    }
+  } finally { finishQuery(queryId); }
+}
+$('run').onclick = ()=>runQuery(false);
+$('resetsql').onclick = ()=>{
+  $('sql').value=DEFAULT_SQL; S.queryCleared=false;
+  removeStored('sql');
+  S.local=null; S.cols=[]; S.total=0; S.rows=[]; lastFirst=-1; pool=[];
+  headEl.textContent=''; rowsEl.textContent=''; inner.style.width=''; canvas.style.height='0'; canvas.classList.remove('has-rows'); vp.scrollTop=0; vp.scrollLeft=0;
+  $('empty').classList.remove('on'); $('qmsg').textContent=''; $('qmsg').className=''; hideQueryError();
+  setExports(false); drawResetSql(); updateSqlHighlight(); $('sql').focus();
+};
+async function explainQuery(analyze=false){
+  const sql = $('sql').value.trim(); if(!sql) return;
+  hideQueryError(); const queryId=beginQuery();
+  $('qmsg').className=''; $('qmsg').textContent=analyze?'analyzing…':'planning…';
+  const t0=performance.now();
+  try{
+    const m = await api({action:'query', sql:(analyze?'EXPLAIN ANALYZE ':'EXPLAIN ')+sql,
+                         is_read_only:S.readOnly?1:0,query_id:queryId});
+    S.local=m.rows; S.cols=m.cols; S.total=m.rows.length; S.pk=null; S.rows=[]; lastFirst=-1;
+    $('tools').style.display='none';
+    mountGrid($('qres'));
+    buildGrid(); vp.scrollTop=0; render(true);
+    for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v!=='query';
+    $('morewrap').hidden=true; $('moremenu').hidden=true;
+    show('query');
+    $('qmsg').textContent = `${m.rows.length} lines · ${(performance.now()-t0).toFixed(1)} ms`;
+    setExports(true); drawResetSql();
+  }catch(err){
+    if(S.cancelRequested){ $('qmsg').className=''; $('qmsg').textContent='Canceled'; hideQueryError(); }
+    else{
+      const message=S.readOnly && /read.only|read-only/i.test(err.message) ? 'Blocked by read-only mode' : err.message;
+      $('qmsg').className=''; $('qmsg').textContent=''; showQueryError(analyze?'Analyze failed':'Explain failed',message);
+    }
+  }finally{
+    finishQuery(queryId);
+  }
+}
+$('explain').onclick = ()=>explainQuery(false);
+$('analyze').onclick = () => {
+  if(!$('sql').value.trim()) return;
+  $('dlg-t').textContent='Analyze query';
+  $('dlg-b').textContent='EXPLAIN ANALYZE executes the SQL before showing actual timing and row counts. For write statements, database changes will occur. Continue?';
+  $('dlg-f').innerHTML='<button value="cancel">Cancel</button><button class="primary" id="analyzeyes">Analyze query</button>';
+  $('dlg').showModal();
+  $('analyzeyes').onclick=e=>{ e.preventDefault(); $('dlg').close(); explainQuery(true); };
+};
+function toggleSqlComments(){
+  const editor=$('sql'), source=editor.value;
+  const start=editor.selectionStart, end=editor.selectionEnd;
+  const first=start===0?0:source.lastIndexOf('\n',start-1)+1;
+  // A selection ending at the next line's start excludes that line.
+  const last=source.indexOf('\n',end>start && source[end-1]==='\n'?end-1:end);
+  const stop=last<0?source.length:last;
+  const lines=source.slice(first,stop).split('\n');
+  const nonempty=lines.filter(line=>line.trim());
+  const uncomment=nonempty.length>0 && nonempty.every(line=>/^\s*--/.test(line));
+  const replacement=lines.map(line=>{
+    if(!line.trim() && lines.length>1) return line;
+    return uncomment?line.replace(/^(\s*)-- ?/,'$1'):line.replace(/^(\s*)/,'$1-- ');
+  }).join('\n');
+  const scrollTop=editor.scrollTop, scrollLeft=editor.scrollLeft;
+  editor.setRangeText(replacement,first,stop,'select');
+  if(start===end){
+    const indent=lines[0].match(/^\s*/)[0].length;
+    const delta=replacement.length-(stop-first);
+    const caret=start<=first+indent?start:Math.max(first+indent,start+delta);
+    editor.setSelectionRange(caret,caret);
+  }
+  editor.dispatchEvent(new Event('input',{bubbles:true}));
+  editor.scrollTop=scrollTop; editor.scrollLeft=scrollLeft;
+  updateSqlHighlight();
+}
+$('sql').addEventListener('keydown', e=>{
+  if((e.metaKey||e.ctrlKey) && e.key==='Enter' && !e.isComposing){
+    e.preventDefault();
+    if(!e.repeat) toggleSqlComments();
+    return;
+  }
+  if(e.key==='Tab'){ e.preventDefault(); const s=e.target.selectionStart;
+    e.target.setRangeText('  ', s, e.target.selectionEnd, 'end'); updateSqlHighlight(); }
+});
+$('sql').addEventListener('input', ()=>{
+  S.queryCleared=!$('sql').value.trim(); drawResetSql(); updateSqlHighlight();
+  setStored('sql', $('sql').value);
+});
+$('sql').addEventListener('scroll',()=>{
+  $('sqlhl').scrollTop=$('sql').scrollTop; $('sqlhl').scrollLeft=$('sql').scrollLeft;
+},{passive:true});
+
+/* query editor resizer */
+// drag the line under the SQL editor to resize it (remembered; double-click or Home resets, arrow keys step)
+{
+  const sqlwrap=$('sqlwrap'), DEFAULT_H=210;
+  const set=px=>{ const h=Math.round(Math.min(Math.max(70, ($('v-query').clientHeight||innerHeight)-120), Math.max(70, px))); sqlwrap.style.height=h+'px'; return h; };
+  const saved=parseInt(getStored('editorHeight'),10); if(saved>=70 && saved<=2000) sqlwrap.style.height=saved+'px';
+  makeResizer($('sqlresizer'), {vertical:true, size:()=>sqlwrap.offsetHeight, set, save:px=>setPreference('editorHeight', px),
+    reset:()=>{ sqlwrap.style.height=DEFAULT_H+'px'; setPreference('editorHeight', DEFAULT_H); }});
+  addEventListener('resize', ()=>{ if(sqlwrap.offsetHeight) set(sqlwrap.offsetHeight); });
+}
+
+/* sidebar resizer & collapse/expand */
+// drag the sidebar's edge to resize it (remembered; never narrower than its tabs); dragging it almost shut collapses it, Ctrl+B toggles it
+{
+  const side=$('side'), DEFAULT_W=240, MIN_W=140;
+  const set=px=>{ const w=Math.min(Math.max(MIN_W, Math.min(innerWidth-200, 800)), Math.max(MIN_W, sideTabsWidth(), Math.round(px))); document.documentElement.style.setProperty('--side-w', w+'px'); return w; };
+  const saved=parseInt(getStored('sideWidth'), 10); set(saved>=MIN_W && saved<=1200 ? saved : DEFAULT_W);
+  makeResizer($('sideresizer'), {size:()=>side.offsetWidth, set, save:px=>setPreference('sideWidth', px),
+    drop:(start,delta)=>{ if(start+delta<70){ toggleSidebar(true); return true; } },
+    reset:()=>{    // double-click: fit the longest visible name, or back to the default when already there
+      let target=DEFAULT_W;
+      if(Math.abs(side.offsetWidth-DEFAULT_W)<20){ const longest=Math.max(0, ...[...document.querySelectorAll('#tree .obj .nm')].map(el=>el.scrollWidth)); target=longest ? Math.max(DEFAULT_W, longest+80) : 360; }
+      setPreference('sideWidth', set(target));
+    }});
+  addEventListener('resize', ()=>{ if(!side.hidden && side.offsetWidth>Math.min(innerWidth-200, 800)) set(side.offsetWidth); });
+  $('sidetoggle-expand').onclick = () => toggleSidebar(false);
+  addEventListener('keydown', e=>{
+    if(!(e.ctrlKey||e.metaKey) || e.key.toLowerCase()!=='b' || !S.connected || ['INPUT','TEXTAREA'].includes(e.target?.tagName)) return;
+    e.preventDefault(); toggleSidebar();
+  });
+}
+
+/* ---------------- chrome ---------------- */
+function savePageState(state){
+  try{
+    const payload = {
+      view: state.view || 'query',
+      table: state.table || '',
+      kind: state.kind || '',
+      db: S.db || ''
+    };
+    sessionStorage.setItem('pgweb', JSON.stringify(payload));
+  }catch{}
+}
+function getSavedPageState(){
+  try{
+    // Use sessionStorage so within-session reloads work, but new visits/first-time always default to Query Runner
+    const raw = sessionStorage.getItem('pgweb');
+    return raw ? JSON.parse(raw) : null;
+  }catch{
+    return null;
+  }
+}
+
+function show(v){
+  const secondary=document.querySelector(`.tab.secondary[data-v="${v}"]`);
+  for(const t of document.querySelectorAll('.tab')) t.classList.toggle('on', t.dataset.v===v);
+  for(const x of document.querySelectorAll('.view')) x.classList.toggle('on', x.id==='v-'+v);
+  $('moretab').classList.toggle('on',!!secondary);
+  $('moretab').textContent=secondary?secondary.textContent:'More';    // the arrow is drawn by CSS, with its own spacing
+  for(const item of $('moremenu').querySelectorAll('button')) item.classList.toggle('on',item.dataset.v===v);
+  $('moremenu').hidden=true;
+  $('status').hidden = true;
+  $('queryrunner')?.classList.toggle('on', v==='query');
+  $('dbinfo')?.classList.toggle('on', v==='info');
+  if(v==='query'){
+    seedQuery();
+    updateSqlHighlight();
+    drawResetSql();
+    setTimeout(()=>$('sql')?.focus(), 20);
+  }
+  if(v==='rows'){
+    $('tools').style.display = S.local ? 'none' : 'flex';
+    if(S.cols.length){ lastFirst=-1; render(true); }
+    if(S.table) $('st-obj').innerHTML = `<b>${S.table}</b>`;
+  }
+  if(v==='struct' && S.meta?.columns && !S.loaded['struct']){
+    S.loaded['struct'] = true;
+    fillDetailGrid('g-struct',S.meta.columns.map((c,i)=>[i+1,c.name,c.type,c.key_type,c.nullable?'Yes':'No',c.default_value,c.generated]));
+  }
+  if(DETAILS.includes(v)) loadDetail(v);
+
+  if(v === 'home'){
+    savePageState({view:'home'});
+  }else if(v === 'query'){
+    savePageState({view:'query'});
+  }else if(v === 'info'){
+    savePageState({view:'info'});
+  }else if(S.table){
+    savePageState({view:v, table:S.table, kind:S.kind});
+  }
+}
+for(const t of document.querySelectorAll('.tab')) t.onclick = ()=>show(t.dataset.v);
+$('moretab').onclick=e=>{
+  e.stopPropagation(); const open=$('moremenu').hidden;
+  if(open){
+    const rect=$('moretab').getBoundingClientRect();
+    $('moremenu').style.top=rect.bottom+'px'; $('moremenu').style.left=Math.max(8,rect.right-170)+'px';
+  }
+  $('moremenu').hidden=!open;
+};
+for(const item of $('moremenu').querySelectorAll('button')) item.onclick=()=>show(item.dataset.v);
+addEventListener('click',e=>{if(!e.target.closest('#morewrap,#moremenu')) $('moremenu').hidden=true;});
+// the More tab looks pressed while its menu is open, however the menu opens or closes
+new MutationObserver(()=>{
+  const open=!$('moremenu').hidden;
+  $('moretab').classList.toggle('open',open); document.body.classList.toggle('more-open',open);
+}).observe($('moremenu'),{attributes:true,attributeFilter:['hidden']});
+addEventListener('resize',()=>$('moremenu').hidden=true);
+addEventListener('keydown',e=>{ if(e.key==='Escape'&&!$('moremenu').hidden){ $('moremenu').hidden=true; $('moretab').focus(); } });
+// re-reads the object list too, so DDL run in the query runner shows up without a page reload
+$('reload').onclick = async () => {
+  try{
+    const m = await api({action:'schema'});
+    S.tree = m.tree; S.dbInfo=null; S.dbCatalog={}; S.dbCatalogKind=''; drawTree();
+    const currentTab = document.querySelector('.tab.on')?.dataset.v || 'rows';
+    if(S.table && (S.tree.public||{})[S.kind]?.some(o=>o.name===S.table)) await openObject(S.table, S.kind, currentTab);
+    else if(S.table) openRunner();      // the table went away
+    toast('Schema refreshed');
+  }catch(e){ alertBox('Refresh failed', e.message); }
+};
+// database info: a summary line, clickable object tiles, connection settings, extensions; PostgreSQL-managed counts stay folded away
+function drawDatabaseInfo(m){
+  const root=$('dbinfo-summary'); root.textContent='';
+  const section=title=>{ const s=el('section'); s.appendChild(el('h3','dbi-title',title)); return s; };
+  const count=key=>Number(m[key])||0;
+  const wrap=el('div','dbi');
+
+  const info=section('Database info'), kv=el('dl','dbi-kv');
+  const row=(label,value,copyable)=>{
+    kv.appendChild(el('dt',null,label)); const dd=el('dd'); dd.appendChild(el('span',null,value??'—'));
+    if(copyable&&value){
+      dd.appendChild(iconButton('copy',`Copy ${label.toLowerCase()}`)).onclick=()=>copyText(value,`${label} copied`);
+    }
+    kv.appendChild(dd);
+  };
+  row('Database',m.database); row('PostgreSQL',m.version); row('Size',m.database_size); row('User',m.user_name); row('Time zone',m.time_zone);
+  row('Connection URL',m.connection_url,true); row('Schema',m.schema_scope); row('Encoding',m.encoding); row('Collation',m.collation);
+  info.appendChild(kv); wrap.appendChild(info);
+
+  const objects=section(`Objects in ${m.schema_scope||'public'}`), tiles=el('div','dbi-tiles');
+  objects.firstChild.appendChild(el('span','dbi-note','· extensions count the whole database'));
+  const tile=(key,label,kind,parts=[])=>{
+    const n=count(key), t=el('div','dbi-tile'+(n?'':' off'));
+    t.append(el('span','n',n.toLocaleString()), el('span','l',label));
+    if(n){
+      t.tabIndex=0; t.setAttribute('role','button'); t.title=`View ${label.toLowerCase()}`;
+      t.onclick=()=>openDatabaseCatalog(kind,label);
+      t.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); t.click(); } };
+    }
+    if(parts.length){
+      const sub=el('span','sub');
+      for(const [partKey,partLabel,partKind,partTitle] of parts){
+        const b=el('button','dbi-sub',`${count(partKey).toLocaleString()} ${partLabel}`); b.type='button'; b.disabled=!count(partKey);
+        b.title=`View ${partTitle.toLowerCase()}`; b.onclick=e=>{ e.stopPropagation(); openDatabaseCatalog(partKind,partTitle); };
+        sub.appendChild(b);
+      }
+      t.appendChild(sub);
+    }
+    tiles.appendChild(t);
+  };
+  tile('tables','Tables','tables'); tile('views','Views','views'); tile('materialized_views','Materialized views','materialized_views');
+  tile('columns','Columns','columns'); tile('indexes','Indexes','indexes');
+  tile('constraints','Constraints','constraints',[['primary_keys','primary','primary_keys','Primary keys'],['foreign_keys','foreign','foreign_keys','Foreign keys'],['unique_constraints','unique','unique_constraints','Unique constraints']]);
+  tile('sequences','Sequences','sequences'); tile('functions','Functions','functions'); tile('procedures','Procedures','procedures');
+  tile('triggers','Triggers','triggers',[['internal_triggers','internal','internal_triggers','Internal triggers']]); tile('policies','Policies','policies');
+  tile('extension_count','Extensions','extensions',[['extension_relations','relations','extension_relations','Extension-owned relations'],['extension_routines','routines','extension_routines','Extension-owned routines']]);
+  objects.appendChild(tiles); wrap.appendChild(objects);
+  root.appendChild(wrap);
+}
+const RUNNABLE_CATALOG_KINDS=new Set(['views','materialized_views','tables','extension_relations']);
+function runCatalogObject(schema, name){
+  if(!name) return;
+  const quoteIdent = s => `"${String(s).replaceAll('"', '""')}"`;
+  const tableSql = schema ? `${quoteIdent(schema)}.${quoteIdent(name)}` : quoteIdent(name);
+  const sql = `SELECT * FROM ${tableSql} LIMIT 100;`;
+  openRunner();
+  $('sql').value = sql;
+  updateSqlHighlight();
+  drawResetSql();
+  runQuery(false);
+}
+const catalogLabel=key=>key.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase());
+function drawDatabaseCatalog(){
+  const data=S.dbCatalog[S.dbCatalogKind]||{columns:[],rows:[]}, table=$('dbcat-table');
+  const term=$('dbcat-search').value.trim().toLowerCase();
+  const rows=data.rows.filter(row=>!term||data.columns.some(key=>String(row[key]??'').toLowerCase().includes(term)));
+  const thead=table.tHead, tbody=table.tBodies[0]; thead.textContent=''; tbody.textContent='';
+  const isRunnable=RUNNABLE_CATALOG_KINDS.has(S.dbCatalogKind);
+  const hr=thead.appendChild(el('tr'));
+  for(const label of ['#', ...(isRunnable?['Action']:[]), ...data.columns.map(catalogLabel)]) hr.appendChild(el('th',null,label));
+  if(!rows.length){
+    const td=tbody.appendChild(el('tr')).appendChild(el('td','empty-detail',term?'No matching objects':'No objects')); td.colSpan=hr.cells.length;
+  }else rows.forEach((row,index)=>{
+    const tr=tbody.appendChild(el('tr')); tr.appendChild(el('td',null,index+1));
+    if(isRunnable){
+      const run=tr.appendChild(el('td','dbcat-action-cell')).appendChild(el('button','primary cat-action-btn','Execute')); run.type='button';
+      run.title=`Execute the query for ${row.name || 'object'} in the SQL Runner`; run.onclick=e=>{ e.stopPropagation(); runCatalogObject(row.schema, row.name); };
+    }
+    for(const key of data.columns){
+      const value=row[key], td=tr.appendChild(el('td',value==null?'null':null,compactCellValue(value)));
+      td.title=td.textContent; td.onclick=()=>openCellValue(catalogLabel(key),value,'Value copied');
+    }
+  });
+  const widths=[columnWidth('#',[data.rows.length],44)];
+  if(isRunnable){    // the Execute button's real width plus the cell's 9px padding each side and border
+    const probe=document.body.appendChild(el('button','primary cat-action-btn','Execute')); probe.style.cssText='position:absolute;visibility:hidden';
+    widths.push(Math.ceil(probe.getBoundingClientRect().width)+19); probe.remove();
+  }
+  setColumnWidths(table,[...widths, ...data.columns.map(key=>columnWidth(catalogLabel(key),data.rows.map(row=>row[key]),54))]);
+  $('dbcat-count').textContent=term?`${rows.length} of ${data.rows.length}`:`${data.rows.length} objects`;
+  $('dbcat-download').disabled=!rows.length;
+}
+async function openDatabaseCatalog(kind,title){
+  S.dbCatalogKind=kind; $('dbcat-title').textContent=title; $('dbcat-search').placeholder=`Search ${title.toLowerCase()}`;
+  $('dbcat-search').value=''; $('dbinfo-summary').hidden=true; $('dbinfo-catalog').hidden=false;
+  if(S.dbCatalog[kind]){ drawDatabaseCatalog(); return; }
+  const table=$('dbcat-table'), message=text=>{
+    table.querySelector('colgroup')?.remove(); table.style.width=table.style.minWidth=''; table.tHead.textContent='';
+    table.tBodies[0].textContent=''; table.tBodies[0].appendChild(el('tr')).appendChild(el('td',null,text));
+  };
+  $('dbcat-count').textContent='Loading…'; $('dbcat-download').disabled=true; message('Loading…');
+  try{ S.dbCatalog[kind]=await api({action:'catalog',kind}); drawDatabaseCatalog(); }
+  catch(e){ $('dbcat-count').textContent=''; message('Error: '+e.message); }
+}
+$('dbcat-back').onclick=()=>{ $('dbinfo-catalog').hidden=true; $('dbinfo-summary').hidden=false; };
+$('dbcat-search').oninput=drawDatabaseCatalog;
+$('dbcat-search').onkeydown=e=>{ if(e.key==='Escape'){ e.currentTarget.value=''; drawDatabaseCatalog(); } };
+$('dbcat-download').onclick=()=>{
+  const data=S.dbCatalog[S.dbCatalogKind]; if(!data) return;
+  const term=$('dbcat-search').value.trim().toLowerCase();
+  const rows=data.rows.filter(row=>!term||data.columns.some(key=>String(row[key]??'').toLowerCase().includes(term)));
+  downloadCsv(data.columns.map(catalogLabel),rows.map(row=>data.columns.map(key=>row[key])),`${S.db}-${S.dbCatalogKind}.csv`);
+};
+async function openDbInfo(){
+  $('dbinfo').disabled=true;
+  for(const el of document.querySelectorAll('.obj.on')) el.classList.remove('on');
+  for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v!=='info';
+  $('morewrap').hidden=true; $('moremenu').hidden=true;
+  show('info');
+  $('dbinfo-catalog').hidden=true; $('dbinfo-summary').hidden=false;
+  const box=$('dbinfo-summary'), message=text=>{ box.textContent=''; const p=el('p','dbi-msg',text); box.appendChild(p); };
+  if(S.dbInfo){ drawDatabaseInfo(S.dbInfo); $('dbinfo').disabled=false; return; }
+  message('Loading database info…');
+  try{ S.dbInfo=await api({action:'info'}); drawDatabaseInfo(S.dbInfo); }
+  catch(e){ message('Error: '+e.message); }
+  finally{ $('dbinfo').disabled=false; }
+}
+$('dbinfo').onclick = openDbInfo;
+
+function alertBox(title, msg){
+  openCellValue(title,msg,'Error copied');
+}
+
+/* ---------------- homepage listeners ---------------- */
+$('home-connect-btn').onclick = () => connectFromHome($('home-dsn')?.value, false);
+if($('home-connect-ro-btn')){
+  $('home-connect-ro-btn').onclick = () => connectFromHome($('home-dsn')?.value, true);
+}
+$('login-form').onsubmit = (e) => {
+  e?.preventDefault();
+  connectFromHome($('home-dsn')?.value, false);
+};
+$('home-dsn').onkeydown = e => {
+  if(e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault();
+    connectFromHome($('home-dsn')?.value, false);
+  }
+};
+$('productname').onclick = () => {
+  if(!S.connected){
+    show('home');
+    renderHome();
+  }else{
+    openRunner();
+  }
+};
+$('brandname').onclick = () => {
+  if(!S.connected){
+    show('home');
+    renderHome();
+  }else{
+    openRunner();
+  }
+};
+
+async function restorePage(){
+  const saved = getSavedPageState();
+  if(!saved || saved.view === 'home' || saved.view === 'query'){
+    openRunner();
+    return;
+  }
+  if(saved.view === 'info'){
+    await openDbInfo();
+    return;
+  }
+  if(saved.table){
+    const kind = saved.kind || 'table';
+    const exists = (S.tree.public || {})[kind]?.some(o => o.name === saved.table) ||
+                   (S.sideItems || []).includes(saved.table);
+    if(exists){
+      try{
+        await openObject(saved.table, kind, saved.view || 'rows');
+        return;
+      }catch{}
+    }
+  }
+  openRunner();
+}
+
+/* the server holds one connection, so a reload just picks it back up */
+(async function boot(){
+  try{
+    const m = await api({action:'schema'});          // one call: tree + database name
+    S.tree=m.tree; S.db=m.database; S.connectionUrl=m.connection_url || '';
+    setConnected(true);
+    setSideTab(S.sideTab || 'table', false);
+    drawTree();
+    await restorePage();
+  }catch(e){
+    setConnected(false);                             // shell stays, just empty
+    if([403, 404, 415].includes(e?.status)) showBlocked(e.message);
+  }
+})();
+
+/* the server refuses pgweb (disabled, or not reached directly from this machine): say so before anyone types a DSN */
+function showBlocked(message){
+  const disabled = message.includes('config_is_pgweb_enabled');
+  $('home-blocked-title').textContent = disabled ? 'pgweb is disabled on this server' : 'pgweb refused this request';
+  $('home-blocked-msg').innerHTML = '';
+  $('home-blocked-msg').append(disabled ? 'Set ' : message + '. ');
+  if(disabled){
+    const code=el('code',null,'config_is_pgweb_enabled=true');
+    $('home-blocked-msg').append(code, ' in .env on your own machine, restart the app, then reload this page.');
+  }else{
+    $('home-blocked-msg').append('Open PgWeb directly at http://localhost on the machine running the app.');
+  }
+  $('home-blocked').hidden = false;
+  for(const id of ['home-dsn', 'home-connect-btn', 'home-connect-ro-btn']) if($(id)) $(id).disabled = true;
+}
+</script>
+</body>
+</html>

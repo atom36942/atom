@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Pages</title>
+<script>try { if (JSON.parse(localStorage.getItem("home") || "{}").theme === "dark") document.documentElement.dataset.theme = "dark" } catch (e) {}    // before the first paint, so a dark choice never flashes light</script>
+<style>
+:root{--bg:#eef2f8;--bg-top:#dfe7f5;--hero:linear-gradient(120deg,#1d4ed8,#4f46e5 60%,#7c3aed);--hero-text:#ffffff;--hero-muted:rgba(255,255,255,.8);--hero-field:rgba(255,255,255,.16);--hero-line:rgba(255,255,255,.28);--card:#ffffff;--panel:#e8eefb;--line:#d9e1ef;--row-line:#edf1f7;--hover:#f2f6fd;--text:#1f2937;--muted:#64748b;--head:#3730a3;--accent:#2563eb;--accent-soft:rgba(37,99,235,.1);--error:#dc2626;--shadow:0 8px 24px rgba(30,41,59,.08);--mono:"SF Mono",Menlo,monospace;color-scheme:light}
+:root[data-theme="dark"]{--bg:#0b0d10;--bg-top:#0b0d10;--hero:linear-gradient(120deg,#111827,#1e1b4b 60%,#2e1065);--hero-text:#e6eef3;--hero-muted:#9aa0a6;--hero-field:rgba(255,255,255,.06);--hero-line:rgba(255,255,255,.12);--card:#0f1114;--panel:#1a1d23;--line:rgba(255,255,255,.08);--row-line:rgba(255,255,255,.05);--hover:rgba(255,255,255,.04);--text:#e6eef3;--muted:#9aa0a6;--head:#93c5fd;--accent:#4299e1;--accent-soft:rgba(66,153,225,.12);--error:#f87171;--shadow:none;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:linear-gradient(180deg,var(--bg-top),var(--bg) 360px) var(--bg);color:var(--text);font-family:Inter,system-ui;line-height:1.5}
+[hidden]{display:none!important}
+.wrap{max-width:720px;margin:0 auto;padding:0 20px}
+.hero{background:var(--hero);color:var(--hero-text);padding:36px 0 64px}
+.hero .wrap{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+h1{margin:0;font-size:24px;font-weight:700;letter-spacing:.2px}
+.sub{margin:4px 0 0;color:var(--hero-muted);font-size:13px}
+.tools{display:flex;gap:8px;flex:0 1 368px;min-width:220px}
+.search{position:relative;flex:1}
+.search input{width:100%;height:40px;padding:0 34px 0 12px;font:inherit;font-size:14px;color:var(--hero-text);background:var(--hero-field);border:1px solid var(--hero-line);border-radius:8px;outline:none;transition:border-color .2s,background .2s}
+.search input::placeholder{color:var(--hero-muted)}
+.search input:focus{border-color:var(--hero-text);background:rgba(255,255,255,.22)}
+.search kbd{position:absolute;right:10px;top:50%;transform:translateY(-50%);padding:1px 6px;border:1px solid var(--hero-line);border-radius:4px;color:var(--hero-muted);font:11px var(--mono)}
+.search input:focus+kbd,.search input:not(:placeholder-shown)+kbd{display:none}
+.theme{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;flex:none;color:var(--hero-text);background:var(--hero-field);border:1px solid var(--hero-line);border-radius:8px;cursor:pointer;transition:background .15s,border-color .15s}
+.theme:hover,.theme:focus-visible{background:rgba(255,255,255,.26);border-color:var(--hero-text);outline:none}
+main.wrap{margin-top:-40px;padding-bottom:40px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:var(--panel);padding:10px 14px;text-align:left;font-size:12px;font-weight:600;letter-spacing:.5px;color:var(--head);border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid var(--row-line);white-space:nowrap}
+tbody tr:last-child td{border-bottom:none}
+tbody tr{cursor:pointer;transition:background .12s}
+tbody tr:hover,tbody tr:focus-within{background:var(--hover)}
+.col-n{width:1%;text-align:center}
+td.col-n{color:var(--muted)}
+.col-page{width:1%}
+.col-path{width:100%;max-width:0;overflow:hidden;text-overflow:ellipsis}
+td.col-path{color:var(--muted);font:12px var(--mono)}
+.col-page a{display:inline-flex;align-items:center;gap:10px;color:var(--text);font-weight:600;text-decoration:none;outline:none}
+.col-page a:focus-visible{text-decoration:underline;text-decoration-color:var(--accent)}
+.badge{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:7px;font-size:12px;font-weight:700;color:#fff}
+.c0{background:#2563eb}.c1{background:#7c3aed}.c2{background:#0d9488}.c3{background:#ea580c}.c4{background:#db2777}.c5{background:#16a34a}
+.col-open{width:1%;text-align:center}
+.open{display:inline-flex;padding:4px;border-radius:6px;color:var(--muted);transition:color .15s,background .15s}
+.open:hover,.open:focus-visible{color:var(--accent);background:var(--accent-soft);outline:none}
+.message{padding:40px 20px;text-align:center;color:var(--muted);background:var(--card);border:1px dashed var(--line);border-radius:12px}
+.message.error{color:var(--error)}
+@media (max-width:560px){.wrap{padding:0 14px}.hero{padding:24px 0 56px}.tools{flex:1 1 100%}.col-path{display:none}}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <h1>Pages</h1>
+      <p class="sub" id="count">Loading pages...</p>
+    </div>
+    <div class="tools">
+      <label class="search"><input type="search" id="search" placeholder="Search pages" autocomplete="off" spellcheck="false" aria-label="Search pages"><kbd>/</kbd></label>
+      <button type="button" class="theme" id="theme"></button>
+    </div>
+  </div>
+</header>
+<main class="wrap">
+  <div class="panel" id="panel" hidden>
+    <table>
+      <thead><tr><th class="col-n">#</th><th class="col-page">Page</th><th class="col-path">Path</th><th class="col-open">Open</th></tr></thead>
+      <tbody id="pages" aria-live="polite"></tbody>
+    </table>
+  </div>
+  <p class="message" id="message" hidden></p>
+</main>
+<script>
+const he = v => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const pagesEl = document.getElementById("pages"), messageEl = document.getElementById("message"), searchEl = document.getElementById("search"), themeEl = document.getElementById("theme");
+let pages = [];
+const OPEN_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+const MOON_ICON = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+const SUN_ICON = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
+
+const themeShow = () => {    // the button offers the other theme
+  const isDark = document.documentElement.dataset.theme === "dark";
+  themeEl.innerHTML = isDark ? SUN_ICON : MOON_ICON;
+  themeEl.title = themeEl.ariaLabel = isDark ? "Light theme" : "Dark theme";
+};
+themeEl.addEventListener("click", () => {
+  const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  if (theme === "dark") document.documentElement.dataset.theme = "dark"; else delete document.documentElement.dataset.theme;
+  try { localStorage.setItem("home", JSON.stringify({ theme })) } catch (e) {}    // storage blocked: the choice lasts until the page closes
+  themeShow();
+});
+themeShow();
+
+const showMessage = (text, isError = false) => {
+  messageEl.textContent = text;
+  messageEl.classList.toggle("error", isError);
+  messageEl.hidden = !text;
+};
+const render = () => {
+  const query = searchEl.value.trim().toLowerCase();
+  const shown = pages.filter(p => !query || `${p.name} ${p.url} ${p.folder}`.toLowerCase().includes(query));
+  pagesEl.innerHTML = shown.map((p, i) => `<tr><td class="col-n">${i + 1}</td><td class="col-page"><a href="${he(p.url)}" target="_blank" rel="noopener"><span class="badge c${pages.indexOf(p) % 6}" aria-hidden="true">${he(p.name.charAt(0))}</span>${he(p.name)}</a></td><td class="col-path" title="${he(p.url)}">${he(p.url)}</td><td class="col-open"><a class="open" href="${he(p.url)}" target="_blank" rel="noopener" title="Open ${he(p.name)} in a new tab" aria-label="Open ${he(p.name)} in a new tab">${OPEN_ICON}</a></td></tr>`).join("");
+  document.getElementById("panel").hidden = !shown.length;
+  showMessage(!pages.length ? "No pages yet: add an .html file to static_extend/." : shown.length ? "" : "No page matches your search.");
+};
+
+searchEl.addEventListener("input", render);
+pagesEl.addEventListener("click", e => {    // a click anywhere on a row opens its page in a new tab, like the name and the icon
+  const link = e.target.closest("tr")?.querySelector(".col-page a");
+  if (link && !e.target.closest("a")) link.click();
+});
+searchEl.addEventListener("keydown", e => {
+  if (e.key === "Enter") pagesEl.querySelector(".col-page a")?.click();    // open the first match
+  if (e.key === "Escape") { searchEl.value = ""; render(); searchEl.blur() }
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "/" && document.activeElement !== searchEl) { e.preventDefault(); searchEl.focus() }
+});
+
+(async () => {
+  try {
+    const response = await fetch("/static-pages");
+    const body = await response.json();
+    if (!response.ok || body.status !== 1) throw new Error(body.message || response.statusText);
+    pages = body.message;
+    document.getElementById("count").textContent = `${pages.length} ${pages.length === 1 ? "page" : "pages"}`;
+    render();
+  } catch (error) {
+    document.getElementById("count").textContent = "";
+    showMessage(`Could not load the page list: ${error.message}`, true);
+  }
+})();
+</script>
+</body>
+</html>

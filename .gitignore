@@ -1,0 +1,59 @@
+# deny
+*
+
+# files
+!config_extend.py
+!config.py
+!main.py
+!sync.py
+!requirements.txt
+!Dockerfile
+!.dockerignore
+!readme.md
+!AGENTS.md
+!.gitignore
+!LICENSE
+!SECURITY.md
+!ruff.toml
+
+# folder
+!function/
+!function/**
+!tests/
+!tests/**
+!router/
+!router/**
+!static/
+!static/**
+!script/
+!script/**
+!docs/
+!docs/**
+!files/
+!files/**
+# project folders: <name>_extend/ for router, function, script, static, files, docs, tests (never synced)
+!*_extend/
+!*_extend/**
+!.github/
+!.github/**
+
+# ignore
+__pycache__/
+*.py[cod]
+*$py.class
+.mypy_cache/
+.pytest_cache/
+.atom-sync/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+drive/
+*.swp
+*.bak
+tmp/
+scratch/
+venv/
+venv_old/
+.env
+*.log

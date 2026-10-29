@@ -1,0 +1,248 @@
+"""Full HTTP requests through the real app, lifespan included, against a throwaway database.
+
+The app starts from a temporary working directory with test-only environment
+variables: config.py loads .env from the working directory and startup resets
+./tmp, so running from the repo root would read developer secrets and wipe tmp/.
+"""
+import json
+import os
+import time
+import unittest
+
+from tests.integration.support import app_login
+from tests.integration.support import app_start
+from tests.integration.support import app_stop
+from tests.integration.support import create_database
+from tests.integration.support import drop_database
+from tests.integration.support import fetch
+from tests.integration.support import requires_postgres
+
+
+@requires_postgres
+class HttpIntegrationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.db_name, cls.url = create_database()
+        cls.reports_db_name, cls.reports_url = create_database()    # second database: ?connection= switching and the separate log_api database
+        fetch(cls.reports_url, "CREATE TABLE report (id bigserial PRIMARY KEY, title text)")
+        fetch(cls.reports_url, "INSERT INTO report (title) VALUES ('from reports')")
+        cls.handle = app_start(env=cls.database_env())
+        cls.app, cls.client = cls.handle["app"], cls.handle["client"]
+        cls.workdir = cls.handle["workdir"]
+        cls.token = app_login(cls.client, path="/auth/signup-username-password", body={"username": "alice", "password": "alice-pass", "role": 5})
+        cls.admin_token = app_login(cls.client, path="/auth/login-username-password", body={"username": "admin", "password": "root-test-password"})
+
+    @classmethod
+    def tearDownClass(cls):
+        try: app_stop(cls.handle)
+        finally:
+            drop_database(cls.db_name)
+            drop_database(cls.reports_db_name)
+
+    @classmethod
+    def database_env(cls):
+        return {"config_postgres_url_master": cls.url, "config_postgres_url_reports": cls.reports_url, "config_postgres_db_log_api": "reports"}
+
+    def auth(self, token=None):
+        return {"Authorization": f"Bearer {token or self.token}"}
+
+    def test_app_started_with_test_settings_only(self):
+        self.assertEqual(self.app.state.config_postgres_url_dict, {"master": self.url, "reports": self.reports_url})
+        self.assertEqual(sorted(self.app.state.client_postgres_dict), ["master", "reports"])
+        self.assertIsNone(self.app.state.client_redis_dict.get("api_response"))
+        self.assertTrue(os.path.isdir(os.path.join(self.workdir.name, "tmp")))
+
+    def test_profile_with_token_and_security_headers(self):
+        response = self.client.get("/my/profile", headers=self.auth())
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["message"]["username"], "alice")
+        self.assertNotIn("password", response.json()["message"])
+        self.assertEqual(response.headers["x-content-type-options"], "nosniff")
+        self.assertEqual(response.headers["x-frame-options"], "DENY")
+
+    def test_missing_or_invalid_token_is_401(self):
+        for headers, message in [({}, "authorization token missing"), (self.auth("not-a-jwt"), "authentication token malformed")]:
+            with self.subTest(message=message):
+                response = self.client.get("/my/profile", headers=headers)
+                self.assertEqual((response.status_code, response.json()), (401, {"status": 0, "message": message}))
+
+    def test_wrong_password_is_400_invalid_credentials(self):
+        response = self.client.post("/auth/login-username-password", json={"username": "alice", "password": "wrong-password"})
+        self.assertEqual((response.status_code, response.json()["message"]), (400, "invalid credentials"))
+
+    def test_admin_route_is_403_for_users_and_200_for_root_admin(self):
+        denied = self.client.get("/admin/object-read", params={"table": "test"}, headers=self.auth())
+        self.assertEqual((denied.status_code, denied.json()["message"]), (403, "access denied"))
+        allowed = self.client.get("/admin/object-read", params={"table": "test"}, headers=self.auth(self.admin_token))
+        self.assertEqual(allowed.status_code, 200, allowed.text)
+
+    def test_create_then_read_own_objects(self):
+        created = self.client.post("/my/object-create", params={"table": "test"}, json={"title": "from http"}, headers=self.auth())
+        self.assertEqual(created.status_code, 200, created.text)
+        profile_id = self.client.get("/my/profile", headers=self.auth()).json()["message"]["id"]
+        read = self.client.get("/my/object-read", params={"table": "test", "filter": json.dumps(["title = from http"])}, headers=self.auth())
+        self.assertEqual(read.status_code, 200, read.text)
+        rows = read.json()["message"]["obj_list"]
+        self.assertEqual([(r["title"], r["created_by_id"]) for r in rows], [("from http", profile_id)])
+        self.assertFalse(read.json()["message"]["has_more"])
+
+    def test_no_response_ever_contains_a_password_hash(self):
+        def keys(value):
+            if isinstance(value, dict): return set(value) | {k for v in value.values() for k in keys(v)}
+            if isinstance(value, list): return {k for v in value for k in keys(v)}
+            return set()
+        self.client.post("/my/object-create", params={"table": "test"}, json={"title": "owned by alice"}, headers=self.auth())
+        user_relation = json.dumps(["created_by_id,users,id,fetch|1,*"])
+        for label, method, path, params, token in [
+            ("profile", "get", "/my/profile", {}, self.token),
+            ("users list", "get", "/private/users-list", {}, self.token),
+            ("admin read users", "get", "/admin/object-read", {"table": "users"}, self.admin_token),
+            ("admin read users, all columns", "get", "/admin/object-read", {"table": "users", "column": "*"}, self.admin_token),
+            ("admin read with users relation", "get", "/admin/object-read", {"table": "test", "relation": user_relation}, self.admin_token),
+            ("my read with users relation", "get", "/my/object-read", {"table": "test", "relation": user_relation}, self.token),
+            ("distinct password", "get", "/admin/table-column-distinct", {"table": "users", "col": "password"}, self.admin_token),
+            ("group by password", "get", "/admin/table-column-groupby", {"table": "users", "col": json.dumps(["password"])}, self.admin_token),
+            ("max of password", "get", "/admin/table-column-groupby", {"table": "users", "col": json.dumps(["role"]), "agg": "max", "agg_col": "password"}, self.admin_token),
+            ("filter on password", "get", "/admin/object-read", {"table": "users", "filter": json.dumps(["password is not null"])}, self.admin_token),
+        ]:
+            with self.subTest(label):
+                response = getattr(self.client, method)(path, params=params, headers=self.auth(token))
+                self.assertNotIn("$argon2", response.text)
+                self.assertNotIn("password", keys(response.json()))
+
+    def test_postgres_query_param_switches_database_on_flagged_routes(self):
+        read = self.client.get("/admin/object-read", params={"connection": "reports", "table": "report"}, headers=self.auth(self.admin_token))
+        self.assertEqual(read.status_code, 200, read.text)
+        self.assertEqual([r["title"] for r in read.json()["message"]["obj_list"]], ["from reports"])
+        master = self.client.get("/admin/object-read", params={"table": "report"}, headers=self.auth(self.admin_token))
+        self.assertEqual(master.status_code, 400, master.text)    # report only exists in the reports database
+
+    def test_unknown_postgres_is_404(self):
+        response = self.client.get("/admin/object-read", params={"connection": "nope", "table": "test"}, headers=self.auth(self.admin_token))
+        self.assertEqual((response.status_code, response.json()["message"]), (404, "connection 'nope' not found"))
+
+    def test_postgres_on_unflagged_route_is_400(self):
+        response = self.client.post("/my/object-create", params={"connection": "reports", "table": "test"}, json={"title": "x"}, headers=self.auth())
+        self.assertEqual((response.status_code, response.json()["message"]), (400, "connection not allowed on this route"))
+
+    def test_openapi_lists_postgres_only_on_flagged_routes(self):
+        paths = self.client.get("/openapi.json").json()["paths"]
+        names = lambda path, method: [p["name"] for p in paths[path][method]["parameters"]]
+        self.assertIn("connection", names("/admin/object-read", "get"))
+        self.assertIn("connection", names("/admin/postgres-import", "post"))
+        self.assertNotIn("connection", names("/my/object-create", "post"))
+
+    def test_malformed_filter_is_400(self):
+        response = self.client.get("/my/object-read", params={"table": "test", "filter": json.dumps(["title"])}, headers=self.auth())
+        self.assertEqual((response.status_code, response.json()["message"]), (400, "invalid filter: title"))
+
+    def test_public_read_is_served_from_cache_the_second_time(self):
+        params = {"table": "test", "order": "id desc"}
+        first, second = self.client.get("/public/object-read", params=params), self.client.get("/public/object-read", params=params)
+        self.assertEqual((first.status_code, second.status_code), (200, 200))
+        self.assertNotEqual(first.headers.get("x-cache"), "hit")
+        self.assertEqual(second.headers.get("x-cache"), "hit")
+        self.assertEqual(first.json(), second.json())
+        deadline, types = time.time() + 10, set()
+        while time.time() < deadline and not {"direct_cache_set", "cache_response"} <= types:
+            types = {r["response_type"] for r in fetch(self.reports_url, "SELECT response_type FROM log_api WHERE path = '/public/object-read' AND query_param LIKE '%order=id+desc%'")}
+            time.sleep(0.5)
+        self.assertTrue({"direct_cache_set", "cache_response"} <= types, types)
+
+    def test_cache_hit_is_sent_gzipped_only_to_clients_that_accept_it(self):
+        params = {"table": "test", "order": "id asc"}
+        first = self.client.get("/public/object-read", params=params)
+        gzipped = self.client.get("/public/object-read", params=params, headers={"accept-encoding": "gzip"})
+        plain = self.client.get("/public/object-read", params=params, headers={"accept-encoding": "identity"})
+        self.assertEqual((gzipped.headers.get("x-cache"), gzipped.headers.get("content-encoding")), ("hit", "gzip"))
+        self.assertEqual((plain.headers.get("x-cache"), plain.headers.get("content-encoding")), ("hit", None))
+        self.assertEqual(first.json(), gzipped.json())    # the client unzips it: same body either way
+        self.assertEqual(first.json(), plain.json())
+        self.assertTrue(all(r.headers.get("vary") == "accept-encoding" for r in (first, gzipped, plain)))    # shared caches key on it
+
+    def test_only_successful_responses_are_cached(self):
+        params = {"table": "no_such_table"}
+        first, second = self.client.get("/public/object-read", params=params), self.client.get("/public/object-read", params=params)
+        self.assertEqual((first.status_code, second.status_code), (400, 400))
+        self.assertNotEqual(second.headers.get("x-cache"), "hit")
+
+    def test_security_headers_on_errors_and_unknown_paths(self):
+        for path in ["/no-such-path", "/my/profile"]:
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertIn(response.status_code, (401, 404))
+                self.assertEqual(response.headers["x-content-type-options"], "nosniff")
+
+    def test_error_after_response_started_is_logged_without_a_second_response(self):
+        from fastapi.responses import StreamingResponse
+        async def rows():
+            yield "id\n1\n"
+            raise RuntimeError("export failed midway")
+        self.app.add_api_route("/test-stream-error", lambda: StreamingResponse(rows(), media_type="text/csv"))
+        response = self.client.get("/test-stream-error")
+        self.assertEqual(response.status_code, 200)    # the started CSV response stands; no JSON error is sent after it
+        self.assertNotIn("export failed", response.text)
+        deadline, rows_logged = time.time() + 10, []
+        while time.time() < deadline and not rows_logged:
+            rows_logged = fetch(self.reports_url, "SELECT status_code, response_type, error FROM log_api WHERE path = '/test-stream-error'")
+            time.sleep(0.5)
+        self.assertEqual(rows_logged, [{"status_code": 200, "response_type": "error", "error": "export failed midway"}])
+
+    def test_rate_limit_returns_429(self):
+        statuses = [self.client.post("/public/password-hash", json={"password": "x"}).status_code for _ in range(6)]
+        self.assertEqual(statuses, [200] * 5 + [429])
+
+    def test_rate_limit_and_log_use_the_forwarded_client_ip_behind_a_private_proxy(self):
+        from fastapi.testclient import TestClient
+        proxy = TestClient(self.app, client=("10.0.0.4", 50000))    # like Azure App Service's front end
+        direct = TestClient(self.app, client=("5.6.7.8", 50000))    # public client reaching the app directly
+        hash_as = lambda client, forwarded: client.post("/public/password-hash", json={"password": "x"}, headers={"X-Forwarded-For": forwarded}).status_code
+        self.assertEqual([hash_as(proxy, "49.36.10.5:54321") for _ in range(6)], [200] * 5 + [429])
+        self.assertEqual(hash_as(proxy, "103.21.4.9:1234"), 200)     # another user keeps their own limit
+        self.assertEqual([hash_as(direct, f"9.9.9.{i}") for i in range(6)], [200] * 5 + [429])   # fake headers do not help
+        deadline, rows = time.time() + 10, []
+        while time.time() < deadline and not rows:
+            rows = fetch(self.reports_url, "SELECT ip_address FROM log_api WHERE ip_address = '49.36.10.5' LIMIT 1")
+            time.sleep(0.5)
+        self.assertEqual(rows, [{"ip_address": "49.36.10.5"}])
+
+    def test_separate_log_database_gets_only_the_log_api_table(self):
+        tables = {r["tablename"] for r in fetch(self.reports_url, "SELECT tablename FROM pg_tables WHERE schemaname = 'public'")}
+        self.assertEqual(tables, {"report", "log_api"})
+        triggers = fetch(self.reports_url, "SELECT tgname FROM pg_trigger WHERE tgrelid = 'report'::regclass AND NOT tgisinternal")
+        self.assertEqual(triggers, [])    # tables Atom does not manage are left untouched
+
+    def test_api_usage_reads_the_log_database_and_rejects_postgres_param(self):
+        self.client.get("/my/profile", headers=self.auth())
+        deadline, usage = time.time() + 10, []
+        while time.time() < deadline and "/my/profile" not in [r["api"] for r in usage]:
+            usage = self.client.get("/my/api-usage", params={"days": 1}, headers=self.auth()).json()["message"]
+            time.sleep(0.5)
+        self.assertIn("/my/profile", [r["api"] for r in usage])
+        response = self.client.get("/my/api-usage", params={"days": 1, "connection": "reports"}, headers=self.auth())
+        self.assertEqual((response.status_code, response.json()["message"]), (400, "connection not allowed on this route"))
+
+    def test_requests_are_written_to_log_api(self):
+        self.client.get("/my/profile", headers=self.auth())
+        self.client.get("/my/profile")
+        deadline, rows = time.time() + 10, []
+        while time.time() < deadline:
+            rows = fetch(self.reports_url, "SELECT status_code, response_type FROM log_api WHERE path = '/my/profile'")
+            if {200, 401} <= {r["status_code"] for r in rows}: break
+            time.sleep(0.5)
+        self.assertTrue({200, 401} <= {r["status_code"] for r in rows}, rows)
+        self.assertIn("error", {r["response_type"] for r in rows})
+
+    def test_route_with_is_log_api_false_is_not_logged(self):
+        self.client.post("/pgweb", json={"action": "schema"})    # config_api /pgweb: is_log_api False (pgweb itself is off here, so it answers 404)
+        self.client.get("/health")    # logged as usual; once it is in log_api, the /pgweb row would be too if it were written
+        deadline, health = time.time() + 10, []
+        while time.time() < deadline and not health:
+            health = fetch(self.reports_url, "SELECT 1 FROM log_api WHERE path = '/health' LIMIT 1")
+            time.sleep(0.5)
+        self.assertTrue(health)
+        self.assertEqual(fetch(self.reports_url, "SELECT count(*) AS n FROM log_api WHERE path = '/pgweb'"), [{"n": 0}])
+
+
+if __name__ == "__main__":
+    unittest.main()

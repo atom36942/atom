@@ -1,0 +1,249 @@
+# import
+from datetime import datetime
+from datetime import timedelta
+from datetime import UTC
+from fastapi import APIRouter
+from fastapi import Request
+from fastapi.responses import StreamingResponse
+
+# router
+router = APIRouter()
+
+# api
+@router.post("/admin/blob-container-sas")
+async def func_api_admin_blob_container_sas(*, request: Request):
+    app_state = request.app.state
+    await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role={"mode": "realtime", "roles": [1]}, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=0)
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services}, {"name": "container", "type": "str", "required": True}])
+    if oq["service"] == "s3":
+        raise Exception("s3 is not allowed for this api")
+    if not app_state.client_azure_blob: raise app_state.func_api_error(message="blob client not initialized", status_code=500)
+    container = oq["container"]
+    if oq["service"] == "azure":
+        from azure.storage.blob import ContainerSasPermissions
+        from azure.storage.blob import generate_container_sas
+        sas_token = generate_container_sas(account_name=app_state.config_azure_account_name, account_key=app_state.config_azure_account_key, container_name=container, permission=ContainerSasPermissions(read=True), expiry=datetime.now(UTC) + timedelta(seconds=app_state.config_blob_expire_sec_preview))
+        return {"status": 1, "message": {"sas_token": sas_token, "expiry_sec": app_state.config_blob_expire_sec_preview}}
+
+@router.post("/admin/blob-preview-urls")
+async def func_api_admin_blob_preview_urls(*, request: Request):
+    app_state = request.app.state
+    await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role={"mode": "realtime", "roles": [1]}, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=None, cache_users_role={}, config_redis_cache_ttl_sec=0)
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services}, {"name": "urls", "type": "list", "required": True}])
+    res = await app_state.func_blob_preview_urls_get(client_s3=app_state.client_s3, client_azure_blob=app_state.client_azure_blob, config_azure_account_name=app_state.config_azure_account_name, config_azure_account_key=app_state.config_azure_account_key, config_blob_expire_sec_preview=app_state.config_blob_expire_sec_preview, service=ob["service"], urls=ob["urls"], user_id=None)
+    return {"status": 1, "message": res}
+
+@router.get("/admin/sync")
+async def func_api_admin_sync(*, request: Request):
+    app_state = request.app.state
+    res = await app_state.func_admin_sync(app_state=app_state, app_routes=app_state.func_app_route_list(app=request.app))
+    return {"status": 1, "message": res}
+
+@router.get("/admin/monitor")
+async def func_api_admin_monitor(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "view", "type": "str", "allowed": ["memory", "requests", "errors", "database", "background", "app"], "default": "memory"}, {"name": "trace", "type": "str", "allowed": ["start", "stop"]}, {"name": "hours", "type": "int", "allowed": [1, 24, 168], "default": 24}, {"name": "connection", "type": "str", "default": "master"}], strict=True, strict_types=True, reject_unknown=True)
+    if oq.get("trace"): app_state.func_memory_trace(app_state=app_state, action=oq["trace"])
+    res = await app_state.func_monitor_report(app_state=app_state, view=oq["view"], hours=oq["hours"], connection=oq["connection"], app_routes=app_state.func_app_route_list(app=request.app))    # on the event loop (a thread could read the caches while requests change them); the memory walk yields as it goes
+    return {"status": 1, "message": res}
+
+@router.get("/admin/postgres-info")
+async def func_api_admin_postgres_info(*, request: Request):
+    app_state = request.app.state
+    info = await app_state.func_postgres_info_read(client_postgres=request.state.client_postgres)
+    return {"status": 1, "message": info}
+
+@router.get("/admin/postgres-slow-queries")
+async def func_api_admin_postgres_slow_queries(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "limit", "type": "int", "default": 20, "minimum": 1, "maximum": 100}, {"name": "order", "type": "str", "allowed": ["total_time", "mean_time", "calls"], "default": "total_time"}, {"name": "connection", "type": "str"}], strict=True, strict_types=True, reject_unknown=True)
+    res = await app_state.func_postgres_slow_queries_read(client_postgres=request.state.client_postgres, limit=oq["limit"], order=oq["order"])
+    return {"status": 1, "message": res}
+
+@router.post("/admin/postgres-slow-queries-reset")
+async def func_api_admin_postgres_slow_queries_reset(*, request: Request):
+    app_state = request.app.state
+    await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "connection", "type": "str"}], strict=True, reject_unknown=True)
+    res = await app_state.func_postgres_slow_queries_reset(client_postgres=request.state.client_postgres)
+    return {"status": 1, "message": res}
+
+@router.get("/admin/postgres-schema")
+async def func_api_admin_postgres_schema(*, request: Request):
+    app_state = request.app.state
+    schema = await app_state.func_postgres_schema_read(client_postgres=request.state.client_postgres)
+    return {"status": 1, "message": schema}
+
+@router.post("/admin/object-create")
+async def func_api_admin_object_create(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "mode", "type": "str", "allowed": ["now", "buffer"], "default": "now"}])
+    obj_list = await app_state.func_extract_request_object_list(request=request)
+    app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
+    app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column="created_by_id", purpose="ownership tracking")
+    obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="created_by_id")
+    return {"status": 1, "message": await app_state.func_postgres_create(client_postgres=request.state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, buffer_postgres=app_state.buffer_postgres_create, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get(oq["table"], {}).get("buffer_limit", app_state.config_buffer_limit_default), mode=oq["mode"], table=oq["table"], obj_list=obj_list)}
+
+@router.get("/admin/object-read")
+async def func_api_admin_object_read(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "limit", "type": "int", "default": app_state.config_sql_read_limit_default}, {"name": "page", "type": "int", "default": 1, "minimum": 1}, {"name": "order", "type": "str", "default": "id desc"}, {"name": "column", "type": "str", "default": "*"}, {"name": "relation", "type": "list", "default": []}, {"name": "filter", "type": "list", "default": []}])
+    ol = await app_state.func_postgres_read(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=app_state.config_sql_read_relation_fetch_limit_max, table=oq["table"], filter=oq["filter"], limit=oq["limit"], page=oq["page"], order=oq["order"], column=oq["column"], relation=oq["relation"], config_column_read_blocked=app_state.config_column_read_blocked)
+    return {"status": 1, "message": {"obj_list": ol[:oq["limit"]], "has_next_page": len(ol) > oq["limit"]}}
+
+@router.get("/admin/object-read-export")
+async def func_api_admin_object_read_export(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "order", "type": "str", "default": "id desc"}, {"name": "column", "type": "str", "default": "*"}, {"name": "filter", "type": "list", "default": []}, {"name": "connection", "type": "str"}], strict=True, strict_types=True, reject_unknown=True)
+    generator = await app_state.func_postgres_read_export(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, table=oq["table"], filter=oq["filter"], order=oq["order"], column=oq["column"], export_limit=app_state.config_export_limit, config_column_read_blocked=app_state.config_column_read_blocked)
+    return StreamingResponse(generator, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{oq["table"]}.csv"'})
+
+@router.get("/admin/table-column-groupby")
+async def func_api_admin_table_column_groupby(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "col", "type": "list", "required": True}, {"name": "agg", "type": "str", "allowed": ["count", "sum", "avg", "min", "max"], "default": "count"}, {"name": "agg_col", "type": "str", "default": "*"}, {"name": "limit", "type": "int", "default": 1000}, {"name": "page", "type": "int", "default": 1, "minimum": 1}, {"name": "order", "type": "str", "default": "count desc"}, {"name": "filter", "type": "list", "default": []}])
+    res = await app_state.func_postgres_table_column_groupby_read(app_state=app_state, client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], col=oq["col"], limit=oq["limit"], page=oq["page"], agg=oq["agg"], agg_col=oq["agg_col"], order=oq["order"], filter=oq["filter"])
+    return {"status": 1, "message": res}
+
+@router.get("/admin/table-column-distinct")
+async def func_api_admin_table_column_distinct(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "col", "type": "str", "required": True}, {"name": "limit", "type": "int", "default": 1000}, {"name": "page", "type": "int", "default": 1, "minimum": 1}, {"name": "order", "type": "str", "allowed": ["item asc", "item desc", "asc", "desc"], "default": "item asc"}, {"name": "filter", "type": "list", "default": []}])
+    res = await app_state.func_postgres_table_column_distinct_read(app_state=app_state, client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], col=oq["col"], limit=oq["limit"], page=oq["page"], order=oq["order"], filter=oq["filter"])
+    return {"status": 1, "message": res}
+
+@router.put("/admin/object-update")
+async def func_api_admin_object_update(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "otp", "type": "int"}])
+    obj_list = await app_state.func_extract_request_object_list(request=request)
+    app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
+    await app_state.func_check_user_update_permission(app_state=app_state, table=oq["table"], obj_list=obj_list, scope="admin", otp=oq["otp"])
+    app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column="updated_by_id", purpose="update tracking")
+    obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="updated_by_id")
+    created_by_id = None
+    result = await app_state.func_postgres_update(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], obj_list=obj_list, created_by_id=created_by_id, client_postgres_conn=None, config_column_regex=app_state.config_column_regex)
+    return {"status": 1, "message": result}
+
+@router.post("/admin/object-delete")
+async def func_api_admin_object_delete(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "ids", "type": "list:int", "required": True}])
+    table, ids = ob["table"], ob["ids"]
+    app_state.func_check_batch_limit(app_state=app_state, items=ids)
+    app_state.func_check_user_delete_permission(app_state=app_state, table=table, scope="admin", ids=ids)
+    deleted_count = await app_state.func_postgres_delete(client_postgres=request.state.client_postgres, client_postgres_conn=None, cache_postgres_schema=request.state.cache_postgres_schema, table=table, ids=ids, created_by_id=None)
+    return {"status": 1, "message": f"{deleted_count} ids deleted"}
+
+@router.post("/admin/postgres-import")
+async def func_api_admin_postgres_import(*, request: Request):
+    app_state = request.app.state
+    of = await app_state.func_request_param_read(request=request, mode="form", param_specs=[{"name": "mode", "type": "str", "required": True, "allowed": ["create", "update", "delete"]}, {"name": "table", "type": "str", "required": True}, {"name": "file", "type": "file", "required": True}])
+    res = await app_state.func_postgres_import(app_state=app_state, mode=of["mode"], table=of["table"], file=of["file"][-1], client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema)
+    return {"status": 1, "message": res}
+
+@router.post("/admin/mongodb-import")
+async def func_api_admin_mongodb_import(*, request: Request):
+    app_state = request.app.state
+    of = await app_state.func_request_param_read(request=request, mode="form", param_specs=[{"name": "mode", "type": "str", "required": True, "allowed": ["create", "update", "delete"]}, {"name": "database", "type": "str", "required": True}, {"name": "table", "type": "str", "required": True}, {"name": "file", "type": "file", "required": True}])
+    res = await app_state.func_mongodb_import(client_mongodb=app_state.client_mongodb, mode=of["mode"], database=of["database"], table=of["table"], file=of["file"][-1])
+    return {"status": 1, "message": res}
+
+@router.get("/admin/blob-container-read")
+async def func_api_admin_blob_container_read(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services}])
+    res = await app_state.func_blob_containers_read(client_s3=app_state.client_s3, client_azure_blob=app_state.client_azure_blob, service=oq["service"])
+    return {"status": 1, "message": res}
+
+@router.post("/admin/blob-container-ops")
+async def func_api_admin_blob_container_ops(*, request: Request):
+    app_state = request.app.state
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services}, {"name": "container", "type": "str", "required": True}, {"name": "mode", "type": "str", "required": True, "allowed": ["create", "public", "empty", "delete"]}])
+    res = await app_state.func_blob_container_ops(client_s3=app_state.client_s3, client_s3_resource=app_state.client_s3_resource, client_azure_blob=app_state.client_azure_blob, config_aws_s3_region_name=app_state.config_aws_s3_region_name, service=oq["service"], container=oq["container"], mode=oq["mode"])
+    return {"status": 1, "message": res}
+
+@router.post("/admin/blob-delete-url")
+async def func_api_admin_blob_url_delete(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "service", "type": "str", "required": True, "allowed": app_state.config_blob_services}, {"name": "url", "type": "list", "required": True}])
+    service, urls = ob["service"], ob["url"]
+    if len(urls) > 500: raise Exception("maximum 500 URLs allowed per request")
+    await app_state.func_blob_url_delete(app_state=app_state, service=service, urls=urls, user_id=None)
+    return {"status": 1, "message": f"{len(urls)} {service} URLs processed"}
+
+@router.post("/admin/postgres-query-runner-write")
+async def func_api_admin_postgres_query_runner_write(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}])
+    res = await app_state.func_postgres_query_runner_write(client_postgres=request.state.client_postgres, sql=ob["sql"])
+    return {"status": 1, "message": res}
+
+@router.post("/admin/postgres-query-runner-read")
+async def func_api_admin_postgres_query_runner_read(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}])
+    res = await app_state.func_postgres_query_runner_read(client_postgres=request.state.client_postgres, config_query_runner_read_limit=app_state.config_query_runner_read_limit, sql=ob["sql"])
+    return {"status": 1, "message": res}
+
+@router.post("/admin/postgres-query-runner-read-export")
+async def func_api_admin_postgres_query_runner_read_export(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}])
+    generator = await app_state.func_postgres_query_runner_read_export(client_postgres=request.state.client_postgres, config_export_limit=app_state.config_export_limit, sql=ob["sql"])
+    return StreamingResponse(generator, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=postgres_query_result.csv"})
+
+@router.post("/admin/postgres-query-generator-ai")
+async def func_api_admin_postgres_query_ai(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "ai", "type": "str", "allowed": app_state.config_ai_services, "default": "gemini"}, {"name": "question", "type": "str", "required": True}])
+    res = await app_state.func_postgres_query_generator_ai(client_postgres=request.state.client_postgres, client_gemini=app_state.client_gemini, client_openai=app_state.client_openai, cache_postgres_schema=request.state.cache_postgres_schema, config_query_runner_read_limit=app_state.config_query_runner_read_limit, ai=ob["ai"], question=ob["question"])
+    return {"status": 1, "message": res}
+
+@router.post("/admin/mssql-query-runner-write")
+async def func_api_admin_mssql_query_runner_write(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}, {"name": "connection", "type": "str", "default": "master"}])
+    res = await app_state.func_mssql_query_runner_write(client_mssql=app_state.func_mssql_client_read(client_mssql_dict=app_state.client_mssql_dict, name=ob["connection"]), sql=ob["sql"])
+    return {"status": 1, "message": res}
+
+@router.post("/admin/mssql-query-runner-read")
+async def func_api_admin_mssql_query_runner_read(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}, {"name": "connection", "type": "str", "default": "master"}])
+    res = await app_state.func_mssql_query_runner_read(client_mssql=app_state.func_mssql_client_read(client_mssql_dict=app_state.client_mssql_dict, name=ob["connection"]), config_query_runner_read_limit=app_state.config_query_runner_read_limit, sql=ob["sql"])
+    return {"status": 1, "message": res}
+
+@router.post("/admin/mssql-query-runner-read-export")
+async def func_api_admin_mssql_query_runner_read_export(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}, {"name": "connection", "type": "str", "default": "master"}])
+    generator = await app_state.func_mssql_query_runner_read_export(client_mssql=app_state.func_mssql_client_read(client_mssql_dict=app_state.client_mssql_dict, name=ob["connection"]), config_export_limit=app_state.config_export_limit, sql=ob["sql"])
+    return StreamingResponse(generator, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=mssql_query_runner_read_export.csv"})
+
+@router.post("/admin/clickhouse-query-runner-write")
+async def func_api_admin_clickhouse_query_runner_write(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}, {"name": "connection", "type": "str", "default": "master"}])
+    res = await app_state.func_clickhouse_query_runner_write(client_clickhouse=app_state.func_clickhouse_client_read(client_clickhouse_dict=app_state.client_clickhouse_dict, name=ob["connection"]), sql=ob["sql"])
+    return {"status": 1, "message": res}
+
+@router.post("/admin/clickhouse-query-runner-read")
+async def func_api_admin_clickhouse_query_runner_read(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}, {"name": "connection", "type": "str", "default": "master"}])
+    res = await app_state.func_clickhouse_query_runner_read(client_clickhouse=app_state.func_clickhouse_client_read(client_clickhouse_dict=app_state.client_clickhouse_dict, name=ob["connection"]), config_query_runner_read_limit=app_state.config_query_runner_read_limit, sql=ob["sql"])
+    return {"status": 1, "message": res}
+
+@router.post("/admin/clickhouse-query-runner-read-export")
+async def func_api_admin_clickhouse_query_runner_read_export(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}, {"name": "connection", "type": "str", "default": "master"}])
+    generator = await app_state.func_clickhouse_query_runner_read_export(client_clickhouse=app_state.func_clickhouse_client_read(client_clickhouse_dict=app_state.client_clickhouse_dict, name=ob["connection"]), config_export_limit=app_state.config_export_limit, sql=ob["sql"])
+    return StreamingResponse(generator, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=clickhouse_query_runner_read_export.csv"})
+
+@router.post("/admin/clickhouse-query-generator-ai")
+async def func_api_admin_clickhouse_query_generator_ai(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "ai", "type": "str", "allowed": app_state.config_ai_services, "default": "gemini"}, {"name": "question", "type": "str", "required": True}, {"name": "connection", "type": "str", "default": "master"}])
+    res = await app_state.func_clickhouse_query_generator_ai(client_clickhouse=app_state.func_clickhouse_client_read(client_clickhouse_dict=app_state.client_clickhouse_dict, name=ob["connection"]), client_gemini=app_state.client_gemini, client_openai=app_state.client_openai, cache_clickhouse_schema=app_state.cache_clickhouse_schema_dict.get(ob["connection"], {}), config_query_runner_read_limit=app_state.config_query_runner_read_limit, ai=ob["ai"], question=ob["question"])
+    return {"status": 1, "message": res}

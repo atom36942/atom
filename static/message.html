@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Message</title>
+<style>
+/* reference client for /my/message-socket; palette matches api.html */
+:root{--bg:#0b0d10;--card:#0f1114;--panel:#1a1d23;--muted:#9aa0a6;--fg:#e6eef3;--primary:#38a169;--primary-text:#031013;--accent:#4299e1;--line:rgba(255,255,255,.08);--mine:#1f3a2b;--theirs:#1f2933;--error:#dc3545}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,sans-serif;line-height:1.5;height:100vh;display:flex;justify-content:center}
+main{width:100%;max-width:720px;height:100vh;display:flex;flex-direction:column;padding:16px;gap:12px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:34px}
+h1{margin:0;font-size:18px;font-weight:600}
+#messageState{align-self:center;font-size:12px;color:var(--muted)}
+#messageState.on{color:var(--primary)}
+#messageState.on::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--primary);margin-right:6px}
+/* account menu, same as api.html: avatar with the first letter, then who is logged in and Log out */
+.profile{position:relative;display:flex}
+.profile-avatar{width:24px;height:24px;margin:5px;border-radius:50%;border:none;padding:0;background:var(--accent);color:#fff;font-family:inherit;font-size:12px;font-weight:700;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.profile-avatar:hover,.profile-avatar[aria-expanded="true"]{box-shadow:0 0 0 3px rgba(66,153,225,.35)}
+.profile-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;width:280px;padding:14px;border-radius:12px;background:var(--panel);border:1px solid var(--line);box-shadow:0 12px 32px rgba(0,0,0,.45);text-align:left}
+.profile-menu h4{margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.profile-menu dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0 0 12px;padding-bottom:12px;border-bottom:1px solid var(--line);font-size:12px}
+.profile-menu dt{color:var(--muted);font-weight:400}
+.profile-menu dd{margin:0;color:var(--fg);font-weight:600;overflow-wrap:anywhere}
+.profile-menu button.logout{width:100%;padding:8px;border-radius:8px;border:none;background:rgba(220,53,69,.1);color:var(--error);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.profile-menu button.logout:hover{background:rgba(220,53,69,.18)}
+.bar{display:flex;gap:8px;flex-wrap:wrap}
+input,textarea{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:inherit;font-size:14px;min-width:0}
+input:focus,textarea:focus{outline:2px solid var(--primary);outline-offset:-1px}
+.grow{flex:1 1 180px}
+#peer{flex:0 0 130px}
+button{background:var(--primary);color:var(--primary-text);border:0;border-radius:8px;padding:9px 16px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+button.secondary{background:var(--theirs);color:var(--fg)}
+button:disabled{opacity:.5;cursor:default}
+[hidden]{display:none!important}
+#log{flex:1;overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:78%;padding:8px 12px;border-radius:12px;white-space:pre-wrap;word-wrap:break-word;font-size:14px}
+.msg time{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.mine{align-self:flex-end;background:var(--mine);border-bottom-right-radius:4px}
+.theirs{align-self:flex-start;background:var(--theirs);border-bottom-left-radius:4px}
+.note{align-self:center;font-size:12px;color:var(--muted);text-align:center}
+.note.error{color:var(--error)}
+#send{display:flex;gap:8px}
+#chatView{flex:1;min-height:0;display:flex;flex-direction:column;gap:12px}
+/* login card, same as monitor.html */
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.card-head{padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+.card-head h2{margin:0;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.card-body{padding:16px}
+.login{width:100%;max-width:360px;margin:12vh auto 0}
+.login form{display:flex;flex-direction:column;gap:12px}
+.login label{display:flex;flex-direction:column;gap:4px;color:var(--muted);font-size:12px}
+.login input{height:40px}
+.login button{height:40px}
+.login p{margin:0 0 4px;color:var(--muted);font-size:13px}
+.login-error{padding:10px 12px;border-radius:8px;font-size:13px;background:rgba(220,53,69,.08);border:1px solid rgba(220,53,69,.3);color:var(--error)}
+#text{flex:1;resize:none;height:44px}
+</style>
+</head>
+<body>
+<main>
+  <header class="top" id="top">
+    <h1>Message</h1>
+    <div class="profile" id="profile" hidden>
+      <button type="button" class="profile-avatar" id="profileAvatar" aria-haspopup="true" aria-expanded="false" aria-label="Account"></button>
+      <div class="profile-menu" id="profileMenu" role="menu" hidden>
+        <h4>Logged in</h4>
+        <dl>
+          <dt>Username</dt><dd id="profileName"></dd>
+          <dt>User id</dt><dd id="profileId"></dd>
+          <dt>Role</dt><dd id="profileRole"></dd>
+          <dt>Access token</dt><dd id="profileAccess"></dd>
+          <dt>Refresh token</dt><dd id="profileRefresh"></dd>
+        </dl>
+        <button type="button" class="logout" id="logout" role="menuitem">Log out</button>
+      </div>
+    </div>
+  </header>
+  <section class="login card" id="loginView" hidden>
+    <div class="card-head"><h2>Message · login</h2></div>
+    <div class="card-body">
+      <form id="login">
+        <p>Sign in with a user of this server.</p>
+        <label>Username<input id="username" autocomplete="username" required/></label>
+        <label>Password<input id="password" type="password" autocomplete="current-password" required/></label>
+        <label>Role (optional)<input id="role" type="number" min="1"/></label>
+        <button>Log in</button>
+        <div class="login-error" id="loginError" role="alert" hidden></div>
+      </form>
+    </div>
+  </section>
+  <div id="chatView" hidden>
+  <div id="messageBar" class="bar">
+    <input id="peer" type="number" min="1" placeholder="Other user id"/>
+    <button id="connect">Connect</button>
+    <span id="messageState"></span>
+  </div>
+  <div id="log" aria-live="polite"><div class="note">Turn on "/my/message-socket" in config_api, log in, enter the other user's id, then connect. Use a second browser profile as the other user.</div></div>
+  <form id="send"><textarea id="text" placeholder="Type a message, Enter to send" disabled></textarea><button id="sendBtn" disabled>Send</button></form>
+  </div>
+</main>
+<script>
+// everything this page keeps lives in one localStorage object: {access_token, refresh_token, username, peer_id, user, user_at}
+const STORE_KEY = "message";
+const $ = (id) => document.getElementById(id);
+let ws = null, myId = null, isRefreshing = false, retryTimer = null, retryCount = 0;
+
+function store(patch) {
+  let data = {};
+  try { data = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch (e) {}
+  if (patch === null) { try { localStorage.removeItem(STORE_KEY); } catch (e) {} return {}; }
+  if (patch) { data = {...data, ...patch}; try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (e) {} }
+  return data;
+}
+
+function note(text, isError) {
+  const el = document.createElement("div");
+  el.className = "note" + (isError ? " error" : "");
+  el.textContent = text;
+  $("log").appendChild(el);
+  $("log").scrollTop = $("log").scrollHeight;
+}
+
+function show(message) {
+  const el = document.createElement("div");
+  el.className = "msg " + (message.created_by_id === myId ? "mine" : "theirs");
+  el.textContent = message.description;
+  const time = document.createElement("time");
+  time.textContent = new Date(message.created_at).toLocaleString();
+  el.appendChild(time);
+  $("log").appendChild(el);
+  $("log").scrollTop = $("log").scrollHeight;
+}
+
+// a token's expiry is read from the token itself (the JWT "exp")
+function tokenExpiresAt(token) {
+  try {
+    const part = String(token).split(".")[1];
+    const payload = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "=")));
+    return typeof payload.exp === "number" ? payload.exp : null;
+  } catch (e) { return null; }
+}
+
+function formatWhen(sec) {
+  return sec == null ? "—" : "expires " + new Date(sec * 1000).toLocaleString([], {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"});
+}
+
+function renderProfile(data) {
+  const user = data.user || {}, name = String(user.username || data.username || user.email || user.mobile || "unknown");
+  $("profileAvatar").textContent = (name[0] || "?").toUpperCase();
+  $("profileAvatar").title = name + " · role " + (user.role ?? "unknown");
+  $("profileName").textContent = name;
+  $("profileId").textContent = user.id ?? "unknown";
+  $("profileRole").textContent = user.role ?? "unknown";
+  $("profileAccess").textContent = formatWhen(tokenExpiresAt(data.access_token));
+  $("profileRefresh").textContent = formatWhen(tokenExpiresAt(data.refresh_token));
+}
+
+// shown on the login card, which is what a logged-out user sees
+function expiredShow() {
+  $("loginError").textContent = "Your login has expired. Please log in again.";
+  $("loginError").hidden = false;
+}
+
+function menuToggle(open) {
+  const isOpen = open ?? $("profileMenu").hidden;
+  $("profileMenu").hidden = !isOpen;
+  $("profileAvatar").setAttribute("aria-expanded", String(isOpen));
+}
+
+function render() {
+  const data = store(), signedIn = !!data.access_token, connected = !!ws && myId !== null;
+  $("loginView").hidden = signedIn;
+  $("top").hidden = !signedIn;    // logged out, the page is just the login card, as on monitor.html
+  $("chatView").hidden = !signedIn;
+  $("profile").hidden = !signedIn;
+  if (signedIn) renderProfile(data); else menuToggle(false);
+  $("messageState").textContent = connected ? "connected as user " + myId + ", messaging user " + $("peer").value : "";
+  $("messageState").className = connected ? "on" : "";
+  $("connect").textContent = connected ? "Disconnect" : "Connect";
+  $("connect").className = connected ? "secondary" : "";
+  $("peer").disabled = connected;
+  $("text").disabled = !connected;
+  $("sendBtn").disabled = !connected;
+  if (signedIn && data.peer_id && !$("peer").value) $("peer").value = data.peer_id;
+}
+
+async function api(path, options) {
+  const response = await fetch(path, options);
+  const body = await response.json().catch(() => ({status: 0, message: "HTTP " + response.status}));
+  if (body.status !== 1) throw Object.assign(new Error(body.message), {status: response.status});
+  return body.message;
+}
+
+async function login(event) {
+  event.preventDefault();
+  $("loginError").hidden = true;
+  const payload = {username: $("username").value.trim(), password: $("password").value};
+  if ($("role").value) payload.role = parseInt($("role").value, 10);
+  try {
+    const token = await api("/auth/login-username-password", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload)});
+    store({access_token: token.access_token, refresh_token: token.refresh_token, username: payload.username, user: null, user_at: 0});
+    await profileLoad(true);
+    $("password").value = "";
+    $("log").innerHTML = "";
+    note("Logged in. Enter the other user's id and connect.");
+    render();
+    if (store().peer_id) connect();
+  } catch (e) { $("loginError").textContent = "Login failed: " + e.message; $("loginError").hidden = false; }
+}
+
+async function refreshToken() {
+  // the refresh token goes in the Authorization header of /my/token-refresh, which returns a new pair
+  const token = await api("/my/token-refresh", {method: "POST", headers: {Authorization: "Bearer " + store().refresh_token}});
+  store({access_token: token.access_token, refresh_token: token.refresh_token});
+}
+
+// the user object (GET /my/profile), saved with the tokens and read again when it is over 3 hours old
+const PROFILE_MAX_AGE_MS = 3 * 3600 * 1000;
+async function profileLoad(force) {
+  const data = store();
+  if (!data.access_token || (!force && data.user && Date.now() - (data.user_at || 0) < PROFILE_MAX_AGE_MS)) return;
+  try { store({user: await api("/my/profile", {headers: {Authorization: "Bearer " + data.access_token}}), user_at: Date.now()}); }
+  catch (e) { /* offline or refused: keep the saved user; sessionCheck handles an expired login */ }
+  render();
+}
+
+// keep the login alive on its own: under 5 minutes left → new tokens from the refresh token;
+// refresh token expired or refused → logged out, as if never logged in. A network failure keeps the tokens and tries again at the next check.
+let isSessionChecking = false;
+async function sessionCheck() {
+  const data = store(), now = Date.now() / 1000;
+  if (isSessionChecking || !data.access_token) return;
+  const exp = tokenExpiresAt(data.access_token);
+  if (exp != null && exp - now <= 300) {
+    const refreshExp = tokenExpiresAt(data.refresh_token);
+    if (refreshExp == null || refreshExp <= now) { logout(); return expiredShow(); }
+    isSessionChecking = true;
+    try { await refreshToken(); }
+    catch (e) { if (e.status === 401 || e.status === 403) { isSessionChecking = false; logout(); return expiredShow(); } }
+    finally { isSessionChecking = false; }
+  }
+  await profileLoad(false);
+  render();
+}
+
+async function loadHistory(peerId) {
+  // history comes from the HTTP thread API; the socket only pushes new messages
+  const read = () => api("/my/message-thread?user_id=" + peerId + "&limit=50", {headers: {Authorization: "Bearer " + store().access_token}});
+  try {
+    let page;
+    try { page = await read(); }
+    catch (e) { if (e.status !== 401) throw e; await refreshToken(); page = await read(); }
+    page.obj_list.slice().reverse().forEach(show);
+    if (!page.obj_list.length) note("No earlier messages");
+  } catch (e) { note("History: " + e.message, true); }
+}
+
+async function connect() {
+  clearTimeout(retryTimer); retryTimer = null;
+  await sessionCheck();    // renew before connecting, so the socket never opens with an expired token
+  if (!store().access_token) return;
+  const peerId = parseInt($("peer").value, 10);
+  if (!peerId) return note("Enter the other user's id", true);
+  store({peer_id: peerId});
+  $("log").innerHTML = "";
+  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/my/message-socket");
+  // the token goes in the first message, never in the URL, where proxies log it
+  ws.onopen = () => ws.send(JSON.stringify({token: store().access_token}));
+  ws.onmessage = async (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === "connected") {
+      myId = data.message.user_id;
+      retryCount = 0;
+      render();
+      await loadHistory(peerId);
+    } else if (data.type === "message") {
+      const m = data.message;
+      if ((m.created_by_id === myId && m.received_by_id === peerId) || (m.created_by_id === peerId && m.received_by_id === myId)) show(m);
+    } else if (data.type === "error") {
+      note(data.message, true);
+    }
+  };
+  ws.onclose = async (event) => {
+    ws = null; myId = null; render();
+    if (event.reason === "token expired" && !isRefreshing) {
+      // renew once with the refresh token and reconnect; if that fails, sign out
+      isRefreshing = true;
+      try { await refreshToken(); isRefreshing = false; return connect(); }
+      catch (e) { isRefreshing = false; logout(); return expiredShow(); }
+    }
+    if (event.code === 1000) return;
+    // 1001 going away, 1006 network drop, 1012 server restart, 1013 try again later: retry with backoff (2s, 4s, 8s ... up to 30s); Connect, Disconnect or Log out stops it
+    if ([1001, 1006, 1012, 1013].includes(event.code) && store().access_token) {
+      const delay = Math.min(2000 * 2 ** retryCount++, 30000);
+      note("Connection lost, retrying in " + delay / 1000 + "s", true);
+      retryTimer = setTimeout(connect, delay);
+      return;
+    }
+    note("Connection closed: " + (event.reason || "connection lost") + " (code " + event.code + ")", true);
+  };
+}
+
+function logout() {
+  clearTimeout(retryTimer); retryCount = 0;
+  if (ws) ws.close(1000);
+  store(null);
+  ws = null; myId = null;
+  $("peer").value = "";
+  $("log").innerHTML = "";
+  render();
+}
+
+$("login").onsubmit = login;
+// one button: Connect opens the conversation with the typed user id; Disconnect closes it so the id can be changed
+$("connect").onclick = () => {
+  if (ws) { ws.close(1000); note("Disconnected"); return; }
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; retryCount = 0; }
+  connect();
+};
+$("logout").onclick = () => { menuToggle(false); logout(); note("Logged out"); };
+$("profileAvatar").onclick = (event) => { event.stopPropagation(); menuToggle(); };
+$("profileMenu").onclick = (event) => event.stopPropagation();
+document.addEventListener("click", () => menuToggle(false));
+document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !$("profileMenu").hidden) { menuToggle(false); $("profileAvatar").focus(); } });
+// check on open, when the tab comes back and every minute, so the login renews before it runs out
+document.addEventListener("visibilitychange", () => { if (!document.hidden) sessionCheck(); });
+setInterval(sessionCheck, 60000);
+$("send").onsubmit = (event) => {
+  event.preventDefault();
+  const description = $("text").value.trim();
+  if (!description || !ws) return;
+  ws.send(JSON.stringify({received_by_id: parseInt($("peer").value, 10), description}));
+  $("text").value = "";
+};
+$("text").onkeydown = (event) => {
+  if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); $("send").requestSubmit(); }
+};
+render();
+sessionCheck().then(() => { if (store().access_token && store().peer_id) connect(); });
+</script>
+</body>
+</html>

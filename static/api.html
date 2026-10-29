@@ -1,0 +1,1954 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>API</title>
+<style>
+:root{--bg:#0b0d10;--card:#0f1114;--panel:#1a1d23;--field:#14171c;--line:rgba(255,255,255,.08);--text:#e6eef3;--muted:#9aa0a6;--primary:#38a169;--delete:#dc3545;--accent:#4299e1;--warn:#ed8936;--card-pad:22px;--mono:"SF Mono",Menlo,monospace}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui;line-height:1.6;height:100vh;overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box}
+[hidden]{display:none!important}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.25)}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.muted{color:var(--muted)}
+
+/* app shell */
+.container{width:100%;max-width:min(98vw,calc(var(--master-shell-width,98vw) + 64px));margin:10px auto;padding:10px;height:calc(100vh - 20px);display:flex;flex-direction:column;box-sizing:border-box;flex-shrink:0}
+.card{background:var(--card);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.05);flex:1;display:flex;flex-direction:column;min-height:0;box-sizing:border-box;align-self:center;width:100%}
+.modal-header.app-header{padding:8px var(--card-pad)}
+.modal-actions.app-actions{gap:6px}
+.modal-body.app-body{padding:var(--card-pad);max-height:none;flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.search-row{display:flex;gap:12px;align-items:stretch;flex-wrap:wrap;margin-bottom:var(--card-pad);flex-shrink:0}
+.header-search{position:relative;display:flex;align-items:center;background:var(--field);border:1px solid var(--line);border-radius:6px;box-sizing:border-box;height:42px;padding:2px 10px;gap:6px;transition:border-color .2s;flex:1 1 320px;min-width:280px}
+.header-search:focus-within{border-color:var(--accent)}
+#apiInfoSearch{padding:4px 24px 4px 6px;font-size:15px;font-weight:600;color:#f87171;background:transparent;border:none;flex:1;min-width:60px;height:100%;outline:none;border-radius:0;box-shadow:none}
+.clear-api-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:#f87171;font-size:21px;font-weight:700;line-height:1;cursor:pointer;display:none}
+.clear-api-btn.show{display:block}
+.modal-card.app-panel{flex:1;display:flex;flex-direction:column;min-height:0;margin-bottom:0;width:var(--master-shell-width,100%);max-width:100%;align-self:center}
+.app-panel>.modal-card-body{padding:0;flex:1;display:flex;flex-direction:column;min-height:0}
+.login-indicator{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:6px 14px;border-radius:12px;background:rgba(56,161,105,.12);color:var(--primary);border:none;cursor:pointer;transition:all .2s;font-family:inherit}
+.auth-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor}
+.profile{position:relative;display:flex}
+.profile-avatar{width:24px;height:24px;margin:5px;border-radius:50%;border:none;padding:0;background:var(--accent);color:#fff;font-family:inherit;font-size:12px;font-weight:700;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.profile-avatar:hover,.profile-avatar[aria-expanded="true"]{box-shadow:0 0 0 3px rgba(66,153,225,.35)}
+.profile-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;width:280px;padding:14px;border-radius:12px;background:var(--panel);border:1px solid var(--line);box-shadow:0 12px 32px rgba(0,0,0,.45);text-align:left}
+.profile-menu h4{margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.profile-menu dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0 0 12px;padding-bottom:12px;border-bottom:1px solid var(--line);font-size:12px}
+.profile-menu dt{color:var(--muted)}
+.profile-menu dd{margin:0;color:var(--text);font-weight:600;overflow-wrap:anywhere}
+.profile-menu button.logout{width:100%;padding:8px;border-radius:8px;border:none;background:rgba(220,53,69,.1);color:var(--delete);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.profile-menu button.logout:hover{background:rgba(220,53,69,.18)}
+
+/* loader */
+.app-loader-overlay{position:fixed;inset:0;background:var(--bg);z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .4s ease,visibility .4s}
+.app-loader-overlay.hidden{opacity:0;visibility:hidden}
+.app-loader-content{display:flex;flex-direction:column;align-items:center;gap:20px;background:rgba(255,255,255,.03);padding:40px;border-radius:20px;border:1px solid var(--line);backdrop-filter:blur(10px);box-shadow:0 12px 48px rgba(0,0,0,.6)}
+.app-loader-title{font-size:24px;font-weight:700;color:#fff;letter-spacing:1px}
+.app-loader-bar-wrap{width:300px;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}
+.app-loader-bar-fill{height:100%;background:var(--accent);width:0;transition:width .3s ease;box-shadow:0 0 15px var(--accent)}
+.app-loader-pct{font-size:16px;font-weight:600;color:var(--accent)}
+.app-loader-msg{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+
+/* modals and cards */
+.modal{display:none;position:fixed;z-index:2000;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(4px)}
+.modal-content{background:var(--card);margin:4vh auto;width:95%;max-width:1000px;max-height:92vh;border-radius:12px;border:1px solid rgba(255,255,255,.1);overflow:hidden;display:flex;flex-direction:column}
+.runner-content{max-width:760px;height:92vh}
+.narrow-content{max-width:760px}
+.detail-content{max-width:700px}
+.info-content{max-width:800px;margin:1vh auto;height:98vh;max-height:98vh}
+.paste-content{max-width:760px;margin:5vh auto}
+.param-info-content{width:fit-content;max-width:600px}
+.modal-header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 24px;background:var(--panel);border-bottom:1px solid var(--line);border-radius:12px 12px 0 0}
+.modal-header h3{font-size:14px;font-weight:600;color:var(--text);margin:0;letter-spacing:.2px;display:flex;align-items:center;gap:10px}
+.modal-actions{display:flex;gap:12px;align-items:center;flex-shrink:0}
+.modal-body{padding:20px 24px;max-height:calc(92vh - 58px);overflow-y:auto;flex:1 1 auto;min-height:0}
+.modal-card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:20px;display:flex;flex-direction:column}
+.modal-card:last-child{margin-bottom:0}
+.modal-card-header{display:flex;justify-content:space-between;align-items:center;height:40px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-shrink:0}
+.modal-card-header h4{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;margin:0;text-transform:uppercase;opacity:.8;display:flex;align-items:center;gap:8px}
+.modal-card-body{padding:16px;flex:1}
+.card-actions{display:flex;align-items:center;gap:6px;margin-left:auto}
+.action-divider{width:1px;height:16px;background:rgba(255,255,255,.1);margin:0 4px}
+
+/* buttons */
+.icon-btn{background:none;border:1px solid transparent;border-radius:6px;cursor:pointer;padding:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:all .2s}
+.icon-btn svg,.view-btn svg{pointer-events:none}
+.icon-btn:hover{color:#fff;background:rgba(255,255,255,.04)}
+.icon-btn.active{border-color:rgba(66,153,225,.4);color:var(--accent);background:rgba(66,153,225,.1);box-shadow:0 0 8px rgba(66,153,225,.25)}
+.icon-btn.delete:hover{color:var(--delete);background:rgba(220,53,69,.06)}
+.icon-btn:disabled,.view-btn:disabled{opacity:.35;cursor:default}
+button:disabled[data-tip]{pointer-events:none}    /* the hover tooltip finds disabled buttons by position */
+.view-btn{background:none;border:none;cursor:pointer;padding:6px;display:flex;align-items:center;justify-content:center;color:var(--muted);border-radius:6px;transition:all .2s}
+.view-btn:hover{color:#fff;background:rgba(255,255,255,.05)}
+.view-btn.active{color:var(--accent);background:rgba(66,153,225,.1)}
+.btn{padding:14px 24px;flex:1;font-size:15px;font-weight:600;border-radius:8px;border:none;cursor:pointer;height:48px;display:flex;align-items:center;justify-content:center;font-family:inherit}
+.btn.compact{height:36px;padding:0 16px;font-size:13px;flex:0 0 auto;gap:8px}
+.btn-icon{display:flex;align-items:center}
+.btn-primary{background:rgba(56,161,105,.1);color:var(--primary);border:1px solid rgba(56,161,105,.2);transition:all .2s}
+.btn-primary:hover{background:rgba(56,161,105,.2);border-color:var(--primary);color:#fff}
+.btn-danger{background:rgba(220,53,69,.1);color:var(--delete);border:1px solid rgba(220,53,69,.2);transition:all .2s}
+.btn-danger:hover{background:rgba(220,53,69,.2);border-color:var(--delete);color:#fff}
+.btn-upload{gap:6px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--text);transition:all .2s}
+.btn-primary .spinner{display:none;width:16px;height:16px;border:2px solid rgba(56,161,105,.2);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite;margin-right:6px}
+.btn-primary.loading .spinner{display:inline-block}
+.add-btn-small{background:var(--accent);color:#fff;border:none;border-radius:5px;cursor:pointer;height:22px;width:22px;display:flex;align-items:center;justify-content:center}
+.copy-endpoint-btn{background:none;border:none;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:4px;border-radius:4px;transition:all .2s;flex-shrink:0;margin-left:auto}
+.copy-endpoint-btn:hover{color:#fff;background:rgba(255,255,255,.05)}
+.link-btn{background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px;padding:0;font-family:inherit}
+.hover-tip{position:fixed;z-index:10000;pointer-events:none;padding:3px 8px;border-radius:5px;background:rgba(20,23,28,.96);border:1px solid rgba(255,255,255,.1);color:#c9d1d9;font-size:11px;font-weight:500;line-height:1.4;white-space:nowrap;opacity:0;transform:translateY(-2px);transition:opacity .12s,transform .12s}
+.hover-tip.on{opacity:1;transform:none}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--panel);border:1px solid var(--accent);color:var(--text);padding:10px 20px;border-radius:8px;font-size:13px;z-index:3000;animation:fadeIn .3s}
+
+/* API catalog table */
+.master-table-wrap{flex:1;min-height:0;overflow:auto;opacity:0;transition:opacity .2s ease-in-out;width:var(--master-shell-width,100%);max-width:100%}
+.master-table-wrap.ready{opacity:1}
+#apiInfoTbl{table-layout:auto;width:var(--master-table-width,100%);min-width:var(--master-table-width,100%);border-collapse:collapse;font-size:13px;margin:0}
+#apiInfoTbl th{background:var(--panel);padding:10px 12px;text-align:left;font-weight:600;color:var(--accent);border-bottom:1px solid rgba(255,255,255,.1);font-size:12px;white-space:nowrap;letter-spacing:.5px;position:sticky;top:0;z-index:1}
+#apiInfoTbl td{padding:10px 12px;color:var(--text);border-bottom:1px solid rgba(255,255,255,.05);font-size:13px;vertical-align:top;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+#apiInfoTbl th:first-child,#apiInfoTbl td:first-child{padding-left:24px}
+#apiInfoTbl tr[data-i]:hover{background:rgba(255,255,255,.04)}
+#apiInfoTbl .col-id,#apiInfoTbl .col-method{width:1%;text-align:center}
+#apiInfoTbl .col-path{text-align:left;word-break:break-all;width:var(--master-path-col,auto);max-width:var(--master-path-col,none)}
+#apiInfoTbl .col-run{width:1%;min-width:64px;text-align:center;padding-right:20px}
+#apiInfoTbl .table-message{padding:20px;color:var(--muted);text-align:center;cursor:default}
+#apiInfoTbl .table-message.error{color:var(--delete)}
+.method-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;min-width:32px;text-align:center;text-transform:uppercase}
+.method-badge.get{background:rgba(56,161,105,.2);color:var(--primary)}
+.method-badge.post{background:rgba(66,153,225,.2);color:var(--accent)}
+.method-badge.put{background:rgba(237,137,54,.2);color:var(--warn)}
+.method-badge.delete{background:rgba(220,53,69,.2);color:var(--delete)}
+.method-badge.patch,.method-badge.ws{background:rgba(159,122,234,.2);color:#9f7aea}
+
+/* runner form */
+#runnerPathHeader,#wsIn .endpoint{font-size:13px;color:var(--muted);font-family:var(--mono);flex:1;min-width:0}
+.endpoint{display:flex;align-items:center;gap:10px;font-family:var(--mono);line-height:1;width:100%}
+.endpoint .method-badge{margin:0;line-height:1.2}
+.endpoint-path{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.runner-body{display:flex;flex-direction:column;gap:10px;padding-bottom:12px;overflow-y:auto}
+.runner-body>.modal-card{margin-bottom:0}
+.card-fixed{flex:0 0 auto}
+.adhoc-banner{padding:10px 16px;background:rgba(237,137,54,.1);border-bottom:1px solid rgba(237,137,54,.3);color:var(--warn);font-size:11px;font-weight:600;line-height:1.5}
+form{display:flex;flex-direction:column;gap:24px}
+.section-label{display:flex;align-items:center;gap:12px;font-size:12px;font-weight:700;color:var(--accent);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}
+.section-group{display:none}
+.section-group.active{display:block}
+.dynamic-container{display:flex;flex-direction:column;gap:12px}
+.input-row{display:flex;gap:10px;align-items:center;animation:slideIn .3s ease;position:relative}
+.row-key-box{flex:0 0 180px;position:relative;display:flex;align-items:center}
+.row-key-fixed{flex:0 0 180px;padding:11px 14px;font-size:14px;border-radius:8px;border:1px solid rgba(255,255,255,.04);background:rgba(255,255,255,.02);color:var(--muted);cursor:default;box-sizing:border-box;white-space:nowrap}
+.req-star{color:var(--delete);margin-right:4px;font-weight:700}
+.row-info{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:flex;align-items:center;z-index:11}
+.row-key-fixed .info-icon-btn{margin-left:6px}
+.info-icon-btn{display:inline-flex;align-items:center;color:var(--muted);cursor:pointer}
+.info-icon-btn:hover{color:var(--accent)}
+.input-wrapper{position:relative;flex:1;display:flex;align-items:center}
+input,select{width:100%;padding:12px 36px 12px 14px;font-size:14px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--text);box-sizing:border-box;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+input[readonly]{background:rgba(255,255,255,.02);border-color:rgba(255,255,255,.04);cursor:default}
+input::placeholder{color:rgba(154,160,166,.5)}
+select.row-val,.json-type-selector{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239aa0a6' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+select.row-val{padding-right:64px}
+.json-type-selector{flex:0 0 auto;min-width:90px;width:auto;cursor:pointer}
+.clear-input-btn{position:absolute;right:8px;background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px;display:none;z-index:10}
+.clear-input-btn.show{display:block}
+.toggle-mode-btn{position:absolute;right:32px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:11;width:24px;height:24px;border-radius:4px;transition:all .2s;opacity:.6}
+.toggle-mode-btn:hover{background:rgba(255,255,255,.05);color:var(--accent);opacity:1}
+.input-wrapper input.row-val~.toggle-mode-btn{color:var(--accent);opacity:1;background:rgba(56,161,105,.15);border:1px solid rgba(56,161,105,.3)}
+.input-wrapper select.row-val~.toggle-mode-btn,.input-wrapper select.row-val~.clear-input-btn{right:36px}
+.input-wrapper select.row-val[data-has-value]~.toggle-mode-btn{right:60px}
+.remove-btn{background:none;color:var(--muted);border:none;width:36px;height:36px;flex:0 0 36px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:8px}
+.remove-btn:hover:not(:disabled){color:var(--delete);background:rgba(220,53,69,.1)}
+.remove-btn:disabled{opacity:.3;cursor:not-allowed}
+
+/* response card */
+#rBox{display:none;flex:1;flex-direction:column;min-height:280px;max-height:600px;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+#rBox.show{display:flex}
+#rCode{font-weight:400;margin-left:8px}
+#rCode .ok{color:var(--primary);font-weight:600}
+#rCode .err{color:var(--delete);font-weight:600}
+#rCode .info{color:var(--accent);font-weight:600}
+#rCode .ms{color:var(--muted);font-size:11px;margin-left:8px}
+.resp-body{padding:0;overflow-y:auto;display:flex;flex-direction:column}
+.resp-content{overflow-y:auto;flex:1;position:relative}
+.resp-view{display:none}
+.resp-view.active{display:block}
+.resp-pre{padding:20px;margin:0;font-size:13px;font-family:var(--mono);color:var(--text);white-space:pre-wrap;word-break:break-all;background:none;border:none;line-height:1.5}
+.view-empty{padding:50px;text-align:center;color:var(--muted);font-style:italic;line-height:1.6}
+.jk{color:#7ec8e3}
+.js{color:#98c379}
+.jn{color:#d19a66}
+.jb{color:#c678dd}
+.jl{color:#56b6c2}
+.jl.dim{opacity:.7}
+#viewPretty{padding:12px;overflow:auto}
+#viewPretty>.tree-node,#apiDetailContent>.tree-node{margin-left:0}
+.tree-node{margin-left:20px;position:relative}
+.tree-node:first-child{margin-top:2px}
+.tree-toggle,.tree-row{display:flex;align-items:center;padding:2px 0;font-family:var(--mono);font-size:12px;gap:8px;border-radius:4px;transition:background .2s}
+.tree-toggle{cursor:pointer}
+.tree-toggle:hover{background:rgba(255,255,255,.05)}
+.tree-arrow{width:12px;display:flex;align-items:center;justify-content:center;font-size:8px;opacity:.6;flex-shrink:0;transition:transform .2s}
+.tree-arrow.open{transform:rotate(90deg)}
+.tree-spacer{width:12px;flex-shrink:0}
+.tree-key{color:#7ec8e3;font-weight:600;flex-shrink:0}
+.tree-colon,.tree-bracket{color:var(--muted)}
+.tree-bracket.open{margin-left:4px}
+.tree-val{color:var(--text);word-break:break-all}
+.tree-content{display:none}
+.tree-content.show{display:block}
+.tree-summary{font-size:11px;color:var(--muted);font-style:italic;margin-left:8px}
+.chart{padding:24px}
+.chart-row{margin-bottom:12px}
+.chart-head{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+.chart-head b{color:var(--accent);font-weight:600}
+.chart-bar{height:8px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden}
+.chart-fill{height:100%;background:var(--accent);border-radius:4px;transition:width .5s ease}
+
+/* response grid (table view) */
+.modal-card.grid-card{margin:16px}
+.grid-card>.modal-card-body{padding:0}
+.grid-wrap{overflow:auto}
+.grid-tbl{border-collapse:separate;border-spacing:0;table-layout:auto;width:max-content;font-size:12px}
+.grid-tbl-root{min-width:100%}
+.grid-tbl th,.grid-tbl td{border-right:1px solid rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.06);padding:6px 10px;text-align:left;vertical-align:top;white-space:nowrap}
+.grid-tbl th:last-child,.grid-tbl td:last-child{border-right:none}
+.grid-tbl th{background:var(--panel);font-weight:600;color:var(--accent);font-size:12px;letter-spacing:.5px;position:relative;user-select:none}
+.grid-tbl-root>thead>tr>th{position:sticky;top:0;z-index:2}
+.grid-tbl td{color:var(--text)}
+.grid-tbl>tbody>tr:nth-child(even)>td{background:rgba(255,255,255,.015)}
+.grid-tbl .grid-key{width:1%;white-space:nowrap}
+.grid-tbl td.grid-key{color:var(--accent);font-weight:600}
+.grid-tbl td.grid-nest{padding:4px 6px}
+.grid-tbl td.grid-nest .grid-tbl{border:1px solid var(--line)}
+.grid-cell{display:flex;align-items:center;gap:6px}
+.grid-cell-text{display:inline-block;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;font-family:var(--mono);font-size:12px}
+.cell-expand-btn{padding:2px;flex-shrink:0}
+.nested-toggle{cursor:pointer;font-size:11px;color:var(--accent);margin:2px 2px 4px;display:inline-block;padding:2px 6px;background:rgba(255,255,255,.05);border-radius:4px}
+.col-resizer{width:4px;height:100%;position:absolute;right:0;top:0;cursor:col-resize;background:rgba(255,255,255,.03);z-index:10;transition:background .2s}
+.col-resizer:hover,.col-resizer.dragging{background:var(--accent)}
+
+/* detail, cURL and parameter modals */
+#apiDetailContent{background:var(--field);border-radius:8px;border:1px solid var(--line)}
+#apiDetailContent.tree{padding:20px;overflow-y:auto;max-height:60vh}
+#apiDetailContent.curl{overflow-y:auto;max-height:70vh;background:transparent;border:none}
+#apiDetailModal .view-toggle:not(.active){opacity:.5}
+.curl-cards{display:flex;flex-direction:column;gap:10px}
+.curl-cards .modal-card{margin-bottom:0;flex-shrink:0}
+.curl-action{padding:4px;color:var(--muted);flex:0 0 auto}
+.curl-pre{margin:0;padding:12px;border-radius:6px;background:var(--field);border:1px solid var(--line);font-size:12px;line-height:1.55;white-space:pre-wrap;word-break:break-word;font-family:var(--mono);color:var(--text)}
+.param-key{color:var(--accent);font-weight:700;background:rgba(255,255,255,.05);padding:2px 10px;border-radius:6px;margin-left:8px;border:1px solid rgba(255,255,255,.1)}
+.param-info{display:flex;flex-direction:column;gap:16px;width:560px;max-width:100%}
+.param-info .modal-card{margin-bottom:0}
+.param-regex{background:rgba(0,0,0,.2);padding:12px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.05);font-family:var(--mono);color:var(--accent);font-size:13px;word-break:break-all;line-height:1.5}
+.param-desc{color:var(--text);font-size:14px;line-height:1.6;word-break:break-word;overflow-wrap:anywhere}
+.param-empty{color:var(--muted);font-style:italic;text-align:center;padding:20px}
+
+/* info modal */
+.info-content>.modal-body{max-height:none;display:flex;flex-direction:column;gap:10px}
+.info-content .modal-card{flex-shrink:0;margin-bottom:0}
+.info-content .tags-card{flex:1 0 auto}
+.info-list{display:flex;flex-direction:column;gap:12px}
+.info-property{font-size:13px;color:var(--muted);display:flex;gap:12px;align-items:center}
+.info-property-label{opacity:.6;flex:0 0 145px;min-width:0}
+.info-link{color:var(--primary);text-decoration:none;font-weight:600}
+#baseUrl{color:var(--accent);font-weight:600;letter-spacing:.5px;min-width:0;word-break:break-all}
+#pathFilterTotal{font-weight:500;color:var(--muted)}
+#apiInfoTags{padding:16px;overflow-y:auto;overflow-x:hidden;box-sizing:border-box}
+.tag-group{display:flex;flex-wrap:wrap;gap:8px;width:100%;min-width:0;max-width:100%}
+.tag-filter{display:inline-block;padding:4px 10px;font-size:11px;font-weight:600;border-radius:12px;background:rgba(255,255,255,.05);color:var(--muted);cursor:pointer;transition:all .2s;border:1px solid transparent}
+.tag-filter:hover{background:rgba(255,255,255,.1);color:#fff}
+.tag-filter.active{background:rgba(66,153,225,.15);color:var(--accent);border-color:rgba(66,153,225,.2)}
+.tag-filter-count{font-size:10px;font-weight:500;color:rgba(154,160,166,.85);margin-left:4px}
+.tag-filter.active .tag-filter-count{color:rgba(66,153,225,.95)}
+
+/* paste cURL modal */
+.paste-body{padding:20px;display:flex;flex-direction:column}
+.paste-label-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.paste-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:8px}
+.file-badge{padding:2px 8px;border-radius:4px;background:rgba(66,153,225,.15);color:var(--accent);border:1px solid rgba(66,153,225,.25);font-size:11px;font-family:var(--mono);text-transform:none}
+#pasteCurlInput{width:100%;min-height:280px;padding:14px;font-family:var(--mono);font-size:13px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--text);box-sizing:border-box;resize:vertical;outline:none;line-height:1.5;transition:border-color .2s,background .2s}
+#pasteCurlInput.drag-over{border-color:var(--accent);background:rgba(66,153,225,.05)}
+.paste-error{margin-top:10px;padding:10px 12px;background:rgba(220,53,69,.1);border:1px solid rgba(220,53,69,.3);border-radius:6px;color:var(--delete);font-size:12px;font-family:var(--mono)}
+
+/* WebSocket runner */
+#wsIn{margin-bottom:20px;padding:12px;background:rgba(255,255,255,.03);border-radius:8px;border:1px solid var(--line);font-family:var(--mono);font-size:13px}
+.ws-row{display:flex;gap:12px;margin-bottom:20px}
+.ws-row.tight{gap:8px;margin-bottom:0}
+.ws-send{margin-bottom:20px}
+#wsUrlIn{flex:1;background:rgba(255,255,255,.02);color:var(--accent);font-weight:600}
+#wsMsgIn{flex:1}
+#wsConnBtn{flex:0 0 120px}
+#wsSendBtn{flex:0 0 80px}
+#wsBox{display:flex;flex-direction:column;max-height:400px;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.resp-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line);font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px}
+#wsCode{font-weight:400}
+#wsLogs{padding:16px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.ws-line{margin-bottom:4px}
+.ws-time{opacity:.5}
+.ws-error{color:var(--delete)}
+.ws-sent,.ws-waiting{color:var(--accent)}
+.ws-received{color:var(--primary)}
+
+/* opt-in split layout: ?layout=split */
+.split-preview .container{max-width:98vw}
+.split-workspace{display:grid;grid-template-columns:minmax(300px,30%) minmax(0,1fr);gap:16px;flex:1;min-height:0;padding:16px}
+.split-catalog{min-width:0;padding:0}
+.split-catalog>.search-row{margin-bottom:12px}
+.split-catalog .header-search{min-width:0}
+.split-catalog .modal-card.app-panel,.split-catalog .master-table-wrap{width:100%}
+.split-preview #apiInfoTbl{width:100%;min-width:0;table-layout:fixed}
+.split-preview #apiInfoTbl .col-id,.split-preview #apiInfoTbl .col-run{display:none}
+.split-preview #apiInfoTbl .col-method{width:62px;padding:12px 8px}
+.split-preview #apiInfoTbl .col-path{width:auto;max-width:none;white-space:normal;overflow-wrap:anywhere;padding:12px 8px}
+.split-preview #apiInfoTbl tr[aria-selected="true"]{background:rgba(66,153,225,.14);box-shadow:inset 3px 0 var(--accent)}
+.split-preview #apiInfoTbl tr[data-i]:hover{background:rgba(66,153,225,.08)}
+.split-preview #apiInfoTbl tr[data-i]:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.split-runner-host{min-width:0;min-height:0;display:flex;flex-direction:column}
+.docked-runner{position:static;width:100%;height:100%;min-height:0}
+.docked-runner>.modal-content{width:100%;max-width:none;height:100%;max-height:100%;margin:0;box-sizing:border-box}
+.docked-runner>.modal-content>.modal-body{max-height:none;padding:16px}
+.docked-runner .modal-header{padding:12px 16px}
+.docked-runner .input-wrapper{min-width:0}
+.split-empty{margin:auto;padding:24px;color:var(--muted);text-align:center}
+.layout-switch{display:inline-flex;align-items:center;justify-content:center;color:var(--muted);text-decoration:none;border:1px solid transparent;border-radius:6px;padding:8px;flex-shrink:0;transition:all .2s}
+.layout-switch:hover{color:#fff;background:rgba(255,255,255,.04)}
+.layout-switch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (min-width:901px){.docked-runner #runnerCloseBtn,.docked-runner #wsRunnerCloseBtn{display:none}}
+@media (max-width:900px){
+  .split-workspace{grid-template-columns:minmax(0,1fr);padding:10px}
+  .split-preview .container{max-width:100vw;padding:6px;margin:0;height:100dvh}
+  .split-workspace:not(.show-runner) .split-runner-host,.split-workspace.show-runner .split-catalog{display:none}
+  .split-preview .app-header{flex-wrap:wrap;padding:8px 10px}
+  .docked-runner .modal-header{flex-wrap:wrap;gap:8px}
+  .docked-runner .input-row{flex-wrap:wrap}
+  .docked-runner .input-row>:first-child{flex-basis:100%}
+  .docked-runner #rBox>.modal-card-header{height:auto;min-height:40px;flex-wrap:wrap;padding:8px}
+  .docked-runner #rBox .card-actions{flex-wrap:wrap;margin-left:0}
+}
+
+/* phones */
+@media (max-width:760px){
+  :root{--master-shell-width:100vw;--card-pad:14px}
+  body{overflow-x:hidden}
+  .container{max-width:100%;margin:0;padding:8px}
+  .card{border-radius:10px}
+  .app-loader-content{width:calc(100vw - 48px);padding:28px 18px;box-sizing:border-box}
+  .app-loader-bar-wrap{width:100%}
+  .modal{overflow-y:auto}
+  .modal .modal-content{width:calc(100vw - 16px);max-width:calc(100vw - 16px);margin:8px auto;border-radius:10px}
+  .modal-header{padding:10px 12px;gap:8px;align-items:flex-start}
+  .modal-header h3{min-width:0;line-height:1.35;word-break:break-word}
+  .modal-actions{gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:58%}
+  .icon-btn{padding:7px;min-width:34px;min-height:34px}
+  .login-indicator{padding:6px 10px}
+  .modal-body,.paste-body{padding:14px;max-height:none;overflow-y:auto}
+  .modal-card{border-radius:10px;margin-bottom:12px}
+  .modal-card-header{height:auto;min-height:40px;padding:8px 10px;gap:8px}
+  .modal-card-header h4{line-height:1.35;min-width:0}
+  .modal-card-body{padding:12px}
+  .header-search{margin-bottom:var(--card-pad)}
+  .tag-filter{padding:6px 9px;line-height:1.2}
+  .master-table-wrap{max-height:calc(100vh - 300px);min-height:280px}
+  #apiInfoTbl{min-width:620px}
+  #apiInfoTbl th,#apiInfoTbl td{padding:9px 8px;font-size:12px}
+  #apiInfoTbl th:first-child,#apiInfoTbl td:first-child{padding-left:12px}
+  #apiInfoTbl .col-id{width:30px;min-width:30px}
+  #apiInfoTbl .col-method{width:56px;min-width:56px}
+  #apiInfoTbl .col-path{width:240px}
+  #apiInfoTbl .col-run{width:38px;min-width:38px}
+  .resp-pre{padding:14px;font-size:12px;line-height:1.45}
+  .resp-header{padding:10px 12px;gap:8px;flex-wrap:wrap}
+  #rBox{max-height:none}
+  .endpoint-path{white-space:normal;overflow-wrap:anywhere}
+  #runnerPathHeader{overflow:hidden}
+  .input-row{flex-wrap:wrap;align-items:stretch;gap:8px}
+  .input-row>:first-child{flex:1 1 100%;width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .input-wrapper{flex:1 1 calc(100% - 46px);min-width:0}
+  .json-type-selector{flex:0 0 96px;min-width:96px}
+  .remove-btn{align-self:center}
+  .btn{width:100%;min-height:44px;padding:12px 16px}
+  .toast{left:12px;right:12px;bottom:12px;text-align:center}
+  .ws-row{flex-direction:column}
+  #wsConnBtn,#wsSendBtn{flex:1 1 auto;width:100%}
+}
+@media (max-width:420px){
+  .container{padding:6px}
+  .modal-header{flex-direction:column;align-items:stretch}
+  .modal-actions{max-width:100%;justify-content:flex-start}
+  .modal-body,.paste-body{padding:10px}
+  .modal-card-header{padding:8px}
+  .json-type-selector{flex:1 1 100%;width:100%}
+}
+</style>
+</head>
+<body>
+<div id="appLoader" class="app-loader-overlay">
+  <div class="app-loader-content">
+    <div class="app-loader-title">API</div>
+    <div class="app-loader-bar-wrap"><div id="appLoaderFill" class="app-loader-bar-fill"></div></div>
+    <div id="appLoaderPct" class="app-loader-pct">0%</div>
+    <div id="appLoaderMsg" class="app-loader-msg">Initializing...</div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="card">
+    <div class="modal-header app-header">
+      <h3>API</h3>
+      <div class="modal-actions app-actions">
+        <button type="button" class="icon-btn" id="infoToggleBtn" data-icon="info" data-size="18" data-tip="Info (D)"></button>
+        <button type="button" class="icon-btn" id="pasteCurlToggleBtn" data-icon="curl" data-size="18" data-tip="Paste cURL"></button>
+        <button type="button" class="login-indicator" id="loginIndicator"><span class="auth-dot"></span>Login</button>
+        <div class="profile" id="profile" hidden>
+          <button type="button" class="profile-avatar" id="profileAvatar" data-tip="Account" aria-haspopup="true" aria-expanded="false" aria-label="Account"></button>
+          <div class="profile-menu" id="profileMenu" role="menu" hidden>
+            <h4>Logged in</h4>
+            <dl>
+              <dt>Username</dt><dd id="profileName"></dd>
+              <dt>Role</dt><dd id="profileRole"></dd>
+              <dt>Access token</dt><dd id="profileAccess"></dd>
+              <dt>Refresh token</dt><dd id="profileRefresh"></dd>
+            </dl>
+            <button type="button" class="logout" id="logoutBtn" role="menuitem">Log out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-body app-body">
+      <div class="search-row">
+        <div class="header-search">
+          <input type="text" id="apiInfoSearch" placeholder="Search APIs..." autocomplete="off" spellcheck="false" />
+          <button type="button" id="apiInfoSearchClear" class="clear-api-btn" data-tip="Clear search">×</button>
+        </div>
+      </div>
+      <div class="modal-card app-panel">
+        <div class="modal-card-body"><div class="master-table-wrap"><table id="apiInfoTbl"></table></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- API runner -->
+<div id="apiRunnerModal" class="modal">
+  <div class="modal-content runner-content">
+    <div class="modal-header">
+      <h3>API Runner</h3>
+      <div class="modal-actions">
+        <button type="button" class="icon-btn" id="runnerCurlBtn" data-icon="curl" data-size="18" data-tip="View cURL"></button>
+        <button type="button" class="icon-btn" id="runnerDownloadCurlBtn" data-icon="download" data-size="18" data-tip="Download cURL (.txt)"></button>
+        <button type="button" class="btn btn-danger compact" id="stopRequestBtn" hidden>Stop</button>
+        <button type="submit" class="btn btn-primary compact" id="subBtn" form="apiForm" data-tip="Run (Ctrl/⌘+Enter)"><div class="spinner"></div><span id="subBtnIcon" class="btn-icon" data-icon="play" data-size="14"></span><span id="subBtnText">Run</span></button>
+        <button type="button" class="icon-btn" id="runnerCloseBtn" data-icon="close" data-size="24" data-tip="Close (Esc)"></button>
+      </div>
+    </div>
+    <div class="modal-body runner-body">
+      <div class="modal-card card-fixed">
+        <div class="modal-card-header"><div id="runnerPathHeader"></div></div>
+        <div id="runnerAdhocBanner" class="adhoc-banner" hidden>Ad-hoc cURL: this path is not part of the OpenAPI spec. The request will be executed exactly as pasted, and the response will not be saved to the API table.</div>
+        <div class="modal-card-body">
+          <form id="apiForm">
+            <div class="section-group" id="hSec"><div class="section-label">Headers <button type="button" id="addH" class="add-btn-small" data-tip="Add header">+</button></div><div id="hCont" class="dynamic-container"></div></div>
+            <div class="section-group" id="uSec"><div class="section-label">Path Params <button type="button" id="addU" class="add-btn-small" data-tip="Add path parameter">+</button></div><div id="uCont" class="dynamic-container"></div></div>
+            <div class="section-group" id="qSec"><div class="section-label">Query Params <button type="button" id="addQ" class="add-btn-small" data-tip="Add query parameter">+</button></div><div id="qCont" class="dynamic-container"></div></div>
+            <div class="section-group" id="fSec"><div class="section-label">Form Data <button type="button" id="addF" class="add-btn-small" data-tip="Add form field">+</button></div><div id="fCont" class="dynamic-container"></div></div>
+            <div class="section-group" id="jSec"><div class="section-label">JSON Body <button type="button" id="addJ" class="add-btn-small" data-tip="Add JSON field">+</button></div><div id="jCont" class="dynamic-container"></div></div>
+          </form>
+        </div>
+      </div>
+      <div class="modal-card" id="rBox">
+        <div class="modal-card-header">
+          <h4>API RESPONSE <span id="rCode"></span></h4>
+          <div class="card-actions">
+            <button type="button" class="view-btn" data-view="raw" id="btnRaw" data-icon="code" data-tip="Raw view" disabled></button>
+            <button type="button" class="view-btn" data-view="headers" id="btnHeaders" data-icon="headers" data-tip="Response headers" disabled></button>
+            <button type="button" class="icon-btn" id="rJson" data-icon="download" data-tip="Download JSON" disabled></button>
+            <button type="button" class="icon-btn" id="rCopy" data-icon="copy" data-tip="Copy response" disabled></button>
+            <div class="action-divider"></div>
+            <button type="button" class="view-btn" data-view="pretty" id="btnPretty" data-icon="list" data-tip="Tree view" disabled></button>
+            <button type="button" class="view-btn" data-view="chart" id="btnChart" data-icon="chart" data-tip="Chart view" disabled></button>
+            <div class="action-divider"></div>
+            <button type="button" class="view-btn" data-view="table" id="btnTable" data-icon="table" data-tip="Table view" disabled></button>
+            <button type="button" class="icon-btn" id="rCsv" data-icon="downloadCsv" data-tip="Download CSV" disabled></button>
+            <div class="action-divider"></div>
+            <button type="button" class="icon-btn" id="rCopyFull" data-icon="copyCurl" data-tip="Copy cURL and response" disabled></button>
+            <button type="button" class="icon-btn delete" id="runnerResetBtn" data-icon="trash" data-size="18" data-tip="Clear saved response" disabled></button>
+          </div>
+        </div>
+        <div class="modal-card-body resp-body">
+          <div class="resp-content">
+            <div id="viewPretty" class="resp-view"></div>
+            <div id="viewRaw" class="resp-view active"><pre class="resp-pre" id="rawPre"></pre></div>
+            <div id="viewTable" class="resp-view"></div>
+            <div id="viewChart" class="resp-view"></div>
+            <div id="viewHeaders" class="resp-view"><pre class="resp-pre" id="headersPre"></pre></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WebSocket runner -->
+<div id="wsRunnerModal" class="modal">
+  <div class="modal-content narrow-content">
+    <div class="modal-header">
+      <h3>WebSocket Runner</h3>
+      <div class="modal-actions"><button type="button" class="icon-btn" id="wsRunnerCloseBtn" data-icon="close" data-size="24" data-tip="Close"></button></div>
+    </div>
+    <div class="modal-body">
+      <div id="wsIn"></div>
+      <div class="ws-row"><input type="text" id="wsUrlIn" readonly><button id="wsConnBtn" type="button" class="btn btn-primary">Connect</button></div>
+      <div class="ws-send">
+        <div class="section-label">Send Message</div>
+        <div class="ws-row tight"><input type="text" id="wsMsgIn" placeholder="Type a message..."><button type="button" id="wsSendBtn" class="btn btn-primary">Send</button></div>
+      </div>
+      <div class="modal-card" id="wsBox">
+        <div class="resp-header"><span>Connection Logs <span id="wsCode"></span></span><button type="button" class="icon-btn" id="wsLogsClearBtn" data-icon="trash" data-tip="Clear logs"></button></div>
+        <div class="resp-content" id="wsLogs"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- JSON and cURL detail -->
+<div id="apiDetailModal" class="modal">
+  <div class="modal-content detail-content">
+    <div class="modal-header">
+      <h3 id="apiDetailTitle">API Response</h3>
+      <div class="modal-actions">
+        <button type="button" class="icon-btn view-toggle" id="apiDetailTreeBtn" data-icon="list" data-size="20" data-tip="Tree view"></button>
+        <button type="button" class="icon-btn view-toggle" id="apiDetailTableBtn" data-icon="table" data-size="20" data-tip="Table view"></button>
+        <div class="action-divider" id="apiDetailDivider"></div>
+        <button type="button" class="icon-btn" id="apiDetailDownloadCurlBtn" data-icon="download" data-size="20" data-tip="Download cURL (.txt)" hidden></button>
+        <button type="button" class="icon-btn" id="apiDetailJson" data-icon="downloadJson" data-size="20" data-tip="Download JSON"></button>
+        <button type="button" class="icon-btn" id="apiDetailCopy" data-icon="copy" data-size="20" data-tip="Copy"></button>
+        <button type="button" class="icon-btn" id="apiDetailCloseBtn" data-icon="close" data-size="24" data-tip="Close"></button>
+      </div>
+    </div>
+    <div class="modal-body"><div id="apiDetailContent"></div></div>
+  </div>
+</div>
+
+<!-- Documentation -->
+<div id="infoModal" class="modal">
+  <div class="modal-content info-content">
+    <div class="modal-header">
+      <h3>Info</h3>
+      <div class="modal-actions"><button type="button" class="icon-btn" id="infoCloseBtn" data-icon="close" data-size="24" data-tip="Close"></button></div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-card">
+        <div class="modal-card-header"><h4>GENERAL INFORMATION</h4></div>
+        <div class="modal-card-body">
+          <div class="info-list">
+            <div class="info-property"><span class="info-property-label">Base URL:</span><span id="baseUrl"></span></div>
+            <div class="info-property"><span class="info-property-label">OpenAPI Specification:</span><a class="info-link" href="/openapi.json" target="_blank">/openapi.json</a></div>
+            <div class="info-property"><span class="info-property-label">API CSV Catalog:</span><a class="info-link" href="#" id="catalogCsvLink" title="Export CSV catalog (E)">Download CSV Catalog</a></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-card tags-card">
+        <div class="modal-card-header"><h4>Path Tags <span id="pathFilterTotal"></span></h4></div>
+        <div class="modal-card-body" id="apiInfoTags"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Paste cURL -->
+<div id="pasteCurlModal" class="modal">
+  <div class="modal-content paste-content">
+    <div class="modal-header">
+      <h3>Paste cURL Runner</h3>
+      <div class="modal-actions">
+        <input type="file" id="pasteCurlFileInput" accept=".txt,.sh,.curl,text/plain" hidden>
+        <button type="button" class="btn btn-upload compact" id="pasteCurlUploadBtn" data-tip="Upload a cURL file (.txt, .sh)"><span class="btn-icon" data-icon="upload" data-size="14"></span><span>Upload File</span></button>
+        <button type="button" class="btn btn-primary compact" id="pasteCurlSubmitBtn" data-tip="Run cURL (Ctrl/⌘+Enter)"><span class="btn-icon" data-icon="play" data-size="13"></span><span>Run</span></button>
+        <button type="button" class="icon-btn" id="pasteCurlCloseBtn" data-icon="close" data-size="24" data-tip="Close (Esc)"></button>
+      </div>
+    </div>
+    <div class="modal-body paste-body">
+      <div class="paste-label-row">
+        <div class="paste-label"><span>cURL Command</span><span id="pasteCurlFileBadge" class="file-badge" hidden></span></div>
+        <button type="button" class="link-btn" id="pasteCurlBodyUploadBtn" data-tip="Choose a text file"><span class="btn-icon" data-icon="upload" data-size="12"></span><span>Upload .txt file</span></button>
+      </div>
+      <textarea id="pasteCurlInput" placeholder="Paste cURL here or upload a .txt file. If path matches an API in /openapi.json, Runner opens pre-filled; otherwise runs as-is in ad-hoc mode (response not saved)." spellcheck="false"></textarea>
+      <div id="pasteCurlError" class="paste-error" hidden></div>
+    </div>
+  </div>
+</div>
+
+<!-- Parameter details -->
+<div id="paramInfoModal" class="modal">
+  <div class="modal-content param-info-content">
+    <div class="modal-header">
+      <h3 id="paramInfoTitle">Parameter Configuration</h3>
+      <div class="modal-actions">
+        <button type="button" class="icon-btn" id="paramInfoCopyBtn" data-icon="copy" data-size="20" data-tip="Copy details"></button>
+        <button type="button" class="icon-btn" id="paramInfoCloseBtn" data-icon="close" data-size="24" data-tip="Close"></button>
+      </div>
+    </div>
+    <div id="paramInfoBody" class="modal-body"></div>
+  </div>
+</div>
+
+<script>
+// shared state and DOM helpers
+const d = document;
+const UI = id => d.getElementById(id);
+let COMMANDS = [];
+let SPEC = null;
+let curr = null;                    // the command loaded in the runner
+let activeMasterRunIndex = null;    // its row in COMMANDS, or null (login shortcut, ad-hoc cURL)
+const splitPreview = new URLSearchParams(location.search).get("layout") === "split";
+const he = v => v == null ? "" : String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+const debounce = (fn, ms) => {
+  let t;
+  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms) };
+};
+const getPathTags = p => {
+  const endpoint = String(p || "").replace(/\{[^}]*\}/g, "").split("/").filter(Boolean).pop() || "";
+  return [...new Set(endpoint.split("-").map(tag => tag.trim()).filter(Boolean))];
+};
+
+// icons: an element with data-icon="name" (data-size, default 16) gets ICON[name] at boot
+const SVG = (w, paths, stroke = "currentColor") => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+const ICON = {
+  copy: s => SVG(s, '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'),
+  check: s => SVG(s, '<polyline points="20 6 9 17 4 12"/>', "#22c55e"),
+  play: s => SVG(s, '<polygon points="5 3 19 12 5 21 5 3"/>', "#38a169"),
+  trash: s => SVG(s, '<path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>'),
+  curl: s => SVG(s, '<rect x="2.5" y="4" width="19" height="16" rx="2"/><line x1="2.5" y1="8" x2="21.5" y2="8"/><circle cx="6" cy="6" r=".6" fill="currentColor" stroke="none"/><circle cx="8.5" cy="6" r=".6" fill="currentColor" stroke="none"/><polyline points="6 12 9 14.5 6 17"/><line x1="11.5" y1="17" x2="17" y2="17"/>'),
+  list: s => SVG(s, '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>'),
+  code: s => SVG(s, '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>'),
+  table: s => SVG(s, '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>'),
+  split: s => SVG(s, '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M10 3v18M3 9h7M3 15h7"/>'),
+  expand: s => SVG(s, '<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>'),
+  chart: s => SVG(s, '<path d="M18 20V10M12 20V4M6 20v-6"/>'),
+  headers: s => SVG(s, '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="4" y1="16" x2="20" y2="16"/>'),
+  download: s => SVG(s, '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'),
+  downloadCsv: s => SVG(s, '<rect x="4" y="12" width="16" height="8" rx="1"/><line x1="4" y1="16" x2="20" y2="16"/><line x1="12" y1="12" x2="12" y2="20"/><polyline points="8 4 12 8 16 4"/><line x1="12" y1="8" x2="12" y2="1"/>'),
+  downloadJson: s => SVG(s, '<polyline points="17 12 21 16 17 20"/><polyline points="7 20 3 16 7 12"/><polyline points="8 4 12 8 16 4"/><line x1="12" y1="8" x2="12" y2="1"/>', "#4299e1"),
+  close: s => SVG(s, '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'),
+  info: s => SVG(s, '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'),
+  copyCurl: s => SVG(s, '<rect x="9" y="9" width="11" height="11" rx="2" ry="2" stroke="var(--accent)"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/><polyline points="11 16 14 13 11 10" stroke="var(--accent)"/><line x1="16" y1="17" x2="19" y2="17" stroke="var(--accent)"/>'),
+  edit: s => SVG(s, '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>'),
+  upload: s => SVG(s, '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>')
+};
+const renderIcons = (root = d) => root.querySelectorAll("[data-icon]").forEach(el => { el.innerHTML = ICON[el.dataset.icon](Number(el.dataset.size) || 16) });
+// an icon-only button's label: the hover tooltip and the screen-reader name
+const tipAttrs = label => `data-tip="${he(label)}" aria-label="${he(label)}"`;
+
+// Subtle tooltip for anything with data-tip, disabled buttons too (they ignore the pointer, so they are found by position)
+function setupHoverTips() {
+  const tip = d.createElement("div");
+  tip.className = "hover-tip";
+  d.body.appendChild(tip);
+  let timer = null, current = null;
+  const hide = () => { clearTimeout(timer); current = null; tip.classList.remove("on") };
+  const disabledAt = (x, y) => [...d.querySelectorAll("[data-tip]:disabled")].find(b => {
+    const r = b.getBoundingClientRect();
+    return r.width && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  });
+  d.addEventListener("mousemove", e => {
+    const target = e.target.closest?.("[data-tip]") || disabledAt(e.clientX, e.clientY) || null;
+    if (target === current) return;
+    hide();
+    if (!target) return;
+    current = target;
+    timer = setTimeout(() => {
+      const r = target.getBoundingClientRect();
+      tip.textContent = target.dataset.tip;
+      const below = r.bottom + 6 + tip.offsetHeight < innerHeight;
+      tip.style.left = Math.max(4, Math.min(innerWidth - tip.offsetWidth - 4, r.left + r.width / 2 - tip.offsetWidth / 2)) + "px";
+      tip.style.top = (below ? r.bottom + 6 : r.top - 6 - tip.offsetHeight) + "px";
+      tip.classList.add("on");
+    }, 250);
+  });
+  d.addEventListener("mousedown", hide, true);
+  addEventListener("scroll", hide, true);
+  addEventListener("blur", hide);
+}
+
+// toast, clipboard and downloads
+const toast = msg => {
+  const el = d.createElement("div");
+  el.className = "toast";
+  el.textContent = msg;
+  d.body.appendChild(el);
+  setTimeout(() => el.remove(), 2500);
+};
+const copyWithFeedback = async (btn, text, size = 16, msg) => {
+  let copied = false;
+  try { await navigator.clipboard.writeText(text); copied = true } catch {}
+  if (!copied) {    // the clipboard API needs a secure context; fall back to a hidden textarea
+    const temp = d.createElement("textarea");
+    temp.value = text;
+    temp.style.cssText = "position:fixed;opacity:0";
+    d.body.appendChild(temp);
+    temp.select();
+    copied = d.execCommand("copy");
+    temp.remove();
+  }
+  if (msg && copied) toast(msg);
+  if (btn.dataset.copied) return;
+  const originalHtml = btn.innerHTML;
+  btn.dataset.copied = "1";
+  btn.innerHTML = ICON.check(size);
+  setTimeout(() => { btn.innerHTML = originalHtml; delete btn.dataset.copied }, 1500);
+};
+const downloadBlob = (blob, filename) => {
+  const url = URL.createObjectURL(blob);
+  const a = d.createElement("a");
+  a.href = url;
+  a.download = filename;
+  d.body.appendChild(a);
+  a.click();
+  URL.revokeObjectURL(url);
+  a.remove();
+};
+const downloadCsv = (filename, csvStr) => downloadBlob(new Blob([csvStr], { type: "text/csv" }), filename);
+const downloadJson = (filename, data) => downloadBlob(new Blob([typeof data === "string" ? data : JSON.stringify(data, null, 2)], { type: "application/json" }), filename);
+const csvEscape = v => {
+  const s = v == null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+};
+const arrayToCsv = arr => {
+  if (!arr.length) return "";
+  const keys = [...new Set(arr.flatMap(Object.keys))];
+  return [keys.join(","), ...arr.map(r => keys.map(k => csvEscape(r[k])).join(","))].join("\n");
+};
+
+// auth token (persisted under the "api" key); responses stay in memory
+const STORAGE_KEY_API = "api";
+const readApiStorage = () => {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORAGE_KEY_API) || "{}");
+    return data && typeof data === "object" && !Array.isArray(data) ? data : {};
+  } catch { return {} }
+};
+const Store = {
+  responses: {},
+  get tokenObject() {
+    const token = readApiStorage().token;
+    return token && typeof token === "object" ? token : null;
+  },
+  get token() {
+    const token = readApiStorage().token;
+    return typeof token === "string" ? token : token?.access_token || "";
+  },
+  set token(v) {
+    const data = readApiStorage();
+    if (!v) delete data.token;
+    else data.token = v;
+    if (Object.keys(data).length) localStorage.setItem(STORAGE_KEY_API, JSON.stringify(data));
+    else localStorage.removeItem(STORAGE_KEY_API);
+  },
+  get refreshToken() { return this.tokenObject?.refresh_token || "" },
+  get user() { const user = readApiStorage().user; return user && typeof user === "object" ? user : null },
+  get userAt() { return Number(readApiStorage().user_at) || 0 },
+  set user(v) {
+    const data = readApiStorage();
+    if (v) Object.assign(data, { user: v, user_at: Date.now() });
+    else { delete data.user; delete data.user_at }
+    localStorage.setItem(STORAGE_KEY_API, JSON.stringify(data));
+  },
+  clearAuth() { localStorage.removeItem(STORAGE_KEY_API); this.responses = {} },
+  getResponse(i) { return this.responses[i] || null },
+  setResponse(i, val) { this.responses[i] = val },
+  removeResponse(i) { delete this.responses[i] }
+};
+const getAuthTokenFor = api => api?.p === "/my/token-refresh" ? Store.refreshToken || Store.token : Store.token;
+// a token's expiry is read from the token itself (the JWT "exp"), so a pasted token is checked too
+const tokenExpiresAt = token => {
+  try {
+    const part = String(token).split(".")[1];
+    const payload = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "=")));
+    return typeof payload.exp === "number" ? payload.exp : null;
+  } catch { return null }
+};
+const formatWhen = sec => new Date(sec * 1000).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+// logged out: the Login button; logged in: an avatar with the user's first letter, opening a menu with username, role, both token expiries and Log out
+const userName = user => user ? String(user.username || user.email || user.mobile || `User ${user.id ?? ""}`).trim() : "";
+const updateLoginIndicator = () => {
+  const loggedIn = !!Store.token, user = Store.user, exp = loggedIn ? tokenExpiresAt(Store.token) : null;
+  UI("loginIndicator").hidden = loggedIn;
+  UI("profile").hidden = !loggedIn;
+  if (!loggedIn) { UI("profileMenu").hidden = true; return }
+  const name = userName(user) || "unknown", letter = (name[0] || "?").toUpperCase(), refreshExp = tokenExpiresAt(Store.refreshToken);
+  UI("profileAvatar").textContent = letter;
+  UI("profileAvatar").dataset.tip = `${name} · role ${user?.role ?? "unknown"}`;
+  UI("profileName").textContent = name;
+  UI("profileRole").textContent = user?.role ?? "unknown";
+  UI("profileAccess").textContent = exp == null ? "—" : `expires ${formatWhen(exp)}`;
+  UI("profileRefresh").textContent = refreshExp == null ? "—" : `expires ${formatWhen(refreshExp)}`;
+};
+const profileMenuToggle = open => {
+  const isOpen = open ?? UI("profileMenu").hidden;
+  UI("profileMenu").hidden = !isOpen;
+  UI("profileAvatar").setAttribute("aria-expanded", String(isOpen));
+};
+// the user object (GET /my/profile), saved with the token and read again when it is over 3 hours old
+const PROFILE_MAX_AGE_MS = 3 * 3600 * 1000;
+const profileLoad = async ({ force = false } = {}) => {
+  if (!Store.token || (!force && Store.user && Date.now() - Store.userAt < PROFILE_MAX_AGE_MS)) return;
+  try {
+    const r = await fetch("/my/profile", { headers: { Authorization: `Bearer ${Store.token}` } });
+    const json = await r.json().catch(() => ({}));
+    if (r.ok && json.status === 1 && json.message && typeof json.message === "object") Store.user = json.message;
+  } catch { /* offline: keep the saved user, try again at the next check */ }
+  updateLoginIndicator();
+};
+// keep the login alive on its own: no token → logged out; under 5 minutes left → new tokens from the refresh token;
+// refresh token expired or refused → logged out, as if never logged in. A network failure keeps the token and tries again at the next check.
+let isSessionChecking = false;
+const sessionCheck = async () => {
+  if (isSessionChecking || !Store.token) return updateLoginIndicator();
+  const now = Date.now() / 1000, exp = tokenExpiresAt(Store.token);
+  if (exp == null || exp - now > 300) { updateLoginIndicator(); return profileLoad() }
+  const refreshExp = tokenExpiresAt(Store.refreshToken);
+  const logOut = () => { Store.clearAuth(); updateLoginIndicator(); toast("Your login has expired. Please log in again.") };
+  if (refreshExp == null || refreshExp <= now) return logOut();
+  isSessionChecking = true;
+  try {
+    const r = await fetch("/my/token-refresh", { method: "POST", headers: { Authorization: `Bearer ${Store.refreshToken}` } });
+    const json = await r.json().catch(() => ({}));
+    if (r.ok && json.status === 1 && json.message?.access_token) Store.token = json.message;
+    else if (r.status === 401 || r.status === 403) logOut();
+  } catch { /* offline or server down: keep the token, try again at the next check */ }
+  finally {
+    isSessionChecking = false;
+    updateLoginIndicator();
+  }
+  if (Store.token) await profileLoad();
+};
+
+// OpenAPI spec to commands: {p path, m method, h/q/u/f/j rows {k,v,t,e enum,r pattern,d description,req}, flags}
+const resolveSchema = s => {
+  if (!s) return s;
+  if (s.$ref) {
+    let node = SPEC;
+    for (const part of s.$ref.split("/").slice(1)) node = node[part];
+    return resolveSchema(node);
+  }
+  if (s.allOf) {
+    const merged = {};
+    s.allOf.forEach(sub => Object.assign(merged, resolveSchema(sub).properties || {}));
+    return { ...s, properties: merged };
+  }
+  return s;
+};
+const mapSchemaType = schema => {
+  const s = resolveSchema(schema) || {};
+  const type = s.type || (s.anyOf || s.oneOf || []).map(item => resolveSchema(item)?.type).find(item => item && item !== "null");
+  return { string: "str", integer: "int", number: "float", boolean: "bool", array: "list", object: "object" }[type] || "str";
+};
+const getSchemaEnum = schema => {
+  const s = resolveSchema(schema) || {};
+  if (Array.isArray(s.enum)) return s.enum;
+  if (Array.isArray(s.items?.enum)) return s.items.enum;
+  return null;
+};
+const getBodyRows = (bodyContent, mediaType, rowType) => {
+  const schema = resolveSchema(bodyContent?.[mediaType]?.schema);
+  if (!schema) return [];
+  const required = Array.isArray(schema.required) ? schema.required : [];
+  return Object.entries(schema.properties || {}).map(([key, propSchema]) => {
+    const s = resolveSchema(propSchema) || {};
+    const def = s.default;
+    return { k: key, v: def == null ? "" : typeof def === "object" ? JSON.stringify(def) : String(def), t: rowType(s), e: getSchemaEnum(s), r: s.pattern || null, d: s.description || null, req: required.includes(key) };
+  });
+};
+const createCommandFromOperation = (path, method, op) => {
+  const command = { p: path, m: method.toUpperCase(), h: [], q: [], f: [], u: [], j: [] };
+  (op.parameters || []).forEach(param => {
+    const schema = resolveSchema(param.schema) || {};
+    const item = { k: param.name, v: schema.default != null ? String(schema.default) : "", e: getSchemaEnum(schema) || param.enum || null, r: schema.pattern || null, d: param.description || schema.description || null, req: !!param.required };
+    ({ header: command.h, query: command.q, path: command.u })[param.in]?.push(item);
+  });
+  const bodyContent = op.requestBody?.content;
+  command.j = getBodyRows(bodyContent, "application/json", mapSchemaType);
+  command.f = getBodyRows(bodyContent, "multipart/form-data", s => s.format === "binary" || s.type === "file" ? "file" : "string");
+  command._hj = command.j.length > 0 || !!bodyContent?.["application/json"];
+  command._hf = command.f.length > 0 || !!bodyContent?.["multipart/form-data"];
+  const security = op.security !== undefined ? op.security : SPEC.security || [];
+  command._needsAuth = security.length > 0;
+  if (command._needsAuth && !command.h.some(x => x.k.toLowerCase() === "authorization")) command.h.push({ k: "Authorization", v: "", req: true, d: "Bearer token" });
+  return command;
+};
+
+// request rows: read from the form, cast for the JSON body
+const ParamManager = {
+  extract(container, isJson = false) {
+    const rows = [];
+    container.querySelectorAll(".input-row").forEach(r => {
+      const k = r.querySelector(".row-key").value.trim();
+      const v = r.querySelector(".row-val");
+      const t = isJson ? r.querySelector(".json-type-selector")?.value || null : null;
+      if (k || v.value) rows.push({ k, v: v.value, t, files: v.files?.length ? Array.from(v.files) : null });
+    });
+    return rows;
+  },
+  cast(val, type, key) {
+    if (val === "" || val === "null" || val === null || type === "null") return null;
+    if (type === "int" || type === "float") {
+      const num = Number(val);
+      if (isNaN(num)) throw new Error(`Field '${key}' expects numeric value`);
+      return num;
+    }
+    if (type === "bool") {
+      const l = String(val).toLowerCase();
+      if (l !== "true" && l !== "false") throw new Error(`Field '${key}' expects boolean (true/false)`);
+      return l === "true";
+    }
+    if (type === "list" || type === "object") {
+      let p;
+      try { p = typeof val === "string" ? JSON.parse(val) : val } catch { throw new Error(`Field '${key}' expects valid JSON`) }
+      if (type === "list" && !Array.isArray(p)) throw new Error(`Field '${key}' expects list`);
+      if (type === "object" && (typeof p !== "object" || p === null || Array.isArray(p))) throw new Error(`Field '${key}' expects object`);
+      return p;
+    }
+    return val;
+  },
+  getCurrent() {
+    return { h: this.extract(UI("hCont")), q: this.extract(UI("qCont")), u: this.extract(UI("uCont")), f: this.extract(UI("fCont")), j: this.extract(UI("jCont"), true) };
+  }
+};
+
+// cURL text for a command: the runner's current values when it is loaded, else the spec defaults; placeholders gives {{name}} values
+const generateCurl = (cmdOrIdx, opts = {}) => {
+  const c = typeof cmdOrIdx === "number" ? COMMANDS[cmdOrIdx] : cmdOrIdx;
+  if (!c) return "";
+  const usePlaceholders = !!opts.placeholders;
+  const live = curr && c === curr ? ParamManager.getCurrent() : { h: [], q: [], f: [], u: [], j: [] };
+  const merge = (spec, liveRows) => {
+    const res = (spec || []).map(s => {
+      const l = liveRows.find(x => x.k === s.k);
+      return { ...s, v: l ? l.v : s.v, files: l ? l.files : null };
+    });
+    liveRows.forEach(l => { if (l.k && !res.find(x => x.k === l.k)) res.push(l) });
+    return res;
+  };
+  const placeholder = x => `{{${String(x?.k || "value").trim().replace(/^authorization$/i, "token").replace(/[^\w]+/g, "_").replace(/^_+|_+$/g, "") || "value"}}}`;
+  const sanitize = v => v === "" || typeof v === "string" && v.includes("{") && v.includes("}") ? "null" : v;
+  const valueFor = x => usePlaceholders ? placeholder(x) : sanitize(x.v);
+  const tokenKey = c.p === "/my/token-refresh" ? "refresh_token" : "token";
+  const hData = merge(c.h, live.h), qData = merge(c.q, live.q), fData = merge(c.f, live.f), uData = merge(c.u, live.u), jData = merge(c.j, live.j);
+  let path = c.p;
+  uData.forEach(x => { path = path.replace(`{${x.k}}`, usePlaceholders ? placeholder(x) : x.v || "null") });
+  const h = [];
+  hData.forEach(x => {
+    if ((x.k || "").toLowerCase() !== "authorization") return h.push(`-H "${x.k}: ${valueFor(x)}"`);
+    if (usePlaceholders) return h.push(`-H "${x.k}: Bearer ${placeholder({ k: tokenKey })}"`);
+    const val = sanitize(getAuthTokenFor(c) || x.v);
+    h.push(`-H "${x.k}: ${val === "null" ? "Bearer null" : val.startsWith("Bearer ") ? val : `Bearer ${val}`}"`);
+  });
+  if (c._needsAuth && !hData.some(x => (x.k || "").toLowerCase() === "authorization")) {
+    const authToken = getAuthTokenFor(c);
+    if (usePlaceholders) h.push(`-H "Authorization: Bearer ${placeholder({ k: tokenKey })}"`);
+    else if (authToken) h.push(`-H "Authorization: Bearer ${authToken}"`);
+  }
+  const qStr = qData.filter(x => x.k).map(x => `${encodeURIComponent(x.k)}=${encodeURIComponent(valueFor(x)).replace(/%7B/g, "{").replace(/%7D/g, "}")}`).join("&");
+  const url = location.origin + path + (qStr ? "?" + qStr : "");
+  let body = "";
+  if (jData.length || c._hj) {
+    const b = {};
+    jData.forEach(x => {
+      try { b[x.k] = usePlaceholders ? placeholder(x) : ParamManager.cast(x.v, x.t, x.k) } catch { b[x.k] = usePlaceholders ? placeholder(x) : x.v }
+    });
+    body = `-d '${JSON.stringify(b).replace(/'/g, `'\\''`)}'`;
+    if (!h.some(x => x.includes("Content-Type"))) h.push('-H "Content-Type: application/json"');
+  } else if (fData.length || c._hf) {
+    body = fData.map(x => {
+      if (x.files?.length || x.t === "file" || /^C:\\fakepath\\/.test(x.v || "")) return `-F "${x.k}=@${usePlaceholders ? placeholder(x) : x.files?.[0]?.name || (x.v || "").replace(/^C:\\fakepath\\/, "") || "file"}"`;
+      return `-F "${x.k}=${valueFor(x)}"`;
+    }).join(" ");
+  }
+  return `curl -X ${c.m} "${url}" ${h.join(" ")} ${body}`.trim().replace(/\s+/g, " ");
+};
+const formatCurlPretty = text => String(text || "").replace(/ -([HdF]) /g, " \\\n  -$1 ");
+const downloadCurlCommand = (command = curr, opts = {}) => {
+  const curlText = command && generateCurl(command, opts);
+  if (!curlText) return;
+  const rawPath = (command.p || "endpoint").replace(/^\//, "").replace(/[^a-zA-Z0-9_-]+/g, "_") || "root";
+  const filename = `curl_${(command.m || "api").toLowerCase()}_${rawPath}${opts.placeholders ? "_placeholder" : ""}.txt`;
+  downloadBlob(new Blob([formatCurlPretty(curlText) + "\n"], { type: "text/plain;charset=utf-8;" }), filename);
+  toast(`Downloaded cURL: ${filename}`);
+};
+const exportCatalogCsv = () => {
+  const params = c => [c.h.length && "H", c.q.length && "Q", c._hf && "F", c._hj && "B"].filter(Boolean).join(" ") || "-";
+  const csv = ["#,Method,Path,Params,Curl", ...COMMANDS.map((c, i) => `${i + 1},${csvEscape(c.m)},${csvEscape(c.p)},${csvEscape(params(c))},${csvEscape(generateCurl(i))}`)].join("\n");
+  downloadCsv("api_master_catalog.csv", csv);
+};
+
+// response rendering: highlighted JSON, tree, grid and chart
+const escapeText = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");    // quotes stay, so highlight can still find keys
+const highlight = s => escapeText(s).replace(/"([^"]+)"\s*:/g, '<span class="jk">"$1"</span>:').replace(/:"([^"]*)"/g, ':<span class="js">"$1"</span>').replace(/:\s*([\d.]+)/g, ': <span class="jn">$1</span>').replace(/:\s*(true|false)/g, ': <span class="jb">$1</span>').replace(/:\s*(null)/g, ': <span class="jl">$1</span>');
+const compactArrays = s => s.replace(/\[\n((\s+("(?:[^"\\]|\\.)*"|[\d.eE+-]+|true|false|null),?\n)+\s*)\]/g, m => m.replace(/\n\s*/g, " ").replace(/,\s*/g, ", "));
+const gvVal = v => {
+  if (v === null) return '<span class="jl">null</span>';
+  if (typeof v === "string") return `<span class="js">"${he(v)}"</span>`;
+  if (typeof v === "number") return `<span class="jn">${v}</span>`;
+  if (typeof v === "boolean") return `<span class="jb">${v}</span>`;
+  return he(v);
+};
+const renderTree = (val, key = null) => {
+  const leaf = html => key === null ? html : `<div class="tree-row"><span class="tree-spacer"></span><span class="tree-key">${he(key)}</span><span class="tree-colon">:</span><span class="tree-val">${html}</span></div>`;
+  if (val === null || typeof val !== "object") return leaf(gvVal(val));
+  const isArr = Array.isArray(val);
+  const entries = Object.entries(val);
+  if (!entries.length) return leaf(isArr ? "[]" : "{}");
+  const root = key === null;
+  return `<div class="tree-node"><div class="tree-toggle"><span class="tree-arrow${root ? " open" : ""}">▶</span><span class="tree-key">${he(key ?? "")}</span>${key ? '<span class="tree-colon">:</span>' : ""}<span class="tree-bracket open">${isArr ? "[" : "{"}</span><span class="tree-summary">${isArr ? "Array" : "Object"}(${entries.length})</span></div><div class="tree-content${root ? " show" : ""}">${entries.map(([k, v]) => renderTree(v, k)).join("")}<div class="tree-row"><span class="tree-spacer"></span><span class="tree-bracket">${isArr ? "]" : "}"}</span></div></div></div>`;
+};
+const getResponseTableData = data => {
+  const message = data?.message;
+  return message !== null && typeof message === "object" && Object.hasOwn(message, "obj_list") ? message.obj_list : message;
+};
+const fmtGrid = (v, depth = 0) => {
+  if (v == null || typeof v !== "object") return null;
+  const renderCell = cv => {
+    let obj = cv, fromString = false;
+    if (typeof cv === "string" && /^\s*[{[]/.test(cv)) {
+      try {
+        const parsed = JSON.parse(cv);
+        if (parsed && typeof parsed === "object") { obj = parsed; fromString = true }
+      } catch {}
+    }
+    if (obj !== null && typeof obj === "object") {
+      const inner = fmtGrid(obj, depth + 1);
+      if (inner) {
+        const label = (fromString ? "(JSON String) " : "") + (Array.isArray(obj) ? `[Array] (${obj.length})` : `{Object} (${Object.keys(obj).length})`);
+        return `<div class="nested-grid-wrapper"><div class="nested-toggle" data-label="${he(label)}">▶ ${he(label)}</div><div class="nested-content" hidden>${inner}</div></div>`;
+      }
+    }
+    if (cv === undefined) return "";
+    if (cv === null) return '<span class="jl dim">null</span>';
+    const val = typeof cv === "object" ? JSON.stringify(cv) : String(cv);
+    const display = val.length > 500 ? he(val.substring(0, 497)) + "..." : he(val);
+    const typeClass = typeof cv === "number" ? " jn" : typeof cv === "boolean" ? " jb" : "";
+    const expand = val.length > 36 ? `<button type="button" class="icon-btn cell-expand-btn" data-raw="${encodeURIComponent(val)}" ${tipAttrs("Expand")}>${ICON.expand(14)}</button>` : "";
+    return `<div class="grid-cell" title="${he(val)}"><span class="grid-cell-text${typeClass}">${display}</span>${expand}</div>`;
+  };
+  const td = html => `<td${html.startsWith('<div class="nested-grid-wrapper">') ? ' class="grid-nest"' : ""}>${html}</td>`;
+  const table = (head, rows) => {
+    const html = `<table class="grid-tbl${depth === 0 ? " grid-tbl-root" : ""}"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+    return depth === 0 ? `<div class="modal-card grid-card"><div class="modal-card-body"><div class="grid-wrap">${html}</div></div></div>` : html;
+  };
+  if (!Array.isArray(v)) {
+    const entries = Object.entries(v);
+    if (!entries.length) return '<span class="muted">{}</span>';
+    return table('<th class="grid-key">Key</th><th>Value</th>', entries.map(([k, cv]) => `<tr><td class="grid-key">${he(k)}</td>${td(renderCell(cv))}</tr>`).join(""));
+  }
+  if (!v.length) return '<span class="muted">[]</span>';
+  if (typeof v[0] !== "object" || v[0] === null) return table("<th>Value</th>", v.map(val => `<tr>${td(renderCell(val))}</tr>`).join(""));
+  const keys = [...new Set(v.flatMap(x => x && typeof x === "object" ? Object.keys(x) : []))];
+  if (!keys.length) return '<span class="muted">[Empty Objects]</span>';
+  return table(keys.map(k => `<th>${he(k)}</th>`).join(""), v.map(row => `<tr>${keys.map(k => td(renderCell(row && typeof row === "object" ? row[k] : undefined))).join("")}</tr>`).join(""));
+};
+// drag a header's right edge to resize the column
+const addColumnResizers = table => table.querySelectorAll("th").forEach(th => {
+  const handle = d.createElement("div");
+  handle.className = "col-resizer";
+  th.appendChild(handle);
+  handle.addEventListener("mousedown", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.pageX, startWidth = th.offsetWidth;
+    handle.classList.add("dragging");
+    const move = ev => { const w = Math.max(40, startWidth + ev.pageX - startX); th.style.width = th.style.minWidth = w + "px" };
+    const up = () => { handle.classList.remove("dragging"); d.removeEventListener("mousemove", move); d.removeEventListener("mouseup", up) };
+    d.addEventListener("mousemove", move);
+    d.addEventListener("mouseup", up);
+  });
+});
+
+// the runner's response card
+const ResponseView = {
+  state: { data: null, status: null, time: null, view: "raw", headers: null },
+  clear() {
+    UI("rBox").classList.remove("show");
+    ["rCode", "rawPre", "headersPre", "viewPretty", "viewTable", "viewChart"].forEach(id => { UI(id).innerHTML = "" });
+    ["btnRaw", "btnPretty", "btnTable", "btnChart", "btnHeaders", "rCopy", "rCopyFull", "rCsv", "rJson"].forEach(id => { UI(id).disabled = true });
+  },
+  render(data, status, time, headers = null) {
+    Object.assign(this.state, { data, status, time, headers });
+    const tableData = getResponseTableData(data);
+    const tabular = tableData != null && typeof tableData === "object";
+    const message = data?.message;
+    const chartable = Array.isArray(message) && message.length > 0 && message[0] != null && Object.hasOwn(Object(message[0]), "item") && Object.hasOwn(Object(message[0]), "value");
+    const enabled = { btnRaw: true, btnPretty: true, rCopy: true, rCopyFull: true, rJson: true, btnChart: chartable, btnHeaders: !!headers && Object.keys(headers).length > 0, btnTable: tabular, rCsv: tabular };
+    Object.entries(enabled).forEach(([id, on]) => { UI(id).disabled = !on });
+    const codeClass = status >= 200 && status < 300 ? "ok" : status >= 400 ? "err" : "info";
+    UI("rCode").innerHTML = (status != null ? `<span class="${codeClass}">${status}</span>` : "") + (time != null ? `<span class="ms">${time}ms</span>` : "");
+    UI("rBox").classList.add("show");
+    this.switchTo(this.state.view);
+  },
+  switchTo(type) {
+    const data = this.state.data;
+    this.state.view = type;
+    ["Raw", "Pretty", "Table", "Chart", "Headers"].forEach(t => {
+      UI(`btn${t}`).classList.toggle("active", t.toLowerCase() === type);
+      UI(`view${t}`).classList.toggle("active", t.toLowerCase() === type);
+    });
+    if (type === "raw") UI("rawPre").innerHTML = highlight(JSON.stringify(data, null, 2));
+    else if (type === "pretty") UI("viewPretty").innerHTML = renderTree(data);
+    else if (type === "headers") UI("headersPre").innerHTML = highlight(JSON.stringify(this.state.headers || {}, null, 2));
+    else if (type === "table") {
+      const html = fmtGrid(getResponseTableData(data));
+      UI("viewTable").innerHTML = html || '<div class="view-empty">Table view not available for this response type.<br>Please use <b>Tree View</b> or <b>Raw View</b> for detailed inspection.</div>';
+      const table = UI("viewTable").querySelector("table");
+      if (table) addColumnResizers(table);
+    } else if (type === "chart") {
+      const rows = data?.message;
+      if (!Array.isArray(rows)) { UI("viewChart").innerHTML = '<div class="view-empty">Chart view not available</div>'; return }
+      const maxVal = Math.max(...rows.map(x => Number(x.value) || 0)) || 1;
+      UI("viewChart").innerHTML = `<div class="chart">${rows.map(x => `<div class="chart-row"><div class="chart-head"><span class="muted">${he(x.item)}</span><b>${he(x.value)}</b></div><div class="chart-bar"><div class="chart-fill" style="width:${(Number(x.value) || 0) / maxVal * 100}%"></div></div></div>`).join("")}</div>`;
+    }
+  }
+};
+
+// modals; in split layout the two runners are docked panes instead
+const showModal = id => {
+  const el = UI(id);
+  if (el.classList.contains("docked-runner")) {
+    ["apiRunnerModal", "wsRunnerModal"].forEach(key => { UI(key).style.display = key === id ? "block" : "none" });
+    UI("splitEmpty").style.display = "none";
+    UI("splitWorkspace").classList.add("show-runner");
+    return;
+  }
+  const top = Math.max(1999, ...[...d.querySelectorAll(".modal")].filter(m => m.style.display === "block" && m !== el).map(m => parseInt(m.style.zIndex, 10) || 2000));
+  el.style.zIndex = String(top + 10);    // the newest modal opens above the others
+  el.style.display = "block";
+};
+const hideModal = id => {
+  const el = UI(id);
+  if (el.classList.contains("docked-runner")) {
+    if (matchMedia("(max-width:900px)").matches) {
+      UI("splitWorkspace").classList.remove("show-runner");
+      UI("apiInfoTbl").querySelector('tr[aria-selected="true"]')?.focus();
+    }
+    return;
+  }
+  if (id === "apiRunnerModal") cancelCurrentRequest("closed");
+  if (id === "wsRunnerModal") wsDisconnect();
+  el.style.display = "none";
+  el.style.zIndex = "";
+};
+const isOpen = id => UI(id).style.display === "block";
+
+// the detail modal shows either JSON (tree or table) or the two cURL cards
+const setDetailMode = (title, json) => {
+  UI("apiDetailTitle").textContent = title;
+  ["apiDetailCopy", "apiDetailJson", "apiDetailDivider"].forEach(id => { UI(id).hidden = !json });
+  UI("apiDetailDownloadCurlBtn").hidden = json;
+};
+const openJsonResponseModal = (title, data) => {
+  const jsonStr = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+  const isObj = data !== null && typeof data === "object";
+  const box = UI("apiDetailContent"), treeBtn = UI("apiDetailTreeBtn"), tableBtn = UI("apiDetailTableBtn");
+  setDetailMode(title, true);
+  treeBtn.hidden = tableBtn.hidden = !isObj;
+  const show = asTable => {
+    treeBtn.classList.toggle("active", !asTable);
+    tableBtn.classList.toggle("active", asTable);
+    box.className = asTable || !isObj ? "" : "tree";
+    box.innerHTML = !isObj ? `<pre class="resp-pre">${highlight(compactArrays(jsonStr))}</pre>` : asTable ? fmtGrid(data) || renderTree(data) : renderTree(data);
+  };
+  show(false);
+  treeBtn.onclick = () => show(false);
+  tableBtn.onclick = () => show(true);
+  UI("apiDetailCopy").onclick = () => copyWithFeedback(UI("apiDetailCopy"), jsonStr, 20, "Response copied");
+  UI("apiDetailJson").onclick = () => downloadJson("response.json", jsonStr);
+  showModal("apiDetailModal");
+};
+const openApiCurlModal = command => {
+  if (!command) return;
+  const cards = { curl: formatCurlPretty(generateCurl(command)), placeholderCurl: formatCurlPretty(generateCurl(command, { placeholders: true })) };
+  const card = (title, key) => `<div class="modal-card"><div class="modal-card-header"><h4>${title}</h4><div class="card-actions"><button type="button" class="icon-btn curl-action" data-curl-dl="${key}" ${tipAttrs("Download cURL (.txt)")}>${ICON.download(14)}</button><button type="button" class="icon-btn curl-action" data-curl-copy="${key}" ${tipAttrs("Copy")}>${ICON.copy(14)}</button></div></div><div class="modal-card-body"><pre class="curl-pre">${he(cards[key])}</pre></div></div>`;
+  setDetailMode("API cURL", false);
+  UI("apiDetailTreeBtn").hidden = UI("apiDetailTableBtn").hidden = true;
+  UI("apiDetailDownloadCurlBtn").onclick = () => downloadCurlCommand(command);
+  const box = UI("apiDetailContent");
+  box.className = "curl";
+  box.innerHTML = `<div class="curl-cards">${card("cURL", "curl")}${card("Placeholder cURL", "placeholderCurl")}</div>`;
+  box.querySelectorAll("[data-curl-copy]").forEach(btn => { btn.onclick = () => copyWithFeedback(btn, cards[btn.dataset.curlCopy], 14, "Card copied") });
+  box.querySelectorAll("[data-curl-dl]").forEach(btn => { btn.onclick = () => downloadCurlCommand(command, { placeholders: btn.dataset.curlDl === "placeholderCurl" }) });
+  showModal("apiDetailModal");
+};
+const showInfoModal = (k, pattern, desc) => {
+  UI("paramInfoTitle").innerHTML = `Configuration Detail: <span class="param-key">${he(k)}</span>`;
+  const card = (title, html) => `<div class="modal-card"><div class="modal-card-header"><h4>${title}</h4></div><div class="modal-card-body">${html}</div></div>`;
+  UI("paramInfoBody").innerHTML = `<div class="param-info">${pattern ? card("Regex Pattern", `<div class="param-regex">${he(pattern)}</div>`) : ""}${desc ? card("Description", `<div class="param-desc">${he(desc)}</div>`) : ""}${!pattern && !desc ? '<div class="param-empty">No additional configuration details available.</div>' : ""}</div>`;
+  showModal("paramInfoModal");
+};
+
+// API catalog: search, path tags and the table
+const getNamespacePrefix = path => {
+  const parts = String(path || "").split("/").filter(Boolean);
+  return parts.length ? `/${parts[0]}/` : "/";
+};
+const isNamespaceSearch = value => value === "/" || /^\/[^\/]+\/$/.test(value || "");
+const getVisibleMasterIndexes = () => {
+  const query = UI("apiInfoSearch").value.trim().toLowerCase();
+  const special = { "is:query": c => c.q.length > 0, "is:header": c => c.h.length > 0, "is:form": c => c.f.length > 0, "is:body": c => c.j.length > 0 }[query];
+  return COMMANDS.reduce((acc, c, i) => {
+    let match;
+    if (special) match = special(c);
+    else if (!query) match = true;
+    else {
+      const matchesPath = isNamespaceSearch(query) ? getNamespacePrefix(c.p).toLowerCase() === query : c.p.toLowerCase().includes(query);
+      const matchesParam = [...c.h, ...c.q, ...c.u, ...c.j, ...c.f].some(p => p.k.toLowerCase().includes(query) || p.v && String(p.v).toLowerCase().includes(query));
+      match = matchesPath || c.m.toLowerCase().includes(query) || matchesParam;
+    }
+    if (match) acc.push(i);
+    return acc;
+  }, []);
+};
+const renderApiInfoTags = () => {
+  const counts = {};
+  COMMANDS.forEach(c => getPathTags(c.p).forEach(t => { counts[t] = (counts[t] || 0) + 1 }));
+  const tags = Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const searchVal = UI("apiInfoSearch").value;
+  UI("pathFilterTotal").textContent = `(${tags.length})`;
+  UI("apiInfoTags").innerHTML = `<div class="tag-group">${tags.map(([t, count]) => `<span class="tag-filter${searchVal === t ? " active" : ""}" data-tag="${he(t)}">${he(t)}<span class="tag-filter-count">(${count})</span></span>`).join("")}</div>`;
+};
+// size the catalog to its longest path; CSS reads these variables
+const applyMasterTableLayout = () => {
+  UI("apiInfoTbl").closest(".master-table-wrap").classList.add("ready");
+  if (splitPreview) return;
+  const maxPathLength = COMMANDS.length ? Math.max(...COMMANDS.map(c => c.p.length)) : 32;
+  const fixedWidth = 48 + 96 + 84;
+  const viewportLimit = Math.max(700, Math.floor(innerWidth * .98) - 20);
+  const pathWidth = Math.max(260, Math.min(Math.min(980, Math.max(320, Math.ceil(maxPathLength * 7.8 + 56))), viewportLimit - fixedWidth));
+  const tableWidth = Math.ceil(pathWidth + fixedWidth);
+  const root = d.documentElement.style;
+  root.setProperty("--master-path-col", `${pathWidth}px`);
+  root.setProperty("--master-table-width", `${tableWidth}px`);
+  root.setProperty("--master-shell-width", `${Math.min(viewportLimit, tableWidth)}px`);
+};
+const renderApiInfoTable = () => {
+  const indexes = getVisibleMasterIndexes();
+  const rows = indexes.map(i => {
+    const c = COMMANDS[i];
+    return `<tr data-i="${i}"><td class="col-id">${i + 1}</td><td class="col-method"><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td class="col-path" title="${he(c.p)}">${he(c.p)}</td><td class="col-run" ${tipAttrs("Run")}>${ICON.play(16)}</td></tr>`;
+  }).join("");
+  UI("apiInfoTbl").innerHTML = `<thead><tr><th class="col-id">#</th><th class="col-method">Method</th><th class="col-path">Path</th><th class="col-run">Run</th></tr></thead><tbody>${rows}</tbody>`;
+  applyMasterTableLayout();
+  if (!splitPreview) return;
+  if (!indexes.length) {
+    preparePreviewApi(null);
+    curr = null;
+    ["apiRunnerModal", "wsRunnerModal"].forEach(id => { UI(id).style.display = "none" });
+    UI("splitEmpty").textContent = "No APIs match your search.";
+    UI("splitEmpty").style.display = "block";
+    UI("splitWorkspace").classList.remove("show-runner");
+    UI("apiInfoTbl").tBodies[0].innerHTML = '<tr><td colspan="4" class="table-message">No matching APIs</td></tr>';
+  } else if (!indexes.includes(activeMasterRunIndex)) {
+    selectPreviewApi(indexes[0]);
+    if (matchMedia("(max-width:900px)").matches) UI("splitWorkspace").classList.remove("show-runner");
+  }
+  highlightSelectedApi();
+};
+const setSearch = value => {
+  if (UI("apiInfoSearch").value !== value) UI("apiInfoSearch").value = value;
+  UI("apiInfoSearchClear").classList.toggle("show", !!value);
+  renderApiInfoTags();
+  renderApiInfoTable();
+};
+const toggleApiTag = t => {
+  setSearch(UI("apiInfoSearch").value === t ? "" : t);
+  hideModal("infoModal");
+};
+const openCommand = i => {
+  activeMasterRunIndex = i;
+  const isWs = COMMANDS[i].m === "WS";
+  showModal(isWs ? "wsRunnerModal" : "apiRunnerModal");
+  if (isWs) loadWs(i);
+  else load(i);
+};
+
+// split layout preview (?layout=split): catalog on the left, the runner docked on the right
+function setupLayoutPreview() {
+  const card = d.querySelector(".container > .card");
+  const link = d.createElement("a");
+  const url = new URL(location.href);
+  if (splitPreview) url.searchParams.delete("layout");
+  else url.searchParams.set("layout", "split");
+  link.href = url.pathname + url.search + url.hash;
+  link.className = "layout-switch";
+  link.dataset.tip = splitPreview ? "Switch to classic view" : "Switch to split view";
+  link.setAttribute("aria-label", link.dataset.tip);
+  link.innerHTML = splitPreview ? ICON.table(18) : ICON.split(18);
+  card.querySelector(".modal-actions").prepend(link);
+  if (!splitPreview) return;
+  d.body.classList.add("split-preview");
+  const catalog = card.querySelector(":scope > .modal-body");
+  catalog.classList.add("split-catalog");
+  const workspace = d.createElement("div");
+  workspace.id = "splitWorkspace";
+  workspace.className = "split-workspace";
+  card.append(workspace);
+  workspace.append(catalog);
+  const host = d.createElement("section");
+  host.className = "split-runner-host";
+  host.setAttribute("aria-label", "API runner");
+  host.innerHTML = '<div id="splitEmpty" class="split-empty">Select an API to configure a request.</div>';
+  workspace.append(host);
+  ["apiRunnerModal", "wsRunnerModal"].forEach(id => {
+    const runner = UI(id);
+    runner.classList.replace("modal", "docked-runner");
+    runner.style.display = "none";
+    host.append(runner);
+  });
+  UI("apiInfoTbl").addEventListener("keydown", event => {
+    if ((event.key === "Enter" || event.key === " ") && event.target.matches("tr[data-i]")) {
+      event.preventDefault();
+      event.target.click();
+    }
+  });
+}
+function highlightSelectedApi() {
+  if (!splitPreview) return;
+  UI("apiInfoTbl").querySelectorAll("tr[data-i]").forEach(row => {
+    row.setAttribute("aria-selected", String(Number(row.dataset.i) === activeMasterRunIndex));
+    row.tabIndex = 0;
+  });
+}
+function selectPreviewApi(index) {
+  if (COMMANDS[index]) openCommand(index);
+}
+function preparePreviewApi(index) {
+  if (!splitPreview) return;
+  const next = index === null ? null : COMMANDS[index];
+  if (curr && curr.m !== "WS") syncParams();
+  if (curr && curr !== next) {
+    cancelCurrentRequest("closed");
+    wsDisconnect();
+  }
+  activeMasterRunIndex = index;
+  highlightSelectedApi();
+}
+
+// runner form rows
+const SECTIONS = [["addH", "hSec", "hCont"], ["addQ", "qSec", "qCont"], ["addF", "fSec", "fCont"], ["addJ", "jSec", "jCont"], ["addU", "uSec", "uCont"]];
+const JSON_TYPES = ["str", "int", "float", "bool", "list", "object", "null"];
+const enumSelect = (enumData, value) => `<select class="row-val" data-enum="${enumData}"><option value="">-- select --</option>${JSON.parse(decodeURIComponent(enumData)).map(opt => `<option value="${he(opt)}"${String(value) === String(opt) ? " selected" : ""}>${he(opt)}</option>`).join("")}</select>`;
+const bindClear = r => {
+  const inp = r.querySelector(".row-val"), btn = r.querySelector(".clear-input-btn");
+  if (!btn || !inp) return;
+  const upd = () => {
+    btn.classList.toggle("show", !!inp.value);
+    inp.toggleAttribute("data-has-value", !!inp.value);
+  };
+  upd();
+  inp.oninput = inp.onchange = upd;
+  btn.onclick = e => {
+    e.stopPropagation();
+    inp.value = "";
+    upd();
+    inp.focus();
+  };
+};
+const valHtml = (ct, v, t, e) => {
+  const hasEnum = Array.isArray(e) && e.length > 0;
+  let input;
+  if (hasEnum) {
+    const enumData = encodeURIComponent(JSON.stringify(e));
+    input = v && !e.map(String).includes(String(v)) ? `<input type="text" class="row-val" value="${he(v)}" data-enum="${enumData}">` : enumSelect(enumData, v);
+  } else if (t === "file") input = '<input type="file" class="row-val" multiple>';
+  else input = `<input type="text" class="row-val" value="${he(v)}">`;
+  const wrapper = `<div class="input-wrapper">${input}${hasEnum ? `<button type="button" class="toggle-mode-btn" ${tipAttrs("Switch between the list and a custom value")}>${ICON.edit(12)}</button>` : ""}<button type="button" class="clear-input-btn" ${tipAttrs("Clear value")}>×</button></div>`;
+  if (ct.id === "jCont") return wrapper + `<select class="json-type-selector" aria-label="Value type">${JSON_TYPES.map(x => `<option value="${x}"${t === x ? " selected" : ""}>${x}</option>`).join("")}</select>`;
+  if (ct.id === "fCont") return wrapper + `<select class="form-type-selector json-type-selector" aria-label="Field type"><option value="string"${t !== "file" ? " selected" : ""}>Text</option><option value="file"${t === "file" ? " selected" : ""}>File</option></select>`;
+  return wrapper;
+};
+const mkRow = (ct, k = "", v = "", t = "string", e = null, pattern = null, isFixed = false, isReq = false, desc = null) => {
+  const r = d.createElement("div");
+  r.className = "input-row";
+  const info = (pattern || desc) ? `<span class="info-icon-btn" data-key="${he(k)}" data-regex="${he(pattern || "")}" data-desc="${he(desc || "")}" ${tipAttrs("Parameter details")}>${ICON.info(13)}</span>` : "";
+  const key = isReq
+    ? `<div class="row-key-fixed"><span class="req-star">*</span>${he(k)}${info}</div><input type="hidden" class="row-key" value="${he(k)}">`
+    : `<div class="row-key-box"><input type="text" class="row-key" value="${he(k)}"${isFixed ? ' readonly tabindex="-1"' : ""}>${info ? `<div class="row-info">${info}</div>` : ""}</div>`;
+  r.innerHTML = `${key}${valHtml(ct, v, t, e)}<button type="button" class="remove-btn" ${tipAttrs(isReq ? "Required parameter" : "Delete row")}${isReq ? " disabled" : ""}>${ICON.trash(16)}</button>`;
+  if (!isReq) r.querySelector(".remove-btn").onclick = () => r.remove();
+  bindClear(r);
+  ct.appendChild(r);
+};
+// keep edits in the command, so switching APIs and back (split layout) and the cURL view keep them
+const syncParams = () => {
+  if (!curr) return;
+  const p = ParamManager.getCurrent();
+  const upd = (o, n) => n.map(nx => ({ ...(o.find(x => x.k === nx.k) || {}), ...nx }));
+  ["h", "q", "u", "f", "j"].forEach(key => { curr[key] = upd(curr[key], p[key]) });
+};
+const populate = (cont, sec, spec) => {
+  if (spec?.length) UI(sec).classList.add("active");
+  (spec || []).forEach(x => {
+    let val = x.v;
+    if (x.k.toLowerCase() === "authorization" && curr._needsAuth) {
+      const saved = getAuthTokenFor(curr);
+      if (saved) val = saved.startsWith("Bearer ") ? saved : `Bearer ${saved}`;
+      else if (val && !val.startsWith("Bearer ")) val = `Bearer ${val}`;
+    }
+    mkRow(UI(cont), x.k, val, x.t || "string", x.e, x.r || null, true, !!x.req, x.d || null);
+  });
+};
+const resetRunner = command => {
+  curr = command;
+  SECTIONS.forEach(([, sec, cont]) => {
+    UI(cont).innerHTML = "";
+    UI(sec).classList.remove("active");
+  });
+  ResponseView.clear();
+  UI("runnerPathHeader").innerHTML = command ? renderRunnerEndpoint(command) : "";
+  UI("runnerAdhocBanner").hidden = !command?._adhoc;
+  UI("runnerCurlBtn").disabled = !command || !!command._adhoc;
+  UI("runnerDownloadCurlBtn").disabled = !command;
+  UI("runnerResetBtn").disabled = true;
+};
+const renderRunnerEndpoint = command => `<div class="endpoint"><span class="method-badge ${command.m.toLowerCase()}">${command.m}</span><span class="endpoint-path">${he(command.p)}</span><button type="button" class="copy-endpoint-btn" data-copy="${he(command.m + " " + command.p)}" ${tipAttrs("Copy endpoint")}>${ICON.copy(14)}</button></div>`;
+const load = i => {
+  preparePreviewApi(i);
+  resetRunner(i === null ? null : COMMANDS[i]);
+  if (!curr) return;
+  populate("hCont", "hSec", curr.h);
+  populate("uCont", "uSec", curr.u);
+  populate("qCont", "qSec", curr.q);
+  populate("fCont", "fSec", curr._hf ? curr.f : []);
+  populate("jCont", "jSec", curr._hj ? curr.j : []);
+  if (curr._hf && !UI("fCont").children.length) { UI("fSec").classList.add("active"); mkRow(UI("fCont")) }
+  if (curr._hj && !UI("jCont").children.length) { UI("jSec").classList.add("active"); mkRow(UI("jCont")) }
+  const saved = Store.getResponse(i);
+  UI("runnerResetBtn").disabled = !saved;
+  if (saved) ResponseView.render(saved.data, saved.status, saved.time, saved.headers);
+};
+
+// sending a request
+const REQUEST_TIMEOUT_MS = 60000;
+let activeRequest = null;
+const cancelCurrentRequest = (reason = "cancelled") => {
+  if (!activeRequest || activeRequest.controller.signal.aborted) return;
+  activeRequest.reason = reason;
+  activeRequest.controller.abort();
+};
+const setRequestRunning = running => {
+  UI("subBtn").disabled = running;
+  UI("subBtn").classList.toggle("loading", running);
+  UI("subBtnIcon").innerHTML = running ? "" : ICON.play(14);
+  UI("subBtnText").textContent = running ? "Sending..." : "Run";
+  UI("stopRequestBtn").hidden = !running;
+};
+const executeCurrentApi = async () => {
+  if (activeRequest || !curr) return;
+  const command = curr, requestIndex = activeMasterRunIndex;
+  const finish = (data, status, time, headers = null, storedData = data) => {
+    if (curr === command) ResponseView.render(data, status, time, headers);
+    if (requestIndex !== null) {    // saved per catalog row; ad-hoc cURL and the login shortcut are not
+      Store.setResponse(requestIndex, { status, time, data: storedData, headers, updated_at: Date.now() });
+      renderApiInfoTable();
+      if (curr === command) UI("runnerResetBtn").disabled = false;
+    }
+  };
+  const request = { controller: new AbortController(), reason: "", command };
+  activeRequest = request;
+  const timeoutId = setTimeout(() => cancelCurrentRequest("timeout"), REQUEST_TIMEOUT_MS);
+  setRequestRunning(true);
+  const t0 = performance.now();
+  try {
+    const params = ParamManager.getCurrent();
+    let urlPath = command.p;
+    params.u.forEach(x => { if (x.k) urlPath = urlPath.replace(`{${x.k}}`, encodeURIComponent(x.v || "null")) });
+    const qs = params.q.filter(x => x.k).map(x => `${encodeURIComponent(x.k)}=${encodeURIComponent(x.v || "null")}`).join("&");
+    const url = location.origin + urlPath + (qs ? "?" + qs : "");
+    const h = {};
+    if (command.p !== "/my/token-refresh") await sessionCheck();    // e.g. after the laptop slept: renew before sending, not after a 401
+    const authToken = getAuthTokenFor(command);
+    params.h.forEach(x => {
+      if (!x.k) return;
+      const isAuth = x.k.toLowerCase() === "authorization";
+      const val = isAuth ? authToken || x.v || "null" : x.v || "null";
+      h[x.k] = isAuth && !val.startsWith("Bearer ") ? `Bearer ${val}` : val;
+    });
+    if (command._needsAuth && authToken && !Object.keys(h).some(k => k.toLowerCase() === "authorization")) h.Authorization = `Bearer ${authToken}`;
+    const opts = { method: command.m, headers: h, signal: request.controller.signal };
+    if (params.f.length) {
+      const fd = new FormData();
+      params.f.forEach(x => {
+        if (x.files) x.files.forEach(file => fd.append(x.k, file));
+        else if (x.k) fd.append(x.k, x.v || "null");
+      });
+      opts.body = fd;
+    } else if (params.j.length || command._hj) {
+      const body = {};
+      params.j.forEach(x => { if (x.k) body[x.k] = ParamManager.cast(x.v, x.t, x.k) });
+      opts.body = JSON.stringify(body);
+      h["Content-Type"] = "application/json";
+    }
+    const r = await fetch(url, opts), ms = Math.round(performance.now() - t0);
+    const resHeaders = Object.fromEntries(r.headers.entries());
+    const cd = r.headers.get("Content-Disposition");
+    if (cd && cd.includes("attachment")) {
+      const blob = await r.blob();
+      request.controller.signal.throwIfAborted();
+      const filename = cd.match(/filename="?([^"]+)"?/)?.[1] || "download";
+      downloadBlob(blob, filename);
+      toast(`File Downloaded: ${filename}`);
+      return finish({ status: 1, message: `File downloaded: ${filename}` }, r.status, ms, resHeaders);
+    }
+    const text = await r.text();
+    request.controller.signal.throwIfAborted();
+    let json;
+    try { json = JSON.parse(text) } catch { json = { status: r.status, message: text || "Raw" } }
+    if (r.ok && (command.p.includes("/auth/login") || command.p === "/my/token-refresh") && json?.status === 1 && json.message?.access_token) {
+      Store.token = json.message;
+      if (command.p.includes("/auth/login")) { Store.user = null; await profileLoad({ force: true }); toast(`Logged in as ${userName(Store.user) || "user"}`) }
+      updateLoginIndicator();
+    }
+    if (r.ok && command.p === "/my/profile" && command.m === "GET" && json?.status === 1 && json.message && typeof json.message === "object") { Store.user = json.message; updateLoginIndicator() }
+    toast(`Execution Complete: ${r.status}`);
+    finish(json, r.status, ms, resHeaders, text.length > 1e6 ? { status: r.status, message: "Response too large to store" } : json);
+  } catch (err) {
+    const failMs = Math.round(performance.now() - t0);
+    if (request.controller.signal.aborted) {
+      const message = request.reason === "timeout" ? `Request timed out after ${REQUEST_TIMEOUT_MS / 1000} seconds` : "Request cancelled";
+      toast(message);
+      if (curr === command && request.reason !== "closed") ResponseView.render({ status: 0, message }, 0, failMs, null);
+      return;
+    }
+    toast(`Execution Error: ${err.message}`);
+    finish({ status: 0, message: err.message }, 0, failMs);
+  } finally {
+    clearTimeout(timeoutId);
+    if (activeRequest === request) {
+      activeRequest = null;
+      setRequestRunning(false);
+    }
+  }
+};
+
+// WebSocket runner
+let ws = null;
+const wsLog = (msg, type = "info") => {
+  const box = UI("wsLogs");
+  box.insertAdjacentHTML("beforeend", `<div class="ws-line"><span class="ws-time">[${new Date().toLocaleTimeString()}]</span> <span class="ws-${type}">${he(msg)}</span></div>`);
+  box.scrollTop = box.scrollHeight;
+};
+const setWsButton = connected => {
+  UI("wsConnBtn").textContent = connected ? "Disconnect" : "Connect";
+  UI("wsConnBtn").classList.toggle("btn-danger", connected);
+  UI("wsConnBtn").classList.toggle("btn-primary", !connected);
+};
+const wsDisconnect = () => { if (ws) ws.close() };
+const wsToggleConnect = () => {
+  if (ws && ws.readyState < 2) return wsDisconnect();
+  const url = UI("wsUrlIn").value;
+  wsLog(`Connecting to ${url}...`);
+  ws = new WebSocket(url);
+  ws.onopen = () => { wsLog("Connection established", "received"); setWsButton(true) };
+  ws.onmessage = e => wsLog(`Received: ${e.data}`, "received");
+  ws.onerror = () => wsLog("Connection error", "error");
+  ws.onclose = () => { wsLog("Connection closed"); setWsButton(false) };
+};
+const wsSend = () => {
+  if (!ws || ws.readyState !== 1) return toast("Not connected");
+  const val = UI("wsMsgIn").value;
+  if (!val) return;
+  ws.send(val);
+  wsLog(`Sent: ${val}`, "sent");
+  UI("wsMsgIn").value = "";
+};
+const loadWs = i => {
+  preparePreviewApi(i);
+  curr = COMMANDS[i];
+  UI("wsUrlIn").value = `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}${curr.p}`;
+  UI("wsIn").innerHTML = renderRunnerEndpoint(curr);
+  UI("wsLogs").innerHTML = '<div class="ws-waiting">Waiting to connect...</div>';
+  setWsButton(false);
+};
+
+// paste cURL: parse, match an API (or run ad-hoc) and fill the runner
+const setPasteError = msg => {
+  UI("pasteCurlError").textContent = msg || "";
+  UI("pasteCurlError").hidden = !msg;
+};
+const handleCurlFileUpload = file => {
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) return setPasteError("File is too large (max 5MB)");
+  const reader = new FileReader();
+  reader.onload = e => {
+    UI("pasteCurlInput").value = e.target?.result || "";
+    UI("pasteCurlInput").focus();
+    UI("pasteCurlFileBadge").textContent = file.name;
+    UI("pasteCurlFileBadge").hidden = false;
+    setPasteError("");
+    toast(`Loaded file: ${file.name}`);
+  };
+  reader.onerror = () => setPasteError("Failed to read file");
+  reader.readAsText(file);
+};
+const openPasteCurlModal = () => {
+  UI("pasteCurlInput").value = "";
+  UI("pasteCurlFileInput").value = "";
+  UI("pasteCurlFileBadge").hidden = true;
+  setPasteError("");
+  showModal("pasteCurlModal");
+  setTimeout(() => UI("pasteCurlInput").focus(), 50);
+};
+const CURL_FLAGS_NO_ARG = new Set(["-v", "--verbose", "-s", "--silent", "-S", "-i", "--include", "-k", "--insecure", "--compressed", "-L", "--location", "-g", "-O", "--remote-name", "-j", "--junk-session-cookies", "-N", "--no-buffer", "-#", "--progress-bar", "--http1.1", "--http2", "--http2-prior-knowledge", "-I", "--head", "-f", "--fail"]);
+const CURL_FLAGS_WITH_ARG = new Set(["-u", "--user", "--cookie", "-b", "-A", "--user-agent", "-e", "--referer", "-o", "--output", "--cacert", "--cert", "--key", "--connect-timeout", "--max-time", "-m", "--proxy", "-x", "--resolve", "--cert-type", "--key-type", "--pass"]);
+const CURL_DATA_FLAGS = new Set(["-d", "--data", "--data-raw", "--data-binary", "--data-ascii", "--data-urlencode"]);
+// shell-like split: quotes group, backslash escapes, # comment lines and line continuations are dropped
+const tokenizeShell = s => {
+  const tokens = [];
+  let cur = "", quote = null;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (quote) {
+      if (ch === "\\" && quote === '"' && (s[i + 1] === '"' || s[i + 1] === "\\")) cur += s[++i];
+      else if (ch === quote) quote = null;
+      else cur += ch;
+    } else if (ch === '"' || ch === "'") quote = ch;
+    else if (/\s/.test(ch)) { if (cur !== "") { tokens.push(cur); cur = "" } }
+    else if (ch === "\\" && i + 1 < s.length) cur += s[++i];
+    else cur += ch;
+  }
+  if (cur !== "") tokens.push(cur);
+  return tokens;
+};
+const parseCurlCommand = raw => {
+  const s = String(raw || "").split(/\r?\n/).filter(line => !line.trim().startsWith("#")).join("\n").trim().replace(/\\\r?\n/g, " ").replace(/[\r\n]+/g, " ");
+  if (!s) throw new Error("Empty cURL command");
+  const tokens = tokenizeShell(s);
+  if (tokens[0] === "$") tokens.shift();
+  if (tokens[0]?.toLowerCase() === "curl") tokens.shift();
+  if (!tokens.length) throw new Error("Invalid cURL command");
+  let method = "", url = "", body = null;
+  const headers = [], formData = [];
+  const pair = (kv, sep) => { const at = kv.indexOf(sep); return at > -1 ? { k: kv.slice(0, at).trim(), v: kv.slice(at + 1).trim() } : null };
+  for (let j = 0; j < tokens.length; j++) {
+    const t = tokens[j];
+    if (t === "-X" || t === "--request") method = (tokens[++j] || "").toUpperCase();
+    else if (t === "-H" || t === "--header") { const h = pair(tokens[++j] || "", ":"); if (h) headers.push(h) }
+    else if (CURL_DATA_FLAGS.has(t)) body = tokens[++j] || "";
+    else if (t === "-F" || t === "--form") { const kv = tokens[++j] || "", at = kv.indexOf("="); if (at > -1) formData.push({ k: kv.slice(0, at), v: kv.slice(at + 1) }) }
+    else if (CURL_FLAGS_WITH_ARG.has(t)) j++;
+    else if (CURL_FLAGS_NO_ARG.has(t) || t.startsWith("-")) continue;
+    else if (!url) url = t;
+  }
+  if (!url) throw new Error("No URL found in cURL command");
+  let urlObj;
+  try { urlObj = new URL(url, location.origin) } catch { throw new Error("Invalid URL: " + url) }
+  const query = [...urlObj.searchParams].map(([k, v]) => ({ k, v }));
+  if (!method) method = formData.length || body != null ? "POST" : "GET";
+  const jsonRows = [];
+  if (body != null) {
+    try {
+      const p = JSON.parse(body);
+      if (p && typeof p === "object" && !Array.isArray(p)) Object.entries(p).forEach(([k, v]) => {
+        const t = v === null ? "null" : typeof v === "number" ? Number.isInteger(v) ? "int" : "float" : typeof v === "boolean" ? "bool" : Array.isArray(v) ? "list" : typeof v === "object" ? "object" : "str";
+        jsonRows.push({ k, v: v !== null && typeof v === "object" ? JSON.stringify(v) : v == null ? "" : String(v), t });
+      });
+    } catch {}
+  }
+  return { method, path: urlObj.pathname, headers, query, jsonRows, formData, rawBody: body };
+};
+const matchPasteCurl = parsed => {
+  const exact = COMMANDS.findIndex(c => c.m === parsed.method && c.p === parsed.path);
+  if (exact !== -1) return { idx: exact, pathParams: {} };
+  for (let i = 0; i < COMMANDS.length; i++) {
+    const c = COMMANDS[i];
+    if (c.m !== parsed.method || !c.p.includes("{")) continue;
+    const names = [];
+    const pattern = c.p.replace(/[.+?^$()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\{([^}]+)\}/g, (_, n) => { names.push(n); return "([^/]+)" });
+    const m = parsed.path.match(new RegExp("^" + pattern + "$"));
+    if (m) return { idx: i, pathParams: Object.fromEntries(names.map((n, k) => [n, decodeURIComponent(m[k + 1])])) };
+  }
+  return null;
+};
+// set a row's value by key (and its JSON type); a value outside a list switches that row to free text. False when there is no such row
+const setRunnerRowValue = (cont, k, v, t = null) => {
+  const r = [...cont.querySelectorAll(".input-row")].find(row => row.querySelector(".row-key")?.value.trim() === k);
+  if (!r) return false;
+  const valEl = r.querySelector(".row-val");
+  const value = String(v == null ? "" : v);
+  if (valEl.tagName === "SELECT" && ![...valEl.options].some(o => o.value === value)) {
+    const input = d.createElement("input");
+    input.type = "text";
+    input.className = "row-val";
+    input.dataset.enum = valEl.dataset.enum || encodeURIComponent("[]");
+    input.value = value;
+    valEl.replaceWith(input);
+    bindClear(r);
+  } else valEl.value = value;
+  const typeSelect = r.querySelector(".json-type-selector:not(.form-type-selector)");
+  if (typeSelect && t) typeSelect.value = t;
+  return true;
+};
+const applyParsedCurlToRunner = (parsed, pathParams = {}) => {
+  const fill = (cont, sec, rows, type) => rows.forEach(({ k, v, t }) => {
+    UI(sec).classList.add("active");
+    if (!setRunnerRowValue(UI(cont), k, v, t)) mkRow(UI(cont), k, v, t || type);
+  });
+  fill("hCont", "hSec", parsed.headers, "str");
+  fill("qCont", "qSec", parsed.query, "str");
+  fill("uCont", "uSec", Object.entries(pathParams).map(([k, v]) => ({ k, v })), "str");
+  fill("jCont", "jSec", parsed.jsonRows, "str");
+  fill("fCont", "fSec", parsed.formData, "string");
+  syncParams();
+};
+const submitPasteCurl = () => {
+  const txt = UI("pasteCurlInput").value.trim();
+  if (!txt) return setPasteError("Please paste or upload a cURL command first");
+  let parsed;
+  try { parsed = parseCurlCommand(txt) } catch (e) { return setPasteError(e.message || "Failed to parse cURL") }
+  setPasteError("");
+  hideModal("pasteCurlModal");
+  const match = matchPasteCurl(parsed);
+  if (match) {
+    activeMasterRunIndex = match.idx;
+    showModal("apiRunnerModal");
+    load(match.idx);
+    applyParsedCurlToRunner(parsed, match.pathParams);
+    toast(`cURL matched: ${parsed.method} ${COMMANDS[match.idx].p}`);
+  } else {
+    preparePreviewApi(null);
+    activeMasterRunIndex = null;
+    showModal("apiRunnerModal");
+    resetRunner({ p: parsed.path, m: parsed.method, h: [], q: [], u: [], f: [], j: [], _hj: parsed.jsonRows.length > 0, _hf: parsed.formData.length > 0, _needsAuth: false, _adhoc: true });
+    applyParsedCurlToRunner(parsed);
+    toast("Ad-hoc cURL loaded (not in OpenAPI spec)");
+  }
+};
+
+// event bindings
+const setupEventListeners = () => {
+  UI("stopRequestBtn").addEventListener("click", () => cancelCurrentRequest());
+  UI("apiForm").addEventListener("submit", e => { e.preventDefault(); executeCurrentApi() });
+  UI("runnerCurlBtn").addEventListener("click", () => openApiCurlModal(curr));
+  UI("runnerDownloadCurlBtn").addEventListener("click", () => downloadCurlCommand(curr));
+  UI("runnerResetBtn").addEventListener("click", () => {
+    if (activeMasterRunIndex === null) return;
+    Store.removeResponse(activeMasterRunIndex);
+    ResponseView.clear();
+    UI("runnerResetBtn").disabled = true;
+    renderApiInfoTable();
+    toast("Response history cleared");
+  });
+  addEventListener("resize", debounce(applyMasterTableLayout, 120));
+  UI("apiInfoSearch").addEventListener("input", e => setSearch(e.target.value));
+  UI("apiInfoSearchClear").addEventListener("click", () => setSearch(""));
+  UI("apiInfoTags").addEventListener("click", e => { const tag = e.target.closest(".tag-filter"); if (tag) toggleApiTag(tag.dataset.tag) });
+  UI("apiInfoTbl").addEventListener("click", e => { const tr = e.target.closest("tr[data-i]"); if (tr) openCommand(Number(tr.dataset.i)) });
+  UI("infoToggleBtn").addEventListener("click", () => showModal("infoModal"));
+  UI("catalogCsvLink").addEventListener("click", e => { e.preventDefault(); exportCatalogCsv() });
+  UI("pasteCurlToggleBtn").addEventListener("click", openPasteCurlModal);
+  const openLogin = () => {
+    const idx = COMMANDS.findIndex(c => c.p === "/auth/login-username-password" && c.m === "POST");
+    if (idx === -1) return toast("Login API not found");
+    activeMasterRunIndex = null;    // its response (the token) is not kept in the table
+    showModal("apiRunnerModal");
+    load(idx);
+  };
+  UI("loginIndicator").addEventListener("click", openLogin);
+  UI("profileAvatar").addEventListener("click", e => { e.stopPropagation(); profileMenuToggle() });
+  UI("profileMenu").addEventListener("click", e => e.stopPropagation());
+  d.addEventListener("click", () => profileMenuToggle(false));
+  d.addEventListener("keydown", e => { if (e.key === "Escape" && !UI("profileMenu").hidden) { profileMenuToggle(false); UI("profileAvatar").focus() } });
+  UI("logoutBtn").addEventListener("click", () => {
+    Store.clearAuth();
+    profileMenuToggle(false);
+    updateLoginIndicator();
+    toast("Logged out");
+  });
+  // check on open, when the tab comes back and every minute, so the login renews before it runs out
+  d.addEventListener("visibilitychange", () => { if (!d.hidden) sessionCheck() });
+  setInterval(sessionCheck, 60000);
+  d.querySelectorAll(".modal").forEach(modal => modal.addEventListener("click", e => { if (e.target === modal) hideModal(modal.id) }));
+  const closeButtons = { runnerCloseBtn: "apiRunnerModal", wsRunnerCloseBtn: "wsRunnerModal", apiDetailCloseBtn: "apiDetailModal", infoCloseBtn: "infoModal", paramInfoCloseBtn: "paramInfoModal", pasteCurlCloseBtn: "pasteCurlModal" };
+  Object.entries(closeButtons).forEach(([btnId, modalId]) => UI(btnId).addEventListener("click", () => hideModal(modalId)));
+  // paste cURL
+  const curlInput = UI("pasteCurlInput");
+  UI("pasteCurlSubmitBtn").addEventListener("click", submitPasteCurl);
+  curlInput.addEventListener("keydown", e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
+      submitPasteCurl();
+    }
+  });
+  UI("pasteCurlUploadBtn").addEventListener("click", () => UI("pasteCurlFileInput").click());
+  UI("pasteCurlBodyUploadBtn").addEventListener("click", () => UI("pasteCurlFileInput").click());
+  UI("pasteCurlFileInput").addEventListener("change", e => {
+    handleCurlFileUpload(e.target.files?.[0]);
+    e.target.value = "";
+  });
+  curlInput.addEventListener("dragover", e => { e.preventDefault(); curlInput.classList.add("drag-over") });
+  curlInput.addEventListener("dragleave", e => { e.preventDefault(); curlInput.classList.remove("drag-over") });
+  curlInput.addEventListener("drop", e => {
+    e.preventDefault();
+    curlInput.classList.remove("drag-over");
+    handleCurlFileUpload(e.dataTransfer?.files?.[0]);
+  });
+  // WebSocket
+  UI("wsConnBtn").addEventListener("click", wsToggleConnect);
+  UI("wsSendBtn").addEventListener("click", wsSend);
+  UI("wsLogsClearBtn").addEventListener("click", () => { UI("wsLogs").innerHTML = "" });
+  UI("wsMsgIn").addEventListener("keydown", e => { if (e.key === "Enter") wsSend() });
+  // runner rows
+  SECTIONS.forEach(([btn, sec, cont]) => {
+    UI(btn).addEventListener("click", () => {
+      UI(sec).classList.add("active");
+      mkRow(UI(cont));
+      syncParams();
+    });
+    UI(cont).addEventListener("input", debounce(syncParams, 500));
+    UI(cont).addEventListener("change", syncParams);
+    UI(cont).addEventListener("click", e => { if (e.target.closest(".remove-btn")) setTimeout(syncParams, 0) });
+  });
+  UI("paramInfoCopyBtn").addEventListener("click", () => {
+    const txt = UI("paramInfoBody").innerText;
+    if (txt) copyWithFeedback(UI("paramInfoCopyBtn"), txt, 20, "Details copied");
+  });
+  // response card
+  UI("rCopy").addEventListener("click", () => {
+    const { data } = ResponseView.state;
+    if (data) copyWithFeedback(UI("rCopy"), JSON.stringify(data, null, 2), 16, "Response copied");
+  });
+  UI("rCopyFull").addEventListener("click", () => {
+    const { data, headers } = ResponseView.state;
+    if (data && curr) copyWithFeedback(UI("rCopyFull"), `## CURL\n${generateCurl(curr)}\n\n## RESPONSE HEADERS\n${JSON.stringify(headers || {}, null, 2)}\n\n## RESPONSE\n${JSON.stringify(data, null, 2)}`, 16, "Curl & Response copied");
+  });
+  UI("rJson").addEventListener("click", () => { const { data } = ResponseView.state; if (data) downloadJson("api_response.json", data) });
+  UI("rCsv").addEventListener("click", () => {
+    const raw = getResponseTableData(ResponseView.state.data);
+    if (!raw || typeof raw !== "object") return;
+    const rows = !Array.isArray(raw) ? Object.entries(raw).map(([Key, Value]) => ({ Key, Value })) : raw.length && typeof raw[0] === "object" && raw[0] !== null ? raw : raw.map(Value => ({ Value }));
+    downloadCsv("api_response.csv", arrayToCsv(rows));
+  });
+  // delegated: elements rendered from templates
+  d.addEventListener("click", e => {
+    const t = e.target;
+    const view = t.closest(".view-btn");
+    if (view) return ResponseView.switchTo(view.dataset.view);
+    const info = t.closest(".info-icon-btn");
+    if (info) { e.stopPropagation(); return showInfoModal(info.dataset.key, info.dataset.regex, info.dataset.desc) }
+    const copyEndpoint = t.closest(".copy-endpoint-btn");
+    if (copyEndpoint) return copyWithFeedback(copyEndpoint, copyEndpoint.dataset.copy, 14, "Endpoint copied");
+    const toggle = t.closest(".tree-toggle");
+    if (toggle) {
+      toggle.nextElementSibling.classList.toggle("show");
+      toggle.querySelector(".tree-arrow").classList.toggle("open");
+      return;
+    }
+    const nested = t.closest(".nested-toggle");
+    if (nested) {
+      const content = nested.nextElementSibling;
+      content.hidden = !content.hidden;
+      nested.textContent = `${content.hidden ? "▶" : "▼"} ${nested.dataset.label}`;
+      return;
+    }
+    const expand = t.closest(".cell-expand-btn");
+    if (expand) {
+      const raw = decodeURIComponent(expand.dataset.raw);
+      let parsed = null;
+      try { parsed = JSON.parse(raw) } catch {}
+      return parsed !== null && typeof parsed === "object" ? openJsonResponseModal("Nested Data", parsed) : openJsonResponseModal("Expanded Text", raw);
+    }
+    const modeBtn = t.closest(".toggle-mode-btn");
+    if (modeBtn) {    // an enum field: switch between its list and a free-text value
+      const row = modeBtn.closest(".input-row"), input = modeBtn.closest(".input-wrapper").querySelector(".row-val");
+      if (input.tagName === "SELECT") {
+        const text = d.createElement("input");
+        text.type = "text";
+        text.className = "row-val";
+        text.value = input.value;
+        text.dataset.enum = input.dataset.enum;
+        input.replaceWith(text);
+      } else input.outerHTML = enumSelect(input.dataset.enum, input.value);
+      bindClear(row);
+      syncParams();
+    }
+  });
+  d.addEventListener("change", e => {
+    const sel = e.target.closest(".form-type-selector");
+    if (!sel) return;    // a form field switched between text and file
+    const row = sel.closest(".input-row"), input = row.querySelector(".row-val"), isFile = sel.value === "file";
+    if (input.type === (isFile ? "file" : "text")) return;
+    const next = d.createElement("input");
+    next.type = isFile ? "file" : "text";
+    next.className = "row-val";
+    next.multiple = isFile;
+    input.replaceWith(next);
+    bindClear(row);
+    syncParams();
+  });
+  d.addEventListener("keydown", e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && isOpen("apiRunnerModal")) {
+      e.preventDefault();
+      UI("apiForm").requestSubmit();
+    }
+    if (e.key === "Escape") {
+      hideModal("apiRunnerModal");
+      hideModal("pasteCurlModal");
+    }
+    const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(d.activeElement.tagName);
+    if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key.toLowerCase() === "d") { e.preventDefault(); showModal("infoModal") }
+    if (e.key.toLowerCase() === "e") { e.preventDefault(); exportCatalogCsv() }
+  });
+};
+
+// boot
+const updateAppLoader = (pct, msg) => {
+  UI("appLoaderFill").style.width = pct + "%";
+  UI("appLoaderPct").textContent = pct + "%";
+  if (msg) UI("appLoaderMsg").textContent = msg;
+  if (pct >= 100) setTimeout(() => UI("appLoader").classList.add("hidden"), 400);
+};
+async function init() {
+  renderIcons();
+  setupHoverTips();
+  setupLayoutPreview();
+  sessionCheck();
+  setupEventListeners();
+  UI("baseUrl").textContent = location.origin;
+  updateAppLoader(5, "Connecting to server...");
+  try {
+    updateAppLoader(20, "Fetching OpenAPI spec...");
+    const spec = await (await fetch("/openapi.json", { cache: "no-cache" })).json();
+    updateAppLoader(40, "Parsing specification...");
+    if (!spec?.paths) throw new Error("Invalid OpenAPI spec returned");
+    SPEC = spec;
+    updateAppLoader(60, "Generating commands...");
+    COMMANDS = Object.entries(spec.paths).flatMap(([path, methods]) => Object.entries(methods).map(([method, op]) => createCommandFromOperation(path, method, op)));
+    updateAppLoader(80, "Rendering interface...");
+    renderApiInfoTags();
+    const runApi = new URLSearchParams(location.search).get("api");    // ?api=GET|/path opens that API's runner
+    const [method, path] = runApi?.includes("|") ? runApi.split("|") : [null, runApi];
+    const idx = runApi ? COMMANDS.findIndex(c => c.p === path && (!method || c.m === method.toUpperCase())) : -1;
+    if (idx !== -1) {
+      setSearch(path);
+      setTimeout(() => openCommand(idx), 100);
+    } else {
+      renderApiInfoTable();
+      if (!splitPreview) load(null);
+    }
+    updateAppLoader(100, "Ready");
+  } catch (err) {
+    updateAppLoader(100, "Error");
+    console.error("Failed to load API info", err);
+    UI("apiInfoTbl").innerHTML = `<tbody><tr><td colspan="4" class="table-message error">Failed to load API info: ${he(err.message)}. Reload the page to try again.</td></tr></tbody>`;
+    UI("apiInfoTbl").closest(".master-table-wrap").classList.add("ready");
+    load(null);
+  }
+}
+init();
+</script>
+</body>
+</html>

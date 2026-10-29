@@ -1,0 +1,40 @@
+# atom
+PyJWT==2.15.1
+aio-pika==10.1.1
+aiobotocore==3.9.2
+aiokafka==0.14.0
+argon2-cffi==25.1.0
+asyncpg==0.32.0
+asyncssh==2.24.1
+azure-storage-blob==12.31.0
+azure-communication-email==1.1.0
+azure-communication-sms==1.1.0
+boto3==1.43.106
+celery==5.6.3
+clickhouse-connect==1.11.0
+fastapi==0.143.3
+google-auth==2.62.0
+google-genai==2.31.0
+httpx==0.28.1
+motor==3.7.1
+openai==3.33.0
+orjson==3.13.0
+posthog==7.71.0
+psutil==7.2.2
+pydantic==2.14.1
+python-dotenv==1.2.4
+python-multipart==0.0.32
+redis==8.1.0
+ruff==0.17.1
+coverage==7.16.2
+sentry-sdk==2.72.0
+starlette==1.8.0
+uvicorn==0.54.0
+uvloop==0.23.0; sys_platform != "win32"
+httptools==0.9.0
+pyodbc==5.3.0
+aioodbc==0.5.0
+msgraph-sdk==1.64.0
+azure-identity==1.26.0
+
+# extend

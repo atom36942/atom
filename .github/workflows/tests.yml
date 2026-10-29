@@ -1,0 +1,117 @@
+# Lint and test on Python 3.14 (the Dockerfile's version), then build the Docker image.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        # PostGIS image: Atom's schema installs the postgis, pg_trgm and btree_gin extensions.
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        # Redis 6.2, the oldest version Atom supports (Azure Cache for Redis 6): the rate limit must not need Redis 7 commands.
+        image: redis:6.2
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      ATOM_TEST_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      ATOM_TEST_REDIS_URL: redis://localhost:6379/15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Fails when an installed package has a known vulnerability. If one has no fix yet, skip it with --ignore-vuln <id> and a comment saying why.
+      - name: Known vulnerabilities (pip-audit)
+        run: |
+          pip install pip-audit==2.10.1
+          pip-audit --progress-spinner off
+
+      - name: Ruff
+        run: ruff check --output-format github .
+
+      - name: Unit and integration tests, with coverage
+        run: python -m coverage run --source=function,router,main,config -m unittest discover -s tests -v
+
+      # The summary and HTML report are produced even when tests fail, as long as coverage data was written.
+      - name: Coverage summary on the run page
+        if: ${{ !cancelled() && hashFiles('.coverage') != '' }}
+        run: |
+          echo "## Coverage (function, router, main, config)" >> "$GITHUB_STEP_SUMMARY"
+          python -m coverage report --format=markdown --sort=cover >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Coverage HTML report
+        if: ${{ !cancelled() && hashFiles('.coverage') != '' }}
+        run: python -m coverage html
+
+      - name: Upload coverage HTML report
+        if: ${{ !cancelled() && hashFiles('htmlcov/index.html') != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-html
+          path: htmlcov/
+          retention-days: 14
+
+      # Lists untested lines per file; fails if coverage of core code drops below the floor (73% when this was added).
+      - name: Coverage report
+        run: python -m coverage report --show-missing --sort=cover --fail-under=70
+
+  # sync.py rebuilds developers' venvs: prove it on the systems they use (paths and the Python lookup differ).
+  sync-venv:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Real venv build, skip, cleanup and restore
+        env:
+          ATOM_TEST_VENV_REAL: "1"
+        run: python -m unittest tests.test_sync_venv_real -v
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build image
+        run: docker build -t atom-ci .
+
+      - name: App imports inside the image
+        run: docker run --rm atom-ci python -c "import main; print(len(main.app.routes), 'routes')"
+
+      - name: Container runs as non-root and serves /health
+        run: |
+          docker run -d --name atom-ci -p 8000:8000 -e config_token_secret_key=atom-ci-secret-key-at-least-32-bytes atom-ci
+          for i in $(seq 1 30); do curl -fs localhost:8000/health && break; sleep 1; done
+          curl -fs localhost:8000/health || { docker logs atom-ci; exit 1; }
+          test "$(docker exec atom-ci id -u)" != "0"
+          docker exec atom-ci test -d /app/tmp
