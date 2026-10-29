@@ -109,7 +109,10 @@ async def func_api_my_object_update(*, request: Request):
 @router.put("/my/user-update")
 async def func_api_my_user_update(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
-    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "otp", "type": "int"}])
+    # the main fields are listed for the API docs; any other users column passes through (strict off) and is checked against the table
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "password", "type": "str"}, {"name": "email", "type": "str"}, {"name": "mobile", "type": "str"}, {"name": "username", "type": "str"}, {"name": "otp", "type": "int"}])
+    sent = await request.json()
+    ob = {k: v for k, v in ob.items() if k in sent}    # only the fields sent: an unsent optional field is not an update to null
     if "id" in ob and str(ob["id"]) != str(user_id): raise Exception("ownership issue: cannot update other users")
     values = await app_state.func_user_update_check(client_postgres=request.state.client_postgres, obj=ob, is_admin=False, is_otp_required=True, config_column_single_update=app_state.config_column_single_update, config_column_users_admin_only=app_state.config_column_users_admin_only, config_otp_expiry_sec=app_state.config_otp_expiry_sec, config_otp_static=app_state.config_otp_static, config_otp_max_attempt=app_state.config_otp_max_attempt)
     await app_state.func_postgres_update(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_column_regex=app_state.config_column_regex, table="users", obj_list=[{**values, "id": user_id, "updated_by_id": user_id}], created_by_id=None, client_postgres_conn=None)

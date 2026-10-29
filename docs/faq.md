@@ -3,9 +3,27 @@
 Practical answers to common "how do I…" questions. Open a question for the steps, examples, and links to the full documentation.
 
 <details>
-<summary><strong>How do I disable user deletion while keeping other object deletion enabled?</strong></summary>
+<summary><strong>How do I enable or disable user deletion?</strong></summary>
 
-User deletion is off by default. It goes only through `DELETE /my/user-delete` (own account) and `DELETE /admin/user-delete?id=7`, and needs `config_is_user_delete=true` plus `users` removed from `config_postgres["control"]["table_row_delete_disable"]`. Leave either one off to keep users undeletable; other tables are unaffected. The generic `/my/object-delete` and `/admin/object-delete` always refuse `table=users`.
+User deletion is **off by default** and needs **two switches**, because Atom guards the `users` table twice: once in the API and once with a database trigger.
+
+| Switch | Where | Default | To enable deletion |
+|---|---|---|---|
+| `config_is_user_delete` | `.env` | `false` | `config_is_user_delete=true` |
+| `users` in `table_row_delete_disable` | `config_postgres["control"]` | listed (trigger blocks every `DELETE` on `users`) | remove `users` from the list in `config_extend.py` (below), then restart |
+
+```python
+# config_extend.py, under # atom
+config_postgres = {
+**base_config_postgres,
+"table": {**base_config_postgres["table"]},
+"control": {**base_config_postgres["control"], "table_row_delete_disable": [t for t in base_config_postgres["control"]["table_row_delete_disable"] if t != "users"]},
+}
+```
+
+With only the first switch on, the delete APIs answer `users delete blocked in the database: remove users from config_postgres control table_row_delete_disable`. Leave either switch off to keep users undeletable; other tables are unaffected.
+
+Users are deleted only through `DELETE /my/user-delete` (own account, token only) and `DELETE /admin/user-delete?id=7` (one user). The root user (`id` 1) is never deleted. The generic `/my/object-delete` and `/admin/object-delete` always refuse `table=users`.
 
 </details>
 

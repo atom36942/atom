@@ -113,7 +113,7 @@ Compares the input against `config_login_password` configured in `.env`. If unco
 
 ## 4. Managing Users
 
-Rows of `users` are written only through these APIs; the generic object APIs (`/my/object-update`, `/my/object-delete`, `/admin/object-create`, `/admin/object-update`, `/admin/object-delete`, `/admin/postgres-import`) refuse `table=users` and name the right one. Reading stays generic: `GET /my/profile` (own row plus `config_sql["profile_metadata"]`) and `/admin/object-read?table=users` (`password` is never readable).
+Rows of `users` are written only through these APIs; the generic object APIs (`/my/object-update`, `/my/object-delete`, `/admin/object-create`, `/admin/object-update`, `/admin/object-delete`) refuse `table=users` and name the right one. The one exception is `/admin/postgres-import` (admins only, any table): a CSV can create or update `users` in bulk, and its `password` cells are hashed like everywhere else. Reading stays generic: `GET /my/profile` (own row plus `config_sql["profile_metadata"]`) and `/admin/object-read?table=users` (`password` is never readable).
 
 | API | Query | Body | Rules |
 |---|---|---|---|
@@ -122,6 +122,8 @@ Rows of `users` are written only through these APIs; the generic object APIs (`/
 | `DELETE /admin/user-delete` | `id` | | One user; never the root user |
 | `PUT /my/user-update` | | `{...own users columns}` | Own row from the token (an `id`, if sent, must be the user's own). `email`/`mobile` always need `otp` (sent to the new value with `/public/otp-send-email` or `-mobile`). Columns in `config_column_users_admin_only` (`role`, `permissions`, `deactivated_at`, ...) are refused |
 | `DELETE /my/user-delete` | | | Own account; token only |
+
+The API docs list `password`, `email`, `mobile`, `username` and `otp` for both updates; any other `users` column (`name`, `city`, a project's own columns) is accepted too and checked against the table. Only the fields sent are updated.
 
 Rules for both updates:
 - A column in `config_column_single_update` (`username`, `password`, `email`, `mobile`) is updated alone: `{password}`, `{email, otp}`, never `{password, name}`.

@@ -62,7 +62,7 @@ POST /admin/postgres-query-runner-read?connection=replica1
 
 ### 2. Table Data Imports (`POST /admin/*-import`)
 Bulk import data from external systems into PostgreSQL:
-- **Postgres Import** (`/admin/postgres-import`): Import a CSV into a table (form fields `mode`, `table`, `file`; target database with `?connection=<name>`, default master).
+- **Postgres Import** (`/admin/postgres-import`): Import a CSV into any table, `users` included (form fields `mode` = `create`/`update`/`delete`, `table`, `file`; target database with `?connection=<name>`, default master). A `password` column in `users` is hashed (Argon2) on create and update.
 - **MongoDB Import** (`/admin/mongodb-import`): Ingest BSON collections into structured relational tables.
 
 ### 3. Schema and Cache Refresh
