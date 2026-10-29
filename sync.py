@@ -38,7 +38,7 @@ from concurrent.futures import ThreadPoolExecutor
 # config
 
 # setting
-# Atom's version: raised (with a vX.Y.Z tag) only when releasing; a project's sync.py shows the version it has
+# Atom's version: raised by hand when a change is worth a new number (no tags); a project's sync.py shows the version it has
 ATOM_VERSION = "1.0.0"
 REPO_URL = "https://github.com/atom36942/atom.git"
 # Single files replaced from upstream on every sync.

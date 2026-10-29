@@ -54,7 +54,7 @@ Atom's version is `ATOM_VERSION` in `sync.py` (for example `ATOM_VERSION = "1.2.
 | App startup | `Atom 1.3.0` |
 | `GET /info` | `"atom_version": "1.3.0"` |
 
-Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. To release: raise `ATOM_VERSION` in the commit that finishes the release, then tag it `vX.Y.Z` (`git tag v1.3.0 && git push origin v1.3.0`). Commits between releases keep the last version. A project synced before versions existed shows `unknown` until its next sync. A pushed `v*` tag runs a CI check that fails when the tag does not match `ATOM_VERSION`. If a sync fails after installing the new `sync.py`, that file already shows the new version while the other files may be older; the error says so, and running sync again finishes it.
+Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. Sync always takes the latest `main`; to mark a new version, raise `ATOM_VERSION` and push to `main` (no tags or GitHub releases). Commits in between keep the last version. A project synced before versions existed shows `unknown` until its next sync. If a sync fails after installing the new `sync.py`, that file already shows the new version while the other files may be older; the error says so, and running sync again finishes it.
 
 ## Recovering an interrupted update
 
