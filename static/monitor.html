@@ -270,7 +270,8 @@ const PROFILE_MAX_AGE_MS = 3 * 3600 * 1000;
 const profileLoad = async (force = false) => {
   const store = readStore();
   if (!store.token?.access_token || (!force && store.user && Date.now() - (store.user_at || 0) < PROFILE_MAX_AGE_MS)) return;
-  try { writeStore({ user: await api("/my/profile"), user_at: Date.now() }) } catch { /* keep the saved user; sessionCheck handles an expired login */ }
+  try { writeStore({ user: await api("/my/profile"), user_at: Date.now() }) }
+  catch (error) { if (error.status === 401 || error.status === 403) return logOut(EXPIRED) }    // refused: log out once instead of asking again every minute; offline: keep the saved user
   renderProfile();
 };
 // keep the login alive on its own: under 5 minutes left → new tokens from the refresh token;

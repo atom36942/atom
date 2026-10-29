@@ -801,6 +801,8 @@ const profileLoad = async ({ force = false } = {}) => {
     const r = await fetch("/my/profile", { headers: { Authorization: `Bearer ${Store.token}` } });
     const json = await r.json().catch(() => ({}));
     if (r.ok && json.status === 1 && json.message && typeof json.message === "object") Store.user = json.message;
+    // refused (a token from another server or a revoked one): log out once instead of asking again every minute
+    else if (r.status === 401 || r.status === 403) { Store.clearAuth(); toast("Your login has expired. Please log in again.") }
   } catch { /* offline: keep the saved user, try again at the next check */ }
   updateLoginIndicator();
 };

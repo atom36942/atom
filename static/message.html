@@ -223,7 +223,7 @@ async function profileLoad(force) {
   const data = store();
   if (!data.access_token || (!force && data.user && Date.now() - (data.user_at || 0) < PROFILE_MAX_AGE_MS)) return;
   try { store({user: await api("/my/profile", {headers: {Authorization: "Bearer " + data.access_token}}), user_at: Date.now()}); }
-  catch (e) { /* offline or refused: keep the saved user; sessionCheck handles an expired login */ }
+  catch (e) { if (e.status === 401 || e.status === 403) { logout(); return expiredShow(); } }    // refused: log out once instead of asking again every minute; offline: keep the saved user
   render();
 }
 

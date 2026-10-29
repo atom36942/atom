@@ -357,9 +357,9 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
     else:
         error_msg = str(exception)
     error_msg = _redact_error_message(error_msg)
-    if is_traceback:
-        traceback.print_tb(exception.__traceback__)
-        print(f"{type(exception).__name__}: {error_msg}", file=sys.stderr)
+    # a full traceback only for server errors (5xx); a client error (4xx: bad token, invalid input) is one line
+    if is_traceback and status_code >= 500: traceback.print_tb(exception.__traceback__)
+    if is_traceback: print(f"{status_code} {type(exception).__name__}: {error_msg}", file=sys.stderr)
     if sentry_dsn:
         import sentry_sdk
         sentry_sdk.capture_exception(exception)
