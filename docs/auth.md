@@ -111,7 +111,26 @@ Compares the input against `config_login_password` configured in `.env`. If unco
 
 ---
 
-## 4. OTP Flow
+## 4. Managing Users
+
+Rows of `users` are written only through these APIs; the generic object APIs (`/my/object-update`, `/my/object-delete`, `/admin/object-create`, `/admin/object-update`, `/admin/object-delete`, `/admin/postgres-import`) refuse `table=users` and name the right one. Reading stays generic: `GET /my/profile` (own row plus `config_sql["profile_metadata"]`) and `/admin/object-read?table=users` (`password` is never readable).
+
+| API | Query | Body | Rules |
+|---|---|---|---|
+| `POST /admin/user-create` | | `{role, username, password}` | All three required, nothing else accepted; returns `{"id": ...}`. Profile columns are set afterwards with `/admin/user-update` |
+| `PUT /admin/user-update` | | `{id, ...users columns}` | `email`/`mobile` need `otp` only when `config_is_otp_require_users_update` is on. The root user's `role`, `permissions` and `deactivated_at` cannot change |
+| `DELETE /admin/user-delete` | `id` | | One user; never the root user |
+| `PUT /my/user-update` | | `{...own users columns}` | Own row from the token (an `id`, if sent, must be the user's own). `email`/`mobile` always need `otp` (sent to the new value with `/public/otp-send-email` or `-mobile`). Columns in `config_column_users_admin_only` (`role`, `permissions`, `deactivated_at`, ...) are refused |
+| `DELETE /my/user-delete` | | | Own account; token only |
+
+Rules for both updates:
+- A column in `config_column_single_update` (`username`, `password`, `email`, `mobile`) is updated alone: `{password}`, `{email, otp}`, never `{password, name}`.
+- System columns (`created_*`, `updated_*`, `deleted_*`, `is_protected`, `last_active_at`) are refused; deletion has its own APIs.
+- `password` is hashed (Argon2) and logged in `log_users_password`; `email` is saved in lowercase; formats follow `config_column_regex`.
+
+Deleting needs two switches, because the database guards `users` too: `config_is_user_delete=true` and `users` removed from `config_postgres["control"]["table_row_delete_disable"]` (default on: the API then answers "users delete blocked in the database"). The root user (`id` 1) is never deleted.
+
+## 5. OTP Flow
 
 For OTP logins, the client requests a verification code and then submits it:
 1. **Send**: `POST /public/otp-send-email` or `/public/otp-send-mobile` → `func_otp_generate` creates a random code of length `config_otp_length`, the configured provider sends it, and only then `func_otp_save` stores it in the `otp` table (valid for `config_otp_expiry_sec`). A failed send stores nothing.
@@ -120,7 +139,7 @@ For OTP logins, the client requests a verification code and then submits it:
 
 ---
 
-## 5. JWT Tokens (`func_token_encode` / `func_token_decode`)
+## 6. JWT Tokens (`func_token_encode` / `func_token_decode`)
 
 Atom generates HS256 JWT pairs signed with `config_token_secret_key`:
 ```json
@@ -148,7 +167,7 @@ async def func_api_my_profile(*, request: Request):
 
 ---
 
-## 6. Root Superadmin User Architecture
+## 7. Root Superadmin User Architecture
 
 Atom features an automatic superadministrator (**root user**) with `role: 1` that is seeded on startup and defended by database triggers:
 

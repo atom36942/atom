@@ -57,40 +57,9 @@ def func_check_table_column_exists(*, app_state: State = None, cache_postgres_sc
         if purpose: msg += f" for {purpose}"
         raise Exception(msg)
 
-async def func_check_user_update_permission(*, app_state: State, table: str, obj_list: list, scope: str = "admin", otp: int = None, user_id: int = None) -> None:
-    """Validate permissions, sensitive fields, and OTP requirements for user and object updates."""
-    if any("password" in item for item in obj_list) and any(len(item) != 2 or "id" not in item or "password" not in item for item in obj_list):
-        raise Exception("password update requires exactly two fields (id, password)")
-    if table == "users":
-        if scope == "my":
-            if len(obj_list) > 1:
-                raise Exception("multi-object user update restricted")
-            if user_id is not None and str(obj_list[0].get("id")) != str(user_id):
-                raise Exception("ownership issue: cannot update other users")
-            if any(key in getattr(app_state, 'config_column_single_update', []) for key in obj_list[0]) and len(obj_list[0]) != 2:
-                raise Exception("sensitive fields must be updated individually (item length 2 required)")
-        is_otp_required = getattr(app_state, "config_is_otp_require_users_update", False) if scope == "admin" else True
-        if is_otp_required and any(key in obj_list[0] for key in ("email", "mobile")):
-            if len(obj_list) > 1:
-                raise Exception("multi-object user update restricted")
-            if len(obj_list[0]) != 2:
-                raise Exception("sensitive fields must be updated individually (item length 2 required)")
-            await app_state.func_otp_verify(
-                client_postgres=app_state.client_postgres_dict.get("master"),
-                otp=otp,
-                email=obj_list[0].get("email"),
-                mobile=obj_list[0].get("mobile"),
-                config_otp_expiry_sec=app_state.config_otp_expiry_sec,
-                config_otp_static=app_state.config_otp_static, config_otp_max_attempt=app_state.config_otp_max_attempt
-            )
-
-def func_check_user_delete_permission(*, app_state: State, table: str, scope: str = "admin", ids: list = None, user_id: int = None) -> None:
-    """Validate single-account deletion through my and admin object-delete."""
-    if table == "users":
-        if scope not in ("my", "admin"): raise Exception("users table delete restricted; use /my/object-delete or /admin/object-delete")
-        if not app_state.config_is_user_delete: raise Exception("users hard delete disabled")
-        if not ids or len(ids) != 1: raise Exception("users table delete requires exactly one id")
-        if scope == "my" and (user_id is None or int(ids[0]) != int(user_id)): raise Exception("users table delete allowed only for own account")
+def func_check_table_not_users(*, table: str, api: str) -> None:
+    """Refuse the users table in a generic object API: users rows are written only through their own APIs (/my/user-*, /admin/user-*)."""
+    if table == "users": raise Exception(f"users table: use {api}")
 
 def func_check_batch_limit(*, app_state: State, items: list) -> None:
     """Ensure batch item list length does not exceed config_batch_item_limit."""

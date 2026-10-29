@@ -116,11 +116,11 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_token_secret_key` | HMAC secret key for signing/verifying JWT tokens *(Must change)*. With `config_is_prod` on, startup refuses keys shorter than 32 bytes; generate one with `python3 -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `config_root_html_path` | Path to static HTML file served at `/` (default: Atom's home page, which lists every page in `static/` and `static_extend/`) |
 | `config_is_home_atom_listed` | `true` (default): the home page lists Atom's pages and the project's; `false`: only the project's pages (`static_extend/`). Applied by the server in `GET /static-pages`; Atom's pages still open at `/page/<name>` |
-| `config_is_user_delete` | Enables single-user hard deletion through `/my/object-delete` and `/admin/object-delete`; `False` blocks both without blocking other tables |
+| `config_is_user_delete` | Enables user hard deletion through `/my/user-delete` and `/admin/user-delete` (default `False`); the database also needs `users` out of `config_postgres` control `table_row_delete_disable` |
 | `config_is_postgres_schema_init` | Boolean toggle for database schema initialization on startup |
 | `config_signup_allowed_roles` | Roles allowed for public signup, including new users created by OTP/Google login (default: `[]` disables signup; role `1` is always rejected). See [role settings](auth.md#signup-and-login-role-settings). |
 | `config_login_allowed_roles` | Allowed values for the supplied login `role` parameter (default: roles `1` through `20`; optional for password login) |
-| `config_is_otp_require_users_update` | Boolean requiring OTP verification when updating user contact details |
+| `config_is_otp_require_users_update` | `/admin/user-update` needs `otp` for `email`/`mobile` (default `False`); `/my/user-update` always does |
 | `config_is_read_only` | Boolean system-wide read-only mode toggle |
 | `config_is_tmp_reset` | Wipe `tmp/` at app start (default: `False`); features and scripts delete their own `tmp/<feature>/` files |
 | `config_is_profile_update_last_active_at` | `GET /my/profile` also sets the user's `last_active_at` in the background without delaying the response, always on the master database even when `?connection=` reads the profile from a replica (default: `True`; skipped when `config_is_read_only`) |
@@ -199,7 +199,8 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_column_ownership_update` | Ownership columns accepted by `/my/object-update`; defaults to `created_by_id` when omitted |
 | `config_column_ownership_delete` | Ownership columns accepted by `/my/object-delete` and `/my/object-delete-all`; defaults to `created_by_id` when omitted. Also used by the user-deletion worker to discover user-linked rows. |
 | `config_column_admin` | Server-managed columns blocked from user mutation (`created_at`, `role`, etc.) |
-| `config_column_single_update` | Columns requiring single-field update requests (`password`, `email`, etc.) |
+| `config_column_single_update` | `users` columns updated alone by `/my/user-update` and `/admin/user-update` (`username`, `password`, `email`, `mobile`) |
+| `config_column_users_admin_only` | `users` columns only `/admin/user-update` may change; `/my/user-update` refuses them (`role`, `permissions`, `deactivated_at`, ...) |
 | `config_column_read_blocked` | Sensitive columns blocked and stripped from read responses and relations (`password`) |
 
 ### Service Registries

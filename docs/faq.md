@@ -5,11 +5,7 @@ Practical answers to common "how do I…" questions. Open a question for the ste
 <details>
 <summary><strong>How do I disable user deletion while keeping other object deletion enabled?</strong></summary>
 
-Set `config_is_user_delete = False` in `config.py` (or your `config_extend.py` override), then restart the app.
-
-This blocks `table="users"` on both `/my/object-delete` and `/admin/object-delete`. Other tables remain deletable under their normal permissions. This setting applies to both self-account and admin user deletion; it is not a self-deletion-only switch.
-
-When enabled, user deletion accepts exactly one ID. `/my/object-delete` requires the logged-in user's ID; `/admin/object-delete` requires administrator access. Send a POST body such as `{"table": "users", "ids": [7]}`. Omit the `ownership_column` query parameter for self-account deletion; explicitly supplying it is rejected. Bulk deletion of `users` is always blocked.
+User deletion is off by default. It goes only through `DELETE /my/user-delete` (own account) and `DELETE /admin/user-delete?id=7`, and needs `config_is_user_delete=true` plus `users` removed from `config_postgres["control"]["table_row_delete_disable"]`. Leave either one off to keep users undeletable; other tables are unaffected. The generic `/my/object-delete` and `/admin/object-delete` always refuse `table=users`.
 
 </details>
 
@@ -227,7 +223,7 @@ When `"is_active": False` is set, the HTTP middleware checks it immediately via 
 
 Role **`1`** is the administrator role. On startup, Atom seeds the root administrator using `config_root_user_password`; override that value with a strong secret in `.env` before deploying.
 
-To promote an existing user, authenticate as an administrator and update that user's `role` to `1` through `/admin/object-update` on the `users` table. Confirm the target user ID first—admin routes can access and modify data across users.
+To promote an existing user, authenticate as an administrator and call `PUT /admin/user-update` with `{"id": 7, "role": 1}`. Confirm the target user ID first—admin routes can access and modify data across users.
 
 Public signup cannot create role `1` users, which prevents callers from granting themselves administrator access.
 

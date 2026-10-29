@@ -129,7 +129,8 @@ config_column_ownership_read = ["created_by_id", "received_by_id", "assigned_to_
 config_column_ownership_update = ["created_by_id", "assigned_to_id"]
 config_column_ownership_delete = ["created_by_id", "received_by_id", "assigned_to_id"]
 config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "verified_at", "verified_by_id"]
-config_column_single_update = ["username", "password", "email", "mobile", "deleted_at"]
+config_column_single_update = ["username", "password", "email", "mobile"]
+config_column_users_admin_only = ["role", "permissions", "verified_at", "verified_by_id", "deactivated_at", "deactivated_by_id", "parent_id", "source", "id_ext", "google_login_id", "google_login_metadata"]
 config_column_read_blocked = ["password"]
 
 # dict
@@ -370,6 +371,8 @@ config_api = {
 "/my/ping": {"id": 92, "is_token": True},
 "/my/token-refresh": {"id": 47, "is_token": True},
 "/my/api-usage": {"id": 48, "is_token": True},
+"/my/user-update": {"id": 133, "is_token": True, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
+"/my/user-delete": {"id": 134, "is_token": True, "rate_limit": {"mode": "inmemory", "limit": 5, "window_sec": 60}},
 "/my/object-create": {"id": 49, "is_token": True},
 "/my/object-read": {"id": 50, "is_token": True, "is_connection_param": True},
 "/my/object-read-export": {"id": 123, "is_token": True, "is_connection_param": True},
@@ -413,6 +416,9 @@ config_api = {
 "/admin/object-update": {"id": 3, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/object-read": {"id": 4, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "is_connection_param": True},
 "/admin/object-read-export": {"id": 126, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "is_connection_param": True},
+"/admin/user-create": {"id": 130, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
+"/admin/user-update": {"id": 131, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
+"/admin/user-delete": {"id": 132, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 "/admin/object-delete": {"id": 5, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 "/admin/table-column-groupby": {"id": 104, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},
 "/admin/table-column-distinct": {"id": 106, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},

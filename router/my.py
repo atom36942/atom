@@ -94,18 +94,31 @@ async def func_api_my_object_read_export(*, request: Request):
 @router.put("/my/object-update")
 async def func_api_my_object_update(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "ownership_column", "type": "str", "allowed": app_state.config_column_ownership_update, "default": "created_by_id"}, {"name": "otp", "type": "int"}, {"name": "queue", "type": "str", "allowed": app_state.config_queue_services}])
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "ownership_column", "type": "str", "allowed": app_state.config_column_ownership_update, "default": "created_by_id"}, {"name": "queue", "type": "str", "allowed": app_state.config_queue_services}])
+    app_state.func_check_table_not_users(table=oq["table"], api="/my/user-update")
     obj_list = await app_state.func_extract_request_object_list(request=request)
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
     app_state.func_validate_restricted_columns(app_state=app_state, obj_list=obj_list)
-    await app_state.func_check_user_update_permission(app_state=app_state, table=oq["table"], obj_list=obj_list, scope="my", otp=oq["otp"], user_id=request.state.user.get("id"))
     app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column="updated_by_id", purpose="update tracking")
     obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="updated_by_id")
-    if oq["table"] == "users" and "ownership_column" in request.query_params: raise Exception("ownership_column is not supported for users update")
-    created_by_id = request.state.user["id"] if oq["table"] != "users" else None
-    if oq["table"] != "users": app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column=oq["ownership_column"], purpose="ownership tracking")
+    created_by_id = request.state.user["id"]
+    app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column=oq["ownership_column"], purpose="ownership tracking")
     if oq["queue"]: return {"status": 1, "message": await app_state.func_producer(queue=oq["queue"], client_celery_producer=app_state.client_celery_producer, client_kafka_producer=app_state.client_kafka_producer, client_rabbitmq_producer=app_state.client_rabbitmq_producer, client_redis_producer=app_state.client_redis_dict.get("queue"), channel="func_postgres_update", payload={"table": oq["table"], "obj_list": obj_list, "created_by_id": created_by_id, "ownership_column": oq["ownership_column"]})}
     return {"status": 1, "message": await app_state.func_postgres_update(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_column_regex=app_state.config_column_regex, table=oq["table"], obj_list=obj_list, created_by_id=created_by_id, ownership_column=oq["ownership_column"], client_postgres_conn=None)}
+
+@router.put("/my/user-update")
+async def func_api_my_user_update(*, request: Request):
+    app_state, user_id = request.app.state, request.state.user["id"]
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "otp", "type": "int"}])
+    if "id" in ob and str(ob["id"]) != str(user_id): raise Exception("ownership issue: cannot update other users")
+    values = await app_state.func_user_update_check(client_postgres=request.state.client_postgres, obj=ob, is_admin=False, is_otp_required=True, config_column_single_update=app_state.config_column_single_update, config_column_users_admin_only=app_state.config_column_users_admin_only, config_otp_expiry_sec=app_state.config_otp_expiry_sec, config_otp_static=app_state.config_otp_static, config_otp_max_attempt=app_state.config_otp_max_attempt)
+    await app_state.func_postgres_update(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_column_regex=app_state.config_column_regex, table="users", obj_list=[{**values, "id": user_id, "updated_by_id": user_id}], created_by_id=None, client_postgres_conn=None)
+    return {"status": 1, "message": "user updated"}
+
+@router.delete("/my/user-delete")
+async def func_api_my_user_delete(*, request: Request):
+    app_state = request.app.state
+    return {"status": 1, "message": await app_state.func_user_delete(client_postgres=request.state.client_postgres, user_id=request.state.user["id"], config_is_user_delete=app_state.config_is_user_delete)}
 
 @router.post("/my/object-delete")
 async def func_api_my_ids_delete(*, request: Request):
@@ -113,14 +126,11 @@ async def func_api_my_ids_delete(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "ownership_column", "type": "str", "allowed": app_state.config_column_ownership_delete, "default": "created_by_id"}])
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "ids", "type": "list:int", "required": True}])
     table, ids = ob["table"], ob["ids"]
+    app_state.func_check_table_not_users(table=table, api="/my/user-delete")
     app_state.func_check_batch_limit(app_state=app_state, items=ids)
-    app_state.func_check_user_delete_permission(app_state=app_state, table=table, scope="my", ids=ids, user_id=request.state.user.get("id"))
-    if table == "users" and "ownership_column" in request.query_params: raise Exception("ownership_column is not supported for users deletion")
     ownership_column = oq["ownership_column"]
-    created_by_id = None
-    if table != "users":
-        app_state.func_check_table_column_exists(app_state=app_state, table=table, column=ownership_column, purpose="ownership tracking")
-        created_by_id = request.state.user["id"]
+    app_state.func_check_table_column_exists(app_state=app_state, table=table, column=ownership_column, purpose="ownership tracking")
+    created_by_id = request.state.user["id"]
     deleted_count = await app_state.func_postgres_delete(client_postgres=request.state.client_postgres, client_postgres_conn=None, cache_postgres_schema=request.state.cache_postgres_schema, table=table, ids=ids, created_by_id=created_by_id, ownership_column=ownership_column)
     return {"status": 1, "message": f"{deleted_count} ids deleted"}
 
@@ -128,7 +138,7 @@ async def func_api_my_ids_delete(*, request: Request):
 async def func_api_my_object_delete_all(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "ownership_column", "type": "str", "allowed": app_state.config_column_ownership_delete, "default": "created_by_id"}])
-    app_state.func_check_user_delete_permission(app_state=app_state, table=oq["table"], scope="my_all")
+    app_state.func_check_table_not_users(table=oq["table"], api="/my/user-delete")
     app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="my", action="delete_all")
     app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column=oq["ownership_column"], purpose="ownership tracking")
     res = await app_state.func_postgres_delete_all(client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], ownership_column=oq["ownership_column"], user_id=user_id, limit=getattr(app_state, "config_batch_item_limit", 5000) or 5000)

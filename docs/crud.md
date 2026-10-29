@@ -388,6 +388,4 @@ The client can call the exact same endpoint in a loop while `has_more` is `true`
 
 ### 4. User Account Deletion
 
-Use `POST /my/object-delete` with `{"table": "users", "ids": [7]}` to delete your own account, or `POST /admin/object-delete` with the same body for administrator user deletion. Both require `config_is_user_delete = True` and exactly one ID. The self-account endpoint also requires that ID to match the logged-in user. Omit `ownership_column` for self-account deletion: supplying it explicitly is rejected, including `created_by_id`.
-
-Set `config_is_user_delete = False` and restart to block user deletion through both flows while retaining ordinary object deletion. `/admin/object-delete` has an in-memory rate limit of 10 requests per 60 seconds.
+The generic object APIs never write `users`: they refuse `table=users` and name the API to use. Users are created, updated and deleted with `/admin/user-create`, `/admin/user-update`, `/admin/user-delete`, `/my/user-update` and `/my/user-delete` (see [Managing Users](auth.md#4-managing-users)); `/admin/object-read?table=users` still reads them.

@@ -43,7 +43,7 @@ async def func_postgres_import(*, app_state: State, mode: str, table: str, file:
     client_postgres = client_postgres or app_state.client_postgres_dict.get("master")
     cache_postgres_schema = cache_postgres_schema if cache_postgres_schema is not None else app_state.cache_postgres_schema_dict.get("master", {})
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
-    if mode == "delete": app_state.func_check_user_delete_permission(app_state=app_state, table=table, scope="admin")
+    app_state.func_check_table_not_users(table=table, api="/admin/user-create, /admin/user-update or /admin/user-delete")
     count = 0
     async with client_postgres.acquire() as conn:
         async with conn.transaction():
