@@ -10,7 +10,7 @@ Rules Atom enforces at import, startup, sync and CI. Follow exactly. Read by AI 
 ## Ownership
 - Atom owns every unsuffixed path; the project owns `<name>_extend` (`router_extend/`, `function_extend/`, `files_extend/`, `static_extend/`, `script_extend/`, `tests_extend/`, `docs_extend/`, `config_extend.py`). Shared: `.env` (project), `requirements.txt` and `.gitignore` (merged), `.github/` (per repo).
 - Never edit core (`function/`, `router/`, `docs/`, `script/`, `static/`, `files/`, `config.py`, `main.py`, `sync.py`, `AGENTS.md`, `ruff.toml`, `.gitignore` above `# extend`, `.dockerignore`, `Dockerfile`, `readme.md`; full list: `SYNC_FILES`/`SYNC_FOLDERS` in `sync.py`) unless asked for a framework change: sync overwrites them and deletes other files in Atom folders. Refactors, renames, cleanups and lint fixes touch project files only; if core blocks the work, solve it in project paths or report it.
-- `.gitignore` is shared and ignores unlisted paths: sync resets Atom's allow-list above `# extend` and keeps the project's lines under it. Top-level paths are committed only if named `*_extend` or listed under `# extend` (`!<folder>/` and `!<folder>/**`).
+- `.gitignore` is shared and ignores unlisted paths: sync resets Atom's allow-list above `# extend` and keeps the project's pattern lines under it. Top-level paths are committed only if named `*_extend` or listed under `# extend` (`!<folder>/` and `!<folder>/**`).
 - The Atom repo has no `config_extend.py` or `*_extend` paths: sync creates them in each project.
 
 ## Sync

@@ -1,62 +1,51 @@
 # deny
 *
 
-# files
-!config_extend.py
-!config.py
-!main.py
-!sync.py
-!requirements.txt
-!Dockerfile
-!.dockerignore
-!readme.md
-!AGENTS.md
+# allow
 !.gitignore
+!.dockerignore
+!AGENTS.md
+!Dockerfile
 !LICENSE
 !SECURITY.md
+!config.py
+!config_extend.py
+!main.py
+!readme.md
+!requirements.txt
 !ruff.toml
-
-# folder
-!function/
-!function/**
-!tests/
-!tests/**
-!router/
-!router/**
-!static/
-!static/**
-!script/
-!script/**
+!sync.py
 !docs/
 !docs/**
 !files/
 !files/**
-# project folders: <name>_extend/ for router, function, script, static, files, docs, tests (never synced)
+!function/
+!function/**
+!router/
+!router/**
+!script/
+!script/**
+!static/
+!static/**
+!tests/
+!tests/**
 !*_extend/
 !*_extend/**
 !.github/
 !.github/**
 
 # ignore
+.env
+tmp/
+venv/
 __pycache__/
 *.py[cod]
-*$py.class
 .mypy_cache/
 .pytest_cache/
-.atom-sync/
 .DS_Store
 Thumbs.db
-.idea/
-.vscode/
-drive/
 *.swp
 *.bak
-tmp/
-scratch/
-venv/
-venv_old/
-.env
 *.log
 
 # extend
-# the project's own lines, kept by sync: to commit a folder that is not *_extend, add !<folder>/ and !<folder>/**

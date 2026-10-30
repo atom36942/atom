@@ -207,13 +207,12 @@ def merge_requirements(*, local, upstream):
     return text, notes
 
 def merge_gitignore(*, local, upstream):
-    """Atom's .gitignore up to its # extend header, then the project's lines under its own # extend header; a file without one gets Atom's as is."""
+    """Atom's .gitignore up to its # extend header, then the project's pattern lines under its own # extend header (comments dropped); a file without one gets Atom's as is."""
     upstream_lines = upstream.splitlines()
     head = upstream_lines[:upstream_lines.index(GITIGNORE_EXTEND_HEADER) + 1] if GITIGNORE_EXTEND_HEADER in upstream_lines else [*upstream_lines, "", GITIGNORE_EXTEND_HEADER]
-    upstream_extend = [line for line in upstream_lines[len(head):] if line.startswith("#")]
     local_lines = (local or "").splitlines()
-    local_extend = [line for line in local_lines[local_lines.index(GITIGNORE_EXTEND_HEADER) + 1:] if line not in upstream_extend] if GITIGNORE_EXTEND_HEADER in local_lines else []
-    return "\n".join([*head, *upstream_extend, *lines_trimmed(lines=local_extend)]) + "\n"
+    extend = [line for line in local_lines[local_lines.index(GITIGNORE_EXTEND_HEADER) + 1:] if line.strip() and not line.startswith("#")] if GITIGNORE_EXTEND_HEADER in local_lines else []
+    return "\n".join([*head, *extend]) + "\n"
 
 def pypi_latest(*, name):
     """The newest release on PyPI, or None when PyPI can't be reached."""

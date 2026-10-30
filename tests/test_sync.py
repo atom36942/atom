@@ -327,12 +327,12 @@ class SyncTests(unittest.TestCase):
         return "\n".join([sync.REQUIREMENTS_ATOM_HEADER, *atom, "", sync.REQUIREMENTS_EXTEND_HEADER, *extend]) + "\n"
 
     def test_gitignore_keeps_project_extend_lines_and_resets_atom_part(self):
-        upstream = "*\n!main.py\n\n# extend\n# how to add a folder\n"
-        local = "*\n!main.py\n!my-edit\n\n# extend\n# how to add a folder\n!infra/\n!infra/**\n"
-        self.assertEqual(sync.merge_gitignore(local=local, upstream=upstream), "*\n!main.py\n\n# extend\n# how to add a folder\n!infra/\n!infra/**\n")
+        upstream = "*\n!main.py\n\n# extend\n"
+        local = "*\n!main.py\n!my-edit\n\n# extend\n# a note\n!infra/\n\n!infra/**\n"
+        self.assertEqual(sync.merge_gitignore(local=local, upstream=upstream), "*\n!main.py\n\n# extend\n!infra/\n!infra/**\n")
 
     def test_gitignore_without_extend_section_gets_atom_version(self):
-        upstream = "*\n!main.py\n\n# extend\n# how to add a folder\n"
+        upstream = "*\n!main.py\n\n# extend\n"
         self.assertEqual(sync.merge_gitignore(local="*\n!infra/\n", upstream=upstream), upstream)
         self.assertEqual(sync.merge_gitignore(local=None, upstream=upstream), upstream)
 
