@@ -57,3 +57,6 @@ venv/
 venv_old/
 .env
 *.log
+
+# extend
+# the project's own lines, kept by sync: to commit a folder that is not *_extend, add !<folder>/ and !<folder>/**

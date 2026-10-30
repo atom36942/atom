@@ -14,6 +14,7 @@
 #   - config_extend.py (starter: # base, # atom, # misc)
 #   - .env (sample settings, commented out)
 # - requirements.txt: reset # atom to Atom's list (dropping packages Atom no longer uses), tidy # extend
+# - .gitignore: reset everything above # extend to Atom's, keep the project's lines under # extend
 # - rebuild venv/ to match requirements.txt (skip: --no-venv)
 # - list newer # extend packages on PyPI (skip: --no-outdated)
 # - roll back on a write failure; never touches the Git index. Details: docs/sync.md
@@ -109,6 +110,8 @@ EXTEND_FILES = {
 # requirements.txt has two sections: # atom is replaced with Atom's packages on every run, # extend (the project's packages) is kept; config_extend.py stays developer-managed.
 REQUIREMENTS_ATOM_HEADER = "# atom"
 REQUIREMENTS_EXTEND_HEADER = "# extend"
+# .gitignore: Atom's allow-list above # extend is replaced on every run; the project's lines under # extend (folders it commits) are kept.
+GITIGNORE_EXTEND_HEADER = "# extend"
 # venv/ is rebuilt to match requirements.txt exactly, on the Python version the Dockerfile names; its fingerprint skips rebuilds when nothing changed.
 VENV_DIR = "venv"
 VENV_OLD_DIR = "venv_old"
@@ -203,6 +206,15 @@ def merge_requirements(*, local, upstream):
     text = "\n".join([REQUIREMENTS_ATOM_HEADER, *atom_lines, "", REQUIREMENTS_EXTEND_HEADER, *extend_lines]) + "\n"
     return text, notes
 
+def merge_gitignore(*, local, upstream):
+    """Atom's .gitignore up to its # extend header, then the project's lines under its own # extend header; a file without one gets Atom's as is."""
+    upstream_lines = upstream.splitlines()
+    head = upstream_lines[:upstream_lines.index(GITIGNORE_EXTEND_HEADER) + 1] if GITIGNORE_EXTEND_HEADER in upstream_lines else [*upstream_lines, "", GITIGNORE_EXTEND_HEADER]
+    upstream_extend = [line for line in upstream_lines[len(head):] if line.startswith("#")]
+    local_lines = (local or "").splitlines()
+    local_extend = [line for line in local_lines[local_lines.index(GITIGNORE_EXTEND_HEADER) + 1:] if line not in upstream_extend] if GITIGNORE_EXTEND_HEADER in local_lines else []
+    return "\n".join([*head, *upstream_extend, *lines_trimmed(lines=local_extend)]) + "\n"
+
 def pypi_latest(*, name):
     """The newest release on PyPI, or None when PyPI can't be reached."""
     try:
@@ -283,6 +295,8 @@ def prepare_update(*, root, revision):
     merged, notes = merge_requirements(local=local_requirements, upstream=plan["requirements.txt"][0].decode())
     for note in notes: print(f" ! requirements.txt: {note}")
     plan["requirements.txt"] = (merged.encode(), requirements.stat().st_mode & 0o777 if requirements.exists() else 0o644)
+    gitignore = safe_path(root=root, name=".gitignore")
+    plan[".gitignore"] = (merge_gitignore(local=gitignore.read_text() if gitignore.exists() else None, upstream=plan[".gitignore"][0].decode()).encode(), plan[".gitignore"][1])
 
     state = {"version": 1, "revision": revision, "files": owned}
     plan[STATE_PATH] = ((json.dumps(state, indent=2, sort_keys=True) + "\n").encode(), 0o600)
