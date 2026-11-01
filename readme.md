@@ -26,6 +26,7 @@ venv/bin/uvicorn main:app --reload
 Windows: [docs/windows.md](docs/windows.md)
 
 # Env
+Atom starts without `.env`: pages, `/health` and routes that don't use the database work; the database, users and login need the first three keys.
 ```env
 config_postgres_url_master=postgresql://postgres:postgres@localhost:5432/postgres
 config_root_user_password=your-strong-root-password
