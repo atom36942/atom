@@ -37,9 +37,11 @@ config_token_secret_key=your-secret-key-at-least-32-chars
 
 Optional:
 ```env
-config_signup_allowed_roles=[2]
-config_is_prod=false
 config_is_pgweb_enabled=true
+config_is_prod=false
+config_signup_allowed_roles=[2]
+config_root_html_path=static_extend/<app>/index.html
+config_cors_allow_origins=["http://localhost:5173"]
 config_redis_url_api_response=redis://localhost:6379/0
 config_redis_url_user_state=redis://localhost:6379/0
 config_redis_url_ratelimiter=redis://localhost:6379/0
