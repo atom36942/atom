@@ -57,6 +57,7 @@ Name files after their feature across folders: `router_extend/<f>.py`, `function
 - Every route needs an entry with a unique `id` (200+ for project routes) and `is_token`; startup fails on a missing entry, an entry without a route, a repeated `id`, or a project route under 200.
 - `is_token: True` → access token required (401); `user_check_*` need it too.
 - `user_check_role: {"mode": m, "roles": [..]}` (403); `user_check_deactivated`/`user_check_deleted: {"mode": m}`. `m`: `token` (fastest, stale until re-login), `redis` (cached), `realtime` (DB each request; admin and destructive routes), `inmemory` (startup snapshot, single worker).
+- Roles: 1 is Atom's admin (every `/admin/*` route); project users start at 2. A project with one kind of user gives it role 2, and its routes allow `[1, 2]`; each new kind of user takes the next number (3, 4, ...) and is added to the `roles` of only the routes it may call. Label roles in `config_column_int_mapping["users"]["role"]` and list who may log in with `config_login_allowed_roles` (and `config_signup_allowed_roles` for self sign-up).
 - `rate_limit: {"mode": "redis"|"inmemory", "limit": N, "window_sec": S}` (429); `cache: {"mode": "redis"|"inmemory", "ttl_sec": S, "is_per_user": bool}`.
 - `is_connection_param: True` allows `?connection=<name>`; `is_active: False` → 404; `is_log_api: False` keeps requests out of `log_api`.
 - WebSocket entries take only `id` and `is_active`; the socket function checks both and authenticates itself (token as first message).
