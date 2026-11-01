@@ -41,6 +41,9 @@ config_signup_allowed_roles=[2]
 config_is_prod=false
 config_is_pgweb_enabled=true
 config_redis_url_api_response=redis://localhost:6379/0
+config_redis_url_user_state=redis://localhost:6379/0
+config_redis_url_ratelimiter=redis://localhost:6379/0
+config_redis_url_queue=redis://localhost:6379/0
 ```
 
 Details: [docs/config.md](docs/config.md)
