@@ -1,7 +1,5 @@
-# deny
+# atom
 *
-
-# allow
 !.gitignore
 !.dockerignore
 !AGENTS.md
@@ -33,8 +31,6 @@
 !*_extend/**
 !.github/
 !.github/**
-
-# ignore
 .env
 tmp/
 venv/

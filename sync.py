@@ -113,7 +113,7 @@ EXTEND_FILES = {
 # requirements.txt has two sections: # atom is replaced with Atom's packages on every run, # extend (the project's packages) is kept; config_extend.py stays developer-managed.
 REQUIREMENTS_ATOM_HEADER = "# atom"
 REQUIREMENTS_EXTEND_HEADER = "# extend"
-# .gitignore: Atom's allow-list above # extend is replaced on every run; the project's lines under # extend (folders it commits) are kept.
+# .gitignore: everything under # atom (above # extend) is replaced on every run; the project's lines under # extend (folders it commits) are kept.
 GITIGNORE_EXTEND_HEADER = "# extend"
 # venv/ is rebuilt to match requirements.txt exactly, on the Python version the Dockerfile names; its fingerprint skips rebuilds when nothing changed.
 VENV_DIR = "venv"
