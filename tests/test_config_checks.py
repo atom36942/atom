@@ -103,13 +103,15 @@ class DatabaseConfigCheckTests(unittest.TestCase):
             func_check_database_config(app_state=state(config_postgres_url_dict={"master": URL}, config_postgres_db_log_api="audit"))
         for off in (None, ""):    # API logging off: no log database to find
             func_check_database_config(app_state=state(config_postgres_url_dict={"master": URL}, config_postgres_db_log_api=off))
+        func_check_database_config(app_state=state(config_postgres_url_dict={"master": URL}, config_postgres_db_log_api="audit", config_is_log_api=False))
 
     def test_log_database_must_have_log_api_table(self):
-        log_state = lambda schema, **changes: SimpleNamespace(**({"config_postgres_db_log_api": "logs", "config_is_read_only": False, "client_postgres_dict": {"master": object(), "logs": object()}, "cache_postgres_schema_dict": {"master": {}, "logs": schema}} | changes))
+        log_state = lambda schema, **changes: SimpleNamespace(**({"config_postgres_db_log_api": "logs", "config_is_read_only": False, "client_postgres_dict": {"master": object(), "logs": object()}, "cache_postgres_schema_dict": {"master": {}, "logs": schema}, "config_is_log_api": True} | changes))
         with self.assertRaisesRegex(Exception, "config_postgres_db_log_api 'logs' has no log_api table"):
             func_check_log_api_table(app_state=log_state({"other": {}}))
         func_check_log_api_table(app_state=log_state({"log_api": {}}))
         func_check_log_api_table(app_state=log_state({}, config_is_read_only=True))    # no logging in read-only mode
+        func_check_log_api_table(app_state=log_state({}, config_is_log_api=False))    # logging off
         func_check_log_api_table(app_state=log_state({}, client_postgres_dict={}))    # no databases configured
 
     def test_buffer_rows_max_must_be_an_integer_of_at_least_1000(self):

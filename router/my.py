@@ -48,7 +48,7 @@ async def func_api_my_token_refresh(*, request: Request):
 async def func_api_my_api_usage(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "days", "type": "int", "required": True}])
-    if not app_state.client_postgres_log_api: raise app_state.func_api_error(message="API logging is off (config_postgres_db_log_api)", status_code=503)
+    if not app_state.client_postgres_log_api: raise app_state.func_api_error(message="API logging is off (config_is_log_api)", status_code=503)
     sql = "SELECT path AS api, count(*) FROM log_api WHERE created_at >= NOW() - ($1 * INTERVAL '1 day') AND created_by_id=$2 GROUP BY path LIMIT 1000;"
     async with app_state.client_postgres_log_api.acquire() as conn:
         records = await conn.fetch(sql, oq["days"], request.state.user["id"])

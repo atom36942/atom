@@ -310,7 +310,7 @@ const info = html => `<div class="info">${html}</div>`;    // html: callers esca
 const shareBar = (part, total) => `<div class="bar"><span style="width:${total ? part / total * 100 : 0}%"></span></div>`;
 const statusPill = code => `<span class="pill ${code >= 500 ? "bad" : code >= 400 ? "warn" : "ok"}">${he(code)}</span>`;
 const apiPath = (method, path) => `<span class="muted">${he(method)}</span> <span class="mono">${he(path)}</span>`;
-const LOG_OFF = info("API logging is off: this server has no <span class=\"mono\">log_api</span> database (<span class=\"mono\">config_postgres_db_log_api</span>), so there are no requests to show.");
+const LOG_OFF = info("API logging is off (<span class=\"mono\">config_is_log_api</span>), so there are no requests to show.");
 
 // memory: this worker's RAM and what holds it; kind comes from the app_state name prefix
 const KIND_CLASS = { cache: "ok", buffer: "warn", other: "bad" };

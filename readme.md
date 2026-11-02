@@ -39,6 +39,7 @@ Optional:
 ```env
 config_is_pgweb_enabled=true
 config_is_prod=false
+config_is_log_api=false
 config_signup_allowed_roles=[2]
 config_root_html_path=static_extend/<app>/index.html
 config_cors_allow_origins=["http://localhost:5173"]

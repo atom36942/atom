@@ -244,5 +244,28 @@ class HttpIntegrationTests(unittest.TestCase):
         self.assertEqual(fetch(self.reports_url, "SELECT count(*) AS n FROM log_api WHERE path = '/pgweb'"), [{"n": 0}])
 
 
+@requires_postgres
+class LogApiOffIntegrationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.db_name, cls.url = create_database()
+        cls.handle = app_start(env={"config_postgres_url_master": cls.url, "config_is_log_api": "false"})
+        cls.app, cls.client = cls.handle["app"], cls.handle["client"]
+        cls.token = app_login(cls.client, path="/auth/signup-username-password", body={"username": "alice", "password": "alice-pass", "role": 5})
+
+    @classmethod
+    def tearDownClass(cls):
+        try: app_stop(cls.handle)
+        finally: drop_database(cls.db_name)
+
+    def test_config_is_log_api_false_writes_no_rows(self):
+        self.assertIsNone(self.app.state.client_postgres_log_api)
+        self.client.get("/health")
+        time.sleep(2)    # past config_postgres_buffer_flush_auto_sec, so a buffered row would have been written
+        self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM log_api"), [{"n": 0}])
+        response = self.client.get("/my/api-usage?days=1", headers={"Authorization": f"Bearer {self.token}"})
+        self.assertEqual(response.status_code, 503, response.text)
+
+
 if __name__ == "__main__":
     unittest.main()

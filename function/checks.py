@@ -10,7 +10,7 @@ from .app import func_app_route_list
 def func_check_log_api_table(*, app_state: State) -> None:
     """Stop startup when API logging is on but the log database has no log_api table (rows would be dropped silently)."""
     log_db = app_state.config_postgres_db_log_api
-    if app_state.config_is_read_only or log_db not in app_state.client_postgres_dict: return
+    if not app_state.config_is_log_api or app_state.config_is_read_only or log_db not in app_state.client_postgres_dict: return
     if "log_api" not in app_state.cache_postgres_schema_dict.get(log_db, {}): raise Exception(f"config_postgres_db_log_api '{log_db}' has no log_api table")
     return
 
@@ -35,7 +35,7 @@ def func_check_database_config(*, app_state: State) -> None:
         if not isinstance(url, str) or not url.strip().lower().startswith(("postgres://", "postgresql://")): raise Exception(f"invalid PostgreSQL URL for config_postgres_url_dict '{name}'")
     if url_dict and "master" not in url_dict: raise Exception("config_postgres_url_master is required: master is the default database")
     log_db = getattr(app_state, "config_postgres_db_log_api", None)
-    if url_dict and log_db and log_db not in url_dict: raise Exception(f"config_postgres_db_log_api '{log_db}' not found in config_postgres_url_dict")
+    if url_dict and log_db and getattr(app_state, "config_is_log_api", True) and log_db not in url_dict: raise Exception(f"config_postgres_db_log_api '{log_db}' not found in config_postgres_url_dict")
     for key in ("config_clickhouse_url_dict", "config_mssql_url_dict"):
         named_url_dict = getattr(app_state, key, None)
         if named_url_dict is not None and not isinstance(named_url_dict, dict): raise Exception(f"{key} must be dict or None")

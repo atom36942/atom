@@ -57,7 +57,7 @@ async def func_monitor_errors(*, client_postgres: asyncpg.Pool | None, hours: in
 async def func_monitor_database(*, app_state: State, connection: str, top: int = 20, long_query_sec: int = 5, timeout_sec: int = 15) -> dict:
     """Pool use of every PostgreSQL connection (which one log_api writes to), and for one database: where it is (database, host, port, user), size, cache hit ratio, connections, long-running queries, waiting locks and the biggest tables."""
     client_postgres_dict = getattr(app_state, "client_postgres_dict", {})
-    log_database = getattr(app_state, "config_postgres_db_log_api", None)
+    log_database = getattr(app_state, "config_postgres_db_log_api", None) if getattr(app_state, "config_is_log_api", True) else None
     pools = [{"name": name, "size": pool.get_size(), "idle": pool.get_idle_size(), "min": pool.get_min_size(), "max": pool.get_max_size(), "is_log_api": name == log_database} for name, pool in client_postgres_dict.items()]
     client_postgres = client_postgres_dict.get(connection)
     if not client_postgres: return {"connection": connection, "pools": pools, "is_enabled": False}

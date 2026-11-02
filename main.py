@@ -77,7 +77,7 @@ async def func_lifespan(app: FastAPI):
         cache_users_deactivated = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("users_deactivated")) if postgres_master else {}
         cache_users_deleted = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("users_deleted")) if postgres_master else {}
         # postgres log
-        client_postgres_log_api = client_postgres_dict.get(app.state.config_postgres_db_log_api)
+        client_postgres_log_api = client_postgres_dict.get(app.state.config_postgres_db_log_api) if app.state.config_is_log_api else None
         if client_postgres_log_api and app.state.config_postgres_db_log_api != "master" and not app.state.config_is_read_only and app.state.config_is_postgres_schema_init:
             async with app.state.func_postgres_advisory_lock(client_postgres=client_postgres_log_api, lock_id=3): await app.state.func_postgres_schema_tables_init(app_state=app.state, client_postgres=client_postgres_log_api, tables={"log_api": app.state.config_postgres["table"]["log_api"]})
         # cache schema

@@ -81,6 +81,7 @@ config_is_profile_update_last_active_at = True
 config_is_postgres_schema_init = True
 config_postgres_pool_min_size = 5
 config_postgres_pool_max_size = 20
+config_is_log_api = True
 config_postgres_db_log_api = "master"
 config_log_api_retention_day = 7
 config_buffer_limit_default = 100
