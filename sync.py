@@ -94,14 +94,17 @@ EXTEND_README = {
     "docs_extend": "# docs_extend\nShort project docs, one `<feature>.md` each: what it does and how to use it, no SQL or code dumps. Rules live only in the root `AGENTS.md` (Atom's, synced).\n",
 }
 # The starter .env sync creates when it is missing: sample values, commented out.
-ENV_STARTER = """# config_postgres_url_master=postgresql://postgres:postgres@localhost:5432/postgres
-# config_root_user_password=your-strong-root-password
-# config_token_secret_key=your-secret-key-at-least-32-chars
-# config_signup_allowed_roles=[2]
-# config_is_prod=false
-# config_is_pgweb_enabled=true
-# config_redis_url_api_response=redis://localhost:6379/0
-"""
+ENV_STARTER = (
+    "# atom\n"
+    "# config_postgres_url_master=postgresql://postgres:postgres@localhost:5432/postgres\n"
+    "# config_root_user_password=your-strong-root-password\n"
+    "# config_token_secret_key=your-secret-key-at-least-32-chars\n"
+    "# config_signup_allowed_roles=[2]\n"
+    "# config_is_prod=false\n"
+    "# config_is_pgweb_enabled=true\n"
+    "# config_redis_url_api_response=redis://localhost:6379/0\n"
+    "# extend\n"
+)
 EXTEND_FILES = {
     "tests_extend/__init__.py": "",
     "config_extend.py": CONFIG_EXTEND_STARTER,

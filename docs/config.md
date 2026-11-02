@@ -43,6 +43,29 @@ CONFIG_WHITELISTED_IPS=["192.168.1.1", "10.0.0.1"]
 CONFIG_TIER_LIMITS={"free": 100, "pro": 1000}
 ```
 
+### Layout
+A project `.env` has up to three kinds of sections, in this order:
+
+```dotenv
+# atom
+config_postgres_url_master=postgresql://postgres:postgres@localhost:5432/postgres
+config_root_user_password=your-strong-root-password
+config_token_secret_key=your-secret-key-at-least-32-chars
+
+# extend
+config_payment_gateway_url=https://payments.example.com
+
+# script.clickhouse_refresh
+config_clickhouse_refresh_postgres_url=postgresql://user:pass@host:5432/source
+config_clickhouse_refresh_clickhouse_url=clickhouse://user:pass@host:8443/target
+```
+
+- `# atom`: Atom's keys the backend (`python main.py` or `uvicorn main:app`) uses.
+- `# extend`: the project's own keys the backend uses.
+- `# script.<name>`: one per script in `script_extend/` (`<name>` without `.py`), holding keys only that script uses.
+
+The sections are only comments: the backend and every script load the whole file. So each key appears once (a repeated key silently takes the last value), and a script reads keys it shares with the backend from `# atom` or `# extend`. A database only a script uses is named `config_<script>_<db>_url` and read with `from config import config_<script>_<db>_url`: a `config_<db>_url_<name>` line, in any section, makes the backend open a pool to it at startup, and startup fails when that database can't be reached.
+
 ### Accessing in Routes:
 ```python
 @router.get("/checkout/status")
