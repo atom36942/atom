@@ -4,24 +4,26 @@
 
 # import
 import asyncio
+import os
 import urllib.parse
 import asyncpg
 import boto3
 from azure.core.exceptions import ResourceNotFoundError
+from dotenv import load_dotenv
+from config import config_table_exclude_from_users_delete
+from config import config_column_ownership_delete
+from config import config_users_delete_retention_day
 from function import func_client_postgres
 from function import func_client_azure_blob
 
 # config
-from config import config_postgres_url_dict
-from config import config_aws_access_key_id
-from config import config_aws_secret_access_key
-from config import config_azure_account_key
-from config import config_azure_account_name
-from config import config_aws_s3_region_name
-from config import config_table_exclude_from_users_delete
-from config import config_column_ownership_delete
-from config import config_users_delete_retention_day
-postgres_url_master = config_postgres_url_dict.get("master")
+load_dotenv(".env")
+config_aws_access_key_id = os.getenv("config_aws_access_key_id")
+config_aws_secret_access_key = os.getenv("config_aws_secret_access_key")
+config_azure_account_key = os.getenv("config_azure_account_key")
+config_azure_account_name = os.getenv("config_azure_account_name")
+config_aws_s3_region_name = os.getenv("config_aws_s3_region_name")
+postgres_url_master = os.getenv("config_postgres_url_master")
 
 # setting
 USERS_DELETE_BATCH_LIMIT = 100

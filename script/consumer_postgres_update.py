@@ -3,7 +3,10 @@
 # info: Listens to message brokers (Redis, RabbitMQ, Kafka, Celery) and processes asynchronous bulk UPDATE operations for PostgreSQL.
 
 # import
+import os
 import sys
+from dotenv import load_dotenv
+from config import config_column_regex
 from function import func_client_postgres
 from function import func_client_password_hasher
 from function import func_run_broker
@@ -11,16 +14,14 @@ from function import func_postgres_update
 from function import func_postgres_schema_read
 
 # config
-from config import config_postgres_url_dict
-from config import config_column_regex
-from config import config_redis_url_dict
-from config import config_rabbitmq_url
-from config import config_celery_url
-from config import config_kafka_url
-from config import config_kafka_username
-from config import config_kafka_password
-postgres_url_master = config_postgres_url_dict.get("master")
-redis_url_queue = config_redis_url_dict.get("queue")
+load_dotenv(".env")
+config_rabbitmq_url = os.getenv("config_rabbitmq_url")
+config_celery_url = os.getenv("config_celery_url")
+config_kafka_url = os.getenv("config_kafka_url")
+config_kafka_username = os.getenv("config_kafka_username")
+config_kafka_password = os.getenv("config_kafka_password")
+postgres_url_master = os.getenv("config_postgres_url_master")
+redis_url_queue = os.getenv("config_redis_url_queue")
 
 # setting
 CHANNEL = "func_postgres_update"

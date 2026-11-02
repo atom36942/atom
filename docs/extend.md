@@ -308,11 +308,14 @@ Every script has the same sections, in this order, so anyone can see at a glance
 import argparse
 import asyncio
 import os
+from dotenv import load_dotenv
+from config import config_buffer_limit_default                      # settings with a default in code come from config.py
 from function import func_client_postgres
 
 # config
-from config import config_postgres_url_dict                         # Atom settings, from config.py / .env
-warehouse_url = os.getenv("WAREHOUSE_URL")                          # or the environment, for a script that stands alone
+load_dotenv(".env")                                                 # only what differs per machine, by its exact .env key
+postgres_url_master = os.getenv("config_postgres_url_master")
+postgres_url_warehouse = os.getenv("config_postgres_url_warehouse")
 
 # setting
 BATCH_SIZE = 500
@@ -332,11 +335,11 @@ async def batch_copy(*, warehouse_url: str, rows: list, dry_run: bool) -> int:
 
 async def main():
     args = args_read()
-    pool = await func_client_postgres(dsn=config_postgres_url_dict["master"], min_size=1, max_size=2)
+    pool = await func_client_postgres(dsn=postgres_url_master, min_size=1, max_size=2)
     try:
         while True:
-            rows = await batch_fetch(pool=pool, batch_size=BATCH_SIZE)
-            copied = await batch_copy(warehouse_url=warehouse_url, rows=rows, dry_run=args.dry_run)
+            rows = await batch_fetch(pool=pool, batch_size=min(BATCH_SIZE, config_buffer_limit_default))
+            copied = await batch_copy(warehouse_url=postgres_url_warehouse, rows=rows, dry_run=args.dry_run)
             print(f"copied {copied}")
             await asyncio.sleep(POLL_INTERVAL_SEC)
     finally:
@@ -347,7 +350,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-`# config` holds only values from `config.py` or the environment (`from config import ...`, `os.getenv(...)`), read only there; `# setting` holds values hard-coded in the file (UPPER_CASE). Command-line flags are read in `# logic` (an `args_read()` helper called by `main()`). Keep every section, even an empty one.
+`# import` holds packages and project code, including settings that have a default in code (`from config import ...`); `# config` holds only what differs per machine, read from `.env` by its exact key (`load_dotenv(".env")`, then `os.getenv("<key>")`), and the script's `# script.<name>` section in `.env` lists the same keys (see [config.md](config.md#layout)); `# setting` holds values hard-coded in the file (UPPER_CASE). Command-line flags are read in `# logic` (an `args_read()` helper called by `main()`). Keep every section, even an empty one.
 
 In `# logic`, write one small helper per step, named `noun_verb`, with keyword-only arguments; pass `# config` values in as arguments (`# setting` constants can be read directly). `main()` comes last and reads like a list of steps: read the config, open clients, call the helpers, close the clients in `finally`. Keep it short (Atom's own scripts keep it under 30 lines) and don't define functions inside it.
 

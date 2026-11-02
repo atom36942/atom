@@ -55,16 +55,19 @@ config_token_secret_key=your-secret-key-at-least-32-chars
 # extend
 config_payment_gateway_url=https://payments.example.com
 
-# script.clickhouse_refresh
-config_clickhouse_refresh_postgres_url=postgresql://user:pass@host:5432/source
-config_clickhouse_refresh_clickhouse_url=clickhouse://user:pass@host:8443/target
+# script.report_export
+# config_postgres_url_master=postgresql://postgres:postgres@localhost:5432/postgres
+# config_postgres_url_warehouse=postgresql://user:pass@host:5432/warehouse
+config_partner_api_key=your-partner-key
 ```
 
 - `# atom`: Atom's keys the backend (`python main.py` or `uvicorn main:app`) uses.
 - `# extend`: the project's own keys the backend uses.
-- `# script.<name>`: one per script in `script_extend/` (`<name>` without `.py`), holding keys only that script uses.
+- `# script.<name>`: one per script in `script_extend/` (`<name>` without `.py`), listing every key that script reads, under Atom's plain names, so pasting the section alone runs the script on another machine.
 
-The sections are only comments: the backend and every script load the whole file. So each key appears once (a repeated key silently takes the last value), and a script reads keys it shares with the backend from `# atom` or `# extend`. A database only a script uses is named `config_<script>_<db>_url` and read with `os.getenv("config_<script>_<db>_url", "")` after `import config` (which loads `.env`; the key is missing wherever the script doesn't run, so `from config import` would fail there): a `config_<db>_url_<name>` line, in any section, makes the backend open a pool to it at startup, and startup fails when that database can't be reached.
+The sections are only comments: the backend and every script load the whole file, and a repeated key silently takes the last value. So in a script section, a key the backend also has is copied commented out (an active copy would change the backend's value), and so is every `config_<db>_url_<name>` line (an active one makes the backend open a pool to that database at startup, and startup fails when it can't be reached); uncomment them where only the script runs. The script's other keys stay active.
+
+A script reads these values in its `# config` section with `load_dotenv(".env")` and `os.getenv("<exact key>")`, so the names in the script and in `.env` match. Settings that have a default in code (`config_column_regex`, buffer limits) are imported in `# import` with `from config import ...`.
 
 ### Accessing in Routes:
 ```python

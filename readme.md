@@ -49,7 +49,7 @@ config_redis_url_ratelimiter=redis://localhost:6379/0
 config_redis_url_queue=redis://localhost:6379/0
 ```
 
-Layout: `# atom` (Atom's keys), `# extend` (the project's keys), then `# script.<name>` for keys only one script uses. Each key appears once, and a database only a script uses is named `config_<script>_<db>_url` so the app doesn't connect to it.
+Layout: `# atom` (Atom's keys), `# extend` (the project's keys), then `# script.<name>` listing every key one script reads; keys the backend also has, and database URLs, are copied there commented out.
 
 Details: [docs/config.md](docs/config.md)
 

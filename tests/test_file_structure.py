@@ -83,15 +83,13 @@ class FileStructureTests(unittest.TestCase):
                 blank = [token.start[0] for token in tokens(path) if token.type == tokenize.NL and not token.line.strip() and first <= token.start[0] < last]    # blank lines inside strings make no NL token
                 with self.subTest(script=path.name, section=name): self.assertEqual(blank, [])
 
-    def test_script_config_reads_only_config_and_env(self):
+    def test_script_config_reads_only_env(self):
         def is_env_read(node):
             return any(isinstance(call, ast.Call) and ast.unparse(call.func) in ("os.getenv", "os.environ.get", "load_dotenv") for call in ast.walk(node))
-        def is_url_pick(node):    # one database picked by name: postgres_url_master = config_postgres_url_dict.get("master")
-            return isinstance(node, ast.Assign) and isinstance(node.value, ast.Call) and re.fullmatch(r"config_\w+_url_dict\.get", ast.unparse(node.value.func)) is not None
         for path in SCRIPT_PATHS:
             body = ast.parse(section_body(path, "config")).body
-            other = [ast.unparse(node)[:60] for node in body if not ((isinstance(node, ast.ImportFrom) and node.module == "config") or (isinstance(node, (ast.Assign, ast.Expr)) and is_env_read(node)) or is_url_pick(node))]
-            with self.subTest(script=path.name): self.assertEqual(other, [], "# config holds only from config import ... and env reads; CLI flags and the rest go in # logic")
+            other = [ast.unparse(node)[:60] for node in body if not (isinstance(node, (ast.Assign, ast.Expr)) and is_env_read(node))]
+            with self.subTest(script=path.name): self.assertEqual(other, [], "# config holds only load_dotenv and os.getenv reads of .env keys; config.py settings are imported in # import")
 
     def test_script_main_only_starts_main(self):
         for path in SCRIPT_PATHS:
