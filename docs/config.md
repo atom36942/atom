@@ -64,7 +64,7 @@ config_clickhouse_refresh_clickhouse_url=clickhouse://user:pass@host:8443/target
 - `# extend`: the project's own keys the backend uses.
 - `# script.<name>`: one per script in `script_extend/` (`<name>` without `.py`), holding keys only that script uses.
 
-The sections are only comments: the backend and every script load the whole file. So each key appears once (a repeated key silently takes the last value), and a script reads keys it shares with the backend from `# atom` or `# extend`. A database only a script uses is named `config_<script>_<db>_url` and read with `from config import config_<script>_<db>_url`: a `config_<db>_url_<name>` line, in any section, makes the backend open a pool to it at startup, and startup fails when that database can't be reached.
+The sections are only comments: the backend and every script load the whole file. So each key appears once (a repeated key silently takes the last value), and a script reads keys it shares with the backend from `# atom` or `# extend`. A database only a script uses is named `config_<script>_<db>_url` and read with `os.getenv("config_<script>_<db>_url", "")` after `import config` (which loads `.env`; the key is missing wherever the script doesn't run, so `from config import` would fail there): a `config_<db>_url_<name>` line, in any section, makes the backend open a pool to it at startup, and startup fails when that database can't be reached.
 
 ### Accessing in Routes:
 ```python
