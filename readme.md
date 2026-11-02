@@ -49,7 +49,7 @@ config_redis_url_ratelimiter=redis://localhost:6379/0
 config_redis_url_queue=redis://localhost:6379/0
 ```
 
-Layout: `# atom` (Atom's keys), `# extend` (the project's keys), then `# script.<name>` listing every key one script reads; keys the backend also has, and database URLs, are copied there commented out.
+Layout: `# atom` (Atom's keys), `# extend` (the project's keys), then `# script.<name>` listing every key one script reads, all commented out until a developer runs that script.
 
 Details: [docs/config.md](docs/config.md)
 

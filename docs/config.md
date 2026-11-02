@@ -58,14 +58,14 @@ config_payment_gateway_url=https://payments.example.com
 # script.report_export
 # config_postgres_url_master=postgresql://postgres:postgres@localhost:5432/postgres
 # config_postgres_url_warehouse=postgresql://user:pass@host:5432/warehouse
-config_partner_api_key=your-partner-key
+# config_partner_api_key=your-partner-key
 ```
 
 - `# atom`: Atom's keys the backend (`python main.py` or `uvicorn main:app`) uses.
 - `# extend`: the project's own keys the backend uses.
 - `# script.<name>`: one per script in `script_extend/` (`<name>` without `.py`), listing every key that script reads, under Atom's plain names, so pasting the section alone runs the script on another machine.
 
-The sections are only comments: the backend and every script load the whole file, and a repeated key silently takes the last value. So in a script section, a key the backend also has is copied commented out (an active copy would change the backend's value), and so is every `config_<db>_url_<name>` line (an active one makes the backend open a pool to that database at startup, and startup fails when it can't be reached); uncomment them where only the script runs. The script's other keys stay active.
+The sections are only comments: the backend and every script load the whole file, and a repeated key silently takes the last value. So `# atom` and `# extend` are active, and every line in a `# script.<name>` section is commented out; a developer uncomments the section where the script runs. An active copy of a backend key would change the backend's value, and an active `config_<db>_url_<name>` line makes the backend open a pool to that database at startup (startup fails when it can't be reached).
 
 A script reads these values in its `# config` section with `load_dotenv(".env")` and `os.getenv("<exact key>")`, so the names in the script and in `.env` match. Settings that have a default in code (`config_column_regex`, buffer limits) are imported in `# import` with `from config import ...`.
 
