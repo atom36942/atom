@@ -1,4 +1,5 @@
 # import
+from contextlib import asynccontextmanager
 from contextlib import suppress
 import asyncpg
 import httpx
@@ -16,11 +17,21 @@ def func_client_http():
     return httpx.AsyncClient()
 
 async def func_client_postgres(*, dsn: str, min_size: int = 5, max_size: int = 20, is_read_only: bool = False):
-    """Initialize a single asyncpg Postgres connection pool."""
+    """Initialize a single asyncpg Postgres connection pool. A released connection skips asyncpg's reset query (RESET ALL, UNLISTEN, unlock): Atom's code leaves no session state, an open transaction is still rolled back, and SQL someone typed runs through func_postgres_acquire_clean, so each request saves a round trip."""
     if not dsn: return None
-    pool_kwargs = {"min_size": min_size, "max_size": max_size}
+    async def keep_session(conn): return None
+    pool_kwargs = {"min_size": min_size, "max_size": max_size, "reset": keep_session}
     if is_read_only: pool_kwargs["server_settings"] = {"default_transaction_read_only": "on"}
     return await asyncpg.create_pool(dsn=dsn, **pool_kwargs)
+
+@asynccontextmanager
+async def func_postgres_acquire_clean(*, client_postgres: asyncpg.Pool):
+    """Borrow a pool connection for SQL someone typed (query runners, pgweb): its session (SET, SET ROLE, advisory locks, LISTEN) is reset before it goes back, and a connection that cannot be reset is closed."""
+    async with client_postgres.acquire() as conn:
+        try: yield conn
+        finally:
+            try: await conn.reset(timeout=5)
+            except Exception: conn.terminate()
 
 def func_client_redis(*, url: str):
     """Initialize a single Redis connection pool."""

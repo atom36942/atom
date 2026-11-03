@@ -13,6 +13,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.responses import StreamingResponse
 from .clients import func_client_postgres
+from .clients import func_postgres_acquire_clean
 from .middleware import func_api_error
 
 # function
@@ -358,7 +359,7 @@ async def func_pgweb_query(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool =
     """Execute query-runner SQL with write guards and optional read-only mode."""
     func_pgweb_write_check(sql=sql, is_confirmed=is_confirmed, is_read_only=is_read_only)
     result_limit = 10000
-    async with pool.acquire() as conn:
+    async with func_postgres_acquire_clean(client_postgres=pool) as conn:
         backend_pid = await conn.fetchval("SELECT pg_backend_pid()", timeout=timeout_sec)
         if query_id and active_queries is not None: active_queries[query_id] = backend_pid
         try:
@@ -384,7 +385,7 @@ async def func_pgweb_query(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool =
 async def func_pgweb_stream(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool = False, is_read_only: bool = False, timeout_sec: int = 300) -> Any:
     """Stream every row returned by one query as CSV without buffering the result set."""
     func_pgweb_write_check(sql=sql, is_confirmed=is_confirmed, is_read_only=is_read_only)
-    async with pool.acquire() as conn:
+    async with func_postgres_acquire_clean(client_postgres=pool) as conn:
         try: statement = await conn.prepare(sql, timeout=timeout_sec)
         except Exception as exc:
             if "multiple commands" in str(exc).lower(): raise Exception("stream supports one row-returning statement") from exc
@@ -393,7 +394,7 @@ async def func_pgweb_stream(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool 
     if not columns: raise Exception("query returned no downloadable rows")
 
     async def _iter():
-        async with pool.acquire() as conn:
+        async with func_postgres_acquire_clean(client_postgres=pool) as conn:
             async with conn.transaction(readonly=bool(is_read_only)):
                 await conn.execute(f"SET LOCAL statement_timeout = '{int(timeout_sec) * 1000}ms'")
                 statement = await conn.prepare(sql, timeout=timeout_sec)

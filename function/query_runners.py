@@ -6,6 +6,7 @@ import json
 import re
 from typing import Any
 import asyncpg
+from .clients import func_postgres_acquire_clean
 from .middleware import func_api_error
 from .postgres_metadata import func_postgres_schema_ai_view
 from .postgres_metadata import func_postgres_schema_read
@@ -251,7 +252,7 @@ async def func_postgres_query_runner_read(*, client_postgres: asyncpg.Pool | Non
     if not sql.lower().lstrip("(").strip().startswith(("select", "with")): raise Exception("Only SELECT/WITH queries are supported")
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     timeout_sec = 30
-    async with client_postgres.acquire() as conn:
+    async with func_postgres_acquire_clean(client_postgres=client_postgres) as conn:
         async with conn.transaction(readonly=True):
             await conn.execute(f"SET LOCAL statement_timeout = '{timeout_sec * 1000}ms'")
             stmt = await conn.prepare(f"SELECT * FROM ({sql}) AS postgres_query LIMIT $1")  # noqa: S608 - admin SQL runner by design, read-only transaction
@@ -267,7 +268,7 @@ async def func_postgres_query_runner_read_export(*, client_postgres: asyncpg.Poo
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     timeout_sec = 30
     async def _iter():
-        async with client_postgres.acquire() as conn:
+        async with func_postgres_acquire_clean(client_postgres=client_postgres) as conn:
             async with conn.transaction(readonly=True):
                 await conn.execute(f"SET LOCAL statement_timeout = '{timeout_sec * 1000}ms'")
                 stmt = await conn.prepare(f"SELECT * FROM ({sql}) AS postgres_query LIMIT $1")  # noqa: S608 - admin SQL runner by design, read-only transaction
@@ -289,7 +290,7 @@ async def func_postgres_query_runner_write(*, client_postgres: asyncpg.Pool | No
     ql = sql.lower().strip().lstrip("(").strip()
     if ql.startswith(("select", "with", "explain", "show", "describe")): raise Exception("read SQL must use /admin/postgres-query-runner-read")
     if "returning" in ql: raise Exception("RETURNING is not allowed in write mode")
-    async with client_postgres.acquire() as conn:
+    async with func_postgres_acquire_clean(client_postgres=client_postgres) as conn:
         result = await conn.execute(sql, timeout=15)
     return result
 

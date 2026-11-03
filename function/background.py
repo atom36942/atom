@@ -78,7 +78,9 @@ async def func_postgres_advisory_lock(*, client_postgres: asyncpg.Pool, lock_id:
     async with client_postgres.acquire(timeout=30) as conn:
         await conn.execute("SELECT pg_advisory_lock(1096044365, $1)", lock_id)
         try: yield
-        finally: await conn.execute("SELECT pg_advisory_unlock(1096044365, $1)", lock_id, timeout=5)
+        finally:
+            try: await conn.execute("SELECT pg_advisory_unlock(1096044365, $1)", lock_id, timeout=5)
+            except Exception: conn.terminate()    # pools skip the reset query, so a lock that cannot be released ends with its session
 
 async def func_cleanup_periodic_task(*, client_postgres: asyncpg.Pool, retention_day: int | None, cleanup, lock_id: int, runtime_error_count: dict) -> None:
     """Run a fixed-table cleanup hourly, with a 30-second budget per run."""
@@ -98,7 +100,8 @@ async def func_cleanup_periodic_task(*, client_postgres: asyncpg.Pool, retention
                         if deleted < 5000: break
                         await asyncio.sleep(0.1)
                 finally:
-                    await conn.execute("SELECT pg_advisory_unlock(1096044365, $1)", lock_id, timeout=5)
+                    try: await conn.execute("SELECT pg_advisory_unlock(1096044365, $1)", lock_id, timeout=5)
+                    except Exception: conn.terminate()    # pools skip the reset query, so a lock that cannot be released ends with its session
         except asyncio.CancelledError: break
         except Exception as e: func_runtime_error_record(runtime_error_count=runtime_error_count, key="cleanup", error=e)
 
