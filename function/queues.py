@@ -8,7 +8,12 @@ from datetime import UTC
 from itertools import count
 from typing import Any
 import orjson
+from .clients import func_client_password_hasher
+from .clients import func_client_postgres
 from .middleware import func_api_error
+from .postgres_crud import func_postgres_create
+from .postgres_crud import func_postgres_update
+from .postgres_metadata import func_postgres_schema_read
 
 # function
 async def func_producer(*, queue: str, client_celery_producer: Any, client_kafka_producer: Any, client_rabbitmq_producer: Any, client_redis_producer: Any, channel: str, payload: dict) -> Any:
@@ -158,3 +163,29 @@ def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_ca
     except Exception as e:
         print(f"critical error: {str(e)}")
         sys.exit(1)
+
+async def func_consumer_object_create(*, payload: dict, context: dict) -> Any:
+    """Channel channel_object_create: the rows POST /my/object-create?queue=... sent."""
+    table = payload.get("table")
+    return await func_postgres_create(client_postgres=context["client_postgres"], client_postgres_conn=None, client_password_hasher=context["client_password_hasher"], cache_postgres_schema=context["cache_postgres_schema"], buffer_postgres=context["buffer_postgres_create"], buffer_rows_max=context["config_buffer_rows_max"], buffer_full_mode="reject", config_column_regex=context["config_column_regex"], buffer_limit=context["config_table"].get(table, {}).get("buffer_limit", context["config_buffer_limit_default"]), mode=payload.get("mode", "now"), table=table, obj_list=payload.get("obj_list"))
+
+async def func_consumer_object_update(*, payload: dict, context: dict) -> Any:
+    """Channel channel_object_update: the rows PUT /my/object-update?queue=... sent."""
+    return await func_postgres_update(client_postgres=context["client_postgres"], client_postgres_conn=None, client_password_hasher=context["client_password_hasher"], cache_postgres_schema=context["cache_postgres_schema"], config_column_regex=context["config_column_regex"], table=payload.get("table"), obj_list=payload.get("obj_list"), created_by_id=payload.get("created_by_id"), ownership_column=payload.get("ownership_column", "created_by_id"))
+
+def func_consumer_channels() -> dict:
+    """The only place a channel name maps to the function that handles its messages; producers send on these names."""
+    return {"channel_object_create": func_consumer_object_create, "channel_object_update": func_consumer_object_update}
+
+def func_consumer_run(*, queue: str, channel: str, broker_settings: dict, postgres_url: str, config_column_regex: dict, config_table: dict, config_buffer_limit_default: int, config_buffer_rows_max: int):
+    """Runs one consumer process: listens on channel through queue and hands each message to that channel's function."""
+    handler = func_consumer_channels().get(channel)
+    if not handler: raise Exception(f"unknown channel: {channel}; use one of {', '.join(func_consumer_channels())}")
+    if not postgres_url: raise Exception("consumer needs config_postgres_url_master: set it in .env")
+    async def setup():
+        client_postgres = await func_client_postgres(dsn=postgres_url, min_size=1, max_size=5)
+        context = {"client_postgres": client_postgres, "client_password_hasher": func_client_password_hasher(), "cache_postgres_schema": await func_postgres_schema_read(client_postgres=client_postgres), "buffer_postgres_create": {}, "config_column_regex": config_column_regex, "config_table": config_table, "config_buffer_limit_default": config_buffer_limit_default, "config_buffer_rows_max": config_buffer_rows_max}
+        return client_postgres, context    # func_run_broker closes the first item on exit
+    async def execute(payload, client_postgres, context):
+        return await handler(payload=payload, context=context)
+    func_run_broker(queue=queue, channel=channel, broker_settings=broker_settings, setup_callback=setup, execute_callback=execute)

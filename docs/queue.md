@@ -44,18 +44,28 @@ For lighter asynchronous tasks that don't need external queue broker infrastruct
 Standalone consumer scripts reside in [`script/`](../script). They run as independent OS processes outside of the web server.
 
 ### Built-in Consumers:
-Atom's `script/` has consumers that run batch `func_postgres_create` and `func_postgres_update` on queued payloads.
+Atom's `script/` has one consumer per broker: `consumer_redis`, `consumer_rabbitmq`, `consumer_kafka`, `consumer_celery`. Each reads only its own broker's `.env` keys plus `config_postgres_url_master`, and takes the channel to listen on from the command.
 
-### Unified Broker Runner (`func_run_broker`):
-Consumers use `func_run_broker` to provide a single unified interface across all four message brokers:
+### Channels:
+`func_consumer_channels` (`function/queues.py`) is the only place a channel name maps to the function that handles it. Channel names start with `channel_` and say what the message does:
+
+| Channel | Sent by | Handled by |
+|---|---|---|
+| `channel_object_create` | `POST /my/object-create?queue=...` | `func_consumer_object_create` (`func_postgres_create`) |
+| `channel_object_update` | `PUT /my/object-update?queue=...` | `func_consumer_object_update` (`func_postgres_update`) |
+
+A new channel is one `func_consumer_<name>(*, payload, context)` plus one line in `func_consumer_channels`; every broker script then supports it. A project's own consumer goes in `script_extend/` and calls `func_run_broker` with its own function.
+
+### Consumer Runner (`func_consumer_run`):
+Each broker script calls `func_consumer_run`, which checks the channel, opens the Postgres pool, schema cache and password hasher once per process, and runs `func_run_broker`:
 
 ```python
 func_run_broker(
-    queue="redis",                 # redis | rabbitmq | kafka | celery
-    channel="postgres_create",     # topic or stream name
-    broker_settings={...},         # connection credentials
-    setup_callback=init_resources, # runs once (opens db pools, loads schema)
-    execute_callback=process_msg,  # runs per message
+    queue="redis",                   # redis | rabbitmq | kafka | celery
+    channel="channel_object_create", # topic, queue or list name
+    broker_settings={...},           # connection credentials
+    setup_callback=setup,            # runs once (opens db pools, loads schema)
+    execute_callback=execute,        # runs per message
 )
 ```
 
@@ -63,7 +73,7 @@ func_run_broker(
 If a message processing callback raises an unhandled exception, `func_run_broker` appends the failed message, error, and stack trace to `tmp/consumer_failed_payload.jsonl` so no payload is silently lost.
 
 ### Running a Consumer:
-Use the `# command` line at the top of the consumer's file (pick the broker: redis, rabbitmq, kafka, celery).
+One process per broker and channel, for example `venv/bin/python -m script.consumer_redis channel_object_create`. The `# command` lines at the top of each consumer list its channels; the API call's `queue` must match the script's broker.
 
 ---
 

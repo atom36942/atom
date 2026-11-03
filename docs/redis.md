@@ -136,13 +136,13 @@ At startup, configuration validation requires `config_redis_url_ratelimiter` whe
 LPUSH {channel} {payload}
 ```
 
-The worker scripts pass the same queue URL to `func_consumer`. A Redis consumer blocks on:
+`script/consumer_redis.py` reads the same queue URL and passes it to `func_consumer_run`. A Redis consumer blocks on:
 
 ```text
 BRPOP {channel} 0
 ```
 
-Using `LPUSH` with `BRPOP` provides FIFO processing. Current job channels include `func_postgres_create` and `func_postgres_update`.
+Using `LPUSH` with `BRPOP` provides FIFO processing. Current job channels are `channel_object_create` and `channel_object_update` (see `func_consumer_channels`).
 
 Run the corresponding consumer process when Redis queue mode is enabled; otherwise jobs remain in the list. Redis lists in this implementation do not provide acknowledgement or automatic redelivery after a worker removes a job, so use RabbitMQ, Kafka, or another durable workflow when stronger delivery guarantees are required.
 
