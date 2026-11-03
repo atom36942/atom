@@ -8,6 +8,7 @@ def database():
     conn.fetch = AsyncMock(return_value=[])
     conn.fetchval = AsyncMock(return_value=0)
     conn.execute = AsyncMock(return_value="DELETE 0")
+    conn.is_in_transaction = MagicMock(return_value=False)
     transaction = MagicMock()
     transaction.__aexit__.return_value = False
     conn.transaction.return_value = transaction

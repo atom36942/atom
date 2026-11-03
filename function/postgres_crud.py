@@ -447,12 +447,16 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
             cast_list = ",".join(cast_parts)
             all_ids = []
             async def _execute_bulk(connection):
-                async with connection.transaction():
+                async def insert_chunks():
                     for i in range(0, len(serialized_list), limit_chunk):
                         batch = serialized_list[i : i + limit_chunk]
                         sql = f'INSERT INTO "{tbl}" ({col_list}) SELECT {cast_list} FROM jsonb_to_recordset($1::jsonb) AS x({def_list}) RETURNING id'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
                         ids_batch = await connection.fetch(sql, orjson.dumps(batch, default=str).decode('utf-8'))
                         all_ids.extend([dict(r) for r in ids_batch])
+                # one INSERT is all-or-nothing by itself; a transaction only when several chunks must succeed together and none is open yet
+                if len(serialized_list) > limit_chunk and not connection.is_in_transaction():
+                    async with connection.transaction(): await insert_chunks()
+                else: await insert_chunks()
             if connection:
                 await _execute_bulk(connection)
             elif client_postgres_conn:
@@ -517,10 +521,14 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
     if mode == "now":
         all_ids = []
         async def _execute_now(connection):
-            async with connection.transaction():
+            async def insert_batches():
                 async for serialized_list in serialize_batches():
                     ids = await insert_serialized(table, serialized_list, connection=connection)
                     if isinstance(ids, list): all_ids.extend(ids)
+            # up to limit_chunk rows is one INSERT, all-or-nothing by itself: no BEGIN/COMMIT round trips
+            if len(obj_list) > limit_chunk and not connection.is_in_transaction():
+                async with connection.transaction(): await insert_batches()
+            else: await insert_batches()
             return all_ids if all_ids else "created"
         if client_postgres_conn:
             return await _execute_now(client_postgres_conn)

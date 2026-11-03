@@ -141,6 +141,14 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await delete(1), 1)
         self.assertEqual(await self.titles(), ["beta", "renamed"])
 
+    async def test_a_failed_create_saves_no_row(self):
+        before = await self.pool.fetchval("SELECT count(*) FROM test")
+        for rows in ([{"title": f"t{i}", "created_by_id": 1} for i in range(9)] + [{"title": None, "created_by_id": 1}],    # one INSERT, no transaction
+                     [{"title": f"t{i}", "created_by_id": 1} for i in range(5000)] + [{"title": None, "created_by_id": 1}]):    # two INSERTs in one transaction
+            with self.subTest(rows=len(rows)), self.assertRaises(asyncpg.NotNullViolationError):
+                await self.create("test", rows)
+        self.assertEqual(await self.pool.fetchval("SELECT count(*) FROM test"), before)
+
     async def test_update_many_rows_keeps_each_value_and_type(self):
         ids = await self.create("test", [{"title": f"t{i}", "created_by_id": 1} for i in range(1500)])
         update = lambda rows: func_postgres_update(client_postgres=self.pool, client_postgres_conn=None, client_password_hasher=HASHER,

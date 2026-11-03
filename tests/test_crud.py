@@ -60,13 +60,24 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
                 await self.create(**changes)
         self.conn.fetch.assert_not_awaited()
 
-    async def test_create_database_failure_exits_transaction_with_error(self):
+    async def test_create_of_one_statement_sends_no_transaction(self):
+        self.conn.fetch.return_value = [{"id": i} for i in range(1, 11)]
+        await self.create(obj_list=[{"name": f"n{i}", "created_by_id": 7} for i in range(10)])
+        self.conn.transaction.assert_not_called()    # one INSERT is all-or-nothing by itself: no BEGIN, SAVEPOINT or COMMIT round trips
+        self.assertEqual(self.conn.fetch.await_count, 1)
+
+    async def test_create_database_failure_raises_and_releases_the_connection(self):
         self.conn.fetch.side_effect = RuntimeError("database write failed")
         with self.assertRaisesRegex(RuntimeError, "database write failed"):
             await self.create()
-        exit_args = self.conn.transaction.return_value.__aexit__.await_args.args
-        self.assertIs(exit_args[0], RuntimeError)
         self.pool.acquire.return_value.__aexit__.assert_awaited_once()
+
+    async def test_create_over_one_statement_runs_in_one_transaction_that_rolls_back(self):
+        self.conn.fetch.side_effect = [[{"id": 1}] * 5000, RuntimeError("database write failed")]
+        with self.assertRaisesRegex(RuntimeError, "database write failed"):
+            await self.create(obj_list=[{"name": "n", "created_by_id": 7} for _ in range(5001)])
+        self.conn.transaction.assert_called_once()
+        self.assertIs(self.conn.transaction.return_value.__aexit__.await_args.args[0], RuntimeError)
 
     async def test_buffered_create_does_not_write_until_flush(self):
         buffer = {}
