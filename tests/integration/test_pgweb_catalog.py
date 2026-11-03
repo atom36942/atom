@@ -6,7 +6,7 @@ import asyncpg
 
 from function.pgweb import func_pgweb_catalog
 from function.pgweb import func_pgweb_info
-from function.pgweb import func_pgweb_tree
+from function.pgweb import func_pgweb_schema
 from tests.integration.support import create_database
 from tests.integration.support import drop_database
 from tests.integration.support import fetch
@@ -61,7 +61,7 @@ class PgwebCatalogTests(unittest.TestCase):
         self.assertEqual([row["name"] for row in functions["rows"]], ["touch"])
         routines = self.run_on_pool(lambda pool: func_pgweb_catalog(pool=pool, kind="extension_routines"))
         self.assertEqual({row["extension"] for row in routines["rows"]}, {"pg_trgm"})
-        tree = self.run_on_pool(lambda pool: func_pgweb_tree(pool=pool))
+        tree = self.run_on_pool(lambda pool: func_pgweb_schema(pool=pool))["tree"]
         self.assertEqual(tree["public"], {"table": [{"name": "child"}, {"name": "parent"}], "view": [{"name": "child_view"}], "materialized_view": [{"name": "parent_mv"}]})
 
     def test_unknown_catalog_is_refused(self):

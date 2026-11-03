@@ -1,4 +1,5 @@
 # import
+import asyncio
 import csv
 import io
 import time
@@ -89,31 +90,47 @@ async def func_pgweb_column_type(*, pool: asyncpg.Pool, table: str, column: str,
     """Full type of a public table's column (e.g. numeric(10,2)), or None when the column does not exist."""
     return await pool.fetchval("SELECT format_type(atttypid, atttypmod) FROM pg_attribute WHERE attrelid = $1::regclass AND attname = $2 AND attnum > 0 AND NOT attisdropped", f"public.{table}", column, timeout=timeout_sec)
 
-async def func_pgweb_tree(*, pool: asyncpg.Pool, timeout_sec: int = 30) -> dict:
-    """Read non-extension top-level tables, views, and materialized views in the public schema."""
+def func_pgweb_latest_first(*, pk: str, pk_type: str) -> bool:
+    """A table keyed by an integer id opens newest first."""
+    return bool(pk == "id" and any(kind in str(pk_type or "").lower() for kind in ("smallint", "integer", "bigint", "smallserial", "serial", "bigserial")))
+
+async def func_pgweb_schema(*, pool: asyncpg.Pool, cache_table: dict = None, timeout_sec: int = 30) -> dict:
+    """Database name, server version and the public tree (non-extension tables, views, materialized views) in one query; each table's single-column primary key goes into cache_table, so opening it reads its rows and columns at the same time."""
     records = await pool.fetch("""
-        SELECT n.nspname AS schema_name, c.relname AS name,
-               CASE
-                 WHEN c.relkind IN ('r','p') THEN 'table'
-                 WHEN c.relkind = 'v' THEN 'view'
-                 WHEN c.relkind = 'm' THEN 'materialized_view'
-               END AS kind
-        FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE c.relkind IN ('r','p','v','m') AND n.nspname = 'public' AND NOT c.relispartition
-          AND (c.oid, 'pg_class'::regclass) NOT IN (SELECT objid, classid FROM pg_depend WHERE deptype = 'e')
-        ORDER BY n.nspname, c.relname""", timeout=timeout_sec)
-    tree = {}
-    for row in records: tree.setdefault(row["schema_name"], {}).setdefault(row["kind"], []).append({"name": row["name"]})
-    return tree
+        SELECT current_database() AS database, version() AS version, t.*
+        FROM (SELECT 1) one LEFT JOIN (
+          SELECT n.nspname AS schema_name, c.relname AS name,
+                 CASE
+                   WHEN c.relkind IN ('r','p') THEN 'table'
+                   WHEN c.relkind = 'v' THEN 'view'
+                   WHEN c.relkind = 'm' THEN 'materialized_view'
+                 END AS kind,
+                 k.attname AS pk, format_type(k.atttypid, k.atttypmod) AS pk_type
+          FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+          LEFT JOIN LATERAL (SELECT a.attname, a.atttypid, a.atttypmod FROM pg_index i JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = i.indkey[0]
+                             WHERE i.indrelid = c.oid AND i.indisprimary AND i.indnkeyatts = 1) k ON true
+          WHERE c.relkind IN ('r','p','v','m') AND n.nspname = 'public' AND NOT c.relispartition
+            AND (c.oid, 'pg_class'::regclass) NOT IN (SELECT objid, classid FROM pg_depend WHERE deptype = 'e')
+        ) t ON true
+        ORDER BY t.schema_name, t.name""", timeout=timeout_sec)
+    tree, keys = {}, {}
+    for row in records:
+        if row["name"] is None: continue    # no tables: the one row only carries the database name
+        tree.setdefault(row["schema_name"], {}).setdefault(row["kind"], []).append({"name": row["name"]})
+        keys[row["name"]] = {"pk": row["pk"], "latest_first": func_pgweb_latest_first(pk=row["pk"], pk_type=row["pk_type"])}
+    if cache_table is not None:
+        cache_table.clear()
+        cache_table.update(keys)
+    return {"tree": tree, "database": records[0]["database"], "version": records[0]["version"].split(" on ")[0]}
 
 async def func_pgweb_connect(*, client_postgres_pgweb: dict, dsn: str = None, timeout_sec: int = 30) -> dict:
-    """Create and register the pgweb connection pool."""
+    """Create and register the pgweb connection pool; two connections are kept open, so a table's columns and rows are read at the same time."""
     if not dsn: raise Exception("dsn is required")
-    pool = await func_client_postgres(dsn=dsn, min_size=1, max_size=4)
+    pool = await func_client_postgres(dsn=dsn, min_size=2, max_size=4)
     if not pool: raise Exception("could not connect")
+    cache_table = {}
     try:
-        info = await pool.fetchrow("SELECT current_database() AS db, version() AS version", timeout=timeout_sec)
-        tree = await func_pgweb_tree(pool=pool, timeout_sec=timeout_sec)
+        schema = await func_pgweb_schema(pool=pool, cache_table=cache_table, timeout_sec=timeout_sec)
     except Exception:
         with suppress(Exception): await pool.close()
         raise
@@ -122,20 +139,18 @@ async def func_pgweb_connect(*, client_postgres_pgweb: dict, dsn: str = None, ti
         with suppress(Exception): await previous.close()
     client_postgres_pgweb["pool"] = pool
     client_postgres_pgweb["connection_url"] = func_pgweb_dsn_safe(dsn)
-    return {"tree": tree, "database": info["db"], "version": info["version"].split(" on ")[0], "connection_url": client_postgres_pgweb["connection_url"]}
+    client_postgres_pgweb["cache_table"] = cache_table
+    return {**schema, "connection_url": client_postgres_pgweb["connection_url"]}
 
 async def func_pgweb_disconnect(*, client_postgres_pgweb: dict) -> dict:
     """Close and remove the pgweb connection pool."""
     pool = client_postgres_pgweb.pop("pool", None)
     client_postgres_pgweb.pop("connection_url", None)
     client_postgres_pgweb.pop("active_queries", None)
+    client_postgres_pgweb.pop("cache_table", None)
     if pool:
         with suppress(Exception): await pool.close()
     return {}
-
-async def func_pgweb_schema(*, pool: asyncpg.Pool, timeout_sec: int = 30) -> dict:
-    """Return the current database name and public table tree."""
-    return {"tree": await func_pgweb_tree(pool=pool, timeout_sec=timeout_sec), "database": await pool.fetchval("SELECT current_database()", timeout=timeout_sec)}
 
 async def func_pgweb_info(*, pool: asyncpg.Pool, connection_url: str, timeout_sec: int = 30) -> dict:
     """Return database properties plus user-owned and extension-owned public object counts, in one round trip."""
@@ -292,12 +307,48 @@ async def func_pgweb_catalog(*, pool: asyncpg.Pool, kind: str, timeout_sec: int 
     return {"columns": columns, "rows": [{key: func_pgweb_jsonable(value) for key, value in record.items()} for record in records]}
 
 async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, after: Any = None,
-                          filter_col: str = None, filter_op: str = None, filter_value: Any = None, order: str = None, is_desc: bool = False, pk: str = None, is_meta: bool = False, timeout_sec: int = 30) -> dict:
-    """Read one public table page and optional grid metadata."""
+                          filter_col: str = None, filter_op: str = None, filter_value: Any = None, order: str = None, is_desc: bool = False, pk: str = None, is_meta: bool = False,
+                          cache_table: dict = None, timeout_sec: int = 30) -> dict:
+    """Read one public table page and optional grid metadata. cache_table (one per pgweb connection) keeps each table's key and column types: opening a table reads its columns and rows at the same time, and later pages and filters skip the type lookup."""
     if not table: raise Exception("table is required")
-    limit, meta = max(1, min(int(limit or 1000), 5000)), None
-    if is_meta:
-        catalog = await pool.fetch("""
+    limit = max(1, min(int(limit or 1000), 5000))
+    cache_table = {} if cache_table is None else cache_table
+    async def column_type(column):
+        return (cache_table.get(table) or {}).get("types", {}).get(column) or await func_pgweb_column_type(pool=pool, table=table, column=column, timeout_sec=timeout_sec)
+    async def page(pk, is_desc):
+        args, clauses = [], []
+        if after not in (None, ""):
+            if not pk: raise Exception("keyset paging requires a primary key")
+            pk_type = await column_type(pk)
+            if not pk_type: raise Exception(f"unknown primary key column: {pk}")
+            args.append(str(after))
+            clauses.append(f'{func_pgweb_ident(pk)} {"<" if is_desc else ">"} ($1::text)::{pk_type}')
+        if filter_col:
+            operator = str(filter_op or "=").upper()
+            if operator not in ("=", "<>", ">", "<", ">=", "<=", "LIKE", "ILIKE", "IS NULL", "IS NOT NULL"): raise Exception("invalid filter operator")
+            filter_type = await column_type(filter_col)
+            if not filter_type: raise Exception(f"unknown filter column: {filter_col}")
+            column_sql = func_pgweb_ident(filter_col)
+            if operator.startswith("IS "):
+                clauses.append(f"{column_sql} {operator}")
+            else:
+                args.append("" if filter_value is None else str(filter_value))
+                clauses.append(f"{column_sql} {operator} (${len(args)}::text)::{filter_type}")
+        where_sql = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        order_col = order or pk
+        order_sql = f' ORDER BY {func_pgweb_ident(order_col)}{" DESC" if is_desc else ""}' if order_col else ""
+        started = time.perf_counter()
+        records = await pool.fetch(f"SELECT * FROM {func_pgweb_ident("public", table)}{where_sql}{order_sql} LIMIT {limit + 1}", *args, timeout=timeout_sec)  # noqa: S608 - identifiers via func_pgweb_ident, limit is an integer
+        out = func_pgweb_pack(records[:limit])
+        out["has_more"] = len(records) > limit
+        out["ms"] = round((time.perf_counter() - started) * 1000, 1)    # the page query alone, so the page can explain a slow filter
+        return out
+    if not is_meta: return await page(pk, is_desc)
+    def plan(key):
+        """The key and direction of the first page: a table keyed by an integer id opens newest first."""
+        return (pk or key["pk"], True if key["latest_first"] and not order else is_desc)
+    async def read_catalog():
+        return await pool.fetch("""
             SELECT a.attnum AS position, a.attname AS name, format_type(a.atttypid, a.atttypmod) AS type,
                    NOT a.attnotnull AS nullable,
                    pg_get_expr(d.adbin, d.adrelid) AS default_value,
@@ -316,42 +367,22 @@ async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, 
             FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid
             LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
             WHERE a.attrelid = $1::regclass AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum""", f"public.{table}", timeout=timeout_sec)
-        first_meta = catalog[0] if catalog else None
-        detected_pk = first_meta["pk"] if first_meta else None
-        pk_type = next((str(row["type"]).lower() for row in catalog if row["name"] == detected_pk), "")
-        latest_first = bool(detected_pk == "id" and any(kind in pk_type for kind in ("smallint", "integer", "bigint", "smallserial", "serial", "bigserial")))
-        meta = {"columns": [{k: row[k] for k in ("position", "name", "type", "key_type", "nullable", "default_value", "generated")} for row in catalog],
-                "pk": detected_pk, "latest_first": latest_first,
-                "stats": {"total_size": first_meta["total_size"] if first_meta else "0 bytes"}}
-        pk = pk or meta["pk"]
-        if latest_first and not order: is_desc = True
-    args, clauses = [], []
-    if after not in (None, ""):
-        if not pk: raise Exception("keyset paging requires a primary key")
-        pk_type = await func_pgweb_column_type(pool=pool, table=table, column=pk, timeout_sec=timeout_sec)
-        if not pk_type: raise Exception(f"unknown primary key column: {pk}")
-        args.append(str(after))
-        clauses.append(f'{func_pgweb_ident(pk)} {"<" if is_desc else ">"} ($1::text)::{pk_type}')
-    if filter_col:
-        operator = str(filter_op or "=").upper()
-        if operator not in ("=", "<>", ">", "<", ">=", "<=", "LIKE", "ILIKE", "IS NULL", "IS NOT NULL"): raise Exception("invalid filter operator")
-        column_type = await func_pgweb_column_type(pool=pool, table=table, column=filter_col, timeout_sec=timeout_sec)
-        if not column_type: raise Exception(f"unknown filter column: {filter_col}")
-        column_sql = func_pgweb_ident(filter_col)
-        if operator.startswith("IS "):
-            clauses.append(f"{column_sql} {operator}")
-        else:
-            args.append("" if filter_value is None else str(filter_value))
-            clauses.append(f"{column_sql} {operator} (${len(args)}::text)::{column_type}")
-    where_sql = (" WHERE " + " AND ".join(clauses)) if clauses else ""
-    order_col = order or pk
-    order_sql = f' ORDER BY {func_pgweb_ident(order_col)}{" DESC" if is_desc else ""}' if order_col else ""
-    started = time.perf_counter()
-    records = await pool.fetch(f"SELECT * FROM {func_pgweb_ident("public", table)}{where_sql}{order_sql} LIMIT {limit + 1}", *args, timeout=timeout_sec)  # noqa: S608 - identifiers via func_pgweb_ident, limit is an integer
-    out = func_pgweb_pack(records[:limit])
-    out["has_more"] = len(records) > limit
-    out["ms"] = round((time.perf_counter() - started) * 1000, 1)    # the page query alone, so the page can explain a slow filter
-    if meta is not None: out["meta"] = meta
+    known = cache_table.get(table)
+    guess = plan(known) if known else None
+    if guess:
+        catalog, out = await asyncio.gather(read_catalog(), page(*guess), return_exceptions=True)
+        if isinstance(catalog, BaseException): raise catalog
+    else:
+        catalog, out = await read_catalog(), None
+    first_meta = catalog[0] if catalog else None
+    detected_pk = first_meta["pk"] if first_meta else None
+    pk_type = next((row["type"] for row in catalog if row["name"] == detected_pk), "")
+    meta = {"columns": [{k: row[k] for k in ("position", "name", "type", "key_type", "nullable", "default_value", "generated")} for row in catalog],
+            "pk": detected_pk, "latest_first": func_pgweb_latest_first(pk=detected_pk, pk_type=pk_type),
+            "stats": {"total_size": first_meta["total_size"] if first_meta else "0 bytes"}}
+    cache_table[table] = {"pk": meta["pk"], "latest_first": meta["latest_first"], "types": {row["name"]: row["type"] for row in catalog}}
+    if plan(meta) != guess or isinstance(out, BaseException): out = await page(*plan(meta))    # the remembered key was out of date: read the page again with the real one
+    out["meta"] = meta
     return out
 
 async def func_pgweb_query(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool = False, is_read_only: bool = False,
@@ -634,6 +665,7 @@ async def func_pgweb(*, app_state: State, action: str, **params) -> dict:
                 "query": app_state.func_pgweb_query, "detail": app_state.func_pgweb_detail, "update_cell": app_state.func_pgweb_update_cell, "delete_row": app_state.func_pgweb_delete_row}
     handler = handlers.get(action)
     if not handler: raise Exception(f"invalid action: {action}")
+    if action in ("schema", "rows"): params["cache_table"] = client_postgres_pgweb.setdefault("cache_table", {})
     if action == "info": params["connection_url"] = client_postgres_pgweb.get("connection_url", "—")
     if action == "query": params["active_queries"] = active_queries
     result = await handler(pool=pool, **params)

@@ -1403,7 +1403,7 @@ for(const tools of document.querySelectorAll('.detail-tools')){
   button.type='button'; button.className='iconbtn detail-download'; button.title=button.ariaLabel='Download tab data as CSV';
   button.dataset.grid=input.dataset.grid; button.innerHTML=icon('download'); button.disabled=true; tools.appendChild(button);
 }
-async function openObject(table, kind, initialTab = 'rows'){
+async function openObject(table, kind, initialTab = 'rows', first = null){    /* first: the rows request already sent (a reload asks for it with the table list) */
   const targetKind = kind || 'table';
   if(targetKind !== S.sideTab && (targetKind === 'table' || targetKind === 'view' || targetKind === 'materialized_view')){
     setSideTab(targetKind, true);
@@ -1423,7 +1423,7 @@ async function openObject(table, kind, initialTab = 'rows'){
   for(const t of document.querySelectorAll('.tab')) t.hidden = t.dataset.v==='info';
   $('morewrap').hidden=false;
 
-  const m = await api({action:'rows', table, limit:S.pageSize, is_meta:1});
+  const m = await (first || api({action:'rows', table, limit:S.pageSize, is_meta:1}));
   S.meta=m.meta; S.cols=m.meta.columns.map(c=>c.name); S.pk=m.meta.pk; S.latestFirst=!!m.meta.latest_first;
   S.total=m.rows.length; S.hasMore=!!m.has_more; S.pageStart=0;
   S.rows=m.rows;
@@ -2599,8 +2599,7 @@ $('brandname').onclick = () => {
   }
 };
 
-async function restorePage(){
-  const saved = getSavedPageState();
+async function restorePage(saved, first){
   if(!saved || saved.view === 'home' || saved.view === 'query'){
     openRunner();
     return;
@@ -2615,7 +2614,7 @@ async function restorePage(){
                    (S.sideItems || []).includes(saved.table);
     if(exists){
       try{
-        await openObject(saved.table, kind, saved.view || 'rows');
+        await openObject(saved.table, kind, saved.view || 'rows', first);
         return;
       }catch{}
     }
@@ -2625,13 +2624,17 @@ async function restorePage(){
 
 /* the server holds one connection, so a reload just picks it back up */
 (async function boot(){
+  const saved = getSavedPageState();
+  // the saved table's rows are asked for together with the table list, not after it
+  const first = saved?.table && !['home', 'query', 'info'].includes(saved.view) ? api({action:'rows', table:saved.table, limit:DEFAULT_PAGE_SIZE, is_meta:1}) : null;
+  first?.catch(()=>{});                              // a table that is gone: restorePage opens the runner instead
   try{
     const m = await api({action:'schema'});          // one call: tree + database name
     S.tree=m.tree; S.db=m.database; S.connectionUrl=m.connection_url || '';
     setConnected(true);
     setSideTab(S.sideTab || 'table', false);
     drawTree();
-    await restorePage();
+    await restorePage(saved, first);
   }catch(e){
     setConnected(false);                             // shell stays, just empty
     if([403, 404, 415].includes(e?.status)) showBlocked(e.message);
