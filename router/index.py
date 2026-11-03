@@ -1,7 +1,6 @@
 # import
 from fastapi import APIRouter
 from fastapi import Request
-from fastapi import responses
 
 # router
 router = APIRouter()
@@ -9,7 +8,8 @@ router = APIRouter()
 # api
 @router.get("/")
 async def func_api_index(*, request: Request):
-    return responses.FileResponse(request.app.state.config_root_html_path)
+    app_state = request.app.state
+    return await app_state.func_app_page_response(request=request, path=app_state.config_root_html_path, cache_static_version=app_state.cache_static_version)
 
 @router.get("/static-pages")
 async def func_api_index_static_pages(*, request: Request):
@@ -22,7 +22,7 @@ async def func_api_index_page(*, request: Request):
     app_state = request.app.state
     path = app_state.func_app_static_page_path(name=request.path_params["name"])
     if not path: raise app_state.func_api_error(message="page not found", status_code=404)
-    return responses.FileResponse(path, headers={"Cache-Control": "no-cache"})    # revalidate every load, so a deployed change shows at once
+    return await app_state.func_app_page_response(request=request, path=path, cache_static_version=app_state.cache_static_version)
 
 @router.get("/health")
 async def func_api_index_health(*, request:Request):

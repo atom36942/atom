@@ -1,6 +1,8 @@
 # import
 import ast
+import asyncio
 import functools
+import hashlib
 import importlib.util
 import inspect
 import os
@@ -298,13 +300,16 @@ def func_app_static_add(*, app: FastAPI, path: str = "/static", directories: tup
         pages[page["url"].lower()] = page["path"]
     static_files = StaticFiles(directory=directories[0], check_dir=False)
     static_files.all_directories = existing
-    async def static_no_cache(scope, receive, send):
-        # Revalidate every load (a 304 when unchanged), so a deploy never leaves a page running old and new files together.
+    async def static_cache(scope, receive, send):
+        # A link with ?v= is stamped with its file's content by func_app_page_response, so a changed file gets a new address: the browser keeps it a year without asking.
+        # Anything else revalidates every load (a 304 when unchanged), so a deploy never leaves a page running old and new files together.
+        is_versioned = "v" in urllib.parse.parse_qs(scope.get("query_string", b"").decode("latin-1"))
+        cache_control = b"public, max-age=31536000, immutable" if is_versioned else b"no-cache"
         async def send_with_header(message):
-            if message["type"] == "http.response.start": message["headers"] = [*message.get("headers", []), (b"cache-control", b"no-cache")]
+            if message["type"] == "http.response.start": message["headers"] = [*message.get("headers", []), (b"cache-control", cache_control)]
             await send(message)
         await static_files(scope, receive, send_with_header)
-    app.mount(path, static_no_cache, name="static")
+    app.mount(path, static_cache, name="static")
 
 def func_app_static_page_list(*, directories: tuple = ("static", "static_extend")) -> list:
     """Every page, home page included: each top-level <name>.html and <name>/index.html in static/ or static_extend/, whatever the name; other files are skipped. Each opens at /page/<name>.
@@ -324,6 +329,35 @@ def func_app_static_page_list(*, directories: tuple = ("static", "static_extend"
 def func_app_static_page_path(*, name: str, directories: tuple = ("static", "static_extend")) -> str | None:
     """The file GET /page/{name} serves: the listed page at /page/<name>, so /page and the home page share one rule; None for any other name. Only scanned files are served, so no name reaches outside the two folders."""
     return next((page["path"] for page in func_app_static_page_list(directories=directories) if page["url"] == f"/page/{urllib.parse.quote(name or '', safe='')}"), None)
+
+def func_app_page_html(*, path: str, cache_static_version: dict, directories: tuple = ("static", "static_extend")) -> bytes:
+    """A page's HTML with every local link (src or href to /static/<file>) ending in ?v=<fingerprint of that file>, so the browser keeps the file until its content changes. Fingerprints are kept per file and redone when its size or time changes; links to missing files are left as they are."""
+    def fingerprint(name):
+        file = next((os.path.join(d, name) for d in directories if os.path.isfile(os.path.join(d, name))), None)
+        if not file: return None
+        stat = os.stat(file)
+        key = (stat.st_mtime_ns, stat.st_size)
+        cached = cache_static_version.get(file)
+        if cached and cached[0] == key: return cached[1]
+        with open(file, "rb") as handle: digest = hashlib.md5(handle.read(), usedforsecurity=False).hexdigest()[:10]
+        cache_static_version[file] = (key, digest)
+        return digest
+    def stamp(match):
+        attribute, quote, name, query = match.group(1), match.group(2), match.group(3), match.group(4) or ""
+        digest = fingerprint(urllib.parse.unquote(name))
+        if not digest: return match.group(0)
+        params = [(k, v) for k, v in urllib.parse.parse_qsl(query.lstrip("?"), keep_blank_values=True) if k != "v"] + [("v", digest)]
+        return f"{attribute}={quote}/static/{name}?{urllib.parse.urlencode(params)}{quote}"
+    with open(path, encoding="utf-8") as handle: html = handle.read()
+    return re.sub(r"""\b(src|href)=(["'])/static/([^"'?#]+)(\?[^"'#]*)?\2""", stamp, html).encode("utf-8")
+
+async def func_app_page_response(*, request: Any, path: str, cache_static_version: dict) -> Response:
+    """Serve a page (GET / and /page/<name>) with its local links stamped by func_app_page_html; the page itself revalidates every load (ETag, 304 when unchanged), so a deploy shows at once."""
+    body = await asyncio.to_thread(func_app_page_html, path=path, cache_static_version=cache_static_version)
+    etag = f'"{hashlib.md5(body, usedforsecurity=False).hexdigest()}"'
+    headers = {"cache-control": "no-cache", "etag": etag}
+    if request.headers.get("if-none-match") == etag: return Response(status_code=304, headers=headers)
+    return Response(content=body, media_type="text/html", headers=headers)
 
 def func_app_cors_add(*, app: FastAPI, allow_origins: list = None, allow_origin_regex: str = None, allow_methods: list = None, allow_headers: list = None, expose_headers: list = None, allow_credentials: bool = True) -> None:
     """Configure CORS middleware on FastAPI application if origins are provided."""

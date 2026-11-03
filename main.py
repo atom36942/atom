@@ -37,6 +37,7 @@ async def func_lifespan(app: FastAPI):
         buffer_postgres_create = {}
         buffer_postgres_log_api = {}
         cache_token = OrderedDict()
+        cache_static_version = {}
         cache_atom_version = app.state.func_atom_version()
         print(f"Atom {cache_atom_version or 'version unknown'}", flush=True)
         app.state.func_check(app=app)
