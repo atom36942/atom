@@ -274,6 +274,8 @@ Per-endpoint security and execution policy table.
 | `inmemory` | Redis / Memory Cache | High speed; subject to `config_redis_cache_ttl_sec` TTL |
 | `realtime` | Live PostgreSQL Query | Guaranteed freshness; best for critical admin/delete ops |
 
+The role, deactivated and deleted checks share one `users` query per request (`func_middleware_user_row_reader`): a route with all three in `realtime` mode makes one database round trip, not three.
+
 ---
 
 ### `config_postgres`

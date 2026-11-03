@@ -47,13 +47,27 @@ async def func_middleware_check_token(*, user_dict: dict, url_path: str, is_toke
             raise func_api_error(message="access token required", status_code=401)
     return
 
-async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_deactivated: Any, client_postgres: asyncpg.Pool | None, client_redis: Redis | None, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int) -> None:
+def func_middleware_user_row_reader(*, client_postgres: asyncpg.Pool | None, user_dict: dict) -> Any:
+    """One users-row read per request, shared by the role, deactivated and deleted checks: the first check that needs the database runs it, the others reuse the row."""
+    row = {}
+    async def read():
+        if "value" not in row:
+            if not client_postgres: raise func_api_error(message="postgres client missing", status_code=500)
+            async with client_postgres.acquire() as conn:
+                rows = await conn.fetch("select role, deactivated_at, deleted_at from users where id=$1", user_dict["id"])
+            if not rows: raise func_api_error(message="user not found", status_code=401)
+            row["value"] = rows[0]
+        return row["value"]
+    return read
+
+async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_deactivated: Any, client_postgres: asyncpg.Pool | None, client_redis: Redis | None, cache_users_deactivated: dict, config_redis_cache_ttl_sec: int, user_row_read: Any = None) -> None:
     """Check if the user is deactivated using a strictly configured mode from config_api."""
     cfg = user_check_deactivated
     if not cfg or not user_dict: return
     mode = cfg.get("mode") if isinstance(cfg, dict) else (cfg[0] if isinstance(cfg, (list, tuple)) else None)
     if not mode: return
     async def fetch_deactivated_status(uid):
+        if user_row_read: return (await user_row_read())["deactivated_at"]
         if not client_postgres: raise func_api_error(message="postgres client missing", status_code=500)
         async with client_postgres.acquire() as conn:
             rows = await conn.fetch("select id, deactivated_at from users where id=$1", uid)
@@ -82,13 +96,14 @@ async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_
     if active_status == "absent": raise func_api_error(message="missing deactivated_at", status_code=500)
     if active_status is not None: raise func_api_error(message="user not active", status_code=403)
 
-async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_deleted: Any, client_postgres: asyncpg.Pool | None, client_redis: Redis | None, cache_users_deleted: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_deleted: Any, client_postgres: asyncpg.Pool | None, client_redis: Redis | None, cache_users_deleted: dict, config_redis_cache_ttl_sec: int, user_row_read: Any = None) -> None:
     """Check if the user is deleted using a strictly configured mode from config_api."""
     cfg = user_check_deleted
     if not cfg or not user_dict: return
     mode = cfg.get("mode") if isinstance(cfg, dict) else (cfg[0] if isinstance(cfg, (list, tuple)) else None)
     if not mode: return
     async def fetch_deleted(uid):
+        if user_row_read: return (await user_row_read())["deleted_at"]
         if not client_postgres: raise func_api_error(message="postgres client missing", status_code=500)
         async with client_postgres.acquire() as conn:
             rows = await conn.fetch("select deleted_at from users where id=$1", uid)
@@ -117,7 +132,7 @@ async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_dele
     if deleted_status == "absent": raise func_api_error(message="missing deleted_at", status_code=500)
     if deleted_status is not None: raise func_api_error(message="user is deleted", status_code=403)
 
-async def func_middleware_check_role(*, user_dict: dict, user_check_role: Any, client_postgres: asyncpg.Pool | None, client_redis: Redis | None, cache_users_role: dict, config_redis_cache_ttl_sec: int) -> None:
+async def func_middleware_check_role(*, user_dict: dict, user_check_role: Any, client_postgres: asyncpg.Pool | None, client_redis: Redis | None, cache_users_role: dict, config_redis_cache_ttl_sec: int, user_row_read: Any = None) -> None:
     """Ensure sufficient roles to access endpoints using a strictly configured mode from config_api."""
     cfg = user_check_role
     if not cfg: return
@@ -132,6 +147,7 @@ async def func_middleware_check_role(*, user_dict: dict, user_check_role: Any, c
         return
     roles = {int(role) for role in raw_roles}
     async def fetch_role(uid):
+        if user_row_read: return (await user_row_read())["role"]
         if not client_postgres: raise func_api_error(message="postgres client missing", status_code=500)
         async with client_postgres.acquire() as conn:
             rows = await conn.fetch("select role from users where id=$1", uid)
