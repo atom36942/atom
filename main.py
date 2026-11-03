@@ -188,6 +188,9 @@ def middleware(asgi_app):
     return run
 app.add_middleware(middleware)
 
+# gzip (outside Atom's middleware: it compresses what the route and the cache sent)
+app.state.func_app_gzip_add(app=app)
+
 # cors
 app.state.func_app_cors_add(app=app, allow_origins=app.state.config_cors_allow_origins, allow_origin_regex=app.state.config_cors_allow_origin_regex, allow_methods=app.state.config_cors_allow_methods, allow_headers=app.state.config_cors_allow_headers, expose_headers=app.state.config_cors_expose_headers, allow_credentials=app.state.config_cors_allow_credentials)
 

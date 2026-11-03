@@ -101,3 +101,17 @@ FastAPI finds a request's route by checking every route in order, about 0.56 µs
 **Sentry.** `config_sentry_traces_sample_rate` (default `0.05`) sets the share of requests traced and profiled; every error is still sent. It was 100% of requests before.
 
 **Not adopted, measured:** `hiredis` made each Redis command slower with redis-py's async client (about 72 vs 45 µs per GET), and parsing request bodies with orjson silently turns integers above 64 bits into rounded floats, so both stay out. Skipping asyncpg's connection reset on pool release (a `reset=` no-op) saved one round trip per query and gained only 5–10% on database reads, with worse p95; it would also let session state (a `SET`, a held advisory lock) leak to the next request, so the reset stays.
+
+## 12. Round Trips, Bulk Writes and Compression
+
+Measured on one machine with a local PostgreSQL; on a remote database the saved round trips are worth more.
+
+**One users query per request (3.1).** The role, deactivated and deleted checks share `func_middleware_user_row_reader`: a route with all three in `realtime` mode makes one query instead of three (4,450 vs 1,742 checks/s one at a time; p95 1.1 vs 3.3 ms at 20 concurrent).
+
+**Exports continue after the last id (3.2).** `func_postgres_read_export` sorted by `id` reads each batch with `func_postgres_read(after_id=...)` instead of a growing `OFFSET`: 50,000 rows in 58 vs 137 ms, slowest batch 1.3 vs 4.9 ms, and no repeated or skipped rows while data changes.
+
+**Bulk updates through `unnest` (3.3).** `func_postgres_update` sends each column of simple type as one array joined on `id` instead of a `CASE` per column, which grew with the square of the batch: 1,000 rows in 11.4 vs 24.7 ms.
+
+**Converters built once per call (3.4).** `func_postgres_serialize` works out each column's converter on its first value: 1,000 rows x 5 columns convert in 1.4 vs 8.2 ms; a 1,000-row create 7.6 vs 14.5 ms, update 8 vs 13.7 ms.
+
+**Gzip responses (3.5).** `func_app_gzip_add` gzips responses over 1 KB at level 1 when the client sends `Accept-Encoding: gzip` (browsers always do); already encoded responses (cache hits) and event streams pass through. 1,000 real rows: 251 KB to 16 KB (quotation, 11 columns) and 738 KB to 54 KB (portal, 26 columns), for 0.4 to 2.6 ms of server time; at 20 Mbit/s the portal page arrives in about 22 instead of 300 ms.
