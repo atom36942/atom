@@ -159,7 +159,7 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
             pages.append(kwargs["page"] if kwargs.get("after_id") is None else f"after {kwargs['after_id']}")
             start = (kwargs["page"] - 1) * kwargs["limit"] if kwargs.get("after_id") is None else [row["id"] for row in rows].index(kwargs["after_id"]) + 1
             return rows[start:start + kwargs["limit"] + 1]
-        with patch("function.postgres_crud.func_postgres_read", side_effect=fake_read):
+        with patch("function.postgres_export.func_postgres_read", side_effect=fake_read):
             generator = await func_postgres_read_export(**(dict(client_postgres=self.pool, client_password_hasher=None, cache_postgres_schema=self.schema, config_sql_read_limit_max=10000, table="product", filter=[], order="id desc", column="*", export_limit=50000) | changes))
             body = "".join([chunk async for chunk in generator])
         return list(csv.reader(io.StringIO(body))), pages
