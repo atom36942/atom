@@ -82,6 +82,7 @@ Name files after their feature across folders: `router_extend/<f>.py`, `function
 - SQL values as `$1, $2`, never in f-strings; identifiers only after `^[a-zA-Z_][a-zA-Z0-9_]*$` or an allow-list, quoted.
 - Clients: see Reuse Atom (default name `master`). Redis names `api_response`, `user_state`, `ratelimiter`, `queue` are Atom's.
 - Postgres only through asyncpg, Atom's driver: `app_state.client_postgres_dict[...]` in the app, `func_client_postgres` or `asyncpg` in scripts; no other Postgres driver (psycopg, SQLAlchemy). Quote identifiers yourself (asyncpg has no SQL builder) and bind values as `$1, $2`; reg* types: `$1::text::regclass`, `to_regclass(x) IS NOT NULL`.
+- Speed: page through many rows by continuing after the last id (`WHERE id < $1 ORDER BY id DESC LIMIT n`, as `func_postgres_read(after_id=...)` does), never with a growing `OFFSET`; read what one request needs in one query (one row for several checks, `= ANY($1)` for a list of ids), not one query per check or per item.
 - Production: `config_token_secret_key` 32+ bytes. With `config_uvicorn_workers` > 1, no `inmemory` mode for caches, rate limits or user checks, and `/my/message-socket` stays inactive (startup fails).
 - Never fill missing business data with placeholders (names, dates, codes, branches) or ship demo data: leave it empty and say so. Deploy settings (Bicep, workflows, App Service) set only `config_*` keys that Atom or `config_extend.py` reads.
 
