@@ -519,8 +519,8 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
         async with client_postgres.acquire() as conn:
             return await _execute_now(conn)
 
-async def func_postgres_read(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list, config_column_read_blocked: list = None, blocked_tables: list = None) -> list:
-    """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching."""
+async def func_postgres_read(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list, config_column_read_blocked: list = None, blocked_tables: list = None, after_id: Any = None) -> list:
+    """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching. after_id (order id asc or id desc only) reads the rows after that id instead of skipping pages with OFFSET."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     blocked_cols = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
@@ -554,6 +554,11 @@ async def func_postgres_read(*, client_postgres: asyncpg.Pool | None, client_pas
         column_list = ",".join([f'"{c}"' for c in cols])
     filters = filter
     where_statement, values = await func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, filter=filters, prefix="", config_column_read_blocked=config_column_read_blocked)
+    if after_id is not None:
+        if order_list not in (['"id" ASC'], ['"id" DESC']): raise Exception("after_id needs order id asc or id desc")
+        keyset = f'"id" {">" if order_list[0].endswith("ASC") else "<"} ${len(values) + 1}'
+        where_statement = f"WHERE ({where_statement[len('WHERE '):]}) AND {keyset}" if where_statement else f"WHERE {keyset}"
+        values.append(after_id)
     fetch_limit = limit + 1
     bind_idx = len(values) + 1
     sql_select = f'SELECT {column_list} FROM "{table}" {where_statement} ORDER BY {order_clause} LIMIT ${bind_idx} OFFSET ${bind_idx+1}'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
@@ -583,10 +588,13 @@ async def func_postgres_read_export(*, client_postgres: asyncpg.Pool | None, cli
     The first batch is read before returning, so invalid input raises a normal API error instead of breaking a started download.
     """
     batch_size = max(1, min(batch_size, config_sql_read_limit_max, export_limit))
-    async def read(page):
-        rows = await func_postgres_read(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, config_sql_read_limit_max=config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=0, table=table, filter=filter, limit=batch_size, page=page, order=order, column=column, relation=[], config_column_read_blocked=config_column_read_blocked, blocked_tables=blocked_tables)
+    async def read(page, after_id=None):
+        rows = await func_postgres_read(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, config_sql_read_limit_max=config_sql_read_limit_max, config_sql_read_relation_fetch_limit_max=0, table=table, filter=filter, limit=batch_size, page=page, order=order, column=column, relation=[], config_column_read_blocked=config_column_read_blocked, blocked_tables=blocked_tables, after_id=after_id)
         return rows[:batch_size], len(rows) > batch_size
     first_rows, has_more = await read(1)
+    # sorted by id alone with id in the rows: each next batch starts after the last id (an index range), not at an ever larger OFFSET that Postgres reads and discards
+    order_parts = (str(order or "").strip() or "id desc").lower().split()
+    is_keyset = "," not in str(order or "") and order_parts[0] == "id" and order_parts[1:] in ([], ["asc"], ["desc"]) and bool(first_rows) and "id" in first_rows[0]
     if first_rows: columns = list(first_rows[0].keys())
     elif column.strip() != "*": columns = [c.strip() for c in column.split(",") if c.strip()]
     else: columns = [c for c in cache_postgres_schema.get(table, {}) if c not in set(config_column_read_blocked or ["password"])]
@@ -603,7 +611,7 @@ async def func_postgres_read_export(*, client_postgres: asyncpg.Pool | None, cli
             buffer.seek(0); buffer.truncate(0)
             if not more or sent >= export_limit: break
             page += 1
-            rows, more = await read(page)
+            rows, more = await (read(1, after_id=rows[-1]["id"]) if is_keyset and rows else read(page))
     return _iter()
 
 async def func_postgres_update(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_column_regex: dict, table: str, obj_list: list, created_by_id: int, ownership_column: str = "created_by_id") -> Any:

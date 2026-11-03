@@ -144,8 +144,8 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
     async def export(self, rows, **changes):
         pages = []
         async def fake_read(**kwargs):
-            pages.append(kwargs["page"])
-            start = (kwargs["page"] - 1) * kwargs["limit"]
+            pages.append(kwargs["page"] if kwargs.get("after_id") is None else f"after {kwargs['after_id']}")
+            start = (kwargs["page"] - 1) * kwargs["limit"] if kwargs.get("after_id") is None else [row["id"] for row in rows].index(kwargs["after_id"]) + 1
             return rows[start:start + kwargs["limit"] + 1]
         with patch("function.postgres_crud.func_postgres_read", side_effect=fake_read):
             generator = await func_postgres_read_export(**(dict(client_postgres=self.pool, client_password_hasher=None, cache_postgres_schema=self.schema, config_sql_read_limit_max=10000, table="product", filter=[], order="id desc", column="*", export_limit=50000) | changes))
@@ -157,9 +157,17 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
         lines, pages = await self.export(rows, export_limit=2100)
         self.assertEqual(lines[0], ["id", "name"])
         self.assertEqual(len(lines) - 1, 2100)
-        self.assertEqual(pages, [1, 2, 3])
+        self.assertEqual(pages, [1, "after 999", "after 1999"])
         lines, pages = await self.export(rows)
-        self.assertEqual((len(lines) - 1, pages), (2500, [1, 2, 3]))
+        self.assertEqual((len(lines) - 1, pages), (2500, [1, "after 999", "after 1999"]))
+        self.assertEqual([int(line[0]) for line in lines[1:]], list(range(2500)), "every row once, in order")
+
+    async def test_export_skips_pages_by_offset_only_when_it_cannot_continue_after_an_id(self):
+        rows = [{"id": i, "name": f"n{i}"} for i in range(2500)]
+        for changes in ({"order": "name asc"}, {"order": "id desc, name asc"}, {"column": "name"}):
+            with self.subTest(changes=changes):
+                lines, pages = await self.export([{"name": row["name"]} for row in rows] if "column" in changes else rows, **changes)
+                self.assertEqual((len(lines) - 1, pages), (2500, [1, 2, 3]))
 
     async def test_export_without_rows_still_writes_a_header_without_blocked_columns(self):
         lines, _ = await self.export([])
@@ -179,6 +187,21 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('"created_by_id" = $1', sql)
         self.assertIn("LIMIT $2 OFFSET $3", sql)
         self.assertEqual(result, [{"id": 3, "name": "item"}])
+
+    async def test_read_after_id_continues_from_that_id_without_offset(self):
+        self.conn.fetch.return_value = []
+        for order, operator in (("id desc", "<"), ("id asc", ">"), ("id", ">")):
+            with self.subTest(order=order):
+                await self.read(filter=[{"created_by_id": "eq,7"}], order=order, after_id=50)
+                sql, *values = self.conn.fetch.await_args.args
+                self.assertIn(f'WHERE ("created_by_id" = $1) AND "id" {operator} $2', sql)
+                self.assertEqual(values, [7, 50, 11, 0])
+        await self.read(after_id=50)
+        self.assertIn('WHERE "id" < $1', self.conn.fetch.await_args.args[0])
+        self.conn.fetch.reset_mock()
+        with self.assertRaisesRegex(Exception, "after_id needs order id asc or id desc"):
+            await self.read(order="name asc", after_id=50)
+        self.conn.fetch.assert_not_awaited()
 
     async def test_read_invalid_pagination_and_restricted_column_never_query(self):
         for changes in ({"limit": 0}, {"page": 0}, {"limit": 101}, {"column": "password"}):

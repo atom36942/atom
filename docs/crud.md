@@ -289,7 +289,7 @@ curl -G "$BASE_URL/my/object-read-export" \
   -o task.csv
 ```
 
-Rows are read in batches of 1000 and streamed, up to `config_export_limit` rows (default 50000). Invalid input returns a normal JSON error before the download starts. Dates are ISO 8601, JSON and array columns are JSON text, and text starting with `=`, `+`, `-`, `@`, tab, or carriage return gets a leading `'` so spreadsheets show it instead of running it as a formula. Unlike `/my/object-read`, `/my/object-read-export` with `received_by_id` does not mark messages as read.
+Rows are read in batches of 1000 and streamed, up to `config_export_limit` rows (default 50000). Sorted by `id` alone (the default `id desc`, or `id asc`) with `id` among the exported columns, each batch continues after the last id sent (`func_postgres_read`'s `after_id`), so every batch is an index range and rows added during the download never repeat or shift; any other sort pages with `OFFSET`. Invalid input returns a normal JSON error before the download starts. Dates are ISO 8601, JSON and array columns are JSON text, and text starting with `=`, `+`, `-`, `@`, tab, or carriage return gets a leading `'` so spreadsheets show it instead of running it as a formula. Unlike `/my/object-read`, `/my/object-read-export` with `received_by_id` does not mark messages as read.
 
 ### Distinct and group-by (separate admin endpoints)
 
