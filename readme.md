@@ -18,11 +18,9 @@ git init
 curl -fsSL -o sync.py https://raw.githubusercontent.com/atom36942/atom/main/sync.py
 python3 sync.py
 
-# 3. run, then open http://localhost:8000
+# 3. run, then open http://localhost:8000 (another port, e.g. two projects at once: the last two lines, then http://localhost:8001)
 venv/bin/python main.py
 venv/bin/uvicorn main:app --reload
-
-# another port (e.g. two projects at once, each in its own terminal), then open http://localhost:8001
 PORT=8001 venv/bin/python main.py
 venv/bin/uvicorn main:app --reload --port 8001
 ```
