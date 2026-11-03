@@ -107,67 +107,73 @@ async def func_postgres_table_column_distinct_read(*, app_state: State, client_p
     return {"item_list": items[:limit], "has_next_page": len(items) > limit}
 
 async def func_postgres_serialize(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, table: str, obj_list: list, is_base: bool) -> list:
-    """Serialize Python objects (JSON, Arrays, Geog) to PostgreSQL compatible formats using schema-aware injection."""
+    """Serialize Python objects (JSON, Arrays, Geog) to PostgreSQL compatible formats using schema-aware injection; each column's converter is worked out once per call, not once per value."""
     if table not in cache_postgres_schema: return obj_list
-    output_list, schema = [], cache_postgres_schema[table]
+    output_list, schema, converters = [], cache_postgres_schema[table], {}
+    array_alias_map = {
+        "_int2": "smallint[]",
+        "_int4": "integer[]",
+        "_int8": "bigint[]",
+        "_float4": "real[]",
+        "_float8": "double precision[]",
+        "_numeric": "numeric[]",
+        "_bool": "boolean[]",
+        "_text": "text[]",
+        "_varchar": "character varying[]",
+        "_bpchar": "character[]",
+        "_date": "date[]",
+        "_timestamp": "timestamp without time zone[]",
+        "_timestamptz": "timestamp with time zone[]",
+    }
+    bool_map = {
+        "true": True, "1": True, "yes": True, "on": True, "ok": True, "t": True, "y": True,
+        "false": False, "0": False, "no": False, "off": False, "f": False, "n": False,
+    }
     def normalize_dtype(t):
         t = str(t).lower().strip()
-        array_alias_map = {
-            "_int2": "smallint[]",
-            "_int4": "integer[]",
-            "_int8": "bigint[]",
-            "_float4": "real[]",
-            "_float8": "double precision[]",
-            "_numeric": "numeric[]",
-            "_bool": "boolean[]",
-            "_text": "text[]",
-            "_varchar": "character varying[]",
-            "_bpchar": "character[]",
-            "_date": "date[]",
-            "_timestamp": "timestamp without time zone[]",
-            "_timestamptz": "timestamp with time zone[]",
-        }
         return array_alias_map.get(t, t)
-    def cast_val(v, t):
+    def scalar_converter(t):
         t = normalize_dtype(t)
-        vs = str(v).strip()
-        if not vs or vs.lower() == "null": return None
-        if "geography" in t or "geometry" in t: return v
-        if "bool" in t:
-            bool_map = {
-                "true": True, "1": True, "yes": True, "on": True, "ok": True, "t": True, "y": True,
-                "false": False, "0": False, "no": False, "off": False, "f": False, "n": False,
-            }
-            key = vs.lower()
-            if key not in bool_map: raise ValueError(f"invalid boolean value: {v}")
-            return bool_map[key]
-        if any(x in t for x in ("int", "serial", "bigint")): return int(vs)
-        if any(x in t for x in ("numeric", "float", "double", "real")): return float(vs)
-        if "timestamp" in t:
-            return datetime.fromisoformat(vs.replace("Z", "+00:00")) if isinstance(v, str) else v
-        if "date" in t:
+        if "geography" in t or "geometry" in t: kind = "raw"
+        elif "bool" in t: kind = "bool"
+        elif any(x in t for x in ("int", "serial", "bigint")): kind = "int"
+        elif any(x in t for x in ("numeric", "float", "double", "real")): kind = "float"
+        elif "timestamp" in t: kind = "timestamp"
+        elif "date" in t: kind = "date"
+        else: kind = "raw"
+        def cast_val(v):
+            vs = str(v).strip()
+            if not vs or vs.lower() == "null": return None
+            if kind == "raw": return v
+            if kind == "int": return int(vs)
+            if kind == "float": return float(vs)
+            if kind == "bool":
+                key = vs.lower()
+                if key not in bool_map: raise ValueError(f"invalid boolean value: {v}")
+                return bool_map[key]
+            if kind == "timestamp": return datetime.fromisoformat(vs.replace("Z", "+00:00")) if isinstance(v, str) else v
             return date.fromisoformat(vs) if isinstance(v, str) else v
-        return v
-    def array_val(v, base_dtype):
-        if isinstance(v, (list, tuple)): return [cast_val(x, base_dtype) for x in v]
-        v_arr = str(v).strip().strip("{}")
-        return [cast_val(x.strip(), base_dtype) for x in v_arr.split(",")] if v_arr else []
-    def serialize_val(val, dtype):
+        return cast_val
+    def value_converter(dtype):
         dtype = normalize_dtype(dtype)
         is_json, is_array = "json" in dtype, "[]" in dtype or "array" in dtype
-        base_dtype = dtype.replace("[]", "").replace("array", "").strip()
         if is_json:
-            if is_base:
-                return orjson.dumps(val).decode("utf-8") if not isinstance(val, str) else val
-            if isinstance(val, str):
-                val_str = val.strip()
-                return orjson.loads(val_str) if val_str.startswith(("{", "[")) else val_str
-            return val
+            if is_base: return lambda val: orjson.dumps(val).decode("utf-8") if not isinstance(val, str) else val
+            def json_val(val):
+                if isinstance(val, str):
+                    val_str = val.strip()
+                    return orjson.loads(val_str) if val_str.startswith(("{", "[")) else val_str
+                return val
+            return json_val
         if is_array:
-            return array_val(val, base_dtype)
-        if not is_base and "bytea" in dtype:
-            return val.encode() if isinstance(val, str) else val
-        return cast_val(val, dtype)
+            cast_element = scalar_converter(dtype.replace("[]", "").replace("array", "").strip())
+            def array_val(v):
+                if isinstance(v, (list, tuple)): return [cast_element(x) for x in v]
+                v_arr = str(v).strip().strip("{}")
+                return [cast_element(x.strip()) for x in v_arr.split(",")] if v_arr else []
+            return array_val
+        if not is_base and "bytea" in dtype: return lambda val: val.encode() if isinstance(val, str) else val
+        return scalar_converter(dtype)
     for item in obj_list:
         new_item = {}
         for col, val in item.items():
@@ -181,7 +187,9 @@ async def func_postgres_serialize(*, client_postgres: asyncpg.Pool | None, clien
             if val is None:
                 new_item[col] = val
                 continue
-            new_item[col] = serialize_val(val, schema[col]["datatype"])
+            convert = converters.get(col)
+            if convert is None: convert = converters[col] = value_converter(schema[col]["datatype"])
+            new_item[col] = convert(val)
         output_list.append(new_item)
     return output_list
 
