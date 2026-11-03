@@ -141,6 +141,18 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await delete(1), 1)
         self.assertEqual(await self.titles(), ["beta", "renamed"])
 
+    async def test_update_many_rows_keeps_each_value_and_type(self):
+        ids = await self.create("test", [{"title": f"t{i}", "created_by_id": 1} for i in range(1500)])
+        update = lambda rows: func_postgres_update(client_postgres=self.pool, client_postgres_conn=None, client_password_hasher=HASHER,
+                                                   cache_postgres_schema=self.schema, config_column_regex={}, table="test", obj_list=rows, created_by_id=1)
+        rows = [{"id": str(i), "type": str(n % 3), "rating": "7.5" if n % 2 else None, "description": f"d{n}"} for n, i in enumerate(ids)]
+        self.assertEqual(sorted(await update(rows)), sorted(ids))
+        stored = {r["id"]: r for r in await self.pool.fetch('SELECT id, type, rating, description FROM test WHERE id = ANY($1::bigint[])', ids)}
+        for n, i in enumerate(ids):
+            self.assertEqual((stored[i]["type"], stored[i]["rating"] and float(stored[i]["rating"]), stored[i]["description"]), (n % 3, 7.5 if n % 2 else None, f"d{n}"))
+        self.assertEqual(await update([{"id": ids[0], "tags": "a,b", "metadata": '{"k": 1}'}]), [ids[0]])
+        self.assertEqual(tuple(await self.pool.fetchrow("SELECT tags, metadata FROM test WHERE id = $1", ids[0])), (["a", "b"], '{"k": 1}'))
+
     async def test_relations_count_fetch_and_one_to_one(self):
         alpha_id, beta_id, _ = await self.seed_tests()
         await self.create("test_comment", [{"test_id": alpha_id, "description": f"c{i}", "created_by_id": 1} for i in range(3)])

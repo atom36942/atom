@@ -5,6 +5,7 @@ import io
 import pathlib
 import unittest
 from datetime import date
+from unittest.mock import AsyncMock
 from unittest.mock import patch
 import orjson
 from function import func_csv_cell
@@ -224,10 +225,29 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
         self.conn.fetch.return_value = [{"id": 3}]
         self.assertEqual(await self.update(), [3])
         sql, *values = self.conn.fetch.await_args.args
-        self.assertIn('AND "created_by_id"=$4', sql)
-        self.assertEqual(values, [3, "new", 3, 7])
+        self.assertIn('FROM unnest($1::bigint[], $2::text[]) AS v("id", "name") WHERE t."id" = v."id" AND t."created_by_id" = $3', sql)
+        self.assertEqual(values, [[3], ["new"], 7])
         self.conn.fetch.return_value = []
         self.assertEqual(await self.update(), [])
+
+    async def test_update_sends_each_column_as_one_array_and_a_repeated_id_keeps_its_first_values(self):
+        self.conn.fetch.return_value = []
+        await self.update(obj_list=[{"id": 3, "name": "a"}, {"id": 4, "name": None}, {"id": 3, "name": "later"}], created_by_id=None)
+        sql, *values = self.conn.fetch.await_args.args
+        self.assertEqual(values, [[3, 4], ["a", None]])
+        self.assertNotIn("created_by_id", sql)
+        self.assertEqual(self.conn.fetch.await_count, 1)
+
+    async def test_update_of_json_or_unknown_types_keeps_case(self):
+        for datatype in ("jsonb", "text[]", "geography(Point,4326)"):
+            schema = {"product": self.schema["product"] | {"name": {"datatype": datatype}}}
+            self.conn.fetch.return_value = []
+            with self.subTest(datatype=datatype), patch("function.postgres_crud.func_postgres_serialize", new=AsyncMock(side_effect=lambda **kwargs: kwargs["obj_list"])):
+                await self.update(cache_postgres_schema=schema)
+                sql, *values = self.conn.fetch.await_args.args
+                self.assertIn('"name" = CASE WHEN "id"=$1::bigint THEN $2', sql)
+                self.assertIn('AND "created_by_id"=$4', sql)
+                self.assertEqual(values, [3, "new", 3, 7])
 
     async def test_update_invalid_batches_never_write(self):
         for objects in ([{"name": "no id"}], [{"id": 3}], [{"id": 3, "name": "a"}, {"id": 4, "created_by_id": 7}]):

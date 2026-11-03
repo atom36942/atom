@@ -634,13 +634,26 @@ async def func_postgres_update(*, client_postgres: asyncpg.Pool | None, client_p
     if any(set(obj.keys()) != set(obj_list[0].keys()) for obj in obj_list): raise Exception("object keys mismatch")
     returned_ids = []
     limit_batch = 5000
-    actual_batch_size = max(1, (limit_batch - (1 if created_by_id is not None else 0)) // ((2 * len(update_cols)) + 1))
+    # simple column types go through unnest: one array per column joined on id, a straight join with the same SQL for the same columns; other types (json, arrays, PostGIS) use CASE
+    column_types = [str(((cache_postgres_schema or {}).get(table) or {}).get(c, {}).get("datatype", "")).lower() for c in ["id", *update_cols]]
+    is_unnest = column_types[0] in ("smallint", "integer", "bigint") and all(re.match(r"^(smallint|integer|bigint|real|double precision|boolean|text|uuid|date|numeric(\(\d+(,\d+)?\))?|character( varying)?(\(\d+\))?|(timestamp|time)(\(\d\))? with(out)? time zone)$", t) for t in column_types[1:])
+    actual_batch_size = limit_batch if is_unnest else max(1, (limit_batch - (1 if created_by_id is not None else 0)) // ((2 * len(update_cols)) + 1))
     async def _execute_update(connection):
         async with connection.transaction():
             for i in range(0, len(obj_list), actual_batch_size):
                 batch_raw = obj_list[i:i+actual_batch_size]
                 await func_regex_check(config_column_regex=config_column_regex, obj_list=batch_raw)
                 batch = await func_postgres_serialize(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, obj_list=batch_raw, is_base=True)
+                if is_unnest:
+                    first = {}
+                    for obj in batch: first.setdefault(obj["id"], obj)    # a repeated id keeps its first values, as CASE did
+                    arrays = [[obj[col] for obj in first.values()] for col in ["id", *update_cols]]
+                    casts = ", ".join(f"${j + 1}::{t}[]" for j, t in enumerate(["bigint", *column_types[1:]]))
+                    names = ", ".join(f'"{col}"' for col in ["id", *update_cols])
+                    where_clause = 't."id" = v."id"' + (f' AND t."{ownership_column}" = ${len(arrays) + 1}' if created_by_id is not None else "")
+                    sql = f'UPDATE "{table}" AS t SET {", ".join(f'"{col}" = v."{col}"' for col in update_cols)} FROM unnest({casts}) AS v({names}) WHERE {where_clause} RETURNING t."id";'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
+                    returned_ids.extend([r["id"] for r in (await connection.fetch(sql, *arrays, *([created_by_id] if created_by_id is not None else [])))])
+                    continue
                 batch_vals, set_clauses = [], []
                 for col in update_cols:
                     case_statements = []
