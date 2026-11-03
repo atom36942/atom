@@ -331,7 +331,7 @@ async def func_postgres_schema_triggers_sync(*, conn: asyncpg.Connection, db_tab
     bulk_blocked = context["bulk_blocked"]
     table_blocked = context["table_blocked"]
     existing = context["triggers"] if "triggers" in context else await func_postgres_schema_triggers_read(conn=conn)
-    await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_is_protected() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.is_protected IS TRUE THEN RAISE EXCEPTION 'DELETE not allowed for protected row in %', TG_TABLE_NAME; END IF; RETURN OLD; END; $$; CREATE OR REPLACE FUNCTION func_set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$; CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$; CREATE OR REPLACE FUNCTION func_delete_disable_table() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'operation not allowed on %', TG_TABLE_NAME; END; $$;")
+    await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_is_protected() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.is_protected IS TRUE THEN RAISE EXCEPTION 'DELETE not allowed for protected row in %', TG_TABLE_NAME; END IF; RETURN OLD; END; $$; CREATE OR REPLACE FUNCTION func_set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$; CREATE OR REPLACE FUNCTION func_set_updated_at_except_activity() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF to_jsonb(NEW) - 'updated_at' - 'last_active_at' IS DISTINCT FROM to_jsonb(OLD) - 'updated_at' - 'last_active_at' THEN NEW.updated_at=NOW(); END IF; RETURN NEW; END; $$; CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$; CREATE OR REPLACE FUNCTION func_delete_disable_table() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'operation not allowed on %', TG_TABLE_NAME; END; $$;")
     for table, cols in db_tables.items():
         if table == "spatial_ref_sys":
             continue
@@ -346,7 +346,7 @@ async def func_postgres_schema_triggers_sync(*, conn: asyncpg.Connection, db_tab
         if is_updated_at_set and "updated_at" in cols:
             upd_tg_name = f"trigger_updated_at_set_{table}"
             catalog["tg"].add(upd_tg_name)
-            await func_postgres_schema_trigger_set(conn=conn, existing=existing, table=table, name=upd_tg_name, definition=f"BEFORE UPDATE ON {table} FOR EACH ROW EXECUTE FUNCTION func_set_updated_at()")
+            await func_postgres_schema_trigger_set(conn=conn, existing=existing, table=table, name=upd_tg_name, definition=f"BEFORE UPDATE ON {table} FOR EACH ROW EXECUTE FUNCTION {'func_set_updated_at_except_activity' if 'last_active_at' in cols else 'func_set_updated_at'}()")    # recording activity (last_active_at) is not an edit
     if table_blocked == ["*"]:
         table_blocked = [t for t in db_tables if t != "spatial_ref_sys"]
     if bulk_blocked and bulk_blocked[0][0] == "*":

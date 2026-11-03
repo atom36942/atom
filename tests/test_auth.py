@@ -28,7 +28,7 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
     async def test_last_active_update_writes_to_the_given_pool(self):
         pool = SimpleNamespace(execute=AsyncMock())
         await func_user_last_active_update(client_postgres=pool, user_id=7)
-        pool.execute.assert_awaited_once_with("UPDATE users SET last_active_at=NOW() WHERE id=$1", 7)
+        pool.execute.assert_awaited_once_with("UPDATE users SET last_active_at=NOW() WHERE id=$1 AND (last_active_at IS NULL OR last_active_at < NOW() - make_interval(secs => $2))", 7, 300)
         with self.assertRaisesRegex(Exception, "postgres client not initialized"):
             await func_user_last_active_update(client_postgres=None, user_id=7)
 

@@ -171,10 +171,10 @@ async def func_otp_verify(*, client_postgres: asyncpg.Pool | None, otp: int, ema
         await conn.execute("DELETE FROM otp WHERE id = $1;", records[0]["id"])
     return "done"
 
-async def func_user_last_active_update(*, client_postgres: asyncpg.Pool | None, user_id: int) -> None:
-    """Set users.last_active_at to now for one user; pass the master pool, since read replicas cannot write."""
+async def func_user_last_active_update(*, client_postgres: asyncpg.Pool | None, user_id: int, interval_sec: int = 300) -> None:
+    """Set users.last_active_at to now for one user, at most once per interval_sec: a page open within it writes nothing (no new row version, no triggers), so last_active_at is accurate to 5 minutes. Pass the master pool, since read replicas cannot write."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
-    await client_postgres.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1", user_id)
+    await client_postgres.execute("UPDATE users SET last_active_at=NOW() WHERE id=$1 AND (last_active_at IS NULL OR last_active_at < NOW() - make_interval(secs => $2))", user_id, interval_sec)
     return
 
 async def func_user_read_single(*, client_postgres: asyncpg.Pool | None, user_id: int) -> dict:
