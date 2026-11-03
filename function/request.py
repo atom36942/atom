@@ -44,7 +44,8 @@ async def func_request_param_read(*, request: Request, mode: str, param_specs: l
     elif mode == "body":
         try:
             json_payload = await request.json()
-        except Exception:
+        except Exception as e:
+            if getattr(e, "status_code", None) == 413: raise    # body over config_request_body_max_kb
             if strict_types: raise Exception("request body must contain valid JSON") from None
             json_payload = None
         if strict_types and not isinstance(json_payload, dict):

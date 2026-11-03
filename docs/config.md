@@ -176,6 +176,8 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_access_token_expires_sec` | JWT Access Token lifetime in seconds |
 | `config_refresh_token_expires_sec` | JWT Refresh Token lifetime in seconds |
 | `config_token_cache_max` | Verified tokens cached per worker (`10000`, about 1 KB each); `0` turns the cache off. A token is fully verified on first use, then reused until its own `exp`; the key is the whole signed token, so an edited token is verified again. Expired entries are swept every `config_inmemory_cache_cleanup_auto_sec`; when full, the oldest entry is dropped |
+| `config_request_body_max_kb` | Largest request body in KB, except multipart uploads (`10240`, 10 MB); a bigger one gets `413` before it is read, since a JSON body is held in memory and parsing takes several times its size |
+| `config_request_form_max_kb` | Largest multipart upload (`multipart/form-data`) in KB, all files and fields together (`102400`, 100 MB; files go to disk past 1 MB); a bigger one gets `413` |
 | `config_blob_limit_size_kb` | Maximum file upload size in KB (default: `500`) |
 | `config_blob_limit_upload` | Maximum files allowed per upload request (default: `100`) |
 | `config_blob_expire_sec_upload` | Presigned upload URL lifetime in seconds (`3600`) |

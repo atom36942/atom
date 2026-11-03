@@ -30,6 +30,23 @@ def func_api_error(*, message: str, status_code: int) -> Exception:
     error.status_code = status_code
     return error
 
+def func_middleware_body_limit(*, scope: dict, receive: Any, config_request_body_max_kb: int, config_request_form_max_kb: int) -> Any:
+    """Wrap receive so a request body over its limit is refused with 413 before it fills memory: config_request_form_max_kb for multipart uploads (files go to disk past 1 MB), config_request_body_max_kb for everything else (JSON is held in memory, and parsing it takes several times its size). A declared Content-Length over the limit is refused before any of the body is read; a body without one is counted as it arrives."""
+    headers = dict(scope.get("headers") or [])
+    limit = (config_request_form_max_kb if headers.get(b"content-type", b"").startswith(b"multipart/form-data") else config_request_body_max_kb) * 1024
+    try: declared = int(headers.get(b"content-length", b"0"))
+    except ValueError: declared = 0
+    received = 0
+    async def receive_limited():
+        nonlocal received
+        if declared > limit: raise func_api_error(message=f"request body too large, limit {limit // 1024} KB", status_code=413)
+        message = await receive()
+        if message["type"] == "http.request":
+            received += len(message.get("body", b""))
+            if received > limit: raise func_api_error(message=f"request body too large, limit {limit // 1024} KB", status_code=413)
+        return message
+    return receive_limited
+
 async def func_middleware_check_active(*, is_active: bool = True) -> None:
     """Check whether current API endpoint is active/enabled."""
     if not is_active: raise func_api_error(message="API endpoint is disabled", status_code=404)

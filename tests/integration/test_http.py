@@ -46,6 +46,24 @@ class HttpIntegrationTests(unittest.TestCase):
     def auth(self, token=None):
         return {"Authorization": f"Bearer {token or self.token}"}
 
+    def test_a_body_over_its_limit_is_refused_before_it_is_read(self):
+        state = self.app.state
+        limits = state.config_request_body_max_kb, state.config_request_form_max_kb
+        state.config_request_body_max_kb, state.config_request_form_max_kb = 1, 2
+        try:
+            big = {"title": "x" * 2000}
+            self.assertEqual(self.client.post("/public/object-create", params={"table": "test"}, json=big).status_code, 413, "declared Content-Length")
+            chunked = self.client.post("/public/object-create", params={"table": "test"}, content=iter([json.dumps(big).encode()]), headers={"Content-Type": "application/json"})
+            self.assertEqual((chunked.status_code, chunked.json()["message"]), (413, "request body too large, limit 1 KB"), "no Content-Length: counted as it arrives")
+            self.assertEqual(self.client.post("/my/object-create", params={"table": "test"}, json=big, headers=self.auth()).status_code, 413)
+            self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM test WHERE length(title) = 2000")[0]["n"], 0)
+            upload = lambda size: self.client.post("/admin/postgres-import", data={"mode": "create", "table": "test", "padding": "y" * size}, files={"file": ("rows.csv", b"title\n")}, headers=self.auth(self.admin_token))    # a header-only CSV: no rows left behind
+            self.assertEqual(upload(1500).status_code, 200, "an upload uses the larger form limit")
+            self.assertEqual(upload(3000).status_code, 413)
+            self.assertEqual(self.client.post("/public/object-create", params={"table": "test"}, json={"title": "small"}).status_code, 200)
+        finally:
+            state.config_request_body_max_kb, state.config_request_form_max_kb = limits
+
     def test_app_started_with_test_settings_only(self):
         self.assertEqual(self.app.state.config_postgres_url_dict, {"master": self.url, "reports": self.reports_url})
         self.assertEqual(sorted(self.app.state.client_postgres_dict), ["master", "reports"])

@@ -122,9 +122,10 @@ def middleware(asgi_app):
     async def run(scope, receive, send):
         #start
         if scope["type"] != "http" or scope["method"] == "OPTIONS": return await asgi_app(scope, receive, send)
+        app_state = scope["app"].state
+        receive = app_state.func_middleware_body_limit(scope=scope, receive=receive, config_request_body_max_kb=app_state.config_request_body_max_kb, config_request_form_max_kb=app_state.config_request_form_max_kb)
         request = Request(scope, receive)
         start, error, response_type, request.state.user = time.perf_counter(), None, "direct_no_cache_set", {}
-        app_state = scope["app"].state
         sent, capture = {"status": None, "is_started": False}, None
         api_cfg = app_state.config_api.get(scope["path"], {})
         async def send_wrapped(message):
