@@ -34,6 +34,8 @@ When `config_is_postgres_schema_init = True`, Atom inspects and automatically mi
 - Installs unique constraints and indexes from `config_postgres["index"]`.
 - Seeds the root admin user (`admin` / `role: 1`) and attaches the root protection trigger.
 
+It reads the current tables, columns, indexes, constraints and triggers once (a few catalog queries for all tables), then changes only what differs from `config_postgres`; an unchanged database takes about 14 queries, so a start against a remote database stays near one second. Tables, the root user and triggers change in one transaction: other sessions see the old schema or the new one, and a delete guard is never missing while an instance starts. A trigger is recreated only when its definition differs, so a guard removed or edited by hand is put back on the next start. Extensions run before that transaction (a missing privilege is skipped) and custom `sql` after it.
+
 ---
 
 ## 3. Query Runner & AI SQL Engine (`/admin/postgres-query-runner-*`)
