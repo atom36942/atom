@@ -1,5 +1,5 @@
 # Atom
-Version 3.10.3
+Version 3.10.4
 
 Batteries-included FastAPI framework for production backends: auth, CRUD over any table, caching, rate limits, queues, workers, web pages and optional integrations, all driven by config. Your code lives in `*_extend` paths, so updating Atom never overwrites it.
 
