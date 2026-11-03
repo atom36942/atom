@@ -301,10 +301,15 @@ def func_app_static_add(*, app: FastAPI, path: str = "/static", directories: tup
     static_files = StaticFiles(directory=directories[0], check_dir=False)
     static_files.all_directories = existing
     async def static_cache(scope, receive, send):
-        # A link with ?v= is stamped with its file's content by func_app_page_response, so a changed file gets a new address: the browser keeps it a year without asking.
-        # Anything else revalidates every load (a 304 when unchanged), so a deploy never leaves a page running old and new files together.
-        is_versioned = "v" in urllib.parse.parse_qs(scope.get("query_string", b"").decode("latin-1"))
-        cache_control = b"public, max-age=31536000, immutable" if is_versioned else b"no-cache"
+        # A link stamped ?v=<fingerprint> by func_app_page_response is kept a year, but only when that fingerprint is this server's copy of the file: during a rolling deploy an older
+        # instance may get the new page's link, and must not let the browser keep its old file under the new address. Anything else revalidates every load (a 304 when unchanged).
+        version = urllib.parse.parse_qs(scope.get("query_string", b"").decode("latin-1")).get("v", [None])[0]
+        cache_control = b"no-cache"
+        if version:
+            route_path = scope["path"][len(scope.get("root_path", "")):] if scope["path"].startswith(scope.get("root_path", "")) else scope["path"]
+            cache = getattr(scope["app"].state, "cache_static_version", None) if "app" in scope else None
+            fingerprint = await asyncio.to_thread(func_app_static_fingerprint, name=urllib.parse.unquote(route_path.lstrip("/")), cache_static_version=cache if cache is not None else {}, directories=existing)
+            if fingerprint == version: cache_control = b"public, max-age=31536000, immutable"
         async def send_with_header(message):
             if message["type"] == "http.response.start": message["headers"] = [*message.get("headers", []), (b"cache-control", cache_control)]
             await send(message)
@@ -330,21 +335,24 @@ def func_app_static_page_path(*, name: str, directories: tuple = ("static", "sta
     """The file GET /page/{name} serves: the listed page at /page/<name>, so /page and the home page share one rule; None for any other name. Only scanned files are served, so no name reaches outside the two folders."""
     return next((page["path"] for page in func_app_static_page_list(directories=directories) if page["url"] == f"/page/{urllib.parse.quote(name or '', safe='')}"), None)
 
+def func_app_static_fingerprint(*, name: str, cache_static_version: dict, directories: tuple = ("static", "static_extend")) -> str | None:
+    """Fingerprint of the file /static/<name> serves (first 10 hex of its MD5), or None when there is none; kept per file and redone only when its size or time changes."""
+    if ".." in name.split("/"): return None
+    file = next((os.path.join(d, name) for d in directories if os.path.isfile(os.path.join(d, name))), None)
+    if not file: return None
+    stat = os.stat(file)
+    key = (stat.st_mtime_ns, stat.st_size)
+    cached = cache_static_version.get(file)
+    if cached and cached[0] == key: return cached[1]
+    with open(file, "rb") as handle: digest = hashlib.md5(handle.read(), usedforsecurity=False).hexdigest()[:10]
+    cache_static_version[file] = (key, digest)
+    return digest
+
 def func_app_page_html(*, path: str, cache_static_version: dict, directories: tuple = ("static", "static_extend")) -> bytes:
-    """A page's HTML with every local link (src or href to /static/<file>) ending in ?v=<fingerprint of that file>, so the browser keeps the file until its content changes. Fingerprints are kept per file and redone when its size or time changes; links to missing files are left as they are."""
-    def fingerprint(name):
-        file = next((os.path.join(d, name) for d in directories if os.path.isfile(os.path.join(d, name))), None)
-        if not file: return None
-        stat = os.stat(file)
-        key = (stat.st_mtime_ns, stat.st_size)
-        cached = cache_static_version.get(file)
-        if cached and cached[0] == key: return cached[1]
-        with open(file, "rb") as handle: digest = hashlib.md5(handle.read(), usedforsecurity=False).hexdigest()[:10]
-        cache_static_version[file] = (key, digest)
-        return digest
+    """A page's HTML with every local link (src or href to /static/<file>) ending in ?v=<fingerprint of that file>, so the browser keeps the file until its content changes; links to missing files are left as they are."""
     def stamp(match):
         attribute, quote, name, query = match.group(1), match.group(2), match.group(3), match.group(4) or ""
-        digest = fingerprint(urllib.parse.unquote(name))
+        digest = func_app_static_fingerprint(name=urllib.parse.unquote(name), cache_static_version=cache_static_version, directories=directories)
         if not digest: return match.group(0)
         params = [(k, v) for k, v in urllib.parse.parse_qsl(query.lstrip("?"), keep_blank_values=True) if k != "v"] + [("v", digest)]
         return f"{attribute}={quote}/static/{name}?{urllib.parse.urlencode(params)}{quote}"

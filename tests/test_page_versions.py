@@ -70,6 +70,11 @@ class PageVersionTests(unittest.TestCase):
         self.assertEqual((css.status_code, css.text, css.headers["cache-control"]), (200, "body{}", "public, max-age=31536000, immutable"))
         self.assertEqual(self.client.get("/static/app/css/app.css").headers["cache-control"], "no-cache")
 
+    def test_a_version_this_server_does_not_have_is_not_kept(self):
+        # a rolling deploy: the new page links ?v=<new>, the request reaches an instance that still has the old file
+        old = self.client.get("/static/app/css/app.css?v=0123456789")
+        self.assertEqual((old.status_code, old.text, old.headers["cache-control"]), (200, "body{}", "no-cache"))
+
 
 if __name__ == "__main__":
     unittest.main()
