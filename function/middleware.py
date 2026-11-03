@@ -240,8 +240,8 @@ def func_middleware_postgres_select(*, client_postgres_dict: dict, cache_postgre
     if name not in client_postgres_dict and name != "master": raise func_api_error(message=f"connection '{name}' not found", status_code=404)
     return client_postgres_dict.get(name), cache_postgres_schema_dict.get(name, {})
 
-async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, cache: Any = None, api_cache_sec: Any = None, client_redis: Redis | None = None, user_id: int = 0, cache_api_response: dict = None, response: Any = None, is_gzip_accepted: bool = False) -> Any:
-    """Get or set middleware API cache for a request. Bodies are stored gzipped; a hit is sent still gzipped when the client accepts gzip (no decompress, fewer bytes)."""
+async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, cache: Any = None, api_cache_sec: Any = None, client_redis: Redis | None = None, user_id: int = 0, cache_api_response: dict = None, response: Any = None, is_gzip_accepted: bool = False, config_api_cache_inmemory_max_kb: int = 102400) -> Any:
+    """Get or set middleware API cache for a request. Bodies are stored gzipped; a hit is sent still gzipped when the client accepts gzip (no decompress, fewer bytes). The inmemory cache holds at most config_api_cache_inmemory_max_kb of stored bodies per worker: over it, the oldest entries are dropped (they are read from the route again on their next request)."""
     if mode not in ("get", "set"): raise func_api_error(message=f"invalid cache operation: {mode}, allowed: get, set", status_code=500)
     cfg = cache if cache is not None else api_cache_sec
     if isinstance(cfg, dict):
@@ -270,7 +270,11 @@ async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict,
     body = getattr(response, "body", None) or b"".join([chunk async for chunk in response.body_iterator])
     comp = gzip.compress(body, compresslevel=1)    # stored as raw bytes: level 1 is several times faster than the default 9 for JSON of this size
     if cache_mode == "redis": await client_redis.setex(key, ttl, comp)
-    else: cache_api_response[key] = {"data": comp, "expire_at": time.time() + ttl}
+    else:
+        cache_api_response.pop(key, None)    # a re-set entry counts as the newest
+        cache_api_response[key] = {"data": comp, "expire_at": time.time() + ttl}
+        total, limit = sum(len(item["data"]) for item in cache_api_response.values()), config_api_cache_inmemory_max_kb * 1024
+        while total > limit: total -= len(cache_api_response.pop(next(iter(cache_api_response)))["data"])    # dicts keep insertion order: the first is the oldest
     response = Response(content=body, status_code=response.status_code, media_type=response.media_type, headers=dict(response.headers))
     response.is_cache_set = True
     return response

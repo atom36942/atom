@@ -81,7 +81,7 @@ class RetentionConfigTests(unittest.TestCase):
     def state(self, retention):
         return SimpleNamespace(config_query_runner_read_limit=10, config_export_limit=10,
             config_sql_read_limit_default=10, config_sql_read_limit_max=10, config_sql_read_relation_fetch_limit_max=10,
-            config_postgres_buffer_flush_auto_sec=60, config_inmemory_cache_cleanup_auto_sec=300, config_uvicorn_workers=1, config_request_body_max_kb=10240, config_request_form_max_kb=102400,
+            config_postgres_buffer_flush_auto_sec=60, config_inmemory_cache_cleanup_auto_sec=300, config_uvicorn_workers=1, config_request_body_max_kb=10240, config_request_form_max_kb=102400, config_api_cache_inmemory_max_kb=102400,
             config_otp_retention_day=retention, config_log_api_retention_day=retention, config_otp_expiry_sec=600)
 
     def test_retention_validation(self):

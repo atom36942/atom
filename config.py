@@ -53,6 +53,7 @@ config_request_body_max_kb = 10240
 config_request_form_max_kb = 102400
 config_redis_cache_ttl_sec = 3600
 config_inmemory_cache_cleanup_auto_sec = 300
+config_api_cache_inmemory_max_kb = 102400
 config_cors_allow_origins = []
 config_cors_allow_origin_regex = None
 config_cors_allow_methods = ["*"]

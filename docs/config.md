@@ -185,6 +185,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_buffer_limit_default` | In-memory buffer size before flushing rows to Postgres (`100`) |
 | `config_buffer_rows_max` | Max rows pending in each in-memory buffer during an outage (`100000`, at least `1000`). When full, `mode=buffer` creates return `503 buffer full, retry later` and API-log rows drop the oldest (counted as `buffer_dropped` on the Monitor page's Background tab) |
 | `config_postgres_buffer_flush_auto_sec` | Timer interval in seconds to auto-flush write buffers (`60`) |
+| `config_api_cache_inmemory_max_kb` | Largest total size, in KB, of the `inmemory` API response cache per worker, counting the stored (gzipped) bodies (`102400`, 100 MB); over it, the oldest entries are dropped and read from the route again on their next request |
 | `config_inmemory_cache_cleanup_auto_sec` | Timer interval in seconds to purge expired cache entries (`300`) |
 | `config_batch_item_limit` | Maximum objects allowed per batch CRUD request (`1000`) |
 | `config_sql_read_limit_default` | Default page size for object read queries (`100`) |
