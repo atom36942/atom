@@ -122,3 +122,5 @@ Measured on one machine with a local PostgreSQL; on a remote database the saved 
 
 **Creates without a transaction wrapper (3.8).** `func_postgres_create` wrapped every create in `BEGIN`/`COMMIT`, and the bulk insert added a `SAVEPOINT` inside it, although up to 5,000 rows is one `INSERT`, all-or-nothing by itself. It now opens a transaction only when a create spans several `INSERT`s and none is open yet. At 50 ms per query: 1 row 52 vs 155 ms, 10 rows 52 vs 258 ms, 1,000 rows 62 vs 269 ms (1 round trip instead of 3 or 5). A failed create still saves no row, in one statement or across several.
 
+**Updates and deletes without a transaction wrapper (3.9).** `func_postgres_update` and `func_postgres_delete` follow the 3.8 rule: one `UPDATE` or `DELETE` statement runs alone, several share one transaction, and a caller's own transaction gets no savepoint. Measured on an Azure PostgreSQL database (Atom's `test` table): update 10 rows 48 vs 143 ms, update 1,000 rows 146 vs 233 ms, delete 2 rows 51 vs 140 ms. The 3.8 creates on the same table: 1 row 48 vs 142 ms, 10 rows 49 vs 238 ms, 1,000 rows 108 vs 303 ms.
+

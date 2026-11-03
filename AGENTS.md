@@ -79,6 +79,7 @@ Name files after their feature across folders: `router_extend/<f>.py`, `function
 
 ## Data and security
 - Tables via `func_check_table_permission` and `func_postgres_create/read/update/delete`; ownership via `created_by_id` (CRUD and ownership docs in `docs/`). Never `is_trusted=True` with request data.
+- Read and write rows with `func_postgres_create`, `func_postgres_read`, `func_postgres_update` and `func_postgres_delete` (inside a feature's own transaction too: pass its `client_postgres_conn`), not hand-written `INSERT`/`UPDATE`/`DELETE` or plain `SELECT`: they check columns, types and ownership and take one round trip per call (bulk updates through `unnest`, exports after the last id). Hand-written SQL only for what they cannot express (joins, aggregates, row locks), values bound as `$1, $2`.
 - SQL values as `$1, $2`, never in f-strings; identifiers only after `^[a-zA-Z_][a-zA-Z0-9_]*$` or an allow-list, quoted.
 - Clients: see Reuse Atom (default name `master`). Redis names `api_response`, `user_state`, `ratelimiter`, `queue` are Atom's.
 - Postgres only through asyncpg, Atom's driver: `app_state.client_postgres_dict[...]` in the app, `func_client_postgres` or `asyncpg` in scripts; no other Postgres driver (psycopg, SQLAlchemy). Quote identifiers yourself (asyncpg has no SQL builder) and bind values as `$1, $2`; reg* types: `$1::text::regclass`, `to_regclass(x) IS NOT NULL`.

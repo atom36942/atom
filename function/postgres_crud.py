@@ -655,7 +655,7 @@ async def func_postgres_update(*, client_postgres: asyncpg.Pool | None, client_p
     is_unnest = column_types[0] in ("smallint", "integer", "bigint") and all(re.match(r"^(smallint|integer|bigint|real|double precision|boolean|text|uuid|date|numeric(\(\d+(,\d+)?\))?|character( varying)?(\(\d+\))?|(timestamp|time)(\(\d\))? with(out)? time zone)$", t) for t in column_types[1:])
     actual_batch_size = limit_batch if is_unnest else max(1, (limit_batch - (1 if created_by_id is not None else 0)) // ((2 * len(update_cols)) + 1))
     async def _execute_update(connection):
-        async with connection.transaction():
+        async def update_batches():
             for i in range(0, len(obj_list), actual_batch_size):
                 batch_raw = obj_list[i:i+actual_batch_size]
                 await func_regex_check(config_column_regex=config_column_regex, obj_list=batch_raw)
@@ -684,6 +684,11 @@ async def func_postgres_update(*, client_postgres: asyncpg.Pool | None, client_p
                 if created_by_id is not None: batch_vals.append(created_by_id)
                 sql = f'UPDATE "{table}" SET {", ".join(set_clauses)} WHERE {where_clause} RETURNING id;'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
                 returned_ids.extend([r["id"] for r in (await connection.fetch(sql, *batch_vals))])
+        # one batch is one UPDATE, all-or-nothing by itself: no BEGIN/COMMIT round trips; several batches share one transaction
+        if len(obj_list) > actual_batch_size and not connection.is_in_transaction():
+            async with connection.transaction(): await update_batches()
+        else: await update_batches()
+
     if client_postgres_conn: await _execute_update(client_postgres_conn)
     else:
         async with client_postgres.acquire() as conn: await _execute_update(conn)
@@ -705,7 +710,8 @@ async def func_postgres_delete(*, client_postgres: asyncpg.Pool | None, client_p
         if schema and ownership_column not in schema: raise Exception(f"table '{table}' lacks required '{ownership_column}' column")
     async def _execute_delete(connection):
         deleted_count = 0
-        async with connection.transaction():
+        async def delete_batches():
+            nonlocal deleted_count
             for i in range(0, len(id_list), limit_chunk):
                 batch_ids = id_list[i:i+limit_chunk]
                 where_clause = '"id" = ANY($1::bigint[])'
@@ -715,6 +721,10 @@ async def func_postgres_delete(*, client_postgres: asyncpg.Pool | None, client_p
                     values.append(created_by_id)
                 sql_delete = f'WITH deleted AS (DELETE FROM "{table}" WHERE {where_clause} RETURNING 1) SELECT COUNT(*) FROM deleted;'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
                 deleted_count += await connection.fetchval(sql_delete, *values)
+        # up to limit_chunk ids is one DELETE, all-or-nothing by itself; several share one transaction
+        if len(id_list) > limit_chunk and not connection.is_in_transaction():
+            async with connection.transaction(): await delete_batches()
+        else: await delete_batches()
         return deleted_count
     if client_postgres_conn:
         return await _execute_delete(client_postgres_conn)

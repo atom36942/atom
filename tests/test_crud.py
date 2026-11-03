@@ -260,6 +260,22 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn('AND "created_by_id"=$4', sql)
                 self.assertEqual(values, [3, "new", 3, 7])
 
+    async def test_update_and_delete_of_one_statement_send_no_transaction(self):
+        self.conn.fetch.return_value = [{"id": 3}]
+        await self.update(obj_list=[{"id": i, "name": "n"} for i in range(1, 1001)])
+        self.conn.fetchval.return_value = 2
+        await self.delete(ids=list(range(1, 5001)))
+        self.conn.transaction.assert_not_called()    # one UPDATE and one DELETE are all-or-nothing by themselves
+        self.assertEqual((self.conn.fetch.await_count, self.conn.fetchval.await_count), (1, 1))
+
+    async def test_update_and_delete_over_one_statement_share_one_transaction(self):
+        self.conn.fetch.return_value = []
+        await self.update(obj_list=[{"id": i, "name": "n"} for i in range(1, 5002)])
+        self.conn.fetchval.return_value = 0
+        await self.delete(ids=list(range(1, 5002)))
+        self.assertEqual(self.conn.transaction.call_count, 2)
+        self.assertEqual((self.conn.fetch.await_count, self.conn.fetchval.await_count), (2, 2))
+
     async def test_update_invalid_batches_never_write(self):
         for objects in ([{"name": "no id"}], [{"id": 3}], [{"id": 3, "name": "a"}, {"id": 4, "created_by_id": 7}]):
             with self.subTest(objects=objects), self.assertRaisesRegex(Exception, "missing required field: 'id'|object keys mismatch|update field required"):

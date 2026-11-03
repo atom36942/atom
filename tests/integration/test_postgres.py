@@ -149,6 +149,17 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 await self.create("test", rows)
         self.assertEqual(await self.pool.fetchval("SELECT count(*) FROM test"), before)
 
+    async def test_a_failed_update_or_blocked_delete_changes_nothing(self):
+        ids = await self.create("test", [{"title": f"t{i}", "created_by_id": 1} for i in range(10)])
+        rows = [{"id": i, "title": f"new{n}"} for n, i in enumerate(ids)]
+        rows[-1]["title"] = None    # violates title NOT NULL: the one UPDATE fails as a whole
+        with self.assertRaises(asyncpg.NotNullViolationError):
+            await func_postgres_update(client_postgres=self.pool, client_postgres_conn=None, client_password_hasher=HASHER, cache_postgres_schema=self.schema, config_column_regex={}, table="test", obj_list=rows, created_by_id=1)
+        self.assertEqual(sorted(await self.titles(f"id in {','.join(map(str, ids))}")), sorted(f"t{i}" for i in range(10)))
+        with self.assertRaisesRegex(asyncpg.RaiseError, "operation not allowed on users"):
+            await func_postgres_delete(client_postgres=self.pool, client_postgres_conn=None, cache_postgres_schema=self.schema, table="users", ids=[1], created_by_id=None)
+        self.assertEqual(await self.pool.fetchval("SELECT count(*) FROM users WHERE id = 1"), 1)
+
     async def test_update_many_rows_keeps_each_value_and_type(self):
         ids = await self.create("test", [{"title": f"t{i}", "created_by_id": 1} for i in range(1500)])
         update = lambda rows: func_postgres_update(client_postgres=self.pool, client_postgres_conn=None, client_password_hasher=HASHER,
