@@ -108,6 +108,10 @@ class SyncTests(unittest.TestCase):
         self.assertIsNone(sync.atom_version(source=b"# a sync.py from before versions\n"))
         self.assertRegex(sync.atom_version(source=Path(sync.__file__).read_bytes()), r"^\d+\.\d+\.\d+$")
 
+    def test_readme_shows_the_version(self):
+        readme = Path(sync.__file__).with_name("readme.md").read_text()
+        self.assertEqual(readme.splitlines()[1], f"Version {sync.ATOM_VERSION}", "raise the version in readme.md together with ATOM_VERSION")
+
     def test_version_change_lines(self):
         self.assertEqual(sync.version_change(old="1.2.0", new="1.3.0", is_same_revision=False), "Atom 1.2.0 -> 1.3.0")
         self.assertEqual(sync.version_change(old=None, new="1.3.0", is_same_revision=False), "Atom unknown (synced before versions) -> 1.3.0")
