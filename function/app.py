@@ -20,6 +20,7 @@ from fastapi.routing import iter_route_contexts
 from starlette.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.gzip import DEFAULT_EXCLUDED_CONTENT_TYPES
 from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import State
 from starlette.routing import Match
@@ -330,8 +331,9 @@ def func_app_cors_add(*, app: FastAPI, allow_origins: list = None, allow_origin_
     app.add_middleware(CORSMiddleware, allow_origins=allow_origins or [], allow_origin_regex=allow_origin_regex, allow_methods=allow_methods or ["*"], allow_headers=allow_headers or ["*"], expose_headers=expose_headers or ["*"], allow_credentials=allow_credentials)
 
 def func_app_gzip_add(*, app: FastAPI, minimum_size: int = 1024, compresslevel: int = 1) -> None:
-    """Gzip responses over minimum_size when the client sends Accept-Encoding: gzip (browsers always do); responses already encoded (cache hits) and event streams pass through. Level 1 keeps most of the size saving for a fraction of level 9's CPU."""
-    app.add_middleware(GZipMiddleware, minimum_size=minimum_size, compresslevel=compresslevel)
+    """Gzip responses over minimum_size when the client sends Accept-Encoding: gzip (browsers always do); responses already encoded (cache hits), event streams and files that are compressed already (Starlette's list: images, audio, video, zip, fonts; plus PDF and Office files) pass through. Level 1 keeps most of the size saving for a fraction of level 9's CPU."""
+    already_compressed = ("application/pdf", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+    app.add_middleware(GZipMiddleware, minimum_size=minimum_size, compresslevel=compresslevel, exclude_content_types=(*DEFAULT_EXCLUDED_CONTENT_TYPES, *already_compressed))
 
 def func_app_fastapi_create(*, config_is_prod: bool = True, lifespan: Any = None, config_is_fastapi_telemetry: bool = False):
     """Create the FastAPI app; FastAPI's native OpenTelemetry stays off unless config_is_fastapi_telemetry, so requests skip its per-request provider lookup.
