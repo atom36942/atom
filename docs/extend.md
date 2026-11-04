@@ -14,7 +14,7 @@ Atom owns all contents of `docs/`, `router/`, `function/`, `script/`, `static/`,
 | `script/` | `script_extend/` | Standalone workers and jobs |
 | `static/` | `static_extend/` | Web assets, served at `/static/<name>` together with Atom's `static/` |
 | `docs/` | `docs_extend/` | Project documentation |
-| `tests/` (Atom's, not synced) | `tests_extend/` | Project tests (`venv/bin/python -m unittest discover -s tests_extend -t .`) |
+| `tests/` (Atom's, not synced) | `tests_extend/` | Project tests (`venv/bin/python -m script.check` runs them with ruff) |
 | `files/` | `files_extend/` | Anything extra: constants and reusable `param_specs`, sample JSON, AI prompts and contexts, templates, seed CSVs |
 
 One rule: Atom owns every unsuffixed folder and sync fully replaces it, deleting any other file inside; the project owns every `<name>_extend` folder. A file with the same path in `static/` and `static_extend/`, or two pages with one name (`<name>.html` and `<name>/index.html`, in either folder), stops startup, so a project cannot shadow an Atom page and every name means one page. Names compare ignoring case (`logo.png` and `Logo.png` clash), so a project behaves the same on Linux, macOS and Windows; hidden OS files (`.DS_Store`, `Thumbs.db`, `desktop.ini`) are ignored.

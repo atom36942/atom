@@ -1,10 +1,13 @@
 # Tests
 
-Atom's own tests, standard-library `unittest`, run from the project root (Git must be installed for the sync tests):
+Atom's own tests, standard-library `unittest`, run from the project root (Git must be installed for the sync tests). One command runs ruff and every test, printing a summary line and only the failures and skip reasons:
 
 ```bash
-venv/bin/python -m unittest discover -s tests -t .
+venv/bin/python -m script.check
+venv/bin/python -m script.check tests.test_sync    # one module, class or test
 ```
+
+The plain runner works too: `venv/bin/python -m unittest discover -s tests -t .`
 
 ## Unit tests
 Everything outside `tests/integration/` mocks the database: real builders and serializers, no SQL, no config, no connections to databases, Redis or cloud services. Sync tests create throwaway local Git repositories and never fetch the real Atom repository.
@@ -19,7 +22,7 @@ Skipped unless their environment variable is set:
 | `ATOM_TEST_VENV_REAL=1` | Real venv builds by `sync.py` | Network for pip |
 
 ```bash
-ATOM_TEST_POSTGRES_URL=postgresql://user@localhost:5432/postgres ATOM_TEST_REDIS_URL=redis://localhost:6379/15 venv/bin/python -m unittest discover -s tests -t .
+ATOM_TEST_POSTGRES_URL=postgresql://user@localhost:5432/postgres ATOM_TEST_REDIS_URL=redis://localhost:6379/15 venv/bin/python -m script.check
 ```
 
 CI sets all three against PostgreSQL (PostGIS) and Redis services. The HTTP tests start the app from a temporary working directory with test-only settings, so they never read your `.env` or touch your `tmp/`.

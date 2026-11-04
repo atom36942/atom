@@ -100,6 +100,6 @@ Name files after their feature across folders: `router_extend/<f>.py`, `function
 - A `script_extend/` script is one `.py` file per job; it may import stdlib, packages, `config`, `function` and the project's own `function_extend`/`files_extend` (move helpers there when a script grows); outside values only from `config.py` or the environment, in `# config`; runtime data and resume state in `tmp/<script>/`, kept while a run can resume and deleted once it succeeds.
 
 ## Verify
-- `venv/bin/ruff check .`; `venv/bin/python -m unittest discover -s tests_extend -t .`; start with `venv/bin/python main.py` (startup checks catch config, duplicate `func_*` and secret errors). Windows: `venv\Scripts\` instead of `venv/bin/`.
+- `venv/bin/python -m script.check` (ruff and every test in one run: a summary line, then only failures and skip reasons; add a test name such as `tests_extend.test_invoice` to run just that); start with `venv/bin/python main.py` (startup checks catch config, duplicate `func_*` and secret errors). Windows: `venv\Scripts\` instead of `venv/bin/`.
 - Database tests: a throwaway local database, dropped afterwards; never a shared or production one.
 - This file is the only rules file, the same in every project; a project's feature details and business rules are in `docs_extend/<feature>.md`.

@@ -40,7 +40,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # setting
 # Atom's version: raised by hand when a change is worth a new number (no tags); a project's sync.py shows the version it has
-ATOM_VERSION = "3.13.2"
+ATOM_VERSION = "3.14.0"
 REPO_URL = "https://github.com/atom36942/atom.git"
 # Single files replaced from upstream on every sync.
 SYNC_FILES = [
@@ -90,7 +90,7 @@ EXTEND_README = {
     "files_extend": "# files_extend\nShared constants and `param_specs` (`import files_extend.<module>`), plus JSON, prompts and templates read by path from the project root. Never written at runtime: generated files go in `tmp/<feature>/`, data in the database. See AGENTS.md (Where code goes).\n",
     "static_extend": "# static_extend\nWeb pages, served at `/static/<name>` and opened at `/page/<app>`: one file `<app>.html` or a folder `<app>/index.html` with its assets linked absolutely (`/static/<app>/js/app.js`). Lowercase names keep URLs clean; state such as a tab goes in the query (`/page/<app>?tab=x`). See AGENTS.md (Where code goes).\n",
     "script_extend": "# script_extend\nProject scripts and jobs: one `.py` per job with sections `# command`, `# info`, `# import`, `# config` (values from `config.py` or the environment only), `# setting`, `# logic`, `# main`. Imports stdlib, packages, `config`, `function` and the project's `function_extend`/`files_extend` (move helpers there when a script grows); runtime data in `tmp/<script>/`, deleted on success. See AGENTS.md (Style).\n",
-    "tests_extend": "# tests_extend\nProject tests (`unittest`), one `test_<feature>.py` each; keep `__init__.py`. Run: `venv/bin/python -m unittest discover -s tests_extend -t .`\n",
+    "tests_extend": "# tests_extend\nProject tests (`unittest`), one `test_<feature>.py` each; keep `__init__.py`. Run with ruff: `venv/bin/python -m script.check`\n",
     "docs_extend": "# docs_extend\nShort project docs, one `<feature>.md` each: what it does and how to use it, no SQL or code dumps. Rules live only in the root `AGENTS.md` (Atom's, synced).\n",
 }
 # The starter .env sync creates when it is missing: sample values, commented out.

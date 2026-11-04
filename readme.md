@@ -1,5 +1,5 @@
 # Atom
-Version 3.13.2
+Version 3.14.0
 
 Batteries-included FastAPI framework for production backends: auth, CRUD over any table, caching, rate limits, queues, workers, web pages and optional integrations, all driven by config. Your code lives in `*_extend` paths, so updating Atom never overwrites it.
 
@@ -88,9 +88,9 @@ Details: [docs/sync.md](docs/sync.md)
 
 # Test
 ```bash
-venv/bin/ruff check .
-venv/bin/python -m unittest discover -s tests_extend -t .
+venv/bin/python -m script.check
 ```
+Runs ruff and the tests in `tests_extend/` together and prints one summary line, plus only the failures.
 
 # Contributing
 To work on Atom itself:
@@ -100,8 +100,7 @@ cd atom
 python3.14 -m venv venv
 venv/bin/pip install --upgrade pip
 venv/bin/pip install -r requirements.txt
-venv/bin/ruff check .
-venv/bin/python -m unittest discover -s tests -t .
+venv/bin/python -m script.check
 ```
 
 Then open a pull request against `main`. Details: [tests/README.md](tests/README.md)

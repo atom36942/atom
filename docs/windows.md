@@ -31,8 +31,7 @@ If sync says the venv is in use, close the app, `uvicorn --reload` and VS Code's
 
 ## Test
 ```powershell
-venv\Scripts\ruff check .
-venv\Scripts\python -m unittest discover -s tests_extend -t .
+venv\Scripts\python -m script.check
 ```
 
 ## Contributing
@@ -43,8 +42,7 @@ cd atom
 py -3.14 -m venv venv
 venv\Scripts\python -m pip install --upgrade pip
 venv\Scripts\pip install -r requirements.txt
-venv\Scripts\ruff check .
-venv\Scripts\python -m unittest discover -s tests -t .
+venv\Scripts\python -m script.check
 ```
 
 ## Notes
