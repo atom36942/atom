@@ -1,5 +1,7 @@
 """HTTP status codes from func_api_error, middleware checks, and known infrastructure failures."""
+import io
 import unittest
+from contextlib import redirect_stderr
 import asyncpg
 import httpx
 import jwt
@@ -45,6 +47,11 @@ class ErrorStatusTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_plain_exceptions_stay_400_with_the_same_envelope(self):
         self.assertEqual(await status_of(Exception("invalid limit")), (400, {"status": 0, "message": "invalid limit"}))
+
+    async def test_the_printed_error_names_its_request(self):
+        printed = io.StringIO()
+        with redirect_stderr(printed): await func_middleware_api_response_error(exception=Exception("invalid limit"), is_traceback=True, sentry_dsn=None, request_id="3f2a9c1b7d4e6f80")
+        self.assertEqual(printed.getvalue().strip(), "400 Exception: invalid limit (request 3f2a9c1b7d4e6f80)")
 
     async def test_func_api_error_sets_status_and_keeps_message(self):
         error = func_api_error(message="access denied", status_code=403)

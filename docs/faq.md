@@ -551,6 +551,12 @@ Booleans accept case-insensitive `true` and `false`; `1`/`0`, `yes`/`no`, and `o
 </details>
 
 <details>
+<summary><strong>A user reports a failed request: how do I find it?</strong></summary>
+
+Every response carries an `x-request-id` header (a proxy's own `x-request-id` is kept when it is a plain 8-64 character token). The same id is in `log_api.request_id`, in the error line Atom prints (`400 Exception: invalid limit (request 3f2a9c1b7d4e6f80)`) and as the `request_id` tag in Sentry. A page can show it with its error message; then `SELECT * FROM log_api WHERE request_id = '<id>' AND created_at > now() - interval '1 day'` finds the row (the `created_at` index keeps it fast, so `request_id` needs no index of its own).
+</details>
+
+<details>
 <summary><strong>Which URL should a load balancer or App Service health check call?</strong></summary>
 
 `/health-ready`. It answers `200` only when every configured database (each Postgres, Redis, MSSQL and ClickHouse pool) responds to a trivial query within 2 seconds, checked at the same time, and `503 not ready: <kind>.<name> did not answer` otherwise, so traffic moves away from an instance that lost its database. It names pools only, never hosts or errors, keeps its answer for 5 seconds and is not written to `log_api`. `/health` answers `200` whenever the process runs: use it where only "is the app up" matters.

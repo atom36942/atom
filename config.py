@@ -318,7 +318,8 @@ config_postgres = {
 {"name":"query_param","datatype":"text"},
 {"name":"status_code","datatype":"smallint","index":"btree(status_code)"},
 {"name":"response_time_ms","datatype":"integer"},
-{"name":"error","datatype":"text"}
+{"name":"error","datatype":"text"},
+{"name":"request_id","datatype":"text"}
 ],
 "log_users_password":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},

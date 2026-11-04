@@ -251,6 +251,19 @@ class HttpIntegrationTests(unittest.TestCase):
         self.assertTrue({200, 401} <= {r["status_code"] for r in rows}, rows)
         self.assertIn("error", {r["response_type"] for r in rows})
 
+    def test_each_response_has_a_request_id_that_leads_to_its_log_row(self):
+        own = self.client.get("/my/profile").headers["x-request-id"]
+        self.assertRegex(own, r"^[0-9a-f]{16}$", "a new id when the caller sends none")
+        passed = self.client.get("/my/profile", headers={"x-request-id": "proxy-abc-12345"}).headers["x-request-id"]
+        self.assertEqual(passed, "proxy-abc-12345", "a proxy's id is kept")
+        unsafe = self.client.get("/my/profile", headers={"x-request-id": "<script>"}).headers["x-request-id"]
+        self.assertRegex(unsafe, r"^[0-9a-f]{16}$", "an unsafe one is replaced")
+        deadline, rows = time.time() + 10, []
+        while time.time() < deadline and not rows:
+            rows = fetch(self.reports_url, "SELECT status_code FROM log_api WHERE request_id = $1", own)
+            time.sleep(0.5)
+        self.assertEqual(rows, [{"status_code": 401}])
+
     def test_route_with_is_log_api_false_is_not_logged(self):
         self.client.post("/pgweb", json={"action": "schema"})    # config_api /pgweb: is_log_api False (pgweb itself is off here, so it answers 404)
         self.client.get("/health")    # logged as usual; once it is in log_api, the /pgweb row would be too if it were written

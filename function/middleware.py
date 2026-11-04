@@ -3,6 +3,7 @@ import asyncio
 import gzip
 import ipaddress
 import re
+import secrets
 import sys
 import time
 import traceback
@@ -338,7 +339,7 @@ def _redact_error_message(message):
     return re.sub(r"((?:password|passwd|secret|token|api[_-]?key|access[_-]?key|sig)\s*[=:]\s*)(?:\"[^\"]*\"|'[^']*'|[^\s&;,]+)", r"\1[REDACTED]", message, flags=re.IGNORECASE)
 
 
-async def func_middleware_api_response_error(*, exception: Exception, is_traceback: bool, sentry_dsn: str) -> tuple:
+async def func_middleware_api_response_error(*, exception: Exception, is_traceback: bool, sentry_dsn: str, request_id: str | None = None) -> tuple:
     """Central API error handler: formats database, client, and system exceptions into a standard JSON response."""
     import botocore.exceptions
     # Plain Exception stays 400; func_api_error and known infrastructure failures get their real status.
@@ -396,18 +397,23 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
     error_msg = _redact_error_message(error_msg)
     # a full traceback only for server errors (5xx); a client error (4xx: bad token, invalid input) is one line
     if is_traceback and status_code >= 500: traceback.print_tb(exception.__traceback__)
-    if is_traceback: print(f"{status_code} {type(exception).__name__}: {error_msg}", file=sys.stderr)
+    if is_traceback: print(f"{status_code} {type(exception).__name__}: {error_msg}" + (f" (request {request_id})" if request_id else ""), file=sys.stderr)
     if sentry_dsn:
         import sentry_sdk
-        sentry_sdk.capture_exception(exception)
+        sentry_sdk.capture_exception(exception, tags={"request_id": request_id} if request_id else None)
     return error_msg, responses.JSONResponse(status_code=status_code, content={"status": 0, "message": error_msg})
 
 async def func_middleware_log_api_write(*, app_state: Any, request: Request, response_type: str, status_code: int | None, start: float, error: str | None) -> None:
     """Buffer one log_api row for a finished request; skipped when read-only or no log_api database, and write errors are counted, never raised."""
     if app_state.config_is_read_only or not getattr(app_state, "client_postgres_log_api", None): return
-    try: await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(app_state.config_postgres_db_log_api, {}), buffer_postgres=app_state.buffer_postgres_log_api, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="drop_oldest", runtime_error_count=app_state.runtime_error_count, is_trusted=True, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": func_middleware_client_ip(request=request), "path": request.scope["path"], "method": request.method, "query_param": func_middleware_log_query_params(query_params=request.query_params), "status_code": status_code, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error}])
+    try: await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(app_state.config_postgres_db_log_api, {}), buffer_postgres=app_state.buffer_postgres_log_api, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="drop_oldest", runtime_error_count=app_state.runtime_error_count, is_trusted=True, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": func_middleware_client_ip(request=request), "path": request.scope["path"], "method": request.method, "query_param": func_middleware_log_query_params(query_params=request.query_params), "status_code": status_code, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error, "request_id": getattr(request.state, "request_id", None)}])
     except Exception as e: func_runtime_error_record(runtime_error_count=app_state.runtime_error_count, key="log_api_write", error=e, print_every=100)
     return
+
+def func_middleware_request_id(*, headers: Any) -> str:
+    """This request's id: the caller's or proxy's x-request-id when it is a plain token (8-64 letters, digits, . _ -), else a new random one. Sent back as x-request-id, written to log_api and printed with errors, so a reported failure leads to its log row."""
+    incoming = headers.get("x-request-id", "")
+    return incoming if re.fullmatch(r"[A-Za-z0-9._-]{8,64}", incoming) else secrets.token_hex(8)
 
 def func_middleware_security_headers(*, headers: list) -> list:
     """Return ASGI response headers with the baseline security headers added, keeping any the route already set."""
