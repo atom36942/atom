@@ -71,7 +71,7 @@ async def func_lifespan(app: FastAPI):
         # postgres master
         postgres_master = client_postgres_dict.get("master")
         if postgres_master and not app.state.config_is_read_only and app.state.config_is_postgres_schema_init:
-            async with app.state.func_postgres_advisory_lock(client_postgres=postgres_master, lock_id=3): await app.state.func_postgres_schema_init(app_state=app.state, client_postgres=postgres_master, config_postgres=app.state.config_postgres, root_user_password_hash=client_password_hasher.hash(str(app.state.config_root_user_password)) if app.state.config_root_user_password else None)
+            async with app.state.func_postgres_advisory_lock(client_postgres=postgres_master, lock_id=3): await app.state.func_postgres_schema_init(app_state=app.state, client_postgres=postgres_master, config_postgres=app.state.config_postgres, lock_timeout_sec=app.state.config_postgres_schema_lock_timeout_sec, root_user_password_hash=client_password_hasher.hash(str(app.state.config_root_user_password)) if app.state.config_root_user_password else None)
         postgres_master_schema = await app.state.func_postgres_schema_read(client_postgres=postgres_master) if postgres_master else {}
         cache_config = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("config"), is_json_value=True) if postgres_master and "config" in postgres_master_schema else {}
         cache_users_role = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("users_role")) if postgres_master else {}
@@ -80,7 +80,7 @@ async def func_lifespan(app: FastAPI):
         # postgres log
         client_postgres_log_api = client_postgres_dict.get(app.state.config_postgres_db_log_api) if app.state.config_is_log_api else None
         if client_postgres_log_api and app.state.config_postgres_db_log_api != "master" and not app.state.config_is_read_only and app.state.config_is_postgres_schema_init:
-            async with app.state.func_postgres_advisory_lock(client_postgres=client_postgres_log_api, lock_id=3): await app.state.func_postgres_schema_tables_init(app_state=app.state, client_postgres=client_postgres_log_api, tables={"log_api": app.state.config_postgres["table"]["log_api"]})
+            async with app.state.func_postgres_advisory_lock(client_postgres=client_postgres_log_api, lock_id=3): await app.state.func_postgres_schema_tables_init(app_state=app.state, client_postgres=client_postgres_log_api, lock_timeout_sec=app.state.config_postgres_schema_lock_timeout_sec, tables={"log_api": app.state.config_postgres["table"]["log_api"]})
         # cache schema
         cache_postgres_schema_dict = {name: postgres_master_schema if name == "master" else await app.state.func_postgres_schema_read(client_postgres=pool) for name, pool in client_postgres_dict.items()}
         cache_clickhouse_schema_dict = {name: await app.state.func_clickhouse_schema_read(client_clickhouse=client) for name, client in client_clickhouse_dict.items()}

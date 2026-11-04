@@ -1,5 +1,7 @@
 # import
+import contextlib
 import hashlib
+import re
 from typing import Any
 import asyncpg
 from starlette.datastructures import State
@@ -402,30 +404,74 @@ async def func_postgres_schema_sql_execute(*, conn: asyncpg.Connection, sql_conf
     for query in func_postgres_schema_sql_queries(sql_config): await conn.execute(query)
     return
 
-async def func_postgres_schema_tables_init(*, app_state: State, client_postgres: asyncpg.Pool, tables: dict) -> str:
+async def func_postgres_schema_lock_timeout(*, conn: Any, lock_timeout_sec: int) -> Any:
+    """Inside the schema transaction: wait at most lock_timeout_sec for each table lock, so a busy table makes startup fail with a clear message instead of hanging the deploy."""
+    if lock_timeout_sec: await conn.execute(f"SET LOCAL lock_timeout = '{int(lock_timeout_sec)}s'")
+    return
+
+def func_postgres_schema_lock_error(*, error: Exception, lock_timeout_sec: int) -> Exception:
+    return Exception(f"schema init: a table stayed locked by other sessions for over {lock_timeout_sec} s (config_postgres_schema_lock_timeout_sec), so nothing was changed; start again when it is quiet. See what would change: venv/bin/python -m script.schema_plan ({error})")
+
+async def func_postgres_schema_tables_init(*, app_state: State, client_postgres: asyncpg.Pool, tables: dict, lock_timeout_sec: int = 10) -> str:
     """Create or update only the given tables (columns, indexes, constraints); no extensions, users or triggers, so other tables in that database are untouched."""
     config_postgres = {"table": tables}
     app_state.func_postgres_schema_config_validate(config_postgres=config_postgres)
     context = app_state.func_postgres_schema_context_build(config_postgres=config_postgres)
-    async with client_postgres.acquire() as conn, conn.transaction():
-        await app_state.func_postgres_schema_tables_sync(conn=conn, tables=tables, catalog=context["catalog"])
+    try:
+        async with client_postgres.acquire() as conn, conn.transaction():
+            await func_postgres_schema_lock_timeout(conn=conn, lock_timeout_sec=lock_timeout_sec)
+            await app_state.func_postgres_schema_tables_sync(conn=conn, tables=tables, catalog=context["catalog"])
+    except asyncpg.exceptions.LockNotAvailableError as e: raise func_postgres_schema_lock_error(error=e, lock_timeout_sec=lock_timeout_sec) from None
     return "tables init done"
 
-async def func_postgres_schema_init(*, app_state: State, client_postgres: asyncpg.Pool | None, config_postgres: dict, root_user_password_hash: str = None) -> str:
+async def func_postgres_schema_steps(*, app_state: State, conn: Any, config_postgres: dict, context: dict, root_user_password_hash: str = None, lock_timeout_sec: int = 10) -> None:
+    """The schema steps, in order, on one connection: startup runs them for real, func_postgres_schema_plan only records their statements."""
+    # extensions outside the transaction: a missing privilege is skipped, which must not abort the rest
+    await app_state.func_postgres_schema_extensions_init(conn=conn, extensions=config_postgres.get("extension") or [])
+    # one transaction: other sessions see the old schema or the new one, never a table without its triggers
+    async with conn.transaction():
+        await func_postgres_schema_lock_timeout(conn=conn, lock_timeout_sec=lock_timeout_sec)
+        await app_state.func_postgres_schema_tables_sync(conn=conn, tables=config_postgres["table"], catalog=context["catalog"])
+        db_tables = await app_state.func_postgres_schema_tables_read(conn=conn)
+        context["triggers"] = await app_state.func_postgres_schema_triggers_read(conn=conn)
+        await app_state.func_postgres_schema_users_init(conn=conn, db_tables=db_tables, catalog=context["catalog"], context=context, root_user_password_hash=root_user_password_hash)
+        await app_state.func_postgres_schema_triggers_sync(conn=conn, db_tables=db_tables, catalog=context["catalog"], context=context)
+        await app_state.func_postgres_schema_cleanup(conn=conn, tables=config_postgres["table"], catalog=context["catalog"])
+    # custom SQL last and outside the transaction, as before (it may hold statements such as CREATE INDEX CONCURRENTLY)
+    await app_state.func_postgres_schema_sql_execute(conn=conn, sql_config=config_postgres.get("sql", {}))
+    return
+
+async def func_postgres_schema_init(*, app_state: State, client_postgres: asyncpg.Pool | None, config_postgres: dict, root_user_password_hash: str = None, lock_timeout_sec: int = 10) -> str:
     """Initialize PostgreSQL schema by composing focused helpers registered on app.state."""
     app_state.func_postgres_schema_config_validate(config_postgres=config_postgres)
     context = app_state.func_postgres_schema_context_build(config_postgres=config_postgres)
-    async with client_postgres.acquire() as conn:
-        # extensions outside the transaction: a missing privilege is skipped, which must not abort the rest
-        await app_state.func_postgres_schema_extensions_init(conn=conn, extensions=config_postgres.get("extension") or [])
-        # one transaction: other sessions see the old schema or the new one, never a table without its triggers
-        async with conn.transaction():
-            await app_state.func_postgres_schema_tables_sync(conn=conn, tables=config_postgres["table"], catalog=context["catalog"])
-            db_tables = await app_state.func_postgres_schema_tables_read(conn=conn)
-            context["triggers"] = await app_state.func_postgres_schema_triggers_read(conn=conn)
-            await app_state.func_postgres_schema_users_init(conn=conn, db_tables=db_tables, catalog=context["catalog"], context=context, root_user_password_hash=root_user_password_hash)
-            await app_state.func_postgres_schema_triggers_sync(conn=conn, db_tables=db_tables, catalog=context["catalog"], context=context)
-            await app_state.func_postgres_schema_cleanup(conn=conn, tables=config_postgres["table"], catalog=context["catalog"])
-        # custom SQL last and outside the transaction, as before (it may hold statements such as CREATE INDEX CONCURRENTLY)
-        await app_state.func_postgres_schema_sql_execute(conn=conn, sql_config=config_postgres.get("sql", {}))
+    try:
+        async with client_postgres.acquire() as conn: await func_postgres_schema_steps(app_state=app_state, conn=conn, config_postgres=config_postgres, context=context, root_user_password_hash=root_user_password_hash, lock_timeout_sec=lock_timeout_sec)
+    except asyncpg.exceptions.LockNotAvailableError as e: raise func_postgres_schema_lock_error(error=e, lock_timeout_sec=lock_timeout_sec) from None
     return "database init done"
+
+SCHEMA_RISKS = ((r"ALTER COLUMN .* TYPE ", "rewrites the table, which stays locked until it finishes"), (r"SET NOT NULL", "reads every row while the table is locked"),
+                (r"^\s*CREATE (UNIQUE )?INDEX (?!CONCURRENTLY)", "blocks writes to the table while the index builds"), (r"\bDROP (TABLE|COLUMN)\b", "removes data"))
+SCHEMA_ROUTINE = (r"^\s*CREATE OR REPLACE FUNCTION", r"^\s*DO \$\$", r"^\s*INSERT INTO users \(username, password, role\)", r"^\s*UPDATE users SET username = 'admin'")    # run on every start, whether anything changed or not
+
+async def func_postgres_schema_plan(*, app_state: State, client_postgres: asyncpg.Pool, config_postgres: dict) -> list:
+    """The statements startup would run to match config_postgres, without running them: [{"sql", "risk", "table", "rows", "is_routine"}] (is_routine: runs on every start, whether anything changed or not). Catalog reads go to the database; every statement that would change it is recorded instead. Steps after a new table read the database as it is now, so a plan for a fresh database is incomplete."""
+    class Recorder:
+        def __init__(self, conn): self.conn, self.statements = conn, []
+        async def fetch(self, *args, **kwargs): return await self.conn.fetch(*args, **kwargs)
+        async def fetchrow(self, *args, **kwargs): return await self.conn.fetchrow(*args, **kwargs)
+        async def fetchval(self, *args, **kwargs): return await self.conn.fetchval(*args, **kwargs)
+        async def execute(self, sql, *args, **kwargs): self.statements.append(sql)
+        def transaction(self): return contextlib.nullcontext()
+    app_state.func_postgres_schema_config_validate(config_postgres=config_postgres)
+    context = app_state.func_postgres_schema_context_build(config_postgres=config_postgres)
+    async with client_postgres.acquire() as conn:
+        recorder = Recorder(conn)
+        await func_postgres_schema_steps(app_state=app_state, conn=recorder, config_postgres=config_postgres, context=context, root_user_password_hash="(plan)", lock_timeout_sec=0)    # noqa: S106 - a placeholder: the hash is a bound value, never part of the recorded SQL
+        rows = {r["relname"]: int(r["reltuples"]) for r in await conn.fetch("SELECT c.relname, c.reltuples FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid WHERE n.nspname = 'public' AND c.relkind = 'r'")}
+    plan = []
+    for sql in recorder.statements:
+        risk = next((reason for pattern, reason in SCHEMA_RISKS if re.search(pattern, sql, re.IGNORECASE)), None)
+        table = (re.search(r'(?:ALTER TABLE|ON|INTO|UPDATE)\s+(?:ONLY\s+)?"?(\w+)"?', sql, re.IGNORECASE) or [None, None])[1]
+        plan.append({"sql": sql, "risk": risk, "table": table, "rows": max(rows.get(table, 0), 0) if table else None, "is_routine": any(re.search(pattern, sql) for pattern in SCHEMA_ROUTINE) or sql in func_postgres_schema_sql_queries(config_postgres.get("sql", {}))})
+    return plan

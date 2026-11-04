@@ -84,6 +84,7 @@ config_is_profile_update_last_active_at = True
 
 # postgres
 config_is_postgres_schema_init = True
+config_postgres_schema_lock_timeout_sec = 10
 config_postgres_pool_min_size = 5
 config_postgres_pool_max_size = 20
 config_is_log_api = True

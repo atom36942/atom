@@ -67,3 +67,12 @@ def func_config_load(*, global_dict: dict) -> None:
     options = global_dict.get("config_options")
     if isinstance(options, dict): global_dict["config_options"] = {key: func_config_options_file_read(key=key, path=value) if isinstance(value, str) else value for key, value in options.items()}
     return
+
+def func_config_read() -> dict:
+    """Every config_* value as the app sees it: config.py, then config_extend.py when the project has one, then .env and the environment. For Atom scripts that need the project's own settings (its tables), which they may not import directly."""
+    import importlib
+    import importlib.util
+    modules = [importlib.import_module("config")] + ([importlib.import_module("config_extend")] if importlib.util.find_spec("config_extend") else [])
+    values = {key: value for module in modules for key, value in vars(module).items() if key.startswith("config_")}
+    func_config_load(global_dict=values)
+    return values
