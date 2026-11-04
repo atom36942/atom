@@ -35,6 +35,7 @@ Name files after the feature across folders: `router_extend/<f>.py`, `function_e
 - A page is standalone: its own login and its own browser storage, keys and database names starting with `<app>`, never general keys like `token` or `user` (projects share `localhost` in development and may later share a domain). Storage layout and build (plain scripts, modules or a bundler) are the project's choice.
 - A page that logs in keeps the login alive: new tokens from `POST /my/token-refresh` (refresh token as Bearer) before the access token expires, not on every open; on an expired or refused refresh token (401/403), the login form again with a plain message. Users never see raw token errors ("Signature has expired").
 - Speed: calls that don't need each other's result go out together (`Promise.all`), on open and after every action, never one `await` after another (each call is a full round trip); only a call that needs an earlier result waits.
+- A long page (300+ lines) starts each section with a marker, `/* ==== <name> ==== */` in CSS and JS, `<!-- ==== <name> ==== -->` in HTML, so `grep -n '==== '` lists its sections with line numbers.
 - Local files linked by full path (`/static/<app>/js/app.js`, never relative): Atom stamps `?v=<file fingerprint>` when serving the page; no hand-kept `?v=`. Escape data from the database or other systems before `innerHTML`.
 
 ## Reuse Atom (search `function/` for a `func_*` before writing a helper, client or pool)

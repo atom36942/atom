@@ -17,7 +17,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui
 @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 .muted{color:var(--muted)}
 
-/* app shell */
+/* ==== app shell ==== */
 .container{width:100%;max-width:min(98vw,calc(var(--master-shell-width,98vw) + 64px));margin:10px auto;padding:10px;height:calc(100vh - 20px);display:flex;flex-direction:column;box-sizing:border-box;flex-shrink:0}
 .card{background:var(--card);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.05);flex:1;display:flex;flex-direction:column;min-height:0;box-sizing:border-box;align-self:center;width:100%}
 .modal-header.app-header{padding:8px var(--card-pad)}
@@ -44,7 +44,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui
 .profile-menu button.logout{width:100%;padding:8px;border-radius:8px;border:none;background:rgba(220,53,69,.1);color:var(--delete);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}
 .profile-menu button.logout:hover{background:rgba(220,53,69,.18)}
 
-/* loader */
+/* ==== loader ==== */
 .app-loader-overlay{position:fixed;inset:0;background:var(--bg);z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .4s ease,visibility .4s}
 .app-loader-overlay.hidden{opacity:0;visibility:hidden}
 .app-loader-content{display:flex;flex-direction:column;align-items:center;gap:20px;background:rgba(255,255,255,.03);padding:40px;border-radius:20px;border:1px solid var(--line);backdrop-filter:blur(10px);box-shadow:0 12px 48px rgba(0,0,0,.6)}
@@ -54,7 +54,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui
 .app-loader-pct{font-size:16px;font-weight:600;color:var(--accent)}
 .app-loader-msg{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
 
-/* modals and cards */
+/* ==== modals and cards ==== */
 .modal{display:none;position:fixed;z-index:2000;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(4px)}
 .modal-content{background:var(--card);margin:4vh auto;width:95%;max-width:1000px;max-height:92vh;border-radius:12px;border:1px solid rgba(255,255,255,.1);overflow:hidden;display:flex;flex-direction:column}
 .runner-content{max-width:760px;height:92vh}
@@ -75,7 +75,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui
 .card-actions{display:flex;align-items:center;gap:6px;margin-left:auto}
 .action-divider{width:1px;height:16px;background:rgba(255,255,255,.1);margin:0 4px}
 
-/* buttons */
+/* ==== buttons ==== */
 .icon-btn{background:none;border:1px solid transparent;border-radius:6px;cursor:pointer;padding:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:all .2s}
 .icon-btn svg,.view-btn svg{pointer-events:none}
 .icon-btn:hover{color:#fff;background:rgba(255,255,255,.04)}
@@ -104,7 +104,7 @@ button:disabled[data-tip]{pointer-events:none}    /* the hover tooltip finds dis
 .hover-tip.on{opacity:1;transform:none}
 .toast{position:fixed;bottom:20px;right:20px;background:var(--panel);border:1px solid var(--accent);color:var(--text);padding:10px 20px;border-radius:8px;font-size:13px;z-index:3000;animation:fadeIn .3s}
 
-/* API catalog table */
+/* ==== API catalog table ==== */
 .master-table-wrap{flex:1;min-height:0;overflow:auto;opacity:0;transition:opacity .2s ease-in-out;width:var(--master-shell-width,100%);max-width:100%}
 .master-table-wrap.ready{opacity:1}
 #apiInfoTbl{table-layout:auto;width:var(--master-table-width,100%);min-width:var(--master-table-width,100%);border-collapse:collapse;font-size:13px;margin:0}
@@ -124,7 +124,7 @@ button:disabled[data-tip]{pointer-events:none}    /* the hover tooltip finds dis
 .method-badge.delete{background:rgba(220,53,69,.2);color:var(--delete)}
 .method-badge.patch,.method-badge.ws{background:rgba(159,122,234,.2);color:#9f7aea}
 
-/* runner form */
+/* ==== runner form ==== */
 #runnerPathHeader,#wsIn .endpoint{font-size:13px;color:var(--muted);font-family:var(--mono);flex:1;min-width:0}
 .endpoint{display:flex;align-items:center;gap:10px;font-family:var(--mono);line-height:1;width:100%}
 .endpoint .method-badge{margin:0;line-height:1.2}
@@ -165,7 +165,7 @@ select.row-val{padding-right:64px}
 .remove-btn:hover:not(:disabled){color:var(--delete);background:rgba(220,53,69,.1)}
 .remove-btn:disabled{opacity:.3;cursor:not-allowed}
 
-/* response card */
+/* ==== response card ==== */
 #rBox{display:none;flex:1;flex-direction:column;min-height:280px;max-height:600px;box-shadow:0 8px 32px rgba(0,0,0,.4)}
 #rBox.show{display:flex}
 #rCode{font-weight:400;margin-left:8px}
@@ -209,7 +209,7 @@ select.row-val{padding-right:64px}
 .chart-bar{height:8px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden}
 .chart-fill{height:100%;background:var(--accent);border-radius:4px;transition:width .5s ease}
 
-/* response grid (table view) */
+/* ==== response grid (table view) ==== */
 .modal-card.grid-card{margin:16px}
 .grid-card>.modal-card-body{padding:0}
 .grid-wrap{overflow:auto}
@@ -232,7 +232,7 @@ select.row-val{padding-right:64px}
 .col-resizer{width:4px;height:100%;position:absolute;right:0;top:0;cursor:col-resize;background:rgba(255,255,255,.03);z-index:10;transition:background .2s}
 .col-resizer:hover,.col-resizer.dragging{background:var(--accent)}
 
-/* detail, cURL and parameter modals */
+/* ==== detail, cURL and parameter modals ==== */
 #apiDetailContent{background:var(--field);border-radius:8px;border:1px solid var(--line)}
 #apiDetailContent.tree{padding:20px;overflow-y:auto;max-height:60vh}
 #apiDetailContent.curl{overflow-y:auto;max-height:70vh;background:transparent;border:none}
@@ -248,7 +248,7 @@ select.row-val{padding-right:64px}
 .param-desc{color:var(--text);font-size:14px;line-height:1.6;word-break:break-word;overflow-wrap:anywhere}
 .param-empty{color:var(--muted);font-style:italic;text-align:center;padding:20px}
 
-/* info modal */
+/* ==== info modal ==== */
 .info-content>.modal-body{max-height:none;display:flex;flex-direction:column;gap:10px}
 .info-content .modal-card{flex-shrink:0;margin-bottom:0}
 .info-content .tags-card{flex:1 0 auto}
@@ -266,7 +266,7 @@ select.row-val{padding-right:64px}
 .tag-filter-count{font-size:10px;font-weight:500;color:rgba(154,160,166,.85);margin-left:4px}
 .tag-filter.active .tag-filter-count{color:rgba(66,153,225,.95)}
 
-/* paste cURL modal */
+/* ==== paste cURL modal ==== */
 .paste-body{padding:20px;display:flex;flex-direction:column}
 .paste-label-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .paste-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:8px}
@@ -275,7 +275,7 @@ select.row-val{padding-right:64px}
 #pasteCurlInput.drag-over{border-color:var(--accent);background:rgba(66,153,225,.05)}
 .paste-error{margin-top:10px;padding:10px 12px;background:rgba(220,53,69,.1);border:1px solid rgba(220,53,69,.3);border-radius:6px;color:var(--delete);font-size:12px;font-family:var(--mono)}
 
-/* WebSocket runner */
+/* ==== WebSocket runner ==== */
 #wsIn{margin-bottom:20px;padding:12px;background:rgba(255,255,255,.03);border-radius:8px;border:1px solid var(--line);font-family:var(--mono);font-size:13px}
 .ws-row{display:flex;gap:12px;margin-bottom:20px}
 .ws-row.tight{gap:8px;margin-bottom:0}
@@ -294,7 +294,7 @@ select.row-val{padding-right:64px}
 .ws-sent,.ws-waiting{color:var(--accent)}
 .ws-received{color:var(--primary)}
 
-/* opt-in split layout: ?layout=split */
+/* ==== opt-in split layout: ?layout=split ==== */
 .split-preview .container{max-width:98vw}
 .split-workspace{display:grid;grid-template-columns:minmax(300px,30%) minmax(0,1fr);gap:16px;flex:1;min-height:0;padding:16px}
 .split-catalog{min-width:0;padding:0}
@@ -331,7 +331,7 @@ select.row-val{padding-right:64px}
   .docked-runner #rBox .card-actions{flex-wrap:wrap;margin-left:0}
 }
 
-/* phones */
+/* ==== phones ==== */
 @media (max-width:760px){
   :root{--master-shell-width:100vw;--card-pad:14px}
   body{overflow-x:hidden}
@@ -433,7 +433,7 @@ select.row-val{padding-right:64px}
   </div>
 </div>
 
-<!-- API runner -->
+<!-- ==== API runner ==== -->
 <div id="apiRunnerModal" class="modal">
   <div class="modal-content runner-content">
     <div class="modal-header">
@@ -493,7 +493,7 @@ select.row-val{padding-right:64px}
   </div>
 </div>
 
-<!-- WebSocket runner -->
+<!-- ==== WebSocket runner ==== -->
 <div id="wsRunnerModal" class="modal">
   <div class="modal-content narrow-content">
     <div class="modal-header">
@@ -515,7 +515,7 @@ select.row-val{padding-right:64px}
   </div>
 </div>
 
-<!-- JSON and cURL detail -->
+<!-- ==== JSON and cURL detail ==== -->
 <div id="apiDetailModal" class="modal">
   <div class="modal-content detail-content">
     <div class="modal-header">
@@ -534,7 +534,7 @@ select.row-val{padding-right:64px}
   </div>
 </div>
 
-<!-- Documentation -->
+<!-- ==== Documentation ==== -->
 <div id="infoModal" class="modal">
   <div class="modal-content info-content">
     <div class="modal-header">
@@ -560,7 +560,7 @@ select.row-val{padding-right:64px}
   </div>
 </div>
 
-<!-- Paste cURL -->
+<!-- ==== Paste cURL ==== -->
 <div id="pasteCurlModal" class="modal">
   <div class="modal-content paste-content">
     <div class="modal-header">
@@ -583,7 +583,7 @@ select.row-val{padding-right:64px}
   </div>
 </div>
 
-<!-- Parameter details -->
+<!-- ==== Parameter details ==== -->
 <div id="paramInfoModal" class="modal">
   <div class="modal-content param-info-content">
     <div class="modal-header">
@@ -598,7 +598,7 @@ select.row-val{padding-right:64px}
 </div>
 
 <script>
-// shared state and DOM helpers
+/* ==== shared state and DOM helpers ==== */
 const d = document;
 const UI = id => d.getElementById(id);
 let COMMANDS = [];
@@ -616,6 +616,7 @@ const getPathTags = p => {
   return [...new Set(endpoint.split("-").map(tag => tag.trim()).filter(Boolean))];
 };
 
+/* ==== icons and tooltips ==== */
 // icons: an element with data-icon="name" (data-size, default 16) gets ICON[name] at boot
 const SVG = (w, paths, stroke = "currentColor") => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 const ICON = {
@@ -675,7 +676,7 @@ function setupHoverTips() {
   addEventListener("blur", hide);
 }
 
-// toast, clipboard and downloads
+/* ==== toast, clipboard and downloads ==== */
 const toast = msg => {
   const el = d.createElement("div");
   el.className = "toast";
@@ -724,6 +725,7 @@ const arrayToCsv = arr => {
   return [keys.join(","), ...arr.map(r => keys.map(k => csvEscape(r[k])).join(","))].join("\n");
 };
 
+/* ==== auth and session ==== */
 // auth token (persisted under the "api" key); responses stay in memory
 const STORAGE_KEY_API = "api";
 const readApiStorage = () => {
@@ -830,6 +832,7 @@ const sessionCheck = async () => {
   if (Store.token) await profileLoad();
 };
 
+/* ==== OpenAPI spec to commands ==== */
 // OpenAPI spec to commands: {p path, m method, h/q/u/f/j rows {k,v,t,e enum,r pattern,d description,req}, flags}
 const resolveSchema = s => {
   if (!s) return s;
@@ -884,6 +887,7 @@ const createCommandFromOperation = (path, method, op) => {
   return command;
 };
 
+/* ==== request rows ==== */
 // request rows: read from the form, cast for the JSON body
 const ParamManager = {
   extract(container, isJson = false) {
@@ -922,6 +926,7 @@ const ParamManager = {
   }
 };
 
+/* ==== cURL text ==== */
 // cURL text for a command: the runner's current values when it is loaded, else the spec defaults; placeholders gives {{name}} values
 const generateCurl = (cmdOrIdx, opts = {}) => {
   const c = typeof cmdOrIdx === "number" ? COMMANDS[cmdOrIdx] : cmdOrIdx;
@@ -988,7 +993,7 @@ const exportCatalogCsv = () => {
   downloadCsv("api_master_catalog.csv", csv);
 };
 
-// response rendering: highlighted JSON, tree, grid and chart
+/* ==== response rendering: highlighted JSON, tree, grid and chart ==== */
 const escapeText = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");    // quotes stay, so highlight can still find keys
 const highlight = s => escapeText(s).replace(/"([^"]+)"\s*:/g, '<span class="jk">"$1"</span>:').replace(/:"([^"]*)"/g, ':<span class="js">"$1"</span>').replace(/:\s*([\d.]+)/g, ': <span class="jn">$1</span>').replace(/:\s*(true|false)/g, ': <span class="jb">$1</span>').replace(/:\s*(null)/g, ': <span class="jl">$1</span>');
 const compactArrays = s => s.replace(/\[\n((\s+("(?:[^"\\]|\\.)*"|[\d.eE+-]+|true|false|null),?\n)+\s*)\]/g, m => m.replace(/\n\s*/g, " ").replace(/,\s*/g, ", "));
@@ -1070,6 +1075,7 @@ const addColumnResizers = table => table.querySelectorAll("th").forEach(th => {
   });
 });
 
+/* ==== response card ==== */
 // the runner's response card
 const ResponseView = {
   state: { data: null, status: null, time: null, view: "raw", headers: null },
@@ -1115,6 +1121,7 @@ const ResponseView = {
   }
 };
 
+/* ==== modals ==== */
 // modals; in split layout the two runners are docked panes instead
 const showModal = id => {
   const el = UI(id);
@@ -1190,7 +1197,7 @@ const showInfoModal = (k, pattern, desc) => {
   showModal("paramInfoModal");
 };
 
-// API catalog: search, path tags and the table
+/* ==== API catalog: search, path tags and the table ==== */
 const getNamespacePrefix = path => {
   const parts = String(path || "").split("/").filter(Boolean);
   return parts.length ? `/${parts[0]}/` : "/";
@@ -1275,6 +1282,7 @@ const openCommand = i => {
   else load(i);
 };
 
+/* ==== split layout preview ==== */
 // split layout preview (?layout=split): catalog on the left, the runner docked on the right
 function setupLayoutPreview() {
   const card = d.querySelector(".container > .card");
@@ -1337,7 +1345,7 @@ function preparePreviewApi(index) {
   highlightSelectedApi();
 }
 
-// runner form rows
+/* ==== runner form rows ==== */
 const SECTIONS = [["addH", "hSec", "hCont"], ["addQ", "qSec", "qCont"], ["addF", "fSec", "fCont"], ["addJ", "jSec", "jCont"], ["addU", "uSec", "uCont"]];
 const JSON_TYPES = ["str", "int", "float", "bool", "list", "object", "null"];
 const enumSelect = (enumData, value) => `<select class="row-val" data-enum="${enumData}"><option value="">-- select --</option>${JSON.parse(decodeURIComponent(enumData)).map(opt => `<option value="${he(opt)}"${String(value) === String(opt) ? " selected" : ""}>${he(opt)}</option>`).join("")}</select>`;
@@ -1431,7 +1439,7 @@ const load = i => {
   if (saved) ResponseView.render(saved.data, saved.status, saved.time, saved.headers);
 };
 
-// sending a request
+/* ==== sending a request ==== */
 const REQUEST_TIMEOUT_MS = 60000;
 let activeRequest = null;
 const cancelCurrentRequest = (reason = "cancelled") => {
@@ -1534,7 +1542,7 @@ const executeCurrentApi = async () => {
   }
 };
 
-// WebSocket runner
+/* ==== WebSocket runner ==== */
 let ws = null;
 const wsLog = (msg, type = "info") => {
   const box = UI("wsLogs");
@@ -1574,6 +1582,7 @@ const loadWs = i => {
   setWsButton(false);
 };
 
+/* ==== paste cURL ==== */
 // paste cURL: parse, match an API (or run ad-hoc) and fill the runner
 const setPasteError = msg => {
   UI("pasteCurlError").textContent = msg || "";
@@ -1728,7 +1737,7 @@ const submitPasteCurl = () => {
   }
 };
 
-// event bindings
+/* ==== event bindings ==== */
 const setupEventListeners = () => {
   UI("stopRequestBtn").addEventListener("click", () => cancelCurrentRequest());
   UI("apiForm").addEventListener("submit", e => { e.preventDefault(); executeCurrentApi() });
@@ -1906,7 +1915,7 @@ const setupEventListeners = () => {
   });
 };
 
-// boot
+/* ==== boot ==== */
 const updateAppLoader = (pct, msg) => {
   UI("appLoaderFill").style.width = pct + "%";
   UI("appLoaderPct").textContent = pct + "%";

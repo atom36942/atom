@@ -15,6 +15,7 @@ h1{margin:0;font-size:18px;font-weight:600}
 #messageState{align-self:center;font-size:12px;color:var(--muted)}
 #messageState.on{color:var(--primary)}
 #messageState.on::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--primary);margin-right:6px}
+/* ==== account menu ==== */
 /* account menu, same as api.html: avatar with the first letter, then who is logged in and Log out */
 .profile{position:relative;display:flex}
 .profile-avatar{width:24px;height:24px;margin:5px;border-radius:50%;border:none;padding:0;background:var(--accent);color:#fff;font-family:inherit;font-size:12px;font-weight:700;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
@@ -44,6 +45,7 @@ button:disabled{opacity:.5;cursor:default}
 .note.error{color:var(--error)}
 #send{display:flex;gap:8px}
 #chatView{flex:1;min-height:0;display:flex;flex-direction:column;gap:12px}
+/* ==== login card ==== */
 /* login card, same as monitor.html */
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .card-head{padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
@@ -102,6 +104,7 @@ button:disabled{opacity:.5;cursor:default}
   </div>
 </main>
 <script>
+/* ==== storage and helpers ==== */
 // everything this page keeps lives in one localStorage object: {access_token, refresh_token, username, peer_id, user, user_at}
 const STORE_KEY = "message";
 const $ = (id) => document.getElementById(id);
@@ -187,6 +190,7 @@ function render() {
   if (signedIn && data.peer_id && !$("peer").value) $("peer").value = data.peer_id;
 }
 
+/* ==== api, login and session ==== */
 async function api(path, options) {
   const response = await fetch(path, options);
   const body = await response.json().catch(() => ({status: 0, message: "HTTP " + response.status}));
@@ -246,6 +250,7 @@ async function sessionCheck() {
   render();
 }
 
+/* ==== conversation socket ==== */
 async function loadHistory(peerId) {
   // history comes from the HTTP thread API; the socket only pushes new messages
   const read = () => api("/my/message-thread?user_id=" + peerId + "&limit=50", {headers: {Authorization: "Bearer " + store().access_token}});
@@ -303,6 +308,7 @@ async function connect() {
   };
 }
 
+/* ==== logout and events ==== */
 function logout() {
   clearTimeout(retryTimer); retryCount = 0;
   if (ws) ws.close(1000);

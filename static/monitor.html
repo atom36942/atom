@@ -22,6 +22,7 @@ button.primary{background:rgba(56,161,105,.12);border-color:rgba(56,161,105,.35)
 button.danger{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.3);color:var(--danger)}
 select{padding-right:8px;cursor:pointer}
 input:focus,select:focus{outline:none;border-color:var(--accent)}
+/* ==== account menu ==== */
 /* account menu, same as api.html: avatar with the first letter, then who is logged in and Log out */
 .profile{position:relative;display:flex}
 .profile-avatar{width:24px;height:24px;margin:5px;border-radius:50%;border:none;padding:0;background:var(--accent);color:#fff;font-family:inherit;font-size:12px;font-weight:700;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
@@ -52,6 +53,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
 .tile .label{color:var(--muted);font-size:12px}
 .tile .tip{display:inline-block;margin-left:4px;cursor:help;opacity:.7;outline:none}
 .tile .tip:hover,.tile .tip:focus{opacity:1}
+/* ==== tile explanations ==== */
 /* the explanation, drawn by the page under the tile: shows at once on hover, and on tap or keyboard focus (phones have no hover) */
 .tile .tip:hover::after,.tile .tip:focus::after{content:attr(data-tip);position:absolute;left:8px;right:8px;top:calc(100% + 6px);z-index:10;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);font-size:12px;font-weight:400;line-height:1.4;box-shadow:0 6px 20px rgba(0,0,0,.35);white-space:normal}
 .tile .value{font-size:22px;font-weight:700;line-height:1.3;overflow-wrap:anywhere}
@@ -166,6 +168,7 @@ tbody tr:hover{background:rgba(255,255,255,.03)}
   </div>
 </div>
 <script>
+/* ==== page state and tabs ==== */
 // this page keeps its own login, user and choices under the "monitor" key, so it works without any other page
 const STORAGE_KEY = "monitor";
 const TABS = ["memory", "requests", "errors", "database", "background", "app"];
@@ -207,6 +210,7 @@ const formatMs = n => n == null ? "—" : `${Number(n).toLocaleString()} ms`;
 const formatTime = value => value ? new Date(typeof value === "number" ? value * 1000 : value).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—";
 const showError = (el, text) => { el.textContent = text || ""; el.hidden = !text };
 
+/* ==== login ==== */
 // login: the server's own username/password login; the token is stored for this page only
 const showLogin = message => {
   $("appView").hidden = true;
@@ -247,6 +251,7 @@ const logOut = message => {
 };
 $("logoutBtn").addEventListener("click", () => logOut(""));
 
+/* ==== account menu ==== */
 // account menu: avatar with the user's first letter; the menu lists who is logged in and when the tokens expire
 const tokenExpiresAt = token => {
   try {
@@ -274,6 +279,7 @@ $("profileAvatar").addEventListener("click", e => { e.stopPropagation(); menuTog
 $("profileMenu").addEventListener("click", e => e.stopPropagation());
 document.addEventListener("click", () => menuToggle(false));
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("profileMenu").hidden) { menuToggle(false); $("profileAvatar").focus() } });
+/* ==== session ==== */
 // the user object (GET /my/profile), saved with the token and read again when it is over 3 hours old
 const PROFILE_MAX_AGE_MS = 3 * 3600 * 1000;
 const profileLoad = async (force = false) => {
@@ -309,7 +315,7 @@ const sessionCheck = async () => {
 document.addEventListener("visibilitychange", () => { if (!document.hidden) sessionCheck() });
 setInterval(sessionCheck, 60000);
 
-// building blocks
+/* ==== building blocks ==== */
 // what each tile means, shown under the tile when hovering or tapping the ⓘ next to its label
 const TILE_HELP = {
   "Process RAM (RSS)": "Memory this worker uses now, and the most it has used since it started.",
@@ -382,6 +388,7 @@ const statusPill = code => `<span class="pill ${code >= 500 ? "bad" : code >= 40
 const apiPath = (method, path) => `<span class="muted">${he(method)}</span> <span class="mono">${he(path)}</span>`;
 const LOG_OFF = info("API logging is off (<span class=\"mono\">config_is_log_api</span>), so there are no requests to show.");
 
+/* ==== view: memory ==== */
 // memory: this worker's RAM and what holds it; kind comes from the app_state name prefix
 const KIND_CLASS = { cache: "ok", buffer: "warn", other: "bad" };
 const KIND_HELP = { cache: "kept for reuse; rebuilt if lost", buffer: "rows waiting to be written; lost if the server crashes", runtime: "live process state: tasks, locks, counters", config: "settings", extend: "the project's own data (func_extend)", other: "no known prefix: name it cache_, buffer_ or runtime_, or keep it in app_state.extend" };
@@ -423,6 +430,7 @@ const renderMemory = report => {
   + `</section>`;
 };
 
+/* ==== view: requests ==== */
 // requests: traffic from log_api
 const renderRequests = report => {
   if (!report.is_enabled) return LOG_OFF;
@@ -449,6 +457,7 @@ const renderRequests = report => {
   + `${table("Most active users", [["User id"], ["Requests", "num"], ["Failed", "num"], ["Last seen"]], report.users, u => `<tr><td class="mono">${he(u.user_id)}</td><td class="num">${formatNumber(u.requests)}</td><td class="num${u.errors ? " bad" : ""}">${formatNumber(u.errors)}</td><td class="muted">${formatTime(u.last_at)}</td></tr>`, "No signed-in requests in this range.")}</div>`;
 };
 
+/* ==== view: errors ==== */
 // errors: failed requests and background failures
 const renderErrors = report => {
   if (!report.is_enabled) return LOG_OFF;
@@ -465,6 +474,7 @@ const renderErrors = report => {
     r => `<tr><td class="muted">${formatTime(r.created_at)}</td><td>${apiPath(r.method, r.path)}</td><td>${statusPill(r.status_code)}</td><td class="mono">${he(r.user_id ?? "—")}</td><td class="num">${formatMs(r.response_time_ms)}</td><td class="wrap-text muted">${he(r.error || "—")}</td></tr>`, "No failed requests in this range.");
 };
 
+/* ==== view: database ==== */
 // database: pools, size, activity and tables
 const renderDatabase = report => {
   const names = report.pools.map(p => p.name), select = $("connectionSelect");
@@ -495,6 +505,7 @@ const renderDatabase = report => {
     : info(`Most expensive statements: ${he(slow.help || "pg_stat_statements is not enabled.")}`));
 };
 
+/* ==== view: background ==== */
 // background: work outside requests
 const renderBackground = report => {
   const buffered = report.buffers.reduce((sum, b) => sum + b.rows, 0), failedJobs = report.failed_jobs;
@@ -514,6 +525,7 @@ const renderBackground = report => {
     j => `<tr><td class="muted">${formatTime(j.time)}</td><td>${he(j.queue)}</td><td class="mono">${he(j.channel)}</td><td class="wrap-text"><span class="bad">${he(j.error_type)}</span> <span class="muted">${he(j.error)}</span></td></tr>`, "No failed jobs in tmp/consumer_failed_payload.jsonl.", failedJobs.count ? `${formatNumber(failedJobs.count)} in total · ${formatBytes(failedJobs.size_bytes)}` : "");
 };
 
+/* ==== view: app ==== */
 // app: what this server runs
 const renderApp = report => {
   const s = report.server, onCount = report.clients.filter(c => c.is_on).length;
@@ -531,6 +543,7 @@ const renderApp = report => {
   + table("Settings", [["Name"], ["Value"]], report.config, c => `<tr data-name="${he(c.name)}"><td class="mono">${he(c.name)}</td><td class="wrap-text">${showValue(c.value)}</td></tr>`, "No settings.", `<input class="search" type="search" placeholder="Filter settings" aria-label="Filter settings" data-filter>`);
 };
 
+/* ==== loading and boot ==== */
 // loading: one route, /admin/monitor?view=<tab>, loaded when its tab opens or Refresh is pressed
 const RENDER = { memory: renderMemory, requests: renderRequests, errors: renderErrors, database: renderDatabase, background: renderBackground, app: renderApp };
 let current = "memory", loading = false;

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>PgWeb</title>
 <style>
+/* ==== palette and theme ==== */
 /* palette from pgweb's own app.css: #79589f chrome, #7eb54e primary, #f9f9f9 sidebar,
    #ffe row hover, #3874d7 selection, #bbb nulls */
 :root{
@@ -65,7 +66,7 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 :root[data-theme=dark] ::-webkit-scrollbar-thumb{background:#3a3a45}
 ::-webkit-scrollbar-thumb:hover{background:var(--dim)}
 
-/* ---------- shell: always present, empty until connected ---------- */
+/* ==== shell: always present, empty until connected ==== */
 #app{display:flex;flex:1;min-width:0}
 #side{width:var(--side-w,240px);flex:0 0 var(--side-w,240px);background:var(--side);display:flex;flex-direction:column;min-height:0;
   border-right:1px solid var(--line);position:relative}
@@ -256,7 +257,7 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 .view{position:absolute;inset:0;display:none;flex-direction:column;min-height:0}
 .view.on{display:flex}
 
-/* ---------- virtual grid ---------- */
+/* ==== virtual grid ==== */
 /* contain must not include size here: #rows is absolutely positioned and shrink-to-fit,
    so size-contained rows would measure as empty and collapse to zero width */
 #vp{flex:1;overflow:auto;position:relative;contain:layout paint;font-size:12px}
@@ -281,7 +282,7 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 .td:first-child{border-left:1px solid var(--row-line)}
 .td:last-child{border-right:1px solid var(--th-line)}
 .td.null{color:var(--null);text-transform:uppercase}
-/* ---------- row panel: one row's fields beside the grid ---------- */
+/* ==== row panel: one row's fields beside the grid ==== */
 #v-rows.rp-open #vp{margin-right:var(--rp-w,min(520px,50%))}
 .tr.rp-sel,.tr.rp-sel:nth-child(odd){background:var(--row-hover)}    /* the panel's row stays lit in the hover colour */
 #rows .td{cursor:pointer}
@@ -328,7 +329,7 @@ button.danger:hover:not(:disabled){background:var(--err);border-color:var(--err)
 #v-rows > #empty{top:50px}
 #empty.on{display:flex}
 
-/* ---------- detail panes ---------- */
+/* ==== detail panes ==== */
 .detail-wrap{flex:1;min-height:0;overflow:auto}
 .detail-grid{width:auto;min-width:0;table-layout:fixed;border-collapse:separate;border-spacing:0;font-size:12px;
   border-right:1px solid var(--th-line)}
@@ -400,7 +401,7 @@ body.resizing-col *{user-select:none!important}
 #qerrorhead .title{flex:1}#qerrorbody{max-height:320px;overflow:auto;margin:0;padding:12px 14px;
   white-space:pre-wrap;word-break:break-word;font:12px/1.6 Menlo,Monaco,Consolas,"Courier New",monospace}
 
-/* ---------- status ---------- */
+/* ==== status ==== */
 #status{height:26px;flex:none;display:flex;align-items:center;gap:14px;padding:0 11px;
         border-top:1px solid var(--th-line);background:var(--side);color:#888;font-size:12px}
 #status[hidden]{display:none}
@@ -468,7 +469,7 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 #brandname:hover{opacity:.85}
 #brandname[hidden]{display:none}
 
-/* ---------- simple centered login form (SSOT CTA) ---------- */
+/* ==== login form ==== */
 #v-home{display:none;flex-direction:column;align-items:center;justify-content:flex-start;background:var(--bg);padding:44px 24px 32px;overflow-y:auto;box-sizing:border-box}
 #v-home.on{display:flex}
 .login-box{width:100%;max-width:680px;margin:0 auto;background:var(--side);border:1px solid var(--line);border-radius:8px;
@@ -754,6 +755,7 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 
 <script>
 'use strict';
+/* ==== settings and helpers ==== */
 const ROW_H = 30, PAGE_SIZES = [50, 100, 500], DEFAULT_PAGE_SIZE = 100, SIDE_BATCH = 200, OVER = 6, MAXW = 440, MINW = 64;   /* 29px cell + 1px rule; matches --row-h */
 const DEFAULT_SQL = 'SELECT * FROM test LIMIT 10;';
 const DEFAULT_DSN = 'postgresql://postgres:postgres@localhost:5432/postgres';
@@ -809,6 +811,7 @@ const DETAIL_ROWS={
 };
 const DETAILS=Object.keys(DETAIL_ROWS);
 
+/* ==== browser storage ==== */
 // All persistent state (preferences, saved connections, SQL draft, column widths) lives under one 'pgweb' key.
 function pgwebPreferences(){
   try{const data=JSON.parse(localStorage.getItem('pgweb')||'{}');return data&&typeof data==='object'&&!Array.isArray(data)?data:{}}catch{return {}}
@@ -866,7 +869,7 @@ $('dlg').addEventListener('click', e => {
   if(e.clientX<r.left || e.clientX>r.right || e.clientY<r.top || e.clientY>r.bottom) $('dlg').close();
 });
 
-/* ---------------- api ---------------- */
+/* ==== api ==== */
 async function api(body){
   const t0 = performance.now();
   const r = await fetch('/pgweb', {method:'POST', headers:{'Content-Type':'application/json'},
@@ -882,7 +885,7 @@ async function api(body){
   $('st-time').textContent = ms.toFixed(1)+' ms';
   return j.message;
 }
-/* ---------------- theme ---------------- */
+/* ==== theme ==== */
 (function theme(){
   document.documentElement.dataset.theme = getStored('theme') || 'light';
   const draw = () => {
@@ -900,7 +903,7 @@ async function api(body){
   };
 })();
 
-/* ---------------- query safety ---------------- */
+/* ==== query safety ==== */
 function drawReadOnly(){
   const b=$('readonly');
   b.innerHTML = icon(S.readOnly ? 'lock' : 'unlock');
@@ -939,7 +942,7 @@ function toggleSidebar(forceCollapse){
   toast(next ? 'Sidebar collapsed' : 'Sidebar expanded');
 }
 
-/* ---------------- connect ---------------- */
+/* ==== connect ==== */
 // the shell is always on screen; connection state only decides what's in it
 function setConnected(on){
   S.connected = on;
@@ -1141,7 +1144,7 @@ function askDisconnect(){
   };
 }
 
-/* ---------------- sidebar ---------------- */
+/* ==== sidebar ==== */
 function getKindMeta(kind){
   if(kind === 'view') return { singular: 'view', plural: 'views', label: 'Views' };
   if(kind === 'materialized_view') return { singular: 'materialized view', plural: 'materialized views', label: 'Materialized' };
@@ -1228,7 +1231,7 @@ $('q').oninput = searchTables;
 $('q').onkeydown = e => { if(e.key==='Escape'){ $('q').value=''; searchTables(); } };
 $('qclr').onclick = () => { $('q').value=''; searchTables(); $('q').focus(); };
 
-/* ---------------- query runner (the default view) ---------------- */
+/* ==== query runner (the default view) ==== */
 const SQL_KEYWORDS=new Set(('ALL ANALYSE ANALYZE AND ANY ARRAY AS ASC ASYMMETRIC AUTHORIZATION BEGIN BINARY BOTH BY CASE CASCADE CAST CHECK COLLATE COLLATION COLUMN COMMIT CONCURRENTLY CONFLICT CONSTRAINT CREATE CROSS CURRENT_CATALOG CURRENT_DATE CURRENT_ROLE CURRENT_SCHEMA CURRENT_TIME CURRENT_TIMESTAMP CURRENT_USER DATABASE DECLARE DEFAULT DEFERRABLE DELETE DESC DISTINCT DO DROP ELSE ELSIF END EXCEPT EXISTS EXPLAIN FALSE FETCH FOR FOREIGN FREEZE FROM FULL FUNCTION GRANT GROUP HAVING IF ILIKE IN INDEX INITIALLY INNER INSERT INTERSECT INTO IS ISNULL JOIN LANGUAGE LATERAL LEADING LEFT LIKE LIMIT LOCALTIME LOCALTIMESTAMP LOOP MATERIALIZED NATURAL NOT NOTHING NOTNULL NULL NULLS OFFSET ON ONLY OR ORDER OUTER OVER OVERLAPS PARTITION PLACING POLICY PRIMARY PROCEDURE RAISE RECURSIVE REFERENCES REPLACE RESTRICT RETURNS RETURNING RIGHT ROLLBACK SCHEMA SELECT SESSION_USER SET SIMILAR SOME SYMMETRIC TABLE TABLESAMPLE THEN TO TRAILING TRANSACTION TRIGGER TRUE UNION UNIQUE UPDATE USER USING VALUES VARIADIC VERBOSE VIEW WHEN WHERE WINDOW WITH').split(' '));
 const SQL_TYPES=new Set(('BIGINT BIGSERIAL BIT BOOL BOOLEAN BOX BYTEA CHAR CHARACTER CIDR CIRCLE DATE DEC DECIMAL DOUBLE ENUM FLOAT FLOAT4 FLOAT8 INET INT INT2 INT4 INT8 INTEGER INTERVAL JSON JSONB LINE LSEG MACADDR MONEY NUMERIC PATH POINT POLYGON REAL SERIAL SERIAL2 SERIAL4 SERIAL8 SMALLINT SMALLSERIAL TEXT TIME TIMESTAMP TIMESTAMPTZ TIMETZ TSQUERY TSVECTOR UUID VARCHAR VARYING XML').split(' '));
 const SQL_FUNCTIONS=new Set(('AVG COUNT MAX MIN SUM ARRAY_AGG JSON_AGG JSONB_AGG STRING_AGG COALESCE NULLIF GREATEST LEAST NOW CURRENT_DATABASE CURRENT_SCHEMA VERSION LOWER UPPER LENGTH SUBSTRING TRIM DATE_TRUNC EXTRACT TO_CHAR TO_DATE TO_TIMESTAMP ROW_NUMBER RANK DENSE_RANK LAG LEAD FIRST_VALUE LAST_VALUE GENERATE_SERIES UNNEST').split(' '));
@@ -1278,7 +1281,7 @@ function openRunner(){
 }
 $('queryrunner').onclick = openRunner;
 
-/* ---------------- open a table ---------------- */
+/* ==== open a table ==== */
 const detailCellValues=new WeakMap();
 const detailRowValues=new WeakMap();
 function compactCellValue(value){
@@ -1454,7 +1457,7 @@ async function loadDetail(part){
   }catch(err){ S.loaded[part]=false; fillDetailGrid('g-'+part,[], 'Error: '+err.message); }
 }
 
-/* ---------------- grid ---------------- */
+/* ==== grid ==== */
 const widthCache = new Map();
 function measure(){
   const saved = (getStored('widths')||{})[S.table];
@@ -1638,7 +1641,7 @@ rowsEl.addEventListener('dblclick', e=>{
   const c=+td.dataset.c; openCellValue(S.cols[c],row[c]);
 });
 
-/* ---------------- edit a cell ---------------- */
+/* ==== edit a cell ==== */
 // one value of one table row, edited in the row panel and found by its primary key; the server repeats every check and refuses a cell changed since it was loaded
 function cellEditBlock(colIndex,row){
   if(S.local||S.kind!=='table'||!S.meta) return 'Only rows of a table can be edited';
@@ -1670,7 +1673,7 @@ for(const table of document.querySelectorAll('.detail-grid')) table.tBodies[0].a
   openCellValue(column,detailCellValues.has(td)?detailCellValues.get(td):(td.classList.contains('null')?null:td.textContent));
 });
 
-/* ---------------- row panel ---------------- */
+/* ==== row panel ==== */
 // one row's fields beside the grid: open from the button on a row's left edge; ↑/↓ move between rows, Esc closes
 $('rp-prev').innerHTML=icon('chevronUp'); $('rp-next').innerHTML=icon('chevronDown');
 $('rp-delete').innerHTML=icon('trash'); $('rp-close').innerHTML=icon('close');
@@ -1829,7 +1832,7 @@ document.addEventListener('keydown', e=>{
   else if(e.key==='ArrowUp'){ rowPanelOpen(RP.index-1); e.preventDefault(); }
 });
 
-/* ---------------- filter ---------------- */
+/* ==== filter ==== */
 let currentColumns = [];
 
 function syncFcolBtnText(){
@@ -2015,7 +2018,7 @@ async function applyFilter(){
 }
 $('fval').onkeydown = e => { if(e.key==='Enter') $('fgo').click(); };
 
-/* ---------------- query ---------------- */
+/* ==== query ==== */
 function mountGrid(host){
   if(vp.parentElement!==host) host.append(vp, $('empty'));
 }
@@ -2345,7 +2348,7 @@ $('sql').addEventListener('scroll',()=>{
   });
 }
 
-/* ---------------- chrome ---------------- */
+/* ==== chrome ==== */
 function savePageState(state){
   try{
     const payload = {
@@ -2434,6 +2437,7 @@ $('reload').onclick = async () => {
     toast('Schema refreshed');
   }catch(e){ alertBox('Refresh failed', e.message); }
 };
+/* ==== database info ==== */
 // database info: a summary line, clickable object tiles, connection settings, extensions; PostgreSQL-managed counts stay folded away
 function drawDatabaseInfo(m){
   const root=$('dbinfo-summary'); root.textContent='';
@@ -2567,7 +2571,7 @@ function alertBox(title, msg){
   openCellValue(title,msg,'Error copied');
 }
 
-/* ---------------- homepage listeners ---------------- */
+/* ==== homepage listeners ==== */
 $('home-connect-btn').onclick = () => connectFromHome($('home-dsn')?.value, false);
 if($('home-connect-ro-btn')){
   $('home-connect-ro-btn').onclick = () => connectFromHome($('home-dsn')?.value, true);
@@ -2599,6 +2603,7 @@ $('brandname').onclick = () => {
   }
 };
 
+/* ==== boot: restore the saved page ==== */
 async function restorePage(saved, first){
   if(!saved || saved.view === 'home' || saved.view === 'query'){
     openRunner();
