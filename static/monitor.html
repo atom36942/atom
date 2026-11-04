@@ -45,6 +45,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
 .card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
 .card-head h2{margin:0;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
 .card-head .note{color:var(--muted);font-size:12px}
+.card-help{margin:0;padding:8px 16px 0;color:var(--muted);font-size:12px;line-height:1.4}
 .card-body{padding:16px}
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:18px}
 .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
@@ -304,8 +305,36 @@ setInterval(sessionCheck, 60000);
 const tile = (label, value, hint = "", percent = null, isBad = false) => `<div class="tile"><div class="label">${he(label)}</div><div class="value${isBad ? " bad" : ""}">${he(value)}</div>${hint ? `<div class="hint">${he(hint)}</div>` : ""}${percent == null ? "" : `<div class="meter"><span class="${percent >= 85 ? "high" : ""}" style="width:${Math.min(100, percent)}%"></span></div>`}</div>`;
 const tiles = list => `<div class="tiles">${list.join("")}</div>`;
 const rows = (list, render, empty, columns) => list.length ? list.map(render).join("") : `<tr><td colspan="${columns}" class="empty">${empty}</td></tr>`;
+// what each card shows, in one line under its title
+const CARD_HELP = {
+  "RAM over time": "This worker's RAM, read once a minute for the last 24 hours. A line that keeps rising and never falls back points to a leak.",
+  "App in-memory data": "What Atom keeps in this worker's memory: caches (safe to lose, rebuilt on demand), write buffers (rows not yet saved) and settings.",
+  "Python objects": "The most common object types in the whole process, packages included. A count that grows between refreshes points to a leak.",
+  "Garbage collector": "How often Python has cleaned up unused objects. Uncollectable above 0 means objects that can never be freed.",
+  "Allocation tracing": "Which source lines hold the most memory right now, and whose code they are: Atom's, the project's or an installed package's.",
+  "Requests over time": "Requests per time slot from log_api, failed ones in red. Hover a bar for its numbers.",
+  "Busiest APIs": "The APIs called most often in this range, with failures and response times.",
+  "Slowest APIs (by p95)": "The APIs with the slowest typical response: 95% of their requests were faster than p95.",
+  "Status codes": "How requests ended: 2xx succeeded, 4xx the caller's mistake, 5xx a server error.",
+  "Most active users": "The signed-in users who made the most requests in this range.",
+  "Failing APIs": "APIs that returned errors, grouped by status, with the last error message.",
+  "Latest failed requests": "The most recent requests that ended with status 400 or above.",
+  "Connection pools (this worker)": "Database connections this worker holds: in use, idle and the most it may open.",
+  "Connections to this database, by state": "Every connection to this database from all apps, grouped by what it is doing.",
+  "Long-running queries (over 5 s)": "Queries running longer than 5 seconds right now. They can hold locks and slow others.",
+  "Biggest tables": "The largest tables, with dead rows waiting for vacuum and when vacuum last ran.",
+  "Most expensive statements": "The SQL that took the most total database time (needs the pg_stat_statements extension).",
+  "Periodic tasks": "Atom's background jobs in this worker: running is healthy, failed needs a look in the logs.",
+  "Write buffers": "Rows waiting to be written in bulk. They are saved on the next flush; a full buffer refuses new rows.",
+  "Error counters": "Failures counted outside requests since this worker started (buffer flushes, cleanups, background tasks).",
+  "Failed queue jobs (latest)": "Queue jobs that failed, from tmp/consumer_failed_payload.jsonl, without their payloads.",
+  "Clients": "Outside services Atom connected to at startup (databases, storage, queues): on means configured and connected.",
+  "Packages": "Versions of the main packages this server runs.",
+  "Settings": "Every config_* value this server uses. Secrets and connection URLs only show whether they are set.",
+};
+const help = title => CARD_HELP[title] ? `<p class="card-help">${he(CARD_HELP[title])}</p>` : "";
 // one card with a table: heads are [label, "num"?] pairs
-const table = (title, heads, list, render, empty, note = "") => `<section class="card"><div class="card-head"><h2>${he(title)}</h2>${note ? `<span class="note">${note}</span>` : ""}</div><table><thead><tr>${heads.map(([label, cls]) => `<th${cls ? ` class="${cls}"` : ""}>${he(label)}</th>`).join("")}</tr></thead><tbody>${rows(list, render, empty, heads.length)}</tbody></table></section>`;
+const table = (title, heads, list, render, empty, note = "") => `<section class="card"><div class="card-head"><h2>${he(title)}</h2>${note ? `<span class="note">${note}</span>` : ""}</div>${help(title)}<table><thead><tr>${heads.map(([label, cls]) => `<th${cls ? ` class="${cls}"` : ""}>${he(label)}</th>`).join("")}</tr></thead><tbody>${rows(list, render, empty, heads.length)}</tbody></table></section>`;
 const info = html => `<div class="info">${html}</div>`;    // html: callers escape server values with he()
 const shareBar = (part, total) => `<div class="bar"><span style="width:${total ? part / total * 100 : 0}%"></span></div>`;
 const statusPill = code => `<span class="pill ${code >= 500 ? "bad" : code >= 400 ? "warn" : "ok"}">${he(code)}</span>`;
@@ -315,6 +344,20 @@ const LOG_OFF = info("API logging is off (<span class=\"mono\">config_is_log_api
 // memory: this worker's RAM and what holds it; kind comes from the app_state name prefix
 const KIND_CLASS = { cache: "ok", buffer: "warn", other: "bad" };
 const KIND_HELP = { cache: "kept for reuse; rebuilt if lost", buffer: "rows waiting to be written; lost if the server crashes", runtime: "live process state: tasks, locks, counters", config: "settings", extend: "the project's own data (func_extend)", other: "no known prefix: name it cache_, buffer_ or runtime_, or keep it in app_state.extend" };
+// RAM over time: up to 96 bars (each the highest reading in its slot), scaled between the lowest and highest reading (both on the axis) so a rise of a few MB shows
+const ramChart = history => {
+  const head = note => `<section class="card"><div class="card-head"><h2>RAM over time</h2>${note ? `<span class="note">${note}</span>` : ""}</div>${help("RAM over time")}`;
+  if (history.length < 2) return head("") + `<div class="empty">Collecting: one reading a minute, shown from the second one.</div></section>`;
+  const size = Math.ceil(history.length / 96), bars = [];
+  for (let i = 0; i < history.length; i += size) { const slot = history.slice(i, i + size); bars.push([slot[0][0], Math.max(...slot.map(p => p[1]))]) }
+  const peak = Math.max(...bars.map(b => b[1])), low = Math.min(...bars.map(b => b[1])), growth = history[history.length - 1][1] - history[0][1];
+  const base = Math.max(0, low - (peak - low) * 0.25 - 1), height = rss => (rss - base) / (peak - base) * 100;    // the lowest bar stays visible
+  const time = t => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return head(`${growth >= 0 ? "+" : "−"}${formatBytes(Math.abs(growth))} since ${time(history[0][0])}`)
+    + `<div class="chart">${bars.map(([t, rss]) => `<div class="col" title="${he(time(t))}: ${he(formatBytes(rss))}"><div class="ok" style="height:${height(rss)}%"></div></div>`).join("")}</div>`
+    + `<div class="axis"><span>${he(time(history[0][0]))}</span><span>low ${he(formatBytes(low))} · peak ${he(formatBytes(peak))}</span><span>${he(time(history[history.length - 1][0]))}</span></div></section>`;
+};
+const codePill = source => `<span class="pill${source === "package" ? "" : " ok"}">${source === "project" ? "Project" : source === "atom" ? "Atom" : "Package"}</span>`;    // whose code: Atom's, the project's, or an installed package / Python
 const renderMemory = report => {
   const p = report.process, sys = report.system;
   const ramShare = sys.total_bytes ? p.rss_bytes / sys.total_bytes * 100 : null;
@@ -327,15 +370,15 @@ const renderMemory = report => {
     tile("App data", formatBytes(stateTotal), "caches, buffers and settings below"),
     tile("Uptime", formatDuration(p.uptime_sec), `${p.threads} threads`),
     tile("CPU time", `${(p.cpu_user_sec + p.cpu_system_sec).toFixed(1)} s`, `user ${p.cpu_user_sec} s · system ${p.cpu_system_sec} s`),
-  ]) + table("App in-memory data", [["Name"], ["Kind"], ["Type"], ["Entries", "num"], ["Size", "num"], ["Share", "share"]], report.app_state,
+  ]) + ramChart(report.history || []) + table("App in-memory data", [["Name"], ["Kind"], ["Type"], ["Entries", "num"], ["Size", "num"], ["Share", "share"]], report.app_state,
     item => `<tr><td class="mono">${he(item.name)}</td><td><span class="pill ${KIND_CLASS[item.kind] ?? ""}" title="${he(KIND_HELP[item.kind] ?? "")}">${he(item.kind)}</span></td><td class="muted">${he(item.type)}</td><td class="num">${item.entries == null ? "—" : item.entries.toLocaleString()}</td><td class="num" title="${item.bytes.toLocaleString()} bytes">${item.is_partial ? "≥ " : ""}${formatBytes(item.bytes)}</td><td class="share">${shareBar(item.bytes, stateTotal)}</td></tr>`,
     "No in-memory data.", `${formatBytes(stateTotal)} in ${report.app_state.length} items`)
   + `<div class="two">${table("Python objects", [["Type"], ["Count", "num"], ["Size", "num"]], report.objects.top, o => `<tr><td class="mono">${he(o.type)}</td><td class="num">${o.count.toLocaleString()}</td><td class="num">${formatBytes(o.bytes)}</td></tr>`, "No objects.", `${report.objects.tracked.toLocaleString()} tracked`)}<div>`
   + table("Garbage collector", [["Generation"], ["Collections", "num"], ["Collected", "num"], ["Uncollectable", "num"]], report.objects.gc, g => `<tr><td>${g.generation}</td><td class="num">${g.collections.toLocaleString()}</td><td class="num">${g.collected.toLocaleString()}</td><td class="num">${g.uncollectable}</td></tr>`, "—")
-  + `</div></div><section class="card"><div class="card-head"><h2>Allocation tracing</h2><div class="actions">${trace.is_tracing ? `<span class="note">${formatBytes(trace.traced_bytes)} traced (peak ${formatBytes(trace.traced_peak_bytes)}) · stops ${new Date(trace.stops_at * 1000).toLocaleTimeString()}</span><button type="button" class="danger" data-trace="stop">Stop</button>` : `<button type="button" class="primary" data-trace="start">Start (5 min)</button>`}</div></div>`
+  + `</div></div><section class="card"><div class="card-head"><h2>Allocation tracing</h2><div class="actions">${trace.is_tracing ? `<span class="note">${formatBytes(trace.traced_bytes)} traced (peak ${formatBytes(trace.traced_peak_bytes)}) · stops ${new Date(trace.stops_at * 1000).toLocaleTimeString()}</span><button type="button" class="danger" data-trace="stop">Stop</button>` : `<button type="button" class="primary" data-trace="start">Start (5 min)</button>`}</div></div>${help("Allocation tracing")}`
   + (trace.is_tracing
-    ? `<table><thead><tr><th>File</th><th class="num">Line</th><th class="num">Size</th><th class="num">Blocks</th></tr></thead><tbody>${rows(trace.top, t => `<tr><td class="mono file" title="${he(t.file)}">${he(t.file)}</td><td class="num">${t.line}</td><td class="num">${formatBytes(t.bytes)}</td><td class="num">${t.count.toLocaleString()}</td></tr>`, "Nothing allocated since tracing started.", 4)}</tbody></table>`
-    : `<div class="empty">Off. Tracing shows which source lines allocated the memory still in use. It slows this worker while on, and stops by itself after 5 minutes.</div>`)
+    ? `<table><thead><tr><th>File</th><th>Code</th><th class="num">Line</th><th class="num">Size</th><th class="num">Blocks</th></tr></thead><tbody>${rows(trace.top, t => `<tr><td class="mono file" title="${he(t.file)}">${he(t.file)}</td><td>${codePill(t.source)}</td><td class="num">${t.line}</td><td class="num">${formatBytes(t.bytes)}</td><td class="num">${t.count.toLocaleString()}</td></tr>`, "Nothing allocated since tracing started.", 5)}</tbody></table>`
+    : `<div class="empty">Off. It slows this worker while on, and stops by itself after 5 minutes.</div>`)
   + `</section>`;
 };
 
@@ -354,7 +397,7 @@ const renderRequests = report => {
     tile("p95 response", formatMs(t.p95_ms), "95% are faster"),
     tile("Users", formatNumber(t.users), "signed-in users seen"),
   ])
-  + `<section class="card"><div class="card-head"><h2>Requests over time</h2><span class="legend"><span><i style="background:var(--accent)"></i>OK</span><span><i style="background:var(--danger)"></i>Failed</span><span>per ${report.unit}</span></span></div>`
+  + `<section class="card"><div class="card-head"><h2>Requests over time</h2><span class="legend"><span><i style="background:var(--accent)"></i>OK</span><span><i style="background:var(--danger)"></i>Failed</span><span>per ${report.unit}</span></span></div>${help("Requests over time")}`
   + `<div class="chart">${report.timeline.map(b => `<div class="col" title="${he(label(b))}: ${b.requests} requests, ${b.errors} failed${b.avg_ms == null ? "" : `, avg ${b.avg_ms} ms`}"><div class="err" style="height:${b.errors / peak * 100}%"></div><div class="ok" style="height:${(b.requests - b.errors) / peak * 100}%"></div></div>`).join("")}</div>`
   + `<div class="axis"><span>${first ? he(label(first)) : ""}</span><span>peak ${formatNumber(peak)}</span><span>${last ? he(label(last)) : ""}</span></div></section>`
   + table("Busiest APIs", [["API"], ["Requests", "num"], ["Failed", "num"], ["Avg", "num"], ["p95", "num"], ["Max", "num"]], report.paths,
@@ -435,10 +478,11 @@ const renderApp = report => {
   const s = report.server, onCount = report.clients.filter(c => c.is_on).length;
   const showValue = v => v === null ? `<span class="muted">null</span>` : typeof v === "boolean" ? `<span class="pill ${v ? "ok" : ""}">${v}</span>` : v === "set" ? `<span class="pill ok">set</span>` : v === "not set" ? `<span class="pill">not set</span>` : `<span class="mono">${he(typeof v === "object" ? JSON.stringify(v) : v)}</span>`;
   return tiles([
-    tile("Python", s.python, s.platform),
+    tile("Atom", s.atom_version || "unknown", `Python ${s.python} · ${s.platform}`),
     tile("Workers", formatNumber(s.workers), `this one is pid ${s.pid}`),
     tile("Mode", s.is_prod ? "Production" : "Development", s.is_read_only ? "read only" : "read and write"),
-    tile("Routes", formatNumber(s.routes), `${formatNumber(s.apis_configured)} in config_api`),
+    tile("Routes", formatNumber(s.routes), `${formatNumber(s.routes - s.routes_project)} Atom · ${formatNumber(s.routes_project)} project · ${formatNumber(s.apis_configured)} in config_api`),
+    tile("Functions", formatNumber(s.functions), `func_*: ${formatNumber(s.functions - s.functions_project)} Atom · ${formatNumber(s.functions_project)} project`),
     tile("Clients", `${onCount} / ${report.clients.length}`, "connected services"),
   ])
   + `<div class="two">${table("Clients", [["Client"], ["Status"]], report.clients, c => `<tr><td class="mono">${he(c.name)}${c.detail ? ` <span class="muted">(${he(c.detail)})</span>` : ""}</td><td><span class="pill ${c.is_on ? "ok" : ""}">${c.is_on ? "on" : "off"}</span></td></tr>`, "No clients.")}`

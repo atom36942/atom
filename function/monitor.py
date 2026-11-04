@@ -95,7 +95,7 @@ def func_monitor_failed_jobs(*, path: str = "tmp/consumer_failed_payload.jsonl",
 
 def func_monitor_background(*, app_state: State) -> dict:
     """Work this worker does outside requests: periodic tasks, rows waiting in the write buffers, running background tasks, open websockets, error counters and failed queue jobs."""
-    task_names = {"runtime_task_postgres_buffer_flush": "Buffer flush", "runtime_task_inmemory_cache_cleanup": "In-memory cache cleanup", "runtime_task_otp_cleanup": "OTP cleanup", "runtime_task_log_api_cleanup": "log_api cleanup"}
+    task_names = {"runtime_task_postgres_buffer_flush": "Buffer flush", "runtime_task_inmemory_cache_cleanup": "In-memory cache cleanup", "runtime_task_otp_cleanup": "OTP cleanup", "runtime_task_log_api_cleanup": "log_api cleanup", "runtime_task_memory_history": "RAM history"}
     tasks = []
     for name, label in task_names.items():
         task = getattr(app_state, name, None)
@@ -121,19 +121,23 @@ def func_monitor_config_value(*, name: str, value) -> object:
     return value if value is None or isinstance(value, (bool, int, float)) else str(value)[:200]
 
 def func_monitor_app(*, app_state: State, app_routes: list, packages: tuple = ("fastapi", "starlette", "uvicorn", "asyncpg", "pydantic", "orjson", "redis", "psutil")) -> dict:
-    """What this server runs: Python and packages, mode flags, routes, which clients are connected, and every setting (secrets masked)."""
+    """What this server runs: Atom's version, Python and packages, mode flags, routes and func_* functions (split into Atom's and the project's), which clients are connected, and every setting (secrets masked)."""
     state = vars(app_state)["_state"]
     versions = []
     for name in packages:
         try: versions.append({"name": name, "version": metadata.version(name)})
         except metadata.PackageNotFoundError: continue
+    functions = [value for name, value in state.items() if name.startswith("func_") and callable(value)]
+    project_functions = sum(1 for value in functions if str(getattr(value, "__module__", "")).startswith("function_extend"))
+    project_routes = sum(1 for route in app_routes if str(getattr(getattr(route, "endpoint", None), "__module__", "")).startswith("router_extend"))
     clients = []
     for name, value in sorted(state.items()):
         if not name.startswith("client_"): continue
         is_on = bool(value) if isinstance(value, dict) else value is not None
         clients.append({"name": name, "is_on": is_on, "detail": ", ".join(sorted(value)) if isinstance(value, dict) else ""})
     return {
-        "server": {"python": platform.python_version(), "platform": platform.platform(terse=True), "pid": os.getpid(), "workers": state.get("config_uvicorn_workers", 1), "is_prod": state.get("config_is_prod"), "is_read_only": state.get("config_is_read_only"), "routes": len(app_routes), "apis_configured": len(state.get("config_api", {}))},
+        "server": {"python": platform.python_version(), "platform": platform.platform(terse=True), "pid": os.getpid(), "workers": state.get("config_uvicorn_workers", 1), "is_prod": state.get("config_is_prod"), "is_read_only": state.get("config_is_read_only"), "atom_version": state.get("cache_atom_version"),
+                   "routes": len(app_routes), "routes_project": project_routes, "apis_configured": len(state.get("config_api", {})), "functions": len(functions), "functions_project": project_functions},
         "packages": versions,
         "clients": clients,
         "config": [{"name": name, "value": func_monitor_config_value(name=name, value=state[name])} for name in sorted(state) if name.startswith("config_")],

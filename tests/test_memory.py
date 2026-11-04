@@ -6,6 +6,8 @@ import unittest
 from starlette.datastructures import State
 
 from function.memory import func_memory_deep_size
+from function.memory import func_memory_code_source
+from function.memory import func_memory_history_periodic_task
 from function.memory import func_memory_report
 from function.memory import func_memory_trace
 
@@ -40,6 +42,31 @@ class MemoryTests(unittest.TestCase):
         self.assertGreater(report["process"]["rss_bytes"], 0)
         self.assertGreater(report["system"]["total_bytes"], report["system"]["available_bytes"])
         self.assertEqual(report["trace"], {"is_tracing": False})
+        self.assertIn("function", {o["type"] for o in report["objects"]["top"]})
+        self.assertTrue(report["objects"]["gc"])
+        self.assertEqual(report["history"], [])    # no history task in this test
+
+    def test_history_records_ram_every_interval_and_keeps_the_last_points(self):
+        state = self.state()
+        async def run():
+            task = asyncio.create_task(func_memory_history_periodic_task(app_state=state, interval_sec=0.01, max_points=3))
+            await asyncio.sleep(0.1)
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+            return list(state.runtime_memory_history)
+        points = asyncio.run(run())
+        self.assertEqual(len(points), 3, "only the last max_points are kept")
+        self.assertTrue(all(isinstance(t, int) and rss > 0 for t, rss in points))
+
+    def test_code_source_tells_atom_project_and_packages_apart(self):
+        root = "/srv/app"
+        source = lambda path: func_memory_code_source(filename=path, root=root)
+        self.assertEqual(source("/srv/app/function/auth.py"), "atom")
+        self.assertEqual(source("/srv/app/function_extend/billing.py"), "project")
+        self.assertEqual(source("/srv/app/config_extend.py"), "project")
+        self.assertIsNone(source("/srv/app/venv/lib/python3.14/site-packages/fastapi/routing.py"))
+        self.assertIsNone(source("/usr/lib/python3.14/json/__init__.py"))
+        self.assertIsNone(source(None))
 
     def test_report_lets_other_requests_run_while_it_builds(self):
         state = self.state()
@@ -70,7 +97,8 @@ class MemoryTests(unittest.TestCase):
         started, trace, stopped, _ = asyncio.run(run())
         self.assertTrue(started["is_tracing"])
         self.assertTrue(trace["is_tracing"])
-        self.assertTrue(any(line["file"] == __file__ for line in trace["top"]))
+        self.assertTrue(any(line["file"] == "tests/test_memory.py" and line["source"] == "atom" for line in trace["top"]))    # paths relative to the project root
+        self.assertTrue(all(line["source"] in ("atom", "project", "package") for line in trace["top"]))
         self.assertEqual(stopped, {"is_tracing": False, "stops_at": None})
         self.assertFalse(tracemalloc.is_tracing())
         with self.assertRaisesRegex(Exception, "invalid action"): func_memory_trace(app_state=state, action="later")

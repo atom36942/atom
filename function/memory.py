@@ -1,17 +1,31 @@
 # import
 import asyncio
 import gc
+import os
 import platform
 import sys
 import time
 import tracemalloc
 from collections import Counter
+from collections import deque
 import psutil
 from starlette.datastructures import State
 try: import resource
 except ImportError: resource = None    # Windows has no resource module
 
 # function
+def func_memory_code_root() -> str:
+    """The project root: the folder that holds function/."""
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def func_memory_code_source(*, filename: str | None, root: str) -> str | None:
+    """Who wrote a source file: "project" for a `*_extend` folder or config_extend.py, "atom" for Atom's own files, None for installed packages and Python itself."""
+    if not filename: return None
+    path = os.path.abspath(filename)
+    if not path.startswith(root + os.sep) or f"{os.sep}site-packages{os.sep}" in path: return None
+    first = os.path.relpath(path, root).split(os.sep)[0]
+    return "project" if first.endswith("_extend") or first == "config_extend.py" else "atom"
+
 async def func_memory_deep_size(*, obj, max_objects: int = 1_000_000, yield_every: int = 5000) -> tuple:
     """Bytes held by obj and everything it contains (dicts, lists, tuples, sets, object attributes), each object counted once.
 
@@ -36,6 +50,7 @@ async def func_memory_report(*, app_state: State, top_types: int = 20, yield_eve
     """RAM of this worker process, the size of each in-memory item Atom keeps on app_state, the most common Python object types, and allocation tracing.
 
     Sizes and counts only, never values. Clients (database pools, SDKs) are skipped, since walking them measures their libraries, not the app's data; the monitor's app view lists them.
+    history is this worker's RAM once a minute for the last 24 hours (func_memory_history_periodic_task), to see whether it keeps growing. Traced lines say whose code they are.
     Runs on the event loop but yields every yield_every objects, so requests keep being served while a large report is built.
     """
     process = psutil.Process()
@@ -66,17 +81,34 @@ async def func_memory_report(*, app_state: State, top_types: int = 20, yield_eve
                     "cpu_user_sec": round(cpu.user, 2), "cpu_system_sec": round(cpu.system, 2), "python": platform.python_version(), "workers": getattr(app_state, "config_uvicorn_workers", 1)},
         "system": {"total_bytes": system.total, "available_bytes": system.available, "used_percent": system.percent},
         "app_state": sorted(items, key=lambda item: item["bytes"], reverse=True),
+        "history": list(getattr(app_state, "runtime_memory_history", [])),
         "objects": {"tracked": sum(counts.values()), "top": [{"type": name, "count": count, "bytes": sizes[name]} for name, count in counts.most_common(top_types)], "gc": [{"generation": i, **stat} for i, stat in enumerate(gc.get_stats())]},
-        "trace": func_memory_trace_report(app_state=app_state),
+        "trace": func_memory_trace_report(app_state=app_state, root=func_memory_code_root()),
     }
 
-def func_memory_trace_report(*, app_state: State, top_lines: int = 20) -> dict:
-    """While tracing, the source lines that allocated the most memory still in use."""
+async def func_memory_history_periodic_task(*, app_state: State, interval_sec: int = 60, max_points: int = 1440) -> None:
+    """Record this worker's RAM (RSS) every interval_sec into app_state.runtime_memory_history, keeping the last max_points (24 hours at one a minute): one psutil call, a few microseconds."""
+    process, history = psutil.Process(), deque(maxlen=max_points)
+    app_state.runtime_memory_history = history
+    while True:
+        try:
+            history.append([int(time.time()), process.memory_info().rss])
+            await asyncio.sleep(interval_sec)
+        except asyncio.CancelledError: break
+        except Exception: await asyncio.sleep(interval_sec)
+    return
+
+def func_memory_trace_report(*, app_state: State, root: str, top_lines: int = 20) -> dict:
+    """While tracing, the source lines that allocated the most memory still in use, each marked atom, project or package (installed packages and Python itself); Atom's and the project's files are shown relative to the project root."""
     if not tracemalloc.is_tracing(): return {"is_tracing": False}
     current, peak = tracemalloc.get_traced_memory()
     stats = tracemalloc.take_snapshot().filter_traces((tracemalloc.Filter(False, tracemalloc.__file__), tracemalloc.Filter(False, "<frozen importlib._bootstrap>"))).statistics("lineno")[:top_lines]
-    return {"is_tracing": True, "started_at": getattr(app_state, "runtime_memory_trace_started_at", None), "stops_at": getattr(app_state, "runtime_memory_trace_stops_at", None), "traced_bytes": current, "traced_peak_bytes": peak,
-            "top": [{"file": stat.traceback[0].filename, "line": stat.traceback[0].lineno, "bytes": stat.size, "count": stat.count} for stat in stats]}
+    top = []
+    for stat in stats:
+        file = stat.traceback[0].filename
+        source = func_memory_code_source(filename=file, root=root)
+        top.append({"file": os.path.relpath(file, root) if source else file, "source": source or "package", "line": stat.traceback[0].lineno, "bytes": stat.size, "count": stat.count})
+    return {"is_tracing": True, "started_at": getattr(app_state, "runtime_memory_trace_started_at", None), "stops_at": getattr(app_state, "runtime_memory_trace_stops_at", None), "traced_bytes": current, "traced_peak_bytes": peak, "top": top}
 
 def func_memory_trace(*, app_state: State, action: str, duration_sec: int = 300) -> dict:
     """Start or stop tracemalloc in this worker. It slows every allocation, so it stops by itself after duration_sec."""
