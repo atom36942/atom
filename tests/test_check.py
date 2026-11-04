@@ -1,4 +1,5 @@
 """script.check prints one summary line, then only what needs attention: ruff findings, failing tests with their tracebacks, and grouped skip reasons."""
+import re
 import unittest
 from io import StringIO
 
@@ -19,15 +20,16 @@ def sample_result(*names):
 
 class CheckSummaryTests(unittest.TestCase):
     def test_all_green_is_one_line(self):
-        lines = summary_format(is_ruff_ok=True, ruff_output="", result=sample_result("test_passes"), seconds=1.23)
-        self.assertEqual(lines, ["ruff ok · 1 passed · 1.2 s"])
+        lines = summary_format(steps=[("startup", True, ""), ("ruff", True, "")], result=sample_result("test_passes"), seconds=1.23)
+        self.assertEqual(lines, ["startup ok · ruff ok · 1 passed · 1.2 s"])
 
     def test_failures_ruff_and_skips_are_listed_once(self):
         result = sample_result("test_passes", "test_fails", "test_skipped_a", "test_skipped_b")
-        text = "\n".join(summary_format(is_ruff_ok=False, ruff_output="x.py:1:1: F401 unused", result=result, seconds=2))
-        self.assertTrue(text.startswith("ruff FAILED · 1 passed · 1 FAILED · 2 skipped · 2.0 s"), text)
+        text = "\n".join(summary_format(steps=[("startup", False, "Exception: config_api drops 1 route"), ("ruff", False, "x.py:1:1: F401 unused")], result=result, seconds=2))
+        self.assertTrue(text.startswith("startup FAILED · ruff FAILED · 1 passed · 1 FAILED · 2 skipped · 2.0 s"), text)
         self.assertIn("F401 unused", text)
-        self.assertEqual(text.count("FAIL: tests.test_check.sample_result.<locals>.Sample.test_fails"), 1)
+        self.assertIn("startup:\nException: config_api drops 1 route", text)
+        self.assertEqual(len(re.findall(r"^FAIL: \S+\.Sample\.test_fails$", text, re.MULTILINE)), 1)    # the id's start depends on how discovery was run
         self.assertIn("AssertionError: 1 != 2", text)
         self.assertIn("2 × needs a service", text)
         self.assertNotIn("test_passes", text)

@@ -51,7 +51,7 @@ jobs:
         run: ruff check --output-format github .
 
       - name: Unit and integration tests, with coverage
-        run: python -m coverage run --source=function,router,main,config -m unittest discover -s tests -v
+        run: python -m coverage run --source=function,router,main,config -m unittest discover -s tests -t . -v
 
       # The summary and HTML report are produced even when tests fail, as long as coverage data was written.
       - name: Coverage summary on the run page

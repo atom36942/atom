@@ -1,6 +1,6 @@
 # Tests
 
-Atom's own tests, standard-library `unittest`, run from the project root (Git must be installed for the sync tests). One command runs ruff and every test, printing a summary line and only the failures and skip reasons:
+Atom's own tests, standard-library `unittest`, run from the project root (Git must be installed for the sync tests). One command runs Atom's startup checks (without opening connections), ruff and every test, printing a summary line and only the failures and skip reasons:
 
 ```bash
 venv/bin/python -m script.check
