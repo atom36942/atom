@@ -2,6 +2,7 @@
 import asyncio
 import os
 import secrets
+import signal
 import subprocess
 import sys
 import time
@@ -33,6 +34,7 @@ from function.queues import func_run_broker
 queue, channel, url_key, url, done_file = sys.argv[1:6]
 async def setup(): return (None,)
 async def execute(payload, client):
+    with open(done_file + ".started", "a") as file: file.write(payload["job"] + "\\n")
     if payload["job"] == "fail": raise ValueError("job failed on purpose")
     while payload["job"] == "slow" and not Path(os.environ["SLOW_GO"]).exists(): await asyncio.sleep(0.1)
     with open(done_file, "a") as file: file.write(payload["job"] + "\\n")
@@ -65,12 +67,20 @@ class ConsumerProcess:
         self.process.kill()
         self.process.wait()
 
+    def stop(self):
+        """SIGTERM, as a deploy or scale-down sends it."""
+        self.process.send_signal(signal.SIGTERM)
+
+    def started(self):
+        path = Path(f"{self.done_file}.started")
+        return path.read_text().split() if path.exists() else []
+
     def done(self):
         return sorted(self.done_file.read_text().split()) if self.done_file.exists() else []
 
     def cleanup(self):
         if self.process and self.process.poll() is None: self.kill()
-        for path in (self.done_file, self.slow_go): path.unlink(missing_ok=True)
+        for path in (self.done_file, self.slow_go, Path(f"{self.done_file}.started")): path.unlink(missing_ok=True)
 
 
 @unittest.skipUnless(REDIS_URL, "set ATOM_TEST_REDIS_URL (environment or .env) to run Redis tests")
@@ -103,6 +113,20 @@ class RedisDeliveryTests(unittest.TestCase):
         consumer.start()
         wait_until(lambda: consumer.done() == ["ok", "slow"], "the restarted consumer finishes the job the killed one left")
         self.assertEqual((self.redis.llen(self.channel), self.redis.llen(f"{self.channel}_processing")), (0, 0))
+
+    def test_sigterm_finishes_the_running_job_then_exits_and_frees_the_channel(self):
+        consumer = ConsumerProcess(self, queue="redis", channel=self.channel, url_key="config_redis_url_queue", url=REDIS_URL)
+        consumer.start()
+        self.push("slow")
+        wait_until(lambda: consumer.started() == ["slow"], "the slow job is running")
+        consumer.stop()
+        time.sleep(1.5)
+        self.assertIsNone(consumer.process.poll(), "it waits for the running job")
+        self.push("ok")
+        consumer.slow_go.touch()
+        self.assertEqual(consumer.process.wait(timeout=WAIT_SEC), 0)
+        self.assertEqual(consumer.done(), ["slow"], "the running job finished; the new one was not taken")
+        self.assertEqual((self.redis.llen(self.channel), self.redis.llen(f"{self.channel}_processing"), self.redis.exists(f"{self.channel}_consumer")), (1, 0, 0), "the new job waits in Redis and the channel is free for a restart")
 
     def test_a_second_consumer_waits_while_one_runs(self):
         first = ConsumerProcess(self, queue="redis", channel=self.channel, url_key="config_redis_url_queue", url=REDIS_URL)
@@ -176,6 +200,19 @@ class RabbitmqDeliveryTests(unittest.TestCase):
         consumer.start()
         wait_until(lambda: consumer.done() == ["ok", "slow"], "RabbitMQ gives the unacknowledged job to the restarted consumer")
         self.assertEqual(self.rabbitmq(self.counts), [0, 0])
+
+    def test_sigterm_finishes_the_running_job_then_exits(self):
+        consumer = ConsumerProcess(self, queue="rabbitmq", channel=self.channel, url_key="config_rabbitmq_url", url=RABBITMQ_URL)
+        self.rabbitmq(self.publish, "slow")
+        consumer.start()
+        wait_until(lambda: consumer.started() == ["slow"], "the slow job is running")
+        consumer.stop()
+        time.sleep(1.5)
+        self.assertIsNone(consumer.process.poll(), "it waits for the running job")
+        consumer.slow_go.touch()
+        self.assertEqual(consumer.process.wait(timeout=WAIT_SEC), 0)
+        self.assertEqual(consumer.done(), ["slow"])
+        self.assertEqual(self.rabbitmq(self.counts), [0, 0], "acknowledged before it exited: nothing runs twice")
 
 
 

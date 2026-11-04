@@ -1,6 +1,9 @@
 # import
 import asyncio
+import contextlib
+import os
 import secrets
+import signal
 import sys
 from datetime import datetime
 from datetime import UTC
@@ -80,7 +83,7 @@ def func_queue_celery_job_finish(*, app: Any, task: Any, channel: str, payload: 
     app.send_task(channel, kwargs=payload, queue=f"{channel}_failed", headers={"x-attempt": task.request.retries + 1, "x-error": f"{type(error).__name__}: {error}"[:1000]})
     return "failed"
 
-def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_callback: callable, execute_callback: callable, concurrency: int = 10, retry_max: int = 3):
+def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_callback: callable, execute_callback: callable, concurrency: int = 10, retry_max: int = 3, stop_wait_sec: int = 60):
     if not channel: raise Exception("channel name required")
     url_key = {"redis": "config_redis_url_queue", "rabbitmq": "config_rabbitmq_url", "kafka": "config_kafka_url", "celery": "config_celery_url"}.get(queue)
     if not url_key: raise Exception(f"invalid queue: {queue}; use redis, rabbitmq, kafka or celery")
@@ -130,6 +133,16 @@ def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_ca
             task = asyncio.create_task(coroutine)
             running.add(task)
             task.add_done_callback(running.discard)
+        # SIGTERM (a deploy, a scale-down) or Ctrl+C: take no new job, let the running ones finish, then exit; a second signal exits at once
+        stopping = asyncio.Event()
+        def on_stop_signal():
+            if stopping.is_set(): os._exit(1)
+            print(f"{queue} consumer stopping on {channel}: no new jobs, waiting up to {stop_wait_sec} s for {len(running)} running", flush=True)
+            stopping.set()
+        for stop_signal in (signal.SIGTERM, signal.SIGINT):
+            with contextlib.suppress(NotImplementedError, RuntimeError): asyncio.get_running_loop().add_signal_handler(stop_signal, on_stop_signal)    # Windows has no loop signal handlers
+        async def jobs_finish():
+            if running: await asyncio.wait(set(running), timeout=stop_wait_sec)    # a job still running after that runs again on the next start
         try:
             if queue == "redis":
                 import redis.asyncio as redis
@@ -142,7 +155,7 @@ def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_ca
                     while True:
                         await asyncio.sleep(20)
                         await client.expire(lock_key, 60)
-                job_start(lock_keep())
+                keeper = asyncio.create_task(lock_keep())
                 recovered = await func_queue_redis_recover(client=client, channel=channel)
                 print(f"redis consumer started on {channel}" + (f", {recovered} unfinished jobs put back" if recovered else ""), flush=True)
                 async def redis_job(n, raw):
@@ -151,14 +164,19 @@ def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_ca
                         await func_queue_redis_job_finish(client=client, channel=channel, raw=raw, error=error, retry_max=retry_max)
                     finally: semaphore.release()
                 try:
-                    while True:
+                    while not stopping.is_set():
                         await semaphore.acquire()    # take a job only when a worker is free, so waiting jobs stay in Redis, not in memory
-                        raw = await client.blmove(channel, f"{channel}_processing", 0, src="RIGHT", dest="LEFT")
+                        raw = None if stopping.is_set() else await client.blmove(channel, f"{channel}_processing", 1, src="RIGHT", dest="LEFT")    # 1 s, so a stop is noticed
+                        if raw is None:
+                            semaphore.release()
+                            continue
                         n = next(_run_counter)
                         print(f"task started #{n}: {channel}", flush=True)
                         job_start(redis_job(n, raw))
+                    await jobs_finish()
                 finally:
-                    if await client.get(lock_key) == lock_token.encode(): await client.delete(lock_key)
+                    keeper.cancel()
+                    if await client.get(lock_key) == lock_token.encode(): await client.delete(lock_key)    # released: a restart takes over at once
                     await client.aclose()
             elif queue == "rabbitmq":
                 import aio_pika
@@ -173,10 +191,16 @@ def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_ca
                     await func_queue_rabbitmq_job_finish(rabbitmq_channel=ch, channel=channel, message=m, error=error, retry_max=retry_max)
                 try:
                     async with rq.iterator() as queue_iter:
+                        async def iterator_close():
+                            await stopping.wait()
+                            await queue_iter.close()    # ends the loop below; jobs sent but not started go back to the queue when the channel closes
+                        closer = asyncio.create_task(iterator_close())
                         async for msg in queue_iter:
                             n = next(_run_counter)
                             print(f"task started #{n}: {channel}", flush=True)
                             job_start(_execute_rmq(n, msg))
+                        closer.cancel()
+                    await jobs_finish()
                 finally:
                     await conn.close()
             elif queue == "kafka":
@@ -195,7 +219,7 @@ def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_ca
                     error = await run_job(n, msg.value, orjson.loads)
                     await func_queue_kafka_job_finish(producer=producer, channel=channel, message=msg, error=error, retry_max=retry_max)
                 try:
-                    while True:
+                    while not stopping.is_set():    # a batch in progress always finishes and is committed first
                         batch = await consumer.getmany(timeout_ms=1000, max_records=concurrency)    # at most concurrency jobs at once
                         jobs = [kafka_job(msg) for messages in batch.values() for msg in messages]
                         if not jobs: continue

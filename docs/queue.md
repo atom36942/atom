@@ -83,6 +83,7 @@ A job counts as done only after its function returns. A job that raises is retri
 
 - A job can run twice: if a consumer stops after the job's work but before it counts as done, the job runs again. Make a job safe to repeat; for creates, a unique column (an invoice number) turns the repeat into a failed job instead of a duplicate row.
 - Redis: one consumer per channel (a `<channel>_consumer` key, kept alive every 20 s). A second one waits as a standby and takes over within 60 s of the first one stopping, which is also how long a restart after a crash waits. Scale with `config_queue_concurrency`; run several consumers with RabbitMQ.
+- Stopping: SIGTERM (a deploy, a scale-down) or Ctrl+C makes a consumer take no new job, wait up to 60 s (`func_run_broker(stop_wait_sec=...)`) for the running ones, then exit; a Redis consumer releases its channel, so a restart takes over at once. A second Ctrl+C exits at once, and a job cut short that way runs again on the next start. Celery does the same on its own (warm shutdown).
 - Queued creates are written at once, whatever `mode` the API call had: rows buffered in a consumer would be lost if it stopped after the job counted as done.
 - Redis jobs are `{"payload": ..., "attempt": n}`, as `func_producer` sends them.
 
