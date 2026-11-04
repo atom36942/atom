@@ -1,4 +1,4 @@
-"""Queue jobs are done at least once: a job counts as done only after its function returns, a failed job is retried up to retry_max times and then kept in <channel>_failed, and a consumer that is killed mid-job loses nothing. Real Redis (ATOM_TEST_REDIS_URL) and RabbitMQ (ATOM_TEST_RABBITMQ_URL), each consumer in its own process."""
+"""Queue jobs are done at least once on every broker: a job counts as done only after its function returns, a failed job is retried up to retry_max times and then kept in <channel>_failed, and a consumer that is killed mid-job loses nothing. Real Redis (ATOM_TEST_REDIS_URL) and RabbitMQ (ATOM_TEST_RABBITMQ_URL), each consumer in its own process; Kafka and Celery with fakes."""
 import asyncio
 import os
 import secrets
@@ -7,10 +7,17 @@ import sys
 import time
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import orjson
 
+from function.queues import func_queue_celery_job_finish
+from function.queues import func_queue_kafka_job_finish
 from function.queues import func_queue_redis_job_finish
+from function.queues import func_run_broker
 from function.queues import func_queue_redis_recover
 from tests.support import service_setting
 
@@ -170,6 +177,77 @@ class RabbitmqDeliveryTests(unittest.TestCase):
         wait_until(lambda: consumer.done() == ["ok", "slow"], "RabbitMQ gives the unacknowledged job to the restarted consumer")
         self.assertEqual(self.rabbitmq(self.counts), [0, 0])
 
+
+
+
+@unittest.skipUnless(REDIS_URL, "set ATOM_TEST_REDIS_URL (environment or .env) to run Redis tests")
+class CeleryWorkerTests(unittest.TestCase):
+    """A real Celery worker, with Redis as its broker: it runs jobs at all (the prefork pool failed every task on Python 3.14), retries a failed one after 1 s and then keeps it."""
+    def test_retry_then_failed_queue(self):
+        import redis
+        from celery import Celery
+        client = redis.Redis.from_url(REDIS_URL)
+        channel = f"atom_test_{secrets.token_hex(4)}"
+        self.addCleanup(client.close)
+        self.addCleanup(lambda: [client.delete(key) for key in client.scan_iter(f"*{channel}*")])
+        consumer = ConsumerProcess(self, queue="celery", channel=channel, url_key="config_celery_url", url=REDIS_URL)
+        consumer.start()
+        app = Celery("atom", broker=REDIS_URL)
+        for job in ("ok", "fail"): app.send_task(channel, kwargs={"job": job}, queue=channel)
+        wait_until(lambda: consumer.done() == ["ok"] and client.llen(f"{channel}_failed") == 1, "ok done, fail kept after its retry")
+        headers = orjson.loads(client.lindex(f"{channel}_failed", 0))["headers"]
+        self.assertEqual(headers["x-attempt"], 2)
+        self.assertEqual(headers["x-error"], "ValueError: job failed on purpose")
+
+class KafkaDeliveryTests(unittest.TestCase):
+    """No Kafka server here: aiokafka is replaced by fakes that record what the consumer does, in order."""
+    def test_a_batch_is_committed_only_after_every_job_is_finished(self):
+        events = []
+        def message(job, attempt=None): return SimpleNamespace(value=orjson.dumps({"job": job}), headers=((("x-attempt", attempt),) if attempt else ()))
+        batch = {"partition-0": [message("ok"), message("fail"), message("fail", b"1")]}
+        consumer = MagicMock(start=AsyncMock(), stop=AsyncMock(), commit=AsyncMock(side_effect=lambda: events.append("commit")), getmany=AsyncMock(side_effect=[batch, RuntimeError("stop the test")]))
+        producer = MagicMock(start=AsyncMock(), stop=AsyncMock(), send_and_wait=AsyncMock(side_effect=lambda topic, value, headers: events.append((topic, dict(headers)))))
+        fake = SimpleNamespace(AIOKafkaConsumer=MagicMock(return_value=consumer), AIOKafkaProducer=MagicMock(return_value=producer))
+        async def setup(): return (None,)
+        async def execute(payload, client):
+            events.append(payload["job"])
+            if payload["job"] == "fail": raise ValueError("job failed on purpose")
+        with patch.dict(sys.modules, {"aiokafka": fake}), self.assertRaises(SystemExit):
+            func_run_broker(queue="kafka", channel="jobs", broker_settings={"config_kafka_url": "kafka:9092"}, setup_callback=setup, execute_callback=execute, retry_max=1)
+        self.assertEqual(fake.AIOKafkaConsumer.call_args.kwargs["enable_auto_commit"], False)
+        self.assertEqual(events[-1], "commit", "committed last, once")
+        self.assertEqual(events.count("commit"), 1)
+        sent = [event for event in events if isinstance(event, tuple)]
+        self.assertEqual(sorted(topic for topic, _ in sent), ["jobs", "jobs_failed"], "first failure retried, second failure kept")
+        self.assertEqual(dict(sent)["jobs_failed"]["x-attempt"], b"2")
+        self.assertIn(b"ValueError: job failed on purpose", dict(sent)["jobs_failed"]["x-error"])
+
+    def test_finish_done_sends_nothing(self):
+        producer = MagicMock(send_and_wait=AsyncMock())
+        outcome = asyncio.run(func_queue_kafka_job_finish(producer=producer, channel="jobs", message=SimpleNamespace(value=b"{}", headers=()), error=None, retry_max=3))
+        self.assertEqual(outcome, "done")
+        producer.send_and_wait.assert_not_awaited()
+
+
+class CeleryDeliveryTests(unittest.TestCase):
+    def task(self, retries):
+        class Retry(Exception): pass
+        return SimpleNamespace(request=SimpleNamespace(retries=retries), retry=MagicMock(return_value=Retry())), Retry
+
+    def test_a_failed_job_is_retried_with_backoff(self):
+        app = MagicMock()
+        task, retry = self.task(retries=1)
+        with self.assertRaises(retry): func_queue_celery_job_finish(app=app, task=task, channel="jobs", payload={"job": 1}, error=ValueError("x"), retry_max=3)
+        self.assertEqual(task.retry.call_args.kwargs["countdown"], 2)
+        app.send_task.assert_not_called()
+
+    def test_after_the_last_retry_it_goes_to_the_failed_queue(self):
+        app = MagicMock()
+        task, _ = self.task(retries=3)
+        self.assertEqual(func_queue_celery_job_finish(app=app, task=task, channel="jobs", payload={"job": 1}, error=ValueError("x"), retry_max=3), "failed")
+        self.assertEqual(app.send_task.call_args.kwargs["queue"], "jobs_failed")
+        self.assertEqual(app.send_task.call_args.kwargs["kwargs"], {"job": 1})
+        self.assertEqual(app.send_task.call_args.kwargs["headers"], {"x-attempt": 4, "x-error": "ValueError: x"})
 
 if __name__ == "__main__":
     unittest.main()

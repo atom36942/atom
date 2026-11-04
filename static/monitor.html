@@ -342,7 +342,6 @@ const TILE_HELP = {
   "Background tasks": "Requests sent with is_background=true that are still running.",
   "Websockets": "Open websocket connections to this worker.",
   "Background errors": "Failures outside requests since this worker started. Details in Error counters.",
-  "Failed queue jobs": "Queue jobs that failed, from tmp/consumer_failed_payload.jsonl.",
   "Atom": "Atom version this server runs, with its Python and operating system.",
   "Workers": "Server processes. Each has its own memory, so most numbers on this page are for this one worker.",
   "Mode": "Production or development, and whether the server may write to the database.",
@@ -374,7 +373,6 @@ const CARD_HELP = {
   "Periodic tasks": "Atom's background jobs in this worker: running is healthy, failed needs a look in the logs.",
   "Write buffers": "Rows waiting to be written in bulk. They are saved on the next flush; a full buffer refuses new rows.",
   "Error counters": "Failures counted outside requests since this worker started (buffer flushes, cleanups, background tasks).",
-  "Failed queue jobs (latest)": "Queue jobs that failed, from tmp/consumer_failed_payload.jsonl, without their payloads.",
   "Clients": "Outside services Atom connected to at startup (databases, storage, queues): on means configured and connected.",
   "Packages": "Versions of the main packages this server runs.",
   "Settings": "Every config_* value this server uses. Secrets and connection URLs only show whether they are set.",
@@ -508,21 +506,18 @@ const renderDatabase = report => {
 /* ==== view: background ==== */
 // background: work outside requests
 const renderBackground = report => {
-  const buffered = report.buffers.reduce((sum, b) => sum + b.rows, 0), failedJobs = report.failed_jobs;
+  const buffered = report.buffers.reduce((sum, b) => sum + b.rows, 0);
   const statusClass = { running: "ok", off: "", cancelled: "warn", finished: "warn", failed: "bad" };
   return tiles([
     tile("Buffered rows", formatNumber(buffered), "waiting to be written to PostgreSQL"),
     tile("Background tasks", formatNumber(report.background_tasks_running), "?is_background=true requests running"),
     tile("Websockets", formatNumber(report.websockets), "open connections"),
     tile("Background errors", formatNumber(report.errors.reduce((sum, e) => sum + e.count, 0)), "this worker, since start", null, report.errors.some(e => e.count)),
-    tile("Failed queue jobs", formatNumber(failedJobs.count), failedJobs.updated_at ? `last ${formatTime(failedJobs.updated_at)}` : "none recorded", null, failedJobs.count > 0),
   ])
   + `<div class="two">${table("Periodic tasks", [["Task"], ["Status"]], report.tasks, t => `<tr><td>${he(t.name)}</td><td><span class="pill ${statusClass[t.status] ?? ""}">${he(t.status)}</span></td></tr>`, "No tasks.")}`
   + `${table("Error counters", [["Counter"], ["Count", "num"]], report.errors, e => `<tr><td class="mono">${he(e.name)}</td><td class="num${e.count ? " bad" : ""}">${formatNumber(e.count)}</td></tr>`, "No counters.")}</div>`
   + table("Write buffers", [["Buffer"], ["Table"], ["Rows", "num"], ["Of limit", "share"]], report.buffers,
-    b => `<tr><td>${he(b.buffer)}</td><td class="mono">${he(b.table)}</td><td class="num">${formatNumber(b.rows)}</td><td class="share">${shareBar(b.rows, report.buffer_rows_max)}</td></tr>`, "Empty: nothing waiting to be written.", report.buffer_rows_max ? `limit ${formatNumber(report.buffer_rows_max)} rows each` : "")
-  + table("Failed queue jobs (latest)", [["Time"], ["Queue"], ["Channel"], ["Error"]], failedJobs.latest,
-    j => `<tr><td class="muted">${formatTime(j.time)}</td><td>${he(j.queue)}</td><td class="mono">${he(j.channel)}</td><td class="wrap-text"><span class="bad">${he(j.error_type)}</span> <span class="muted">${he(j.error)}</span></td></tr>`, "No failed jobs in tmp/consumer_failed_payload.jsonl.", failedJobs.count ? `${formatNumber(failedJobs.count)} in total · ${formatBytes(failedJobs.size_bytes)}` : "");
+    b => `<tr><td>${he(b.buffer)}</td><td class="mono">${he(b.table)}</td><td class="num">${formatNumber(b.rows)}</td><td class="share">${shareBar(b.rows, report.buffer_rows_max)}</td></tr>`, "Empty: nothing waiting to be written.", report.buffer_rows_max ? `limit ${formatNumber(report.buffer_rows_max)} rows each` : "");
 };
 
 /* ==== view: app ==== */

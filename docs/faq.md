@@ -390,9 +390,9 @@ Define `func_extend` in `function_extend/`. Atom calls it once at startup, after
 <details>
 <summary><strong>Where do failed background jobs go?</strong></summary>
 
-A worker appends an unrecoverable job to `tmp/consumer_failed_payload.jsonl`. Each JSON Lines record contains the original payload and traceback, so one failed job does not make the whole file unreadable.
+A job that still fails after `config_queue_retry_max` retries is kept in `<channel>_failed` in its broker (a Redis list, a RabbitMQ queue, a Kafka topic or a Celery queue), with the payload, the attempt count and the error.
 
-Inspect the traceback, correct the underlying data or service problem, and replay only the jobs you have verified are safe. Be careful with non-idempotent operations: blindly replaying a partially completed create or external call can produce duplicates.
+Inspect the error, correct the underlying data or service problem, and replay only the jobs you have verified are safe. Be careful with non-idempotent operations: blindly replaying a partially completed create or external call can produce duplicates.
 
 The `tmp` directory is runtime storage and is recreated when Atom starts, so forward or archive failures elsewhere if you need durable production retention. See [queue.md](queue.md).
 
@@ -458,7 +458,7 @@ Create endpoints support two ways to move work off the request path:
 - Add `?is_background=true` for an in-process background task. This is simple and fast, but the task can be lost if the API process stops. Boolean query flags use `true`/`false`; legacy `1`/`0` values remain accepted for compatibility.
 - Add `?queue=redis` (or another configured queue mode) to publish the payload for a separate worker. This is the better choice for durable, scalable, or slow workloads.
 
-Make sure the selected queue client is configured and its consumer process is running before publishing jobs. Design handlers to be idempotent so retries cannot create duplicates, and monitor `tmp/consumer_failed_payload.jsonl` for terminal failures. See [Object Queues](queue.md) for object API details and [Background Workers](queue.md) for broader worker patterns.
+Make sure the selected queue client is configured and its consumer process is running before publishing jobs. Design handlers to be idempotent so retries cannot create duplicates, and watch `<channel>_failed` for jobs that failed for good. See [Object Queues](queue.md) for object API details and [Background Workers](queue.md) for broader worker patterns.
 
 </details>
 

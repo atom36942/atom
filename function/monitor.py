@@ -78,23 +78,8 @@ async def func_monitor_database(*, app_state: State, connection: str, top: int =
     slow_queries = await app_state.func_postgres_slow_queries_read(client_postgres=client_postgres, limit=top, order="total_time")
     return {"connection": connection, "pools": pools, "is_enabled": True, "info": info, "states": [dict(row) for row in states], "long_queries": [dict(row) for row in queries], "tables": [dict(row) for row in tables], "slow_queries": slow_queries}
 
-def func_monitor_failed_jobs(*, path: str = "tmp/consumer_failed_payload.jsonl", latest: int = 20, tail_bytes: int = 512_000) -> dict:
-    """Queue jobs that failed for good (written by the consumer to tmp/): how many, and the latest ones without their payload or traceback."""
-    if not os.path.exists(path): return {"count": 0, "size_bytes": 0, "updated_at": None, "latest": []}
-    stat = os.stat(path)
-    with open(path, "rb") as file:
-        count = sum(chunk.count(b"\n") for chunk in iter(lambda: file.read(1 << 20), b""))
-        file.seek(max(0, stat.st_size - tail_bytes))
-        lines = file.read().splitlines()[-latest:]
-    records = []
-    for line in reversed(lines):
-        try: record = orjson.loads(line)
-        except orjson.JSONDecodeError: continue
-        records.append({"time": record.get("time"), "queue": record.get("queue"), "channel": record.get("channel"), "error_type": record.get("error_type"), "error": str(record.get("error") or "")[:500]})
-    return {"count": count, "size_bytes": stat.st_size, "updated_at": int(stat.st_mtime), "latest": records}
-
 def func_monitor_background(*, app_state: State) -> dict:
-    """Work this worker does outside requests: periodic tasks, rows waiting in the write buffers, running background tasks, open websockets, error counters and failed queue jobs."""
+    """Work this worker does outside requests: periodic tasks, rows waiting in the write buffers, running background tasks, open websockets and error counters."""
     task_names = {"runtime_task_postgres_buffer_flush": "Buffer flush", "runtime_task_inmemory_cache_cleanup": "In-memory cache cleanup", "runtime_task_otp_cleanup": "OTP cleanup", "runtime_task_log_api_cleanup": "log_api cleanup", "runtime_task_memory_history": "RAM history"}
     tasks = []
     for name, label in task_names.items():
@@ -110,7 +95,6 @@ def func_monitor_background(*, app_state: State) -> dict:
         "background_tasks_running": len(getattr(app_state, "runtime_background_tasks", set())),
         "websockets": sum(len(value) if isinstance(value, (dict, list, set)) else 1 for value in list(sockets.values())),
         "errors": [{"name": name, "count": count} for name, count in sorted(getattr(app_state, "runtime_error_count", {}).items())],
-        "failed_jobs": func_monitor_failed_jobs(),
     }
 
 def func_monitor_config_value(*, name: str, value) -> object:

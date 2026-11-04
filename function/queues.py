@@ -1,9 +1,7 @@
 # import
 import asyncio
-import os
-import sys
 import secrets
-import traceback
+import sys
 from datetime import datetime
 from datetime import UTC
 from itertools import count
@@ -67,31 +65,33 @@ async def func_queue_rabbitmq_job_finish(*, rabbitmq_channel: Any, channel: str,
     await message.ack()    # after the republish: a crash in between runs the job again rather than losing it
     return outcome
 
+async def func_queue_kafka_job_finish(*, producer: Any, channel: str, message: Any, error: Exception | None, retry_max: int) -> str:
+    """After a Kafka job: failed → produced again with header x-attempt + 1, or to topic <channel>_failed once retried retry_max times; the batch's offsets are committed after every job in it is finished. Returns done, retry or failed."""
+    attempt = int(dict(message.headers or ()).get("x-attempt", b"0")) + 1
+    outcome = "done" if error is None else "retry" if attempt <= retry_max else "failed"
+    if outcome != "done":
+        headers = [("x-attempt", str(attempt).encode()), *([("x-error", f"{type(error).__name__}: {error}"[:1000].encode())] if outcome == "failed" else [])]
+        await producer.send_and_wait(channel if outcome == "retry" else f"{channel}_failed", message.value, headers=headers)
+    return outcome
+
+def func_queue_celery_job_finish(*, app: Any, task: Any, channel: str, payload: dict, error: Exception, retry_max: int) -> str:
+    """After a failed Celery job: retried by Celery after 1, 2, 4, ... seconds (task.retry raises), or sent to queue <channel>_failed once retried retry_max times. Returns failed."""
+    if task.request.retries < retry_max: raise task.retry(exc=error, countdown=2 ** task.request.retries, max_retries=retry_max)
+    app.send_task(channel, kwargs=payload, queue=f"{channel}_failed", headers={"x-attempt": task.request.retries + 1, "x-error": f"{type(error).__name__}: {error}"[:1000]})
+    return "failed"
+
 def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_callback: callable, execute_callback: callable, concurrency: int = 10, retry_max: int = 3):
     if not channel: raise Exception("channel name required")
     url_key = {"redis": "config_redis_url_queue", "rabbitmq": "config_rabbitmq_url", "kafka": "config_kafka_url", "celery": "config_celery_url"}.get(queue)
     if not url_key: raise Exception(f"invalid queue: {queue}; use redis, rabbitmq, kafka or celery")
     if not broker_settings.get(url_key): raise Exception(f"{queue} consumer needs {url_key}: set it in .env")
     _run_counter = count(1)
-    def log_failure(q, p, e):
-        os.makedirs("tmp", exist_ok=True)
-        try: payload_str = p.decode("utf-8") if isinstance(p, bytes) else p
-        except Exception: payload_str = repr(p)
-        record = {"time": datetime.now(UTC).isoformat(), "queue": q, "channel": channel, "payload": payload_str, "error_type": type(e).__name__, "error": str(e), "traceback": traceback.format_exc()}
-        with open("tmp/consumer_failed_payload.jsonl", "ab") as file: file.write(orjson.dumps(record, option=orjson.OPT_APPEND_NEWLINE))
     if queue == "celery":
-        from celery import signals
         from celery import Celery
         app = Celery("atom", broker=broker_settings.get("config_celery_url"), backend=broker_settings.get("config_celery_url"))
         app.conf.update(worker_prefetch_multiplier=1, task_acks_late=True, task_reject_on_worker_lost=True)
-        setup_data, worker_loop = None, None
-        @signals.worker_process_init.connect
-        def init_worker(**kwargs):
-            nonlocal worker_loop, setup_data
-            worker_loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(worker_loop)
-            setup_data = worker_loop.run_until_complete(setup_callback())
-        def run_async(*args, **kwargs):
+        setup_data, worker_loop = None, None    # opened by the first job
+        def run_async(task, *args, **kwargs):
             n = next(_run_counter)
             print(f"task started #{n}: {channel}", flush=True)
             nonlocal worker_loop, setup_data
@@ -105,12 +105,12 @@ def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_ca
                 print(f"task completed #{n}: {channel}", flush=True)
                 return
             except Exception as e:
-                log_failure("celery", payload, e)
                 print(f"task failed #{n}: {channel} error: {str(e)}", flush=True)
+                func_queue_celery_job_finish(app=app, task=task, channel=channel, payload=payload, error=e, retry_max=retry_max)
                 raise
-        @app.task(name=channel)
-        def celery_task(*args, **kwargs): return run_async(*args, **kwargs)
-        app.worker_main(argv=["worker", "--loglevel=info", "-Q", channel, "-n", f"celery_{channel}@%h"])
+        @app.task(name=channel, bind=True)
+        def celery_task(self, *args, **kwargs): return run_async(self, *args, **kwargs)
+        app.worker_main(argv=["worker", "--loglevel=info", "--pool=solo", "-Q", channel, "-n", f"celery_{channel}@%h"])    # solo: one process running the asyncio loop; the prefork pool fails every task on Python 3.14
         return
     async def async_runner():
         setup_data = await setup_callback()
@@ -130,15 +130,6 @@ def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_ca
             task = asyncio.create_task(coroutine)
             running.add(task)
             task.add_done_callback(running.discard)
-        async def _execute(n, p):
-            async with semaphore:
-                try:
-                    p_obj = orjson.loads(p)
-                    await execute_callback(p_obj, *setup_data)
-                    print(f"task completed #{n}: {channel}", flush=True)
-                except Exception as e:
-                    await asyncio.to_thread(log_failure, queue, p, e)
-                    print(f"task failed #{n}: {channel} error: {str(e)}", flush=True)
         try:
             if queue == "redis":
                 import redis.asyncio as redis
@@ -190,30 +181,29 @@ def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_ca
                     await conn.close()
             elif queue == "kafka":
                 from aiokafka import AIOKafkaConsumer
-                kafka_group_id = "atom"
-                kafka_is_enable_auto_commit = 1
-                kafka_batch_limit = 100
-                kafka_batch_timeout_ms = 1000
-                if broker_settings.get("config_kafka_username"):
-                    consumer = AIOKafkaConsumer(channel, bootstrap_servers=broker_settings.get("config_kafka_url"), group_id=kafka_group_id, enable_auto_commit=bool(kafka_is_enable_auto_commit), security_protocol="SASL_SSL", sasl_mechanism="PLAIN", sasl_plain_username=broker_settings.get("config_kafka_username"), sasl_plain_password=broker_settings.get("config_kafka_password"))
-                else:
-                    consumer = AIOKafkaConsumer(channel, bootstrap_servers=broker_settings.get("config_kafka_url"), group_id=kafka_group_id, enable_auto_commit=bool(kafka_is_enable_auto_commit))
+                from aiokafka import AIOKafkaProducer
+                url = broker_settings.get("config_kafka_url")
+                auth = {"security_protocol": "SASL_SSL", "sasl_mechanism": "PLAIN", "sasl_plain_username": broker_settings.get("config_kafka_username"), "sasl_plain_password": broker_settings.get("config_kafka_password")} if broker_settings.get("config_kafka_username") else {}
+                consumer = AIOKafkaConsumer(channel, bootstrap_servers=url, group_id="atom", enable_auto_commit=False, **auth)    # offsets move only after a batch is finished
+                producer = AIOKafkaProducer(bootstrap_servers=url, **auth)    # retries and failed jobs
                 await consumer.start()
+                await producer.start()
                 print(f"kafka consumer started on {channel}", flush=True)
+                async def kafka_job(msg):
+                    n = next(_run_counter)
+                    print(f"task started #{n}: {channel}", flush=True)
+                    error = await run_job(n, msg.value, orjson.loads)
+                    await func_queue_kafka_job_finish(producer=producer, channel=channel, message=msg, error=error, retry_max=retry_max)
                 try:
                     while True:
-                        batch = await consumer.getmany(timeout_ms=kafka_batch_timeout_ms, max_records=kafka_batch_limit)
-                        if not batch: continue
-                        for tp, messages in batch.items():
-                            tasks = []
-                            for msg in messages:
-                                n = next(_run_counter)
-                                print(f"task started #{n}: {channel}", flush=True)
-                                tasks.append(asyncio.create_task(_execute(n, msg.value)))
-                            if tasks: await asyncio.gather(*tasks)
-                            if not kafka_is_enable_auto_commit: await consumer.commit(tp)
+                        batch = await consumer.getmany(timeout_ms=1000, max_records=concurrency)    # at most concurrency jobs at once
+                        jobs = [kafka_job(msg) for messages in batch.values() for msg in messages]
+                        if not jobs: continue
+                        await asyncio.gather(*jobs)
+                        await consumer.commit()    # after every job is done, retried or kept: a consumer that stops before this gets the batch again
                 finally:
                     await consumer.stop()
+                    await producer.stop()
             else:
                 print(f"unknown queue: {queue}")
                 sys.exit(1)
