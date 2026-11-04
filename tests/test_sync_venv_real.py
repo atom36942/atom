@@ -3,7 +3,6 @@
 CI runs it on Linux and macOS: the paths and the Python lookup differ per system.
 """
 import io
-import os
 import subprocess
 import sys
 import tempfile
@@ -12,9 +11,10 @@ from contextlib import redirect_stdout
 from pathlib import Path
 
 import sync
+from tests.support import service_setting
 
 
-@unittest.skipUnless(os.environ.get("ATOM_TEST_VENV_REAL"), "set ATOM_TEST_VENV_REAL=1 to build real venvs (slow, needs network)")
+@unittest.skipUnless(service_setting("ATOM_TEST_VENV_REAL"), "set ATOM_TEST_VENV_REAL=1 to build real venvs (slow, needs network)")
 class RealVenvTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

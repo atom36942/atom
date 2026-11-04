@@ -13,7 +13,7 @@ The plain runner works too: `venv/bin/python -m unittest discover -s tests -t .`
 Everything outside `tests/integration/` mocks the database: real builders and serializers, no SQL, no config, no connections to databases, Redis or cloud services. Sync tests create throwaway local Git repositories and never fetch the real Atom repository.
 
 ## Tests with real services
-Skipped unless their environment variable is set:
+Skipped unless their setting is in the environment (CI) or in `.env` (local: add the line under `# atom` once and every run includes them; tests read only these keys from `.env`):
 
 | Variable | Runs | Needs |
 |---|---|---|

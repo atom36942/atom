@@ -2,7 +2,7 @@
 # command: venv/bin/python -m script.check tests.test_sync    (one module, class or test; ruff still runs)
 
 # info: Runs ruff and the tests in one go and prints only what needs attention: a summary line, each failing test with its traceback, and why tests were skipped.
-# - tests come from tests/ in Atom and tests_extend/ in a project; service tests run when their variable is set (ATOM_TEST_POSTGRES_URL, see tests/README.md)
+# - tests come from tests/ in Atom and tests_extend/ in a project; service tests run when their ATOM_TEST_* setting is in the environment or .env (see tests/README.md)
 # - exit code 0 only when ruff and every test pass
 
 # import

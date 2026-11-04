@@ -1,7 +1,6 @@
 """User checks and rate limits in redis mode, against a real Redis (set ATOM_TEST_REDIS_URL, e.g. redis://localhost:6379/15)."""
 import asyncio
 import datetime
-import os
 import unittest
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
@@ -11,8 +10,9 @@ from function.middleware import func_middleware_check_ratelimiter
 from function.middleware import func_middleware_check_role
 from function.middleware import func_middleware_check_user_deactivated
 from function.middleware import func_middleware_check_user_deleted
+from tests.support import service_setting
 
-REDIS_URL = os.environ.get("ATOM_TEST_REDIS_URL")
+REDIS_URL = service_setting("ATOM_TEST_REDIS_URL")
 USER_ID = 990001
 
 
@@ -25,7 +25,7 @@ def pool_returning(row):
     return pool
 
 
-@unittest.skipUnless(REDIS_URL, "set ATOM_TEST_REDIS_URL to run Redis tests")
+@unittest.skipUnless(REDIS_URL, "set ATOM_TEST_REDIS_URL (environment or .env) to run Redis tests")
 class RedisCheckTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.redis = func_client_redis(url=REDIS_URL)

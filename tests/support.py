@@ -1,6 +1,15 @@
-"""Database doubles: record calls without executing SQL or opening connections."""
+"""Shared test helpers: database doubles that record calls without executing SQL, and the settings that turn on tests against real services."""
+import os
+from pathlib import Path
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
+
+from dotenv import dotenv_values
+
+
+def service_setting(name):
+    """An ATOM_TEST_* setting: from the environment (CI), else from the project's .env, so local runs need no prefix. Only that key is read: the rest of .env never reaches the tests."""
+    return os.environ.get(name) or dotenv_values(Path(__file__).resolve().parents[1] / ".env").get(name)
 
 
 def database():
