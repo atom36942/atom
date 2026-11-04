@@ -94,6 +94,7 @@ async def func_lifespan(app: FastAPI):
         app.state.func_app_tasks_start(app_state=app.state)
     except Exception as e:
         print(f"❌ startup error: {e}")
+        await app.state.func_client_close(clients={k: v for k, v in locals().items() if k.startswith("client_")})    # close what opened before the failure
         raise
     # shutdown
     yield

@@ -160,7 +160,7 @@ def func_client_msgraph(*, tenant_id: str, client_id: str, client_secret: str, s
 async def func_client_close(*, app_state: State = None, clients: dict = None) -> None:
     """Safely disconnect and close all active database, storage, messaging, and AI clients."""
     c = {}
-    if app_state: c = {k: getattr(app_state, k, None) for k in dir(app_state) if k.startswith("client_")}
+    if app_state: c = {k: v for k, v in (getattr(app_state, "_state", None) or vars(app_state)).items() if k.startswith("client_")}    # Starlette's State keeps its values in _state, which dir() doesn't list
     elif isinstance(clients, dict): c = clients.copy()
     client_http = c.get("client_http")
     if client_http:

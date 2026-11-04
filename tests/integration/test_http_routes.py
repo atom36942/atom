@@ -248,6 +248,14 @@ class HttpRouteTests(unittest.TestCase):
         refreshed = self.message(self.client.post("/my/token-refresh", headers=self.auth(tokens["refresh_token"])))
         self.assertEqual(self.message(self.client.get("/my/profile", headers=self.auth(refreshed["access_token"])))["id"], self.bob_id)
 
+    def test_token_refresh_refuses_a_deleted_or_deactivated_account(self):
+        tokens = self.message(self.client.post("/auth/login-username-password", json={"username": "bob", "password": "bob-pass"}))
+        for column, expected in (("deactivated_at", "account deactivated"), ("deleted_at", "account deleted")):
+            with self.subTest(column=column):
+                fetch(self.url, "UPDATE users SET deactivated_at = CASE WHEN $2 = 'deactivated_at' THEN now() END, deleted_at = CASE WHEN $2 = 'deleted_at' THEN now() END WHERE id = $1", self.bob_id, column)
+                try: self.assertEqual(self.message(self.client.post("/my/token-refresh", headers=self.auth(tokens["refresh_token"])), 403), expected)
+                finally: fetch(self.url, "UPDATE users SET deactivated_at = NULL, deleted_at = NULL WHERE id = $1", self.bob_id)
+
     # 6. missing external services
     def test_routes_needing_unconfigured_services_return_500(self):
         for method, path, kwargs, expected in MISSING_SERVICE_ROUTES:

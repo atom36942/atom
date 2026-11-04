@@ -41,6 +41,7 @@ async def func_api_my_token_refresh(*, request: Request):
     app_state = request.app.state
     if not request.state.client_postgres: raise app_state.func_api_error(message="postgres client not initialized", status_code=500)
     user = await app_state.func_user_read_single(client_postgres=request.state.client_postgres, user_id=request.state.user["id"])
+    app_state.func_auth_check_user_active(user=user)    # a deleted or deactivated account gets no new tokens, as at login
     token = await app_state.func_token_encode(user=user, config_token_secret_key=app_state.config_token_secret_key, config_access_token_expires_sec=app_state.config_access_token_expires_sec, config_refresh_token_expires_sec=app_state.config_refresh_token_expires_sec, config_column_token_encode=app_state.config_column_token_encode)
     return {"status": 1, "message": token}
 

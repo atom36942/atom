@@ -155,7 +155,7 @@ Atom generates HS256 JWT pairs signed with `config_token_secret_key`:
 
 - **Payload Claims**: Minimal claims from `config_column_token_encode` (`id`, `role`, `username`, `id_ext`, `deactivated_at`, `deleted_at`).
 - **Token Type**: Encodes `type: "access"` or `type: "refresh"`.
-- **Refreshing**: `POST /my/token-refresh` reads the current refresh token, re-checks database status, and mints a fresh pair.
+- **Refreshing**: `POST /my/token-refresh` reads the current refresh token, re-reads the user and mints a fresh pair; a deleted or deactivated account gets `403` instead, as at login.
 
 ### Reading User in Route Handlers:
 ```python
