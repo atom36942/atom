@@ -359,6 +359,7 @@ config_api = {
 # index
 "/": {"id": 35, "is_token": False},
 "/health": {"id": 36, "is_token": False},
+"/health-ready": {"id": 135, "is_token": False, "is_log_api": False, "cache": {"mode": "inmemory", "ttl_sec": 5, "is_per_user": False}},
 "/info": {"id": 17, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 300, "is_per_user": False}},
 "/openapi.json": {"id": 37, "is_token": False},
 "/static": {"id": 77, "is_token": False},

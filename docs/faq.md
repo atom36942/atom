@@ -551,6 +551,12 @@ Booleans accept case-insensitive `true` and `false`; `1`/`0`, `yes`/`no`, and `o
 </details>
 
 <details>
+<summary><strong>Which URL should a load balancer or App Service health check call?</strong></summary>
+
+`/health-ready`. It answers `200` only when every configured database (each Postgres, Redis, MSSQL and ClickHouse pool) responds to a trivial query within 2 seconds, checked at the same time, and `503 not ready: <kind>.<name> did not answer` otherwise, so traffic moves away from an instance that lost its database. It names pools only, never hosts or errors, keeps its answer for 5 seconds and is not written to `log_api`. `/health` answers `200` whenever the process runs: use it where only "is the app up" matters.
+</details>
+
+<details>
 <summary><strong>Does Atom require Postgres, Redis, or every listed integration to start?</strong></summary>
 
 No. Integrations are opt-in: if a connection URL or credential is unset, Atom leaves that client as `None` and continues starting. A bare installation can serve `/`, `/health`, `/info`, and other routes that do not depend on a missing service.

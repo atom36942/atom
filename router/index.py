@@ -28,6 +28,14 @@ async def func_api_index_page(*, request: Request):
 async def func_api_index_health(*, request:Request):
     return {"status":1,"message":"ok"}
 
+@router.get("/health-ready")
+async def func_api_index_health_ready(*, request: Request):
+    app_state = request.app.state
+    checks = await app_state.func_app_health_ready(app_state=app_state)
+    failed = [name for name, check in checks.items() if not check["is_ok"]]
+    if failed: raise app_state.func_api_error(message=f"not ready: {', '.join(failed)} did not answer", status_code=503)
+    return {"status": 1, "message": checks}
+
 @router.get("/info")
 async def func_api_index_info(*, request:Request):
     app_state = request.app.state

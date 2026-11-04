@@ -9,6 +9,7 @@ import os
 import pathlib
 import re
 import shutil
+import time
 import urllib.parse
 from decimal import Decimal
 from typing import Any
@@ -450,3 +451,20 @@ def func_app_route_lookup_add(*, app: FastAPI) -> int:
         await route.handle(scope, receive, send)
     router.middleware_stack = lookup_app
     return len(table)
+
+async def func_app_health_ready(*, app_state: Any, timeout_sec: float = 2) -> dict:
+    """Is every configured database reachable? Each pool answers a trivial query within timeout_sec, all at the same time. {"<kind>.<name>": {"is_ok", "ms"}}, names only: no host, URL or error text, since the route is public."""
+    async def postgres(pool): return await pool.fetchval("SELECT 1")
+    async def redis(client): return await client.ping()
+    async def mssql(pool):
+        async with pool.acquire() as conn, conn.cursor() as cursor: await cursor.execute("SELECT 1")
+    async def clickhouse(client): return await client.query("SELECT 1")
+    checks = {f"{kind}.{name}": (probe, client) for kind, probe, clients in (("postgres", postgres, app_state.client_postgres_dict), ("redis", redis, app_state.client_redis_dict), ("mssql", mssql, app_state.client_mssql_dict), ("clickhouse", clickhouse, app_state.client_clickhouse_dict)) for name, client in (clients or {}).items() if client}
+    async def timed(probe, client):
+        started = time.perf_counter()
+        try:
+            await asyncio.wait_for(probe(client), timeout=timeout_sec)
+            return {"is_ok": True, "ms": round((time.perf_counter() - started) * 1000)}
+        except Exception: return {"is_ok": False, "ms": round((time.perf_counter() - started) * 1000)}    # TimeoutError or a driver error: the reason stays out of a public answer
+    results = await asyncio.gather(*(timed(probe, client) for probe, client in checks.values()))
+    return dict(zip(checks, results, strict=True))

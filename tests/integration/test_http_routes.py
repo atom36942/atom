@@ -394,6 +394,8 @@ class HttpRouteTests(unittest.TestCase):
         self.assertIsInstance(self.message(self.client.get("/static-pages")), list)    # the app runs from a temp dir, so its static/ is empty
         self.assertEqual(self.message(self.client.get("/health")), "ok")
         self.assertIn("/health", self.message(self.client.get("/info"))["api_list"])
+        ready = self.message(self.client.get("/health-ready"))
+        self.assertTrue(ready["postgres.master"]["is_ok"], ready)
         self.assertEqual(self.message(self.client.post("/my/ping", headers=self.auth(self.alice))), "pong")
         self.assertEqual(fetch(self.url, "SELECT last_active_at IS NOT NULL AS is_set FROM users WHERE id = $1", self.alice_id), [{"is_set": True}])
         encoded = self.message(self.client.get("/public/converter-number", params={"datatype": "int", "mode": "encode", "x": "12345"}))
