@@ -52,10 +52,15 @@ Atom's version is `ATOM_VERSION` in `sync.py` (for example `ATOM_VERSION = "1.2.
 | `sync.py` | `ATOM_VERSION = "1.2.0"` |
 | `python3 sync.py` | `Atom 1.2.0 -> 1.3.0` before it applies, `Already on Atom 1.3.0`, or `Atom 1.3.0 (newer commits on main)` |
 | `python3 sync.py --status` | This project's version and the latest on main; changes nothing |
+| `python3 sync.py --ref <commit>` | `Pinned to 1d4f8a1 (--ref)`, then applies that commit instead of the latest |
 | App startup | `Atom 1.3.0` |
 | `GET /info` | `"atom_version": "1.3.0"` |
 
 Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. Sync always takes the latest `main`; to mark a new version, raise `ATOM_VERSION` and the `Version` line at the top of `readme.md` (a test checks they match) and push to `main` (no tags or GitHub releases). Commits in between keep the last version. A project synced before versions existed shows `unknown` until its next sync. If a sync fails after installing the new `sync.py`, that file already shows the new version while the other files may be older; the error says so, and running sync again finishes it.
+
+### A fixed version: `--ref`
+
+`python3 sync.py --ref <commit>` applies that Atom commit instead of main's latest: the same update on every machine and in CI, or going back to the Atom a project ran before. The commit must be on Atom's `main` (a short id such as `1d4f8a1` works; `git log --oneline` in an Atom clone, or the commit list on GitHub, shows each version's commit); anything else is refused before a file changes. It combines with `--no-venv` and `--no-outdated`. The pinned commit's own `sync.py` does the update, so a commit from before 3.24.0 installs an updater without `--ref`: run `python3 sync.py` (the latest) to get it back.
 
 ## Recovering an interrupted update
 

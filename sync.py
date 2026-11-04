@@ -3,6 +3,7 @@
 # command: python3 sync.py --no-venv    (files only: venv managed yourself, Docker)
 # command: python3 sync.py --no-venv --no-outdated    (CI: files only, no PyPI lookup)
 # command: python3 sync.py --status    (which Atom version this project has and the latest; changes nothing)
+# command: python3 sync.py --ref <commit>    (that Atom commit on main instead of the latest: a repeatable update, or going back to the Atom a project ran before)
 # command (Windows): py sync.py    (same flags; from a new PowerShell window, outside the venv)
 
 # info: Updates a project to the latest Atom, or starts one in an empty Git folder. Steps:
@@ -40,7 +41,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # setting
 # Atom's version: raised by hand when a change is worth a new number (no tags); a project's sync.py shows the version it has
-ATOM_VERSION = "3.23.0"
+ATOM_VERSION = "3.24.0"
 REPO_URL = "https://github.com/atom36942/atom.git"
 # Single files replaced from upstream on every sync.
 SYNC_FILES = [
@@ -415,10 +416,19 @@ def status(*, root, repo_url=REPO_URL):
     print(f"Latest on main: Atom {new or 'unknown'} ({revision[:7]})")
     print("Up to date." if is_same else "Run python3 sync.py to update.")
 
-def fetch_revision(*, root, repo_url):
+def fetch_revision(*, root, repo_url, ref=None):
+    """The commit to apply: main's latest, or ref (a commit id, 7 to 40 hex characters) when it is on main's history."""
     print("Fetching Atom main...", flush=True)
     git("fetch", "--no-tags", repo_url, "main", root=root)
-    return git("rev-parse", "--verify", "FETCH_HEAD^{commit}", root=root).decode().strip()
+    head = git("rev-parse", "--verify", "FETCH_HEAD^{commit}", root=root).decode().strip()
+    if ref is None: return head
+    if not re.fullmatch(r"[0-9a-f]{7,40}", ref): raise ValueError(f"--ref {ref}: use a commit id from Atom's main (7 to 40 hex characters)")
+    try:
+        revision = git("rev-parse", "--verify", f"{ref}^{{commit}}", root=root).decode().strip()
+        git("merge-base", "--is-ancestor", revision, head, root=root)
+    except subprocess.CalledProcessError: raise ValueError(f"--ref {ref}: not a commit on Atom's main") from None
+    print(f"Pinned to {revision[:7]} (--ref)", flush=True)
+    return revision
 
 def create_extend_paths(*, root):
     for name in EXTEND_FOLDERS:
@@ -517,17 +527,17 @@ def apply_revision(*, root, revision, is_venv_sync=False, is_outdated_check=True
     if is_outdated_check: extend_outdated_report(root=root)
     print("Restart the app.")
 
-def sync(*, root, repo_url=REPO_URL, is_venv_sync=False):
+def sync(*, root, repo_url=REPO_URL, is_venv_sync=False, ref=None):
     """Apply using this loaded implementation (also used by integration tests)."""
     root = project_root(root=root)
     with sync_lock(root=root):
-        apply_revision(root=root, revision=fetch_revision(root=root, repo_url=repo_url), is_venv_sync=is_venv_sync)
+        apply_revision(root=root, revision=fetch_revision(root=root, repo_url=repo_url, ref=ref), is_venv_sync=is_venv_sync)
 
-def bootstrap_sync(*, root, repo_url=REPO_URL, is_venv_sync=True, is_outdated_check=True):
-    """Install the fetched updater, then run it under the same parent-held lock."""
+def bootstrap_sync(*, root, repo_url=REPO_URL, is_venv_sync=True, is_outdated_check=True, ref=None):
+    """Install the fetched updater (main's latest, or the --ref commit's), then run it under the same parent-held lock."""
     root = project_root(root=root)
     with sync_lock(root=root) as lock_token:
-        revision = fetch_revision(root=root, repo_url=repo_url)
+        revision = fetch_revision(root=root, repo_url=repo_url, ref=ref)
         record = git("ls-tree", revision, "--", "sync.py", root=root).decode().strip()
         if not record:
             raise ValueError("Upstream sync.py is missing")
@@ -581,14 +591,16 @@ def main():
         is_venv_sync = "--no-venv" not in cli_args    # --no-venv: update files only, leave venv/ as it is
         is_outdated_check = "--no-outdated" not in cli_args    # --no-outdated: skip the PyPI lookup of # extend packages (offline, CI)
         args = [arg for arg in cli_args if arg not in ("--no-venv", "--no-outdated")]
-        if len(args) == 2 and args[0] == "--apply-revision":
+        if len(args) == 2 and args[0] == "--ref":
+            bootstrap_sync(root=root, is_venv_sync=is_venv_sync, is_outdated_check=is_outdated_check, ref=args[1].lower())
+        elif len(args) == 2 and args[0] == "--apply-revision":
             apply_bootstrapped_revision(root=root, revision=args[1], is_venv_sync=is_venv_sync, is_outdated_check=is_outdated_check)
         elif args == ["--status"]:
             status(root=root)
         elif not args:
             bootstrap_sync(root=root, is_venv_sync=is_venv_sync, is_outdated_check=is_outdated_check)
         else:
-            raise ValueError("Usage: python3 sync.py [--no-venv] [--no-outdated] | python3 sync.py --status")
+            raise ValueError("Usage: python3 sync.py [--no-venv] [--no-outdated] [--ref <commit>] | python3 sync.py --status")
     except (OSError, ValueError, SyntaxError, subprocess.CalledProcessError) as error:
         # Avoid printing command arguments or fetched contents containing credentials.
         message = f"Git command failed (exit {error.returncode})" if isinstance(error, subprocess.CalledProcessError) else str(error)

@@ -129,6 +129,25 @@ class SyncTests(unittest.TestCase):
         self.assertIn("Run python3 sync.py to update.", self.output.getvalue())
         self.assertEqual(self.snapshot(), before)
 
+    def test_ref_applies_that_commit_on_main_and_refuses_others(self):
+        self.write(self.upstream, "router/index.py", "# router at the pinned commit\n")
+        self.commit(self.upstream)
+        pinned = self.git(self.upstream, "rev-parse", "HEAD").decode().strip()
+        self.write(self.upstream, "router/index.py", "# router at the latest commit\n")
+        self.commit(self.upstream)
+        sync.sync(root=self.root, repo_url=str(self.upstream), ref=pinned[:7])
+        self.assertEqual((self.root / "router/index.py").read_text(), "# router at the pinned commit\n")
+        self.assertIn(f"Pinned to {pinned[:7]} (--ref)", self.output.getvalue())
+        self.run_sync()
+        self.assertEqual((self.root / "router/index.py").read_text(), "# router at the latest commit\n", "without --ref: main's latest again")
+        self.git(self.upstream, "checkout", "-q", "-b", "side")
+        self.write(self.upstream, "router/index.py", "# not on main\n")
+        self.commit(self.upstream)
+        side = self.git(self.upstream, "rev-parse", "HEAD").decode().strip()
+        for ref, message in ((side, "not a commit on Atom's main"), ("main", "use a commit id"), ("0" * 40, "not a commit on Atom's main")):
+            with self.subTest(ref=ref), self.assertRaisesRegex(ValueError, message): sync.sync(root=self.root, repo_url=str(self.upstream), ref=ref)
+        self.assertEqual((self.root / "router/index.py").read_text(), "# router at the latest commit\n", "a refused ref changes nothing")
+
     def test_sync_creates_missing_config_extension(self):
         (self.root / "config_extend.py").unlink()
         self.run_sync()
@@ -380,6 +399,9 @@ class SyncTests(unittest.TestCase):
             with self.subTest(argv=argv), patch.object(sync.sys, "argv", ["sync.py", *argv]), patch.object(sync, "bootstrap_sync") as bootstrap:
                 self.assertEqual(sync.main(), 0)
                 self.assertEqual((bootstrap.call_args.kwargs["is_venv_sync"], bootstrap.call_args.kwargs["is_outdated_check"]), (venv, outdated))
+        with patch.object(sync.sys, "argv", ["sync.py", "--ref", "1D4F8A1", "--no-venv"]), patch.object(sync, "bootstrap_sync") as bootstrap:
+            self.assertEqual(sync.main(), 0)
+            self.assertEqual((bootstrap.call_args.kwargs["ref"], bootstrap.call_args.kwargs["is_venv_sync"]), ("1d4f8a1", False))
         with patch.object(sync.sys, "argv", ["sync.py", "--other"]), redirect_stderr(io.StringIO()) as error:
             self.assertEqual(sync.main(), 1)
         self.assertIn("--no-outdated", error.getvalue())
