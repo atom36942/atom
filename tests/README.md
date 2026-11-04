@@ -7,6 +7,8 @@ venv/bin/python -m script.check
 venv/bin/python -m script.check tests.test_sync    # one module, class or test
 ```
 
+A test that runs over 60 s stops the check with `HUNG: <test>` and every thread's stack, so a stuck test shows where it waits instead of hanging the run.
+
 The plain runner works too: `venv/bin/python -m unittest discover -s tests -t .`
 
 ## Unit tests

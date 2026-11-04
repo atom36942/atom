@@ -1,9 +1,14 @@
 """script.check prints one summary line, then only what needs attention: ruff findings, failing tests with their tracebacks, and grouped skip reasons."""
 import re
+import subprocess
+import sys
 import unittest
 from io import StringIO
+from pathlib import Path
 
 from script.check import summary_format
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def sample_result(*names):
@@ -34,6 +39,19 @@ class CheckSummaryTests(unittest.TestCase):
         self.assertIn("2 × needs a service", text)
         self.assertNotIn("test_passes", text)
 
+
+    def test_a_hung_test_is_named_with_where_it_waits(self):
+        code = (
+            "import time, unittest\n"
+            "from script.check import tests_run\n"
+            "class Stuck(unittest.TestCase):\n"
+            "    def test_waits_forever(self): time.sleep(60)\n"
+            "tests_run(suite=unittest.TestSuite([Stuck('test_waits_forever')]), timeout_sec=1)\n"
+        )
+        done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=30, cwd=ROOT)    # noqa: S603 - fixed command
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("HUNG: __main__.Stuck.test_waits_forever (over 1 s)", done.stderr)
+        self.assertIn("in test_waits_forever", done.stderr, "the stack shows where it waits")
 
 if __name__ == "__main__":
     unittest.main()

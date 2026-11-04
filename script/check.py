@@ -4,12 +4,15 @@
 # info: Runs Atom's startup checks, ruff and the tests in one go and prints only what needs attention: a summary line, each failing test with its traceback, and why tests were skipped.
 # - startup: imports the app and runs func_check in a separate process, with the project's .env: catches config, duplicate func_* and import errors without opening a connection or starting a server
 # - tests come from tests/ in Atom and tests_extend/ in a project; service tests run when their ATOM_TEST_* setting is in the environment or .env (see tests/README.md)
+# - a test running over TEST_TIMEOUT_SEC stops the check: it prints the test and every thread's stack (where it waits), then exits 1
 # - exit code 0 only when startup, ruff and every test pass
 
 # import
+import faulthandler
 import os
 import subprocess
 import sys
+import threading
 import time
 import unittest
 from collections import Counter
@@ -26,6 +29,7 @@ SKIP_REASONS_MAX = 5
 STARTUP_CODE = "import main; main.app.state.func_check(app=main.app)"
 STARTUP_TIMEOUT_SEC = 120
 STARTUP_ERROR_LINES = 3
+TEST_TIMEOUT_SEC = 60
 
 # logic
 def startup_begin():
@@ -62,9 +66,33 @@ def tests_load(*, names):
     return suite
 
 
-def tests_run(*, suite):
+class WatchedResult(unittest.TextTestResult):
+    """A unittest result that times each test: past timeout_sec it reports the test and where every thread waits, then ends the process (a hung test never returns)."""
+    timeout_sec = TEST_TIMEOUT_SEC
+
+    def startTest(self, test):
+        self.timer = threading.Timer(self.timeout_sec, test_hung_report, kwargs={"test_id": test.id(), "timeout_sec": self.timeout_sec})
+        self.timer.daemon = True
+        self.timer.start()
+        super().startTest(test)
+
+    def stopTest(self, test):
+        self.timer.cancel()
+        super().stopTest(test)
+
+
+def test_hung_report(*, test_id, timeout_sec):
+    """Print the hung test and every thread's stack to the real stderr (the run's output is captured), then exit 1."""
+    sys.__stderr__.write(f"HUNG: {test_id} (over {timeout_sec} s)\n")
+    faulthandler.dump_traceback(file=sys.__stderr__, all_threads=True)
+    sys.__stderr__.flush()
+    os._exit(1)
+
+
+def tests_run(*, suite, timeout_sec=TEST_TIMEOUT_SEC):
     """The unittest result; progress dots and test prints stay out of the output (a failing test's prints come back inside its traceback)."""
-    with redirect_stdout(StringIO()), redirect_stderr(StringIO()): return unittest.TextTestRunner(stream=StringIO(), verbosity=0, buffer=True).run(suite)
+    result_class = type("Result", (WatchedResult,), {"timeout_sec": timeout_sec})
+    with redirect_stdout(StringIO()), redirect_stderr(StringIO()): return unittest.TextTestRunner(stream=StringIO(), verbosity=0, buffer=True, resultclass=result_class).run(suite)
 
 
 def summary_format(*, steps, result, seconds):
