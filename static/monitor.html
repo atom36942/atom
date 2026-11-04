@@ -48,8 +48,12 @@ input:focus,select:focus{outline:none;border-color:var(--accent)}
 .card-help{margin:0;padding:8px 16px 0;color:var(--muted);font-size:12px;line-height:1.4}
 .card-body{padding:16px}
 .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:18px}
-.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.tile{position:relative;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
 .tile .label{color:var(--muted);font-size:12px}
+.tile .tip{display:inline-block;margin-left:4px;cursor:help;opacity:.7;outline:none}
+.tile .tip:hover,.tile .tip:focus{opacity:1}
+/* the explanation, drawn by the page under the tile: shows at once on hover, and on tap or keyboard focus (phones have no hover) */
+.tile .tip:hover::after,.tile .tip:focus::after{content:attr(data-tip);position:absolute;left:8px;right:8px;top:calc(100% + 6px);z-index:10;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);font-size:12px;font-weight:400;line-height:1.4;box-shadow:0 6px 20px rgba(0,0,0,.35);white-space:normal}
 .tile .value{font-size:22px;font-weight:700;line-height:1.3;overflow-wrap:anywhere}
 .tile .value.bad{color:var(--danger)}
 .tile .hint{color:var(--muted);font-size:11px}
@@ -93,8 +97,12 @@ tbody tr:hover{background:rgba(255,255,255,.03)}
 .login input:disabled{color:var(--muted);background:rgba(255,255,255,.02);cursor:not-allowed}
 .login button{height:40px}
 .login p{margin:0 0 4px;color:var(--muted);font-size:13px}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
 .two>*{min-width:0}
+.two>.card{margin-bottom:0}    /* side-by-side cards share the row's height, so their bottoms line up */
+.two>.stack{display:flex;flex-direction:column;gap:18px}    /* several cards in one column; the last one fills what is left */
+.two>.stack>.card{margin-bottom:0}
+.two>.stack>.card:last-child{flex:1}
 .search{height:28px;width:200px}
 @media (max-width:760px){.two{grid-template-columns:1fr}.share{display:none}.wrap{padding:20px 16px 40px}}
 </style>
@@ -302,15 +310,48 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) sess
 setInterval(sessionCheck, 60000);
 
 // building blocks
-const tile = (label, value, hint = "", percent = null, isBad = false) => `<div class="tile"><div class="label">${he(label)}</div><div class="value${isBad ? " bad" : ""}">${he(value)}</div>${hint ? `<div class="hint">${he(hint)}</div>` : ""}${percent == null ? "" : `<div class="meter"><span class="${percent >= 85 ? "high" : ""}" style="width:${Math.min(100, percent)}%"></span></div>`}</div>`;
+// what each tile means, shown under the tile when hovering or tapping the ⓘ next to its label
+const TILE_HELP = {
+  "Process RAM (RSS)": "Memory this worker uses now, and the most it has used since it started.",
+  "Machine memory": "Memory used on the whole machine, by every program. Near 100% the system slows down or kills processes.",
+  "App data": "Memory Atom's own caches, buffers and settings take, listed in App in-memory data below.",
+  "Uptime": "Time since this worker started. A worker that restarts often shows a short uptime.",
+  "CPU time": "Processor time this worker has used since it started: user is Python code, system is the operating system working for it.",
+  "Python objects": "Objects Python is tracking in this worker. Normal to be large; a number that keeps rising between refreshes points to a leak.",
+  "Requests": "Requests logged in the chosen range.",
+  "Error rate": "Share of requests that failed: server errors are bugs or outages, client errors are wrong input or missing login.",
+  "Avg response": "Average time to answer a request.",
+  "p95 response": "95% of requests were answered faster than this. Better than the average for spotting slowness users feel.",
+  "Users": "Distinct signed-in users who made a request in this range.",
+  "Failed requests": "Requests that ended with status 400 or above.",
+  "Server errors": "Status 500 and above: something broke on the server. Should stay at 0.",
+  "Client errors": "Status 400–499: the caller sent something wrong, was not logged in or not allowed.",
+  "Failing APIs": "How many different APIs returned an error.",
+  "Database size": "Space the database takes on disk.",
+  "Connections": "Connections open to this database from every app, against the most it allows.",
+  "Cache hit": "Share of reads served from the database's memory instead of disk. Healthy is above 99%.",
+  "Waiting locks": "Queries waiting for another one to release a row or table. Above 0 for long means something is stuck.",
+  "Long queries": "Queries running longer than 5 seconds right now.",
+  "Buffered rows": "Rows waiting to be written to PostgreSQL in bulk.",
+  "Background tasks": "Requests sent with is_background=true that are still running.",
+  "Websockets": "Open websocket connections to this worker.",
+  "Background errors": "Failures outside requests since this worker started. Details in Error counters.",
+  "Failed queue jobs": "Queue jobs that failed, from tmp/consumer_failed_payload.jsonl.",
+  "Atom": "Atom version this server runs, with its Python and operating system.",
+  "Workers": "Server processes. Each has its own memory, so most numbers on this page are for this one worker.",
+  "Mode": "Production or development, and whether the server may write to the database.",
+  "Routes": "API routes this server answers: Atom's and the project's own.",
+  "Functions": "func_* functions available to the app: Atom's and the project's own.",
+  "Clients": "Outside services connected, of those Atom knows about.",
+};
+const tile = (label, value, hint = "", percent = null, isBad = false) => `<div class="tile"><div class="label">${he(label)}${TILE_HELP[label] ? `<span class="tip" tabindex="0" role="note" data-tip="${he(TILE_HELP[label])}" aria-label="${he(TILE_HELP[label])}">ⓘ</span>` : ""}</div><div class="value${isBad ? " bad" : ""}">${he(value)}</div>${hint ? `<div class="hint">${he(hint)}</div>` : ""}${percent == null ? "" : `<div class="meter"><span class="${percent >= 85 ? "high" : ""}" style="width:${Math.min(100, percent)}%"></span></div>`}</div>`;
 const tiles = list => `<div class="tiles">${list.join("")}</div>`;
 const rows = (list, render, empty, columns) => list.length ? list.map(render).join("") : `<tr><td colspan="${columns}" class="empty">${empty}</td></tr>`;
 // what each card shows, in one line under its title
 const CARD_HELP = {
-  "RAM over time": "This worker's RAM, read once a minute for the last 24 hours. A line that keeps rising and never falls back points to a leak.",
+  "RAM over time": "This worker's RAM, read once a minute since it started, up to the last 24 hours (kept in its memory, so a restart starts it again). A line that keeps rising and never falls back points to a leak.",
   "App in-memory data": "What Atom keeps in this worker's memory: caches (safe to lose, rebuilt on demand), write buffers (rows not yet saved) and settings.",
   "Python objects": "The most common object types in the whole process, packages included. A count that grows between refreshes points to a leak.",
-  "Garbage collector": "How often Python has cleaned up unused objects. Uncollectable above 0 means objects that can never be freed.",
   "Allocation tracing": "Which source lines hold the most memory right now, and whose code they are: Atom's, the project's or an installed package's.",
   "Requests over time": "Requests per time slot from log_api, failed ones in red. Hover a bar for its numbers.",
   "Busiest APIs": "The APIs called most often in this range, with failures and response times.",
@@ -362,20 +403,20 @@ const renderMemory = report => {
   const p = report.process, sys = report.system;
   const ramShare = sys.total_bytes ? p.rss_bytes / sys.total_bytes * 100 : null;
   const stateTotal = report.app_state.reduce((sum, item) => sum + item.bytes, 0);
-  const trace = report.trace;
+  const trace = report.trace, uncollectable = report.objects.gc.reduce((sum, g) => sum + g.uncollectable, 0);
   return tiles([
-    tile("Process RAM (RSS)", formatBytes(p.rss_bytes), ramShare == null ? "" : `${ramShare.toFixed(1)}% of this machine`, ramShare),
-    tile("Peak RAM", formatBytes(p.peak_rss_bytes), "highest RSS since start"),
+    tile("Process RAM (RSS)", formatBytes(p.rss_bytes), `peak ${formatBytes(p.peak_rss_bytes)}${ramShare == null ? "" : ` · ${ramShare.toFixed(1)}% of this machine`}`, ramShare),
     tile("Machine memory", `${sys.used_percent}%`, `used · ${formatBytes(sys.available_bytes)} free of ${formatBytes(sys.total_bytes)}`, sys.used_percent),
     tile("App data", formatBytes(stateTotal), "caches, buffers and settings below"),
     tile("Uptime", formatDuration(p.uptime_sec), `${p.threads} threads`),
     tile("CPU time", `${(p.cpu_user_sec + p.cpu_system_sec).toFixed(1)} s`, `user ${p.cpu_user_sec} s · system ${p.cpu_system_sec} s`),
-  ]) + ramChart(report.history || []) + table("App in-memory data", [["Name"], ["Kind"], ["Type"], ["Entries", "num"], ["Size", "num"], ["Share", "share"]], report.app_state,
+    tile("Python objects", formatNumber(report.objects.tracked), uncollectable ? `${formatNumber(uncollectable)} can never be freed` : "watch it between refreshes", null, uncollectable > 0),
+  ]) + ramChart(report.history || [])
+  + table("App in-memory data", [["Name"], ["Kind"], ["Type"], ["Entries", "num"], ["Size", "num"], ["Share", "share"]], report.app_state,
     item => `<tr><td class="mono">${he(item.name)}</td><td><span class="pill ${KIND_CLASS[item.kind] ?? ""}" title="${he(KIND_HELP[item.kind] ?? "")}">${he(item.kind)}</span></td><td class="muted">${he(item.type)}</td><td class="num">${item.entries == null ? "—" : item.entries.toLocaleString()}</td><td class="num" title="${item.bytes.toLocaleString()} bytes">${item.is_partial ? "≥ " : ""}${formatBytes(item.bytes)}</td><td class="share">${shareBar(item.bytes, stateTotal)}</td></tr>`,
     "No in-memory data.", `${formatBytes(stateTotal)} in ${report.app_state.length} items`)
-  + `<div class="two">${table("Python objects", [["Type"], ["Count", "num"], ["Size", "num"]], report.objects.top, o => `<tr><td class="mono">${he(o.type)}</td><td class="num">${o.count.toLocaleString()}</td><td class="num">${formatBytes(o.bytes)}</td></tr>`, "No objects.", `${report.objects.tracked.toLocaleString()} tracked`)}<div>`
-  + table("Garbage collector", [["Generation"], ["Collections", "num"], ["Collected", "num"], ["Uncollectable", "num"]], report.objects.gc, g => `<tr><td>${g.generation}</td><td class="num">${g.collections.toLocaleString()}</td><td class="num">${g.collected.toLocaleString()}</td><td class="num">${g.uncollectable}</td></tr>`, "—")
-  + `</div></div><section class="card"><div class="card-head"><h2>Allocation tracing</h2><div class="actions">${trace.is_tracing ? `<span class="note">${formatBytes(trace.traced_bytes)} traced (peak ${formatBytes(trace.traced_peak_bytes)}) · stops ${new Date(trace.stops_at * 1000).toLocaleTimeString()}</span><button type="button" class="danger" data-trace="stop">Stop</button>` : `<button type="button" class="primary" data-trace="start">Start (5 min)</button>`}</div></div>${help("Allocation tracing")}`
+  + table("Python objects", [["Type"], ["Count", "num"], ["Size", "num"]], report.objects.top, o => `<tr><td class="mono">${he(o.type)}</td><td class="num">${o.count.toLocaleString()}</td><td class="num">${formatBytes(o.bytes)}</td></tr>`, "No objects.", `${report.objects.tracked.toLocaleString()} tracked`)
+  + `<section class="card"><div class="card-head"><h2>Allocation tracing</h2><div class="actions">${trace.is_tracing ? `<span class="note">${formatBytes(trace.traced_bytes)} traced (peak ${formatBytes(trace.traced_peak_bytes)}) · stops ${new Date(trace.stops_at * 1000).toLocaleTimeString()}</span><button type="button" class="danger" data-trace="stop">Stop</button>` : `<button type="button" class="primary" data-trace="start">Start (5 min)</button>`}</div></div>${help("Allocation tracing")}`
   + (trace.is_tracing
     ? `<table><thead><tr><th>File</th><th>Code</th><th class="num">Line</th><th class="num">Size</th><th class="num">Blocks</th></tr></thead><tbody>${rows(trace.top, t => `<tr><td class="mono file" title="${he(t.file)}">${he(t.file)}</td><td>${codePill(t.source)}</td><td class="num">${t.line}</td><td class="num">${formatBytes(t.bytes)}</td><td class="num">${t.count.toLocaleString()}</td></tr>`, "Nothing allocated since tracing started.", 5)}</tbody></table>`
     : `<div class="empty">Off. It slows this worker while on, and stops by itself after 5 minutes.</div>`)
