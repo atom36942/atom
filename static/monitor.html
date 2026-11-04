@@ -372,6 +372,7 @@ const CARD_HELP = {
   "Most expensive statements": "The SQL that took the most total database time (needs the pg_stat_statements extension).",
   "Periodic tasks": "Atom's background jobs in this worker: running is healthy, failed needs a look in the logs.",
   "Write buffers": "Rows waiting to be written in bulk. They are saved on the next flush; a full buffer refuses new rows.",
+  "Redis queues": "Jobs per channel on the queue Redis: waiting, running in a consumer, and failed (kept in <channel>_failed after their last retry). No consumer with jobs waiting means nothing is taking them.",
   "Error counters": "Failures counted outside requests since this worker started (buffer flushes, cleanups, background tasks).",
   "Clients": "Outside services Atom connected to at startup (databases, storage, queues): on means configured and connected.",
   "Packages": "Versions of the main packages this server runs.",
@@ -513,11 +514,14 @@ const renderBackground = report => {
     tile("Background tasks", formatNumber(report.background_tasks_running), "?is_background=true requests running"),
     tile("Websockets", formatNumber(report.websockets), "open connections"),
     tile("Background errors", formatNumber(report.errors.reduce((sum, e) => sum + e.count, 0)), "this worker, since start", null, report.errors.some(e => e.count)),
+    ...(report.queues.is_enabled ? [tile("Failed queue jobs", formatNumber(report.queues.channels.reduce((sum, q) => sum + q.failed, 0)), "kept in <channel>_failed", null, report.queues.channels.some(q => q.failed))] : []),
   ])
   + `<div class="two">${table("Periodic tasks", [["Task"], ["Status"]], report.tasks, t => `<tr><td>${he(t.name)}</td><td><span class="pill ${statusClass[t.status] ?? ""}">${he(t.status)}</span></td></tr>`, "No tasks.")}`
   + `${table("Error counters", [["Counter"], ["Count", "num"]], report.errors, e => `<tr><td class="mono">${he(e.name)}</td><td class="num${e.count ? " bad" : ""}">${formatNumber(e.count)}</td></tr>`, "No counters.")}</div>`
   + table("Write buffers", [["Buffer"], ["Table"], ["Rows", "num"], ["Of limit", "share"]], report.buffers,
-    b => `<tr><td>${he(b.buffer)}</td><td class="mono">${he(b.table)}</td><td class="num">${formatNumber(b.rows)}</td><td class="share">${shareBar(b.rows, report.buffer_rows_max)}</td></tr>`, "Empty: nothing waiting to be written.", report.buffer_rows_max ? `limit ${formatNumber(report.buffer_rows_max)} rows each` : "");
+    b => `<tr><td>${he(b.buffer)}</td><td class="mono">${he(b.table)}</td><td class="num">${formatNumber(b.rows)}</td><td class="share">${shareBar(b.rows, report.buffer_rows_max)}</td></tr>`, "Empty: nothing waiting to be written.", report.buffer_rows_max ? `limit ${formatNumber(report.buffer_rows_max)} rows each` : "")
+  + (report.queues.is_enabled ? table("Redis queues", [["Channel"], ["Consumer"], ["Waiting", "num"], ["Running", "num"], ["Failed", "num"]], report.queues.channels,
+    q => `<tr><td class="mono">${he(q.channel)}</td><td>${q.is_consumer ? '<span class="pill ok">running</span>' : `<span class="pill${q.waiting ? " bad" : ""}">none</span>`}</td><td class="num">${formatNumber(q.waiting)}</td><td class="num">${formatNumber(q.running)}</td><td class="num${q.failed ? " bad" : ""}">${formatNumber(q.failed)}</td></tr>`, "No channels yet.") : "");
 };
 
 /* ==== view: app ==== */

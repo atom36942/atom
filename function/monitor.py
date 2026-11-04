@@ -5,6 +5,7 @@ from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 from importlib import metadata
+from typing import Any
 import asyncpg
 import orjson
 from starlette.datastructures import State
@@ -78,6 +79,16 @@ async def func_monitor_database(*, app_state: State, connection: str, top: int =
     slow_queries = await app_state.func_postgres_slow_queries_read(client_postgres=client_postgres, limit=top, order="total_time")
     return {"connection": connection, "pools": pools, "is_enabled": True, "info": info, "states": [dict(row) for row in states], "long_queries": [dict(row) for row in queries], "tables": [dict(row) for row in tables], "slow_queries": slow_queries}
 
+async def func_monitor_queues(*, client_redis: Any, channels: list) -> dict:
+    """Redis queue backlog per channel: jobs waiting (<channel>), running (<channel>_processing) and kept after their last retry (<channel>_failed), and whether a consumer holds the channel. Channels: Atom's, plus any a consumer has used (found by their key names). Counts only, never payloads."""
+    if not client_redis: return {"is_enabled": False, "channels": []}
+    found = {key.decode().rsplit("_", 1)[0] for pattern in ("*_processing", "*_failed", "*_consumer") async for key in client_redis.scan_iter(match=pattern, count=500)}
+    names = sorted(set(channels) | found)
+    async with client_redis.pipeline(transaction=False) as pipe:
+        for name in names: pipe.llen(name).llen(f"{name}_processing").llen(f"{name}_failed").exists(f"{name}_consumer")
+        counts = await pipe.execute()
+    return {"is_enabled": True, "channels": [{"channel": name, "waiting": counts[i * 4], "running": counts[i * 4 + 1], "failed": counts[i * 4 + 2], "is_consumer": bool(counts[i * 4 + 3])} for i, name in enumerate(names)]}
+
 def func_monitor_background(*, app_state: State) -> dict:
     """Work this worker does outside requests: periodic tasks, rows waiting in the write buffers, running background tasks, open websockets and error counters."""
     task_names = {"runtime_task_postgres_buffer_flush": "Buffer flush", "runtime_task_inmemory_cache_cleanup": "In-memory cache cleanup", "runtime_task_otp_cleanup": "OTP cleanup", "runtime_task_log_api_cleanup": "log_api cleanup", "runtime_task_memory_history": "RAM history"}
@@ -133,6 +144,6 @@ async def func_monitor_report(*, app_state: State, view: str, hours: int = 24, c
     if view == "requests": return await func_monitor_requests(client_postgres=getattr(app_state, "client_postgres_log_api", None), hours=hours)
     if view == "errors": return await func_monitor_errors(client_postgres=getattr(app_state, "client_postgres_log_api", None), hours=hours)
     if view == "database": return await func_monitor_database(app_state=app_state, connection=connection)
-    if view == "background": return func_monitor_background(app_state=app_state)
+    if view == "background": return {**func_monitor_background(app_state=app_state), "queues": await func_monitor_queues(client_redis=app_state.client_redis_dict.get("queue"), channels=list(app_state.func_consumer_channels()))}
     if view == "app": return func_monitor_app(app_state=app_state, app_routes=app_routes or [])
     raise Exception(f"invalid view: {view}")
