@@ -30,7 +30,7 @@ async def func_lifespan(app: FastAPI):
         app.state.runtime_background_tasks = set()
         app.state.runtime_message_socket = {}
         app.state.runtime_error_count = {"log_api_write": 0, "buffer_flush": 0, "buffer_dropped": 0, "background_task": 0, "cleanup": 0}
-        postgres_pool_kwargs = {"min_size": app.state.config_postgres_pool_min_size, "max_size": app.state.config_postgres_pool_max_size, "is_read_only": app.state.config_is_read_only}
+        postgres_pool_kwargs = {"is_read_only": app.state.config_is_read_only}
         aws_kwargs = {"aws_access_key_id": app.state.config_aws_access_key_id, "aws_secret_access_key": app.state.config_aws_secret_access_key}
         cache_api_response = {}
         cache_ratelimiter = {}
@@ -46,10 +46,11 @@ async def func_lifespan(app: FastAPI):
         # client init
         client_password_hasher = app.state.func_client_password_hasher()
         client_http = app.state.func_client_http()
-        client_postgres_dict = {name: await app.state.func_client_postgres(dsn=url, **postgres_pool_kwargs) for name, url in (app.state.config_postgres_url_dict or {}).items() if url}
+        # pool sizes per database: config_<db>_pool_min_size_<name> / config_<db>_pool_max_size_<name> when set, else the shared config_<db>_pool_min_size / config_<db>_pool_max_size
+        client_postgres_dict = {name: await app.state.func_client_postgres(dsn=url, **app.state.func_client_pool_size(app_state=app.state, db="postgres", name=name), **postgres_pool_kwargs) for name, url in (app.state.config_postgres_url_dict or {}).items() if url}
         client_redis_dict = {name: app.state.func_client_redis(url=url) for name, url in (app.state.config_redis_url_dict or {}).items() if url}
         client_mongodb = app.state.func_client_mongodb(url=app.state.config_mongodb_url)
-        client_mssql_dict = {name: await app.state.func_client_mssql(dsn=url, min_size=app.state.config_mssql_pool_min_size, max_size=app.state.config_mssql_pool_max_size, recycle_sec=app.state.config_mssql_pool_recycle_sec) for name, url in (app.state.config_mssql_url_dict or {}).items() if url}
+        client_mssql_dict = {name: await app.state.func_client_mssql(dsn=url, **app.state.func_client_pool_size(app_state=app.state, db="mssql", name=name), recycle_sec=app.state.config_mssql_pool_recycle_sec) for name, url in (app.state.config_mssql_url_dict or {}).items() if url}
         client_clickhouse_dict = {name: await app.state.func_client_clickhouse(dsn=url) for name, url in (app.state.config_clickhouse_url_dict or {}).items() if url}
         client_s3 = await app.state.func_client_s3(region_name=app.state.config_aws_s3_region_name, **aws_kwargs)
         client_s3_resource = app.state.func_client_s3_resource(region_name=app.state.config_aws_s3_region_name, **aws_kwargs)

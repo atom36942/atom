@@ -16,6 +16,10 @@ def func_client_http():
     """Initialize HTTP async client."""
     return httpx.AsyncClient()
 
+def func_client_pool_size(*, app_state: State, db: str, name: str) -> dict:
+    """{"min_size", "max_size"} of one database's pool: config_<db>_pool_min_size_<name> / config_<db>_pool_max_size_<name> when set, else the shared config_<db>_pool_min_size / config_<db>_pool_max_size. db: postgres or mssql."""
+    return {f"{size}_size": int(getattr(app_state, f"config_{db}_pool_{size}_size_{name}", None) or getattr(app_state, f"config_{db}_pool_{size}_size")) for size in ("min", "max")}
+
 async def func_client_postgres(*, dsn: str, min_size: int = 5, max_size: int = 20, is_read_only: bool = False):
     """Initialize a single asyncpg Postgres connection pool. A released connection skips asyncpg's reset query (RESET ALL, UNLISTEN, unlock): Atom's code leaves no session state, an open transaction is still rolled back, and SQL someone typed runs through func_postgres_acquire_clean, so each request saves a round trip."""
     if not dsn: return None

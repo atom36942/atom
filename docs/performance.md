@@ -61,7 +61,7 @@ Without SQL access, admins can read the same report from `GET /admin/postgres-sl
 
 - `config_uvicorn_workers` starts that many server processes with `python main.py`. A good starting point is the number of CPU cores. See [config.md](config.md).
 - With more than one worker, every `inmemory` cache, rate limit and user check in `config_api` must use `redis` (user checks may also use `realtime` or `token`); startup refuses otherwise.
-- Each worker opens its own pools: up to workers × pools × `config_postgres_pool_max_size` connections. Startup warns when that can exceed Postgres `max_connections`.
+- Each worker opens its own pools: up to workers × the pools' max sizes added up (`config_postgres_pool_max_size`, or `config_postgres_pool_max_size_<name>` for one database). Startup warns when that can exceed Postgres `max_connections`.
 - Start `python main.py` directly. Running `uvicorn main:app --workers N` skips the worker checks and the one-time `tmp/` reset.
 
 ## 5. Token Cache

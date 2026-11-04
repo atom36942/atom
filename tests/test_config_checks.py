@@ -86,6 +86,45 @@ class DatabaseConfigCheckTests(unittest.TestCase):
         with self.assertRaisesRegex(Exception, "config_postgres_url_master is required"):
             func_check_database_config(app_state=state(config_postgres_url_dict={"logs": URL}))
 
+    def test_a_pool_size_per_database(self):
+        from starlette.datastructures import State
+        from function import func_client_pool_size
+        settings = {"config_postgres_url_dict": {"master": URL, "test": URL}, "config_postgres_pool_max_size_test": 3, "config_postgres_pool_min_size_test": 1,
+                    "config_mssql_url_dict": {"erp": "Driver=x"}, "config_mssql_pool_min_size": 1, "config_mssql_pool_max_size": 10, "config_mssql_pool_max_size_erp": 4}
+        func_check_database_config(app_state=state(**settings))
+        app_state = State()
+        for key, value in state(**settings).__dict__.items(): setattr(app_state, key, value)    # Starlette's State, as at startup
+        func_check_database_config(app_state=app_state)
+        self.assertEqual(func_client_pool_size(app_state=app_state, db="postgres", name="test"), {"min_size": 1, "max_size": 3})
+        self.assertEqual(func_client_pool_size(app_state=app_state, db="postgres", name="master"), {"min_size": 1, "max_size": 5}, "no override: the shared sizes")
+        self.assertEqual(func_client_pool_size(app_state=app_state, db="mssql", name="erp"), {"min_size": 1, "max_size": 4})
+
+    def test_a_pool_size_for_an_unknown_database_or_below_its_min_stops_startup(self):
+        urls = {"config_postgres_url_dict": {"master": URL, "test": URL}}
+        with self.assertRaisesRegex(Exception, r"config_postgres_pool_max_size_tset: no database named tset \(config_postgres_url_tset is not set\)"):
+            func_check_database_config(app_state=state(**urls, config_postgres_pool_max_size_tset=3))
+        with self.assertRaisesRegex(Exception, r"config_postgres_pool_max_size_test \(2\) must be at least its min size \(4\)"):
+            func_check_database_config(app_state=state(**urls, config_postgres_pool_min_size_test=4, config_postgres_pool_max_size_test=2))
+        with self.assertRaisesRegex(Exception, "invalid config_postgres_pool_min_size_test: minimum 1"):
+            func_check_database_config(app_state=state(**urls, config_postgres_pool_min_size_test=0))
+
+    def test_the_connection_warning_adds_up_each_pools_own_size(self):
+        import asyncio
+        import io
+        from contextlib import redirect_stdout
+        from unittest.mock import AsyncMock
+        from unittest.mock import MagicMock
+        from function import func_check_postgres_connections
+        def pool(max_size):
+            conn = MagicMock(fetchval=AsyncMock(side_effect=lambda sql, timeout: 25 if "max_connections" in sql else 3))
+            return MagicMock(get_max_size=MagicMock(return_value=max_size), acquire=MagicMock(return_value=MagicMock(__aenter__=AsyncMock(return_value=conn), __aexit__=AsyncMock(return_value=False))))
+        printed = io.StringIO()
+        with redirect_stdout(printed): asyncio.run(func_check_postgres_connections(app_state=SimpleNamespace(config_uvicorn_workers=1), client_postgres_dict={"master": pool(20), "test": pool(3)}))
+        self.assertIn("1 workers x 23 connections across 2 pools = up to 23, above max_connections 25 minus 3 reserved", printed.getvalue())
+        printed = io.StringIO()
+        with redirect_stdout(printed): asyncio.run(func_check_postgres_connections(app_state=SimpleNamespace(config_uvicorn_workers=1), client_postgres_dict={"master": pool(18), "test": pool(3)}))
+        self.assertEqual(printed.getvalue(), "", "21 fits in 22")
+
     def test_clickhouse_dict_names_and_urls_are_checked(self):
         func_check_database_config(app_state=state(config_clickhouse_url_dict={"master": "clickhouse://localhost", "events": "https://ch:8443"}))
         with self.assertRaisesRegex(Exception, "invalid config_clickhouse_url_dict name"):

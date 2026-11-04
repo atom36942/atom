@@ -170,6 +170,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_postgres_pool_max_size` | Maximum connections per PostgreSQL pool (default: `20`) |
 | `config_mssql_pool_min_size` | Minimum connections per SQL Server pool (default: `1`) |
 | `config_mssql_pool_max_size` | Maximum connections per SQL Server pool (default: `10`) |
+| `config_postgres_pool_min_size_<name>`, `config_postgres_pool_max_size_<name>` | One database's pool size, e.g. `config_postgres_pool_max_size_test=3`; others keep the shared sizes. `config_mssql_pool_min_size_<name>`, `config_mssql_pool_max_size_<name>` do the same for SQL Server. An unknown `<name>` stops startup |
 | `config_mssql_pool_recycle_sec` | Reopen SQL Server connections older than this, in seconds (default: `1800`) |
 | `config_otp_length` | Digit length generated for OTP codes (default: `6`) |
 | `config_otp_expiry_sec` | Expiry window for OTP codes in seconds (default: `600`) |

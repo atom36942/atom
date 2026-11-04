@@ -42,6 +42,19 @@ def func_check_database_config(*, app_state: State) -> None:
         for name, url in (named_url_dict or {}).items():
             if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", name): raise Exception(f"invalid {key} name: {name}")
             if url is not None and not isinstance(url, str): raise Exception(f"invalid URL for {key} '{name}'")
+    # per-database pool sizes: config_<db>_pool_min_size_<name> / _max_size_<name> must name a database that has a URL, a typo would be silently ignored
+    values = getattr(app_state, "_state", None) or vars(app_state)    # Starlette's State keeps its values in _state
+    for db in ("postgres", "mssql"):
+        names = set(getattr(app_state, f"config_{db}_url_dict", None) or {})
+        for key in sorted(values):
+            match = re.fullmatch(rf"config_{db}_pool_(min|max)_size_(\w+)", key)
+            if not match: continue
+            if match.group(2) not in names: raise Exception(f"{key}: no database named {match.group(2)} (config_{db}_url_{match.group(2)} is not set)")
+            int_check(values[key], key)
+        for name in names:
+            if values.get(f"config_{db}_pool_min_size_{name}") is None and values.get(f"config_{db}_pool_max_size_{name}") is None: continue
+            size_min, size_max = (int(values.get(f"config_{db}_pool_{size}_size_{name}") or values.get(f"config_{db}_pool_{size}_size")) for size in ("min", "max"))
+            if size_max < size_min: raise Exception(f"config_{db}_pool_max_size_{name} ({size_max}) must be at least its min size ({size_min})")
     return
 
 def func_check_runtime_config(*, app_state: State) -> None:
@@ -205,7 +218,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
 async def func_check_postgres_connections(*, app_state: State, client_postgres_dict: dict) -> None:
     """Warn when every worker's pools together could exceed a Postgres server's max_connections."""
     workers = int(getattr(app_state, "config_uvicorn_workers", 1) or 1)
-    pool_max = int(getattr(app_state, "config_postgres_pool_max_size", 0) or 0)
+    pools_max = sum(pool.get_max_size() for pool in client_postgres_dict.values() if pool)    # each pool's own size (config_postgres_pool_max_size_<name> or the shared one)
     for name, pool in client_postgres_dict.items():
         if pool is None: continue
         try:
@@ -215,9 +228,9 @@ async def func_check_postgres_connections(*, app_state: State, client_postgres_d
         except Exception as e:
             print(f"⚠️ postgres {name}: connection limit check skipped: {e}")
             continue
-        needed = workers * pool_max * len(client_postgres_dict)
+        needed = workers * pools_max
         if needed > max_connections - reserved:
-            print(f"⚠️ postgres {name}: {workers} workers x {pool_max} pool max x {len(client_postgres_dict)} pools = up to {needed} connections, above max_connections {max_connections} minus {reserved} reserved; lower config_postgres_pool_max_size or config_uvicorn_workers")
+            print(f"⚠️ postgres {name}: {workers} workers x {pools_max} connections across {len(client_postgres_dict)} pools = up to {needed}, above max_connections {max_connections} minus {reserved} reserved; lower config_postgres_pool_max_size (or config_postgres_pool_max_size_<name>) or config_uvicorn_workers")
     return
 
 def func_check_config_extend_alias(*, config_module, config_extend_module) -> None:
