@@ -17,9 +17,9 @@ google-auth==2.62.0
 google-genai==2.33.0
 httpx==0.28.1
 motor==3.7.1
-openai==3.39.0
+openai==3.40.0
 orjson==3.13.0
-posthog==7.75.11
+posthog==7.76.0
 psutil==7.2.2
 pydantic==2.14.1
 python-dotenv==1.2.4
