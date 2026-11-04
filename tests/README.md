@@ -20,14 +20,15 @@ Skipped unless their setting is in the environment (CI) or in `.env` (local: add
 | Variable | Runs | Needs |
 |---|---|---|
 | `ATOM_TEST_POSTGRES_URL` | Integration tests: real SQL and HTTP | A PostgreSQL user that can `CREATE DATABASE` and install `postgis`, `pg_trgm`, `btree_gin`; each test gets its own throwaway `atom_test_*` database, dropped afterwards |
-| `ATOM_TEST_REDIS_URL` | `redis`-mode user checks and rate limits | A spare Redis database number; the tests write and delete a few keys |
+| `ATOM_TEST_REDIS_URL` | `redis`-mode user checks and rate limits, Redis queue delivery | A spare Redis database number; the tests write and delete a few keys |
+| `ATOM_TEST_RABBITMQ_URL` | RabbitMQ queue delivery | A RabbitMQ server; the tests create and delete `atom_test_*` queues |
 | `ATOM_TEST_VENV_REAL=1` | Real venv builds by `sync.py` | Network for pip |
 
 ```bash
 ATOM_TEST_POSTGRES_URL=postgresql://user@localhost:5432/postgres ATOM_TEST_REDIS_URL=redis://localhost:6379/15 venv/bin/python -m script.check
 ```
 
-CI sets all three against PostgreSQL (PostGIS) and Redis services. The HTTP tests start the app from a temporary working directory with test-only settings, so they never read your `.env` or touch your `tmp/`.
+CI sets them against PostgreSQL (PostGIS), Redis and RabbitMQ services (the real venv builds run in their own job). The HTTP tests start the app from a temporary working directory with test-only settings, so they never read your `.env` or touch your `tmp/`.
 
 ## Coverage
 ```bash

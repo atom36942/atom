@@ -25,9 +25,15 @@ jobs:
         ports: ["6379:6379"]
         options: >-
           --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+      rabbitmq:
+        image: rabbitmq:4
+        ports: ["5672:5672"]
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping" --health-interval 5s --health-timeout 10s --health-retries 20
     env:
       ATOM_TEST_POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/postgres
       ATOM_TEST_REDIS_URL: redis://localhost:6379/15
+      ATOM_TEST_RABBITMQ_URL: amqp://guest:guest@localhost:5672/
     steps:
       - uses: actions/checkout@v7
 

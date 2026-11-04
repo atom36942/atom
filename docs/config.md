@@ -241,6 +241,8 @@ Disabled (`None`) by default; activated automatically when connection credential
 | Key | Usage |
 |---|---|
 | `config_queue_services` | Registered background queue providers (`redis`, `rabbitmq`, `kafka`, `celery`) |
+| `config_queue_concurrency` | Jobs a consumer runs at once (default 10) |
+| `config_queue_retry_max` | Retries of a failed job before it is kept in `<channel>_failed` (default 3) |
 | `config_blob_services` | Registered blob storage providers (`s3`, `azure`) |
 | `config_email_services` | Registered email providers (`ses`, `resend`, `azure`) |
 | `config_mobile_services` | Registered SMS providers (`sns`, `fast2sms`, `azure`) |
