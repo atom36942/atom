@@ -117,6 +117,8 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_sftp_port` | SFTP server port |
 | `config_sftp_username` | SFTP server username |
 | `config_sftp_password` | SFTP server password |
+| `config_sftp_known_hosts_path` | known_hosts file the server's key is checked against (default `~/.ssh/known_hosts`; add it with `ssh-keyscan -p <port> <host> >> <file>`) |
+| `config_sftp_is_host_verify` | Check the server's key (default true); false only for a server you trust on a network you trust |
 | `config_aws_access_key_id` | AWS Access Key ID |
 | `config_aws_secret_access_key` | AWS Secret Access Key |
 | `config_aws_s3_region_name` | AWS S3 region name |

@@ -124,11 +124,12 @@ async def func_client_rabbitmq(*, url: str):
     channel = await connection.channel()
     return connection, channel
 
-async def func_client_sftp(*, host: str, port: int, username: str, password: str):
-    """Initialize SFTP asyncssh connection."""
+async def func_client_sftp(*, host: str, port: int, username: str, password: str, known_hosts_path: str | None = None, is_host_verify: bool = True):
+    """Initialize SFTP asyncssh connection. The server's key is checked against known_hosts_path (default ~/.ssh/known_hosts), so a server pretending to be it is refused; is_host_verify=False skips the check."""
     if not host: return None
     import asyncssh
-    return await asyncssh.connect(host=host, port=int(port), username=username, password=password, known_hosts=None)
+    known_hosts = (known_hosts_path or ()) if is_host_verify else None    # () is asyncssh's default file
+    return await asyncssh.connect(host=host, port=int(port), username=username, password=password, known_hosts=known_hosts)
 
 def func_client_azure_email(*, connection_string: str):
     """Initialize Azure EmailClient."""

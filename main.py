@@ -61,7 +61,7 @@ async def func_lifespan(app: FastAPI):
         client_celery_producer = app.state.func_client_celery(url=app.state.config_celery_url)
         client_kafka_producer = await app.state.func_client_kafka(url=app.state.config_kafka_url, username=app.state.config_kafka_username, password=app.state.config_kafka_password)
         client_rabbitmq, client_rabbitmq_producer = await app.state.func_client_rabbitmq(url=app.state.config_rabbitmq_url)
-        client_sftp = await app.state.func_client_sftp(host=app.state.config_sftp_host, port=app.state.config_sftp_port, username=app.state.config_sftp_username, password=app.state.config_sftp_password)
+        client_sftp = await app.state.func_client_sftp(host=app.state.config_sftp_host, port=app.state.config_sftp_port, username=app.state.config_sftp_username, password=app.state.config_sftp_password, known_hosts_path=app.state.config_sftp_known_hosts_path, is_host_verify=app.state.config_sftp_is_host_verify)
         client_azure_email = app.state.func_client_azure_email(connection_string=app.state.config_azure_email_connection_string)
         client_azure_sms = app.state.func_client_azure_sms(connection_string=app.state.config_azure_sms_connection_string)
         client_azure_blob = app.state.func_client_azure_blob(account_name=app.state.config_azure_account_name, account_key=app.state.config_azure_account_key)
