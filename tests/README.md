@@ -1,6 +1,6 @@
 # Tests
 
-Atom's own tests, standard-library `unittest`, run from the project root (Git must be installed for the sync tests). One command runs Atom's startup checks (without opening connections), ruff and every test, printing a summary line and only the failures and skip reasons:
+Atom's own tests, standard-library `unittest`, run from the project root (Git must be installed for the sync tests). One command, the same one CI runs, checks Atom's startup (without opening connections), ruff, the JavaScript in every page (with `node`, when installed) and every test, printing a summary line and only the failures and skip reasons:
 
 ```bash
 venv/bin/python -m script.check
@@ -32,7 +32,7 @@ CI sets them against PostgreSQL (PostGIS), Redis and RabbitMQ services (the real
 
 ## Coverage
 ```bash
-venv/bin/python -m coverage run --source=function,router,main,config -m unittest discover -s tests -t .
+venv/bin/python -m coverage run --source=function,router,main,config -m script.check
 venv/bin/python -m coverage report --show-missing --sort=cover
 ```
 `coverage html` writes a browsable report to `htmlcov/` (not committed). Without the service variables the integration tests are skipped, so the local number is lower than CI's. CI fails when total coverage drops below 70%.

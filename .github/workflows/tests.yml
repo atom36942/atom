@@ -56,8 +56,9 @@ jobs:
       - name: Ruff
         run: ruff check --output-format github .
 
-      - name: Unit and integration tests, with coverage
-        run: python -m coverage run --source=function,router,main,config -m unittest discover -s tests -t . -v
+      # The same command as locally: startup checks, ruff, page scripts (node is on the runner) and every test.
+      - name: Check (startup, ruff, pages, tests), with coverage
+        run: python -m coverage run --source=function,router,main,config -m script.check
 
       # The summary and HTML report are produced even when tests fail, as long as coverage data was written.
       - name: Coverage summary on the run page
