@@ -173,7 +173,10 @@ async def func_postgres_schema_tables_sync(*, conn: asyncpg.Connection, tables: 
                     current_notnulls[col_name] = col_cfg.get("is_mandatory") is True
                     table_changed = True
             else:
-                type_map = {"timestamp with time zone": "timestamptz", "character varying": "varchar", "integer": "int", "boolean": "bool"}
+                # one name per type: Postgres reports full names (format_type), config may use either, and a mismatch would rewrite the table on every start
+                type_map = {"timestamp with time zone": "timestamptz", "timestamp without time zone": "timestamp", "time with time zone": "timetz", "time without time zone": "time",
+                            "character varying": "varchar", "character": "char", "bpchar": "char", "integer": "int", "int4": "int", "int8": "bigint", "int2": "smallint",
+                            "boolean": "bool", "double precision": "float8", "float": "float8", "real": "float4", "decimal": "numeric", "bit varying": "varbit"}
                 current_type = type_map.get(current_cols[col_name].lower().split("(")[0], current_cols[col_name].lower().split("(")[0])
                 target_type = type_map.get(col_type.lower().split("(")[0], col_type.lower().split("(")[0])
                 if current_type != target_type:

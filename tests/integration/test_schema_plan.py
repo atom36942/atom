@@ -48,6 +48,14 @@ class SchemaPlanTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([step["sql"] for step in plan if not step["is_routine"]], [])
         self.assertTrue(plan, "the statements every start runs are still listed, as routine")
 
+    async def test_every_name_for_a_type_matches_what_postgres_reports(self):
+        types = ["timestamp", "timestamptz", "time", "timetz", "double precision", "float", "real", "char(2)", "character(2)", "int2", "int4", "int8", "integer", "smallint", "bigint", "decimal(10,2)", "numeric(10,2)", "boolean", "varchar(20)", "bit varying(8)"]
+        config = copy.deepcopy(self.config)
+        config["table"]["type_names"] = [{"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True}, *[{"name": f"c{i}", "datatype": datatype} for i, datatype in enumerate(types)]]
+        await func_postgres_schema_init(app_state=self.app_state, client_postgres=self.pool, config_postgres=config, root_user_password_hash=PASSWORD_HASH)
+        plan = await func_postgres_schema_plan(app_state=self.app_state, client_postgres=self.pool, config_postgres=config)
+        self.assertEqual([step["sql"] for step in plan if not step["is_routine"]], [], "an unchanged column is never rewritten")
+
     async def test_a_type_change_is_flagged_and_nothing_is_changed(self):
         plan = await func_postgres_schema_plan(app_state=self.app_state, client_postgres=self.pool, config_postgres=title_as_varchar(self.config))
         flagged = [step for step in plan if step["risk"]]
