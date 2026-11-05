@@ -20,12 +20,19 @@ def func_client_pool_size(*, app_state: State, db: str, name: str) -> dict:
     """{"min_size", "max_size"} of one database's pool: config_<db>_pool_min_size_<name> / config_<db>_pool_max_size_<name> when set, else the shared config_<db>_pool_min_size / config_<db>_pool_max_size. db: postgres or mssql."""
     return {f"{size}_size": int(getattr(app_state, f"config_{db}_pool_{size}_size_{name}", None) or getattr(app_state, f"config_{db}_pool_{size}_size")) for size in ("min", "max")}
 
-async def func_client_postgres(*, dsn: str, min_size: int = 5, max_size: int = 20, is_read_only: bool = False):
-    """Initialize a single asyncpg Postgres connection pool. A released connection skips asyncpg's reset query (RESET ALL, UNLISTEN, unlock): Atom's code leaves no session state, an open transaction is still rolled back, and SQL someone typed runs through func_postgres_acquire_clean, so each request saves a round trip."""
+async def func_client_dict_open(*, client_dict: dict, url_dict: dict, client_open) -> dict:
+    """Open one client per named URL into client_dict, one at a time (client_open(name=, url=)): when one fails, client_dict already holds the ones opened before it, so the caller can close them."""
+    for name, url in (url_dict or {}).items():
+        if url: client_dict[name] = await client_open(name=name, url=url)
+    return client_dict
+
+async def func_client_postgres(*, dsn: str, min_size: int = 5, max_size: int = 20, is_read_only: bool = False, query_timeout_sec: float = 0):
+    """Initialize a single asyncpg Postgres connection pool; query_timeout_sec above 0 cancels any query running longer (asyncpg command_timeout, the query is cancelled on the server too). A released connection skips asyncpg's reset query (RESET ALL, UNLISTEN, unlock): Atom's code leaves no session state, an open transaction is still rolled back, and SQL someone typed runs through func_postgres_acquire_clean, so each request saves a round trip."""
     if not dsn: return None
     async def keep_session(conn): return None
     pool_kwargs = {"min_size": min_size, "max_size": max_size, "reset": keep_session}
     if is_read_only: pool_kwargs["server_settings"] = {"default_transaction_read_only": "on"}
+    if query_timeout_sec: pool_kwargs["command_timeout"] = query_timeout_sec
     return await asyncpg.create_pool(dsn=dsn, **pool_kwargs)
 
 @asynccontextmanager

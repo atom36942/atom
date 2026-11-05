@@ -168,6 +168,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 |---|---|
 | `config_postgres_pool_min_size` | Minimum connections per PostgreSQL pool (default: `5`) |
 | `config_postgres_pool_max_size` | Maximum connections per PostgreSQL pool (default: `20`) |
+| `config_postgres_query_timeout_sec` | Longest a single query may run on any of the app's Postgres pools, in seconds; a longer one is cancelled (also on the server) and the request fails. Default `0`: no limit. It also limits startup's schema changes and long exports, so set it above the slowest query you expect |
 | `config_mssql_pool_min_size` | Minimum connections per SQL Server pool (default: `1`) |
 | `config_mssql_pool_max_size` | Maximum connections per SQL Server pool (default: `10`) |
 | `config_postgres_pool_min_size_<name>`, `config_postgres_pool_max_size_<name>` | One database's pool size, e.g. `config_postgres_pool_max_size_test=3`; others keep the shared sizes. `config_mssql_pool_min_size_<name>`, `config_mssql_pool_max_size_<name>` do the same for SQL Server. An unknown `<name>` stops startup |

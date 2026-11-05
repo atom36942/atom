@@ -19,6 +19,7 @@ config_postgres_pool_max_size=20
 config_postgres_pool_max_size_analytics=3    # optional, per database: analytics gets at most 3, the others 20
 ```
 `config_postgres_pool_min_size_<name>` / `config_postgres_pool_max_size_<name>` size one database's pool; a database without them uses the shared two. The same works for SQL Server (`config_mssql_pool_min_size_<name>`, `config_mssql_pool_max_size_<name>`). A size for a name that has no URL (a typo such as `_tset`), or a max below its min, stops startup.
+`config_postgres_query_timeout_sec` (default `0`, no limit) cancels any query on the app's pools that runs longer, so a hung query cannot hold a pool connection for good; it applies to startup's schema changes and exports too. If startup fails while opening the pools, the ones already open are closed.
 Each name becomes a pool in `app.state.client_postgres_dict` (for example `client_postgres_dict["master"]`) with its schema in `app.state.cache_postgres_schema_dict`. Code that always uses the main database reads `client_postgres_dict["master"]`. Every URL needs a name: an unsuffixed `config_postgres_url` (also `config_redis_url`, `config_clickhouse_url`, `config_mssql_url`) or an empty `config_postgres_url_` stops startup.
 Routes flagged `"is_connection_param": True` in `config_api` take `?connection=<name>`; the middleware sets `request.state.client_postgres` and `request.state.cache_postgres_schema` (master when `connection` is omitted, 404 for an unknown name). Other routes always use master and reject `?connection=` with 400:
 ```bash

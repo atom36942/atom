@@ -30,7 +30,7 @@ async def func_lifespan(app: FastAPI):
         app.state.runtime_background_tasks = set()
         app.state.runtime_message_socket = {}
         app.state.runtime_error_count = {"log_api_write": 0, "buffer_flush": 0, "buffer_dropped": 0, "background_task": 0, "cleanup": 0}
-        postgres_pool_kwargs = {"is_read_only": app.state.config_is_read_only}
+        postgres_pool_kwargs = {"is_read_only": app.state.config_is_read_only, "query_timeout_sec": app.state.config_postgres_query_timeout_sec}
         aws_kwargs = {"aws_access_key_id": app.state.config_aws_access_key_id, "aws_secret_access_key": app.state.config_aws_secret_access_key}
         cache_api_response = {}
         cache_api_response_bytes = {"total": 0}    # stored size of cache_api_response, kept as entries come and go
@@ -48,11 +48,13 @@ async def func_lifespan(app: FastAPI):
         client_password_hasher = app.state.func_client_password_hasher()
         client_http = app.state.func_client_http()
         # pool sizes per database: config_<db>_pool_min_size_<name> / config_<db>_pool_max_size_<name> when set, else the shared config_<db>_pool_min_size / config_<db>_pool_max_size
-        client_postgres_dict = {name: await app.state.func_client_postgres(dsn=url, **app.state.func_client_pool_size(app_state=app.state, db="postgres", name=name), **postgres_pool_kwargs) for name, url in (app.state.config_postgres_url_dict or {}).items() if url}
+        # each dict exists before its clients open, so when one fails partway the ones already open are closed below
+        client_postgres_dict, client_mssql_dict, client_clickhouse_dict = {}, {}, {}
+        await app.state.func_client_dict_open(client_dict=client_postgres_dict, url_dict=app.state.config_postgres_url_dict, client_open=lambda name, url: app.state.func_client_postgres(dsn=url, **app.state.func_client_pool_size(app_state=app.state, db="postgres", name=name), **postgres_pool_kwargs))
         client_redis_dict = {name: app.state.func_client_redis(url=url) for name, url in (app.state.config_redis_url_dict or {}).items() if url}
         client_mongodb = app.state.func_client_mongodb(url=app.state.config_mongodb_url)
-        client_mssql_dict = {name: await app.state.func_client_mssql(dsn=url, **app.state.func_client_pool_size(app_state=app.state, db="mssql", name=name), recycle_sec=app.state.config_mssql_pool_recycle_sec) for name, url in (app.state.config_mssql_url_dict or {}).items() if url}
-        client_clickhouse_dict = {name: await app.state.func_client_clickhouse(dsn=url) for name, url in (app.state.config_clickhouse_url_dict or {}).items() if url}
+        await app.state.func_client_dict_open(client_dict=client_mssql_dict, url_dict=app.state.config_mssql_url_dict, client_open=lambda name, url: app.state.func_client_mssql(dsn=url, **app.state.func_client_pool_size(app_state=app.state, db="mssql", name=name), recycle_sec=app.state.config_mssql_pool_recycle_sec))
+        await app.state.func_client_dict_open(client_dict=client_clickhouse_dict, url_dict=app.state.config_clickhouse_url_dict, client_open=lambda name, url: app.state.func_client_clickhouse(dsn=url))
         client_s3 = await app.state.func_client_s3(region_name=app.state.config_aws_s3_region_name, **aws_kwargs)
         client_s3_resource = app.state.func_client_s3_resource(region_name=app.state.config_aws_s3_region_name, **aws_kwargs)
         client_sns = app.state.func_client_sns(region_name=app.state.config_aws_sns_region_name, **aws_kwargs)
@@ -94,7 +96,7 @@ async def func_lifespan(app: FastAPI):
         app.state.extend = await app.state.func_app_extend_run(app_state=app.state, name="func_extend")
         # periodic tasks
         app.state.func_app_tasks_start(app_state=app.state)
-    except Exception as e:
+    except BaseException as e:    # also a cancelled startup (Ctrl-C), which is not an Exception
         print(f"❌ startup error: {e}")
         await app.state.func_client_close(clients={k: v for k, v in locals().items() if k.startswith("client_")})    # close what opened before the failure
         raise

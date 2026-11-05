@@ -76,6 +76,8 @@ def func_check_runtime_config(*, app_state: State) -> None:
             raise ValueError("config_otp_retention_day must exceed the OTP expiry window")
     keep_alive = getattr(app_state, "config_uvicorn_timeout_keep_alive_sec", 250)
     if isinstance(keep_alive, bool) or not isinstance(keep_alive, int) or keep_alive < 1: raise Exception("config_uvicorn_timeout_keep_alive_sec must be an integer, 1 or more")
+    query_timeout = getattr(app_state, "config_postgres_query_timeout_sec", 0)
+    if isinstance(query_timeout, bool) or not isinstance(query_timeout, (int, float)) or query_timeout < 0: raise Exception("config_postgres_query_timeout_sec must be a number, 0 or more (0 means no limit)")
     token_cache_max = getattr(app_state, "config_token_cache_max", 0)
     if isinstance(token_cache_max, bool) or not isinstance(token_cache_max, int) or token_cache_max < 0: raise Exception("config_token_cache_max must be an integer, 0 or more (0 turns the token cache off)")
     buffer_limit = getattr(app_state, "config_buffer_limit_default", None)
