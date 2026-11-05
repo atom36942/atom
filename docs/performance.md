@@ -32,6 +32,9 @@ Notes:
 - Every request writes an API log row, so a long test grows `log_api`.
 - A large gap between `public-read-cached` and `public-read-db` shows how much the response cache saves.
 
+### Queries per request (CI)
+Load test numbers vary between machines and runs, so CI guards what does not vary: the Postgres queries each of Atom's busiest routes sends (login, token refresh, profile, object create, read and update, `/info`), counted exactly on a throwaway database, background work included. A change that adds a query to one of them fails CI with the queries listed; if it is meant, the change updates `BUDGET` in the test (`tests/integration/`) in the same commit.
+
 ## 2. Profile With py-spy
 
 [py-spy](https://github.com/benfred/py-spy) samples a running server without code changes and draws a flame graph of where time goes. It is a developer tool and is not in `requirements.txt`.
