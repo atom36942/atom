@@ -47,14 +47,15 @@ async def func_postgres_buffer_flush_periodic_task(*, app_state: State, client_p
         except Exception as e: func_runtime_error_record(runtime_error_count=app_state.runtime_error_count, key="buffer_flush", error=e)
     return
 
-async def func_inmemory_cache_cleanup_periodic_task(*, cache_api_response: dict, cache_ratelimiter: dict, runtime_error_count: dict, cache_token: dict = None, interval_sec: int = 300) -> None:
+async def func_inmemory_cache_cleanup_periodic_task(*, cache_api_response: dict, cache_ratelimiter: dict, runtime_error_count: dict, cache_token: dict = None, cache_api_response_bytes: dict = None, interval_sec: int = 300) -> None:
     """Periodically purges expired items from the in-memory response cache, ratelimiter, and token cache in a background task loop."""
     while True:
         try:
             await asyncio.sleep(interval_sec)
             now = time.time()
             expired_api_keys = [k for k, v in cache_api_response.items() if isinstance(v, dict) and v.get("expire_at", 0) <= now]
-            for k in expired_api_keys: cache_api_response.pop(k, None)
+            for k in expired_api_keys:
+                if (item := cache_api_response.pop(k, None)) and cache_api_response_bytes is not None: cache_api_response_bytes["total"] -= len(item["data"])
             expired_rl_keys = [k for k, v in cache_ratelimiter.items() if isinstance(v, dict) and v.get("expire_at", 0) <= now]
             for k in expired_rl_keys: cache_ratelimiter.pop(k, None)
             for k in [k for k, (_, expires_at) in (cache_token or {}).items() if expires_at <= now]: cache_token.pop(k, None)
@@ -123,7 +124,7 @@ def func_app_tasks_start(*, app_state: State) -> None:
         if client_postgres_log_api is not None and app_state.config_log_api_retention_day is not None:
             app_state.runtime_task_log_api_cleanup = asyncio.create_task(app_state.func_cleanup_periodic_task(client_postgres=client_postgres_log_api, retention_day=app_state.config_log_api_retention_day, cleanup=app_state.func_log_api_cleanup, lock_id=2, runtime_error_count=app_state.runtime_error_count))
     app_state.runtime_task_memory_history = asyncio.create_task(app_state.func_memory_history_periodic_task(app_state=app_state))
-    app_state.runtime_task_inmemory_cache_cleanup = asyncio.create_task(app_state.func_inmemory_cache_cleanup_periodic_task(cache_api_response=app_state.cache_api_response, cache_ratelimiter=app_state.cache_ratelimiter, cache_token=app_state.cache_token, runtime_error_count=app_state.runtime_error_count, interval_sec=app_state.config_inmemory_cache_cleanup_auto_sec))
+    app_state.runtime_task_inmemory_cache_cleanup = asyncio.create_task(app_state.func_inmemory_cache_cleanup_periodic_task(cache_api_response=app_state.cache_api_response, cache_api_response_bytes=app_state.cache_api_response_bytes, cache_ratelimiter=app_state.cache_ratelimiter, cache_token=app_state.cache_token, runtime_error_count=app_state.runtime_error_count, interval_sec=app_state.config_inmemory_cache_cleanup_auto_sec))
 
 async def func_app_tasks_stop(*, app_state: State, timeout_sec: int = 5) -> None:
     """Cancel all runtime background tasks and periodic system tasks on app_state."""

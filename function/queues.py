@@ -38,18 +38,34 @@ async def func_producer(*, queue: str, client_celery_producer: Any, client_kafka
         return await client_redis_producer.lpush(channel, orjson.dumps({"payload": payload, "attempt": 0}))
     return None
 
+def func_queue_retry_wait_sec(*, attempt: int, retry_wait_sec: float) -> float:
+    """Seconds to wait before retry number attempt: retry_wait_sec, then doubled each time (2, 4, 8 s by default), so a dependency that is down for a moment does not use up every retry at once."""
+    return retry_wait_sec * 2 ** (attempt - 1)
+
+REDIS_LOCK_KEEP = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('expire', KEYS[1], ARGV[2]) else return 0 end"
+REDIS_LOCK_RELEASE = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end"
+
+async def func_queue_redis_lock_keep(*, client: Any, key: str, token: str, ttl_sec: int = 60) -> bool:
+    """Extend the consumer lock only while this consumer still owns it (one atomic step); False when another consumer has taken it over."""
+    return bool(await client.eval(REDIS_LOCK_KEEP, 1, key, token, ttl_sec))
+
+async def func_queue_redis_lock_release(*, client: Any, key: str, token: str) -> bool:
+    """Delete the consumer lock only if this consumer still owns it (one atomic step)."""
+    return bool(await client.eval(REDIS_LOCK_RELEASE, 1, key, token))
+
 async def func_queue_redis_recover(*, client: Any, channel: str) -> int:
     """Put back on the queue the jobs a stopped consumer was running: a job stays in <channel>_processing until it is done. Oldest first."""
     moved = 0
     while await client.lmove(f"{channel}_processing", channel, "LEFT", "RIGHT"): moved += 1
     return moved
 
-async def func_queue_redis_job_finish(*, client: Any, channel: str, raw: bytes, error: Exception | None, retry_max: int) -> str:
-    """After a Redis job, in one transaction (a job is never in two lists): done → removed from <channel>_processing; failed → back on the queue with attempt + 1, or to <channel>_failed once it has been retried retry_max times. Returns done, retry or failed."""
+async def func_queue_redis_job_finish(*, client: Any, channel: str, raw: bytes, error: Exception | None, retry_max: int, retry_wait_sec: float = 2) -> str:
+    """After a Redis job, in one transaction (a job is never in two lists): done → removed from <channel>_processing; failed → back on the queue with attempt + 1 after func_queue_retry_wait_sec (the job stays in <channel>_processing meanwhile), or to <channel>_failed once it has been retried retry_max times. Returns done, retry or failed."""
     try: job = orjson.loads(raw)
     except orjson.JSONDecodeError: job = {"payload": raw.decode("utf-8", "replace"), "attempt": retry_max}    # unreadable: straight to failed
     attempt = job.get("attempt", 0) + 1
     outcome = "done" if error is None else "retry" if attempt <= retry_max else "failed"
+    if outcome == "retry": await asyncio.sleep(func_queue_retry_wait_sec(attempt=attempt, retry_wait_sec=retry_wait_sec))
     async with client.pipeline(transaction=True) as pipe:
         pipe.lrem(f"{channel}_processing", 1, raw)
         if outcome == "retry": pipe.lpush(channel, orjson.dumps({"payload": job.get("payload"), "attempt": attempt}))
@@ -57,33 +73,35 @@ async def func_queue_redis_job_finish(*, client: Any, channel: str, raw: bytes, 
         await pipe.execute()
     return outcome
 
-async def func_queue_rabbitmq_job_finish(*, rabbitmq_channel: Any, channel: str, message: Any, error: Exception | None, retry_max: int) -> str:
-    """After a RabbitMQ job: done → acknowledged; failed → published again with x-attempt + 1, or to <channel>_failed once retried retry_max times, then acknowledged. Returns done, retry or failed."""
+async def func_queue_rabbitmq_job_finish(*, rabbitmq_channel: Any, channel: str, message: Any, error: Exception | None, retry_max: int, retry_wait_sec: float = 2) -> str:
+    """After a RabbitMQ job: done → acknowledged; failed → published again with x-attempt + 1 after func_queue_retry_wait_sec (unacknowledged meanwhile), or to <channel>_failed once retried retry_max times, then acknowledged. Returns done, retry or failed."""
     import aio_pika
     attempt = int((message.headers or {}).get("x-attempt", 0)) + 1
     outcome = "done" if error is None else "retry" if attempt <= retry_max else "failed"
+    if outcome == "retry": await asyncio.sleep(func_queue_retry_wait_sec(attempt=attempt, retry_wait_sec=retry_wait_sec))
     if outcome != "done":
         headers = {"x-attempt": attempt, **({"x-error": f"{type(error).__name__}: {error}"[:1000]} if outcome == "failed" else {})}
         await rabbitmq_channel.default_exchange.publish(aio_pika.Message(body=message.body, headers=headers, delivery_mode=aio_pika.DeliveryMode.PERSISTENT), routing_key=channel if outcome == "retry" else f"{channel}_failed")
     await message.ack()    # after the republish: a crash in between runs the job again rather than losing it
     return outcome
 
-async def func_queue_kafka_job_finish(*, producer: Any, channel: str, message: Any, error: Exception | None, retry_max: int) -> str:
-    """After a Kafka job: failed → produced again with header x-attempt + 1, or to topic <channel>_failed once retried retry_max times; the batch's offsets are committed after every job in it is finished. Returns done, retry or failed."""
+async def func_queue_kafka_job_finish(*, producer: Any, channel: str, message: Any, error: Exception | None, retry_max: int, retry_wait_sec: float = 2) -> str:
+    """After a Kafka job: failed → produced again with header x-attempt + 1 after func_queue_retry_wait_sec, or to topic <channel>_failed once retried retry_max times; the batch's offsets are committed after every job in it is finished. Returns done, retry or failed."""
     attempt = int(dict(message.headers or ()).get("x-attempt", b"0")) + 1
     outcome = "done" if error is None else "retry" if attempt <= retry_max else "failed"
+    if outcome == "retry": await asyncio.sleep(func_queue_retry_wait_sec(attempt=attempt, retry_wait_sec=retry_wait_sec))
     if outcome != "done":
         headers = [("x-attempt", str(attempt).encode()), *([("x-error", f"{type(error).__name__}: {error}"[:1000].encode())] if outcome == "failed" else [])]
         await producer.send_and_wait(channel if outcome == "retry" else f"{channel}_failed", message.value, headers=headers)
     return outcome
 
-def func_queue_celery_job_finish(*, app: Any, task: Any, channel: str, payload: dict, error: Exception, retry_max: int) -> str:
-    """After a failed Celery job: retried by Celery after 1, 2, 4, ... seconds (task.retry raises), or sent to queue <channel>_failed once retried retry_max times. Returns failed."""
-    if task.request.retries < retry_max: raise task.retry(exc=error, countdown=2 ** task.request.retries, max_retries=retry_max)
+def func_queue_celery_job_finish(*, app: Any, task: Any, channel: str, payload: dict, error: Exception, retry_max: int, retry_wait_sec: float = 2) -> str:
+    """After a failed Celery job: retried by Celery after func_queue_retry_wait_sec (task.retry raises), or sent to queue <channel>_failed once retried retry_max times. Returns failed."""
+    if task.request.retries < retry_max: raise task.retry(exc=error, countdown=func_queue_retry_wait_sec(attempt=task.request.retries + 1, retry_wait_sec=retry_wait_sec), max_retries=retry_max)
     app.send_task(channel, kwargs=payload, queue=f"{channel}_failed", headers={"x-attempt": task.request.retries + 1, "x-error": f"{type(error).__name__}: {error}"[:1000]})
     return "failed"
 
-def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_callback: callable, execute_callback: callable, concurrency: int = 10, retry_max: int = 3, stop_wait_sec: int = 60):
+def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_callback: callable, execute_callback: callable, concurrency: int = 10, retry_max: int = 3, retry_wait_sec: float = 2, stop_wait_sec: int = 60):
     if not channel: raise Exception("channel name required")
     url_key = {"redis": "config_redis_url_queue", "rabbitmq": "config_rabbitmq_url", "kafka": "config_kafka_url", "celery": "config_celery_url"}.get(queue)
     if not url_key: raise Exception(f"invalid queue: {queue}; use redis, rabbitmq, kafka or celery")
@@ -109,7 +127,7 @@ def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_ca
                 return
             except Exception as e:
                 print(f"task failed #{n}: {channel} error: {str(e)}", flush=True)
-                func_queue_celery_job_finish(app=app, task=task, channel=channel, payload=payload, error=e, retry_max=retry_max)
+                func_queue_celery_job_finish(app=app, task=task, channel=channel, payload=payload, error=e, retry_max=retry_max, retry_wait_sec=retry_wait_sec)
                 raise
         @app.task(name=channel, bind=True)
         def celery_task(self, *args, **kwargs): return run_async(self, *args, **kwargs)
@@ -152,16 +170,18 @@ def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_ca
                     print(f"redis consumer waiting: another consumer runs {channel}", flush=True)
                     await asyncio.sleep(10)
                 async def lock_keep():
-                    while True:
+                    while not stopping.is_set():
                         await asyncio.sleep(20)
-                        await client.expire(lock_key, 60)
+                        if not await func_queue_redis_lock_keep(client=client, key=lock_key, token=lock_token, ttl_sec=60):    # this consumer was stalled for over 60 s and a standby took over: two must not run at once
+                            print(f"redis consumer lost {channel} to another consumer: no new jobs, finishing the {len(running)} running", flush=True)
+                            stopping.set()
                 keeper = asyncio.create_task(lock_keep())
                 recovered = await func_queue_redis_recover(client=client, channel=channel)
                 print(f"redis consumer started on {channel}" + (f", {recovered} unfinished jobs put back" if recovered else ""), flush=True)
                 async def redis_job(n, raw):
                     try:
                         error = await run_job(n, raw, lambda r: orjson.loads(r)["payload"])
-                        await func_queue_redis_job_finish(client=client, channel=channel, raw=raw, error=error, retry_max=retry_max)
+                        await func_queue_redis_job_finish(client=client, channel=channel, raw=raw, error=error, retry_max=retry_max, retry_wait_sec=retry_wait_sec)
                     finally: semaphore.release()
                 try:
                     while not stopping.is_set():
@@ -176,7 +196,7 @@ def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_ca
                     await jobs_finish()
                 finally:
                     keeper.cancel()
-                    if await client.get(lock_key) == lock_token.encode(): await client.delete(lock_key)    # released: a restart takes over at once
+                    await func_queue_redis_lock_release(client=client, key=lock_key, token=lock_token)    # released: a restart takes over at once
                     await client.aclose()
             elif queue == "rabbitmq":
                 import aio_pika
@@ -188,7 +208,7 @@ def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_ca
                 print(f"rabbitmq consumer started on {channel}", flush=True)
                 async def _execute_rmq(n, m):
                     error = await run_job(n, m.body, orjson.loads)
-                    await func_queue_rabbitmq_job_finish(rabbitmq_channel=ch, channel=channel, message=m, error=error, retry_max=retry_max)
+                    await func_queue_rabbitmq_job_finish(rabbitmq_channel=ch, channel=channel, message=m, error=error, retry_max=retry_max, retry_wait_sec=retry_wait_sec)
                 try:
                     async with rq.iterator() as queue_iter:
                         async def iterator_close():
@@ -217,7 +237,7 @@ def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_ca
                     n = next(_run_counter)
                     print(f"task started #{n}: {channel}", flush=True)
                     error = await run_job(n, msg.value, orjson.loads)
-                    await func_queue_kafka_job_finish(producer=producer, channel=channel, message=msg, error=error, retry_max=retry_max)
+                    await func_queue_kafka_job_finish(producer=producer, channel=channel, message=msg, error=error, retry_max=retry_max, retry_wait_sec=retry_wait_sec)
                 try:
                     while not stopping.is_set():    # a batch in progress always finishes and is committed first
                         batch = await consumer.getmany(timeout_ms=1000, max_records=concurrency)    # at most concurrency jobs at once
@@ -252,7 +272,7 @@ def func_consumer_channels() -> dict:
     """The only place a channel name maps to the function that handles its messages; producers send on these names."""
     return {"channel_object_create": func_consumer_object_create, "channel_object_update": func_consumer_object_update}
 
-def func_consumer_run(*, queue: str, channel: str, broker_settings: dict, postgres_url: str, config_column_regex: dict, config_table: dict, config_buffer_limit_default: int, config_buffer_rows_max: int, config_queue_concurrency: int = 10, config_queue_retry_max: int = 3):
+def func_consumer_run(*, queue: str, channel: str, broker_settings: dict, postgres_url: str, config_column_regex: dict, config_table: dict, config_buffer_limit_default: int, config_buffer_rows_max: int, config_queue_concurrency: int = 10, config_queue_retry_max: int = 3, config_queue_retry_wait_sec: float = 2):
     """Runs one consumer process: listens on channel through queue and hands each message to that channel's function."""
     handler = func_consumer_channels().get(channel)
     if not handler: raise Exception(f"unknown channel: {channel}; use one of {', '.join(func_consumer_channels())}")
@@ -263,4 +283,4 @@ def func_consumer_run(*, queue: str, channel: str, broker_settings: dict, postgr
         return client_postgres, context    # func_run_broker closes the first item on exit
     async def execute(payload, client_postgres, context):
         return await handler(payload=payload, context=context)
-    func_run_broker(queue=queue, channel=channel, broker_settings=broker_settings, setup_callback=setup, execute_callback=execute, concurrency=config_queue_concurrency, retry_max=config_queue_retry_max)
+    func_run_broker(queue=queue, channel=channel, broker_settings=broker_settings, setup_callback=setup, execute_callback=execute, concurrency=config_queue_concurrency, retry_max=config_queue_retry_max, retry_wait_sec=config_queue_retry_wait_sec)

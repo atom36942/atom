@@ -241,8 +241,8 @@ def func_middleware_postgres_select(*, client_postgres_dict: dict, cache_postgre
     if name not in client_postgres_dict and name != "master": raise func_api_error(message=f"connection '{name}' not found", status_code=404)
     return client_postgres_dict.get(name), cache_postgres_schema_dict.get(name, {})
 
-async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, cache: Any = None, api_cache_sec: Any = None, client_redis: Redis | None = None, user_id: int = 0, cache_api_response: dict = None, response: Any = None, is_gzip_accepted: bool = False, config_api_cache_inmemory_max_kb: int = 102400) -> Any:
-    """Get or set middleware API cache for a request. Bodies are stored gzipped; a hit is sent still gzipped when the client accepts gzip (no decompress, fewer bytes). The inmemory cache holds at most config_api_cache_inmemory_max_kb of stored bodies per worker: over it, the oldest entries are dropped (they are read from the route again on their next request)."""
+async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict, cache: Any = None, api_cache_sec: Any = None, client_redis: Redis | None = None, user_id: int = 0, cache_api_response: dict = None, cache_api_response_bytes: dict = None, response: Any = None, is_gzip_accepted: bool = False, config_api_cache_inmemory_max_kb: int = 102400) -> Any:
+    """Get or set middleware API cache for a request. Bodies are stored gzipped; a hit is sent still gzipped when the client accepts gzip (no decompress, fewer bytes). The inmemory cache holds at most config_api_cache_inmemory_max_kb of stored bodies per worker: over it, the oldest entries are dropped (they are read from the route again on their next request). cache_api_response_bytes ({"total": n}) keeps the stored size, so a set does not re-add every entry; without it the size is counted."""
     if mode not in ("get", "set"): raise func_api_error(message=f"invalid cache operation: {mode}, allowed: get, set", status_code=500)
     cfg = cache if cache is not None else api_cache_sec
     if isinstance(cfg, dict):
@@ -262,7 +262,7 @@ async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict,
     if mode == "get" and not is_enabled: return None
     if cache_api_response is None: cache_api_response = {}
     uid = user_id if is_user_cache else 0
-    key = f"cache:api:{path}?{'&'.join(f'{k}={v}' for k, v in sorted(query_params.items()))}:{uid}"
+    key = f"cache:api:{path}?{urlencode(sorted(query_params.items()))}:{uid}"    # encoded, so a value holding & or = cannot match another query
     if mode == "get":
         data = await client_redis.get(key) if cache_mode == "redis" else (item["data"] if (item := cache_api_response.get(key)) and item["expire_at"] > time.time() else None)
         if not data: return None
@@ -272,10 +272,11 @@ async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict,
     comp = gzip.compress(body, compresslevel=1)    # stored as raw bytes: level 1 is several times faster than the default 9 for JSON of this size
     if cache_mode == "redis": await client_redis.setex(key, ttl, comp)
     else:
-        cache_api_response.pop(key, None)    # a re-set entry counts as the newest
+        size = cache_api_response_bytes if cache_api_response_bytes is not None else {"total": sum(len(item["data"]) for item in cache_api_response.values())}
+        if (old := cache_api_response.pop(key, None)): size["total"] -= len(old["data"])    # a re-set entry counts as the newest
         cache_api_response[key] = {"data": comp, "expire_at": time.time() + ttl}
-        total, limit = sum(len(item["data"]) for item in cache_api_response.values()), config_api_cache_inmemory_max_kb * 1024
-        while total > limit: total -= len(cache_api_response.pop(next(iter(cache_api_response)))["data"])    # dicts keep insertion order: the first is the oldest
+        size["total"] += len(comp)
+        while size["total"] > config_api_cache_inmemory_max_kb * 1024: size["total"] -= len(cache_api_response.pop(next(iter(cache_api_response)))["data"])    # dicts keep insertion order: the first is the oldest
     response = Response(content=body, status_code=response.status_code, media_type=response.media_type, headers=dict(response.headers))
     response.is_cache_set = True
     return response

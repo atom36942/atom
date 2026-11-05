@@ -68,21 +68,22 @@ func_run_broker(
     execute_callback=execute,        # runs per message
     concurrency=10,                  # jobs running at once (config_queue_concurrency)
     retry_max=3,                     # retries after the first failure (config_queue_retry_max)
+    retry_wait_sec=2,                # wait before the first retry, doubled each time: 2, 4, 8 s (config_queue_retry_wait_sec)
 )
 ```
 
 ### Delivery: at least once
-A job counts as done only after its function returns. A job that raises is retried up to `retry_max` times (it goes to the back of the queue), then kept in `<channel>_failed` in the same broker with its error, to inspect and send again. A consumer that stops mid-job loses nothing: the job runs again after the restart.
+A job counts as done only after its function returns. A job that raises is retried up to `retry_max` times, after 2, 4, 8 s (`retry_wait_sec`, so a database that is down for a moment does not use up every retry at once; the job goes to the back of the queue), then kept in `<channel>_failed` in the same broker with its error, to inspect and send again. A consumer that stops mid-job loses nothing: the job runs again after the restart.
 
 | Broker | Taken | Done | Kept after the last retry |
 |---|---|---|---|
 | Redis | moved to `<channel>_processing` (`BLMOVE`), only when a worker is free, so waiting jobs stay in Redis | removed from `<channel>_processing`; on start, a consumer puts back what a stopped one left | list `<channel>_failed`: `{"payload", "attempt", "error", "failed_at"}` |
 | RabbitMQ | delivered, at most `concurrency` unacknowledged | acknowledged (a failure is published again with header `x-attempt` first) | queue `<channel>_failed`, headers `x-attempt` and `x-error` |
 | Kafka | batches of at most `concurrency` messages, auto-commit off | the batch's offsets are committed once every job in it is finished (a failure is produced again with header `x-attempt` first) | topic `<channel>_failed`, headers `x-attempt` and `x-error` |
-| Celery | one job at a time per worker process (`solo` pool; run more workers to scale), acknowledged late | done; a failure is retried by Celery after 1, 2, 4, ... seconds | queue `<channel>_failed` (the task's `kwargs` are the payload), headers `x-attempt` and `x-error` |
+| Celery | one job at a time per worker process (`solo` pool; run more workers to scale), acknowledged late | done; a failure is retried by Celery after the same waits | queue `<channel>_failed` (the task's `kwargs` are the payload), headers `x-attempt` and `x-error` |
 
 - A job can run twice: if a consumer stops after the job's work but before it counts as done, the job runs again. Make a job safe to repeat; for creates, a unique column (an invoice number) turns the repeat into a failed job instead of a duplicate row.
-- Redis: one consumer per channel (a `<channel>_consumer` key, kept alive every 20 s). A second one waits as a standby and takes over at once when the first one stops cleanly, or within 60 s after a crash (which is also how long a restart after a crash waits). Scale with `config_queue_concurrency`; run several consumers with RabbitMQ.
+- Redis: one consumer per channel (a `<channel>_consumer` key, kept alive every 20 s). A second one waits as a standby and takes over at once when the first one stops cleanly, or within 60 s after a crash (which is also how long a restart after a crash waits). A consumer that was stalled for over 60 s and finds its channel taken stops taking jobs and exits, so two never run the channel at once; only the owner can extend or release the key. Scale with `config_queue_concurrency`; run several consumers with RabbitMQ.
 - Stopping: SIGTERM (a deploy, a scale-down) or Ctrl+C makes a consumer take no new job, wait up to 60 s (`func_run_broker(stop_wait_sec=...)`) for the running ones, then exit; a Redis consumer releases its channel, so a restart takes over at once. A second Ctrl+C exits at once, and a job cut short that way runs again on the next start. Celery does the same on its own (warm shutdown).
 - Queued creates are written at once, whatever `mode` the API call had: rows buffered in a consumer would be lost if it stopped after the job counted as done.
 - Redis jobs are `{"payload": ..., "attempt": n}`, as `func_producer` sends them.

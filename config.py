@@ -117,6 +117,7 @@ config_blob_expire_sec_preview = 360000
 config_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
 config_queue_concurrency = 10
 config_queue_retry_max = 3
+config_queue_retry_wait_sec = 2
 config_blob_services = ["s3", "azure"]
 config_email_services = ["ses", "resend", "azure"]
 config_mobile_services = ["sns", "fast2sms", "azure"]

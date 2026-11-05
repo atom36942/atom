@@ -18,6 +18,9 @@ import orjson
 from function.queues import func_queue_celery_job_finish
 from function.queues import func_queue_kafka_job_finish
 from function.queues import func_queue_redis_job_finish
+from function.queues import func_queue_redis_lock_keep
+from function.queues import func_queue_redis_lock_release
+from function.queues import func_queue_retry_wait_sec
 from function.queues import func_run_broker
 from function.queues import func_queue_redis_recover
 from tests.support import service_setting
@@ -38,7 +41,7 @@ async def execute(payload, client):
     if payload["job"] == "fail": raise ValueError("job failed on purpose")
     while payload["job"] == "slow" and not Path(os.environ["SLOW_GO"]).exists(): await asyncio.sleep(0.1)
     with open(done_file, "a") as file: file.write(payload["job"] + "\\n")
-func_run_broker(queue=queue, channel=channel, broker_settings={url_key: url}, setup_callback=setup, execute_callback=execute, concurrency=2, retry_max=1)
+func_run_broker(queue=queue, channel=channel, broker_settings={url_key: url}, setup_callback=setup, execute_callback=execute, concurrency=2, retry_max=1, retry_wait_sec=0.1)
 """
 
 
@@ -155,6 +158,40 @@ class RedisDeliveryTests(unittest.TestCase):
         self.assertEqual(outcomes, ["done", "failed"], "an unreadable job goes straight to _failed")
         self.assertEqual((recovered, queued, failed), (1, [b'{"payload":{"job":2},"attempt":0}'], 1))
 
+    def test_the_lock_is_kept_and_released_only_by_its_owner(self):
+        import redis.asyncio as redis_async
+        key = f"{self.channel}_consumer"
+        async def run():
+            client = redis_async.Redis.from_url(REDIS_URL)
+            try:
+                await client.set(key, "mine", ex=60)
+                kept = await func_queue_redis_lock_keep(client=client, key=key, token="mine", ttl_sec=90)
+                ttl = await client.ttl(key)
+                await client.set(key, "standby", ex=60)    # this consumer stalled, the lock expired and a standby took it
+                kept_after = await func_queue_redis_lock_keep(client=client, key=key, token="mine", ttl_sec=90)
+                released = await func_queue_redis_lock_release(client=client, key=key, token="mine")
+                return kept, ttl, kept_after, released, await client.get(key), await client.ttl(key)
+            finally: await client.aclose()
+        kept, ttl, kept_after, released, owner, owner_ttl = asyncio.run(run())
+        self.assertEqual((kept, ttl > 60), (True, True), "the owner extends it")
+        self.assertEqual((kept_after, released), (False, False), "the old owner can neither extend nor delete the new owner's lock")
+        self.assertEqual((owner, owner_ttl <= 60), (b"standby", True))
+
+    def test_a_retry_waits_before_the_job_goes_back(self):
+        import redis.asyncio as redis_async
+        raw = b'{"payload":{"job":1},"attempt":1}'
+        async def run():
+            client = redis_async.Redis.from_url(REDIS_URL)
+            try:
+                await client.lpush(f"{self.channel}_processing", raw)
+                with patch("function.queues.asyncio.sleep", new=AsyncMock()) as sleep:
+                    outcome = await func_queue_redis_job_finish(client=client, channel=self.channel, raw=raw, error=ValueError("db down"), retry_max=3, retry_wait_sec=2)
+                return outcome, sleep.await_args.args[0], await client.lrange(self.channel, 0, -1)
+            finally: await client.aclose()
+        outcome, waited, queued = asyncio.run(run())
+        self.assertEqual((outcome, waited), ("retry", 4), "second retry waits 4 s")
+        self.assertEqual(queued, [b'{"payload":{"job":1},"attempt":2}'])
+
 
 @unittest.skipUnless(RABBITMQ_URL, "set ATOM_TEST_RABBITMQ_URL (environment or .env) to run RabbitMQ tests")
 class RabbitmqDeliveryTests(unittest.TestCase):
@@ -250,7 +287,7 @@ class KafkaDeliveryTests(unittest.TestCase):
             events.append(payload["job"])
             if payload["job"] == "fail": raise ValueError("job failed on purpose")
         with patch.dict(sys.modules, {"aiokafka": fake}), self.assertRaises(SystemExit):
-            func_run_broker(queue="kafka", channel="jobs", broker_settings={"config_kafka_url": "kafka:9092"}, setup_callback=setup, execute_callback=execute, retry_max=1)
+            func_run_broker(queue="kafka", channel="jobs", broker_settings={"config_kafka_url": "kafka:9092"}, setup_callback=setup, execute_callback=execute, retry_max=1, retry_wait_sec=0)
         self.assertEqual(fake.AIOKafkaConsumer.call_args.kwargs["enable_auto_commit"], False)
         self.assertEqual(events[-1], "commit", "committed last, once")
         self.assertEqual(events.count("commit"), 1)
@@ -275,7 +312,7 @@ class CeleryDeliveryTests(unittest.TestCase):
         app = MagicMock()
         task, retry = self.task(retries=1)
         with self.assertRaises(retry): func_queue_celery_job_finish(app=app, task=task, channel="jobs", payload={"job": 1}, error=ValueError("x"), retry_max=3)
-        self.assertEqual(task.retry.call_args.kwargs["countdown"], 2)
+        self.assertEqual(task.retry.call_args.kwargs["countdown"], 4, "second retry: 2 s, then doubled")
         app.send_task.assert_not_called()
 
     def test_after_the_last_retry_it_goes_to_the_failed_queue(self):
@@ -285,6 +322,12 @@ class CeleryDeliveryTests(unittest.TestCase):
         self.assertEqual(app.send_task.call_args.kwargs["queue"], "jobs_failed")
         self.assertEqual(app.send_task.call_args.kwargs["kwargs"], {"job": 1})
         self.assertEqual(app.send_task.call_args.kwargs["headers"], {"x-attempt": 4, "x-error": "ValueError: x"})
+
+class RetryWaitTests(unittest.TestCase):
+    def test_the_wait_doubles_each_retry(self):
+        self.assertEqual([func_queue_retry_wait_sec(attempt=attempt, retry_wait_sec=2) for attempt in (1, 2, 3)], [2, 4, 8])
+        self.assertEqual(func_queue_retry_wait_sec(attempt=3, retry_wait_sec=0), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

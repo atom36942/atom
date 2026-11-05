@@ -33,6 +33,7 @@ async def func_lifespan(app: FastAPI):
         postgres_pool_kwargs = {"is_read_only": app.state.config_is_read_only}
         aws_kwargs = {"aws_access_key_id": app.state.config_aws_access_key_id, "aws_secret_access_key": app.state.config_aws_secret_access_key}
         cache_api_response = {}
+        cache_api_response_bytes = {"total": 0}    # stored size of cache_api_response, kept as entries come and go
         cache_ratelimiter = {}
         buffer_postgres_create = {}
         buffer_postgres_log_api = {}
@@ -178,7 +179,7 @@ def middleware(asgi_app):
                 capture = [] if cache and not app_state.func_query_bool_parse(query_params.get("is_disable_cache"), default=False) else None
                 await asgi_app(scope, receive, send_wrapped)
                 if capture is not None and sent["status"] == 200:
-                    await app_state.func_middleware_api_cache(mode="set", path=path, query_params=query_params, response=Response(content=b"".join(capture), status_code=200), cache=cache, client_redis=app_state.client_redis_dict.get("api_response"), user_id=user_id, cache_api_response=app_state.cache_api_response, config_api_cache_inmemory_max_kb=app_state.config_api_cache_inmemory_max_kb)
+                    await app_state.func_middleware_api_cache(mode="set", path=path, query_params=query_params, response=Response(content=b"".join(capture), status_code=200), cache=cache, client_redis=app_state.client_redis_dict.get("api_response"), user_id=user_id, cache_api_response=app_state.cache_api_response, cache_api_response_bytes=app_state.cache_api_response_bytes, config_api_cache_inmemory_max_kb=app_state.config_api_cache_inmemory_max_kb)
                     response_type = "direct_cache_set"
         # error
         except Exception as e:

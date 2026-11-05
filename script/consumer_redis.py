@@ -12,6 +12,7 @@ from config import config_buffer_rows_max
 from config import config_column_regex
 from config import config_queue_concurrency
 from config import config_queue_retry_max
+from config import config_queue_retry_wait_sec
 from config import config_table
 from function import func_consumer_channels
 from function import func_consumer_run
@@ -27,7 +28,7 @@ config_redis_url_queue = os.getenv("config_redis_url_queue")
 def main():
     channel = sys.argv[1] if len(sys.argv) > 1 else None    # the channel to listen on
     if channel not in func_consumer_channels(): sys.exit(f"Error: channel is required. Usage: venv/bin/python -m script.consumer_redis <{'|'.join(func_consumer_channels())}>")
-    func_consumer_run(queue="redis", channel=channel, broker_settings={"config_redis_url_queue": config_redis_url_queue}, postgres_url=config_postgres_url_master, config_column_regex=config_column_regex, config_table=config_table, config_buffer_limit_default=config_buffer_limit_default, config_buffer_rows_max=config_buffer_rows_max, config_queue_concurrency=config_queue_concurrency, config_queue_retry_max=config_queue_retry_max)
+    func_consumer_run(queue="redis", channel=channel, broker_settings={"config_redis_url_queue": config_redis_url_queue}, postgres_url=config_postgres_url_master, config_column_regex=config_column_regex, config_table=config_table, config_buffer_limit_default=config_buffer_limit_default, config_buffer_rows_max=config_buffer_rows_max, config_queue_concurrency=config_queue_concurrency, config_queue_retry_max=config_queue_retry_max, config_queue_retry_wait_sec=config_queue_retry_wait_sec)
 
 # main
 if __name__ == "__main__":

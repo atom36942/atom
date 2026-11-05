@@ -67,7 +67,7 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
         for is_read_only, expected in ((False, names), (True, ("runtime_task_memory_history", "runtime_task_inmemory_cache_cleanup"))):
             with self.subTest(is_read_only=is_read_only):
                 state = SimpleNamespace(config_is_read_only=is_read_only, client_postgres_dict={"master": object()}, client_postgres_log_api=object(), runtime_error_count={},
-                    buffer_postgres_create={}, buffer_postgres_log_api={}, cache_api_response={}, cache_ratelimiter={}, cache_token={},
+                    buffer_postgres_create={}, buffer_postgres_log_api={}, cache_api_response={}, cache_api_response_bytes={"total": 0}, cache_ratelimiter={}, cache_token={},
                     config_postgres_buffer_flush_auto_sec=1, config_otp_retention_day=30, config_log_api_retention_day=30, config_inmemory_cache_cleanup_auto_sec=1,
                     func_postgres_buffer_flush_periodic_task=forever, func_cleanup_periodic_task=forever, func_inmemory_cache_cleanup_periodic_task=forever, func_memory_history_periodic_task=forever,
                     func_otp_cleanup=AsyncMock(), func_log_api_cleanup=AsyncMock(), func_async_tasks_cancel=func_async_tasks_cancel)
