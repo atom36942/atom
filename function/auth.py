@@ -4,6 +4,8 @@ import re
 import secrets
 import time
 from collections import OrderedDict
+from datetime import UTC
+from datetime import datetime
 from typing import Any
 import asyncpg
 import jwt
@@ -170,6 +172,12 @@ async def func_otp_verify(*, client_postgres: asyncpg.Pool | None, otp: int, ema
         if records[0]["otp"] != otp: raise Exception("invalid otp code")
         await conn.execute("DELETE FROM otp WHERE id = $1;", records[0]["id"])
     return "done"
+
+def func_user_last_active_is_due(*, last_active_at: datetime | None, interval_sec: int = 300) -> bool:
+    """Whether last_active_at (as just read with the user's row) is old enough for func_user_last_active_update to write: a caller that already has the row skips the update, and its round trip, within interval_sec. A replica's older copy only means one update that writes nothing."""
+    if last_active_at is None: return True
+    if last_active_at.tzinfo is None: last_active_at = last_active_at.replace(tzinfo=UTC)
+    return (datetime.now(UTC) - last_active_at).total_seconds() >= interval_sec
 
 async def func_user_last_active_update(*, client_postgres: asyncpg.Pool | None, user_id: int, interval_sec: int = 300) -> None:
     """Set users.last_active_at to now for one user, at most once per interval_sec: a page open within it writes nothing (no new row version, no triggers), so last_active_at is accurate to 5 minutes. Pass the master pool, since read replicas cannot write."""

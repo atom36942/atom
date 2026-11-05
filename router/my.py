@@ -20,10 +20,11 @@ async def func_api_my_profile(*, request: Request):
     app_state = request.app.state
     user_id = request.state.user["id"]
     user = await app_state.func_user_read_single(client_postgres=request.state.client_postgres, user_id=user_id)
+    last_active_at = user.get("last_active_at")    # read before any column is hidden from the response
     for column in app_state.config_column_read_blocked or ["password"]: user.pop(column, None)
     metadata = {k: [dict(r) for r in await request.state.client_postgres.fetch(v, user_id)] for k, v in app_state.config_sql.get("profile_metadata", {}).items()}
     user["metadata"] = metadata
-    if app_state.config_is_profile_update_last_active_at and not app_state.config_is_read_only: app_state.func_background_run(app_state=app_state, coroutine=app_state.func_user_last_active_update(client_postgres=app_state.client_postgres_dict.get("master"), user_id=user_id))
+    if app_state.config_is_profile_update_last_active_at and not app_state.config_is_read_only and app_state.func_user_last_active_is_due(last_active_at=last_active_at): app_state.func_background_run(app_state=app_state, coroutine=app_state.func_user_last_active_update(client_postgres=app_state.client_postgres_dict.get("master"), user_id=user_id))
     return {"status": 1, "message": user}
 
 @router.websocket("/my/message-socket")

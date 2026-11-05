@@ -3,12 +3,16 @@ import asyncio
 import statistics
 import time
 import unittest
+from datetime import UTC
+from datetime import datetime
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 from argon2 import PasswordHasher
 import jwt
 
+from function import func_user_last_active_is_due
 from function import func_user_last_active_update
 from function import func_background_run
 from function import func_auth_check_config
@@ -31,6 +35,13 @@ class AuthTests(unittest.IsolatedAsyncioTestCase):
         pool.execute.assert_awaited_once_with("UPDATE users SET last_active_at=NOW() WHERE id=$1 AND (last_active_at IS NULL OR last_active_at < NOW() - make_interval(secs => $2))", 7, 300)
         with self.assertRaisesRegex(Exception, "postgres client not initialized"):
             await func_user_last_active_update(client_postgres=None, user_id=7)
+
+    def test_last_active_is_due_only_after_the_interval(self):
+        now = datetime.now(UTC)
+        self.assertTrue(func_user_last_active_is_due(last_active_at=None), "never recorded")
+        self.assertFalse(func_user_last_active_is_due(last_active_at=now - timedelta(minutes=4)))
+        self.assertTrue(func_user_last_active_is_due(last_active_at=now - timedelta(minutes=6)))
+        self.assertFalse(func_user_last_active_is_due(last_active_at=(now - timedelta(minutes=1)).replace(tzinfo=None)), "a naive value is read as UTC")
 
     async def test_background_run_is_tracked_and_counts_failures(self):
         app_state = SimpleNamespace(runtime_background_tasks=set(), runtime_error_count={"background_task": 0})
