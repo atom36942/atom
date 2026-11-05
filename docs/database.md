@@ -47,6 +47,8 @@ venv/bin/python -m script.schema_plan
 
 It reads the catalog on a read-only connection, changes nothing, and prints each change, flagging the ones that lock or rewrite a table (`ALTER COLUMN ... TYPE`, `SET NOT NULL`, `CREATE INDEX` without `CONCURRENTLY`, `DROP`) with the table's estimated rows. A flagged change on a big table is better run by hand when it is quiet; the next start then finds nothing to change. Statements that run on every start (trigger functions, the root user) are only counted.
 
+`venv/bin/python -m script.schema_plan --apply` prints the same plan, then runs it exactly as startup does (one transaction, the same advisory lock and lock timeout). With `config_is_postgres_schema_init = False`, startup changes nothing and only compares: if the master database differs from `config_postgres` it stops, listing the changes, so the app never runs against a schema its code does not expect. A production deploy then is: `schema_plan`, read it, `schema_plan --apply`, start the app. Only the master database is compared; a separate `log_api` database is not, but startup already stops if it has no `log_api` table.
+
 ---
 
 ## 3. Query Runner & AI SQL Engine (`/admin/postgres-query-runner-*`)

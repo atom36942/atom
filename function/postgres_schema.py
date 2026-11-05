@@ -453,6 +453,14 @@ async def func_postgres_schema_init(*, app_state: State, client_postgres: asyncp
     except asyncpg.exceptions.LockNotAvailableError as e: raise func_postgres_schema_lock_error(error=e, lock_timeout_sec=lock_timeout_sec) from None
     return "database init done"
 
+async def func_postgres_schema_check(*, app_state: State, client_postgres: asyncpg.Pool, config_postgres: dict) -> str:
+    """Startup with config_is_postgres_schema_init off: compare the database with config_postgres, change nothing, and stop when they differ, so the app never runs against a schema its code does not expect."""
+    changes = [step["sql"] for step in await app_state.func_postgres_schema_plan(app_state=app_state, client_postgres=client_postgres, config_postgres=config_postgres) if not step["is_routine"]]
+    if changes:
+        preview = "; ".join(" ".join(sql.split()).rstrip(";")[:120] for sql in changes[:3]) + ("; …" if len(changes) > 3 else "")
+        raise Exception(f"schema check: the database differs from config_postgres ({len(changes)} changes) and config_is_postgres_schema_init is off, so nothing was changed. See them: venv/bin/python -m script.schema_plan; run them: venv/bin/python -m script.schema_plan --apply ({preview})")
+    return "schema check done"
+
 SCHEMA_RISKS = ((r"ALTER COLUMN .* TYPE ", "rewrites the table, which stays locked until it finishes"), (r"SET NOT NULL", "reads every row while the table is locked"),
                 (r"^\s*CREATE (UNIQUE )?INDEX (?!CONCURRENTLY)", "blocks writes to the table while the index builds"), (r"\bDROP (TABLE|COLUMN)\b", "removes data"))
 SCHEMA_ROUTINE = (r"^\s*CREATE OR REPLACE FUNCTION", r"^\s*DO \$\$", r"^\s*INSERT INTO users \(username, password, role\)", r"^\s*UPDATE users SET username = 'admin'")    # run on every start, whether anything changed or not

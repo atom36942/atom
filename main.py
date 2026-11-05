@@ -76,6 +76,7 @@ async def func_lifespan(app: FastAPI):
         postgres_master = client_postgres_dict.get("master")
         if postgres_master and not app.state.config_is_read_only and app.state.config_is_postgres_schema_init:
             async with app.state.func_postgres_advisory_lock(client_postgres=postgres_master, lock_id=3): await app.state.func_postgres_schema_init(app_state=app.state, client_postgres=postgres_master, config_postgres=app.state.config_postgres, lock_timeout_sec=app.state.config_postgres_schema_lock_timeout_sec, root_user_password_hash=client_password_hasher.hash(str(app.state.config_root_user_password)) if app.state.config_root_user_password else None)
+        if postgres_master and not app.state.config_is_read_only and not app.state.config_is_postgres_schema_init: await app.state.func_postgres_schema_check(app_state=app.state, client_postgres=postgres_master, config_postgres=app.state.config_postgres)
         postgres_master_schema = await app.state.func_postgres_schema_read(client_postgres=postgres_master) if postgres_master else {}
         cache_config = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("config"), is_json_value=True) if postgres_master and "config" in postgres_master_schema else {}
         cache_users_role = await app.state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app.state.config_sql.get("users_role")) if postgres_master else {}
