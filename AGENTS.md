@@ -7,6 +7,7 @@ Rules Atom enforces at import, startup, sync and CI. Follow exactly. Read by AI 
 - One simple rule over exceptions; no backward-compat shims.
 - Docs and readmes describe patterns (`<feature>.py`, `/page/<name>`), never specific file names, so they never go stale (the root `readme.md` may link to docs).
 - This file is the only rules file, the same in every project; a project's feature details and business rules go in `docs_extend/<feature>.md`.
+- A framework change keeps Atom's design decisions (the table in `docs/about.md`, with the reason for each) unless the user asks to change one.
 
 ## Ownership and sync
 - Atom owns every unsuffixed path (core: `function/`, `router/`, `docs/`, `script/`, `static/`, `files/` and root files such as `config.py`, `main.py`, `sync.py`, `AGENTS.md`, `ruff.toml`, `Dockerfile`, `.dockerignore`; full list: `SYNC_FILES`/`SYNC_FOLDERS` in `sync.py`). The project owns `*_extend` paths and `config_extend.py`, which the Atom repo doesn't have (sync creates them). Shared: `.env` (project), `requirements.txt` and `.gitignore` (merged), `.github/` (per repo).

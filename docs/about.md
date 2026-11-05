@@ -4,45 +4,46 @@ Welcome to the comprehensive architecture guide for **Atom**. This document expl
 
 ---
 
-## 1. Design Principles
+## 1. Design decisions
 
-Atom is a batteries-included, opinionated async Python framework built on top of **FastAPI**, **Starlette**, **Uvicorn**, and **asyncpg**:
+Atom is an opinionated async Python framework on **FastAPI**, **Starlette**, **Uvicorn** and **asyncpg**, for small teams building internal apps and APIs, much of the code written by AI agents. Each decision below says why, and what was chosen against, so a later change can check itself against the reason rather than "improve" something deliberate.
 
-- **Config-Driven & Optional Everything**: Core dependencies (PostgreSQL, Redis, Mongo, S3, Azure, Kafka, RabbitMQ, Celery, AI models) are completely optional. Integrations activate only when their connection URLs or keys are present in [`config.py`](config.md) or `.env`.
-- **Pure Async Architecture**: Uses non-blocking drivers (`asyncpg`, `redis.asyncio`, `aiohttp`, `httpx`) to maximize concurrency and throughput.
-- **Flat & Transparent Layering**: Avoids heavy ORM abstractions or scattered middleware classes. Execution flows cleanly through `main.py` (runtime) and `function.py` (pure functions).
-- **Non-Forking Extensibility**: Maintainers can extend routes and logic via `config_extend.py` and custom modules in `function_extend/` without mutating core framework files, enabling upstream updates via `sync.py`. Learn more in [`extend.md`](extend.md).
+| Decision | Why | Not chosen |
+|---|---|---|
+| One rules file, `AGENTS.md`, the same in every project | One place to read; every project follows the same rules; it is short enough to read in full before any work | Rules spread across docs, per-project rule files (they drift apart) |
+| Route policy in `config_api` (token, roles, user checks, cache, rate limit), enforced by one middleware before the route | A route's behaviour is visible in one place without opening its code; startup fails on a route without an entry, so nothing is unprotected by accident | Decorators or checks inside each route (easy to forget one, nothing to validate at startup) |
+| Every function is `func_*`, keyword-only, unique across Atom and the project, called as `app_state.func_*` | One calling style in every file and project; one search finds any definition; a test swaps one function on the app's state; project functions register the same way as Atom's | Direct imports (each file differs in what it imports; tests patch module paths) |
+| `sync.py` copies Atom's files into each project instead of installing a package | The framework's code is in the project, readable and searchable like its own; one command updates files, requirements and the venv; `*_extend` paths are never touched | A pip package (its code hidden in `venv/`, needs publishing and releases) |
+| No tags or releases: projects always sync Atom's latest `main`, versioned by `ATOM_VERSION` (semver) | One maintainer, many projects: one line of history to keep working, CI on every push | Release branches and pinned versions (old versions to maintain in parallel) |
+| All integrations installed in every project (`requirements.txt` `# atom`) | Any feature works by adding its `.env` line; no project fails on a missing package; storage is cheap | Optional extras per project (smaller venvs, but a missing-package failure mode and per-project package lists) |
+| Integrations, databases and clients turn on by `.env` lines (`config_<db>_url_<name>`), opened once at startup and closed at shutdown | A new database or service is configuration, never code; app code never opens its own pools | Clients opened in feature code (leaked pools, one per request) |
+| Tables only in `config_postgres`, created and updated at startup in one transaction | The schema is code, reviewed with the change that needs it; every environment converges on start; `script.schema_plan` previews the change | Migration files (ordering and history to manage, environments drift when one is skipped) |
+| Postgres only through asyncpg, rows through `func_postgres_create/read/update/delete` | Fast, explicit SQL; one helper checks columns, types and ownership in one round trip | An ORM (hidden queries, slower, a second way to reach the database) |
+| User checks pick a mode per route (`token`, `redis`, `realtime`, `inmemory`) | Each route chooses its own trade-off between speed and freshness: admin and destructive routes `realtime`, busy reads `token` or `redis` | One global mode (either slow everywhere or stale everywhere) |
+| One simple rule over exceptions, no backward-compatibility shims | Fewer cases to remember and test; a rename changes every caller at once | Aliases and deprecation paths (two ways to do one thing, forever) |
+| Startup checks over runtime surprises | Bad config, a missing `config_api` entry, duplicate `func_*` names or a weak production secret stop startup with a plain message | Failing on the first request that hits the problem |
 
 ---
 
-## 2. Codebase Layout & Layering
-
-The codebase is organized into flat, specialized components with clear separation of responsibilities:
+## 2. Codebase layout
 
 ```
 atom/
-├── main.py         # App runtime, lifespan connection pools & single HTTP middleware
-├── function.py     # Framework-agnostic pure logic, helpers & database engines
-├── config.py       # Centralized declarative settings, rules & schema definitions
-├── router/         # Access-tiered API endpoint handlers (auth, my, public, private, admin)
-├── static/         # Static web assets & built-in API console
-├── script/         # Standalone background queue workers & maintenance processes
-├── sync.py         # Upstream framework updater tool
+├── main.py         # app, lifespan (opens and closes clients), the single middleware, router discovery
+├── function/       # every func_*, one module per area (clients, auth, postgres_*, queues, storage, ...)
+├── config.py       # every default config_*: settings, config_api, config_postgres (tables)
+├── router/         # API routes by access scope: auth, my, public, private, admin, index
+├── static/         # Atom's pages (API console, Monitor, pgweb) and their assets
+├── script/         # scripts that work in every project: check, consumers, schema_plan, load_test, ...
+├── files/          # read-only data (countries, currencies)
+├── docs/           # these docs; AGENTS.md is the rules file
+├── tests/          # Atom's tests (unittest), run by script.check and CI
+├── sync.py         # updates a project from Atom's main
 ├── requirements.txt
 └── Dockerfile
 ```
 
-### Core Components:
-1. **`main.py`**: Assembles the FastAPI app, orchestrates startup/shutdown pools via lifespan, mounts the unified HTTP middleware, and auto-discovers routers.
-2. **`function.py`**: Contains framework-agnostic helper functions (JWT parsing, password hashing, generic CRUD, write buffers, cloud storage, AI utilities). Functions are written as pure functions with keyword-only arguments.
-3. **`config.py`**: Single source of truth for all configurations, feature flags (`config_is_*`), token lifetimes, limits, table schemas, and route access control policies (`config_api`).
-4. **`router/`**: Access-tiered routers organized by security scope:
-   - `auth`: Signup, password logins, OTP verification, and OAuth.
-   - `my`: Self-service endpoints for authenticated users scoped to `request.state.user["id"]`.
-   - `public`: Unauthenticated public data reads and public forms.
-   - `private`: Authenticated server-side actions (emails, signed upload URLs).
-   - `admin`: High-privilege administrative utilities, raw SQL runners, data import tools.
-5. **`script/`**: Standalone background workers that consume tasks (buffer flushes, queue polling, email dispatch).
+A project adds `*_extend` folders (`router_extend/`, `function_extend/`, `files_extend/`, `static_extend/`, `script_extend/`, `docs_extend/`, `tests_extend/`) and `config_extend.py`; sync never changes them. See [`extend.md`](extend.md).
 
 ---
 
