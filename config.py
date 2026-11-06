@@ -85,8 +85,8 @@ config_is_profile_update_last_active_at = True
 # postgres
 config_is_postgres_schema_init = True
 config_postgres_schema_lock_timeout_sec = 10
-config_postgres_pool_min_size = 5
-config_postgres_pool_max_size = 20
+config_postgres_pool_min_size = 1
+config_postgres_pool_max_size = 10
 config_postgres_query_timeout_sec = 0    # longest a single Postgres query may run, in seconds, then it is cancelled; 0 means no limit
 config_is_log_api = True
 config_postgres_db_log_api = "master"

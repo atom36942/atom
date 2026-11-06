@@ -14,9 +14,9 @@ Every database is one `.env` line, `config_postgres_url_<name>`. `master` is req
 config_postgres_url_master=postgresql://atom:secret@localhost:5432/atom
 config_postgres_url_replica1=postgresql://reader:secret@replica-host:5432/atom
 config_postgres_url_analytics=postgresql://analyst:secret@analytics-host:5432/warehouse
-config_postgres_pool_min_size=5
-config_postgres_pool_max_size=20
-config_postgres_pool_max_size_analytics=3    # optional, per database: analytics gets at most 3, the others 20
+config_postgres_pool_min_size=1
+config_postgres_pool_max_size=10
+config_postgres_pool_max_size_analytics=3    # optional, per database: analytics gets at most 3, the others 10
 ```
 `config_postgres_pool_min_size_<name>` / `config_postgres_pool_max_size_<name>` size one database's pool; a database without them uses the shared two. The same works for SQL Server (`config_mssql_pool_min_size_<name>`, `config_mssql_pool_max_size_<name>`). A size for a name that has no URL (a typo such as `_tset`), or a max below its min, stops startup.
 `config_postgres_query_timeout_sec` (default `0`, no limit) cancels any query on the app's pools that runs longer, so a hung query cannot hold a pool connection for good; it applies to startup's schema changes and exports too. If startup fails while opening the pools, the ones already open are closed.
