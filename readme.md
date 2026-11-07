@@ -1,30 +1,30 @@
 # Atom
-Version 3.27.6
+Version 3.27.7
 
 Batteries-included FastAPI framework for production backends: auth, CRUD over any table, caching, rate limits, queues, workers, web pages and optional integrations, all driven by config. Your code lives in `*_extend` paths, so updating Atom never overwrites it.
 
 Details: [docs/about.md](docs/about.md)
 
-# Installation
+# Installation (new project)
 ```bash
-# 1. Python 3.14, once (macOS; on Linux: sudo apt install python3.14 or sudo dnf install python3.14)
+# 1. Python 3.14 (once; Linux: apt or dnf install python3.14)
 brew update
 brew install python@3.14
 python3.14 --version
 python3 --version
 
-# 2. new project with sync.py
+# 2. project
 mkdir <project>
 cd <project>
 git init
 curl -fsSL -o sync.py https://raw.githubusercontent.com/atom36942/atom/main/sync.py
-python3 sync.py
+python3 sync.py                                 # Atom files and venv
 
-# 3. run, then open http://localhost:8000 (another port, e.g. two projects at once: the last two lines, then http://localhost:8001)
-venv/bin/python main.py
-venv/bin/uvicorn main:app --reload
-PORT=8001 venv/bin/python main.py
-venv/bin/uvicorn main:app --reload --port 8001
+# 3. run (http://localhost:8000)
+venv/bin/python main.py                         # default
+venv/bin/uvicorn main:app --reload              # restart on file change
+PORT=8001 venv/bin/python main.py               # another port
+venv/bin/uvicorn main:app --reload --port 8001  # another port, restart on file change
 ```
 
 Windows: [docs/windows.md](docs/windows.md)
@@ -74,7 +74,7 @@ Atom owns every unsuffixed path; you own the `*_extend` ones.
 
 Details: [docs/extend.md](docs/extend.md)
 
-# Sync
+# Sync (update a project to the latest Atom)
 Commit your work and stop the app first.
 ```bash
 python3 sync.py                              # update files, rebuild venv/, list newer # extend packages
@@ -92,15 +92,24 @@ venv/bin/python -m script.check
 ```
 Runs the startup checks, ruff, the pages' JavaScript and the tests in `tests_extend/` together and prints one summary line, plus only the failures.
 
-# Contributing
-To work on Atom itself:
+# Other ways to start
+## Existing project (built on Atom)
+```bash
+git clone <repo-url>
+cd <project>
+# add .env                                      # never in Git; ask the project's owner
+python3 sync.py                                 # Atom files and venv
+venv/bin/python main.py                         # run
+```
+
+## Contributing (change Atom itself)
 ```bash
 git clone https://github.com/atom36942/atom.git
 cd atom
 python3.14 -m venv venv
 venv/bin/pip install --upgrade pip
 venv/bin/pip install -r requirements.txt
-venv/bin/python -m script.check
+venv/bin/python -m script.check                 # must pass before a pull request
 ```
 
 Then open a pull request against `main`. Details: [tests/README.md](tests/README.md)
