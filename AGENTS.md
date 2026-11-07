@@ -97,3 +97,4 @@ Name files after the feature across folders: `router_extend/<f>.py`, `function_e
 ## Verify
 - `venv/bin/python -m script.check`: Atom's startup checks (config, duplicate `func_*`, secrets, imports; no connection opened, no server started), ruff, a syntax check of every page's JavaScript and every test in one run, the same command CI runs; a summary line, then only failures and skip reasons; a test name such as `tests_extend.test_invoice` runs just that. Start the app only to check database connections. Windows: `venv\Scripts\` instead of `venv/bin/`.
 - Database tests: a throwaway local database, dropped afterwards; never a shared or production one.
+- Keep tests light: the whole check runs in seconds. No heavy tests for a script's run (resume, retries, downloads, prompts, publishing, long runs): its bugs show in the terminal when it runs. Test only a rule whose mistake gives wrong data without an error (matching, classification, a filter's SQL).
