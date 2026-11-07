@@ -97,7 +97,6 @@ Runs the startup checks, ruff, the pages' JavaScript and the tests in `tests_ext
 ```bash
 git clone <repo-url>
 cd <project>
-# add .env                                      # never in Git; ask the project's owner
 python3 sync.py                                 # Atom files and venv
 venv/bin/python main.py                         # run
 ```
