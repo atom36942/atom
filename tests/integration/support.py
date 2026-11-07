@@ -1,6 +1,6 @@
 """Throwaway PostgreSQL databases for integration tests.
 
-Set ATOM_TEST_POSTGRES_URL (environment or .env) to a server where the user may CREATE DATABASE and
+Set ATOM_TEST_POSTGRES_URL to a server where the user may CREATE DATABASE and
 install extensions (postgis, pg_trgm, btree_gin). Each test class gets its own
 database, dropped afterwards. Atom's schema blocks TRUNCATE and user deletes, so
 tests get isolation by cloning a schema-initialised template database instead of
@@ -21,7 +21,7 @@ from tests.support import service_setting
 
 ADMIN_URL = service_setting("ATOM_TEST_POSTGRES_URL")
 REPO_ROOT = Path(__file__).resolve().parents[2]
-requires_postgres = unittest.skipUnless(ADMIN_URL, "set ATOM_TEST_POSTGRES_URL (environment or .env) to run PostgreSQL integration tests")
+requires_postgres = unittest.skipUnless(ADMIN_URL, "set ATOM_TEST_POSTGRES_URL to run PostgreSQL integration tests")
 
 
 def config_postgres():

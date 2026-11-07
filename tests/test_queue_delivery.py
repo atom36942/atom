@@ -86,7 +86,7 @@ class ConsumerProcess:
         for path in (self.done_file, self.slow_go, Path(f"{self.done_file}.started")): path.unlink(missing_ok=True)
 
 
-@unittest.skipUnless(REDIS_URL, "set ATOM_TEST_REDIS_URL (environment or .env) to run Redis tests")
+@unittest.skipUnless(REDIS_URL, "set ATOM_TEST_REDIS_URL to run Redis tests")
 class RedisDeliveryTests(unittest.TestCase):
     def setUp(self):
         import redis
@@ -193,7 +193,7 @@ class RedisDeliveryTests(unittest.TestCase):
         self.assertEqual(queued, [b'{"payload":{"job":1},"attempt":2}'])
 
 
-@unittest.skipUnless(RABBITMQ_URL, "set ATOM_TEST_RABBITMQ_URL (environment or .env) to run RabbitMQ tests")
+@unittest.skipUnless(RABBITMQ_URL, "set ATOM_TEST_RABBITMQ_URL to run RabbitMQ tests")
 class RabbitmqDeliveryTests(unittest.TestCase):
     def setUp(self):
         self.channel = f"atom_test_{secrets.token_hex(4)}"
@@ -254,7 +254,7 @@ class RabbitmqDeliveryTests(unittest.TestCase):
 
 
 
-@unittest.skipUnless(REDIS_URL, "set ATOM_TEST_REDIS_URL (environment or .env) to run Redis tests")
+@unittest.skipUnless(REDIS_URL, "set ATOM_TEST_REDIS_URL to run Redis tests")
 class CeleryWorkerTests(unittest.TestCase):
     """A real Celery worker, with Redis as its broker: it runs jobs at all (the prefork pool failed every task on Python 3.14), retries a failed one after 1 s and then keeps it."""
     def test_retry_then_failed_queue(self):

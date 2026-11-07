@@ -25,7 +25,7 @@ def pool_returning(row):
     return pool
 
 
-@unittest.skipUnless(REDIS_URL, "set ATOM_TEST_REDIS_URL (environment or .env) to run Redis tests")
+@unittest.skipUnless(REDIS_URL, "set ATOM_TEST_REDIS_URL to run Redis tests")
 class RedisCheckTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.redis = func_client_redis(url=REDIS_URL)

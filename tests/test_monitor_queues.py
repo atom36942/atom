@@ -9,7 +9,7 @@ from tests.support import service_setting
 REDIS_URL = service_setting("ATOM_TEST_REDIS_URL")
 
 
-@unittest.skipUnless(REDIS_URL, "set ATOM_TEST_REDIS_URL (environment or .env) to run Redis tests")
+@unittest.skipUnless(REDIS_URL, "set ATOM_TEST_REDIS_URL to run Redis tests")
 class MonitorQueuesTests(unittest.TestCase):
     def test_counts_per_channel_including_one_found_by_its_keys(self):
         import redis.asyncio as redis
