@@ -113,6 +113,17 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
             func_mssql_client_read(client_mssql_dict={"erp": erp}, name="master")
         self.assertEqual((caught.exception.status_code, str(caught.exception)), (404, "connection 'master' not found"))
 
+    def test_only_admin_picks_a_runner_connection(self):
+        # a project may open a query runner to other roles: they always get master, never its other logins
+        master, events = object(), object()
+        for read, key in ((func_clickhouse_client_read, "client_clickhouse_dict"), (func_mssql_client_read, "client_mssql_dict")):
+            with self.subTest(read.__name__):
+                clients = {key: {"master": master, "events": events}}
+                self.assertIs(read(**clients, name="events", user={"id": 1, "role": 1}), events)
+                self.assertIs(read(**clients, name="master", user={"id": 7, "role": 2}), master)
+                with self.assertRaises(Exception) as caught: read(**clients, name="events", user={"id": 7, "role": 2})
+                self.assertEqual(caught.exception.status_code, 403)
+
     def test_clickhouse_client_read_picks_by_name(self):
         master, events = object(), object()
         self.assertIs(func_clickhouse_client_read(client_clickhouse_dict={"master": master, "events": events}, name="events"), events)

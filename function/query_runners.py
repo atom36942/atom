@@ -154,8 +154,10 @@ async def func_postgres_query_generator_ai(*, client_postgres: asyncpg.Pool | No
     sql = func_postgres_query_ai_validate_sql(sql=data.get("sql"), default_limit=default_limit, max_limit=max_limit, cache_postgres_schema_ai=cache_postgres_schema_ai)
     return {"sql": sql, "message": "SQL generated in the editor. Review before Run or Export.", "warnings": data.get("warnings") or []}
 
-def func_mssql_client_read(*, client_mssql_dict: dict, name: str) -> Any:
-    """Return the named MSSQL pool; 404 for a name not in config_mssql_url_dict, None when none are configured."""
+def func_mssql_client_read(*, client_mssql_dict: dict, name: str, user: dict | None = None) -> Any:
+    """Return the named MSSQL pool; 404 for a name not in config_mssql_url_dict, None when none are configured.
+    With user (the caller), only role 1 may pick a connection other than master: a project that opens this admin route to other roles never hands them its other logins."""
+    if user is not None and name != "master" and user.get("role") != 1: raise func_api_error(message="only an admin can choose the connection", status_code=403)
     if client_mssql_dict and name not in client_mssql_dict: raise func_api_error(message=f"connection '{name}' not found", status_code=404)
     return client_mssql_dict.get(name)
 
@@ -294,8 +296,10 @@ async def func_postgres_query_runner_write(*, client_postgres: asyncpg.Pool | No
         result = await conn.execute(sql, timeout=15)
     return result
 
-def func_clickhouse_client_read(*, client_clickhouse_dict: dict, name: str) -> Any:
-    """Return the named ClickHouse client; 404 for a name not in config_clickhouse_url_dict, None when none are configured."""
+def func_clickhouse_client_read(*, client_clickhouse_dict: dict, name: str, user: dict | None = None) -> Any:
+    """Return the named ClickHouse client; 404 for a name not in config_clickhouse_url_dict, None when none are configured.
+    With user (the caller), only role 1 may pick a connection other than master: a project that opens this admin route to other roles never hands them its other logins."""
+    if user is not None and name != "master" and user.get("role") != 1: raise func_api_error(message="only an admin can choose the connection", status_code=403)
     if client_clickhouse_dict and name not in client_clickhouse_dict: raise func_api_error(message=f"connection '{name}' not found", status_code=404)
     return client_clickhouse_dict.get(name)
 
