@@ -103,6 +103,18 @@ class HttpRouteTests(unittest.TestCase):
         self.assertEqual([(r["title"], r["updated_by_id"]) for r in read["obj_list"]], [("edited", self.alice_id)])
         self.assertEqual(self.message(self.client.post("/my/object-delete", json={"table": "test", "ids": [row_id]}, headers=self.auth(self.alice))), "1 ids deleted")
 
+    def test_object_read_pages_after_the_last_id(self):
+        ids = self.message(self.client.post("/my/object-create", params={"table": "test"}, json={"obj_list": [{"title": f"page-{i}"} for i in range(5)]}, headers=self.auth(self.alice)))
+        read = lambda **params: self.message(self.client.get("/my/object-read", params={"table": "test", "filter": json.dumps(["title ilike page-%"]), "order": "id desc", "limit": 2, **params}, headers=self.auth(self.alice)))
+        seen, after = [], None
+        while True:
+            page = read(**({"after_id": after} if after else {}))
+            seen += [r["id"] for r in page["obj_list"]]
+            if not page["has_next_page"]: break
+            after = page["next_after_id"]
+        self.assertEqual(seen, sorted(ids, reverse=True))    # every row once, newest first, no OFFSET
+        self.assertEqual(self.message(self.client.get("/my/object-read", params={"table": "test", "order": "title asc", "after_id": 1}, headers=self.auth(self.alice)), 400), "after_id needs order id asc or id desc")
+
     def test_object_read_export_streams_only_the_callers_rows_as_csv(self):
         self.client.post("/my/object-create", params={"table": "test"}, json={"obj_list": [{"title": "alice-export-1"}, {"title": "=HYPERLINK(1)"}]}, headers=self.auth(self.alice))
         self.client.post("/my/object-create", params={"table": "test"}, json={"title": "bob-export"}, headers=self.auth(self.bob))

@@ -110,10 +110,15 @@ curl -G "$BASE_URL/my/object-read" \
 This returns the second page of tasks created by the logged-in user. If an order omits `id`, the reader adds `id desc` as a tie-breaker when the table has that column. `/my/object-read` returns:
 
 ```json
-{"status": 1, "message": {"obj_list": [], "has_more": false, "has_next_page": false}}
+{"status": 1, "message": {"obj_list": [], "has_more": false, "has_next_page": false, "next_after_id": null}}
 ```
 
-Increment `page` while `has_next_page` is true. These flags indicate another page, not a total count. Public and admin reads return `obj_list` and `has_next_page`; they do not currently include `has_more`.
+Every list read fetches one row more than `limit`: `has_next_page` says whether another page exists, never a total count (no `count(*)`, which gets slow as a table grows). Page one of two ways:
+
+- **After the last id (fastest, use it for growing tables):** order `id desc` (the default) or `id asc`, and send `after_id` = the previous page's `next_after_id` (the last row's id; `null` on the last page). Every page is an index range, as fast on page 1,000 as on page 1, and rows added meanwhile never repeat or shift. Another order with `after_id` is a 400.
+- **By page number:** `page=2, 3, …` while `has_next_page` is true, for any order. It skips rows with `OFFSET`, which Postgres still reads, so deep pages slow down; keep it for short lists or custom sorts.
+
+`/my`, `/private`, `/public` and `/admin` `object-read` all return `obj_list`, `has_next_page` and `next_after_id` (`/my` also `has_more`, the same as `has_next_page`).
 
 ### Filters: comparisons, text search, lists, ranges, and nulls
 
