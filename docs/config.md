@@ -197,7 +197,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_sql_read_limit_max` | Hard cap limit for object read page size (`10000`) |
 | `config_sql_read_relation_fetch_limit_max` | Maximum rows fetched per joined relation (`100`) |
 | `config_query_runner_read_limit` | Maximum row cap for admin SQL query runner (`5000`) |
-| `config_export_limit` | Maximum rows in a CSV export: the admin query-runner exports and `/my/object-read-export` (`50000`) |
+| `config_export_limit` | Maximum rows in any CSV export, Atom's and a project's: every export goes through `func_postgres_export`, `func_mssql_export` or `func_clickhouse_export`, which stop at this many rows (`1000000`, about what Excel opens). The one place to change it |
 | `config_redis_cache_ttl_sec` | TTL for Redis-cached role/user status lookups (`3600`) |
 | `config_users_delete_retention_day` | Retention grace period in days before soft-deleted users are purged (`30`) |
 
@@ -447,6 +447,7 @@ Assigned IDs are stored in `config_postgres["table"]["users"]` using this option
 | `api_list` | Paths of all registered routes |
 | `config_column_int_mapping` | `config_column_int_mapping` (formerly returned as `mapping`) |
 | `options` | `config_options` |
+| `export_limit` | `config_export_limit`: the most rows any CSV export sends, for a page to show ("Up to 1,000,000 rows") |
 
 Permission IDs are integers in Python, but JSON object keys are strings: clients read entries such as `message.config_column_int_mapping.users.permissions["1"]`. This public catalog describes available actions; it does not list the current user's assigned permissions.
 

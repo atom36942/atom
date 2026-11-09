@@ -4,7 +4,6 @@ from datetime import timedelta
 from datetime import UTC
 from fastapi import APIRouter
 from fastapi import Request
-from fastapi.responses import StreamingResponse
 
 # router
 router = APIRouter()
@@ -94,9 +93,9 @@ async def func_api_admin_object_read(*, request: Request):
 @router.get("/admin/object-read-export")
 async def func_api_admin_object_read_export(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "order", "type": "str", "default": "id desc"}, {"name": "column", "type": "str", "default": "*"}, {"name": "filter", "type": "list", "default": []}, {"name": "connection", "type": "str"}], strict=True, strict_types=True, reject_unknown=True)
-    generator = await app_state.func_postgres_read_export(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, table=oq["table"], filter=oq["filter"], order=oq["order"], column=oq["column"], export_limit=app_state.config_export_limit, config_column_read_blocked=app_state.config_column_read_blocked)
-    return StreamingResponse(generator, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{oq["table"]}.csv"'})
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "order", "type": "str", "default": "id desc"}, {"name": "column", "type": "str", "default": "*"}, {"name": "filter", "type": "list", "default": []}, {"name": "connection", "type": "str"}, {"name": "limit", "type": "int"}], strict=True, strict_types=True, reject_unknown=True)
+    generator = await app_state.func_postgres_read_export(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_export_limit=app_state.config_export_limit, table=oq["table"], filter=oq["filter"], order=oq["order"], column=oq["column"], config_column_read_blocked=app_state.config_column_read_blocked, limit=oq.get("limit"))
+    return app_state.func_csv_response(content=generator, filename=f'{oq["table"]}.csv')
 
 @router.get("/admin/table-column-groupby")
 async def func_api_admin_table_column_groupby(*, request: Request):
@@ -212,9 +211,9 @@ async def func_api_admin_postgres_query_runner_read(*, request: Request):
 @router.post("/admin/postgres-query-runner-read-export")
 async def func_api_admin_postgres_query_runner_read_export(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}])
-    generator = await app_state.func_postgres_query_runner_read_export(client_postgres=request.state.client_postgres, config_export_limit=app_state.config_export_limit, sql=ob["sql"])
-    return StreamingResponse(generator, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=postgres_query_result.csv"})
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}, {"name": "limit", "type": "int"}])
+    generator = await app_state.func_postgres_export(client_postgres=request.state.client_postgres, config_export_limit=app_state.config_export_limit, sql=ob["sql"], limit=ob.get("limit"))
+    return app_state.func_csv_response(content=generator, filename="postgres_query_result.csv")
 
 @router.post("/admin/postgres-query-generator-ai")
 async def func_api_admin_postgres_query_ai(*, request: Request):
@@ -240,9 +239,9 @@ async def func_api_admin_mssql_query_runner_read(*, request: Request):
 @router.post("/admin/mssql-query-runner-read-export")
 async def func_api_admin_mssql_query_runner_read_export(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}, {"name": "connection", "type": "str", "default": "master"}])
-    generator = await app_state.func_mssql_query_runner_read_export(client_mssql=app_state.func_mssql_client_read(client_mssql_dict=app_state.client_mssql_dict, name=ob["connection"], user=request.state.user), config_export_limit=app_state.config_export_limit, sql=ob["sql"])
-    return StreamingResponse(generator, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=mssql_query_runner_read_export.csv"})
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}, {"name": "connection", "type": "str", "default": "master"}, {"name": "limit", "type": "int"}])
+    generator = await app_state.func_mssql_export(client_mssql=app_state.func_mssql_client_read(client_mssql_dict=app_state.client_mssql_dict, name=ob["connection"], user=request.state.user), config_export_limit=app_state.config_export_limit, sql=ob["sql"], limit=ob.get("limit"))
+    return app_state.func_csv_response(content=generator, filename="mssql_query_runner_read_export.csv")
 
 @router.post("/admin/clickhouse-query-runner-write")
 async def func_api_admin_clickhouse_query_runner_write(*, request: Request):
@@ -261,9 +260,9 @@ async def func_api_admin_clickhouse_query_runner_read(*, request: Request):
 @router.post("/admin/clickhouse-query-runner-read-export")
 async def func_api_admin_clickhouse_query_runner_read_export(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}, {"name": "connection", "type": "str", "default": "master"}])
-    generator = await app_state.func_clickhouse_query_runner_read_export(client_clickhouse=app_state.func_clickhouse_client_read(client_clickhouse_dict=app_state.client_clickhouse_dict, name=ob["connection"], user=request.state.user), config_export_limit=app_state.config_export_limit, sql=ob["sql"])
-    return StreamingResponse(generator, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=clickhouse_query_runner_read_export.csv"})
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "sql", "type": "str", "required": True}, {"name": "connection", "type": "str", "default": "master"}, {"name": "limit", "type": "int"}])
+    generator = await app_state.func_clickhouse_export(client_clickhouse=app_state.func_clickhouse_client_read(client_clickhouse_dict=app_state.client_clickhouse_dict, name=ob["connection"], user=request.state.user), config_export_limit=app_state.config_export_limit, sql=ob["sql"], limit=ob.get("limit"))
+    return app_state.func_csv_response(content=generator, filename="clickhouse_query_runner_read_export.csv")
 
 @router.post("/admin/clickhouse-query-generator-ai")
 async def func_api_admin_clickhouse_query_generator_ai(*, request: Request):

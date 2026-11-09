@@ -46,6 +46,7 @@ async def func_api_index_info(*, request:Request):
             "api_list": [route.path for route in app_state.func_app_route_list(app=request.app) if hasattr(route, "path")],
             "config_column_int_mapping": app_state.config_column_int_mapping,
             "options": app_state.config_options,
+            "export_limit": app_state.config_export_limit,
         }
     }
 

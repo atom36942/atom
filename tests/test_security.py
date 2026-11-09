@@ -15,10 +15,10 @@ from starlette.datastructures import QueryParams
 from starlette.requests import Request
 from function import func_postgres_query_runner_read
 from function import func_mssql_query_runner_read
-from function import func_mssql_query_runner_read_export
+from function import func_mssql_export
 from function import func_mssql_client_read
 from function import func_clickhouse_query_runner_read
-from function import func_clickhouse_query_runner_read_export
+from function import func_clickhouse_export
 from function import func_clickhouse_client_read
 from function import func_postgres_relation
 from function import func_blob_upload_file
@@ -32,6 +32,19 @@ from function import func_middleware_security_headers
 from function import func_middleware_log_api_write
 from function import func_request_param_read
 from tests.support import database
+
+
+def clickhouse_stream(columns, blocks):
+    """A stand-in for clickhouse_connect's row-block StreamContext: async context, async blocks, source.column_names."""
+    class Stream:
+        source = SimpleNamespace(column_names=columns)
+        async def __aenter__(self): return self
+        async def __aexit__(self, *exc): return False
+        def __aiter__(self):
+            async def gen():
+                for block in blocks: yield block
+            return gen()
+    return Stream()
 
 
 class SecurityTests(unittest.IsolatedAsyncioTestCase):
@@ -88,7 +101,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
                     "SELECT 1 REVOKE SELECT TO public", "SELECT 1 DENY SELECT TO public",
                     "SELECT 1; WAITFOR DELAY '00:01:00'", "SELECT * FROM OPENROWSET('provider','secret','query')"):
             for runner, limit in ((func_mssql_query_runner_read, "config_query_runner_read_limit"),
-                                  (func_mssql_query_runner_read_export, "config_export_limit")):
+                                  (func_mssql_export, "config_export_limit")):
                 with self.subTest(sql=sql, runner=runner.__name__), self.assertRaisesRegex(Exception, "Only one read SQL statement is allowed|read mode restricted"):
                     await runner(client_mssql=client, sql=sql, **{limit: 10})
         client.acquire.assert_not_called()
@@ -138,13 +151,10 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await func_clickhouse_query_runner_read(client_clickhouse=client,
                          config_query_runner_read_limit=10, sql="SELECT id FROM product"), [{"id": 1}])
         self.assertEqual(client.query.await_args.kwargs["settings"], {"readonly": 1, "max_execution_time": 30})
-        stream = MagicMock()
-        stream.__aiter__.return_value = [b"id\n1\n"]
-        client.raw_stream = AsyncMock(return_value=stream)
-        output = await func_clickhouse_query_runner_read_export(client_clickhouse=client,
-                        config_export_limit=20, sql="SELECT id FROM product")
-        self.assertEqual([chunk async for chunk in output], [b"id\n1\n"])
-        self.assertEqual(client.raw_stream.await_args.kwargs["settings"], {"readonly": 1, "max_execution_time": 30})
+        client.query_row_block_stream = AsyncMock(return_value=clickhouse_stream(["id"], [[(1,)]]))
+        output = await func_clickhouse_export(client_clickhouse=client, config_export_limit=20, sql="SELECT id FROM product")
+        self.assertEqual("".join([chunk async for chunk in output]), "\ufeffid\r\n1\r\n")
+        self.assertEqual(client.query_row_block_stream.await_args.kwargs["settings"], {"readonly": 1, "max_execution_time": 30})
 
     async def test_clickhouse_read_and_export_preserve_server_readonly_profiles(self):
         for readonly in ("1", "2"):
@@ -157,14 +167,11 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(rows, [{"uptime()": 42}])
                 self.assertEqual(client.query.await_args.kwargs["settings"], {"max_execution_time": 30})
                 self.assertIn("LIMIT 10", client.query.await_args.args[0])
-                stream = MagicMock()
-                stream.__aiter__.return_value = [b"uptime()\n42\n"]
-                client.raw_stream = AsyncMock(return_value=stream)
-                output = await func_clickhouse_query_runner_read_export(client_clickhouse=client,
-                    config_export_limit=20, sql="SELECT uptime();")
-                self.assertEqual([chunk async for chunk in output], [b"uptime()\n42\n"])
-                self.assertEqual(client.raw_stream.await_args.kwargs["settings"], {"max_execution_time": 30})
-                self.assertIn("LIMIT 20", client.raw_stream.await_args.args[0])
+                client.query_row_block_stream = AsyncMock(return_value=clickhouse_stream(["uptime()"], [[(42,)]]))
+                output = await func_clickhouse_export(client_clickhouse=client, config_export_limit=20, sql="SELECT uptime();")
+                self.assertEqual("".join([chunk async for chunk in output]), "\ufeffuptime()\r\n42\r\n")
+                self.assertEqual(client.query_row_block_stream.await_args.kwargs["settings"], {"max_execution_time": 30})
+                self.assertIn("LIMIT 20", client.query_row_block_stream.await_args.args[0])
 
     async def test_relations_cannot_join_on_secrets_or_bypass_wildcard_block(self):
         client = MagicMock()

@@ -120,7 +120,8 @@ class HttpRouteTests(unittest.TestCase):
     def test_object_read_export_rejects_bad_input_before_streaming(self):
         self.assertEqual(self.client.get("/my/object-read-export", params={"table": "test"}).status_code, 401)
         self.assertEqual(self.message(self.client.get("/my/object-read-export", params={"table": "users"}, headers=self.auth(self.alice)), 400), "read disabled for table: users")
-        self.assertEqual(self.message(self.client.get("/my/object-read-export", params={"table": "test", "limit": 5}, headers=self.auth(self.alice)), 400), "request contains unknown parameters")
+        self.assertEqual(self.message(self.client.get("/my/object-read-export", params={"table": "test", "page": 2}, headers=self.auth(self.alice)), 400), "request contains unknown parameters")
+        self.assertEqual(self.message(self.client.get("/my/object-read-export", params={"table": "test", "limit": 0}, headers=self.auth(self.alice)), 400), "Rows must be between 1 and 1,000,000.")
         self.assertEqual(self.client.get("/my/object-read-export", params={"table": "test", "column": "password"}, headers=self.auth(self.alice)).status_code, 400)
 
     def test_public_private_admin_exports_follow_their_read_rules(self):
@@ -210,7 +211,7 @@ class HttpRouteTests(unittest.TestCase):
         self.assertEqual(self.message(self.client.post("/admin/postgres-query-runner-read", json={"sql": "DELETE FROM test"}, headers=self.auth(self.admin)), 400), "Only SELECT/WITH queries are supported")
         export = self.client.post("/admin/postgres-query-runner-read-export", json={"sql": "SELECT username FROM users WHERE username IN ('alice', 'bob') ORDER BY username"}, headers=self.auth(self.admin))
         self.assertEqual((export.status_code, export.headers["content-type"].split(";")[0]), (200, "text/csv"))
-        self.assertEqual(export.text.split(), ["username", "alice", "bob"])
+        self.assertEqual(export.text.lstrip("\ufeff").split(), ["username", "alice", "bob"])
         self.message(self.client.post("/public/object-create", params={"table": "test"}, json={"title": "runner target"}))
         self.assertEqual(self.message(self.client.post("/admin/postgres-query-runner-write", json={"sql": "UPDATE test SET title = 'runner wrote' WHERE title = 'runner target'"}, headers=self.auth(self.admin))), "UPDATE 1")
 

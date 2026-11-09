@@ -1,5 +1,8 @@
 """Real SQL against a throwaway PostgreSQL database built by Atom's own schema init."""
 import asyncio
+import csv
+import io
+import time
 import unittest
 from types import SimpleNamespace
 
@@ -14,7 +17,9 @@ from function import func_otp_save
 from function import func_otp_verify
 from function import func_postgres_create
 from function import func_postgres_delete
+from function import func_postgres_export
 from function import func_postgres_read
+from function import func_postgres_read_export
 from function import func_postgres_schema_init
 from function import func_postgres_schema_ai_view
 from function import func_postgres_schema_read
@@ -126,6 +131,39 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await self.seed_tests()
         self.assertEqual(await self.titles(order="title desc", limit=1, page=1), ["gamma", "beta"])
         self.assertEqual(await self.titles(order="title desc", limit=1, page=3), ["alpha"])
+
+    async def csv_lines(self, generator):
+        body = "".join([chunk async for chunk in generator])
+        self.assertTrue(body.startswith("\ufeff"))
+        return list(csv.reader(io.StringIO(body[1:])))
+
+    async def test_export_streams_any_query_in_order_up_to_the_limit(self):
+        sql = "SELECT g AS id, 'n' || g AS name FROM generate_series(1, $1) g ORDER BY g DESC"
+        lines = await self.csv_lines(await func_postgres_export(client_postgres=self.pool, config_export_limit=2100, sql=sql, values=[2500]))
+        self.assertEqual((lines[0], lines[1], len(lines) - 1), (["id", "name"], ["2500", "n2500"], 2100))
+        labelled = await func_postgres_export(client_postgres=self.pool, config_export_limit=10, sql=sql, values=[3], columns=["Task", "Label"], row=lambda r: [r["id"], r["name"].upper()])
+        self.assertEqual(await self.csv_lines(labelled), [["Task", "Label"], ["3", "N3"], ["2", "N2"], ["1", "N1"]])
+        fewer = await func_postgres_export(client_postgres=self.pool, config_export_limit=2100, sql=sql, values=[2500], limit=7)
+        self.assertEqual(len(await self.csv_lines(fewer)) - 1, 7)
+        with self.assertRaises(asyncpg.PostgresError):    # a bad query fails before the download starts
+            await func_postgres_export(client_postgres=self.pool, config_export_limit=10, sql="SELECT missing FROM test")
+        with self.assertRaises(asyncpg.PostgresError):    # read-only: a write inside the query is refused
+            await self.csv_lines(await func_postgres_export(client_postgres=self.pool, config_export_limit=10, sql="WITH x AS (INSERT INTO test (title) VALUES ('w') RETURNING id) SELECT * FROM x"))
+
+    async def test_export_of_a_million_rows_streams_fast(self):
+        start = time.perf_counter()
+        generator = await func_postgres_export(client_postgres=self.pool, config_export_limit=1000000, sql="SELECT g AS id, md5(g::text) AS name FROM generate_series(1, 2000000) g ORDER BY g")
+        rows = sum(chunk.count("\n") for chunk in [chunk async for chunk in generator]) - 1
+        self.assertEqual(rows, 1000000)
+        self.assertLess(time.perf_counter() - start, 30)
+
+    async def test_table_export_keeps_read_rules_in_any_order(self):
+        await self.seed_tests()
+        lines = await self.csv_lines(await func_postgres_read_export(client_postgres=self.pool, client_password_hasher=HASHER, cache_postgres_schema=self.schema, config_export_limit=10, table="test", filter=["status != null"], order="title desc", column="id,title", config_column_read_blocked=["password"]))
+        self.assertEqual([line[1] for line in lines], ["title", "beta", "alpha"])
+        lines = await self.csv_lines(await func_postgres_read_export(client_postgres=self.pool, client_password_hasher=HASHER, cache_postgres_schema=self.schema, config_export_limit=10, table="users", filter=[], order="id asc", column="*", config_column_read_blocked=["password"]))
+        self.assertNotIn("password", lines[0])
+        self.assertEqual(lines[1][lines[0].index("username")], "admin")
 
     async def test_update_and_delete_respect_ownership(self):
         alpha_id, beta_id, gamma_id = await self.seed_tests()

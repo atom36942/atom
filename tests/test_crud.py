@@ -11,7 +11,8 @@ import orjson
 from function import func_csv_cell
 from function import func_postgres_create
 from function import func_postgres_read
-from function import func_postgres_read_export
+from function import func_csv_stream
+from function import func_export_limit
 from function import func_postgres_update
 from function import func_postgres_delete
 from function import func_postgres_where_build
@@ -153,39 +154,21 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
             for path in (root / folder).glob("*.py"):
                 self.assertNotIn("is_trusted", path.read_text(), f"{path.name}: request data must never skip validation")
 
-    async def export(self, rows, **changes):
-        pages = []
-        async def fake_read(**kwargs):
-            pages.append(kwargs["page"] if kwargs.get("after_id") is None else f"after {kwargs['after_id']}")
-            start = (kwargs["page"] - 1) * kwargs["limit"] if kwargs.get("after_id") is None else [row["id"] for row in rows].index(kwargs["after_id"]) + 1
-            return rows[start:start + kwargs["limit"] + 1]
-        with patch("function.postgres_export.func_postgres_read", side_effect=fake_read):
-            generator = await func_postgres_read_export(**(dict(client_postgres=self.pool, client_password_hasher=None, cache_postgres_schema=self.schema, config_sql_read_limit_max=10000, table="product", filter=[], order="id desc", column="*", export_limit=50000) | changes))
-            body = "".join([chunk async for chunk in generator])
-        return list(csv.reader(io.StringIO(body))), pages
+    async def test_csv_stream_writes_bom_header_and_relabelled_rows_in_chunks(self):
+        async def rows():
+            for i in range(10000): yield (i, f"=n{i}")
+        chunks = [chunk async for chunk in func_csv_stream(rows=rows(), columns=["Id", "Name"], row=lambda record: [record[0] * 10, record[1]])]
+        self.assertTrue(chunks[0].startswith("\ufeffId,Name"))
+        self.assertGreater(len(chunks), 2, "sent in pieces, not one string")
+        lines = list(csv.reader(io.StringIO("".join(chunks)[1:])))
+        self.assertEqual((lines[1], lines[-1], len(lines)), (["0", "'=n0"], ["99990", "'=n9999"], 10001))
 
-    async def test_export_reads_in_batches_and_stops_at_the_limit(self):
-        rows = [{"id": i, "name": f"n{i}"} for i in range(2500)]
-        lines, pages = await self.export(rows, export_limit=2100)
-        self.assertEqual(lines[0], ["id", "name"])
-        self.assertEqual(len(lines) - 1, 2100)
-        self.assertEqual(pages, [1, "after 999", "after 1999"])
-        lines, pages = await self.export(rows)
-        self.assertEqual((len(lines) - 1, pages), (2500, [1, "after 999", "after 1999"]))
-        self.assertEqual([int(line[0]) for line in lines[1:]], list(range(2500)), "every row once, in order")
-
-    async def test_export_skips_pages_by_offset_only_when_it_cannot_continue_after_an_id(self):
-        rows = [{"id": i, "name": f"n{i}"} for i in range(2500)]
-        for changes in ({"order": "name asc"}, {"order": "id desc, name asc"}, {"column": "name"}):
-            with self.subTest(changes=changes):
-                lines, pages = await self.export([{"name": row["name"]} for row in rows] if "column" in changes else rows, **changes)
-                self.assertEqual((len(lines) - 1, pages), (2500, [1, 2, 3]))
-
-    async def test_export_without_rows_still_writes_a_header_without_blocked_columns(self):
-        lines, _ = await self.export([])
-        self.assertEqual(lines, [["id", "name", "created_by_id"]])
-        lines, _ = await self.export([], column="id, name")
-        self.assertEqual(lines, [["id", "name"]])
+    def test_export_limit_is_the_users_choice_up_to_the_setting(self):
+        self.assertEqual(func_export_limit(config_export_limit=1000000, limit=None), 1000000)
+        self.assertEqual(func_export_limit(config_export_limit=1000000, limit=500), 500)
+        for limit in (0, 1000001):
+            with self.subTest(limit=limit), self.assertRaises(Exception) as caught: func_export_limit(config_export_limit=1000000, limit=limit)
+            self.assertEqual((caught.exception.status_code, str(caught.exception)), (400, "Rows must be between 1 and 1,000,000."))
 
     def test_csv_cells_are_readable_and_formula_safe(self):
         self.assertEqual([func_csv_cell(v) for v in (None, 5, -5, "plain", "-1+1", "=SUM(A1)", "@x", {"a": 1}, [1, 2], date(2026, 1, 2))],

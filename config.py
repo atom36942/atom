@@ -106,7 +106,7 @@ config_mssql_pool_recycle_sec = 1800
 
 # query
 config_query_runner_read_limit = 5000
-config_export_limit = 50000
+config_export_limit = 1000000
 
 # blob
 config_blob_limit_size_kb = 500

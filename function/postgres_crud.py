@@ -139,15 +139,11 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
         async with client_postgres.acquire() as conn:
             return await _execute_now(conn)
 
-async def func_postgres_read(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list, config_column_read_blocked: list = None, blocked_tables: list = None, after_id: Any = None) -> list:
-    """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching. after_id (order id asc or id desc only) reads the rows after that id instead of skipping pages with OFFSET."""
-    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
+async def func_postgres_read_sql(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, table: str, filter: list, order: str, column: str, config_column_read_blocked: list = None, after_id: Any = None) -> tuple:
+    """The SELECT behind func_postgres_read and func_postgres_read_export, without LIMIT or OFFSET: (sql, values), the table, columns, filters and order checked; values bound as $1, $2."""
     blocked_cols = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
     if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
-    if limit < 1: raise Exception("query limit must be greater than 0")
-    if page < 1: raise Exception("query page must be greater than 0")
-    if config_sql_read_limit_max and limit > config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {config_sql_read_limit_max}")
     order = str(order or "").strip() or "id desc"
     order_list = []
     for part in order.split(","):
@@ -179,10 +175,19 @@ async def func_postgres_read(*, client_postgres: asyncpg.Pool | None, client_pas
         keyset = f'"id" {">" if order_list[0].endswith("ASC") else "<"} ${len(values) + 1}'
         where_statement = f"WHERE ({where_statement[len('WHERE '):]}) AND {keyset}" if where_statement else f"WHERE {keyset}"
         values.append(after_id)
-    fetch_limit = limit + 1
+    return f'SELECT {column_list} FROM "{table}" {where_statement} ORDER BY {order_clause}', values  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
+
+async def func_postgres_read(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list, config_column_read_blocked: list = None, blocked_tables: list = None, after_id: Any = None) -> list:
+    """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching. after_id (order id asc or id desc only) reads the rows after that id instead of skipping pages with OFFSET."""
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
+    blocked_cols = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
+    if limit < 1: raise Exception("query limit must be greater than 0")
+    if page < 1: raise Exception("query page must be greater than 0")
+    if config_sql_read_limit_max and limit > config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {config_sql_read_limit_max}")
+    sql, values = await func_postgres_read_sql(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter, order=order, column=column, config_column_read_blocked=config_column_read_blocked, after_id=after_id)
     bind_idx = len(values) + 1
-    sql_select = f'SELECT {column_list} FROM "{table}" {where_statement} ORDER BY {order_clause} LIMIT ${bind_idx} OFFSET ${bind_idx+1}'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
-    values.extend([fetch_limit, (page - 1) * limit])
+    sql_select = f"{sql} LIMIT ${bind_idx} OFFSET ${bind_idx+1}"
+    values.extend([limit + 1, (page - 1) * limit])
     async with client_postgres.acquire() as conn:
         records = await conn.fetch(sql_select, *values)
         result_list = [dict(r) for r in records]

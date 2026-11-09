@@ -2,7 +2,6 @@
 from fastapi import APIRouter
 from fastapi import Request
 from fastapi import WebSocket
-from fastapi.responses import StreamingResponse
 
 # router
 router = APIRouter()
@@ -86,12 +85,12 @@ async def func_api_my_object_read(*, request: Request):
 @router.get("/my/object-read-export")
 async def func_api_my_object_read_export(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "ownership_column", "type": "str", "allowed": app_state.config_column_ownership_read, "default": "created_by_id"}, {"name": "order", "type": "str", "default": "id desc"}, {"name": "column", "type": "str", "default": "*"}, {"name": "filter", "type": "list", "default": []}, {"name": "connection", "type": "str"}], strict=True, strict_types=True, reject_unknown=True)
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "ownership_column", "type": "str", "allowed": app_state.config_column_ownership_read, "default": "created_by_id"}, {"name": "order", "type": "str", "default": "id desc"}, {"name": "column", "type": "str", "default": "*"}, {"name": "filter", "type": "list", "default": []}, {"name": "connection", "type": "str"}, {"name": "limit", "type": "int"}], strict=True, strict_types=True, reject_unknown=True)
     app_state.func_check_table_permission(app_state=app_state, table=oq["table"], relation=[], scope="my", action="read")
     app_state.func_check_table_column_exists(app_state=app_state, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], column=oq["ownership_column"], purpose="ownership tracking")
     filters = oq["filter"] + [f"""{oq["ownership_column"]} = {request.state.user["id"]}"""]
-    generator = await app_state.func_postgres_read_export(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_sql_read_limit_max=app_state.config_sql_read_limit_max, table=oq["table"], filter=filters, order=oq["order"], column=oq["column"], export_limit=app_state.config_export_limit, config_column_read_blocked=app_state.config_column_read_blocked, blocked_tables=app_state.config_table_my_read_blocked)
-    return StreamingResponse(generator, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{oq["table"]}.csv"'})
+    generator = await app_state.func_postgres_read_export(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_export_limit=app_state.config_export_limit, table=oq["table"], filter=filters, order=oq["order"], column=oq["column"], config_column_read_blocked=app_state.config_column_read_blocked, limit=oq.get("limit"))
+    return app_state.func_csv_response(content=generator, filename=f'{oq["table"]}.csv')
 
 @router.put("/my/object-update")
 async def func_api_my_object_update(*, request: Request):
