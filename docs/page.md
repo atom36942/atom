@@ -1,6 +1,6 @@
 # Pages
 
-Patterns that work well for an app page on Atom (`static_extend/<app>/`). They are recommendations, not rules: follow them unless a page has a reason not to. The firm rules (where code goes, storage keys, token refresh, speed) are in [AGENTS.md](../AGENTS.md); this page shows how they fit together.
+Patterns that work well for an app page on Atom (`static_extend/<app>/`). They are Atom's defaults, already weighed: use them as written and differ only for a real reason (say why in the project's docs), so no page re-decides them. The page and its files are the project's own; Atom provides the backend they call. The firm rules (where code goes, storage keys, token refresh, speed) are in [AGENTS.md](../AGENTS.md); this page shows how they fit together.
 
 ## Structure
 - One page per app: `index.html`, `css/<app>.css`, `js/app.js`, plus small shared helpers (a Sync dialog, a download helper) kept as their own files and copied unchanged between apps, so every app behaves the same. Plain HTML, CSS and JS work well; a framework or bundler is the project's choice.
