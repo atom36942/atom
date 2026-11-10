@@ -131,12 +131,16 @@ def middleware(asgi_app):
         if scope["type"] != "http" or scope["method"] == "OPTIONS": return await asgi_app(scope, receive, send)
         app_state = scope["app"].state
         receive = app_state.func_middleware_body_limit(scope=scope, receive=receive, config_request_body_max_kb=app_state.config_request_body_max_kb, config_request_form_max_kb=app_state.config_request_form_max_kb)
+        api_cfg = app_state.func_middleware_api_config(config_api=app_state.config_api, path=scope["path"], cache_config_api_template=app_state.cache_config_api_template)
+        # api log: config_api routes (is_log_api: False skips one, e.g. /pgweb); other paths (static files, favicon, 404s) only with config_is_log_api_all; config_is_log_api_detail adds headers and JSON bodies
+        is_log_api = api_cfg.get("is_log_api", True) if api_cfg else app_state.config_is_log_api_all
+        receive, detail = app_state.func_middleware_log_detail_start(scope=scope, receive=receive, config_log_api_detail_max_kb=app_state.config_log_api_detail_max_kb) if is_log_api and app_state.config_is_log_api_detail else (receive, None)
         request = Request(scope, receive)
         start, error, response_type, request.state.user = time.perf_counter(), None, "direct_no_cache_set", {}
         request.state.request_id = app_state.func_middleware_request_id(headers=request.headers)
         sent, capture = {"status": None, "is_started": False}, None
-        api_cfg = app_state.func_middleware_api_config(config_api=app_state.config_api, path=scope["path"], cache_config_api_template=app_state.cache_config_api_template)
         async def send_wrapped(message):
+            if detail is not None: app_state.func_middleware_log_detail_send(message=message, detail=detail)
             if message["type"] == "http.response.start":
                 sent["status"], sent["is_started"] = message["status"], True
                 message["headers"] = [*app_state.func_middleware_security_headers(headers=message.get("headers", [])), (b"x-request-id", request.state.request_id.encode())]
@@ -193,8 +197,8 @@ def middleware(asgi_app):
             if not sent["is_started"]: await response(scope, receive, send_wrapped)
         # form close (a background request closes its own when the task ends)
         if response_type != "background_added": await app_state.func_request_form_close(request=request)
-        # api log buffer, written after the response was sent: config_api routes (is_log_api: False skips one, e.g. /pgweb); other paths (static files, favicon, 404s) only with config_is_log_api_all
-        if api_cfg.get("is_log_api", True) if api_cfg else app_state.config_is_log_api_all: await app_state.func_middleware_log_api_write(app_state=app_state, request=request, response_type=response_type, status_code=sent["status"], start=start, error=error)
+        # api log buffer, written after the response was sent
+        if is_log_api: await app_state.func_middleware_log_api_write(app_state=app_state, request=request, response_type=response_type, status_code=sent["status"], start=start, error=error, detail=detail)
     return run
 app.add_middleware(middleware)
 

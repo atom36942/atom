@@ -90,6 +90,8 @@ config_postgres_pool_max_size = 10
 config_postgres_query_timeout_sec = 0    # longest a single Postgres query may run, in seconds, then it is cancelled; 0 means no limit
 config_is_log_api = True
 config_is_log_api_all = False
+config_is_log_api_detail = False
+config_log_api_detail_max_kb = 64
 config_postgres_db_log_api = "master"
 config_log_api_retention_day = 7
 config_buffer_limit_default = 100
@@ -323,7 +325,10 @@ config_postgres = {
 {"name":"status_code","datatype":"smallint","index":"btree(status_code)"},
 {"name":"response_time_ms","datatype":"integer"},
 {"name":"error","datatype":"text"},
-{"name":"request_id","datatype":"text"}
+{"name":"request_id","datatype":"text"},
+{"name":"request_header","datatype":"jsonb"},
+{"name":"request_body","datatype":"text"},
+{"name":"response_body","datatype":"text"}
 ],
 "log_users_password":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},

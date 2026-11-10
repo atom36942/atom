@@ -405,6 +405,54 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
         sentry_sdk.capture_exception(exception, tags={"request_id": request_id} if request_id else None)
     return error_msg, responses.JSONResponse(status_code=status_code, content={"status": 0, "message": error_msg})
 
+LOG_DETAIL_SECRET = re.compile(r"password|passwd|secret|token|authorization|cookie|credential|api.?key|access.?key|signature|(?:^|[_-])(?:otp|sig)(?:$|[_-])", re.IGNORECASE)
+LOG_DETAIL_JSON_FIELD = re.compile(r'("((?:[^"\\]|\\.)*)"\s*:\s*)("(?:[^"\\]|\\.)*"|-?\d[\d.eE+-]*)')
+
+def func_middleware_log_detail_is_json(*, content_type: str) -> bool:
+    """A JSON body by its Content-Type (RFC 9110 8.3): application/json (RFC 8259) or a +json type (RFC 6839)."""
+    media_type = content_type.split(";")[0].strip().lower()
+    return media_type == "application/json" or media_type.endswith("+json")
+
+def func_middleware_log_detail_start(*, scope: dict, receive: Any, config_log_api_detail_max_kb: int) -> tuple:
+    """For config_is_log_api_detail: wrap receive so a JSON request body is copied (up to config_log_api_detail_max_kb) as the route reads it; returns (receive, detail)."""
+    headers = dict(scope.get("headers") or [])
+    detail = {"max_bytes": config_log_api_detail_max_kb * 1024, "request_type": headers.get(b"content-type", b"").decode("latin-1"), "request": bytearray(), "request_size": 0, "response_type": "", "response": bytearray(), "response_size": 0, "is_response_json": False}
+    is_request_json = func_middleware_log_detail_is_json(content_type=detail["request_type"])
+    async def receive_copied():
+        message = await receive()
+        if message["type"] == "http.request":
+            body = message.get("body", b"")
+            detail["request_size"] += len(body)
+            if is_request_json and len(detail["request"]) < detail["max_bytes"]: detail["request"] += body[:detail["max_bytes"] - len(detail["request"])]
+        return message
+    return receive_copied, detail
+
+def func_middleware_log_detail_send(*, message: dict, detail: dict) -> None:
+    """For config_is_log_api_detail: copy a JSON response body (up to the limit) as it is sent; other types (CSV exports, files) and already-compressed bodies are not copied."""
+    if message["type"] == "http.response.start":
+        headers = {key.lower(): value for key, value in message.get("headers", [])}
+        detail["response_type"] = headers.get(b"content-type", b"").decode("latin-1")
+        detail["is_response_json"] = func_middleware_log_detail_is_json(content_type=detail["response_type"]) and b"content-encoding" not in headers
+    elif message["type"] == "http.response.body":
+        body = message.get("body", b"")
+        detail["response_size"] += len(body)
+        if detail["is_response_json"] and len(detail["response"]) < detail["max_bytes"]: detail["response"] += body[:detail["max_bytes"] - len(detail["response"])]
+    return
+
+def func_middleware_log_detail_body(*, body: bytearray, size: int, content_type: str, is_json: bool, max_bytes: int) -> str | None:
+    """One body for log_api: JSON as text with secret fields masked, cut at the limit with a note; any other type only named; None when empty."""
+    if not size: return None
+    if not is_json: return f"[skipped: {content_type.split(';')[0].strip() or 'no content-type'}, {size} bytes]"
+    text = LOG_DETAIL_JSON_FIELD.sub(lambda m: f'{m.group(1)}"[REDACTED]"' if LOG_DETAIL_SECRET.search(m.group(2)) else m.group(0), bytes(body).decode("utf-8", errors="replace"))
+    return text if size <= max_bytes else f"{text}…[cut at {max_bytes // 1024} KB of {size} bytes]"
+
+def func_middleware_log_detail_row(*, request: Request, detail: dict) -> dict:
+    """The detail columns of one log_api row: the full query string and request headers (only secrets masked), the request and response bodies."""
+    query_param = urlencode([(key, "[REDACTED]" if LOG_DETAIL_SECRET.search(key) else value) for key, value in request.query_params.multi_items()])
+    header = {}
+    for key, value in request.headers.items(): header[key] = "[REDACTED]" if LOG_DETAIL_SECRET.search(key) else (f"{header[key]}, {value}" if key in header else value)
+    return {"query_param": query_param, "request_header": header, "request_body": func_middleware_log_detail_body(body=detail["request"], size=detail["request_size"], content_type=detail["request_type"], is_json=func_middleware_log_detail_is_json(content_type=detail["request_type"]), max_bytes=detail["max_bytes"]), "response_body": func_middleware_log_detail_body(body=detail["response"], size=detail["response_size"], content_type=detail["response_type"], is_json=detail["is_response_json"], max_bytes=detail["max_bytes"])}
+
 def func_middleware_api_template_read(*, config_api: dict) -> list:
     """config_api routes with path parameters (/page/{name}) as (compiled pattern, route), built once at startup for func_middleware_api_config."""
     return [(compile_path(route)[0], route) for route in config_api if "{" in route]
@@ -417,10 +465,10 @@ def func_middleware_api_config(*, config_api: dict, path: str, cache_config_api_
         if pattern.match(path): return config_api[route]
     return {}
 
-async def func_middleware_log_api_write(*, app_state: Any, request: Request, response_type: str, status_code: int | None, start: float, error: str | None) -> None:
+async def func_middleware_log_api_write(*, app_state: Any, request: Request, response_type: str, status_code: int | None, start: float, error: str | None, detail: dict | None = None) -> None:
     """Buffer one log_api row for a finished request; skipped when read-only or no log_api database, and write errors are counted, never raised."""
     if app_state.config_is_read_only or not getattr(app_state, "client_postgres_log_api", None): return
-    try: await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(app_state.config_postgres_db_log_api, {}), buffer_postgres=app_state.buffer_postgres_log_api, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="drop_oldest", runtime_error_count=app_state.runtime_error_count, is_trusted=True, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": func_middleware_client_ip(request=request), "path": request.scope["path"], "method": request.method, "query_param": func_middleware_log_query_params(query_params=request.query_params), "status_code": status_code, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error, "request_id": getattr(request.state, "request_id", None)}])
+    try: await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(app_state.config_postgres_db_log_api, {}), buffer_postgres=app_state.buffer_postgres_log_api, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="drop_oldest", runtime_error_count=app_state.runtime_error_count, is_trusted=True, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": func_middleware_client_ip(request=request), "path": request.scope["path"], "method": request.method, "query_param": func_middleware_log_query_params(query_params=request.query_params), "status_code": status_code, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error, "request_id": getattr(request.state, "request_id", None)} | (func_middleware_log_detail_row(request=request, detail=detail) if detail is not None else {})])
     except Exception as e: func_runtime_error_record(runtime_error_count=app_state.runtime_error_count, key="log_api_write", error=e, print_every=100)
     return
 

@@ -89,19 +89,13 @@ Atom runs a periodic background task (`func_postgres_buffer_flush_periodic_task`
 
 ## 5. API Logging & Telemetry (`log_api`)
 
-Atom captures structured telemetry for every incoming request in the `log_api` table (failed writes are counted on the Monitor page's Background tab, `GET /admin/monitor?view=background`; rows wait in the buffer and are retried):
+Atom writes one row to the `log_api` table for every request to a `config_api` route (failed writes are counted on the Monitor page's Background tab, `GET /admin/monitor?view=background`; rows wait in the buffer and are retried). Routes with `"is_log_api": False` and paths that are not routes (static files, `/favicon.ico`, 404s) are left out; `config_is_log_api_all` logs those too.
 
-### Telemetry Captured:
-- `created_at`: Timestamp of the request.
-- `user_id`: Authenticated user ID (or null).
-- `client_ip`: Client IP address.
-- `path`: Request path.
-- `method`: HTTP method (GET, POST, etc.).
-- `status_code`: HTTP response status.
-- `response_time_ms`: Execution duration in milliseconds.
-- `response_type`: Execution path (`cache_response`, `direct_cache_set`, `background_added`, `error`).
-- `request_query`, `request_body`: Input payloads.
-- `error`: Exception message and traceback on failures.
+### Columns:
+- `created_at`, `created_by_id` (the user, or null), `ip_address`, `method`, `path`, `request_id` (sent back as `x-request-id`).
+- `query_param`: the query string, secret and opaque values masked.
+- `status_code`, `response_time_ms`, `response_type` (`cache_response`, `direct_no_cache_set`, `direct_cache_set`, `background_added`, `error`), `error`.
+- `request_header`, `request_body`, `response_body`: filled only with `config_is_log_api_detail` (JSON bodies only, up to `config_log_api_detail_max_kb`, secrets masked; see [config.md](config.md)).
 
 ### Storing Logs in an Isolated Database:
 To keep high-volume log writes from contending with business transactions, route API logs to a dedicated PostgreSQL database:

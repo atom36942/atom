@@ -31,6 +31,8 @@ from function import func_middleware_client_ip
 from function import func_middleware_security_headers
 from function import func_middleware_log_api_write
 from function import func_middleware_api_config
+from function import func_middleware_log_detail_is_json
+from function import func_middleware_log_detail_body
 from function import func_middleware_api_template_read
 from function import func_request_param_read
 from tests.support import database
@@ -372,6 +374,19 @@ class ApiConfigLookupTests(unittest.TestCase):
         self.assertEqual(read("/x/7")["id"], 202)    # the token and role checks apply to every id
         self.assertEqual(read("/x/list")["id"], 201)    # an exact path wins over a template
         self.assertEqual((read("/x/7/more"), read("/favicon.ico")), ({}, {}))    # not a route: no entry
+
+
+class LogApiDetailTests(unittest.TestCase):
+    def test_only_json_content_types_are_kept(self):
+        kept = [t for t in ("application/json", "application/json; charset=utf-8", "application/problem+json", "text/csv", "multipart/form-data; boundary=x", "text/html", "") if func_middleware_log_detail_is_json(content_type=t)]
+        self.assertEqual(kept, ["application/json", "application/json; charset=utf-8", "application/problem+json"])
+
+    def test_body_masks_secrets_cuts_long_ones_and_names_other_types(self):
+        body = lambda raw, **kw: func_middleware_log_detail_body(body=bytearray(raw[:kw.get("max_bytes", 1024)]), size=len(raw), content_type=kw.get("content_type", "application/json"), is_json=kw.get("is_json", True), max_bytes=kw.get("max_bytes", 1024))
+        self.assertEqual(body(b'{"username": "a@b.com", "password": "x1", "otp": 123456, "filter": "code=7", "access_token": "t"}'), '{"username": "a@b.com", "password": "[REDACTED]", "otp": "[REDACTED]", "filter": "code=7", "access_token": "[REDACTED]"}')
+        self.assertEqual(body(b'{"a": "' + b"x" * 30 + b'"}', max_bytes=10), '{"a": "xxx…[cut at 0 KB of 39 bytes]')
+        self.assertEqual(body(b"id\n1\n", content_type="text/csv; charset=utf-8", is_json=False), "[skipped: text/csv, 5 bytes]")
+        self.assertIsNone(body(b""))
 
 
 class MessageSocketAuthTests(unittest.IsolatedAsyncioTestCase):
