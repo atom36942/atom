@@ -18,6 +18,7 @@ from fastapi import Request
 from fastapi import Response
 from fastapi import responses
 from fastapi.routing import APIRoute
+from starlette.routing import compile_path
 from starlette.routing import Match
 from redis.asyncio import Redis
 from .background import func_runtime_error_record
@@ -403,6 +404,18 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
         import sentry_sdk
         sentry_sdk.capture_exception(exception, tags={"request_id": request_id} if request_id else None)
     return error_msg, responses.JSONResponse(status_code=status_code, content={"status": 0, "message": error_msg})
+
+def func_middleware_api_template_read(*, config_api: dict) -> list:
+    """config_api routes with path parameters (/page/{name}) as (compiled pattern, route), built once at startup for func_middleware_api_config."""
+    return [(compile_path(route)[0], route) for route in config_api if "{" in route]
+
+def func_middleware_api_config(*, config_api: dict, path: str, cache_config_api_template: list) -> dict:
+    """This request's config_api entry: the exact path first (one dict lookup), else the first route with path parameters that matches (/page/pulse → /page/{name}), else {} (not a route)."""
+    api_cfg = config_api.get(path)
+    if api_cfg is not None: return api_cfg
+    for pattern, route in cache_config_api_template:
+        if pattern.match(path): return config_api[route]
+    return {}
 
 async def func_middleware_log_api_write(*, app_state: Any, request: Request, response_type: str, status_code: int | None, start: float, error: str | None) -> None:
     """Buffer one log_api row for a finished request; skipped when read-only or no log_api database, and write errors are counted, never raised."""

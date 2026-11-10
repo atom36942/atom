@@ -89,6 +89,7 @@ config_postgres_pool_min_size = 1
 config_postgres_pool_max_size = 10
 config_postgres_query_timeout_sec = 0    # longest a single Postgres query may run, in seconds, then it is cancelled; 0 means no limit
 config_is_log_api = True
+config_is_log_api_all = False
 config_postgres_db_log_api = "master"
 config_log_api_retention_day = 7
 config_buffer_limit_default = 100
@@ -361,8 +362,8 @@ config_postgres = {
 
 config_api = {
 # index
-"/": {"id": 35, "is_token": False},
-"/health": {"id": 36, "is_token": False},
+"/": {"id": 35, "is_token": False, "is_log_api": False},
+"/health": {"id": 36, "is_token": False, "is_log_api": False},
 "/health-ready": {"id": 135, "is_token": False, "is_log_api": False, "cache": {"mode": "inmemory", "ttl_sec": 5, "is_per_user": False}},
 "/info": {"id": 17, "is_token": False, "cache": {"mode": "inmemory", "ttl_sec": 300, "is_per_user": False}},
 "/openapi.json": {"id": 37, "is_token": False},

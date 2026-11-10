@@ -39,6 +39,7 @@ async def func_lifespan(app: FastAPI):
         buffer_postgres_log_api = {}
         cache_token = OrderedDict()
         cache_static_version = {}
+        cache_config_api_template = app.state.func_middleware_api_template_read(config_api=app.state.config_api)    # routes with path parameters, matched when the exact path is not in config_api
         cache_atom_version = app.state.func_atom_version()
         print(f"Atom {cache_atom_version or 'version unknown'}", flush=True)
         app.state.func_check(app=app)
@@ -134,7 +135,7 @@ def middleware(asgi_app):
         start, error, response_type, request.state.user = time.perf_counter(), None, "direct_no_cache_set", {}
         request.state.request_id = app_state.func_middleware_request_id(headers=request.headers)
         sent, capture = {"status": None, "is_started": False}, None
-        api_cfg = app_state.config_api.get(scope["path"], {})
+        api_cfg = app_state.func_middleware_api_config(config_api=app_state.config_api, path=scope["path"], cache_config_api_template=app_state.cache_config_api_template)
         async def send_wrapped(message):
             if message["type"] == "http.response.start":
                 sent["status"], sent["is_started"] = message["status"], True
@@ -192,8 +193,8 @@ def middleware(asgi_app):
             if not sent["is_started"]: await response(scope, receive, send_wrapped)
         # form close (a background request closes its own when the task ends)
         if response_type != "background_added": await app_state.func_request_form_close(request=request)
-        # api log buffer, written after the response was sent (config_api is_log_api: False skips it, e.g. /pgweb)
-        if api_cfg.get("is_log_api", True): await app_state.func_middleware_log_api_write(app_state=app_state, request=request, response_type=response_type, status_code=sent["status"], start=start, error=error)
+        # api log buffer, written after the response was sent: config_api routes (is_log_api: False skips one, e.g. /pgweb); other paths (static files, favicon, 404s) only with config_is_log_api_all
+        if api_cfg.get("is_log_api", True) if api_cfg else app_state.config_is_log_api_all: await app_state.func_middleware_log_api_write(app_state=app_state, request=request, response_type=response_type, status_code=sent["status"], start=start, error=error)
     return run
 app.add_middleware(middleware)
 

@@ -30,6 +30,8 @@ from function import func_middleware_check_role
 from function import func_middleware_client_ip
 from function import func_middleware_security_headers
 from function import func_middleware_log_api_write
+from function import func_middleware_api_config
+from function import func_middleware_api_template_read
 from function import func_request_param_read
 from tests.support import database
 
@@ -360,6 +362,16 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
                 self.assertNotIn("secret-value", message)
                 self.assertNotIn(b"secret-value", response.body)
                 self.assertNotIn("secret-value", stderr.getvalue())
+
+
+class ApiConfigLookupTests(unittest.TestCase):
+    def test_path_parameter_routes_get_their_entry_and_other_paths_none(self):
+        config_api = {"/x/list": {"id": 201, "is_token": False}, "/x/{id}": {"id": 202, "is_token": True, "user_check_role": {"mode": "token", "roles": [1, 2]}}}
+        templates = func_middleware_api_template_read(config_api=config_api)
+        read = lambda path: func_middleware_api_config(config_api=config_api, path=path, cache_config_api_template=templates)
+        self.assertEqual(read("/x/7")["id"], 202)    # the token and role checks apply to every id
+        self.assertEqual(read("/x/list")["id"], 201)    # an exact path wins over a template
+        self.assertEqual((read("/x/7/more"), read("/favicon.ico")), ({}, {}))    # not a route: no entry
 
 
 class MessageSocketAuthTests(unittest.IsolatedAsyncioTestCase):

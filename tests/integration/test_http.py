@@ -197,6 +197,7 @@ class HttpIntegrationTests(unittest.TestCase):
             yield "id\n1\n"
             raise RuntimeError("export failed midway")
         self.app.add_api_route("/test-stream-error", lambda: StreamingResponse(rows(), media_type="text/csv"))
+        self.app.state.config_api["/test-stream-error"] = {"id": 9001, "is_token": False}    # only config_api routes are logged
         response = self.client.get("/test-stream-error")
         self.assertEqual(response.status_code, 200)    # the started CSV response stands; no JSON error is sent after it
         self.assertNotIn("export failed", response.text)
@@ -264,15 +265,30 @@ class HttpIntegrationTests(unittest.TestCase):
             time.sleep(0.5)
         self.assertEqual(rows, [{"status_code": 401}])
 
+    def logged_count(self, path):
+        return fetch(self.reports_url, "SELECT count(*) AS n FROM log_api WHERE path = $1", path)[0]["n"]
+
+    def wait_logged(self, path):
+        deadline = time.time() + 10
+        while time.time() < deadline and not self.logged_count(path): time.sleep(0.5)
+        return self.logged_count(path)
+
     def test_route_with_is_log_api_false_is_not_logged(self):
         self.client.post("/pgweb", json={"action": "schema"})    # config_api /pgweb: is_log_api False (pgweb itself is off here, so it answers 404)
-        self.client.get("/health")    # logged as usual; once it is in log_api, the /pgweb row would be too if it were written
-        deadline, health = time.time() + 10, []
-        while time.time() < deadline and not health:
-            health = fetch(self.reports_url, "SELECT 1 FROM log_api WHERE path = '/health' LIMIT 1")
-            time.sleep(0.5)
-        self.assertTrue(health)
-        self.assertEqual(fetch(self.reports_url, "SELECT count(*) AS n FROM log_api WHERE path = '/pgweb'"), [{"n": 0}])
+        self.client.get("/health")    # is_log_api False too
+        self.client.get("/info")    # logged as usual; once it is in log_api, the rows above would be too if they were written
+        self.assertTrue(self.wait_logged("/info"))
+        self.assertEqual((self.logged_count("/pgweb"), self.logged_count("/health")), (0, 0))
+
+    def test_paths_outside_config_api_are_logged_only_with_config_is_log_api_all(self):
+        self.client.get("/favicon.ico")    # not a route: 404, not logged by default
+        self.client.get("/my/profile")
+        self.assertTrue(self.wait_logged("/my/profile"))
+        self.assertEqual(self.logged_count("/favicon.ico"), 0)
+        self.app.state.config_is_log_api_all = True
+        try: self.client.get("/favicon.ico")
+        finally: self.app.state.config_is_log_api_all = False
+        self.assertEqual(self.wait_logged("/favicon.ico"), 1)
 
 
 @requires_postgres

@@ -158,7 +158,8 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_is_uvicorn_access_log` | uvicorn's per-request console line (default `False`). Atom already records every request in `log_api`, and printing each line cost 12–31% throughput in a load test (see [performance.md](performance.md#8-uvicorn-access-log)). Set `True` to see requests in the console while debugging. Applies to `python main.py`; with `uvicorn main:app` pass `--no-access-log` yourself. |
 | `config_uvicorn_timeout_keep_alive_sec` | Seconds uvicorn keeps an idle client connection open (default `250`; uvicorn's own default is 5). Behind a load balancer or proxy it must be longer than the proxy's idle timeout (Azure App Service 240 s, nginx 75 s, AWS ALB 60 s), so the proxy never reuses a connection uvicorn has just closed, which shows up as occasional 502 errors. Lower it only when clients connect to uvicorn directly with no proxy. Applies to `python main.py`. |
 | `config_is_prod` | Boolean production-mode toggle (`True` disables debug and protects endpoints) |
-| `config_is_log_api` | API logging to `log_api` (default `True`). `False` (`config_is_log_api=false` in `.env`) turns it off: no rows are written, no cleanup runs, the Monitor's Requests and Errors tabs say logging is off and `/my/api-usage` returns 503. To skip only some routes, set `"is_log_api": False` on them in `config_api`. |
+| `config_is_log_api` | API logging to `log_api` (default `True`). `False` (`config_is_log_api=false` in `.env`) turns it off: no rows are written, no cleanup runs, the Monitor's Requests and Errors tabs say logging is off and `/my/api-usage` returns 503. Only routes in `config_api` are logged; to skip some of them, set `"is_log_api": False` on them (Atom does for the pages `/` and `/page/{name}`, the health checks and `/pgweb`). |
+| `config_is_log_api_all` | Also log requests that are not a `config_api` route: static files, `/favicon.ico`, unknown paths and their 404s (default `False`, which keeps them out of `log_api`). Set `True` to see all traffic while debugging. |
 | `config_postgres_db_log_api` | Named Postgres database for API logging (default: `master`) |
 | `config_uvicorn_workers` | Server processes started by `python main.py` (default: `1`). Above `1`, every `inmemory` cache, rate limit and user check in `config_api` must switch to `redis` (user checks may also use `realtime` or `token`), and startup warns if workers x pools x `config_postgres_pool_max_size` can exceed Postgres `max_connections` |
 
@@ -262,6 +263,8 @@ Detailed breakdown of all dictionary settings in `config.py`.
 
 Per-endpoint security and execution policy table.
 
+Keys are route paths as declared. A route with path parameters (`/page/{name}`) gets its entry for every path it matches (`/page/pulse`); an exact path is looked up first. A request whose path is no route gets no entry: no checks, and it is not logged (see `config_is_log_api_all`).
+
 #### Policy Fields (Nested Keys)
 
 | Key | Type / Value | Description & Usage |
@@ -270,7 +273,7 @@ Per-endpoint security and execution policy table.
 | `is_active` | `bool` | Toggles endpoint availability (`False` disables the endpoint via middleware) |
 | `is_token` | `bool` | `True` requires a valid JWT access token; `False` allows public unauthenticated access |
 | `is_connection_param` | `bool` | `True` lets `?connection=<name>` pick the database for this route (default master; unknown name is 404). Without it the route always uses master and `?connection=` is 400 |
-| `is_log_api` | `bool` | `False` keeps this route's requests out of `log_api` (default `True`). Atom sets it for `/pgweb`, whose every click would otherwise add a log row. |
+| `is_log_api` | `bool` | `False` keeps this route's requests out of `log_api` (default `True`). Atom sets it for `/pgweb` (every click would add a row) and the health checks (probed every few seconds). |
 | `user_check_role` | `{"mode": "...", "roles": [...]}` | Restricts access to users with listed role numbers |
 | `user_check_deactivated` | `{"mode": "..."}` | Blocks request if user has `deactivated_at` timestamp set |
 | `user_check_deleted` | `{"mode": "..."}` | Blocks request if user has `deleted_at` timestamp set |
