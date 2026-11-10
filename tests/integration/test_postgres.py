@@ -141,8 +141,6 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
         sql = "SELECT g AS id, 'n' || g AS name FROM generate_series(1, $1) g ORDER BY g DESC"
         lines = await self.csv_lines(await func_postgres_export(client_postgres=self.pool, config_export_limit=2100, sql=sql, values=[2500]))
         self.assertEqual((lines[0], lines[1], len(lines) - 1), (["id", "name"], ["2500", "n2500"], 2100))
-        labelled = await func_postgres_export(client_postgres=self.pool, config_export_limit=10, sql=sql, values=[3], columns=["Task", "Label"], row=lambda r: [r["id"], r["name"].upper()])
-        self.assertEqual(await self.csv_lines(labelled), [["Task", "Label"], ["3", "N3"], ["2", "N2"], ["1", "N1"]])
         fewer = await func_postgres_export(client_postgres=self.pool, config_export_limit=2100, sql=sql, values=[2500], limit=7)
         self.assertEqual(len(await self.csv_lines(fewer)) - 1, 7)
         with self.assertRaises(asyncpg.PostgresError):    # a bad query fails before the download starts

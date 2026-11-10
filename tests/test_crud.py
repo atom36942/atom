@@ -154,14 +154,14 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
             for path in (root / folder).glob("*.py"):
                 self.assertNotIn("is_trusted", path.read_text(), f"{path.name}: request data must never skip validation")
 
-    async def test_csv_stream_writes_bom_header_and_relabelled_rows_in_chunks(self):
+    async def test_csv_stream_writes_bom_header_and_rows_as_stored_in_chunks(self):
         async def rows():
             for i in range(10000): yield (i, f"=n{i}")
-        chunks = [chunk async for chunk in func_csv_stream(rows=rows(), columns=["Id", "Name"], row=lambda record: [record[0] * 10, record[1]])]
-        self.assertTrue(chunks[0].startswith("\ufeffId,Name"))
+        chunks = [chunk async for chunk in func_csv_stream(rows=rows(), columns=["id", "name"])]
+        self.assertTrue(chunks[0].startswith("\ufeffid,name"))
         self.assertGreater(len(chunks), 2, "sent in pieces, not one string")
         lines = list(csv.reader(io.StringIO("".join(chunks)[1:])))
-        self.assertEqual((lines[1], lines[-1], len(lines)), (["0", "'=n0"], ["99990", "'=n9999"], 10001))
+        self.assertEqual((lines[1], lines[-1], len(lines)), (["0", "'=n0"], ["9999", "'=n9999"], 10001))    # values as stored; only formula text is guarded
 
     def test_export_limit_is_the_users_choice_up_to_the_setting(self):
         self.assertEqual(func_export_limit(config_export_limit=1000000, limit=None), 1000000)

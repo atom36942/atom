@@ -3,7 +3,6 @@ import asyncio
 import csv
 import io
 from collections.abc import AsyncIterator
-from collections.abc import Callable
 from datetime import date
 from datetime import datetime
 from typing import Any
@@ -27,15 +26,15 @@ def func_csv_cell(value: Any) -> Any:
     if isinstance(value, str) and value[:1] in ("=", "+", "-", "@", "\t", "\r"): return "'" + value
     return value
 
-async def func_csv_stream(*, rows: AsyncIterator, columns: list, row: Callable | None = None) -> AsyncIterator[str]:
-    """CSV text from any database's rows: a UTF-8 BOM (so Excel reads accents), the header, then every row's cells through func_csv_cell, sent in 64 KB chunks so memory stays flat at any size. row(record) -> list of values renames or relabels a row; without it the record's values go out as they are."""
+async def func_csv_stream(*, rows: AsyncIterator, columns: list) -> AsyncIterator[str]:
+    """CSV text from any database's rows: a UTF-8 BOM (so Excel reads accents), the header (the query's own column names), then every row's values as stored, through func_csv_cell, sent in 64 KB chunks so memory stays flat at any size. Nothing is renamed or relabelled: an export is the data as it is in the database."""
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow(columns)
     yield "﻿" + buffer.getvalue()
     buffer.seek(0); buffer.truncate(0)
     async for record in rows:
-        writer.writerow([func_csv_cell(value) for value in (row(record) if row else record)])
+        writer.writerow([func_csv_cell(value) for value in record])
         if buffer.tell() >= 65536:
             yield buffer.getvalue()
             buffer.seek(0); buffer.truncate(0)
@@ -61,8 +60,8 @@ def func_csv_response(*, content: AsyncIterator[str], filename: str) -> Streamin
     """The download response for a func_*_export stream."""
     return StreamingResponse(content, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="{filename}"', "Cache-Control": "no-store"})
 
-async def func_postgres_export(*, client_postgres: asyncpg.Pool | None, config_export_limit: int, sql: str, limit: int | None = None, values: list | tuple = (), columns: list | None = None, row: Callable | None = None, timeout_sec: int = 60) -> AsyncIterator[str]:
-    """Every PostgreSQL CSV export (Atom's and a project's): one SELECT/WITH (values bound as $1, $2), at most limit rows (a user's choice, default and maximum config_export_limit), read with a cursor in a read-only transaction (timeout_sec per fetch) and streamed through func_csv_stream; no count, no OFFSET. columns: header names (default the query's); row: see func_csv_stream."""
+async def func_postgres_export(*, client_postgres: asyncpg.Pool | None, config_export_limit: int, sql: str, limit: int | None = None, values: list | tuple = (), timeout_sec: int = 60) -> AsyncIterator[str]:
+    """Every PostgreSQL CSV export (Atom's and a project's): one SELECT/WITH (values bound as $1, $2), at most limit rows (a user's choice, default and maximum config_export_limit), read with a cursor in a read-only transaction (timeout_sec per fetch) and streamed through func_csv_stream; no count, no OFFSET. The header is the query's column names, the values as stored."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     limit = func_export_limit(config_export_limit=config_export_limit, limit=limit)
     sql = str(sql or "").strip().rstrip(";").strip()
@@ -73,8 +72,8 @@ async def func_postgres_export(*, client_postgres: asyncpg.Pool | None, config_e
                 await conn.execute(f"SET LOCAL statement_timeout = '{int(timeout_sec) * 1000}ms'")
                 statement = await conn.prepare(f"SELECT * FROM ({sql}) AS export_query LIMIT ${len(values) + 1}")  # noqa: S608 - one read-only statement; the caller's values are bound
                 async def records():
-                    async for record in statement.cursor(*values, limit, prefetch=5000, timeout=timeout_sec): yield record if row else record.values()
-                async for chunk in func_csv_stream(rows=records(), columns=columns or [attribute.name for attribute in statement.get_attributes()], row=row): yield chunk
+                    async for record in statement.cursor(*values, limit, prefetch=5000, timeout=timeout_sec): yield record.values()
+                async for chunk in func_csv_stream(rows=records(), columns=[attribute.name for attribute in statement.get_attributes()]): yield chunk
     return await _csv_started(chunks())
 
 async def func_postgres_read_export(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_export_limit: int, table: str, filter: list, order: str, column: str, config_column_read_blocked: list = None, limit: int | None = None) -> AsyncIterator[str]:
@@ -84,7 +83,7 @@ async def func_postgres_read_export(*, client_postgres: asyncpg.Pool | None, cli
     sql, values = await func_postgres_read_sql(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter, order=order, column=column, config_column_read_blocked=config_column_read_blocked)
     return await func_postgres_export(client_postgres=client_postgres, config_export_limit=config_export_limit, sql=sql, values=values, limit=limit)
 
-async def func_mssql_export(*, client_mssql: Any, config_export_limit: int, sql: str, limit: int | None = None, columns: list | None = None, row: Callable | None = None) -> AsyncIterator[str]:
+async def func_mssql_export(*, client_mssql: Any, config_export_limit: int, sql: str, limit: int | None = None) -> AsyncIterator[str]:
     """Every MSSQL CSV export: one read-only SELECT/WITH, at most config_export_limit rows, fetched in batches and streamed through func_csv_stream; a dropped connection (08S01) is retried until the first row goes out."""
     if not client_mssql: raise func_api_error(message="MSSQL client not initialized", status_code=500)
     limit = func_export_limit(config_export_limit=config_export_limit, limit=limit)
@@ -103,7 +102,7 @@ async def func_mssql_export(*, client_mssql: Any, config_export_limit: int, sql:
                             if not batch: return
                             count += len(batch)
                             for record in batch: yield record
-                    async for chunk in func_csv_stream(rows=records(), columns=columns or [column[0] for column in cursor.description], row=row):
+                    async for chunk in func_csv_stream(rows=records(), columns=[column[0] for column in cursor.description]):
                         sent = True
                         yield chunk
                 return
@@ -114,7 +113,7 @@ async def func_mssql_export(*, client_mssql: Any, config_export_limit: int, sql:
                 raise
     return await _csv_started(chunks())
 
-async def func_clickhouse_export(*, client_clickhouse: Any, config_export_limit: int, sql: str, limit: int | None = None, columns: list | None = None, row: Callable | None = None) -> AsyncIterator[str]:
+async def func_clickhouse_export(*, client_clickhouse: Any, config_export_limit: int, sql: str, limit: int | None = None) -> AsyncIterator[str]:
     """Every ClickHouse CSV export: one read-only SELECT/WITH, at most config_export_limit rows (a server-side LIMIT), read as row blocks and streamed through func_csv_stream."""
     if not client_clickhouse: raise func_api_error(message="clickhouse client not initialized", status_code=500)
     sql = func_clickhouse_query_runner_read_sql(sql=sql, limit=func_export_limit(config_export_limit=config_export_limit, limit=limit))
@@ -124,5 +123,5 @@ async def func_clickhouse_export(*, client_clickhouse: Any, config_export_limit:
             async def records():
                 async for block in stream:
                     for record in block: yield record
-            async for chunk in func_csv_stream(rows=records(), columns=columns or list(stream.source.column_names), row=row): yield chunk
+            async for chunk in func_csv_stream(rows=records(), columns=list(stream.source.column_names)): yield chunk
     return await _csv_started(chunks())
