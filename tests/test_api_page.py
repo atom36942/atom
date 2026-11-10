@@ -35,7 +35,7 @@ class ApiPageTests(unittest.TestCase):
         self.assertNotRegex(MARKUP, r'\sstyle="')
 
     def test_main_controls_are_present(self):
-        for element in ("apiInfoSearch", "apiInfoTbl", "apiRunnerModal", "apiForm", "subBtn", "rBox", "wsRunnerModal", "apiDetailModal", "infoModal", "pasteCurlModal", "paramInfoModal", "loginIndicator"):
+        for element in ("apiInfoSearch", "apiInfoTbl", "apiRunnerModal", "apiForm", "subBtn", "rBox", "wsRunnerModal", "apiDetailModal", "infoModal", "pasteCurlModal", "paramInfoModal", "loginOpenBtn"):
             with self.subTest(element=element): self.assertIn(element, DEFINED)
 
     @unittest.skipUnless(shutil.which("node"), "node is not installed (CI runners have it)")

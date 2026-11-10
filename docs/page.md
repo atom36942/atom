@@ -7,16 +7,54 @@ Patterns that work well for an app page on Atom (`static_extend/<app>/`). They a
 - Every colour and size as a CSS variable in one theme block (brand, neutrals, status colours, text sizes, control heights, paddings), so a page never types a colour twice and a second app can share the look.
 - Element ids, function names and routes stay each app's own; what users see (login, header, dialogs, words) is worth keeping the same across a project's apps.
 
+## Page standard
+Atom's pages that log in (Admin, Monitor, API, Message) are built the same way, so a new page or project copies the structure instead of deciding it again. Each page carries four blocks, copied unchanged from page to page (a test, `tests/test_page_auth.py`, fails when a copy differs); only what is around them is the page's own.
+
+| Block | Where in the page | What it holds |
+| :--- | :--- | :--- |
+| look (`/* ==== atom page: look ==== */`) | first in `<style>` | the palette, one type scale (13px controls and dialog text, 12px small text, 15px dialog titles, 14px page text), base controls, the dialog (header and actions on their own band, a padded body), key-value rows, the toast (bottom centre), the account menu. Base element rules use `:where()`, so the page's own classes always win |
+| account (`/* ==== atom page: account ==== */`) | first in `<script>`, after `PAGE` | `Page`: storage, login, token renewal, the user check, the cache, the sync, the account dialogs and the shared dialog |
+| account header (`<!-- ==== atom page: account header ==== -->`) | the right end of the page's header | Log in (logged out), Sync and the avatar with its menu (logged in) |
+| dialogs (`<!-- ==== atom page: dialogs ==== -->`) | the end of `<body>` | the login dialog, the shared dialog, the toast |
+
+**`PAGE`**, set just above the account block, is the only part that differs: `key` (the localStorage key and IndexedDB database), `title`, `role` (the login role; `null` for any role), `loginRequired` (`false` lets the page work logged out, with a Log in button), `idb` (whether it keeps data in IndexedDB), and the hooks `refresh` (downloads the page's data into the cache), `onIn` (logged in: show the page), `onOut` (logged out: forget what it shows), `onSynced` (a sync finished: draw again) and `roleLabel`. The page calls `Page.start()` last.
+
+**`Page`** is what the page's own code uses: `api(path, options)` (Atom's `{status, message}` answer, the token added, a 401 renewed once), `request` (the raw response, for downloads), `read()` and `save(changes)` (the localStorage object), `user()`, `cacheGet(name)` and `cacheSet(name, data)` (IndexedDB records `{name, user_id, saved_at, data}`), `syncData()` (the page's download, one at a time), `dialog`, `form({title, body, ok, tone, submit})`, `confirm(title, text, ok, danger)`, `toast(text, isError)`, `kv(rows)`, `esc`, `loggedIn()`, `signIn(token)`, `logOut(message)`, `tokenFresh()` and `tokenRefresh()`. Every dialog of the page (its own forms and confirmations too) goes through `dialog`, `form` and `confirm`, so all of them look and behave alike.
+
+**The flow**: open with a valid token object → `onIn` draws from the cache; no cache yet (the first login, a cleared browser) → `syncData()` downloads it first. The cache is used until the next sync: every 3 hours (checked every minute and when the tab comes back) or Sync now in the Sync dialog. Logged out → the login dialog (it cannot be closed on a page that needs a login) or, on a page that works logged out, the Log in button.
+
+| Page | `PAGE` | Its data in IndexedDB |
+| :--- | :--- | :--- |
+| Admin | `key: "admin", role: 1, loginRequired: true, idb: true` | `reference`: schema, `/info`, row counts, settings, triggers, CHECK constraints |
+| Monitor | `key: "monitor", role: 1, loginRequired: true, idb: false` | none (every tab reads live) |
+| API | `key: "api", role: null, loginRequired: false, idb: true` | `openapi`: `/openapi.json` (logged out, a copy over 3 hours old is downloaded again on open) |
+| Message | `key: "message", role: null, loginRequired: true, idb: false` | none (messages are live) |
+
 ## Login
-- `POST /auth/login-username-password` with `{username, password, role}` (the role your app serves), then `GET /my/profile`; show the app only for that role and a user that is not deactivated or deleted.
-- Keep the login alive with `POST /my/token-refresh` (refresh token as Bearer) shortly before the access token expires and when the tab comes back into view; a request that gets 401 refreshes once and retries. A refused refresh shows the login form with a plain sentence ("Your session has expired. Please log in again."), never a token error.
-- Keep the form short: username, password (with show/hide) and one button.
+The account block does this; it is the default for a project's pages too.
+- **Storage**: one localStorage key named after the page, holding one JSON object `{v, token, user, synced_at, ...small choices}`. `token` is exactly what `/auth/login-*` and `/my/token-refresh` return: `{access_token, refresh_token, access_token_expires_at, refresh_token_expires_at}` (the two times are unix seconds). `user` is `GET /my/profile`, the only copy of the user (never a separate `username`). `synced_at` is when the user (and the page's reference data) was last downloaded. `v` is the layout version: a different `v` keeps the token and the user and drops the rest.
+- **Logged in = a valid token object**: both tokens as non-empty text, both expiry times as numbers, and `refresh_token_expires_at` still in the future. Anything else (no `token`, a missing field, an expired refresh token) means logged out: the page clears its key (and its IndexedDB database) and shows the login form. An expired access token alone is not a logout while the refresh token is valid: the page renews first. A token is stored only after it passes this check, from login or refresh.
+- **Login**: `POST /auth/login-username-password` `{role, username, password}` (the role the page serves), store `token`, `GET /my/profile` into `user`, then check the user: the page's role, `deactivated_at` and `deleted_at` empty, otherwise log out with a plain sentence. Then the first sync (reference data into IndexedDB, then `synced_at`) and the page.
+- **Keep it alive**: on open, every minute and when the tab comes back into view, read `token.access_token_expires_at`; with 5 minutes or less left, `POST /my/token-refresh` (refresh token as Bearer) and store the new token object. A refused refresh (401/403) or an expired refresh token shows the login form with "Your session has expired. Please log in again.", never a token error; a network failure keeps the token and tries again at the next check. A request that gets 401 refreshes once (one shared refresh for every request in flight) and retries; refused again, log out.
+- **Sync**: when `synced_at` is 3 hours old (checked with the token) and from the header's Sync button: new token, `/my/profile` (with the user check), the page's reference data, then `synced_at`. The Sync dialog is described under Header and account.
+- **Logout**: a confirmation, then remove the localStorage key, delete the IndexedDB database and clear memory. Other open tabs get the `storage` event for the key, find no valid token and show the login form ("You logged out in another tab.").
+- The login dialog: role (when the page fixes it, shown read-only; otherwise optional), username, password (with show/hide) and one button.
 
 ## Header and account
-- App name on the left, the app's views in the middle, actions on the right (icon plus a short label), then an avatar menu: My profile (read-only), Login details (only the password editable, through `PUT /my/user-update`), Logout (with a confirmation).
+- App name on the left, the app's views in the middle, actions on the right (icon plus a short label), then Sync, then an avatar with the username's initials (the words before an `@`: `om.srivastava` → OS; one word gives its first two letters) and its menu: My profile (read-only), Login details (only the password editable, through `PUT /my/user-update`), Logout (with a confirmation).
+- The account parts use the same words on every page:
+
+| Part | Shows |
+| :--- | :--- |
+| Menu | My profile, Login details, Logout (Logout in red); icons in the text colour |
+| My profile | Name, Username (with a copy button, toast "Username copied"), Email, Mobile, Role (`1 (admin)`); read-only |
+| Login details | Username (with a copy button), Password (8 dots and a pencil), Role |
+| Update password | New password, Confirm new password, "6–120 characters, no spaces."; Cancel (back to Login details), Update password; errors "Use 6–120 characters, no spaces" and "Passwords don't match"; success closes the dialog with the toast "Password updated" |
+| Logout | "Logout?", "Are you sure you want to logout?", Cancel, Logout; nothing shown after |
+| Sync | Title "Sync", subtitle "Auto sync every 3 hr"; Local storage and IndexedDB as "Used, N items" or "Not used"; Last synced as "just now", "5 min ago", "3 hr ago" or "Never"; Close, Sync now. While it runs, the steps ("Renewing login… (1 of 3)") and a progress bar, the dialog locked; then "Everything is up to date." or "Sync failed. Please try again." |
 
 ## Dialogs and loading
-- One dialog structure everywhere: a header (title, optional subtitle, close), a body, an action row (Cancel first, the main action last). Escape and the close button close it; a running action keeps it open.
+- One dialog structure everywhere (the shared dialog: `Page.dialog`, `Page.form`, `Page.confirm`): a header on its own band (title, optional subtitle, close), a padded body, an action row on its own band (Cancel first, the main action last). Escape and the close button close it; a running action keeps it open, and its error stays in the dialog.
 - Open a dialog at its final size: draw its frame (the empty table or calendar) first, faded, then fill in the data, so nothing jumps. A list that reloads keeps its rows, faded, until the new ones arrive; a bare "Loading…" only when there is nothing to show yet.
 
 ## Browser storage

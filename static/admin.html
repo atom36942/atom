@@ -1,0 +1,1666 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Admin</title>
+<style>
+/* ==== atom page: look ==== */
+/* Identical in every Atom page (docs/page.md, Page standard); a page's own styles come after this block and only add layout. A test checks the copies match. */
+:root{--bg:#0b0d10;--card:#0f1114;--panel:#1a1d23;--field:#14171c;--line:rgba(255,255,255,.08);--line-strong:rgba(255,255,255,.14);--text:#e6eef3;--muted:#9aa0a6;--primary:#38a169;--accent:#4299e1;--warn:#ed8936;--danger:#f87171;--font:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"SF Mono",Menlo,Consolas,monospace;--fs:13px;--fs-small:12px;--fs-title:15px;--radius:8px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5}
+[hidden]{display:none!important}
+h1,h2,h3{font-family:var(--font)}
+:where(button,select,input,textarea){font-family:var(--font);font-size:var(--fs);color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:var(--radius);height:34px;padding:0 12px}
+:where(textarea){height:auto;min-height:80px;padding:8px 12px;resize:vertical;font-family:var(--mono);font-size:var(--fs-small)}
+:where(button){cursor:pointer;white-space:nowrap;font-weight:500;transition:border-color .15s,background .15s}
+:where(button:hover:not(:disabled)){border-color:rgba(66,153,225,.5);background:var(--panel)}
+:where(button:disabled){opacity:.5;cursor:default}
+button.primary{background:rgba(56,161,105,.12);border-color:rgba(56,161,105,.35);color:var(--primary)}
+button.primary:hover:not(:disabled){background:rgba(56,161,105,.2);border-color:rgba(56,161,105,.55)}
+button.danger{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.3);color:var(--danger)}
+button.small{height:28px;padding:0 10px;font-size:var(--fs-small)}
+button.link{height:auto;padding:0;border:none;background:none;color:var(--accent);font-size:inherit}
+button.link:hover:not(:disabled){background:none;text-decoration:underline}
+:where(select){padding-right:8px;cursor:pointer}
+:where(input:focus,select:focus,textarea:focus){outline:none;border-color:var(--accent)}
+.muted{color:var(--muted)}
+.mono{font-family:var(--mono);font-size:var(--fs-small)}
+.error-box{padding:10px 12px;border-radius:var(--radius);font-size:var(--fs);background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--danger);white-space:pre-wrap}
+/* dialogs: a header in its own colour, a padded body, actions on their own band; every dialog of the page uses them */
+dialog.dlg{width:min(460px,calc(100vw - 32px));max-height:calc(100vh - 32px);padding:0;border:1px solid var(--line-strong);border-radius:12px;background:var(--card);color:var(--text);font-size:var(--fs);box-shadow:0 20px 50px rgba(0,0,0,.55);overflow:hidden}
+dialog.dlg[open]{display:flex;flex-direction:column}
+dialog.dlg::backdrop{background:rgba(0,0,0,.6)}
+.dlg-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 18px;background:var(--panel);border-bottom:1px solid var(--line-strong)}
+.dlg-head h3{margin:0;font-size:var(--fs-title);font-weight:600;line-height:1.3}
+.dlg-sub{margin:3px 0 0;color:var(--muted);font-size:var(--fs-small);font-weight:400}
+.dlg-body{padding:18px;overflow-y:auto;display:grid;gap:14px}
+.dlg-body:empty{display:none}
+/* inside the shared dialogs, fields and buttons look the same on every page, whatever the page's own rules */
+dialog.dlg input,dialog.dlg select{width:100%;height:34px;margin:0;padding:0 12px;font-family:var(--font);font-size:var(--fs);color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:var(--radius);box-shadow:none}
+dialog.dlg input:focus,dialog.dlg select:focus{outline:none;border-color:var(--accent)}
+dialog.dlg input:disabled{color:var(--muted);background:rgba(255,255,255,.02)}
+dialog.dlg .pw-wrap input{padding-right:40px}
+dialog.dlg .dlg-actions button:not(.kv-btn){height:34px;padding:0 14px;font-size:var(--fs);font-weight:500;border-radius:var(--radius)}
+.dlg-actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;background:var(--panel);border-top:1px solid var(--line-strong)}
+.dlg-x{width:30px;height:30px;margin:-4px -6px 0 0;padding:0;border:none;background:none;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;flex:none}
+.dlg-x:hover:not(:disabled){background:rgba(255,255,255,.06);color:var(--text)}
+.dlg-x svg,.kv-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.confirm-text{margin:0}
+.dlg-form{display:grid;gap:14px}
+:where(input:disabled,select:disabled,textarea:disabled){color:var(--muted);background:rgba(255,255,255,.02);cursor:not-allowed}
+.field{display:grid;gap:6px}
+.field label{color:var(--muted);font-size:var(--fs-small);font-weight:600}
+.field input,.field select{width:100%}
+.field-help{margin:0;color:var(--muted);font-size:var(--fs-small)}
+.pw-wrap{position:relative;display:flex}
+.pw-wrap input{flex:1;padding-right:40px}
+.pw-eye{position:absolute;right:2px;top:50%;transform:translateY(-50%);width:30px;height:30px;padding:0;border:none;background:none;color:var(--muted);display:inline-flex;align-items:center;justify-content:center}
+.pw-eye:hover:not(:disabled){background:none;color:var(--text)}
+.pw-eye svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.kv-btn{width:28px;height:28px;padding:0;display:inline-flex;align-items:center;justify-content:center;flex:none}
+/* key-value rows: My profile, Login details, Sync and any page's record view */
+.kv{width:100%;border:1px solid var(--line);border-radius:10px;border-collapse:separate;border-spacing:0;overflow:hidden}
+.kv th{width:38%;padding:10px 12px;text-align:left;vertical-align:middle;background:var(--panel);color:var(--muted);font-weight:600;font-size:var(--fs-small);border-bottom:1px solid var(--line)}
+.kv td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.kv tr:last-child th,.kv tr:last-child td{border-bottom:none}
+.kv th,.kv td{white-space:normal;font-family:var(--font)}
+.kv tbody tr:hover{background:none}
+.kv .cell{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sync-progress{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.sync-fill{height:100%;width:0;background:var(--accent);border-radius:3px;transition:width .3s ease}
+.sync-status{margin:0;min-height:1.5em;color:var(--muted)}
+.sync-status.error{color:var(--danger)}
+/* toast: bottom centre */
+.toast{position:fixed;left:50%;bottom:24px;z-index:3000;transform:translateX(-50%);max-width:calc(100vw - 32px);padding:10px 16px;border-radius:10px;background:var(--panel);border:1px solid var(--line-strong);box-shadow:0 8px 24px rgba(0,0,0,.4);font-size:var(--fs)}
+.toast.error{border-color:rgba(248,113,113,.45);color:var(--danger)}
+/* header account area: Sync, then the avatar and its menu (or Login when logged out) */
+.atom-account{display:flex;align-items:center;gap:8px}
+.sync-btn{display:inline-flex;align-items:center;gap:6px}
+.sync-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.account{position:relative;display:flex}
+.avatar{width:32px;height:32px;border-radius:50%;border:none;padding:0;background:var(--accent);color:#fff;font-size:12px;font-weight:700;letter-spacing:.5px;display:inline-flex;align-items:center;justify-content:center}
+.avatar:hover:not(:disabled),.avatar[aria-expanded="true"]{background:var(--accent);border:none;box-shadow:0 0 0 3px rgba(66,153,225,.35)}
+.account-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:60;min-width:190px;padding:6px;border-radius:12px;background:var(--panel);border:1px solid var(--line-strong);box-shadow:0 12px 32px rgba(0,0,0,.45)}
+.account-item{display:flex;align-items:center;gap:9px;width:100%;height:36px;padding:0 18px 0 11px;border:none;border-radius:var(--radius);background:none;color:var(--text);font-size:var(--fs);font-weight:400;text-align:left}
+.account-item:hover:not(:disabled){background:rgba(255,255,255,.06);border:none}
+.account-item svg{flex:none;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.account-item.danger-item{color:var(--danger)}
+.account-item.danger-item:hover:not(:disabled){background:rgba(248,113,113,.12)}
+/* ==== end atom page: look ==== */
+:root{--side:248px;--drawer:480px}
+body{min-height:100vh}
+button.warn{background:rgba(237,137,54,.1);border-color:rgba(237,137,54,.3);color:var(--warn)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.null{color:rgba(255,255,255,.25)}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;background:rgba(255,255,255,.06);color:var(--muted);white-space:nowrap}
+.pill.ok{background:rgba(56,161,105,.15);color:var(--primary)}
+.pill.bad{background:rgba(248,113,113,.15);color:var(--danger)}
+.pill.warn{background:rgba(237,137,54,.15);color:var(--warn)}
+.pill.blue{background:rgba(66,153,225,.15);color:var(--accent)}
+.message{margin-bottom:16px;padding:12px 16px;border-radius:10px;font-size:13px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--danger);white-space:pre-wrap}
+.info{margin-bottom:16px;padding:12px 16px;border-radius:10px;font-size:13px;background:var(--card);border:1px solid var(--line);color:var(--muted)}
+/* ==== layout ==== */
+.shell{display:grid;grid-template-columns:var(--side) 1fr;min-height:100vh}
+aside.side{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;background:var(--card);border-right:1px solid var(--line)}
+.brand{padding:18px 16px 12px}
+.brand h1{margin:0;font-size:18px;font-weight:700}
+.brand p{margin:0;color:var(--muted);font-size:12px}
+.nav{padding:0 8px}
+.nav-item{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;height:32px;padding:0 10px;border:none;border-radius:8px;background:none;color:var(--muted);font-size:13px;text-align:left}
+.nav-item:hover:not(:disabled){background:var(--panel);color:var(--text)}
+.nav-item.active,.nav-item.active:hover:not(:disabled){background:rgba(66,153,225,.14);color:var(--text)}
+.nav-item .count{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+.nav-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 6px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.db-head{padding:14px 18px 6px;color:var(--muted);font-size:12px}
+.db-head b{color:var(--text);font-weight:600;font-family:var(--mono);font-size:11px}
+.side-search{margin:0 8px 6px;height:30px;width:calc(100% - 16px)}
+.tables{flex:1;overflow-y:auto;padding:0 8px 16px}
+.tables .nav-item span:first-child{overflow:hidden;text-overflow:ellipsis}
+main{min-width:0;padding:20px 24px 48px}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+header.top h2{margin:0;font-size:20px;font-weight:700}
+header.top .sub{margin:2px 0 0;color:var(--muted);font-size:13px}
+.actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+@media (max-width:860px){.shell{grid-template-columns:1fr}aside.side{position:static;height:auto;max-height:45vh;border-right:none;border-bottom:1px solid var(--line)}main{padding:16px}}
+/* ==== cards, tiles and charts ==== */
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:16px;min-width:0}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);border-radius:12px 12px 0 0}
+.card-head h3{margin:0;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.card-help{margin:0;padding:8px 16px 0;color:var(--muted);font-size:12px}
+.card-scroll{overflow-x:auto}
+.empty{padding:18px 16px;color:var(--muted);font-size:13px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.tile .label{color:var(--muted);font-size:12px}
+.tile .value{font-size:22px;font-weight:700;line-height:1.3}
+.tile .value.bad{color:var(--danger)}
+.tile .hint{color:var(--muted);font-size:11px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.two>.card{margin-bottom:16px}
+@media (max-width:1100px){.two{grid-template-columns:1fr}}
+.chart{display:flex;align-items:flex-end;gap:2px;height:120px;padding:16px 16px 0}
+.chart .col{flex:1;min-width:2px;height:100%;display:flex;flex-direction:column;justify-content:flex-end}
+.chart .col:hover{background:rgba(255,255,255,.04)}
+.chart .ok{background:var(--accent);border-radius:2px 2px 0 0}
+.chart .err{background:var(--danger)}
+.chart .new{background:var(--primary);border-radius:2px 2px 0 0}
+.axis{display:flex;justify-content:space-between;padding:6px 16px 12px;color:var(--muted);font-size:11px}
+.legend{display:flex;gap:12px;color:var(--muted);font-size:12px}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.bar{height:6px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden;min-width:80px}
+.bar span{display:block;height:100%;background:var(--accent)}
+/* ==== data grid ==== */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{padding:9px 12px;text-align:left;font-size:12px;font-weight:600;color:var(--accent);border-bottom:1px solid rgba(255,255,255,.1);white-space:nowrap;background:var(--card);position:sticky;top:0}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{color:var(--text)}
+td{padding:7px 12px;border-bottom:1px solid rgba(255,255,255,.05);white-space:nowrap;max-width:320px;overflow:hidden;text-overflow:ellipsis}
+tbody tr:last-child td{border-bottom:none}
+tbody tr.row{cursor:pointer}
+tbody tr.row:hover{background:rgba(255,255,255,.03)}
+tbody tr.row.selected{background:rgba(66,153,225,.08)}
+tbody tr.row.open{box-shadow:inset 3px 0 0 var(--accent)}
+td.check,th.check{width:34px;padding-right:0}
+input[type=checkbox]{height:auto;width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
+.grid-wrap{overflow:auto;max-height:calc(100vh - 260px);border-radius:0 0 12px 12px}
+.grid-wrap.loading{opacity:.5}
+.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}
+.toolbar .grow{flex:1}
+.toolbar input.search{width:240px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;padding:0 16px 10px}
+.chips:empty{display:none}
+.chip{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 4px 0 10px;border-radius:999px;background:rgba(66,153,225,.12);color:var(--text);font-size:12px}
+.chip button{height:20px;width:20px;padding:0;border:none;border-radius:50%;background:none;color:var(--muted)}
+.bulk{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 16px;background:rgba(66,153,225,.08);border-bottom:1px solid var(--line);font-size:13px}
+.pager{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 16px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
+.pager .actions select{height:28px}
+.group-panel{padding:10px 16px 12px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.015)}
+.group-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;color:var(--muted);font-size:12px}
+.group-head select{height:28px}
+.group-list{max-height:260px;overflow-y:auto}
+.group-list table td{padding:5px 12px}
+.group-list tr.row:hover td:first-child{text-decoration:underline}
+.note-ro{padding:8px 16px;color:var(--warn);font-size:12px;border-bottom:1px solid var(--line)}
+.note-ro div+div{margin-top:2px}
+.warn-bar{margin-bottom:16px;padding:10px 16px;border-radius:10px;font-size:13px;background:rgba(237,137,54,.08);border:1px solid rgba(237,137,54,.3);color:var(--warn)}
+.badge{display:inline-block;padding:0 5px;border-radius:4px;font-size:10px;font-weight:600;line-height:16px;background:rgba(255,255,255,.07);color:var(--muted);font-family:var(--mono);vertical-align:middle}
+.badge.pk{background:rgba(237,137,54,.15);color:var(--warn)}
+.badge.uq{background:rgba(66,153,225,.15);color:var(--accent)}
+.badge.srv{background:rgba(56,161,105,.15);color:var(--primary)}
+.nav-sub{display:flex;justify-content:space-between;padding:10px 10px 4px;color:var(--muted);font-size:11px;font-weight:600;cursor:default;list-style:none}
+details>summary.nav-sub{cursor:pointer}
+details>summary.nav-sub::-webkit-details-marker{display:none}
+.fold::before{content:"▸ "}
+details[open] .fold::before{content:"▾ "}
+.viewtabs{display:flex;gap:4px;padding:0 16px;border-bottom:1px solid var(--line)}
+.viewtabs button{height:36px;padding:0 12px;border:none;border-bottom:2px solid transparent;border-radius:0;background:none;color:var(--muted);font-weight:600}
+.viewtabs button:hover:not(:disabled){background:none;color:var(--text)}
+.viewtabs button.active{color:var(--text);border-bottom-color:var(--accent)}
+.schema-body{padding:4px 0 8px}
+.schema-body h4{margin:14px 16px 6px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.schema-body td{white-space:normal;max-width:none}
+.schema-body .rule{padding:2px 16px;font-size:12px;color:var(--muted)}
+.schema-body .rule b{color:var(--text);font-weight:600}
+.kbd{display:inline-block;padding:0 5px;border:1px solid var(--line);border-radius:4px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.popover{position:absolute;z-index:40;width:260px;max-height:360px;overflow:auto;padding:10px;border-radius:12px;background:var(--panel);border:1px solid var(--line);box-shadow:0 12px 32px rgba(0,0,0,.45)}
+.popover label{display:flex;align-items:center;gap:8px;padding:3px 4px;font-size:13px;cursor:pointer}
+.popover .row-actions{display:flex;gap:6px;margin-bottom:6px}
+/* ==== drawer ==== */
+/* the record panel on the right: every field of one row, quick actions on top, edit in place */
+.drawer{position:fixed;top:0;right:0;bottom:0;z-index:50;width:min(var(--drawer),100vw);display:flex;flex-direction:column;background:var(--card);border-left:1px solid var(--line);box-shadow:-12px 0 32px rgba(0,0,0,.4)}
+.drawer-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+.drawer-head h3{margin:0;font-size:16px}
+.drawer-head p{margin:2px 0 0;color:var(--muted);font-size:12px}
+.drawer-actions{display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--line)}
+.drawer-body{flex:1;overflow-y:auto;padding:8px 18px 24px}
+.drawer-foot{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;border-top:1px solid var(--line)}
+.group{margin:14px 0 4px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.field{display:grid;grid-template-columns:150px 1fr;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px}
+.field .k{color:var(--muted);overflow-wrap:anywhere}
+.field .k small{display:block;font-size:10px;opacity:.7}
+.field .v{min-width:0;overflow-wrap:anywhere;white-space:pre-wrap}
+.field pre{margin:0;font-family:var(--mono);font-size:12px;white-space:pre-wrap}
+.form-field{display:flex;flex-direction:column;gap:4px;margin:10px 0}
+.form-field label{color:var(--muted);font-size:12px}
+.form-field label b{color:var(--danger);font-weight:600}
+.form-field .help{color:var(--muted);font-size:11px}
+.form-field input,.form-field select,.form-field textarea{width:100%}
+.dlg-form .form-field{margin:0}
+</style>
+</head>
+<body>
+<!-- ==== app ==== -->
+<div class="shell" id="appView" hidden>
+  <aside class="side">
+    <div class="brand"><h1>Admin</h1><p id="brandSub">Loading...</p></div>
+    <nav class="nav"><button type="button" class="nav-item" id="navDashboard" data-nav="dashboard"><span>Dashboard</span></button></nav>
+    <div class="db-head">database <b>master</b> · schema <b>public</b> · <span id="tableCount"></span></div>
+    <input class="side-search" id="tableSearch" placeholder="Find a table or view" aria-label="Find a table or view">
+    <nav class="tables" id="tableList"></nav>
+  </aside>
+  <main>
+    <header class="top">
+      <div><h2 id="title">Dashboard</h2><p class="sub" id="subtitle"></p></div>
+      <div class="actions">
+        <button type="button" id="refreshBtn" title="Read this view again from the server">Refresh</button>
+        <!-- ==== atom page: account header ==== -->
+        <div class="atom-account">
+          <button type="button" class="primary" id="loginOpenBtn" hidden>Log in</button>
+          <button type="button" class="sync-btn" id="syncBtn" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.5a4.5 4.5 0 0 1-.5 9"/><path d="M12 12v7m0 0-2.5-2.5M12 19l2.5-2.5"/></svg>Sync</button>
+          <div class="account" id="accountWrap" hidden>
+            <button type="button" class="avatar" id="accountBtn" data-tip="Account" aria-haspopup="true" aria-expanded="false" aria-label="Account menu"><span id="avatarText">?</span></button>
+            <div class="account-menu" id="accountMenu" role="menu" hidden>
+              <button type="button" class="account-item" id="profileBtn" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>My profile</button>
+              <button type="button" class="account-item" id="detailsBtn" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Login details</button>
+              <button type="button" class="account-item danger-item" id="logoutBtn" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M15 4h5v16h-5"/></svg>Logout</button>
+            </div>
+          </div>
+        </div>
+        <!-- ==== end atom page: account header ==== -->
+      </div>
+    </header>
+    <div class="warn-bar" id="roBanner" hidden>Read-only server (config_is_read_only): reading works, every change is off.</div>
+    <div class="message" id="error" hidden></div>
+    <div id="view"></div>
+  </main>
+</div>
+
+<aside class="drawer" id="drawer" hidden>
+  <div class="drawer-head"><div><h3 id="drawerTitle"></h3><p id="drawerSub"></p></div><button type="button" class="x" id="drawerClose" aria-label="Close">×</button></div>
+  <div class="drawer-actions" id="drawerActions"></div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot" id="drawerFoot" hidden></div>
+</aside>
+
+<!-- ==== atom page: dialogs ==== -->
+<dialog class="dlg" id="loginDialog" aria-labelledby="loginTitle">
+  <div class="dlg-head"><div><h3 id="loginTitle">Log in</h3><p class="dlg-sub" id="loginSub"></p></div><button type="button" class="dlg-x" id="loginClose" aria-label="Close" data-tip="Close"></button></div>
+  <form class="dlg-body" id="loginForm" novalidate>
+    <div class="field"><label for="loginRole">Role</label><input id="loginRole" inputmode="numeric" autocomplete="off"></div>
+    <div class="field"><label for="loginUsername">Username</label><input id="loginUsername" autocomplete="username"></div>
+    <div class="field"><label for="loginPassword">Password</label><span class="pw-wrap"><input id="loginPassword" type="password" autocomplete="current-password"><button type="button" class="pw-eye" id="loginEye" aria-label="Show password" data-tip="Show password"></button></span></div>
+    <div class="error-box" id="loginError" hidden></div>
+  </form>
+  <div class="dlg-actions"><button type="submit" form="loginForm" class="primary" id="loginBtn">Log in</button></div>
+</dialog>
+<dialog class="dlg" id="atomDialog" aria-labelledby="atomTitle">
+  <div class="dlg-head"><div><h3 id="atomTitle"></h3><p class="dlg-sub" id="atomSub" hidden></p></div><button type="button" class="dlg-x" id="atomClose" aria-label="Close" data-tip="Close"></button></div>
+  <div class="dlg-body" id="atomBody"></div>
+  <div class="dlg-actions" id="atomActions" hidden></div>
+</dialog>
+<div class="toast" id="toast" role="status" hidden></div>
+<!-- ==== end atom page: dialogs ==== -->
+
+<script>
+/* ==== page settings and the account block ==== */
+// Admin needs a role 1 login. Its reference data (schema, /info, row counts, server settings, triggers, CHECK constraints) is one IndexedDB record, "reference",
+// downloaded at the first login and by every sync (3 hours, or Sync now); rows and dashboard numbers always come from the server
+// localStorage "admin" = {v, token, user, synced_at} (the account block) plus this page's choices: range, limit, columns, groupby
+const PAGE = { key: "admin", title: "Admin", role: 1, loginRequired: true, idb: true, roleLabel: role => roleLabel(role), refresh: () => referenceRefresh(), onIn: () => adminOpen(), onOut: () => adminClose(), onSynced: () => adminSynced() };
+/* ==== atom page: account ==== */
+// Identical in every Atom page that logs in (docs/page.md, Page standard); the page sets PAGE just above this block and calls Page.start() last. A test checks the copies match.
+// localStorage[PAGE.key] = {v, token, user, synced_at, ...the page's choices}; IndexedDB database PAGE.key, store "cache", records {name, user_id, saved_at, data} (pages with PAGE.idb).
+// Logged in means a valid token object; the user comes from GET /my/profile and is checked on every sync; Sync runs every 3 hours and from the header; logout clears everything in every tab.
+const Page = (() => {
+  const STORAGE_KEY = PAGE.key, STORAGE_VERSION = 1, IDB_STORE = "cache", IDB_VERSION = 2, SYNC_EVERY_MS = 3 * 3600 * 1000;
+  const EXPIRED = "Your session has expired. Please log in again.";
+  const el = id => document.getElementById(id);
+  const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const dash = v => v == null || v === "" ? "-" : esc(v);
+  const nowSec = () => Math.floor(Date.now() / 1000);
+  const ICON = {
+    x: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+    pencil: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+    eye: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+    eyeOff: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.9 8.4 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
+  };
+
+  /* -- storage -- */
+  const read = () => { try { const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); return s && s.v === STORAGE_VERSION ? s : {} } catch { return {} } };
+  const save = changes => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...read(), ...changes, v: STORAGE_VERSION })) } catch {} };
+  // the whole token object, valid, or logged out
+  const loginValid = token => !!token && typeof token.access_token === "string" && token.access_token !== "" && typeof token.refresh_token === "string" && token.refresh_token !== "" && Number.isFinite(token.access_token_expires_at) && Number.isFinite(token.refresh_token_expires_at) && token.refresh_token_expires_at > nowSec();
+  const userBlock = user => !user ? "Your account could not be loaded." : user.deleted_at ? "Your account was deleted." : user.deactivated_at ? "Your account is deactivated." : PAGE.role != null && Number(user.role) !== PAGE.role ? `This page needs role ${PAGE.role}.` : "";
+
+  /* -- IndexedDB cache: big or slow reference data; a record saved for another user is ignored -- */
+  const idbOpen = () => new Promise((resolve, reject) => {
+    const q = indexedDB.open(STORAGE_KEY, IDB_VERSION);
+    q.onupgradeneeded = () => { const db = q.result; if (db.objectStoreNames.contains(IDB_STORE)) db.deleteObjectStore(IDB_STORE); db.createObjectStore(IDB_STORE, { keyPath: "name" }) };
+    q.onsuccess = () => resolve(q.result);
+    q.onerror = () => reject(q.error);
+  });
+  const idbRun = async (mode, work) => { const db = await idbOpen(); try { return await new Promise((resolve, reject) => { const q = work(db.transaction(IDB_STORE, mode).objectStore(IDB_STORE)); q.onsuccess = () => resolve(q.result); q.onerror = () => reject(q.error) }) } finally { db.close() } };
+  const cacheGet = async name => { if (!PAGE.idb) return null; try { const r = await idbRun("readonly", s => s.get(name)); return r && r.user_id === (read().user?.id ?? null) ? r : null } catch { return null } };
+  const cacheSet = async (name, data) => { if (!PAGE.idb) return; try { await idbRun("readwrite", s => s.put({ name, user_id: read().user?.id ?? null, saved_at: Date.now(), data })) } catch {} };
+  const cacheCount = async () => { if (!PAGE.idb) return 0; try { return await idbRun("readonly", s => s.count()) } catch { return 0 } };
+  const cacheClear = () => new Promise(resolve => { if (!PAGE.idb) return resolve(); const q = indexedDB.deleteDatabase(STORAGE_KEY); q.onsuccess = q.onerror = q.onblocked = () => resolve() });
+
+  /* -- toast and the one dialog every part of the page uses -- */
+  let toastTimer = null;
+  const toast = (text, isError = false) => { const t = el("toast"); t.textContent = text; t.classList.toggle("error", !!isError); t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true }, isError ? 5000 : 2600) };
+  let dialogOn = {}, dialogLocked = false, formResolve = null;
+  // dialog({title, sub, body, actions, on: {buttonId: handler}}): a title, an optional subtitle, a body and actions only when there is something to do
+  const dialog = ({ title, sub = "", body = "", actions = "", on = {} }) => {
+    formResolve?.(false);    // a form still waiting is answered "no" when the dialog shows something else
+    formResolve = null;
+    el("atomTitle").textContent = title;
+    el("atomSub").textContent = sub;
+    el("atomSub").hidden = !sub;
+    el("atomBody").innerHTML = body + '<div class="error-box" id="atomError" hidden></div>';
+    el("atomActions").innerHTML = actions;
+    el("atomActions").hidden = !actions;
+    dialogOn = on;
+    if (!el("atomDialog").open) el("atomDialog").showModal();
+  };
+  const dialogClose = () => { if (el("atomDialog").open) el("atomDialog").close() };
+  const dialogError = text => { const e = el("atomError"); if (e) { e.textContent = text || ""; e.hidden = !text } };
+  const dialogLock = on => { dialogLocked = on; for (const b of el("atomDialog").querySelectorAll("button")) b.disabled = on };
+  // form({title, sub, body, ok, tone, submit}): Cancel, then the main action; submit() runs on the action or Enter and its error stays in the dialog;
+  // resolves true when done, false on Cancel or close. confirm(title, text, ok, danger) is a form without fields
+  const form = ({ title, sub = "", body = "", ok = "OK", tone = "primary", submit = null }) => new Promise(resolve => {
+    const done = value => { formResolve = null; dialogClose(); resolve(value) };
+    const run = async () => {
+      if (!submit) return done(true);
+      dialogError("");
+      dialogLock(true);
+      try { await submit(); dialogLock(false); done(true) }
+      catch (failure) { dialogLock(false); dialogError(failure.message) }
+    };
+    dialog({ title, sub, body: `<form class="dlg-form" id="atomForm" novalidate>${body}</form>`, actions: `<button type="button" id="atomCancel">Cancel</button><button type="submit" form="atomForm" class="${tone}" id="atomOk">${esc(ok)}</button>`, on: { atomCancel: () => done(false) } });
+    formResolve = resolve;
+    el("atomForm").addEventListener("submit", e => { e.preventDefault(); run() });
+    (el("atomForm").querySelector("input:not([disabled]),select,textarea") || el("atomOk")).focus();
+  });
+  const confirm = (title, text, ok = "OK", danger = false) => form({ title, body: `<p class="confirm-text">${esc(text)}</p>`, ok, tone: danger ? "danger" : "primary" });
+  const kv = rows => `<table class="kv"><tbody>${rows.map(([label, html]) => `<tr><th scope="row">${esc(label)}</th><td>${html}</td></tr>`).join("")}</tbody></table>`;
+  const eyeToggle = (input, button) => {
+    const draw = () => { const shown = input.type === "text"; button.innerHTML = shown ? ICON.eyeOff : ICON.eye; button.ariaLabel = shown ? "Hide password" : "Show password" };
+    button.addEventListener("click", () => { input.type = input.type === "password" ? "text" : "password"; draw(); input.focus() });
+    draw();
+  };
+
+  /* -- requests: the token as Bearer; a 401 renews the token once and retries -- */
+  let refreshing = null;
+  // true: a valid new token is saved; false: the refresh token expired or was refused (log out); null: the server could not be reached (keep the token, try later)
+  const tokenRefresh = () => refreshing ||= (async () => {
+    const token = read().token;
+    if (!loginValid(token)) return false;
+    try {
+      const response = await fetch("/my/token-refresh", { method: "POST", headers: { Authorization: `Bearer ${token.refresh_token}` } });
+      const body = await response.json().catch(() => ({}));
+      if (response.ok && body.status === 1) { if (!loginValid(body.message)) return false; save({ token: body.message }); return true }
+      return response.status === 401 || response.status === 403 ? false : null;
+    } catch { return null }
+  })().finally(() => { refreshing = null });
+  const request = async (path, options = {}, retry = true) => {
+    let token = read().token;
+    if (loginValid(token) && token.access_token_expires_at - nowSec() <= 30) { if (await tokenRefresh() === false) { logOut(EXPIRED); throw Object.assign(new Error(EXPIRED), { status: 401 }) } token = read().token }
+    const json = typeof options.body === "string";
+    const headers = { ...(json ? { "Content-Type": "application/json" } : {}), ...(options.headers || {}), ...(loginValid(token) ? { Authorization: `Bearer ${token.access_token}` } : {}) };
+    const response = await fetch(path, { ...options, headers });
+    if (response.status === 401 && retry && loginValid(token)) {
+      const renewed = await tokenRefresh();
+      if (renewed) return request(path, options, false);
+      if (renewed === false) logOut(EXPIRED);
+    }
+    return response;
+  };
+  // Atom's answer {status: 1, message}: the message, or an Error with the server's text and .status
+  const api = async (path, options = {}) => {
+    const response = await request(path, options);
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body.status !== 1) throw Object.assign(new Error(typeof body.message === "string" ? body.message : `HTTP ${response.status}`), { status: response.status });
+    return body.message;
+  };
+
+  /* -- session -- */
+  const loggedIn = () => !el("accountWrap").hidden;
+  // the user (GET /my/profile) into "user": on login, when missing and on every sync; false when the user may not use the page (logged out)
+  const profileLoad = async (force = false) => {
+    if (!loginValid(read().token)) return false;
+    if (force || !read().user) {
+      try { save({ user: await api("/my/profile") }) }
+      catch (error) { if (error.status === 401 || error.status === 403) { logOut(EXPIRED); return false } }    // offline: keep the saved user
+    }
+    const block = userBlock(read().user);
+    if (block) { logOut(block); return false }
+    renderAccount();
+    return true;
+  };
+  // sync: new token, the user, then the page's data (PAGE.refresh); synced_at when it finishes. step(i) names the step for the Sync dialog
+  const syncSteps = () => ["Renewing login…", "Loading your profile…", ...(PAGE.refresh ? ["Downloading data…"] : [])];
+  // the page's data only, one download at a time (a page with no cache yet calls it too): PAGE.refresh, then synced_at, then PAGE.onSynced
+  let dataSyncing = null;
+  const syncData = () => dataSyncing ||= (async () => { if (PAGE.refresh) await PAGE.refresh(); save({ synced_at: Date.now() }); PAGE.onSynced?.() })().finally(() => { dataSyncing = null });
+  const syncRun = async (step = () => {}) => {
+    step(0);
+    if (await tokenRefresh() === false) { logOut(EXPIRED); return false }
+    step(1);
+    if (!await profileLoad(true)) return false;
+    if (PAGE.refresh) step(2);
+    await syncData();
+    return true;
+  };
+  // 5 minutes or less left on the access token: renew it now (refused → logged out); false when logged out
+  const tokenFresh = async () => {
+    const token = read().token;
+    if (!loginValid(token)) { if (token) logOut(EXPIRED); return false }
+    if (token.access_token_expires_at - nowSec() <= 300 && await tokenRefresh() === false) { logOut(EXPIRED); return false }
+    return true;
+  };
+  // on open, every minute and when the tab comes back: a valid, fresh token; then the user, then a sync when synced_at is 3 hours old
+  const sessionCheck = async () => {
+    if (!read().token || !loggedIn()) return;
+    if (!await tokenFresh()) return;
+    if (!await profileLoad()) return;
+    if (Date.now() - (read().synced_at || 0) > SYNC_EVERY_MS) syncRun().catch(() => {});
+  };
+  // a token object from a login: check it, then the user, then the first sync, then the page
+  const signIn = async token => {
+    if (!loginValid(token)) throw new Error("The server sent an incomplete login. Please try again.");
+    save({ token, user: null, synced_at: 0 });
+    let user;
+    try { user = await api("/my/profile") } catch (error) { forgetAll(); throw error }
+    const block = userBlock(user);
+    if (block) { forgetAll(); throw new Error(block) }
+    save({ user });
+    showIn();
+  };
+  const forgetAll = () => { try { localStorage.removeItem(STORAGE_KEY) } catch {} cacheClear() };
+  // logout and every forced logout: forget the key and the cache, close dialogs, show the login with a plain sentence
+  const logOut = (message = "") => { forgetAll(); showOut(message) };
+  const initials = name => {
+    const words = String(name || "").split("@")[0].split(/[\s._-]+/).filter(Boolean);
+    return (words.length > 1 ? words[0][0] + words[1][0] : (words[0] || "?").slice(0, 2)).toUpperCase();
+  };
+  const renderAccount = () => { const u = read().user || {}; el("avatarText").textContent = initials(u.username || u.email) };
+  const showIn = () => {
+    el("loginOpenBtn").hidden = true;
+    el("syncBtn").hidden = el("accountWrap").hidden = false;
+    if (el("loginDialog").open) el("loginDialog").close();
+    renderAccount();
+    PAGE.onIn?.(read().user);
+    if (!read().synced_at) syncData().catch(() => {});    // the first sync after a login: the token is new, so only the page's data
+  };
+  const showOut = message => {
+    menuToggle(false);
+    for (const d of document.querySelectorAll("dialog[open]")) d.close();
+    el("syncBtn").hidden = el("accountWrap").hidden = true;
+    el("loginOpenBtn").hidden = !!PAGE.loginRequired;
+    PAGE.onOut?.(message);
+    if (PAGE.loginRequired || message) loginOpen(message);
+  };
+
+  /* -- login dialog: role (fixed when the page has one), username, password -- */
+  const loginOpen = (message = "") => {
+    el("loginSub").textContent = PAGE.title;
+    el("loginRole").value = PAGE.role ?? "";
+    el("loginRole").disabled = PAGE.role != null;
+    el("loginRole").placeholder = PAGE.role != null ? "" : "Any role";
+    el("loginClose").hidden = !!PAGE.loginRequired;
+    el("loginPassword").value = "";
+    el("loginError").textContent = message;
+    el("loginError").hidden = !message;
+    if (!el("loginDialog").open) el("loginDialog").showModal();
+    (el("loginUsername").value ? el("loginPassword") : el("loginUsername")).focus();
+  };
+  const loginSubmit = async event => {
+    event.preventDefault();
+    const role = el("loginRole").value.trim(), username = el("loginUsername").value.trim(), password = el("loginPassword").value;
+    const error = !username || !password ? "Enter your username and password." : role && !/^\d+$/.test(role) ? "Role is a number." : "";
+    el("loginError").textContent = error;
+    el("loginError").hidden = !error;
+    if (error) return;
+    el("loginBtn").disabled = true;
+    try {
+      const response = await fetch("/auth/login-username-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...(role ? { role: Number(role) } : {}), username, password }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body.status !== 1) throw new Error(typeof body.message === "string" ? body.message : `HTTP ${response.status}`);
+      await signIn(body.message);
+    } catch (failure) { el("loginError").textContent = failure.message; el("loginError").hidden = false }
+    finally { el("loginBtn").disabled = false }
+  };
+
+  /* -- account menu: My profile, Login details, Logout -- */
+  const menuToggle = open => { const isOpen = open ?? el("accountMenu").hidden; el("accountMenu").hidden = !isOpen; el("accountBtn").setAttribute("aria-expanded", String(isOpen)) };
+  const roleText = role => role == null ? "-" : esc(PAGE.roleLabel?.(role) ?? (Number(role) === 1 ? "1 (admin)" : String(role)));
+  const usernameCell = u => u.username ? `<span class="cell"><span>${esc(u.username)}</span><button type="button" class="kv-btn" data-copy="${esc(u.username)}" aria-label="Copy username">${ICON.copy}</button></span>` : "-";
+  const profileOpen = () => { const u = read().user || {}; dialog({ title: "My profile", body: kv([["Name", dash(u.name)], ["Username", usernameCell(u)], ["Email", dash(u.email)], ["Mobile", dash(u.mobile)], ["Role", roleText(u.role)]]) }) };
+  const detailsOpen = () => {
+    const u = read().user || {};
+    dialog({ title: "Login details", body: kv([["Username", usernameCell(u)], ["Password", `<span class="cell"><span>••••••••</span><button type="button" class="kv-btn" id="passwordEdit" aria-label="Change password">${ICON.pencil}</button></span>`], ["Role", roleText(u.role)]]), on: { passwordEdit: passwordOpen } });
+  };
+  // Update password: Atom's rule, 6-120 characters without spaces (PUT /my/user-update)
+  const passwordOpen = () => {
+    dialog({ title: "Update password",
+      body: '<div class="field"><label for="pwNew">New password</label><input id="pwNew" type="password" autocomplete="new-password" maxlength="120"></div><div class="field"><label for="pwConfirm">Confirm new password</label><input id="pwConfirm" type="password" autocomplete="new-password" maxlength="120"></div><p class="field-help">6–120 characters, no spaces.</p>',
+      actions: '<button type="button" id="pwCancel">Cancel</button><button type="button" class="primary" id="pwSave">Update password</button>',
+      on: { pwCancel: detailsOpen, pwSave: passwordSave } });
+    el("pwNew").focus();
+  };
+  const passwordSave = async () => {
+    const value = el("pwNew").value, error = /\s/.test(value) || value.length < 6 || value.length > 120 ? "Use 6–120 characters, no spaces" : value !== el("pwConfirm").value ? "Passwords don't match" : "";
+    if (error) return dialogError(error);
+    el("pwSave").disabled = true;
+    try { await api("/my/user-update", { method: "PUT", body: JSON.stringify({ password: value }) }); dialogClose(); toast("Password updated") }
+    catch (failure) { dialogError(failure.message); if (el("pwSave")) el("pwSave").disabled = false }
+  };
+  const logoutOpen = () => dialog({ title: "Logout?", body: '<p class="confirm-text">Are you sure you want to logout?</p>', actions: '<button type="button" id="logoutCancel">Cancel</button><button type="button" class="primary" id="logoutConfirm">Logout</button>', on: { logoutCancel: dialogClose, logoutConfirm: () => logOut("") } });
+
+  /* -- Sync dialog: what this page keeps and when it last downloaded; Sync now runs the whole sync -- */
+  const agoText = ms => { const s = Math.max(0, Math.round((Date.now() - ms) / 1000)); if (s < 60) return "just now"; for (const [size, unit] of [[31536000, "yr"], [2592000, "mo"], [86400, "day"], [3600, "hr"], [60, "min"]]) if (s >= size) { const n = Math.floor(s / size); return `${n} ${unit === "day" && n !== 1 ? "days" : unit} ago` } };
+  const usedText = n => n ? `Used, ${n} item${n === 1 ? "" : "s"}` : "Not used";
+  const syncOpen = async () => {
+    const store = read(), local = Object.keys(store).length, records = await cacheCount();
+    dialog({ title: "Sync", sub: "Auto sync every 3 hr",
+      body: kv([["Local storage", usedText(local)], ["IndexedDB", usedText(records)], ["Last synced", store.synced_at ? agoText(store.synced_at) : "Never"]]) + '<div class="sync-progress" id="syncProgress" hidden><div class="sync-fill" id="syncFill"></div></div><p class="sync-status" id="syncStatus" role="status"></p>',
+      actions: '<button type="button" id="syncClose">Close</button><button type="button" class="primary" id="syncNow">Sync now</button>',
+      on: { syncClose: dialogClose, syncNow } });
+  };
+  const syncNow = async () => {
+    const steps = syncSteps();
+    const step = i => { if (!el("syncStatus")) return; el("syncStatus").textContent = `${steps[i]} (${i + 1} of ${steps.length})`; el("syncFill").style.width = `${Math.round(i / steps.length * 100)}%` };
+    el("syncStatus").classList.remove("error");
+    el("syncProgress").hidden = false;
+    dialogLock(true);
+    let ok = false;
+    try { ok = await syncRun(step) } catch { ok = false }
+    dialogLock(false);
+    if (!el("atomDialog").open || el("atomTitle").textContent !== "Sync") return;
+    await syncOpen();
+    el("syncStatus").textContent = ok ? "Everything is up to date." : "Sync failed. Please try again.";
+    el("syncStatus").classList.toggle("error", !ok);
+  };
+
+  /* -- start: wire the parts, then open logged in (a valid token) or logged out -- */
+  const start = () => {
+    el("accountBtn").addEventListener("click", e => { e.stopPropagation(); menuToggle() });
+    el("accountMenu").addEventListener("click", e => e.stopPropagation());
+    document.addEventListener("click", () => menuToggle(false));
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && !el("accountMenu").hidden) { menuToggle(false); el("accountBtn").focus() } });
+    el("profileBtn").addEventListener("click", () => { menuToggle(false); profileOpen() });
+    el("detailsBtn").addEventListener("click", () => { menuToggle(false); detailsOpen() });
+    el("logoutBtn").addEventListener("click", () => { menuToggle(false); logoutOpen() });
+    el("syncBtn").addEventListener("click", syncOpen);
+    el("loginOpenBtn").addEventListener("click", () => loginOpen());
+    el("loginClose").addEventListener("click", () => el("loginDialog").close());
+    el("loginForm").addEventListener("submit", loginSubmit);
+    el("loginDialog").addEventListener("cancel", e => { if (PAGE.loginRequired) e.preventDefault() });    // a page that needs a login keeps the form open
+    eyeToggle(el("loginPassword"), el("loginEye"));
+    el("atomClose").innerHTML = el("loginClose").innerHTML = ICON.x;
+    el("atomClose").addEventListener("click", dialogClose);
+    el("atomDialog").addEventListener("cancel", e => { if (dialogLocked) e.preventDefault() });    // Escape does nothing while Sync runs
+    el("atomDialog").addEventListener("close", () => { formResolve?.(false); formResolve = null; dialogOn = {} });
+    el("atomDialog").addEventListener("click", e => {
+      const copy = e.target.closest("[data-copy]");
+      if (copy) return navigator.clipboard.writeText(copy.dataset.copy).then(() => toast("Username copied"), () => toast("Could not copy username", true));
+      const button = e.target.closest("button[id]");
+      if (button && dialogOn[button.id]) dialogOn[button.id](e);
+    });
+    // logout in another tab removes the key: this tab finds no valid token and logs out too
+    window.addEventListener("storage", e => { if (e.key === STORAGE_KEY && loggedIn() && !loginValid(read().token)) showOut("You logged out in another tab.") });
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) sessionCheck() });
+    setInterval(sessionCheck, 60000);
+    const token = read().token;
+    if (loginValid(token)) { showIn(); sessionCheck() }
+    else { if (token) forgetAll(); showOut(token ? EXPIRED : "") }
+  };
+
+  return { start, esc, dash, toast, dialog, dialogClose, dialogError, dialogLock, form, confirm, kv, eyeToggle, api, request, read, save, user: () => read().user || null, loggedIn, signIn, logOut, loginOpen, loginValid, tokenRefresh, tokenFresh, syncData, cacheGet, cacheSet, syncOpen, initials, agoText, EXPIRED };
+})();
+/* ==== end atom page: account ==== */
+
+/* ==== page state ==== */
+const $ = id => document.getElementById(id);
+const he = v => Page.esc(v);
+const readStore = () => Page.read();
+const writeStore = changes => Page.save(changes);
+const api = (path, options) => Page.api(path, options);
+const toast = (text, isError) => Page.toast(text, isError);
+const showError = (el, text) => { el.textContent = text || ""; el.hidden = !text };
+// Python's \A and \Z (config_column_regex) as JavaScript's ^ and $; PostgreSQL patterns from CHECK constraints are used as they are
+const toRegExp = pattern => { try { return new RegExp(String(pattern).replace(/\\A/g, "^").replace(/\\Z/g, "$")) } catch { return null } };
+const formatNumber = n => n == null ? "—" : Number(n).toLocaleString();
+const formatBytes = n => {
+  if (n == null) return "—";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let i = 0;
+  while (Math.abs(n) >= 1024 && i < units.length - 1) { n /= 1024; i++ }
+  return `${n.toFixed(i && n < 10 ? 1 : 0)} ${units[i]}`;
+};
+// times in this browser's time zone, written out with the offset so nobody has to guess: 2026-11-09 01:46 +05:30
+const tzOffset = d => { const m = -d.getTimezoneOffset(), a = Math.abs(m); return `${m >= 0 ? "+" : "-"}${String(Math.floor(a / 60)).padStart(2, "0")}:${String(a % 60).padStart(2, "0")}` };
+const formatDate = (v, seconds = false) => {
+  if (!v) return "null";
+  const d = new Date(v), p = n => String(n).padStart(2, "0");
+  if (Number.isNaN(d.getTime())) return String(v);
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}${seconds ? `:${p(d.getSeconds())}` : ""} ${tzOffset(d)}`;
+};
+const formatAgo = v => {
+  const sec = Math.round((Date.now() - new Date(v).getTime()) / 1000);
+  if (!Number.isFinite(sec)) return String(v);
+  const abs = Math.abs(sec), suffix = sec >= 0 ? "ago" : "from now";
+  if (abs < 60) return "just now";
+  if (abs < 3600) return `${Math.floor(abs / 60)} min ${suffix}`;
+  if (abs < 86400) return `${Math.floor(abs / 3600)} h ${suffix}`;
+  return `${Math.floor(abs / 86400)} d ${suffix}`;
+};
+const truncate = (s, n) => s.length > n ? `${s.slice(0, n)}…` : s;
+const qs = params => new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "")).toString();
+
+/* ==== requests ==== */
+const sql = (text, connection) => api(`/admin/postgres-query-runner-read${connection ? `?${qs({ connection })}` : ""}`, { method: "POST", body: JSON.stringify({ sql: text }) });
+// counts (or sum/avg/min/max of agg_col) per value of the columns in col, within filter; answers are cached by the server for 10 seconds
+const groupby = (table, col, { filter = [], ...params } = {}) => api(`/admin/table-column-groupby?${qs({ table, col: JSON.stringify(col), filter: JSON.stringify(filter), ...params })}`);
+
+/* ==== schema and rules ==== */
+// tables and columns come from GET /admin/postgres-schema; the rules come from the running server (GET /admin/monitor?view=app)
+// and from the triggers config_postgres control installs (pg_trigger), so the panel follows the project's own config, not a copy of it
+let SCHEMA = {}, INFO = {}, STATS = {};
+// set by the server, never in a form: created_at by its default now(), created_by_id / updated_by_id by the object routes, updated_at by trigger_updated_at_set_<table>
+const AUDIT = ["created_at", "created_by_id", "updated_at", "updated_by_id"];
+// rows Atom itself writes: read here, never created, edited or deleted from the panel
+const SYSTEM_TABLES = { log_api: "Atom's request logging", otp: "the OTP routes", log_users_password: "a trigger on every password change", log_users_delete: "the user-delete trigger and worker", blob: "the blob upload routes" };
+// Atom's defaults; rulesFetch() replaces them with the server's own values (a list too long for the monitor shows as "N items" and keeps the default)
+const RULES_DEFAULT = {
+  users_blocked: ["created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id", "is_protected", "last_active_at"],
+  single_update: ["username", "password", "email", "mobile"],
+  read_blocked: ["password"],
+  column_regex: { username: ["^(?=.{1,120}\\Z)\\S+\\Z", "Username must be 1-120 characters and contain no spaces"], password: ["^(?=.{6,120}\\Z)\\S+\\Z", "Password must be 6-120 characters and contain no spaces"] },
+  is_user_delete: false, is_read_only: false, is_log_api: true, log_db: "master", batch: 1000, is_live: false,
+};
+let RULES = { ...RULES_DEFAULT };
+// per table, from pg_trigger: delete (control table_row_delete_disable), bulk (table_row_delete_disable_bulk), protected (is_protected_delete_disabled), updated_at (is_updated_at_set), and every trigger name
+let TRIGGERS = {};
+// per table, from pg_constraint (see constraintsFetch)
+let CONSTRAINTS = {};
+// timestamp columns that mean a state: set to now to turn it on, cleared to turn it off (with the matching *_by_id when the table has one); only buttons change them, never a form
+const TOGGLES = {
+  deactivated_at: { on: "Deactivate", off: "Reactivate", state: "Deactivated", tone: "warn" },
+  deleted_at: { on: "Soft delete", off: "Restore", state: "Deleted", tone: "bad" },
+  verified_at: { on: "Mark verified", off: "Unverify", state: "Verified", tone: "ok" },
+  read_at: { on: "Mark read", off: "Mark unread", state: "Read", tone: "blue" },
+};
+const STATE_COLS = Object.keys(TOGGLES).flatMap(col => [col, col.replace(/_at$/, "_by_id")]);
+const readable = col => !RULES.read_blocked.includes(col);
+// /admin/postgres-schema reports nullability as information_schema does: is_nullable "YES" or "NO"
+const isNotNull = c => String(c?.is_nullable).toUpperCase() === "NO" || c?.is_nullable === false;
+const logConn = () => RULES.log_db && RULES.log_db !== "master" ? RULES.log_db : undefined;    // log_api may live in its own database (config_postgres_db_log_api)
+const connFor = table => table === "log_api" ? logConn() : undefined;
+const chunks = (items, size) => Array.from({ length: Math.ceil(items.length / size) }, (_, i) => items.slice(i * size, (i + 1) * size));
+const TRIGGER_HELP = [
+  [/^trigger_delete_disable_bulk_/, "a DELETE removing more than the allowed rows fails (control table_row_delete_disable_bulk)"],
+  [/^trigger_delete_disable_is_protected_/, "rows with is_protected = true can't be deleted (control is_protected_delete_disabled)"],
+  [/^trigger_delete_disable_/, "rows can't be deleted (control table_row_delete_disable)"],
+  [/^trigger_truncate_disable_/, "TRUNCATE is refused"],
+  [/^trigger_updated_at_set_/, "sets updated_at on every update (control is_updated_at_set)"],
+  [/^trigger_protect_root_/, "the root user (id 1) keeps role 1 and can't be deleted (control is_root_user_delete_disabled)"],
+  [/^trigger_password_log_/, "copies every password change to log_users_password (control is_log_users_password)"],
+  [/^trigger_log_users_delete/, "logs soft and hard user deletes to log_users_delete (control is_log_users_delete)"],
+];
+const triggerHelp = name => TRIGGER_HELP.find(([re]) => re.test(name))?.[1] || "the project's own trigger";
+// the server's settings (GET /admin/monitor?view=app) and the triggers config_postgres control installs (pg_trigger), as values for referenceApply
+const rulesFetch = async () => {
+  const [app, triggerRows] = await Promise.all([
+    api("/admin/monitor?view=app").catch(() => null),
+    sql("select c.relname as table_name, t.tgname as name from pg_trigger t join pg_class c on c.oid = t.tgrelid join pg_namespace n on n.oid = c.relnamespace where not t.tgisinternal and n.nspname = 'public' order by 1, 2").catch(() => []),
+  ]);
+  const cfg = Object.fromEntries((app?.config || []).map(c => [c.name, c.value]));
+  const list = (name, fallback) => Array.isArray(cfg[name]) ? cfg[name] : fallback;
+  const rules = {
+    ...RULES_DEFAULT,
+    users_blocked: list("config_column_users_blocked", RULES_DEFAULT.users_blocked),
+    single_update: list("config_column_single_update", RULES_DEFAULT.single_update),
+    read_blocked: list("config_column_read_blocked", RULES_DEFAULT.read_blocked),
+    column_regex: cfg.config_column_regex && typeof cfg.config_column_regex === "object" ? cfg.config_column_regex : RULES_DEFAULT.column_regex,
+    is_user_delete: typeof cfg.config_is_user_delete === "boolean" ? cfg.config_is_user_delete : RULES_DEFAULT.is_user_delete,
+    is_read_only: cfg.config_is_read_only === true || app?.server?.is_read_only === true,
+    is_log_api: cfg.config_is_log_api !== false,
+    log_db: typeof cfg.config_postgres_db_log_api === "string" && cfg.config_postgres_db_log_api ? cfg.config_postgres_db_log_api : "master",
+    batch: Number(cfg.config_batch_item_limit) || RULES_DEFAULT.batch,
+    is_live: !!app,
+  };
+  const triggers = {};
+  triggerRows.forEach(({ table_name: t, name }) => {
+    const x = triggers[t] ||= { names: [] };
+    x.names.push(name);
+    if (name === `trigger_delete_disable_bulk_${t}`) x.bulk = true;
+    else if (name === `trigger_delete_disable_is_protected_${t}`) x.protected = true;
+    else if (name === `trigger_delete_disable_${t}`) x.delete = true;
+    else if (name === `trigger_updated_at_set_${t}`) x.updated_at = true;
+  });
+  return { rules, triggers };
+};
+// CHECK constraints (pg_constraint): Atom writes config_postgres "in", "regex" and "check" as CHECK constraints, so one read gives the page all three.
+// Per table: columns (one-column constraints, by column) and all (every constraint, for the Schema tab). in = allowed values, regex = pattern, check = any other condition
+const constraintsFetch = async () => {
+  const rows = await sql("select c.relname as table_name, con.conname as name, pg_get_constraintdef(con.oid) as def, array(select a.attname::text from unnest(con.conkey) k join pg_attribute a on a.attrelid = con.conrelid and a.attnum = k) as columns from pg_constraint con join pg_class c on c.oid = con.conrelid join pg_namespace n on n.oid = c.relnamespace where con.contype = 'c' and n.nspname = 'public' order by 1, 2").catch(() => []);
+  const out = {};
+  rows.forEach(({ table_name: t, name, def, columns: cols }) => {
+    const x = out[t] ||= { all: [], columns: {} }, rule = { name, def };
+    const inList = def.match(/= ANY \(+ARRAY\[(.*)\]\)/), regex = def.match(/ ~ '((?:[^']|'')*)'::text/);
+    if (inList) { rule.kind = "in"; rule.values = inList[1].split(/,\s*/).map(v => v.replace(/::[\w ]+$/, "").replace(/^\(|\)$/g, "").replace(/^'(.*)'$/, "$1").replace(/''/g, "'")) }
+    else if (regex) { rule.kind = "regex"; rule.pattern = regex[1].replace(/''/g, "'") }
+    else rule.kind = "check";
+    x.all.push(rule);
+    if (cols?.length === 1) (x.columns[cols[0]] ||= []).push(rule);
+  });
+  return out;
+};
+const constraintsOf = (table, col) => CONSTRAINTS[table]?.columns?.[col] || [];
+const USER_REFS = ["user_id", "received_by_id", "assigned_to_id"];
+const isUserRef = (table, col) => /_by_id$/.test(col) || USER_REFS.includes(col) || (table === "users" && col === "parent_id");
+const columns = table => Object.values(SCHEMA[table] || {}).sort((a, b) => a.column_number - b.column_number);
+const relationType = table => columns(table)[0]?.relation_type || "table";
+const isWritable = table => ["table", "partitioned_table"].includes(relationType(table)) && !!SCHEMA[table]?.id;
+const kind = meta => {
+  const t = String(meta?.datatype || "").toLowerCase();
+  if (t.endsWith("[]")) return "array";
+  if (t.startsWith("geography") || t.startsWith("geometry")) return "geo";
+  if (t === "boolean") return "bool";
+  if (t.startsWith("timestamp")) return "timestamp";
+  if (t === "date") return "date";
+  if (/^(smallint|integer|bigint)/.test(t)) return "int";
+  if (/^(numeric|real|double|decimal)/.test(t)) return "float";
+  if (t.startsWith("json")) return "json";
+  return "text";
+};
+// why a table (or one row) can't be created, edited or deleted here; "" means it can. Each reason names the Atom rule behind it
+const baseBlock = table => RULES.is_read_only ? "the server is read-only (config_is_read_only)" : !isWritable(table) ? `a ${relationType(table).replace("_", " ")} can't be changed` : SYSTEM_TABLES[table] ? `written by ${SYSTEM_TABLES[table]}` : "";
+const createBlock = table => baseBlock(table) || (table !== "users" && !SCHEMA[table].created_by_id ? "no created_by_id column, which /admin/object-create needs" : "");
+const editBlock = table => baseBlock(table) || (table !== "users" && !SCHEMA[table].updated_by_id ? "no updated_by_id column, which /admin/object-update needs" : "");
+const deleteBlock = (table, row = null) => {
+  const base = baseBlock(table);
+  if (base) return base;
+  const instead = SCHEMA[table].deactivated_at ? "; deactivate rows instead" : SCHEMA[table].deleted_at ? "; soft delete rows instead" : "";
+  if (table === "users" && !RULES.is_user_delete) return "user hard delete is off (config_is_user_delete); deactivate users instead";
+  if (TRIGGERS[table]?.delete) return `rows can't be deleted (config_postgres control table_row_delete_disable, trigger_delete_disable_${table})${instead}`;
+  if (row && table === "users" && row.id === 1) return "the root user can't be deleted";
+  if (row?.is_protected && TRIGGERS[table]?.protected) return "a protected row (is_protected, control is_protected_delete_disabled)";
+  return "";
+};
+const canCreate = table => !createBlock(table);
+const canUpdate = table => !editBlock(table);
+const toggles = table => canUpdate(table) ? Object.keys(TOGGLES).filter(col => kind(SCHEMA[table]?.[col]) === "timestamp" && !(table === "users" && RULES.users_blocked.includes(col))) : [];
+const intMap = (table, col) => INFO.config_column_int_mapping?.[table]?.[col];
+// a role is its number; a label from config_column_int_mapping (users.role) follows it, and role 1 is always the admin
+const roleLabel = role => { const label = INFO.config_column_int_mapping?.users?.role?.[String(role)] || (role === 1 ? "admin" : ""); return label ? `${role} (${label})` : String(role) };
+// row estimates and sizes per table, for the sidebar and the dashboard
+const statsFetch = async () => Object.fromEntries((await sql("select s.relname as name, s.n_live_tup::bigint as rows, pg_total_relation_size(s.relid)::bigint as bytes from pg_stat_user_tables s where s.schemaname = 'public'").catch(() => [])).map(s => [s.name, s]));
+const statsLoad = async () => { STATS = await statsFetch() };
+// everything the page knows about the database before it reads rows: schema, /info, row counts, settings, triggers and constraints, requested at once
+const referenceFetch = async () => {
+  const [schema, info, stats, { rules, triggers }, constraints] = await Promise.all([
+    api("/admin/postgres-schema"),
+    fetch("/info").then(r => r.json()).then(b => b.message || {}).catch(() => ({})),
+    statsFetch(),
+    rulesFetch(),
+    constraintsFetch(),
+  ]);
+  return { schema: schema || {}, info, stats, rules, triggers, constraints };
+};
+const referenceApply = ref => {
+  SCHEMA = ref.schema; INFO = ref.info; STATS = ref.stats; RULES = { ...RULES_DEFAULT, ...ref.rules }; TRIGGERS = ref.triggers; CONSTRAINTS = ref.constraints || {};
+  $("roBanner").hidden = !RULES.is_read_only;
+  $("brandSub").textContent = `server ${location.host}${INFO.atom_version ? ` · Atom framework ${INFO.atom_version}` : ""}`;
+  renderTableList();
+};
+// the sync's download (PAGE.refresh): fresh from the server into the IndexedDB record "reference", then shown
+const referenceRefresh = async () => { const fresh = await referenceFetch(); await Page.cacheSet("reference", fresh); referenceApply(fresh) };
+// the sidebar: every relation of the public schema, grouped by what PostgreSQL says it is (table, view, ...), with its row estimate
+const RELATION_GROUPS = [["table", "Tables"], ["partitioned_table", "Partitioned tables"], ["view", "Views"], ["materialized_view", "Materialized views"], ["foreign_table", "Foreign tables"]];
+const renderTableList = () => {
+  const text = $("tableSearch").value.trim().toLowerCase(), names = Object.keys(SCHEMA).sort(), shown = names.filter(name => name.includes(text));
+  const item = name => {
+    const block = baseBlock(name), rows = STATS[name]?.rows;
+    const count = rows == null ? "" : `${formatNumber(rows)} rows`;
+    return `<button type="button" class="nav-item${route.table === name ? " active" : ""}" data-table="${he(name)}" title="${he(name)}${rows == null ? "" : ` · about ${he(formatNumber(rows))} rows (pg_stat_user_tables estimate)`}${block ? ` · ${he(block)}` : ""}"><span>${he(name)}</span><span class="count">${SYSTEM_TABLES[name] ? `<span class="badge">read-only</span> ` : ""}${he(count)}</span></button>`;
+  };
+  $("tableCount").textContent = `${names.length} relations`;
+  $("tableList").innerHTML = RELATION_GROUPS.map(([type, label]) => [label, shown.filter(n => relationType(n) === type)])
+    .filter(([, list]) => list.length)
+    .map(([label, list]) => `<div class="nav-sub">${label} <span>${list.length}</span></div>${list.map(item).join("")}`).join("") || `<div class="empty">No tables or views</div>`;
+};
+$("tableSearch").addEventListener("input", renderTableList);
+$("tableSearch").addEventListener("keydown", e => { if (e.key === "Enter") { const first = $("tableList").querySelector("[data-table]"); if (first) go(`table/${first.dataset.table}`) } });
+$("tableList").addEventListener("click", async e => { const b = e.target.closest("[data-table]"); if (b && await discardOk()) go(`table/${b.dataset.table}`) });
+$("navDashboard").addEventListener("click", async () => { if (await discardOk()) go("dashboard") });
+
+/* ==== user names ==== */
+// ids that point at users (created_by_id, user_id, ...) are shown as usernames; one read per page of rows
+const USERNAMES = new Map();
+const usersResolve = async ids => {
+  const need = [...new Set(ids.filter(id => Number.isInteger(id) && !USERNAMES.has(id)))].slice(0, 500);
+  if (!need.length || !SCHEMA.users) return;
+  try {
+    const res = await api(`/admin/object-read?${qs({ table: "users", column: "id,username,email,role", limit: need.length, filter: JSON.stringify([`id in ${need.join(",")}`]) })}`);
+    need.forEach(id => USERNAMES.set(id, null));
+    res.obj_list.forEach(u => USERNAMES.set(u.id, u));
+  } catch { /* names are a nicety: ids still show */ }
+};
+// a user id is shown as the id, then who it is: 812 (riya@example.com)
+const userLink = id => {
+  const u = USERNAMES.get(id), who = u ? (u.username || u.email || "no username") : USERNAMES.has(id) ? "no such user" : "";
+  return `<button type="button" class="link" data-user="${id}" title="Open users · id ${id}">${id}${who ? ` <span class="muted">(${he(who)})</span>` : ""}</button>`;
+};
+
+/* ==== value display ==== */
+// some reads return jsonb as text: parse it back so it shows and edits as JSON
+const jsonValue = v => { if (typeof v !== "string") return v; try { return JSON.parse(v) } catch { return v } };
+// the row's state, worked out from deactivated_at and deleted_at (deleted wins)
+const stateOf = row => row.deleted_at ? ["deleted", "bad"] : row.deactivated_at ? ["deactivated", "warn"] : ["active", "ok"];
+// a value as stored: null is "null", an empty string is "", times carry their offset, codes keep their number before any label
+const cellHtml = (table, col, v, full = false) => {
+  if (v === null || v === undefined) return `<span class="null">null</span>`;
+  if (v === "") return `<span class="null">""</span>`;
+  const meta = SCHEMA[table]?.[col], k = kind(meta);
+  if (k === "timestamp") {
+    const tone = TOGGLES[col] ? ` class="pill ${TOGGLES[col].tone}"` : "";
+    return full ? `<span${tone}>${he(formatDate(v, true))}</span> <span class="muted">· ${he(formatAgo(v))} · stored as ${he(v)}</span>` : `<span${tone} title="${he(formatAgo(v))} · stored as ${he(v)}">${he(formatDate(v))}</span>`;
+  }
+  if (k === "bool") return v ? `<span class="pill ok">true</span>` : `<span class="pill">false</span>`;
+  const map = intMap(table, col);
+  if (map && map[String(v)] != null) return `${he(v)} <span class="muted">(${he(map[String(v)])})</span>`;
+  if (table === "users" && col === "role") return `<span class="pill ${v === 1 ? "bad" : "blue"}">${he(roleLabel(v))}</span>`;
+  if (isUserRef(table, col) && Number.isInteger(v)) return userLink(v);
+  if (k === "json") v = jsonValue(v);
+  if (typeof v === "object") return full ? `<pre>${he(JSON.stringify(v, null, 2))}</pre>` : `<span class="mono">${he(truncate(JSON.stringify(v), 60))}</span>`;
+  return full ? he(v) : he(truncate(String(v), 80));
+};
+
+/* ==== routing ==== */
+// the address keeps the view: #dashboard or #table/<name>, so Back works and a view can be bookmarked
+let route = { view: "dashboard" }, pendingFilters = null;    // pendingFilters: filters the next table view opens with (a role clicked on the dashboard)
+const go = hash => { if (location.hash.slice(1) === hash) render(); else location.hash = hash };
+window.addEventListener("hashchange", () => render());
+const render = () => {
+  const hash = decodeURIComponent(location.hash.slice(1));
+  route = hash.startsWith("table/") && SCHEMA[hash.slice(6)] ? { view: "table", table: hash.slice(6) } : { view: "dashboard" };
+  drawerClose();
+  showError($("error"), "");
+  $("navDashboard").classList.toggle("active", route.view === "dashboard");
+  renderTableList();
+  const filters = pendingFilters || [];
+  pendingFilters = null;
+  if (route.view === "table") tableOpen(route.table, filters); else dashboardOpen();
+};
+$("refreshBtn").addEventListener("click", async () => {
+  $("refreshBtn").disabled = true;
+  try { statsLoad().then(renderTableList); await (route.view === "table" ? tableLoad() : dashboardLoad()) }
+  catch (error) { showError($("error"), error.message) }
+  finally { $("refreshBtn").disabled = false }
+});
+
+/* ==== dashboard ==== */
+// insights read through /admin/postgres-query-runner-read (read-only, 30 s limit); every card loads on its own so one failure does not blank the page
+const RANGES = { "24h": { label: "Last 24 hours", interval: "24 hours", bucket: "hour", n: 24, ms: 864e5 }, "7d": { label: "Last 7 days", interval: "7 days", bucket: "day", n: 7, ms: 7 * 864e5 }, "30d": { label: "Last 30 days", interval: "30 days", bucket: "day", n: 30, ms: 30 * 864e5 } };
+const dashboardOpen = () => {
+  const range = RANGES[readStore().range] ? readStore().range : "24h";
+  $("title").textContent = "Dashboard";
+  $("subtitle").textContent = "Users, API traffic and tables of this backend";
+  $("view").innerHTML = `
+    <div class="actions" style="margin-bottom:14px">
+      <select id="rangeSelect" aria-label="Time range">${Object.entries(RANGES).map(([k, r]) => `<option value="${k}"${k === range ? " selected" : ""}>${r.label}</option>`).join("")}</select>
+      <span class="muted" style="font-size:12px">Requests and errors come from <b>log_api</b>${logConn() ? ` in the <b>${he(logConn())}</b> database` : ""}. More detail on the <a href="/page/monitor" target="_blank" style="color:var(--accent)">Monitor</a> page.</span>
+    </div>
+    <div class="tiles" id="dashTiles"><div class="info">Loading...</div></div>
+    <div class="two">
+      <div class="card"><div class="card-head"><h3>Users by role</h3><span class="muted" style="font-size:12px">click a role to list its users</span></div><div class="card-scroll" id="dashRoles"><div class="empty">Loading...</div></div></div>
+      <div class="card"><div class="card-head"><h3>New users</h3><span class="muted" style="font-size:12px" id="dashSignupsTotal"></span></div><div id="dashSignups"><div class="empty">Loading...</div></div></div>
+    </div>
+    <div class="card"><div class="card-head"><h3>API requests</h3><div class="legend"><span><i style="background:var(--accent)"></i>OK</span><span><i style="background:var(--danger)"></i>Errors (400+)</span></div></div><div id="dashTraffic"><div class="empty">Loading...</div></div></div>
+    <div class="two">
+      <div class="card"><div class="card-head"><h3>Busiest APIs</h3></div><div class="card-scroll" id="dashPaths"><div class="empty">Loading...</div></div></div>
+      <div class="card"><div class="card-head"><h3>Status codes</h3></div><div class="card-scroll" id="dashStatus"><div class="empty">Loading...</div></div></div>
+    </div>
+    <div class="two">
+      <div class="card"><div class="card-head"><h3>Most active users</h3></div><div class="card-scroll" id="dashUsers"><div class="empty">Loading...</div></div></div>
+      <div class="card"><div class="card-head"><h3>Tables</h3><span class="muted" style="font-size:12px">rows are PostgreSQL's estimate</span></div><div class="card-scroll" id="dashTables" style="max-height:340px;overflow-y:auto"><div class="empty">Loading...</div></div></div>
+    </div>
+    <div class="card"><div class="card-head"><h3>Latest errors</h3><button type="button" class="small" data-go="table/log_api" ${SCHEMA.log_api ? "" : "hidden"}>Open log_api</button></div><div class="card-scroll" id="dashErrors"><div class="empty">Loading...</div></div></div>`;
+  $("rangeSelect").addEventListener("change", e => { writeStore({ range: e.target.value }); dashboardLoad() });
+  dashboardLoad();
+};
+const tile = (label, value, hint = "", bad = false) => `<div class="tile"><div class="label">${he(label)}</div><div class="value${bad ? " bad" : ""}">${he(value)}</div><div class="hint">${he(hint)}</div></div>`;
+const chartHtml = (rows, range, series) => {
+  if (!rows.length) return `<div class="empty">No data</div>`;
+  const max = Math.max(1, ...rows.map(r => series.reduce((sum, s) => sum + Number(r[s.key] || 0), 0)));
+  const label = t => new Date(t).toLocaleString([], range.bucket === "hour" ? { hour: "2-digit", minute: "2-digit" } : { day: "numeric", month: "short" });
+  return `<div class="chart">${rows.map(r => `<div class="col" title="${he(label(r.t))}: ${series.map(s => `${formatNumber(r[s.key])} ${s.label}`).join(", ")}">${series.slice().reverse().map(s => `<div class="${s.cls}" style="height:${(Number(r[s.key] || 0) / max) * 100}%"></div>`).join("")}</div>`).join("")}</div><div class="axis"><span>${he(label(rows[0].t))}</span><span>${he(label(rows[rows.length - 1].t))}</span></div>`;
+};
+const tableHtml = (head, rows, empty = "No data") => rows.length ? `<table><thead><tr>${head.map(h => `<th class="${h.num ? "num" : ""}">${he(h.label)}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>` : `<div class="empty">${he(empty)}</div>`;
+const card = async (id, work) => {
+  try { $(id).innerHTML = await work() }
+  catch (error) { if ($(id)) $(id).innerHTML = `<div class="empty bad" style="color:var(--danger)">${he(error.message)}</div>` }
+};
+let dashToken = 0;
+const dashboardLoad = () => {
+  const token = ++dashToken, range = RANGES[readStore().range] || RANGES["24h"], since = `now() - interval '${range.interval}'`;
+  const sinceFilter = `created_at >= ${new Date(Date.now() - range.ms).toISOString()}`;    // the same start as a groupby filter
+  // one index range scan grouped by bucket, then every bucket joined on so empty hours or days show as 0 (about twice as fast as joining each bucket to the table)
+  const start = `date_trunc('${range.bucket}', now()) - interval '${range.n - 1} ${range.bucket}'`;
+  const series = table => `with b as (select generate_series(${start}, date_trunc('${range.bucket}', now()), interval '1 ${range.bucket}') t),`
+    + ` x as (select date_trunc('${range.bucket}', created_at) t, count(*) total, count(*) filter (where ${table === "log_api" ? "status_code >= 400" : "false"}) errors from ${table} where created_at >= ${start} group by 1)`
+    + ` select b.t, coalesce(x.total, 0)::bigint as total, coalesce(x.errors, 0)::bigint as errors from b left join x using (t) order by b.t`;
+  const live = () => token === dashToken && route.view === "dashboard";
+  // log_api reads go to the database log_api is written to (config_postgres_db_log_api); with config_is_log_api off there is nothing to read
+  const LOG_OFF = new Error("API logging is off (config_is_log_api), so there is no log_api to read");
+  const logSql = text => RULES.is_log_api ? sql(text, logConn()) : Promise.reject(LOG_OFF);
+  const logGroupby = (col, opts) => RULES.is_log_api ? groupby("log_api", col, { ...opts, connection: logConn() }) : Promise.reject(LOG_OFF);
+  card("dashTiles", async () => {
+    const [[u], [r]] = await Promise.all([
+      sql(`select count(*)::bigint total, count(*) filter (where deactivated_at is null and deleted_at is null)::bigint active, count(*) filter (where deactivated_at is not null)::bigint deactivated, count(*) filter (where deleted_at is not null)::bigint deleted, count(*) filter (where created_at >= ${since})::bigint new, count(*) filter (where last_active_at >= ${since})::bigint seen, pg_database_size(current_database())::bigint db_bytes from users`),
+      logSql(`select count(*)::bigint total, count(*) filter (where status_code >= 500)::bigint server_errors, count(*) filter (where status_code >= 400 and status_code < 500)::bigint client_errors, round(avg(response_time_ms))::int avg_ms, round(percentile_cont(0.95) within group (order by response_time_ms))::int p95_ms from log_api where created_at >= ${since}`).catch(() => [{}]),
+    ]);
+    const errorRate = r.total ? ((Number(r.server_errors) + Number(r.client_errors)) / r.total * 100).toFixed(1) : null;
+    return [
+      tile("Users", formatNumber(u.total), `${formatNumber(u.active)} active`),
+      tile("Deactivated", formatNumber(u.deactivated), "deactivated_at set"),
+      tile("Deleted", formatNumber(u.deleted), "deleted_at set"),
+      tile("New users", formatNumber(u.new), range.label.toLowerCase()),
+      tile("Active users", formatNumber(u.seen), `last_active_at, ${range.label.toLowerCase()}`),
+      tile("Requests", formatNumber(r.total), range.label.toLowerCase()),
+      tile("Error rate", errorRate == null ? "—" : `${errorRate}%`, `${formatNumber(r.server_errors)} server · ${formatNumber(r.client_errors)} client`, Number(r.server_errors) > 0),
+      tile("Avg response", r.avg_ms == null ? "—" : `${formatNumber(r.avg_ms)} ms`, r.p95_ms == null ? "" : `p95 ${formatNumber(r.p95_ms)} ms`),
+      tile("Database size", formatBytes(Number(u.db_bytes)), `${Object.keys(SCHEMA).length} tables and views`),
+    ].join("");
+  });
+  card("dashRoles", async () => {
+    // users per role from /admin/table-column-groupby: all, then each state, then the latest last_active_at
+    const byRole = { order: "role asc", limit: 1000 };
+    const [all, active, deactivated, deleted, last] = (await Promise.all([
+      groupby("users", ["role"], byRole),
+      groupby("users", ["role"], { ...byRole, filter: ["deactivated_at is null", "deleted_at is null"] }),
+      groupby("users", ["role"], { ...byRole, filter: ["deactivated_at is not null"] }),
+      groupby("users", ["role"], { ...byRole, filter: ["deleted_at is not null"] }),
+      groupby("users", ["role"], { ...byRole, agg: "max", agg_col: "last_active_at" }),
+    ])).map((res, i) => new Map(res.obj_list.map(o => [o.role, i === 4 ? o.max_last_active_at : o.count])));
+    const rows = [...all].map(([role, total]) => ({ role, total, active: active.get(role) || 0, deactivated: deactivated.get(role) || 0, deleted: deleted.get(role) || 0, last_active: last.get(role) }));
+    const max = Math.max(1, ...rows.map(r => Number(r.total)));
+    return tableHtml([{ label: "role" }, { label: "users", num: true }, { label: "" }, { label: "active (both null)", num: true }, { label: "deactivated_at set", num: true }, { label: "deleted_at set", num: true }, { label: "max(last_active_at)" }],
+      rows.map(r => `<tr class="row" data-role="${he(r.role)}"><td><span class="pill ${r.role === 1 ? "bad" : "blue"}">${he(roleLabel(r.role))}</span></td><td class="num">${formatNumber(r.total)}</td><td><div class="bar"><span style="width:${Number(r.total) / max * 100}%"></span></div></td><td class="num">${formatNumber(r.active)}</td><td class="num">${formatNumber(r.deactivated)}</td><td class="num">${formatNumber(r.deleted)}</td><td class="muted">${r.last_active ? he(formatAgo(r.last_active)) : "—"}</td></tr>`), "No users");
+  });
+  card("dashSignups", async () => {
+    const rows = await sql(series("users"));
+    if (live()) $("dashSignupsTotal").textContent = `${formatNumber(rows.reduce((s, r) => s + Number(r.total), 0))} in ${range.label.toLowerCase()}`;
+    return chartHtml(rows, range, [{ key: "total", label: "new users", cls: "new" }]);
+  });
+  card("dashTraffic", async () => {
+    const rows = (await logSql(series("log_api"))).map(r => ({ ...r, ok: Number(r.total) - Number(r.errors) }));
+    return chartHtml(rows, range, [{ key: "ok", label: "ok", cls: "ok" }, { key: "errors", label: "errors", cls: "err" }]);
+  });
+  card("dashPaths", async () => {
+    const rows = await logSql(`select method, path, count(*)::bigint calls, round(avg(response_time_ms))::int avg_ms, count(*) filter (where status_code >= 400)::bigint errors from log_api where created_at >= ${since} group by method, path order by calls desc limit 10`);
+    return tableHtml([{ label: "method path" }, { label: "requests", num: true }, { label: "avg response_time_ms", num: true }, { label: "status_code >= 400", num: true }],
+      rows.map(r => `<tr><td class="mono">${he(r.method || "")} ${he(r.path)}</td><td class="num">${formatNumber(r.calls)}</td><td class="num">${formatNumber(r.avg_ms)}</td><td class="num${Number(r.errors) ? " bad" : ""}" style="${Number(r.errors) ? "color:var(--danger)" : ""}">${formatNumber(r.errors)}</td></tr>`), "No requests in this range");
+  });
+  card("dashStatus", async () => {
+    const rows = (await logGroupby(["status_code"], { filter: [sinceFilter], limit: 12 })).obj_list.map(o => ({ status_code: o.status_code, calls: o.count }));
+    const total = rows.reduce((s, r) => s + Number(r.calls), 0) || 1;
+    return tableHtml([{ label: "status_code" }, { label: "requests", num: true }, { label: "share" }],
+      rows.map(r => `<tr><td><span class="pill ${r.status_code >= 500 ? "bad" : r.status_code >= 400 ? "warn" : "ok"}">${he(r.status_code ?? "—")}</span></td><td class="num">${formatNumber(r.calls)}</td><td><div class="bar"><span style="width:${Number(r.calls) / total * 100}%"></span></div></td></tr>`), "No requests in this range");
+  });
+  card("dashUsers", async () => {
+    // top 10 callers by count, then their errors and latest request, all from /admin/table-column-groupby
+    const top = (await logGroupby(["created_by_id"], { filter: [sinceFilter, "created_by_id is not null"], limit: 10 })).obj_list;
+    const ids = top.map(o => o.created_by_id), inIds = ids.length ? `created_by_id in ${ids.join(",")}` : "created_by_id is null";
+    const [errors, last] = ids.length ? (await Promise.all([
+      logGroupby(["created_by_id"], { filter: [sinceFilter, inIds, "status_code >= 400"], limit: 10 }),
+      logGroupby(["created_by_id"], { filter: [sinceFilter, inIds], agg: "max", agg_col: "created_at", order: "max desc", limit: 10 }),
+    ])).map((res, i) => new Map(res.obj_list.map(o => [o.created_by_id, i === 1 ? o.max_created_at : o.count]))) : [new Map(), new Map()];
+    const rows = top.map(o => ({ id: o.created_by_id, calls: o.count, errors: errors.get(o.created_by_id) || 0, last: last.get(o.created_by_id) }));
+    await usersResolve(rows.map(r => r.id));
+    return tableHtml([{ label: "created_by_id" }, { label: "role" }, { label: "requests", num: true }, { label: "status_code >= 400", num: true }, { label: "max(created_at)" }],
+      rows.map(r => `<tr><td>${userLink(r.id)}</td><td class="muted">${USERNAMES.get(r.id) ? he(roleLabel(USERNAMES.get(r.id).role)) : "—"}</td><td class="num">${formatNumber(r.calls)}</td><td class="num">${formatNumber(r.errors)}</td><td class="muted">${he(formatAgo(r.last))}</td></tr>`), "No signed-in requests in this range");
+  });
+  card("dashTables", async () => {
+    const rows = Object.values(STATS).sort((a, b) => Number(b.bytes) - Number(a.bytes));
+    return tableHtml([{ label: "table" }, { label: "rows (estimate)", num: true }, { label: "size with indexes", num: true }],
+      rows.map(r => `<tr class="row" data-go="table/${he(r.name)}"><td>${he(r.name)}</td><td class="num">${formatNumber(r.rows)}</td><td class="num">${formatBytes(Number(r.bytes))}</td></tr>`), "No tables");
+  });
+  card("dashErrors", async () => {
+    const rows = await logSql(`select id, created_at, method, path, status_code, error, created_by_id from log_api where status_code >= 400 and created_at >= ${since} order by id desc limit 15`);
+    await usersResolve(rows.map(r => r.created_by_id));
+    return tableHtml([{ label: "created_at" }, { label: "status_code" }, { label: "method path" }, { label: "created_by_id" }, { label: "error" }],
+      rows.map(r => `<tr class="row" data-record="log_api:${r.id}"><td class="muted">${he(formatAgo(r.created_at))}</td><td><span class="pill ${r.status_code >= 500 ? "bad" : "warn"}">${he(r.status_code)}</span></td><td class="mono">${he(r.method || "")} ${he(r.path)}</td><td>${r.created_by_id ? userLink(r.created_by_id) : `<span class="null">—</span>`}</td><td title="${he(r.error)}">${he(truncate(String(r.error || ""), 90))}</td></tr>`), "No errors in this range");
+  });
+};
+
+/* ==== table view ==== */
+// rows from GET /admin/object-read: id order pages after the last id (after_id), other orders by page number
+const OPS = [
+  { op: "contains", label: "contains (ilike %…%)" }, { op: "=", label: "=" }, { op: "!=", label: "!=" }, { op: ">=", label: ">=" }, { op: "<=", label: "<=" },
+  { op: "has", label: "array contains (any)" }, { op: "is null", label: "is null", noValue: true }, { op: "is not null", label: "is not null", noValue: true },
+];
+let T = null;
+// a filter chip reads as the condition it sends: title ilike %rep%, 'x' = any(tags), role = 2, email is null
+const chipText = f => f.op === "contains" ? `${f.col} ilike %${f.value}%` : f.op === "has" ? `'${f.value}' = any(${f.col})` : f.op.startsWith("is ") ? `${f.col} ${f.op}` : `${f.col} ${f.op} ${f.value}`;
+const colPrefs = table => readStore().columns?.[table];
+const visibleColumns = table => {
+  const saved = colPrefs(table), all = columns(table).map(c => c.column_name).filter(readable);
+  if (saved) return all.filter(c => saved.includes(c));
+  // default: id, the record's own fields, then created_at; deactivated_at/deleted_at show as the state column, the rest is one click away in Columns
+  const own = all.filter(c => { const k = kind(SCHEMA[table][c]); return c !== "id" && !AUDIT.includes(c) && !/_by_id$/.test(c) && !["deactivated_at", "deleted_at"].includes(c) && k !== "json" && k !== "geo" && k !== "array" });
+  return [...(SCHEMA[table].id ? ["id"] : []), ...own.slice(0, 9), ...(SCHEMA[table].created_at ? ["created_at"] : [])];
+};
+const filterList = () => {
+  const list = T.filters.map(f => {
+    if (f.op === "is null" || f.op === "is not null") return `${f.col} ${f.op}`;
+    if (f.op === "contains") return { [f.col]: `ilike,%${f.value}%` };
+    if (f.op === "has") return { [f.col]: `any,${f.value}` };    // array column holds this value
+    return { [f.col]: `${f.op},${f.value}` };
+  });
+  const q = T.search.trim();
+  if (q) {
+    const text = columns(T.table).filter(c => kind(c) === "text" && readable(c.column_name)).map(c => ({ [c.column_name]: `ilike,%${q}%` }));
+    if (/^\d+$/.test(q) && SCHEMA[T.table].id) text.push({ id: `=,${q}` });
+    if (text.length) list.push({ _or: text });
+  }
+  return list;
+};
+const tableOpen = (table, presetFilters = []) => {
+  const hasId = !!SCHEMA[table].id;
+  T = { table, tab: "rows", groupCol: readStore().groupby?.[table] || null, rows: [], order: hasId ? "id desc" : `${columns(table)[0].column_name} asc`, filters: presetFilters, search: "", cursors: [null], pageIndex: 0, hasNext: false, selected: new Set(), openId: null, limit: readStore().limit || 50 };
+  const type = relationType(table), stats = STATS[table];
+  $("title").textContent = table;
+  $("subtitle").textContent = `${type.replace("_", " ")} · ${columns(table).length} columns${stats ? ` · ~${formatNumber(stats.rows)} rows · ${formatBytes(Number(stats.bytes))}` : ""}`;
+  // what this table allows, each with the Atom rule behind it
+  const base = baseBlock(table), notes = base ? [`Read-only: ${base}.`] : [
+    createBlock(table) && `New rows are off: ${createBlock(table)}.`,
+    editBlock(table) && `Editing is off: ${editBlock(table)}.`,
+    deleteBlock(table) && `Delete is off: ${deleteBlock(table)}.`,
+  ].filter(Boolean);
+  $("view").innerHTML = `
+    <div class="card">
+      <div class="viewtabs"><button type="button" data-tabview="rows" class="active">Rows</button><button type="button" data-tabview="schema">Schema</button></div>
+      <div id="schemaView" hidden></div>
+      <div id="rowsView">
+      <div class="toolbar">
+        <input class="search" id="rowSearch" placeholder="Search: ilike on every text column, or id = number  (key /)" aria-label="Search rows">
+        <select id="filterCol" aria-label="Filter column">${columns(table).filter(c => readable(c.column_name) && kind(c) !== "geo").map(c => `<option>${he(c.column_name)}</option>`).join("")}</select>
+        <select id="filterOp" aria-label="Filter operator">${OPS.map(o => `<option value="${he(o.op)}">${he(o.label)}</option>`).join("")}</select>
+        <input id="filterValue" placeholder="value" aria-label="Filter value" style="width:140px">
+        <button type="button" id="filterAdd">Add filter</button>
+        <span class="grow"></span>
+        <button type="button" id="groupBtn" title="Count the rows per value of one column (GET /admin/table-column-groupby)">Group by column</button>
+        <div style="position:relative"><button type="button" id="colsBtn" title="Choose which columns the grid shows">Show columns</button><div class="popover" id="colsMenu" style="right:0;top:40px" hidden></div></div>
+        <button type="button" id="exportBtn" title="GET /admin/object-read-export with these filters and order">Export CSV</button>
+        <button type="button" id="curlBtn" title="Copy this list request as a curl command (set $TOKEN to an admin access token)">Copy as curl</button>
+        <button type="button" class="primary" id="createBtn" ${canCreate(table) ? "" : "hidden"}>+ New ${table === "users" ? "user" : "row"}</button>
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="group-panel" id="groupPanel" hidden></div>
+      ${notes.length ? `<div class="note-ro">${notes.map(n => `<div>${he(n)}</div>`).join("")}</div>` : ""}
+      <div class="bulk" id="bulk" hidden></div>
+      <div class="grid-wrap" id="grid"><div class="empty">Loading...</div></div>
+      <div class="pager"><span id="pageInfo"></span><div class="actions">
+        <select id="limitSelect" aria-label="Rows per page">${[25, 50, 100, 500].map(n => `<option value="${n}"${n === T.limit ? " selected" : ""}>${n} per page</option>`).join("")}</select>
+        <button type="button" class="small" id="prevBtn">‹ Previous</button><button type="button" class="small" id="nextBtn">Next ›</button>
+      </div></div>
+      </div>
+    </div>`;
+  const filterOpChange = () => { $("filterValue").hidden = !!OPS.find(o => o.op === $("filterOp").value)?.noValue };
+  $("filterOp").addEventListener("change", filterOpChange);
+  const addFilter = () => {
+    const op = $("filterOp").value, noValue = OPS.find(o => o.op === op)?.noValue, value = $("filterValue").value.trim();
+    if (!noValue && !value) return $("filterValue").focus();
+    T.filters.push({ col: $("filterCol").value, op, value: noValue ? "" : value });
+    $("filterValue").value = "";
+    tableReload();
+  };
+  $("filterAdd").addEventListener("click", addFilter);
+  $("filterValue").addEventListener("keydown", e => { if (e.key === "Enter") addFilter() });
+  let searchTimer;
+  $("rowSearch").addEventListener("input", e => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { T.search = e.target.value; tableReload() }, 300) });
+  $("chips").addEventListener("click", e => { const b = e.target.closest("[data-chip]"); if (b) { T.filters.splice(Number(b.dataset.chip), 1); tableReload() } });
+  $("limitSelect").addEventListener("change", e => { T.limit = Number(e.target.value); writeStore({ limit: T.limit }); tableReload() });
+  $("prevBtn").addEventListener("click", () => { if (T.pageIndex > 0) { T.pageIndex--; tableLoad() } });
+  $("nextBtn").addEventListener("click", () => { if (T.hasNext) { T.pageIndex++; tableLoad() } });
+  $("createBtn").addEventListener("click", () => createDialog(table));
+  $("exportBtn").addEventListener("click", exportCsv);
+  $("curlBtn").addEventListener("click", () => copyText(curlFor(), "curl copied: set $TOKEN to an admin access token"));
+  $("groupBtn").addEventListener("click", () => groupSet(T.groupCol ? null : groupColumns(table)[0]));
+  $("colsBtn").addEventListener("click", e => { e.stopPropagation(); colsMenuToggle() });
+  $("colsMenu").addEventListener("click", e => e.stopPropagation());
+  filterOpChange();
+  tableLoad();
+};
+const tableReload = () => { T.cursors = [null]; T.pageIndex = 0; T.selected.clear(); tableLoad() };
+let tableToken = 0;
+const tableLoad = async () => {
+  if (!T) return;
+  const token = ++tableToken, isIdOrder = /^id (asc|desc)$/.test(T.order);
+  $("grid").classList.add("loading");
+  $("chips").innerHTML = T.filters.map((f, i) => `<span class="chip mono">${he(chipText(f))}<button type="button" data-chip="${i}" aria-label="Remove filter">×</button></span>`).join("");
+  groupLoad();
+  try {
+    const params = { table: T.table, limit: T.limit, order: T.order, filter: JSON.stringify(filterList()), connection: connFor(T.table) };
+    if (isIdOrder) { if (T.cursors[T.pageIndex] != null) params.after_id = T.cursors[T.pageIndex] } else params.page = T.pageIndex + 1;
+    const res = await api(`/admin/object-read?${qs(params)}`);
+    if (token !== tableToken) return;
+    T.rows = res.obj_list;
+    T.hasNext = res.has_next_page;
+    if (isIdOrder) T.cursors[T.pageIndex + 1] = res.next_after_id;
+    const cols = visibleColumns(T.table);
+    await usersResolve(T.rows.flatMap(r => cols.filter(c => isUserRef(T.table, c)).map(c => r[c])));
+    if (token !== tableToken) return;
+    tableRender();
+    showError($("error"), "");
+  } catch (error) {
+    if (token !== tableToken) return;
+    showError($("error"), `Could not read ${T.table}: ${error.message}`);
+    $("grid").innerHTML = `<div class="empty">No rows</div>`;
+  } finally {
+    if (token === tableToken) $("grid").classList.remove("loading");
+  }
+};
+/* ==== group by ==== */
+// rows per value of one column, within the list's filters and search, from GET /admin/table-column-groupby; click a value to filter the list to it
+const GROUP_LIMIT = 50;
+const groupColumns = table => columns(table).map(c => c.column_name).filter(c => readable(c) && !["json", "geo"].includes(kind(SCHEMA[table][c])));
+const groupSet = col => {
+  T.groupCol = col;
+  const prefs = { ...(readStore().groupby || {}) };
+  if (col) prefs[T.table] = col; else delete prefs[T.table];
+  writeStore({ groupby: prefs });
+  groupLoad();
+};
+let groupToken = 0;
+const groupLoad = async () => {
+  const panel = $("groupPanel"), col = T.groupCol, token = ++groupToken;
+  $("groupBtn").classList.toggle("primary", !!col);
+  panel.hidden = !col;
+  if (!col) return;
+  const head = `<div class="group-head">Group by <select id="groupCol" aria-label="Group by column">${groupColumns(T.table).map(c => `<option${c === col ? " selected" : ""}>${he(c)}</option>`).join("")}</select><span id="groupNote"></span><span style="flex:1"></span><button type="button" class="x" id="groupClose" aria-label="Close group by" style="width:24px;height:24px">×</button></div>`;
+  if (!panel.querySelector("#groupCol")) panel.innerHTML = `${head}<div class="group-list" id="groupList"><div class="empty">Loading...</div></div>`;
+  else { $("groupCol").value = col; $("groupList").style.opacity = .5 }
+  try {
+    const res = await groupby(T.table, [col], { filter: filterList(), limit: GROUP_LIMIT, connection: connFor(T.table) });
+    if (token !== groupToken || !$("groupList")) return;
+    T.groupRows = res.obj_list;
+    if (isUserRef(T.table, col)) await usersResolve(res.obj_list.map(o => o[col]));
+    const max = Math.max(1, ...res.obj_list.map(o => Number(o.count)));
+    $("groupNote").textContent = `${res.obj_list.length}${res.has_next_page ? `+ values, top ${GROUP_LIMIT} shown` : " values"}`;
+    $("groupList").innerHTML = res.obj_list.length ? `<table><tbody>${res.obj_list.map((o, i) => `<tr class="row" data-group="${i}" title="Show only these rows"><td>${cellHtml(T.table, col, o[col])}</td><td class="num">${formatNumber(o.count)}</td><td style="width:40%"><div class="bar"><span style="width:${Number(o.count) / max * 100}%"></span></div></td></tr>`).join("")}</tbody></table>` : `<div class="empty">No rows</div>`;
+  } catch (error) {
+    if (token === groupToken && $("groupList")) $("groupList").innerHTML = `<div class="empty" style="color:var(--danger)">${he(error.message)}</div>`;
+  } finally { if ($("groupList")) $("groupList").style.opacity = "" }
+};
+const groupPick = i => {
+  const col = T.groupCol, v = T.groupRows?.[i]?.[col];
+  if (v === undefined) return;
+  T.filters.push(v === null ? { col, op: "is null", value: "" } : { col, op: kind(SCHEMA[T.table][col]) === "array" ? "has" : "=", value: String(v) });
+  tableReload();
+};
+
+const tableRender = () => {
+  const cols = visibleColumns(T.table), hasState = !!(SCHEMA[T.table].deactivated_at || SCHEMA[T.table].deleted_at), writable = toggles(T.table).length > 0 || !deleteBlock(T.table);
+  const [orderCol, orderDir] = T.order.split(" ");
+  const head = `<tr>${writable ? `<th class="check"><input type="checkbox" id="checkAll" aria-label="Select all on this page" ${T.rows.length && T.rows.every(r => T.selected.has(r.id)) ? "checked" : ""}></th>` : ""}${hasState ? `<th title="Worked out from deactivated_at and deleted_at; not a column">state<br><span class="muted" style="font-weight:400;font-size:10px">from ${["deactivated_at", "deleted_at"].filter(c => SCHEMA[T.table][c]).join(", ")}</span></th>` : ""}${cols.map(c => `<th class="sortable" data-sort="${he(c)}" title="${he(colTitle(T.table, SCHEMA[T.table][c]))}">${he(c)}${c === orderCol ? (orderDir === "asc" ? " ▲" : " ▼") : ""}</th>`).join("")}</tr>`;
+  const body = T.rows.map(r => {
+    const [state, tone] = stateOf(r);
+    return `<tr class="row${T.selected.has(r.id) ? " selected" : ""}${T.openId === r.id ? " open" : ""}" data-id="${he(r.id)}">${writable ? `<td class="check"><input type="checkbox" data-check="${he(r.id)}" ${T.selected.has(r.id) ? "checked" : ""} aria-label="Select row"></td>` : ""}${hasState ? `<td><span class="pill ${tone}">${state}</span></td>` : ""}${cols.map(c => `<td>${cellHtml(T.table, c, r[c])}</td>`).join("")}</tr>`;
+  }).join("");
+  $("grid").innerHTML = T.rows.length ? `<table><thead>${head}</thead><tbody>${body}</tbody></table>` : `<div class="empty">No rows${T.filters.length || T.search ? " match these filters" : ""}</div>`;
+  $("pageInfo").textContent = T.rows.length ? `Page ${T.pageIndex + 1} · ${T.rows.length} rows` : "";
+  $("prevBtn").disabled = T.pageIndex === 0;
+  $("nextBtn").disabled = !T.hasNext;
+  bulkRender();
+};
+const bulkRender = () => {
+  const n = T.selected.size;
+  $("bulk").hidden = !n;
+  if (!n) return;
+  const rows = T.rows.filter(r => T.selected.has(r.id));
+  const buttons = canUpdate(T.table) ? toggles(T.table).flatMap(col => {
+    const out = [];
+    if (rows.some(r => !r[col])) out.push(`<button type="button" class="small ${TOGGLES[col].tone === "bad" ? "danger" : TOGGLES[col].tone === "warn" ? "warn" : ""}" data-bulk-toggle="${col}" data-on="1">${TOGGLES[col].on}</button>`);
+    if (rows.some(r => r[col])) out.push(`<button type="button" class="small" data-bulk-toggle="${col}" data-on="0">${TOGGLES[col].off}</button>`);
+    return out;
+  }) : [];
+  $("bulk").innerHTML = `<b>${n} selected</b>${buttons.join("")}${deleteBlock(T.table) ? "" : `<button type="button" class="small danger" data-bulk-delete>Delete</button>`}<span class="grow" style="flex:1"></span><button type="button" class="small link" data-bulk-clear>Clear selection</button>`;
+};
+document.addEventListener("click", e => {
+  if (!T || route.view !== "table" || !$("grid")) return;
+  if (e.target.closest("#colsMenu")) return;
+  if (!$("colsMenu").hidden && !e.target.closest("#colsBtn")) $("colsMenu").hidden = true;
+});
+$("view").addEventListener("change", e => { if (e.target.id === "groupCol") groupSet(e.target.value) });
+$("view").addEventListener("click", async e => {
+  const user = e.target.closest("[data-user]");
+  if (user) { e.stopPropagation(); return recordOpen("users", Number(user.dataset.user)) }
+  if (e.target.closest("#groupClose")) return groupSet(null);
+  const group = e.target.closest("[data-group]");
+  if (group) return groupPick(Number(group.dataset.group));
+  const goto = e.target.closest("[data-go]");
+  if (goto) return go(goto.dataset.go);
+  const role = e.target.closest("[data-role]");
+  if (role) { pendingFilters = [{ col: "role", op: "=", value: role.dataset.role }]; return go("table/users") }
+  const record = e.target.closest("[data-record]");
+  if (record) { const [table, id] = record.dataset.record.split(":"); return recordOpen(table, Number(id)) }
+  if (!T || route.view !== "table") return;
+  const tabview = e.target.closest("[data-tabview]");
+  if (tabview) return tableTab(tabview.dataset.tabview);
+  const sort = e.target.closest("[data-sort]");
+  if (sort) {
+    const [col, dir] = T.order.split(" ");
+    T.order = `${sort.dataset.sort} ${col === sort.dataset.sort && dir === "desc" ? "asc" : "desc"}`;
+    return tableReload();
+  }
+  if (e.target.id === "checkAll") { T.rows.forEach(r => e.target.checked ? T.selected.add(r.id) : T.selected.delete(r.id)); return tableRender() }
+  const check = e.target.closest("[data-check]");
+  if (check) { const id = Number(check.dataset.check); check.checked ? T.selected.add(id) : T.selected.delete(id); return tableRender() }
+  if (e.target.closest("td.check")) return;
+  const bulkToggle = e.target.closest("[data-bulk-toggle]");
+  if (bulkToggle) return toggleRun(T.table, T.rows.filter(r => T.selected.has(r.id)), bulkToggle.dataset.bulkToggle, bulkToggle.dataset.on === "1");
+  if (e.target.closest("[data-bulk-delete]")) return deleteRun(T.table, [...T.selected]);
+  if (e.target.closest("[data-bulk-clear]")) { T.selected.clear(); return tableRender() }
+  const row = e.target.closest("tr.row[data-id]");
+  if (row && !window.getSelection().toString() && await discardOk()) recordShow(T.table, T.rows.find(r => String(r.id) === row.dataset.id));
+});
+const colsMenuToggle = () => {
+  const menu = $("colsMenu"), shown = visibleColumns(T.table);
+  menu.hidden = !menu.hidden;
+  if (menu.hidden) return;
+  menu.innerHTML = `<div class="row-actions"><button type="button" class="small" data-cols="all">All</button><button type="button" class="small" data-cols="reset">Default</button></div>`
+    + columns(T.table).filter(c => readable(c.column_name)).map(c => `<label><input type="checkbox" data-col="${he(c.column_name)}" ${shown.includes(c.column_name) ? "checked" : ""}>${he(c.column_name)} <span class="muted" style="font-size:11px">${he(c.datatype)}</span></label>`).join("");
+  menu.onclick = e => {
+    const b = e.target.closest("[data-cols]");
+    if (!b) return;
+    const prefs = { ...(readStore().columns || {}) };
+    if (b.dataset.cols === "all") prefs[T.table] = columns(T.table).map(c => c.column_name); else delete prefs[T.table];
+    writeStore({ columns: prefs });
+    menu.hidden = true;
+    tableLoad();
+  };
+  menu.onchange = () => {
+    const prefs = { ...(readStore().columns || {}) };
+    prefs[T.table] = [...menu.querySelectorAll("[data-col]:checked")].map(i => i.dataset.col);
+    writeStore({ columns: prefs });
+    tableLoad();
+  };
+};
+const exportCsv = async () => {
+  $("exportBtn").disabled = true;
+  try {
+    const response = await Page.request(`/admin/object-read-export?${qs({ table: T.table, order: T.order, filter: JSON.stringify(filterList()), connection: connFor(T.table) })}`);
+    if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.message || response.statusText) }
+    const url = URL.createObjectURL(await response.blob());
+    Object.assign(document.createElement("a"), { href: url, download: `${T.table}.csv` }).click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    toast("Export downloaded");
+  } catch (error) { toast(`Export failed: ${error.message}`, true) }
+  finally { $("exportBtn").disabled = false }
+};
+
+/* ==== developer tools ==== */
+// copy to the clipboard; where the browser refuses, show the text to copy by hand
+const copyText = async (text, done) => {
+  try { await navigator.clipboard.writeText(text); toast(done) }
+  catch { dialogOpen({ title: "Copy", body: `<textarea rows="10" style="width:100%" readonly>${he(text)}</textarea>`, ok: "Close" }) }
+};
+// the list request on screen as curl: same table, filters, order, page size and database
+const curlFor = () => {
+  const q = v => `'${String(v).replace(/'/g, `'\\''`)}'`;
+  const params = { table: T.table, limit: T.limit, order: T.order, filter: JSON.stringify(filterList()), connection: connFor(T.table) };
+  return [`curl -G ${q(`${location.origin}/admin/object-read`)}`, `-H "Authorization: Bearer $TOKEN"`,
+    ...Object.entries(params).filter(([, v]) => v != null && v !== "" && v !== "[]").map(([k, v]) => `--data-urlencode ${q(`${k}=${v}`)}`)].join(" \\\n  ");
+};
+const tableTab = tab => {
+  T.tab = tab;
+  document.querySelectorAll("[data-tabview]").forEach(b => b.classList.toggle("active", b.dataset.tabview === tab));
+  $("rowsView").hidden = tab !== "rows";
+  $("schemaView").hidden = tab !== "schema";
+  if (tab === "schema") schemaRender();
+};
+// the table as Atom sees it: each column with its keys and who sets it, the rules for writes here, the routes behind them, indexes and triggers
+const schemaRender = () => {
+  const table = T.table, cols = columns(table), triggers = TRIGGERS[table]?.names || [];
+  const indexes = {};
+  cols.forEach(c => (c.index_names || []).forEach(name => (indexes[name] ||= []).push(c.column_name)));
+  const rule = (label, block) => `<div class="rule"><b>${label}</b> ${block ? he(block) : "allowed"}</div>`;
+  const writes = table === "users" ? "POST /admin/user-create · PUT /admin/user-update · DELETE /admin/user-delete" : "POST /admin/object-create · PUT /admin/object-update · POST /admin/object-delete";
+  $("schemaView").innerHTML = `<div class="schema-body">
+    <h4>Columns</h4>
+    <div class="card-scroll"><table><thead><tr><th>#</th><th>Column</th><th>Type</th><th>Keys</th><th>Set by</th></tr></thead><tbody>${cols.map(c => `<tr><td class="muted">${c.column_number}</td><td class="mono">${he(c.column_name)}</td><td class="mono muted">${he(c.datatype)}</td><td>${colBadges(table, c)}</td><td class="muted">${he(setBy(table, c))}</td></tr>`).join("")}</tbody></table></div>
+    <h4>Rules here</h4>
+    ${rule("New rows:", createBlock(table))}${rule("Edit:", editBlock(table))}${rule("Delete:", deleteBlock(table))}
+    ${isWritable(table) && !SYSTEM_TABLES[table] ? `<div class="rule"><b>Writes:</b> ${writes}${table === "users" ? "" : `, at most ${formatNumber(RULES.batch)} rows a request (config_batch_item_limit)`}</div>` : ""}
+    <div class="rule"><b>Reads:</b> GET /admin/object-read · /admin/object-read-export · /admin/table-column-groupby${connFor(table) ? ` with connection=${he(connFor(table))}` : ""}</div>
+    ${RULES.is_live ? "" : `<div class="rule">The server's settings could not be read (GET /admin/monitor?view=app), so Atom's defaults are shown.</div>`}
+    <h4>Indexes</h4>
+    ${Object.keys(indexes).length ? Object.entries(indexes).map(([name, list]) => `<div class="rule"><span class="mono">${he(name)}</span> <span class="muted">(${he(list.join(", "))})</span></div>`).join("") : `<div class="rule">None</div>`}
+    <h4>Constraints (CHECK)</h4>
+    ${(CONSTRAINTS[table]?.all || []).length ? CONSTRAINTS[table].all.map(r => `<div class="rule"><span class="mono">${he(r.name)}</span>: <span class="mono">${he(r.def)}</span></div>`).join("") : `<div class="rule">None</div>`}
+    <h4>Triggers</h4>
+    ${triggers.length ? triggers.map(name => `<div class="rule"><span class="mono">${he(name)}</span>: ${he(triggerHelp(name))}</div>`).join("") : `<div class="rule">None</div>`}
+  </div>`;
+};
+
+/* ==== record panel ==== */
+// one row: quick actions (deactivate, verify, ...), every field, edit in place
+let D = null;
+const drawerClose = () => {
+  $("drawer").hidden = true;
+  D = null;
+  if (T) { T.openId = null; document.querySelectorAll("tr.row.open").forEach(r => r.classList.remove("open")) }
+};
+// an edit form with changes asks before it is thrown away (Escape, ×, another row, ↑/↓)
+const isDirty = () => D?.mode === "edit" && !!$("editForm") && [...$("editForm").querySelectorAll("[data-field]")].some(el => el.value !== el.dataset.initial);
+const discardOk = async () => !isDirty() || await confirmDialog("Discard your changes?", "The edits in this form are not saved.", "Discard", "danger");
+$("drawerClose").addEventListener("click", async () => { if (await discardOk()) drawerClose() });
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && !$("atomDialog").open && $("accountMenu").hidden && !$("drawer").hidden) discardOk().then(ok => { if (ok) drawerClose() });
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || $("atomDialog").open;
+  if (e.key === "/" && !typing && $("rowSearch") && T?.tab === "rows") { e.preventDefault(); $("rowSearch").focus() }
+  if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !typing && D?.mode === "view" && T && D.table === T.table && !$("drawer").hidden) {
+    const i = T.rows.findIndex(r => r.id === D.row.id), next = T.rows[i + (e.key === "ArrowDown" ? 1 : -1)];
+    if (i >= 0 && next) { e.preventDefault(); recordShow(T.table, next); document.querySelector(`tr.row[data-id="${next.id}"]`)?.scrollIntoView({ block: "nearest" }) }
+  }
+});
+const recordOpen = async (table, id) => {
+  if (!SCHEMA[table]) return;
+  try {
+    const res = await api(`/admin/object-read?${qs({ table, limit: 1, filter: JSON.stringify([`id = ${id}`]), connection: connFor(table) })}`);
+    if (!res.obj_list.length) return toast(`${table} #${id} not found`, true);
+    recordShow(table, res.obj_list[0]);
+  } catch (error) { toast(error.message, true) }
+};
+const recordName = (table, row) => row.username || row.name || row.title || row.key || row.email || row.path || "";
+const recordShow = async (table, row, mode = "view") => {
+  if (!row) return;
+  D = { table, row, mode };
+  if (T && T.table === table) { T.openId = row.id; document.querySelectorAll("tr.row").forEach(r => r.classList.toggle("open", r.dataset.id === String(row.id))) }
+  await usersResolve(columns(table).filter(c => isUserRef(table, c.column_name)).map(c => row[c.column_name]));
+  if (D?.row !== row) return;
+  $("drawer").hidden = false;
+  $("drawerTitle").textContent = `${table} · id ${row.id ?? "(no id)"}`;
+  const name = recordName(table, row), isRoot = table === "users" && row.id === 1;
+  $("drawerSub").textContent = [name, table === "users" ? `role ${roleLabel(row.role)}` : "", isRoot ? "root user (id 1)" : ""].filter(Boolean).join(" · ");
+  if (mode === "edit") return editRender();
+  // quick actions
+  const actions = [];
+  if (canUpdate(table)) {
+    toggles(table).forEach(col => {
+      if (isRoot && col === "deactivated_at") return;
+      const t = TOGGLES[col], on = !row[col];
+      actions.push(`<button type="button" class="${on ? (t.tone === "bad" ? "danger" : t.tone === "warn" ? "warn" : "primary") : ""}" data-toggle="${col}" data-on="${on ? 1 : 0}" title="${on ? `Sets ${col} = now()` : `Sets ${col} = null`}${SCHEMA[table][col.replace(/_at$/, "_by_id")] ? ` and ${col.replace(/_at$/, "_by_id")} = ${on ? "your id" : "null"}` : ""}">${on ? t.on : t.off}</button>`);
+    });
+    actions.push(`<button type="button" data-edit>Edit</button>`);
+    if (table === "users") actions.push(`<button type="button" data-password>Reset password</button>`);
+  }
+  actions.push(`<button type="button" data-copy-json title="Copy this row as JSON">Copy JSON</button>`);
+  const block = deleteBlock(table, row);
+  if (!baseBlock(table)) actions.push(`<button type="button" class="danger" data-delete ${block ? `disabled title="${he(block)}"` : ""}>Delete</button>`);
+  else actions.push(`<span class="muted" style="font-size:12px;align-self:center">${he(baseBlock(table))}</span>`);
+  $("drawerActions").innerHTML = actions.join("");
+  $("drawerActions").hidden = false;
+  $("drawerFoot").hidden = true;
+  // fields: the record first, audit columns last
+  const field = c => `<div class="field"><div class="k" title="${he(colTitle(table, c))}">${he(c.column_name)}<small>${he(c.datatype)}</small><small>${colBadges(table, c)}</small></div><div class="v">${cellHtml(table, c.column_name, row[c.column_name], true)}</div></div>`;
+  const all = columns(table).filter(c => readable(c.column_name));
+  const main = all.filter(c => !AUDIT.includes(c.column_name)), audit = all.filter(c => AUDIT.includes(c.column_name));
+  const nav = T && T.table === table && T.rows.some(r => r.id === row.id) ? ` <span class="muted" style="font-size:11px;margin-left:8px"><span class="kbd">↑</span> <span class="kbd">↓</span> previous / next row</span>` : "";
+  $("drawerBody").innerHTML = `<div style="margin-top:8px">${table === "users" || SCHEMA[table].deactivated_at || SCHEMA[table].deleted_at ? `<span class="pill ${stateOf(row)[1]}" title="worked out from deactivated_at and deleted_at">state: ${stateOf(row)[0]}</span>` : ""}${row.is_protected ? ` <span class="pill warn">is_protected = true</span>` : ""}${nav}</div><div class="group">Fields</div>${main.map(field).join("")}${audit.length ? `<div class="group">Audit</div>${audit.map(field).join("")}` : ""}`;
+};
+$("drawerActions").addEventListener("click", e => {
+  if (!D) return;
+  const toggle = e.target.closest("[data-toggle]");
+  if (toggle) return toggleRun(D.table, [D.row], toggle.dataset.toggle, toggle.dataset.on === "1");
+  if (e.target.closest("[data-edit]")) return recordShow(D.table, D.row, "edit");
+  if (e.target.closest("[data-password]")) return passwordDialog(D.row);
+  if (e.target.closest("[data-copy-json]")) return copyText(JSON.stringify(D.row, null, 2), `${D.table} #${D.row.id} copied as JSON`);
+  if (e.target.closest("[data-delete]")) return deleteRun(D.table, [D.row.id]);
+});
+$("drawerBody").addEventListener("click", e => { const u = e.target.closest("[data-user]"); if (u) recordOpen("users", Number(u.dataset.user)) });
+
+/* ==== forms ==== */
+// one input per column, by its PostgreSQL type; an empty input means NULL
+// Atom's rules for a form: the server sets id, created_*, updated_*; state columns (deactivated_at, ...) change only through their buttons;
+// read-blocked columns never show; users also skip config_column_users_blocked; geography columns are edited with SQL
+const editableColumns = table => columns(table).filter(c => {
+  const n = c.column_name;
+  if (c.is_primary || n === "id" || AUDIT.includes(n) || STATE_COLS.includes(n) || !readable(n) || kind(c) === "geo") return false;
+  return table !== "users" || !RULES.users_blocked.includes(n);
+});
+// what a column is and who sets it, as short badges: PK, unique, not null, index, default, server
+const setBy = (table, c) => {
+  const n = c.column_name;
+  if (c.is_primary) return "server: identity";
+  if (n === "created_at") return `server: default ${c.column_default || "now()"}`;
+  if (n === "created_by_id") return table === "users" ? "server: the admin who created the user" : "server: /admin/object-create sets it to you";
+  if (n === "updated_at") return TRIGGERS[table]?.updated_at ? `server: trigger_updated_at_set_${table}` : "nothing sets it (no updated_at trigger)";
+  if (n === "updated_by_id") return table === "users" ? "server: /admin/user-update sets it to you" : "server: /admin/object-update sets it to you";
+  if (TOGGLES[n]) return `button: ${TOGGLES[n].on} / ${TOGGLES[n].off}`;
+  if (STATE_COLS.includes(n)) return `button: set with ${n.replace(/_by_id$/, "_at")}`;
+  if (!readable(n)) return "never read (config_column_read_blocked)";
+  if (table === "users" && RULES.users_blocked.includes(n)) return "blocked (config_column_users_blocked)";
+  if (table === "users" && RULES.single_update.includes(n)) return n === "password" ? "Reset password (saved alone)" : "form, saved alone (config_column_single_update)";
+  if (kind(c) === "geo") return "SQL runner";
+  return "form";
+};
+const colBadges = (table, c) => {
+  const out = [];
+  if (c.is_primary) out.push(`<span class="badge pk">PK</span>`);
+  else {
+    if (c.is_unique) out.push(`<span class="badge uq">unique</span>`);
+    if (isNotNull(c)) out.push(`<span class="badge">not null</span>`);
+    if (c.is_index) out.push(`<span class="badge">index</span>`);
+  }
+  if (c.column_default != null && !c.is_primary) out.push(`<span class="badge" title="${he(c.column_default)}">default ${he(truncate(String(c.column_default), 24))}</span>`);
+  constraintsOf(table, c.column_name).forEach(r => out.push(`<span class="badge uq" title="${he(r.name)}: ${he(r.def)}">${r.kind === "in" ? `in (${he(r.values.join(", "))})` : r.kind === "regex" ? "regex" : "check"}</span>`));
+  if (setBy(table, c).startsWith("server")) out.push(`<span class="badge srv">set by server</span>`);
+  return out.join(" ");
+};
+const colTitle = (table, c) => [c.datatype, c.is_primary ? "primary key" : "", c.is_unique && !c.is_primary ? "unique" : "", isNotNull(c) && !c.is_primary ? "not null" : "", c.is_index && !c.is_primary ? `index: ${(c.index_names || []).join(", ")}` : "", c.column_default != null ? `default ${c.column_default}` : "", setBy(table, c)].filter(Boolean).join(" · ");
+// /admin/user-create takes exactly these three
+const USER_CREATE_FIELDS = [{ column_name: "role", datatype: "smallint" }, { column_name: "username", datatype: "text" }, { column_name: "password", datatype: "text" }];
+const toLocalInput = v => {
+  const d = new Date(v);
+  if (!v || Number.isNaN(d.getTime())) return "";
+  const p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+const inputHtml = (table, c, value, mode) => {
+  const n = c.column_name, k = kind(c), id = `f_${n}`, map = intMap(table, n), options = Array.isArray(INFO.options?.[n]) ? INFO.options[n] : null;
+  // NOT NULL without a default is required on create; NOT NULL can't be emptied on edit
+  const required = mode === "create" ? (table === "users" || (isNotNull(c) && c.column_default == null)) : isNotNull(c);
+  const placeholder = mode === "create" && c.column_default != null ? ` placeholder="default: ${he(c.column_default)}"` : "";
+  let raw = value == null ? "" : k === "timestamp" ? toLocalInput(value) : k === "json" ? JSON.stringify(jsonValue(value), null, 2) : k === "array" && Array.isArray(value) ? value.join(", ") : String(value);
+  if (mode === "create" && table === "users" && n === "role" && !raw) raw = "2";
+  const attrs = `id="${id}" data-field="${he(n)}" data-initial="${he(raw)}" ${required ? "required" : ""}${placeholder}`;
+  const rules = SCHEMA[table]?.[n] ? constraintsOf(table, n) : [], allowed = rules.find(r => r.kind === "in")?.values;
+  const regexRule = rules.find(r => r.kind === "regex")?.pattern ?? (table === "users" && RULES.column_regex?.[n]?.[0]);
+  const regexAttr = regexRule ? ` data-regex="${he(regexRule)}"${table === "users" && RULES.column_regex?.[n]?.[1] ? ` data-regex-message="${he(RULES.column_regex[n][1])}"` : ""}` : "";
+  let input;
+  if (allowed && !map) input = `<select ${attrs}${regexAttr}><option value="">—</option>${allowed.map(v => `<option${String(v) === raw ? " selected" : ""}>${he(v)}</option>`).join("")}</select>`;
+  else if (map) input = `<select ${attrs}><option value="">—</option>${Object.entries(map).filter(([key]) => key !== "null").map(([key, label]) => `<option value="${he(key)}"${key === raw ? " selected" : ""}>${he(label)} (${he(key)})</option>`).join("")}</select>`;
+  else if (options) input = `<select ${attrs}><option value="">—</option>${options.map(o => `<option${String(o) === raw ? " selected" : ""}>${he(o)}</option>`).join("")}</select>`;
+  else if (k === "bool") input = `<select ${attrs}><option value="">—</option><option value="true"${raw === "true" ? " selected" : ""}>true</option><option value="false"${raw === "false" ? " selected" : ""}>false</option></select>`;
+  else if (k === "int" || k === "float") input = `<input type="number" step="${k === "int" ? 1 : "any"}" value="${he(raw)}" ${attrs}>`;
+  else if (k === "timestamp") input = `<input type="datetime-local" value="${he(raw)}" ${attrs}>`;
+  else if (k === "date") input = `<input type="date" value="${he(raw)}" ${attrs}>`;
+  else if (k === "json" || (k === "text" && (raw.length > 80 || /description|address|error|content|body|note/.test(n)))) input = `<textarea rows="${k === "json" ? 6 : 3}" ${attrs}>${he(raw)}</textarea>`;
+  else if (n === "password") input = `<input type="password" autocomplete="new-password" value="" ${attrs}${regexAttr}>`;
+  else input = `<input value="${he(raw)}" ${attrs}${regexAttr}>`;
+  // what the database will accept, from its CHECK constraints (config_postgres in / regex / check) and config_column_regex, written out under the input
+  const ruleHelp = [
+    allowed ? `allowed: ${allowed.join(", ")} (${rules.find(r => r.kind === "in").name})` : "",
+    regexRule ? `must match ${regexRule}${table === "users" && RULES.column_regex?.[n] ? " (config_column_regex)" : ` (${rules.find(r => r.kind === "regex")?.name})`}` : "",
+    ...rules.filter(r => r.kind === "check").map(r => `${r.def} (${r.name})`),
+  ].filter(Boolean);
+  const help = [k === "array" ? "comma separated" : k === "json" ? "JSON" : k === "timestamp" ? "your local time" : "", ...ruleHelp].filter(Boolean).map(he).join("<br>");
+  const badges = SCHEMA[table]?.[n] ? colBadges(table, SCHEMA[table][n]) : "";
+  return `<div class="form-field"><label for="${id}">${he(n)} ${required ? "<b>*</b>" : ""} <span class="muted" style="font-size:11px">${he(c.datatype)}</span> ${badges}</label>${input}${help ? `<span class="help">${help}</span>` : ""}</div>`;
+};
+const readInput = (table, el) => {
+  const c = SCHEMA[table][el.dataset.field] || USER_CREATE_FIELDS.find(f => f.column_name === el.dataset.field), k = kind(c), raw = el.value.trim(), map = intMap(table, c.column_name);
+  if (raw === "") return null;
+  // a regex the database or config_column_regex enforces is checked here first, with its own message when it has one
+  const re = el.dataset.regex ? toRegExp(el.dataset.regex) : null;
+  if (re && !re.test(el.type === "password" ? el.value : raw)) throw new Error(el.dataset.regexMessage || `${c.column_name} must match ${el.dataset.regex}`);
+  if (map || k === "int") { const n = Number(raw); if (!Number.isInteger(n)) throw new Error(`${c.column_name} must be a whole number`); return n }
+  if (k === "float") { const n = Number(raw); if (Number.isNaN(n)) throw new Error(`${c.column_name} must be a number`); return n }
+  if (k === "bool") return raw === "true";
+  if (k === "timestamp") return new Date(raw).toISOString();
+  if (k === "json") { try { return JSON.parse(raw) } catch { throw new Error(`${c.column_name} is not valid JSON`) } }
+  if (k === "array") { const items = raw.split(",").map(s => s.trim()).filter(Boolean); return /int/.test(c.datatype) ? items.map(Number) : items }
+  return el.tagName === "TEXTAREA" ? el.value : raw;
+};
+const editRender = () => {
+  const { table, row } = D;
+  $("drawerActions").hidden = true;
+  const singles = RULES.single_update.filter(c => c !== "password");
+  $("drawerBody").innerHTML = `<form id="editForm" novalidate>${editableColumns(table).map(c => inputHtml(table, c, row[c.column_name], "edit")).join("")}<div class="message" id="editError" hidden></div></form>`
+    + `<p class="muted" style="font-size:12px">Not in the form: id, created_*, updated_* (the server sets them)${toggles(table).length ? `, ${toggles(table).join(", ")} (their buttons)` : ""}${table === "users" ? `, ${RULES.users_blocked.filter(c => !AUDIT.includes(c)).join(", ")} (config_column_users_blocked), password (Reset password). ${singles.join(", ")} are saved one at a time (config_column_single_update)` : ""}.</p>`;
+  $("drawerFoot").innerHTML = `<button type="button" id="editCancel">Cancel</button><button type="button" class="primary" id="editSave">Save</button>`;
+  $("drawerFoot").hidden = false;
+  $("editCancel").onclick = () => recordShow(table, row);
+  $("editSave").onclick = editSave;
+  $("editForm").onsubmit = e => { e.preventDefault(); editSave() };
+};
+const editSave = async () => {
+  const { table, row } = D;
+  showError($("editError"), "");
+  try {
+    const changed = {};
+    $("editForm").querySelectorAll("[data-field]").forEach(el => {
+      if (el.value === el.dataset.initial) return;
+      const value = readInput(table, el);
+      if (el.required && value == null) throw new Error(`${el.dataset.field} can't be empty (NOT NULL)`);
+      changed[el.dataset.field] = value;
+    });
+    if (!Object.keys(changed).length) return recordShow(table, row);
+    $("editSave").disabled = true;
+    if (table === "users") {
+      // single-update columns (username, email, mobile) go alone; the rest together
+      const single = Object.keys(changed).filter(c => RULES.single_update.includes(c)), rest = Object.fromEntries(Object.entries(changed).filter(([c]) => !RULES.single_update.includes(c)));
+      for (const c of single) await api("/admin/user-update", { method: "PUT", body: JSON.stringify({ id: row.id, [c]: changed[c] }) });
+      if (Object.keys(rest).length) await api("/admin/user-update", { method: "PUT", body: JSON.stringify({ id: row.id, ...rest }) });
+    } else await api(`/admin/object-update?${qs({ table })}`, { method: "PUT", body: JSON.stringify({ id: row.id, ...changed }) });
+    toast(`${table} #${row.id} updated`);
+    await afterChange(table, row.id);
+  } catch (error) {
+    if ($("editError")) showError($("editError"), error.message);
+  } finally { if ($("editSave")) $("editSave").disabled = false }
+};
+// after a write: reload the list and reopen the record with its new values
+// list, record and row counts reload together; the counts only feed the sidebar, so nothing waits for them
+const afterChange = async (table, id) => {
+  statsLoad().then(renderTableList);
+  if (!(id != null && D && D.table === table) && D) drawerClose();
+  await Promise.all([
+    T && T.table === table ? tableLoad() : null,
+    id != null && D && D.table === table ? recordOpen(table, id) : null,
+  ]);
+};
+
+/* ==== actions ==== */
+// state toggles set the timestamp to now (and *_by_id to the admin) or clear both; users go through /admin/user-update, other tables through /admin/object-update
+const toggleRun = async (table, rows, col, on) => {
+  const t = TOGGLES[col], targets = rows.filter(r => !!r[col] !== on && !(table === "users" && r.id === 1 && col === "deactivated_at"));
+  if (!targets.length) return toast("Nothing to change");
+  if (on && (col === "deactivated_at" || col === "deleted_at")) {
+    const what = targets.length === 1 ? `${table} #${targets[0].id}${recordName(table, targets[0]) ? ` (${recordName(table, targets[0])})` : ""}` : `${targets.length} rows of ${table}`;
+    const note = table === "users" && col === "deactivated_at" ? "A deactivated user can no longer use APIs that check deactivation. You can reactivate them later." : `Sets ${col} to now. You can undo it with ${t.off}.`;
+    if (!await confirmDialog(`${t.on} ${what}?`, note, t.on, "danger")) return;
+  }
+  const byCol = col.replace(/_at$/, "_by_id"), values = { [col]: on ? new Date().toISOString() : null };
+  if (SCHEMA[table][byCol] && byCol !== col) values[byCol] = on ? readStore().user?.id ?? null : null;
+  try {
+    // users one by one through /admin/user-update; other tables in batches of config_batch_item_limit through /admin/object-update
+    if (table === "users") for (const r of targets) await api("/admin/user-update", { method: "PUT", body: JSON.stringify({ id: r.id, ...values }) });
+    else for (const part of chunks(targets, RULES.batch)) await api(`/admin/object-update?${qs({ table })}`, { method: "PUT", body: JSON.stringify({ obj_list: part.map(r => ({ id: r.id, ...values })) }) });
+    toast(`${on ? t.on : t.off}: ${targets.length === 1 ? `${table} #${targets[0].id}` : `${targets.length} rows`} done`);
+    if (T) T.selected.clear();
+    await afterChange(table, D ? D.row.id : null);
+  } catch (error) { toast(error.message, true) }
+};
+const deleteRun = async (table, ids) => {
+  const tableBlock = deleteBlock(table);
+  if (tableBlock) return toast(`Can't delete: ${tableBlock}`, true);
+  // rows the database would refuse (the root user, is_protected rows) are left out before asking
+  const known = new Map([...(T?.table === table ? T.rows : []), ...(D?.table === table ? [D.row] : [])].map(r => [r.id, r]));
+  const skipped = ids.filter(id => known.has(id) && deleteBlock(table, known.get(id)));
+  ids = ids.filter(id => !skipped.includes(id));
+  if (!ids.length) return toast(`Can't delete: ${deleteBlock(table, known.get(skipped[0]))}`, true);
+  const what = ids.length === 1 ? `${table} #${ids[0]}` : `${ids.length} rows of ${table}`;
+  const note = `${table === "users" ? "Hard delete removes the user; deactivating keeps them. " : ""}${skipped.length ? `${skipped.length} protected row${skipped.length > 1 ? "s are" : " is"} left out. ` : ""}This can't be undone.`;
+  if (!await confirmDialog(`Delete ${what}?`, note, "Delete", "danger")) return;
+  try {
+    if (table === "users") for (const id of ids) await api(`/admin/user-delete?${qs({ id })}`, { method: "DELETE" });
+    else for (const part of chunks(ids, RULES.batch)) await api("/admin/object-delete", { method: "POST", body: JSON.stringify({ table, ids: part }) });
+    toast(`${what} deleted`);
+    if (T) T.selected.clear();
+    drawerClose();
+    await afterChange(table, null);
+  } catch (error) { toast(error.message, true) }
+};
+
+/* ==== dialogs ==== */
+// confirmations and small forms use the shared dialog (Page.form, Page.confirm): Cancel first, the main action last; a running action keeps it open
+const dialogOpen = options => Page.form(options);
+const confirmDialog = (title, text, ok, tone) => Page.confirm(title, text, ok, tone === "danger");
+const createDialog = table => {
+  const fields = table === "users" ? USER_CREATE_FIELDS : editableColumns(table);
+  return dialogOpen({
+    title: table === "users" ? "New user" : `New ${table} row`,
+    body: fields.map(c => inputHtml(table, c, null, "create")).join("") + (table === "users" ? `<p style="font-size:12px">Role 1 is the backend admin; a project's own users start at 2.</p>` : `<p style="font-size:12px">The server fills in id, created_at and created_by_id${SCHEMA[table].updated_at ? "; updated_at and updated_by_id change on every edit" : ""}.${toggles(table).length ? ` ${toggles(table).join(", ")} start empty: use their buttons.` : ""} Empty means NULL; NOT NULL columns without a default are required.</p>`),
+    ok: "Create",
+    submit: async () => {
+      const obj = {};
+      $("atomBody").querySelectorAll("[data-field]").forEach(el => {
+        const value = readInput(table, el);
+        if (el.required && value == null) throw new Error(`${el.dataset.field} is required`);
+        if (value != null) obj[el.dataset.field] = value;
+      });
+      const res = table === "users"
+        ? await api("/admin/user-create", { method: "POST", body: JSON.stringify(obj) })
+        : await api(`/admin/object-create?${qs({ table })}`, { method: "POST", body: JSON.stringify(obj) });
+      toast(`${table === "users" ? "User" : "Row"} created`);
+      if (T) { T.pageIndex = 0; T.cursors = [null] }
+      await afterChange(table, null);
+      const id = res?.id ?? (Array.isArray(res) ? (res[0]?.id ?? res[0]) : null);    // user-create: {id}; object-create: [id]
+      if (id != null) recordOpen(table, id);
+    },
+  });
+};
+const passwordDialog = row => dialogOpen({
+  title: `Reset password · ${row.username || `user #${row.id}`}`,
+  body: `<div class="form-field"><label for="pw1">New password</label><input id="pw1" type="password" autocomplete="new-password" required></div><div class="form-field"><label for="pw2">Repeat it</label><input id="pw2" type="password" autocomplete="new-password" required></div><p style="font-size:12px">${he(RULES.column_regex?.password?.[1] || "")} (config_column_regex). Tell the user their new password yourself.</p>`,
+  ok: "Set password",
+  submit: async () => {
+    if (!$("pw1").value) throw new Error("Enter a password");
+    if ($("pw1").value !== $("pw2").value) throw new Error("The two passwords differ");
+    const re = RULES.column_regex?.password ? toRegExp(RULES.column_regex.password[0]) : null;
+    if (re && !re.test($("pw1").value)) throw new Error(RULES.column_regex.password[1]);
+    await api("/admin/user-update", { method: "PUT", body: JSON.stringify({ id: row.id, password: $("pw1").value }) });
+    toast("Password updated");
+  },
+});
+
+/* ==== open and close ==== */
+// logged in (PAGE.onIn): the saved reference record at once; none yet (first login, or a cleared browser) → download it first
+const adminOpen = async () => {
+  $("appView").hidden = false;
+  const saved = await Page.cacheGet("reference");
+  if (saved?.data?.schema) { referenceApply(saved.data); return render() }
+  $("view").innerHTML = '<div class="info">Downloading the schema and settings...</div>';
+  try { await Page.syncData() }
+  catch (error) { if (error.status !== 401) showError($("error"), `Could not read the schema: ${error.message}`) }
+};
+// a sync finished (PAGE.onSynced): the current view again with the new reference data
+const adminSynced = () => { if (!$("appView").hidden) render() };
+// logged out (PAGE.onOut, also from another tab): forget what the page holds in memory
+const adminClose = () => {
+  SCHEMA = {}; STATS = {}; TRIGGERS = {}; CONSTRAINTS = {}; USERNAMES.clear(); T = null; D = null;
+  $("drawer").hidden = true;
+  $("appView").hidden = true;
+};
+Page.start();
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
@@ -27,12 +27,12 @@
 }
 :root[data-theme=dark]{
   color-scheme:dark;
-  --nav:#79589f; --nav-fg:#d6cce2; --nav-on-bg:#141419; --nav-on-fg:#f2f0ee;
-  --rp-head:#241f2e;
-  --side:#191920; --bg:#141419; --fg:#d9d5d1; --dim:#7a7a84; --line:#2e2e37;
-  --th-fg:#cfcac5; --th-line:#2e2e37; --th-hover:#20202a;
-  --row-odd:#191920; --row-even:#141419; --row-line:#22222b; --row-hover:#2d2d1e;
-  --sel:#3874d7; --sel-fg:#fff; --null:#66666f; --hl:#24242e;
+  --nav:#1a1d23; --nav-fg:#9aa0a6; --nav-on-bg:#0b0d10; --nav-on-fg:#e6eef3;
+  --rp-head:#1a1d23;
+  --side:#0f1114; --bg:#0b0d10; --fg:#e6eef3; --dim:#9aa0a6; --line:#23272e;
+  --th-fg:#9aa0a6; --th-line:#23272e; --th-hover:#14171c;
+  --row-odd:#0f1114; --row-even:#0b0d10; --row-line:#1a1d23; --row-hover:#14202d;
+  --sel:#4299e1; --sel-fg:#fff; --null:#5f656d; --hl:#1a1d23;
   --green:#8fc95f; --green-h:#a5d977; --err:#f2645a;
   --table-list-bg:#17171e; --runner-neutral:#202027;
   --side-on:#263b5a; --side-on-fg:#eef5ff;
@@ -174,7 +174,6 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 #tabs .headicon svg{display:block;width:17px;height:17px;margin:auto;fill:none;
   stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 #tabs #readonly.off{color:#ffd0cc}
-#tabs #theme{align-self:center}
 #tabs #connbtn{align-self:center;height:26px;line-height:24px;padding:0 12px;margin:0 0 0 10px;
   font-size:12px;font-weight:500;border-radius:3px;border:1px solid rgba(255,255,255,.5);
   background:transparent;color:#fff;cursor:pointer;white-space:nowrap;flex:none}
@@ -581,7 +580,6 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
         <div class="tab" data-v="info" hidden>Database info</div>
       </div>
       <div id="optionswrap">
-        <button class="headicon" id="theme" title="Use dark theme" aria-label="Use dark theme"></button>
         <button class="headicon on conn-only" id="readonly" title="Read only: On" aria-label="Read only: On" hidden></button>
         <button class="headicon conn-only" id="dbinfo" title="Database info" aria-label="Database info" hidden></button>
         <button class="headicon conn-only" id="reload" title="Refresh schema" aria-label="Refresh schema" hidden></button>
@@ -885,23 +883,6 @@ async function api(body){
   $('st-time').textContent = ms.toFixed(1)+' ms';
   return j.message;
 }
-/* ==== theme ==== */
-(function theme(){
-  document.documentElement.dataset.theme = getStored('theme') || 'light';
-  const draw = () => {
-    const dark = document.documentElement.dataset.theme === 'dark';
-    $('theme').innerHTML = icon(dark ? 'sun' : 'moon');
-    $('theme').title = $('theme').ariaLabel = dark ? 'Use light theme' : 'Use dark theme';
-  };
-  draw();
-  $('theme').onclick = () => {
-    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-    document.documentElement.dataset.theme = next;
-    setPreference('theme', next);
-    draw();
-    toast(next === 'dark' ? 'Dark theme enabled' : 'Light theme enabled');
-  };
-})();
 
 /* ==== query safety ==== */
 function drawReadOnly(){
@@ -953,7 +934,7 @@ function setConnected(on){
   $('dbname').hidden = !on; $('dbname').textContent = where; $('dbname').title = on ? (S.connectionUrl ? shortDsn(S.connectionUrl) : S.db) : '';
   $('connbtn').textContent = 'Disconnect';
   $('connbtn').title = 'Disconnect from this database';
-  for(const el of $('optionswrap').querySelectorAll('.conn-only')) el.hidden = !on;    // the theme button stays, connected or not
+  for(const el of $('optionswrap').querySelectorAll('.conn-only')) el.hidden = !on;
   $('pane').hidden = false;
   $('status').hidden = true;
   $('queryrunner').disabled = !on;

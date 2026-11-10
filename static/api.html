@@ -5,9 +5,94 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>API</title>
 <style>
-:root{--bg:#0b0d10;--card:#0f1114;--panel:#1a1d23;--field:#14171c;--line:rgba(255,255,255,.08);--text:#e6eef3;--muted:#9aa0a6;--primary:#38a169;--delete:#dc3545;--accent:#4299e1;--warn:#ed8936;--card-pad:22px;--mono:"SF Mono",Menlo,monospace}
-body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui;line-height:1.6;height:100vh;overflow:hidden;display:flex;flex-direction:column;box-sizing:border-box}
+/* ==== atom page: look ==== */
+/* Identical in every Atom page (docs/page.md, Page standard); a page's own styles come after this block and only add layout. A test checks the copies match. */
+:root{--bg:#0b0d10;--card:#0f1114;--panel:#1a1d23;--field:#14171c;--line:rgba(255,255,255,.08);--line-strong:rgba(255,255,255,.14);--text:#e6eef3;--muted:#9aa0a6;--primary:#38a169;--accent:#4299e1;--warn:#ed8936;--danger:#f87171;--font:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"SF Mono",Menlo,Consolas,monospace;--fs:13px;--fs-small:12px;--fs-title:15px;--radius:8px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5}
 [hidden]{display:none!important}
+h1,h2,h3{font-family:var(--font)}
+:where(button,select,input,textarea){font-family:var(--font);font-size:var(--fs);color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:var(--radius);height:34px;padding:0 12px}
+:where(textarea){height:auto;min-height:80px;padding:8px 12px;resize:vertical;font-family:var(--mono);font-size:var(--fs-small)}
+:where(button){cursor:pointer;white-space:nowrap;font-weight:500;transition:border-color .15s,background .15s}
+:where(button:hover:not(:disabled)){border-color:rgba(66,153,225,.5);background:var(--panel)}
+:where(button:disabled){opacity:.5;cursor:default}
+button.primary{background:rgba(56,161,105,.12);border-color:rgba(56,161,105,.35);color:var(--primary)}
+button.primary:hover:not(:disabled){background:rgba(56,161,105,.2);border-color:rgba(56,161,105,.55)}
+button.danger{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.3);color:var(--danger)}
+button.small{height:28px;padding:0 10px;font-size:var(--fs-small)}
+button.link{height:auto;padding:0;border:none;background:none;color:var(--accent);font-size:inherit}
+button.link:hover:not(:disabled){background:none;text-decoration:underline}
+:where(select){padding-right:8px;cursor:pointer}
+:where(input:focus,select:focus,textarea:focus){outline:none;border-color:var(--accent)}
+.muted{color:var(--muted)}
+.mono{font-family:var(--mono);font-size:var(--fs-small)}
+.error-box{padding:10px 12px;border-radius:var(--radius);font-size:var(--fs);background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--danger);white-space:pre-wrap}
+/* dialogs: a header in its own colour, a padded body, actions on their own band; every dialog of the page uses them */
+dialog.dlg{width:min(460px,calc(100vw - 32px));max-height:calc(100vh - 32px);padding:0;border:1px solid var(--line-strong);border-radius:12px;background:var(--card);color:var(--text);font-size:var(--fs);box-shadow:0 20px 50px rgba(0,0,0,.55);overflow:hidden}
+dialog.dlg[open]{display:flex;flex-direction:column}
+dialog.dlg::backdrop{background:rgba(0,0,0,.6)}
+.dlg-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 18px;background:var(--panel);border-bottom:1px solid var(--line-strong)}
+.dlg-head h3{margin:0;font-size:var(--fs-title);font-weight:600;line-height:1.3}
+.dlg-sub{margin:3px 0 0;color:var(--muted);font-size:var(--fs-small);font-weight:400}
+.dlg-body{padding:18px;overflow-y:auto;display:grid;gap:14px}
+.dlg-body:empty{display:none}
+/* inside the shared dialogs, fields and buttons look the same on every page, whatever the page's own rules */
+dialog.dlg input,dialog.dlg select{width:100%;height:34px;margin:0;padding:0 12px;font-family:var(--font);font-size:var(--fs);color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:var(--radius);box-shadow:none}
+dialog.dlg input:focus,dialog.dlg select:focus{outline:none;border-color:var(--accent)}
+dialog.dlg input:disabled{color:var(--muted);background:rgba(255,255,255,.02)}
+dialog.dlg .pw-wrap input{padding-right:40px}
+dialog.dlg .dlg-actions button:not(.kv-btn){height:34px;padding:0 14px;font-size:var(--fs);font-weight:500;border-radius:var(--radius)}
+.dlg-actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;background:var(--panel);border-top:1px solid var(--line-strong)}
+.dlg-x{width:30px;height:30px;margin:-4px -6px 0 0;padding:0;border:none;background:none;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;flex:none}
+.dlg-x:hover:not(:disabled){background:rgba(255,255,255,.06);color:var(--text)}
+.dlg-x svg,.kv-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.confirm-text{margin:0}
+.dlg-form{display:grid;gap:14px}
+:where(input:disabled,select:disabled,textarea:disabled){color:var(--muted);background:rgba(255,255,255,.02);cursor:not-allowed}
+.field{display:grid;gap:6px}
+.field label{color:var(--muted);font-size:var(--fs-small);font-weight:600}
+.field input,.field select{width:100%}
+.field-help{margin:0;color:var(--muted);font-size:var(--fs-small)}
+.pw-wrap{position:relative;display:flex}
+.pw-wrap input{flex:1;padding-right:40px}
+.pw-eye{position:absolute;right:2px;top:50%;transform:translateY(-50%);width:30px;height:30px;padding:0;border:none;background:none;color:var(--muted);display:inline-flex;align-items:center;justify-content:center}
+.pw-eye:hover:not(:disabled){background:none;color:var(--text)}
+.pw-eye svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.kv-btn{width:28px;height:28px;padding:0;display:inline-flex;align-items:center;justify-content:center;flex:none}
+/* key-value rows: My profile, Login details, Sync and any page's record view */
+.kv{width:100%;border:1px solid var(--line);border-radius:10px;border-collapse:separate;border-spacing:0;overflow:hidden}
+.kv th{width:38%;padding:10px 12px;text-align:left;vertical-align:middle;background:var(--panel);color:var(--muted);font-weight:600;font-size:var(--fs-small);border-bottom:1px solid var(--line)}
+.kv td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.kv tr:last-child th,.kv tr:last-child td{border-bottom:none}
+.kv th,.kv td{white-space:normal;font-family:var(--font)}
+.kv tbody tr:hover{background:none}
+.kv .cell{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sync-progress{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.sync-fill{height:100%;width:0;background:var(--accent);border-radius:3px;transition:width .3s ease}
+.sync-status{margin:0;min-height:1.5em;color:var(--muted)}
+.sync-status.error{color:var(--danger)}
+/* toast: bottom centre */
+.toast{position:fixed;left:50%;bottom:24px;z-index:3000;transform:translateX(-50%);max-width:calc(100vw - 32px);padding:10px 16px;border-radius:10px;background:var(--panel);border:1px solid var(--line-strong);box-shadow:0 8px 24px rgba(0,0,0,.4);font-size:var(--fs)}
+.toast.error{border-color:rgba(248,113,113,.45);color:var(--danger)}
+/* header account area: Sync, then the avatar and its menu (or Login when logged out) */
+.atom-account{display:flex;align-items:center;gap:8px}
+.sync-btn{display:inline-flex;align-items:center;gap:6px}
+.sync-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.account{position:relative;display:flex}
+.avatar{width:32px;height:32px;border-radius:50%;border:none;padding:0;background:var(--accent);color:#fff;font-size:12px;font-weight:700;letter-spacing:.5px;display:inline-flex;align-items:center;justify-content:center}
+.avatar:hover:not(:disabled),.avatar[aria-expanded="true"]{background:var(--accent);border:none;box-shadow:0 0 0 3px rgba(66,153,225,.35)}
+.account-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:60;min-width:190px;padding:6px;border-radius:12px;background:var(--panel);border:1px solid var(--line-strong);box-shadow:0 12px 32px rgba(0,0,0,.45)}
+.account-item{display:flex;align-items:center;gap:9px;width:100%;height:36px;padding:0 18px 0 11px;border:none;border-radius:var(--radius);background:none;color:var(--text);font-size:var(--fs);font-weight:400;text-align:left}
+.account-item:hover:not(:disabled){background:rgba(255,255,255,.06);border:none}
+.account-item svg{flex:none;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.account-item.danger-item{color:var(--danger)}
+.account-item.danger-item:hover:not(:disabled){background:rgba(248,113,113,.12)}
+/* ==== end atom page: look ==== */
+:root{--delete:#dc3545;--card-pad:22px}
+body{height:100vh;overflow:hidden;display:flex;flex-direction:column}
+/* this page's own buttons size themselves */
+.icon-btn,.view-btn,.copy-endpoint-btn,.clear-api-btn,.clear-input-btn,.remove-btn,.toggle-mode-btn,.link-btn,.tag-filter{height:auto;font-weight:inherit}
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:3px}
@@ -31,18 +116,6 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui
 .clear-api-btn.show{display:block}
 .modal-card.app-panel{flex:1;display:flex;flex-direction:column;min-height:0;margin-bottom:0;width:var(--master-shell-width,100%);max-width:100%;align-self:center}
 .app-panel>.modal-card-body{padding:0;flex:1;display:flex;flex-direction:column;min-height:0}
-.login-indicator{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:6px 14px;border-radius:12px;background:rgba(56,161,105,.12);color:var(--primary);border:none;cursor:pointer;transition:all .2s;font-family:inherit}
-.auth-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor}
-.profile{position:relative;display:flex}
-.profile-avatar{width:24px;height:24px;margin:5px;border-radius:50%;border:none;padding:0;background:var(--accent);color:#fff;font-family:inherit;font-size:12px;font-weight:700;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
-.profile-avatar:hover,.profile-avatar[aria-expanded="true"]{box-shadow:0 0 0 3px rgba(66,153,225,.35)}
-.profile-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:60;width:280px;padding:14px;border-radius:12px;background:var(--panel);border:1px solid var(--line);box-shadow:0 12px 32px rgba(0,0,0,.45);text-align:left}
-.profile-menu h4{margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
-.profile-menu dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0 0 12px;padding-bottom:12px;border-bottom:1px solid var(--line);font-size:12px}
-.profile-menu dt{color:var(--muted)}
-.profile-menu dd{margin:0;color:var(--text);font-weight:600;overflow-wrap:anywhere}
-.profile-menu button.logout{width:100%;padding:8px;border-radius:8px;border:none;background:rgba(220,53,69,.1);color:var(--delete);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}
-.profile-menu button.logout:hover{background:rgba(220,53,69,.18)}
 
 /* ==== loader ==== */
 .app-loader-overlay{position:fixed;inset:0;background:var(--bg);z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .4s ease,visibility .4s}
@@ -102,7 +175,6 @@ button:disabled[data-tip]{pointer-events:none}    /* the hover tooltip finds dis
 .link-btn{background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px;padding:0;font-family:inherit}
 .hover-tip{position:fixed;z-index:10000;pointer-events:none;padding:3px 8px;border-radius:5px;background:rgba(20,23,28,.96);border:1px solid rgba(255,255,255,.1);color:#c9d1d9;font-size:11px;font-weight:500;line-height:1.4;white-space:nowrap;opacity:0;transform:translateY(-2px);transition:opacity .12s,transform .12s}
 .hover-tip.on{opacity:1;transform:none}
-.toast{position:fixed;bottom:20px;right:20px;background:var(--panel);border:1px solid var(--accent);color:var(--text);padding:10px 20px;border-radius:8px;font-size:13px;z-index:3000;animation:fadeIn .3s}
 
 /* ==== API catalog table ==== */
 .master-table-wrap{flex:1;min-height:0;overflow:auto;opacity:0;transition:opacity .2s ease-in-out;width:var(--master-shell-width,100%);max-width:100%}
@@ -147,7 +219,7 @@ form{display:flex;flex-direction:column;gap:24px}
 .info-icon-btn{display:inline-flex;align-items:center;color:var(--muted);cursor:pointer}
 .info-icon-btn:hover{color:var(--accent)}
 .input-wrapper{position:relative;flex:1;display:flex;align-items:center}
-input,select{width:100%;padding:12px 36px 12px 14px;font-size:14px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--text);box-sizing:border-box;font-family:inherit}
+input,select{width:100%;height:auto;padding:12px 36px 12px 14px;font-size:14px;border-radius:8px;border:1px solid var(--line);background:var(--field);color:var(--text);box-sizing:border-box;font-family:inherit}
 input:focus,select:focus{outline:none;border-color:var(--accent)}
 input[readonly]{background:rgba(255,255,255,.02);border-color:rgba(255,255,255,.04);cursor:default}
 input::placeholder{color:rgba(154,160,166,.5)}
@@ -403,20 +475,20 @@ select.row-val{padding-right:64px}
       <div class="modal-actions app-actions">
         <button type="button" class="icon-btn" id="infoToggleBtn" data-icon="info" data-size="18" data-tip="Info (D)"></button>
         <button type="button" class="icon-btn" id="pasteCurlToggleBtn" data-icon="curl" data-size="18" data-tip="Paste cURL"></button>
-        <button type="button" class="login-indicator" id="loginIndicator"><span class="auth-dot"></span>Login</button>
-        <div class="profile" id="profile" hidden>
-          <button type="button" class="profile-avatar" id="profileAvatar" data-tip="Account" aria-haspopup="true" aria-expanded="false" aria-label="Account"></button>
-          <div class="profile-menu" id="profileMenu" role="menu" hidden>
-            <h4>Logged in</h4>
-            <dl>
-              <dt>Username</dt><dd id="profileName"></dd>
-              <dt>Role</dt><dd id="profileRole"></dd>
-              <dt>Access token</dt><dd id="profileAccess"></dd>
-              <dt>Refresh token</dt><dd id="profileRefresh"></dd>
-            </dl>
-            <button type="button" class="logout" id="logoutBtn" role="menuitem">Log out</button>
+        <!-- ==== atom page: account header ==== -->
+        <div class="atom-account">
+          <button type="button" class="primary" id="loginOpenBtn" hidden>Log in</button>
+          <button type="button" class="sync-btn" id="syncBtn" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.5a4.5 4.5 0 0 1-.5 9"/><path d="M12 12v7m0 0-2.5-2.5M12 19l2.5-2.5"/></svg>Sync</button>
+          <div class="account" id="accountWrap" hidden>
+            <button type="button" class="avatar" id="accountBtn" data-tip="Account" aria-haspopup="true" aria-expanded="false" aria-label="Account menu"><span id="avatarText">?</span></button>
+            <div class="account-menu" id="accountMenu" role="menu" hidden>
+              <button type="button" class="account-item" id="profileBtn" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>My profile</button>
+              <button type="button" class="account-item" id="detailsBtn" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Login details</button>
+              <button type="button" class="account-item danger-item" id="logoutBtn" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M15 4h5v16h-5"/></svg>Logout</button>
+            </div>
           </div>
         </div>
+        <!-- ==== end atom page: account header ==== -->
       </div>
     </div>
     <div class="modal-body app-body">
@@ -597,10 +669,347 @@ select.row-val{padding-right:64px}
   </div>
 </div>
 
+<!-- ==== atom page: dialogs ==== -->
+<dialog class="dlg" id="loginDialog" aria-labelledby="loginTitle">
+  <div class="dlg-head"><div><h3 id="loginTitle">Log in</h3><p class="dlg-sub" id="loginSub"></p></div><button type="button" class="dlg-x" id="loginClose" aria-label="Close" data-tip="Close"></button></div>
+  <form class="dlg-body" id="loginForm" novalidate>
+    <div class="field"><label for="loginRole">Role</label><input id="loginRole" inputmode="numeric" autocomplete="off"></div>
+    <div class="field"><label for="loginUsername">Username</label><input id="loginUsername" autocomplete="username"></div>
+    <div class="field"><label for="loginPassword">Password</label><span class="pw-wrap"><input id="loginPassword" type="password" autocomplete="current-password"><button type="button" class="pw-eye" id="loginEye" aria-label="Show password" data-tip="Show password"></button></span></div>
+    <div class="error-box" id="loginError" hidden></div>
+  </form>
+  <div class="dlg-actions"><button type="submit" form="loginForm" class="primary" id="loginBtn">Log in</button></div>
+</dialog>
+<dialog class="dlg" id="atomDialog" aria-labelledby="atomTitle">
+  <div class="dlg-head"><div><h3 id="atomTitle"></h3><p class="dlg-sub" id="atomSub" hidden></p></div><button type="button" class="dlg-x" id="atomClose" aria-label="Close" data-tip="Close"></button></div>
+  <div class="dlg-body" id="atomBody"></div>
+  <div class="dlg-actions" id="atomActions" hidden></div>
+</dialog>
+<div class="toast" id="toast" role="status" hidden></div>
+<!-- ==== end atom page: dialogs ==== -->
 <script>
 /* ==== shared state and DOM helpers ==== */
 const d = document;
 const UI = id => d.getElementById(id);
+/* ==== page settings and the account block ==== */
+// API works logged out (public routes); Log in opens the standard login (any role), and running a /auth/login-* route in the runner logs in too.
+// The OpenAPI spec is its reference data: the IndexedDB record "openapi", downloaded on first open and by every sync (3 hours, or Sync now); responses stay in memory
+// localStorage "api" = {v, token, user, synced_at} (the account block)
+const PAGE = { key: "api", title: "API", role: null, loginRequired: false, idb: true, refresh: () => specRefresh(), onOut: () => { Store.responses = {} } };
+/* ==== atom page: account ==== */
+// Identical in every Atom page that logs in (docs/page.md, Page standard); the page sets PAGE just above this block and calls Page.start() last. A test checks the copies match.
+// localStorage[PAGE.key] = {v, token, user, synced_at, ...the page's choices}; IndexedDB database PAGE.key, store "cache", records {name, user_id, saved_at, data} (pages with PAGE.idb).
+// Logged in means a valid token object; the user comes from GET /my/profile and is checked on every sync; Sync runs every 3 hours and from the header; logout clears everything in every tab.
+const Page = (() => {
+  const STORAGE_KEY = PAGE.key, STORAGE_VERSION = 1, IDB_STORE = "cache", IDB_VERSION = 2, SYNC_EVERY_MS = 3 * 3600 * 1000;
+  const EXPIRED = "Your session has expired. Please log in again.";
+  const el = id => document.getElementById(id);
+  const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const dash = v => v == null || v === "" ? "-" : esc(v);
+  const nowSec = () => Math.floor(Date.now() / 1000);
+  const ICON = {
+    x: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+    pencil: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+    eye: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+    eyeOff: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.9 8.4 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
+  };
+
+  /* -- storage -- */
+  const read = () => { try { const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); return s && s.v === STORAGE_VERSION ? s : {} } catch { return {} } };
+  const save = changes => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...read(), ...changes, v: STORAGE_VERSION })) } catch {} };
+  // the whole token object, valid, or logged out
+  const loginValid = token => !!token && typeof token.access_token === "string" && token.access_token !== "" && typeof token.refresh_token === "string" && token.refresh_token !== "" && Number.isFinite(token.access_token_expires_at) && Number.isFinite(token.refresh_token_expires_at) && token.refresh_token_expires_at > nowSec();
+  const userBlock = user => !user ? "Your account could not be loaded." : user.deleted_at ? "Your account was deleted." : user.deactivated_at ? "Your account is deactivated." : PAGE.role != null && Number(user.role) !== PAGE.role ? `This page needs role ${PAGE.role}.` : "";
+
+  /* -- IndexedDB cache: big or slow reference data; a record saved for another user is ignored -- */
+  const idbOpen = () => new Promise((resolve, reject) => {
+    const q = indexedDB.open(STORAGE_KEY, IDB_VERSION);
+    q.onupgradeneeded = () => { const db = q.result; if (db.objectStoreNames.contains(IDB_STORE)) db.deleteObjectStore(IDB_STORE); db.createObjectStore(IDB_STORE, { keyPath: "name" }) };
+    q.onsuccess = () => resolve(q.result);
+    q.onerror = () => reject(q.error);
+  });
+  const idbRun = async (mode, work) => { const db = await idbOpen(); try { return await new Promise((resolve, reject) => { const q = work(db.transaction(IDB_STORE, mode).objectStore(IDB_STORE)); q.onsuccess = () => resolve(q.result); q.onerror = () => reject(q.error) }) } finally { db.close() } };
+  const cacheGet = async name => { if (!PAGE.idb) return null; try { const r = await idbRun("readonly", s => s.get(name)); return r && r.user_id === (read().user?.id ?? null) ? r : null } catch { return null } };
+  const cacheSet = async (name, data) => { if (!PAGE.idb) return; try { await idbRun("readwrite", s => s.put({ name, user_id: read().user?.id ?? null, saved_at: Date.now(), data })) } catch {} };
+  const cacheCount = async () => { if (!PAGE.idb) return 0; try { return await idbRun("readonly", s => s.count()) } catch { return 0 } };
+  const cacheClear = () => new Promise(resolve => { if (!PAGE.idb) return resolve(); const q = indexedDB.deleteDatabase(STORAGE_KEY); q.onsuccess = q.onerror = q.onblocked = () => resolve() });
+
+  /* -- toast and the one dialog every part of the page uses -- */
+  let toastTimer = null;
+  const toast = (text, isError = false) => { const t = el("toast"); t.textContent = text; t.classList.toggle("error", !!isError); t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true }, isError ? 5000 : 2600) };
+  let dialogOn = {}, dialogLocked = false, formResolve = null;
+  // dialog({title, sub, body, actions, on: {buttonId: handler}}): a title, an optional subtitle, a body and actions only when there is something to do
+  const dialog = ({ title, sub = "", body = "", actions = "", on = {} }) => {
+    formResolve?.(false);    // a form still waiting is answered "no" when the dialog shows something else
+    formResolve = null;
+    el("atomTitle").textContent = title;
+    el("atomSub").textContent = sub;
+    el("atomSub").hidden = !sub;
+    el("atomBody").innerHTML = body + '<div class="error-box" id="atomError" hidden></div>';
+    el("atomActions").innerHTML = actions;
+    el("atomActions").hidden = !actions;
+    dialogOn = on;
+    if (!el("atomDialog").open) el("atomDialog").showModal();
+  };
+  const dialogClose = () => { if (el("atomDialog").open) el("atomDialog").close() };
+  const dialogError = text => { const e = el("atomError"); if (e) { e.textContent = text || ""; e.hidden = !text } };
+  const dialogLock = on => { dialogLocked = on; for (const b of el("atomDialog").querySelectorAll("button")) b.disabled = on };
+  // form({title, sub, body, ok, tone, submit}): Cancel, then the main action; submit() runs on the action or Enter and its error stays in the dialog;
+  // resolves true when done, false on Cancel or close. confirm(title, text, ok, danger) is a form without fields
+  const form = ({ title, sub = "", body = "", ok = "OK", tone = "primary", submit = null }) => new Promise(resolve => {
+    const done = value => { formResolve = null; dialogClose(); resolve(value) };
+    const run = async () => {
+      if (!submit) return done(true);
+      dialogError("");
+      dialogLock(true);
+      try { await submit(); dialogLock(false); done(true) }
+      catch (failure) { dialogLock(false); dialogError(failure.message) }
+    };
+    dialog({ title, sub, body: `<form class="dlg-form" id="atomForm" novalidate>${body}</form>`, actions: `<button type="button" id="atomCancel">Cancel</button><button type="submit" form="atomForm" class="${tone}" id="atomOk">${esc(ok)}</button>`, on: { atomCancel: () => done(false) } });
+    formResolve = resolve;
+    el("atomForm").addEventListener("submit", e => { e.preventDefault(); run() });
+    (el("atomForm").querySelector("input:not([disabled]),select,textarea") || el("atomOk")).focus();
+  });
+  const confirm = (title, text, ok = "OK", danger = false) => form({ title, body: `<p class="confirm-text">${esc(text)}</p>`, ok, tone: danger ? "danger" : "primary" });
+  const kv = rows => `<table class="kv"><tbody>${rows.map(([label, html]) => `<tr><th scope="row">${esc(label)}</th><td>${html}</td></tr>`).join("")}</tbody></table>`;
+  const eyeToggle = (input, button) => {
+    const draw = () => { const shown = input.type === "text"; button.innerHTML = shown ? ICON.eyeOff : ICON.eye; button.ariaLabel = shown ? "Hide password" : "Show password" };
+    button.addEventListener("click", () => { input.type = input.type === "password" ? "text" : "password"; draw(); input.focus() });
+    draw();
+  };
+
+  /* -- requests: the token as Bearer; a 401 renews the token once and retries -- */
+  let refreshing = null;
+  // true: a valid new token is saved; false: the refresh token expired or was refused (log out); null: the server could not be reached (keep the token, try later)
+  const tokenRefresh = () => refreshing ||= (async () => {
+    const token = read().token;
+    if (!loginValid(token)) return false;
+    try {
+      const response = await fetch("/my/token-refresh", { method: "POST", headers: { Authorization: `Bearer ${token.refresh_token}` } });
+      const body = await response.json().catch(() => ({}));
+      if (response.ok && body.status === 1) { if (!loginValid(body.message)) return false; save({ token: body.message }); return true }
+      return response.status === 401 || response.status === 403 ? false : null;
+    } catch { return null }
+  })().finally(() => { refreshing = null });
+  const request = async (path, options = {}, retry = true) => {
+    let token = read().token;
+    if (loginValid(token) && token.access_token_expires_at - nowSec() <= 30) { if (await tokenRefresh() === false) { logOut(EXPIRED); throw Object.assign(new Error(EXPIRED), { status: 401 }) } token = read().token }
+    const json = typeof options.body === "string";
+    const headers = { ...(json ? { "Content-Type": "application/json" } : {}), ...(options.headers || {}), ...(loginValid(token) ? { Authorization: `Bearer ${token.access_token}` } : {}) };
+    const response = await fetch(path, { ...options, headers });
+    if (response.status === 401 && retry && loginValid(token)) {
+      const renewed = await tokenRefresh();
+      if (renewed) return request(path, options, false);
+      if (renewed === false) logOut(EXPIRED);
+    }
+    return response;
+  };
+  // Atom's answer {status: 1, message}: the message, or an Error with the server's text and .status
+  const api = async (path, options = {}) => {
+    const response = await request(path, options);
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body.status !== 1) throw Object.assign(new Error(typeof body.message === "string" ? body.message : `HTTP ${response.status}`), { status: response.status });
+    return body.message;
+  };
+
+  /* -- session -- */
+  const loggedIn = () => !el("accountWrap").hidden;
+  // the user (GET /my/profile) into "user": on login, when missing and on every sync; false when the user may not use the page (logged out)
+  const profileLoad = async (force = false) => {
+    if (!loginValid(read().token)) return false;
+    if (force || !read().user) {
+      try { save({ user: await api("/my/profile") }) }
+      catch (error) { if (error.status === 401 || error.status === 403) { logOut(EXPIRED); return false } }    // offline: keep the saved user
+    }
+    const block = userBlock(read().user);
+    if (block) { logOut(block); return false }
+    renderAccount();
+    return true;
+  };
+  // sync: new token, the user, then the page's data (PAGE.refresh); synced_at when it finishes. step(i) names the step for the Sync dialog
+  const syncSteps = () => ["Renewing login…", "Loading your profile…", ...(PAGE.refresh ? ["Downloading data…"] : [])];
+  // the page's data only, one download at a time (a page with no cache yet calls it too): PAGE.refresh, then synced_at, then PAGE.onSynced
+  let dataSyncing = null;
+  const syncData = () => dataSyncing ||= (async () => { if (PAGE.refresh) await PAGE.refresh(); save({ synced_at: Date.now() }); PAGE.onSynced?.() })().finally(() => { dataSyncing = null });
+  const syncRun = async (step = () => {}) => {
+    step(0);
+    if (await tokenRefresh() === false) { logOut(EXPIRED); return false }
+    step(1);
+    if (!await profileLoad(true)) return false;
+    if (PAGE.refresh) step(2);
+    await syncData();
+    return true;
+  };
+  // 5 minutes or less left on the access token: renew it now (refused → logged out); false when logged out
+  const tokenFresh = async () => {
+    const token = read().token;
+    if (!loginValid(token)) { if (token) logOut(EXPIRED); return false }
+    if (token.access_token_expires_at - nowSec() <= 300 && await tokenRefresh() === false) { logOut(EXPIRED); return false }
+    return true;
+  };
+  // on open, every minute and when the tab comes back: a valid, fresh token; then the user, then a sync when synced_at is 3 hours old
+  const sessionCheck = async () => {
+    if (!read().token || !loggedIn()) return;
+    if (!await tokenFresh()) return;
+    if (!await profileLoad()) return;
+    if (Date.now() - (read().synced_at || 0) > SYNC_EVERY_MS) syncRun().catch(() => {});
+  };
+  // a token object from a login: check it, then the user, then the first sync, then the page
+  const signIn = async token => {
+    if (!loginValid(token)) throw new Error("The server sent an incomplete login. Please try again.");
+    save({ token, user: null, synced_at: 0 });
+    let user;
+    try { user = await api("/my/profile") } catch (error) { forgetAll(); throw error }
+    const block = userBlock(user);
+    if (block) { forgetAll(); throw new Error(block) }
+    save({ user });
+    showIn();
+  };
+  const forgetAll = () => { try { localStorage.removeItem(STORAGE_KEY) } catch {} cacheClear() };
+  // logout and every forced logout: forget the key and the cache, close dialogs, show the login with a plain sentence
+  const logOut = (message = "") => { forgetAll(); showOut(message) };
+  const initials = name => {
+    const words = String(name || "").split("@")[0].split(/[\s._-]+/).filter(Boolean);
+    return (words.length > 1 ? words[0][0] + words[1][0] : (words[0] || "?").slice(0, 2)).toUpperCase();
+  };
+  const renderAccount = () => { const u = read().user || {}; el("avatarText").textContent = initials(u.username || u.email) };
+  const showIn = () => {
+    el("loginOpenBtn").hidden = true;
+    el("syncBtn").hidden = el("accountWrap").hidden = false;
+    if (el("loginDialog").open) el("loginDialog").close();
+    renderAccount();
+    PAGE.onIn?.(read().user);
+    if (!read().synced_at) syncData().catch(() => {});    // the first sync after a login: the token is new, so only the page's data
+  };
+  const showOut = message => {
+    menuToggle(false);
+    for (const d of document.querySelectorAll("dialog[open]")) d.close();
+    el("syncBtn").hidden = el("accountWrap").hidden = true;
+    el("loginOpenBtn").hidden = !!PAGE.loginRequired;
+    PAGE.onOut?.(message);
+    if (PAGE.loginRequired || message) loginOpen(message);
+  };
+
+  /* -- login dialog: role (fixed when the page has one), username, password -- */
+  const loginOpen = (message = "") => {
+    el("loginSub").textContent = PAGE.title;
+    el("loginRole").value = PAGE.role ?? "";
+    el("loginRole").disabled = PAGE.role != null;
+    el("loginRole").placeholder = PAGE.role != null ? "" : "Any role";
+    el("loginClose").hidden = !!PAGE.loginRequired;
+    el("loginPassword").value = "";
+    el("loginError").textContent = message;
+    el("loginError").hidden = !message;
+    if (!el("loginDialog").open) el("loginDialog").showModal();
+    (el("loginUsername").value ? el("loginPassword") : el("loginUsername")).focus();
+  };
+  const loginSubmit = async event => {
+    event.preventDefault();
+    const role = el("loginRole").value.trim(), username = el("loginUsername").value.trim(), password = el("loginPassword").value;
+    const error = !username || !password ? "Enter your username and password." : role && !/^\d+$/.test(role) ? "Role is a number." : "";
+    el("loginError").textContent = error;
+    el("loginError").hidden = !error;
+    if (error) return;
+    el("loginBtn").disabled = true;
+    try {
+      const response = await fetch("/auth/login-username-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...(role ? { role: Number(role) } : {}), username, password }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body.status !== 1) throw new Error(typeof body.message === "string" ? body.message : `HTTP ${response.status}`);
+      await signIn(body.message);
+    } catch (failure) { el("loginError").textContent = failure.message; el("loginError").hidden = false }
+    finally { el("loginBtn").disabled = false }
+  };
+
+  /* -- account menu: My profile, Login details, Logout -- */
+  const menuToggle = open => { const isOpen = open ?? el("accountMenu").hidden; el("accountMenu").hidden = !isOpen; el("accountBtn").setAttribute("aria-expanded", String(isOpen)) };
+  const roleText = role => role == null ? "-" : esc(PAGE.roleLabel?.(role) ?? (Number(role) === 1 ? "1 (admin)" : String(role)));
+  const usernameCell = u => u.username ? `<span class="cell"><span>${esc(u.username)}</span><button type="button" class="kv-btn" data-copy="${esc(u.username)}" aria-label="Copy username">${ICON.copy}</button></span>` : "-";
+  const profileOpen = () => { const u = read().user || {}; dialog({ title: "My profile", body: kv([["Name", dash(u.name)], ["Username", usernameCell(u)], ["Email", dash(u.email)], ["Mobile", dash(u.mobile)], ["Role", roleText(u.role)]]) }) };
+  const detailsOpen = () => {
+    const u = read().user || {};
+    dialog({ title: "Login details", body: kv([["Username", usernameCell(u)], ["Password", `<span class="cell"><span>••••••••</span><button type="button" class="kv-btn" id="passwordEdit" aria-label="Change password">${ICON.pencil}</button></span>`], ["Role", roleText(u.role)]]), on: { passwordEdit: passwordOpen } });
+  };
+  // Update password: Atom's rule, 6-120 characters without spaces (PUT /my/user-update)
+  const passwordOpen = () => {
+    dialog({ title: "Update password",
+      body: '<div class="field"><label for="pwNew">New password</label><input id="pwNew" type="password" autocomplete="new-password" maxlength="120"></div><div class="field"><label for="pwConfirm">Confirm new password</label><input id="pwConfirm" type="password" autocomplete="new-password" maxlength="120"></div><p class="field-help">6–120 characters, no spaces.</p>',
+      actions: '<button type="button" id="pwCancel">Cancel</button><button type="button" class="primary" id="pwSave">Update password</button>',
+      on: { pwCancel: detailsOpen, pwSave: passwordSave } });
+    el("pwNew").focus();
+  };
+  const passwordSave = async () => {
+    const value = el("pwNew").value, error = /\s/.test(value) || value.length < 6 || value.length > 120 ? "Use 6–120 characters, no spaces" : value !== el("pwConfirm").value ? "Passwords don't match" : "";
+    if (error) return dialogError(error);
+    el("pwSave").disabled = true;
+    try { await api("/my/user-update", { method: "PUT", body: JSON.stringify({ password: value }) }); dialogClose(); toast("Password updated") }
+    catch (failure) { dialogError(failure.message); if (el("pwSave")) el("pwSave").disabled = false }
+  };
+  const logoutOpen = () => dialog({ title: "Logout?", body: '<p class="confirm-text">Are you sure you want to logout?</p>', actions: '<button type="button" id="logoutCancel">Cancel</button><button type="button" class="primary" id="logoutConfirm">Logout</button>', on: { logoutCancel: dialogClose, logoutConfirm: () => logOut("") } });
+
+  /* -- Sync dialog: what this page keeps and when it last downloaded; Sync now runs the whole sync -- */
+  const agoText = ms => { const s = Math.max(0, Math.round((Date.now() - ms) / 1000)); if (s < 60) return "just now"; for (const [size, unit] of [[31536000, "yr"], [2592000, "mo"], [86400, "day"], [3600, "hr"], [60, "min"]]) if (s >= size) { const n = Math.floor(s / size); return `${n} ${unit === "day" && n !== 1 ? "days" : unit} ago` } };
+  const usedText = n => n ? `Used, ${n} item${n === 1 ? "" : "s"}` : "Not used";
+  const syncOpen = async () => {
+    const store = read(), local = Object.keys(store).length, records = await cacheCount();
+    dialog({ title: "Sync", sub: "Auto sync every 3 hr",
+      body: kv([["Local storage", usedText(local)], ["IndexedDB", usedText(records)], ["Last synced", store.synced_at ? agoText(store.synced_at) : "Never"]]) + '<div class="sync-progress" id="syncProgress" hidden><div class="sync-fill" id="syncFill"></div></div><p class="sync-status" id="syncStatus" role="status"></p>',
+      actions: '<button type="button" id="syncClose">Close</button><button type="button" class="primary" id="syncNow">Sync now</button>',
+      on: { syncClose: dialogClose, syncNow } });
+  };
+  const syncNow = async () => {
+    const steps = syncSteps();
+    const step = i => { if (!el("syncStatus")) return; el("syncStatus").textContent = `${steps[i]} (${i + 1} of ${steps.length})`; el("syncFill").style.width = `${Math.round(i / steps.length * 100)}%` };
+    el("syncStatus").classList.remove("error");
+    el("syncProgress").hidden = false;
+    dialogLock(true);
+    let ok = false;
+    try { ok = await syncRun(step) } catch { ok = false }
+    dialogLock(false);
+    if (!el("atomDialog").open || el("atomTitle").textContent !== "Sync") return;
+    await syncOpen();
+    el("syncStatus").textContent = ok ? "Everything is up to date." : "Sync failed. Please try again.";
+    el("syncStatus").classList.toggle("error", !ok);
+  };
+
+  /* -- start: wire the parts, then open logged in (a valid token) or logged out -- */
+  const start = () => {
+    el("accountBtn").addEventListener("click", e => { e.stopPropagation(); menuToggle() });
+    el("accountMenu").addEventListener("click", e => e.stopPropagation());
+    document.addEventListener("click", () => menuToggle(false));
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && !el("accountMenu").hidden) { menuToggle(false); el("accountBtn").focus() } });
+    el("profileBtn").addEventListener("click", () => { menuToggle(false); profileOpen() });
+    el("detailsBtn").addEventListener("click", () => { menuToggle(false); detailsOpen() });
+    el("logoutBtn").addEventListener("click", () => { menuToggle(false); logoutOpen() });
+    el("syncBtn").addEventListener("click", syncOpen);
+    el("loginOpenBtn").addEventListener("click", () => loginOpen());
+    el("loginClose").addEventListener("click", () => el("loginDialog").close());
+    el("loginForm").addEventListener("submit", loginSubmit);
+    el("loginDialog").addEventListener("cancel", e => { if (PAGE.loginRequired) e.preventDefault() });    // a page that needs a login keeps the form open
+    eyeToggle(el("loginPassword"), el("loginEye"));
+    el("atomClose").innerHTML = el("loginClose").innerHTML = ICON.x;
+    el("atomClose").addEventListener("click", dialogClose);
+    el("atomDialog").addEventListener("cancel", e => { if (dialogLocked) e.preventDefault() });    // Escape does nothing while Sync runs
+    el("atomDialog").addEventListener("close", () => { formResolve?.(false); formResolve = null; dialogOn = {} });
+    el("atomDialog").addEventListener("click", e => {
+      const copy = e.target.closest("[data-copy]");
+      if (copy) return navigator.clipboard.writeText(copy.dataset.copy).then(() => toast("Username copied"), () => toast("Could not copy username", true));
+      const button = e.target.closest("button[id]");
+      if (button && dialogOn[button.id]) dialogOn[button.id](e);
+    });
+    // logout in another tab removes the key: this tab finds no valid token and logs out too
+    window.addEventListener("storage", e => { if (e.key === STORAGE_KEY && loggedIn() && !loginValid(read().token)) showOut("You logged out in another tab.") });
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) sessionCheck() });
+    setInterval(sessionCheck, 60000);
+    const token = read().token;
+    if (loginValid(token)) { showIn(); sessionCheck() }
+    else { if (token) forgetAll(); showOut(token ? EXPIRED : "") }
+  };
+
+  return { start, esc, dash, toast, dialog, dialogClose, dialogError, dialogLock, form, confirm, kv, eyeToggle, api, request, read, save, user: () => read().user || null, loggedIn, signIn, logOut, loginOpen, loginValid, tokenRefresh, tokenFresh, syncData, cacheGet, cacheSet, syncOpen, initials, agoText, EXPIRED };
+})();
+/* ==== end atom page: account ==== */
+
 let COMMANDS = [];
 let SPEC = null;
 let curr = null;                    // the command loaded in the runner
@@ -677,13 +1086,7 @@ function setupHoverTips() {
 }
 
 /* ==== toast, clipboard and downloads ==== */
-const toast = msg => {
-  const el = d.createElement("div");
-  el.className = "toast";
-  el.textContent = msg;
-  d.body.appendChild(el);
-  setTimeout(() => el.remove(), 2500);
-};
+const toast = (msg, isError) => Page.toast(msg, isError);
 const copyWithFeedback = async (btn, text, size = 16, msg) => {
   let copied = false;
   try { await navigator.clipboard.writeText(text); copied = true } catch {}
@@ -725,112 +1128,20 @@ const arrayToCsv = arr => {
   return [keys.join(","), ...arr.map(r => keys.map(k => csvEscape(r[k])).join(","))].join("\n");
 };
 
-/* ==== auth and session ==== */
-// auth token (persisted under the "api" key); responses stay in memory
-const STORAGE_KEY_API = "api";
-const readApiStorage = () => {
-  try {
-    const data = JSON.parse(localStorage.getItem(STORAGE_KEY_API) || "{}");
-    return data && typeof data === "object" && !Array.isArray(data) ? data : {};
-  } catch { return {} }
-};
+/* ==== login for the runner ==== */
+// the runner sends the saved access token (the refresh token to /my/token-refresh); responses stay in memory
 const Store = {
   responses: {},
-  get tokenObject() {
-    const token = readApiStorage().token;
-    return token && typeof token === "object" ? token : null;
-  },
-  get token() {
-    const token = readApiStorage().token;
-    return typeof token === "string" ? token : token?.access_token || "";
-  },
-  set token(v) {
-    const data = readApiStorage();
-    if (!v) delete data.token;
-    else data.token = v;
-    if (Object.keys(data).length) localStorage.setItem(STORAGE_KEY_API, JSON.stringify(data));
-    else localStorage.removeItem(STORAGE_KEY_API);
-  },
+  get tokenObject() { const token = Page.read().token; return Page.loginValid(token) ? token : null },
+  get token() { return this.tokenObject?.access_token || "" },
   get refreshToken() { return this.tokenObject?.refresh_token || "" },
-  get user() { const user = readApiStorage().user; return user && typeof user === "object" ? user : null },
-  get userAt() { return Number(readApiStorage().user_at) || 0 },
-  set user(v) {
-    const data = readApiStorage();
-    if (v) Object.assign(data, { user: v, user_at: Date.now() });
-    else { delete data.user; delete data.user_at }
-    localStorage.setItem(STORAGE_KEY_API, JSON.stringify(data));
-  },
-  clearAuth() { localStorage.removeItem(STORAGE_KEY_API); this.responses = {} },
+  get user() { return Page.user() },
   getResponse(i) { return this.responses[i] || null },
   setResponse(i, val) { this.responses[i] = val },
   removeResponse(i) { delete this.responses[i] }
 };
 const getAuthTokenFor = api => api?.p === "/my/token-refresh" ? Store.refreshToken || Store.token : Store.token;
-// a token's expiry is read from the token itself (the JWT "exp"), so a pasted token is checked too
-const tokenExpiresAt = token => {
-  try {
-    const part = String(token).split(".")[1];
-    const payload = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "=")));
-    return typeof payload.exp === "number" ? payload.exp : null;
-  } catch { return null }
-};
-const formatWhen = sec => new Date(sec * 1000).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-// logged out: the Login button; logged in: an avatar with the user's first letter, opening a menu with username, role, both token expiries and Log out
 const userName = user => user ? String(user.username || user.email || user.mobile || `User ${user.id ?? ""}`).trim() : "";
-const updateLoginIndicator = () => {
-  const loggedIn = !!Store.token, user = Store.user, exp = loggedIn ? tokenExpiresAt(Store.token) : null;
-  UI("loginIndicator").hidden = loggedIn;
-  UI("profile").hidden = !loggedIn;
-  if (!loggedIn) { UI("profileMenu").hidden = true; return }
-  const name = userName(user) || "unknown", letter = (name[0] || "?").toUpperCase(), refreshExp = tokenExpiresAt(Store.refreshToken);
-  UI("profileAvatar").textContent = letter;
-  UI("profileAvatar").dataset.tip = `${name} · role ${user?.role ?? "unknown"}`;
-  UI("profileName").textContent = name;
-  UI("profileRole").textContent = user?.role ?? "unknown";
-  UI("profileAccess").textContent = exp == null ? "—" : `expires ${formatWhen(exp)}`;
-  UI("profileRefresh").textContent = refreshExp == null ? "—" : `expires ${formatWhen(refreshExp)}`;
-};
-const profileMenuToggle = open => {
-  const isOpen = open ?? UI("profileMenu").hidden;
-  UI("profileMenu").hidden = !isOpen;
-  UI("profileAvatar").setAttribute("aria-expanded", String(isOpen));
-};
-// the user object (GET /my/profile), saved with the token and read again when it is over 3 hours old
-const PROFILE_MAX_AGE_MS = 3 * 3600 * 1000;
-const profileLoad = async ({ force = false } = {}) => {
-  if (!Store.token || (!force && Store.user && Date.now() - Store.userAt < PROFILE_MAX_AGE_MS)) return;
-  try {
-    const r = await fetch("/my/profile", { headers: { Authorization: `Bearer ${Store.token}` } });
-    const json = await r.json().catch(() => ({}));
-    if (r.ok && json.status === 1 && json.message && typeof json.message === "object") Store.user = json.message;
-    // refused (a token from another server or a revoked one): log out once instead of asking again every minute
-    else if (r.status === 401 || r.status === 403) { Store.clearAuth(); toast("Your login has expired. Please log in again.") }
-  } catch { /* offline: keep the saved user, try again at the next check */ }
-  updateLoginIndicator();
-};
-// keep the login alive on its own: no token → logged out; under 5 minutes left → new tokens from the refresh token;
-// refresh token expired or refused → logged out, as if never logged in. A network failure keeps the token and tries again at the next check.
-let isSessionChecking = false;
-const sessionCheck = async () => {
-  if (isSessionChecking || !Store.token) return updateLoginIndicator();
-  const now = Date.now() / 1000, exp = tokenExpiresAt(Store.token);
-  if (exp == null || exp - now > 300) { updateLoginIndicator(); return profileLoad() }
-  const refreshExp = tokenExpiresAt(Store.refreshToken);
-  const logOut = () => { Store.clearAuth(); updateLoginIndicator(); toast("Your login has expired. Please log in again.") };
-  if (refreshExp == null || refreshExp <= now) return logOut();
-  isSessionChecking = true;
-  try {
-    const r = await fetch("/my/token-refresh", { method: "POST", headers: { Authorization: `Bearer ${Store.refreshToken}` } });
-    const json = await r.json().catch(() => ({}));
-    if (r.ok && json.status === 1 && json.message?.access_token) Store.token = json.message;
-    else if (r.status === 401 || r.status === 403) logOut();
-  } catch { /* offline or server down: keep the token, try again at the next check */ }
-  finally {
-    isSessionChecking = false;
-    updateLoginIndicator();
-  }
-  if (Store.token) await profileLoad();
-};
 
 /* ==== OpenAPI spec to commands ==== */
 // OpenAPI spec to commands: {p path, m method, h/q/u/f/j rows {k,v,t,e enum,r pattern,d description,req}, flags}
@@ -1477,7 +1788,7 @@ const executeCurrentApi = async () => {
     const qs = params.q.filter(x => x.k).map(x => `${encodeURIComponent(x.k)}=${encodeURIComponent(x.v || "null")}`).join("&");
     const url = location.origin + urlPath + (qs ? "?" + qs : "");
     const h = {};
-    if (command.p !== "/my/token-refresh") await sessionCheck();    // e.g. after the laptop slept: renew before sending, not after a 401
+    if (command.p !== "/my/token-refresh" && Page.loggedIn()) await Page.tokenFresh();    // e.g. after the laptop slept: renew before sending, not after a 401
     const authToken = getAuthTokenFor(command);
     params.h.forEach(x => {
       if (!x.k) return;
@@ -1515,12 +1826,12 @@ const executeCurrentApi = async () => {
     request.controller.signal.throwIfAborted();
     let json;
     try { json = JSON.parse(text) } catch { json = { status: r.status, message: text || "Raw" } }
-    if (r.ok && (command.p.includes("/auth/login") || command.p === "/my/token-refresh") && json?.status === 1 && json.message?.access_token) {
-      Store.token = json.message;
-      if (command.p.includes("/auth/login")) { Store.user = null; await profileLoad({ force: true }); toast(`Logged in as ${userName(Store.user) || "user"}`) }
-      updateLoginIndicator();
+    // a login run here logs the page in (the same checks as the login dialog); a refresh run here keeps its new token; /my/profile updates the user
+    if (r.ok && json?.status === 1 && Page.loginValid(json.message)) {
+      if (command.p.includes("/auth/login")) { try { await Page.signIn(json.message); toast(`Logged in as ${userName(Store.user) || "user"}`) } catch (e) { toast(e.message, true) } }
+      else if (command.p === "/my/token-refresh" && Page.loggedIn()) Page.save({ token: json.message });
     }
-    if (r.ok && command.p === "/my/profile" && command.m === "GET" && json?.status === 1 && json.message && typeof json.message === "object") { Store.user = json.message; updateLoginIndicator() }
+    if (r.ok && command.p === "/my/profile" && command.m === "GET" && json?.status === 1 && json.message && typeof json.message === "object" && Page.loggedIn()) Page.save({ user: json.message });
     toast(`Execution Complete: ${r.status}`);
     finish(json, r.status, ms, resHeaders, text.length > 1e6 ? { status: r.status, message: "Response too large to store" } : json);
   } catch (err) {
@@ -1759,27 +2070,6 @@ const setupEventListeners = () => {
   UI("infoToggleBtn").addEventListener("click", () => showModal("infoModal"));
   UI("catalogCsvLink").addEventListener("click", e => { e.preventDefault(); exportCatalogCsv() });
   UI("pasteCurlToggleBtn").addEventListener("click", openPasteCurlModal);
-  const openLogin = () => {
-    const idx = COMMANDS.findIndex(c => c.p === "/auth/login-username-password" && c.m === "POST");
-    if (idx === -1) return toast("Login API not found");
-    activeMasterRunIndex = null;    // its response (the token) is not kept in the table
-    showModal("apiRunnerModal");
-    load(idx);
-  };
-  UI("loginIndicator").addEventListener("click", openLogin);
-  UI("profileAvatar").addEventListener("click", e => { e.stopPropagation(); profileMenuToggle() });
-  UI("profileMenu").addEventListener("click", e => e.stopPropagation());
-  d.addEventListener("click", () => profileMenuToggle(false));
-  d.addEventListener("keydown", e => { if (e.key === "Escape" && !UI("profileMenu").hidden) { profileMenuToggle(false); UI("profileAvatar").focus() } });
-  UI("logoutBtn").addEventListener("click", () => {
-    Store.clearAuth();
-    profileMenuToggle(false);
-    updateLoginIndicator();
-    toast("Logged out");
-  });
-  // check on open, when the tab comes back and every minute, so the login renews before it runs out
-  d.addEventListener("visibilitychange", () => { if (!d.hidden) sessionCheck() });
-  setInterval(sessionCheck, 60000);
   d.querySelectorAll(".modal").forEach(modal => modal.addEventListener("click", e => { if (e.target === modal) hideModal(modal.id) }));
   const closeButtons = { runnerCloseBtn: "apiRunnerModal", wsRunnerCloseBtn: "wsRunnerModal", apiDetailCloseBtn: "apiDetailModal", infoCloseBtn: "infoModal", paramInfoCloseBtn: "paramInfoModal", pasteCurlCloseBtn: "pasteCurlModal" };
   Object.entries(closeButtons).forEach(([btnId, modalId]) => UI(btnId).addEventListener("click", () => hideModal(modalId)));
@@ -1922,34 +2212,42 @@ const updateAppLoader = (pct, msg) => {
   if (msg) UI("appLoaderMsg").textContent = msg;
   if (pct >= 100) setTimeout(() => UI("appLoader").classList.add("hidden"), 400);
 };
+// the spec as commands, the tag list and the table; on the first open also ?api=GET|/path, which opens that API's runner
+let specShown = false;
+const specApply = spec => {
+  SPEC = spec;
+  COMMANDS = Object.entries(spec.paths).flatMap(([path, methods]) => Object.entries(methods).map(([method, op]) => createCommandFromOperation(path, method, op)));
+  renderApiInfoTags();
+  if (specShown) return renderApiInfoTable();
+  specShown = true;
+  const runApi = new URLSearchParams(location.search).get("api");
+  const [method, path] = runApi?.includes("|") ? runApi.split("|") : [null, runApi];
+  const idx = runApi ? COMMANDS.findIndex(c => c.p === path && (!method || c.m === method.toUpperCase())) : -1;
+  if (idx !== -1) { setSearch(path); setTimeout(() => openCommand(idx), 100) }
+  else { renderApiInfoTable(); if (!splitPreview) load(null) }
+};
+// the sync's download (PAGE.refresh): /openapi.json into the IndexedDB record "openapi", then shown
+const specRefresh = async () => {
+  const spec = await (await fetch("/openapi.json", { cache: "no-cache" })).json();
+  if (!spec?.paths) throw new Error("Invalid OpenAPI spec returned");
+  await Page.cacheSet("openapi", spec);
+  specApply(spec);
+};
+// logged out there is no sync, so a saved spec older than 3 hours is downloaded again on open
+const SPEC_MAX_AGE_MS = 3 * 3600 * 1000;
 async function init() {
   renderIcons();
   setupHoverTips();
   setupLayoutPreview();
-  sessionCheck();
   setupEventListeners();
+  Page.start();
   UI("baseUrl").textContent = location.origin;
-  updateAppLoader(5, "Connecting to server...");
+  updateAppLoader(20, "Reading the OpenAPI spec...");
   try {
-    updateAppLoader(20, "Fetching OpenAPI spec...");
-    const spec = await (await fetch("/openapi.json", { cache: "no-cache" })).json();
-    updateAppLoader(40, "Parsing specification...");
-    if (!spec?.paths) throw new Error("Invalid OpenAPI spec returned");
-    SPEC = spec;
-    updateAppLoader(60, "Generating commands...");
-    COMMANDS = Object.entries(spec.paths).flatMap(([path, methods]) => Object.entries(methods).map(([method, op]) => createCommandFromOperation(path, method, op)));
-    updateAppLoader(80, "Rendering interface...");
-    renderApiInfoTags();
-    const runApi = new URLSearchParams(location.search).get("api");    // ?api=GET|/path opens that API's runner
-    const [method, path] = runApi?.includes("|") ? runApi.split("|") : [null, runApi];
-    const idx = runApi ? COMMANDS.findIndex(c => c.p === path && (!method || c.m === method.toUpperCase())) : -1;
-    if (idx !== -1) {
-      setSearch(path);
-      setTimeout(() => openCommand(idx), 100);
-    } else {
-      renderApiInfoTable();
-      if (!splitPreview) load(null);
-    }
+    const saved = await Page.cacheGet("openapi");
+    if (saved?.data?.paths && (Page.loggedIn() || Date.now() - saved.saved_at < SPEC_MAX_AGE_MS)) specApply(saved.data);
+    else if (Page.loggedIn()) await Page.syncData();
+    else await specRefresh();
     updateAppLoader(100, "Ready");
   } catch (err) {
     updateAppLoader(100, "Error");

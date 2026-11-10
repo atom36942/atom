@@ -14,9 +14,9 @@ class MonitorPageTests(unittest.TestCase):
         self.assertEqual(sorted(used - set(re.findall(r'\bid="([\w-]+)"', PAGE))), [])
 
     def test_page_keeps_its_own_login_and_storage(self):
-        self.assertIn('const STORAGE_KEY = "monitor";', PAGE)
-        self.assertEqual(set(re.findall(r'localStorage\.\w+\(([^,)]+)', PAGE)), {"STORAGE_KEY"})
-        self.assertIn('fetch("/auth/login-username-password"', PAGE)
+        # its own key "monitor" and role 1 login, through the page standard's account block (tests/test_page_auth.py)
+        self.assertIn('const PAGE = { key: "monitor", title: "Monitor", role: 1, loginRequired: true', PAGE)
+        self.assertNotIn("store.username", PAGE)
 
     def test_the_route_the_page_calls_exists_and_is_admin_only(self):
         self.assertIn("api(`/admin/monitor?", PAGE)

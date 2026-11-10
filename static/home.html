@@ -4,10 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Pages</title>
-<script>try { if (JSON.parse(localStorage.getItem("home") || "{}").theme === "dark") document.documentElement.dataset.theme = "dark" } catch (e) {}    // before the first paint, so a dark choice never flashes light</script>
 <style>
-:root{--bg:#eef2f8;--bg-top:#dfe7f5;--hero:linear-gradient(120deg,#1d4ed8,#4f46e5 60%,#7c3aed);--hero-text:#ffffff;--hero-muted:rgba(255,255,255,.8);--hero-field:rgba(255,255,255,.16);--hero-line:rgba(255,255,255,.28);--card:#ffffff;--panel:#e8eefb;--line:#d9e1ef;--row-line:#edf1f7;--hover:#f2f6fd;--text:#1f2937;--muted:#64748b;--head:#3730a3;--accent:#2563eb;--accent-soft:rgba(37,99,235,.1);--error:#dc2626;--shadow:0 8px 24px rgba(30,41,59,.08);--mono:"SF Mono",Menlo,monospace;color-scheme:light}
-:root[data-theme="dark"]{--bg:#0b0d10;--bg-top:#0b0d10;--hero:linear-gradient(120deg,#111827,#1e1b4b 60%,#2e1065);--hero-text:#e6eef3;--hero-muted:#9aa0a6;--hero-field:rgba(255,255,255,.06);--hero-line:rgba(255,255,255,.12);--card:#0f1114;--panel:#1a1d23;--line:rgba(255,255,255,.08);--row-line:rgba(255,255,255,.05);--hover:rgba(255,255,255,.04);--text:#e6eef3;--muted:#9aa0a6;--head:#93c5fd;--accent:#4299e1;--accent-soft:rgba(66,153,225,.12);--error:#f87171;--shadow:none;color-scheme:dark}
+:root{--bg:#0b0d10;--bg-top:#0b0d10;--hero:linear-gradient(120deg,#111827,#1e1b4b 60%,#2e1065);--hero-text:#e6eef3;--hero-muted:#9aa0a6;--hero-field:rgba(255,255,255,.06);--hero-line:rgba(255,255,255,.12);--card:#0f1114;--panel:#1a1d23;--line:rgba(255,255,255,.08);--row-line:rgba(255,255,255,.05);--hover:rgba(255,255,255,.04);--text:#e6eef3;--muted:#9aa0a6;--head:#93c5fd;--accent:#4299e1;--accent-soft:rgba(66,153,225,.12);--error:#f87171;--shadow:none;--mono:"SF Mono",Menlo,monospace;color-scheme:dark}    /* Atom's one page theme: the same dark palette as Admin, Monitor, API and Message */
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;background:linear-gradient(180deg,var(--bg-top),var(--bg) 360px) var(--bg);color:var(--text);font-family:Inter,system-ui;line-height:1.5}
 [hidden]{display:none!important}
@@ -23,8 +21,6 @@ h1{margin:0;font-size:24px;font-weight:700;letter-spacing:.2px}
 .search input:focus{border-color:var(--hero-text);background:rgba(255,255,255,.22)}
 .search kbd{position:absolute;right:10px;top:50%;transform:translateY(-50%);padding:1px 6px;border:1px solid var(--hero-line);border-radius:4px;color:var(--hero-muted);font:11px var(--mono)}
 .search input:focus+kbd,.search input:not(:placeholder-shown)+kbd{display:none}
-.theme{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;flex:none;color:var(--hero-text);background:var(--hero-field);border:1px solid var(--hero-line);border-radius:8px;cursor:pointer;transition:background .15s,border-color .15s}
-.theme:hover,.theme:focus-visible{background:rgba(255,255,255,.26);border-color:var(--hero-text);outline:none}
 main.wrap{margin-top:-40px;padding-bottom:40px}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
 table{width:100%;border-collapse:collapse;font-size:13px}
@@ -59,7 +55,6 @@ td.col-path{color:var(--muted);font:12px var(--mono)}
     </div>
     <div class="tools">
       <label class="search"><input type="search" id="search" placeholder="Search pages" autocomplete="off" spellcheck="false" aria-label="Search pages"><kbd>/</kbd></label>
-      <button type="button" class="theme" id="theme"></button>
     </div>
   </div>
 </header>
@@ -74,24 +69,9 @@ td.col-path{color:var(--muted);font:12px var(--mono)}
 </main>
 <script>
 const he = v => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-const pagesEl = document.getElementById("pages"), messageEl = document.getElementById("message"), searchEl = document.getElementById("search"), themeEl = document.getElementById("theme");
+const pagesEl = document.getElementById("pages"), messageEl = document.getElementById("message"), searchEl = document.getElementById("search");
 let pages = [];
 const OPEN_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
-const MOON_ICON = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-const SUN_ICON = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
-
-const themeShow = () => {    // the button offers the other theme
-  const isDark = document.documentElement.dataset.theme === "dark";
-  themeEl.innerHTML = isDark ? SUN_ICON : MOON_ICON;
-  themeEl.title = themeEl.ariaLabel = isDark ? "Light theme" : "Dark theme";
-};
-themeEl.addEventListener("click", () => {
-  const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-  if (theme === "dark") document.documentElement.dataset.theme = "dark"; else delete document.documentElement.dataset.theme;
-  try { localStorage.setItem("home", JSON.stringify({ theme })) } catch (e) {}    // storage blocked: the choice lasts until the page closes
-  themeShow();
-});
-themeShow();
 
 const showMessage = (text, isError = false) => {
   messageEl.textContent = text;

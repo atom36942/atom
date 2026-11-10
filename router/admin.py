@@ -69,8 +69,8 @@ async def func_api_admin_postgres_slow_queries_reset(*, request: Request):
 @router.get("/admin/postgres-schema")
 async def func_api_admin_postgres_schema(*, request: Request):
     app_state = request.app.state
-    schema = await app_state.func_postgres_schema_read(client_postgres=request.state.client_postgres)
-    return {"status": 1, "message": schema}
+    await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "connection", "type": "str"}], strict=True, reject_unknown=True)
+    return {"status": 1, "message": request.state.cache_postgres_schema}
 
 @router.post("/admin/object-create")
 async def func_api_admin_object_create(*, request: Request):
