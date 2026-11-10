@@ -1,6 +1,5 @@
 # import
 import asyncio
-import re
 from typing import Any
 import time
 from collections import deque
@@ -108,26 +107,11 @@ async def func_email_send(*, app_state: State, service: str, sender: str, to: li
         raise Exception(f"email service {service} not supported")
     return message
 
-def func_message_pagination(*, limit: int, page: int, max_limit: int) -> tuple[int, int]:
+def func_message_limit(*, limit: int, max_limit: int) -> int:
+    """The page size of a message list, checked (more than 0, at most config_sql_read_limit_max)."""
     if limit < 1: raise Exception("query limit must be greater than 0")
-    if page < 1: raise Exception("query page must be greater than 0")
     if max_limit and limit > max_limit: raise Exception(f"query limit {limit} exceeds maximum allowed: {max_limit}")
-    return limit + 1, (page - 1) * limit
-
-def func_message_order(*, order: str, cache_postgres_schema: dict) -> str:
-    schema = cache_postgres_schema.get("message", {})
-    if not schema: raise Exception("table 'message' not found")
-    order_list, ordered_columns = [], set()
-    for item in str(order or "id desc").split(","):
-        parts = item.strip().split()
-        if not parts or len(parts) > 2 or not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", parts[0]) or parts[0] not in schema:
-            raise Exception(f"invalid message order: {item.strip()}")
-        if len(parts) == 2 and parts[1].lower() not in ("asc", "desc"): raise Exception(f"invalid message order: {item.strip()}")
-        direction = parts[1].upper() if len(parts) == 2 else "ASC"
-        order_list.append(f'"{parts[0]}" {direction}')
-        ordered_columns.add(parts[0])
-    if "id" not in ordered_columns: order_list.append('"id" DESC')
-    return ", ".join(order_list)
+    return limit
 
 async def func_message_socket_auth(*, websocket: WebSocket, config_token_secret_key: str, auth_timeout_sec: int) -> tuple:
     """Read the first websocket message {"token": "<access token>"}; return (user_id, token_expires_at) or raise ValueError with the close reason."""

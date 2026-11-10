@@ -22,7 +22,7 @@ from tests.support import database
 class CrudTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.pool, self.conn = database()
-        self.schema = {"product": {name: {"datatype": dtype} for name, dtype in
+        self.schema = {"product": {name: {"datatype": dtype, "is_nullable": "NO" if name == "id" else "YES"} for name, dtype in
                        [("id", "bigint"), ("name", "text"), ("created_by_id", "bigint"), ("password", "text")]}}
         self.common = dict(client_postgres=self.pool, client_password_hasher=None, cache_postgres_schema=self.schema, table="product")
         self.write_args = self.common | dict(client_postgres_conn=None, config_column_regex={})
@@ -33,7 +33,7 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
 
     async def read(self, **changes):
         return await func_postgres_read(**(self.common | dict( config_sql_read_limit_max=100,
-            config_sql_read_relation_fetch_limit_max=100, filter=[], limit=10, page=1,
+            config_sql_read_relation_fetch_limit_max=100, filter=[], limit=10,
             order="id desc", column="*", relation=[]) | changes))
 
     async def update(self, **changes):
@@ -174,32 +174,44 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([func_csv_cell(v) for v in (None, 5, -5, "plain", "-1+1", "=SUM(A1)", "@x", {"a": 1}, [1, 2], date(2026, 1, 2))],
                          ["", 5, -5, "plain", "'-1+1", "'=SUM(A1)", "'@x", '{"a":1}', "[1,2]", "2026-01-02"])
 
-    async def test_read_binds_filters_and_pagination_and_removes_password(self):
+    async def test_read_binds_filters_and_limit_and_removes_password(self):
         self.conn.fetch.return_value = [{"id": 3, "name": "item", "password": "private"}]
-        result = await self.read(filter=[{"created_by_id": "eq,7"}], limit=10, page=2)
+        result = await self.read(filter=[{"created_by_id": "eq,7"}], limit=10)
         sql, *values = self.conn.fetch.await_args.args
-        self.assertEqual(values, [7, 11, 10])
+        self.assertEqual(values, [7, 11])
         self.assertIn('"created_by_id" = $1', sql)
-        self.assertIn("LIMIT $2 OFFSET $3", sql)
-        self.assertEqual(result, [{"id": 3, "name": "item"}])
+        self.assertIn('ORDER BY "id" DESC LIMIT $2', sql)
+        self.assertNotIn("OFFSET", sql)
+        self.assertEqual(result, {"obj_list": [{"id": 3, "name": "item"}], "after": None})
 
-    async def test_read_after_id_continues_from_that_id_without_offset(self):
+    async def test_read_returns_the_cursor_of_the_next_page_from_the_extra_row(self):
+        self.conn.fetch.return_value = [{"id": 9, "name": "c"}, {"id": 8, "name": "b"}, {"id": 7, "name": "a"}]
+        result = await self.read(limit=2)
+        self.assertEqual(result, {"obj_list": [{"id": 9, "name": "c"}, {"id": 8, "name": "b"}], "after": '["8"]'})
+        result = await self.read(limit=2, order="name asc", column="name")
+        self.assertEqual(result, {"obj_list": [{"name": "c"}, {"name": "b"}], "after": '["b","8"]'})    # id is read for the cursor, then removed
+        self.assertIn('SELECT "name","id" FROM', self.conn.fetch.await_args.args[0])
+
+    async def test_read_after_continues_from_that_row_without_offset(self):
         self.conn.fetch.return_value = []
-        for order, operator in (("id desc", "<"), ("id asc", ">"), ("id", ">")):
+        for order, condition, sort in (("id desc", '"id" < $2::text::bigint', '"id" DESC'), ("id asc", '"id" > $2::text::bigint', '"id" ASC'),
+                                       ("name desc", '("name" <= $2::text::text AND ("name" < $2::text::text OR "id" < $3::text::bigint))', '"name" DESC, "id" DESC')):
             with self.subTest(order=order):
-                await self.read(filter=[{"created_by_id": "eq,7"}], order=order, after_id=50)
+                after = '["50"]' if order.startswith("id") else '["m","50"]'
+                await self.read(filter=[{"created_by_id": "eq,7"}], order=order, after=after)
                 sql, *values = self.conn.fetch.await_args.args
-                self.assertIn(f'WHERE ("created_by_id" = $1) AND "id" {operator} $2', sql)
-                self.assertEqual(values, [7, 50, 11, 0])
-        await self.read(after_id=50)
-        self.assertIn('WHERE "id" < $1', self.conn.fetch.await_args.args[0])
-        self.conn.fetch.reset_mock()
-        with self.assertRaisesRegex(Exception, "after_id needs order id asc or id desc"):
-            await self.read(order="name asc", after_id=50)
+                self.assertIn(f'WHERE ("created_by_id" = $1) AND {condition} ORDER BY {sort} LIMIT', sql)
+                self.assertEqual(values, [7, *(["50"] if order.startswith("id") else ["m", "50"]), 11])
+                self.assertNotIn("OFFSET", sql)
+
+    async def test_read_refuses_a_cursor_of_another_list_or_order(self):
+        for changes in ({"after": '["50"]', "order": "name asc"}, {"after": "50"}, {"after": "not json"}, {"after": '[true]'}, {"order": "password desc"}, {"order": "missing asc"}):
+            with self.subTest(changes=changes), self.assertRaisesRegex(Exception, "start from the first page|restricted from reading|not found"):
+                await self.read(**changes)
         self.conn.fetch.assert_not_awaited()
 
-    async def test_read_invalid_pagination_and_restricted_column_never_query(self):
-        for changes in ({"limit": 0}, {"page": 0}, {"limit": 101}, {"column": "password"}):
+    async def test_read_invalid_limit_and_restricted_column_never_query(self):
+        for changes in ({"limit": 0}, {"limit": 101}, {"column": "password"}):
             with self.subTest(changes=changes), self.assertRaisesRegex(Exception, "restricted from reading|exceeds maximum allowed|must be greater than 0"):
                 await self.read(**changes)
         self.conn.fetch.assert_not_awaited()

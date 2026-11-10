@@ -87,38 +87,55 @@ Use `curl -G --data-urlencode` for query parameters containing spaces, JSON, com
 | `column` | `str` | `*` | Comma-separated selected columns, e.g. `id,title,created_by_id`. This is singular `column`, not `columns`. |
 | `filter` | JSON list | `[]` | Conditions as strings or structured objects; examples below. |
 | `relation` | JSON list of strings | `[]` | Related row fetches or aggregates using the five-part syntax below. |
-| `order` | `str` | `id desc` | Comma-separated sort columns and directions, e.g. `priority desc,id asc`. |
-| `page` | `int` | `1` | One-based page number; must be positive. |
+| `order` | `str` | `id desc` | Comma-separated sort columns and directions, e.g. `priority desc,id asc`; `id` is added last when missing. Array, JSON and blocked columns cannot be sorted. |
+| `after` | `str` | none (first page) | The previous response's `after`: the next page. See [Paging](#paging). |
 | `limit` | `int` | `config_sql_read_limit_default` (100) | Positive page size. Requests exceeding `config_sql_read_limit_max` (10,000) are rejected. |
 | `postgres` | `str` | master | Configured database name, e.g. `read` for `config_postgres_url_read`. Unknown name is 404. |
 | `ownership_column` | `str` | `created_by_id` | `/my/object-read` only: column from `config_column_ownership_read` matched to the logged-in user's ID. |
 
 `/public/object-read` and `/admin/object-read` accept the same parameters except `ownership_column`. Public reads require permitted tables and relations; admin reads require admin authorization and do not add user ownership filtering. Blocked columns cannot be explicitly selected or filtered; `column=*` removes them from results.
 
-### Basic selection, sorting, and pagination
+### Basic selection and sorting
 
 ```bash
 curl -G "$BASE_URL/my/object-read" \
   -H "Authorization: Bearer $TOKEN" \
   --data-urlencode 'table=tasks' \
   --data-urlencode 'column=id,title,priority,created_by_id' \
-  --data-urlencode 'order=priority desc,id asc' \
-  --data-urlencode 'limit=20' \
-  --data-urlencode 'page=2'
+  --data-urlencode 'order=priority desc' \
+  --data-urlencode 'limit=20'
 ```
 
-This returns the second page of tasks created by the logged-in user. If an order omits `id`, the reader adds `id desc` as a tie-breaker when the table has that column. `/my/object-read` returns:
+This returns the first 20 tasks created by the logged-in user, highest priority first (ties by `id desc`):
 
 ```json
-{"status": 1, "message": {"obj_list": [], "has_more": false, "has_next_page": false, "next_after_id": null}}
+{"status": 1, "message": {"obj_list": [{"id": 41, "title": "...", "priority": 3, "created_by_id": 7}], "after": "[\"2\",\"17\"]"}}
 ```
 
-Every list read fetches one row more than `limit`: `has_next_page` says whether another page exists, never a total count (no `count(*)`, which gets slow as a table grows). Page one of two ways:
+### Paging
 
-- **After the last id (fastest, use it for growing tables):** order `id desc` (the default) or `id asc`, and send `after_id` = the previous page's `next_after_id` (the last row's id; `null` on the last page). Every page is an index range, as fast on page 1,000 as on page 1, and rows added meanwhile never repeat or shift. Another order with `after_id` is a 400.
-- **By page number:** `page=2, 3, …` while `has_next_page` is true, for any order. It skips rows with `OFFSET`, which Postgres still reads, so deep pages slow down; keep it for short lists or custom sorts.
+Every list in Atom pages one way: **after a cursor**, never by page number, `OFFSET` or a total count. The same rule holds for `object-read`, `/private/users-list`, `table-column-groupby`, `table-column-distinct`, `/my/message-inbox`, `/my/message-thread`, pgweb's rows and every project list route.
 
-`/my`, `/private`, `/public` and `/admin` `object-read` all return `obj_list`, `has_next_page` and `next_after_id` (`/my` also `has_more`, the same as `has_next_page`).
+| | |
+|---|---|
+| Request | `limit`, `order` (default `id desc`), `after` (optional; left out: the first page) |
+| Response | the rows and `after`: the cursor of the next page, `null` on the last page |
+| Next page | send the response's `after` unchanged, with the same `order`, `limit` and filters |
+| Previous page | the client keeps the `after` it sent for each page it has shown (`[null, a1, a2, ...]`) and sends that one again |
+| Jump to page N | not possible; narrow with a filter instead (a date, an id range) |
+
+```text
+GET /my/object-read?table=task&limit=3                          → ids 7, 6, 5   after ["5"]
+GET /my/object-read?table=task&limit=3&after=["5"]              → ids 4, 3, 2   after ["2"]
+GET /my/object-read?table=task&limit=3&after=["2"]              → id 1          after null
+GET /my/object-read?table=task&limit=3&order=amount desc        → after ["300","9"]   (amount, id of the last row)
+```
+
+- **What `after` is:** the order's values of the page's last row, `id` last, as JSON text. Treat it as opaque: copy it, never build or read it. A cursor that does not fit the list (another order, edited by hand) is a 400 `after does not belong to this list: start from the first page`; `page` is a 400 too.
+- **How it reads:** `WHERE <filters> AND <after the cursor> ORDER BY <order>, id LIMIT limit + 1`. The extra row only says whether a next page exists. The condition is written so an index on the order columns (`btree(col,id)`) starts at the cursor, so page 1,000 costs what page 1 costs, and rows added or deleted meanwhile never repeat or skip. On 5,000,000 rows: 0.2 ms on any page, against 28 ms (`id`) and 234 ms (another column) for `OFFSET` at row 500,000 ([performance.md](performance.md#13-paging-after-a-cursor-60)).
+- **The order:** `id` is added last when the order omits it, in the direction of the last column, so every row has exactly one place. NULLs come last ascending and first descending (Postgres's own order), and the cursor follows them.
+- **In code:** `func_postgres_read(..., after=...)` returns `{"obj_list", "after"}`. A project's own list route builds its query with `func_page_keys` (the order, checked against the table's columns), `func_page_order_sql` (its `ORDER BY`), `func_page_after_where` (its cursor condition, values bound) and `func_page_after_next` (the response's `after` from `limit + 1` rows), and returns `{"rows" or "obj_list", "after"}`.
+- **Group-by and distinct:** the cursor is the sort value and the group values (a group appears once, so they identify it as `id` identifies a row): `after=["310","404"]` after `count 310, status 404`. A group-by counts every matching row before it sorts, so its pages cost about the same with or without a cursor.
 
 ### Filters: comparisons, text search, lists, ranges, and nulls
 
@@ -235,7 +252,7 @@ Relation details:
 
 - `fetch` requires an explicit per-source limit, e.g. `fetch|5`, no higher than `config_sql_read_relation_fetch_limit_max` (100 by default). Related rows are ordered by `id desc` independently of the base `order`.
 - Include every `source_col` in the base `column` selection; missing source columns are rejected.
-- Base `filter`, `page`, and `limit` select base records, not related rows. Relations do not support their own filter or page parameter.
+- Base `filter`, `after`, and `limit` select base records, not related rows. Relations do not support their own filter or paging.
 - Table permissions and blocked-column rules apply. The base ownership filter is not automatically added to related tables; relation rows are selected by the source-to-target key match.
 - There are no relation aliases or recursive relation definitions. Fetching the same target table twice overwrites its output key; two aggregates with the same table and operation also share an output key.
 
@@ -268,7 +285,6 @@ curl -G "$BASE_URL/my/object-read" \
   --data-urlencode 'relation=["created_by_id,users,id,fetch|1,id,name","id,comments,task_id,count,*"]' \
   --data-urlencode 'order=priority desc,id asc' \
   --data-urlencode 'limit=20' \
-  --data-urlencode 'page=1' \
   --data-urlencode 'connection=read'
 ```
 
@@ -283,7 +299,7 @@ Each object-read route has a CSV export with the same access and rules, download
 | `/public/object-read-export` | none | tables in the public read policy |
 | `/admin/object-read-export` | admin role | any table |
 
-They accept `table`, `filter`, `order`, `column`, and `connection` with the same meaning as the matching object-read route, plus an optional `limit` (rows wanted, 1 to `config_export_limit`; larger is a 400), and nothing else: no `page` or `relation`. Blocked columns such as `password` are never exported, including by admins.
+They accept `table`, `filter`, `order`, `column`, and `connection` with the same meaning as the matching object-read route, plus an optional `limit` (rows wanted, 1 to `config_export_limit`; larger is a 400), and nothing else: no `after` or `relation`. Blocked columns such as `password` are never exported, including by admins.
 
 ```bash
 curl -G "$BASE_URL/my/object-read-export" \
@@ -307,8 +323,7 @@ curl -G "$BASE_URL/admin/table-column-distinct" \
   --data-urlencode 'table=tasks' \
   --data-urlencode 'col=status' \
   --data-urlencode 'order=item asc' \
-  --data-urlencode 'limit=20' \
-  --data-urlencode 'page=1'
+  --data-urlencode 'limit=20'
 
 # Count tasks per status
 curl -G "$BASE_URL/admin/table-column-groupby" \
@@ -319,11 +334,10 @@ curl -G "$BASE_URL/admin/table-column-groupby" \
   --data-urlencode 'agg_col=*' \
   --data-urlencode 'filter=["priority >= 2"]' \
   --data-urlencode 'order=count desc' \
-  --data-urlencode 'limit=20' \
-  --data-urlencode 'page=1'
+  --data-urlencode 'limit=20'
 ```
 
-Both accept optional `connection` and `filter`. Distinct takes a string `col`; group-by takes a JSON list `col` and supports `agg=count|sum|avg|min|max`. For a numeric sum, use `agg=sum&agg_col=priority&order=sum desc`.
+Distinct returns `{"item_list", "after"}`, group-by `{"obj_list", "after"}`; the next page sends that `after` ([Paging](#paging)). Both accept optional `connection` and `filter`. Distinct takes a string `col`; group-by takes a JSON list `col` and supports `agg=count|sum|avg|min|max`. For a numeric sum, use `agg=sum&agg_col=priority&order=sum desc`.
 
 ---
 
@@ -384,8 +398,7 @@ The optional `ownership_column` query parameter defaults to `created_by_id`. Row
   "status": 1,
   "message": {
     "deleted_count": 1000,
-    "has_more": true,
-    "has_next_page": true
+    "has_more": true
   }
 }
 ```

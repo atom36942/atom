@@ -24,7 +24,7 @@ async def func_postgres_delete_all(*, client_postgres: asyncpg.Pool | None, clie
             has_more = False
         else:
             has_more = bool(await connection.fetchval(f'SELECT EXISTS(SELECT 1 FROM "{table}" WHERE "{ownership_column}"=$1 LIMIT 1)', user_id))  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
-        return {"deleted_count": deleted_count, "has_more": has_more, "has_next_page": has_more}
+        return {"deleted_count": deleted_count, "has_more": has_more}
     if client_postgres_conn:
         return await _execute_delete_all(client_postgres_conn)
     async with client_postgres.acquire() as conn:

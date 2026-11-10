@@ -821,7 +821,7 @@ function setPreference(field,value){setStored(field,String(value))}
 
 const S = { db:'', table:'', kind:'', pk:null, cols:[], widths:[], total:0,
             rows:[], pageSize:DEFAULT_PAGE_SIZE, local:null, where:null, meta:null, tree:{},
-            viewPx:0, scale:1, loaded:{}, connected:false, hasMore:false, pageStart:0, latestFirst:false,
+            viewPx:0, scale:1, loaded:{}, connected:false, after:null, cursors:[null], pageIndex:0, latestFirst:false,
             activeQueryId:null, cancelRequested:false,
             readOnly:getStored('readOnly') === '1',
             sideCollapsed:getStored('sideCollapsed') === '1',
@@ -948,7 +948,7 @@ function setConnected(on){
   if(!on) setExports(false);
   if(!on){
     S.tree={}; S.dbInfo=null; S.dbCatalog={}; S.dbCatalogKind=''; S.rows=[];
-    S.local=null; S.table=''; S.kind=''; S.cols=[]; S.total=0; S.hasMore=false; S.pageStart=0; S.latestFirst=false; S.activeQueryId=null; lastFirst=-1;
+    S.local=null; S.table=''; S.kind=''; S.cols=[]; S.total=0; S.after=null; S.cursors=[null]; S.pageIndex=0; S.latestFirst=false; S.activeQueryId=null; lastFirst=-1;
     $('tree').textContent=''; $('q').value=''; $('qclr').hidden=true;
     $('tools').style.display='none';
     for(const t of document.querySelectorAll('.tab')) t.hidden = true;
@@ -1409,7 +1409,7 @@ async function openObject(table, kind, initialTab = 'rows', first = null){    /*
 
   const m = await (first || api({action:'rows', table, limit:S.pageSize, is_meta:1}));
   S.meta=m.meta; S.cols=m.meta.columns.map(c=>c.name); S.pk=m.meta.pk; S.latestFirst=!!m.meta.latest_first;
-  S.total=m.rows.length; S.hasMore=!!m.has_more; S.pageStart=0;
+  S.total=m.rows.length; S.after=m.after; S.cursors=[null]; S.pageIndex=0;
   S.rows=m.rows;
 
   for(const input of document.querySelectorAll('.detail-search')) input.value='';
@@ -1502,31 +1502,29 @@ function filterParams(){
   return S.where?{filter_col:S.where.col,filter_op:S.where.op,filter_value:S.where.val}:{};
 }
 function drawBatchNav(){
-  const supported=!!S.pk;
+  const supported=!!S.pk, page=S.pageIndex+1;
   $('pagenav').hidden=false;
-  $('prevbatch').disabled=!supported||S.pageStart===0;
-  $('nextbatch').disabled=!supported||!S.hasMore;
-  const page=Math.floor(S.pageStart/S.pageSize)+1;
+  $('prevbatch').disabled=!supported||S.pageIndex===0;
+  $('nextbatch').disabled=!supported||!S.after;
   $('pagenum').textContent=`Page ${page}`;
   const unsupported='Requires a single-column primary key';
-  $('prevbatch').title=!supported?unsupported:S.pageStart===0?'First page':`Go to Page ${page-1}`;
-  $('nextbatch').title=!supported?unsupported:!S.hasMore?'No more rows':`Go to Page ${page+1}`;
+  $('prevbatch').title=!supported?unsupported:S.pageIndex===0?'First page':`Go to Page ${page-1}`;
+  $('nextbatch').title=!supported?unsupported:!S.after?'No more rows':`Go to Page ${page+1}`;
   $('ftxt').textContent=`${S.total.toLocaleString()} ${S.total===1?'row':'rows'}`;    // the rows shown on this page
 }
+// pages follow the server's cursor: Next sends the last response's after, Previous the after saved for that page (S.cursors[i] opens page i+1; null is the first page)
 async function changeBatch(direction){
-  const current=S.rows, pkIndex=S.cols.indexOf(S.pk);
-  if(!S.pk||pkIndex<0||!current.length) return;
+  if(!S.pk) return;
   const forward=direction==='next';
-  if(forward&&!S.hasMore||!forward&&S.pageStart===0) return;
+  if(forward&&!S.after||!forward&&S.pageIndex===0) return;
+  const index=forward?S.pageIndex+1:S.pageIndex-1;
+  if(forward) S.cursors[index]=S.after;
   $('prevbatch').disabled=$('nextbatch').disabled=true;
   try{
-    const cursor=String((forward?current[current.length-1]:current[0])[pkIndex]);
-    const requestDesc=forward?S.latestFirst:!S.latestFirst;
-    const page=await api({action:'rows',table:S.table,pk:S.pk,order:S.pk,limit:S.pageSize,
-                          after:cursor,is_desc:requestDesc?1:0,...filterParams()});
-    const rows=forward?page.rows:[...page.rows].reverse();
-    S.pageStart=forward?S.pageStart+S.total:Math.max(0,S.pageStart-rows.length);
-    S.rows=rows; S.total=rows.length; drawSlowFilterHint(page.ms); S.hasMore=forward?!!page.has_more:true;
+    const page=await api({action:'rows',table:S.table,pk:S.pk,limit:S.pageSize,is_desc:S.latestFirst?1:0,
+                          ...(S.cursors[index]?{after:S.cursors[index]}:{}),...filterParams()});
+    S.pageIndex=index; S.cursors.length=index+1;
+    S.rows=page.rows; S.total=page.rows.length; S.after=page.after; drawSlowFilterHint(page.ms);
     drawBatchNav(); buildGrid(); vp.scrollTop=0; lastFirst=-1; render(true);
   }catch(err){ drawBatchNav(); alertBox('Batch navigation failed',err.message); }
 }
@@ -1988,10 +1986,10 @@ function drawSlowFilterHint(ms){
 async function applyFilter(){
   S.rows=[]; lastFirst=-1;
   try{
-    const first = await api({action:'rows', table:S.table, pk:S.pk, order:S.pk,
+    const first = await api({action:'rows', table:S.table, pk:S.pk,
                              is_desc:S.latestFirst?1:0,limit:S.pageSize, ...filterParams()});
     S.rows=first.rows;
-    S.total=first.rows.length; S.hasMore=!!first.has_more; S.pageStart=0;
+    S.total=first.rows.length; S.after=first.after; S.cursors=[null]; S.pageIndex=0;
     drawSlowFilterHint(first.ms);
     drawBatchNav(); buildGrid(); vp.scrollTop=0; render(true);
     return true;
@@ -2026,12 +2024,12 @@ async function refreshTableData(){
   const btn=$('rowrefresh');
   if(btn) btn.disabled=true;
   try{
-    const m = await api({action:'rows', table:S.table, pk:S.pk, order:S.pk,
+    const m = await api({action:'rows', table:S.table, pk:S.pk,
                          is_desc:S.latestFirst?1:0, limit:S.pageSize, is_meta:1, ...filterParams()});
     S.meta=m.meta; S.cols=m.meta.columns.map(c=>c.name); S.pk=m.meta.pk; S.latestFirst=!!m.meta.latest_first;
     S.rows=[]; lastFirst=-1;
     S.rows=m.rows;
-    S.total=m.rows.length; S.hasMore=!!m.has_more; S.pageStart=0; drawSlowFilterHint(m.ms);
+    S.total=m.rows.length; S.after=m.after; S.cursors=[null]; S.pageIndex=0; drawSlowFilterHint(m.ms);
     $('st-obj').innerHTML = `<b>${S.table}</b>`;
     $('st-rows').textContent = `${m.rows.length} rows loaded`;
     $('st-size').textContent = m.meta?.stats?.total_size || '';

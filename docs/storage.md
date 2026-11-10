@@ -318,11 +318,11 @@ completion verification endpoint in the current implementation.
 Subject to your table policies, list your metadata using:
 
 ```text
-GET /my/object-read?table=blob&filter=deleted_at%20is%20null&limit=20&page=1
+GET /my/object-read?table=blob&filter=deleted_at%20is%20null&limit=20
 ```
 
-The response is `{"status": 1, "message": {"obj_list": [...], "has_more": false,
-"has_next_page": false}}`. Use each row's `service` and `file_url` to request
+The response is `{"status": 1, "message": {"obj_list": [...], "after": null}}`
+(send `after` for the next page: [crud.md](crud.md#paging)). Use each row's `service` and `file_url` to request
 previews. Admins can use `/admin/object-read?table=blob` subject to admin policies.
 
 ## Deleting files
@@ -351,7 +351,7 @@ recorded metadata:
 ```json
 {
   "status": 1,
-  "message": {"deleted_count": 500, "has_more": true, "has_next_page": true}
+  "message": {"deleted_count": 500, "has_more": true}
 }
 ```
 

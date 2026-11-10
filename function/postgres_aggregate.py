@@ -4,13 +4,16 @@ from typing import Any
 import asyncpg
 from starlette.datastructures import State
 from .middleware import func_api_error
+from .postgres_page import func_page_after_next
+from .postgres_page import func_page_after_where
+from .postgres_page import func_page_keys
+from .postgres_page import func_page_order_sql
 
 # function
-async def func_postgres_table_column_groupby_read(*, app_state: State, client_postgres: asyncpg.Pool | None, cache_postgres_schema: dict, table: str, col: Any, limit: int, page: int, agg: str = "count", agg_col: str = "*", order: str = "count desc", filter: list = None) -> dict:
-    """Executes a PostgreSQL GROUP BY query dynamically across single or multiple columns and returns flat paginated results."""
+async def func_postgres_table_column_groupby_read(*, app_state: State, client_postgres: asyncpg.Pool | None, cache_postgres_schema: dict, table: str, col: Any, limit: int, after: Any = None, agg: str = "count", agg_col: str = "*", order: str = "count desc", filter: list = None) -> dict:
+    """Rows per value of one or more columns with an aggregate (count, sum, avg, min, max): {"obj_list", "after"}, one page after the cursor (func_page_keys over the result columns, the group columns as tie-breakers), never OFFSET."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if limit < 1: raise Exception("query limit must be greater than 0")
-    if page < 1: raise Exception("page must be greater than 0")
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
     if table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
     cols = [col] if isinstance(col, str) else list(col or [])
@@ -42,40 +45,30 @@ async def func_postgres_table_column_groupby_read(*, app_state: State, client_po
     agg_field = "count" if agg == "count" and agg_col == "*" else (f"{agg}_{agg_col}" if agg_col != "*" else agg)
     agg_col_sql = f'x."{agg_col}"' if agg_col != "*" else "*"
     select_exprs.append(f'{agg.upper()}({agg_col_sql}) AS "{agg_field}"')
-    order = (order or "count desc").strip()
-    order_lower = order.lower()
-    if "count" in order_lower or agg in order_lower:
-        order_dir = "DESC" if "desc" in order_lower else "ASC"
-        order_sql = f'"{agg_field}" {order_dir}'
-    elif "item desc" in order_lower or "item asc" in order_lower:
-        order_dir = "DESC" if "desc" in order_lower else "ASC"
-        order_sql = f'{group_exprs[0]} {order_dir}'
-    else:
-        parts = order.split()
-        order_col_name = parts[0]
-        order_dir = parts[1].upper() if len(parts) > 1 and parts[1].lower() in ("asc", "desc") else "ASC"
-        if order_col_name in cols:
-            dt = cache_postgres_schema.get(table, {}).get(order_col_name, {}).get("datatype", "text").lower()
-            order_sql = f'"{order_col_name}_item" {order_dir}' if ("[]" in dt or "array" in dt) else f'x."{order_col_name}" {order_dir}'
-        else:
-            order_sql = f'"{agg_field}" DESC'
-    order_sql = f'{order_sql}, {", ".join(group_exprs)}'
+    agg_type = {"count": "bigint", "sum": "numeric", "avg": "numeric"}.get(agg) or cache_postgres_schema[table].get(agg_col, {}).get("datatype", "numeric")
+    columns = {c: {"datatype": str(cache_postgres_schema[table][c].get("datatype", "text")).removesuffix("[]"), "is_nullable": "YES"} for c in cols}
+    columns[agg_field] = {"datatype": agg_type, "is_nullable": "YES"}
+    words = (order or "count desc").strip().lower().split()
+    direction = "desc" if "desc" in words else "asc"
+    if words and words[0] in ("count", agg, agg_field): first = agg_field
+    elif words and words[0] == "item": first = cols[0]
+    elif words and words[0] in cols: first = words[0]
+    else: first, direction = agg_field, "desc"
+    keys = func_page_keys(order=", ".join([f"{first} {direction}", *[f"{c} asc" for c in cols if c != first]]), columns=columns, alias="g.")
     select_sql = ", ".join(select_exprs)
     group_sql = ", ".join(group_exprs)
     source_sql = f' {" ".join(unnest_clauses)}' if unnest_clauses else ""
-    bind_idx = len(values) + 1
-    sql = f'SELECT {select_sql} FROM "{table}" x{source_sql} {where_clause} GROUP BY {group_sql} ORDER BY {order_sql} LIMIT ${bind_idx} OFFSET ${bind_idx + 1}'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
-    values.extend([limit + 1, (page - 1) * limit])
+    after_sql = func_page_after_where(keys=keys, after=after, values=values)
+    values.append(limit + 1)
+    sql = f'SELECT * FROM (SELECT {select_sql} FROM "{table}" x{source_sql} {where_clause} GROUP BY {group_sql}) g {"WHERE " + after_sql if after_sql else ""} ORDER BY {func_page_order_sql(keys=keys)} LIMIT ${len(values)}'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
     async with client_postgres.acquire() as conn:
         rows = await conn.fetch(sql, *values)
-    ol = [dict(row) for row in rows]
-    return {"obj_list": ol[:limit], "has_next_page": len(ol) > limit}
+    return {"obj_list": [dict(row) for row in rows[:limit]], "after": func_page_after_next(keys=keys, rows=rows, limit=limit)}
 
-async def func_postgres_table_column_distinct_read(*, app_state: State, client_postgres: asyncpg.Pool | None, cache_postgres_schema: dict, table: str, col: str, limit: int, page: int, order: str = "item asc", filter: list = None) -> dict:
-    """Read paginated distinct values for a single column."""
+async def func_postgres_table_column_distinct_read(*, app_state: State, client_postgres: asyncpg.Pool | None, cache_postgres_schema: dict, table: str, col: str, limit: int, after: Any = None, order: str = "item asc", filter: list = None) -> dict:
+    """The distinct values of one column (each element of an array column): {"item_list", "after"}, one page after the cursor, never OFFSET."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if limit < 1: raise Exception("query limit must be greater than 0")
-    if page < 1: raise Exception("page must be greater than 0")
     if app_state.config_sql_read_limit_max and limit > app_state.config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {app_state.config_sql_read_limit_max}")
     if table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
     blocked_cols = set(getattr(app_state, "config_column_read_blocked", [])) | {"password"}
@@ -86,13 +79,12 @@ async def func_postgres_table_column_distinct_read(*, app_state: State, client_p
     datatype = cache_postgres_schema[table][col].get("datatype", "text").lower()
     is_array = "[]" in datatype or "array" in datatype
     q_col = f'"{col}"'
-    order_direction = "DESC" if "desc" in (order or "").lower() else "ASC"
-    bind_idx = len(values) + 1
+    keys = func_page_keys(order=f'item {"desc" if "desc" in (order or "").lower() else "asc"}', columns={"item": {"datatype": datatype.removesuffix("[]"), "is_nullable": "YES"}}, alias="d.")
     source_sql = f'CROSS JOIN LATERAL unnest(x.{q_col}) item_col' if is_array else ""
     item_sql = "item_col" if is_array else f'x.{q_col}'
-    sql = f'SELECT DISTINCT {item_sql} AS item FROM "{table}" x {source_sql} {where_clause} ORDER BY item {order_direction} LIMIT ${bind_idx} OFFSET ${bind_idx + 1}'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
-    values.extend([limit + 1, (page - 1) * limit])
+    after_sql = func_page_after_where(keys=keys, after=after, values=values)
+    values.append(limit + 1)
+    sql = f'SELECT d.item FROM (SELECT DISTINCT {item_sql} AS item FROM "{table}" x {source_sql} {where_clause}) d {"WHERE " + after_sql if after_sql else ""} ORDER BY {func_page_order_sql(keys=keys)} LIMIT ${len(values)}'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
     async with client_postgres.acquire() as conn:
         rows = await conn.fetch(sql, *values)
-    items = [row["item"] for row in rows]
-    return {"item_list": items[:limit], "has_next_page": len(items) > limit}
+    return {"item_list": [row["item"] for row in rows[:limit]], "after": func_page_after_next(keys=keys, rows=rows, limit=limit)}

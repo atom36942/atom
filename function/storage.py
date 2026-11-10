@@ -98,7 +98,7 @@ async def func_blob_delete_all(*, app_state: State, user_id: int, limit: int = 5
     if not app_state.client_postgres_dict.get("master"): raise func_api_error(message="postgres client not initialized", status_code=500)
     async with app_state.client_postgres_dict.get("master").acquire() as conn:
         records = await conn.fetch("SELECT id, file_url, service FROM blob WHERE created_by_id = $1 AND deleted_at IS NULL LIMIT $2", user_id, limit + 1)
-    if not records: return {"deleted_count": 0, "has_more": False, "has_next_page": False}
+    if not records: return {"deleted_count": 0, "has_more": False}
     has_more = len(records) > limit
     process_records = records[:limit]
     s3_urls = [r["file_url"] for r in process_records if r["service"] == "s3"]
@@ -108,7 +108,7 @@ async def func_blob_delete_all(*, app_state: State, user_id: int, limit: int = 5
     ids_to_update = [r["id"] for r in process_records]
     async with app_state.client_postgres_dict.get("master").acquire() as conn:
         await conn.execute("UPDATE blob SET deleted_at = NOW(), deleted_by_id = $1 WHERE id = ANY($2::bigint[])", user_id, ids_to_update)
-    return {"deleted_count": len(process_records), "has_more": has_more, "has_next_page": has_more}
+    return {"deleted_count": len(process_records), "has_more": has_more}
 
 async def func_blob_upload_file(*, app_state: State, service: str, container: str, files: list, user_id: int = None) -> dict:
     """Uploads a list of UploadFile objects to S3 or Azure and logs them in the database."""

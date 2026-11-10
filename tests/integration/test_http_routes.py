@@ -108,12 +108,13 @@ class HttpRouteTests(unittest.TestCase):
         read = lambda **params: self.message(self.client.get("/my/object-read", params={"table": "test", "filter": json.dumps(["title ilike page-%"]), "order": "id desc", "limit": 2, **params}, headers=self.auth(self.alice)))
         seen, after = [], None
         while True:
-            page = read(**({"after_id": after} if after else {}))
+            page = read(**({"after": after} if after else {}))
             seen += [r["id"] for r in page["obj_list"]]
-            if not page["has_next_page"]: break
-            after = page["next_after_id"]
+            if page["after"] is None: break
+            after = page["after"]
         self.assertEqual(seen, sorted(ids, reverse=True))    # every row once, newest first, no OFFSET
-        self.assertEqual(self.message(self.client.get("/my/object-read", params={"table": "test", "order": "title asc", "after_id": 1}, headers=self.auth(self.alice)), 400), "after_id needs order id asc or id desc")
+        self.assertEqual(self.message(self.client.get("/my/object-read", params={"table": "test", "order": "title asc", "after": after}, headers=self.auth(self.alice)), 400), "after does not belong to this list: start from the first page")
+        self.assertEqual(self.message(self.client.get("/my/object-read", params={"table": "test", "page": 2}, headers=self.auth(self.alice)), 400), "page is not supported: lists page with after (the previous response's after)")
 
     def test_object_read_export_streams_only_the_callers_rows_as_csv(self):
         self.client.post("/my/object-create", params={"table": "test"}, json={"obj_list": [{"title": "alice-export-1"}, {"title": "=HYPERLINK(1)"}]}, headers=self.auth(self.alice))
@@ -184,17 +185,17 @@ class HttpRouteTests(unittest.TestCase):
         expected_role_users = fetch(self.url, "SELECT id, username FROM users WHERE role = 5 ORDER BY id")
         self.assertEqual(sorted(users(role=5)["obj_list"], key=lambda user: user["id"]), expected_role_users)
         self.assertEqual([u["username"] for u in users(role=1)["obj_list"]], ["admin"])
-        self.assertEqual(users(role=20), {"obj_list": [], "has_next_page": False})
+        self.assertEqual(users(role=20), {"obj_list": [], "after": None})
         all_users = users(limit=1000)["obj_list"]
         self.assertEqual({u["id"] for u in all_users}, {u["id"] for u in fetch(self.url, "SELECT id FROM users")})
         self.assertTrue({"admin", "alice", "bob"} <= {u["username"] for u in all_users})
-        # One page boundary verifies pagination without relying on the order of
-        # extra accounts that share a NULL username in this class's fixture.
-        for page in (1, 2):
-            result = users(limit=1, page=page)
-            self.assertEqual(result["obj_list"], all_users[page-1:page])
-            self.assertTrue(result["has_next_page"])
-        self.assertEqual(users(limit=1, page=len(all_users)+1), {"obj_list": [], "has_next_page": False})
+        # one user a page, after the cursor: every user once, in the order of one big page (username, then id: NULL usernames too)
+        seen, after = [], None
+        while True:
+            result = users(limit=1, **({"after": after} if after else {}))
+            seen += result["obj_list"]
+            if (after := result["after"]) is None: break
+        self.assertEqual(seen, all_users)
         self.message(self.client.get("/private/users-list", params={"role": "invalid"}, headers=self.auth(self.alice)), 400)
 
     def test_groupby_and_distinct_on_public_and_private(self):

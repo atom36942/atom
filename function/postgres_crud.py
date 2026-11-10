@@ -9,6 +9,10 @@ from .validation import func_regex_check
 from .postgres_query import func_postgres_relation
 from .postgres_query import func_postgres_serialize
 from .postgres_query import func_postgres_where_build
+from .postgres_page import func_page_after_next
+from .postgres_page import func_page_after_where
+from .postgres_page import func_page_keys
+from .postgres_page import func_page_order_sql
 
 # function
 async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, buffer_postgres: dict, config_column_regex: dict, buffer_limit: int, mode: str, table: str, obj_list: list, buffer_rows_max: int = None, buffer_full_mode: str = "reject", runtime_error_count: dict = None, is_trusted: bool = False) -> Any:
@@ -139,65 +143,50 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
         async with client_postgres.acquire() as conn:
             return await _execute_now(conn)
 
-async def func_postgres_read_sql(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, table: str, filter: list, order: str, column: str, config_column_read_blocked: list = None, after_id: Any = None) -> tuple:
-    """The SELECT behind func_postgres_read and func_postgres_read_export, without LIMIT or OFFSET: (sql, values), the table, columns, filters and order checked; values bound as $1, $2."""
+async def func_postgres_read_sql(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, table: str, filter: list, order: str, column: str, config_column_read_blocked: list = None, after: Any = None, is_key_selected: bool = False) -> tuple:
+    """The SELECT behind func_postgres_read and func_postgres_read_export, without LIMIT: (sql, values, keys), the table, columns, filters and order checked; values bound as $1, $2.
+    The order (default id desc, id added last) comes from func_page_keys; after limits it to the rows after that cursor; is_key_selected adds the order columns a column list leaves out (func_postgres_read removes them again)."""
     blocked_cols = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
     if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(table)): raise Exception(f"invalid identifier {table}")
-    if cache_postgres_schema is not None and table not in cache_postgres_schema: raise Exception(f"table '{table}' not found")
-    order = str(order or "").strip() or "id desc"
-    order_list = []
-    for part in order.split(","):
-        p = part.strip().split()
-        if p:
-            # Allow alphanumeric, underscores, and spaces (for quoted identifiers)
-            if not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(p[0])): raise Exception(f"invalid identifier {p[0]}")
-            col = p[0]
-            direction = p[1].upper() if len(p) > 1 and p[1].lower() in ("asc", "desc") else "ASC"
-            order_list.append(f'"{col}" {direction}')
-    order_clause = ", ".join(order_list)
-    if "id" in cache_postgres_schema.get(table, {}) and not any(part.split()[0].strip('"') == "id" for part in order_list):
-        order_clause = f'{order_clause}, "id" DESC'
+    if table not in (cache_postgres_schema or {}): raise Exception(f"table '{table}' not found")
+    keys = func_page_keys(order=order, columns=cache_postgres_schema[table])
+    for key in keys:
+        if key["name"] in blocked_cols: raise Exception(f"column '{key['name']}' is restricted from reading")
     column_list = "*"
     if column != "*":
         cols = []
         for c in column.split(","):
             c_strip = c.strip()
             if c_strip in blocked_cols: raise Exception(f"column '{c_strip}' is restricted from reading")
-            if not re.match(r"^[a-zA-Z0-9_\s\(\)\-\.]+$", str(c_strip)): raise Exception(f"invalid identifier {c_strip}")
-            if cache_postgres_schema is not None and table in cache_postgres_schema and re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c_strip)):
-                if c_strip not in cache_postgres_schema[table]: raise Exception(f"column '{c_strip}' not found in table: {table}")
+            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(c_strip)): raise Exception(f"invalid identifier {c_strip}")
+            if c_strip not in cache_postgres_schema[table]: raise Exception(f"column '{c_strip}' not found in table: {table}")
             cols.append(c_strip)
+        if is_key_selected: cols += [key["name"] for key in keys if key["name"] not in cols]
         column_list = ",".join([f'"{c}"' for c in cols])
-    filters = filter
-    where_statement, values = await func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, filter=filters, prefix="", config_column_read_blocked=config_column_read_blocked)
-    if after_id is not None:
-        if order_list not in (['"id" ASC'], ['"id" DESC']): raise Exception("after_id needs order id asc or id desc")
-        keyset = f'"id" {">" if order_list[0].endswith("ASC") else "<"} ${len(values) + 1}'
-        where_statement = f"WHERE ({where_statement[len('WHERE '):]}) AND {keyset}" if where_statement else f"WHERE {keyset}"
-        values.append(after_id)
-    return f'SELECT {column_list} FROM "{table}" {where_statement} ORDER BY {order_clause}', values  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
+    where_statement, values = await func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter, prefix="", config_column_read_blocked=config_column_read_blocked)
+    after_sql = func_page_after_where(keys=keys, after=after, values=values)
+    if after_sql: where_statement = f"WHERE ({where_statement[len('WHERE '):]}) AND {after_sql}" if where_statement else f"WHERE {after_sql}"
+    return f'SELECT {column_list} FROM "{table}" {where_statement} ORDER BY {func_page_order_sql(keys=keys)}', values, keys  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
 
-async def func_postgres_read(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, page: int, order: str, column: str, relation: list, config_column_read_blocked: list = None, blocked_tables: list = None, after_id: Any = None) -> list:
-    """Powerful generic PostgreSQL object reader with complex filtering, sorting, pagination, and relation fetching. after_id (order id asc or id desc only) reads the rows after that id instead of skipping pages with OFFSET."""
+async def func_postgres_read(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, order: str, column: str, relation: list, config_column_read_blocked: list = None, blocked_tables: list = None, after: Any = None) -> dict:
+    """One page of a table with filters, order and relations: {"obj_list", "after"}. after (the previous page's after) reads the rows after that cursor, never OFFSET;
+    the response's after is the cursor of the next page, None on the last one (one extra row is read to know)."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     blocked_cols = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
     if limit < 1: raise Exception("query limit must be greater than 0")
-    if page < 1: raise Exception("query page must be greater than 0")
     if config_sql_read_limit_max and limit > config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {config_sql_read_limit_max}")
-    sql, values = await func_postgres_read_sql(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter, order=order, column=column, config_column_read_blocked=config_column_read_blocked, after_id=after_id)
-    bind_idx = len(values) + 1
-    sql_select = f"{sql} LIMIT ${bind_idx} OFFSET ${bind_idx+1}"
-    values.extend([limit + 1, (page - 1) * limit])
+    sql, values, keys = await func_postgres_read_sql(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter, order=order, column=column, config_column_read_blocked=config_column_read_blocked, after=after, is_key_selected=True)
+    values.append(limit + 1)
     async with client_postgres.acquire() as conn:
-        records = await conn.fetch(sql_select, *values)
-        result_list = [dict(r) for r in records]
-        if blocked_cols and result_list:
-            for r in result_list:
-                for b_col in blocked_cols:
-                    r.pop(b_col, None)
+        records = await conn.fetch(f"{sql} LIMIT ${len(values)}", *values)
+        next_after = func_page_after_next(keys=keys, rows=records, limit=limit)
+        result_list = [dict(r) for r in records[:limit]]
+        added = [key["name"] for key in keys if column != "*" and key["name"] not in [c.strip() for c in column.split(",")]]
+        for r in result_list:
+            for name in (*blocked_cols, *added): r.pop(name, None)
         if relation and result_list:
             result_list = await func_postgres_relation(client_postgres=client_postgres, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_sql_read_relation_fetch_limit_max=config_sql_read_relation_fetch_limit_max, blocked_tables=blocked_tables, config_column_read_blocked=config_column_read_blocked)
-        return result_list
+        return {"obj_list": result_list, "after": next_after}
 
 async def func_postgres_update(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_column_regex: dict, table: str, obj_list: list, created_by_id: int, ownership_column: str = "created_by_id") -> Any:
     """Update PostgreSQL records immediately with support for owner validation and dynamic serialization."""

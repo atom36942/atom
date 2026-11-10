@@ -141,3 +141,18 @@ Measured on one machine with a local PostgreSQL; on a remote database the saved 
 **RAM history (3.13).** `func_memory_history_periodic_task` reads the worker's RSS once a minute (one `psutil` call, a few microseconds) and keeps the last 1,440 readings (24 hours, about 200 KB), for the monitor's RAM-over-time chart. `/info` answered in 0.49 ms on average with it running.
 
 **One export path for every database (4.0).** Every CSV export, Atom's routes and every project's, goes through `func_postgres_export` (or `func_mssql_export`, `func_clickhouse_export`): one query read with a cursor in a read-only transaction and streamed in 64 KB chunks, capped by `config_export_limit` (1,000,000). The table export no longer pages with `OFFSET` for sorts other than `id`. 1,000,000 rows of four columns (local database): 3.9 s, a 77 MB file, first bytes after 1 ms, process memory at 83 MB throughout.
+
+## 13. Paging After a Cursor (6.0)
+
+Every list pages after a cursor ([crud.md](crud.md#paging)); `page` and `OFFSET` are gone. Measured on a local PostgreSQL 18 with 5,000,000 rows (929 MB, indexes `btree(created_by_id,id)` and `btree(amount,id)`), 50 rows a page, median of 7 runs:
+
+| Page (rows skipped) | `OFFSET`, `id desc` | cursor, `id desc` | `OFFSET`, `amount desc` | cursor, `amount desc` |
+|---|---|---|---|---|
+| 1 (0) | 0.19 ms | 0.17 ms | 0.18 ms | 0.18 ms |
+| 1,000 (49,950) | 2.8 ms | 0.19 ms | 22.8 ms | 0.22 ms |
+| 10,000 (499,950) | 28.4 ms | 0.18 ms | 234 ms | 0.21 ms |
+| 100,000 (4,999,950) | 280 ms | 0.18 ms | 2,482 ms | 0.20 ms |
+
+One user's 5,000 rows (`/my`): the last page 2.6 vs 0.19 ms. Ten rows inserted between page 1 and page 2 repeated 10 rows with `OFFSET` and none with the cursor.
+
+The shape of the condition matters: `amount < $1 OR (amount = $1 AND id < $2)` gives the index no place to start, so the planner sometimes scans from the top (34.6 ms at page 1,000, up to 3.2 s with a prepared statement). `func_page_after_where` writes `amount <= $1 AND (amount < $1 OR id < $2)`, which starts at the cursor: 0.28 to 0.34 ms on every page.

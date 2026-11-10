@@ -102,7 +102,7 @@ class HttpIntegrationTests(unittest.TestCase):
         self.assertEqual(read.status_code, 200, read.text)
         rows = read.json()["message"]["obj_list"]
         self.assertEqual([(r["title"], r["created_by_id"]) for r in rows], [("from http", profile_id)])
-        self.assertFalse(read.json()["message"]["has_more"])
+        self.assertIsNone(read.json()["message"]["after"])
 
     def test_no_response_ever_contains_a_password_hash(self):
         def keys(value):

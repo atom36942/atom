@@ -1030,7 +1030,7 @@ const dashboardLoad = () => {
 };
 
 /* ==== table view ==== */
-// rows from GET /admin/object-read: id order pages after the last id (after_id), other orders by page number
+// rows from GET /admin/object-read, a page at a time after the server's cursor: T.cursors[i] is the after that opens page i + 1 (null: the first page), so Previous goes back without OFFSET
 const OPS = [
   { op: "contains", label: "contains (ilike %…%)" }, { op: "=", label: "=" }, { op: "!=", label: "!=" }, { op: ">=", label: ">=" }, { op: "<=", label: "<=" },
   { op: "has", label: "array contains (any)" }, { op: "is null", label: "is null", noValue: true }, { op: "is not null", label: "is not null", noValue: true },
@@ -1132,18 +1132,18 @@ const tableReload = () => { T.cursors = [null]; T.pageIndex = 0; T.selected.clea
 let tableToken = 0;
 const tableLoad = async () => {
   if (!T) return;
-  const token = ++tableToken, isIdOrder = /^id (asc|desc)$/.test(T.order);
+  const token = ++tableToken;
   $("grid").classList.add("loading");
   $("chips").innerHTML = T.filters.map((f, i) => `<span class="chip mono">${he(chipText(f))}<button type="button" data-chip="${i}" aria-label="Remove filter">×</button></span>`).join("");
   groupLoad();
   try {
     const params = { table: T.table, limit: T.limit, order: T.order, filter: JSON.stringify(filterList()), connection: connFor(T.table) };
-    if (isIdOrder) { if (T.cursors[T.pageIndex] != null) params.after_id = T.cursors[T.pageIndex] } else params.page = T.pageIndex + 1;
+    if (T.cursors[T.pageIndex]) params.after = T.cursors[T.pageIndex];
     const res = await api(`/admin/object-read?${qs(params)}`);
     if (token !== tableToken) return;
     T.rows = res.obj_list;
-    T.hasNext = res.has_next_page;
-    if (isIdOrder) T.cursors[T.pageIndex + 1] = res.next_after_id;
+    T.hasNext = !!res.after;
+    T.cursors[T.pageIndex + 1] = res.after;
     const cols = visibleColumns(T.table);
     await usersResolve(T.rows.flatMap(r => cols.filter(c => isUserRef(T.table, c)).map(c => r[c])));
     if (token !== tableToken) return;
@@ -1183,7 +1183,7 @@ const groupLoad = async () => {
     T.groupRows = res.obj_list;
     if (isUserRef(T.table, col)) await usersResolve(res.obj_list.map(o => o[col]));
     const max = Math.max(1, ...res.obj_list.map(o => Number(o.count)));
-    $("groupNote").textContent = `${res.obj_list.length}${res.has_next_page ? `+ values, top ${GROUP_LIMIT} shown` : " values"}`;
+    $("groupNote").textContent = `${res.obj_list.length}${res.after ? `+ values, top ${GROUP_LIMIT} shown` : " values"}`;
     $("groupList").innerHTML = res.obj_list.length ? `<table><tbody>${res.obj_list.map((o, i) => `<tr class="row" data-group="${i}" title="Show only these rows"><td>${cellHtml(T.table, col, o[col])}</td><td class="num">${formatNumber(o.count)}</td><td style="width:40%"><div class="bar"><span style="width:${Number(o.count) / max * 100}%"></span></div></td></tr>`).join("")}</tbody></table>` : `<div class="empty">No rows</div>`;
   } catch (error) {
     if (token === groupToken && $("groupList")) $("groupList").innerHTML = `<div class="empty" style="color:var(--danger)">${he(error.message)}</div>`;

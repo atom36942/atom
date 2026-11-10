@@ -16,6 +16,9 @@ from starlette.responses import StreamingResponse
 from .clients import func_client_postgres
 from .clients import func_postgres_acquire_clean
 from .middleware import func_api_error
+from .postgres_page import func_page_after_next
+from .postgres_page import func_page_after_where
+from .postgres_page import func_page_order_sql
 
 # function
 def func_pgweb_ident(*parts) -> str:
@@ -307,22 +310,24 @@ async def func_pgweb_catalog(*, pool: asyncpg.Pool, kind: str, timeout_sec: int 
     return {"columns": columns, "rows": [{key: func_pgweb_jsonable(value) for key, value in record.items()} for record in records]}
 
 async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, after: Any = None,
-                          filter_col: str = None, filter_op: str = None, filter_value: Any = None, order: str = None, is_desc: bool = False, pk: str = None, is_meta: bool = False,
+                          filter_col: str = None, filter_op: str = None, filter_value: Any = None, is_desc: bool = False, pk: str = None, is_meta: bool = False,
                           cache_table: dict = None, timeout_sec: int = 30) -> dict:
-    """Read one public table page and optional grid metadata. cache_table (one per pgweb connection) keeps each table's key and column types: opening a table reads its columns and rows at the same time, and later pages and filters skip the type lookup."""
+    """Read one public table page and optional grid metadata: {"cols", "rows", "after", "ms"[, "meta"]}, ordered by the single-column primary key (is_desc: newest first)
+    and paged after the cursor with Atom's func_page_* helpers (after: the previous page's after, None on the last page), never OFFSET. cache_table (one per pgweb connection) keeps each table's key and column types: opening a table reads its columns and rows at the same time, and later pages and filters skip the type lookup."""
     if not table: raise Exception("table is required")
     limit = max(1, min(int(limit or 1000), 5000))
     cache_table = {} if cache_table is None else cache_table
     async def column_type(column):
         return (cache_table.get(table) or {}).get("types", {}).get(column) or await func_pgweb_column_type(pool=pool, table=table, column=column, timeout_sec=timeout_sec)
     async def page(pk, is_desc):
-        args, clauses = [], []
-        if after not in (None, ""):
-            if not pk: raise Exception("keyset paging requires a primary key")
+        args, clauses, keys = [], [], []
+        if pk:
             pk_type = await column_type(pk)
             if not pk_type: raise Exception(f"unknown primary key column: {pk}")
-            args.append(str(after))
-            clauses.append(f'{func_pgweb_ident(pk)} {"<" if is_desc else ">"} ($1::text)::{pk_type}')
+            keys = [{"name": pk, "sql": func_pgweb_ident(pk), "desc": bool(is_desc), "type": pk_type, "nullable": False}]
+        if after not in (None, ""):
+            if not keys: raise Exception("paging needs a single-column primary key")
+            clauses.append(func_page_after_where(keys=keys, after=after, values=args))
         if filter_col:
             operator = str(filter_op or "=").upper()
             if operator not in ("=", "<>", ">", "<", ">=", "<=", "LIKE", "ILIKE", "IS NULL", "IS NOT NULL"): raise Exception("invalid filter operator")
@@ -335,18 +340,17 @@ async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, 
                 args.append("" if filter_value is None else str(filter_value))
                 clauses.append(f"{column_sql} {operator} (${len(args)}::text)::{filter_type}")
         where_sql = (" WHERE " + " AND ".join(clauses)) if clauses else ""
-        order_col = order or pk
-        order_sql = f' ORDER BY {func_pgweb_ident(order_col)}{" DESC" if is_desc else ""}' if order_col else ""
+        order_sql = f" ORDER BY {func_page_order_sql(keys=keys)}" if keys else ""
         started = time.perf_counter()
         records = await pool.fetch(f"SELECT * FROM {func_pgweb_ident("public", table)}{where_sql}{order_sql} LIMIT {limit + 1}", *args, timeout=timeout_sec)  # noqa: S608 - identifiers via func_pgweb_ident, limit is an integer
         out = func_pgweb_pack(records[:limit])
-        out["has_more"] = len(records) > limit
+        out["after"] = func_page_after_next(keys=keys, rows=records, limit=limit) if keys else None
         out["ms"] = round((time.perf_counter() - started) * 1000, 1)    # the page query alone, so the page can explain a slow filter
         return out
     if not is_meta: return await page(pk, is_desc)
     def plan(key):
         """The key and direction of the first page: a table keyed by an integer id opens newest first."""
-        return (pk or key["pk"], True if key["latest_first"] and not order else is_desc)
+        return (pk or key["pk"], True if key["latest_first"] and not pk else is_desc)
     async def read_catalog():
         return await pool.fetch("""
             SELECT a.attnum AS position, a.attname AS name, format_type(a.atttypid, a.atttypmod) AS type,

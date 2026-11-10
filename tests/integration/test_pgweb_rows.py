@@ -37,14 +37,14 @@ class PgwebRowsTests(unittest.TestCase):
             await func_pgweb_schema(pool=pool, cache_table=cache)
             keys = dict(cache)
             first = await func_pgweb_rows(pool=pool, table="item", limit=2, is_meta=True, cache_table=cache)
-            following = await func_pgweb_rows(pool=pool, table="item", pk="id", order="id", is_desc=True, limit=2, after=first["rows"][-1][0], cache_table=cache)
-            filtered = await func_pgweb_rows(pool=pool, table="item", pk="id", order="id", limit=10, filter_col="n", filter_op=">", filter_value="3", cache_table=cache)
+            following = await func_pgweb_rows(pool=pool, table="item", pk="id", is_desc=True, limit=2, after=first["after"], cache_table=cache)
+            filtered = await func_pgweb_rows(pool=pool, table="item", pk="id", limit=10, filter_col="n", filter_op=">", filter_value="3", cache_table=cache)
             return keys, cache, first, following, filtered
         keys, cache, first, following, filtered = self.run_on_pool(run)
         self.assertEqual(keys, {"item": {"pk": "id", "latest_first": True}, "tag": {"pk": "code", "latest_first": False}, "item_view": {"pk": None, "latest_first": False}})
         self.assertEqual(cache["item"]["types"], {"id": "bigint", "n": "integer"})
-        self.assertEqual(([r[0] for r in first["rows"]], first["meta"]["pk"], first["has_more"]), ([5, 4], "id", True))
-        self.assertEqual([r[0] for r in following["rows"]], [3, 2])
+        self.assertEqual(([r[0] for r in first["rows"]], first["meta"]["pk"], first["after"]), ([5, 4], "id", '["4"]'))
+        self.assertEqual(([r[0] for r in following["rows"]], following["after"]), ([3, 2], '["2"]'))
         self.assertEqual([r[1] for r in filtered["rows"]], [4, 5])
 
     def test_an_out_of_date_key_is_read_again_with_the_real_one(self):

@@ -596,10 +596,10 @@ For endpoint-by-endpoint curl examples, filter options, and relation details acr
 Pass `table`, `filter`, `order`, `limit`, and `page` to an object-read endpoint. Filters are a list of conditions; separate list items are combined with `AND`, while `OR` can appear inside a condition:
 
 ```text
-GET /my/object-read?table=test&filter=["type = 1","title ilike %atom%"]&order=id desc&limit=20&page=1
+GET /my/object-read?table=test&filter=["type = 1","title ilike %atom%"]&order=id desc&limit=20
 ```
 
-The response contains `obj_list` and `has_next_page`. Atom fetches one extra row to calculate that flag, and caps the requested limit with `config_sql_read_limit_max`.
+The response contains `obj_list` and `after`: send that `after` for the next page, until it is `null` (Atom reads one extra row to know, never a count; [Paging](crud.md#paging)). The limit is capped by `config_sql_read_limit_max`.
 
 Table and column names are validated against the live schema, and filter values are parameter-bound. Supported operators include comparisons, ranges, text matching, arrays, and JSON operations. See [Reading Objects](crud.md) for encoding and examples.
 

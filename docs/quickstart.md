@@ -97,7 +97,7 @@ curl "http://localhost:8000/my/object-read?table=test" \
         "created_at": "2026-09-17T15:00:00Z"
       }
     ],
-    "has_next_page": false
+    "after": null
   }
 }
 ```

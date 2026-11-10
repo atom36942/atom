@@ -496,14 +496,18 @@ function note(text, isError) {
   $("log").scrollTop = $("log").scrollHeight;
 }
 
-function show(message) {
+function bubble(message) {
   const el = document.createElement("div");
   el.className = "msg " + (message.created_by_id === myId ? "mine" : "theirs");
   el.textContent = message.description;
   const time = document.createElement("time");
   time.textContent = new Date(message.created_at).toLocaleString();
   el.appendChild(time);
-  $("log").appendChild(el);
+  return el;
+}
+
+function show(message) {
+  $("log").appendChild(bubble(message));
   $("log").scrollTop = $("log").scrollHeight;
 }
 
@@ -521,13 +525,27 @@ function render() {
 }
 
 /* ==== conversation socket ==== */
-async function loadHistory(peerId) {
-  // history comes from the HTTP thread API (api() renews the token once on a 401); the socket only pushes new messages
+async function loadHistory(peerId, after) {
+  // history comes from the HTTP thread API, newest first, 50 at a time (api() renews the token once on a 401); the socket only pushes new messages.
+  // "Older messages" sends the last page's after, so each click reads the 50 before the oldest one shown, never OFFSET
+  const log = $("log"), older = $("olderBtn");
   try {
-    const page = await api("/my/message-thread?user_id=" + peerId + "&limit=50");
-    page.obj_list.slice().reverse().forEach(show);
-    if (!page.obj_list.length) note("No earlier messages");
-  } catch (e) { if (e.status !== 401) note("History: " + e.message, true); }
+    const page = await api("/my/message-thread?" + new URLSearchParams({user_id: peerId, limit: 50, ...(after ? {after} : {})}));
+    if (older) older.remove();
+    const height = log.scrollHeight, first = log.firstChild;
+    for (const message of page.obj_list.slice().reverse()) log.insertBefore(bubble(message), first);
+    if (page.after) {
+      const button = document.createElement("button");
+      button.type = "button"; button.id = "olderBtn"; button.className = "note"; button.textContent = "Older messages";
+      button.onclick = () => { button.disabled = true; loadHistory(peerId, page.after) };
+      log.insertBefore(button, log.firstChild);
+    }
+    log.scrollTop = after ? log.scrollHeight - height : log.scrollHeight;    // an older page keeps the view where it was; the first one opens at the newest message
+    if (!after && !page.obj_list.length) note("No earlier messages");
+  } catch (e) {
+    if (older) older.disabled = false;
+    if (e.status !== 401) note("History: " + e.message, true);
+  }
 }
 
 async function connect() {

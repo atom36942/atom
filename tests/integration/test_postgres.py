@@ -69,11 +69,14 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
                                           cache_postgres_schema=self.schema, buffer_postgres={} if buffer is None else buffer,
                                           config_column_regex={}, buffer_limit=10, mode=mode, table=table, obj_list=rows)
 
-    async def read(self, **changes):
+    async def page(self, **changes):
         args = dict(client_postgres=self.pool, client_password_hasher=HASHER, cache_postgres_schema=self.schema,
                     config_sql_read_limit_max=1000, config_sql_read_relation_fetch_limit_max=100, table="test", filter=[],
-                    limit=100, page=1, order="id asc", column="*", relation=[], config_column_read_blocked=["password"])
+                    limit=100, order="id asc", column="*", relation=[], config_column_read_blocked=["password"])
         return await func_postgres_read(**(args | changes))
+
+    async def read(self, **changes):
+        return (await self.page(**changes))["obj_list"]
 
     async def titles(self, *filters, **changes):
         return [r["title"] for r in await self.read(filter=list(filters), **changes)]
@@ -127,10 +130,24 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
         stored = await self.pool.fetchval("SELECT password FROM users WHERE username = 'u1'")
         self.assertTrue(HASHER.verify(stored, "secret"))
 
-    async def test_sorting_and_pagination_fetch_one_extra_row(self):
+    async def test_pages_follow_the_cursor_in_any_order_and_end_with_none(self):
         await self.seed_tests()
-        self.assertEqual(await self.titles(order="title desc", limit=1, page=1), ["gamma", "beta"])
-        self.assertEqual(await self.titles(order="title desc", limit=1, page=3), ["alpha"])
+        for order, expected in (("title desc", ["gamma", "beta", "alpha"]), ("title asc", ["alpha", "beta", "gamma"]), ("id desc", ["gamma", "beta", "alpha"])):
+            seen, after = [], None
+            while True:
+                page = await self.page(order=order, limit=1, **({"after": after} if after else {}))
+                seen += [r["title"] for r in page["obj_list"]]
+                after = page["after"]
+                if after is None: break
+            with self.subTest(order=order): self.assertEqual(seen, expected)
+        await self.create("test", [{"title": "n1", "description": "b"}, {"title": "n2", "description": "a"}])    # the seeded rows have no description: NULLs sort last ascending and first descending, ties broken by id, and every row still comes once
+        for order in ("description asc", "description desc"):
+            seen, after = [], None
+            while True:
+                page = await self.page(order=order, limit=1, **({"after": after} if after else {}))
+                seen += [r["id"] for r in page["obj_list"]]
+                if (after := page["after"]) is None: break
+            with self.subTest(order=order): self.assertEqual(seen, [r["id"] for r in await self.read(order=order)])
 
     async def csv_lines(self, generator):
         body = "".join([chunk async for chunk in generator])
