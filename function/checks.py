@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from starlette.routing import WebSocketRoute
 from starlette.datastructures import State
 from .app import func_app_route_list
+from .postgres_schema import func_postgres_schema_config_validate
 
 # function
 def func_check_log_api_table(*, app_state: State) -> None:
@@ -275,6 +276,7 @@ def func_check_config_extend_keeps_atom(*, config_module, config_extend_module) 
 
 def func_check(*, app: FastAPI) -> None:
     """Validate database, runtime, and API configuration before client initialization."""
+    func_postgres_schema_config_validate(config_postgres=app.state.config_postgres)    # every table starts with its integer primary key id: caught here, in script.check and CI, before any database
     func_check_config_extend_alias(config_module=sys.modules.get("config"), config_extend_module=sys.modules.get("config_extend"))
     func_check_config_extend_keeps_atom(config_module=sys.modules.get("config"), config_extend_module=sys.modules.get("config_extend"))
     func_check_database_config(app_state=app.state)

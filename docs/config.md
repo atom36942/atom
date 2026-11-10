@@ -311,7 +311,7 @@ Declarative schema initialization and migration configuration.
 
 | Column Spec Key | Type | Usage & Description |
 |---|---|---|
-| `name` | `str` | Column name (first column must be `id` primary key) |
+| `name` | `str` | Column name (first column must be `id`, an integer primary key; `func_check` refuses any other, at startup and in `script.check`) |
 | `datatype` | `str` | PostgreSQL data type (e.g. `bigint`, `timestamptz`, `text`, `jsonb`, `geography`) |
 | `identity` | `str` | Identity column strategy (`"always"` or `"by_default"`) |
 | `is_primary` | `bool` | `True` designates the identity primary-key column |

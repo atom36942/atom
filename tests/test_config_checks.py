@@ -272,5 +272,24 @@ class WorkerConfigCheckTests(unittest.TestCase):
                 func_check_runtime_config(app_state=SimpleNamespace(**limits, config_uvicorn_workers=value, config_otp_retention_day=None, config_log_api_retention_day=None, config_buffer_limit_default=100, config_buffer_rows_max=1000))
 
 
+
+class StartupCheckTableIdTests(unittest.TestCase):
+    def test_func_check_refuses_a_table_without_id_first(self):
+        import io
+        from contextlib import redirect_stdout
+        with redirect_stdout(io.StringIO()):
+            import main
+        state = main.app.state
+        original = state.config_postgres
+        try:
+            main.app.state.func_check(app=main.app)    # Atom's own tables pass
+            for columns, reason in (([{"name": "title", "datatype": "text"}], "no id"), ([{"name": "title", "datatype": "text"}, {"name": "id", "datatype": "bigint", "is_primary": True}], "id not first"), ([{"name": "id", "datatype": "text", "is_primary": True}], "id not an integer")):
+                with self.subTest(reason):
+                    state.config_postgres = {**original, "table": {**original["table"], "note": columns}}
+                    with self.assertRaisesRegex(Exception, "note first column must have name='id'|note.id must only be defined"):
+                        main.app.state.func_check(app=main.app)
+        finally:
+            state.config_postgres = original
+
 if __name__ == "__main__":
     unittest.main()
