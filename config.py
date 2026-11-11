@@ -53,9 +53,8 @@ config_is_uvicorn_access_log = False
 config_uvicorn_timeout_keep_alive_sec = 250
 config_request_body_max_kb = 10240
 config_request_form_max_kb = 102400
-config_redis_cache_ttl_sec = 3600
-config_inmemory_cache_cleanup_auto_sec = 300
-config_api_cache_inmemory_max_kb = 102400
+
+# cors
 config_cors_allow_origins = []
 config_cors_allow_origin_regex = None
 config_cors_allow_methods = ["*"]
@@ -63,24 +62,31 @@ config_cors_allow_headers = ["*"]
 config_cors_expose_headers = ["*"]
 config_cors_allow_credentials = True
 
+# cache
+config_redis_cache_ttl_sec = 3600
+config_inmemory_cache_cleanup_auto_sec = 300
+config_api_cache_inmemory_max_kb = 102400
+config_token_cache_max = 10000
+
 # auth
 config_root_user_password = None
 config_login_password = None
 config_token_secret_key = None
 config_access_token_expires_sec = 604800
 config_refresh_token_expires_sec = 2592000
-config_token_cache_max = 10000
 config_signup_allowed_roles = []
 config_login_allowed_roles = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+config_is_user_delete = False
+config_users_delete_retention_day = 30
+config_is_profile_update_last_active_at = True
+
+# otp
 config_otp_length = 6
 config_otp_expiry_sec = 600
 config_otp_static = None
 config_otp_max_attempt = 5
 config_otp_retention_day = 1
 config_is_otp_require_users_update = False
-config_is_user_delete = False
-config_users_delete_retention_day = 30
-config_is_profile_update_last_active_at = True
 
 # postgres
 config_is_postgres_schema_init = True
@@ -88,6 +94,11 @@ config_postgres_schema_lock_timeout_sec = 10
 config_postgres_pool_min_size = 1
 config_postgres_pool_max_size = 10
 config_postgres_query_timeout_sec = 0    # longest a single Postgres query may run, in seconds, then it is cancelled; 0 means no limit
+config_buffer_limit_default = 100
+config_buffer_rows_max = 100000
+config_postgres_buffer_flush_auto_sec = 60
+
+# log_api
 config_is_log_api = True
 config_is_log_api_all = False
 config_is_log_api_detail = False
@@ -95,14 +106,6 @@ config_log_api_detail_max_kb = 64
 config_is_log_api_detail_mask = False
 config_postgres_db_log_api = "master"
 config_log_api_retention_day = 7
-config_buffer_limit_default = 100
-config_buffer_rows_max = 100000
-config_postgres_buffer_flush_auto_sec = 60
-config_batch_item_limit = 1000
-config_sql_read_limit_default = 100
-config_sql_read_limit_max = 10000
-config_page_offset_max = 10000
-config_sql_read_relation_fetch_limit_max = 100
 
 # mssql
 config_mssql_pool_min_size = 1
@@ -110,6 +113,11 @@ config_mssql_pool_max_size = 10
 config_mssql_pool_recycle_sec = 1800
 
 # query
+config_sql_read_limit_default = 100
+config_sql_read_limit_max = 10000
+config_page_offset_max = 10000
+config_sql_read_relation_fetch_limit_max = 100
+config_batch_item_limit = 1000
 config_query_runner_read_limit = 5000
 config_export_limit = 1000000
 
