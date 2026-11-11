@@ -36,10 +36,10 @@ class StaticTests(unittest.TestCase):
         return TestClient(app)
 
     def test_both_folders_are_served_at_static(self):
-        self.write(self.project, "pulse.html", "project page")
+        self.write(self.project, "notes.html", "project page")
         client = self.client()
         self.assertEqual(client.get("/static/api.html").text, "atom page")
-        self.assertEqual(client.get("/static/pulse.html").text, "project page")
+        self.assertEqual(client.get("/static/notes.html").text, "project page")
         self.assertEqual(client.get("/static/missing.html").status_code, 404)
 
     def test_static_files_revalidate_every_load(self):
@@ -83,7 +83,7 @@ class StaticTests(unittest.TestCase):
         self.write(self.atom, "data.csv", "a,b")
         self.write(os.path.join(self.atom, "report"), "index.html", "")
         self.write(os.path.join(self.atom, "assets"), "app.js", "")    # a folder without index.html is not an app
-        self.write(self.project, "PULSE.html", "")
+        self.write(self.project, "NOTES.html", "")
         self.write(os.path.join(self.project, "_files"), "index.html", "")    # any name is a page: _, . and uppercase too
         self.write(self.project, ".draft.html", "")
         pages = func_app_static_page_list(directories=(self.atom, self.project))
@@ -91,11 +91,11 @@ class StaticTests(unittest.TestCase):
             {"name": ".draft", "url": "/page/.draft", "folder": "static_extend"},
             {"name": "Api", "url": "/page/api", "folder": "static"},
             {"name": "Home", "url": "/page/home", "folder": "static"},    # every page is listed, the home page too
-            {"name": "Pulse", "url": "/page/PULSE", "folder": "static_extend"},    # the URL keeps the file's name; the label is capitalized the same way for every app
+            {"name": "Notes", "url": "/page/NOTES", "folder": "static_extend"},    # the URL keeps the file's name; the label is capitalized the same way for every app
             {"name": "Report", "url": "/page/report", "folder": "static"},
             {"name": "_files", "url": "/page/_files", "folder": "static_extend"},
         ])
-        self.assertEqual([page["path"] for page in pages], [os.path.join(self.project, ".draft.html"), os.path.join(self.atom, "api.html"), os.path.join(self.atom, "home.html"), os.path.join(self.project, "PULSE.html"), os.path.join(self.atom, "report", "index.html"), os.path.join(self.project, "_files", "index.html")])
+        self.assertEqual([page["path"] for page in pages], [os.path.join(self.project, ".draft.html"), os.path.join(self.atom, "api.html"), os.path.join(self.atom, "home.html"), os.path.join(self.project, "NOTES.html"), os.path.join(self.atom, "report", "index.html"), os.path.join(self.project, "_files", "index.html")])
 
     def test_page_list_without_folders_is_empty(self):
         self.assertEqual(func_app_static_page_list(directories=(os.path.join(self.temp.name, "none"),)), [])

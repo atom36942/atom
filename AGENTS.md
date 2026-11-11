@@ -1,5 +1,5 @@
 # Atom agent guide
-Rules Atom enforces at import, startup, sync and CI. Follow exactly. Read by AI agents, not humans: dense on purpose.
+How to build on Atom. A rule that says Atom enforces it (import, startup, sync, CI) fails otherwise; the rest are Atom's defaults: follow them unless the project has a real reason not to, written in its `docs_extend/`. Read by AI agents, not humans: dense on purpose.
 
 ## Work
 - Work autonomously; ask only for essential missing info or destructive actions outside the request.
@@ -73,7 +73,7 @@ Defaults, not rules: use them unless a page has a real reason to differ (example
 - `request.state.user` = decoded token (`config_column_token_encode` columns) or `{}`; user id and role come only from it, never from params. Row ownership and other rules `config_api` can't express go in a `func_*`.
 
 ## Routes and functions
-- Path (a default, not a rule): `/<feature>/<action>`, the action a verb last: `read`, `read-single`, `create`, `update`, `delete`, `export`, `<thing>-read` (`/finance/dashboard-read`, `/application/filter-option-read`); `my-<action>` for the caller's own rows (`/application/my-create`). One route per screen task, not one per chart, and no `?kind=` switch between unrelated reads. Another style is fine where it reads better (a domain verb such as `/mdm/close`, an outside system's name); keep one style within a project.
+- Path (a default, not a rule): `/<feature>/<action>`, the action a verb last: `read`, `read-single`, `create`, `update`, `delete`, `export`, `<thing>-read` (`/report/dashboard-read`, `/application/filter-option-read`); `my-<action>` for the caller's own rows (`/application/my-create`). One route per screen task, not one per chart, and no `?kind=` switch between unrelated reads. Another style is fine where it reads better (a domain verb such as `/case/close`, an outside system's name); keep one style within a project.
 - A page may write through Atom's `/my/object-create`, `/my/object-update` and `/my/object-delete`: the database enforces ownership (`created_by_id`, or a column listed in `config_column_ownership_*`). Write a feature route only when a write needs more than ownership (validation, several tables, a rule about who may change what).
 - Route: `async def func_api_<area>_<name>(*, request: Request):`, then `app_state = request.app.state`; use only `app_state.func_*/config_*/client_*`, `request.state.client_postgres`, `request.state.cache_postgres_schema`; never import from `function`.
 - Params only via `await app_state.func_request_param_read(request=request, mode="query"|"body"|"form"|"header", param_specs=[...])` (shared specs in `files_extend/<f>.py`); add `strict=True, strict_types=True, reject_unknown=True` to refuse unknown or mistyped params (recommended). Spec keys: `name`, `type` (`str`, `int`, `float`, `bool`, `list`, `list:int`, `dict`, `file`, `any`), `required`, `default`, `allowed`, `minimum`, `maximum`, `min_length`, `max_length`; with `is_connection_param` add `{"name": "connection", "type": "str"}`. Never declare the middleware flags `is_disable_cache` and `is_background`.
@@ -91,7 +91,7 @@ Defaults, not rules: use them unless a page has a real reason to differ (example
 - Responses over 1 KB are gzipped by Atom when the client accepts it: never compress in a route or add compression middleware; a route sending bytes it already compressed sets `Content-Encoding`. Measured numbers: `docs/performance.md`.
 - Request bodies over `config_request_body_max_kb` (10 MB; multipart `config_request_form_max_kb`, 100 MB) get 413 before they are read: a project needing more raises the setting in `config_extend.py`, never reads around it; bigger files go straight to storage with a presigned upload.
 - Production: `config_token_secret_key` 32+ bytes. With `config_uvicorn_workers` > 1: no `inmemory` mode for caches, rate limits or user checks, and `/my/message-socket` stays inactive (startup fails).
-- Never fill missing business data with placeholders (names, dates, codes, branches) or ship demo data: leave it empty and say so. Deploy settings (Bicep, workflows, App Service) set only `config_*` keys that Atom or `config_extend.py` reads.
+- Never fill missing business data with placeholders (names, dates, codes, branches) or ship demo data: leave it empty and say so. Deploy settings (infrastructure templates, CI workflows, hosting settings) set only `config_*` keys that Atom or `config_extend.py` reads.
 
 ## Style
 - Atom's own files (core): headers, lowercase singular, no module docstrings (routers `# import`/`# router`/`# api`; functions `# import`/`# function`); one name per import line (`from x import a`, then `from x import b`). Project files follow the project's own style, except scripts (below).

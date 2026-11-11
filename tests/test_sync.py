@@ -263,13 +263,13 @@ class SyncTests(unittest.TestCase):
         self.assertFalse((self.root / "function/auth.py").exists())
 
     def test_removed_sync_selection_is_preserved_and_forgotten(self):
-        self.write(self.upstream, "extra/pulse.html", "upstream pulse\n")
+        self.write(self.upstream, "extra/notes.html", "upstream notes\n")
         self.commit(self.upstream)
-        for content in ("upstream pulse\n", "developer pulse\n", None):
+        for content in ("upstream notes\n", "developer notes\n", None):
             with self.subTest(content=content):
-                with patch.object(sync, "FILES_TO_SYNC", [*sync.FILES_TO_SYNC, "extra/pulse.html"]):
+                with patch.object(sync, "FILES_TO_SYNC", [*sync.FILES_TO_SYNC, "extra/notes.html"]):
                     self.run_sync()
-                path = self.root / "extra/pulse.html"
+                path = self.root / "extra/notes.html"
                 if content is None:
                     path.unlink()
                 else:
@@ -280,7 +280,7 @@ class SyncTests(unittest.TestCase):
                 else:
                     self.assertEqual(path.read_text(), content)
                 state = json.loads((self.root / sync.STATE_PATH).read_text())
-                self.assertNotIn("extra/pulse.html", state["files"])
+                self.assertNotIn("extra/notes.html", state["files"])
 
     def test_missing_extend_paths_are_created_and_existing_ones_kept(self):
         self.run_sync()

@@ -458,7 +458,7 @@ def func_middleware_api_template_read(*, config_api: dict) -> list:
     return [(compile_path(route)[0], route) for route in config_api if "{" in route]
 
 def func_middleware_api_config(*, config_api: dict, path: str, cache_config_api_template: list) -> dict:
-    """This request's config_api entry: the exact path first (one dict lookup), else the first route with path parameters that matches (/page/pulse → /page/{name}), else {} (not a route)."""
+    """This request's config_api entry: the exact path first (one dict lookup), else the first route with path parameters that matches (/page/admin → /page/{name}), else {} (not a route)."""
     api_cfg = config_api.get(path)
     if api_cfg is not None: return api_cfg
     for pattern, route in cache_config_api_template:

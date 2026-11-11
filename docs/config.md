@@ -266,7 +266,7 @@ Detailed breakdown of all dictionary settings in `config.py`.
 
 Per-endpoint security and execution policy table.
 
-Keys are route paths as declared. A route with path parameters (`/page/{name}`) gets its entry for every path it matches (`/page/pulse`); an exact path is looked up first. A request whose path is no route gets no entry: no checks, and it is not logged (see `config_is_log_api_all`).
+Keys are route paths as declared. A route with path parameters (`/page/{name}`) gets its entry for every path it matches (`/page/admin`); an exact path is looked up first. A request whose path is no route gets no entry: no checks, and it is not logged (see `config_is_log_api_all`).
 
 #### Policy Fields (Nested Keys)
 
