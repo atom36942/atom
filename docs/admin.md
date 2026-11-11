@@ -91,7 +91,8 @@ Failures that happen outside a request's response are otherwise only printed; th
 - `buffer_flush`: failed buffer flushes. The rows stay in their buffer and are retried on the next flush, so a growing number means the database has been unreachable for a while.
 - `buffer_dropped`: API-log rows dropped because the log buffer reached `config_buffer_rows_max` during an outage (user-data buffers reject new rows with 503 instead).
 - `background_task`: failed `?is_background=true` requests.
-- `cleanup`: failed OTP, API-log or in-memory cache cleanups.
+- `cleanup`: failed in-memory cache cleanups.
+- `schedule`: failed checks or starts of scheduled scripts (a script's own failure is its `script_run` row, [schedule.md](schedule.md)).
 
 Counts are per process and reset on restart.
 

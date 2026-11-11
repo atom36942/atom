@@ -264,6 +264,43 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await conn.fetchval("SELECT count(*) FROM otp"), 2)
             self.assertEqual(await conn.fetchval("SELECT count(*) FROM log_api"), 2)
 
+    async def test_script_run_locks_records_and_fails_with_a_sentence(self):
+        from function.schedule import func_schedule_check
+        from function.schedule import func_schedule_parse
+        from function.schedule import func_script_run
+        await self.pool.execute("INSERT INTO script_run (script, started_by, status) VALUES ('job', 'manual', 1)")    # a run that died
+        async with func_script_run(postgres_url=self.url, script="job"):
+            with self.assertRaises(SystemExit) as second: await func_script_run(postgres_url=self.url, script="job").__aenter__()
+            self.assertEqual(second.exception.code, 75)
+            self.assertEqual(await func_schedule_check(client_postgres=self.pool, script="job", schedule=func_schedule_parse(value="every 1h"), timezone=UTC), "running")
+            print("step: download")
+            print("downloaded 3 rows")
+        with self.assertRaisesRegex(Exception, "reach the source"):
+            async with func_script_run(postgres_url=self.url, script="job"): raise Exception("Can't reach the source\ndetail")
+        rows = [dict(row) for row in await self.pool.fetch("SELECT started_by, status, step, message FROM script_run WHERE script = 'job' ORDER BY id")]
+        self.assertEqual(rows, [{"started_by": "manual", "status": 3, "step": None, "message": "stopped before finishing"},
+                                {"started_by": "manual", "status": 2, "step": "download", "message": "downloaded 3 rows"},
+                                {"started_by": "manual", "status": 3, "step": None, "message": "Can't reach the source"}])
+        self.assertEqual(await func_schedule_check(client_postgres=self.pool, script="job", schedule=func_schedule_parse(value="every 1h"), timezone=UTC), "done")
+
+    async def test_scheduled_cleanup_runs_as_a_script(self):
+        import os
+        import tempfile
+        from datetime import datetime
+        from datetime import timedelta
+        from unittest.mock import patch
+        from function.schedule import func_schedule_script_start
+        await self.pool.execute("INSERT INTO otp (otp, created_at) VALUES (111111, $1), (222222, now())", datetime.now(UTC) - timedelta(days=2))
+        cwd = os.getcwd()
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"config_postgres_url_master": self.url}):
+            os.chdir(folder)
+            try: code = await func_schedule_script_start(client_postgres=self.pool, script="cleanup", module="script.cleanup", timeout_sec=120)
+            finally: os.chdir(cwd)
+        self.assertEqual(code, 0)
+        self.assertEqual(await self.pool.fetchval("SELECT count(*) FROM otp"), 1)
+        row = await self.pool.fetchrow("SELECT started_by, status, step, message FROM script_run WHERE script = 'cleanup'")
+        self.assertEqual(dict(row), {"started_by": "schedule", "status": 2, "step": "log_api", "message": "deleted rows: otp 1, log_api 0"})
+
     async def test_otp_success_consumes_code_and_wrong_guesses_are_capped(self):
         code = func_otp_generate(client_postgres=self.pool, config_otp_length=6)
         await func_otp_save(client_postgres=self.pool, otp=code, email="a@example.test", mobile=None)

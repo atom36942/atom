@@ -29,7 +29,7 @@ async def func_lifespan(app: FastAPI):
         start_journey = time.perf_counter()
         app.state.runtime_background_tasks = set()
         app.state.runtime_message_socket = {}
-        app.state.runtime_error_count = {"log_api_write": 0, "buffer_flush": 0, "buffer_dropped": 0, "background_task": 0, "cleanup": 0}
+        app.state.runtime_error_count = {"log_api_write": 0, "buffer_flush": 0, "buffer_dropped": 0, "background_task": 0, "cleanup": 0, "schedule": 0}
         postgres_pool_kwargs = {"is_read_only": app.state.config_is_read_only, "query_timeout_sec": app.state.config_postgres_query_timeout_sec}
         aws_kwargs = {"aws_access_key_id": app.state.config_aws_access_key_id, "aws_secret_access_key": app.state.config_aws_secret_access_key}
         cache_api_response = {}

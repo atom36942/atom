@@ -58,6 +58,18 @@ Atom's version is `ATOM_VERSION` in `sync.py` (for example `ATOM_VERSION = "1.2.
 
 Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. Sync always takes the latest `main`; to mark a new version, raise `ATOM_VERSION` and the `Version` line at the top of `readme.md` (a test checks they match) and push to `main` (no tags or GitHub releases). Commits in between keep the last version. A project synced before versions existed shows `unknown` until its next sync. If a sync fails after installing the new `sync.py`, that file already shows the new version while the other files may be older; the error says so, and running sync again finishes it.
 
+### Upgrading to 7.0.0
+
+Three settings were renamed; a project that sets one in `config_extend.py` or `.env` renames it (the old name stops startup, naming the new one):
+
+| Before | 7.0.0 |
+|---|---|
+| `config_otp_retention_day` | `config_retention_day_otp` |
+| `config_log_api_retention_day` | `config_retention_day_log_api` |
+| `config_users_delete_retention_day` | `config_retention_day_users_delete` |
+
+OTP and API-log cleanup now run as `script/cleanup.py` on `config_schedule_cleanup` ([schedule.md](schedule.md)); a new table, `script_run`, is created at startup.
+
 ### A fixed version: `--ref`
 
 `python3 sync.py --ref <commit>` applies that Atom commit instead of main's latest: the same update on every machine and in CI, or going back to the Atom a project ran before. The commit must be on Atom's `main` (a short id such as `1d4f8a1` works; `git log --oneline` in an Atom clone, or the commit list on GitHub, shows each version's commit); anything else is refused before a file changes. It combines with `--no-venv` and `--no-outdated`. The pinned commit's own `sync.py` does the update, so a commit from before 3.24.0 installs an updater without `--ref`: run `python3 sync.py` (the latest) to get it back.

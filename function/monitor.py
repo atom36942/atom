@@ -91,7 +91,7 @@ async def func_monitor_queues(*, client_redis: Any, channels: list) -> dict:
 
 def func_monitor_background(*, app_state: State) -> dict:
     """Work this worker does outside requests: periodic tasks, rows waiting in the write buffers, running background tasks, open websockets and error counters."""
-    task_names = {"runtime_task_postgres_buffer_flush": "Buffer flush", "runtime_task_inmemory_cache_cleanup": "In-memory cache cleanup", "runtime_task_otp_cleanup": "OTP cleanup", "runtime_task_log_api_cleanup": "log_api cleanup", "runtime_task_memory_history": "RAM history"}
+    task_names = {"runtime_task_postgres_buffer_flush": "Buffer flush", "runtime_task_inmemory_cache_cleanup": "In-memory cache cleanup", "runtime_task_schedule": "Schedule", "runtime_task_memory_history": "RAM history"}
     tasks = []
     for name, label in task_names.items():
         task = getattr(app_state, name, None)

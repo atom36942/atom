@@ -6,6 +6,7 @@ from starlette.routing import WebSocketRoute
 from starlette.datastructures import State
 from .app import func_app_route_list
 from .postgres_schema import func_postgres_schema_config_validate
+from .schedule import func_schedule_read
 
 # function
 def func_check_log_api_table(*, app_state: State) -> None:
@@ -68,13 +69,16 @@ def func_check_runtime_config(*, app_state: State) -> None:
         return value
     values = {key: int_check(getattr(app_state, key, None), key) for key in ("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb")}
     if values["config_sql_read_limit_default"] > values["config_sql_read_limit_max"]: raise Exception("config_sql_read_limit_default must not exceed config_sql_read_limit_max")
-    for key in ("config_otp_retention_day", "config_log_api_retention_day"):
+    values = getattr(app_state, "_state", None) or vars(app_state)
+    for old_key, new_key in (("config_otp_retention_day", "config_retention_day_otp"), ("config_log_api_retention_day", "config_retention_day_log_api"), ("config_users_delete_retention_day", "config_retention_day_users_delete")):
+        if old_key in values: raise ValueError(f"{old_key} was renamed to {new_key} in Atom 7.0.0; rename it in config_extend.py or .env")
+    for key in ("config_retention_day_otp", "config_retention_day_log_api", "config_retention_day_users_delete"):
         retention = getattr(app_state, key, None)
         if retention is None: continue
         if isinstance(retention, bool) or not isinstance(retention, int) or not 1 <= retention <= 36500:
             raise ValueError(f"{key} must be an integer from 1 to 36500, or None")
-        if key == "config_otp_retention_day" and retention * 86400 <= app_state.config_otp_expiry_sec:
-            raise ValueError("config_otp_retention_day must exceed the OTP expiry window")
+        if key == "config_retention_day_otp" and retention * 86400 <= app_state.config_otp_expiry_sec:
+            raise ValueError("config_retention_day_otp must exceed the OTP expiry window")
     keep_alive = getattr(app_state, "config_uvicorn_timeout_keep_alive_sec", 250)
     if isinstance(keep_alive, bool) or not isinstance(keep_alive, int) or keep_alive < 1: raise Exception("config_uvicorn_timeout_keep_alive_sec must be an integer, 1 or more")
     query_timeout = getattr(app_state, "config_postgres_query_timeout_sec", 0)
@@ -281,5 +285,6 @@ def func_check(*, app: FastAPI) -> None:
     func_check_config_extend_keeps_atom(config_module=sys.modules.get("config"), config_extend_module=sys.modules.get("config_extend"))
     func_check_database_config(app_state=app.state)
     func_check_runtime_config(app_state=app.state)
+    func_schedule_read(values=getattr(app.state, "_state", None) or vars(app.state))    # a bad config_schedule_* value or a missing script stops startup
     func_check_api_config(app=app)
     return

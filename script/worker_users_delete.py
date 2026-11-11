@@ -12,7 +12,7 @@ from azure.core.exceptions import ResourceNotFoundError
 from dotenv import load_dotenv
 from config import config_table_exclude_from_users_delete
 from config import config_column_ownership_delete
-from config import config_users_delete_retention_day
+from config import config_retention_day_users_delete
 from function import func_client_postgres
 from function import func_client_azure_blob
 
@@ -180,7 +180,7 @@ async def worker_loop(*, postgres_url, storage, table_exclude, ownership_column_
 def main():
     print("Starting Users Delete Worker Script...")
     storage = {"aws_region": config_aws_s3_region_name, "aws_key_id": config_aws_access_key_id, "aws_secret": config_aws_secret_access_key, "azure_name": config_azure_account_name, "azure_key": config_azure_account_key}
-    asyncio.run(worker_loop(postgres_url=postgres_url_master, storage=storage, table_exclude=config_table_exclude_from_users_delete, ownership_column_list=config_column_ownership_delete, retention_day=config_users_delete_retention_day))
+    asyncio.run(worker_loop(postgres_url=postgres_url_master, storage=storage, table_exclude=config_table_exclude_from_users_delete, ownership_column_list=config_column_ownership_delete, retention_day=config_retention_day_users_delete))
 
 # main
 if __name__ == "__main__":

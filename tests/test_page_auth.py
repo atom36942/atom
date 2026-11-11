@@ -84,11 +84,13 @@ class PageStandardTests(unittest.TestCase):
         self.assertIn('createObjectStore(IDB_STORE, { keyPath: "name" })', ACCOUNT)
         self.assertIn("put({ name, user_id:", ACCOUNT)
         self.assertIn("SYNC_EVERY_MS = 3 * 3600 * 1000", ACCOUNT)
+        self.assertIn('save({ info: { config_column_int_mapping:', ACCOUNT)    # labels come from /info, saved by sync
+        self.assertNotIn('"1 (admin)"', ACCOUNT)
 
     def test_the_account_words(self):
         for words in ('title: "My profile"', 'title: "Login details"', 'title: "Update password"', "6–120 characters, no spaces.</p>", '"Use 6–120 characters, no spaces"', '"Passwords don\'t match"',
                       'toast("Password updated")', 'title: "Logout?"', "Are you sure you want to logout?", 'title: "Sync", sub: "Auto sync every 3 hr"', '"Everything is up to date."',
-                      '"Sync failed. Please try again."', '"Renewing login…"', '"Loading your profile…"', '"Downloading data…"', '"/my/user-update"', "const initials = name =>"):
+                      '"Sync failed. Please try again."', '"Renewing login…"', '"Loading your profile…"', '"Loading settings…"', '"Downloading data…"', '"/my/user-update"', "const initials = name =>"):
             with self.subTest(words=words): self.assertIn(words, ACCOUNT)
         self.assertNotIn("Logged out", ACCOUNT)    # logout shows no message
         header = block("admin", "account header")[0]

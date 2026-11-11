@@ -158,9 +158,9 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_is_uvicorn_access_log` | uvicorn's per-request console line (default `False`). Atom already records every request in `log_api`, and printing each line cost 12–31% throughput in a load test (see [performance.md](performance.md#8-uvicorn-access-log)). Set `True` to see requests in the console while debugging. Applies to `python main.py`; with `uvicorn main:app` pass `--no-access-log` yourself. |
 | `config_uvicorn_timeout_keep_alive_sec` | Seconds uvicorn keeps an idle client connection open (default `250`; uvicorn's own default is 5). Behind a load balancer or proxy it must be longer than the proxy's idle timeout (Azure App Service 240 s, nginx 75 s, AWS ALB 60 s), so the proxy never reuses a connection uvicorn has just closed, which shows up as occasional 502 errors. Lower it only when clients connect to uvicorn directly with no proxy. Applies to `python main.py`. |
 | `config_is_prod` | Boolean production-mode toggle (`True` disables debug and protects endpoints) |
-| `config_is_log_api` | API logging to `log_api` (default `True`). `False` (`config_is_log_api=false` in `.env`) turns it off: no rows are written, no cleanup runs, the Monitor's Requests and Errors tabs say logging is off and `/my/api-usage` returns 503. Only routes in `config_api` are logged; to skip some of them, set `"is_log_api": False` on them (Atom does for the pages `/` and `/page/{name}`, the health checks and `/pgweb`). |
+| `config_is_log_api` | API logging to `log_api` (default `True`). `False` (`config_is_log_api=false` in `.env`) turns it off: no rows are written, cleanup skips it, the Monitor's Requests and Errors tabs say logging is off and `/my/api-usage` returns 503. Only routes in `config_api` are logged; to skip some of them, set `"is_log_api": False` on them (Atom does for the pages `/` and `/page/{name}`, the health checks and `/pgweb`). |
 | `config_is_log_api_all` | Also log requests that are not a `config_api` route: static files, `/favicon.ico`, unknown paths and their 404s (default `False`, which keeps them out of `log_api`). Set `True` to see all traffic while debugging. |
-| `config_is_log_api_detail` | Also store each logged request's headers, the response headers and both bodies in `log_api` (`request_header`, `response_header`, `request_body`, `response_body`; default `False`). Only text bodies are kept, by their `Content-Type`: JSON (`application/json`, `+json`), XML (`application/xml`, `+xml`), `text/*` and `multipart/mixed`; CSV exports, event streams, forms, uploads, files and compressed bodies are only named (`[skipped: text/csv, 52311 bytes]`), never copied. `query_param` keeps every value. Secret header and query names are always masked (`Authorization`, `Cookie`, `Set-Cookie`, keys, tokens); bodies are stored as sent unless `config_is_log_api_detail_mask` is on. For debugging: rows get much larger, and bodies hold users' data; lower `config_log_api_retention_day` while it is on (it deletes them with the rest). |
+| `config_is_log_api_detail` | Also store each logged request's headers, the response headers and both bodies in `log_api` (`request_header`, `response_header`, `request_body`, `response_body`; default `False`). Only text bodies are kept, by their `Content-Type`: JSON (`application/json`, `+json`), XML (`application/xml`, `+xml`), `text/*` and `multipart/mixed`; CSV exports, event streams, forms, uploads, files and compressed bodies are only named (`[skipped: text/csv, 52311 bytes]`), never copied. `query_param` keeps every value. Secret header and query names are always masked (`Authorization`, `Cookie`, `Set-Cookie`, keys, tokens); bodies are stored as sent unless `config_is_log_api_detail_mask` is on. For debugging: rows get much larger, and bodies hold users' data; lower `config_retention_day_log_api` while it is on (it deletes them with the rest). |
 | `config_log_api_detail_max_kb` | The most kept per body with `config_is_log_api_detail` (`64`); a longer body is cut and marked with its full size. |
 | `config_is_log_api_detail_mask` | With `config_is_log_api_detail`, also mask secrets inside the bodies: JSON fields and XML elements named password, token, OTP, secret or key become `[REDACTED]` (`False`, for speed: about 2-5 ms per 64 KB body, after the reply is sent). Turn it on when the bodies carry credentials. |
 | `config_postgres_db_log_api` | Named Postgres database for API logging (default: `master`) |
@@ -180,8 +180,12 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_otp_length` | Digit length generated for OTP codes (default: `6`) |
 | `config_otp_expiry_sec` | Expiry window for OTP codes in seconds (default: `600`) |
 | `config_otp_max_attempt` | Verification guesses allowed per OTP code before it is locked (default: `5`) |
-| `config_otp_retention_day` | OTP row retention in days (`1`); `None` disables cleanup. Must exceed OTP expiry. Cleaned on the same schedule as `config_log_api_retention_day`. |
-| `config_log_api_retention_day` | API-log row retention in days (`7`); `None` disables cleanup. Old rows are deleted a minute after startup, then hourly (again a minute later while old rows remain). |
+| `config_schedule_timezone` | Time zone of every `config_schedule_*` time (`UTC`; a zone name such as `Asia/Kolkata`) ([schedule.md](schedule.md)) |
+| `config_schedule_check_sec` | How often scheduled scripts are checked, in seconds (`600`; 60 to 3600) |
+| `config_schedule_<script>` | When `script/<script>.py` or `script_extend/<script>.py` runs by itself: `off`, `every 6h`, `daily 02:00`, `every 3d 02:00`, `weekly sun 02:00` or `monthly 1 02:00`. Atom's: `config_schedule_cleanup` (`every 1h`), `config_schedule_postgres_backup` (`off`) ([schedule.md](schedule.md)) |
+| `config_retention_day_otp` | OTP row retention in days (`1`); `None` skips it. Must exceed OTP expiry. Deleted by `script/cleanup.py` on `config_schedule_cleanup` |
+| `config_retention_day_log_api` | API-log row retention in days (`7`); `None` skips it. Deleted by `script/cleanup.py` on `config_schedule_cleanup` |
+| `config_retention_day_users_delete` | Days before soft-deleted users' data is purged by `script/worker_users_delete.py` (`30`) |
 | `config_access_token_expires_sec` | JWT Access Token lifetime in seconds |
 | `config_refresh_token_expires_sec` | JWT Refresh Token lifetime in seconds |
 | `config_token_cache_max` | Verified tokens cached per worker (`10000`, about 1 KB each); `0` turns the cache off. A token is fully verified on first use, then reused until its own `exp`; the key is the whole signed token, so an edited token is verified again. Expired entries are swept every `config_inmemory_cache_cleanup_auto_sec`; when full, the oldest entry is dropped |
@@ -204,7 +208,6 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_query_runner_read_limit` | Maximum row cap for admin SQL query runner (`5000`) |
 | `config_export_limit` | Maximum rows in any CSV export, Atom's and a project's: every export goes through `func_postgres_export`, `func_mssql_export` or `func_clickhouse_export`, which stop at this many rows (`1000000`, about what Excel opens). The one place to change it |
 | `config_redis_cache_ttl_sec` | TTL for Redis-cached role/user status lookups (`3600`) |
-| `config_users_delete_retention_day` | Retention grace period in days before soft-deleted users are purged (`30`) |
 
 ### CORS
 
@@ -406,6 +409,7 @@ Human-readable labels for integer-coded database columns. Atom ships only the co
 
 | Table / Column Key | Integer Code | String Label / Meaning |
 |---|---|---|
+| `users.role` | `1` | Admin |
 | `log_users_delete.worker_status` | `None` | Pending |
 | `log_users_delete.worker_status` | `1` | Processing |
 | `log_users_delete.worker_status` | `2` | Completed |
@@ -417,7 +421,7 @@ Human-readable labels for integer-coded database columns. Atom ships only the co
 | `blob.type` | `1` | File |
 | `blob.type` | `2` | Presigned Url |
 
-Projects add their own tables and columns (roles, statuses, types) in `config_extend.py` with `{**base_config_column_int_mapping, ...}`. Startup stops if `config_extend.py` drops any of the codes above; their labels may be renamed and codes added. Labels are display text only: they do not grant access (role `1` is admin because routes check `roles: [1]`, not because of a label).
+Projects add their own tables and columns (roles, statuses, types) in `config_extend.py` with `{**base_config_column_int_mapping, ...}`. Startup stops if `config_extend.py` drops any of the codes above; their labels may be renamed and codes added. Pages show labels only from `/info` (saved by their sync, [page.md](page.md)), never written in the page. Labels are display text only: they do not grant access (role `1` is admin because routes check `roles: [1]`, not because of a label).
 
 Mappings use the lookup order `config_column_int_mapping[table][column][value]`.
 
@@ -464,11 +468,9 @@ Permission IDs are integers in Python, but JSON object keys are strings: clients
 
 ### Automatic OTP and API-log cleanup
 
-Each enabled cleanup starts one hour after startup and repeats one hour after the previous run finishes. It permanently deletes only rows older than its retention cutoff, in batches of up to 5,000 with 0.1-second pauses. Each run has a 30-second deletion budget and each query a maximum five-second timeout; remaining backlog is handled on later runs. Failures are logged and retried next hour. Retention accepts whole days from 1 to 36500, or `None`.
+`script/cleanup.py` runs on `config_schedule_cleanup` (every hour by default, [schedule.md](schedule.md)) and permanently deletes only rows older than each retention cutoff, in batches of up to 5,000 with 0.1-second pauses, until none are left; each run is a row in `script_run`. OTP rows are in the master database; API logs in the database `config_postgres_db_log_api` names, and only while `config_is_log_api` is on. Successful OTP verification still deletes its code immediately; expiry alone does not delete it. `config_schedule_cleanup = "off"` stops both; a retention of `None` stops one.
 
-The tasks are skipped in read-only mode or without their database pool and are cancelled at shutdown. PostgreSQL advisory locks prevent overlapping runs for the same cleanup on the same database. OTP cleanup uses the primary pool; API logs use `client_postgres_log_api`, including the named database when configured. Successful OTP verification still deletes its code immediately; expiry alone does not delete it.
-
-#### Sizing `config_log_api_retention_day`
+#### Sizing `config_retention_day_log_api`
 
 Atom writes one `log_api` row per request, so the table holds roughly requests per day × retention days. Rows take about 150–200 bytes plus indexes:
 
@@ -478,6 +480,6 @@ Atom writes one `log_api` row per request, so the table holds roughly requests p
 | 1M requests/day | 7M | ~2.5 GB |
 | 10M requests/day | 70M | ~25 GB |
 
-The default of 7 days covers the Monitor page's longest range and keeps the table small. `/my/api-usage?days=N` reads this table, so users see at most that many days; for audits or problems found weeks later, raise it in `config_extend.py` or `.env` (for example `config_log_api_retention_day=30`). For high traffic, also consider keeping logs off the main database with `config_postgres_db_log_api` pointing at a separate `config_postgres_url_<name>`. Load tests create log rows too; they are removed once they pass the retention cutoff.
+The default of 7 days covers the Monitor page's longest range and keeps the table small. `/my/api-usage?days=N` reads this table, so users see at most that many days; for audits or problems found weeks later, raise it in `config_extend.py` or `.env` (for example `config_retention_day_log_api=30`). For high traffic, also consider keeping logs off the main database with `config_postgres_db_log_api` pointing at a separate `config_postgres_url_<name>`. Load tests create log rows too; they are removed once they pass the retention cutoff.
 
-Both tables have a `created_at` index in the schema configuration. When `config_postgres_db_log_api` is not `master`, schema init creates or updates only the `log_api` table there (no extensions, users or triggers; other tables are untouched). With schema init off, the log database must already have `log_api`; otherwise startup stops with `config_postgres_db_log_api '<name>' has no log_api table`. Disabling cleanup means no task or cleanup queries for that table. Deleted space can be reused by PostgreSQL after vacuuming; deletion does not necessarily shrink the database files on disk.
+Both tables have a `created_at` index in the schema configuration. When `config_postgres_db_log_api` is not `master`, schema init creates or updates only the `log_api` table there (no extensions, users or triggers; other tables are untouched). With schema init off, the log database must already have `log_api`; otherwise startup stops with `config_postgres_db_log_api '<name>' has no log_api table`. A retention of `None` means no cleanup queries for that table. Deleted space can be reused by PostgreSQL after vacuuming; deletion does not necessarily shrink the database files on disk.

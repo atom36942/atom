@@ -168,7 +168,7 @@ h1{margin:0;font-size:18px;font-weight:600}
 const PAGE = { key: "message", title: "Message", role: null, loginRequired: true, idb: false, onIn: () => chatOpen(), onOut: () => chatClose() };
 /* ==== atom page: account ==== */
 // Identical in every Atom page that logs in (docs/page.md, Page standard); the page sets PAGE just above this block and calls Page.start() last. A test checks the copies match.
-// localStorage[PAGE.key] = {v, token, user, synced_at, ...the page's choices}; IndexedDB database PAGE.key, store "cache", records {name, user_id, saved_at, data} (pages with PAGE.idb).
+// localStorage[PAGE.key] = {v, token, user, info, synced_at, ...the page's choices}; IndexedDB database PAGE.key, store "cache", records {name, user_id, saved_at, data} (pages with PAGE.idb).
 // Logged in means a valid token object; the user comes from GET /my/profile and is checked on every sync; Sync runs every 3 hours and from the header; logout clears everything in every tab.
 const Page = (() => {
   const STORAGE_KEY = PAGE.key, STORAGE_VERSION = 1, IDB_STORE = "cache", IDB_VERSION = 2, SYNC_EVERY_MS = 3 * 3600 * 1000;
@@ -297,18 +297,23 @@ const Page = (() => {
     renderAccount();
     return true;
   };
-  // sync: new token, the user, then the page's data (PAGE.refresh); synced_at when it finishes. step(i) names the step for the Sync dialog
-  const syncSteps = () => ["Renewing login…", "Loading your profile…", ...(PAGE.refresh ? ["Downloading data…"] : [])];
-  // the page's data only, one download at a time (a page with no cache yet calls it too): PAGE.refresh, then synced_at, then PAGE.onSynced
+  // sync: new token, the user, the settings (/info), then the page's data (PAGE.refresh); synced_at when it finishes. step(i) names the step for the Sync dialog
+  const syncSteps = () => ["Renewing login…", "Loading your profile…", "Loading settings…", ...(PAGE.refresh ? ["Downloading data…"] : [])];
+  // GET /info (public) → info = {config_column_int_mapping, export_limit}: labels and settings come from the server, never from the page
+  const infoLoad = async () => {
+    const response = await fetch("/info"), body = await response.json().catch(() => ({}));
+    if (!response.ok || body.status !== 1) throw new Error("Sync failed. Please try again.");
+    save({ info: { config_column_int_mapping: body.message.config_column_int_mapping || {}, export_limit: Number(body.message.export_limit) || 0 } });
+  };
+  // the settings and the page's data, one download at a time (a page with no cache yet calls it too): /info, PAGE.refresh, then synced_at, then PAGE.onSynced
   let dataSyncing = null;
-  const syncData = () => dataSyncing ||= (async () => { if (PAGE.refresh) await PAGE.refresh(); save({ synced_at: Date.now() }); PAGE.onSynced?.() })().finally(() => { dataSyncing = null });
+  const syncData = (step = () => {}) => dataSyncing ||= (async () => { step(2); await infoLoad(); if (PAGE.refresh) { step(3); await PAGE.refresh() } save({ synced_at: Date.now() }); PAGE.onSynced?.() })().finally(() => { dataSyncing = null });
   const syncRun = async (step = () => {}) => {
     step(0);
     if (await tokenRefresh() === false) { logOut(EXPIRED); return false }
     step(1);
     if (!await profileLoad(true)) return false;
-    if (PAGE.refresh) step(2);
-    await syncData();
+    await syncData(step);
     return true;
   };
   // 5 minutes or less left on the access token: renew it now (refused → logged out); false when logged out
@@ -323,7 +328,7 @@ const Page = (() => {
     if (!read().token || !loggedIn()) return;
     if (!await tokenFresh()) return;
     if (!await profileLoad()) return;
-    if (Date.now() - (read().synced_at || 0) > SYNC_EVERY_MS) syncRun().catch(() => {});
+    if (Date.now() - (read().synced_at || 0) > SYNC_EVERY_MS || !read().info) syncRun().catch(() => {});    // no info: synced before /info joined Sync
   };
   // a token object from a login: check it, then the user, then the first sync, then the page
   const signIn = async token => {
@@ -350,7 +355,7 @@ const Page = (() => {
     if (el("loginDialog").open) el("loginDialog").close();
     renderAccount();
     PAGE.onIn?.(read().user);
-    if (!read().synced_at) syncData().catch(() => {});    // the first sync after a login: the token is new, so only the page's data
+    if (!read().synced_at || !read().info) syncData().catch(() => {});    // the first sync after a login: the token is new, so only the page's data
   };
   const showOut = message => {
     menuToggle(false);
@@ -393,7 +398,7 @@ const Page = (() => {
 
   /* -- account menu: My profile, Login details, Logout -- */
   const menuToggle = open => { const isOpen = open ?? el("accountMenu").hidden; el("accountMenu").hidden = !isOpen; el("accountBtn").setAttribute("aria-expanded", String(isOpen)) };
-  const roleText = role => role == null ? "-" : esc(PAGE.roleLabel?.(role) ?? (Number(role) === 1 ? "1 (admin)" : String(role)));
+  const roleText = role => { if (role == null) return "-"; const label = read().info?.config_column_int_mapping?.users?.role?.[role]; return esc(PAGE.roleLabel?.(role) ?? (label ? `${role} (${label})` : String(role))) };    // the label from /info; only the number before the first sync
   const usernameCell = u => u.username ? `<span class="cell"><span>${esc(u.username)}</span><button type="button" class="kv-btn" data-copy="${esc(u.username)}" aria-label="Copy username">${ICON.copy}</button></span>` : "-";
   const profileOpen = () => { const u = read().user || {}; dialog({ title: "My profile", body: kv([["Name", dash(u.name)], ["Username", usernameCell(u)], ["Email", dash(u.email)], ["Mobile", dash(u.mobile)], ["Role", roleText(u.role)]]) }) };
   const detailsOpen = () => {
