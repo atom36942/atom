@@ -7,10 +7,11 @@ from .middleware import func_api_error
 from .postgres_page import func_page_after_next
 from .postgres_page import func_page_after_where
 from .postgres_page import func_page_keys
+from .postgres_page import func_page_offset
 from .postgres_page import func_page_order_sql
 
 # function
-async def func_postgres_table_column_groupby_read(*, app_state: State, client_postgres: asyncpg.Pool | None, cache_postgres_schema: dict, table: str, col: Any, limit: int, after: Any = None, agg: str = "count", agg_col: str = "*", order: str = "count desc", filter: list = None) -> dict:
+async def func_postgres_table_column_groupby_read(*, app_state: State, client_postgres: asyncpg.Pool | None, cache_postgres_schema: dict, table: str, col: Any, limit: int, after: Any = None, page: int | None = None, agg: str = "count", agg_col: str = "*", order: str = "count desc", filter: list = None) -> dict:
     """Rows per value of one or more columns with an aggregate (count, sum, avg, min, max): {"obj_list", "after"}, one page after the cursor (func_page_keys over the result columns, the group columns as tie-breakers), never OFFSET."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if limit < 1: raise Exception("query limit must be greater than 0")
@@ -58,14 +59,15 @@ async def func_postgres_table_column_groupby_read(*, app_state: State, client_po
     select_sql = ", ".join(select_exprs)
     group_sql = ", ".join(group_exprs)
     source_sql = f' {" ".join(unnest_clauses)}' if unnest_clauses else ""
+    offset = func_page_offset(page=page, after=after, limit=limit, offset_max=getattr(app_state, "config_page_offset_max", 10000))
     after_sql = func_page_after_where(keys=keys, after=after, values=values)
     values.append(limit + 1)
-    sql = f'SELECT * FROM (SELECT {select_sql} FROM "{table}" x{source_sql} {where_clause} GROUP BY {group_sql}) g {"WHERE " + after_sql if after_sql else ""} ORDER BY {func_page_order_sql(keys=keys)} LIMIT ${len(values)}'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
+    sql = f'SELECT * FROM (SELECT {select_sql} FROM "{table}" x{source_sql} {where_clause} GROUP BY {group_sql}) g {"WHERE " + after_sql if after_sql else ""} ORDER BY {func_page_order_sql(keys=keys)} LIMIT ${len(values)}{f" OFFSET {offset}" if offset else ""}'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
     async with client_postgres.acquire() as conn:
         rows = await conn.fetch(sql, *values)
     return {"obj_list": [dict(row) for row in rows[:limit]], "after": func_page_after_next(keys=keys, rows=rows, limit=limit)}
 
-async def func_postgres_table_column_distinct_read(*, app_state: State, client_postgres: asyncpg.Pool | None, cache_postgres_schema: dict, table: str, col: str, limit: int, after: Any = None, order: str = "item asc", filter: list = None) -> dict:
+async def func_postgres_table_column_distinct_read(*, app_state: State, client_postgres: asyncpg.Pool | None, cache_postgres_schema: dict, table: str, col: str, limit: int, after: Any = None, page: int | None = None, order: str = "item asc", filter: list = None) -> dict:
     """The distinct values of one column (each element of an array column): {"item_list", "after"}, one page after the cursor, never OFFSET."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if limit < 1: raise Exception("query limit must be greater than 0")
@@ -82,9 +84,10 @@ async def func_postgres_table_column_distinct_read(*, app_state: State, client_p
     keys = func_page_keys(order=f'item {"desc" if "desc" in (order or "").lower() else "asc"}', columns={"item": {"datatype": datatype.removesuffix("[]"), "is_nullable": "YES"}}, alias="d.")
     source_sql = f'CROSS JOIN LATERAL unnest(x.{q_col}) item_col' if is_array else ""
     item_sql = "item_col" if is_array else f'x.{q_col}'
+    offset = func_page_offset(page=page, after=after, limit=limit, offset_max=getattr(app_state, "config_page_offset_max", 10000))
     after_sql = func_page_after_where(keys=keys, after=after, values=values)
     values.append(limit + 1)
-    sql = f'SELECT d.item FROM (SELECT DISTINCT {item_sql} AS item FROM "{table}" x {source_sql} {where_clause}) d {"WHERE " + after_sql if after_sql else ""} ORDER BY {func_page_order_sql(keys=keys)} LIMIT ${len(values)}'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
+    sql = f'SELECT d.item FROM (SELECT DISTINCT {item_sql} AS item FROM "{table}" x {source_sql} {where_clause}) d {"WHERE " + after_sql if after_sql else ""} ORDER BY {func_page_order_sql(keys=keys)} LIMIT ${len(values)}{f" OFFSET {offset}" if offset else ""}'  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
     async with client_postgres.acquire() as conn:
         rows = await conn.fetch(sql, *values)
     return {"item_list": [row["item"] for row in rows[:limit]], "after": func_page_after_next(keys=keys, rows=rows, limit=limit)}

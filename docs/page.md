@@ -62,7 +62,7 @@ The account block does this; it is the default for a project's pages too.
 - Download reference data once after login and refresh it on a timer and on request (a Sync button); live lists always come from the server.
 
 ## Lists and paging
-- Every list pages after a cursor, the same way everywhere ([crud.md](crud.md#paging)): the page sends `after` (none for the first page) and the server returns the rows and the next `after`, `null` on the last page. Never a page number, OFFSET or a total count: Next is enabled while `after` is not `null`.
+- Every list pages after a cursor, the same way everywhere ([crud.md](crud.md#paging)): the page sends `after` (none for the first page) and the server returns the rows and the next `after`, `null` on the last page. Next is enabled while `after` is not `null`. A page-number box may send `page` to jump near the start (capped by the server); never a total count.
 - Keep the `after` sent for each page shown (`[null, a1, a2, ...]`) so Previous goes back to it; a new filter, sort or page size starts again from the first page.
 - Give every filter and sort column an index that matches it (for "comments of a task, newest first": `btree(task_id,id)`).
 

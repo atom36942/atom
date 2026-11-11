@@ -198,6 +198,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_batch_item_limit` | Maximum objects allowed per batch CRUD request (`1000`) |
 | `config_sql_read_limit_default` | Default page size for object read queries (`100`) |
 | `config_sql_read_limit_max` | Hard cap limit for object read page size (`10000`) |
+| `config_page_offset_max` | How deep `page` may jump: rows skipped, `(page - 1) × limit`, at most this (`10000`); deeper pages use `after` ([Paging](crud.md#paging)) |
 | `config_sql_read_relation_fetch_limit_max` | Maximum rows fetched per joined relation (`100`) |
 | `config_query_runner_read_limit` | Maximum row cap for admin SQL query runner (`5000`) |
 | `config_export_limit` | Maximum rows in any CSV export, Atom's and a project's: every export goes through `func_postgres_export`, `func_mssql_export` or `func_clickhouse_export`, which stop at this many rows (`1000000`, about what Excel opens). The one place to change it |

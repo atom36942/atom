@@ -88,7 +88,8 @@ Use `curl -G --data-urlencode` for query parameters containing spaces, JSON, com
 | `filter` | JSON list | `[]` | Conditions as strings or structured objects; examples below. |
 | `relation` | JSON list of strings | `[]` | Related row fetches or aggregates using the five-part syntax below. |
 | `order` | `str` | `id desc` | Comma-separated sort columns and directions, e.g. `priority desc,id asc`; `id` is added last when missing. Array, JSON and blocked columns cannot be sorted. |
-| `after` | `str` | none (first page) | The previous response's `after`: the next page. See [Paging](#paging). |
+| `after` | `str` | none (first page) | The previous response's `after`: the next page (the default way). See [Paging](#paging). |
+| `page` | `int` | none | Optional jump to page N (OFFSET), within the first `config_page_offset_max` rows; not with `after`. See [Paging](#paging). |
 | `limit` | `int` | `config_sql_read_limit_default` (100) | Positive page size. Requests exceeding `config_sql_read_limit_max` (10,000) are rejected. |
 | `postgres` | `str` | master | Configured database name, e.g. `read` for `config_postgres_url_read`. Unknown name is 404. |
 | `ownership_column` | `str` | `created_by_id` | `/my/object-read` only: column from `config_column_ownership_read` matched to the logged-in user's ID. |
@@ -114,27 +115,30 @@ This returns the first 20 tasks created by the logged-in user, highest priority 
 
 ### Paging
 
-Every list in Atom pages one way: **after a cursor**, never by page number, `OFFSET` or a total count. The same rule holds for `object-read`, `/private/users-list`, `table-column-groupby`, `table-column-distinct`, `/my/message-inbox`, `/my/message-thread`, pgweb's rows and every project list route.
+Every list in Atom pages **after a cursor** by default, and can **jump to a page number** within the first rows; never with a total count. The same rule holds for `object-read`, `/private/users-list`, `table-column-groupby`, `table-column-distinct`, `/my/message-inbox`, `/my/message-thread`, pgweb's rows and every project list route.
 
 | | |
 |---|---|
-| Request | `limit`, `order` (default `id desc`), `after` (optional; left out: the first page) |
-| Response | the rows and `after`: the cursor of the next page, `null` on the last page |
+| Request | `limit`, `order` (default `id desc`), and at most one of `after` or `page` (neither: the first page) |
+| Response | the rows and `after`: the cursor of the next page, `null` on the last page (also after a `page` jump) |
 | Next page | send the response's `after` unchanged, with the same `order`, `limit` and filters |
 | Previous page | the client keeps the `after` it sent for each page it has shown (`[null, a1, a2, ...]`) and sends that one again |
-| Jump to page N | not possible; narrow with a filter instead (a date, an id range) |
+| Jump to page N | `page=N` (OFFSET), while `(N - 1) × limit` ≤ `config_page_offset_max` (10,000); then go on with its `after`. Deeper: a 400, use `after` or a filter |
 
 ```text
 GET /my/object-read?table=task&limit=3                          → ids 7, 6, 5   after ["5"]
 GET /my/object-read?table=task&limit=3&after=["5"]              → ids 4, 3, 2   after ["2"]
 GET /my/object-read?table=task&limit=3&after=["2"]              → id 1          after null
 GET /my/object-read?table=task&limit=3&order=amount desc        → after ["300","9"]   (amount, id of the last row)
+GET /my/object-read?table=task&limit=3&page=2                   → ids 4, 3, 2   after ["2"]   (OFFSET 3, then on with after)
 ```
+
+- **Which way:** the client chooses by the param it sends; the server never counts rows to decide. Use `after` for Next and Previous, infinite scroll, sync and scripts: every page costs what page 1 costs and nothing repeats while rows change. Use `page` only to jump to a page near the start (a page-number box); OFFSET reads every skipped row, so it is capped, the cap checked from the params alone (`(page - 1) × limit`, no query), and a row can repeat or be missed between jumps while data changes. `page` with `after` is a 400 `send page or after, not both`; past the cap, `page reaches past 10,000 rows: page on with after`.
 
 - **What `after` is:** the order's values of the page's last row, `id` last, as JSON text. Treat it as opaque: copy it, never build or read it. A cursor that does not fit the list (another order, edited by hand) is a 400 `after does not belong to this list: start from the first page`; `page` is a 400 too.
 - **How it reads:** `WHERE <filters> AND <after the cursor> ORDER BY <order>, id LIMIT limit + 1`. The extra row only says whether a next page exists. The condition is written so an index on the order columns (`btree(col,id)`) starts at the cursor, so page 1,000 costs what page 1 costs, and rows added or deleted meanwhile never repeat or skip. On 5,000,000 rows: 0.2 ms on any page, against 28 ms (`id`) and 234 ms (another column) for `OFFSET` at row 500,000 ([performance.md](performance.md#13-paging-after-a-cursor-60)).
 - **The order:** `id` is added last when the order omits it, in the direction of the last column, so every row has exactly one place. NULLs come last ascending and first descending (Postgres's own order), and the cursor follows them.
-- **In code:** `func_postgres_read(..., after=...)` returns `{"obj_list", "after"}`. A project's own list route builds its query with `func_page_keys` (the order, checked against the table's columns), `func_page_order_sql` (its `ORDER BY`), `func_page_after_where` (its cursor condition, values bound) and `func_page_after_next` (the response's `after` from `limit + 1` rows), and returns `{"rows" or "obj_list", "after"}`.
+- **In code:** `func_postgres_read(..., after=..., page=...)` returns `{"obj_list", "after"}`. A project's own list route builds its query with `func_page_keys` (the order, checked against the table's columns), `func_page_order_sql` (its `ORDER BY`), `func_page_after_where` (its cursor condition, values bound), `func_page_offset` (the OFFSET of an optional `page`, checked and capped) and `func_page_after_next` (the response's `after` from `limit + 1` rows), and returns `{"rows" or "obj_list", "after"}`.
 - **Group-by and distinct:** the cursor is the sort value and the group values (a group appears once, so they identify it as `id` identifies a row): `after=["310","404"]` after `count 310, status 404`. A group-by counts every matching row before it sorts, so its pages cost about the same with or without a cursor.
 
 ### Filters: comparisons, text search, lists, ranges, and nulls

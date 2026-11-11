@@ -144,7 +144,7 @@ Measured on one machine with a local PostgreSQL; on a remote database the saved 
 
 ## 13. Paging After a Cursor (6.0)
 
-Every list pages after a cursor ([crud.md](crud.md#paging)); `page` and `OFFSET` are gone. Measured on a local PostgreSQL 18 with 5,000,000 rows (929 MB, indexes `btree(created_by_id,id)` and `btree(amount,id)`), 50 rows a page, median of 7 runs:
+Every list pages after a cursor ([crud.md](crud.md#paging)); `page` (OFFSET) remains only to jump within the first 10,000 rows (6.1). Measured on a local PostgreSQL 18 with 5,000,000 rows (929 MB, indexes `btree(created_by_id,id)` and `btree(amount,id)`), 50 rows a page, median of 7 runs:
 
 | Page (rows skipped) | `OFFSET`, `id desc` | cursor, `id desc` | `OFFSET`, `amount desc` | cursor, `amount desc` |
 |---|---|---|---|---|

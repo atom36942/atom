@@ -109,7 +109,6 @@ async def func_request_param_read(*, request: Request, mode: str, param_specs: l
     }
     names = {spec["name"] for spec in param_specs}
     if reject_unknown and set(params_dict) - names: raise Exception("request contains unknown parameters")
-    if "page" in params_dict and "page" not in names: raise Exception("page is not supported: lists page with after (the previous response's after)")    # an old client's page=2 never silently reads page 1 again
     output_dict = params_dict.copy() if not strict else {}
     for param_spec in param_specs:
         if not isinstance(param_spec, dict): raise Exception(f"invalid parameter specification: expected dict, got {type(param_spec)}")

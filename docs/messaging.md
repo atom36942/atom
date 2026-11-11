@@ -18,7 +18,7 @@ The sender ID is automatically stamped from the authenticated session token.
 
 ### Inbox View (`GET /my/message-inbox`):
 Returns the **latest message per conversation** (one row per conversation partner), ordered by newest activity:
-- Query parameters: `mode` (`"all"`, `"unread"`, `"read"`), `order` (default `id desc`), `limit`, `after`. Returns `{"obj_list", "after"}`; send `after` for the next page ([Paging](crud.md#paging)).
+- Query parameters: `mode` (`"all"`, `"unread"`, `"read"`), `order` (default `id desc`), `limit`, `after` (or `page` to jump). Returns `{"obj_list", "after"}`; send `after` for the next page ([Paging](crud.md#paging)).
 
 ### Conversation Thread (`GET /my/message-thread?user_id=42`):
 Fetches the back-and-forth conversation with another participant, newest first (`order`, `limit`, `after` as in [Paging](crud.md#paging): each `after` gives the messages before the oldest one shown):

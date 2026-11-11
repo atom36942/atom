@@ -100,6 +100,7 @@ config_postgres_buffer_flush_auto_sec = 60
 config_batch_item_limit = 1000
 config_sql_read_limit_default = 100
 config_sql_read_limit_max = 10000
+config_page_offset_max = 10000
 config_sql_read_relation_fetch_limit_max = 100
 
 # mssql

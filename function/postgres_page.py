@@ -50,6 +50,16 @@ def func_page_after_where(*, keys: list, after: Any, values: list) -> str:
         return f"({bound} AND {rest})" if bound else rest
     return condition(0)
 
+def func_page_offset(*, page: Any, after: Any, limit: int, offset_max: int) -> int:
+    """The OFFSET of an optional page number: 0 without page. page jumps to page N within the first offset_max rows (config_page_offset_max),
+    worked out from the params alone, never by counting the table; deeper, or page with after, is a 400. after stays the way to page on."""
+    if page is None: return 0
+    if after not in (None, ""): raise func_api_error(message="send page or after, not both", status_code=400)
+    if not isinstance(page, int) or isinstance(page, bool) or page < 1: raise func_api_error(message="page must be 1 or more", status_code=400)
+    offset = (page - 1) * limit
+    if offset_max and offset > offset_max: raise func_api_error(message=f"page reaches past {offset_max:,} rows: page on with after", status_code=400)
+    return offset
+
 def func_page_after_next(*, keys: list, rows: list, limit: int) -> str | None:
     """The after of the next page: the key values of this page's last row, as JSON text, when the list read limit + 1 rows and got the extra one; None on the last page."""
     if len(rows) <= limit: return None

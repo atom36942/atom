@@ -210,6 +210,24 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
                 await self.read(**changes)
         self.conn.fetch.assert_not_awaited()
 
+    async def test_read_page_jumps_with_offset_and_still_returns_the_cursor(self):
+        self.conn.fetch.return_value = [{"id": 9}, {"id": 8}, {"id": 7}]
+        result = await self.read(limit=2, page=4)
+        sql, *values = self.conn.fetch.await_args.args
+        self.assertTrue(sql.endswith("LIMIT $1 OFFSET 6"), sql)
+        self.assertEqual((values, result["after"]), ([3], '["8"]'))    # after page 4, Next goes on with the cursor
+        await self.read(limit=2, page=1)
+        self.assertNotIn("OFFSET", self.conn.fetch.await_args.args[0])
+
+    async def test_read_page_is_capped_and_never_mixed_with_after(self):
+        for changes, message in (({"page": 2, "after": '["5"]'}, "send page or after, not both"), ({"page": 0}, "page must be 1 or more"),
+                                 ({"page": 6, "limit": 10, "config_page_offset_max": 40}, "page reaches past 40 rows: page on with after")):
+            with self.subTest(changes=changes), self.assertRaises(Exception) as caught: await self.read(**changes)
+            self.assertEqual((caught.exception.status_code, str(caught.exception)), (400, message))
+        self.conn.fetch.assert_not_awaited()
+        await self.read(page=5, limit=10, config_page_offset_max=40)    # 40 rows skipped: the deepest page allowed
+        self.assertIn("OFFSET 40", self.conn.fetch.await_args.args[0])
+
     async def test_read_invalid_limit_and_restricted_column_never_query(self):
         for changes in ({"limit": 0}, {"limit": 101}, {"column": "password"}):
             with self.subTest(changes=changes), self.assertRaisesRegex(Exception, "restricted from reading|exceeds maximum allowed|must be greater than 0"):

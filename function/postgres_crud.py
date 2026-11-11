@@ -12,6 +12,7 @@ from .postgres_query import func_postgres_where_build
 from .postgres_page import func_page_after_next
 from .postgres_page import func_page_after_where
 from .postgres_page import func_page_keys
+from .postgres_page import func_page_offset
 from .postgres_page import func_page_order_sql
 
 # function
@@ -168,17 +169,18 @@ async def func_postgres_read_sql(*, client_postgres: asyncpg.Pool | None, client
     if after_sql: where_statement = f"WHERE ({where_statement[len('WHERE '):]}) AND {after_sql}" if where_statement else f"WHERE {after_sql}"
     return f'SELECT {column_list} FROM "{table}" {where_statement} ORDER BY {func_page_order_sql(keys=keys)}', values, keys  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
 
-async def func_postgres_read(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, order: str, column: str, relation: list, config_column_read_blocked: list = None, blocked_tables: list = None, after: Any = None) -> dict:
-    """One page of a table with filters, order and relations: {"obj_list", "after"}. after (the previous page's after) reads the rows after that cursor, never OFFSET;
-    the response's after is the cursor of the next page, None on the last one (one extra row is read to know)."""
+async def func_postgres_read(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, order: str, column: str, relation: list, config_column_read_blocked: list = None, blocked_tables: list = None, after: Any = None, page: int | None = None, config_page_offset_max: int = 10000) -> dict:
+    """One page of a table with filters, order and relations: {"obj_list", "after"}. after (the previous page's after) reads the rows after that cursor, the default way;
+    page jumps to page N with OFFSET, within config_page_offset_max rows (func_page_offset). The response's after is the cursor of the next page either way, None on the last one (one extra row is read to know)."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     blocked_cols = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
     if limit < 1: raise Exception("query limit must be greater than 0")
     if config_sql_read_limit_max and limit > config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {config_sql_read_limit_max}")
+    offset = func_page_offset(page=page, after=after, limit=limit, offset_max=config_page_offset_max)
     sql, values, keys = await func_postgres_read_sql(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter, order=order, column=column, config_column_read_blocked=config_column_read_blocked, after=after, is_key_selected=True)
     values.append(limit + 1)
     async with client_postgres.acquire() as conn:
-        records = await conn.fetch(f"{sql} LIMIT ${len(values)}", *values)
+        records = await conn.fetch(f"{sql} LIMIT ${len(values)}{f' OFFSET {offset}' if offset else ''}", *values)    # offset: an int from func_page_offset
         next_after = func_page_after_next(keys=keys, rows=records, limit=limit)
         result_list = [dict(r) for r in records[:limit]]
         added = [key["name"] for key in keys if column != "*" and key["name"] not in [c.strip() for c in column.split(",")]]

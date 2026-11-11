@@ -114,7 +114,11 @@ class HttpRouteTests(unittest.TestCase):
             after = page["after"]
         self.assertEqual(seen, sorted(ids, reverse=True))    # every row once, newest first, no OFFSET
         self.assertEqual(self.message(self.client.get("/my/object-read", params={"table": "test", "order": "title asc", "after": after}, headers=self.auth(self.alice)), 400), "after does not belong to this list: start from the first page")
-        self.assertEqual(self.message(self.client.get("/my/object-read", params={"table": "test", "page": 2}, headers=self.auth(self.alice)), 400), "page is not supported: lists page with after (the previous response's after)")
+        jump = read(page=2)    # page jumps with OFFSET; its after goes on with the cursor
+        self.assertEqual([r["id"] for r in jump["obj_list"]], sorted(ids, reverse=True)[2:4])
+        self.assertEqual([r["id"] for r in read(after=jump["after"])["obj_list"]], sorted(ids, reverse=True)[4:])
+        self.assertEqual(self.message(self.client.get("/my/object-read", params={"table": "test", "page": 2, "after": jump["after"]}, headers=self.auth(self.alice)), 400), "send page or after, not both")
+        self.assertEqual(self.message(self.client.get("/my/object-read", params={"table": "test", "limit": 100, "page": 102}, headers=self.auth(self.alice)), 400), "page reaches past 10,000 rows: page on with after")
 
     def test_object_read_export_streams_only_the_callers_rows_as_csv(self):
         self.client.post("/my/object-create", params={"table": "test"}, json={"obj_list": [{"title": "alice-export-1"}, {"title": "=HYPERLINK(1)"}]}, headers=self.auth(self.alice))
