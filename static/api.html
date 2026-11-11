@@ -1524,7 +1524,7 @@ const getVisibleMasterIndexes = () => {
     else {
       const matchesPath = isNamespaceSearch(query) ? getNamespacePrefix(c.p).toLowerCase() === query : c.p.toLowerCase().includes(query);
       const matchesParam = [...c.h, ...c.q, ...c.u, ...c.j, ...c.f].some(p => p.k.toLowerCase().includes(query) || p.v && String(p.v).toLowerCase().includes(query));
-      match = matchesPath || c.m.toLowerCase().includes(query) || matchesParam;
+      match = matchesPath || c.m.toLowerCase().includes(query) || `${c.m} ${c.p}`.toLowerCase().includes(query) || matchesParam;    // "GET /my/profile" (pasted from docs or logs) finds it too
     }
     if (match) acc.push(i);
     return acc;
@@ -1733,7 +1733,7 @@ const resetRunner = command => {
   UI("runnerDownloadCurlBtn").disabled = !command;
   UI("runnerResetBtn").disabled = true;
 };
-const renderRunnerEndpoint = command => `<div class="endpoint"><span class="method-badge ${command.m.toLowerCase()}">${command.m}</span><span class="endpoint-path">${he(command.p)}</span><button type="button" class="copy-endpoint-btn" data-copy="${he(command.m + " " + command.p)}" ${tipAttrs("Copy endpoint")}>${ICON.copy(14)}</button></div>`;
+const renderRunnerEndpoint = command => `<div class="endpoint"><span class="method-badge ${command.m.toLowerCase()}">${command.m}</span><span class="endpoint-path">${he(command.p)}</span><button type="button" class="copy-endpoint-btn" data-copy="${he(command.p)}" ${tipAttrs("Copy path")}>${ICON.copy(14)}</button></div>`;
 const load = i => {
   preparePreviewApi(i);
   resetRunner(i === null ? null : COMMANDS[i]);
@@ -2140,7 +2140,7 @@ const setupEventListeners = () => {
     const info = t.closest(".info-icon-btn");
     if (info) { e.stopPropagation(); return showInfoModal(info.dataset.key, info.dataset.regex, info.dataset.desc) }
     const copyEndpoint = t.closest(".copy-endpoint-btn");
-    if (copyEndpoint) return copyWithFeedback(copyEndpoint, copyEndpoint.dataset.copy, 14, "Endpoint copied");
+    if (copyEndpoint) return copyWithFeedback(copyEndpoint, copyEndpoint.dataset.copy, 14, "Path copied");
     const toggle = t.closest(".tree-toggle");
     if (toggle) {
       toggle.nextElementSibling.classList.toggle("show");

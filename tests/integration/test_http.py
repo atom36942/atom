@@ -280,32 +280,37 @@ class HttpIntegrationTests(unittest.TestCase):
         self.assertTrue(self.wait_logged("/info"))
         self.assertEqual((self.logged_count("/pgweb"), self.logged_count("/health")), (0, 0))
 
-    def test_config_is_log_api_detail_stores_json_bodies_and_headers_with_secrets_masked(self):
+    def test_config_is_log_api_detail_stores_text_bodies_and_headers_with_secrets_masked(self):
         from fastapi import Request
         from fastapi.responses import PlainTextResponse
         async def echo(request: Request): return {"status": 1, "message": len(await request.body())}
         self.app.add_api_route("/test-detail-json", echo, methods=["POST"])
         self.app.add_api_route("/test-detail-csv", lambda: PlainTextResponse("id\n1\n", media_type="text/csv"))
+        self.app.add_api_route("/test-detail-xml", lambda: PlainTextResponse("<Ack><Token>t</Token><Id>7</Id></Ack>", media_type="application/xml"))
         self.app.state.config_api["/test-detail-json"] = {"id": 9002, "is_token": False}
         self.app.state.config_api["/test-detail-csv"] = {"id": 9003, "is_token": False}
-        self.app.state.config_is_log_api_detail = True
+        self.app.state.config_api["/test-detail-xml"] = {"id": 9004, "is_token": False}
+        self.app.state.config_is_log_api_detail, self.app.state.config_is_log_api_detail_mask = True, True
         try:
             self.client.post("/test-detail-json", params={"note": "a=1", "token": "q"}, json={"password": "secret-1"}, headers={"X-Api-Key": "abc", "x-request-id": "detail-json-0001"})
             self.client.get("/test-detail-csv", headers={"x-request-id": "detail-csv-00001"})
-        finally: self.app.state.config_is_log_api_detail = False
+            self.client.get("/test-detail-xml", headers={"x-request-id": "detail-xml-00001"})
+        finally: self.app.state.config_is_log_api_detail, self.app.state.config_is_log_api_detail_mask = False, False
         self.client.get("/info", headers={"x-request-id": "detail-off-00001"})
-        read = lambda request_id: fetch(self.reports_url, "SELECT query_param, request_header, request_body, response_body FROM log_api WHERE request_id = $1", request_id)
+        read = lambda request_id: fetch(self.reports_url, "SELECT query_param, request_header, response_header, request_body, response_body FROM log_api WHERE request_id = $1", request_id)
         deadline = time.time() + 10
-        while time.time() < deadline and not (read("detail-json-0001") and read("detail-csv-00001") and read("detail-off-00001")): time.sleep(0.5)
+        while time.time() < deadline and not (read("detail-json-0001") and read("detail-csv-00001") and read("detail-xml-00001") and read("detail-off-00001")): time.sleep(0.5)
         row = read("detail-json-0001")[0]
         self.assertEqual(row["query_param"], "note=a%3D1&token=%5BREDACTED%5D")
         self.assertEqual(json.loads(row["request_header"])["x-api-key"], "[REDACTED]")
         self.assertEqual(json.loads(row["request_body"]), {"password": "[REDACTED]"})
         self.assertEqual(json.loads(row["response_body"]), {"status": 1, "message": 23})
+        self.assertEqual(json.loads(row["response_header"])["content-type"], "application/json")
         csv = read("detail-csv-00001")[0]
         self.assertEqual((csv["request_body"], csv["response_body"]), (None, "[skipped: text/csv, 5 bytes]"))
+        self.assertEqual(read("detail-xml-00001")[0]["response_body"], "<Ack><Token>[REDACTED]</Token><Id>7</Id></Ack>")
         off = read("detail-off-00001")[0]
-        self.assertEqual((off["request_header"], off["request_body"], off["response_body"]), (None, None, None))
+        self.assertEqual((off["request_header"], off["response_header"], off["request_body"], off["response_body"]), (None, None, None, None))
 
     def test_paths_outside_config_api_are_logged_only_with_config_is_log_api_all(self):
         self.client.get("/favicon.ico")    # not a route: 404, not logged by default

@@ -84,11 +84,13 @@ async def func_postgres_advisory_lock(*, client_postgres: asyncpg.Pool, lock_id:
             except Exception: conn.terminate()    # pools skip the reset query, so a lock that cannot be released ends with its session
 
 async def func_cleanup_periodic_task(*, client_postgres: asyncpg.Pool, retention_day: int | None, cleanup, lock_id: int, runtime_error_count: dict) -> None:
-    """Run a fixed-table cleanup hourly, with a 30-second budget per run."""
+    """Run a fixed-table cleanup a minute after startup (deploys and restarts never postpone it), then hourly, with a 30-second budget per run; a run that ends with old rows left runs again a minute later, until it has caught up."""
     if retention_day is None or client_postgres is None: return
+    delay_sec = 60
     while True:
         try:
-            await asyncio.sleep(3600)
+            await asyncio.sleep(delay_sec)
+            delay_sec = 3600
             async with client_postgres.acquire(timeout=5) as conn:
                 # Stable session locks coordinate all app workers on this database.
                 locked = await conn.fetchval("SELECT pg_try_advisory_lock(1096044365, $1)", lock_id, timeout=5)
@@ -100,6 +102,7 @@ async def func_cleanup_periodic_task(*, client_postgres: asyncpg.Pool, retention
                         deleted = await cleanup(conn=conn, cutoff=cutoff, timeout_sec=min(5, remaining))
                         if deleted < 5000: break
                         await asyncio.sleep(0.1)
+                    else: delay_sec = 60    # the budget ran out with old rows left: continue in a minute, not an hour
                 finally:
                     try: await conn.execute("SELECT pg_advisory_unlock(1096044365, $1)", lock_id, timeout=5)
                     except Exception: conn.terminate()    # pools skip the reset query, so a lock that cannot be released ends with its session

@@ -45,6 +45,19 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all(c.kwargs['cutoff'] == 'cutoff' for c in cleanup.await_args_list))
         conn.execute.assert_awaited_once_with('SELECT pg_advisory_unlock(1096044365, $1)', 1, timeout=5)
 
+    async def test_first_run_after_a_minute_then_hourly_or_a_minute_with_rows_left(self):
+        for cleanup_counts, expected in (([1], [60, 3600]), ([5000], [60, 0.1, 60])):
+            with self.subTest(cleanup_counts=cleanup_counts):
+                pool, _ = self.setup_pool()
+                sleeps = []
+                async def sleep(sec, sleeps=sleeps, expected=expected):
+                    sleeps.append(sec)
+                    if len(sleeps) == len(expected): raise asyncio.CancelledError()
+                clock = iter([0, 0, 31])    # the 30-second budget runs out after the first batch
+                with patch('function.background.asyncio.sleep', sleep), patch("function.background.time.monotonic", lambda clock=clock: next(clock)):
+                    await func_cleanup_periodic_task(client_postgres=pool, retention_day=1, cleanup=AsyncMock(side_effect=cleanup_counts * 5), lock_id=1, runtime_error_count={})
+                self.assertEqual(sleeps, expected)
+
     async def test_error_and_cancellation_release_lock(self):
         for error in (RuntimeError('failed'), asyncio.CancelledError()):
             pool, conn = self.setup_pool()

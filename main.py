@@ -134,7 +134,7 @@ def middleware(asgi_app):
         api_cfg = app_state.func_middleware_api_config(config_api=app_state.config_api, path=scope["path"], cache_config_api_template=app_state.cache_config_api_template)
         # api log: config_api routes (is_log_api: False skips one, e.g. /pgweb); other paths (static files, favicon, 404s) only with config_is_log_api_all; config_is_log_api_detail adds headers and JSON bodies
         is_log_api = api_cfg.get("is_log_api", True) if api_cfg else app_state.config_is_log_api_all
-        receive, detail = app_state.func_middleware_log_detail_start(scope=scope, receive=receive, config_log_api_detail_max_kb=app_state.config_log_api_detail_max_kb) if is_log_api and app_state.config_is_log_api_detail else (receive, None)
+        receive, detail = app_state.func_middleware_log_detail_start(scope=scope, receive=receive, config_log_api_detail_max_kb=app_state.config_log_api_detail_max_kb, config_is_log_api_detail_mask=app_state.config_is_log_api_detail_mask) if is_log_api and app_state.config_is_log_api_detail else (receive, None)
         request = Request(scope, receive)
         start, error, response_type, request.state.user = time.perf_counter(), None, "direct_no_cache_set", {}
         request.state.request_id = app_state.func_middleware_request_id(headers=request.headers)

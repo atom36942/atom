@@ -31,7 +31,8 @@ from function import func_middleware_client_ip
 from function import func_middleware_security_headers
 from function import func_middleware_log_api_write
 from function import func_middleware_api_config
-from function import func_middleware_log_detail_is_json
+from function import func_middleware_log_detail_is_text
+from function import func_middleware_log_detail_header
 from function import func_middleware_log_detail_body
 from function import func_middleware_api_template_read
 from function import func_request_param_read
@@ -377,16 +378,22 @@ class ApiConfigLookupTests(unittest.TestCase):
 
 
 class LogApiDetailTests(unittest.TestCase):
-    def test_only_json_content_types_are_kept(self):
-        kept = [t for t in ("application/json", "application/json; charset=utf-8", "application/problem+json", "text/csv", "multipart/form-data; boundary=x", "text/html", "") if func_middleware_log_detail_is_json(content_type=t)]
-        self.assertEqual(kept, ["application/json", "application/json; charset=utf-8", "application/problem+json"])
+    def test_only_text_content_types_are_kept(self):
+        types = ("application/json", "application/json; charset=utf-8", "application/problem+json", "application/xml", "application/soap+xml", "text/xml; charset=utf-8", "text/plain", "multipart/mixed; boundary=x", "text/csv", "text/event-stream", "multipart/form-data; boundary=x", "application/x-www-form-urlencoded", "application/pdf", "")
+        kept = [t for t in types if func_middleware_log_detail_is_text(content_type=t)]
+        self.assertEqual(kept, ["application/json", "application/json; charset=utf-8", "application/problem+json", "application/xml", "application/soap+xml", "text/xml; charset=utf-8", "text/plain", "multipart/mixed; boundary=x"])
 
     def test_body_masks_secrets_cuts_long_ones_and_names_other_types(self):
-        body = lambda raw, **kw: func_middleware_log_detail_body(body=bytearray(raw[:kw.get("max_bytes", 1024)]), size=len(raw), content_type=kw.get("content_type", "application/json"), is_json=kw.get("is_json", True), max_bytes=kw.get("max_bytes", 1024))
+        body = lambda raw, **kw: func_middleware_log_detail_body(body=bytearray(raw[:kw.get("max_bytes", 1024)]), size=len(raw), content_type=kw.get("content_type", "application/json"), is_text=kw.get("is_text", True), max_bytes=kw.get("max_bytes", 1024), is_mask=kw.get("is_mask", True))
         self.assertEqual(body(b'{"username": "a@b.com", "password": "x1", "otp": 123456, "filter": "code=7", "access_token": "t"}'), '{"username": "a@b.com", "password": "[REDACTED]", "otp": "[REDACTED]", "filter": "code=7", "access_token": "[REDACTED]"}')
+        self.assertEqual(body(b'<Login><UserName>a</UserName><Password>x1</Password><ns:AuthToken a="1">t</ns:AuthToken></Login>', content_type="application/xml"), '<Login><UserName>a</UserName><Password>[REDACTED]</Password><ns:AuthToken a="1">[REDACTED]</ns:AuthToken></Login>')
+        self.assertEqual(body(b'{"password": "x1"}', is_mask=False), '{"password": "x1"}')    # masking off (the default): stored as sent
         self.assertEqual(body(b'{"a": "' + b"x" * 30 + b'"}', max_bytes=10), '{"a": "xxx…[cut at 0 KB of 39 bytes]')
-        self.assertEqual(body(b"id\n1\n", content_type="text/csv; charset=utf-8", is_json=False), "[skipped: text/csv, 5 bytes]")
+        self.assertEqual(body(b"id\n1\n", content_type="text/csv; charset=utf-8", is_text=False), "[skipped: text/csv, 5 bytes]")
         self.assertIsNone(body(b""))
+
+    def test_headers_are_lower_case_joined_and_secrets_masked(self):
+        self.assertEqual(func_middleware_log_detail_header(headers=[(b"Content-Type", b"application/xml"), (b"set-cookie", b"s=1"), (b"Vary", b"a"), (b"vary", b"b")]), {"content-type": "application/xml", "set-cookie": "[REDACTED]", "vary": "a, b"})
 
 
 class MessageSocketAuthTests(unittest.IsolatedAsyncioTestCase):

@@ -112,7 +112,7 @@ Atom writes one row to the `log_api` table for every request to a `config_api` r
 - `created_at`, `created_by_id` (the user, or null), `ip_address`, `method`, `path`, `request_id` (sent back as `x-request-id`).
 - `query_param`: the query string, secret and opaque values masked.
 - `status_code`, `response_time_ms`, `response_type` (`cache_response`, `direct_no_cache_set`, `direct_cache_set`, `background_added`, `error`), `error`.
-- `request_header`, `request_body`, `response_body`: filled only with `config_is_log_api_detail` (JSON bodies only, up to `config_log_api_detail_max_kb`, secrets masked; see [config.md](config.md)).
+- `request_header`, `response_header`, `request_body`, `response_body`: filled only with `config_is_log_api_detail` (text bodies only: JSON, XML, plain text, `multipart/mixed`; up to `config_log_api_detail_max_kb`; secret headers masked, bodies only with `config_is_log_api_detail_mask`; see [config.md](config.md)).
 
 ### Storing Logs in an Isolated Database:
 To keep high-volume log writes from contending with business transactions, route API logs to a dedicated PostgreSQL database:

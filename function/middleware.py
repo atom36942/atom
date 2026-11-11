@@ -407,51 +407,64 @@ async def func_middleware_api_response_error(*, exception: Exception, is_traceba
 
 LOG_DETAIL_SECRET = re.compile(r"password|passwd|secret|token|authorization|cookie|credential|api.?key|access.?key|signature|(?:^|[_-])(?:otp|sig)(?:$|[_-])", re.IGNORECASE)
 LOG_DETAIL_JSON_FIELD = re.compile(r'("((?:[^"\\]|\\.)*)"\s*:\s*)("(?:[^"\\]|\\.)*"|-?\d[\d.eE+-]*)')
+LOG_DETAIL_XML_FIELD = re.compile(r"(<([\w.:-]+)[^>]*>)([^<]*)(</\2>)")
 
-def func_middleware_log_detail_is_json(*, content_type: str) -> bool:
-    """A JSON body by its Content-Type (RFC 9110 8.3): application/json (RFC 8259) or a +json type (RFC 6839)."""
+def func_middleware_log_detail_is_text(*, content_type: str) -> bool:
+    """A body worth keeping, by its Content-Type (RFC 9110 8.3): JSON (application/json, +json), XML (application/xml, +xml), text/* and multipart/mixed (several text parts, as in ICEGATE replies). Not CSV exports, event streams, forms (they may hold passwords), uploads or files."""
     media_type = content_type.split(";")[0].strip().lower()
-    return media_type == "application/json" or media_type.endswith("+json")
+    if media_type in ("text/csv", "text/event-stream"): return False
+    return media_type in ("application/json", "application/xml", "multipart/mixed") or media_type.endswith(("+json", "+xml")) or media_type.startswith("text/")
 
-def func_middleware_log_detail_start(*, scope: dict, receive: Any, config_log_api_detail_max_kb: int) -> tuple:
-    """For config_is_log_api_detail: wrap receive so a JSON request body is copied (up to config_log_api_detail_max_kb) as the route reads it; returns (receive, detail)."""
+def func_middleware_log_detail_header(*, headers: Any) -> dict:
+    """Headers for log_api as one JSON object: names in lower case, repeated ones joined with ", ", secrets masked (Authorization, Cookie, Set-Cookie, keys, tokens)."""
+    header = {}
+    for key, value in headers:
+        key, value = (key.decode("latin-1"), value.decode("latin-1")) if isinstance(key, bytes) else (key, value)
+        key = key.lower()
+        header[key] = "[REDACTED]" if LOG_DETAIL_SECRET.search(key) else (f"{header[key]}, {value}" if key in header else value)
+    return header
+
+def func_middleware_log_detail_start(*, scope: dict, receive: Any, config_log_api_detail_max_kb: int, config_is_log_api_detail_mask: bool = False) -> tuple:
+    """For config_is_log_api_detail: wrap receive so a text request body (JSON, XML, text) is copied (up to config_log_api_detail_max_kb) as the route reads it; returns (receive, detail)."""
     headers = dict(scope.get("headers") or [])
-    detail = {"max_bytes": config_log_api_detail_max_kb * 1024, "request_type": headers.get(b"content-type", b"").decode("latin-1"), "request": bytearray(), "request_size": 0, "response_type": "", "response": bytearray(), "response_size": 0, "is_response_json": False}
-    is_request_json = func_middleware_log_detail_is_json(content_type=detail["request_type"])
+    detail = {"max_bytes": config_log_api_detail_max_kb * 1024, "is_mask": config_is_log_api_detail_mask, "request_type": headers.get(b"content-type", b"").decode("latin-1"), "request": bytearray(), "request_size": 0, "response_type": "", "response_header": None, "response": bytearray(), "response_size": 0, "is_response_text": False}
+    is_request_text = func_middleware_log_detail_is_text(content_type=detail["request_type"])
     async def receive_copied():
         message = await receive()
         if message["type"] == "http.request":
             body = message.get("body", b"")
             detail["request_size"] += len(body)
-            if is_request_json and len(detail["request"]) < detail["max_bytes"]: detail["request"] += body[:detail["max_bytes"] - len(detail["request"])]
+            if is_request_text and len(detail["request"]) < detail["max_bytes"]: detail["request"] += body[:detail["max_bytes"] - len(detail["request"])]
         return message
     return receive_copied, detail
 
 def func_middleware_log_detail_send(*, message: dict, detail: dict) -> None:
-    """For config_is_log_api_detail: copy a JSON response body (up to the limit) as it is sent; other types (CSV exports, files) and already-compressed bodies are not copied."""
+    """For config_is_log_api_detail: keep the response headers and copy a text response body (up to the limit) as it is sent; other types (CSV exports, files) and already-compressed bodies are not copied."""
     if message["type"] == "http.response.start":
-        headers = {key.lower(): value for key, value in message.get("headers", [])}
-        detail["response_type"] = headers.get(b"content-type", b"").decode("latin-1")
-        detail["is_response_json"] = func_middleware_log_detail_is_json(content_type=detail["response_type"]) and b"content-encoding" not in headers
+        headers = message.get("headers", [])
+        detail["response_header"] = func_middleware_log_detail_header(headers=headers)
+        detail["response_type"] = detail["response_header"].get("content-type", "")
+        detail["is_response_text"] = func_middleware_log_detail_is_text(content_type=detail["response_type"]) and "content-encoding" not in detail["response_header"]
     elif message["type"] == "http.response.body":
         body = message.get("body", b"")
         detail["response_size"] += len(body)
-        if detail["is_response_json"] and len(detail["response"]) < detail["max_bytes"]: detail["response"] += body[:detail["max_bytes"] - len(detail["response"])]
+        if detail["is_response_text"] and len(detail["response"]) < detail["max_bytes"]: detail["response"] += body[:detail["max_bytes"] - len(detail["response"])]
     return
 
-def func_middleware_log_detail_body(*, body: bytearray, size: int, content_type: str, is_json: bool, max_bytes: int) -> str | None:
-    """One body for log_api: JSON as text with secret fields masked, cut at the limit with a note; any other type only named; None when empty."""
+def func_middleware_log_detail_body(*, body: bytearray, size: int, content_type: str, is_text: bool, max_bytes: int, is_mask: bool = False) -> str | None:
+    """One body for log_api: text as sent (with is_mask, secret JSON fields and XML elements masked: about 2-5 ms for 64 KB), cut at the limit with a note; any other type only named; None when empty."""
     if not size: return None
-    if not is_json: return f"[skipped: {content_type.split(';')[0].strip() or 'no content-type'}, {size} bytes]"
-    text = LOG_DETAIL_JSON_FIELD.sub(lambda m: f'{m.group(1)}"[REDACTED]"' if LOG_DETAIL_SECRET.search(m.group(2)) else m.group(0), bytes(body).decode("utf-8", errors="replace"))
+    if not is_text: return f"[skipped: {content_type.split(';')[0].strip() or 'no content-type'}, {size} bytes]"
+    text = bytes(body).decode("utf-8", errors="replace")
+    if is_mask:
+        text = LOG_DETAIL_JSON_FIELD.sub(lambda m: f'{m.group(1)}"[REDACTED]"' if LOG_DETAIL_SECRET.search(m.group(2)) else m.group(0), text)
+        text = LOG_DETAIL_XML_FIELD.sub(lambda m: f"{m.group(1)}[REDACTED]{m.group(4)}" if LOG_DETAIL_SECRET.search(m.group(2).split(":")[-1]) else m.group(0), text)
     return text if size <= max_bytes else f"{text}…[cut at {max_bytes // 1024} KB of {size} bytes]"
 
 def func_middleware_log_detail_row(*, request: Request, detail: dict) -> dict:
-    """The detail columns of one log_api row: the full query string and request headers (only secrets masked), the request and response bodies."""
+    """The detail columns of one log_api row: the full query string and request and response headers (secret names always masked: a few keys, no cost), the request and response bodies."""
     query_param = urlencode([(key, "[REDACTED]" if LOG_DETAIL_SECRET.search(key) else value) for key, value in request.query_params.multi_items()])
-    header = {}
-    for key, value in request.headers.items(): header[key] = "[REDACTED]" if LOG_DETAIL_SECRET.search(key) else (f"{header[key]}, {value}" if key in header else value)
-    return {"query_param": query_param, "request_header": header, "request_body": func_middleware_log_detail_body(body=detail["request"], size=detail["request_size"], content_type=detail["request_type"], is_json=func_middleware_log_detail_is_json(content_type=detail["request_type"]), max_bytes=detail["max_bytes"]), "response_body": func_middleware_log_detail_body(body=detail["response"], size=detail["response_size"], content_type=detail["response_type"], is_json=detail["is_response_json"], max_bytes=detail["max_bytes"])}
+    return {"query_param": query_param, "request_header": func_middleware_log_detail_header(headers=request.headers.items()), "response_header": detail["response_header"], "request_body": func_middleware_log_detail_body(body=detail["request"], size=detail["request_size"], content_type=detail["request_type"], is_text=func_middleware_log_detail_is_text(content_type=detail["request_type"]), max_bytes=detail["max_bytes"], is_mask=detail["is_mask"]), "response_body": func_middleware_log_detail_body(body=detail["response"], size=detail["response_size"], content_type=detail["response_type"], is_text=detail["is_response_text"], max_bytes=detail["max_bytes"], is_mask=detail["is_mask"])}
 
 def func_middleware_api_template_read(*, config_api: dict) -> list:
     """config_api routes with path parameters (/page/{name}) as (compiled pattern, route), built once at startup for func_middleware_api_config."""

@@ -92,6 +92,7 @@ config_is_log_api = True
 config_is_log_api_all = False
 config_is_log_api_detail = False
 config_log_api_detail_max_kb = 64
+config_is_log_api_detail_mask = False
 config_postgres_db_log_api = "master"
 config_log_api_retention_day = 7
 config_buffer_limit_default = 100
@@ -328,6 +329,7 @@ config_postgres = {
 {"name":"error","datatype":"text"},
 {"name":"request_id","datatype":"text"},
 {"name":"request_header","datatype":"jsonb"},
+{"name":"response_header","datatype":"jsonb"},
 {"name":"request_body","datatype":"text"},
 {"name":"response_body","datatype":"text"}
 ],
