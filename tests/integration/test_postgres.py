@@ -141,7 +141,7 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
                 if after is None: break
             with self.subTest(order=order): self.assertEqual(seen, expected)
         await self.create("test", [{"title": "n1", "description": "b"}, {"title": "n2", "description": "a"}])    # the seeded rows have no description: NULLs sort last ascending and first descending, ties broken by id, and every row still comes once
-        for order in ("description asc", "description desc"):
+        for order in ("description asc", "description desc", "description desc nulls last, title asc", "description nulls first, id desc", "description asc nulls first, title desc"):
             seen, after = [], None
             while True:
                 page = await self.page(order=order, limit=1, **({"after": after} if after else {}))

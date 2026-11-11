@@ -5,30 +5,37 @@ from .middleware import func_api_error
 
 # function
 def func_page_keys(*, order: str, columns: dict, default: str = "id desc", alias: str = "") -> list:
-    """The page keys of a list: order ("col asc, col desc", checked against columns {name: {"datatype", "is_nullable"}}) as
-    [{"name", "sql", "desc", "type", "nullable"}], with id added last (in the direction of the last key) when the order omits it,
-    so every row has one place in the order. Postgres sorts NULLs last when ascending and first when descending; the cursor follows that."""
+    """The page keys of a list: order ("col [asc|desc] [nulls first|last], ...", checked against columns {name: {"datatype", "is_nullable"}}) as
+    [{"name", "sql", "desc", "nulls", "type", "nullable"}], with id added last (in the direction of the last key) when the order omits it,
+    so every row has one place in the order. Each column keeps its own direction; NULLs go where the order says, else last ascending and first descending (Postgres's default)."""
     keys = []
     for part in str(order or "").strip().split(",") if str(order or "").strip() else default.split(","):
-        words = part.split()
-        if not words or len(words) > 2 or (len(words) == 2 and words[1].lower() not in ("asc", "desc")): raise func_api_error(message=f"invalid order: {part.strip()}", status_code=400)
-        name = words[0]
+        words = [word.lower() for word in part.split()]
+        direction, nulls = (words[1:2] or ["asc"])[0], None
+        if len(words) == 4 and words[2] == "nulls": nulls = words[3]
+        elif len(words) == 3 and words[1] == "nulls": direction, nulls = "asc", words[2]
+        if not words or len(words) > 4 or direction not in ("asc", "desc") or nulls not in (None, "first", "last") or (len(words) == 3 and nulls is None) or (len(words) == 4 and nulls is None): raise func_api_error(message=f"invalid order: {part.strip()}", status_code=400)
+        name = part.split()[0]
         if name not in columns: raise func_api_error(message=f"order column '{name}' not found", status_code=400)
         if any(key["name"] == name for key in keys): raise func_api_error(message=f"order column '{name}' given twice", status_code=400)
         datatype = str(columns[name].get("datatype") or "text")
         if datatype.endswith("[]") or datatype.lower() in ("json", "jsonb", "bytea", "array"): raise func_api_error(message=f"cannot order by '{name}' ({datatype})", status_code=400)
-        keys.append({"name": name, "sql": f'{alias}"{name}"', "desc": len(words) == 2 and words[1].lower() == "desc", "type": datatype, "nullable": columns[name].get("is_nullable") != "NO"})
+        keys.append({"name": name, "sql": f'{alias}"{name}"', "desc": direction == "desc", "nulls": nulls or ("first" if direction == "desc" else "last"), "type": datatype, "nullable": columns[name].get("is_nullable") != "NO"})
     if "id" in columns and not any(key["name"] == "id" for key in keys):
-        keys.append({"name": "id", "sql": f'{alias}"id"', "desc": keys[-1]["desc"], "type": str(columns["id"].get("datatype") or "bigint"), "nullable": False})
+        keys.append({"name": "id", "sql": f'{alias}"id"', "desc": keys[-1]["desc"], "nulls": "first" if keys[-1]["desc"] else "last", "type": str(columns["id"].get("datatype") or "bigint"), "nullable": False})
     return keys
 
 def func_page_order_sql(*, keys: list) -> str:
-    """The ORDER BY of a list (without the words ORDER BY), from func_page_keys."""
-    return ", ".join(f'{key["sql"]} {"DESC" if key["desc"] else "ASC"}' for key in keys)
+    """The ORDER BY of a list (without the words ORDER BY), from func_page_keys; NULLS FIRST/LAST only where it differs from Postgres's default, so plain orders match plain indexes."""
+    def nulls(key):
+        default = "first" if key["desc"] else "last"
+        return "" if key.get("nulls", default) == default else f' NULLS {key["nulls"].upper()}'
+    return ", ".join(f'{key["sql"]} {"DESC" if key["desc"] else "ASC"}{nulls(key)}' for key in keys)
 
 def func_page_after_where(*, keys: list, after: Any, values: list) -> str:
     """The condition for the rows after the cursor (after: the previous response's after), or "" for the first page; values are bound, never formatted into SQL.
-    Written so an index on the keys jumps straight to the cursor: key1 <= v1 AND (key1 < v1 OR (key2 <= v2 AND (...))) for descending keys, the mirror for ascending."""
+    Written so an index on the keys jumps straight to the cursor: key1 <= v1 AND (key1 < v1 OR (key2 <= v2 AND (...))) for descending keys, the mirror for ascending,
+    each key in its own direction, NULLs where the order puts them."""
     if after in (None, ""): return ""
     try:
         cursor = json.loads(after) if isinstance(after, str) else after
@@ -37,14 +44,14 @@ def func_page_after_where(*, keys: list, after: Any, values: list) -> str:
     def condition(index):
         key, value = keys[index], cursor[index]
         column = key["sql"]
-        if value is None:
-            strict, bound = (f"{column} IS NOT NULL", "") if key["desc"] else ("FALSE", f"{column} IS NULL")
+        nulls_last = key.get("nulls", "first" if key["desc"] else "last") == "last"
+        if value is None:    # the cursor is in the NULLs: after them come the values (NULLs first) or nothing (NULLs last)
+            strict, bound = ("FALSE", f"{column} IS NULL") if nulls_last else (f"{column} IS NOT NULL", "")
         else:
             values.append(str(value))
-            mark = f"${len(values)}::text::{key['type']}"
-            if key["desc"]: strict, bound = f"{column} < {mark}", f"{column} <= {mark}"
-            elif key["nullable"]: strict, bound = f"({column} > {mark} OR {column} IS NULL)", f"({column} >= {mark} OR {column} IS NULL)"
-            else: strict, bound = f"{column} > {mark}", f"{column} >= {mark}"
+            mark, sign = f"${len(values)}::text::{key['type']}", "<" if key["desc"] else ">"
+            strict, bound = f"{column} {sign} {mark}", f"{column} {sign}= {mark}"
+            if key["nullable"] and nulls_last: strict, bound = f"({strict} OR {column} IS NULL)", f"({bound} OR {column} IS NULL)"    # NULLs still to come
         if index == len(keys) - 1: return strict
         rest = f"({strict} OR {condition(index + 1)})"
         return f"({bound} AND {rest})" if bound else rest
