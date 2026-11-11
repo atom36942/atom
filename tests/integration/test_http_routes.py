@@ -63,8 +63,8 @@ class HttpRouteTests(unittest.TestCase):
         cls.handle = app_start(env={"config_postgres_url_master": cls.url, "config_root_html_path": str(REPO_ROOT / "static" / "home.html")})
         cls.app, cls.client = cls.handle["app"], cls.handle["client"]
         cls.admin = app_login(cls.client, path="/auth/login-username-password", body={"username": "admin", "password": "root-test-password"})
-        cls.alice = app_login(cls.client, path="/auth/signup-username-password", body={"username": "alice", "password": "alice-pass", "role": 5})
-        cls.bob = app_login(cls.client, path="/auth/signup-username-password", body={"username": "bob", "password": "bob-pass", "role": 5})
+        cls.alice = app_login(cls.client, path="/auth/signup-username-password", body={"role": 5, "username": "alice", "password": "alice-pass"})
+        cls.bob = app_login(cls.client, path="/auth/signup-username-password", body={"role": 5, "username": "bob", "password": "bob-pass"})
         cls.alice_id = cls.client.get("/my/profile", headers=cls.auth(cls.alice)).json()["message"]["id"]
         cls.bob_id = cls.client.get("/my/profile", headers=cls.auth(cls.bob)).json()["message"]["id"]
 
@@ -253,10 +253,10 @@ class HttpRouteTests(unittest.TestCase):
         self.assertEqual(self.message(self.client.get("/public/otp-verify", params={"type": "email", "value": "verify@example.test", "otp": 222222}), 400), "invalid otp code")
         self.assertEqual(self.message(self.client.get("/public/otp-verify", params={"type": "email", "value": "verify@example.test", "otp": 111111})), "done")
         fetch(self.url, "INSERT INTO otp (otp, email) VALUES (333333, 'otp-user@example.test')")
-        email_token = self.message(self.client.post("/auth/login-email-otp", json={"email": "otp-user@example.test", "otp": 333333, "role": 5}))["access_token"]
+        email_token = self.message(self.client.post("/auth/login-email-otp", json={"role": 5, "email": "otp-user@example.test", "otp": 333333}))["access_token"]
         self.assertEqual(self.message(self.client.get("/my/profile", headers=self.auth(email_token)))["email"], "otp-user@example.test")
         fetch(self.url, "INSERT INTO otp (otp, mobile) VALUES (444444, '+910000000099')")
-        mobile_token = self.message(self.client.post("/auth/login-mobile-otp", json={"mobile": "+910000000099", "otp": 444444, "role": 5}))["access_token"]
+        mobile_token = self.message(self.client.post("/auth/login-mobile-otp", json={"role": 5, "mobile": "+910000000099", "otp": 444444}))["access_token"]
         self.assertEqual(self.message(self.client.get("/my/profile", headers=self.auth(mobile_token)))["mobile"], "+910000000099")
         self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM otp WHERE otp IN (111111, 333333, 444444)"), [{"n": 0}])    # used codes are deleted
 

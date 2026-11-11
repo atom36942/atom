@@ -29,7 +29,7 @@ class HttpIntegrationTests(unittest.TestCase):
         cls.handle = app_start(env=cls.database_env())
         cls.app, cls.client = cls.handle["app"], cls.handle["client"]
         cls.workdir = cls.handle["workdir"]
-        cls.token = app_login(cls.client, path="/auth/signup-username-password", body={"username": "alice", "password": "alice-pass", "role": 5})
+        cls.token = app_login(cls.client, path="/auth/signup-username-password", body={"role": 5, "username": "alice", "password": "alice-pass"})
         cls.admin_token = app_login(cls.client, path="/auth/login-username-password", body={"username": "admin", "password": "root-test-password"})
 
     @classmethod
@@ -330,7 +330,7 @@ class LogApiOffIntegrationTests(unittest.TestCase):
         cls.db_name, cls.url = create_database()
         cls.handle = app_start(env={"config_postgres_url_master": cls.url, "config_is_log_api": "false"})
         cls.app, cls.client = cls.handle["app"], cls.handle["client"]
-        cls.token = app_login(cls.client, path="/auth/signup-username-password", body={"username": "alice", "password": "alice-pass", "role": 5})
+        cls.token = app_login(cls.client, path="/auth/signup-username-password", body={"role": 5, "username": "alice", "password": "alice-pass"})
 
     @classmethod
     def tearDownClass(cls):

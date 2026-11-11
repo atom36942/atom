@@ -98,13 +98,13 @@ Every login (password, OTP, Google):
 | :--- | :--- | :--- |
 | `/auth/signup-username-password` | role, username, password | Hashes with Argon2; validates regex; rejects `role: 1`. |
 | `/auth/login-password` | password | Constant-time check against `config_login_password`. Returns `"ok"`. |
-| `/auth/login-username-password` | username + password | Argon2 hash verification. |
-| `/auth/login-email-password` | email + password | |
-| `/auth/login-mobile-password` | mobile + password | |
-| `/auth/login-id-ext-password` | id_ext + password | |
-| `/auth/login-email-otp` | email + otp | Verifies OTP against `otp` table, auto-creates user on first login. |
-| `/auth/login-mobile-otp` | mobile + otp | Same as email OTP, sent via SMS. |
-| `/auth/login-google` | google_token (+ role) | Verifies the Google ID token against `config_google_login_client_id` and requires Google's `email_verified`. Finds the user by `google_login_id`; else links the user with the same email and role to this Google account; else creates one (saving `email`, `name`, `google_login_metadata`). |
+| `/auth/login-username-password` | role, username, password | Argon2 hash verification. |
+| `/auth/login-email-password` | role, email, password | |
+| `/auth/login-mobile-password` | role, mobile, password | |
+| `/auth/login-id-ext-password` | role, id_ext, password | |
+| `/auth/login-email-otp` | role, email, otp | Verifies OTP against `otp` table, auto-creates user on first login. |
+| `/auth/login-mobile-otp` | role, mobile, otp | Same as email OTP, sent via SMS. |
+| `/auth/login-google` | role, google_token | Verifies the Google ID token against `config_google_login_client_id` and requires Google's `email_verified`. Finds the user by `google_login_id`; else links the user with the same email and role to this Google account; else creates one (saving `email`, `name`, `google_login_metadata`). |
 
 ### `POST /auth/login-password`
 Compares the input against `config_login_password` configured in `.env`. If unconfigured, raises `"config_login_password not configured"`. Comparison uses `hmac.compare_digest` to prevent timing attacks.

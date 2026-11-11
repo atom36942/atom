@@ -57,7 +57,7 @@ class QueryBudgetTests(unittest.TestCase):
             drop_database(cls.db_name)
             raise
         cls.client = cls.handle["client"]
-        app_login(cls.client, path="/auth/signup-username-password", body={"username": "budget", "password": "budget-pass", "role": 5})
+        app_login(cls.client, path="/auth/signup-username-password", body={"role": 5, "username": "budget", "password": "budget-pass"})
         tokens = cls.client.post("/auth/login-username-password", json={"username": "budget", "password": "budget-pass"}).json()["message"]
         cls.tokens = {True: tokens["access_token"], "refresh": tokens["refresh_token"]}
 
@@ -93,7 +93,7 @@ class QueryBudgetTests(unittest.TestCase):
         self.assertFalse(over, "Postgres queries per request changed; if the change means it, update BUDGET in tests/integration/test_query_budget.py:\n" + "\n".join(over))
 
     def test_a_first_profile_open_records_activity_and_the_next_sends_no_update(self):
-        token = app_login(self.client, path="/auth/signup-username-password", body={"username": "budget-new", "password": "budget-pass", "role": 5})
+        token = app_login(self.client, path="/auth/signup-username-password", body={"role": 5, "username": "budget-new", "password": "budget-pass"})
         self.tokens["new"] = token
         self.assertEqual(len(self.request_queries(method="GET", path="/my/profile", token="new", body=None)), 2, "never recorded: read and update")
         self.assertIsNotNone(fetch(self.url, "SELECT last_active_at FROM users WHERE username = 'budget-new'")[0]["last_active_at"])

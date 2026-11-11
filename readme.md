@@ -1,5 +1,5 @@
 # Atom
-Version 6.3.1
+Version 6.3.2
 
 Batteries-included FastAPI framework for production backends: auth, CRUD over any table, caching, rate limits, queues, workers, web pages and optional integrations, all driven by config. Your code lives in `*_extend` paths, so updating Atom never overwrites it.
 
@@ -86,7 +86,7 @@ python3 sync.py --status                     # Atom version of this project and 
 
 Details: [docs/sync.md](docs/sync.md)
 
-# Test
+# Check (startup, ruff, pages, tests)
 ```bash
 venv/bin/python -m script.check
 ```
