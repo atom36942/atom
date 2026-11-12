@@ -6,11 +6,20 @@ Atom is driven by `config.py` — a single file of plain Python values loaded on
 
 ## 1. How Config is Loaded & Overridden
 
-Config values are resolved in three tiers (later wins):
+Every `config_*` value is read once, at startup, in this order; a later one wins:
 
-1. **`config.py`** — Shipped framework defaults.
-2. **Environment variables / `.env`** — Values in `.env` or the system environment automatically override defaults with automatic type casting (booleans, ints, JSON arrays/dicts).
-3. **`config_extend.py`** — Drop-in module (git-ignored, survives `sync.py`) for code-level overrides and schema extensions. See [extend.md](extend.md); startup stops if its `config_api`, `config_postgres` or `config_column_int_mapping` drops any of Atom's routes, Postgres entries or mapped codes ([what is checked](extend.md#what-startup-checks-in-config_extendpy)).
+| Order | Where | For |
+|---|---|---|
+| 1 | `config.py` | Atom's defaults |
+| 2 | `config_extend.py` | the project's defaults and structure (tables, routes); git-tracked, survives `sync.py`. See [extend.md](extend.md); startup stops if its `config_api`, `config_postgres` or `config_column_int_mapping` drops any of Atom's routes, Postgres entries or mapped codes ([what is checked](extend.md#what-startup-checks-in-config_extendpy)) |
+| 3 | `.env` | one machine's values: secrets, URLs, flags |
+| 4 | environment variables | a server's settings (Azure app settings, `docker run -e`, CI); `.env` never overwrites a variable that is already set |
+
+Example: `config_extend.py` has `config_schedule_report = "off"`; a laptop without the key in `.env` keeps `off`, a server with `config_schedule_report=daily 02:00` in its settings runs it at 02:00. `func_config_load` (`function/config.py`, called from `main.py`) does the merge; the result is `app.state.config_<name>`.
+
+- **Type:** an overriding value takes the type of the default in code: a `True`/`False` default reads `true`/`false` (also `1`/`0`, `yes`/`no`, `on`/`off`; anything else stops startup), a number reads a number, a list or dict reads JSON (a value that is not valid JSON leaves the code's value), a string stays text (all digits become an integer). A key with no default in code is guessed the same way ([section 2](#2-dynamic-env-discovery--type-inference)).
+- **When:** only at startup; a changed `.env` or server setting applies after a restart (Azure restarts the app when a setting changes).
+- **Checks:** startup validates the merged values, so a bad one (`config_schedule_report=daily 2am`) stops the app with its name.
 
 > **Rule of Thumb**: Use `.env` for secrets, credentials, and environment flags; use `config_extend.py` for structural changes (tables, custom route policies).
 
@@ -26,9 +35,9 @@ Developers can declare **any** custom variable in `.env` without modifying `conf
 
 ### Example `.env`:
 ```dotenv
-# String values
-CONFIG_PAYMENT_GATEWAY_API_KEY="sk_test_123456789"
-CONFIG_EXTERNAL_WEBHOOK_URL="https://hooks.example.com/events"
+# String values (no quotes: docker --env-file and some hosts keep them as part of the value)
+CONFIG_PAYMENT_GATEWAY_API_KEY=sk_test_123456789
+CONFIG_EXTERNAL_WEBHOOK_URL=https://hooks.example.com/events
 
 # Booleans (case-insensitive true/false, yes/no, on/off)
 CONFIG_ENABLE_BETA_CHECKOUT=true

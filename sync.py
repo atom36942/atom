@@ -41,7 +41,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # setting
 # Atom's version: raised by hand when a change is worth a new number (no tags); a project's sync.py shows the version it has
-ATOM_VERSION = "7.0.0"
+ATOM_VERSION = "7.0.1"
 REPO_URL = "https://github.com/atom36942/atom.git"
 # Single files replaced from upstream on every sync.
 SYNC_FILES = [
@@ -100,7 +100,6 @@ ENV_STARTER = (
     "# config_postgres_url_master=postgresql://postgres:postgres@localhost:5432/postgres\n"
     "# config_root_user_password=your-strong-root-password\n"
     "# config_token_secret_key=your-secret-key-at-least-32-chars\n"
-    "# config_signup_allowed_roles=[2]\n"
     "# config_is_prod=false\n"
     "# config_is_pgweb_enabled=true\n"
     "# config_redis_url_api_response=redis://localhost:6379/0\n"
