@@ -44,9 +44,9 @@ async def func_postgres_acquire_clean(*, client_postgres: asyncpg.Pool):
             try: await conn.reset(timeout=5)
             except Exception: conn.terminate()
 
-def func_client_redis(*, url: str):
-    """Initialize a single Redis connection pool."""
-    return redis.Redis.from_pool(redis.ConnectionPool.from_url(url)) if url else None
+def func_client_redis(*, url: str, max_connections: int = 100, timeout_sec: float = 5):
+    """Initialize a single Redis connection pool: when all max_connections are busy, a command waits up to timeout_sec for one instead of failing at once."""
+    return redis.Redis.from_pool(redis.BlockingConnectionPool.from_url(url, max_connections=max_connections, timeout=timeout_sec)) if url else None
 
 def func_client_mongodb(*, url: str):
     """Initialize Motor MongoDB client."""

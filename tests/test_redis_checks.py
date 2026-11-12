@@ -80,6 +80,13 @@ class RedisCheckTests(unittest.IsolatedAsyncioTestCase):
         results = await asyncio.gather(*(self.rate(limit=5) for _ in range(20)), return_exceptions=True)
         self.assertEqual(sum(1 for r in results if r is None), 5)
 
+    async def test_busy_pool_waits_for_a_connection_instead_of_failing(self):
+        client = func_client_redis(url=REDIS_URL, max_connections=2)
+        try:
+            results = await asyncio.gather(*(client.blpop(["atom_test:empty_list"], timeout=0.05) for _ in range(10)), return_exceptions=True)
+            self.assertEqual([r for r in results if isinstance(r, Exception)], [])
+        finally: await client.aclose()
+
 
 if __name__ == "__main__":
     unittest.main()

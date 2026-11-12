@@ -1,5 +1,5 @@
 # Atom
-Version 7.1.0
+Version 7.1.1
 
 Batteries-included FastAPI framework for production backends: auth, CRUD over any table, caching, rate limits, queues, workers, web pages and optional integrations, all driven by config. Your code lives in `*_extend` paths, so updating Atom never overwrites it.
 
@@ -116,7 +116,7 @@ Then open a pull request against `main`. Details: [tests/README.md](tests/README
 # Docs
 - **Start:** [quickstart](docs/quickstart.md) · [about](docs/about.md) · [config](docs/config.md) · [extend](docs/extend.md) · [sync](docs/sync.md) · [windows](docs/windows.md) · [faq](docs/faq.md) · [AGENTS.md](AGENTS.md)
 - **Features:** [auth](docs/auth.md) · [crud](docs/crud.md) · [pages](docs/page.md) · [ownership](docs/ownership.md) · [database](docs/database.md) · [schedule](docs/schedule.md) · [redis](docs/redis.md) · [queue](docs/queue.md) · [messaging](docs/messaging.md) · [storage](docs/storage.md)
-- **Operate:** [admin](docs/admin.md) · [performance](docs/performance.md) · [security](docs/security.md) · [audit](docs/audit.md) · [tests](tests/README.md)
+- **Operate:** [admin](docs/admin.md) · [performance](docs/performance.md) · [benchmark](docs/benchmark.md) · [security](docs/security.md) · [audit](docs/audit.md) · [tests](tests/README.md)
 
 # License
 MIT.

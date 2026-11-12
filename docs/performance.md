@@ -142,6 +142,8 @@ Measured on one machine with a local PostgreSQL; on a remote database the saved 
 
 **One export path for every database (4.0).** Every CSV export, Atom's routes and every project's, goes through `func_postgres_export` (or `func_mssql_export`, `func_clickhouse_export`): one query read with a cursor in a read-only transaction and streamed in 64 KB chunks, capped by `config_export_limit` (1,000,000). The table export no longer pages with `OFFSET` for sorts other than `id`. 1,000,000 rows of four columns (local database): 3.9 s, a 77 MB file, first bytes after 1 ms, process memory at 83 MB throughout.
 
+**Redis pool waits when busy.** `func_client_redis` used redis-py's default pool, which holds 100 connections per worker and raises `MaxConnectionsError` (a `503`) the moment all are busy. It now uses `BlockingConnectionPool`: a command waits up to 5 s for a free connection, as Postgres requests do. `/info` cached in Redis, 1,000 users on 4 workers: 11,378 req/s with 28% `503` before, 20,468 req/s with no errors after ([benchmark.md](benchmark.md)).
+
 ## 13. Paging After a Cursor (6.0)
 
 Every list pages after a cursor ([crud.md](crud.md#paging)); `page` (OFFSET) remains only to jump within the first 10,000 rows (6.1). Measured on a local PostgreSQL 18 with 5,000,000 rows (929 MB, indexes `btree(created_by_id,id)` and `btree(amount,id)`), 50 rows a page, median of 7 runs:

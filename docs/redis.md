@@ -28,7 +28,7 @@ redis = request.app.state.client_redis_dict["sessions"]
 await redis.set(f"session:{request.state.user['id']}", "active", ex=3600)
 ```
 
-The client is created at startup and closed at shutdown with the others. A misspelled role name (e.g. `config_redis_url_api_respone`) simply becomes an unused project connection; a route that needs the real role then fails startup with `config_redis_url_api_response is missing`.
+The client is created at startup and closed at shutdown with the others. Each holds up to 100 connections per worker; when all are busy, a command waits up to 5 s for one (like the Postgres pool) instead of failing. A misspelled role name (e.g. `config_redis_url_api_respone`) simply becomes an unused project connection; a route that needs the real role then fails startup with `config_redis_url_api_response is missing`.
 
 ## Configuration
 
