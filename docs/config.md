@@ -194,6 +194,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_schedule_<script>` | When `script/<script>.py` or `script_extend/<script>.py` runs by itself: `off`, `every 6h`, `daily 02:00`, `every 3d 02:00`, `weekly sun 02:00` or `monthly 1 02:00`. Atom's: `config_schedule_cleanup` (`every 1h`), `config_schedule_postgres_backup` (`off`) ([schedule.md](schedule.md)) |
 | `config_retention_day_otp` | OTP row retention in days (`1`); `None` skips it. Must exceed OTP expiry. Deleted by `script/cleanup.py` on `config_schedule_cleanup` |
 | `config_retention_day_log_api` | API-log row retention in days (`7`); `None` skips it. Deleted by `script/cleanup.py` on `config_schedule_cleanup` |
+| `config_retention_day_script_run` | Days a finished `script_run` row is kept (`90`); `None` keeps them. Deleted by `script/cleanup.py` on `config_schedule_cleanup`; a run still going is never deleted |
 | `config_retention_day_users_delete` | Days before soft-deleted users' data is purged by `script/worker_users_delete.py` (`30`) |
 | `config_access_token_expires_sec` | JWT Access Token lifetime in seconds |
 | `config_refresh_token_expires_sec` | JWT Refresh Token lifetime in seconds |
@@ -475,9 +476,9 @@ Permission IDs are integers in Python, but JSON object keys are strings: clients
 
 📚 [Back to README](../readme.md)
 
-### Automatic OTP and API-log cleanup
+### Automatic OTP, API-log and script-run cleanup
 
-`script/cleanup.py` runs on `config_schedule_cleanup` (every hour by default, [schedule.md](schedule.md)) and permanently deletes only rows older than each retention cutoff, in batches of up to 5,000 with 0.1-second pauses, until none are left; each run is a row in `script_run`. OTP rows are in the master database; API logs in the database `config_postgres_db_log_api` names, and only while `config_is_log_api` is on. Successful OTP verification still deletes its code immediately; expiry alone does not delete it. `config_schedule_cleanup = "off"` stops both; a retention of `None` stops one.
+`script/cleanup.py` runs on `config_schedule_cleanup` (every hour by default, [schedule.md](schedule.md)) and permanently deletes only rows older than each retention cutoff, in batches of up to 5,000 with 0.1-second pauses, until none are left; each run is a row in `script_run`. OTP and `script_run` rows are in the master database (`script_run` keeps a run still going, whatever its age); API logs in the database `config_postgres_db_log_api` names, and only while `config_is_log_api` is on. Successful OTP verification still deletes its code immediately; expiry alone does not delete it. `config_schedule_cleanup = "off"` stops both; a retention of `None` stops one.
 
 #### Sizing `config_retention_day_log_api`
 

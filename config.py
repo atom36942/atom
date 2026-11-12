@@ -114,6 +114,7 @@ config_schedule_postgres_backup = "off"
 config_retention_day_otp = 1
 config_retention_day_log_api = 7
 config_retention_day_users_delete = 30
+config_retention_day_script_run = 90
 
 # mssql
 config_mssql_pool_min_size = 1

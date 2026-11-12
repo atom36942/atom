@@ -72,7 +72,7 @@ def func_check_runtime_config(*, app_state: State) -> None:
     values = getattr(app_state, "_state", None) or vars(app_state)
     for old_key, new_key in (("config_otp_retention_day", "config_retention_day_otp"), ("config_log_api_retention_day", "config_retention_day_log_api"), ("config_users_delete_retention_day", "config_retention_day_users_delete")):
         if old_key in values: raise ValueError(f"{old_key} was renamed to {new_key} in Atom 7.0.0; rename it in config_extend.py or .env")
-    for key in ("config_retention_day_otp", "config_retention_day_log_api", "config_retention_day_users_delete"):
+    for key in ("config_retention_day_otp", "config_retention_day_log_api", "config_retention_day_users_delete", "config_retention_day_script_run"):
         retention = getattr(app_state, key, None)
         if retention is None: continue
         if isinstance(retention, bool) or not isinstance(retention, int) or not 1 <= retention <= 36500:

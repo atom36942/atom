@@ -163,6 +163,11 @@ async def func_schedule_periodic_task(*, client_postgres: asyncpg.Pool, schedule
         if tasks: await asyncio.wait(tasks, timeout=4)
     return
 
+async def func_script_run_cleanup(*, conn: asyncpg.Connection, cutoff, timeout_sec: float) -> int:
+    """Delete at most 5,000 finished script_run rows started before cutoff; a run still going is kept (script/cleanup.py calls it until done)."""
+    result = await conn.execute("DELETE FROM script_run WHERE id IN (SELECT id FROM script_run WHERE created_at < $1 AND status <> 1 ORDER BY created_at LIMIT 5000 FOR UPDATE SKIP LOCKED)", cutoff, timeout=timeout_sec)
+    return int(result.split()[-1])
+
 def func_script_run_message(*, error: BaseException) -> str | None:
     """The plain message a failed run keeps: the error's own text (first line, 500 characters), the exit code, or how it was stopped; None for a clean exit."""
     if isinstance(error, SystemExit):

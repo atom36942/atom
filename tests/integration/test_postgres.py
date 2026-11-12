@@ -291,6 +291,8 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
         from unittest.mock import patch
         from function.schedule import func_schedule_script_start
         await self.pool.execute("INSERT INTO otp (otp, created_at) VALUES (111111, $1), (222222, now())", datetime.now(UTC) - timedelta(days=2))
+        old = datetime.now(UTC) - timedelta(days=100)
+        await self.pool.execute("INSERT INTO script_run (script, started_by, status, created_at) VALUES ('job', 'manual', 2, $1), ('job', 'manual', 1, $1), ('job', 'manual', 2, now())", old)    # old done, old still running, new done
         cwd = os.getcwd()
         with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"config_postgres_url_master": self.url}):
             os.chdir(folder)
@@ -299,7 +301,8 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(code, 0)
         self.assertEqual(await self.pool.fetchval("SELECT count(*) FROM otp"), 1)
         row = await self.pool.fetchrow("SELECT started_by, status, step, message FROM script_run WHERE script = 'cleanup'")
-        self.assertEqual(dict(row), {"started_by": "schedule", "status": 2, "step": "log_api", "message": "deleted rows: otp 1, log_api 0"})
+        self.assertEqual(dict(row), {"started_by": "schedule", "status": 2, "step": "script_run", "message": "deleted rows: otp 1, log_api 0, script_run 1"})
+        self.assertEqual([r["status"] for r in await self.pool.fetch("SELECT status FROM script_run WHERE script = 'job' ORDER BY id")], [1, 2])    # the old finished run is gone; a run still going is kept
 
     async def test_otp_success_consumes_code_and_wrong_guesses_are_capped(self):
         code = func_otp_generate(client_postgres=self.pool, config_otp_length=6)
