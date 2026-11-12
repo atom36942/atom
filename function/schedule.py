@@ -74,8 +74,15 @@ def func_schedule_decide(*, now: datetime.datetime, slot: tuple, is_running: boo
     if now >= start + min(datetime.timedelta(seconds=late_sec), end - start): return "late"
     return "start"
 
+def func_script_type(*, path: str) -> str | None:
+    """A script's kind from its header line '# type: job' (runs once and exits) or '# type: continuous' (runs until stopped); None when the line is missing."""
+    with open(path, encoding="utf-8") as file:
+        for _, line in zip(range(20), file, strict=False):
+            if line.startswith("# type:"): return line.removeprefix("# type:").strip()
+    return None
+
 def func_schedule_read(*, values: dict, root: str = None) -> dict:
-    """{script: {"schedule": dict, "module": "script.x" or "script_extend.x"}} for every config_schedule_<script> that is not off; raises on a bad value, a bad timezone or interval, a missing script or one in both folders."""
+    """{script: {"schedule": dict, "module": "script.x" or "script_extend.x"}} for every config_schedule_<script> that is not off; raises on a bad value, a bad timezone or interval, a missing script, one in both folders, or one whose header is not '# type: job' (a continuous script runs as its own process)."""
     root = root or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))    # the project folder, wherever the app is started from
     func_schedule_timezone(name=values.get("config_schedule_timezone", "UTC"))
     check_sec = values.get("config_schedule_check_sec", 600)
@@ -89,6 +96,9 @@ def func_schedule_read(*, values: dict, root: str = None) -> dict:
         if len(found) == 2: raise ValueError(f"{key}: {script}.py is in both script/ and script_extend/; rename one")
         if schedule is None: continue
         if not found: raise ValueError(f"{key}: no script named {script} (script/{script}.py or script_extend/{script}.py)")
+        kind = func_script_type(path=os.path.join(root, found[0], f"{script}.py"))
+        if kind == "continuous": raise ValueError(f"{key}: {script} is '# type: continuous' (runs until stopped): run it as its own process, not on a schedule (docs/schedule.md); set it to off")
+        if kind != "job": raise ValueError(f"{key}: {found[0]}/{script}.py needs the header line '# type: job' under its # command lines to be scheduled")
         schedules[script] = {"schedule": schedule, "module": f"{found[0]}.{script}"}
     return schedules
 
@@ -164,7 +174,7 @@ async def func_schedule_periodic_task(*, client_postgres: asyncpg.Pool, schedule
     return
 
 async def func_script_run_cleanup(*, conn: asyncpg.Connection, cutoff, timeout_sec: float) -> int:
-    """Delete at most 5,000 finished script_run rows started before cutoff; a run still going is kept (script/cleanup.py calls it until done)."""
+    """Delete at most 5,000 finished script_run rows started before cutoff; a run still going is kept (script/postgres_cleanup.py calls it until done)."""
     result = await conn.execute("DELETE FROM script_run WHERE id IN (SELECT id FROM script_run WHERE created_at < $1 AND status <> 1 ORDER BY created_at LIMIT 5000 FOR UPDATE SKIP LOCKED)", cutoff, timeout=timeout_sec)
     return int(result.split()[-1])
 

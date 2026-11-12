@@ -79,24 +79,29 @@ class ScheduleDecideTests(unittest.TestCase):
 class ScheduleReadTests(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.TemporaryDirectory()
-        for folder, name in (("script", "cleanup"), ("script_extend", "nightly"), ("script", "twice"), ("script_extend", "twice")):
+        for folder, name, kind in (("script", "postgres_cleanup", "job"), ("script_extend", "nightly", "job"), ("script", "twice", "job"), ("script_extend", "twice", "job"), ("script", "listener", "continuous"), ("script_extend", "untyped", None)):
             os.makedirs(os.path.join(self.root.name, folder), exist_ok=True)
-            open(os.path.join(self.root.name, folder, f"{name}.py"), "w").close()
+            with open(os.path.join(self.root.name, folder, f"{name}.py"), "w") as file: file.write(f"# command: venv/bin/python -m {folder}.{name}\n" + (f"# type: {kind}\n" if kind else "") + "\n# info: x\n")
 
     def tearDown(self): self.root.cleanup()
 
     def read(self, **values): return func_schedule_read(values={"config_schedule_timezone": "UTC", "config_schedule_check_sec": 600, **values}, root=self.root.name)
 
     def test_scheduled_scripts_and_their_folder(self):
-        self.assertEqual(self.read(config_schedule_cleanup="every 1h", config_schedule_nightly="daily 02:00", config_schedule_other="off"), {
-            "cleanup": {"schedule": {"kind": "hour", "every": 1, "time": (0, 0)}, "module": "script.cleanup"},
+        self.assertEqual(self.read(config_schedule_postgres_cleanup="every 1h", config_schedule_nightly="daily 02:00", config_schedule_other="off"), {
+            "postgres_cleanup": {"schedule": {"kind": "hour", "every": 1, "time": (0, 0)}, "module": "script.postgres_cleanup"},
             "nightly": {"schedule": {"kind": "day", "every": 1, "time": (2, 0)}, "module": "script_extend.nightly"},
         })
-        self.assertEqual(self.read(config_schedule_cleanup="off"), {})
+        self.assertEqual(self.read(config_schedule_postgres_cleanup="off"), {})
+
+    def test_only_a_job_can_be_scheduled(self):
+        with self.assertRaisesRegex(ValueError, "config_schedule_listener: listener is '# type: continuous'"): self.read(config_schedule_listener="daily 02:00")
+        with self.assertRaisesRegex(ValueError, r"config_schedule_untyped: script_extend/untyped.py needs the header line '# type: job'"): self.read(config_schedule_untyped="daily 02:00")
+        self.assertEqual(self.read(config_schedule_listener="off", config_schedule_untyped="off"), {})    # off stays allowed
 
     def test_startup_errors(self):
         for values, error in (({"config_schedule_missing": "daily 02:00"}, "no script named missing"), ({"config_schedule_twice": "off"}, "in both script/ and script_extend/"),
-                              ({"config_schedule_cleanup": "every 7h"}, "config_schedule_cleanup"), ({"config_schedule_check_sec": 30}, "60 to 3600"), ({"config_schedule_timezone": "IST"}, "unknown time zone")):
+                              ({"config_schedule_postgres_cleanup": "every 7h"}, "config_schedule_postgres_cleanup"), ({"config_schedule_check_sec": 30}, "60 to 3600"), ({"config_schedule_timezone": "IST"}, "unknown time zone")):
             with self.subTest(values=values), self.assertRaisesRegex(ValueError, error): self.read(**values)
 
 

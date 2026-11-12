@@ -413,7 +413,7 @@ async def func_postgres_schema_lock_timeout(*, conn: Any, lock_timeout_sec: int)
     return
 
 def func_postgres_schema_lock_error(*, error: Exception, lock_timeout_sec: int) -> Exception:
-    return Exception(f"schema init: a table stayed locked by other sessions for over {lock_timeout_sec} s (config_postgres_schema_lock_timeout_sec), so nothing was changed; start again when it is quiet. See what would change: venv/bin/python -m script.schema_plan ({error})")
+    return Exception(f"schema init: a table stayed locked by other sessions for over {lock_timeout_sec} s (config_postgres_schema_lock_timeout_sec), so nothing was changed; start again when it is quiet. See what would change: venv/bin/python -m script.postgres_schema_plan ({error})")
 
 async def func_postgres_schema_tables_init(*, app_state: State, client_postgres: asyncpg.Pool, tables: dict, lock_timeout_sec: int = 10) -> str:
     """Create or update only the given tables (columns, indexes, constraints); no extensions, users or triggers, so other tables in that database are untouched."""
@@ -458,7 +458,7 @@ async def func_postgres_schema_check(*, app_state: State, client_postgres: async
     changes = [step["sql"] for step in await app_state.func_postgres_schema_plan(app_state=app_state, client_postgres=client_postgres, config_postgres=config_postgres) if not step["is_routine"]]
     if changes:
         preview = "; ".join(" ".join(sql.split()).rstrip(";")[:120] for sql in changes[:3]) + ("; …" if len(changes) > 3 else "")
-        raise Exception(f"schema check: the database differs from config_postgres ({len(changes)} changes) and config_is_postgres_schema_init is off, so nothing was changed. See them: venv/bin/python -m script.schema_plan; run them: venv/bin/python -m script.schema_plan --apply ({preview})")
+        raise Exception(f"schema check: the database differs from config_postgres ({len(changes)} changes) and config_is_postgres_schema_init is off, so nothing was changed. See them: venv/bin/python -m script.postgres_schema_plan; run them: venv/bin/python -m script.postgres_schema_plan --apply ({preview})")
     return "schema check done"
 
 SCHEMA_RISKS = ((r"ALTER COLUMN .* TYPE ", "rewrites the table, which stays locked until it finishes"), (r"SET NOT NULL", "reads every row while the table is locked"),

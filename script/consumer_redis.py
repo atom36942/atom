@@ -1,3 +1,5 @@
+# type: continuous
+
 # command: venv/bin/python -m script.consumer_redis channel_object_create
 # command: venv/bin/python -m script.consumer_redis channel_object_update
 

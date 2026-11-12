@@ -1,6 +1,8 @@
-# command: venv/bin/python -m script.cleanup
+# type: job
 
-# info: Deletes OTP, API-log and script-run rows older than their retention (config_retention_day_otp, config_retention_day_log_api, config_retention_day_script_run; None skips one); runs on config_schedule_cleanup (every hour by default).
+# command: venv/bin/python -m script.postgres_cleanup
+
+# info: Deletes OTP, API-log and script-run rows older than their retention (config_retention_day_otp, config_retention_day_log_api, config_retention_day_script_run; None skips one); runs on config_schedule_postgres_cleanup (every hour by default).
 # - step: otp, deletes old codes from the master database
 # - step: log_api, deletes old request logs from the database config_postgres_db_log_api names
 # - step: script_run, deletes old finished runs of scheduled and hand-run scripts from the master database
@@ -40,7 +42,7 @@ async def cleanup_run(*, config) -> None:
     url_dict = config.get("config_postgres_url_dict") or {}
     if not url_dict.get("master"): raise Exception("config_postgres_url_master is not set")
     log_db = config.get("config_postgres_db_log_api") if config.get("config_is_log_api") else None
-    async with func_script_run(postgres_url=url_dict["master"], script="cleanup"):
+    async with func_script_run(postgres_url=url_dict["master"], script="postgres_cleanup"):
         result = []
         print("step: otp", flush=True)
         if config.get("config_retention_day_otp") is not None:

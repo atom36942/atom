@@ -1,3 +1,5 @@
+# type: continuous
+
 # command: venv/bin/python -m script.worker_users_delete
 
 # info: Permanently hard-deletes soft-deleted user data and its storage files after the data retention window expires.

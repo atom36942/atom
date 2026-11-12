@@ -1,4 +1,4 @@
-"""Schema changes at startup are safe on a busy database: the plan shows what startup would change without changing it, flags what locks or rewrites a table, and a table another session holds makes startup stop within config_postgres_schema_lock_timeout_sec instead of hanging. With schema init off, startup only checks, and schema_plan --apply runs the change."""
+"""Schema changes at startup are safe on a busy database: the plan shows what startup would change without changing it, flags what locks or rewrites a table, and a table another session holds makes startup stop within config_postgres_schema_lock_timeout_sec instead of hanging. With schema init off, startup only checks, and postgres_schema_plan --apply runs the change."""
 import asyncio
 import contextlib
 import copy
@@ -13,8 +13,8 @@ import function
 from function import func_postgres_schema_check
 from function import func_postgres_schema_init
 from function import func_postgres_schema_plan
-from script.schema_plan import plan_apply
-from script.schema_plan import plan_print
+from script.postgres_schema_plan import plan_apply
+from script.postgres_schema_plan import plan_print
 from tests.integration.support import config_postgres
 from tests.integration.support import create_database
 from tests.integration.support import drop_database
@@ -84,7 +84,7 @@ class SchemaPlanTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_with_init_off_startup_checks_and_changes_nothing(self):
         self.assertEqual(await func_postgres_schema_check(app_state=self.app_state, client_postgres=self.pool, config_postgres=self.config), "schema check done", "a matching database starts")
-        with self.assertRaisesRegex(Exception, r"schema check: the database differs from config_postgres \(2 changes\) and config_is_postgres_schema_init is off, so nothing was changed\. .*schema_plan --apply .*ALTER TABLE"):
+        with self.assertRaisesRegex(Exception, r"schema check: the database differs from config_postgres \(2 changes\) and config_is_postgres_schema_init is off, so nothing was changed\. .*postgres_schema_plan --apply .*ALTER TABLE"):
             await func_postgres_schema_check(app_state=self.app_state, client_postgres=self.pool, config_postgres=title_as_varchar(self.config))
         self.assertEqual(await self.title_type(), "text")
 

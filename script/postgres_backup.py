@@ -1,3 +1,5 @@
+# type: job
+
 # command: venv/bin/python -m script.postgres_backup
 
 # info: Backs up every table of the master database to CSV, with its columns and indexes, into tmp/postgres_backup/<date_time>/, from one consistent snapshot, and deletes backups older than BACKUP_KEEP_DAY; runs on config_schedule_postgres_backup (off by default).

@@ -296,11 +296,11 @@ class PostgresIntegrationTests(unittest.IsolatedAsyncioTestCase):
         cwd = os.getcwd()
         with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"config_postgres_url_master": self.url}):
             os.chdir(folder)
-            try: code = await func_schedule_script_start(client_postgres=self.pool, script="cleanup", module="script.cleanup", timeout_sec=120)
+            try: code = await func_schedule_script_start(client_postgres=self.pool, script="postgres_cleanup", module="script.postgres_cleanup", timeout_sec=120)
             finally: os.chdir(cwd)
         self.assertEqual(code, 0)
         self.assertEqual(await self.pool.fetchval("SELECT count(*) FROM otp"), 1)
-        row = await self.pool.fetchrow("SELECT started_by, status, step, message FROM script_run WHERE script = 'cleanup'")
+        row = await self.pool.fetchrow("SELECT started_by, status, step, message FROM script_run WHERE script = 'postgres_cleanup'")
         self.assertEqual(dict(row), {"started_by": "schedule", "status": 2, "step": "script_run", "message": "deleted rows: otp 1, log_api 0, script_run 1"})
         self.assertEqual([r["status"] for r in await self.pool.fetch("SELECT status FROM script_run WHERE script = 'job' ORDER BY id")], [1, 2])    # the old finished run is gone; a run still going is kept
 

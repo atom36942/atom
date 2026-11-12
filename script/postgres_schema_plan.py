@@ -1,5 +1,7 @@
-# command: venv/bin/python -m script.schema_plan
-# command: venv/bin/python -m script.schema_plan --apply
+# type: job
+
+# command: venv/bin/python -m script.postgres_schema_plan
+# command: venv/bin/python -m script.postgres_schema_plan --apply
 
 # info: Prints the SQL Atom's next start would run on the master database to match config_postgres (config.py and config_extend.py), and flags statements that lock or rewrite a table; --apply then runs it.
 # - without --apply: reads the database catalog on a read-only connection; changes nothing

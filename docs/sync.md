@@ -58,6 +58,11 @@ Atom's version is `ATOM_VERSION` in `sync.py` (for example `ATOM_VERSION = "1.2.
 
 Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. Sync always takes the latest `main`; to mark a new version, raise `ATOM_VERSION` and the `Version` line at the top of `readme.md` (a test checks they match) and push to `main` (no tags or GitHub releases). Commits in between keep the last version. A project synced before versions existed shows `unknown` until its next sync. If a sync fails after installing the new `sync.py`, that file already shows the new version while the other files may be older; the error says so, and running sync again finishes it.
 
+### Upgrading to 8.0.0
+
+- Two of Atom's scripts were renamed: `script/cleanup.py` → `script/postgres_cleanup.py` and `script/schema_plan.py` → `script/postgres_schema_plan.py` (run them as `venv/bin/python -m script.postgres_cleanup` and `script.postgres_schema_plan`). The setting `config_schedule_cleanup` is now `config_schedule_postgres_cleanup`: a project that sets the old name renames it (an old name that is not `off` stops startup: no script named cleanup).
+- Every script starts with `# type: job` (runs once and exits) or `# type: continuous` (runs until stopped). Add it as the first line of each `script_extend/` script, then a blank line; a scheduled script without `# type: job` stops startup, and a `continuous` one is never scheduled ([schedule.md](schedule.md)).
+
 ### Upgrading to 7.0.0
 
 Three settings were renamed; a project that sets one in `config_extend.py` or `.env` renames it (the old name stops startup, naming the new one):

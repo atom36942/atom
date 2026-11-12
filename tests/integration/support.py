@@ -68,7 +68,7 @@ APP_TEST_ENV = {
     "config_root_user_password": "root-test-password",
     "config_signup_allowed_roles": "[5]",
     "config_postgres_buffer_flush_auto_sec": "1",
-    "config_schedule_cleanup": "off",    # no scheduled script starts against the test database
+    "config_schedule_postgres_cleanup": "off",    # no scheduled script starts against the test database
 }
 
 

@@ -58,18 +58,18 @@ class FileStructureTests(unittest.TestCase):
         for path in SCRIPT_PATHS:
             with self.subTest(script=path.name):
                 lines = path.read_text().splitlines()
-                self.assertRegex(lines[0], r"^# command: \S")
                 header = [line for line in lines if line.strip()]
-                first_other = next(line for line in header if not line.startswith("# command"))
-                self.assertRegex(first_other, r"^# info: \S", "# info: <one line> right after the # command lines")
+                self.assertRegex(header[0], r"^# type: (job|continuous)$", "first line: # type: job (runs once and exits) or # type: continuous (runs until stopped)")
+                self.assertRegex(header[1], r"^# command: \S", "# command lines after # type")
+                self.assertRegex(next(line for line in header[1:] if not line.startswith("# command")), r"^# info: \S", "# info: <one line> after the # command lines")
                 self.assertEqual(sections(path), SCRIPT_SECTIONS)
 
     def test_script_headers_follow_a_blank_line(self):
         for path in SCRIPT_PATHS:
             lines = path.read_text().splitlines()
-            after = [line for number, line in enumerate(lines[1:], 1) if (line.startswith("# info:") or re.fullmatch(r"# ([a-z_]+)", line)) and lines[number - 1] != ""]
+            after = [line for number, line in enumerate(lines[1:], 1) if (line.startswith("# info:") or re.fullmatch(r"# ([a-z_]+)", line) or line.startswith("# command:") and not lines[number - 1].startswith("# command:")) and lines[number - 1] != ""]
             with self.subTest(script=path.name):
-                self.assertEqual(after, [], "one blank line before # info and every section header")
+                self.assertEqual(after, [], "one blank line before the # command lines, # info and every section header")
 
     def test_script_settings_are_upper_case_constants(self):
         for path in SCRIPT_PATHS:

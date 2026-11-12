@@ -64,7 +64,7 @@ async def func_inmemory_cache_cleanup_periodic_task(*, cache_api_response: dict,
     return
 
 async def func_otp_cleanup(*, conn: asyncpg.Connection, cutoff, timeout_sec: float) -> int:
-    """Delete at most 5,000 OTP rows older than cutoff; leave current codes untouched (script/cleanup.py calls it until done)."""
+    """Delete at most 5,000 OTP rows older than cutoff; leave current codes untouched (script/postgres_cleanup.py calls it until done)."""
     result = await conn.execute("DELETE FROM otp WHERE id IN (SELECT id FROM otp WHERE created_at < $1 ORDER BY created_at LIMIT 5000 FOR UPDATE SKIP LOCKED)", cutoff, timeout=timeout_sec)
     return int(result.split()[-1])
 

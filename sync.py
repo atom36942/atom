@@ -1,9 +1,12 @@
+# type: job
+
 # command: python3 sync.py    (everyday: update files, rebuild venv/, list newer # extend packages)
 # command: python3 sync.py --no-outdated    (same, without the PyPI lookup)
 # command: python3 sync.py --no-venv    (files only: venv managed yourself, Docker)
 # command: python3 sync.py --no-venv --no-outdated    (CI: files only, no PyPI lookup)
 # command: python3 sync.py --status    (which Atom version this project has and the latest; changes nothing)
 # command: python3 sync.py --ref <commit>    (that Atom commit on main instead of the latest: a repeatable update, or going back to the Atom a project ran before)
+
 # command (Windows): py sync.py    (same flags; from a new PowerShell window, outside the venv)
 
 # info: Updates a project to the latest Atom, or starts one in an empty Git folder. Steps:
@@ -41,7 +44,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # setting
 # Atom's version: raised by hand when a change is worth a new number (no tags); a project's sync.py shows the version it has
-ATOM_VERSION = "7.1.1"
+ATOM_VERSION = "8.0.0"
 REPO_URL = "https://github.com/atom36942/atom.git"
 # Single files replaced from upstream on every sync.
 SYNC_FILES = [

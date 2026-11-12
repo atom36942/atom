@@ -107,7 +107,7 @@ config_postgres_db_log_api = "master"
 # schedule
 config_schedule_timezone = "UTC"
 config_schedule_check_sec = 600
-config_schedule_cleanup = "every 1h"
+config_schedule_postgres_cleanup = "every 1h"
 config_schedule_postgres_backup = "off"
 
 # retention

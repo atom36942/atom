@@ -154,8 +154,8 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_root_html_path` | Path to static HTML file served at `/` (default: Atom's home page, which lists every page in `static/` and `static_extend/`) |
 | `config_is_home_atom_listed` | `true` (default): the home page lists Atom's pages and the project's; `false`: only the project's pages (`static_extend/`). Applied by the server in `GET /static-pages`; Atom's pages still open at `/page/<name>` |
 | `config_is_user_delete` | Enables user hard deletion through `/my/user-delete` and `/admin/user-delete` (default `False`); the database also needs `users` out of `config_postgres` control `table_row_delete_disable` |
-| `config_is_postgres_schema_init` | `True` (default): startup changes the master database to match `config_postgres`. `False`: startup changes nothing, compares instead, and stops if the database differs, listing the changes; run them with `venv/bin/python -m script.schema_plan --apply` (for production, where schema changes should be a deliberate step). With `config_is_read_only` neither runs |
-| `config_postgres_schema_lock_timeout_sec` | Longest wait for a table lock during schema init (default 10); past it startup stops and changes nothing. See what would change: `venv/bin/python -m script.schema_plan` |
+| `config_is_postgres_schema_init` | `True` (default): startup changes the master database to match `config_postgres`. `False`: startup changes nothing, compares instead, and stops if the database differs, listing the changes; run them with `venv/bin/python -m script.postgres_schema_plan --apply` (for production, where schema changes should be a deliberate step). With `config_is_read_only` neither runs |
+| `config_postgres_schema_lock_timeout_sec` | Longest wait for a table lock during schema init (default 10); past it startup stops and changes nothing. See what would change: `venv/bin/python -m script.postgres_schema_plan` |
 | `config_signup_allowed_roles` | Roles allowed for public signup, including new users created by OTP/Google login (default: `[]` disables signup; role `1` is always rejected). See [role settings](auth.md#signup-and-login-role-settings). |
 | `config_login_allowed_roles` | Allowed values for the supplied login `role` parameter (default: roles `1` through `20`; optional for password login) |
 | `config_is_otp_require_users_update` | `/admin/user-update` needs `otp` for `email`/`mobile` (default `False`); `/my/user-update` always does |
@@ -191,10 +191,10 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_otp_max_attempt` | Verification guesses allowed per OTP code before it is locked (default: `5`) |
 | `config_schedule_timezone` | Time zone of every `config_schedule_*` time (`UTC`; a zone name such as `Asia/Kolkata`) ([schedule.md](schedule.md)) |
 | `config_schedule_check_sec` | How often scheduled scripts are checked, in seconds (`600`; 60 to 3600) |
-| `config_schedule_<script>` | When `script/<script>.py` or `script_extend/<script>.py` runs by itself: `off`, `every 6h`, `daily 02:00`, `every 3d 02:00`, `weekly sun 02:00` or `monthly 1 02:00`. Atom's: `config_schedule_cleanup` (`every 1h`), `config_schedule_postgres_backup` (`off`) ([schedule.md](schedule.md)) |
-| `config_retention_day_otp` | OTP row retention in days (`1`); `None` skips it. Must exceed OTP expiry. Deleted by `script/cleanup.py` on `config_schedule_cleanup` |
-| `config_retention_day_log_api` | API-log row retention in days (`7`); `None` skips it. Deleted by `script/cleanup.py` on `config_schedule_cleanup` |
-| `config_retention_day_script_run` | Days a finished `script_run` row is kept (`90`); `None` keeps them. Deleted by `script/cleanup.py` on `config_schedule_cleanup`; a run still going is never deleted |
+| `config_schedule_<script>` | When `script/<script>.py` or `script_extend/<script>.py` runs by itself: `off`, `every 6h`, `daily 02:00`, `every 3d 02:00`, `weekly sun 02:00` or `monthly 1 02:00`. Atom's: `config_schedule_postgres_cleanup` (`every 1h`), `config_schedule_postgres_backup` (`off`) ([schedule.md](schedule.md)) |
+| `config_retention_day_otp` | OTP row retention in days (`1`); `None` skips it. Must exceed OTP expiry. Deleted by `script/postgres_cleanup.py` on `config_schedule_postgres_cleanup` |
+| `config_retention_day_log_api` | API-log row retention in days (`7`); `None` skips it. Deleted by `script/postgres_cleanup.py` on `config_schedule_postgres_cleanup` |
+| `config_retention_day_script_run` | Days a finished `script_run` row is kept (`90`); `None` keeps them. Deleted by `script/postgres_cleanup.py` on `config_schedule_postgres_cleanup`; a run still going is never deleted |
 | `config_retention_day_users_delete` | Days before soft-deleted users' data is purged by `script/worker_users_delete.py` (`30`) |
 | `config_access_token_expires_sec` | JWT Access Token lifetime in seconds |
 | `config_refresh_token_expires_sec` | JWT Refresh Token lifetime in seconds |
@@ -478,7 +478,7 @@ Permission IDs are integers in Python, but JSON object keys are strings: clients
 
 ### Automatic OTP, API-log and script-run cleanup
 
-`script/cleanup.py` runs on `config_schedule_cleanup` (every hour by default, [schedule.md](schedule.md)) and permanently deletes only rows older than each retention cutoff, in batches of up to 5,000 with 0.1-second pauses, until none are left; each run is a row in `script_run`. OTP and `script_run` rows are in the master database (`script_run` keeps a run still going, whatever its age); API logs in the database `config_postgres_db_log_api` names, and only while `config_is_log_api` is on. Successful OTP verification still deletes its code immediately; expiry alone does not delete it. `config_schedule_cleanup = "off"` stops both; a retention of `None` stops one.
+`script/postgres_cleanup.py` runs on `config_schedule_postgres_cleanup` (every hour by default, [schedule.md](schedule.md)) and permanently deletes only rows older than each retention cutoff, in batches of up to 5,000 with 0.1-second pauses, until none are left; each run is a row in `script_run`. OTP and `script_run` rows are in the master database (`script_run` keeps a run still going, whatever its age); API logs in the database `config_postgres_db_log_api` names, and only while `config_is_log_api` is on. Successful OTP verification still deletes its code immediately; expiry alone does not delete it. `config_schedule_postgres_cleanup = "off"` stops both; a retention of `None` stops one.
 
 #### Sizing `config_retention_day_log_api`
 

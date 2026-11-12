@@ -719,7 +719,7 @@ curl "http://localhost:8000/public/object-read?connection=read_india&table=produ
 
 It can. When `config_is_postgres_schema_init = True`, startup compares `config_postgres` with the live schema and applies configured tables, columns, constraints, indexes, extensions, and triggers. The `config_postgres["control"]` flags determine whether missing tables or columns may be dropped and whether mismatched column types may be recreated.
 
-To make schema changes a deliberate step instead, set `config_is_postgres_schema_init = False`: startup then only compares and stops if the database differs, and `venv/bin/python -m script.schema_plan --apply` runs the changes. Review those controls carefully before pointing Atom at an existing or production database. Back up the database, test schema changes on a copy, and use a database account with appropriately limited privileges. For a safe column rename, set the column's `old` key instead of removing one name and adding another. See [config.md](config.md#control).
+To make schema changes a deliberate step instead, set `config_is_postgres_schema_init = False`: startup then only compares and stops if the database differs, and `venv/bin/python -m script.postgres_schema_plan --apply` runs the changes. Review those controls carefully before pointing Atom at an existing or production database. Back up the database, test schema changes on a copy, and use a database account with appropriately limited privileges. For a safe column rename, set the column's `old` key instead of removing one name and adding another. See [config.md](config.md#control).
 
 </details>
 

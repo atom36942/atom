@@ -26,7 +26,7 @@ class CleanupTests(unittest.IsolatedAsyncioTestCase):
                     buffer_postgres_create={}, buffer_postgres_log_api={}, cache_api_response={}, cache_api_response_bytes={"total": 0}, cache_ratelimiter={}, cache_token={},
                     config_postgres_buffer_flush_auto_sec=1, config_inmemory_cache_cleanup_auto_sec=1, config_schedule_timezone="UTC", config_schedule_check_sec=600,
                     func_postgres_buffer_flush_periodic_task=forever, func_schedule_periodic_task=forever, func_inmemory_cache_cleanup_periodic_task=forever, func_memory_history_periodic_task=forever,
-                    func_schedule_read=lambda **kwargs: {"cleanup": {}}, func_schedule_timezone=lambda **kwargs: None, func_async_tasks_cancel=func_async_tasks_cancel)
+                    func_schedule_read=lambda **kwargs: {"postgres_cleanup": {}}, func_schedule_timezone=lambda **kwargs: None, func_async_tasks_cancel=func_async_tasks_cancel)
                 func_app_tasks_start(app_state=state)
                 self.assertEqual(tuple(name for name in names if hasattr(state, name)), expected)
                 tasks = [getattr(state, name) for name in expected]

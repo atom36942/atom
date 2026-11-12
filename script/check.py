@@ -1,3 +1,5 @@
+# type: job
+
 # command: venv/bin/python -m script.check
 # command: venv/bin/python -m script.check tests.test_sync    (one module, class or test; ruff still runs)
 
