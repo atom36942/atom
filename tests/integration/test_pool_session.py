@@ -48,6 +48,33 @@ class PoolSessionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(after["pid"], clean["pid"], "the same connection was reused")
         self.assertEqual({k: after[k] for k in after if k != "pid"}, {k: clean[k] for k in clean if k != "pid"})
 
+    async def test_waiting_requests_get_connections_in_the_order_they_asked(self):
+        pool = await func_client_postgres(dsn=self.url, min_size=2, max_size=2)
+        try:
+            tickets, granted = iter(range(10**6)), []
+            async def worker():
+                for _ in range(30):
+                    ticket = next(tickets)
+                    async with pool.acquire() as conn:
+                        granted.append(ticket)
+                        await conn.fetchval("SELECT 1")
+                    await asyncio.sleep(0)
+            await asyncio.gather(*(worker() for _ in range(20)))
+            self.assertEqual(len(granted), 600)
+            self.assertEqual(granted, sorted(granted))
+        finally: await pool.close()
+
+    async def test_acquire_timeout_and_release_free_the_place(self):
+        pool = await func_client_postgres(dsn=self.url, min_size=1, max_size=1)
+        try:
+            conn = await pool.acquire()
+            with self.assertRaises(TimeoutError): await pool.acquire(timeout=0.05)
+            await pool.release(conn)
+            await pool.release(conn)    # a second release does nothing and frees no extra place
+            async with pool.acquire(timeout=1) as conn: self.assertEqual(await conn.fetchval("SELECT 1"), 1)
+            self.assertEqual(pool._gate._value, 1)
+        finally: await pool.close()
+
     async def test_an_open_transaction_is_rolled_back_on_release(self):
         asyncio.get_running_loop().set_exception_handler(lambda loop, context: None)    # asyncpg warns about the open transaction it rolls back, which is the case under test
         async with self.pool.acquire() as conn:

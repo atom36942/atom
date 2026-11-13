@@ -144,6 +144,8 @@ Measured on one machine with a local PostgreSQL; on a remote database the saved 
 
 **Redis pool waits when busy.** `func_client_redis` used redis-py's default pool, which holds 100 connections per worker and raises `MaxConnectionsError` (a `503`) the moment all are busy. It now uses `BlockingConnectionPool`: a command waits up to 5 s for a free connection, as Postgres requests do. `/info` cached in Redis, 1,000 users on 4 workers: 11,378 req/s with 28% `503` before, 20,468 req/s with no errors after ([benchmark.md](benchmark.md)).
 
+**Connections handed out in order (8.0.2).** A connection released without asyncpg's reset query goes back to the pool at once, so a request that just arrived could take it ahead of requests already waiting: low p50, slow p95. `func_client_postgres` now returns a pool whose requests first queue at a first-come-first-served gate (one place per connection). Measured locally, 1 worker, 10 connections, `/my/object-read` 20 rows from 1,000,000: p95 46 → 18 ms at 50 users, 242 → 91 ms at 200 users; creates at 50 users p95 30 → 13 ms; throughput within 4%; a single request unchanged ([benchmark.md](benchmark.md)).
+
 ## 13. Paging After a Cursor (6.0)
 
 Every list pages after a cursor ([crud.md](crud.md#paging)); `page` (OFFSET) remains only to jump within the first 10,000 rows (6.1). Measured on a local PostgreSQL 18 with 5,000,000 rows (929 MB, indexes `btree(created_by_id,id)` and `btree(amount,id)`), 50 rows a page, median of 7 runs:

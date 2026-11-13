@@ -9,7 +9,7 @@ then is counted on its second run.
 import time
 import unittest
 
-import asyncpg
+import function.clients
 
 from tests.integration.support import app_login
 from tests.integration.support import app_start
@@ -38,22 +38,22 @@ class QueryBudgetTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.queries = []
-        cls.create_pool = asyncpg.create_pool
+        cls.pool_class = function.clients._FairPool
         def counting_pool(*args, **kwargs):
             # every pool connection reports each query it runs (asyncpg query logger)
             init = kwargs.pop("init", None)
             async def counting_init(conn):
                 conn.add_query_logger(lambda record: cls.queries.append(record.query))
                 if init: await init(conn)
-            return cls.create_pool(*args, init=counting_init, **kwargs)
-        asyncpg.create_pool = counting_pool
+            return cls.pool_class(*args, init=counting_init, **kwargs)
+        function.clients._FairPool = counting_pool
         cls.db_name, cls.url = create_database()
         url = cls.url
         try:
             # periodic tasks (buffer flush, cleanups) stay quiet so only requests send queries; API logging goes to the buffer, not a query
             cls.handle = app_start(env={"config_postgres_url_master": url, "config_postgres_buffer_flush_auto_sec": "3600"})
         except BaseException:
-            asyncpg.create_pool = cls.create_pool
+            function.clients._FairPool = cls.pool_class
             drop_database(cls.db_name)
             raise
         cls.client = cls.handle["client"]
@@ -65,7 +65,7 @@ class QueryBudgetTests(unittest.TestCase):
     def tearDownClass(cls):
         try: app_stop(cls.handle)
         finally:
-            asyncpg.create_pool = cls.create_pool
+            function.clients._FairPool = cls.pool_class
             drop_database(cls.db_name)
 
     def idle_wait(self):

@@ -28,7 +28,7 @@ class ClientDictOpenTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result, {"master": "client"})
 
     async def test_query_timeout_reaches_asyncpg_only_when_set(self):
-        with patch("function.clients.asyncpg.create_pool", new=AsyncMock()) as create_pool:
+        with patch("function.clients._FairPool", new=AsyncMock()) as create_pool:
             await func_client_postgres(dsn="postgresql://a", query_timeout_sec=30)
             self.assertEqual(create_pool.await_args.kwargs["command_timeout"], 30)
             await func_client_postgres(dsn="postgresql://a")

@@ -1,7 +1,10 @@
 # import
+import asyncio
 from contextlib import asynccontextmanager
 from contextlib import suppress
 import asyncpg
+from asyncpg.pool import Pool
+from asyncpg.pool import PoolConnectionProxy
 import httpx
 import redis.asyncio as redis
 from argon2 import PasswordHasher
@@ -26,14 +29,37 @@ async def func_client_dict_open(*, client_dict: dict, url_dict: dict, client_ope
         if url: client_dict[name] = await client_open(name=name, url=url)
     return client_dict
 
+class _FairPool(Pool):
+    """asyncpg pool that hands connections to waiting requests in the order they asked: a request first takes a place at a first-come-first-served gate (asyncio.Semaphore, one place per connection), so a request that just arrived never takes a freed connection ahead of one already waiting. Without it, a connection released without a reset query goes back so fast that new requests overtake waiting ones: about the same throughput, but a slow tail (p95 at 50 users on 10 connections: 46 vs 18 ms; at 200 users: 242 vs 91 ms)."""
+    __slots__ = ("_gate",)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._gate = asyncio.Semaphore(kwargs["max_size"])
+
+    async def _acquire(self, timeout):  # noqa: ASYNC109 - asyncpg's own signature, overridden
+        async with asyncio.timeout(timeout):
+            await self._gate.acquire()
+            try: return await super()._acquire(timeout)
+            except BaseException:
+                self._gate.release()
+                raise
+
+    async def release(self, connection, *, timeout=None):  # noqa: ASYNC109 - asyncpg's own signature, overridden
+        is_held = type(connection) is PoolConnectionProxy and connection._holder._pool is self and connection._con is not None
+        try: return await super().release(connection, timeout=timeout)
+        finally:
+            if is_held: self._gate.release()
+
 async def func_client_postgres(*, dsn: str, min_size: int = 5, max_size: int = 20, is_read_only: bool = False, query_timeout_sec: float = 0):
-    """Initialize a single asyncpg Postgres connection pool; query_timeout_sec above 0 cancels any query running longer (asyncpg command_timeout, the query is cancelled on the server too). A released connection skips asyncpg's reset query (RESET ALL, UNLISTEN, unlock): Atom's code leaves no session state, an open transaction is still rolled back, and SQL someone typed runs through func_postgres_acquire_clean, so each request saves a round trip."""
+    """Initialize a single asyncpg Postgres connection pool; query_timeout_sec above 0 cancels any query running longer (asyncpg command_timeout, the query is cancelled on the server too). A released connection skips asyncpg's reset query (RESET ALL, UNLISTEN, unlock): Atom's code leaves no session state, an open transaction is still rolled back, and SQL someone typed runs through func_postgres_acquire_clean, so each request saves a round trip. Waiting requests get connections in the order they asked (_FairPool)."""
     if not dsn: return None
     async def keep_session(conn): return None
     pool_kwargs = {"min_size": min_size, "max_size": max_size, "reset": keep_session}
     if is_read_only: pool_kwargs["server_settings"] = {"default_transaction_read_only": "on"}
     if query_timeout_sec: pool_kwargs["command_timeout"] = query_timeout_sec
-    return await asyncpg.create_pool(dsn=dsn, **pool_kwargs)
+    # the same arguments asyncpg.create_pool passes, with its defaults
+    return await _FairPool(dsn, connection_class=asyncpg.Connection, record_class=asyncpg.Record, max_queries=50000, max_inactive_connection_lifetime=300.0, loop=None, **pool_kwargs)
 
 @asynccontextmanager
 async def func_postgres_acquire_clean(*, client_postgres: asyncpg.Pool):

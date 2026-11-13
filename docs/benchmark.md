@@ -67,7 +67,7 @@ Median of 3 alternating rounds, 50 users; "50 ms away" puts toxiproxy (25 ms eac
 
 - **Local database, same features:** Atom and hand-written FastAPI are even, within 8% either way (FastAPI reads +8%, Atom creates +6%). The no-features app is the price of the features themselves, which any real app pays.
 - **Database 50 ms away:** Atom is **2× faster** than hand-written FastAPI, with or without features, and **3×** faster than SQLAlchemy, because Atom makes one round trip per request. asyncpg's pool sends a reset query when a connection goes back (2 round trips), and SQLAlchemy wraps the query in `BEGIN` and `COMMIT` (3). Atom skips the reset and the transaction around single statements, and the gap grows with the distance to the database.
-- **Tail latency:** at 50 local users Atom's p95 is higher (64 ms vs 21 ms for the same-features app) at the same throughput: Atom answers most requests sooner and a few later.
+- **Tail latency:** up to 8.0.1 Atom's p95 at 50 local users was higher (46 ms vs ~20 ms) at the same throughput: connections released without a reset query went to new requests ahead of waiting ones. Since 8.0.2 they go in the order asked: p95 18 ms at 50 users (creates 30 → 13 ms) and 91 ms instead of 242 ms at 200 users, throughput within 4%, a single request unchanged (0.76 ms).
 
 ## 4. Techniques, each on and off
 
