@@ -20,6 +20,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from fastapi.routing import iter_route_contexts
+from starlette.requests import Request
 from starlette.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -409,6 +410,8 @@ def func_app_route_lookup_add(*, app: FastAPI) -> int:
 
     Only (method, path) pairs that FastAPI's own matching resolves to the same route at startup go in the table; anything else
     (static files, websockets, path parameters, 404, 405) runs FastAPI's normal matching. Returns the number of entries.
+    A route that is async, takes only the request, has no dependencies and returns through func_endpoint_json_wrap (every Atom route)
+    is called directly: FastAPI's dependency solving would find nothing to resolve. Other routes run route.handle as before.
     """
     try:
         from fastapi.routing import _FASTAPI_EFFECTIVE_ROUTE_CONTEXT_KEY
@@ -434,12 +437,12 @@ def func_app_route_lookup_add(*, app: FastAPI) -> int:
                 key = (method, route.path)
                 if key in table: continue
                 winner, winner_context = normal_match(method, route.path)
-                if winner is top and winner_context is context: table[key] = (top, context, route)
+                if winner is top and winner_context is context: table[key] = (top, context, route, _route_is_direct(route))
     normal_app = router.middleware_stack
     async def lookup_app(scope, receive, send):
         entry = table.get((scope.get("method"), scope.get("path"))) if scope["type"] == "http" and not scope.get("root_path") else None
         if entry is None: return await normal_app(scope, receive, send)
-        top, context, route = entry
+        top, context, route, is_direct = entry
         match, child_scope = route.matches(scope)
         if match != Match.FULL: return await normal_app(scope, receive, send)
         if "router" not in scope: scope["router"] = router
@@ -448,9 +451,20 @@ def func_app_route_lookup_add(*, app: FastAPI) -> int:
         fastapi_scope[_FASTAPI_INCLUDED_ROUTER_KEY] = top
         fastapi_scope[_FASTAPI_EFFECTIVE_ROUTE_CONTEXT_KEY] = context
         scope["route"] = route
+        if is_direct:
+            response = await route.endpoint(request=Request(scope, receive, send))
+            return await response(scope, receive, send)
         await route.handle(scope, receive, send)
     router.middleware_stack = lookup_app
     return len(table)
+
+def _route_is_direct(route: Any) -> bool:
+    """Can lookup_app call this route without FastAPI's dependency solving? Async, only a request parameter, no dependencies (its own, its router's or the app's), and wrapped by func_endpoint_json_wrap so it always returns a Response."""
+    endpoint = route.endpoint
+    if not getattr(endpoint, "__atom_json_wrapped__", False) or not inspect.iscoroutinefunction(endpoint): return False
+    if route.dependencies or route.dependant.dependencies: return False
+    params = list(inspect.signature(endpoint).parameters.values())
+    return len(params) == 1 and params[0].name == "request" and params[0].annotation in (Request, "Request")
 
 async def func_app_health_ready(*, app_state: Any, timeout_sec: float = 2) -> dict:
     """Is every configured database reachable? Each pool answers a trivial query within timeout_sec, all at the same time. {"<kind>.<name>": {"is_ok", "ms"}}, names only: no host, URL or error text, since the route is public."""
