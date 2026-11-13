@@ -1,6 +1,11 @@
 # 🏁 Benchmark
 
-Every number on this page was measured on one laptop with a fresh local database, using Atom 7.1.0 (7.1.1 for the Redis pool rows) with its default settings unless a row says otherwise. Each run was warmed up first and repeated. How to check any of these numbers yourself is at the end of the page.
+Two kinds of numbers, measured with Atom's default settings unless a row says otherwise:
+
+- **Local** (sections 1–7): one laptop with a fresh local database, which shows what Atom itself costs. Atom 7.1.0, and 7.1.1 for the Redis pool and comparison rows.
+- **Remote** (section 8): a real cloud deployment called over the internet, which shows what users actually wait for. Atom 8.0.0.
+
+Each run was warmed up first and repeated. How to check any of these numbers yourself is at the end of the page.
 
 | | |
 |---|---|
@@ -17,12 +22,14 @@ Every number on this page was measured on one laptop with a fresh local database
 | Cached route, 4 workers | **23,626 req/s**, p50 4.1 ms |
 | Database read / create, 1 worker | **2,561 / 4,429 req/s**, p50 8 / 5 ms |
 | 1,000 concurrent users, 4 workers | **20,468 cached req/s**, **7,326 reads/s**, **10,665 creates/s**, 0 errors |
-| One request, cloud-like database (50 ms away) | **56 ms**: one round trip (FastAPI + asyncpg 107 ms, FastAPI + SQLAlchemy 160 ms) |
+| Same features as hand-written FastAPI + asyncpg, local database | even: 2,643 vs 2,865 reads/s, 4,442 vs 4,176 creates/s |
+| Database 50 ms away | **2× hand-written FastAPI, 3× SQLAlchemy**: 55 ms per request (108 ms, 163 ms), one round trip |
 | 10,000,000 rows vs 1,000,000 | same speed: 2,717 vs 2,675 reads/s; page at row 9,000,000 in **0.87 ms** |
 | Export 1,000,000 rows (17 columns, 269 MB CSV) | 10.6 s, first byte after **2 ms**, server memory **+1 MB** |
 | Response size, 1,000 rows | 327 KB → **9 KB** gzipped |
 | A 300 MB request body | refused with `413` in **55 ms**; server memory stays at 175 MB |
 | Startup, memory | first answer after **0.77 s**; **164 MB** per worker |
+| Real cloud, 1 worker, over the internet | read or create in **56–59 ms**, of which about 4 ms is the server; **260 reads/s** and **355 creates/s** with 0 errors |
 
 ## 2. Workers
 
@@ -40,16 +47,27 @@ Throughput grows almost linearly up to the 4 performance cores; beyond that, the
 
 ## 3. Compared with other stacks
 
-The same endpoint (verify the JWT, read the caller's 20 newest rows, or insert one row) written three ways, with 1 worker and a pool of 10 each. The baselines do only that; Atom also runs its policy middleware, parameter validation and API log.
+The same two endpoints (read the caller's 20 newest rows, insert one row) on 1 worker with a pool of 10, written four ways. The fair comparison is the hand-written FastAPI app that does the same work per request as Atom:
 
-| Stack | Read req/s | Create req/s | One read, database 50 ms away | Reads/s, database 50 ms away |
+| Stack | Work per request |
+|---|---|
+| **Atom** | its normal `/my/object-read` and `/my/object-create` |
+| **FastAPI + asyncpg, same features** | JWT check, validated params (table and order allow-lists, limit bounds, pydantic body), owner filter, request id and security headers, gzip over 1 KB, one API log row per request buffered and written 100 at a time; written the efficient way (plain ASGI middleware, orjson, `COPY` for the log) |
+| FastAPI + asyncpg, no features | JWT check and the query only: the floor for Python, not a real app |
+| FastAPI + SQLAlchemy 2 async ORM, no features | JWT check and the ORM query only |
+
+Median of 3 alternating rounds, 50 users; "50 ms away" puts toxiproxy (25 ms each way) between the app and Postgres, about like a cloud database:
+
+| Stack | Reads/s | Creates/s | One read, database 50 ms away | Reads/s, database 50 ms away |
 |---|---|---|---|---|
-| **Atom** | 2,642 | 4,573 | **56 ms** | **171** |
-| FastAPI + raw asyncpg | **4,479** | **5,720** | 107 ms | 94 |
-| FastAPI + SQLAlchemy 2 async ORM | 802 | 2,221 | 160 ms | 63 |
+| **Atom** | 2,643 | **4,442** | **55 ms** | **182** |
+| FastAPI + asyncpg, same features | **2,865** | 4,176 | 108 ms | 94 |
+| FastAPI + asyncpg, no features | 3,507 | 5,224 | 107 ms | 94 |
+| FastAPI + SQLAlchemy, no features | 727 | 2,049 | 163 ms | 63 |
 
-- **Local database:** Atom is 3.3× faster than SQLAlchemy on reads and 2.1× faster on creates, and reaches 59–80% of hand-written asyncpg.
-- **Database 50 ms away** (toxiproxy, 25 ms each way, about like a cloud database): Atom is fastest, 1.8× hand-written asyncpg and 2.7× SQLAlchemy. Atom makes one round trip per request: it skips asyncpg's reset query on release and the `BEGIN`/`COMMIT` around single statements. SQLAlchemy makes three.
+- **Local database, same features:** Atom and hand-written FastAPI are even, within 8% either way (FastAPI reads +8%, Atom creates +6%). The no-features app is the price of the features themselves, which any real app pays.
+- **Database 50 ms away:** Atom is **2× faster** than hand-written FastAPI, with or without features, and **3×** faster than SQLAlchemy, because Atom makes one round trip per request. asyncpg's pool sends a reset query when a connection goes back (2 round trips), and SQLAlchemy wraps the query in `BEGIN` and `COMMIT` (3). Atom skips the reset and the transaction around single statements, and the gap grows with the distance to the database.
+- **Tail latency:** at 50 local users Atom's p95 is higher (64 ms vs 21 ms for the same-features app) at the same throughput: Atom answers most requests sooner and a few later.
 
 ## 4. Techniques, each on and off
 
@@ -116,7 +134,36 @@ Median of 30 requests (bulk: 7 local, 5 remote) on the 10M table. "Remote" means
 | API accepted | 3,508 req/s, p50 27 ms, 0 errors |
 | One consumer wrote | 2,468 rows/s (70,241 rows in 28.5 s) |
 
-## 8. Check it yourself
+## 8. Remote: a real cloud deployment
+
+An Atom app on a cloud app service (1 worker) with a managed PostgreSQL 16 in the same region, called from a laptop over the internet about 50 ms away. The `test` table held 200,000 rows. Server time is `log_api.response_time_ms`: what Atom spent, without the internet.
+
+One request at a time (median of 30; bulk writes 7):
+
+| Request | Total | Server |
+|---|---|---|
+| `/my/object-read`, 20 rows | 56 ms | 4 ms at low load |
+| `/my/object-create`, 1 row | 59 ms | |
+| create / update / delete 10 rows | 65 / 68 / 56 ms | |
+| create / update / delete 100 rows | 100 / 108 / 56 ms | |
+| create / update / delete 1,000 rows | 166 / 184 / 62 ms | |
+| Cursor page at row 0 / row 100,000 | 58 / 57 ms | |
+| Export 100,000 rows (27 MB CSV) | 7.6 s, first byte after 171 ms | 4.0 s |
+| Login (argon2 password check) | 432 ms | 231 ms |
+
+The internet takes about 52 ms of every request, so what the server adds is small and stays the same at row 100,000 as at row 0.
+
+Load, 20 s per run, 0 errors in every run:
+
+| Users | `/info` (cached) | `/my/object-read` | `/my/object-create` |
+|---|---|---|---|
+| 10 | 188 req/s, p50 51 ms | 173 req/s, p50 54 ms | 168 req/s, p50 55 ms |
+| 25 | 463 req/s, p50 52 ms | 269 req/s, p50 90 ms | 353 req/s, p50 67 ms |
+| 50 | 853 req/s, p50 56 ms | 255 req/s, p50 140 ms | 355 req/s, p50 130 ms |
+
+At 10 users every route is limited by the internet (10 users ÷ 56 ms ≈ 180 req/s). From 25 users on, one cloud worker settles at about **260 reads/s and 355 creates/s**; the cached route keeps growing with the number of users. This was a small cloud plan: its one worker does about a tenth of the laptop's (section 3), so more workers or a bigger plan is where more throughput comes from.
+
+## 9. Check it yourself
 
 1. Start a separate PostgreSQL 18 and Redis (not your project's); this run used `shared_buffers=2GB`, `work_mem=32MB`, `max_connections=300`. Point `config_postgres_url_master` and `config_redis_url_*` at them and start Atom once so it creates its tables.
 2. Load data with plain SQL. Owners are spread like real users: `insert into test (created_by_id, title, ...) select 3 + g % 1000, 'title ' || g, ... from generate_series(1, 1000000) g`, then `vacuum analyze test`.
@@ -124,4 +171,5 @@ Median of 30 requests (bulk: 7 local, 5 remote) on the 10M table. "Remote" means
 4. Load: `oha -z 15s -c 50 -H "authorization: Bearer <token>" -H "accept-encoding: gzip" "http://127.0.0.1:8000/my/object-read?table=test&limit=20"`. Warm up for 3 s first, run each comparison 3 times or more in alternating order, and take the median. Run `vacuum analyze test` after deleting rows: autovacuum running mid-test moved results by 15%.
 5. On/off comparisons change one setting through `.env` or `config_extend.py` (for example, every `inmemory` mode switched to `redis` for more than one worker), or drop one index, then restore it.
 6. Database 50 ms away: `toxiproxy-cli create -l 127.0.0.1:5433 -u 127.0.0.1:5432 pg`, then add a `latency=25` toxic upstream and downstream, and point Atom at port 5433.
-7. Baselines: one FastAPI file each, with the same JWT check and query, a pool of 10 and the same uvicorn settings.
+7. Baselines: one FastAPI file each, with the same JWT check and query, a pool of 10 and the same uvicorn settings. The same-features app adds what Atom does per request (section 3): param validation, request id, security headers, gzip and a buffered API log.
+8. Remote: deploy an Atom app with one worker, load rows into `test` with SQL, warm it up, then run the same `oha` commands against its URL with an admin token, keeping one connection open per user. Read the server time from `log_api`, then delete the `test` rows and the benchmark's `log_api` rows.
