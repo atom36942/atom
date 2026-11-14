@@ -66,7 +66,7 @@ Only configure clients that the application uses. A missing URL leaves its clien
 "/private/example": {
     "id": 101,
     "is_token": True,
-    "user_check_role": {"mode": "redis", "roles": [1, 2]},
+    "user_check_role": {"mode": "redis", "roles": [2]},
     "user_check_deactivated": {"mode": "redis"},
     "user_check_deleted": {"mode": "redis"},
 },

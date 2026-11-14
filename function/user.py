@@ -16,8 +16,8 @@ async def func_user_create(*, client_postgres: asyncpg.Pool | None, client_passw
     hashed_password = await asyncio.to_thread(client_password_hasher.hash, str(password))
     return await client_postgres.fetchval("INSERT INTO users (role, username, password, created_by_id) VALUES ($1, $2, $3, $4) RETURNING id;", role, username, hashed_password, created_by_id)
 
-async def func_user_update_check(*, client_postgres: asyncpg.Pool | None, obj: dict, is_admin: bool, is_otp_required: bool, config_column_single_update: list, config_column_users_blocked: list, config_column_users_my_blocked: list, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5) -> dict:
-    """The columns of one user update after its rules: config_column_users_blocked refused for everyone (deletion has its own API), config_column_users_my_blocked refused for the user's own update,
+async def func_user_update_check(*, client_postgres: asyncpg.Pool | None, obj: dict, is_admin: bool, is_otp_required: bool, config_column_single_update: list, config_column_users_blocked: list, config_column_users_my_blocked: list, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5, config_permission_label: dict | None = None) -> dict:
+    """The columns of one user update after its rules: permissions a list of ids labelled in config_permission_label (config_column_int_mapping["users"]["permissions"]), or null; config_column_users_blocked refused for everyone (deletion has its own API), config_column_users_my_blocked refused for the user's own update,
     a single-update column (password, email, ...) sent alone, email or mobile verified with the otp sent to the new value when is_otp_required, email lowercased."""
     obj = dict(obj)
     otp, user_id = obj.pop("otp", None), obj.pop("id", None)
@@ -25,7 +25,12 @@ async def func_user_update_check(*, client_postgres: asyncpg.Pool | None, obj: d
     if column := next((c for c in obj if c in (config_column_users_blocked or [])), None): raise Exception(f"{column} cannot be updated")
     if not is_admin and (column := next((c for c in obj if c in (config_column_users_my_blocked or [])), None)): raise Exception(f"{column} can be updated only by an admin")
     if (column := next((c for c in obj if c in (config_column_single_update or [])), None)) and len(obj) > 1: raise Exception(f"{column} must be updated alone")
-    if user_id == 1 and (column := next((c for c in obj if c in ("role", "permissions", "deactivated_at")), None)): raise Exception(f"root user {column} cannot be updated")
+    if obj.get("permissions") is not None:
+        permissions = obj["permissions"]
+        if not isinstance(permissions, list) or any(isinstance(p, bool) or not isinstance(p, int) for p in permissions): raise Exception("permissions must be a list of route ids")
+        if unknown := sorted({p for p in permissions if p not in (config_permission_label or {})}): raise Exception(f"permissions {unknown} are not labelled in config_column_int_mapping users permissions")
+        obj["permissions"] = sorted(set(permissions))
+    if user_id == 1 and (column := next((c for c in obj if c in ("role", "deactivated_at")), None)): raise Exception(f"root user {column} cannot be updated")
     if isinstance(obj.get("email"), str): obj["email"] = obj["email"].strip().lower()
     if is_otp_required and ("email" in obj or "mobile" in obj):
         if otp is None: raise Exception(f"{'email' if 'email' in obj else 'mobile'} update needs otp")

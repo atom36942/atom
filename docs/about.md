@@ -101,6 +101,7 @@ Request
   ├── 5. Auth & User-State Checks:
   │      ├── Token check (is_token=True)
   │      ├── Role check (user_check_role)
+  │      ├── Permission check (user_check_permission: route id in users.permissions)
   │      ├── Deactivated check (user_check_deactivated)
   │      └── Deleted check (user_check_deleted)
   ├── 6. Distributed Rate Limiter Check (func_middleware_check_ratelimiter)

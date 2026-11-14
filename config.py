@@ -195,6 +195,7 @@ config_options = {
 config_column_int_mapping = {
 "users": {
 "role": {1: "Admin"},
+"permissions": {6: "Postgres query runner write", 132: "User delete"},
 },
 "blob": {
 "type": {1: "File", 2: "Presigned Url"},
@@ -477,7 +478,7 @@ config_api = {
 "/admin/object-read-export": {"id": 126, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "is_connection_param": True},
 "/admin/user-create": {"id": 130, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
 "/admin/user-update": {"id": 131, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
-"/admin/user-delete": {"id": 132, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
+"/admin/user-delete": {"id": 132, "is_token": True, "user_check_permission": {"mode": "token"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 "/admin/object-delete": {"id": 5, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 "/admin/table-column-groupby": {"id": 104, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},
 "/admin/table-column-distinct": {"id": 106, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},
@@ -492,14 +493,14 @@ config_api = {
 "/admin/postgres-schema": {"id": 85, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "is_connection_param": True},
 "/admin/postgres-slow-queries": {"id": 121, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "is_connection_param": True},
 "/admin/postgres-slow-queries-reset": {"id": 122, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "is_connection_param": True},
-"/admin/postgres-query-runner-write": {"id": 6, "is_active": True, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
+"/admin/postgres-query-runner-write": {"id": 6, "is_active": True, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_permission": {"mode": "token"}},
 "/admin/postgres-query-runner-read": {"id": 22, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "is_connection_param": True},
 "/admin/postgres-query-runner-read-export": {"id": 7, "is_token": True, "user_check_role": {"mode": "inmemory", "roles": [1]}, "is_connection_param": True},
 "/admin/postgres-query-generator-ai": {"id": 90, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "is_connection_param": True},
 "/admin/mssql-query-runner-write": {"id": 21, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
 "/admin/mssql-query-runner-read": {"id": 23, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/mssql-query-runner-read-export": {"id": 89, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
-"/admin/clickhouse-query-runner-write": {"id": 93, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "user_check_deleted": {"mode": "realtime"}},
+"/admin/clickhouse-query-runner-write": {"id": 93, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
 "/admin/clickhouse-query-runner-read": {"id": 94, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/clickhouse-query-runner-read-export": {"id": 95, "is_token": True, "user_check_role": {"mode": "inmemory", "roles": [1]}},
 "/admin/clickhouse-query-generator-ai": {"id": 101, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},

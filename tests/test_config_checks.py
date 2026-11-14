@@ -179,6 +179,30 @@ class ApiIdCheckTests(unittest.TestCase):
             func_check_api_config(app=self.app(199))
 
 
+class PermissionConfigCheckTests(unittest.TestCase):
+    def app(self, cfg, labels=None, token_encode=("id", "role", "permissions")):
+        app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
+        app.get("/x")(lambda: None)
+        app.state.config_api = {"/x": {"id": 205, "is_token": True, **cfg}}
+        app.state.config_column_int_mapping = {"users": {"permissions": labels if labels is not None else {205: "Task delete"}}}
+        app.state.config_column_token_encode = list(token_encode)
+        app.state.config_uvicorn_workers = 1
+        return app
+
+    def test_permission_route_is_checked_at_startup(self):
+        func_check_api_config(app=self.app({"user_check_permission": {"mode": "token"}}))
+        func_check_api_config(app=self.app({"user_check_permission": {"mode": "token"}, "user_check_role": {"mode": "token", "roles": [1, 2]}}))
+        for cfg, labels, token_encode, message in [
+            ({"user_check_permission": {"mode": "realtime"}}, None, ("permissions",), "allowed: token"),
+            ({"user_check_permission": {"mode": "token", "id": 9}}, None, ("permissions",), "invalid user_check_permission"),
+            ({"user_check_permission": True}, None, ("permissions",), "invalid user_check_permission"),
+            ({"user_check_permission": {"mode": "token"}}, {}, ("permissions",), "label id 205"),
+            ({"user_check_permission": {"mode": "token"}}, None, ("id", "role"), "add permissions to config_column_token_encode"),
+        ]:
+            with self.subTest(cfg=cfg, labels=labels), self.assertRaisesRegex(Exception, message):
+                func_check_api_config(app=self.app(cfg, labels, token_encode))
+
+
 class WebsocketConfigCheckTests(unittest.TestCase):
     def app(self, socket_cfg, http_cfg=None):
         app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)

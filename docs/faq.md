@@ -209,7 +209,7 @@ Add the exact route path and enable the checks you need:
 config_api["/my/report"] = {
     "id": 210,
     "is_token": True,
-    "user_check_role": {"mode": "token", "roles": [1, 2]},
+    "user_check_role": {"mode": "token", "roles": [2]},
     "user_check_deactivated": {"mode": "realtime"},
 }
 ```

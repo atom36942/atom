@@ -54,9 +54,9 @@ async def func_middleware_check_active(*, is_active: bool = True) -> None:
     if not is_active: raise func_api_error(message="API endpoint is disabled", status_code=404)
     return
 
-async def func_middleware_check_token(*, user_dict: dict, url_path: str, is_token: bool = False, user_check_role: list = None, user_check_deactivated: list = None, user_check_deleted: list = None) -> None:
+async def func_middleware_check_token(*, user_dict: dict, url_path: str, is_token: bool = False, user_check_role: list = None, user_check_deactivated: list = None, user_check_deleted: list = None, user_check_permission: dict = None) -> None:
     """Check whether current API requires token-authenticated user."""
-    is_token_required = is_token or bool(user_check_role) or bool(user_check_deactivated) or bool(user_check_deleted)
+    is_token_required = is_token or bool(user_check_role) or bool(user_check_deactivated) or bool(user_check_deleted) or bool(user_check_permission)
     if is_token_required:
         if not user_dict: raise func_api_error(message="authorization token missing", status_code=401)
         token_type = user_dict.get("_token_type") if isinstance(user_dict, dict) else None
@@ -201,6 +201,16 @@ async def func_middleware_check_role(*, user_dict: dict, user_check_role: Any, c
         except Exception:
             raise func_api_error(message="invalid user role type", status_code=403) from None
     if user_role not in roles: raise func_api_error(message="access denied", status_code=403)
+
+async def func_middleware_check_permission(*, user_dict: dict, user_check_permission: dict | None, api_id: int | None) -> None:
+    """Allow the route only to users whose permissions (users.permissions, from the token) hold this route's config_api id; no role is exempt, admins included."""
+    if not user_check_permission: return
+    if not user_dict: raise func_api_error(message="authorization token missing", status_code=401)
+    mode = user_check_permission.get("mode")
+    if mode != "token": raise func_api_error(message=f"invalid mode: {mode}, allowed: token", status_code=500)
+    permissions = user_dict.get("permissions", "absent")
+    if permissions == "absent": raise func_api_error(message="user permissions missing from token", status_code=500)
+    if api_id is None or int(api_id) not in (permissions or []): raise func_api_error(message="permission denied", status_code=403)
 
 async def func_middleware_check_ratelimiter(*, client_redis: Redis | None, rate_limit: Any = None, api_ratelimiting_times_sec: Any = None, url_path: str, identifier: str, cache_ratelimiter: dict) -> None:
     """Check and enforce API rate limits using either Redis or in-memory storage."""
@@ -467,10 +477,10 @@ def func_middleware_log_detail_row(*, request: Request, detail: dict) -> dict:
     return {"query_param": query_param, "request_header": func_middleware_log_detail_header(headers=request.headers.items()), "response_header": detail["response_header"], "request_body": func_middleware_log_detail_body(body=detail["request"], size=detail["request_size"], content_type=detail["request_type"], is_text=func_middleware_log_detail_is_text(content_type=detail["request_type"]), max_bytes=detail["max_bytes"], is_mask=detail["is_mask"]), "response_body": func_middleware_log_detail_body(body=detail["response"], size=detail["response_size"], content_type=detail["response_type"], is_text=detail["is_response_text"], max_bytes=detail["max_bytes"], is_mask=detail["is_mask"])}
 
 def func_middleware_api_user_check_fill(*, config_api: dict, config_api_global_user_check_deleted: str | None, config_api_global_user_check_deactivated: str | None) -> dict:
-    """config_api with the global deleted and deactivated checks added to every token route (is_token or user_check_role) that doesn't set its own; a route's own key wins, None included (no check). Built once at startup."""
+    """config_api with the global deleted and deactivated checks added to every token route (is_token, user_check_role or user_check_permission) that doesn't set its own; a route's own key wins, None included (no check). Built once at startup."""
     filled = {}
     for path, cfg in config_api.items():
-        if isinstance(cfg, dict) and (cfg.get("is_token") or cfg.get("user_check_role")):
+        if isinstance(cfg, dict) and (cfg.get("is_token") or cfg.get("user_check_role") or cfg.get("user_check_permission")):
             cfg = dict(cfg)
             for key, mode in (("user_check_deleted", config_api_global_user_check_deleted), ("user_check_deactivated", config_api_global_user_check_deactivated)):
                 if mode and key not in cfg: cfg[key] = {"mode": mode}

@@ -58,6 +58,16 @@ Atom's version is `ATOM_VERSION` in `sync.py` (for example `ATOM_VERSION = "1.2.
 
 Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. Sync always takes the latest `main`; to mark a new version, raise `ATOM_VERSION` and the `Version` line at the top of `readme.md` (a test checks they match) and push to `main` (no tags or GitHub releases). Commits in between keep the last version. A project synced before versions existed shows `unknown` until its next sync. If a sync fails after installing the new `sync.py`, that file already shows the new version while the other files may be older; the error says so, and running sync again finishes it.
 
+### Upgrading to 10.0.0
+
+Per-user permissions are enforced: a route with `user_check_permission: {"mode": "token"}` admits only users whose `users.permissions` holds its `id` ([auth.md](auth.md#per-user-permissions)). Atom's samples: `/admin/postgres-query-runner-write` (6) needs role 1 and permission 6; `/admin/user-delete` (132) needs permission 132 only. Root (id 1) gets both at startup; root logs in again to use them, and other admins need a grant through `/admin/user-update`.
+
+A project that sets `config_column_int_mapping["users"]` keeps Atom's labels (startup refuses a permission route without one):
+
+```python
+"users": {**base_config_column_int_mapping["users"], "role": {1: "Admin", 2: "General"}},
+```
+
 ### Upgrading to 9.0.0
 
 `config_sql` and `config_table` are removed: the startup queries are Atom's own code now, and a table's buffer size is a plain setting. A project that set either (startup stops, naming the new keys) sets plain values instead, in `config_extend.py` or `.env`:

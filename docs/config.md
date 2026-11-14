@@ -298,6 +298,7 @@ Keys are route paths as declared. A route with path parameters (`/page/{name}`) 
 | `is_connection_param` | `bool` | `True` lets `?connection=<name>` pick the database for this route (default master; unknown name is 404). Without it the route always uses master and `?connection=` is 400 |
 | `is_log_api` | `bool` | `False` keeps this route's requests out of `log_api` (default `True`). Atom sets it for `/pgweb` (every click would add a row) and the health checks (probed every few seconds). |
 | `user_check_role` | `{"mode": "...", "roles": [...]}` | Restricts access to users with listed role numbers |
+| `user_check_permission` | `{"mode": "token"}` | Only users whose `permissions` hold this route's `id` ([Per-User Permissions](auth.md#per-user-permissions)) |
 | `user_check_deactivated` | `{"mode": "..."}` | Blocks request if user has `deactivated_at` timestamp set |
 | `user_check_deleted` | `{"mode": "..."}` | Blocks request if user has `deleted_at` timestamp set |
 
@@ -422,27 +423,17 @@ Mappings use the lookup order `config_column_int_mapping[table][column][value]`.
 
 ### Permission labels
 
-Atom ships no permission labels. A project that uses the `users.permissions` integer array defines them in `config_extend.py`, in the same dictionary:
+A permission ID is a `config_api` route `id` (routes with `user_check_permission`). Atom labels its own (`6`, `132`); a project keeps them and adds its own in `config_extend.py`; startup refuses a permission route without a label:
 
 ```python
 # config_extend.py
 config_column_int_mapping = {
 **base_config_column_int_mapping,
-"users": {
-"permissions": {1: "invoice.export", 2: "invoice.filter.apply", 3: "invoice.delete"},
-},
+"users": {**base_config_column_int_mapping["users"], "role": {1: "Admin", 2: "User"}, "permissions": {**base_config_column_int_mapping["users"]["permissions"], 205: "Task delete", 206: "Task export"}},
 }
 ```
 
-Resolve each assigned permission ID separately.
-
-Assigned IDs are stored in `config_postgres["table"]["users"]` using this optional column:
-
-```python
-{"name": "permissions", "datatype": "smallint[]", "default": None},
-```
-
-`None` leaves the column nullable; treat database `NULL` and `[]` as no per-user permissions granted. IDs should never be reused for different actions. Defining the mapping does not validate assignments or enforce access automatically; see [Per-User Permissions](auth.md#per-user-permissions) for backend integration requirements.
+Assigned IDs are stored in the `users` column `{"name": "permissions", "datatype": "smallint[]", "default": None}`. See [Per-User Permissions](auth.md#per-user-permissions) for the flow.
 
 ### `/info` Response Keys
 
@@ -455,7 +446,7 @@ Assigned IDs are stored in `config_postgres["table"]["users"]` using this option
 | `options` | `config_options` |
 | `export_limit` | `config_export_limit`: the most rows any CSV export sends, for a page to show ("Up to 1,000,000 rows") |
 
-Permission IDs are integers in Python, but JSON object keys are strings: clients read entries such as `message.config_column_int_mapping.users.permissions["1"]`. This public catalog describes available actions; it does not list the current user's assigned permissions.
+Permission IDs are integers in Python, but JSON object keys are strings: clients read entries such as `message.config_column_int_mapping.users.permissions["205"]`. This public catalog describes available actions; it does not list the current user's assigned permissions.
 
 ---
 

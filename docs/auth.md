@@ -9,17 +9,50 @@ All auth endpoints are **public** (`is_token=False`) — they mint tokens rather
 ## 1. Users, Roles & Multi-Tenancy
 
 Users live in the `users` database table. Core authorization attributes include:
-- **`role`** (`smallint`): The user's permission tier. Login validates a supplied role against `config_login_allowed_roles` (default: roles `1` through `20`); public signup uses `config_signup_allowed_roles`.
+- **`role`** (`smallint`): The user's tier; routes allow roles with `user_check_role`. Login validates a supplied role against `config_login_allowed_roles` (default: roles `1` through `20`); public signup uses `config_signup_allowed_roles`.
   - **Role `1` is the root/superadmin role** and cannot be registered via public signup routes.
 - **Identity columns**: `username`, `email`, `mobile`, `google_login_id`, `id_ext`.
 
 ### Per-User Permissions
 
-`users.permissions` is an optional `smallint[]` column with `default: None` (nullable). It stores permission IDs so users within the same role can have different capabilities. For example, two users with role `3` could have `[1, 2]` and `[2]`, respectively.
+`users.permissions` (`smallint[]`, nullable) holds the `config_api` route IDs a user may call on routes that ask for it. `NULL` and `[]` grant none.
 
-Atom ships no permission labels: define them in `config_extend.py` under [`config_column_int_mapping["users"]["permissions"]`](config.md#permission-labels), for example `1` is `invoice.export`, `2` is `invoice.filter.apply`, and `3` is `invoice.delete`. Keep IDs stable and never reuse an existing ID for a different action. Treat `NULL` and an empty array as no per-user permissions granted.
+A request passes these gates, in order, before the route runs. Role and permission are independent: a route sets either or both, and either one implies the token.
 
-The column and mapping provide storage and metadata only. Current role middleware does not enforce these permissions. They are included in the access token (`permissions` is in `config_column_token_encode`), so a route can read `request.state.user["permissions"]`; like other token claims they are stale until the user logs in again. Before using them for authorization, implement a backend check that requires the relevant permission alongside the allowed role (load them from the database when a change must apply at once). Validate assigned IDs against the mapping and restrict permission updates to authorized administrators; `permissions` is not currently included in `config_column_admin`.
+| # | Gate | Route key | Fails with |
+|---|---|---|---|
+| 1 | Token | `is_token: True` | 401 |
+| 2 | Role: the user's role is in the list | `"user_check_role": {"mode": "token", "roles": [2]}` | 403 |
+| 3 | Permission: the route's own `id` is in the user's `permissions` | `"user_check_permission": {"mode": "token"}` | 403 |
+
+Atom's two samples, in `config.py`:
+
+```python
+"/admin/postgres-query-runner-write": {"id": 6, "is_active": True, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_permission": {"mode": "token"}},
+"/admin/user-delete": {"id": 132, "is_token": True, "user_check_permission": {"mode": "token"}, "rate_limit": {...}},
+
+config_column_int_mapping = {"users": {"role": {1: "Admin"}, "permissions": {6: "Postgres query runner write", 132: "User delete"}}, ...}
+```
+
+| Route | Checks | Who may call it |
+|---|---|---|
+| 6, raw SQL writes | role 1 + permission | admins granted 6; a role 2 user granted 6 is still refused by the role |
+| 132, user hard delete | permission only | anyone granted 132, any role (e.g. the person who offboards users) |
+
+Root (id 1) gets Atom's own permission routes (ids under 200: 6 and 132) at every startup, added to what it holds and never removed, so it cannot be locked out. Every other user, admins included, needs an explicit grant. A project's permission routes are never given to root: grant them like any other.
+
+A project route works the same way, for example only some role 2 users may delete a task:
+
+```python
+# config_extend.py
+"/task/delete": {"id": 205, "is_token": True, "user_check_role": {"mode": "token", "roles": [2]}, "user_check_permission": {"mode": "token"}},
+"users": {**base_config_column_int_mapping["users"], "role": {1: "Admin", 2: "User"}, "permissions": {**base_config_column_int_mapping["users"]["permissions"], 205: "Task delete"}},
+```
+
+- **Mode**: `token` only (the token's `permissions`); a change applies when the user logs in again.
+- **Granting**: only `/admin/user-update` writes `permissions`; `/my/user-update` refuses it (`config_column_users_my_blocked`) and the object APIs refuse `table=users`.
+- **Permission without role**: drop `user_check_role` and any role granted the `id` may call the route.
+- **Startup refuses** a `user_check_permission` mode other than `token`, or an `id` without a label in `config_column_int_mapping["users"]["permissions"]`.
 
 ---
 
@@ -118,7 +151,7 @@ Rows of `users` are written only through these APIs; the generic object APIs (`/
 | API | Query | Body | Rules |
 |---|---|---|---|
 | `POST /admin/user-create` | | `{role, username, password}` | All three required, nothing else accepted; returns `{"id": ...}`. Profile columns are set afterwards with `/admin/user-update` |
-| `PUT /admin/user-update` | | `{id, ...users columns}` | `email`/`mobile` need `otp` only when `config_is_otp_require_users_update` is on. The root user's `role`, `permissions` and `deactivated_at` cannot change |
+| `PUT /admin/user-update` | | `{id, ...users columns}` | `email`/`mobile` need `otp` only when `config_is_otp_require_users_update` is on. The root user's `role` and `deactivated_at` cannot change. `permissions` must be route ids labelled in `config_column_int_mapping["users"]["permissions"]` |
 | `DELETE /admin/user-delete` | `id` | | One user; never the root user |
 | `PUT /my/user-update` | | `{...own users columns}` | Own row from the token (an `id`, if sent, must be the user's own). `email`/`mobile` always need `otp` (sent to the new value with `/public/otp-send-email` or `-mobile`). Columns in `config_column_users_my_blocked` (`role`, `permissions`, `deactivated_at`, ...) are refused |
 | `DELETE /my/user-delete` | | | Own account; token only |

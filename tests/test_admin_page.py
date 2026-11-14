@@ -25,7 +25,7 @@ class AdminPageTests(unittest.TestCase):
         for route in sorted(routes):
             with self.subTest(route=route):
                 self.assertRegex(ROUTER, rf'@router\.\w+\("{re.escape(route)}"\)')
-                self.assertRegex(CONFIG, rf'"{re.escape(route)}": \{{[^\n]*"roles": \[1\]')
+                self.assertRegex(CONFIG, rf'"{re.escape(route)}": \{{[^\n]*("roles": \[1\]|"user_check_permission")')
 
     def test_page_writes_only_through_admin_routes(self):
         # the page's own requests go to /admin/* only; the account block (the user, the password) is checked in tests/test_page_auth.py

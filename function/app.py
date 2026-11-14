@@ -142,6 +142,7 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
             is_token_required = api_cfg.get("is_token", False) is True
             op["x-auth-required"] = is_token_required
             op["x-roles-allowed"] = api_cfg.get("user_check_role", None)
+            op["x-permission"] = api_cfg.get("id") if api_cfg.get("user_check_permission") else None
             op["x-check-deactivated"] = "user_check_deactivated" in api_cfg
             op["x-check-deleted"] = "user_check_deleted" in api_cfg
             op["x-cache"] = api_cfg.get("api_cache_sec", None)

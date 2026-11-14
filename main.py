@@ -152,6 +152,7 @@ def middleware(asgi_app):
             is_active = api_cfg.get("is_active", True)
             is_token = api_cfg.get("is_token", False)
             user_check_role = api_cfg.get("user_check_role")
+            user_check_permission = api_cfg.get("user_check_permission")
             user_check_deactivated = api_cfg.get("user_check_deactivated")
             user_check_deleted = api_cfg.get("user_check_deleted")
             rate_limit = api_cfg.get("rate_limit")
@@ -162,9 +163,10 @@ def middleware(asgi_app):
             # token
             request.state.user = await app_state.func_token_decode(headers=request.headers, config_token_secret_key=app_state.config_token_secret_key, cache_token=app_state.cache_token, config_token_cache_max=app_state.config_token_cache_max)
             # checks
-            await app_state.func_middleware_check_token(user_dict=request.state.user, url_path=path, is_token=is_token, user_check_role=user_check_role, user_check_deactivated=user_check_deactivated, user_check_deleted=user_check_deleted)
+            await app_state.func_middleware_check_token(user_dict=request.state.user, url_path=path, is_token=is_token, user_check_role=user_check_role, user_check_deactivated=user_check_deactivated, user_check_deleted=user_check_deleted, user_check_permission=user_check_permission)
             user_row_read = app_state.func_middleware_user_row_reader(client_postgres=app_state.client_postgres_dict.get("master"), user_dict=request.state.user)    # one users query per request, whichever checks need it
             await app_state.func_middleware_check_role(user_dict=request.state.user, user_check_role=user_check_role, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=app_state.client_redis_dict.get("user_state"), cache_users_role=app_state.cache_users_role, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec, user_row_read=user_row_read)
+            await app_state.func_middleware_check_permission(user_dict=request.state.user, user_check_permission=user_check_permission, api_id=api_cfg.get("id"))
             await app_state.func_middleware_check_user_deleted(user_dict=request.state.user, user_check_deleted=user_check_deleted, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=app_state.client_redis_dict.get("user_state"), cache_users_deleted=app_state.cache_users_deleted, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec, user_row_read=user_row_read)
             await app_state.func_middleware_check_user_deactivated(user_dict=request.state.user, user_check_deactivated=user_check_deactivated, client_postgres=app_state.client_postgres_dict.get("master"), client_redis=app_state.client_redis_dict.get("user_state"), cache_users_deactivated=app_state.cache_users_deactivated, config_redis_cache_ttl_sec=app_state.config_redis_cache_ttl_sec, user_row_read=user_row_read)
             await app_state.func_middleware_check_ratelimiter(client_redis=app_state.client_redis_dict.get("ratelimiter"), rate_limit=rate_limit, url_path=path, identifier=request.state.user.get("id") if request.state.user else app_state.func_middleware_client_ip(request=request), cache_ratelimiter=app_state.cache_ratelimiter)

@@ -13,6 +13,7 @@ from function import func_validate_restricted_columns
 from function import func_check_batch_limit
 from function import func_attach_user_audit_fields
 from function import func_middleware_check_role
+from function import func_middleware_check_permission
 from function import func_middleware_check_user_deactivated
 from function import func_middleware_check_user_deleted
 
@@ -114,6 +115,33 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
         # an admin may update admin-only columns, and email without otp when config_is_otp_require_users_update is off
         self.assertEqual(await self.update_check({"id": 7, "role": 3}, is_admin=True), {"role": 3})
         self.assertEqual(await self.update_check({"id": 7, "email": " Ravi@X.test "}, is_admin=True, is_otp_required=False), {"email": "ravi@x.test"})
+
+    async def test_admin_grants_only_labelled_route_ids_and_root_may_hold_them(self):
+        labels = {205: "Task delete", 206: "Task export"}
+        self.assertEqual(await self.update_check({"id": 1, "permissions": [206, 205, 205]}, is_admin=True, config_permission_label=labels), {"permissions": [205, 206]})
+        self.assertEqual(await self.update_check({"id": 7, "permissions": None}, is_admin=True, config_permission_label=labels), {"permissions": None})
+        for value, message in [([207], "not labelled"), (["205"], "list of route ids"), ([True], "list of route ids"), ("205", "list of route ids")]:
+            with self.subTest(value=value), self.assertRaisesRegex(Exception, message):
+                await self.update_check({"id": 7, "permissions": value}, is_admin=True, config_permission_label=labels)
+        with self.assertRaisesRegex(Exception, "permissions can be updated only by an admin"):
+            await self.update_check({"permissions": [205]}, config_column_users_my_blocked=["permissions"], config_permission_label=labels)
+
+    async def test_permission_check_needs_the_route_id_in_the_token_permissions(self):
+        check = {"mode": "token"}
+        await func_middleware_check_permission(user_dict={"id": 7, "role": 2, "permissions": [205]}, user_check_permission=check, api_id=205)
+        await func_middleware_check_permission(user_dict={"id": 7}, user_check_permission=None, api_id=205)    # route without the key
+        for user, status in [({"id": 1, "role": 1, "permissions": None}, 403),    # admins are not exempt
+                             ({"id": 7, "role": 2, "permissions": [206]}, 403),
+                             ({"id": 7, "role": 2, "permissions": []}, 403),
+                             ({"id": 7, "role": 2}, 500),    # permissions not encoded in the token
+                             ({}, 401)]:
+            with self.subTest(user=user), self.assertRaises(Exception) as caught:
+                await func_middleware_check_permission(user_dict=user, user_check_permission=check, api_id=205)
+            self.assertEqual(caught.exception.status_code, status)
+
+    def test_permission_route_counts_as_a_token_route(self):
+        filled = func_middleware_api_user_check_fill(config_api={"/x": {"id": 205, "user_check_permission": {"mode": "token"}}}, config_api_global_user_check_deleted="token", config_api_global_user_check_deactivated="token")
+        self.assertEqual(filled["/x"]["user_check_deleted"], {"mode": "token"})
 
     async def test_email_update_verifies_the_otp_sent_to_the_new_email(self):
         from unittest.mock import patch

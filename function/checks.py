@@ -120,7 +120,7 @@ def func_check_api_config(*, app: FastAPI) -> None:
         column = key.removeprefix("config_api_global_user_check_") + "_at"
         if value == "token" and column not in (getattr(app.state, "config_column_token_encode", None) or []): raise Exception(f"{key} is token: add {column} to config_column_token_encode")
     api_mode_allowed = ("redis", "inmemory")
-    api_keys_allowed = ("id", "is_active", "is_token", "is_connection_param", "user_check_role", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec", "is_log_api")
+    api_keys_allowed = ("id", "is_active", "is_token", "is_connection_param", "user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec", "is_log_api")
     def flag_check(value, key):
         if not isinstance(value, bool): raise Exception(f"invalid {key}: expected bool")
     def int_check(value, key, min_value=0):
@@ -169,6 +169,12 @@ def func_check_api_config(*, app: FastAPI) -> None:
             for role in roles: int_check(role, f"{path} user_check_role role", 1)
             if mode == "redis": requires_redis_user_state = True
             if mode == "inmemory": inmemory_list.append(f"{path} user_check_role")
+        if "user_check_permission" in cfg:
+            permission_val = cfg["user_check_permission"]
+            if not isinstance(permission_val, dict) or set(permission_val) != {"mode"}: raise Exception(f"{path} invalid user_check_permission: expected {{\"mode\": \"token\"}}")
+            if permission_val["mode"] != "token": raise Exception(f"{path} invalid user_check_permission mode: {permission_val['mode']}, allowed: token")
+            if "permissions" not in (getattr(app.state, "config_column_token_encode", None) or []): raise Exception(f"{path} user_check_permission: add permissions to config_column_token_encode")
+            if api_id not in ((getattr(app.state, "config_column_int_mapping", None) or {}).get("users", {}).get("permissions") or {}): raise Exception(f"{path} user_check_permission: label id {api_id} in config_column_int_mapping[\"users\"][\"permissions\"]")
         for key in ("user_check_deactivated", "user_check_deleted"):
             u_val = cfg.get(key)
             if u_val:

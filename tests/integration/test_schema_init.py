@@ -57,6 +57,14 @@ class SchemaInitTests(unittest.IsolatedAsyncioTestCase):
         self.assertLessEqual(len(second), 25, f"{len(second)} statements on an unchanged start")
         self.assertEqual(await self.pool.fetch("SELECT oid, tgname FROM pg_trigger WHERE NOT tgisinternal ORDER BY oid"), trigger_ids, "no trigger was recreated (same oids)")
 
+    async def test_root_gets_atoms_permission_routes_and_keeps_its_own(self):
+        app_state = SimpleNamespace(**{name: getattr(function, name) for name in function.__all__}, config_api={"/admin/a": {"id": 6, "user_check_permission": {"mode": "token"}}, "/admin/b": {"id": 132, "user_check_permission": {"mode": "token"}}, "/admin/c": {"id": 7}, "/x/project": {"id": 300, "user_check_permission": {"mode": "token"}}})
+        await self.init(app_state)
+        self.assertEqual(await self.pool.fetchval("SELECT permissions FROM users WHERE id = 1"), [6, 132], "Atom's routes only: a project's 300 is granted explicitly")
+        await self.pool.execute("UPDATE users SET permissions = '{300}' WHERE id = 1")
+        await self.init(app_state)
+        self.assertEqual(await self.pool.fetchval("SELECT permissions FROM users WHERE id = 1"), [6, 132, 300], "added, never removed")
+
     async def test_a_guard_removed_or_changed_by_hand_is_put_back(self):
         await self.init()
         triggers = await self.triggers()
