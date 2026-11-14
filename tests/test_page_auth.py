@@ -106,6 +106,10 @@ class PageStandardTests(unittest.TestCase):
         for part in ('id="loginPage"', 'id="loginIntro"', 'id="loginFeatures"', 'class="login-btn" id="loginBtn">Login</button>', 'id="blockedDialog"', 'id="blockedOk">OK</button>'):
             with self.subTest(part=part): self.assertIn(part, dialogs)
         self.assertNotIn("loginDialog", dialogs)
+        # Login details' Permissions: one tag per permission, "<label> (<id>)" from /info, "None" when there are none
+        account = block("admin", "account")[0]
+        for part in ('["Permissions", permissionsCell(u)]', "config_column_int_mapping?.users?.permissions", 'class="kv-tag"', ': "None"'):
+            with self.subTest(part=part): self.assertIn(part, account)
         self.assertIn('class="account-item" id="syncBtn"', header)
         self.assertNotIn("sync-btn", header)
         for part in ('el("loginPage").classList.toggle("card-only", !full)', 'el("loginRoleField").hidden = PAGE.role != null', '`For role ${PAGE.role} accounts`',
@@ -123,16 +127,18 @@ class PageThemeTests(unittest.TestCase):
             with self.subTest(token=token): self.assertIn(token, LOOK)
         self.assertRegex(LOOK, r':root\[data-theme="light"\]\{--bg:#f5f7fa;[^}]*--hl:15,23,42;[^}]*color-scheme:light\}')
         theme = re.search(BLOCKS["theme"], PAGES["admin"], re.S).group(0)
-        for part in ('saved("theme", ["dark", "light", "system"])', 'saved("density", ["comfortable", "compact"])', 'matchMedia("(prefers-color-scheme: dark)")', "document.documentElement.dataset.theme", "document.documentElement.dataset.density", 'addEventListener("storage"'):
+        for part in ('get("theme", ["dark", "light", "system"])', 'get("density", ["comfortable", "compact"])', 'matchMedia("(prefers-color-scheme: dark)")', "root.dataset.theme", "root.dataset.density", "key = root.dataset.storageKey", "stored().settings?.[name]", 'addEventListener("storage"'):
             with self.subTest(part=part): self.assertIn(part, theme)
         for page, text in PAGES.items():
             with self.subTest(page=page):
                 self.assertLess(text.index("<!-- ==== atom page: theme ==== -->"), text.index("<style>"))    # before the styles: no flash of the other theme
+                self.assertIn(f'<html lang="en" data-storage-key="{page}">', text)    # the theme is kept in the page's own key: the same as PAGE.key
+                self.assertIn(f'const PAGE = {{ key: "{page}"', text)
                 self.assertNotRegex(text, r"rgba\(255, ?255, ?255,(?!\.8\)|\.14\))")    # overlays use --hl; only the close button on the filled header stays white
         self.assertIn('id="settingsBtn" role="menuitem"', block("admin", "account header")[0])
-        for part in ('title: "Settings", sub: "Saved in this browser"', 'options: [["dark", "Dark"', '["light", "Light"', '["system", "System"', 'options: [["comfortable", "Comfortable"', '["compact", "Compact"', 'role="radiogroup"', "localStorage.setItem(setting.key, option)"):
+        for part in ('title: "Settings", sub: "Saved in this browser"', 'options: [["dark", "Dark"', '["light", "Light"', '["system", "System"', 'options: [["comfortable", "Comfortable"', '["compact", "Compact"', 'role="radiogroup"', "window.atomSettings.set(setting.key, option)"):
             with self.subTest(part=part): self.assertIn(part, ACCOUNT)    # the first option of each setting is its default: Dark, Comfortable
-        self.assertNotIn("theme", ACCOUNT.split("const forgetAll")[1].split("\n")[0])    # logout keeps the settings
+        self.assertIn("localStorage.removeItem(STORAGE_KEY) } catch {} window.atomSettings?.apply()", ACCOUNT)    # logout removes the whole key, settings too, and the page is back on its defaults at once
         self.assertIn(':root[data-density="compact"]{--control-h:28px;--cell-y:4px}', LOOK)
         home = (ROOT / "static" / "home.html").read_text()
         self.assertIn("<!-- ==== atom page: theme ==== -->", home)

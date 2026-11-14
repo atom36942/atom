@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-storage-key="monitor">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -7,20 +7,23 @@
 <!-- ==== atom page: theme ==== -->
 <script>
 // Identical in every Atom page (docs/page.md, Page standard): the look before the page draws, so it never flashes another one.
-// localStorage "theme" = "dark" (the default), "light" or "system" (the computer's mode, followed as it changes); "density" = "comfortable" (the default) or "compact".
-// Chosen in Settings (account menu), kept at logout, shared by every tab; the result is <html data-theme data-density>.
+// Saved in the page's own localStorage key (<html data-storage-key>, the key it keeps its login in) under "settings": theme = "dark" (the default), "light" or "system"
+// (the computer's mode, followed as it changes); density = "comfortable" (the default) or "compact". So each page keeps its own; logout removes the whole key (back on the defaults).
+// Chosen in Settings (account menu), followed by every tab of the page; the result is <html data-theme data-density>. window.atomSettings: get, set, apply.
 (() => {
-  const media = matchMedia("(prefers-color-scheme: dark)");
-  const saved = (key, options) => { try { const value = localStorage.getItem(key); return options.includes(value) ? value : options[0] } catch { return options[0] } };
+  const root = document.documentElement, key = root.dataset.storageKey, media = matchMedia("(prefers-color-scheme: dark)");
+  const stored = () => { try { const data = JSON.parse(localStorage.getItem(key) || "{}"); return data && typeof data === "object" && !Array.isArray(data) ? data : {} } catch { return {} } };
+  const get = (name, options) => { const value = stored().settings?.[name]; return options.includes(value) ? value : options[0] };
   const apply = () => {
-    const theme = saved("theme", ["dark", "light", "system"]);
-    document.documentElement.dataset.theme = theme === "system" ? (media.matches ? "dark" : "light") : theme;
-    document.documentElement.dataset.density = saved("density", ["comfortable", "compact"]);
+    const theme = get("theme", ["dark", "light", "system"]);
+    root.dataset.theme = theme === "system" ? (media.matches ? "dark" : "light") : theme;
+    root.dataset.density = get("density", ["comfortable", "compact"]);
   };
+  const set = (name, value) => { const data = stored(); try { localStorage.setItem(key, JSON.stringify({ ...data, settings: { ...data.settings, [name]: value } })) } catch {} apply() };
   apply();
   media.addEventListener("change", apply);
-  addEventListener("storage", e => { if (e.key === "theme" || e.key === "density" || e.key === null) apply() });
-  window.atomThemeApply = apply;
+  addEventListener("storage", e => { if (e.key === key || e.key === null) apply() });
+  window.atomSettings = { get, set, apply };
 })();
 </script>
 <!-- ==== end atom page: theme ==== -->
@@ -92,6 +95,9 @@ dialog.dlg .dlg-actions button:not(.kv-btn){height:var(--control-h);padding:0 14
 .kv th,.kv td{white-space:normal;font-family:var(--font)}
 .kv tbody tr:hover{background:none}
 .kv .cell{display:flex;align-items:center;justify-content:space-between;gap:8px}
+/* Login details' Permissions: one tag per permission, wrapping onto more lines */
+.kv-tags{display:flex;flex-wrap:wrap;gap:4px}
+.kv-tag{padding:1px 8px;border:1px solid var(--line-strong);border-radius:999px;background:var(--bg);color:var(--text);font-size:var(--fs-small);line-height:1.6}
 .sync-progress{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
 .sync-fill{height:100%;width:0;background:var(--accent);border-radius:3px;transition:width .3s ease}
 .sync-status{margin:0;min-height:1.5em;color:var(--muted)}
@@ -308,7 +314,7 @@ const Page = (() => {
 
   /* -- storage -- */
   const read = () => { try { const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); return s && s.v === STORAGE_VERSION ? s : {} } catch { return {} } };
-  const save = changes => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...read(), ...changes, v: STORAGE_VERSION })) } catch {} };
+  const save = changes => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...read(), settings: JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")?.settings, ...changes, v: STORAGE_VERSION })) } catch {} };    // settings (the theme block's) are kept, even when chosen before login
   // the whole token object, valid, or logged out
   const loginValid = token => !!token && typeof token.access_token === "string" && token.access_token !== "" && typeof token.refresh_token === "string" && token.refresh_token !== "" && Number.isFinite(token.access_token_expires_at) && Number.isFinite(token.refresh_token_expires_at) && token.refresh_token_expires_at > nowSec();
   // a deleted or deactivated account: Atom answers 403 "account deleted" / "account deactivated" at login, at token refresh and on every token route; the page logs out and says so
@@ -480,7 +486,7 @@ const Page = (() => {
     save({ user });
     showIn();
   };
-  const forgetAll = () => { try { localStorage.removeItem(STORAGE_KEY) } catch {} cacheClear() };
+  const forgetAll = () => { try { localStorage.removeItem(STORAGE_KEY) } catch {} window.atomSettings?.apply(); cacheClear() };    // the settings go too: back on the defaults
   // logout and every forced logout: forget the key and the cache, close dialogs, show the login with a plain sentence
   // a blocked account (refused by Atom, or its profile deactivated or deleted): the login page, then the "Account deactivated" / "Account deleted" dialog over it until OK
   const logOut = (message = "") => { sessionId++; forgetAll(); const refused = accountRefused; showOut(refused ? "" : message); if (refused) blockedShow(refused) };
@@ -556,12 +562,14 @@ const Page = (() => {
   /* -- account menu: My profile, Login details, Logout -- */
   const menuToggle = open => { const isOpen = open ?? el("accountMenu").hidden; el("accountMenu").hidden = !isOpen; el("accountBtn").setAttribute("aria-expanded", String(isOpen)) };
   const roleText = role => { if (role == null) return "-"; const label = read().info?.config_column_int_mapping?.users?.role?.[role]; return esc(label ? `${label} (${role})` : String(role)) };    // "Admin (1)": the label from /info; only the number before the first sync
+  // "Update any object (207)": one tag per permission, the label from /info (users.permissions); only the id before the first sync; "None" when there are none
+  const permissionsCell = u => { const ids = Array.isArray(u.permissions) ? u.permissions : [], labels = read().info?.config_column_int_mapping?.users?.permissions || {}; return ids.length ? `<span class="kv-tags">${ids.map(id => `<span class="kv-tag">${esc(labels[id] ? `${labels[id]} (${id})` : String(id))}</span>`).join("")}</span>` : "None" };
   const usernameCell = u => u.username ? `<span class="cell"><span>${esc(u.username)}</span><button type="button" class="kv-btn" data-copy="${esc(u.username)}" aria-label="Copy username">${ICON.copy}</button></span>` : "-";
   // My profile is the person, Login details what the login sends: each field shows in one of the two only
   const profileOpen = () => { const u = read().user || {}; dialog({ title: "My profile", body: kv([["Name", dash(u.name)], ["Email", dash(u.email)], ["Mobile", dash(u.mobile)]]) }) };
   const detailsOpen = () => {
     const u = read().user || {};
-    dialog({ title: "Login details", body: kv([["Username", usernameCell(u)], ["Password", `<span class="cell"><span>••••••••</span><button type="button" class="kv-btn" id="passwordEdit" aria-label="Change password">${ICON.pencil}</button></span>`], ["Role", roleText(u.role)]]), on: { passwordEdit: passwordOpen } });
+    dialog({ title: "Login details", body: kv([["Username", usernameCell(u)], ["Password", `<span class="cell"><span>••••••••</span><button type="button" class="kv-btn" id="passwordEdit" aria-label="Change password">${ICON.pencil}</button></span>`], ["Role", roleText(u.role)], ["Permissions", permissionsCell(u)]]), on: { passwordEdit: passwordOpen } });
   };
   // Update password: Atom's rule, 6-120 characters without spaces (PUT /my/user-update)
   const passwordOpen = () => {
@@ -580,15 +588,15 @@ const Page = (() => {
   };
   const logoutOpen = () => dialog({ title: "Logout?", body: '<p class="confirm-text">Are you sure you want to logout?</p>', actions: '<button type="button" id="logoutCancel">Cancel</button><button type="button" class="primary" id="logoutConfirm">Logout</button>', on: { logoutCancel: dialogClose, logoutConfirm: () => logOut("") } });
 
-  /* -- Settings: one row per setting, each a choice of a few options, applied at once and saved in this browser (localStorage, kept at logout) -- */
+  /* -- Settings: one row per setting, each a choice of a few options, applied at once and saved in this page's localStorage key ("settings", removed at logout) -- */
   // Theme: Dark (the default), Light, or System (the computer's mode); Density: Comfortable (the default) or Compact. The theme block applies them.
   const SETTINGS = [
     { key: "theme", label: "Theme", help: "System follows your computer's light or dark mode.", options: [["dark", "Dark", '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'], ["light", "Light", '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'], ["system", "System", '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>']] },
     { key: "density", label: "Density", help: "Compact fits more rows on the screen.", options: [["comfortable", "Comfortable", '<path d="M4 6h16M4 12h16M4 18h16"/>'], ["compact", "Compact", '<path d="M4 5h16M4 9h16M4 13h16M4 17h16"/>']] },
   ];
-  const settingValue = setting => { try { const value = localStorage.getItem(setting.key); return setting.options.some(([option]) => option === value) ? value : setting.options[0][0] } catch { return setting.options[0][0] } };
+  const settingValue = setting => window.atomSettings.get(setting.key, setting.options.map(([option]) => option));
   const settingsDraw = () => { for (const b of el("atomDialog").querySelectorAll("[data-option]")) b.setAttribute("aria-checked", String(settingValue(SETTINGS[b.dataset.setting]) === b.dataset.option)) };
-  const settingChoose = (setting, option) => { try { localStorage.setItem(setting.key, option) } catch {} window.atomThemeApply?.(); settingsDraw() };
+  const settingChoose = (setting, option) => { window.atomSettings.set(setting.key, option); settingsDraw() };
   const settingsOpen = () => {
     dialog({ title: "Settings", sub: "Saved in this browser",
       body: SETTINGS.map((setting, index) => `<div class="setting-row"><div><strong id="setting-${setting.key}">${setting.label}</strong><p>${setting.help}</p></div><div class="choices" role="radiogroup" aria-labelledby="setting-${setting.key}">${setting.options.map(([option, label, icon]) => `<button type="button" role="radio" data-setting="${index}" data-option="${option}"><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}</button>`).join("")}</div></div>`).join(""),

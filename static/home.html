@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-storage-key="home">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -7,20 +7,23 @@
 <!-- ==== atom page: theme ==== -->
 <script>
 // Identical in every Atom page (docs/page.md, Page standard): the look before the page draws, so it never flashes another one.
-// localStorage "theme" = "dark" (the default), "light" or "system" (the computer's mode, followed as it changes); "density" = "comfortable" (the default) or "compact".
-// Chosen in Settings (account menu), kept at logout, shared by every tab; the result is <html data-theme data-density>.
+// Saved in the page's own localStorage key (<html data-storage-key>, the key it keeps its login in) under "settings": theme = "dark" (the default), "light" or "system"
+// (the computer's mode, followed as it changes); density = "comfortable" (the default) or "compact". So each page keeps its own; logout removes the whole key (back on the defaults).
+// Chosen in Settings (account menu), followed by every tab of the page; the result is <html data-theme data-density>. window.atomSettings: get, set, apply.
 (() => {
-  const media = matchMedia("(prefers-color-scheme: dark)");
-  const saved = (key, options) => { try { const value = localStorage.getItem(key); return options.includes(value) ? value : options[0] } catch { return options[0] } };
+  const root = document.documentElement, key = root.dataset.storageKey, media = matchMedia("(prefers-color-scheme: dark)");
+  const stored = () => { try { const data = JSON.parse(localStorage.getItem(key) || "{}"); return data && typeof data === "object" && !Array.isArray(data) ? data : {} } catch { return {} } };
+  const get = (name, options) => { const value = stored().settings?.[name]; return options.includes(value) ? value : options[0] };
   const apply = () => {
-    const theme = saved("theme", ["dark", "light", "system"]);
-    document.documentElement.dataset.theme = theme === "system" ? (media.matches ? "dark" : "light") : theme;
-    document.documentElement.dataset.density = saved("density", ["comfortable", "compact"]);
+    const theme = get("theme", ["dark", "light", "system"]);
+    root.dataset.theme = theme === "system" ? (media.matches ? "dark" : "light") : theme;
+    root.dataset.density = get("density", ["comfortable", "compact"]);
   };
+  const set = (name, value) => { const data = stored(); try { localStorage.setItem(key, JSON.stringify({ ...data, settings: { ...data.settings, [name]: value } })) } catch {} apply() };
   apply();
   media.addEventListener("change", apply);
-  addEventListener("storage", e => { if (e.key === "theme" || e.key === "density" || e.key === null) apply() });
-  window.atomThemeApply = apply;
+  addEventListener("storage", e => { if (e.key === key || e.key === null) apply() });
+  window.atomSettings = { get, set, apply };
 })();
 </script>
 <!-- ==== end atom page: theme ==== -->
