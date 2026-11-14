@@ -64,6 +64,8 @@ class SchemaInitTests(unittest.IsolatedAsyncioTestCase):
         await self.pool.execute("UPDATE users SET permissions = '{300}' WHERE id = 1")
         await self.init(app_state)
         self.assertEqual(await self.pool.fetchval("SELECT permissions FROM users WHERE id = 1"), [6, 132, 300], "added, never removed")
+        # with config_is_postgres_schema_init off, the root update is routine, so an unchanged database passes the check
+        await function.func_postgres_schema_check(app_state=app_state, client_postgres=self.pool, config_postgres=config_postgres())
 
     async def test_a_guard_removed_or_changed_by_hand_is_put_back(self):
         await self.init()
