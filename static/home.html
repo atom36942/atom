@@ -6,14 +6,20 @@
 <title>Pages</title>
 <!-- ==== atom page: theme ==== -->
 <script>
-// Identical in every Atom page (docs/page.md, Page standard): the theme before the page draws, so it never flashes the other colours.
-// localStorage "theme" = "light" or "dark" (none: System, the computer's mode), chosen in Settings (account menu), kept at logout, shared by every tab; the result is <html data-theme>.
+// Identical in every Atom page (docs/page.md, Page standard): the look before the page draws, so it never flashes another one.
+// localStorage "theme" = "dark" (the default), "light" or "system" (the computer's mode, followed as it changes); "density" = "comfortable" (the default) or "compact".
+// Chosen in Settings (account menu), kept at logout, shared by every tab; the result is <html data-theme data-density>.
 (() => {
   const media = matchMedia("(prefers-color-scheme: dark)");
-  const apply = () => { let theme = null; try { theme = localStorage.getItem("theme") } catch {} document.documentElement.dataset.theme = theme === "light" || theme === "dark" ? theme : media.matches ? "dark" : "light" };
+  const saved = (key, options) => { try { const value = localStorage.getItem(key); return options.includes(value) ? value : options[0] } catch { return options[0] } };
+  const apply = () => {
+    const theme = saved("theme", ["dark", "light", "system"]);
+    document.documentElement.dataset.theme = theme === "system" ? (media.matches ? "dark" : "light") : theme;
+    document.documentElement.dataset.density = saved("density", ["comfortable", "compact"]);
+  };
   apply();
   media.addEventListener("change", apply);
-  addEventListener("storage", e => { if (e.key === "theme" || e.key === null) apply() });
+  addEventListener("storage", e => { if (e.key === "theme" || e.key === "density" || e.key === null) apply() });
   window.atomThemeApply = apply;
 })();
 </script>

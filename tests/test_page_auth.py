@@ -123,16 +123,17 @@ class PageThemeTests(unittest.TestCase):
             with self.subTest(token=token): self.assertIn(token, LOOK)
         self.assertRegex(LOOK, r':root\[data-theme="light"\]\{--bg:#f5f7fa;[^}]*--hl:15,23,42;[^}]*color-scheme:light\}')
         theme = re.search(BLOCKS["theme"], PAGES["admin"], re.S).group(0)
-        for part in ('localStorage.getItem("theme")', 'matchMedia("(prefers-color-scheme: dark)")', "document.documentElement.dataset.theme", 'addEventListener("storage"'):
+        for part in ('saved("theme", ["dark", "light", "system"])', 'saved("density", ["comfortable", "compact"])', 'matchMedia("(prefers-color-scheme: dark)")', "document.documentElement.dataset.theme", "document.documentElement.dataset.density", 'addEventListener("storage"'):
             with self.subTest(part=part): self.assertIn(part, theme)
         for page, text in PAGES.items():
             with self.subTest(page=page):
                 self.assertLess(text.index("<!-- ==== atom page: theme ==== -->"), text.index("<style>"))    # before the styles: no flash of the other theme
                 self.assertNotRegex(text, r"rgba\(255, ?255, ?255,(?!\.8\)|\.14\))")    # overlays use --hl; only the close button on the filled header stays white
         self.assertIn('id="settingsBtn" role="menuitem"', block("admin", "account header")[0])
-        for part in ('title: "Settings", sub: "Saved in this browser"', '["system", "System"', '["light", "Light"', '["dark", "Dark"', 'role="radiogroup"', 'localStorage.removeItem("theme")'):
-            with self.subTest(part=part): self.assertIn(part, ACCOUNT)
-        self.assertNotIn('localStorage.removeItem("theme")', ACCOUNT.split("const forgetAll")[1].split("\n")[0])    # logout keeps the theme
+        for part in ('title: "Settings", sub: "Saved in this browser"', 'options: [["dark", "Dark"', '["light", "Light"', '["system", "System"', 'options: [["comfortable", "Comfortable"', '["compact", "Compact"', 'role="radiogroup"', "localStorage.setItem(setting.key, option)"):
+            with self.subTest(part=part): self.assertIn(part, ACCOUNT)    # the first option of each setting is its default: Dark, Comfortable
+        self.assertNotIn("theme", ACCOUNT.split("const forgetAll")[1].split("\n")[0])    # logout keeps the settings
+        self.assertIn(':root[data-density="compact"]{--control-h:28px;--cell-y:4px}', LOOK)
         home = (ROOT / "static" / "home.html").read_text()
         self.assertIn("<!-- ==== atom page: theme ==== -->", home)
         self.assertIn(':root[data-theme="light"]', home)

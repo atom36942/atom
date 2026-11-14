@@ -6,14 +6,20 @@
 <title>API</title>
 <!-- ==== atom page: theme ==== -->
 <script>
-// Identical in every Atom page (docs/page.md, Page standard): the theme before the page draws, so it never flashes the other colours.
-// localStorage "theme" = "light" or "dark" (none: System, the computer's mode), chosen in Settings (account menu), kept at logout, shared by every tab; the result is <html data-theme>.
+// Identical in every Atom page (docs/page.md, Page standard): the look before the page draws, so it never flashes another one.
+// localStorage "theme" = "dark" (the default), "light" or "system" (the computer's mode, followed as it changes); "density" = "comfortable" (the default) or "compact".
+// Chosen in Settings (account menu), kept at logout, shared by every tab; the result is <html data-theme data-density>.
 (() => {
   const media = matchMedia("(prefers-color-scheme: dark)");
-  const apply = () => { let theme = null; try { theme = localStorage.getItem("theme") } catch {} document.documentElement.dataset.theme = theme === "light" || theme === "dark" ? theme : media.matches ? "dark" : "light" };
+  const saved = (key, options) => { try { const value = localStorage.getItem(key); return options.includes(value) ? value : options[0] } catch { return options[0] } };
+  const apply = () => {
+    const theme = saved("theme", ["dark", "light", "system"]);
+    document.documentElement.dataset.theme = theme === "system" ? (media.matches ? "dark" : "light") : theme;
+    document.documentElement.dataset.density = saved("density", ["comfortable", "compact"]);
+  };
   apply();
   media.addEventListener("change", apply);
-  addEventListener("storage", e => { if (e.key === "theme" || e.key === null) apply() });
+  addEventListener("storage", e => { if (e.key === "theme" || e.key === "density" || e.key === null) apply() });
   window.atomThemeApply = apply;
 })();
 </script>
@@ -21,14 +27,16 @@
 <style>
 /* ==== atom page: look ==== */
 /* Identical in every Atom page (docs/page.md, Page standard); a page's own styles come after this block and only add layout. A test checks the copies match. */
-:root{--bg:#0b0d10;--card:#0f1114;--panel:#1a1d23;--field:#14171c;--line:rgba(var(--hl),.08);--line-strong:rgba(var(--hl),.14);--text:#e6eef3;--muted:#9aa0a6;--primary:#38a169;--accent:#4299e1;--brand:#2b6cb0;--brand-soft:#c3dafe;--brand-ink:#90cdf4;--hl:255,255,255;--warn:#ed8936;--danger:#f87171;--font:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"SF Mono",Menlo,Consolas,monospace;--fs:13px;--fs-small:12px;--fs-title:15px;--radius:8px;color-scheme:dark}
+:root{--bg:#0b0d10;--card:#0f1114;--panel:#1a1d23;--field:#14171c;--line:rgba(var(--hl),.08);--line-strong:rgba(var(--hl),.14);--text:#e6eef3;--muted:#9aa0a6;--primary:#38a169;--accent:#4299e1;--brand:#2b6cb0;--brand-soft:#c3dafe;--brand-ink:#90cdf4;--hl:255,255,255;--warn:#ed8936;--danger:#f87171;--font:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"SF Mono",Menlo,Consolas,monospace;--fs:13px;--fs-small:12px;--fs-title:15px;--radius:8px;--control-h:34px;--cell-y:8px;color-scheme:dark}
 /* light: <html data-theme="light"> (Settings > Theme, or the computer when Theme is System); --hl is the overlay colour (white on dark, ink on light) */
+/* compact: <html data-density="compact"> (Settings > Density): smaller fields, buttons and table rows */
+:root[data-density="compact"]{--control-h:28px;--cell-y:4px}
 :root[data-theme="light"]{--bg:#f5f7fa;--card:#fff;--panel:#eef1f5;--field:#fff;--text:#1c2430;--muted:#5f6b7a;--primary:#2f855a;--accent:#2b6cb0;--brand-soft:#dbe8fb;--brand-ink:#2b6cb0;--warn:#c05621;--danger:#c53030;--hl:15,23,42;color-scheme:light}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5}
 [hidden]{display:none!important}
 h1,h2,h3{font-family:var(--font)}
-:where(button,select,input,textarea){font-family:var(--font);font-size:var(--fs);color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:var(--radius);height:34px;padding:0 12px}
+:where(button,select,input,textarea){font-family:var(--font);font-size:var(--fs);color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:var(--radius);height:var(--control-h);padding:0 12px}
 :where(textarea){height:auto;min-height:80px;padding:8px 12px;resize:vertical;font-family:var(--mono);font-size:var(--fs-small)}
 :where(button){cursor:pointer;white-space:nowrap;font-weight:500;transition:border-color .15s,background .15s}
 :where(button:hover:not(:disabled)){border-color:rgba(66,153,225,.5);background:var(--panel)}
@@ -54,11 +62,11 @@ dialog.dlg::backdrop{background:rgba(0,0,0,.6)}
 .dlg-body{padding:18px;overflow-y:auto;display:grid;gap:14px}
 .dlg-body:empty{display:none}
 /* inside the shared dialogs, fields and buttons look the same on every page, whatever the page's own rules */
-dialog.dlg input,dialog.dlg select{width:100%;height:34px;margin:0;padding:0 12px;font-family:var(--font);font-size:var(--fs);color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:var(--radius);box-shadow:none}
+dialog.dlg input,dialog.dlg select{width:100%;height:var(--control-h);margin:0;padding:0 12px;font-family:var(--font);font-size:var(--fs);color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:var(--radius);box-shadow:none}
 dialog.dlg input:focus,dialog.dlg select:focus{outline:none;border-color:var(--accent)}
 dialog.dlg input:disabled{color:var(--muted);background:rgba(var(--hl),.02)}
 dialog.dlg .pw-wrap input{padding-right:40px}
-dialog.dlg .dlg-actions button:not(.kv-btn){height:34px;padding:0 14px;font-size:var(--fs);font-weight:500;border-radius:var(--radius)}
+dialog.dlg .dlg-actions button:not(.kv-btn){height:var(--control-h);padding:0 14px;font-size:var(--fs);font-weight:500;border-radius:var(--radius)}
 .dlg-actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;background:var(--panel);border-top:1px solid var(--line-strong)}
 .dlg-x{width:30px;height:30px;margin:-4px -6px 0 0;padding:0;border:none;background:none;color:rgba(255,255,255,.8);display:inline-flex;align-items:center;justify-content:center;flex:none}
 .dlg-x:hover:not(:disabled){background:rgba(255,255,255,.14);color:#fff}
@@ -135,11 +143,11 @@ dialog.dlg .dlg-actions button:not(.kv-btn){height:34px;padding:0 14px;font-size
 .login-btn{width:100%;height:38px;border:none;background:var(--brand);color:#fff;font-weight:600}
 .login-btn:hover:not(:disabled){background:#2c5282;border:none}
 @media (max-width:860px){.login-wrap{grid-template-columns:1fr;align-content:start;gap:24px;padding:8px 16px 32px}.login-features{display:none}.login-intro h1{font-size:28px}.login-wordmark{padding:16px}}
-/* Settings: one row per setting; Theme is a three-way choice (System, Light, Dark) */
+/* Settings: one row per setting, each a choice of a few options (Theme: Dark, Light, System; Density: Comfortable, Compact) */
 .setting-row{display:grid;gap:10px;padding:14px;border:1px solid var(--line);border-radius:10px}
 .setting-row strong{display:block;font-weight:600}
 .setting-row p{margin:2px 0 0;color:var(--muted);font-size:var(--fs-small)}
-.choices{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border-radius:var(--radius);background:var(--panel)}
+.choices{display:grid;grid-auto-columns:1fr;grid-auto-flow:column;gap:4px;padding:4px;border-radius:var(--radius);background:var(--panel)}
 dialog.dlg .choices button{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 10px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--muted);font-weight:600}
 dialog.dlg .choices button:hover:not(:disabled){background:transparent;color:var(--text);border-color:transparent}
 dialog.dlg .choices button[aria-checked="true"]{background:var(--card);border-color:var(--line-strong);color:var(--brand-ink)}
@@ -349,7 +357,7 @@ select.row-val{padding-right:64px}
 .grid-wrap{overflow:auto}
 .grid-tbl{border-collapse:separate;border-spacing:0;table-layout:auto;width:max-content;font-size:12px}
 .grid-tbl-root{min-width:100%}
-.grid-tbl th,.grid-tbl td{border-right:1px solid rgba(var(--hl),.06);border-bottom:1px solid rgba(var(--hl),.06);padding:6px 10px;text-align:left;vertical-align:top;white-space:nowrap}
+.grid-tbl th,.grid-tbl td{border-right:1px solid rgba(var(--hl),.06);border-bottom:1px solid rgba(var(--hl),.06);padding:calc(var(--cell-y) - 2px) 10px;text-align:left;vertical-align:top;white-space:nowrap}
 .grid-tbl th:last-child,.grid-tbl td:last-child{border-right:none}
 .grid-tbl th{background:var(--panel);font-weight:600;color:var(--accent);font-size:12px;letter-spacing:.5px;position:relative;user-select:none}
 .grid-tbl-root>thead>tr>th{position:sticky;top:0;z-index:2}
@@ -489,7 +497,7 @@ select.row-val{padding-right:64px}
   .tag-filter{padding:6px 9px;line-height:1.2}
   .master-table-wrap{max-height:calc(100vh - 300px);min-height:280px}
   #apiInfoTbl{min-width:620px}
-  #apiInfoTbl th,#apiInfoTbl td{padding:9px 8px;font-size:12px}
+  #apiInfoTbl th,#apiInfoTbl td{padding:calc(var(--cell-y) + 1px) 8px;font-size:12px}
   #apiInfoTbl th:first-child,#apiInfoTbl td:first-child{padding-left:12px}
   #apiInfoTbl .col-id{width:30px;min-width:30px}
   #apiInfoTbl .col-method{width:56px;min-width:56px}
@@ -1063,18 +1071,18 @@ const Page = (() => {
   };
   const logoutOpen = () => dialog({ title: "Logout?", body: '<p class="confirm-text">Are you sure you want to logout?</p>', actions: '<button type="button" id="logoutCancel">Cancel</button><button type="button" class="primary" id="logoutConfirm">Logout</button>', on: { logoutCancel: dialogClose, logoutConfirm: () => logOut("") } });
 
-  /* -- Settings: one row per setting; the first is Theme (System, Light, Dark), applied at once and saved in this browser (localStorage "theme", kept at logout) -- */
-  const THEMES = [
-    ["system", "System", '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>'],
-    ["light", "Light", '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'],
-    ["dark", "Dark", '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'],
+  /* -- Settings: one row per setting, each a choice of a few options, applied at once and saved in this browser (localStorage, kept at logout) -- */
+  // Theme: Dark (the default), Light, or System (the computer's mode); Density: Comfortable (the default) or Compact. The theme block applies them.
+  const SETTINGS = [
+    { key: "theme", label: "Theme", help: "System follows your computer's light or dark mode.", options: [["dark", "Dark", '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'], ["light", "Light", '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'], ["system", "System", '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>']] },
+    { key: "density", label: "Density", help: "Compact fits more rows on the screen.", options: [["comfortable", "Comfortable", '<path d="M4 6h16M4 12h16M4 18h16"/>'], ["compact", "Compact", '<path d="M4 5h16M4 9h16M4 13h16M4 17h16"/>']] },
   ];
-  const themeChoice = () => { try { const theme = localStorage.getItem("theme"); return theme === "light" || theme === "dark" ? theme : "system" } catch { return "system" } };
-  const settingsDraw = () => { for (const b of el("atomDialog").querySelectorAll("[data-choice]")) b.setAttribute("aria-checked", String(b.dataset.choice === themeChoice())) };
-  const themeChoose = value => { try { if (value === "system") localStorage.removeItem("theme"); else localStorage.setItem("theme", value) } catch {} window.atomThemeApply?.(); settingsDraw() };
+  const settingValue = setting => { try { const value = localStorage.getItem(setting.key); return setting.options.some(([option]) => option === value) ? value : setting.options[0][0] } catch { return setting.options[0][0] } };
+  const settingsDraw = () => { for (const b of el("atomDialog").querySelectorAll("[data-option]")) b.setAttribute("aria-checked", String(settingValue(SETTINGS[b.dataset.setting]) === b.dataset.option)) };
+  const settingChoose = (setting, option) => { try { localStorage.setItem(setting.key, option) } catch {} window.atomThemeApply?.(); settingsDraw() };
   const settingsOpen = () => {
     dialog({ title: "Settings", sub: "Saved in this browser",
-      body: `<div class="setting-row"><div><strong id="themeLabel">Theme</strong><p>System follows your computer's light or dark mode.</p></div><div class="choices" role="radiogroup" aria-labelledby="themeLabel">${THEMES.map(([value, label, icon]) => `<button type="button" role="radio" data-choice="${value}"><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}</button>`).join("")}</div></div>`,
+      body: SETTINGS.map((setting, index) => `<div class="setting-row"><div><strong id="setting-${setting.key}">${setting.label}</strong><p>${setting.help}</p></div><div class="choices" role="radiogroup" aria-labelledby="setting-${setting.key}">${setting.options.map(([option, label, icon]) => `<button type="button" role="radio" data-setting="${index}" data-option="${option}"><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}</button>`).join("")}</div></div>`).join(""),
       actions: '<button type="button" class="primary" id="settingsDone">Done</button>', on: { settingsDone: dialogClose } });
     settingsDraw();
     el("atomDialog").querySelector('[aria-checked="true"]')?.focus();
@@ -1126,19 +1134,19 @@ const Page = (() => {
     el("atomClose").innerHTML = el("loginClose").innerHTML = ICON.x;
     el("atomClose").addEventListener("click", dialogClose);
     el("atomDialog").addEventListener("cancel", e => { if (dialogLocked) e.preventDefault() });
-    // the theme choice moves with the arrow keys, as in any radio group
+    // a setting's choice moves with the arrow keys, as in any radio group
     el("atomDialog").addEventListener("keydown", e => {
-      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
-      if (!step || !e.target.closest("[data-choice]")) return;
+      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key], button = e.target.closest?.("[data-option]");
+      if (!step || !button) return;
       e.preventDefault();
-      const values = THEMES.map(([value]) => value), next = values[(values.indexOf(themeChoice()) + step + values.length) % values.length];
-      themeChoose(next);
-      el("atomDialog").querySelector(`[data-choice="${next}"]`).focus();
+      const setting = SETTINGS[button.dataset.setting], options = setting.options.map(([option]) => option), next = options[(options.indexOf(settingValue(setting)) + step + options.length) % options.length];
+      settingChoose(setting, next);
+      el("atomDialog").querySelector(`[data-setting="${button.dataset.setting}"][data-option="${next}"]`).focus();
     });    // Escape does nothing while Sync runs
     el("atomDialog").addEventListener("close", () => { formResolve?.(false); formResolve = null; dialogOn = {} });
     el("atomDialog").addEventListener("click", e => {
-      const choice = e.target.closest("[data-choice]");
-      if (choice) return themeChoose(choice.dataset.choice);
+      const choice = e.target.closest("[data-option]");
+      if (choice) return settingChoose(SETTINGS[choice.dataset.setting], choice.dataset.option);
       const copy = e.target.closest("[data-copy]");
       if (copy) return navigator.clipboard.writeText(copy.dataset.copy).then(() => toast("Username copied"), () => toast("Could not copy username", true));
       const button = e.target.closest("button[id]");

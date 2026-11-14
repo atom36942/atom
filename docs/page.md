@@ -3,7 +3,7 @@
 Patterns that work well for an app page on Atom (`static_extend/<app>/`). They are Atom's defaults, already weighed: use them as written and differ only for a real reason (say why in the project's docs), so no page re-decides them. The page and its files are the project's own; Atom provides the backend they call. The firm rules (where code goes, storage keys, token refresh, speed) are in [AGENTS.md](../AGENTS.md); this page shows how they fit together.
 
 ## Structure
-- One page per app: `index.html`, `css/<app>.css`, `js/app.js`, plus small shared helpers (a Sync dialog, a download helper) kept as their own files and copied unchanged between apps, so every app behaves the same. Plain HTML, CSS and JS work well; a framework or bundler is the project's choice.
+- One page per app, starting as one `<app>.html` with its CSS and JS inline; once it has its own assets or grows large (about 3000+ lines), a folder: `index.html`, `css/<app>.css`, `js/app.js`, plus small helpers (a Sync dialog, a download helper) as their own files, each app keeping its own copy (copied unchanged between apps, never one file two pages load), so every app behaves the same. Plain HTML, CSS and JS work well; a framework or bundler is the project's choice.
 - Every colour and size as a CSS variable in one theme block (brand, neutrals, status colours, text sizes, control heights, paddings), so a page never types a colour twice and a second app can share the look.
 - Element ids, function names and routes stay each app's own; what users see (login, header, dialogs, words) is worth keeping the same across a project's apps.
 
@@ -12,7 +12,7 @@ Atom's pages that log in (Admin, Monitor, API, Message) are built the same way, 
 
 | Block | Where in the page | What it holds |
 | :--- | :--- | :--- |
-| theme (`<!-- ==== atom page: theme ==== -->`) | in `<head>`, before `<style>` | sets `<html data-theme>` before the page draws: localStorage `theme` (`light` or `dark`; none = System, the computer's mode, followed as it changes), kept at logout, the same in every tab |
+| theme (`<!-- ==== atom page: theme ==== -->`) | in `<head>`, before `<style>` | sets `<html data-theme data-density>` before the page draws: localStorage `theme` (`dark`, the default, `light`, or `system`: the computer's mode, followed as it changes) and `density` (`comfortable`, the default, or `compact`: `--control-h` and `--cell-y` smaller), kept at logout, the same in every tab |
 | look (`/* ==== atom page: look ==== */`) | first in `<style>` | the palette (dark on `:root`, light on `:root[data-theme="light"]`; `--hl` is the overlay colour, white on dark and ink on light, so a page writes `rgba(var(--hl),.06)`, never a fixed white), one type scale (13px controls and dialog text, 12px small text, 15px dialog titles, 14px page text), base controls, the dialog (a header filled with the brand colour, a padded body, actions on their own band), the login page, key-value rows, the toast (bottom right, centred on a phone: a check or !, the message, ×; 6 s, kept while hovered; a popover above any dialog), the account menu. Base element rules use `:where()`, so the page's own classes always win |
 | account (`/* ==== atom page: account ==== */`) | first in `<script>`, after `PAGE` | `Page`: storage, login, token renewal, the user check, the cache, the sync, the account dialogs and the shared dialog |
 | account header (`<!-- ==== atom page: account header ==== -->`) | the right end of the page's header | Log in (logged out, on a page that works without a login) and the avatar with its menu (logged in) |
@@ -50,7 +50,7 @@ The account block does this; it is the default for a project's pages too.
 | Part | Shows |
 | :--- | :--- |
 | Menu | My profile, Login details, Settings, Sync, Logout (Logout in red); icons in the text colour |
-| Settings | Title "Settings", subtitle "Saved in this browser"; one bordered row per setting, then Done. The first is Theme: System, Light, Dark as one three-way choice, applied at once (arrow keys move it). New settings are new rows |
+| Settings | Title "Settings", subtitle "Saved in this browser"; one bordered row per setting, then Done: Theme (Dark, Light, System) and Density (Comfortable, Compact), each one choice applied at once (arrow keys move it). A new setting is a new entry in `SETTINGS` |
 | My profile | Name, Email, Mobile; read-only (each field is in My profile or Login details, never both) |
 | Login details | Username (with a copy button, toast "Username copied"), Password (8 dots and a pencil), Role (`Admin (1)`, the label from `info`; the number alone before the first sync) |
 | Update password | New password, Confirm new password, "6–120 characters, no spaces."; Cancel (back to Login details), Update password; errors "Use 6–120 characters, no spaces" and "Passwords don't match"; success closes the dialog with the toast "Password updated" |
