@@ -34,6 +34,7 @@ Atom attaches standard baseline security headers to every HTTP response before r
 - **User Writes Have Their Own APIs**: generic object APIs refuse `table=users`; `/my/user-*` and `/admin/user-*` update one user at a time, with `config_column_single_update` columns (`password`, `email`, `mobile`, `username`) sent alone and email or mobile verified by OTP.
 - **Trusted Writes Are Internal Only**: `func_postgres_create(..., is_trusted=True)` skips column, regex and type checks for rows Atom builds itself (the API log). Never pass it for request data; a test fails if any `router/` or `router_extend/` file uses it.
 - **Database Trigger Protections**: Superadmin user (`id: 1`) is guarded by PostgreSQL triggers (`trigger_protect_root_users`) preventing deletion.
+- **Logs Nobody Edits**: tables only Atom writes (`config_table_write_blocked`: `log_api`, `log_users_password`, `log_users_delete`, `script_run`, `otp`) are refused by every generic write API, admin's included (403), and `log_api` and `log_users_password` are append-only in the database (`table_row_update_disable`: a trigger refuses every `UPDATE`). The app's database login owns the tables and can drop a trigger, so the SQL runner can still undo this; for logs that even a database owner can't change, give the app a login that doesn't own them.
 
 ---
 

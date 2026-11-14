@@ -82,7 +82,7 @@ def func_script_type(*, path: str) -> str | None:
     return None
 
 def func_schedule_read(*, values: dict, root: str = None) -> dict:
-    """{script: {"schedule": dict, "module": "script.x" or "script_extend.x"}} for every config_schedule_<script> that is not off; raises on a bad value, a bad timezone or interval, a missing script, one in both folders, or one whose header is not '# type: job' (a continuous script runs as its own process)."""
+    """{script: {"schedule": dict, "module": "script.x" or "script_extend.x"}} for every config_schedule_script_<script> that is not off; raises on a bad value, a bad timezone or interval, a missing script, one in both folders, or one whose header is not '# type: job' (a continuous script runs as its own process)."""
     root = root or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))    # the project folder, wherever the app is started from
     func_schedule_timezone(name=values.get("config_schedule_timezone", "UTC"))
     check_sec = values.get("config_schedule_check_sec", 600)
@@ -90,7 +90,8 @@ def func_schedule_read(*, values: dict, root: str = None) -> dict:
     schedules = {}
     for key in sorted(values):
         if not key.startswith("config_schedule_") or key in ("config_schedule_timezone", "config_schedule_check_sec"): continue
-        script = key.removeprefix("config_schedule_")
+        if not key.startswith("config_schedule_script_"): raise ValueError(f"{key}: a script's schedule is config_schedule_script_<script>; rename it to config_schedule_script_{key.removeprefix('config_schedule_')} (docs/sync.md)")
+        script = key.removeprefix("config_schedule_script_")
         schedule = func_schedule_parse(value=values[key], key=key)
         found = [folder for folder in ("script", "script_extend") if os.path.isfile(os.path.join(root, folder, f"{script}.py"))]
         if len(found) == 2: raise ValueError(f"{key}: {script}.py is in both script/ and script_extend/; rename one")

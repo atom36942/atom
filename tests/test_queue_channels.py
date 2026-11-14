@@ -23,7 +23,7 @@ class QueueChannelTests(unittest.TestCase):
 
     def test_unknown_channel_stops_before_connecting(self):
         with patch("function.queues.func_run_broker") as run_broker, self.assertRaisesRegex(Exception, "unknown channel: func_postgres_create"):
-            func_consumer_run(queue="redis", channel="func_postgres_create", broker_settings={}, postgres_url="postgresql://x", config_column_regex={}, config_table={}, config_buffer_limit_default=1, config_buffer_rows_max=1)
+            func_consumer_run(queue="redis", channel="func_postgres_create", broker_settings={}, postgres_url="postgresql://x", config_column_regex={}, config_buffer_limit_default=1, config_buffer_rows_max=1)
         run_broker.assert_not_called()
 
     def test_each_broker_script_runs_its_own_broker(self):

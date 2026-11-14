@@ -24,8 +24,8 @@ async def run_checks(pool, *, modes=("realtime", "realtime", "realtime"), roles=
     read = func_middleware_user_row_reader(client_postgres=pool, user_dict=USER)
     shared = {"client_postgres": pool, "client_redis": None, "config_redis_cache_ttl_sec": 60, "user_row_read": read}
     await func_middleware_check_role(user_dict=USER, user_check_role={"mode": modes[0], "roles": list(roles)}, cache_users_role={}, **shared)
+    await func_middleware_check_user_deleted(user_dict=USER, user_check_deleted={"mode": modes[2]}, cache_users_deleted={}, **shared)    # deleted first, as in main.py and at login
     await func_middleware_check_user_deactivated(user_dict=USER, user_check_deactivated={"mode": modes[1]}, cache_users_deactivated={}, **shared)
-    await func_middleware_check_user_deleted(user_dict=USER, user_check_deleted={"mode": modes[2]}, cache_users_deleted={}, **shared)
 
 
 class UserRowReaderTests(unittest.IsolatedAsyncioTestCase):
@@ -51,8 +51,8 @@ class UserRowReaderTests(unittest.IsolatedAsyncioTestCase):
         cases = [
             ([], "user not found", 401),
             ([{"role": 9, "deactivated_at": None, "deleted_at": None}], "access denied", 403),
-            ([{"role": 2, "deactivated_at": "2026-01-01", "deleted_at": "2026-01-02"}], "user not active", 403),
-            ([{"role": 2, "deactivated_at": None, "deleted_at": "2026-01-02"}], "user is deleted", 403),
+            ([{"role": 2, "deactivated_at": "2026-01-01", "deleted_at": "2026-01-02"}], "account deleted", 403),
+            ([{"role": 2, "deactivated_at": "2026-01-01", "deleted_at": None}], "account deactivated", 403),
         ]
         for rows, message, status in cases:
             pool, conn = pool_returning(rows)

@@ -99,7 +99,7 @@ def func_postgres_schema_context_build(*, config_postgres: dict) -> dict:
             elif isinstance(val, dict): register_sql_catalog(val)
         return
     register_sql_catalog(config_postgres.get("sql", {}))
-    return {"catalog": catalog, "is_truncate_table": get_enable_control_switch("is_truncate_table", True, ("is_enable_truncate_disable", "is_disable_truncate")), "is_root_user_delete_disabled": control.get("is_root_user_delete_disabled", control.get("is_enable_users_protect_root", True)), "is_root_user_create": control.get("is_root_user_create", True), "is_log_users_password": control.get("is_log_users_password", True), "is_log_users_delete": control.get("is_log_users_delete", True), "is_protected_delete_disabled": control.get("is_protected_delete_disabled", True), "is_updated_at_set": control.get("is_updated_at_set", True), "bulk_blocked": control.get("table_row_delete_disable_bulk", control.get("table_delete_disable_row_bulk", control.get("disable_table_delete_row_bulk", []))), "table_blocked": control.get("table_row_delete_disable", control.get("table_row_delete_disable_all", control.get("table_delete_disable_row", control.get("disable_table_delete_row", []))))}
+    return {"catalog": catalog, "is_truncate_table": get_enable_control_switch("is_truncate_table", True, ("is_enable_truncate_disable", "is_disable_truncate")), "is_root_user_delete_disabled": control.get("is_root_user_delete_disabled", control.get("is_enable_users_protect_root", True)), "is_root_user_create": control.get("is_root_user_create", True), "is_log_users_password": control.get("is_log_users_password", True), "is_log_users_delete": control.get("is_log_users_delete", True), "is_protected_delete_disabled": control.get("is_protected_delete_disabled", True), "is_updated_at_set": control.get("is_updated_at_set", True), "bulk_blocked": control.get("table_row_delete_disable_bulk", control.get("table_delete_disable_row_bulk", control.get("disable_table_delete_row_bulk", []))), "update_blocked": control.get("table_row_update_disable", []), "table_blocked": control.get("table_row_delete_disable", control.get("table_row_delete_disable_all", control.get("table_delete_disable_row", control.get("disable_table_delete_row", []))))}
 
 def func_postgres_schema_hash(value: Any) -> str:
     """Return the stable short hash used in managed PostgreSQL object names."""
@@ -335,6 +335,7 @@ async def func_postgres_schema_triggers_sync(*, conn: asyncpg.Connection, db_tab
     is_updated_at_set = context["is_updated_at_set"]
     bulk_blocked = context["bulk_blocked"]
     table_blocked = context["table_blocked"]
+    update_blocked = context.get("update_blocked", [])
     existing = context["triggers"] if "triggers" in context else await func_postgres_schema_triggers_read(conn=conn)
     await conn.execute("CREATE OR REPLACE FUNCTION func_delete_disable_is_protected() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.is_protected IS TRUE THEN RAISE EXCEPTION 'DELETE not allowed for protected row in %', TG_TABLE_NAME; END IF; RETURN OLD; END; $$; CREATE OR REPLACE FUNCTION func_set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at=NOW(); RETURN NEW; END; $$; CREATE OR REPLACE FUNCTION func_set_updated_at_except_activity() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF to_jsonb(NEW) - 'updated_at' - 'last_active_at' IS DISTINCT FROM to_jsonb(OLD) - 'updated_at' - 'last_active_at' THEN NEW.updated_at=NOW(); END IF; RETURN NEW; END; $$; CREATE OR REPLACE FUNCTION func_delete_disable_bulk() RETURNS trigger LANGUAGE plpgsql AS $$ DECLARE n BIGINT := TG_ARGV[0]; BEGIN IF (SELECT COUNT(*) FROM deleted_rows) > n THEN RAISE EXCEPTION 'cant delete more than % rows',n; END IF; RETURN OLD; END; $$; CREATE OR REPLACE FUNCTION func_delete_disable_table() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'operation not allowed on %', TG_TABLE_NAME; END; $$;")
     for table, cols in db_tables.items():
@@ -367,6 +368,11 @@ async def func_postgres_schema_triggers_sync(*, conn: asyncpg.Connection, db_tab
             tab_tg_name = f"trigger_delete_disable_{table}"
             catalog["tg"].add(tab_tg_name)
             await func_postgres_schema_trigger_set(conn=conn, existing=existing, table=table, name=tab_tg_name, definition=f"BEFORE DELETE ON {table} FOR EACH ROW EXECUTE FUNCTION func_delete_disable_table()")
+    for table in update_blocked:    # append-only tables: the database refuses every UPDATE, whoever sends it (admin SQL runner, scripts)
+        if table in db_tables:
+            upd_block_tg_name = f"trigger_update_disable_{table}"
+            catalog["tg"].add(upd_block_tg_name)
+            await func_postgres_schema_trigger_set(conn=conn, existing=existing, table=table, name=upd_block_tg_name, definition=f"BEFORE UPDATE ON {table} FOR EACH ROW EXECUTE FUNCTION func_delete_disable_table()")
     return
 
 async def func_postgres_schema_cleanup(*, conn: asyncpg.Connection, tables: dict, catalog: dict) -> None:

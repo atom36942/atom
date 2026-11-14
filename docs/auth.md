@@ -113,7 +113,7 @@ Compares the input against `config_login_password` configured in `.env`. If unco
 
 ## 4. Managing Users
 
-Rows of `users` are written only through these APIs; the generic object APIs (`/my/object-update`, `/my/object-delete`, `/admin/object-create`, `/admin/object-update`, `/admin/object-delete`) refuse `table=users` and name the right one. The one exception is `/admin/postgres-import` (admins only, any table): a CSV can create or update `users` in bulk, and its `password` cells are hashed like everywhere else. Reading stays generic: `GET /my/profile` (own row plus `config_sql["profile_metadata"]`) and `/admin/object-read?table=users` (`password` is never readable).
+Rows of `users` are written only through these APIs; the generic object APIs (`/my/object-update`, `/my/object-delete`, `/admin/object-create`, `/admin/object-update`, `/admin/object-delete`) refuse `table=users` and name the right one. The one exception is `/admin/postgres-import` (admins only, any table): a CSV can create or update `users` in bulk, and its `password` cells are hashed like everywhere else. Reading stays generic: `GET /my/profile` (own row plus `config_profile_metadata_sql`) and `/admin/object-read?table=users` (`password` is never readable).
 
 | API | Query | Body | Rules |
 |---|---|---|---|
@@ -129,6 +129,20 @@ Rules for both updates:
 - A column in `config_column_single_update` (`username`, `password`, `email`, `mobile`) is updated alone: `{password}`, `{email, otp}`, never `{password, name}`.
 - Columns in `config_column_users_blocked` (`created_*`, `updated_*`, `deleted_*`, `is_protected`, `last_active_at`) are refused by both; columns in `config_column_users_my_blocked` only by `/my/user-update`; every other column, a project's own included, is allowed. A project adds its own columns to either list in `config_extend.py`.
 - `password` is hashed (Argon2) and logged in `log_users_password`; `email` is saved in lowercase; formats follow `config_column_regex`.
+
+### Deactivated or deleted accounts
+
+Set `deactivated_at` to block a user and keep the account (clear it to restore); `deleted_at` (soft delete) or `/admin/user-delete` removes them. Atom refuses them with 403 and one of two messages, the same everywhere:
+
+| Where | When the user is blocked |
+|---|---|
+| Login, `/my/token-refresh` | At once: `account deactivated` / `account deleted` |
+| Every token route | By `config_api_global_user_check_deleted` / `_deactivated` (default `token`: when the access token was issued after the block, so in practice at the next renewal; `realtime`: at once, one `users` lookup per request) or the route's own `user_check_*` |
+| `GET /my/profile` | Always answers with the current row, so `deactivated_at` / `deleted_at` show at once |
+
+A page handles it the same way in every case:
+- On a 403 with either message, or a profile with `deactivated_at` or `deleted_at`: log out, clear its storage, and say which, e.g. "Your account is deactivated. Please contact your admin." or "Your account was deleted. Please contact your admin." (never "Session expired").
+- No extra request for it: the page's regular sync (token renewal, then `/my/profile`, e.g. every 3 hours) catches a block on an open page. The server keeps accepting an access token issued before the block until it expires (`config_access_token_expires_sec`, 7 days); use `realtime` on routes that must stop at once.
 
 Deleting needs two switches, because the database guards `users` too: `config_is_user_delete=true` and `users` removed from `config_postgres["control"]["table_row_delete_disable"]` (default on: the API then answers "users delete blocked in the database"). The root user (`id` 1) is never deleted.
 

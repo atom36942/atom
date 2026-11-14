@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock
 
 from function import func_check_table_permission
 from function import func_check_table_not_users
+from function import func_check_table_write_blocked
+from function import func_middleware_api_user_check_fill
 from function import func_user_update_check
 from function import func_user_delete
 from function import func_validate_restricted_columns
@@ -40,6 +42,48 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(Exception, "restricted field: role"):
             func_validate_restricted_columns(app_state=SimpleNamespace(config_column_admin={"role"}),
                                              obj_list=[{"name": "ok"}, {"role": 1}])
+
+    def test_tables_only_atom_writes_are_refused_with_403(self):
+        state = SimpleNamespace(config_table_write_blocked=["log_api"])
+        func_check_table_write_blocked(app_state=state, table="orders")
+        with self.assertRaisesRegex(Exception, "write disabled for table: log_api") as caught:
+            func_check_table_write_blocked(app_state=state, table="log_api")
+        self.assertEqual(caught.exception.status_code, 403)
+        func_check_table_write_blocked(app_state=SimpleNamespace(), table="log_api")    # a project without the setting: no block
+
+    def test_every_generic_write_api_checks_the_write_blocked_tables(self):
+        import inspect
+        import router.admin
+        import router.my
+        import router.public
+        writes = {"/admin/object-create", "/admin/object-update", "/admin/object-delete", "/admin/postgres-import", "/my/object-create", "/my/object-update", "/my/object-delete", "/my/object-delete-all", "/public/object-create"}
+        found = {route.path: route.endpoint for module in (router.admin, router.my, router.public) for route in module.router.routes if route.path in writes}
+        self.assertEqual(set(found), writes)
+        for path, endpoint in found.items():
+            self.assertIn("func_check_table_write_blocked", inspect.getsource(endpoint), path)
+
+    def test_global_user_checks_fill_every_token_route_unless_it_sets_its_own(self):
+        config_api = {"/public": {"id": 1, "is_token": False}, "/my/x": {"id": 2, "is_token": True}, "/admin/x": {"id": 3, "is_token": False, "user_check_role": {"mode": "token", "roles": [1]}},
+                      "/my/own": {"id": 4, "is_token": True, "user_check_deleted": {"mode": "realtime"}}, "/my/off": {"id": 5, "is_token": True, "user_check_deactivated": None}}
+        filled = func_middleware_api_user_check_fill(config_api=config_api, config_api_global_user_check_deleted="token", config_api_global_user_check_deactivated="token")
+        self.assertEqual(filled["/public"], {"id": 1, "is_token": False})
+        for path in ("/my/x", "/admin/x"):
+            self.assertEqual((filled[path]["user_check_deleted"], filled[path]["user_check_deactivated"]), ({"mode": "token"}, {"mode": "token"}), path)
+        self.assertEqual(filled["/my/own"]["user_check_deleted"], {"mode": "realtime"})
+        self.assertIsNone(filled["/my/off"]["user_check_deactivated"])
+        self.assertNotIn("user_check_deleted", config_api["/my/x"], "config_api itself is not changed")
+        off = func_middleware_api_user_check_fill(config_api=config_api, config_api_global_user_check_deleted=None, config_api_global_user_check_deactivated=None)
+        self.assertNotIn("user_check_deleted", off["/my/x"])
+
+    def test_global_user_check_defaults_are_token(self):
+        import config
+        self.assertEqual((config.config_api_global_user_check_deleted, config.config_api_global_user_check_deactivated), ("token", "token"))
+        self.assertTrue({"deleted_at", "deactivated_at"} <= set(config.config_column_token_encode))
+
+    def test_atom_tables_nobody_edits_are_in_the_defaults(self):
+        import config
+        self.assertTrue({"log_api", "log_users_password", "log_users_delete", "script_run", "otp"} <= set(config.config_table_write_blocked))
+        self.assertEqual(config.config_postgres["control"]["table_row_update_disable"], ["log_api", "log_users_password"])
 
     def test_generic_object_apis_refuse_the_users_table(self):
         func_check_table_not_users(table="orders", api="/my/user-update")
@@ -107,7 +151,7 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
                     "client_redis": None, "config_redis_cache_ttl_sec": 60}
             await func(user_dict={"id": 7, field: None}, **args)
             for user in ({"id": 7, field: "2026-01-01"}, {"id": 7}):
-                with self.subTest(field=field, user=user), self.assertRaisesRegex(Exception, "missing deactivated_at|missing deleted_at|user is deleted|user not active"):
+                with self.subTest(field=field, user=user), self.assertRaisesRegex(Exception, "missing deactivated_at|missing deleted_at|account deleted|account deactivated"):
                     await func(user_dict=user, **args)
 
     def test_audit_owner_cannot_be_spoofed_and_input_is_not_mutated(self):

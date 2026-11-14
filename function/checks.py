@@ -70,6 +70,16 @@ def func_check_runtime_config(*, app_state: State) -> None:
     values = {key: int_check(getattr(app_state, key, None), key) for key in ("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb")}
     if values["config_sql_read_limit_default"] > values["config_sql_read_limit_max"]: raise Exception("config_sql_read_limit_default must not exceed config_sql_read_limit_max")
     values = getattr(app_state, "_state", None) or vars(app_state)
+    if "config_table" in values: raise ValueError("config_table was removed in Atom 9.0.0: set a table's buffer size as config_buffer_limit_<table> (e.g. config_buffer_limit_log_api = 1000)")
+    tables = set((values.get("config_postgres") or {}).get("table", {}))
+    for key, limit in values.items():
+        if not key.startswith("config_buffer_limit_") or key == "config_buffer_limit_default": continue
+        if key.removeprefix("config_buffer_limit_") not in tables: raise ValueError(f"{key}: no table {key.removeprefix('config_buffer_limit_')!r} in config_postgres")
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 10 <= limit <= 5000: raise ValueError(f"{key} must be an integer between 10 and 5000")
+    if "config_sql" in values: raise ValueError("config_sql was removed in Atom 9.0.0: its queries are Atom's own; set config_cache_row_limit_config, config_cache_row_limit_users_role, config_cache_row_limit_users_deactivated, config_cache_row_limit_users_deleted and config_profile_metadata_sql instead")
+    for key in ("config_cache_row_limit_config", "config_cache_row_limit_users_role", "config_cache_row_limit_users_deactivated", "config_cache_row_limit_users_deleted"):
+        limit = values.get(key)
+        if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit < 0): raise ValueError(f"{key} must be an integer, 0 or more")
     for old_key, new_key in (("config_otp_retention_day", "config_retention_day_otp"), ("config_log_api_retention_day", "config_retention_day_log_api"), ("config_users_delete_retention_day", "config_retention_day_users_delete")):
         if old_key in values: raise ValueError(f"{old_key} was renamed to {new_key} in Atom 7.0.0; rename it in config_extend.py or .env")
     for key in ("config_retention_day_otp", "config_retention_day_log_api", "config_retention_day_users_delete", "config_retention_day_script_run"):
@@ -104,6 +114,11 @@ def func_check_api_config(*, app: FastAPI) -> None:
     project_paths = {route.path for route in func_app_route_list(app=app) if hasattr(route, "path") and getattr(getattr(route, "endpoint", None), "__module__", "").startswith("router_extend")}
     api_ids = []
     user_mode_allowed = ("redis", "realtime", "inmemory", "token")
+    for key in ("config_api_global_user_check_deleted", "config_api_global_user_check_deactivated"):
+        value = getattr(app.state, key, None)
+        if value is not None and value not in user_mode_allowed: raise Exception(f"invalid {key}: {value!r}, allowed: {', '.join(user_mode_allowed)} or None")
+        column = key.removeprefix("config_api_global_user_check_") + "_at"
+        if value == "token" and column not in (getattr(app.state, "config_column_token_encode", None) or []): raise Exception(f"{key} is token: add {column} to config_column_token_encode")
     api_mode_allowed = ("redis", "inmemory")
     api_keys_allowed = ("id", "is_active", "is_token", "is_connection_param", "user_check_role", "user_check_deactivated", "user_check_deleted", "cache", "rate_limit", "api_cache_sec", "api_ratelimiting_times_sec", "is_log_api")
     def flag_check(value, key):

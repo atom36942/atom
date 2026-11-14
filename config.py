@@ -67,6 +67,11 @@ config_redis_cache_ttl_sec = 3600
 config_inmemory_cache_cleanup_auto_sec = 300
 config_api_cache_inmemory_max_kb = 102400
 config_token_cache_max = 10000
+# rows each startup cache loads (at startup and /admin/sync; 0 = off): config table, and users for the inmemory user checks
+config_cache_row_limit_config = 1000
+config_cache_row_limit_users_role = 10000
+config_cache_row_limit_users_deactivated = 10000
+config_cache_row_limit_users_deleted = 10000
 
 # auth
 config_root_user_password = None
@@ -77,7 +82,12 @@ config_refresh_token_expires_sec = 2592000
 config_signup_allowed_roles = []
 config_login_allowed_roles = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 config_is_user_delete = False
+config_api_global_user_check_deleted = "token"
+config_api_global_user_check_deactivated = "token"
+
+# profile
 config_is_profile_update_last_active_at = True
+config_profile_metadata_sql = {}
 
 # otp
 config_otp_length = 6
@@ -91,8 +101,9 @@ config_is_postgres_schema_init = True
 config_postgres_schema_lock_timeout_sec = 10
 config_postgres_pool_min_size = 1
 config_postgres_pool_max_size = 10
-config_postgres_query_timeout_sec = 0    # longest a single Postgres query may run, in seconds, then it is cancelled; 0 means no limit
+config_postgres_query_timeout_sec = 0
 config_buffer_limit_default = 100
+config_buffer_limit_log_api = 1000    # one table's buffer size: config_buffer_limit_<table>; other tables use the default
 config_buffer_rows_max = 100000
 config_postgres_buffer_flush_auto_sec = 60
 
@@ -107,8 +118,8 @@ config_postgres_db_log_api = "master"
 # schedule
 config_schedule_timezone = "UTC"
 config_schedule_check_sec = 600
-config_schedule_postgres_cleanup = "every 1h"
-config_schedule_postgres_backup = "off"
+config_schedule_script_postgres_cleanup = "every 1h"
+config_schedule_script_postgres_backup = "off"
 
 # retention
 config_retention_day_otp = 1
@@ -148,6 +159,7 @@ config_ai_services = ["gemini", "openai"]
 
 # table
 config_table_exclude_from_users_delete = ["spatial_ref_sys", "users", "log_users_delete"]
+config_table_write_blocked = ["log_api", "log_users_password", "log_users_delete", "script_run", "otp", "spatial_ref_sys"]
 config_table_my_create_blocked = ["users", "log_api", "log_users_password", "otp", "script_run", "spatial_ref_sys"]
 config_table_my_read_blocked = ["users", "config", "log_users_password", "otp", "script_run", "spatial_ref_sys"]
 config_table_my_delete_all_allowed = ["test", "message", "notification"]
@@ -168,19 +180,6 @@ config_column_users_my_blocked = ["role", "permissions", "verified_at", "verifie
 config_column_read_blocked = ["password"]
 
 # dict
-config_sql = {
-"config": "select key,value from config where deactivated_at is null order by id asc limit 1000",
-"users_role": "select id,role from users where role is not null order by id asc limit 1000",
-"users_deactivated": "select id, deactivated_at from users order by id asc limit 1000",
-"users_deleted": "select id, deleted_at from users order by id asc limit 1000",
-"profile_metadata": {},
-}
-
-
-config_table = {
-"log_api": {"buffer_limit": 1000},
-}
-
 config_column_regex = {
 "username": ["^(?=.{1,120}\\Z)\\S+\\Z", "Username must be 1-120 characters and contain no spaces"],
 "password": ["^(?=.{6,120}\\Z)\\S+\\Z", "Password must be 6-120 characters and contain no spaces"],
@@ -398,6 +397,7 @@ config_postgres = {
 "is_root_user_create": True,
 "is_root_user_delete_disabled": True,
 "table_row_delete_disable":["users", "config", "log_users_password", "log_users_delete"],
+"table_row_update_disable":["log_api", "log_users_password"],
 "table_row_delete_disable_bulk":[["users", 100]],
 },
 "sql":{

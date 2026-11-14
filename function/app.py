@@ -39,10 +39,8 @@ async def func_admin_sync(*, app_state: State, app_routes: list = None) -> str:
     app_state.cache_clickhouse_schema_dict = {name: await app_state.func_clickhouse_schema_read(client_clickhouse=client) for name, client in (getattr(app_state, "client_clickhouse_dict", None) or {}).items()}
     if app_routes is not None:
         app_state.cache_openapi = app_state.func_openapi_spec_generate(app_routes=app_routes, app_state=app_state)
-    app_state.cache_config = await app_state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app_state.config_sql.get("config"), is_json_value=True) if postgres_master and "config" in app_state.cache_postgres_schema_dict["master"] else {}
-    app_state.cache_users_role = await app_state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app_state.config_sql.get("users_role")) if postgres_master else {}
-    app_state.cache_users_deactivated = await app_state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app_state.config_sql.get("users_deactivated")) if postgres_master else {}
-    app_state.cache_users_deleted = await app_state.func_postgres_map_column(client_postgres=postgres_master, config_sql=app_state.config_sql.get("users_deleted")) if postgres_master else {}
+    cache_startup = await app_state.func_postgres_cache_read(client_postgres=postgres_master, is_config_table="config" in app_state.cache_postgres_schema_dict.get("master", {}), config_cache_row_limit_config=app_state.config_cache_row_limit_config, config_cache_row_limit_users_role=app_state.config_cache_row_limit_users_role, config_cache_row_limit_users_deactivated=app_state.config_cache_row_limit_users_deactivated, config_cache_row_limit_users_deleted=app_state.config_cache_row_limit_users_deleted)
+    for name, cache in cache_startup.items(): setattr(app_state, name, cache)
     return "done"
 
 def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:

@@ -87,14 +87,14 @@ An error in `func_extend` stops startup. An error in `func_extend_shutdown` is p
 
 ## Extend Atom's dictionaries
 
-`config.py` has seven dictionary settings a project extends: `config_sql`, `config_table`, `config_column_regex`, `config_options`, `config_column_int_mapping`, `config_postgres` and `config_api`. Define each one you change once in `config_extend.py`; `main.py` uses that value in place of Atom's and does not merge for you, so start from Atom's value and add or override keys:
+`config.py` has five dictionary settings a project extends: `config_column_regex`, `config_options`, `config_column_int_mapping`, `config_postgres` and `config_api`. Define each one you change once in `config_extend.py`; `main.py` uses that value in place of Atom's and does not merge for you, so start from Atom's value and add or override keys:
 
 - spread Atom's base at the top level only: `{**base_config_x, "key": value}`. To change one of Atom's keys, write that key's whole value (copy from `config.py` what you keep); never spread a nested base like `**base_config_x["users"]`, so every override shows its full value in one place;
 - `config_postgres` is the one exception, because its tables sit one level down: `{**base_config_postgres, "table": {**base_config_postgres["table"], "task": [...]}}`.
 
 Keep Atom's keys when you extend: a dict defined from scratch replaces Atom's completely. For three of them startup checks it: if `config_api`, `config_postgres` or `config_column_int_mapping` in `config_extend.py` is missing any of Atom's routes, Postgres setup (extensions, tables, switches, SQL) or mapped codes, it stops and names them. Changing their values (a route's policy, a table's columns) is fine; how you write the dict (`**base`, a copy) doesn't matter.
 
-Lay the file out in three sections: `# base` (imports of Atom's values, `from config import config_api as base_config_api`), `# atom` (Atom's dicts you extend, each starting from its base) and `# misc` (everything else: plain values and your own `config_*` settings). When `config_extend.py` is missing, sync creates it in this layout, with `config_column_int_mapping`, `config_postgres` and `config_api` already defined from their bases and commented examples; add other Atom dicts to `# base` and `# atom` the same way.
+Lay the file out in three sections: `# base` (imports of Atom's values, `from config import config_api as base_config_api`), `# atom` (every setting Atom's `config.py` defines: its dicts, each starting from its base, and plain overrides such as `config_root_html_path`) and `# extend` (settings only your project has, such as `config_schedule_script_<script>`). A name in Atom's `config.py` goes in `# atom`, any other in `# extend`. When `config_extend.py` is missing, sync creates it in this layout, with `config_column_int_mapping`, `config_postgres` and `config_api` already defined from their bases and commented examples; add other Atom dicts to `# base` and `# atom` the same way.
 
 ```python
 # config_extend.py
@@ -152,7 +152,7 @@ Three variables are checked, and only when `config_extend.py` defines them:
 
 Values are not checked: change a route's policy, a table's columns or a code's label, and add your own routes, tables, mappings and codes, freely. What counts as Atom's is read from `config.py` on every start, so entries Atom adds later are covered without changing the check. How the dict is written does not matter either: `{**base_config_api, ...}` or a copy both pass. The message names the missing entries and the fix, for example `config_postgres drops 3 of Atom's entries (table.users, extension.pg_trgm, control.is_index_drop); fix: {**base_config_postgres, "table": {**base_config_postgres["table"], ...}}`.
 
-Not checked: `config_options`, `config_sql`, `config_table`, `config_column_regex` and any `config_*` the project adds; a missing key there only removes that option.
+Not checked: `config_options`, `config_column_regex` and any `config_*` the project adds; a missing key there only removes that option.
 
 One more check covers the whole file: a base imported under a name starting with `config_` (`config_api_base = ...` instead of `base_config_api`) stops startup, because every `config_*` name is read as a setting.
 

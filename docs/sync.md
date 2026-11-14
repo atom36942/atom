@@ -58,6 +58,21 @@ Atom's version is `ATOM_VERSION` in `sync.py` (for example `ATOM_VERSION = "1.2.
 
 Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. Sync always takes the latest `main`; to mark a new version, raise `ATOM_VERSION` and the `Version` line at the top of `readme.md` (a test checks they match) and push to `main` (no tags or GitHub releases). Commits in between keep the last version. A project synced before versions existed shows `unknown` until its next sync. If a sync fails after installing the new `sync.py`, that file already shows the new version while the other files may be older; the error says so, and running sync again finishes it.
 
+### Upgrading to 9.0.0
+
+`config_sql` and `config_table` are removed: the startup queries are Atom's own code now, and a table's buffer size is a plain setting. A project that set either (startup stops, naming the new keys) sets plain values instead, in `config_extend.py` or `.env`:
+
+| Before | 9.0.0 |
+|---|---|
+| `config_sql["config"]` (its `limit`) | `config_cache_row_limit_config` |
+| `config_sql["users_role"]`, `["users_deactivated"]`, `["users_deleted"]` | `config_cache_row_limit_users_role`, `_users_deactivated`, `_users_deleted` (`0` = off) |
+| `config_sql["profile_metadata"]` | `config_profile_metadata_sql` |
+| `config_table["<table>"]["buffer_limit"]` | `config_buffer_limit_<table>` (Atom sets `config_buffer_limit_log_api = 1000`) |
+
+`config_extend.py` sections are now `# base`, `# atom`, `# extend` (was `# misc`): move plain overrides of Atom's settings into `# atom`, keep only the project's own settings under `# extend` ([extend.md](extend.md)). Layout only; nothing checks it.
+
+A script's schedule is `config_schedule_script_<script>` (was `config_schedule_<script>`), so it never clashes with the scheduler's own `config_schedule_timezone` and `config_schedule_check_sec`. Rename each one in `config_extend.py`, `.env` and the server's settings (`config_schedule_postgres_cleanup` → `config_schedule_script_postgres_cleanup`); an old name, even `off`, stops startup naming the new one.
+
 ### Upgrading to 8.0.0
 
 - Two of Atom's scripts were renamed: `script/cleanup.py` → `script/postgres_cleanup.py` and `script/schema_plan.py` → `script/postgres_schema_plan.py` (run them as `venv/bin/python -m script.postgres_cleanup` and `script.postgres_schema_plan`). The setting `config_schedule_cleanup` is now `config_schedule_postgres_cleanup`: a project that sets the old name renames it (an old name that is not `off` stops startup: no script named cleanup).

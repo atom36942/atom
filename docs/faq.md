@@ -444,7 +444,7 @@ Commit or back up your work first, then review the Git diff after syncing and ru
 
 Set `deactivated_at` on the user's row instead of deleting it. This preserves the account, ownership relationships, and audit history while marking the user as inactive.
 
-Routes configured with `user_check_deactivated` will then reject the user. Check that sensitive routes actually include this policy—deactivation is enforced by route configuration, not automatically on every endpoint.
+Login and `/my/token-refresh` refuse the user at once. Every token route checks it with `config_api_global_user_check_deactivated` (default `"token"`: the user's current token keeps working until it expires); set it to `"realtime"`, or set `user_check_deactivated` on a sensitive route, to block at once.
 
 To restore access, clear `deactivated_at` and refresh the relevant caches with `GET /admin/sync` if necessary.
 
@@ -630,7 +630,7 @@ curl -X POST "http://localhost:8000/my/object-create?table=test&mode=buffer" \
 
 A successful response with `"message": "buffered"` means the row is accepted in memory but is **not yet committed or readable from PostgreSQL**. `"buffered released"` means that buffer group reached its limit and was inserted immediately.
 
-Pending groups are flushed when they reach the table's `buffer_limit`, approximately every 60 seconds, by `GET /admin/sync`, and during graceful shutdown. `config_table[<table>]["buffer_limit"]` overrides `config_buffer_limit_default`. Rows are grouped by table and column shape, so differently shaped objects can reach their limits independently.
+Pending groups are flushed when they reach the table's buffer limit, approximately every 60 seconds, by `GET /admin/sync`, and during graceful shutdown. `config_buffer_limit_<table>` (e.g. `config_buffer_limit_log_api`) overrides `config_buffer_limit_default`. Rows are grouped by table and column shape, so differently shaped objects can reach their limits independently.
 
 Use buffering for high-volume, low-urgency records where delayed visibility and possible loss during a crash or forced shutdown are acceptable. Use `mode=now` when the caller needs the inserted ID, must read the row immediately, or requires database persistence before success is returned.
 

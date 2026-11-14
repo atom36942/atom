@@ -51,6 +51,20 @@ class RetentionConfigTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             func_check_runtime_config(app_state=state)
 
+    def test_removed_config_sql_stops_startup_and_cache_limits_are_checked(self):
+        state = self.state(1)
+        state.config_sql = {}
+        with self.assertRaisesRegex(ValueError, "config_sql was removed in Atom 9.0.0"):
+            func_check_runtime_config(app_state=state)
+        for value in (-1, True, 1.5, "10"):
+            state = self.state(1)
+            state.config_cache_row_limit_users_role = value
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "config_cache_row_limit_users_role must be an integer"):
+                func_check_runtime_config(app_state=state)
+        state = self.state(1)
+        state.config_cache_row_limit_users_role = 0
+        func_check_runtime_config(app_state=state)
+
     def test_old_retention_names_stop_startup(self):
         state = self.state(1)
         state.config_otp_retention_day = 1

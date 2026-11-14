@@ -15,11 +15,11 @@ Every `config_*` value is read once, at startup, in this order; a later one wins
 | 3 | `.env` | one machine's values: secrets, URLs, flags |
 | 4 | environment variables | a server's settings (Azure app settings, `docker run -e`, CI); `.env` never overwrites a variable that is already set |
 
-Example: `config_extend.py` has `config_schedule_report = "off"`; a laptop without the key in `.env` keeps `off`, a server with `config_schedule_report=daily 02:00` in its settings runs it at 02:00. `func_config_load` (`function/config.py`, called from `main.py`) does the merge; the result is `app.state.config_<name>`.
+Example: `config_extend.py` has `config_schedule_script_report = "off"`; a laptop without the key in `.env` keeps `off`, a server with `config_schedule_script_report=daily 02:00` in its settings runs it at 02:00. `func_config_load` (`function/config.py`, called from `main.py`) does the merge; the result is `app.state.config_<name>`.
 
 - **Type:** an overriding value takes the type of the default in code: a `True`/`False` default reads `true`/`false` (also `1`/`0`, `yes`/`no`, `on`/`off`; anything else stops startup), a number reads a number, a list or dict reads JSON (a value that is not valid JSON leaves the code's value), a string stays text (all digits become an integer). A key with no default in code is guessed the same way ([section 2](#2-dynamic-env-discovery--type-inference)).
 - **When:** only at startup; a changed `.env` or server setting applies after a restart (Azure restarts the app when a setting changes).
-- **Checks:** startup validates the merged values, so a bad one (`config_schedule_report=daily 2am`) stops the app with its name.
+- **Checks:** startup validates the merged values, so a bad one (`config_schedule_script_report=daily 2am`) stops the app with its name.
 
 > **Rule of Thumb**: Use `.env` for secrets, credentials, and environment flags; use `config_extend.py` for structural changes (tables, custom route policies).
 
@@ -161,6 +161,8 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_is_otp_require_users_update` | `/admin/user-update` needs `otp` for `email`/`mobile` (default `False`); `/my/user-update` always does |
 | `config_is_read_only` | Boolean system-wide read-only mode toggle |
 | `config_is_tmp_reset` | Wipe `tmp/` at app start (default: `False`); features and scripts delete their own `tmp/<feature>/` files |
+| `config_api_global_user_check_deleted`, `config_api_global_user_check_deactivated` | The deleted and deactivated check on every token route, as a mode: `"token"` (default: no query; reads `deleted_at`/`deactivated_at` from the token, so it blocks tokens issued while the user was already deleted or deactivated), `"realtime"` (one `users` lookup per request, shared with the role check: blocks at once), `"redis"`, `"inmemory"`, or `None` (only routes that set `user_check_deleted`/`user_check_deactivated` in `config_api`). A route's own key wins. Login and `/my/token-refresh` always refuse a deleted or deactivated user, so with `"token"` a user is cut off when their access token expires (`config_access_token_expires_sec`) |
+| `config_profile_metadata_sql` | Extra lists in `GET /my/profile`, under `metadata`: `{"name": "SELECT ... WHERE user_id = $1"}`, each query run with the user's id (default `{}`) |
 | `config_is_profile_update_last_active_at` | `GET /my/profile` also sets the user's `last_active_at` in the background without delaying the response, always on the master database even when `?connection=` reads the profile from a replica (default: `True`; skipped when `config_is_read_only`); written at most once per 5 minutes per user (within them, the profile row it just read shows it is recent, so no query is sent), and never changes `updated_at` |
 | `config_is_pgweb_enabled` | Enable the PgWeb SQL console at `/pgweb` (default: `False`). Turn on only on a developer machine; even then it accepts only direct localhost requests from its own page |
 | `config_is_fastapi_telemetry` | FastAPI's built-in OpenTelemetry tracing, metrics, and logs (default `False`). Off, each request skips FastAPI's check for an OpenTelemetry backend (about 2 µs); turn on only when an OpenTelemetry provider is configured; exporters are then also set up from the `OTEL_*` environment variables. Errors still go to Sentry either way |
@@ -191,13 +193,15 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_otp_max_attempt` | Verification guesses allowed per OTP code before it is locked (default: `5`) |
 | `config_schedule_timezone` | Time zone of every `config_schedule_*` time (`UTC`; a zone name such as `Asia/Kolkata`) ([schedule.md](schedule.md)) |
 | `config_schedule_check_sec` | How often scheduled scripts are checked, in seconds (`600`; 60 to 3600) |
-| `config_schedule_<script>` | When `script/<script>.py` or `script_extend/<script>.py` runs by itself: `off`, `every 6h`, `daily 02:00`, `every 3d 02:00`, `weekly sun 02:00` or `monthly 1 02:00`. Atom's: `config_schedule_postgres_cleanup` (`every 1h`), `config_schedule_postgres_backup` (`off`) ([schedule.md](schedule.md)) |
-| `config_retention_day_otp` | OTP row retention in days (`1`); `None` skips it. Must exceed OTP expiry. Deleted by `script/postgres_cleanup.py` on `config_schedule_postgres_cleanup` |
-| `config_retention_day_log_api` | API-log row retention in days (`7`); `None` skips it. Deleted by `script/postgres_cleanup.py` on `config_schedule_postgres_cleanup` |
-| `config_retention_day_script_run` | Days a finished `script_run` row is kept (`90`); `None` keeps them. Deleted by `script/postgres_cleanup.py` on `config_schedule_postgres_cleanup`; a run still going is never deleted |
+| `config_schedule_script_<script>` | When `script/<script>.py` or `script_extend/<script>.py` runs by itself: `off`, `every 6h`, `daily 02:00`, `every 3d 02:00`, `weekly sun 02:00` or `monthly 1 02:00`. Atom's: `config_schedule_script_postgres_cleanup` (`every 1h`), `config_schedule_script_postgres_backup` (`off`) ([schedule.md](schedule.md)) |
+| `config_retention_day_otp` | OTP row retention in days (`1`); `None` skips it. Must exceed OTP expiry. Deleted by `script/postgres_cleanup.py` on `config_schedule_script_postgres_cleanup` |
+| `config_retention_day_log_api` | API-log row retention in days (`7`); `None` skips it. Deleted by `script/postgres_cleanup.py` on `config_schedule_script_postgres_cleanup` |
+| `config_retention_day_script_run` | Days a finished `script_run` row is kept (`90`); `None` keeps them. Deleted by `script/postgres_cleanup.py` on `config_schedule_script_postgres_cleanup`; a run still going is never deleted |
 | `config_retention_day_users_delete` | Days before soft-deleted users' data is purged by `script/worker_users_delete.py` (`30`) |
 | `config_access_token_expires_sec` | JWT Access Token lifetime in seconds |
 | `config_refresh_token_expires_sec` | JWT Refresh Token lifetime in seconds |
+| `config_cache_row_limit_config` | Rows of the `config` table (key → value) loaded into `cache_config` at startup and by `/admin/sync` (`1000`); `0` = not loaded |
+| `config_cache_row_limit_users_role`, `config_cache_row_limit_users_deactivated`, `config_cache_row_limit_users_deleted` | Users (lowest ids first) whose role, `deactivated_at` and `deleted_at` are loaded at startup and by `/admin/sync` for the `inmemory` user checks (`10000` each, about 1 MB in all); a user not loaded is read from the database. `0` = not loaded (a project that never uses `inmemory` checks can turn them off). Set them in `.env` like any number |
 | `config_token_cache_max` | Verified tokens cached per worker (`10000`, about 1 KB each); `0` turns the cache off. A token is fully verified on first use, then reused until its own `exp`; the key is the whole signed token, so an edited token is verified again. Expired entries are swept every `config_inmemory_cache_cleanup_auto_sec`; when full, the oldest entry is dropped |
 | `config_request_body_max_kb` | Largest request body in KB, except multipart uploads (`10240`, 10 MB); a bigger one gets `413` before it is read, since a JSON body is held in memory and parsing takes several times its size |
 | `config_request_form_max_kb` | Largest multipart upload (`multipart/form-data`) in KB, all files and fields together (`102400`, 100 MB; files go to disk past 1 MB); a bigger one gets `413` |
@@ -206,6 +210,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_blob_expire_sec_upload` | Presigned upload URL lifetime in seconds (`3600`) |
 | `config_blob_expire_sec_preview` | Presigned preview URL lifetime in seconds (`360000`) |
 | `config_buffer_limit_default` | In-memory buffer size before flushing rows to Postgres (`100`) |
+| `config_buffer_limit_<table>` | One table's buffer size, e.g. `config_buffer_limit_log_api` (`1000`); 10 to 5000. A name with no table in `config_postgres` stops startup |
 | `config_buffer_rows_max` | Max rows pending in each in-memory buffer during an outage (`100000`, at least `1000`). When full, `mode=buffer` creates return `503 buffer full, retry later` and API-log rows drop the oldest (counted as `buffer_dropped` on the Monitor page's Background tab) |
 | `config_postgres_buffer_flush_auto_sec` | Timer interval in seconds to auto-flush write buffers (`60`) |
 | `config_api_cache_inmemory_max_kb` | Largest total size, in KB, of the `inmemory` API response cache per worker, counting the stored (gzipped) bodies (`102400`, 100 MB); over it, the oldest entries are dropped and read from the route again on their next request |
@@ -235,6 +240,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | Key | Usage |
 |---|---|
 | `config_table_exclude_from_users_delete` | Exact table names excluded from the user-deletion worker's soft deletion, restoration, and permanent purging |
+| `config_table_write_blocked` | Tables only Atom writes (`log_api`, `log_users_password`, `log_users_delete`, `script_run`, `otp`, `spatial_ref_sys`): every generic write API refuses them with 403, admin's included (`/admin/object-create`, `-update`, `-delete`, `/admin/postgres-import`, `/my/object-create`, `-update`, `-delete`, `-delete-all`, `/public/object-create`); reads and exports still work |
 | `config_table_my_create_blocked` | Tables refused on user `/my/object-create` endpoint |
 | `config_table_my_read_blocked` | Tables refused on user `/my/object-read` endpoint |
 | `config_table_my_delete_all_allowed` | Tables supporting `/my/object-delete-all` through any column in `config_column_ownership_delete` that exists in the table; defaults to `created_by_id` |
@@ -294,6 +300,8 @@ Keys are route paths as declared. A route with path parameters (`/page/{name}`) 
 | `user_check_role` | `{"mode": "...", "roles": [...]}` | Restricts access to users with listed role numbers |
 | `user_check_deactivated` | `{"mode": "..."}` | Blocks request if user has `deactivated_at` timestamp set |
 | `user_check_deleted` | `{"mode": "..."}` | Blocks request if user has `deleted_at` timestamp set |
+
+Every token route (`is_token` or `user_check_role`) gets `user_check_deleted` and `user_check_deactivated` from `config_api_global_user_check_deleted` and `config_api_global_user_check_deactivated` unless it sets its own (its own value wins, `None` included).
 | `rate_limit` | `{"mode": "...", "limit": N, "window_sec": S}` | Limits requests to `limit` per `window_sec` seconds |
 | `cache` | `{"mode": "...", "ttl_sec": S, "is_per_user": bool}` | Caches responses for `ttl_sec` seconds (`is_per_user: True` isolates entries per user) |
 
@@ -353,31 +361,8 @@ Auto-migration and safety guards in `config_postgres["control"]`.
 | `is_root_user_create` | `True` | Automatically seeds initial root admin user on startup |
 | `is_root_user_delete_disabled` | `True` | Protects root admin user account from deletion |
 | `table_row_delete_disable` | `["users", ...]` | Tables where row deletion is entirely prohibited |
+| `table_row_update_disable` | `["log_api", "log_users_password"]` | Append-only tables: a trigger refuses every `UPDATE`, from any API, script or the admin SQL runner. Never a table Atom updates itself (`otp`, `script_run`, `log_users_delete`) |
 | `table_row_delete_disable_bulk` | `[["users", 100]]` | `[table, max_rows]` pairs: a single `DELETE` removing more rows fails. Listed tables only; never `log_api`, `otp` or tables the users-delete worker purges (they delete in batches of 5000) |
-
----
-
-### `config_sql`
-
-Pre-cached SQL queries executed at startup.
-
-| Key | Usage / Description |
-|---|---|
-| `config` | Selects key/value pairs from `config` table into `cache_config` |
-| `users_role` | Pre-fetches user role lookup map for middleware verification |
-| `users_deactivated` | Pre-fetches user `deactivated_at` timestamps for middleware checks |
-| `users_deleted` | Pre-fetches user `deleted_at` timestamps for middleware checks |
-| `profile_metadata` | Profile metadata queries |
-
----
-
-### `config_table`
-
-Per-table operational settings map.
-
-| Table Key | Nested Key | Type | Usage & Description |
-|---|---|---|---|
-| `<table_name>` | `buffer_limit` | `int` | Overrides `config_buffer_limit_default` write-buffer threshold |
 
 ---
 
@@ -478,7 +463,7 @@ Permission IDs are integers in Python, but JSON object keys are strings: clients
 
 ### Automatic OTP, API-log and script-run cleanup
 
-`script/postgres_cleanup.py` runs on `config_schedule_postgres_cleanup` (every hour by default, [schedule.md](schedule.md)) and permanently deletes only rows older than each retention cutoff, in batches of up to 5,000 with 0.1-second pauses, until none are left; each run is a row in `script_run`. OTP and `script_run` rows are in the master database (`script_run` keeps a run still going, whatever its age); API logs in the database `config_postgres_db_log_api` names, and only while `config_is_log_api` is on. Successful OTP verification still deletes its code immediately; expiry alone does not delete it. `config_schedule_postgres_cleanup = "off"` stops both; a retention of `None` stops one.
+`script/postgres_cleanup.py` runs on `config_schedule_script_postgres_cleanup` (every hour by default, [schedule.md](schedule.md)) and permanently deletes only rows older than each retention cutoff, in batches of up to 5,000 with 0.1-second pauses, until none are left; each run is a row in `script_run`. OTP and `script_run` rows are in the master database (`script_run` keeps a run still going, whatever its age); API logs in the database `config_postgres_db_log_api` names, and only while `config_is_log_api` is on. Successful OTP verification still deletes its code immediately; expiry alone does not delete it. `config_schedule_script_postgres_cleanup = "off"` stops both; a retention of `None` stops one.
 
 #### Sizing `config_retention_day_log_api`
 

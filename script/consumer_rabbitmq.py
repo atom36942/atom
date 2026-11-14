@@ -15,7 +15,6 @@ from config import config_column_regex
 from config import config_queue_concurrency
 from config import config_queue_retry_max
 from config import config_queue_retry_wait_sec
-from config import config_table
 from function import func_consumer_channels
 from function import func_consumer_run
 
@@ -30,7 +29,7 @@ config_rabbitmq_url = os.getenv("config_rabbitmq_url")
 def main():
     channel = sys.argv[1] if len(sys.argv) > 1 else None    # the channel to listen on
     if channel not in func_consumer_channels(): sys.exit(f"Error: channel is required. Usage: venv/bin/python -m script.consumer_rabbitmq <{'|'.join(func_consumer_channels())}>")
-    func_consumer_run(queue="rabbitmq", channel=channel, broker_settings={"config_rabbitmq_url": config_rabbitmq_url}, postgres_url=config_postgres_url_master, config_column_regex=config_column_regex, config_table=config_table, config_buffer_limit_default=config_buffer_limit_default, config_buffer_rows_max=config_buffer_rows_max, config_queue_concurrency=config_queue_concurrency, config_queue_retry_max=config_queue_retry_max, config_queue_retry_wait_sec=config_queue_retry_wait_sec)
+    func_consumer_run(queue="rabbitmq", channel=channel, broker_settings={"config_rabbitmq_url": config_rabbitmq_url}, postgres_url=config_postgres_url_master, config_column_regex=config_column_regex, config_buffer_limit_default=config_buffer_limit_default, config_buffer_rows_max=config_buffer_rows_max, config_queue_concurrency=config_queue_concurrency, config_queue_retry_max=config_queue_retry_max, config_queue_retry_wait_sec=config_queue_retry_wait_sec)
 
 # main
 if __name__ == "__main__":

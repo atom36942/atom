@@ -72,9 +72,15 @@ dialog.dlg .dlg-actions button:not(.kv-btn){height:34px;padding:0 14px;font-size
 .sync-fill{height:100%;width:0;background:var(--accent);border-radius:3px;transition:width .3s ease}
 .sync-status{margin:0;min-height:1.5em;color:var(--muted)}
 .sync-status.error{color:var(--danger)}
-/* toast: bottom centre */
-.toast{position:fixed;left:50%;bottom:24px;z-index:3000;transform:translateX(-50%);max-width:calc(100vw - 32px);padding:10px 16px;border-radius:10px;background:var(--panel);border:1px solid var(--line-strong);box-shadow:0 8px 24px rgba(0,0,0,.4);font-size:var(--fs)}
-.toast.error{border-color:rgba(248,113,113,.45);color:var(--danger)}
+/* toast: bottom right (centred on a phone), the same in every Atom page and in the projects' pages: a green check or a red !, the message, a ×; 6 s, kept while the mouse is over it; a popover, so it shows above an open dialog */
+.toast{position:fixed;inset:auto 24px 24px auto;margin:0;max-width:min(440px,calc(100vw - 32px));padding:8px 8px 8px 12px;border:1px solid var(--line-strong);border-radius:10px;background:var(--panel);color:var(--text);font-size:var(--fs);box-shadow:0 8px 24px rgba(0,0,0,.4);overflow:visible}
+.toast:popover-open{display:flex;align-items:center;gap:10px}
+.toast-icon{flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--primary);color:#fff;font-size:12px;font-weight:700;line-height:1}
+.toast.error .toast-icon{background:var(--danger)}
+.toast-text{flex:1;min-width:0}
+.toast-close{flex:none;display:grid;place-items:center;width:26px;height:26px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--muted);font-size:16px;line-height:1}
+.toast-close:hover{color:var(--text);background:rgba(255,255,255,.08)}
+@media (max-width:600px){.toast{inset:auto 16px 16px 16px;max-width:none}}
 /* header account area: Sync, then the avatar and its menu (or Login when logged out) */
 .atom-account{display:flex;align-items:center;gap:8px}
 .sync-btn{display:inline-flex;align-items:center;gap:6px}
@@ -444,7 +450,6 @@ select.row-val{padding-right:64px}
   .json-type-selector{flex:0 0 96px;min-width:96px}
   .remove-btn{align-self:center}
   .btn{width:100%;min-height:44px;padding:12px 16px}
-  .toast{left:12px;right:12px;bottom:12px;text-align:center}
   .ws-row{flex-direction:column}
   #wsConnBtn,#wsSendBtn{flex:1 1 auto;width:100%}
 }
@@ -685,7 +690,7 @@ select.row-val{padding-right:64px}
   <div class="dlg-body" id="atomBody"></div>
   <div class="dlg-actions" id="atomActions" hidden></div>
 </dialog>
-<div class="toast" id="toast" role="status" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite" popover="manual"><span class="toast-icon" aria-hidden="true"></span><span class="toast-text"></span><button class="toast-close" id="toastClose" type="button" aria-label="Close" data-tip="Close">×</button></div>
 <!-- ==== end atom page: dialogs ==== -->
 <script>
 /* ==== shared state and DOM helpers ==== */
@@ -720,7 +725,10 @@ const Page = (() => {
   const save = changes => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...read(), ...changes, v: STORAGE_VERSION })) } catch {} };
   // the whole token object, valid, or logged out
   const loginValid = token => !!token && typeof token.access_token === "string" && token.access_token !== "" && typeof token.refresh_token === "string" && token.refresh_token !== "" && Number.isFinite(token.access_token_expires_at) && Number.isFinite(token.refresh_token_expires_at) && token.refresh_token_expires_at > nowSec();
-  const userBlock = user => !user ? "Your account could not be loaded." : user.deleted_at ? "Your account was deleted." : user.deactivated_at ? "Your account is deactivated." : PAGE.role != null && Number(user.role) !== PAGE.role ? `This page needs role ${PAGE.role}.` : "";
+  // a deleted or deactivated account: Atom answers 403 "account deleted" / "account deactivated" at login, at token refresh and on every token route; the page logs out and says so
+  const ACCOUNT_REFUSED = { "account deleted": "Your account was deleted. Please contact your admin.", "account deactivated": "Your account is deactivated. Please contact your admin." };
+  let accountRefused = "";    // set by a refused request: every logout until the next login shows it, never "session expired"
+  const userBlock = user => !user ? "Your account could not be loaded." : user.deleted_at ? ACCOUNT_REFUSED["account deleted"] : user.deactivated_at ? ACCOUNT_REFUSED["account deactivated"] : PAGE.role != null && Number(user.role) !== PAGE.role ? `This page needs role ${PAGE.role}.` : "";
 
   /* -- IndexedDB cache: big or slow reference data; a record saved for another user is ignored -- */
   const idbOpen = () => new Promise((resolve, reject) => {
@@ -737,7 +745,13 @@ const Page = (() => {
 
   /* -- toast and the one dialog every part of the page uses -- */
   let toastTimer = null;
-  const toast = (text, isError = false) => { const t = el("toast"); t.textContent = text; t.classList.toggle("error", !!isError); t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true }, isError ? 5000 : 2600) };
+  const toastClose = () => { clearTimeout(toastTimer); if (el("toast").matches(":popover-open")) el("toast").hidePopover() };
+  const toastWait = () => { clearTimeout(toastTimer); toastTimer = setTimeout(toastClose, 6000) };
+  // shown again each time, so it is the newest thing in the top layer (above a dialog opened since)
+  const toast = (text, isError = false) => { const t = el("toast"); t.querySelector(".toast-text").textContent = text; t.querySelector(".toast-icon").textContent = isError ? "!" : "✓"; t.classList.toggle("error", !!isError); if (t.matches(":popover-open")) t.hidePopover(); t.showPopover(); toastWait() };
+  el("toast").querySelector(".toast-close").addEventListener("click", toastClose);
+  el("toast").addEventListener("mouseenter", () => clearTimeout(toastTimer));
+  el("toast").addEventListener("mouseleave", () => { if (el("toast").matches(":popover-open")) toastWait() });
   let dialogOn = {}, dialogLocked = false, formResolve = null;
   // dialog({title, sub, body, actions, on: {buttonId: handler}}): a title, an optional subtitle, a body and actions only when there is something to do
   const dialog = ({ title, sub = "", body = "", actions = "", on = {} }) => {
@@ -789,6 +803,7 @@ const Page = (() => {
       const response = await fetch("/my/token-refresh", { method: "POST", headers: { Authorization: `Bearer ${token.refresh_token}` } });
       const body = await response.json().catch(() => ({}));
       if (response.ok && body.status === 1) { if (!loginValid(body.message)) return false; save({ token: body.message }); return true }
+      if (response.status === 403) accountRefused = ACCOUNT_REFUSED[body.message] || accountRefused;
       return response.status === 401 || response.status === 403 ? false : null;
     } catch { return null }
   })().finally(() => { refreshing = null });
@@ -798,6 +813,10 @@ const Page = (() => {
     const json = typeof options.body === "string";
     const headers = { ...(json ? { "Content-Type": "application/json" } : {}), ...(options.headers || {}), ...(loginValid(token) ? { Authorization: `Bearer ${token.access_token}` } : {}) };
     const response = await fetch(path, { ...options, headers });
+    if (response.status === 403 && loginValid(token)) {
+      const refused = ACCOUNT_REFUSED[(await response.clone().json().catch(() => ({}))).message];
+      if (refused) { accountRefused = refused; logOut(); throw Object.assign(new Error(refused), { status: 403 }) }
+    }
     if (response.status === 401 && retry && loginValid(token)) {
       const renewed = await tokenRefresh();
       if (renewed) return request(path, options, false);
@@ -863,6 +882,7 @@ const Page = (() => {
   // a token object from a login: check it, then the user, then the first sync, then the page
   const signIn = async token => {
     if (!loginValid(token)) throw new Error("The server sent an incomplete login. Please try again.");
+    accountRefused = "";
     save({ token, user: null, synced_at: 0 });
     let user;
     try { user = await api("/my/profile") } catch (error) { forgetAll(); throw error }
@@ -873,7 +893,7 @@ const Page = (() => {
   };
   const forgetAll = () => { try { localStorage.removeItem(STORAGE_KEY) } catch {} cacheClear() };
   // logout and every forced logout: forget the key and the cache, close dialogs, show the login with a plain sentence
-  const logOut = (message = "") => { forgetAll(); showOut(message) };
+  const logOut = (message = "") => { forgetAll(); showOut(accountRefused || message) };
   const initials = name => {
     const words = String(name || "").split("@")[0].split(/[\s._-]+/).filter(Boolean);
     return (words.length > 1 ? words[0][0] + words[1][0] : (words[0] || "?").slice(0, 2)).toUpperCase();
@@ -922,7 +942,7 @@ const Page = (() => {
       const body = await response.json().catch(() => ({}));
       if (!response.ok || body.status !== 1) throw new Error(typeof body.message === "string" ? body.message : `HTTP ${response.status}`);
       await signIn(body.message);
-    } catch (failure) { el("loginError").textContent = failure.message; el("loginError").hidden = false }
+    } catch (failure) { el("loginError").textContent = ACCOUNT_REFUSED[failure.message] || failure.message; el("loginError").hidden = false }
     finally { el("loginBtn").disabled = false }
   };
 

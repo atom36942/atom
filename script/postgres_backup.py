@@ -2,7 +2,7 @@
 
 # command: venv/bin/python -m script.postgres_backup
 
-# info: Backs up every table of the master database to CSV, with its columns and indexes, into tmp/postgres_backup/<date_time>/, from one consistent snapshot, and deletes backups older than BACKUP_KEEP_DAY; runs on config_schedule_postgres_backup (off by default).
+# info: Backs up every table of the master database to CSV, with its columns and indexes, into tmp/postgres_backup/<date_time>/, from one consistent snapshot, and deletes backups older than BACKUP_KEEP_DAY; runs on config_schedule_script_postgres_backup (off by default).
 # - step: disk, stops when free disk space is below the database's size
 # - step: columns and indexes, written to columns.csv and indexes.csv
 # - step: <table> (i/n), one CSV per table; tables.csv lists each table's row count

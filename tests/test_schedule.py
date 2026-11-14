@@ -33,7 +33,7 @@ class ScheduleValueTests(unittest.TestCase):
 
     def test_bad_values_name_the_key(self):
         for value in ("", "on", True, "every 5h", "every 0h", "every 30m", "daily 2:00", "daily 25:00", "every 1d 02:00", "every 31d 02:00", "weekly fun 02:00", "monthly 29 02:00", "0 2 * * *", 6):
-            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "config_schedule_x"): func_schedule_parse(value=value, key="config_schedule_x")
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "config_schedule_script_x"): func_schedule_parse(value=value, key="config_schedule_script_x")
 
     def test_timezone(self):
         self.assertIs(func_schedule_timezone(name="UTC"), datetime.UTC)
@@ -88,20 +88,21 @@ class ScheduleReadTests(unittest.TestCase):
     def read(self, **values): return func_schedule_read(values={"config_schedule_timezone": "UTC", "config_schedule_check_sec": 600, **values}, root=self.root.name)
 
     def test_scheduled_scripts_and_their_folder(self):
-        self.assertEqual(self.read(config_schedule_postgres_cleanup="every 1h", config_schedule_nightly="daily 02:00", config_schedule_other="off"), {
+        self.assertEqual(self.read(config_schedule_script_postgres_cleanup="every 1h", config_schedule_script_nightly="daily 02:00", config_schedule_script_other="off"), {
             "postgres_cleanup": {"schedule": {"kind": "hour", "every": 1, "time": (0, 0)}, "module": "script.postgres_cleanup"},
             "nightly": {"schedule": {"kind": "day", "every": 1, "time": (2, 0)}, "module": "script_extend.nightly"},
         })
-        self.assertEqual(self.read(config_schedule_postgres_cleanup="off"), {})
+        self.assertEqual(self.read(config_schedule_script_postgres_cleanup="off"), {})
 
     def test_only_a_job_can_be_scheduled(self):
-        with self.assertRaisesRegex(ValueError, "config_schedule_listener: listener is '# type: continuous'"): self.read(config_schedule_listener="daily 02:00")
-        with self.assertRaisesRegex(ValueError, r"config_schedule_untyped: script_extend/untyped.py needs the header line '# type: job'"): self.read(config_schedule_untyped="daily 02:00")
-        self.assertEqual(self.read(config_schedule_listener="off", config_schedule_untyped="off"), {})    # off stays allowed
+        with self.assertRaisesRegex(ValueError, "config_schedule_script_listener: listener is '# type: continuous'"): self.read(config_schedule_script_listener="daily 02:00")
+        with self.assertRaisesRegex(ValueError, r"config_schedule_script_untyped: script_extend/untyped.py needs the header line '# type: job'"): self.read(config_schedule_script_untyped="daily 02:00")
+        self.assertEqual(self.read(config_schedule_script_listener="off", config_schedule_script_untyped="off"), {})    # off stays allowed
 
     def test_startup_errors(self):
-        for values, error in (({"config_schedule_missing": "daily 02:00"}, "no script named missing"), ({"config_schedule_twice": "off"}, "in both script/ and script_extend/"),
-                              ({"config_schedule_postgres_cleanup": "every 7h"}, "config_schedule_postgres_cleanup"), ({"config_schedule_check_sec": 30}, "60 to 3600"), ({"config_schedule_timezone": "IST"}, "unknown time zone")):
+        for values, error in (({"config_schedule_script_missing": "daily 02:00"}, "no script named missing"), ({"config_schedule_script_twice": "off"}, "in both script/ and script_extend/"),
+                              ({"config_schedule_script_postgres_cleanup": "every 7h"}, "config_schedule_script_postgres_cleanup"), ({"config_schedule_check_sec": 30}, "60 to 3600"), ({"config_schedule_timezone": "IST"}, "unknown time zone"),
+                              ({"config_schedule_postgres_cleanup": "off"}, "rename it to config_schedule_script_postgres_cleanup")):
             with self.subTest(values=values), self.assertRaisesRegex(ValueError, error): self.read(**values)
 
 

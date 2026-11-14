@@ -30,6 +30,7 @@ from function import func_middleware_check_role
 from function import func_middleware_client_ip
 from function import func_middleware_security_headers
 from function import func_middleware_log_api_write
+from function import func_buffer_limit
 from function import func_middleware_api_config
 from function import func_middleware_log_detail_is_text
 from function import func_middleware_log_detail_header
@@ -64,7 +65,7 @@ class SecurityTests(unittest.IsolatedAsyncioTestCase):
         def state(**changes):
             return SimpleNamespace(**{"config_is_read_only": False, "client_postgres_log_api": object(), "func_postgres_create": AsyncMock(), "runtime_error_count": {}, "client_password_hasher": None,
                 "cache_postgres_schema_dict": {}, "config_postgres_db_log_api": "master", "buffer_postgres_log_api": {}, "config_buffer_rows_max": 10, "config_column_regex": {},
-                "config_table": {}, "config_buffer_limit_default": 10, **changes})
+                "config_buffer_limit_default": 10, "func_buffer_limit": func_buffer_limit, **changes})
         write = lambda app_state: func_middleware_log_api_write(app_state=app_state, request=request, response_type="error", status_code=401, start=0.0, error="token missing")
         for app_state in (state(config_is_read_only=True), state(client_postgres_log_api=None)):
             await write(app_state)

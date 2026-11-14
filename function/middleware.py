@@ -113,7 +113,7 @@ async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_
     else:
         raise func_api_error(message=f"invalid mode: {mode}, allowed: redis, realtime, inmemory, token", status_code=500)
     if active_status == "absent": raise func_api_error(message="missing deactivated_at", status_code=500)
-    if active_status is not None: raise func_api_error(message="user not active", status_code=403)
+    if active_status is not None: raise func_api_error(message="account deactivated", status_code=403)
 
 async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_deleted: Any, client_postgres: asyncpg.Pool | None, client_redis: Redis | None, cache_users_deleted: dict, config_redis_cache_ttl_sec: int, user_row_read: Any = None) -> None:
     """Check if the user is deleted using a strictly configured mode from config_api."""
@@ -149,7 +149,7 @@ async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_dele
     else:
         raise func_api_error(message=f"invalid mode: {mode}, allowed: redis, realtime, inmemory, token", status_code=500)
     if deleted_status == "absent": raise func_api_error(message="missing deleted_at", status_code=500)
-    if deleted_status is not None: raise func_api_error(message="user is deleted", status_code=403)
+    if deleted_status is not None: raise func_api_error(message="account deleted", status_code=403)
 
 async def func_middleware_check_role(*, user_dict: dict, user_check_role: Any, client_postgres: asyncpg.Pool | None, client_redis: Redis | None, cache_users_role: dict, config_redis_cache_ttl_sec: int, user_row_read: Any = None) -> None:
     """Ensure sufficient roles to access endpoints using a strictly configured mode from config_api."""
@@ -466,6 +466,17 @@ def func_middleware_log_detail_row(*, request: Request, detail: dict) -> dict:
     query_param = urlencode([(key, "[REDACTED]" if LOG_DETAIL_SECRET.search(key) else value) for key, value in request.query_params.multi_items()])
     return {"query_param": query_param, "request_header": func_middleware_log_detail_header(headers=request.headers.items()), "response_header": detail["response_header"], "request_body": func_middleware_log_detail_body(body=detail["request"], size=detail["request_size"], content_type=detail["request_type"], is_text=func_middleware_log_detail_is_text(content_type=detail["request_type"]), max_bytes=detail["max_bytes"], is_mask=detail["is_mask"]), "response_body": func_middleware_log_detail_body(body=detail["response"], size=detail["response_size"], content_type=detail["response_type"], is_text=detail["is_response_text"], max_bytes=detail["max_bytes"], is_mask=detail["is_mask"])}
 
+def func_middleware_api_user_check_fill(*, config_api: dict, config_api_global_user_check_deleted: str | None, config_api_global_user_check_deactivated: str | None) -> dict:
+    """config_api with the global deleted and deactivated checks added to every token route (is_token or user_check_role) that doesn't set its own; a route's own key wins, None included (no check). Built once at startup."""
+    filled = {}
+    for path, cfg in config_api.items():
+        if isinstance(cfg, dict) and (cfg.get("is_token") or cfg.get("user_check_role")):
+            cfg = dict(cfg)
+            for key, mode in (("user_check_deleted", config_api_global_user_check_deleted), ("user_check_deactivated", config_api_global_user_check_deactivated)):
+                if mode and key not in cfg: cfg[key] = {"mode": mode}
+        filled[path] = cfg
+    return filled
+
 def func_middleware_api_template_read(*, config_api: dict) -> list:
     """config_api routes with path parameters (/page/{name}) as (compiled pattern, route), built once at startup for func_middleware_api_config."""
     return [(compile_path(route)[0], route) for route in config_api if "{" in route]
@@ -481,7 +492,7 @@ def func_middleware_api_config(*, config_api: dict, path: str, cache_config_api_
 async def func_middleware_log_api_write(*, app_state: Any, request: Request, response_type: str, status_code: int | None, start: float, error: str | None, detail: dict | None = None) -> None:
     """Buffer one log_api row for a finished request; skipped when read-only or no log_api database, and write errors are counted, never raised."""
     if app_state.config_is_read_only or not getattr(app_state, "client_postgres_log_api", None): return
-    try: await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(app_state.config_postgres_db_log_api, {}), buffer_postgres=app_state.buffer_postgres_log_api, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="drop_oldest", runtime_error_count=app_state.runtime_error_count, is_trusted=True, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get("log_api", {}).get("buffer_limit", app_state.config_buffer_limit_default), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": func_middleware_client_ip(request=request), "path": request.scope["path"], "method": request.method, "query_param": func_middleware_log_query_params(query_params=request.query_params), "status_code": status_code, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error, "request_id": getattr(request.state, "request_id", None)} | (func_middleware_log_detail_row(request=request, detail=detail) if detail is not None else {})])
+    try: await app_state.func_postgres_create(client_postgres=app_state.client_postgres_log_api, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=app_state.cache_postgres_schema_dict.get(app_state.config_postgres_db_log_api, {}), buffer_postgres=app_state.buffer_postgres_log_api, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="drop_oldest", runtime_error_count=app_state.runtime_error_count, is_trusted=True, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.func_buffer_limit(app_state=app_state, table="log_api"), mode="buffer", table="log_api", obj_list=[{"created_by_id": request.state.user.get("id") if getattr(request.state, "user", None) else None, "response_type": response_type, "ip_address": func_middleware_client_ip(request=request), "path": request.scope["path"], "method": request.method, "query_param": func_middleware_log_query_params(query_params=request.query_params), "status_code": status_code, "response_time_ms": int((time.perf_counter() - start) * 1000), "error": error, "request_id": getattr(request.state, "request_id", None)} | (func_middleware_log_detail_row(request=request, detail=detail) if detail is not None else {})])
     except Exception as e: func_runtime_error_record(runtime_error_count=app_state.runtime_error_count, key="log_api_write", error=e, print_every=100)
     return
 

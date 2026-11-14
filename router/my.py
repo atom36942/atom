@@ -21,7 +21,7 @@ async def func_api_my_profile(*, request: Request):
     user = await app_state.func_user_read_single(client_postgres=request.state.client_postgres, user_id=user_id)
     last_active_at = user.get("last_active_at")    # read before any column is hidden from the response
     for column in app_state.config_column_read_blocked or ["password"]: user.pop(column, None)
-    metadata = {k: [dict(r) for r in await request.state.client_postgres.fetch(v, user_id)] for k, v in app_state.config_sql.get("profile_metadata", {}).items()}
+    metadata = {k: [dict(r) for r in await request.state.client_postgres.fetch(v, user_id)] for k, v in (app_state.config_profile_metadata_sql or {}).items()}
     user["metadata"] = metadata
     if app_state.config_is_profile_update_last_active_at and not app_state.config_is_read_only and app_state.func_user_last_active_is_due(last_active_at=last_active_at): app_state.func_background_run(app_state=app_state, coroutine=app_state.func_user_last_active_update(client_postgres=app_state.client_postgres_dict.get("master"), user_id=user_id))
     return {"status": 1, "message": user}
@@ -60,6 +60,7 @@ async def func_api_my_api_usage(*, request: Request):
 async def func_api_my_object_create(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "mode", "type": "str", "allowed": ["now", "buffer"], "default": "now"}, {"name": "queue", "type": "str", "allowed": app_state.config_queue_services}])
+    app_state.func_check_table_write_blocked(app_state=app_state, table=oq["table"])
     if "*" in app_state.config_table_my_create_blocked or oq["table"] in app_state.config_table_my_create_blocked: raise Exception(f"creation disabled for table: {oq['table']}")
     obj_list = await app_state.func_extract_request_object_list(request=request)
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
@@ -67,7 +68,7 @@ async def func_api_my_object_create(*, request: Request):
     app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column="created_by_id", purpose="ownership tracking")
     obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="created_by_id")
     if oq["queue"]: return {"status": 1, "message": await app_state.func_producer(queue=oq["queue"], client_celery_producer=app_state.client_celery_producer, client_kafka_producer=app_state.client_kafka_producer, client_rabbitmq_producer=app_state.client_rabbitmq_producer, client_redis_producer=app_state.client_redis_dict.get("queue"), channel="channel_object_create", payload={"mode": oq["mode"], "table": oq["table"], "obj_list": obj_list})}
-    return {"status": 1, "message": await app_state.func_postgres_create(client_postgres=request.state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, buffer_postgres=app_state.buffer_postgres_create, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get(oq["table"], {}).get("buffer_limit", app_state.config_buffer_limit_default), mode=oq["mode"], table=oq["table"], obj_list=obj_list)}
+    return {"status": 1, "message": await app_state.func_postgres_create(client_postgres=request.state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, buffer_postgres=app_state.buffer_postgres_create, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.config_column_regex, buffer_limit=app_state.func_buffer_limit(app_state=app_state, table=oq["table"]), mode=oq["mode"], table=oq["table"], obj_list=obj_list)}
 
 @router.get("/my/object-read")
 async def func_api_my_object_read(*, request: Request):
@@ -97,6 +98,7 @@ async def func_api_my_object_update(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "ownership_column", "type": "str", "allowed": app_state.config_column_ownership_update, "default": "created_by_id"}, {"name": "queue", "type": "str", "allowed": app_state.config_queue_services}])
     app_state.func_check_table_not_users(table=oq["table"], api="/my/user-update")
+    app_state.func_check_table_write_blocked(app_state=app_state, table=oq["table"])
     obj_list = await app_state.func_extract_request_object_list(request=request)
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
     app_state.func_validate_restricted_columns(app_state=app_state, obj_list=obj_list)
@@ -129,6 +131,7 @@ async def func_api_my_ids_delete(*, request: Request):
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "ids", "type": "list:int", "required": True}])
     table, ids = ob["table"], ob["ids"]
     app_state.func_check_table_not_users(table=table, api="/my/user-delete")
+    app_state.func_check_table_write_blocked(app_state=app_state, table=table)
     app_state.func_check_batch_limit(app_state=app_state, items=ids)
     ownership_column = oq["ownership_column"]
     app_state.func_check_table_column_exists(app_state=app_state, table=table, column=ownership_column, purpose="ownership tracking")
@@ -141,6 +144,7 @@ async def func_api_my_object_delete_all(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "ownership_column", "type": "str", "allowed": app_state.config_column_ownership_delete, "default": "created_by_id"}])
     app_state.func_check_table_not_users(table=oq["table"], api="/my/user-delete")
+    app_state.func_check_table_write_blocked(app_state=app_state, table=oq["table"])
     app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="my", action="delete_all")
     app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column=oq["ownership_column"], purpose="ownership tracking")
     res = await app_state.func_postgres_delete_all(client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], ownership_column=oq["ownership_column"], user_id=user_id, limit=getattr(app_state, "config_batch_item_limit", 5000) or 5000)

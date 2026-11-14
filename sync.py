@@ -15,7 +15,7 @@
 # - keep *_extend, config_extend.py and .env; create each one only if missing:
 #   - folders router_extend/, function_extend/, files_extend/, static_extend/, script_extend/, tests_extend/, docs_extend/, each with a readme.md
 #   - tests_extend/__init__.py
-#   - config_extend.py (starter: # base, # atom, # misc)
+#   - config_extend.py (starter: # base, # atom, # extend)
 #   - .env (sample settings, commented out)
 # - requirements.txt: reset # atom to Atom's list (dropping packages Atom no longer uses), tidy # extend
 # - .gitignore: reset everything above # extend to Atom's, keep the project's lines under # extend
@@ -44,7 +44,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # setting
 # Atom's version: raised by hand when a change is worth a new number (no tags); a project's sync.py shows the version it has
-ATOM_VERSION = "8.1.0"
+ATOM_VERSION = "9.0.0"
 REPO_URL = "https://github.com/atom36942/atom.git"
 # Single files replaced from upstream on every sync.
 SYNC_FILES = [
@@ -63,7 +63,7 @@ SYNC_FOLDERS = ["docs", "router", "function", "script", "static", "files"]
 FILES_TO_SYNC = [*SYNC_FILES, *SYNC_FOLDERS]
 # Project paths created locally only when missing, never modified afterwards.
 EXTEND_FOLDERS = ["router_extend", "function_extend", "script_extend", "static_extend", "files_extend", "docs_extend", "tests_extend"]
-# The starter config_extend.py sync creates when it is missing: # base (Atom's values), # atom (Atom's three dicts, each starting from its base; startup checks they keep Atom's entries), # misc (everything else).
+# The starter config_extend.py sync creates when it is missing: # base (Atom's values), # atom (Atom's three dicts, each starting from its base; startup checks they keep Atom's entries), # extend (settings only the project has).
 CONFIG_EXTEND_STARTER = """# base
 from config import config_column_int_mapping as base_config_column_int_mapping
 from config import config_postgres as base_config_postgres
@@ -85,7 +85,7 @@ config_api = {
 **base_config_api,
 }
 
-# misc
+# extend
 """
 # The readme.md sync writes into each *_extend folder whenever it is missing (rules in full: AGENTS.md "Where code goes").
 EXTEND_README = {

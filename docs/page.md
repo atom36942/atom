@@ -12,7 +12,7 @@ Atom's pages that log in (Admin, Monitor, API, Message) are built the same way, 
 
 | Block | Where in the page | What it holds |
 | :--- | :--- | :--- |
-| look (`/* ==== atom page: look ==== */`) | first in `<style>` | the palette, one type scale (13px controls and dialog text, 12px small text, 15px dialog titles, 14px page text), base controls, the dialog (header and actions on their own band, a padded body), key-value rows, the toast (bottom centre), the account menu. Base element rules use `:where()`, so the page's own classes always win |
+| look (`/* ==== atom page: look ==== */`) | first in `<style>` | the palette, one type scale (13px controls and dialog text, 12px small text, 15px dialog titles, 14px page text), base controls, the dialog (header and actions on their own band, a padded body), key-value rows, the toast (bottom right, centred on a phone: a check or !, the message, ×; 6 s, kept while hovered; a popover above any dialog), the account menu. Base element rules use `:where()`, so the page's own classes always win |
 | account (`/* ==== atom page: account ==== */`) | first in `<script>`, after `PAGE` | `Page`: storage, login, token renewal, the user check, the cache, the sync, the account dialogs and the shared dialog |
 | account header (`<!-- ==== atom page: account header ==== -->`) | the right end of the page's header | Log in (logged out), Sync and the avatar with its menu (logged in) |
 | dialogs (`<!-- ==== atom page: dialogs ==== -->`) | the end of `<body>` | the login dialog, the shared dialog, the toast |

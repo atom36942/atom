@@ -67,6 +67,16 @@ class SchemaInitTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(asyncpg.RaiseError, "operation not allowed on users"):
             await self.pool.execute("DELETE FROM users WHERE id = 1")
 
+    async def test_append_only_logs_refuse_updates_but_take_inserts(self):
+        await self.init()
+        log_id = await self.pool.fetchval("INSERT INTO log_api (path, status_code) VALUES ('/x', 200) RETURNING id")
+        with self.assertRaisesRegex(asyncpg.RaiseError, "operation not allowed on log_api"):
+            await self.pool.execute("UPDATE log_api SET status_code = 500 WHERE id = $1", log_id)
+        await self.pool.execute("UPDATE users SET password = $1 WHERE id = 1", PASSWORD_HASH + "x")    # the password log is written by its trigger
+        with self.assertRaisesRegex(asyncpg.RaiseError, "operation not allowed on log_users_password"):
+            await self.pool.execute("UPDATE log_users_password SET password = 'x'")
+        self.assertEqual(await self.pool.fetchval("DELETE FROM log_api WHERE id = $1 RETURNING id", log_id), log_id, "retention cleanup can still delete old rows")
+
     async def test_a_failed_init_leaves_tables_and_triggers_as_they_were(self):
         await self.init()
         triggers = await self.triggers()

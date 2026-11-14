@@ -423,15 +423,19 @@ async def func_postgres_info_read(*, client_postgres: asyncpg.Pool | None) -> di
     activity_info["connection_utilization_pct"] = round((connection_count / max_connections) * 100, 2) if max_connections else None
     return {**database_info, **relation_counts, **storage_info, **activity_info, **stats_info, **bgwriter_info, **table_stats_info, **table_io_info, "extension_count": len(extensions), "extensions": extensions, "largest_relations": largest_relations, "top_dead_tuple_relations": top_dead_tuple_relations}
 
-async def func_postgres_map_column(*, client_postgres: asyncpg.Pool | None, config_sql: str, is_json_value: bool = False) -> dict:
-    """Execute a mapping SQL query and return a dictionary from the first two columns."""
-    if not config_sql: return {}
+async def func_postgres_cache_read(*, client_postgres: asyncpg.Pool | None, is_config_table: bool, config_cache_row_limit_config: int, config_cache_row_limit_users_role: int, config_cache_row_limit_users_deactivated: int, config_cache_row_limit_users_deleted: int) -> dict:
+    """The startup caches (at startup and /admin/sync): config key → value, and users id → role, deactivated_at, deleted_at for the inmemory checks; each loads at most its config_cache_row_limit_* rows (lowest ids first), 0 = not loaded."""
+    queries = {
+        "cache_config": ("SELECT key, value FROM config WHERE deactivated_at IS NULL ORDER BY id LIMIT $1", config_cache_row_limit_config if is_config_table else 0),
+        "cache_users_role": ("SELECT id, role FROM users WHERE role IS NOT NULL ORDER BY id LIMIT $1", config_cache_row_limit_users_role),
+        "cache_users_deactivated": ("SELECT id, deactivated_at FROM users ORDER BY id LIMIT $1", config_cache_row_limit_users_deactivated),
+        "cache_users_deleted": ("SELECT id, deleted_at FROM users ORDER BY id LIMIT $1", config_cache_row_limit_users_deleted),
+    }
+    output = {name: {} for name in queries}
+    if not client_postgres: return output
     async with client_postgres.acquire() as conn:
-        rows = await conn.fetch(config_sql)
-    if not is_json_value: return {r[0]: r[1] for r in rows}
-    output = {}
-    for r in rows:
-        value = r[1]
-        if isinstance(value, (str, bytes, bytearray)): value = orjson.loads(value)
-        output[r[0]] = value
+        for name, (sql, limit) in queries.items():
+            if not limit: continue
+            rows = await conn.fetch(sql, limit)
+            output[name] = {r[0]: (orjson.loads(r[1]) if name == "cache_config" and isinstance(r[1], (str, bytes, bytearray)) else r[1]) for r in rows}
     return output

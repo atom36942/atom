@@ -370,7 +370,7 @@ class HttpRouteTests(unittest.TestCase):
 
     def test_log_database_outage_is_counted_buffered_and_recovered(self):
         before = self.runtime_status()["error_count"]
-        requests_sent = self.client.app.state.config_table["log_api"]["buffer_limit"] + 5    # enough to fill the buffer, so a request writes too
+        requests_sent = self.client.app.state.config_buffer_limit_log_api + 5    # enough to fill the buffer, so a request writes too
         info_logged = lambda: fetch(self.url, "SELECT count(*) AS n FROM log_api WHERE path = '/info'")[0]["n"]
         time.sleep(1.2)    # let earlier requests flush so the baseline is complete
         logged_before = info_logged()

@@ -1,6 +1,7 @@
 # import
 import re
 from starlette.datastructures import State
+from .middleware import func_api_error
 
 # function
 async def func_regex_check(*, config_column_regex: dict, obj_list: list) -> None:
@@ -56,6 +57,14 @@ def func_check_table_column_exists(*, app_state: State = None, cache_postgres_sc
         msg = f"table '{table}' lacks required '{column}' column"
         if purpose: msg += f" for {purpose}"
         raise Exception(msg)
+
+def func_buffer_limit(*, app_state: State, table: str) -> int:
+    """Rows a table's create buffer holds before it is written: config_buffer_limit_<table>, else config_buffer_limit_default."""
+    return getattr(app_state, f"config_buffer_limit_{table}", None) or app_state.config_buffer_limit_default
+
+def func_check_table_write_blocked(*, app_state: State, table: str) -> None:
+    """Refuse a table in config_table_write_blocked (tables only Atom writes, such as logs) in every generic write API, admin's included: 403."""
+    if table in (getattr(app_state, "config_table_write_blocked", None) or []): raise func_api_error(message=f"write disabled for table: {table}", status_code=403)
 
 def func_check_table_not_users(*, table: str, api: str) -> None:
     """Refuse the users table in a generic object API: users rows are written only through their own APIs (/my/user-*, /admin/user-*)."""

@@ -77,11 +77,12 @@ async def func_api_admin_object_create(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "mode", "type": "str", "allowed": ["now", "buffer"], "default": "now"}])
     app_state.func_check_table_not_users(table=oq["table"], api="/admin/user-create")
+    app_state.func_check_table_write_blocked(app_state=app_state, table=oq["table"])
     obj_list = await app_state.func_extract_request_object_list(request=request)
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
     app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column="created_by_id", purpose="ownership tracking")
     obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="created_by_id")
-    return {"status": 1, "message": await app_state.func_postgres_create(client_postgres=request.state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, buffer_postgres=app_state.buffer_postgres_create, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_table.get(oq["table"], {}).get("buffer_limit", app_state.config_buffer_limit_default), mode=oq["mode"], table=oq["table"], obj_list=obj_list)}
+    return {"status": 1, "message": await app_state.func_postgres_create(client_postgres=request.state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, buffer_postgres=app_state.buffer_postgres_create, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.config_column_regex, buffer_limit=app_state.func_buffer_limit(app_state=app_state, table=oq["table"]), mode=oq["mode"], table=oq["table"], obj_list=obj_list)}
 
 @router.get("/admin/object-read")
 async def func_api_admin_object_read(*, request: Request):
@@ -116,6 +117,7 @@ async def func_api_admin_object_update(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}])
     app_state.func_check_table_not_users(table=oq["table"], api="/admin/user-update")
+    app_state.func_check_table_write_blocked(app_state=app_state, table=oq["table"])
     obj_list = await app_state.func_extract_request_object_list(request=request)
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
     app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column="updated_by_id", purpose="update tracking")
@@ -153,6 +155,7 @@ async def func_api_admin_object_delete(*, request: Request):
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "ids", "type": "list:int", "required": True}])
     table, ids = ob["table"], ob["ids"]
     app_state.func_check_table_not_users(table=table, api="/admin/user-delete")
+    app_state.func_check_table_write_blocked(app_state=app_state, table=table)
     app_state.func_check_batch_limit(app_state=app_state, items=ids)
     deleted_count = await app_state.func_postgres_delete(client_postgres=request.state.client_postgres, client_postgres_conn=None, cache_postgres_schema=request.state.cache_postgres_schema, table=table, ids=ids, created_by_id=None)
     return {"status": 1, "message": f"{deleted_count} ids deleted"}
@@ -161,6 +164,7 @@ async def func_api_admin_object_delete(*, request: Request):
 async def func_api_admin_postgres_import(*, request: Request):
     app_state = request.app.state
     of = await app_state.func_request_param_read(request=request, mode="form", param_specs=[{"name": "mode", "type": "str", "required": True, "allowed": ["create", "update", "delete"]}, {"name": "table", "type": "str", "required": True}, {"name": "file", "type": "file", "required": True}])
+    app_state.func_check_table_write_blocked(app_state=app_state, table=of["table"])
     res = await app_state.func_postgres_import(app_state=app_state, mode=of["mode"], table=of["table"], file=of["file"][-1], client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema)
     return {"status": 1, "message": res}
 
