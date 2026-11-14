@@ -113,7 +113,8 @@ class PageStandardTests(unittest.TestCase):
         self.assertIn('class="account-item" id="syncBtn"', header)
         self.assertNotIn("sync-btn", header)
         for part in ('el("loginPage").classList.toggle("card-only", !full)', 'el("loginRoleField").hidden = PAGE.role != null', '`For role ${PAGE.role} accounts`',
-                     'kv([["Name", dash(u.name)], ["Email", dash(u.email)], ["Mobile", dash(u.mobile)]])', 'kv([["Username", usernameCell(u)], ["Password"',
+                     'kv([["Created", createdCell(u.created_at)], ...PROFILE.map(', '["job_title", "Job title", 120], ["email_secondary", "Email", 254], ["mobile_secondary", "Mobile", 20]', 'kv([["Username", usernameCell(u)], ["Password"',
+                     'if (value !== (u[key] ?? null)) changes[key] = value', 'api("/my/user-update", { method: "PUT", body: JSON.stringify(changes) })',
                      '`${label} (${role})`', '"Account deactivated"', '"Account deleted"', "`${PAGE.title} access is unavailable.`"):
             with self.subTest(part=part): self.assertIn(part, ACCOUNT)
         for page in ("admin", "monitor", "message"):

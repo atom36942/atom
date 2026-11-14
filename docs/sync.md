@@ -58,6 +58,10 @@ Atom's version is `ATOM_VERSION` in `sync.py` (for example `ATOM_VERSION = "1.2.
 
 Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. Sync always takes the latest `main`; to mark a new version, raise `ATOM_VERSION` and the `Version` line at the top of `readme.md` (a test checks they match) and push to `main` (no tags or GitHub releases). Commits in between keep the last version. A project synced before versions existed shows `unknown` until its next sync. If a sync fails after installing the new `sync.py`, that file already shows the new version while the other files may be older; the error says so, and running sync again finishes it.
 
+### Upgrading to 11.0.0
+
+The `users` columns `title` and `description` are now `job_title` and `about` (clearer on a user). Startup adds the new ones; Atom never drops a column, so the old two stay in the database: copy any values across and drop them yourself (`ALTER TABLE users DROP COLUMN title, DROP COLUMN description`), and rename `title` and `description` wherever a project reads or writes them on `users`. `email_secondary` and `mobile_secondary` are now checked by `config_column_regex` (an email; 6–20 digits with spaces, dashes and a leading +).
+
 ### Upgrading to 10.0.0
 
 Per-user permissions are enforced: a route with `user_check_permission: {"mode": "token"}` admits only users whose `users.permissions` holds its `id` ([auth.md](auth.md#per-user-permissions)). Atom's samples: `/admin/postgres-query-runner-write` (6) needs role 1 and permission 6; `/admin/user-delete` (132) needs permission 132 only. Root (id 1) gets both at startup; root logs in again to use them, and other admins need a grant through `/admin/user-update`.

@@ -80,6 +80,7 @@ dialog.dlg .dlg-actions button:not(.kv-btn){height:var(--control-h);padding:0 14
 .field{display:grid;gap:6px}
 .field label{color:var(--muted);font-size:var(--fs-small);font-weight:600}
 .field input,.field select{width:100%}
+.field textarea{width:100%;font-family:var(--font);font-size:var(--fs)}
 .field-help{margin:0;color:var(--muted);font-size:var(--fs-small)}
 .pw-wrap{position:relative;display:flex}
 .pw-wrap input{flex:1;padding-right:40px}
@@ -655,8 +656,31 @@ const Page = (() => {
   // "Update any object (207)": one tag per permission, the label from /info (users.permissions); only the id before the first sync; "None" when there are none
   const permissionsCell = u => { const ids = Array.isArray(u.permissions) ? u.permissions : [], labels = read().info?.config_column_int_mapping?.users?.permissions || {}; return ids.length ? `<span class="kv-tags">${ids.map(id => `<span class="kv-tag">${esc(labels[id] ? `${labels[id]} (${id})` : String(id))}</span>`).join("")}</span>` : "None" };
   const usernameCell = u => u.username ? `<span class="cell"><span>${esc(u.username)}</span><button type="button" class="kv-btn" data-copy="${esc(u.username)}" aria-label="Copy username">${ICON.copy}</button></span>` : "-";
-  // My profile is the person, Login details what the login sends: each field shows in one of the two only
-  const profileOpen = () => { const u = read().user || {}; dialog({ title: "My profile", body: kv([["Name", dash(u.name)], ["Email", dash(u.email)], ["Mobile", dash(u.mobile)]]) }) };
+  // My profile is the person, Login details what the login sends: each field shows in one of the two only.
+  // Created (read-only, how long ago; the date on hover), then the users columns a user changes without OTP: [column, label, max length]; Email and Mobile are
+  // the contact ones (email_secondary, mobile_secondary): the login email and mobile need an OTP and are not here. Edit sends only what changed (PUT /my/user-update).
+  const PROFILE = [["name", "Name", 120], ["job_title", "Job title", 120], ["email_secondary", "Email", 254], ["mobile_secondary", "Mobile", 20], ["city", "City", 120], ["country", "Country", 120], ["about", "About", 500]];
+  const PROFILE_CHECK = { email_secondary: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Email must look like name@example.com"], mobile_secondary: [/^\+?[0-9][0-9 -]{5,19}$/, "Mobile must be 6-20 digits (spaces, dashes and a leading + allowed)"] };    // the same rules as config_column_regex
+  const createdCell = iso => { if (!iso) return "-"; const days = Math.floor((new Date().setHours(0, 0, 0, 0) - new Date(iso).setHours(0, 0, 0, 0)) / 864e5); return `<span title="${esc(new Date(iso).toLocaleString())}">${days <= 0 ? "Today" : days === 1 ? "Yesterday" : `${days} days ago`}</span>` };
+  const profileOpen = () => { const u = read().user || {}; dialog({ title: "My profile", body: kv([["Created", createdCell(u.created_at)], ...PROFILE.map(([key, label]) => [label, dash(u[key])])]), actions: '<button type="button" class="primary" id="profileEdit">Edit</button>', on: { profileEdit: profileEditOpen } }) };
+  const profileEditOpen = () => {
+    const u = read().user || {};
+    dialog({ title: "Edit profile",
+      body: PROFILE.map(([key, label, max]) => `<div class="field"><label for="pf-${key}">${label}</label>${key === "about" ? `<textarea id="pf-${key}" maxlength="${max}" rows="3">${esc(u[key] ?? "")}</textarea>` : `<input id="pf-${key}" maxlength="${max}" value="${esc(u[key] ?? "")}"${key === "email_secondary" ? ' type="email"' : key === "mobile_secondary" ? ' type="tel"' : ""}>`}</div>`).join(""),
+      actions: '<button type="button" id="profileCancel">Cancel</button><button type="button" class="primary" id="profileSave">Save</button>',
+      on: { profileCancel: profileOpen, profileSave: profileSaveRun } });
+    el("pf-name").focus();
+  };
+  const profileSaveRun = async () => {
+    const u = read().user || {}, changes = {};
+    for (const [key] of PROFILE) { const value = el(`pf-${key}`).value.trim() || null; if (value !== (u[key] ?? null)) changes[key] = value }
+    const failed = Object.entries(changes).find(([key, value]) => value && PROFILE_CHECK[key] && !PROFILE_CHECK[key][0].test(value));
+    if (failed) return dialogError(PROFILE_CHECK[failed[0]][1]);
+    if (!Object.keys(changes).length) { profileOpen(); return toast("No changes") }
+    el("profileSave").disabled = true;
+    try { await api("/my/user-update", { method: "PUT", body: JSON.stringify(changes) }); save({ user: await api("/my/profile") }); showIn(); profileOpen(); toast("Profile updated") }
+    catch (failure) { dialogError(failure.message); if (el("profileSave")) el("profileSave").disabled = false }
+  };
   const detailsOpen = () => {
     const u = read().user || {};
     dialog({ title: "Login details", body: kv([["Username", usernameCell(u)], ["Password", `<span class="cell"><span>••••••••</span><button type="button" class="kv-btn" id="passwordEdit" aria-label="Change password">${ICON.pencil}</button></span>`], ["Role", roleText(u.role)], ["Permissions", permissionsCell(u)]]), on: { passwordEdit: passwordOpen } });

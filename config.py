@@ -183,6 +183,8 @@ config_column_read_blocked = ["password"]
 config_column_regex = {
 "username": ["^(?=.{1,120}\\Z)\\S+\\Z", "Username must be 1-120 characters and contain no spaces"],
 "password": ["^(?=.{6,120}\\Z)\\S+\\Z", "Password must be 6-120 characters and contain no spaces"],
+"email_secondary": ["^(?=.{3,254}\\Z)[^\\s@]+@[^\\s@]+\\.[^\\s@]+\\Z", "Email must look like name@example.com"],
+"mobile_secondary": ["^\\+?[0-9][0-9 -]{5,19}\\Z", "Mobile must be 6-20 digits (spaces, dashes and a leading + allowed)"],
 }
 
 config_options = {
@@ -272,8 +274,8 @@ config_postgres = {
 {"name":"email_secondary","datatype":"text",},
 {"name":"mobile_secondary","datatype":"text"},
 {"name":"address","datatype":"text"},
-{"name":"title","datatype":"text"},
-{"name":"description","datatype":"text"},
+{"name":"job_title","datatype":"text"},
+{"name":"about","datatype":"text"},
 {"name":"gender","datatype":"text"},
 {"name":"date_of_birth","datatype":"date"},
 {"name":"dashboard","datatype":"jsonb"},

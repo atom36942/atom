@@ -171,7 +171,7 @@ Dictionary unpacking (`**base`) copies Atom's entries into the new dictionary; a
 "users": [*base_config_postgres["table"]["users"], {"name": "department", "datatype": "text"}],
 
 # Change a column: copy the list with that column replaced.
-"users": [{**column, "datatype": "varchar(200)"} if column["name"] == "title" else column for column in base_config_postgres["table"]["users"]],
+"users": [{**column, "datatype": "varchar(200)"} if column["name"] == "job_title" else column for column in base_config_postgres["table"]["users"]],
 ```
 
 Writing the complete column list by hand also works, but then you maintain every column Atom's authentication and other features need. Do not add a column name that already exists; change its definition instead. These settings only describe the schema; PostgreSQL changes happen during schema initialization when enabled. Review schema changes before applying them to existing data.

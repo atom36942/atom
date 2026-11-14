@@ -111,15 +111,15 @@ class HttpRouteTests(unittest.TestCase):
         self.message(self.client.put("/admin/user-update", json={"id": admin2_id, "role": 9}, headers=self.auth(self.admin)))    # other tests expect admin as the only role 1 user
 
     def test_admin_user_update_obj_list_is_all_or_nothing(self):
-        users = "SELECT id, city, title, updated_by_id FROM users WHERE id = ANY($1) ORDER BY id"
+        users = "SELECT id, city, job_title, updated_by_id FROM users WHERE id = ANY($1) ORDER BY id"
         ids = sorted([self.alice_id, self.bob_id])
-        body = {"obj_list": [{"id": self.alice_id, "city": "Pune"}, {"id": self.bob_id, "title": "Lead"}]}    # different columns per user
+        body = {"obj_list": [{"id": self.alice_id, "city": "Pune"}, {"id": self.bob_id, "job_title": "Lead"}]}    # different columns per user
         self.assertEqual(self.message(self.client.put("/admin/user-update", json=body, headers=self.auth(self.admin))), "2 users updated")
-        self.assertEqual(fetch(self.url, users, ids), sorted([{"id": self.alice_id, "city": "Pune", "title": None, "updated_by_id": 1}, {"id": self.bob_id, "city": None, "title": "Lead", "updated_by_id": 1}], key=lambda r: r["id"]))
+        self.assertEqual(fetch(self.url, users, ids), sorted([{"id": self.alice_id, "city": "Pune", "job_title": None, "updated_by_id": 1}, {"id": self.bob_id, "city": None, "job_title": "Lead", "updated_by_id": 1}], key=lambda r: r["id"]))
         body = {"obj_list": [{"id": self.alice_id, "city": "Delhi"}, {"id": 999999, "city": "Goa"}]}
         self.assertEqual(self.message(self.client.put("/admin/user-update", json=body, headers=self.auth(self.admin)), 404), "user not found: [999999]")
         self.assertEqual(fetch(self.url, "SELECT city FROM users WHERE id = $1", self.alice_id), [{"city": "Pune"}])    # rolled back
-        self.message(self.client.put("/admin/user-update", json={"obj_list": [{"id": self.alice_id, "city": None}, {"id": self.bob_id, "title": None}]}, headers=self.auth(self.admin)))
+        self.message(self.client.put("/admin/user-update", json={"obj_list": [{"id": self.alice_id, "city": None}, {"id": self.bob_id, "job_title": None}]}, headers=self.auth(self.admin)))
 
     # 2. CRUD lifecycle and ownership
     def test_my_crud_lifecycle_and_ownership(self):
