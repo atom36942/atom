@@ -1724,9 +1724,12 @@ const toggleRun = async (table, rows, col, on) => {
   const byCol = col.replace(/_at$/, "_by_id"), values = { [col]: on ? new Date().toISOString() : null };
   if (SCHEMA[table][byCol] && byCol !== col) values[byCol] = on ? readStore().user?.id ?? null : null;
   try {
-    // users one by one through /admin/user-update; other tables in batches of config_batch_item_limit through /admin/object-update
-    if (table === "users") for (const r of targets) await api("/admin/user-update", { method: "PUT", body: JSON.stringify({ id: r.id, ...values }) });
-    else for (const part of chunks(targets, RULES.batch)) await api(`/admin/object-update?${qs({ table })}`, { method: "PUT", body: JSON.stringify({ obj_list: part.map(r => ({ id: r.id, ...values })) }) });
+    // batches of config_batch_item_limit: users through /admin/user-update, other tables through /admin/object-update
+    for (const part of chunks(targets, RULES.batch)) {
+      const body = JSON.stringify({ obj_list: part.map(r => ({ id: r.id, ...values })) });
+      if (table === "users") await api("/admin/user-update", { method: "PUT", body });
+      else await api(`/admin/object-update?${qs({ table })}`, { method: "PUT", body });
+    }
     toast(`${on ? t.on : t.off}: ${targets.length === 1 ? `${table} #${targets[0].id}` : `${targets.length} rows`} done`);
     if (T) T.selected.clear();
     await afterChange(table, D ? D.row.id : null);

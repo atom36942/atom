@@ -4,6 +4,7 @@ import asyncpg
 from argon2 import PasswordHasher
 from .auth import func_otp_verify
 from .middleware import func_api_error
+from .postgres_crud import func_postgres_update
 from .validation import func_regex_check
 
 # function
@@ -36,6 +37,29 @@ async def func_user_update_check(*, client_postgres: asyncpg.Pool | None, obj: d
         if otp is None: raise Exception(f"{'email' if 'email' in obj else 'mobile'} update needs otp")
         await func_otp_verify(client_postgres=client_postgres, otp=otp, email=obj.get("email"), mobile=obj.get("mobile"), config_otp_expiry_sec=config_otp_expiry_sec, config_otp_static=config_otp_static, config_otp_max_attempt=config_otp_max_attempt)
     return obj
+
+async def func_user_update(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_column_regex: dict, obj_list: list, updated_by_id: int, is_otp_required: bool, config_column_single_update: list, config_column_users_blocked: list, config_column_users_my_blocked: list, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5, config_permission_label: dict | None = None) -> list:
+    """Admin update of one or more users ({id, ...columns} each, ids unique), each checked by func_user_update_check; returns the updated ids.
+    Users changing the same columns share one UPDATE, all in one transaction: a missing id (404) or any failed rule writes nothing."""
+    if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
+    if not isinstance(obj_list, list) or not obj_list: raise Exception("object list required")
+    if any(not isinstance(obj, dict) for obj in obj_list): raise Exception("object data invalid")
+    if any(obj.get("id") is None or isinstance(obj["id"], bool) for obj in obj_list): raise Exception("missing required field: 'id'")
+    try: obj_list = [{**obj, "id": int(obj["id"]), **({"otp": int(obj["otp"])} if obj.get("otp") is not None else {})} for obj in obj_list]
+    except (TypeError, ValueError): raise Exception("id and otp must be integers") from None
+    ids = [obj["id"] for obj in obj_list]
+    if repeated := sorted({i for i in ids if ids.count(i) > 1}): raise Exception(f"id repeated: {repeated}")
+    groups = {}
+    for obj in obj_list:
+        values = await func_user_update_check(client_postgres=client_postgres, obj=obj, is_admin=True, is_otp_required=is_otp_required, config_column_single_update=config_column_single_update, config_column_users_blocked=config_column_users_blocked, config_column_users_my_blocked=config_column_users_my_blocked, config_otp_expiry_sec=config_otp_expiry_sec, config_otp_static=config_otp_static, config_otp_max_attempt=config_otp_max_attempt, config_permission_label=config_permission_label)
+        groups.setdefault(tuple(sorted(values)), []).append({**values, "id": obj["id"], "updated_by_id": updated_by_id})
+    updated = []
+    async with client_postgres.acquire() as connection, connection.transaction():
+        for group in groups.values():
+            result = await func_postgres_update(client_postgres=None, client_postgres_conn=connection, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, config_column_regex=config_column_regex, table="users", obj_list=group, created_by_id=None)
+            updated.extend(result if isinstance(result, list) else [])
+        if missing := sorted(set(ids) - set(updated)): raise func_api_error(message="user not found" if len(ids) == 1 else f"user not found: {missing}", status_code=404)
+    return ids
 
 async def func_user_delete(*, client_postgres: asyncpg.Pool | None, user_id: int, config_is_user_delete: bool) -> str:
     """Hard-delete one user, when config_is_user_delete allows it; never the root user."""

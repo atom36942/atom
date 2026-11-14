@@ -215,7 +215,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_postgres_buffer_flush_auto_sec` | Timer interval in seconds to auto-flush write buffers (`60`) |
 | `config_api_cache_inmemory_max_kb` | Largest total size, in KB, of the `inmemory` API response cache per worker, counting the stored (gzipped) bodies (`102400`, 100 MB); over it, the oldest entries are dropped and read from the route again on their next request |
 | `config_inmemory_cache_cleanup_auto_sec` | Timer interval in seconds to purge expired cache entries (`300`) |
-| `config_batch_item_limit` | Maximum objects allowed per batch CRUD request (`1000`) |
+| `config_batch_item_limit` | Maximum objects allowed per batch CRUD request, `/admin/user-update` included (`1000`) |
 | `config_sql_read_limit_default` | Default page size for object read queries (`100`) |
 | `config_sql_read_limit_max` | Hard cap limit for object read page size (`10000`) |
 | `config_page_offset_max` | How deep `page` may jump: rows skipped, `(page - 1) × limit`, at most this (`10000`); deeper pages use `after` ([Paging](crud.md#paging)) |

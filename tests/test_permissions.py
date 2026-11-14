@@ -2,12 +2,14 @@
 from types import SimpleNamespace
 import unittest
 from unittest.mock import AsyncMock
+from unittest.mock import patch
 
 from function import func_check_table_permission
 from function import func_check_table_not_users
 from function import func_check_table_write_blocked
 from function import func_middleware_api_user_check_fill
 from function import func_user_update_check
+from function import func_user_update
 from function import func_user_delete
 from function import func_validate_restricted_columns
 from function import func_check_batch_limit
@@ -161,6 +163,30 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
         pool.execute.return_value = "DELETE 0"
         with self.assertRaisesRegex(Exception, "user not found"):
             await func_user_delete(client_postgres=pool, user_id=8, config_is_user_delete=True)
+
+    async def test_admin_user_update_batches_by_columns_in_one_transaction(self):
+        class Context:
+            def __init__(self, value=None): self.value = value
+            async def __aenter__(self): return self.value
+            async def __aexit__(self, *exc): return False
+        connection = SimpleNamespace(transaction=lambda: Context())
+        pool = SimpleNamespace(acquire=lambda: Context(connection))
+        args = dict(client_postgres=pool, client_password_hasher=None, cache_postgres_schema={}, config_column_regex={}, updated_by_id=1, is_otp_required=False,
+                    config_column_single_update=["password"], config_column_users_blocked=["created_by_id"], config_column_users_my_blocked=["role"], config_otp_expiry_sec=300)
+        update = AsyncMock(side_effect=lambda **kwargs: [obj["id"] for obj in kwargs["obj_list"]])
+        with patch("function.user.func_postgres_update", new=update):
+            self.assertEqual(await func_user_update(obj_list=[{"id": 7, "name": "a"}, {"id": "8", "role": 3}, {"id": 9, "name": "c"}], **args), [7, 8, 9])
+            self.assertEqual([[obj["id"] for obj in call.kwargs["obj_list"]] for call in update.await_args_list], [[7, 9], [8]])    # one UPDATE per set of columns
+            self.assertTrue(all(call.kwargs["client_postgres_conn"] is connection and call.kwargs["obj_list"][0]["updated_by_id"] == 1 for call in update.await_args_list))
+            update.reset_mock()
+            for obj_list, message in [([], "object list required"), ([{"name": "a"}], "missing required field"), ([{"id": "x", "name": "a"}], "must be integers"),
+                                      ([{"id": 7, "name": "a"}, {"id": 7, "city": "b"}], r"id repeated: \[7\]"), ([{"id": 7, "name": "a"}, {"id": 1, "role": 2}], "root user role cannot be updated")]:
+                with self.subTest(obj_list=obj_list), self.assertRaisesRegex(Exception, message):
+                    await func_user_update(obj_list=obj_list, **args)
+            update.assert_not_awaited()    # rules are checked before anything is written
+            update.side_effect = lambda **kwargs: [7]
+            with self.assertRaisesRegex(Exception, r"user not found: \[9\]"):
+                await func_user_update(obj_list=[{"id": 7, "name": "a"}, {"id": 9, "name": "c"}], **args)
 
     async def test_role_policy_allows_authorized_and_rejects_other_roles(self):
         args = dict(user_check_role={"mode": "token", "roles": [5]}, client_postgres=None,
