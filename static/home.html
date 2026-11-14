@@ -4,8 +4,23 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Pages</title>
+<!-- ==== atom page: theme ==== -->
+<script>
+// Identical in every Atom page (docs/page.md, Page standard): the theme before the page draws, so it never flashes the other colours.
+// localStorage "theme" = "light" or "dark" (none: System, the computer's mode), chosen in Settings (account menu), kept at logout, shared by every tab; the result is <html data-theme>.
+(() => {
+  const media = matchMedia("(prefers-color-scheme: dark)");
+  const apply = () => { let theme = null; try { theme = localStorage.getItem("theme") } catch {} document.documentElement.dataset.theme = theme === "light" || theme === "dark" ? theme : media.matches ? "dark" : "light" };
+  apply();
+  media.addEventListener("change", apply);
+  addEventListener("storage", e => { if (e.key === "theme" || e.key === null) apply() });
+  window.atomThemeApply = apply;
+})();
+</script>
+<!-- ==== end atom page: theme ==== -->
 <style>
-:root{--bg:#0b0d10;--bg-top:#0b0d10;--hero:linear-gradient(120deg,#111827,#1e1b4b 60%,#2e1065);--hero-text:#e6eef3;--hero-muted:#9aa0a6;--hero-field:rgba(255,255,255,.06);--hero-line:rgba(255,255,255,.12);--card:#0f1114;--panel:#1a1d23;--line:rgba(255,255,255,.08);--row-line:rgba(255,255,255,.05);--hover:rgba(255,255,255,.04);--text:#e6eef3;--muted:#9aa0a6;--head:#93c5fd;--accent:#4299e1;--accent-soft:rgba(66,153,225,.12);--error:#f87171;--shadow:none;--mono:"SF Mono",Menlo,monospace;color-scheme:dark}    /* Atom's one page theme: the same dark palette as Admin, Monitor, API and Message */
+:root{--bg:#0b0d10;--bg-top:#0b0d10;--hero:linear-gradient(120deg,#111827,#1e1b4b 60%,#2e1065);--hero-text:#e6eef3;--hero-muted:#9aa0a6;--hero-field:rgba(255,255,255,.06);--hero-line:rgba(255,255,255,.12);--card:#0f1114;--panel:#1a1d23;--line:rgba(255,255,255,.08);--row-line:rgba(255,255,255,.05);--hover:rgba(255,255,255,.04);--text:#e6eef3;--muted:#9aa0a6;--head:#93c5fd;--accent:#4299e1;--accent-soft:rgba(66,153,225,.12);--error:#f87171;--shadow:none;--mono:"SF Mono",Menlo,monospace;color-scheme:dark}    /* the same palettes as Admin, Monitor, API and Message: dark, or light with <html data-theme="light"> (Settings > Theme on those pages) */
+:root[data-theme="light"]{--bg:#f5f7fa;--bg-top:#f5f7fa;--card:#fff;--panel:#eef1f5;--line:rgba(15,23,42,.10);--row-line:rgba(15,23,42,.06);--hover:rgba(15,23,42,.04);--text:#1c2430;--muted:#5f6b7a;--head:#2b6cb0;--accent:#2b6cb0;--accent-soft:rgba(43,108,176,.10);--error:#c53030;--shadow:0 1px 3px rgba(15,23,42,.08);color-scheme:light}
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;background:linear-gradient(180deg,var(--bg-top),var(--bg) 360px) var(--bg);color:var(--text);font-family:Inter,system-ui;line-height:1.5}
 [hidden]{display:none!important}

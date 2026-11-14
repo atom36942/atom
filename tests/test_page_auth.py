@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PAGES = {name: (ROOT / "static" / f"{name}.html").read_text() for name in ("admin", "monitor", "api", "message")}
 BLOCKS = {
+    "theme": r"<!-- ==== atom page: theme ==== -->.*?<!-- ==== end atom page: theme ==== -->",
     "look": r"/\* ==== atom page: look ==== \*/.*?/\* ==== end atom page: look ==== \*/",
     "account": r"/\* ==== atom page: account ==== \*/.*?/\* ==== end atom page: account ==== \*/",
     "account header": r"<!-- ==== atom page: account header ==== -->.*?<!-- ==== end atom page: account header ==== -->",
@@ -45,7 +46,7 @@ class PageStandardTests(unittest.TestCase):
                 self.assertIn(f"const PAGE = {{ {settings}", text)
                 self.assertLess(text.index("const PAGE = {"), text.index("/* ==== atom page: account ==== */"))
                 self.assertIn("Page.start();", text)
-                outside = re.sub(BLOCKS["account"], "", text, flags=re.S)
+                outside = re.sub(BLOCKS["theme"], "", re.sub(BLOCKS["account"], "", text, flags=re.S), flags=re.S)
                 self.assertNotIn("localStorage.", outside)    # only the block touches the browser's storage
                 self.assertNotIn("indexedDB.", outside)
 
@@ -89,7 +90,7 @@ class PageStandardTests(unittest.TestCase):
 
     def test_the_account_words(self):
         for words in ('title: "My profile"', 'title: "Login details"', 'title: "Update password"', "6–120 characters, no spaces.</p>", '"Use 6–120 characters, no spaces"', '"Passwords don\'t match"',
-                      'toast("Password updated")', 'title: "Logout?"', "Are you sure you want to logout?", 'title: "Sync", sub: "Auto sync every 3 hr"', '"Everything is up to date."',
+                      'toast("Password updated")', 'title: "Logout?"', "Are you sure you want to logout?", '"Never synced"} (auto sync every 3 hours)`', '"Everything is up to date."',
                       '"Sync failed. Please try again."', '"Renewing login…"', '"Loading your profile…"', '"Loading settings…"', '"Downloading data…"', '"/my/user-update"', "const initials = name =>"):
             with self.subTest(words=words): self.assertIn(words, ACCOUNT)
         self.assertNotIn("Logged out", ACCOUNT)    # logout shows no message
@@ -98,19 +99,47 @@ class PageStandardTests(unittest.TestCase):
             with self.subTest(label=label): self.assertIn(label, header)
 
 
+    def test_the_login_and_account_flow_of_the_projects_pages(self):
+        # the login page (intro and card; only the card where no login is needed), the role fixed when the page has one, Sync in the account menu,
+        # My profile and Login details sharing no field, the role as "Admin (1)", a blocked account told in its own dialog
+        dialogs, header = block("admin", "dialogs")[0], block("admin", "account header")[0]
+        for part in ('id="loginPage"', 'id="loginIntro"', 'id="loginFeatures"', 'class="login-btn" id="loginBtn">Login</button>', 'id="blockedDialog"', 'id="blockedOk">OK</button>'):
+            with self.subTest(part=part): self.assertIn(part, dialogs)
+        self.assertNotIn("loginDialog", dialogs)
+        self.assertIn('class="account-item" id="syncBtn"', header)
+        self.assertNotIn("sync-btn", header)
+        for part in ('el("loginPage").classList.toggle("card-only", !full)', 'el("loginRoleField").hidden = PAGE.role != null', '`For role ${PAGE.role} accounts`',
+                     'kv([["Name", dash(u.name)], ["Email", dash(u.email)], ["Mobile", dash(u.mobile)]])', 'kv([["Username", usernameCell(u)], ["Password"',
+                     '`${label} (${role})`', '"Account deactivated"', '"Account deleted"', "`${PAGE.title} access is unavailable.`"):
+            with self.subTest(part=part): self.assertIn(part, ACCOUNT)
+        for page in ("admin", "monitor", "message"):
+            with self.subTest(page=page): self.assertRegex(PAGES[page], r"const PAGE = \{[^\n]*intro: \{ heading: ")
+
+
 class PageThemeTests(unittest.TestCase):
-    def test_one_dark_theme_without_toggles(self):
-        self.assertIn("--bg:#0b0d10", (ROOT / "static" / "home.html").read_text())
-        for token in ("--bg:#0b0d10", "--danger:#f87171", "--font:", "--fs:13px", "--fs-title:15px"):
+    def test_dark_and_light_chosen_in_settings(self):
+        # one palette per theme with the same names; the theme block sets <html data-theme> before the page draws; Settings in the account menu chooses it
+        for token in ("--bg:#0b0d10", "--danger:#f87171", "--hl:255,255,255", "--font:", "--fs:13px", "--fs-title:15px"):
             with self.subTest(token=token): self.assertIn(token, LOOK)
-        pgweb = (ROOT / "static" / "pgweb.html").read_text()
-        self.assertIn('<html lang="en" data-theme="dark">', pgweb)
-        self.assertIn("--bg:#0b0d10", pgweb)
-        for name in ("home", "pgweb"):
-            with self.subTest(page=name): self.assertNotIn('id="theme"', (ROOT / "static" / f"{name}.html").read_text())
+        self.assertRegex(LOOK, r':root\[data-theme="light"\]\{--bg:#f5f7fa;[^}]*--hl:15,23,42;[^}]*color-scheme:light\}')
+        theme = re.search(BLOCKS["theme"], PAGES["admin"], re.S).group(0)
+        for part in ('localStorage.getItem("theme")', 'matchMedia("(prefers-color-scheme: dark)")', "document.documentElement.dataset.theme", 'addEventListener("storage"'):
+            with self.subTest(part=part): self.assertIn(part, theme)
+        for page, text in PAGES.items():
+            with self.subTest(page=page):
+                self.assertLess(text.index("<!-- ==== atom page: theme ==== -->"), text.index("<style>"))    # before the styles: no flash of the other theme
+                self.assertNotRegex(text, r"rgba\(255, ?255, ?255,(?!\.8\)|\.14\))")    # overlays use --hl; only the close button on the filled header stays white
+        self.assertIn('id="settingsBtn" role="menuitem"', block("admin", "account header")[0])
+        for part in ('title: "Settings", sub: "Saved in this browser"', '["system", "System"', '["light", "Light"', '["dark", "Dark"', 'role="radiogroup"', 'localStorage.removeItem("theme")'):
+            with self.subTest(part=part): self.assertIn(part, ACCOUNT)
+        self.assertNotIn('localStorage.removeItem("theme")', ACCOUNT.split("const forgetAll")[1].split("\n")[0])    # logout keeps the theme
+        home = (ROOT / "static" / "home.html").read_text()
+        self.assertIn("<!-- ==== atom page: theme ==== -->", home)
+        self.assertIn(':root[data-theme="light"]', home)
+        self.assertIn('<html lang="en" data-theme="dark">', (ROOT / "static" / "pgweb.html").read_text())    # pgweb keeps its own dark look
 
     def test_dialog_header_and_actions_stand_apart_from_the_body(self):
-        self.assertRegex(LOOK, r"\.dlg-head\{[^}]*background:var\(--panel\)")
+        self.assertRegex(LOOK, r"\.dlg-head\{[^}]*background:var\(--brand\)")    # a filled header, like the projects' pages
         self.assertRegex(LOOK, r"\.dlg-body\{padding:18px")
         self.assertRegex(LOOK, r"\.dlg-actions\{[^}]*background:var\(--panel\)")
 

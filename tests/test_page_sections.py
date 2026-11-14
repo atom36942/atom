@@ -14,7 +14,7 @@ class PageSectionTests(unittest.TestCase):
             text = path.read_text()
             if text.count("\n") < LONG_PAGE_LINES: continue
             for tag in ("style", "script"):
-                block = re.search(rf"<{tag}>(.*?)</{tag}>", text, re.DOTALL).group(1)
+                block = max(re.findall(rf"<{tag}>(.*?)</{tag}>", text, re.DOTALL), key=len)    # the page's main one (the theme script in <head> is short)
                 with self.subTest(page=path.name, block=tag): self.assertGreaterEqual(len(SECTION.findall(block)), 2)
 
     def test_markers_use_one_format(self):
