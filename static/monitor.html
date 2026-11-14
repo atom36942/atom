@@ -80,7 +80,8 @@ dialog.dlg .dlg-actions button:not(.kv-btn){height:var(--control-h);padding:0 14
 .field{display:grid;gap:6px}
 .field label{color:var(--muted);font-size:var(--fs-small);font-weight:600}
 .field input,.field select{width:100%}
-.field textarea{width:100%;font-family:var(--font);font-size:var(--fs)}
+.kv .kv-input{width:100%;height:calc(var(--control-h) - 4px)}
+.kv textarea.kv-input{height:auto;min-height:60px;font-family:var(--font);font-size:var(--fs)}
 .field-help{margin:0;color:var(--muted);font-size:var(--fs-small)}
 .pw-wrap{position:relative;display:flex}
 .pw-wrap input{flex:1;padding-right:40px}
@@ -575,8 +576,9 @@ const Page = (() => {
   const profileOpen = () => { const u = read().user || {}; dialog({ title: "My profile", body: kv([["Created", createdCell(u.created_at)], ...PROFILE.map(([key, label]) => [label, dash(u[key])])]), actions: '<button type="button" class="primary" id="profileEdit">Edit</button>', on: { profileEdit: profileEditOpen } }) };
   const profileEditOpen = () => {
     const u = read().user || {};
-    dialog({ title: "Edit profile",
-      body: PROFILE.map(([key, label, max]) => `<div class="field"><label for="pf-${key}">${label}</label>${key === "about" ? `<textarea id="pf-${key}" maxlength="${max}" rows="3">${esc(u[key] ?? "")}</textarea>` : `<input id="pf-${key}" maxlength="${max}" value="${esc(u[key] ?? "")}"${key === "email_secondary" ? ' type="email"' : key === "mobile_secondary" ? ' type="tel"' : ""}>`}</div>`).join(""),
+    // editing in place: the same rows, each value an input (the label stays on the left)
+    dialog({ title: "My profile",
+      body: kv([["Created", createdCell(u.created_at)], ...PROFILE.map(([key, label, max]) => [label, key === "about" ? `<textarea class="kv-input" id="pf-${key}" aria-label="${label}" maxlength="${max}" rows="3">${esc(u[key] ?? "")}</textarea>` : `<input class="kv-input" id="pf-${key}" aria-label="${label}" maxlength="${max}" value="${esc(u[key] ?? "")}"${key === "email_secondary" ? ' type="email"' : key === "mobile_secondary" ? ' type="tel"' : ""}>`])]),
       actions: '<button type="button" id="profileCancel">Cancel</button><button type="button" class="primary" id="profileSave">Save</button>',
       on: { profileCancel: profileOpen, profileSave: profileSaveRun } });
     el("pf-name").focus();

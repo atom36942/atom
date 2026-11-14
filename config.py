@@ -67,7 +67,6 @@ config_redis_cache_ttl_sec = 3600
 config_inmemory_cache_cleanup_auto_sec = 300
 config_api_cache_inmemory_max_kb = 102400
 config_token_cache_max = 10000
-# rows each startup cache loads (at startup and /admin/sync; 0 = off): config table, and users for the inmemory user checks
 config_cache_row_limit_config = 1000
 config_cache_row_limit_users_role = 10000
 config_cache_row_limit_users_deactivated = 10000
@@ -103,7 +102,7 @@ config_postgres_pool_min_size = 1
 config_postgres_pool_max_size = 10
 config_postgres_query_timeout_sec = 0
 config_buffer_limit_default = 100
-config_buffer_limit_log_api = 1000    # one table's buffer size: config_buffer_limit_<table>; other tables use the default
+config_buffer_limit_log_api = 1000
 config_buffer_rows_max = 100000
 config_postgres_buffer_flush_auto_sec = 60
 
