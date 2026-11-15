@@ -117,7 +117,7 @@ async def func_lifespan(app: FastAPI):
 app = function.func_app_fastapi_create(config_is_prod=config_values["config_is_prod"], lifespan=func_lifespan, config_is_fastapi_telemetry=config_values["config_is_fastapi_telemetry"])
 function.func_app_state_add(app=app, data_dict=vars(function), prefixes=("func_",))
 function.func_app_state_add(app=app, data_dict=config_values, prefixes=("config_",))
-app.state.func_app_router_add(app=app, router_dir=os.path.join(os.path.dirname(__file__), "router"), router_order={"index": 0, "auth": 1, "my": 2, "public": 3, "private": 4, "admin": 5})
+app.state.func_app_router_add(app=app, router_dir=os.path.join(os.path.dirname(__file__), "router"), router_order={"index": 0, "auth": 1, "my": 2, "public": 3, "private": 4, "permission": 5, "admin": 6})
 app.state.func_app_static_add(app=app)
 app.state.func_app_route_lookup_add(app=app)
 app.state.func_sentry_init(config_sentry_dsn=app.state.config_sentry_dsn, config_sentry_traces_sample_rate=app.state.config_sentry_traces_sample_rate)

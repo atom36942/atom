@@ -263,6 +263,14 @@ button:disabled[data-tip]{pointer-events:none}    /* the hover tooltip finds dis
 #apiInfoTbl .col-id,#apiInfoTbl .col-method{width:1%;text-align:center}
 #apiInfoTbl .col-path{text-align:left;word-break:break-all;width:var(--master-path-col,auto);max-width:var(--master-path-col,none)}
 #apiInfoTbl .col-run{width:1%;min-width:64px;text-align:center;padding-right:20px}
+#apiInfoTbl .col-access,#apiInfoTbl .col-limit{width:1%;white-space:nowrap}
+#apiInfoTbl td.col-id{color:var(--muted);font-variant-numeric:tabular-nums}
+#apiInfoTbl td.col-limit{color:var(--muted);font-size:12px}
+.access{font-size:12px;font-weight:600;color:var(--muted)}
+.access-token{color:var(--text)}
+.access-role{color:var(--accent)}
+.access-perm{color:#d69e2e}
+.access-off{color:var(--muted);text-decoration:line-through}
 #apiInfoTbl .table-message{padding:20px;color:var(--muted);text-align:center;cursor:default}
 #apiInfoTbl .table-message.error{color:var(--delete)}
 .method-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;min-width:32px;text-align:center;text-transform:uppercase}
@@ -457,7 +465,7 @@ select.row-val{padding-right:64px}
 .split-catalog .header-search{min-width:0}
 .split-catalog .modal-card.app-panel,.split-catalog .master-table-wrap{width:100%}
 .split-preview #apiInfoTbl{width:100%;min-width:0;table-layout:fixed}
-.split-preview #apiInfoTbl .col-id,.split-preview #apiInfoTbl .col-run{display:none}
+.split-preview #apiInfoTbl .col-id,.split-preview #apiInfoTbl .col-run,.split-preview #apiInfoTbl .col-access,.split-preview #apiInfoTbl .col-limit{display:none}
 .split-preview #apiInfoTbl .col-method{width:62px;padding:12px 8px}
 .split-preview #apiInfoTbl .col-path{width:auto;max-width:none;white-space:normal;overflow-wrap:anywhere;padding:12px 8px}
 .split-preview #apiInfoTbl tr[aria-selected="true"]{background:rgba(66,153,225,.14);box-shadow:inset 3px 0 var(--accent)}
@@ -516,6 +524,7 @@ select.row-val{padding-right:64px}
   #apiInfoTbl .col-method{width:56px;min-width:56px}
   #apiInfoTbl .col-path{width:240px}
   #apiInfoTbl .col-run{width:38px;min-width:38px}
+  #apiInfoTbl .col-limit{display:none}
   .resp-pre{padding:14px;font-size:12px;line-height:1.45}
   .resp-header{padding:10px 12px;gap:8px;flex-wrap:wrap}
   #rBox{max-height:none}
@@ -1376,8 +1385,17 @@ const getBodyRows = (bodyContent, mediaType, rowType) => {
     return { k: key, v: def == null ? "" : typeof def === "object" ? JSON.stringify(def) : String(def), t: rowType(s), e: getSchemaEnum(s), r: s.pattern || null, d: s.description || null, req: required.includes(key) };
   });
 };
+// what config_api checks for a route (Atom adds x-id, x-auth-required, x-roles-allowed, x-permission, x-active, x-rate-limit, x-cache to /openapi.json):
+// a short Access label and kind for the catalog, and the rate limit and cache as one muted line
+const routeAccess = op => {
+  const roleCfg = op["x-roles-allowed"], roles = Array.isArray(roleCfg) ? roleCfg[1] || [] : roleCfg?.roles || [], perm = op["x-permission"] != null;
+  const roleText = roles.length ? `Role${roles.length > 1 ? "s" : ""} ${roles.join(", ")}` : "";
+  const [access, kind] = op["x-active"] === false ? ["Off", "off"] : roleText && perm ? [`${roleText} + permission`, "perm"] : roleText ? [roleText, "role"] : perm ? ["Permission", "perm"] : op["x-auth-required"] ? ["Token", "token"] : ["No token", "open"];
+  const rl = op["x-rate-limit"], limit = [rl?.limit ? `${rl.limit}/${rl.window_sec}s` : "", op["x-cache"] ? `cache ${op["x-cache"]}s` : ""].filter(Boolean).join(" · ");
+  return { id: op["x-id"] ?? null, access, kind, limit };
+};
 const createCommandFromOperation = (path, method, op) => {
-  const command = { p: path, m: method.toUpperCase(), h: [], q: [], f: [], u: [], j: [] };
+  const command = { p: path, m: method.toUpperCase(), h: [], q: [], f: [], u: [], j: [], ...routeAccess(op) };
   (op.parameters || []).forEach(param => {
     const schema = resolveSchema(param.schema) || {};
     const item = { k: param.name, v: schema.default != null ? String(schema.default) : "", e: getSchemaEnum(schema) || param.enum || null, r: schema.pattern || null, d: param.description || schema.description || null, req: !!param.required };
@@ -1720,7 +1738,7 @@ const getVisibleMasterIndexes = () => {
     else {
       const matchesPath = isNamespaceSearch(query) ? getNamespacePrefix(c.p).toLowerCase() === query : c.p.toLowerCase().includes(query);
       const matchesParam = [...c.h, ...c.q, ...c.u, ...c.j, ...c.f].some(p => p.k.toLowerCase().includes(query) || p.v && String(p.v).toLowerCase().includes(query));
-      match = matchesPath || c.m.toLowerCase().includes(query) || `${c.m} ${c.p}`.toLowerCase().includes(query) || matchesParam;    // "GET /my/profile" (pasted from docs or logs) finds it too
+      match = matchesPath || c.m.toLowerCase().includes(query) || (c.access || "").toLowerCase().includes(query) || String(c.id) === query || `${c.m} ${c.p}`.toLowerCase().includes(query) || matchesParam;    // "GET /my/profile" (pasted from docs or logs) finds it too
     }
     if (match) acc.push(i);
     return acc;
@@ -1739,7 +1757,7 @@ const applyMasterTableLayout = () => {
   UI("apiInfoTbl").closest(".master-table-wrap").classList.add("ready");
   if (splitPreview) return;
   const maxPathLength = COMMANDS.length ? Math.max(...COMMANDS.map(c => c.p.length)) : 32;
-  const fixedWidth = 48 + 96 + 84;
+  const fixedWidth = 48 + 96 + 84 + 170 + 120;
   const viewportLimit = Math.max(700, Math.floor(innerWidth * .98) - 20);
   const pathWidth = Math.max(260, Math.min(Math.min(980, Math.max(320, Math.ceil(maxPathLength * 7.8 + 56))), viewportLimit - fixedWidth));
   const tableWidth = Math.ceil(pathWidth + fixedWidth);
@@ -1753,9 +1771,9 @@ const renderApiInfoTable = () => {
   UI("apiInfoCount").textContent = UI("apiInfoSearch").value.trim() ? `${indexes.length} of ${COMMANDS.length} APIs` : `${COMMANDS.length} APIs`;
   const rows = indexes.map(i => {
     const c = COMMANDS[i];
-    return `<tr data-i="${i}"><td class="col-id">${i + 1}</td><td class="col-method"><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td class="col-path" title="${he(c.p)}">${he(c.p)}</td><td class="col-run" ${tipAttrs("Run")}>${ICON.play(16)}</td></tr>`;
+    return `<tr data-i="${i}"><td class="col-id">${c.id ?? "—"}</td><td class="col-method"><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td class="col-path" title="${he(c.p)}">${he(c.p)}</td><td class="col-access"><span class="access access-${c.kind}">${he(c.access)}</span></td><td class="col-limit">${he(c.limit)}</td><td class="col-run" ${tipAttrs("Run")}>${ICON.play(16)}</td></tr>`;
   }).join("");
-  UI("apiInfoTbl").innerHTML = `<thead><tr><th class="col-id">#</th><th class="col-method">Method</th><th class="col-path">Path</th><th class="col-run">Run</th></tr></thead><tbody>${rows}</tbody>`;
+  UI("apiInfoTbl").innerHTML = `<thead><tr><th class="col-id" ${tipAttrs("Route id in config_api (also the permission id)")}>ID</th><th class="col-method">Method</th><th class="col-path">Path</th><th class="col-access" ${tipAttrs("What config_api checks before the route runs")}>Access</th><th class="col-limit" ${tipAttrs("Rate limit (requests/window) and response cache")}>Limits</th><th class="col-run">Run</th></tr></thead><tbody>${rows}</tbody>`;
   applyMasterTableLayout();
   if (!splitPreview) return;
   if (!indexes.length) {
@@ -1765,7 +1783,7 @@ const renderApiInfoTable = () => {
     UI("splitEmpty").textContent = "No APIs match your search.";
     UI("splitEmpty").style.display = "block";
     UI("splitWorkspace").classList.remove("show-runner");
-    UI("apiInfoTbl").tBodies[0].innerHTML = '<tr><td colspan="4" class="table-message">No matching APIs</td></tr>';
+    UI("apiInfoTbl").tBodies[0].innerHTML = '<tr><td colspan="6" class="table-message">No matching APIs</td></tr>';
   } else if (!indexes.includes(activeMasterRunIndex)) {
     selectPreviewApi(indexes[0]);
     if (matchMedia("(max-width:900px)").matches) UI("splitWorkspace").classList.remove("show-runner");
@@ -2458,7 +2476,7 @@ async function init() {
   } catch (err) {
     updateAppLoader(100, "Error");
     console.error("Failed to load API info", err);
-    UI("apiInfoTbl").innerHTML = `<tbody><tr><td colspan="4" class="table-message error">Failed to load API info: ${he(err.message)}. Reload the page to try again.</td></tr></tbody>`;
+    UI("apiInfoTbl").innerHTML = `<tbody><tr><td colspan="6" class="table-message error">Failed to load API info: ${he(err.message)}. Reload the page to try again.</td></tr></tbody>`;
     UI("apiInfoTbl").closest(".master-table-wrap").classList.add("ready");
     load(null);
   }

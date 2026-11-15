@@ -129,9 +129,9 @@ Request
 
 ## 5. Router Design & Writing APIs
 
-Routers live in [`router/`](../router). Each file is auto-discovered and mounted at startup by `func_app_router_add`. Files load in the order set by `router_order` in `main.py` (`index → auth → my → public → private → admin`).
+Routers live in [`router/`](../router). Each file is auto-discovered and mounted at startup by `func_app_router_add`. Files load in the order set by `router_order` in `main.py` (`index → auth → my → public → private → permission → admin`).
 
-### The six route groups
+### The seven route groups
 
 Every Atom route belongs to one group, by its first path segment. The groups appear in this order everywhere: the files in `router/`, `router_order` in `main.py`, the sections of `config_api` in `config.py`, and these docs.
 
@@ -141,10 +141,11 @@ Every Atom route belongs to one group, by its first path segment. The groups app
 | 2 | `/auth/*` | The way in: signup and every login method | No | Rate limit |
 | 3 | `/my/*` | The user's own things: profile, own rows, messages, files, own account | Yes | Rows are limited to the user's own (ownership) |
 | 4 | `/public/*` | Anyone, no login: public tables, OTP, small tools | No | Tables in `config_table_public_*`; rate limit on OTP and password-hash |
-| 5 | `/private/*` | Any logged-in user, any role: shared lists, counts, users, email, uploads | Yes | None beyond the token for reads (tables in `config_table_private_read_allowed`); `object-update` and `object-delete` also need a permission (136, 137) and a table in `config_table_private_write_allowed`, both off by default |
-| 6 | `/admin/*` | The backend admin: every table, users, SQL, imports, storage, monitor | Yes | Role 1 on every route (startup refuses an `/admin` route without it); permission too on one, the sample (6, SQL writes) |
+| 5 | `/private/*` | Any logged-in user, any role: shared lists, counts, users, email, uploads | Yes | None beyond the token (tables in `config_table_private_read_allowed`) |
+| 6 | `/permission/*` | Users granted the route, any role: change or delete anyone's rows (136, 137) | Yes | A permission on every route (startup refuses one without it); a role may be added; tables in `config_table_permission_write_allowed`, none by default |
+| 7 | `/admin/*` | The backend admin: every table, users, SQL, imports, storage, monitor | Yes | Role 1 on every route (startup refuses one without it); other roles and a permission may be added (Atom's sample: 6, SQL writes) |
 
-On every token route Atom also refuses deactivated and deleted users (the global checks). A project adds its own group (`/<app>/*`, e.g. `/order/*`) in `config_extend.py` with its role, and permission where only some users may act. Before writing one, check whether one of Atom's routes already does it ([crud.md](crud.md#which-route-for-which-screen)).
+A route with a role, permission, deactivated or deleted check must set `is_token: True` (startup refuses it otherwise). On every token route Atom also refuses deactivated and deleted users (the global checks). A project adds its own group (`/<app>/*`, e.g. `/order/*`) in `config_extend.py` with its role, and permission where only some users may act. Before writing one, check whether one of Atom's routes already does it ([crud.md](crud.md#which-route-for-which-screen)).
 
 ### Anatomy of an Endpoint:
 ```python

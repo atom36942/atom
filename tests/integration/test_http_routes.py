@@ -94,7 +94,7 @@ class HttpRouteTests(unittest.TestCase):
                 self.assertEqual((user.status_code, user.json()["message"]), (403, expected))
 
     def test_permission_routes_root_holds_them_others_need_a_grant(self):
-        # root gets Atom's /admin permission route at startup (6); the /private writes (136, 137) are granted explicitly, root included
+        # root gets Atom's /admin permission route at startup (6); the /permission writes (136, 137) are granted explicitly, root included
         self.assertEqual(fetch(self.url, "SELECT permissions FROM users WHERE id = 1"), [{"permissions": [6]}])
         self.message(self.client.post("/admin/user-create", json={"role": 1, "username": "admin2", "password": "admin2-pass"}, headers=self.auth(self.admin)))
         admin2 = app_login(self.client, path="/auth/login-username-password", body={"username": "admin2", "password": "admin2-pass"})
@@ -121,21 +121,21 @@ class HttpRouteTests(unittest.TestCase):
         self.assertEqual(fetch(self.url, "SELECT city FROM users WHERE id = $1", self.alice_id), [{"city": "Pune"}])    # rolled back
         self.message(self.client.put("/admin/user-update", json={"obj_list": [{"id": self.alice_id, "city": None}, {"id": self.bob_id, "job_title": None}]}, headers=self.auth(self.admin)))
 
-    def test_private_write_needs_the_permission_and_an_allowed_table(self):
+    def test_permission_write_needs_the_permission_and_an_allowed_table(self):
         [row_id] = self.message(self.client.post("/my/object-create", params={"table": "test"}, json={"title": "alice's"}, headers=self.auth(self.alice)))
-        update = lambda token, table="test": self.client.put("/private/object-update", params={"table": table}, json={"id": row_id, "title": "by bob"}, headers=self.auth(token))
+        update = lambda token, table="test": self.client.put("/permission/object-update", params={"table": table}, json={"id": row_id, "title": "by bob"}, headers=self.auth(token))
         self.assertEqual(self.message(update(self.bob), 403), "permission denied")
         self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [136, 137]}, headers=self.auth(self.admin)))
         bob = app_login(self.client, path="/auth/login-username-password", body={"username": "bob", "password": "bob-pass"})
         try:
             self.assertEqual(self.message(update(bob), 400), "write disabled for table: test")    # Atom's default: no table
-            self.app.state.config_table_private_write_allowed = ["test"]
+            self.app.state.config_table_permission_write_allowed = ["test"]
             self.assertEqual(self.message(update(bob, "users"), 400), "write disabled for table: users")
             self.assertEqual(self.message(update(bob)), [row_id])
             self.assertEqual(fetch(self.url, "SELECT title, created_by_id, updated_by_id FROM test WHERE id = $1", row_id), [{"title": "by bob", "created_by_id": self.alice_id, "updated_by_id": self.bob_id}])
-            self.assertEqual(self.message(self.client.post("/private/object-delete", json={"table": "test", "ids": [row_id]}, headers=self.auth(bob))), "1 ids deleted")
+            self.assertEqual(self.message(self.client.post("/permission/object-delete", json={"table": "test", "ids": [row_id]}, headers=self.auth(bob))), "1 ids deleted")
         finally:
-            self.app.state.config_table_private_write_allowed = []
+            self.app.state.config_table_permission_write_allowed = []
             self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": None}, headers=self.auth(self.admin)))
 
     # 2. CRUD lifecycle and ownership

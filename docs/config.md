@@ -248,7 +248,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_table_public_read_allowed` | Tables accessible on unauthenticated public read route |
 | `config_mongodb_my_create_allowed` | MongoDB collections writable on `/my/object-create-mongodb`, as `{database: [collection, ...]}`; empty disables the route |
 | `config_table_private_read_allowed` | Tables accessible on authenticated private read route |
-| `config_table_private_write_allowed` | Tables that `/private/object-update` and `/private/object-delete` may change (any row, not only the caller's); default `[]`, off. Callers also need the route's permission (136, 137) |
+| `config_table_permission_write_allowed` | Tables that `/permission/object-update` and `/permission/object-delete` may change (any row, not only the caller's); default `[]`, off. Callers also need the route's permission (136, 137) |
 
 ### Column Rules
 

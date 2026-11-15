@@ -176,6 +176,8 @@ def func_check_api_config(*, app: FastAPI) -> None:
             if mode == "redis": requires_redis_user_state = True
             if mode == "inmemory": inmemory_list.append(f"{path} user_check_role")
         if path.startswith("/admin/") and not (role_val and 1 in [int(role) for role in roles]): raise Exception(f"{path}: admin routes need user_check_role with role 1 (other roles and a permission may be added)")
+        if path.startswith("/permission/") and "user_check_permission" not in cfg: raise Exception(f"{path}: permission routes need user_check_permission (a role may be added)")
+        if cfg["is_token"] is not True and any(cfg.get(key) for key in ("user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted")): raise Exception(f"{path}: a role, permission, deactivated or deleted check needs is_token True")
         if "user_check_permission" in cfg:
             permission_val = cfg["user_check_permission"]
             if not isinstance(permission_val, dict) or set(permission_val) != {"mode"}: raise Exception(f"{path} invalid user_check_permission: expected {{\"mode\": \"token\"}}")

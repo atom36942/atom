@@ -17,7 +17,7 @@ Users live in the `users` database table. Core authorization attributes include:
 
 `users.permissions` (`smallint[]`, nullable) holds the `config_api` route IDs a user may call on routes that ask for it. `NULL` and `[]` grant none.
 
-A request passes these gates, in order, before the route runs. Role and permission are independent: a route sets either or both, and either one implies the token. Every `/admin/*` route, Atom's or a project's, must check role 1 (`user_check_role` with 1 in `roles`; other roles and a permission may be added): startup refuses it otherwise.
+A request passes these gates, in order, before the route runs. Role and permission are independent: a route sets either or both, and either one implies the token. Startup enforces each group's gate: every `/admin/*` route checks role 1 (other roles and a permission may be added), every `/permission/*` route checks a permission (a role may be added), and a route with a role or permission check sets `is_token: True`.
 
 | # | Gate | Route key | Fails with |
 |---|---|---|---|
@@ -25,12 +25,12 @@ A request passes these gates, in order, before the route runs. Role and permissi
 | 2 | Role: the user's role is in the list | `"user_check_role": {"mode": "token", "roles": [2]}` | 403 |
 | 3 | Permission: the route's own `id` is in the user's `permissions` | `"user_check_permission": {"mode": "token"}` | 403 |
 
-Atom's permission routes, in `config.py`: the admin sample (role 1, then a permission on top) and the two `/private` writes (permission only):
+Atom's permission routes, in `config.py`: the admin sample (role 1, then a permission on top) and the two `/permission` writes (permission only):
 
 ```python
 "/admin/postgres-query-runner-write": {"id": 6, "is_active": True, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_permission": {"mode": "token"}},
-"/private/object-update": {"id": 136, "is_token": True, "user_check_permission": {"mode": "token"}},
-"/private/object-delete": {"id": 137, "is_token": True, "user_check_permission": {"mode": "token"}, "rate_limit": {...}},
+"/permission/object-update": {"id": 136, "is_token": True, "user_check_permission": {"mode": "token"}},
+"/permission/object-delete": {"id": 137, "is_token": True, "user_check_permission": {"mode": "token"}, "rate_limit": {...}},
 
 config_column_int_mapping = {"users": {"role": {1: "Admin"}, "permissions": {6: "Postgres query runner write", 136: "Update any row", 137: "Delete any row"}}, ...}
 ```
@@ -38,9 +38,9 @@ config_column_int_mapping = {"users": {"role": {1: "Admin"}, "permissions": {6: 
 | Route | Checks | Who may call it |
 |---|---|---|
 | 6, raw SQL writes | role 1 + permission | admins granted 6; a role 2 user granted 6 is still refused by the role |
-| 136, 137: `/private/object-update`, `/private/object-delete` | permission only | users granted it, any role; only tables in `config_table_private_write_allowed` (default none) |
+| 136, 137: `/permission/object-update`, `/permission/object-delete` | permission only | users granted it, any role; only tables in `config_table_permission_write_allowed` (default none) |
 
-Root (id 1) gets Atom's own `/admin` permission route (6) at every startup, added to what it holds and never removed, so it cannot be locked out. Every other permission, Atom's `/private` writes (136, 137) included, is granted explicitly, to root too. A project's permission routes are never given to root: grant them like any other.
+Root (id 1) gets every `/admin` permission route at every startup, Atom's (6) and a project's, added to what it holds and never removed, so it cannot be locked out of the admin group. `/permission` routes (Atom's 136, 137 and a project's) and every other permission route are granted explicitly, to root too.
 
 A project route works the same way, for example only some role 2 users may delete a task:
 

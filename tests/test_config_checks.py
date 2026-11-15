@@ -196,6 +196,27 @@ class AdminRoleCheckTests(unittest.TestCase):
             with self.subTest(cfg=cfg), self.assertRaisesRegex(Exception, "admin routes need user_check_role with role 1"): func_check_api_config(app=self.app(cfg))
 
 
+class GroupGateCheckTests(unittest.TestCase):
+    def app(self, path, cfg):
+        app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
+        app.get(path)(lambda: None)
+        app.state.config_api = {path: {"id": 205, **cfg}}
+        app.state.config_column_int_mapping = {"users": {"permissions": {205: "X"}}}
+        app.state.config_column_token_encode = ["id", "role", "permissions"]
+        app.state.config_uvicorn_workers = 1
+        return app
+
+    def test_permission_routes_need_a_permission_and_may_add_a_role(self):
+        for cfg in ({"is_token": True, "user_check_permission": {"mode": "token"}}, {"is_token": True, "user_check_permission": {"mode": "token"}, "user_check_role": {"mode": "token", "roles": [1, 2]}}):
+            with self.subTest(cfg=cfg): func_check_api_config(app=self.app("/permission/x", cfg))
+        for cfg in ({"is_token": True}, {"is_token": True, "user_check_role": {"mode": "token", "roles": [2]}}):
+            with self.subTest(cfg=cfg), self.assertRaisesRegex(Exception, "permission routes need user_check_permission"): func_check_api_config(app=self.app("/permission/x", cfg))
+
+    def test_a_role_permission_or_user_check_needs_is_token_true(self):
+        for cfg in ({"user_check_role": {"mode": "token", "roles": [2]}}, {"user_check_permission": {"mode": "token"}}, {"user_check_deactivated": {"mode": "token"}}, {"user_check_deleted": {"mode": "token"}}):
+            with self.subTest(cfg=cfg), self.assertRaisesRegex(Exception, "needs is_token True"): func_check_api_config(app=self.app("/x/y", {"is_token": False, **cfg}))
+
+
 class PermissionConfigCheckTests(unittest.TestCase):
     def app(self, cfg, labels=None, token_encode=("id", "role", "permissions")):
         app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
@@ -251,7 +272,7 @@ class WorkerConfigCheckTests(unittest.TestCase):
     def app(self, workers, cfg):
         app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
         app.get("/x")(lambda: None)
-        app.state.config_api = {"/x": {"id": 1, "is_token": False, **cfg}}
+        app.state.config_api = {"/x": {"id": 1, "is_token": any(key.startswith("user_check_") for key in cfg), **cfg}}
         app.state.config_uvicorn_workers = workers
         app.state.config_redis_url_dict = {"api_response": "redis://localhost", "ratelimiter": "redis://localhost", "user_state": "redis://localhost"}
         return app

@@ -145,8 +145,10 @@ def func_openapi_spec_generate(*, app_routes: list, app_state: State) -> dict:
             op["x-permission"] = api_cfg.get("id") if api_cfg.get("user_check_permission") else None
             op["x-check-deactivated"] = "user_check_deactivated" in api_cfg
             op["x-check-deleted"] = "user_check_deleted" in api_cfg
-            op["x-cache"] = api_cfg.get("api_cache_sec", None)
-            op["x-rate-limit"] = api_cfg.get("api_ratelimiting_times_sec", None)
+            op["x-id"] = api_cfg.get("id")
+            op["x-active"] = api_cfg.get("is_active", True) is not False
+            op["x-cache"] = api_cfg["cache"].get("ttl_sec") if isinstance(api_cfg.get("cache"), dict) else None
+            op["x-rate-limit"] = {"limit": api_cfg["rate_limit"].get("limit"), "window_sec": api_cfg["rate_limit"].get("window_sec")} if isinstance(api_cfg.get("rate_limit"), dict) else None
             if is_token_required:
                 op["security"] = [{"BearerAuth": []}]
                 op["parameters"].append({"name": "Authorization", "in": "header", "required": True, "schema": {"type": "string", "default": "Bearer {token}"}})
