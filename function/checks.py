@@ -77,6 +77,12 @@ def func_check_runtime_config(*, app_state: State) -> None:
         if key.removeprefix("config_buffer_limit_") not in tables: raise ValueError(f"{key}: no table {key.removeprefix('config_buffer_limit_')!r} in config_postgres")
         if isinstance(limit, bool) or not isinstance(limit, int) or not 10 <= limit <= 5000: raise ValueError(f"{key} must be an integer between 10 and 5000")
     if "config_sql" in values: raise ValueError("config_sql was removed in Atom 9.0.0: its queries are Atom's own; set config_cache_row_limit_config, config_cache_row_limit_users_role, config_cache_row_limit_users_deactivated, config_cache_row_limit_users_deleted and config_profile_metadata_sql instead")
+    private_read = values.get("config_column_users_private_read")    # Atom's config.py always sets it
+    users_columns = {column.get("name") for column in ((values.get("config_postgres") or {}).get("table", {}).get("users") or [])}
+    if "config_column_users_private_read" in values and (not isinstance(private_read, list) or not private_read or not all(isinstance(column, str) for column in private_read)): raise ValueError("config_column_users_private_read must be a non-empty list of users columns")
+    for column in private_read or []:
+        if column == "password" or column in (values.get("config_column_read_blocked") or []): raise ValueError(f"config_column_users_private_read: {column} is never readable (config_column_read_blocked)")
+        if users_columns and column not in users_columns: raise ValueError(f"config_column_users_private_read: no users column {column!r} in config_postgres")
     for key in ("config_cache_row_limit_config", "config_cache_row_limit_users_role", "config_cache_row_limit_users_deactivated", "config_cache_row_limit_users_deleted"):
         limit = values.get(key)
         if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit < 0): raise ValueError(f"{key} must be an integer, 0 or more")

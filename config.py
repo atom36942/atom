@@ -177,6 +177,7 @@ config_column_single_update = ["username", "password", "email", "mobile"]
 config_column_users_blocked = ["created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id", "is_protected", "last_active_at"]
 config_column_users_my_blocked = ["role", "permissions", "verified_at", "verified_by_id", "deactivated_at", "deactivated_by_id", "parent_id", "source", "id_ext", "google_login_id", "google_login_metadata"]
 config_column_read_blocked = ["password"]
+config_column_users_private_read = ["id", "username", "role", "created_at", "deactivated_at"]
 
 # dict
 config_column_regex = {
@@ -453,7 +454,7 @@ config_api = {
 "/private/blob-upload-presigned": {"id": 63, "is_token": True},
 "/private/object-read": {"id": 102, "is_token": True, "is_connection_param": True},
 "/private/object-read-export": {"id": 125, "is_token": True, "is_connection_param": True},
-"/private/users-list": {"id": 112, "is_token": True, "is_connection_param": True},
+"/private/user-read": {"id": 112, "is_token": True, "is_connection_param": True},
 "/private/table-column-groupby": {"id": 107, "is_token": True, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},
 "/private/table-column-distinct": {"id": 108, "is_token": True, "cache": {"mode": "inmemory", "ttl_sec": 10, "is_per_user": False}, "is_connection_param": True},
 # public

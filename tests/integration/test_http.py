@@ -113,7 +113,7 @@ class HttpIntegrationTests(unittest.TestCase):
         user_relation = json.dumps(["created_by_id,users,id,fetch|1,*"])
         for label, method, path, params, token in [
             ("profile", "get", "/my/profile", {}, self.token),
-            ("users list", "get", "/private/users-list", {}, self.token),
+            ("user read", "get", "/private/user-read", {}, self.token),
             ("admin read users", "get", "/admin/object-read", {"table": "users"}, self.admin_token),
             ("admin read users, all columns", "get", "/admin/object-read", {"table": "users", "column": "*"}, self.admin_token),
             ("admin read with users relation", "get", "/admin/object-read", {"table": "test", "relation": user_relation}, self.admin_token),

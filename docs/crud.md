@@ -96,6 +96,8 @@ Use `curl -G --data-urlencode` for query parameters containing spaces, JSON, com
 
 `/public/object-read` and `/admin/object-read` accept the same parameters except `ownership_column`. Public reads require permitted tables and relations; admin reads require admin authorization and do not add user ownership filtering. Blocked columns cannot be explicitly selected or filtered; `column=*` removes them from results.
 
+`/private/user-read` (token) is the user list for any logged-in user: `filter`, `order`, `after`, `page` and `limit` as above, always on `users` and always the columns in `config_column_users_private_read` (`id`, `username`, `role`, `created_at`, `deactivated_at`). Every other `users` column is blocked from its columns, filters and order, so `filter=["role = 2","deactivated_at is null","username ilike %ann%"]` works and `filter=["mobile ilike %98%"]` is a 400. A project that adds a column to that list makes it readable to every logged-in user.
+
 ### Basic selection and sorting
 
 ```bash
@@ -115,7 +117,7 @@ This returns the first 20 tasks created by the logged-in user, highest priority 
 
 ### Paging
 
-Every list in Atom pages **after a cursor** by default, and can **jump to a page number** within the first rows; never with a total count. The same rule holds for `object-read`, `/private/users-list`, `table-column-groupby`, `table-column-distinct`, `/my/message-inbox`, `/my/message-thread`, pgweb's rows and every project list route.
+Every list in Atom pages **after a cursor** by default, and can **jump to a page number** within the first rows; never with a total count. The same rule holds for `object-read`, `/private/user-read`, `table-column-groupby`, `table-column-distinct`, `/my/message-inbox`, `/my/message-thread`, pgweb's rows and every project list route.
 
 | | |
 |---|---|

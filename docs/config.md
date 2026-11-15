@@ -262,6 +262,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_column_users_blocked` | `users` columns neither `/my/user-update` nor `/admin/user-update` may change (`created_*`, `updated_*`, `deleted_*`, `is_protected`, `last_active_at`); a project adds its own (e.g. a column only a script sets) |
 | `config_column_users_my_blocked` | `users` columns only `/admin/user-update` may change; `/my/user-update` refuses them (`role`, `permissions`, `deactivated_at`, ...) |
 | `config_column_read_blocked` | Sensitive columns blocked and stripped from read responses and relations (`password`) |
+| `config_column_users_private_read` | The only `users` columns `/private/user-read` returns, filters and sorts on (`id`, `username`, `role`, `created_at`, `deactivated_at`); readable by every logged-in user, checked at startup |
 
 ### Service Registries
 

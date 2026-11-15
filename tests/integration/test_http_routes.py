@@ -207,29 +207,39 @@ class HttpRouteTests(unittest.TestCase):
         titles = [r["title"] for r in self.message(self.client.get("/private/object-read", params={"table": "test"}, headers=self.auth(self.alice)))["obj_list"]]
         self.assertIn("public row", titles)
         self.assertEqual(self.message(self.client.get("/private/object-read", params={"table": "users"}, headers=self.auth(self.alice)), 400), "read disabled for table: users")
-        users = self.message(self.client.get("/private/users-list", headers=self.auth(self.alice)))["obj_list"]
+        users = self.message(self.client.get("/private/user-read", headers=self.auth(self.alice)))["obj_list"]
         self.assertTrue({"alice", "bob"} <= {u["username"] for u in users})
-        self.assertNotIn("password", {k for u in users for k in u})
+        self.assertEqual({k for u in users for k in u}, {"id", "username", "role", "created_at", "deactivated_at"})
 
-    def test_users_list_optional_role_and_pagination(self):
+    def test_user_read_filters_pages_and_blocks_other_columns(self):
         def users(**params):
-            return self.message(self.client.get("/private/users-list", params=params, headers=self.auth(self.alice)))
+            return self.message(self.client.get("/private/user-read", params={key: json.dumps(value) if key == "filter" else value for key, value in params.items()}, headers=self.auth(self.alice)))
 
         expected_role_users = fetch(self.url, "SELECT id, username FROM users WHERE role = 5 ORDER BY id")
-        self.assertEqual(sorted(users(role=5)["obj_list"], key=lambda user: user["id"]), expected_role_users)
-        self.assertEqual([u["username"] for u in users(role=1)["obj_list"]], ["admin"])
-        self.assertEqual(users(role=20), {"obj_list": [], "after": None})
+        self.assertEqual(sorted(({"id": u["id"], "username": u["username"]} for u in users(filter=["role = 5"])["obj_list"]), key=lambda user: user["id"]), expected_role_users)
+        self.assertEqual([u["username"] for u in users(filter=["role = 1"])["obj_list"]], ["admin"])
+        self.assertEqual({u["id"] for u in users(filter=["role in 1,5"], limit=1000)["obj_list"]}, {u["id"] for u in fetch(self.url, "SELECT id FROM users WHERE role IN (1, 5)")})
+        self.assertEqual(users(filter=["role = 20"]), {"obj_list": [], "after": None})
+        active = fetch(self.url, "SELECT id FROM users WHERE deactivated_at IS NULL")
+        self.assertEqual({u["id"] for u in users(filter=["deactivated_at is null"], limit=1000)["obj_list"]}, {u["id"] for u in active})
+        self.assertEqual({u["id"] for u in users(filter=["username ilike %alic%"])["obj_list"]}, {u["id"] for u in fetch(self.url, "SELECT id FROM users WHERE username ILIKE '%alic%'")})
         all_users = users(limit=1000)["obj_list"]
-        self.assertEqual({u["id"] for u in all_users}, {u["id"] for u in fetch(self.url, "SELECT id FROM users")})
-        self.assertTrue({"admin", "alice", "bob"} <= {u["username"] for u in all_users})
-        # one user a page, after the cursor: every user once, in the order of one big page (username, then id: NULL usernames too)
+        self.assertEqual([u["id"] for u in all_users], [u["id"] for u in fetch(self.url, "SELECT id FROM users ORDER BY id DESC")])
+        # one user a page, after the cursor: every user once, in the order of one big page
         seen, after = [], None
         while True:
             result = users(limit=1, **({"after": after} if after else {}))
             seen += result["obj_list"]
             if (after := result["after"]) is None: break
         self.assertEqual(seen, all_users)
-        self.message(self.client.get("/private/users-list", params={"role": "invalid"}, headers=self.auth(self.alice)), 400)
+        # other users columns are hidden from the filter and the order too, so their values can't be guessed
+        for params in ({"filter": ["password is not null"]}, {"filter": ["permissions is null"]}, {"filter": [{"_or": [{"permissions": "is,null"}, {"id": ">,0"}]}]}, {"order": "permissions desc"}):
+            with self.subTest(params=params):
+                self.message(self.client.get("/private/user-read", params={key: json.dumps(value) if key == "filter" else value for key, value in params.items()}, headers=self.auth(self.alice)), 400)
+        for params in ({"role": "5"}, {"table": "test"}, {"column": "password"}, {"relation": "[]"}):
+            with self.subTest(params=params):
+                self.message(self.client.get("/private/user-read", params=params, headers=self.auth(self.alice)), 400)
+        self.message(self.client.get("/private/user-read"), 401)
 
     def test_groupby_and_distinct_on_public_and_private(self):
         self.message(self.client.post("/public/object-create", params={"table": "test"}, json={"obj_list": [{"title": "grouped"}, {"title": "grouped"}]}))
