@@ -97,7 +97,7 @@ Use `curl -G --data-urlencode` for query parameters containing spaces, JSON, com
 
 `/public/object-read` and `/admin/object-read` accept the same parameters except `ownership_column`. Public reads require permitted tables and relations; admin reads require admin authorization and do not add user ownership filtering. Blocked columns cannot be explicitly selected or filtered; `column=*` removes them from results.
 
-`/private/user-read` (token) is the user list for any logged-in user: `filter`, `order`, `after`, `page` and `limit` as above, always on `users` and always the columns in `config_column_users_private_read` (`id`, `username`, `role`, `created_at`, `deactivated_at`). Every other `users` column is blocked from its columns, filters and order, so `filter=["role = 2","deactivated_at is null","username ilike %ann%"]` works and `filter=["mobile ilike %98%"]` is a 400. A project that adds a column to that list makes it readable to every logged-in user.
+`/private/user-read` (token) is the user list for any logged-in user: `filter`, `order`, `after`, `page` and `limit` as above, always on `users` and always the columns in `config_column_users_private_read` (`id`, `username`, `name`, `role`, `permissions`, `created_at`, `deactivated_at`). Every other `users` column is blocked from its columns, filters and order, so `filter=["role = 2","deactivated_at is null","username ilike %ann%"]` works and `filter=["mobile ilike %98%"]` is a 400. A project that adds a column to that list makes it readable to every logged-in user.
 
 ### Basic selection and sorting
 

@@ -226,7 +226,7 @@ class HttpRouteTests(unittest.TestCase):
         self.assertEqual(self.message(self.client.get("/private/object-read", params={"table": "users"}, headers=self.auth(self.alice)), 400), "read disabled for table: users")
         users = self.message(self.client.get("/private/user-read", headers=self.auth(self.alice)))["obj_list"]
         self.assertTrue({"alice", "bob"} <= {u["username"] for u in users})
-        self.assertEqual({k for u in users for k in u}, {"id", "username", "role", "created_at", "deactivated_at"})
+        self.assertEqual({k for u in users for k in u}, {"id", "username", "name", "role", "permissions", "created_at", "deactivated_at"})
 
     def test_user_read_filters_pages_and_blocks_other_columns(self):
         def users(**params):
@@ -250,7 +250,7 @@ class HttpRouteTests(unittest.TestCase):
             if (after := result["after"]) is None: break
         self.assertEqual(seen, all_users)
         # other users columns are hidden from the filter and the order too, so their values can't be guessed
-        for params in ({"filter": ["password is not null"]}, {"filter": ["permissions is null"]}, {"filter": [{"_or": [{"permissions": "is,null"}, {"id": ">,0"}]}]}, {"order": "permissions desc"}):
+        for params in ({"filter": ["password is not null"]}, {"filter": ["email is null"]}, {"filter": [{"_or": [{"email": "is,null"}, {"id": ">,0"}]}]}, {"order": "email desc"}):
             with self.subTest(params=params):
                 self.message(self.client.get("/private/user-read", params={key: json.dumps(value) if key == "filter" else value for key, value in params.items()}, headers=self.auth(self.alice)), 400)
         for params in ({"role": "5"}, {"table": "test"}, {"column": "password"}, {"relation": "[]"}):
