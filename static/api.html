@@ -263,12 +263,10 @@ button:disabled[data-tip]{pointer-events:none}    /* the hover tooltip finds dis
 #apiInfoTbl .col-id,#apiInfoTbl .col-method{width:1%;text-align:center}
 #apiInfoTbl .col-path{text-align:left;word-break:break-all;width:var(--master-path-col,auto);max-width:var(--master-path-col,none)}
 #apiInfoTbl .col-run{width:1%;min-width:64px;text-align:center;padding-right:20px}
-#apiInfoTbl .col-access,#apiInfoTbl .col-limit{width:1%;white-space:nowrap}
+#apiInfoTbl .col-access,#apiInfoTbl .col-rate,#apiInfoTbl .col-cache{width:1%;white-space:nowrap}
 #apiInfoTbl td.col-id{color:var(--muted);font-variant-numeric:tabular-nums}
-#apiInfoTbl td.col-limit{color:var(--muted);font-size:12px}
+#apiInfoTbl td.col-rate,#apiInfoTbl td.col-cache{color:var(--muted);font-size:12px}
 .access{font-size:12px;font-weight:600;color:var(--muted)}
-#apiInfoTbl tr.group-row td{padding-top:14px;padding-bottom:6px;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);cursor:default;border-bottom:1px solid rgba(var(--hl),.1)}
-#apiInfoTbl tr.group-row .group-count{margin-left:8px;font-weight:500;letter-spacing:0;opacity:.8}
 .access-token{color:var(--text)}
 .access-role{color:var(--accent)}
 .access-perm{color:#d69e2e}
@@ -467,7 +465,7 @@ select.row-val{padding-right:64px}
 .split-catalog .header-search{min-width:0}
 .split-catalog .modal-card.app-panel,.split-catalog .master-table-wrap{width:100%}
 .split-preview #apiInfoTbl{width:100%;min-width:0;table-layout:fixed}
-.split-preview #apiInfoTbl .col-id,.split-preview #apiInfoTbl .col-run,.split-preview #apiInfoTbl .col-access,.split-preview #apiInfoTbl .col-limit{display:none}
+.split-preview #apiInfoTbl .col-id,.split-preview #apiInfoTbl .col-run,.split-preview #apiInfoTbl .col-access,.split-preview #apiInfoTbl .col-rate,.split-preview #apiInfoTbl .col-cache{display:none}
 .split-preview #apiInfoTbl .col-method{width:62px;padding:12px 8px}
 .split-preview #apiInfoTbl .col-path{width:auto;max-width:none;white-space:normal;overflow-wrap:anywhere;padding:12px 8px}
 .split-preview #apiInfoTbl tr[aria-selected="true"]{background:rgba(66,153,225,.14);box-shadow:inset 3px 0 var(--accent)}
@@ -526,7 +524,7 @@ select.row-val{padding-right:64px}
   #apiInfoTbl .col-method{width:56px;min-width:56px}
   #apiInfoTbl .col-path{width:240px}
   #apiInfoTbl .col-run{width:38px;min-width:38px}
-  #apiInfoTbl .col-limit{display:none}
+  #apiInfoTbl .col-rate,#apiInfoTbl .col-cache{display:none}
   .resp-pre{padding:14px;font-size:12px;line-height:1.45}
   .resp-header{padding:10px 12px;gap:8px;flex-wrap:wrap}
   #rBox{max-height:none}
@@ -1388,13 +1386,18 @@ const getBodyRows = (bodyContent, mediaType, rowType) => {
   });
 };
 // what config_api checks for a route (Atom adds x-id, x-auth-required, x-roles-allowed, x-permission, x-active, x-rate-limit, x-cache to /openapi.json):
-// a short Access label and kind for the catalog, and the rate limit and cache as one muted line
+// a short Access label and kind for the catalog, the rate limit and the cache (their storage on hover)
 const routeAccess = op => {
   const roleCfg = op["x-roles-allowed"], roles = Array.isArray(roleCfg) ? roleCfg[1] || [] : roleCfg?.roles || [], perm = op["x-permission"] != null;
   const roleText = roles.length ? `Role${roles.length > 1 ? "s" : ""} ${roles.join(", ")}` : "";
   const [access, kind] = op["x-active"] === false ? ["Off", "off"] : roleText && perm ? [`${roleText} + permission`, "perm"] : roleText ? [roleText, "role"] : perm ? ["Permission", "perm"] : op["x-auth-required"] ? ["Token", "token"] : ["No token", "open"];
-  const rl = op["x-rate-limit"], limit = [rl?.limit ? `${rl.limit}/${rl.window_sec}s` : "", op["x-cache"] ? `cache ${op["x-cache"]}s` : ""].filter(Boolean).join(" · ");
-  return { id: op["x-id"] ?? null, access, kind, limit };
+  const rl = op["x-rate-limit"], cache = op["x-cache"] && typeof op["x-cache"] === "object" ? op["x-cache"] : null;
+  const store = mode => mode === "redis" ? "Redis, shared by every worker" : "in memory, per worker";
+  return {
+    id: op["x-id"] ?? null, access, kind,
+    rate: rl?.limit ? `${rl.limit} / ${rl.window_sec} s` : "", rateTip: rl?.limit ? `At most ${rl.limit} requests per ${rl.window_sec} s for each caller; kept ${store(rl.mode)}` : "",
+    cache: cache?.ttl_sec ? `${cache.ttl_sec} s` : "", cacheTip: cache?.ttl_sec ? `Responses kept ${cache.ttl_sec} s, ${cache.is_per_user ? "per user" : "shared by all callers"}; kept ${store(cache.mode)}` : ""
+  };
 };
 const createCommandFromOperation = (path, method, op) => {
   const command = { p: path, m: method.toUpperCase(), h: [], q: [], f: [], u: [], j: [], ...routeAccess(op) };
@@ -1740,7 +1743,7 @@ const getVisibleMasterIndexes = () => {
     else {
       const matchesPath = isNamespaceSearch(query) ? getNamespacePrefix(c.p).toLowerCase() === query : c.p.toLowerCase().includes(query);
       const matchesParam = [...c.h, ...c.q, ...c.u, ...c.j, ...c.f].some(p => p.k.toLowerCase().includes(query) || p.v && String(p.v).toLowerCase().includes(query));
-      match = matchesPath || c.m.toLowerCase().includes(query) || (c.access || "").toLowerCase().includes(query) || String(c.id) === query || `${c.m} ${c.p}`.toLowerCase().includes(query) || matchesParam;    // "GET /my/profile" (pasted from docs or logs) finds it too
+      match = matchesPath || c.m.toLowerCase().includes(query) || (c.access || "").toLowerCase().includes(query) || String(c.id) === query || (c.rate && "rate limit".includes(query)) || (c.cache && "cache".includes(query)) || `${c.m} ${c.p}`.toLowerCase().includes(query) || matchesParam;    // "GET /my/profile" (pasted from docs or logs) finds it too
     }
     if (match) acc.push(i);
     return acc;
@@ -1759,35 +1762,37 @@ const applyMasterTableLayout = () => {
   UI("apiInfoTbl").closest(".master-table-wrap").classList.add("ready");
   if (splitPreview) return;
   const maxPathLength = COMMANDS.length ? Math.max(...COMMANDS.map(c => c.p.length)) : 32;
-  const fixedWidth = 48 + 96 + 84 + 170 + 120;
-  const viewportLimit = Math.max(700, Math.floor(innerWidth * .98) - 20);
-  const pathWidth = Math.max(260, Math.min(Math.min(980, Math.max(320, Math.ceil(maxPathLength * 7.8 + 56))), viewportLimit - fixedWidth));
+  const fixedWidth = 48 + 96 + 84 + 170 + 110 + 90;
+  // the room inside the page body, less the card border and the table's vertical scrollbar, so the table never needs a sideways scroll on a desktop
+  const body = UI("apiInfoTbl").closest(".app-body"), style = getComputedStyle(body), scrollbar = 14;
+  const room = Math.max(620, body.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - 2);
+  const pathWidth = Math.max(260, Math.min(Math.min(980, Math.max(320, Math.ceil(maxPathLength * 7.8 + 56))), room - scrollbar - fixedWidth));
   const tableWidth = Math.ceil(pathWidth + fixedWidth);
   const root = d.documentElement.style;
   root.setProperty("--master-path-col", `${pathWidth}px`);
   root.setProperty("--master-table-width", `${tableWidth}px`);
-  root.setProperty("--master-shell-width", `${Math.min(viewportLimit, tableWidth)}px`);
+  root.setProperty("--master-shell-width", `${Math.min(room, tableWidth + scrollbar)}px`);
 };
-// route groups in Atom's order (router_order in main.py), then a project's own groups in the order they load; a one-segment path (/, /health, /page/{name}) is index
+// the table lists routes in Atom's group order (router_order in main.py), then a project's own groups in the order they load; a one-segment path (/, /health, /page/{name}) is index
 const ROUTE_GROUPS = ["index", "auth", "my", "public", "private", "permission", "admin"];
 const routeGroup = path => {
   const parts = String(path || "").split("/").filter(Boolean);
   return parts.length > 1 && !parts[0].includes("{") && parts[0] !== "page" ? parts[0] : "index";
 };
-const groupedIndexes = indexes => {
+const orderedIndexes = indexes => {
   const groups = new Map();
   indexes.forEach(i => { const g = routeGroup(COMMANDS[i].p); groups.has(g) ? groups.get(g).push(i) : groups.set(g, [i]) });
   const rank = g => (ROUTE_GROUPS.indexOf(g) + 1 || ROUTE_GROUPS.length + 1);
-  return [...groups].sort((a, b) => rank(a[0]) - rank(b[0]));
+  return [...groups].sort((a, b) => rank(a[0]) - rank(b[0])).flatMap(([, items]) => items);
 };
 const renderApiInfoTable = () => {
   const indexes = getVisibleMasterIndexes();
   UI("apiInfoCount").textContent = UI("apiInfoSearch").value.trim() ? `${indexes.length} of ${COMMANDS.length} APIs` : `${COMMANDS.length} APIs`;
-  const rows = groupedIndexes(indexes).map(([group, items]) => `<tr class="group-row"><td colspan="6">${he(group)}<span class="group-count">${items.length}</span></td></tr>` + items.map(i => {
+  const rows = orderedIndexes(indexes).map(i => {
     const c = COMMANDS[i];
-    return `<tr data-i="${i}"><td class="col-id">${c.id ?? "—"}</td><td class="col-method"><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td class="col-path" title="${he(c.p)}">${he(c.p)}</td><td class="col-access"><span class="access access-${c.kind}">${he(c.access)}</span></td><td class="col-limit">${he(c.limit)}</td><td class="col-run" ${tipAttrs("Run")}>${ICON.play(16)}</td></tr>`;
-  }).join("")).join("");
-  UI("apiInfoTbl").innerHTML = `<thead><tr><th class="col-id" ${tipAttrs("Route id in config_api (also the permission id)")}>ID</th><th class="col-method">Method</th><th class="col-path">Path</th><th class="col-access" ${tipAttrs("What config_api checks before the route runs")}>Access</th><th class="col-limit" ${tipAttrs("Rate limit (requests/window) and response cache")}>Limits</th><th class="col-run">Run</th></tr></thead><tbody>${rows}</tbody>`;
+    return `<tr data-i="${i}"><td class="col-id">${c.id ?? "—"}</td><td class="col-method"><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td class="col-path" title="${he(c.p)}">${he(c.p)}</td><td class="col-access"><span class="access access-${c.kind}">${he(c.access)}</span></td><td class="col-rate"${c.rateTip ? ` ${tipAttrs(c.rateTip)}` : ""}>${he(c.rate)}</td><td class="col-cache"${c.cacheTip ? ` ${tipAttrs(c.cacheTip)}` : ""}>${he(c.cache)}</td><td class="col-run" ${tipAttrs("Run")}>${ICON.play(16)}</td></tr>`;
+  }).join("");
+  UI("apiInfoTbl").innerHTML = `<thead><tr><th class="col-id" ${tipAttrs("Route id in config_api (also the permission id)")}>ID</th><th class="col-method">Method</th><th class="col-path">Path</th><th class="col-access" ${tipAttrs("What config_api checks before the route runs")}>Access</th><th class="col-rate" ${tipAttrs("Requests allowed per time window, per caller")}>Rate limit</th><th class="col-cache" ${tipAttrs("How long a response is reused")}>Cache</th><th class="col-run">Run</th></tr></thead><tbody>${rows}</tbody>`;
   applyMasterTableLayout();
   if (!splitPreview) return;
   if (!indexes.length) {
@@ -1797,7 +1802,7 @@ const renderApiInfoTable = () => {
     UI("splitEmpty").textContent = "No APIs match your search.";
     UI("splitEmpty").style.display = "block";
     UI("splitWorkspace").classList.remove("show-runner");
-    UI("apiInfoTbl").tBodies[0].innerHTML = '<tr><td colspan="6" class="table-message">No matching APIs</td></tr>';
+    UI("apiInfoTbl").tBodies[0].innerHTML = '<tr><td colspan="7" class="table-message">No matching APIs</td></tr>';
   } else if (!indexes.includes(activeMasterRunIndex)) {
     selectPreviewApi(indexes[0]);
     if (matchMedia("(max-width:900px)").matches) UI("splitWorkspace").classList.remove("show-runner");
@@ -2497,7 +2502,7 @@ async function init() {
   } catch (err) {
     updateAppLoader(100, "Error");
     console.error("Failed to load API info", err);
-    UI("apiInfoTbl").innerHTML = `<tbody><tr><td colspan="6" class="table-message error">Failed to load API info: ${he(err.message)}. Reload the page to try again.</td></tr></tbody>`;
+    UI("apiInfoTbl").innerHTML = `<tbody><tr><td colspan="7" class="table-message error">Failed to load API info: ${he(err.message)}. Reload the page to try again.</td></tr></tbody>`;
     UI("apiInfoTbl").closest(".master-table-wrap").classList.add("ready");
     load(null);
   }
