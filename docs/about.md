@@ -144,7 +144,7 @@ Every Atom route belongs to one group, by its first path segment. The groups app
 | 5 | `/private/*` | Any logged-in user, any role: shared lists, counts, users, email, uploads | Yes | None beyond the token; tables in `config_table_private_read_allowed` |
 | 6 | `/admin/*` | The backend admin: every table, users, SQL, imports, storage, monitor | Yes | Role 1 on every route; permission too on two (6 SQL writes, 132 user delete) |
 
-On every token route Atom also refuses deactivated and deleted users (the global checks). A project adds its own group (`/<app>/*`, e.g. `/pulse/*`) in `config_extend.py` with its role, and permission where only some users may act. Before writing one, check whether one of Atom's routes already does it ([crud.md](crud.md#which-route-for-which-screen)).
+On every token route Atom also refuses deactivated and deleted users (the global checks). A project adds its own group (`/<app>/*`, e.g. `/order/*`) in `config_extend.py` with its role, and permission where only some users may act. Before writing one, check whether one of Atom's routes already does it ([crud.md](crud.md#which-route-for-which-screen)).
 
 ### Anatomy of an Endpoint:
 ```python
