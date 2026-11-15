@@ -248,6 +248,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_table_public_read_allowed` | Tables accessible on unauthenticated public read route |
 | `config_mongodb_my_create_allowed` | MongoDB collections writable on `/my/object-create-mongodb`, as `{database: [collection, ...]}`; empty disables the route |
 | `config_table_private_read_allowed` | Tables accessible on authenticated private read route |
+| `config_table_private_write_allowed` | Tables that `/private/object-update` and `/private/object-delete` may change (any row, not only the caller's); default `[]`, off. Callers also need the route's permission (136, 137) |
 
 ### Column Rules
 
@@ -424,7 +425,7 @@ Mappings use the lookup order `config_column_int_mapping[table][column][value]`.
 
 ### Permission labels
 
-A permission ID is a `config_api` route `id` (routes with `user_check_permission`). Atom labels its own (`6`, `132`); a project keeps them and adds its own in `config_extend.py`; startup refuses a permission route without a label:
+A permission ID is a `config_api` route `id` (routes with `user_check_permission`). Atom labels its own (`6`, `132`, `136`, `137`); a project keeps them and adds its own in `config_extend.py`; startup refuses a permission route without a label:
 
 ```python
 # config_extend.py

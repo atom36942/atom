@@ -320,7 +320,7 @@ async def func_postgres_schema_users_init(*, conn: asyncpg.Connection, db_tables
                 raise Exception("config_root_user_password must be set in env when is_root_user_create is enabled")
             await conn.execute("INSERT INTO users (username, password, role) VALUES ('admin', $1, 1) ON CONFLICT (username, role) DO UPDATE SET username = 'admin', password = EXCLUDED.password, role = 1, deleted_at = NULL, deactivated_at = NULL;", root_user_password_hash)
             await conn.execute("UPDATE users SET username = 'admin', password = $1, role = 1, deleted_at = NULL, deactivated_at = NULL WHERE id = 1;", root_user_password_hash)
-            # root always holds Atom's own permission routes (ids under 200); added, never removed; a project's permissions are granted explicitly
+            # root always holds Atom's own /admin permission routes (ids under 200); added, never removed; every other permission (Atom's /private writes, a project's) is granted explicitly
             if root_user_permissions and "permissions" in users_cols:
                 await conn.execute("UPDATE users SET permissions = (SELECT array_agg(DISTINCT p ORDER BY p) FROM unnest(coalesce(permissions, '{}') || $1::smallint[]) p) WHERE id = 1 AND NOT coalesce(permissions, '{}') @> $1::smallint[];", root_user_permissions)
         if is_log_password:
@@ -446,7 +446,7 @@ async def func_postgres_schema_steps(*, app_state: State, conn: Any, config_post
         await app_state.func_postgres_schema_tables_sync(conn=conn, tables=config_postgres["table"], catalog=context["catalog"])
         db_tables = await app_state.func_postgres_schema_tables_read(conn=conn)
         context["triggers"] = await app_state.func_postgres_schema_triggers_read(conn=conn)
-        root_user_permissions = sorted(cfg["id"] for cfg in (getattr(app_state, "config_api", None) or {}).values() if isinstance(cfg, dict) and cfg.get("user_check_permission") and isinstance(cfg.get("id"), int) and cfg["id"] < 200)
+        root_user_permissions = sorted(cfg["id"] for path, cfg in (getattr(app_state, "config_api", None) or {}).items() if path.startswith("/admin/") and isinstance(cfg, dict) and cfg.get("user_check_permission") and isinstance(cfg.get("id"), int) and cfg["id"] < 200)
         await app_state.func_postgres_schema_users_init(conn=conn, db_tables=db_tables, catalog=context["catalog"], context=context, root_user_password_hash=root_user_password_hash, root_user_permissions=root_user_permissions)
         await app_state.func_postgres_schema_triggers_sync(conn=conn, db_tables=db_tables, catalog=context["catalog"], context=context)
         await app_state.func_postgres_schema_cleanup(conn=conn, tables=config_postgres["table"], catalog=context["catalog"])

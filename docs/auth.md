@@ -38,8 +38,9 @@ config_column_int_mapping = {"users": {"role": {1: "Admin"}, "permissions": {6: 
 |---|---|---|
 | 6, raw SQL writes | role 1 + permission | admins granted 6; a role 2 user granted 6 is still refused by the role |
 | 132, user hard delete | role 1 + permission | admins granted 132 |
+| 136, 137: `/private/object-update`, `/private/object-delete` | permission only | users granted it, any role; only tables in `config_table_private_write_allowed` (default none) |
 
-Root (id 1) gets Atom's own permission routes (ids under 200: 6 and 132) at every startup, added to what it holds and never removed, so it cannot be locked out. Every other user, admins included, needs an explicit grant. A project's permission routes are never given to root: grant them like any other.
+Root (id 1) gets Atom's own `/admin` permission routes (6 and 132) at every startup, added to what it holds and never removed, so it cannot be locked out. Every other permission, Atom's `/private` writes (136, 137) included, is granted explicitly, to root too. A project's permission routes are never given to root: grant them like any other.
 
 A project route works the same way, for example only some role 2 users may delete a task:
 
