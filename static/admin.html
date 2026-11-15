@@ -242,6 +242,15 @@ input[type=checkbox]{height:auto;width:15px;height:15px;accent-color:var(--accen
 .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line)}
 .toolbar .grow{flex:1}
 .toolbar input.search{width:240px}
+.searchbox{display:flex;align-items:center;width:340px;max-width:100%;height:var(--control-h);border:1px solid var(--line-strong);border-radius:8px;background:var(--field)}
+.searchbox:focus-within{border-color:var(--accent)}
+.searchbox select{flex:none;max-width:45%;height:100%;padding:0 22px 0 10px;border:0;border-right:1px solid var(--line);border-radius:8px 0 0 8px;appearance:none;-webkit-appearance:none;background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 14 14'%3E%3Cpath d='M3 5l4 4 4-4' fill='none' stroke='%239aa0a6' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 7px center;color:var(--muted);font-size:12px;font-weight:600}
+.searchbox input{flex:1;width:0;min-width:0;height:100%;border:0;background:transparent;box-shadow:none;outline:none}
+.searchbox button{display:grid;flex:none;place-items:center;width:28px;height:26px;margin-right:3px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--muted)}
+.searchbox button.go{color:var(--accent)}
+.searchbox button:hover{background:var(--panel);color:var(--text)}
+.searchbox button svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.searchbox input:placeholder-shown~button{display:none}
 .chips{display:flex;gap:6px;flex-wrap:wrap;padding:0 16px 10px}
 .chips:empty{display:none}
 .chip{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 4px 0 10px;border-radius:999px;background:rgba(66,153,225,.12);color:var(--text);font-size:12px}
@@ -1240,17 +1249,15 @@ const filterList = () => {
     if (f.op === "has") return { [f.col]: `any,${f.value}` };    // array column holds this value
     return { [f.col]: `${f.op},${f.value}` };
   });
-  const q = T.search.trim();
-  if (q) {
-    const text = columns(T.table).filter(c => kind(c) === "text" && readable(c.column_name)).map(c => ({ [c.column_name]: `ilike,%${q}%` }));
-    if (/^\d+$/.test(q) && SCHEMA[T.table].id) text.push({ id: `=,${q}` });
-    if (text.length) list.push({ _or: text });
-  }
+  const q = T.search.trim();    // one column at a time: id is equal to a number, a text column contains the text
+  if (q && T.searchCol) list.push(T.searchCol === "id" ? { id: `=,${q}` } : { [T.searchCol]: `ilike,%${q}%` });
   return list;
 };
+// the columns the search box offers, one at a time: id (equal to a number), then each readable text column (contains); the first text column is picked first
+const searchCols = table => [...columns(table).filter(c => kind(c) === "text" && readable(c.column_name)).map(c => c.column_name), ...(SCHEMA[table].id ? ["id"] : [])];
 const tableOpen = (table, presetFilters = []) => {
   const hasId = !!SCHEMA[table].id;
-  T = { table, tab: "rows", groupCol: readStore().groupby?.[table] || null, rows: [], order: hasId ? "id desc" : `${columns(table)[0].column_name} asc`, filters: presetFilters, search: "", cursors: [null], pageIndex: 0, hasNext: false, selected: new Set(), openId: null, limit: readStore().limit || 50 };
+  T = { table, tab: "rows", groupCol: readStore().groupby?.[table] || null, rows: [], order: hasId ? "id desc" : `${columns(table)[0].column_name} asc`, filters: presetFilters, search: "", searchCol: searchCols(table)[0] || null, cursors: [null], pageIndex: 0, hasNext: false, selected: new Set(), openId: null, limit: readStore().limit || 50 };
   const type = relationType(table), stats = STATS[table];
   $("title").textContent = table;
   $("subtitle").textContent = `${type.replace("_", " ")} · ${columns(table).length} columns${stats ? ` · ~${formatNumber(stats.rows)} rows · ${formatBytes(Number(stats.bytes))}` : ""}`;
@@ -1266,7 +1273,7 @@ const tableOpen = (table, presetFilters = []) => {
       <div id="schemaView" hidden></div>
       <div id="rowsView">
       <div class="toolbar">
-        <input class="search" id="rowSearch" placeholder="Search: ilike on every text column, or id = number  (key /)" aria-label="Search rows">
+        ${searchCols(table).length ? `<form class="searchbox" id="rowSearchForm"><select id="rowSearchCol" aria-label="Search by">${searchCols(table).map(c => `<option${c === T.searchCol ? " selected" : ""}>${he(c)}</option>`).join("")}</select><input id="rowSearch" placeholder="Search ${he(T.searchCol)}  (key /)" aria-label="Search value" autocomplete="off"><button type="button" id="rowSearchClear" aria-label="Clear search" title="Clear search"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button><button type="submit" class="go" aria-label="Search" title="Search"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></form>` : ""}
         <select id="filterCol" aria-label="Filter column">${columns(table).filter(c => readable(c.column_name) && kind(c) !== "geo").map(c => `<option>${he(c.column_name)}</option>`).join("")}</select>
         <select id="filterOp" aria-label="Filter operator">${OPS.map(o => `<option value="${he(o.op)}">${he(o.label)}</option>`).join("")}</select>
         <input id="filterValue" placeholder="value" aria-label="Filter value" style="width:140px">
@@ -1300,8 +1307,12 @@ const tableOpen = (table, presetFilters = []) => {
   };
   $("filterAdd").addEventListener("click", addFilter);
   $("filterValue").addEventListener("keydown", e => { if (e.key === "Enter") addFilter() });
-  let searchTimer;
-  $("rowSearch").addEventListener("input", e => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { T.search = e.target.value; tableReload() }, 300) });
+  // the search: one column picked at the left, sent on Enter or →, never while typing; × empties it and searches again
+  if ($("rowSearchForm")) {
+    $("rowSearchForm").addEventListener("submit", e => { e.preventDefault(); T.search = $("rowSearch").value; tableReload() });
+    $("rowSearchClear").addEventListener("click", () => { $("rowSearch").value = ""; T.search = ""; tableReload(); $("rowSearch").focus() });
+    $("rowSearchCol").addEventListener("change", e => { T.searchCol = e.target.value; $("rowSearch").placeholder = `Search ${T.searchCol}  (key /)`; if (T.search.trim()) tableReload() });
+  }
   $("chips").addEventListener("click", e => { const b = e.target.closest("[data-chip]"); if (b) { T.filters.splice(Number(b.dataset.chip), 1); tableReload() } });
   $("limitSelect").addEventListener("change", e => { T.limit = Number(e.target.value); writeStore({ limit: T.limit }); tableReload() });
   $("prevBtn").addEventListener("click", () => { if (T.pageIndex > 0) { T.pageIndex--; tableLoad() } });

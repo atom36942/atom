@@ -184,7 +184,11 @@ body{height:100vh;overflow:hidden;display:flex;flex-direction:column}
 .header-search{position:relative;display:flex;align-items:center;background:var(--field);border:1px solid var(--line);border-radius:6px;box-sizing:border-box;height:42px;padding:2px 10px;gap:6px;transition:border-color .2s;flex:1 1 320px;min-width:280px}
 .header-search:focus-within{border-color:var(--accent)}
 #apiInfoSearch{padding:4px 24px 4px 6px;font-size:15px;font-weight:600;color:var(--danger);background:transparent;border:none;flex:1;min-width:60px;height:100%;outline:none;border-radius:0;box-shadow:none}
-.clear-api-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--danger);font-size:21px;font-weight:700;line-height:1;cursor:pointer;display:none}
+.clear-api-btn{flex:none;padding:0 4px;background:none;border:none;color:var(--danger);font-size:21px;font-weight:700;line-height:1;cursor:pointer;display:none}
+.refresh-api-btn{display:grid;flex:none;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:6px;background:none;color:var(--muted);cursor:pointer}
+.refresh-api-btn:hover{background:var(--panel);color:var(--text)}
+.refresh-api-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.refresh-api-btn.loading svg{animation:spin .8s linear infinite}
 .clear-api-btn.show{display:block}
 .modal-card.app-panel{flex:1;display:flex;flex-direction:column;min-height:0;margin-bottom:0;width:var(--master-shell-width,100%);max-width:100%;align-self:center}
 .app-panel>.modal-card-body{padding:0;flex:1;display:flex;flex-direction:column;min-height:0}
@@ -574,6 +578,7 @@ select.row-val{padding-right:64px}
         <div class="header-search">
           <input type="text" id="apiInfoSearch" placeholder="Search APIs..." autocomplete="off" spellcheck="false" />
           <button type="button" id="apiInfoSearchClear" class="clear-api-btn" data-tip="Clear search">×</button>
+          <button type="button" id="apiInfoRefresh" class="refresh-api-btn" aria-label="Refresh the API list" data-tip="Refresh the API list (/openapi.json)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M19.4 12A7.5 7.5 0 1 1 17.3 6.7L20 9"/></svg></button>
         </div>
       </div>
       <div class="modal-card app-panel">
@@ -2254,6 +2259,15 @@ const setupEventListeners = () => {
   addEventListener("resize", debounce(applyMasterTableLayout, 120));
   UI("apiInfoSearch").addEventListener("input", e => setSearch(e.target.value));
   UI("apiInfoSearchClear").addEventListener("click", () => setSearch(""));
+  // refresh: downloads /openapi.json again (new or changed routes) and keeps the search, without reloading the page
+  UI("apiInfoRefresh").addEventListener("click", async () => {
+    const btn = UI("apiInfoRefresh");
+    if (btn.classList.contains("loading")) return;
+    btn.classList.add("loading");
+    try { await specRefresh(); setSearch(UI("apiInfoSearch").value); toast("API list refreshed.") }
+    catch (error) { toast(error.message || "Could not refresh the API list.", true) }
+    finally { btn.classList.remove("loading") }
+  });
   UI("apiInfoTags").addEventListener("click", e => { const tag = e.target.closest(".tag-filter"); if (tag) toggleApiTag(tag.dataset.tag) });
   UI("apiInfoTbl").addEventListener("click", e => { const tr = e.target.closest("tr[data-i]"); if (tr) openCommand(Number(tr.dataset.i)) });
   UI("infoToggleBtn").addEventListener("click", () => showModal("infoModal"));
