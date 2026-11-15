@@ -179,6 +179,23 @@ class ApiIdCheckTests(unittest.TestCase):
             func_check_api_config(app=self.app(199))
 
 
+class AdminRoleCheckTests(unittest.TestCase):
+    def app(self, cfg):
+        app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
+        app.get("/admin/x")(lambda: None)
+        app.state.config_api = {"/admin/x": {"id": 205, "is_token": True, **cfg}}
+        app.state.config_column_int_mapping = {"users": {"permissions": {205: "X"}}}
+        app.state.config_column_token_encode = ["id", "role", "permissions"]
+        app.state.config_uvicorn_workers = 1
+        return app
+
+    def test_admin_routes_need_role_1(self):
+        for cfg in ({"user_check_role": {"mode": "token", "roles": [1]}}, {"user_check_role": {"mode": "realtime", "roles": [3, 1]}}, {"user_check_role": {"mode": "token", "roles": [1]}, "user_check_permission": {"mode": "token"}}):
+            with self.subTest(cfg=cfg): func_check_api_config(app=self.app(cfg))
+        for cfg in ({}, {"user_check_permission": {"mode": "token"}}, {"user_check_role": {"mode": "token", "roles": [2]}}):
+            with self.subTest(cfg=cfg), self.assertRaisesRegex(Exception, "admin routes need user_check_role with role 1"): func_check_api_config(app=self.app(cfg))
+
+
 class PermissionConfigCheckTests(unittest.TestCase):
     def app(self, cfg, labels=None, token_encode=("id", "role", "permissions")):
         app = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)

@@ -425,7 +425,7 @@ Mappings use the lookup order `config_column_int_mapping[table][column][value]`.
 
 ### Permission labels
 
-A permission ID is a `config_api` route `id` (routes with `user_check_permission`). Atom labels its own (`6`, `132`, `136`, `137`); a project keeps them and adds its own in `config_extend.py`; startup refuses a permission route without a label:
+A permission ID is a `config_api` route `id` (routes with `user_check_permission`). Atom labels its own (`6`, `136`, `137`); a project keeps them and adds its own in `config_extend.py`; startup refuses a permission route without a label:
 
 ```python
 # config_extend.py
