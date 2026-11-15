@@ -131,6 +131,21 @@ Request
 
 Routers live in [`router/`](../router). Each file is auto-discovered and mounted at startup by `func_app_router_add`. Files load in the order set by `router_order` in `main.py` (`index → auth → my → public → private → admin`).
 
+### The six route groups
+
+Every Atom route belongs to one group, by its first path segment. The groups appear in this order everywhere: the files in `router/`, `router_order` in `main.py`, the sections of `config_api` in `config.py`, and these docs.
+
+| # | Group | What it is for | Token | Other checks |
+|---|---|---|---|---|
+| 1 | `index` (`/`, `/health`, `/info`, `/page/{name}`, `/static`, `/pgweb`) | Helpers: health, server info, pages, static files, API spec | No | `/pgweb` checks itself and is off unless `config_is_pgweb_enabled` |
+| 2 | `/auth/*` | The way in: signup and every login method | No | Rate limit |
+| 3 | `/my/*` | The user's own things: profile, own rows, messages, files, own account | Yes | Rows are limited to the user's own (ownership) |
+| 4 | `/public/*` | Anyone, no login: public tables, OTP, small tools | No | Tables in `config_table_public_*`; rate limit on OTP and password-hash |
+| 5 | `/private/*` | Any logged-in user, any role: shared lists, counts, users, email, uploads | Yes | None beyond the token; tables in `config_table_private_read_allowed` |
+| 6 | `/admin/*` | The backend admin: every table, users, SQL, imports, storage, monitor | Yes | Role 1 on every route; permission too on two (6 SQL writes, 132 user delete) |
+
+On every token route Atom also refuses deactivated and deleted users (the global checks). A project adds its own group (`/<app>/*`, e.g. `/pulse/*`) in `config_extend.py` with its role, and permission where only some users may act. Before writing one, check whether one of Atom's routes already does it ([crud.md](crud.md#which-route-for-which-screen)).
+
 ### Anatomy of an Endpoint:
 ```python
 @router.get("/my/api-usage")

@@ -94,17 +94,17 @@ class HttpRouteTests(unittest.TestCase):
                 self.assertEqual((user.status_code, user.json()["message"]), (403, expected))
 
     def test_permission_routes_root_holds_them_others_need_a_grant(self):
-        # root gets Atom's permission routes at startup: 6 (role 1 + permission) and 132 (permission only)
+        # root gets Atom's permission routes at startup: 6 and 132, both role 1 + permission
         self.assertEqual(fetch(self.url, "SELECT permissions FROM users WHERE id = 1"), [{"permissions": [6, 132]}])
         self.message(self.client.post("/admin/user-create", json={"role": 1, "username": "admin2", "password": "admin2-pass"}, headers=self.auth(self.admin)))
         admin2 = app_login(self.client, path="/auth/login-username-password", body={"username": "admin2", "password": "admin2-pass"})
         self.assertEqual(self.message(self.client.post("/admin/postgres-query-runner-write", json={"sql": "SELECT 1"}, headers=self.auth(admin2)), 403), "permission denied")
         self.assertEqual(self.message(self.client.delete("/admin/user-delete", params={"id": self.bob_id}, headers=self.auth(admin2)), 403), "permission denied")
-        # permission only: a role 5 user granted 132 passes the gate (the delete itself is then refused: config_is_user_delete is off)
+        # role 1 + permission: a role 5 user granted 132 is still refused by the role
         self.message(self.client.put("/admin/user-update", json={"id": self.alice_id, "permissions": [132]}, headers=self.auth(self.admin)))
         self.assertEqual(self.message(self.client.put("/admin/user-update", json={"id": self.alice_id, "permissions": [999]}, headers=self.auth(self.admin)), 400).count("not labelled"), 1)
         alice = app_login(self.client, path="/auth/login-username-password", body={"username": "alice", "password": "alice-pass"})
-        self.assertEqual(self.message(self.client.delete("/admin/user-delete", params={"id": self.bob_id}, headers=self.auth(alice)), 403), "users hard delete disabled")
+        self.assertEqual(self.message(self.client.delete("/admin/user-delete", params={"id": self.bob_id}, headers=self.auth(alice)), 403), "access denied")
         self.assertEqual(self.message(self.client.post("/admin/postgres-query-runner-write", json={"sql": "SELECT 1"}, headers=self.auth(alice)), 403), "access denied")
         self.message(self.client.put("/admin/user-update", json={"id": self.alice_id, "permissions": None}, headers=self.auth(self.admin)))
         [admin2_id] = [row["id"] for row in fetch(self.url, "SELECT id FROM users WHERE username = 'admin2'")]

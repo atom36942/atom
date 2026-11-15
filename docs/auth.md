@@ -29,7 +29,7 @@ Atom's two samples, in `config.py`:
 
 ```python
 "/admin/postgres-query-runner-write": {"id": 6, "is_active": True, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_permission": {"mode": "token"}},
-"/admin/user-delete": {"id": 132, "is_token": True, "user_check_permission": {"mode": "token"}, "rate_limit": {...}},
+"/admin/user-delete": {"id": 132, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_permission": {"mode": "token"}, "rate_limit": {...}},
 
 config_column_int_mapping = {"users": {"role": {1: "Admin"}, "permissions": {6: "Postgres query runner write", 132: "User delete"}}, ...}
 ```
@@ -37,7 +37,7 @@ config_column_int_mapping = {"users": {"role": {1: "Admin"}, "permissions": {6: 
 | Route | Checks | Who may call it |
 |---|---|---|
 | 6, raw SQL writes | role 1 + permission | admins granted 6; a role 2 user granted 6 is still refused by the role |
-| 132, user hard delete | permission only | anyone granted 132, any role (e.g. the person who offboards users) |
+| 132, user hard delete | role 1 + permission | admins granted 132 |
 
 Root (id 1) gets Atom's own permission routes (ids under 200: 6 and 132) at every startup, added to what it holds and never removed, so it cannot be locked out. Every other user, admins included, needs an explicit grant. A project's permission routes are never given to root: grant them like any other.
 

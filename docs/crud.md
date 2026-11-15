@@ -295,6 +295,31 @@ curl -G "$BASE_URL/my/object-read" \
   --data-urlencode 'connection=read'
 ```
 
+### Board: the first page of each value (`group_column`)
+
+```bash
+# A Kanban board: the first 20 tasks of each status, in one call
+curl -G "$BASE_URL/private/object-read" \
+  -H "Authorization: Bearer $TOKEN" \
+  --data-urlencode 'table=task' \
+  --data-urlencode 'group_column=status' \
+  --data-urlencode 'group_values=[1,2,3,4,5]' \
+  --data-urlencode 'filter=["priority >= 2"]' \
+  --data-urlencode 'order=id desc' \
+  --data-urlencode 'limit=20'
+
+# Load more in status 2: a plain read with that value's filter and its after
+curl -G "$BASE_URL/private/object-read" \
+  -H "Authorization: Bearer $TOKEN" \
+  --data-urlencode 'table=task' \
+  --data-urlencode 'filter=["priority >= 2", "status = 2"]' \
+  --data-urlencode 'order=id desc' \
+  --data-urlencode 'limit=20' \
+  --data-urlencode 'after=<groups.2.after>'
+```
+
+Returns `{"groups": {"1": {"obj_list": [...], "after": "..."}, "2": {...}, ...}}`, one key per value in the order sent, empty values included. The same works on `/my`, `/public` and `/admin` object-read. Other uses: latest rows per user (`assigned_to_id`), per country, per category, per chat.
+
 ### CSV export (`GET /*/object-read-export`)
 
 Each object-read route has a CSV export with the same access and rules, downloaded as `<table>.csv`:
@@ -345,6 +370,23 @@ curl -G "$BASE_URL/admin/table-column-groupby" \
 ```
 
 Distinct returns `{"item_list", "after"}`, group-by `{"obj_list", "after"}`; the next page sends that `after` ([Paging](#paging)). Both accept optional `connection` and `filter`. Distinct takes a string `col`; group-by takes a JSON list `col` and supports `agg=count|sum|avg|min|max`. For a numeric sum, use `agg=sum&agg_col=priority&order=sum desc`.
+
+
+### Which route for which screen
+
+Use these before writing a project route; most screens need nothing else.
+
+| Screen | Route | Key params |
+|---|---|---|
+| A list or table, filtered, sorted, paged | `object-read` | `table`, `filter`, `order`, `column`, `limit`, `after` |
+| A board, or the latest rows per person, country or category | `object-read` | `group_column`, `group_values` |
+| Counts or totals per value (dashboard cards, charts, calendar) | `table-column-groupby` | `col` (one or more columns), `agg`, `filter` |
+| The values of a dropdown | `table-column-distinct` | `col`, `filter`, `limit`, `after` |
+| CSV download of a list | `object-read-export` | the same as the list |
+| Users of the app (user management) | `/private/user-read` | `filter`, `limit`, `after`; columns from `config_column_users_private_read` |
+| Create, change, delete rows | `object-create`, `object-update`, `object-delete` | with `config_api` checks (role, permission) |
+
+Pick the tier by who reads: `/my` (own rows), `/private` (any logged-in user, tables in `config_table_private_read_allowed`), `/public` (no login), `/admin` (role 1). Hide columns with `config_column_read_blocked`. Write a project route only for joins, several different lists in one statement, computed filters or business checks.
 
 ---
 
