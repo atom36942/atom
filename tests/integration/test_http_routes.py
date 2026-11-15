@@ -241,6 +241,25 @@ class HttpRouteTests(unittest.TestCase):
                 self.message(self.client.get("/private/user-read", params=params, headers=self.auth(self.alice)), 400)
         self.message(self.client.get("/private/user-read"), 401)
 
+    def test_object_read_group_column_gives_the_first_page_of_each_value(self):
+        # a board: the first page of each value of a column in one call, every asked value present; a value's next page is a plain read with its after
+        self.message(self.client.post("/public/object-create", params={"table": "test"}, json={"obj_list": [{"title": "board", "type": 7}] * 3 + [{"title": "board", "type": 8}]}))
+        def read(**params):
+            return self.message(self.client.get("/private/object-read", params={key: json.dumps(value) if key in ("filter", "group_values") else value for key, value in params.items()}, headers=self.auth(self.alice)))
+        result = read(table="test", group_column="type", group_values=[7, 8, 9], filter=["title = board"], limit=2, column="id,type")
+        expected = {value: [r["id"] for r in fetch(self.url, "SELECT id FROM test WHERE title = 'board' AND type = $1 ORDER BY id DESC", value)] for value in (7, 8, 9)}
+        self.assertEqual(set(result["groups"]), {"7", "8", "9"})
+        self.assertEqual([r["id"] for r in result["groups"]["7"]["obj_list"]], expected[7][:2])
+        self.assertEqual({k for r in result["groups"]["7"]["obj_list"] for k in r}, {"id", "type"})
+        self.assertEqual([r["id"] for r in result["groups"]["8"]["obj_list"]], expected[8])
+        self.assertEqual(result["groups"]["9"], {"obj_list": [], "after": None})
+        self.assertIsNone(result["groups"]["8"]["after"])
+        rest = read(table="test", filter=["title = board", "type = 7"], after=result["groups"]["7"]["after"], limit=2)
+        self.assertEqual([r["id"] for r in rest["obj_list"]], expected[7][2:])
+        for params, status in (({"group_column": "type"}, 400), ({"group_column": "password", "group_values": [1]}, 400), ({"group_column": "type", "group_values": [7], "page": 2}, 400), ({"group_column": "nope", "group_values": [1]}, 400), ({"group_column": "type", "group_values": list(range(51))}, 400)):
+            with self.subTest(params=params):
+                self.message(self.client.get("/private/object-read", params={"table": "test", **{key: json.dumps(value) if key == "group_values" else value for key, value in params.items()}}, headers=self.auth(self.alice)), status)
+
     def test_groupby_and_distinct_on_public_and_private(self):
         self.message(self.client.post("/public/object-create", params={"table": "test"}, json={"obj_list": [{"title": "grouped"}, {"title": "grouped"}]}))
         filter_grouped = json.dumps(["title = grouped"])

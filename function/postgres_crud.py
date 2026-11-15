@@ -144,7 +144,7 @@ async def func_postgres_create(*, client_postgres: asyncpg.Pool | None, client_p
         async with client_postgres.acquire() as conn:
             return await _execute_now(conn)
 
-async def func_postgres_read_sql(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, table: str, filter: list, order: str, column: str, config_column_read_blocked: list = None, after: Any = None, is_key_selected: bool = False) -> tuple:
+async def func_postgres_read_sql(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, table: str, filter: list, order: str, column: str, config_column_read_blocked: list = None, after: Any = None, is_key_selected: bool = False, condition: str | None = None) -> tuple:
     """The SELECT behind func_postgres_read and func_postgres_read_export, without LIMIT: (sql, values, keys), the table, columns, filters and order checked; values bound as $1, $2.
     The order (default id desc, id added last) comes from func_page_keys; after limits it to the rows after that cursor; is_key_selected adds the order columns a column list leaves out (func_postgres_read removes them again)."""
     blocked_cols = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
@@ -166,16 +166,20 @@ async def func_postgres_read_sql(*, client_postgres: asyncpg.Pool | None, client
         column_list = ",".join([f'"{c}"' for c in cols])
     where_statement, values = await func_postgres_where_build(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter, prefix="", config_column_read_blocked=config_column_read_blocked)
     after_sql = func_page_after_where(keys=keys, after=after, values=values)
-    if after_sql: where_statement = f"WHERE ({where_statement[len('WHERE '):]}) AND {after_sql}" if where_statement else f"WHERE {after_sql}"
+    for extra in (after_sql, condition):    # condition: SQL built by the caller from checked identifiers (func_postgres_read's group_column)
+        if extra: where_statement = f"WHERE ({where_statement[len('WHERE '):]}) AND {extra}" if where_statement else f"WHERE {extra}"
     return f'SELECT {column_list} FROM "{table}" {where_statement} ORDER BY {func_page_order_sql(keys=keys)}', values, keys  # noqa: S608 - identifiers pattern-checked and quoted, values bound as $n
 
-async def func_postgres_read(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, order: str, column: str, relation: list, config_column_read_blocked: list = None, blocked_tables: list = None, after: Any = None, page: int | None = None, config_page_offset_max: int = 10000) -> dict:
+async def func_postgres_read(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_sql_read_limit_max: int, config_sql_read_relation_fetch_limit_max: int, table: str, filter: list, limit: int, order: str, column: str, relation: list, config_column_read_blocked: list = None, blocked_tables: list = None, after: Any = None, page: int | None = None, config_page_offset_max: int = 10000, group_column: str | None = None, group_values: list | None = None) -> dict:
     """One page of a table with filters, order and relations: {"obj_list", "after"}. after (the previous page's after) reads the rows after that cursor, the default way;
-    page jumps to page N with OFFSET, within config_page_offset_max rows (func_page_offset). The response's after is the cursor of the next page either way, None on the last one (one extra row is read to know)."""
+    page jumps to page N with OFFSET, within config_page_offset_max rows (func_page_offset). The response's after is the cursor of the next page either way, None on the last one (one extra row is read to know).
+    group_column with group_values: the first page of each value instead, in one statement (a board: one column per status), {"groups": {value: {"obj_list", "after"}}}; a value's next page is
+    a plain read with filter "<group_column> = <value>" and that value's after."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     blocked_cols = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
     if limit < 1: raise Exception("query limit must be greater than 0")
     if config_sql_read_limit_max and limit > config_sql_read_limit_max: raise Exception(f"query limit {limit} exceeds maximum allowed: {config_sql_read_limit_max}")
+    if group_column is not None or group_values is not None: return await func_postgres_read_group(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter, limit=limit, order=order, column=column, relation=relation, config_column_read_blocked=config_column_read_blocked, after=after, page=page, group_column=group_column, group_values=group_values)
     offset = func_page_offset(page=page, after=after, limit=limit, offset_max=config_page_offset_max)
     sql, values, keys = await func_postgres_read_sql(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter, order=order, column=column, config_column_read_blocked=config_column_read_blocked, after=after, is_key_selected=True)
     values.append(limit + 1)
@@ -189,6 +193,34 @@ async def func_postgres_read(*, client_postgres: asyncpg.Pool | None, client_pas
         if relation and result_list:
             result_list = await func_postgres_relation(client_postgres=client_postgres, client_postgres_conn=conn, obj_list=result_list, relation=relation, config_sql_read_relation_fetch_limit_max=config_sql_read_relation_fetch_limit_max, blocked_tables=blocked_tables, config_column_read_blocked=config_column_read_blocked)
         return {"obj_list": result_list, "after": next_after}
+
+async def func_postgres_read_group(*, client_postgres: asyncpg.Pool, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, table: str, filter: list, limit: int, order: str, column: str, relation: list, config_column_read_blocked: list | None, after: Any, page: Any, group_column: str | None, group_values: list | None) -> dict:
+    """func_postgres_read's group_column: the first page of each of group_values (at most 50), one statement: unnest the values, then for each a LATERAL read with the filters,
+    the order and limit + 1 rows, so an index on (group_column, order columns) serves each value without scanning the table. {"groups": {value: {"obj_list", "after"}}}, every value present."""
+    blocked_cols = set(config_column_read_blocked) if config_column_read_blocked is not None else {"password"}
+    if not group_column or not isinstance(group_values, list) or not group_values: raise Exception("group_column and group_values go together: a column and a list of its values")
+    if len(group_values) > 50: raise Exception("group_values: at most 50 values")
+    if after not in (None, "") or page is not None: raise Exception("group_column reads the first page of each value; read a value's next page without it, filtered to that value, with its after")
+    if relation: raise Exception("group_column does not take relation")
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", str(group_column)): raise Exception(f"invalid identifier {group_column}")
+    meta = (cache_postgres_schema or {}).get(table, {}).get(group_column)
+    if meta is None: raise Exception(f"column '{group_column}' not found in table: {table}")
+    if group_column in blocked_cols: raise Exception(f"column '{group_column}' is restricted from reading")
+    datatype = str(meta.get("datatype", "")).lower()
+    if not re.match(r"^[a-z][a-z0-9 _]*(\(\d+(,\d+)?\))?$", datatype) or datatype in ("json", "jsonb"): raise Exception(f"group_column {group_column}: a {datatype or 'unknown'} column can't group")
+    texts = [str(value) for value in dict.fromkeys(group_values)]
+    sql, values, keys = await func_postgres_read_sql(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table=table, filter=filter, order=order, column=column, config_column_read_blocked=config_column_read_blocked, is_key_selected=True, condition=f'"{group_column}" = g.value::{datatype}')
+    values += [texts, limit + 1]
+    # identifiers pattern-checked and quoted, the datatype from the schema cache, values bound as $n
+    statement = f'SELECT g.value AS "__group", t.* FROM unnest(${len(values) - 1}::text[]) g(value) CROSS JOIN LATERAL ({sql} LIMIT ${len(values)}) t'  # noqa: S608
+    records = await client_postgres.fetch(statement, *values)
+    added = [key["name"] for key in keys if column != "*" and key["name"] not in [c.strip() for c in column.split(",")]]
+    groups = {}
+    for text in texts:
+        found = [record for record in records if record["__group"] == text]
+        rows = [{k: v for k, v in dict(record).items() if k != "__group" and k not in blocked_cols and k not in added} for record in found[:limit]]
+        groups[text] = {"obj_list": rows, "after": func_page_after_next(keys=keys, rows=found, limit=limit)}
+    return {"groups": groups}
 
 async def func_postgres_update(*, client_postgres: asyncpg.Pool | None, client_postgres_conn: asyncpg.Connection | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_column_regex: dict, table: str, obj_list: list, created_by_id: int, ownership_column: str = "created_by_id") -> Any:
     """Update PostgreSQL records immediately with support for owner validation and dynamic serialization."""

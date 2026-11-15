@@ -93,6 +93,7 @@ Use `curl -G --data-urlencode` for query parameters containing spaces, JSON, com
 | `limit` | `int` | `config_sql_read_limit_default` (100) | Positive page size. Requests exceeding `config_sql_read_limit_max` (10,000) are rejected. |
 | `postgres` | `str` | master | Configured database name, e.g. `read` for `config_postgres_url_read`. Unknown name is 404. |
 | `ownership_column` | `str` | `created_by_id` | `/my/object-read` only: column from `config_column_ownership_read` matched to the logged-in user's ID. |
+| `group_column` + `group_values` | `str` + JSON list | none | The first page of each value instead of one list, in one statement (a board: a column per status): `group_column=status&group_values=[1,2,3]` returns `{"groups": {"1": {"obj_list", "after"}, ...}}`, every value present (empty ones too), at most 50 values; filters, `order`, `column` and `limit` apply to each value. A value's next page is a plain read with `filter` `status = 1` added and that value's `after`. Not with `after`, `page` or `relation`; not on array or JSON columns. An index on (`group_column`, the order columns) serves each value without a scan. |
 
 `/public/object-read` and `/admin/object-read` accept the same parameters except `ownership_column`. Public reads require permitted tables and relations; admin reads require admin authorization and do not add user ownership filtering. Blocked columns cannot be explicitly selected or filtered; `column=*` removes them from results.
 
