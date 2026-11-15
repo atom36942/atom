@@ -2457,6 +2457,13 @@ const specRefresh = async () => {
   await Page.cacheSet("openapi", spec);
   specApply(spec);
 };
+// the saved spec draws the page at once; the server's is then read in the background and replaces it when routes changed (a restart after an update)
+const specCheck = async saved => {
+  try {
+    const spec = await (await fetch("/openapi.json", { cache: "no-cache" })).json();
+    if (spec?.paths && JSON.stringify(spec) !== JSON.stringify(saved)) { await Page.cacheSet("openapi", spec); specApply(spec) }
+  } catch {}
+};
 // logged out there is no sync, so a saved spec older than 3 hours is downloaded again on open
 const SPEC_MAX_AGE_MS = 3 * 3600 * 1000;
 async function init() {
@@ -2469,7 +2476,7 @@ async function init() {
   updateAppLoader(20, "Reading the OpenAPI spec...");
   try {
     const saved = await Page.cacheGet("openapi");
-    if (saved?.data?.paths && (Page.loggedIn() || Date.now() - saved.saved_at < SPEC_MAX_AGE_MS)) specApply(saved.data);
+    if (saved?.data?.paths && (Page.loggedIn() || Date.now() - saved.saved_at < SPEC_MAX_AGE_MS)) { specApply(saved.data); void specCheck(saved.data) }
     else if (Page.loggedIn()) await Page.syncData();
     else await specRefresh();
     updateAppLoader(100, "Ready");
