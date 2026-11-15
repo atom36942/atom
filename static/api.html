@@ -261,7 +261,8 @@ button:disabled[data-tip]{pointer-events:none}    /* the hover tooltip finds dis
 #apiInfoTbl th:first-child,#apiInfoTbl td:first-child{padding-left:24px}
 #apiInfoTbl tr[data-i]:hover{background:rgba(var(--hl),.04)}
 #apiInfoTbl .col-id,#apiInfoTbl .col-method{width:1%;text-align:center}
-#apiInfoTbl .col-path{text-align:left;word-break:break-all;width:var(--master-path-col,auto);max-width:var(--master-path-col,none)}
+#apiInfoTbl .col-path{text-align:left}
+#apiInfoTbl.tight td.col-path{white-space:normal;overflow-wrap:anywhere}
 #apiInfoTbl .col-run{width:1%;min-width:64px;text-align:center;padding-right:20px}
 #apiInfoTbl .col-access,#apiInfoTbl .col-rate,#apiInfoTbl .col-cache{width:1%;white-space:nowrap}
 #apiInfoTbl td.col-id{color:var(--muted);font-variant-numeric:tabular-nums}
@@ -1758,20 +1759,26 @@ const renderApiInfoTags = () => {
   UI("apiInfoTags").innerHTML = `<div class="tag-group">${tags.map(([t, count]) => `<span class="tag-filter${searchVal === t ? " active" : ""}" data-tag="${he(t)}">${he(t)}<span class="tag-filter-count">(${count})</span></span>`).join("")}</div>`;
 };
 // size the catalog to its longest path; CSS reads these variables
+// the card is as wide as the table's content (the longest path and each column's widest value), measured once on the full list so it does not change while searching;
+// when that is wider than the page, the card takes the page width and long paths wrap
+let masterNaturalWidth = 0;
 const applyMasterTableLayout = () => {
-  UI("apiInfoTbl").closest(".master-table-wrap").classList.add("ready");
+  const table = UI("apiInfoTbl"), wrap = table.closest(".master-table-wrap");
+  wrap.classList.add("ready");
   if (splitPreview) return;
-  const maxPathLength = COMMANDS.length ? Math.max(...COMMANDS.map(c => c.p.length)) : 32;
-  const fixedWidth = 48 + 96 + 84 + 170 + 110 + 90;
-  // the room inside the page body, less the card border and the table's vertical scrollbar, so the table never needs a sideways scroll on a desktop
-  const body = UI("apiInfoTbl").closest(".app-body"), style = getComputedStyle(body), scrollbar = 14;
-  const room = Math.max(620, body.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - 2);
-  const pathWidth = Math.max(260, Math.min(Math.min(980, Math.max(320, Math.ceil(maxPathLength * 7.8 + 56))), room - scrollbar - fixedWidth));
-  const tableWidth = Math.ceil(pathWidth + fixedWidth);
+  // the widest the card can be: .container is at most 98vw and adds 64px around the card (its padding and the page body's)
+  const scrollbar = 14, room = Math.max(320, Math.floor(innerWidth * .98) - 64);
   const root = d.documentElement.style;
-  root.setProperty("--master-path-col", `${pathWidth}px`);
-  root.setProperty("--master-table-width", `${tableWidth}px`);
-  root.setProperty("--master-shell-width", `${Math.min(room, tableWidth + scrollbar)}px`);
+  if (!masterNaturalWidth && table.tBodies[0]?.rows.length === COMMANDS.length) {
+    table.classList.remove("tight");
+    root.setProperty("--master-table-width", "max-content");
+    root.setProperty("--master-shell-width", `${room}px`);
+    masterNaturalWidth = Math.ceil(table.getBoundingClientRect().width);
+  }
+  const fits = masterNaturalWidth && masterNaturalWidth + scrollbar <= room;
+  table.classList.toggle("tight", !fits);
+  root.setProperty("--master-table-width", "100%");
+  root.setProperty("--master-shell-width", `${fits ? masterNaturalWidth + scrollbar : room}px`);
 };
 // the table lists routes in Atom's group order (router_order in main.py), then a project's own groups in the order they load; a one-segment path (/, /health, /page/{name}) is index
 const ROUTE_GROUPS = ["index", "auth", "my", "public", "private", "permission", "admin"];
@@ -2460,6 +2467,7 @@ let specShown = false;
 const specApply = spec => {
   SPEC = spec;
   COMMANDS = Object.entries(spec.paths).flatMap(([path, methods]) => Object.entries(methods).map(([method, op]) => createCommandFromOperation(path, method, op)));
+  masterNaturalWidth = 0;
   renderApiInfoTags();
   if (specShown) return renderApiInfoTable();
   specShown = true;
