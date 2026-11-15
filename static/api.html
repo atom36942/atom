@@ -267,6 +267,8 @@ button:disabled[data-tip]{pointer-events:none}    /* the hover tooltip finds dis
 #apiInfoTbl td.col-id{color:var(--muted);font-variant-numeric:tabular-nums}
 #apiInfoTbl td.col-limit{color:var(--muted);font-size:12px}
 .access{font-size:12px;font-weight:600;color:var(--muted)}
+#apiInfoTbl tr.group-row td{padding-top:14px;padding-bottom:6px;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);cursor:default;border-bottom:1px solid rgba(var(--hl),.1)}
+#apiInfoTbl tr.group-row .group-count{margin-left:8px;font-weight:500;letter-spacing:0;opacity:.8}
 .access-token{color:var(--text)}
 .access-role{color:var(--accent)}
 .access-perm{color:#d69e2e}
@@ -1766,13 +1768,25 @@ const applyMasterTableLayout = () => {
   root.setProperty("--master-table-width", `${tableWidth}px`);
   root.setProperty("--master-shell-width", `${Math.min(viewportLimit, tableWidth)}px`);
 };
+// route groups in Atom's order (router_order in main.py), then a project's own groups in the order they load; a one-segment path (/, /health, /page/{name}) is index
+const ROUTE_GROUPS = ["index", "auth", "my", "public", "private", "permission", "admin"];
+const routeGroup = path => {
+  const parts = String(path || "").split("/").filter(Boolean);
+  return parts.length > 1 && !parts[0].includes("{") && parts[0] !== "page" ? parts[0] : "index";
+};
+const groupedIndexes = indexes => {
+  const groups = new Map();
+  indexes.forEach(i => { const g = routeGroup(COMMANDS[i].p); groups.has(g) ? groups.get(g).push(i) : groups.set(g, [i]) });
+  const rank = g => (ROUTE_GROUPS.indexOf(g) + 1 || ROUTE_GROUPS.length + 1);
+  return [...groups].sort((a, b) => rank(a[0]) - rank(b[0]));
+};
 const renderApiInfoTable = () => {
   const indexes = getVisibleMasterIndexes();
   UI("apiInfoCount").textContent = UI("apiInfoSearch").value.trim() ? `${indexes.length} of ${COMMANDS.length} APIs` : `${COMMANDS.length} APIs`;
-  const rows = indexes.map(i => {
+  const rows = groupedIndexes(indexes).map(([group, items]) => `<tr class="group-row"><td colspan="6">${he(group)}<span class="group-count">${items.length}</span></td></tr>` + items.map(i => {
     const c = COMMANDS[i];
     return `<tr data-i="${i}"><td class="col-id">${c.id ?? "—"}</td><td class="col-method"><span class="method-badge ${c.m.toLowerCase()}">${c.m}</span></td><td class="col-path" title="${he(c.p)}">${he(c.p)}</td><td class="col-access"><span class="access access-${c.kind}">${he(c.access)}</span></td><td class="col-limit">${he(c.limit)}</td><td class="col-run" ${tipAttrs("Run")}>${ICON.play(16)}</td></tr>`;
-  }).join("");
+  }).join("")).join("");
   UI("apiInfoTbl").innerHTML = `<thead><tr><th class="col-id" ${tipAttrs("Route id in config_api (also the permission id)")}>ID</th><th class="col-method">Method</th><th class="col-path">Path</th><th class="col-access" ${tipAttrs("What config_api checks before the route runs")}>Access</th><th class="col-limit" ${tipAttrs("Rate limit (requests/window) and response cache")}>Limits</th><th class="col-run">Run</th></tr></thead><tbody>${rows}</tbody>`;
   applyMasterTableLayout();
   if (!splitPreview) return;
