@@ -101,21 +101,21 @@ class PageStandardTests(unittest.TestCase):
 
     def test_the_login_and_account_flow_of_the_projects_pages(self):
         # the login page (intro and card; only the card where no login is needed), the role fixed when the page has one, Sync in the account menu,
-        # My profile and Login details sharing no field, the role as "Admin (1)", a blocked account told in its own dialog
+        # My profile and Login details sharing no field, the role as "1 (Admin)", a blocked account told in its own dialog
         dialogs, header = block("admin", "dialogs")[0], block("admin", "account header")[0]
         for part in ('id="loginPage"', 'id="loginIntro"', 'id="loginFeatures"', 'class="login-btn" id="loginBtn">Login</button>', 'id="blockedDialog"', 'id="blockedOk">OK</button>'):
             with self.subTest(part=part): self.assertIn(part, dialogs)
         self.assertNotIn("loginDialog", dialogs)
-        # Login details' Permissions: one tag per permission, "<label> (<id>)" from /info, "None" when there are none
+        # Login details' Permissions: the ids as stored, comma separated, "None" when there are none
         account = block("admin", "account")[0]
-        for part in ('["Permissions", permissionsCell(u)]', "config_column_int_mapping?.users?.permissions", 'class="kv-tag"', ': "None"'):
+        for part in ('["Permissions", permissionsCell(u)]', 'esc(ids.join(", ")) : "None"'):
             with self.subTest(part=part): self.assertIn(part, account)
         self.assertIn('class="account-item" id="syncBtn"', header)
         self.assertNotIn("sync-btn", header)
         for part in ('el("loginPage").classList.toggle("card-only", !full)', 'el("loginRoleField").hidden = PAGE.role != null', '`For role ${PAGE.role} accounts`',
                      'kv([["Created", createdCell(u.created_at)], ...PROFILE.map(', '["job_title", "Job title", 120], ["email_secondary", "Email", 254], ["mobile_secondary", "Mobile", 20]', 'kv([["Username", usernameCell(u)], ["Password"',
                      'if (value !== (u[key] ?? null)) changes[key] = value', 'api("/my/user-update", { method: "PUT", body: JSON.stringify(changes) })',
-                     '`${label} (${role})`', '"Account deactivated"', '"Account deleted"', "`${PAGE.title} access is unavailable.`"):
+                     '`${role} (${label})`', '"Account deactivated"', '"Account deleted"', "`${PAGE.title} access is unavailable.`"):
             with self.subTest(part=part): self.assertIn(part, ACCOUNT)
         for page in ("admin", "monitor", "message"):
             with self.subTest(page=page): self.assertRegex(PAGES[page], r"const PAGE = \{[^\n]*intro: \{ heading: ")

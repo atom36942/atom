@@ -97,12 +97,10 @@ dialog.dlg .dlg-actions button:not(.kv-btn){height:var(--control-h);padding:0 14
 .kv th,.kv td{white-space:normal;font-family:var(--font)}
 .kv tbody tr:hover{background:none}
 .kv .cell{display:flex;align-items:center;justify-content:space-between;gap:8px}
-/* Login details' Permissions: one tag per permission, wrapping onto more lines */
-.kv-tags{display:flex;flex-wrap:wrap;gap:4px}
-.kv-tag{padding:1px 8px;border:1px solid var(--line-strong);border-radius:999px;background:var(--bg);color:var(--text);font-size:var(--fs-small);line-height:1.6}
 .sync-progress{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
 .sync-fill{height:100%;width:0;background:var(--accent);border-radius:3px;transition:width .3s ease}
-.sync-status{margin:0;min-height:1.5em;color:var(--muted)}
+.sync-status{margin:0;color:var(--muted)}
+.sync-status:empty{display:none}    /* shown only while syncing or after an error, so the dialog has no empty space under its rows */
 .sync-status.error{color:var(--danger)}
 /* toast: bottom right (centred on a phone), the same in every Atom page and in the projects' pages: a green check or a red !, the message, a ×; 6 s, kept while the mouse is over it; a popover, so it shows above an open dialog */
 .toast{position:fixed;inset:auto 24px 24px auto;margin:0;max-width:min(440px,calc(100vw - 32px));padding:8px 8px 8px 12px;border:1px solid var(--line-strong);border-radius:10px;background:var(--panel);color:var(--text);font-size:var(--fs);box-shadow:0 8px 24px rgba(0,0,0,.4);overflow:visible}
@@ -113,7 +111,7 @@ dialog.dlg .dlg-actions button:not(.kv-btn){height:var(--control-h);padding:0 14
 .toast-close{flex:none;display:grid;place-items:center;width:26px;height:26px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--muted);font-size:16px;line-height:1}
 .toast-close:hover{color:var(--text);background:rgba(var(--hl),.08)}
 @media (max-width:600px){.toast{inset:auto 16px 16px 16px;max-width:none}}
-/* header account area: the avatar and its menu (My profile, Login details, Sync, Logout), or Login when logged out */
+/* header account area: the avatar and its menu (My profile, Login details, Sync, Settings, Logout, as in the apps), or Login when logged out */
 .atom-account{display:flex;align-items:center;gap:8px}
 .account{position:relative;display:flex}
 .avatar{width:32px;height:32px;border-radius:50%;border:none;padding:0;background:var(--accent);color:#fff;font-size:12px;font-weight:700;letter-spacing:.5px;display:inline-flex;align-items:center;justify-content:center}
@@ -129,7 +127,7 @@ dialog.dlg .dlg-actions button:not(.kv-btn){height:var(--control-h);padding:0 14
 .login-page.card-only{background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:16px}
 .login-wordmark{display:flex;align-items:center;gap:10px;padding:20px 28px;font-weight:700;font-size:16px}
 .login-mark{display:grid;place-items:center;width:30px;height:30px;border-radius:8px;background:var(--brand);color:#fff;font-size:15px}
-.login-wrap{flex:1;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,400px);gap:56px;align-items:center;width:min(1080px,100%);margin:0 auto;padding:24px 28px 56px}
+.login-wrap{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:48px;align-items:center;width:min(1100px,100%);margin:48px auto 0;padding:24px 28px 56px}    /* the apps' login layout: a fixed distance under the wordmark (never centred in a tall window), the text and a 370px card */
 .login-page.card-only .login-wrap{display:block;flex:none;width:min(400px,100%);padding:0;margin:0}
 .login-badge{display:inline-block;padding:4px 10px;border-radius:999px;background:rgba(43,108,176,.18);color:var(--brand-ink);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
 .login-intro h1{margin:16px 0 10px;font-family:Georgia,"Times New Roman",serif;font-size:38px;font-weight:600;line-height:1.15}
@@ -151,7 +149,7 @@ dialog.dlg .dlg-actions button:not(.kv-btn){height:var(--control-h);padding:0 14
 .login-btn{width:100%;height:38px;border:none;background:var(--brand);color:#fff;font-weight:600}
 .login-card input{height:38px}    /* the login card's fields as tall as its Login button */
 .login-btn:hover:not(:disabled){background:#2c5282;border:none}
-@media (max-width:860px){.login-wrap{grid-template-columns:1fr;align-content:start;gap:24px;padding:8px 16px 32px}.login-features{display:none}.login-intro h1{font-size:28px}.login-wordmark{padding:16px}}
+@media (max-width:860px){.login-wrap{grid-template-columns:1fr;align-content:start;gap:24px;margin-top:16px;padding:8px 16px 32px}.login-features{display:none}.login-intro h1{font-size:28px}.login-wordmark{padding:16px}}
 /* Settings: one row per setting, each a choice of a few options (Theme: Dark, Light, System; Density: Comfortable, Compact) */
 .setting-row{display:grid;gap:10px;padding:14px;border:1px solid var(--line);border-radius:10px}
 .setting-row strong{display:block;font-weight:600}
@@ -336,8 +334,8 @@ details[open] .fold::before{content:"▾ "}
             <div class="account-menu" id="accountMenu" role="menu" hidden>
               <button type="button" class="account-item" id="profileBtn" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>My profile</button>
               <button type="button" class="account-item" id="detailsBtn" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Login details</button>
-              <button type="button" class="account-item" id="settingsBtn" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</button>
               <button type="button" class="account-item" id="syncBtn" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 17.9 17"/></svg>Sync</button>
+              <button type="button" class="account-item" id="settingsBtn" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</button>
               <button type="button" class="account-item danger-item" id="logoutBtn" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M15 4h5v16h-5"/></svg>Logout</button>
             </div>
           </div>
@@ -661,11 +659,11 @@ const Page = (() => {
     finally { el("loginBtn").disabled = false }
   };
 
-  /* -- account menu: My profile, Login details, Logout -- */
+  /* -- account menu: My profile, Login details, Sync, Settings, Logout -- */
   const menuToggle = open => { const isOpen = open ?? el("accountMenu").hidden; el("accountMenu").hidden = !isOpen; el("accountBtn").setAttribute("aria-expanded", String(isOpen)) };
-  const roleText = role => { if (role == null) return "-"; const label = read().info?.config_column_int_mapping?.users?.role?.[role]; return esc(label ? `${label} (${role})` : String(role)) };    // "Admin (1)": the label from /info; only the number before the first sync
-  // "Update any object (207)": one tag per permission, the label from /info (users.permissions); only the id before the first sync; "None" when there are none
-  const permissionsCell = u => { const ids = Array.isArray(u.permissions) ? u.permissions : [], labels = read().info?.config_column_int_mapping?.users?.permissions || {}; return ids.length ? `<span class="kv-tags">${ids.map(id => `<span class="kv-tag">${esc(labels[id] ? `${labels[id]} (${id})` : String(id))}</span>`).join("")}</span>` : "None" };
+  const roleText = role => { if (role == null) return "-"; const label = read().info?.config_column_int_mapping?.users?.role?.[role]; return esc(label ? `${role} (${label})` : String(role)) };    // "1 (Admin)": the number first, the label from /info in brackets; only the number before the first sync
+  // the route ids as stored, comma separated ("136, 137"); "None" when there are none: a user tells the developer the numbers, the labels are in the backend
+  const permissionsCell = u => { const ids = Array.isArray(u.permissions) ? u.permissions : []; return ids.length ? esc(ids.join(", ")) : "None" };
   const usernameCell = u => u.username ? `<span class="cell"><span>${esc(u.username)}</span><button type="button" class="kv-btn" data-copy="${esc(u.username)}" aria-label="Copy username">${ICON.copy}</button></span>` : "-";
   // My profile is the person, Login details what the login sends: each field shows in one of the two only.
   // Created (read-only, how long ago; the date on hover), then the users columns a user changes without OTP: [column, label, max length]; Email and Mobile are
