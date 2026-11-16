@@ -130,25 +130,28 @@ dialog.dlg .dlg-actions button:not(.kv-btn){height:var(--control-h);padding:0 14
 .login-wrap{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:48px;align-items:center;width:min(1100px,100%);margin:48px auto 0;padding:24px 28px 56px}    /* the apps' login layout: a fixed distance under the wordmark (never centred in a tall window), the text and a 370px card */
 .login-page.card-only .login-wrap{display:block;flex:none;width:min(400px,100%);padding:0;margin:0}
 .login-badge{display:inline-block;padding:4px 10px;border-radius:999px;background:rgba(43,108,176,.18);color:var(--brand-ink);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
-.login-intro h1{margin:16px 0 10px;font-family:Georgia,"Times New Roman",serif;font-size:38px;font-weight:600;line-height:1.15}
+.login-intro h1{margin:16px 0;font-family:Georgia,"Times New Roman",serif;font-size:38px;font-weight:600;line-height:1.15}
 .login-intro>p{margin:0 0 28px;color:var(--muted);font-size:15px;max-width:520px}
 .login-features{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.login-feature{display:flex;gap:12px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
-.login-feature strong{display:block;font-size:var(--fs);font-weight:600}
-.login-feature p{margin:2px 0 0;color:var(--muted);font-size:var(--fs-small)}
+.login-feature{display:flex;gap:12px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.login-feature strong{display:block;font-size:14px;font-weight:600}
+.login-feature p{margin:2px 0 0;color:var(--muted);font-size:13px}
 .feature-icon{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:8px;background:rgba(43,108,176,.18);color:var(--brand-ink)}
 .feature-icon svg,.login-input>svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .login-card{border:1px solid var(--line-strong);border-radius:12px;background:var(--card);box-shadow:0 20px 50px rgba(0,0,0,.45);overflow:hidden}
 .login-card .dlg-x{display:inline-flex}
-.login-body{display:grid;gap:14px;padding:20px 18px}
+.login-body{display:grid;gap:16px;padding:20px 26px 26px}
 .login-body .field{grid-template-columns:none;padding:0;border:0}
 .login-input{position:relative;display:flex;align-items:center}
 .login-input>svg{position:absolute;left:11px;color:var(--muted);pointer-events:none}
 .login-input input{width:100%;padding-left:36px}
 .login-input.pw-wrap input{padding-right:40px}
-.login-btn{width:100%;height:45px;border-radius:13px;font-size:14px;border:none;background:var(--brand);color:#fff;font-weight:600}
-.login-card input{height:45px;border-radius:13px;font-size:14px}    /* the apps' login fields: 45px, as tall as the Login button, 13px corners, 14px text */
+.login-btn{width:100%;height:45px;margin-top:6px;border-radius:var(--radius);font-size:14px;border:none;background:var(--brand);color:#fff;font-weight:600}
+.login-card input{height:45px;border-radius:var(--radius);font-size:14px}    /* the apps' login card: 45px fields and button with the 8px corners, 14px text; label 8px over its field, 16px between fields, 22px to the button */
+.login-card .field{gap:8px}
 .login-card .field label{font-size:13px}
+.login-card .dlg-head{padding:16px 20px}
+.login-card .dlg-head h3{font-size:17px}
 .login-btn:hover:not(:disabled){background:#2c5282;border:none}
 @media (max-width:860px){.login-wrap{grid-template-columns:1fr;align-content:start;gap:24px;margin-top:16px;padding:8px 16px 32px}.login-features{display:none}.login-intro h1{font-size:28px}.login-wordmark{padding:16px}}
 /* Settings: one row per setting, each a choice of a few options (Theme: Dark, Light, System; Density: Comfortable, Compact) */
