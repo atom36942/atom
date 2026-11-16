@@ -46,7 +46,7 @@ async def func_api_permission_user_update(*, request: Request):
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "id", "type": "int", "required": True}], strict_types=True)
     columns = [key for key in ob if key != "id"]
     if not columns: raise app_state.func_api_error(message="send id and the columns to change", status_code=400)
-    if refused := [column for column in columns if column in (app_state.config_column_users_permission_blocked or []) or column in (app_state.config_column_users_blocked or [])]: raise app_state.func_api_error(message=f"{', '.join(refused)} cannot be updated here", status_code=400)
+    if refused := [column for column in columns if column in (app_state.config_permission_user_column_blocked or []) or column in (app_state.config_column_users_blocked or [])]: raise app_state.func_api_error(message=f"{', '.join(refused)} cannot be updated here", status_code=400)
     user = await app_state.func_user_read_single(client_postgres=request.state.client_postgres, user_id=ob["id"])
     app_state.func_check_permission_user_role(app_state=app_state, role=user["role"])
     obj = {**ob, **({"deactivated_by_id": request.state.user["id"] if ob["deactivated_at"] is not None else None} if "deactivated_at" in ob else {})}

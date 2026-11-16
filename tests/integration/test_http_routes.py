@@ -182,13 +182,13 @@ class HttpRouteTests(unittest.TestCase):
         bob = app_login(self.client, path="/auth/login-username-password", body={"username": "bob", "password": "bob-pass"})
         try:
             self.assertEqual(self.message(update(bob), 400), "write disabled for table: test")    # Atom's default: no table
-            self.app.state.config_table_permission_write_allowed = ["test"]
+            self.app.state.config_permission_table_write_allowed = ["test"]
             self.assertEqual(self.message(update(bob, "users"), 400), "write disabled for table: users")
             self.assertEqual(self.message(update(bob)), [row_id])
             self.assertEqual(fetch(self.url, "SELECT title, created_by_id, updated_by_id FROM test WHERE id = $1", row_id), [{"title": "by bob", "created_by_id": self.alice_id, "updated_by_id": self.bob_id}])
             self.assertEqual(self.message(self.client.post("/permission/object-delete", json={"table": "test", "ids": [row_id]}, headers=self.auth(bob))), "1 ids deleted")
         finally:
-            self.app.state.config_table_permission_write_allowed = []
+            self.app.state.config_permission_table_write_allowed = []
             self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": None}, headers=self.auth(self.admin)))
 
     # 2. CRUD lifecycle and ownership

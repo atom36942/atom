@@ -161,9 +161,11 @@ class DatabaseConfigCheckTests(unittest.TestCase):
             with self.subTest(roles=roles), self.assertRaisesRegex(Exception, "config_permission_user_roles must be"): func_check_runtime_config(app_state=state(roles))
         old = SimpleNamespace(**vars(state([2])), config_permission_user_create_roles=[2])
         with self.assertRaisesRegex(Exception, "renamed in Atom 14.0.0 to config_permission_user_roles"): func_check_runtime_config(app_state=old)
-        func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), config_column_users_permission_blocked=["role", "permissions", "username"]))
+        func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), config_permission_user_column_blocked=["role", "permissions", "username"]))
+        for old, new in (("config_table_permission_write_allowed", "config_permission_table_write_allowed"), ("config_column_users_permission_blocked", "config_permission_user_column_blocked")):
+            with self.subTest(old=old), self.assertRaisesRegex(Exception, f"{old} was renamed in Atom 15.0.0 to {new}"): func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), **{old: []}))
         for blocked in (["role"], ["permissions", "email"], "role,permissions"):
-            with self.subTest(blocked=blocked), self.assertRaisesRegex(Exception, "config_column_users_permission_blocked must be"): func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), config_column_users_permission_blocked=blocked))
+            with self.subTest(blocked=blocked), self.assertRaisesRegex(Exception, "config_permission_user_column_blocked must be"): func_check_runtime_config(app_state=SimpleNamespace(**vars(state([2])), config_permission_user_column_blocked=blocked))
 
     def test_buffer_rows_max_must_be_an_integer_of_at_least_1000(self):
         limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)

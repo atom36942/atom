@@ -156,7 +156,6 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_is_user_delete` | Enables user hard deletion through `/my/user-delete` and `/admin/user-delete` (default `False`); the database also needs `users` out of `config_postgres` control `table_row_delete_disable` |
 | `config_is_postgres_schema_init` | `True` (default): startup changes the master database to match `config_postgres`. `False`: startup changes nothing, compares instead, and stops if the database differs, listing the changes; run them with `venv/bin/python -m script.postgres_schema_plan --apply` (for production, where schema changes should be a deliberate step). With `config_is_read_only` neither runs |
 | `config_postgres_schema_lock_timeout_sec` | Longest wait for a table lock during schema init (default 10); past it startup stops and changes nothing. See what would change: `venv/bin/python -m script.postgres_schema_plan` |
-| `config_permission_user_roles` | Roles the `/permission` user routes may act on (default `[]`: none): the role `/permission/user-create` may give, and the role of the user `/permission/user-update` may change. Roles from 2 only; startup refuses role 1. Renamed from `config_permission_user_create_roles` in 14.0.0 |
 | `config_signup_allowed_roles` | Roles allowed for public signup, including new users created by OTP/Google login (default: `[]` disables signup; role `1` is always rejected). See [role settings](auth.md#signup-and-login-role-settings). |
 | `config_login_allowed_roles` | Allowed values for the supplied login `role` parameter (default: roles `1` through `20`; optional for password login) |
 | `config_is_otp_require_users_update` | `/admin/user-update` needs `otp` for `email`/`mobile` (default `False`); `/my/user-update` always does |
@@ -249,7 +248,16 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_table_public_read_allowed` | Tables accessible on unauthenticated public read route |
 | `config_mongodb_my_create_allowed` | MongoDB collections writable on `/my/object-create-mongodb`, as `{database: [collection, ...]}`; empty disables the route |
 | `config_table_private_read_allowed` | Tables accessible on authenticated private read route |
-| `config_table_permission_write_allowed` | Tables that `/permission/object-update` and `/permission/object-delete` may change (any row, not only the caller's); default `[]`, off. Callers also need the route's permission (136, 137) |
+
+### Permission Routes
+
+The `/permission/*` routes' settings, together as `config_permission_*` (the routes themselves need a permission; see [auth](auth.md)).
+
+| Key | Description |
+|---|---|
+| `config_permission_table_write_allowed` | Tables that `/permission/object-update` and `/permission/object-delete` may change (any row, not only the caller's); default `[]`, off. Callers also need the route's permission (136, 137) |
+| `config_permission_user_roles` | Roles the `/permission` user routes may act on (default `[]`: none): the role `/permission/user-create` may give, and the role of the user `/permission/user-update` may change. Roles from 2 only; startup refuses role 1. Renamed from `config_permission_user_create_roles` in 14.0.0 |
+| `config_permission_user_column_blocked` | `users` columns `/permission/user-update` refuses (`role`, `permissions`, the login ones `username`, `email`, `mobile`, ...); every other column, `password` and `deactivated_at` included, may change. Startup refuses a list without `role` and `permissions` |
 
 ### Column Rules
 
@@ -263,7 +271,6 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_column_single_update` | `users` columns updated alone by `/my/user-update` and `/admin/user-update` (`username`, `password`, `email`, `mobile`) |
 | `config_column_users_blocked` | `users` columns neither `/my/user-update` nor `/admin/user-update` may change (`created_*`, `updated_*`, `deleted_*`, `is_protected`, `last_active_at`); a project adds its own (e.g. a column only a script sets) |
 | `config_column_users_my_blocked` | `users` columns only `/admin/user-update` may change; `/my/user-update` refuses them (`role`, `permissions`, `deactivated_at`, ...) |
-| `config_column_users_permission_blocked` | `users` columns `/permission/user-update` refuses (`role`, `permissions`, the login ones `username`, `email`, `mobile`, ...); every other column, `password` and `deactivated_at` included, may change. Startup refuses a list without `role` and `permissions` |
 | `config_column_read_blocked` | Sensitive columns blocked and stripped from read responses and relations (`password`) |
 | `config_column_users_private_read` | The only `users` columns `/private/user-read` returns, filters and sorts on (`id`, `username`, `name`, `role`, `permissions`, `created_at`, `deactivated_at`); readable by every logged-in user, checked at startup |
 

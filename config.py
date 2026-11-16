@@ -79,7 +79,6 @@ config_token_secret_key = None
 config_access_token_expires_sec = 604800
 config_refresh_token_expires_sec = 2592000
 config_signup_allowed_roles = []
-config_permission_user_roles = []
 config_login_allowed_roles = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 config_is_user_delete = False
 config_api_global_user_check_deleted = "token"
@@ -167,7 +166,11 @@ config_table_public_create_allowed = ["test"]
 config_table_public_read_allowed = ["test"]
 config_mongodb_my_create_allowed = {"test": ["post"]}
 config_table_private_read_allowed = ["test"]
-config_table_permission_write_allowed = []
+
+# permission
+config_permission_table_write_allowed = []
+config_permission_user_roles = []
+config_permission_user_column_blocked = ["role", "permissions", "username", "email", "mobile", "verified_at", "verified_by_id", "deactivated_by_id", "parent_id", "source", "id_ext", "google_login_id", "google_login_metadata"]
 
 # column
 config_column_token_encode = ["id", "role", "username", "id_ext" ,"deactivated_at", "deleted_at", "permissions"]
@@ -178,7 +181,6 @@ config_column_admin = ["created_at", "updated_at", "created_by_id", "role", "ver
 config_column_single_update = ["username", "password", "email", "mobile"]
 config_column_users_blocked = ["created_at", "created_by_id", "updated_at", "updated_by_id", "deleted_at", "deleted_by_id", "is_protected", "last_active_at"]
 config_column_users_my_blocked = ["role", "permissions", "verified_at", "verified_by_id", "deactivated_at", "deactivated_by_id", "parent_id", "source", "id_ext", "google_login_id", "google_login_metadata"]
-config_column_users_permission_blocked = ["role", "permissions", "username", "email", "mobile", "verified_at", "verified_by_id", "deactivated_by_id", "parent_id", "source", "id_ext", "google_login_id", "google_login_metadata"]
 config_column_read_blocked = ["password"]
 config_column_users_private_read = ["id", "username", "name", "role", "permissions", "created_at", "deactivated_at"]
 

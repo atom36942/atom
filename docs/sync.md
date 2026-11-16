@@ -58,6 +58,10 @@ Atom's version is `ATOM_VERSION` in `sync.py` (for example `ATOM_VERSION = "1.2.
 
 Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. Sync always takes the latest `main`; to mark a new version, raise `ATOM_VERSION` and the `Version` line at the top of `readme.md` (a test checks they match) and push to `main` (no tags or GitHub releases). Commits in between keep the last version. A project synced before versions existed shows `unknown` until its next sync. If a sync fails after installing the new `sync.py`, that file already shows the new version while the other files may be older; the error says so, and running sync again finishes it.
 
+### Upgrading to 15.0.0
+
+The `/permission` route settings are together in one `# permission` section, all named `config_permission_*`: rename `config_table_permission_write_allowed` to `config_permission_table_write_allowed` and `config_column_users_permission_blocked` to `config_permission_user_column_blocked` in `config_extend.py` (startup names the new key if an old one is still set). `config_permission_user_roles` keeps its name.
+
 ### 14.3.0
 
 `PUT /permission/user-update` takes any `users` column except those in the new `config_column_users_permission_blocked` (`role`, `permissions`, `username`, `email`, `mobile`, ...; startup refuses a list without `role` and `permissions`), several at once, for an app's Edit profile; `password` still goes alone. Nothing to change in projects.
