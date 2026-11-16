@@ -79,6 +79,7 @@ config_token_secret_key = None
 config_access_token_expires_sec = 604800
 config_refresh_token_expires_sec = 2592000
 config_signup_allowed_roles = []
+config_permission_user_create_roles = []
 config_login_allowed_roles = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 config_is_user_delete = False
 config_api_global_user_check_deleted = "token"
@@ -198,7 +199,7 @@ config_options = {
 config_column_int_mapping = {
 "users": {
 "role": {1: "Admin"},
-"permissions": {6: "Postgres query runner write", 136: "Update any row", 137: "Delete any row"},
+"permissions": {6: "Postgres query runner write", 136: "Update any row", 137: "Delete any row", 138: "Create user"},
 },
 "blob": {
 "type": {1: "File", 2: "Presigned Url"},
@@ -475,6 +476,7 @@ config_api = {
 # permission
 "/permission/object-update": {"id": 136, "is_token": True, "user_check_permission": {"mode": "token"}},
 "/permission/object-delete": {"id": 137, "is_token": True, "user_check_permission": {"mode": "token"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
+"/permission/user-create": {"id": 138, "is_token": True, "user_check_permission": {"mode": "token"}, "rate_limit": {"mode": "inmemory", "limit": 10, "window_sec": 60}},
 # admin
 "/admin/sync": {"id": 1, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
 "/admin/monitor": {"id": 128, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "is_log_api": False, "is_connection_param": True},

@@ -156,6 +156,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_is_user_delete` | Enables user hard deletion through `/my/user-delete` and `/admin/user-delete` (default `False`); the database also needs `users` out of `config_postgres` control `table_row_delete_disable` |
 | `config_is_postgres_schema_init` | `True` (default): startup changes the master database to match `config_postgres`. `False`: startup changes nothing, compares instead, and stops if the database differs, listing the changes; run them with `venv/bin/python -m script.postgres_schema_plan --apply` (for production, where schema changes should be a deliberate step). With `config_is_read_only` neither runs |
 | `config_postgres_schema_lock_timeout_sec` | Longest wait for a table lock during schema init (default 10); past it startup stops and changes nothing. See what would change: `venv/bin/python -m script.postgres_schema_plan` |
+| `config_permission_user_create_roles` | Roles `/permission/user-create` may create (default `[]`: none). Roles from 2 only; startup refuses role 1. The caller sends the role and the server refuses any other |
 | `config_signup_allowed_roles` | Roles allowed for public signup, including new users created by OTP/Google login (default: `[]` disables signup; role `1` is always rejected). See [role settings](auth.md#signup-and-login-role-settings). |
 | `config_login_allowed_roles` | Allowed values for the supplied login `role` parameter (default: roles `1` through `20`; optional for password login) |
 | `config_is_otp_require_users_update` | `/admin/user-update` needs `otp` for `email`/`mobile` (default `False`); `/my/user-update` always does |
@@ -425,7 +426,7 @@ Mappings use the lookup order `config_column_int_mapping[table][column][value]`.
 
 ### Permission labels
 
-A permission ID is a `config_api` route `id` (routes with `user_check_permission`). Atom labels its own (`6`, `136`, `137`); a project keeps them and adds its own in `config_extend.py`; startup refuses a permission route without a label:
+A permission ID is a `config_api` route `id` (routes with `user_check_permission`). Atom labels its own (`6`, `136`, `137`, `138`); a project keeps them and adds its own in `config_extend.py`; startup refuses a permission route without a label:
 
 ```python
 # config_extend.py

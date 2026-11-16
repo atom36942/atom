@@ -31,14 +31,16 @@ Atom's permission routes, in `config.py`: the admin sample (role 1, then a permi
 "/admin/postgres-query-runner-write": {"id": 6, "is_active": True, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_permission": {"mode": "token"}},
 "/permission/object-update": {"id": 136, "is_token": True, "user_check_permission": {"mode": "token"}},
 "/permission/object-delete": {"id": 137, "is_token": True, "user_check_permission": {"mode": "token"}, "rate_limit": {...}},
+"/permission/user-create": {"id": 138, "is_token": True, "user_check_permission": {"mode": "token"}, "rate_limit": {...}},
 
-config_column_int_mapping = {"users": {"role": {1: "Admin"}, "permissions": {6: "Postgres query runner write", 136: "Update any row", 137: "Delete any row"}}, ...}
+config_column_int_mapping = {"users": {"role": {1: "Admin"}, "permissions": {6: "Postgres query runner write", 136: "Update any row", 137: "Delete any row", 138: "Create user"}}, ...}
 ```
 
 | Route | Checks | Who may call it |
 |---|---|---|
 | 6, raw SQL writes | role 1 + permission | admins granted 6; a role 2 user granted 6 is still refused by the role |
 | 136, 137: `/permission/object-update`, `/permission/object-delete` | permission only | users granted it, any role; only tables in `config_table_permission_write_allowed` (default none) |
+| 138: `/permission/user-create` | permission only | users granted it, any role; only roles in `config_permission_user_create_roles` (default none, never 1) |
 
 Root (id 1) gets every `/admin` permission route at every startup, Atom's (6) and a project's, added to what it holds and never removed, so it cannot be locked out of the admin group. `/permission` routes (Atom's 136, 137 and a project's) and every other permission route are granted explicitly, to root too.
 
@@ -153,6 +155,7 @@ Rows of `users` are written only through these APIs; the generic object APIs (`/
 |---|---|---|---|
 | `POST /admin/user-create` | | `{role, username, password}` | All three required, nothing else accepted; returns `{"id": ...}`. Profile columns are set afterwards with `/admin/user-update` |
 | `PUT /admin/user-update` | | `{id, ...users columns}`, or several as `{"obj_list": [{id, ...}, ...]}` | Up to `config_batch_item_limit` users, ids unique, each with its own columns and checked by the same rules; one transaction, so a missing id (404) or any refused user updates none. `email`/`mobile` need `otp` only when `config_is_otp_require_users_update` is on. The root user's `role` and `deactivated_at` cannot change. `permissions` must be route ids labelled in `config_column_int_mapping["users"]["permissions"]` |
+| `POST /permission/user-create` | `username`, `password`, `role` | | A user of a role in `config_permission_user_create_roles`, for users granted 138 (an app's own user management); `created_by_id` is the caller |
 | `DELETE /admin/user-delete` | `id` | | One user; never the root user |
 | `PUT /my/user-update` | | `{...own users columns}` | Own row from the token (an `id`, if sent, must be the user's own). `email`/`mobile` always need `otp` (sent to the new value with `/public/otp-send-email` or `-mobile`). Columns in `config_column_users_my_blocked` (`role`, `permissions`, `deactivated_at`, ...) are refused |
 | `DELETE /my/user-delete` | | | Own account; token only |

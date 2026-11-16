@@ -121,6 +121,25 @@ class HttpRouteTests(unittest.TestCase):
         self.assertEqual(fetch(self.url, "SELECT city FROM users WHERE id = $1", self.alice_id), [{"city": "Pune"}])    # rolled back
         self.message(self.client.put("/admin/user-update", json={"obj_list": [{"id": self.alice_id, "city": None}, {"id": self.bob_id, "job_title": None}]}, headers=self.auth(self.admin)))
 
+    def test_permission_user_create_needs_the_permission_and_an_allowed_role(self):
+        create = lambda token, role, username="carol": self.client.post("/permission/user-create", json={"username": username, "password": "carol-pass", "role": role}, headers=self.auth(token))
+        self.assertEqual(self.message(create(self.bob, 5), 403), "permission denied")
+        self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [138]}, headers=self.auth(self.admin)))
+        bob = app_login(self.client, path="/auth/login-username-password", body={"username": "bob", "password": "bob-pass"})
+        try:
+            self.assertIn("role 5 not allowed", self.message(create(bob, 5), 400))    # Atom's default: no role
+            self.app.state.config_permission_user_create_roles = [5]
+            self.assertIn("role 1 not allowed", self.message(create(bob, 1), 400))
+            self.assertIn("role 6 not allowed", self.message(create(bob, 6), 400))
+            user_id = self.message(create(bob, 5))["id"]
+            self.assertEqual(fetch(self.url, "SELECT role, username, created_by_id FROM users WHERE id = $1", user_id), [{"role": 5, "username": "carol", "created_by_id": self.bob_id}])
+            self.message(create(bob, 5), 400)    # the username is taken in that role
+            self.assertTrue(app_login(self.client, path="/auth/login-username-password", body={"username": "carol", "password": "carol-pass"}))
+            self.message(self.client.put("/admin/user-update", json={"id": user_id, "role": 9}, headers=self.auth(self.admin)))    # other tests count role 5 users
+        finally:
+            self.app.state.config_permission_user_create_roles = []
+            self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": None}, headers=self.auth(self.admin)))
+
     def test_permission_write_needs_the_permission_and_an_allowed_table(self):
         [row_id] = self.message(self.client.post("/my/object-create", params={"table": "test"}, json={"title": "alice's"}, headers=self.auth(self.alice)))
         update = lambda token, table="test": self.client.put("/permission/object-update", params={"table": table}, json={"id": row_id, "title": "by bob"}, headers=self.auth(token))

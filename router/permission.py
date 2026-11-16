@@ -31,3 +31,12 @@ async def func_api_permission_object_delete(*, request: Request):
     app_state.func_check_batch_limit(app_state=app_state, items=ids)
     deleted_count = await app_state.func_postgres_delete(client_postgres=request.state.client_postgres, client_postgres_conn=None, cache_postgres_schema=request.state.cache_postgres_schema, table=table, ids=ids, created_by_id=None)
     return {"status": 1, "message": f"{deleted_count} ids deleted"}
+
+@router.post("/permission/user-create")
+async def func_api_permission_user_create(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "username", "type": "str", "required": True}, {"name": "password", "type": "str", "required": True}, {"name": "role", "type": "int", "required": True}], strict=True, strict_types=True, reject_unknown=True)
+    allowed = app_state.config_permission_user_create_roles or []
+    if ob["role"] == 1 or ob["role"] not in allowed: raise app_state.func_api_error(message=f"role {ob['role']} not allowed (config_permission_user_create_roles: {allowed})", status_code=400)
+    user_id = await app_state.func_user_create(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, config_column_regex=app_state.config_column_regex, role=ob["role"], username=ob["username"], password=ob["password"], created_by_id=request.state.user["id"])
+    return {"status": 1, "message": {"id": user_id}}
