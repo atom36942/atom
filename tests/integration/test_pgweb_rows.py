@@ -4,6 +4,8 @@ import unittest
 
 import asyncpg
 
+from function.pgweb import PGWEB_CUT_PREVIEW
+from function.pgweb import func_pgweb_row
 from function.pgweb import func_pgweb_rows
 from function.pgweb import func_pgweb_schema
 from tests.integration.support import create_database
@@ -55,6 +57,39 @@ class PgwebRowsTests(unittest.TestCase):
         page, cache = self.run_on_pool(run)
         self.assertEqual(([r[0] for r in page["rows"]], page["meta"]["pk"]), ([3, 2, 1], "id"))
         self.assertEqual(cache["item"], {"pk": "id", "latest_first": True, "types": {"id": "bigint", "code": "text"}})
+
+    def test_a_very_large_value_comes_as_a_preview_and_its_row_reads_whole(self):
+        big = "x" * 40000
+        for sql in ("CREATE TABLE doc (id bigserial PRIMARY KEY, body text, data jsonb, n integer)",
+                    "INSERT INTO doc (body, data, n) VALUES ('short', '{\"a\": 1}', 1), (repeat('x', 40000), (SELECT jsonb_agg(md5(g::text)) FROM generate_series(1, 3000) g), 2)"): fetch(self.url, sql)
+        async def run(pool):
+            cache = {}
+            await func_pgweb_schema(pool=pool, cache_table=cache)
+            first = await func_pgweb_rows(pool=pool, table="doc", limit=10, is_meta=True, cache_table=cache)    # types not known yet: cut after reading
+            again = await func_pgweb_rows(pool=pool, table="doc", pk="id", is_desc=True, limit=10, cache_table=cache)    # types known: cut in SQL
+            whole = await func_pgweb_row(pool=pool, table="doc", pk="id", pk_value=2, cache_table=cache)
+            return first, again, whole
+        first, again, whole = self.run_on_pool(run)
+        for page in (first, again):
+            self.assertEqual(page["cols"], ["id", "body", "data", "n"])
+            self.assertEqual(page["cut"], [[0, 1], [0, 2]])    # newest first: the large row is row 0
+            self.assertEqual((page["rows"][0][1], page["rows"][0][3]), (big[:PGWEB_CUT_PREVIEW], 2))
+            self.assertTrue(page["rows"][0][2].startswith('["'))
+            self.assertEqual(page["rows"][1][1:], ["short", '{"a": 1}', 1])    # small values unchanged (jsonb as its text, as asyncpg reads it)
+        self.assertEqual((whole["rows"][0][1], whole["rows"][0][2].count(",") + 1), (big, 3000))
+
+    def test_any_table_name_opens(self):
+        fetch(self.url, 'CREATE TABLE "Order Items" ("Id" bigserial PRIMARY KEY, "say ""hi""" text)')
+        fetch(self.url, 'INSERT INTO "Order Items" ("say ""hi""") VALUES (\'a\'), (\'b\')')
+        async def run(pool):
+            cache = {}
+            await func_pgweb_schema(pool=pool, cache_table=cache)
+            page = await func_pgweb_rows(pool=pool, table="Order Items", limit=10, is_meta=True, cache_table=cache)
+            filtered = await func_pgweb_rows(pool=pool, table="Order Items", pk="Id", limit=10, filter_col='say "hi"', filter_op="=", filter_value="b", cache_table=cache)
+            return page, filtered
+        page, filtered = self.run_on_pool(run)
+        self.assertEqual((page["meta"]["pk"], [r[1] for r in page["rows"]]), ("Id", ["a", "b"]))
+        self.assertEqual([r[1] for r in filtered["rows"]], ["b"])
 
 
 if __name__ == "__main__":

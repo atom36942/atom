@@ -22,14 +22,41 @@ from .postgres_page import func_page_order_sql
 
 # function
 def func_pgweb_ident(*parts) -> str:
-    """Validate and quote PostgreSQL identifiers."""
+    """Quote PostgreSQL identifiers: any name a table or column can have (capitals, spaces, hyphens, quotes), embedded quotes doubled; empty parts are skipped."""
     out = []
     for item in parts:
         if item in (None, ""): continue
         item = str(item)
-        if not item.replace("_", "").isalnum(): raise Exception(f"invalid identifier: {item}")
-        out.append(f'"{item}"')
+        if "\x00" in item: raise Exception(f"invalid identifier: {item!r}")
+        out.append('"' + item.replace('"', '""') + '"')
     return ".".join(out)
+
+def func_pgweb_regclass(table: str) -> str:
+    """A public table's name as regclass text, quoted, so capitals and other characters name the table exactly."""
+    return func_pgweb_ident("public", table)
+
+PGWEB_CUT_BYTES = 16384    # a grid cell over this size comes as a preview; the page reads the whole row when it needs the real value
+PGWEB_CUT_PREVIEW = 1000    # characters in a cut value's preview (the grid shows 500)
+
+def func_pgweb_cut_kind(column_type: str) -> str:
+    """How a column's size is measured without reading the value: octet_length for text types (the stored size), pg_column_size for json, jsonb and xml; '' for columns never cut."""
+    column_type = str(column_type or "").lower()
+    if column_type == "text" or column_type.startswith("character varying"): return "octet_length"
+    if column_type in ("json", "jsonb", "xml"): return "pg_column_size"
+    return ""
+
+def func_pgweb_cut_python(rows: list) -> list:
+    """Cut long values of rows already read (a first page read before the table's column types are known); returns [[row, column], ...] of the cells now holding a preview."""
+    cut = []
+    for row_index, row in enumerate(rows):
+        for column_index, value in enumerate(row):
+            if isinstance(value, str): text = value
+            elif isinstance(value, (dict, list)): text = orjson.dumps(value, default=func_pgweb_jsonable).decode()
+            else: continue
+            if len(text) > PGWEB_CUT_BYTES // 4 and len(text.encode()) > PGWEB_CUT_BYTES:
+                row[column_index] = text[:PGWEB_CUT_PREVIEW]
+                cut.append([row_index, column_index])
+    return cut
 
 def func_pgweb_jsonable(value):
     """Convert PostgreSQL values unsupported by the JSON encoder."""
@@ -91,7 +118,7 @@ def func_pgweb_write_check(*, sql: str, is_confirmed: bool = False, is_read_only
 
 async def func_pgweb_column_type(*, pool: asyncpg.Pool, table: str, column: str, timeout_sec: int = 30) -> str:
     """Full type of a public table's column (e.g. numeric(10,2)), or None when the column does not exist."""
-    return await pool.fetchval("SELECT format_type(atttypid, atttypmod) FROM pg_attribute WHERE attrelid = $1::regclass AND attname = $2 AND attnum > 0 AND NOT attisdropped", f"public.{table}", column, timeout=timeout_sec)
+    return await pool.fetchval("SELECT format_type(atttypid, atttypmod) FROM pg_attribute WHERE attrelid = $1::regclass AND attname = $2 AND attnum > 0 AND NOT attisdropped", func_pgweb_regclass(table), column, timeout=timeout_sec)
 
 def func_pgweb_latest_first(*, pk: str, pk_type: str) -> bool:
     """A table keyed by an integer id opens newest first."""
@@ -141,6 +168,7 @@ async def func_pgweb_connect(*, client_postgres_pgweb: dict, dsn: str = None, ti
     if previous:
         with suppress(Exception): await previous.close()
     client_postgres_pgweb["pool"] = pool
+    client_postgres_pgweb["dsn"] = dsn    # kept in this process only, to cancel a query when every pool connection is busy
     client_postgres_pgweb["connection_url"] = func_pgweb_dsn_safe(dsn)
     client_postgres_pgweb["cache_table"] = cache_table
     return {**schema, "connection_url": client_postgres_pgweb["connection_url"]}
@@ -149,6 +177,7 @@ async def func_pgweb_disconnect(*, client_postgres_pgweb: dict) -> dict:
     """Close and remove the pgweb connection pool."""
     pool = client_postgres_pgweb.pop("pool", None)
     client_postgres_pgweb.pop("connection_url", None)
+    client_postgres_pgweb.pop("dsn", None)
     client_postgres_pgweb.pop("active_queries", None)
     client_postgres_pgweb.pop("cache_table", None)
     if pool:
@@ -341,9 +370,35 @@ async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, 
                 clauses.append(f"{column_sql} {operator} (${len(args)}::text)::{filter_type}")
         where_sql = (" WHERE " + " AND ".join(clauses)) if clauses else ""
         order_sql = f" ORDER BY {func_page_order_sql(keys=keys)}" if keys else ""
+        # a table with a key: values over PGWEB_CUT_BYTES come as a preview, measured in SQL without reading them, so a page of large json or text stays small
+        # (the page reads the whole row by its key when it needs it); before the column types are known, the values are cut after reading
+        types = (cache_table.get(table) or {}).get("types") if keys else None
+        cuttable = [(index, name, func_pgweb_cut_kind(kind)) for index, (name, kind) in enumerate(types.items()) if name != pk and func_pgweb_cut_kind(kind)] if types else []
+        select_sql = "*"
+        if cuttable:
+            cut_sql = {name: (f"{measure}({func_pgweb_ident(name)}) > {PGWEB_CUT_BYTES}", func_pgweb_ident(name)) for _, name, measure in cuttable}
+            select_sql = ", ".join(f"CASE WHEN {cut_sql[name][0]} THEN NULL ELSE {cut_sql[name][1]} END AS {cut_sql[name][1]}" if name in cut_sql else func_pgweb_ident(name) for name in types)
+            select_sql += "".join(f", CASE WHEN {cut_sql[name][0]} THEN left({cut_sql[name][1]}::text, {PGWEB_CUT_PREVIEW}) END AS \"__pgweb_cut_{index}\"" for index, name, _ in cuttable)
         started = time.perf_counter()
-        records = await pool.fetch(f"SELECT * FROM {func_pgweb_ident("public", table)}{where_sql}{order_sql} LIMIT {limit + 1}", *args, timeout=timeout_sec)  # noqa: S608 - identifiers via func_pgweb_ident, limit is an integer
-        out = func_pgweb_pack(records[:limit])
+        sql_from = f" FROM {func_pgweb_ident("public", table)}{where_sql}{order_sql} LIMIT {limit + 1}"
+        try: records = await pool.fetch(f"SELECT {select_sql}{sql_from}", *args, timeout=timeout_sec)  # noqa: S608 - identifiers via func_pgweb_ident, sizes and limit are integers
+        except asyncpg.UndefinedColumnError:
+            if select_sql == "*": raise
+            cache_table.get(table, {}).pop("types", None)    # a column changed since the types were read: read every column and cut after reading
+            cuttable, select_sql = [], "*"
+            records = await pool.fetch(f"SELECT *{sql_from}", *args, timeout=timeout_sec)  # noqa: S608 - as above
+        if cuttable:
+            names = list(types)
+            out = {"cols": names, "rows": [[record[index] for index in range(len(names))] for record in records[:limit]]}
+            cut = []
+            for row_index, (record, row) in enumerate(zip(records[:limit], out["rows"], strict=True)):
+                for index, _, _ in cuttable:
+                    preview = record[f"__pgweb_cut_{index}"]
+                    if preview is not None: row[index] = preview; cut.append([row_index, index])
+        else:
+            out = func_pgweb_pack(records[:limit])
+            cut = func_pgweb_cut_python(out["rows"]) if keys else []
+        if cut: out["cut"] = cut
         out["after"] = func_page_after_next(keys=keys, rows=records, limit=limit) if keys else None
         out["ms"] = round((time.perf_counter() - started) * 1000, 1)    # the page query alone, so the page can explain a slow filter
         return out
@@ -370,7 +425,7 @@ async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, 
                    pg_size_pretty(c.relpages::bigint * 8192) AS total_size
             FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid
             LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
-            WHERE a.attrelid = $1::regclass AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum""", f"public.{table}", timeout=timeout_sec)
+            WHERE a.attrelid = $1::regclass AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum""", func_pgweb_regclass(table), timeout=timeout_sec)
     known = cache_table.get(table)
     guess = plan(known) if known else None
     if guess:
@@ -388,6 +443,15 @@ async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, 
     if plan(meta) != guess or isinstance(out, BaseException): out = await page(*plan(meta))    # the remembered key was out of date: read the page again with the real one
     out["meta"] = meta
     return out
+
+async def func_pgweb_row(*, pool: asyncpg.Pool, table: str, pk: str, pk_value: Any, cache_table: dict = None, timeout_sec: int = 30) -> dict:
+    """One whole row of a public table, found by its single-column primary key: the grid's row when some of its values came as a preview."""
+    if not table or not pk: raise Exception("table and pk are required")
+    if isinstance(pk_value, bool) or pk_value in (None, ""): raise Exception("primary key value is required")
+    pk_type = ((cache_table or {}).get(table) or {}).get("types", {}).get(pk) or await func_pgweb_column_type(pool=pool, table=table, column=pk, timeout_sec=timeout_sec)
+    if not pk_type: raise Exception(f"unknown primary key column: {pk}")
+    records = await pool.fetch(f"SELECT * FROM {func_pgweb_ident('public', table)} WHERE {func_pgweb_ident(pk)} = ($1::text)::{pk_type}", str(pk_value), timeout=timeout_sec)  # noqa: S608 - identifiers via func_pgweb_ident, type from pg_catalog
+    return func_pgweb_pack(records)
 
 async def func_pgweb_query(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool = False, is_read_only: bool = False,
                            query_id: str = None, active_queries: dict = None, timeout_sec: int = 30) -> dict:
@@ -419,21 +483,19 @@ async def func_pgweb_query(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool =
                 active_queries.pop(query_id, None)
 
 async def func_pgweb_stream(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool = False, is_read_only: bool = False, timeout_sec: int = 300) -> Any:
-    """Stream every row returned by one query as CSV without buffering the result set."""
+    """Stream every row returned by one query as CSV without buffering the result set: one connection, the statement prepared once, and its errors raised before the download starts."""
     func_pgweb_write_check(sql=sql, is_confirmed=is_confirmed, is_read_only=is_read_only)
-    async with func_postgres_acquire_clean(client_postgres=pool) as conn:
-        try: statement = await conn.prepare(sql, timeout=timeout_sec)
-        except Exception as exc:
-            if "multiple commands" in str(exc).lower(): raise Exception("stream supports one row-returning statement") from exc
-            raise
-        columns = [attr.name for attr in statement.get_attributes()]
-    if not columns: raise Exception("query returned no downloadable rows")
 
     async def _iter():
         async with func_postgres_acquire_clean(client_postgres=pool) as conn:
             async with conn.transaction(readonly=bool(is_read_only)):
                 await conn.execute(f"SET LOCAL statement_timeout = '{int(timeout_sec) * 1000}ms'")
-                statement = await conn.prepare(sql, timeout=timeout_sec)
+                try: statement = await conn.prepare(sql, timeout=timeout_sec)
+                except Exception as exc:
+                    if "multiple commands" in str(exc).lower(): raise Exception("stream supports one row-returning statement") from exc
+                    raise
+                columns = [attr.name for attr in statement.get_attributes()]
+                if not columns: raise Exception("query returned no downloadable rows")
                 buffer = io.StringIO()
                 writer = csv.writer(buffer)
                 writer.writerow(columns)
@@ -441,13 +503,23 @@ async def func_pgweb_stream(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool 
                 buffer.seek(0); buffer.truncate(0)
                 pending = 0
                 async for record in statement.cursor(prefetch=500, timeout=timeout_sec):
-                    writer.writerow([func_pgweb_jsonable(record[column]) for column in columns])
+                    writer.writerow([func_pgweb_jsonable(value) for value in record.values()])
                     pending += 1
                     if pending >= 250:
                         yield buffer.getvalue().encode("utf-8")
                         buffer.seek(0); buffer.truncate(0); pending = 0
                 if pending: yield buffer.getvalue().encode("utf-8")
-    return _iter()
+
+    generator = _iter()
+    header = await generator.__anext__()    # prepares the statement: a bad query is answered as an error, not as a broken download
+
+    async def _all():
+        try:
+            yield header
+            async for chunk in generator: yield chunk
+        finally:
+            await generator.aclose()
+    return _all()
 
 async def func_pgweb_editable_table(*, pool: asyncpg.Pool, table: str, pk_value: Any, column: str = None, is_read_only: bool = False, timeout_sec: int = 30) -> dict:
     """Checks shared by cell edits and row deletes: not read-only, a real table with a single-column primary key, a key value the browser sent exactly, and (for edits) an editable column."""
@@ -465,7 +537,7 @@ async def func_pgweb_editable_table(*, pool: asyncpg.Pool, table: str, pk_value:
                            WHERE i.indrelid = c.oid AND i.indisprimary AND i.indnkeyatts = 1) k ON true
         LEFT JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = $2 AND a.attnum > 0 AND NOT a.attisdropped
         LEFT JOIN pg_type t ON t.oid = a.atttypid
-        WHERE c.oid = $1::regclass""", f"public.{table}", column, timeout=timeout_sec)
+        WHERE c.oid = $1::regclass""", func_pgweb_regclass(table), column, timeout=timeout_sec)
     if not info or info["relkind"] not in ("r", "p"): raise Exception("only tables can be changed here")
     if not info["pk"]: raise Exception("this needs a single-column primary key; use the SQL runner")
     if column is not None:
@@ -521,7 +593,7 @@ async def func_pgweb_delete_row(*, pool: asyncpg.Pool, table: str, pk_value: Any
 async def func_pgweb_detail(*, pool: asyncpg.Pool, table: str, part: str, timeout_sec: int = 30) -> dict:
     """Read one lazily loaded public-table detail."""
     if not table: raise Exception("table is required")
-    schema, reg = "public", f"public.{table}"
+    schema, reg = "public", func_pgweb_regclass(table)
     if part == "overview": query, args = """
         SELECT n.nspname AS schema, pg_get_userbyid(c.relowner) AS owner,
                CASE c.relkind WHEN 'r' THEN 'Table' WHEN 'p' THEN 'Partitioned table'
@@ -663,14 +735,18 @@ async def func_pgweb(*, app_state: State, action: str, **params) -> dict:
     if action == "cancel":
         query_id = str(params.get("query_id") or "")
         backend_pid = active_queries.get(query_id)
-        canceled = bool(backend_pid and await pool.fetchval("SELECT pg_cancel_backend($1)", backend_pid))
-        return {"canceled": canceled}
+        if not backend_pid: return {"canceled": False}
+        if pool.get_idle_size() > 0: return {"canceled": bool(await pool.fetchval("SELECT pg_cancel_backend($1)", backend_pid))}
+        # every pool connection is busy (the query to stop may be holding one): cancel over a connection of its own instead of waiting for one
+        conn = await asyncpg.connect(client_postgres_pgweb["dsn"], timeout=10)
+        try: return {"canceled": bool(await conn.fetchval("SELECT pg_cancel_backend($1)", backend_pid))}
+        finally: await conn.close()
     handlers = {"schema": app_state.func_pgweb_schema, "info": app_state.func_pgweb_info,
-                "catalog": app_state.func_pgweb_catalog, "rows": app_state.func_pgweb_rows,
+                "catalog": app_state.func_pgweb_catalog, "rows": app_state.func_pgweb_rows, "row": app_state.func_pgweb_row,
                 "query": app_state.func_pgweb_query, "detail": app_state.func_pgweb_detail, "update_cell": app_state.func_pgweb_update_cell, "delete_row": app_state.func_pgweb_delete_row}
     handler = handlers.get(action)
     if not handler: raise Exception(f"invalid action: {action}")
-    if action in ("schema", "rows"): params["cache_table"] = client_postgres_pgweb.setdefault("cache_table", {})
+    if action in ("schema", "rows", "row"): params["cache_table"] = client_postgres_pgweb.setdefault("cache_table", {})
     if action == "info": params["connection_url"] = client_postgres_pgweb.get("connection_url", "—")
     if action == "query": params["active_queries"] = active_queries
     result = await handler(pool=pool, **params)

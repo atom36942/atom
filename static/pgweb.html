@@ -832,7 +832,12 @@ const S = { db:'', table:'', kind:'', pk:null, cols:[], widths:[], total:0,
             sideItems:[], sideShown:0, queryCleared:false,
             filterApplied:{col:'',op:'=',val:''}, dbInfo:null, dbCatalog:{}, dbCatalogKind:'' };
 let pool=[], lastFirst=-1, ticking=false;
-let rowsSeq=0;    // each rows request (open, filter, page, refresh) takes the next number; a response that is no longer the latest is dropped
+let lastC0=-1, lastC1=-1;    // the columns the row pool holds values for (all of them, unless the table is wide)
+const WIDE_COLS=40;    // over this many columns, only those in view (and 400px either side) get values as the grid scrolls
+let rowsSeq=0;
+// rows of a table page that hold a preview of a very large value (the server sends one over 16 KB); fullRow reads the whole row before anything uses its values
+const cutRows=new WeakSet();
+const markCut=page=>{ for(const [r] of page.cut||[]) if(page.rows[r]) cutRows.add(page.rows[r]); };    // each rows request (open, filter, page, refresh) takes the next number; a response that is no longer the latest is dropped
 const drawStObj=name=>$('st-obj').replaceChildren(el('b',null,name));    // a table name is text, never HTML
 let toastTimer;
 
@@ -1441,7 +1446,7 @@ async function openObject(table, kind, initialTab = 'rows', first = null){    /*
   if(seq!==rowsSeq) return false;    // another table was opened meanwhile
   S.meta=m.meta; S.cols=m.meta.columns.map(c=>c.name); S.pk=m.meta.pk; S.latestFirst=!!m.meta.latest_first;
   S.total=m.rows.length; S.after=m.after; S.cursors=[null]; S.pageIndex=0;
-  S.rows=m.rows;
+  S.rows=m.rows; markCut(m);
 
   for(const input of document.querySelectorAll('.detail-search')) input.value='';
   $('fcol').textContent='';
@@ -1515,7 +1520,7 @@ function buildGrid(){
     headEl.appendChild(th);
   });
   const need = Math.ceil(vp.clientHeight/ROW_H) + OVER*2;
-  rowsEl.textContent=''; pool=[];
+  rowsEl.textContent=''; pool=[]; lastC0=lastC1=-1;
   const frag=document.createDocumentFragment();
   for(let i=0;i<need;i++){
     const tr=el('div','tr');
@@ -1528,6 +1533,19 @@ function buildGrid(){
   rowsEl.appendChild(frag);
   $('empty').textContent = 'No rows';
   $('empty').classList.toggle('on', S.total===0);
+}
+async function fullRow(index){
+  const row=rowAt(index);
+  if(!row || S.local || !cutRows.has(row)) return row;
+  const table=S.table, seq=rowsSeq;
+  const m=await api({action:'row', table, pk:S.pk, pk_value:row[S.cols.indexOf(S.pk)]});
+  if(seq!==rowsSeq || S.table!==table || S.rows[index]!==row) return null;    // another page or table since
+  if(!m.rows.length) throw new Error('row not found: it was deleted or its key changed; reload the rows');
+  const full=S.cols.map(name=>m.rows[0][m.cols.indexOf(name)]);
+  S.rows[index]=full;
+  if(RP.row===row) RP.row=full;
+  lastFirst=-1; render(true);
+  return full;
 }
 function rowAt(i){
   return (S.local || S.rows)[i] ?? null;
@@ -1560,7 +1578,7 @@ async function changeBatch(direction){
                           ...(S.cursors[index]?{after:S.cursors[index]}:{}),...filterParams()});
     if(seq!==rowsSeq) return;
     S.pageIndex=index; S.cursors.length=index+1;
-    S.rows=page.rows; S.total=page.rows.length; S.after=page.after; drawSlowFilterHint(page.ms);
+    S.rows=page.rows; markCut(page); S.total=page.rows.length; S.after=page.after; drawSlowFilterHint(page.ms);
     drawBatchNav(); buildGrid(); vp.scrollTop=0; lastFirst=-1; render(true);
   }catch(err){ if(seq!==rowsSeq) return; drawBatchNav(); alertBox('Batch navigation failed',err.message); }
 }
@@ -1570,6 +1588,20 @@ for(const size of PAGE_SIZES){ const o=el('option'); o.value=size; o.textContent
 $('pagesize').value=S.pageSize;
 $('pagesize').onchange=()=>{ S.pageSize=+$('pagesize').value; if(S.table) applyFilter(); };
 $('nextbatch').onclick=()=>changeBatch('next');
+function visibleColumns(){
+  const n=S.cols.length;
+  if(n<=WIDE_COLS) return [0,n-1];
+  const left=vp.scrollLeft-400, right=vp.scrollLeft+vp.clientWidth+400;
+  let x=0, c0=-1, c1=n-1;
+  for(let c=0;c<n;c++){
+    const w=S.widths[c]||0;
+    if(c0<0 && x+w>=left) c0=c;
+    if(x>right){ c1=c-1; break; }
+    x+=w;
+  }
+  c0=Math.max(0,c0);
+  return [c0, Math.max(c0,c1)];
+}
 function render(force){
   // the panel's row was replaced (another table, a filter, a refresh): its data is gone, so close it
   if(RP.index>=0 && (RP.table!==S.table || (rowAt(RP.index) && rowAt(RP.index)!==RP.row) || RP.index>=S.total)) rowPanelClose();
@@ -1578,8 +1610,10 @@ function render(force){
   // block to the viewport, since one pixel now covers several rows.
   let first = scaled ? Math.round(top * S.scale / ROW_H) : Math.floor(top/ROW_H) - OVER;
   first = Math.max(0, Math.min(first, Math.max(0, S.total - pool.length)));
-  if(!force && first===lastFirst) return;
+  const [c0,c1]=visibleColumns(), colsMoved=c0!==lastC0||c1!==lastC1;
+  if(!force && first===lastFirst && !colsMoved) return;
   lastFirst = first;
+  const prevC0=lastC0, prevC1=lastC1; lastC0=c0; lastC1=c1;
   rowsEl.style.transform = `translateY(${scaled ? top : first*ROW_H}px)`;
   for(let p=0;p<pool.length;p++){
     const idx=first+p, tr=pool[p];
@@ -1587,7 +1621,9 @@ function render(force){
     tr.hidden=false; tr.dataset.i=idx;
     const row=rowAt(idx), cells=tr.children;
     tr.classList.toggle('rp-sel', idx===RP.index);
-    for(let c=0;c<cells.length;c++){
+    // columns scrolled out of view are emptied, so find-in-page never matches another row's value
+    if(prevC0>=0) for(let c=prevC0;c<=Math.min(prevC1,cells.length-1);c++) if(c<c0||c>c1){ cells[c].textContent=''; cells[c].className='td'; }
+    for(let c=c0;c<=Math.min(c1,cells.length-1);c++){
       const td=cells[c];
       if(!row){ td.textContent=''; td.className='td'; continue; }
       const v=row[c];
@@ -1622,6 +1658,7 @@ addEventListener('mousemove', e=>{
   for(const tr of pool) tr.children[drag.i].style.width=w+'px';
   const gridWidth=S.widths.reduce((a,b)=>a+b,0);
   inner.style.width=gridWidth+'px'; inner.style.paddingRight=gridWidth>vp.clientWidth?'16px':'0';
+  render(false);
 });
 addEventListener('mouseup', ()=>{
   if(!drag) return;
@@ -1652,8 +1689,8 @@ function openCellValue(column,rawValue,copiedMessage='Cell value copied'){
 $('dlg').addEventListener('close',()=>$('dlg').classList.remove('structured'));
 rowsEl.addEventListener('dblclick', e=>{
   const td=e.target.closest('.td'); if(!td) return;
-  const row=rowAt(+td.parentElement.dataset.i); if(!row) return;
-  const c=+td.dataset.c; openCellValue(S.cols[c],row[c]);
+  const c=+td.dataset.c;
+  fullRow(+td.parentElement.dataset.i).then(row=>{ if(row) openCellValue(S.cols[c],row[c]); }).catch(err=>alertBox('Could not read the row',err.message));
 });
 
 /* ==== edit a cell ==== */
@@ -1661,6 +1698,7 @@ rowsEl.addEventListener('dblclick', e=>{
 function cellEditBlock(colIndex,row){
   if(S.local||S.kind!=='table'||!S.meta) return 'Only rows of a table can be edited';
   if(S.readOnly) return 'Read-only mode is on';
+  if(cutRows.has(row)) return 'Loading the whole row…';
   if(!S.pk) return 'Editing needs a single-column primary key; use the SQL runner';
   const meta=S.meta.columns.find(col=>col.name===S.cols[colIndex]);
   if(!meta) return 'Unknown column';
@@ -1722,7 +1760,8 @@ function rowPanelOpen(index){
   }
   lastFirst=-1; render(true);
   rowPanelDraw();
-  if(isNew) $('rp-body').scrollTop=0;    // a fresh panel starts at the first field; moving between rows keeps the place
+  if(isNew) $('rp-body').scrollTop=0;
+  if(cutRows.has(row)) fullRow(index).then(full=>{ if(full && RP.index===index) rowPanelDraw(); }).catch(err=>{ if(RP.index===index) alertBox('Could not read the row',err.message); });    // a fresh panel starts at the first field; moving between rows keeps the place
 }
 function rowPanelClose(){
   if(RP.index<0) return;
@@ -1734,6 +1773,7 @@ function rowPanelClose(){
 function rowDeleteBlock(row){
   if(S.local||S.kind!=='table') return 'Only rows of a table can be deleted';
   if(S.readOnly) return 'Read-only mode is on';
+  if(cutRows.has(row)) return 'Loading the whole row…';
   if(!S.pk) return 'Deleting needs a single-column primary key; use the SQL runner';
   const key=row[S.cols.indexOf(S.pk)];
   if(typeof key==='number'&&!Number.isSafeInteger(key)) return "This row's key is too large for the browser to send exactly; use the SQL runner";
@@ -2024,7 +2064,7 @@ async function applyFilter(){
     const first = await api({action:'rows', table:S.table, pk:S.pk,
                              is_desc:S.latestFirst?1:0,limit:S.pageSize, ...filterParams()});
     if(seq!==rowsSeq) return false;
-    S.rows=first.rows;
+    S.rows=first.rows; markCut(first);
     S.total=first.rows.length; S.after=first.after; S.cursors=[null]; S.pageIndex=0;
     drawSlowFilterHint(first.ms);
     drawBatchNav(); buildGrid(); vp.scrollTop=0; render(true);
@@ -2066,7 +2106,7 @@ async function refreshTableData(){
     if(seq!==rowsSeq) return;
     S.meta=m.meta; S.cols=m.meta.columns.map(c=>c.name); S.pk=m.meta.pk; S.latestFirst=!!m.meta.latest_first;
     S.rows=[]; lastFirst=-1;
-    S.rows=m.rows;
+    S.rows=m.rows; markCut(m);
     S.total=m.rows.length; S.after=m.after; S.cursors=[null]; S.pageIndex=0; drawSlowFilterHint(m.ms);
     drawStObj(S.table);
     $('st-rows').textContent = `${m.rows.length} rows loaded`;
@@ -2089,7 +2129,11 @@ async function refreshTableData(){
 }
 function safeFilePart(value){return String(value||'table').replace(/[^a-z0-9_.-]+/gi,'-').replace(/^-|-$/g,'');}
 $('rowrefresh').onclick=refreshTableData;
-$('rowcsv').onclick=()=>downloadCsv(S.cols,S.local||S.rows,`${safeFilePart(S.table)}-rows.csv`);
+$('rowcsv').onclick=async()=>{
+  try{ if(!S.local) for(let i=0;i<S.rows.length;i++) if(cutRows.has(S.rows[i])) await fullRow(i); }    // rows holding a preview: their whole values first
+  catch(err){ alertBox('CSV failed',err.message); return; }
+  downloadCsv(S.cols,S.local||S.rows,`${safeFilePart(S.table)}-rows.csv`);
+};
 for(const button of document.querySelectorAll('.detail-download')) button.onclick=()=>{
   const table=$(button.dataset.grid), headers=[...table.tHead.rows[0].cells].map(cell=>cell.textContent);
   const data=[...table.tBodies[0].rows].filter(row=>!row.hidden&&detailRowValues.has(row)).map(row=>detailRowValues.get(row));
