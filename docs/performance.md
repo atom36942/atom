@@ -97,7 +97,7 @@ FastAPI finds a request's route by checking every route in order, about 0.56 µs
 
 ## 11. Startup Memory, Blocking Calls and Response Cache
 
-**SDKs load only when configured.** Each `func_client_*` checks its setting before importing its SDK (motor, boto3, openai, google-genai, celery, aiokafka, aio-pika, asyncssh, posthog, Azure, ClickHouse, MSSQL), and `/admin/blob-container-sas` imports the Azure SDK only when it runs. With only Postgres configured, memory after startup fell from 251 MB to 152 MB per worker and startup from about 0.9 s to 0.35 s.
+**SDKs load only when configured.** Each `func_client_*` checks its setting before importing its SDK (motor, boto3, openai, google-genai, anthropic, celery, aiokafka, aio-pika, asyncssh, posthog, Azure, ClickHouse, MSSQL), and `/admin/blob-container-sas` imports the Azure SDK only when it runs. With only Postgres configured, memory after startup fell from 251 MB to 152 MB per worker and startup from about 0.9 s to 0.35 s.
 
 **Blocking SDK calls run in a thread.** boto3 (SES email, SNS SMS, S3 "empty bucket") and Celery `send_task` are synchronous network calls; on the event loop, one OTP email stopped every other request for its whole round trip. They now run through `asyncio.to_thread`, like the Azure and AI calls already did.
 

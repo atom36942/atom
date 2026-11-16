@@ -7,6 +7,7 @@ config_mongodb_url = None
 config_google_login_client_id = None
 config_openai_key = None
 config_gemini_key = None
+config_anthropic_key = None
 config_posthog_project_host = None
 config_posthog_project_key = None
 config_sentry_dsn = None
@@ -154,7 +155,7 @@ config_queue_retry_wait_sec = 2
 config_blob_services = ["s3", "azure"]
 config_email_services = ["ses", "resend", "azure"]
 config_mobile_services = ["sns", "fast2sms", "azure"]
-config_ai_services = ["gemini", "openai"]
+config_ai_services = ["gemini", "openai", "claude"]
 
 # table
 config_table_exclude_from_users_delete = ["spatial_ref_sys", "users", "log_users_delete"]

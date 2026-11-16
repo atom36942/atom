@@ -133,6 +133,12 @@ def func_client_gemini(*, api_key: str):
     from google import genai
     return genai.Client(api_key=api_key)
 
+def func_client_anthropic(*, api_key: str):
+    """Initialize the async Anthropic (Claude) client."""
+    if not api_key: return None
+    import anthropic
+    return anthropic.AsyncAnthropic(api_key=api_key)
+
 def func_client_posthog(*, project_key: str, host: str):
     """Initialize PostHog client."""
     if not project_key: return None
@@ -241,6 +247,9 @@ async def func_client_close(*, app_state: State = None, clients: dict = None) ->
         ai_client = c.get(ai_key)
         if ai_client and hasattr(ai_client, "close"):
             with suppress(Exception): ai_client.close()
+    client_anthropic = c.get("client_anthropic")
+    if client_anthropic:
+        with suppress(Exception): await client_anthropic.close()
     client_posthog = c.get("client_posthog")
     if client_posthog:
         with suppress(Exception):

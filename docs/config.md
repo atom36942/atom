@@ -114,6 +114,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_google_login_client_id` | Google OAuth Client ID for token verification |
 | `config_openai_key` | OpenAI API key |
 | `config_gemini_key` | Google Gemini API key |
+| `config_anthropic_key` | Anthropic API key: opens `client_anthropic` (Claude) |
 | `config_posthog_project_host` | PostHog analytics host URL |
 | `config_posthog_project_key` | PostHog analytics project key |
 | `config_sentry_dsn` | Sentry DSN for error tracking |
@@ -285,7 +286,7 @@ The `/permission/*` routes' settings, together as `config_permission_*` (the rou
 | `config_blob_services` | Registered blob storage providers (`s3`, `azure`) |
 | `config_email_services` | Registered email providers (`ses`, `resend`, `azure`) |
 | `config_mobile_services` | Registered SMS providers (`sns`, `fast2sms`, `azure`) |
-| `config_ai_services` | Registered AI service providers (`gemini`, `openai`) |
+| `config_ai_services` | Registered AI service providers (`gemini`, `openai`, `claude`) |
 
 ---
 

@@ -58,6 +58,10 @@ Atom's version is `ATOM_VERSION` in `sync.py` (for example `ATOM_VERSION = "1.2.
 
 Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. Sync always takes the latest `main`; to mark a new version, raise `ATOM_VERSION` and the `Version` line at the top of `readme.md` (a test checks they match) and push to `main` (no tags or GitHub releases). Commits in between keep the last version. A project synced before versions existed shows `unknown` until its next sync. If a sync fails after installing the new `sync.py`, that file already shows the new version while the other files may be older; the error says so, and running sync again finishes it.
 
+### 15.4.0
+
+A Claude client: with `config_anthropic_key` in `.env`, Atom opens `app_state.client_anthropic` (the official `anthropic` SDK, async) and closes it at shutdown; without the key nothing is imported. `func_anthropic_json` returns JSON that always matches a schema (example in [extend.md](extend.md)), and the AI SQL generators accept `ai: "claude"`. Sync without `--no-venv` once, to install `anthropic`. Nothing else to change in projects.
+
 ### 15.3.1
 
 [timescaledb.md](timescaledb.md) now opens with the main steps for a TimescaleDB database of its own (`config_postgres_url_<name>`, a normal Postgres URL, so the app gets its pool in `client_postgres_dict`; the schema in `files_extend/<feature>_schema.sql`, run in that database; then the feature's APIs and page) and a table of standard practices. Docs only; nothing to change in projects.

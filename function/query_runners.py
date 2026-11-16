@@ -4,18 +4,20 @@ import json
 import re
 from typing import Any
 import asyncpg
+from .ai import func_anthropic_json
 from .clients import func_postgres_acquire_clean
 from .middleware import func_api_error
 from .postgres_metadata import func_postgres_schema_ai_view
 from .postgres_metadata import func_postgres_schema_read
 
 # function
-async def func_postgres_query_generator_ai(*, client_postgres: asyncpg.Pool | None, client_gemini: Any, client_openai: Any, cache_postgres_schema: dict, config_query_runner_read_limit: int, ai: str, question: str) -> dict:
-    """Generates and validates safe PostgreSQL SELECT queries using LLM (Gemini/OpenAI) based on the database schema."""
+async def func_postgres_query_generator_ai(*, client_postgres: asyncpg.Pool | None, client_gemini: Any, client_openai: Any, client_anthropic: Any, cache_postgres_schema: dict, config_query_runner_read_limit: int, ai: str, question: str) -> dict:
+    """Generates and validates safe PostgreSQL SELECT queries using LLM (Gemini/OpenAI/Claude) based on the database schema."""
     from google.genai import types
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if ai == "gemini" and not client_gemini: raise func_api_error(message="Gemini client not initialized", status_code=500)
     if ai == "openai" and not client_openai: raise func_api_error(message="OpenAI client not initialized", status_code=500)
+    if ai == "claude" and not client_anthropic: raise func_api_error(message="Claude client not initialized", status_code=500)
     question = str(question or "").strip()
     default_limit = 10
     max_limit = config_query_runner_read_limit
@@ -138,6 +140,8 @@ async def func_postgres_query_generator_ai(*, client_postgres: asyncpg.Pool | No
             config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=response_schema, temperature=0.1),
         )
         data = json.loads(response.text or "{}")
+    elif ai == "claude":
+        data = await func_anthropic_json(client_anthropic=client_anthropic, content=prompt, schema=response_json_schema)
     else:
         response = await asyncio.to_thread(
             client_openai.responses.create,
@@ -296,12 +300,13 @@ async def func_clickhouse_schema_read(*, client_clickhouse: Any) -> dict:
         schema.setdefault(f"{database}.{table}", {})[name] = {"data_type": data_type, "is_primary_key": bool(is_primary), "is_sorting_key": bool(is_sorting)}
     return schema
 
-async def func_clickhouse_query_generator_ai(*, client_clickhouse: Any, client_gemini: Any, client_openai: Any, cache_clickhouse_schema: dict, config_query_runner_read_limit: int, ai: str, question: str) -> dict:
-    """Generate schema-aware, read-only ClickHouse SQL with Gemini or OpenAI."""
+async def func_clickhouse_query_generator_ai(*, client_clickhouse: Any, client_gemini: Any, client_openai: Any, client_anthropic: Any, cache_clickhouse_schema: dict, config_query_runner_read_limit: int, ai: str, question: str) -> dict:
+    """Generate schema-aware, read-only ClickHouse SQL with Gemini, OpenAI or Claude."""
     from google.genai import types
     if not client_clickhouse: raise func_api_error(message="clickhouse client not initialized", status_code=500)
     if ai == "gemini" and not client_gemini: raise func_api_error(message="Gemini client not initialized", status_code=500)
     if ai == "openai" and not client_openai: raise func_api_error(message="OpenAI client not initialized", status_code=500)
+    if ai == "claude" and not client_anthropic: raise func_api_error(message="Claude client not initialized", status_code=500)
     question = str(question or "").strip()
     default_limit, max_limit = 10, int(config_query_runner_read_limit)
     schema = cache_clickhouse_schema or await func_clickhouse_schema_read(client_clickhouse=client_clickhouse)
@@ -322,6 +327,8 @@ async def func_clickhouse_query_generator_ai(*, client_clickhouse: Any, client_g
     if ai == "gemini":
         response = await asyncio.to_thread(client_gemini.models.generate_content, model="gemini-2.5-flash", contents=prompt, config=types.GenerateContentConfig(response_mime_type="application/json", response_schema=response_schema, temperature=0.1))
         data = json.loads(response.text or "{}")
+    elif ai == "claude":
+        data = await func_anthropic_json(client_anthropic=client_anthropic, content=prompt, schema=response_json_schema)
     else:
         response = await asyncio.to_thread(client_openai.responses.create, model="gpt-4.1-mini", input=prompt, text={"format": {"type": "json_schema", "name": "clickhouse_query_generator", "schema": response_json_schema, "strict": True}}, temperature=0.1)
         data = json.loads(response.output_text or "{}")

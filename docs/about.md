@@ -69,7 +69,7 @@ SHUTDOWN → stop background tasks → final buffer flush → close every client
    - `client_http`: Shared `httpx.AsyncClient`.
    - `client_postgres_dict`: One pool per named database from `config_postgres_url_<name>`; `client_postgres_dict["master"]` is the default (e.g. `client_postgres_dict["logs"]` for a dedicated log database).
    - `client_redis_dict`: one isolated Redis client per `config_redis_url_<name>`, read by role (`api_response`, `user_state`, `ratelimiter`, `queue`) or by a project's own name.
-   - Optional: MongoDB (Motor), MSSQL, S3, Azure Blob, Kafka, RabbitMQ, Celery, PostHog, OpenAI, Gemini.
+   - Optional: MongoDB (Motor), MSSQL, S3, Azure Blob, Kafka, RabbitMQ, Celery, PostHog, OpenAI, Gemini, Claude.
 4. **Database Schema Init**: When `config_is_postgres_schema_init = True`, applies table schemas, indexes, and constraints from `config_postgres`, and seeds the root admin user (`admin` / `role: 1`). When `False`, only compares, and stops startup if the database differs (`script.postgres_schema_plan --apply` runs the changes).
 5. **In-Memory Cache Building**: Preloads read-mostly metadata to avoid database hits during request routing:
    - `cache_postgres_schema`: Table and column definitions.

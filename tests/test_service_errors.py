@@ -33,7 +33,7 @@ class ServiceErrorTests(unittest.IsolatedAsyncioTestCase):
     async def test_missing_database_precedes_ai_client_and_profile_read(self):
         for operation, args in [
             (func_user_read_single, dict(user_id=7)),
-            (func_postgres_query_generator_ai, dict(client_gemini=None, client_openai=None,
+            (func_postgres_query_generator_ai, dict(client_gemini=None, client_openai=None, client_anthropic=None,
                 cache_postgres_schema={}, config_query_runner_read_limit=10, ai="openai", question="x")),
         ]:
             with self.subTest(operation=operation.__name__):

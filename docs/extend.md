@@ -67,6 +67,26 @@ Before writing a helper, client or pool, check what Atom already has. Databases 
 
 Data users can change from a page (an option list, a setting) belongs in the database, never in a tracked file, which a deploy or `git pull` would silently replace: a setting is one row in Atom's `config` table (`key`, jsonb `value`), other data gets its own table in `config_postgres`. Option lists: lists developers change go in `config_options`; lists users change from a page go in a table the project designs, written only through the feature's own routes and listed in `config_table_my_create_blocked`.
 
+### Claude
+
+With `config_anthropic_key` in `.env`, Atom opens `app_state.client_anthropic` (the official SDK's async client). `func_anthropic_json` sends a prompt and returns JSON that always matches the schema you pass; a feature's own `func_<feature>_*` calls it. Example: read a resume PDF into fields.
+
+```python
+# function_extend/resume.py
+import base64
+from function.ai import func_anthropic_json
+
+RESUME_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["name", "email", "skills", "years_experience"],
+                 "properties": {"name": {"type": "string"}, "email": {"type": "string"}, "skills": {"type": "array", "items": {"type": "string"}}, "years_experience": {"type": "integer"}}}
+
+async def func_resume_read(*, client_anthropic, pdf: bytes) -> dict:
+    content = [{"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": base64.standard_b64encode(pdf).decode()}},
+               {"type": "text", "text": "Extract the candidate's details from this resume."}]
+    return await func_anthropic_json(client_anthropic=client_anthropic, content=content, schema=RESUME_SCHEMA)
+```
+
+The default model is Claude Opus 5.5 (`claude-opus-5-5`); pass `model=` for another (`claude-haiku-5-5` for high-volume, simple extraction). A request Claude declines is rerun on Anthropic's fallback model; if that declines too, the result is `{}`. For anything beyond JSON (chat, streaming, tools), call `client_anthropic` directly.
+
 ## Startup and shutdown: `func_extend`
 
 `main.py` is Atom's. To create a client Atom doesn't provide, or load data once at startup, define `func_extend` in any `function_extend/` module; Atom calls it after its own clients and caches are ready and stores the return value, whatever it is, in `app.state.extend` (`None` when `func_extend` is not defined). `func_extend_shutdown` runs on shutdown before Atom closes its clients, so it can still use them. Both are optional, take `app_state`, and may be sync or async.

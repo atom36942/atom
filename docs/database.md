@@ -77,7 +77,7 @@ curl -X POST "http://localhost:8000/admin/postgres-query-runner-read?connection=
 MSSQL and ClickHouse have their own routes: `/admin/mssql-query-runner-*` and `/admin/clickhouse-query-runner-*`. They take body param `connection` (default `master`) to pick a server from `config_mssql_url_<name>` or `config_clickhouse_url_<name>`; an unknown name returns 404.
 
 ### Natural Language AI SQL Generation:
-When an OpenAI or Gemini API key is configured, Atom can translate natural language into optimized SQL queries using `func_ai_sql_generate`. The helper references the cached schema dictionary (`cache_postgres_schema`) to construct valid, context-aware SQL queries.
+When an OpenAI, Gemini or Anthropic (Claude) key is configured, Atom can translate natural language into optimized SQL queries using `func_postgres_query_generator_ai` (`ai`: `gemini`, `openai` or `claude`). The helper references the cached schema dictionary (`cache_postgres_schema`) to construct valid, context-aware SQL queries.
 
 ---
 

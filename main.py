@@ -63,6 +63,7 @@ async def func_lifespan(app: FastAPI):
         client_ses = app.state.func_client_ses(region_name=app.state.config_aws_ses_region_name, **aws_kwargs)
         client_openai = app.state.func_client_openai(api_key=app.state.config_openai_key)
         client_gemini = app.state.func_client_gemini(api_key=app.state.config_gemini_key)
+        client_anthropic = app.state.func_client_anthropic(api_key=app.state.config_anthropic_key)
         client_posthog = app.state.func_client_posthog(project_key=app.state.config_posthog_project_key, host=app.state.config_posthog_project_host)
         client_celery_producer = app.state.func_client_celery(url=app.state.config_celery_url)
         client_kafka_producer = await app.state.func_client_kafka(url=app.state.config_kafka_url, username=app.state.config_kafka_username, password=app.state.config_kafka_password)
