@@ -144,7 +144,9 @@ class PageThemeTests(unittest.TestCase):
         home = (ROOT / "static" / "home.html").read_text()
         self.assertIn("<!-- ==== atom page: theme ==== -->", home)
         self.assertIn(':root[data-theme="light"]', home)
-        self.assertIn('<html lang="en" data-theme="dark">', (ROOT / "static" / "pgweb.html").read_text())    # pgweb keeps its own dark look
+        pgweb = (ROOT / "static" / "pgweb.html").read_text()
+        self.assertIn('<html lang="en" data-theme="light">', pgweb)    # pgweb opens light; its toggle saves dark under pgweb.theme
+        self.assertIn("setPreference('theme', next)", pgweb)
 
     def test_dialog_header_and_actions_stand_apart_from_the_body(self):
         self.assertRegex(LOOK, r"\.dlg-head\{[^}]*background:var\(--brand\)")    # a filled header, like the projects' pages

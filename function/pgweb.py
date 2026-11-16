@@ -395,15 +395,16 @@ async def func_pgweb_query(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool =
     func_pgweb_write_check(sql=sql, is_confirmed=is_confirmed, is_read_only=is_read_only)
     result_limit = 10000
     async with func_postgres_acquire_clean(client_postgres=pool) as conn:
-        backend_pid = await conn.fetchval("SELECT pg_backend_pid()", timeout=timeout_sec)
+        backend_pid = conn.get_server_pid()    # known since the connection opened: no round trip
         if query_id and active_queries is not None: active_queries[query_id] = backend_pid
         try:
+            # prepared before the transaction (preparing runs nothing), so a script of several statements needs no savepoint to try it
+            try: statement = await conn.prepare(sql, timeout=timeout_sec)
+            except Exception as exc:
+                if "multiple commands" not in str(exc).lower(): raise
+                statement = None
             async with conn.transaction(readonly=bool(is_read_only)):
-                try:
-                    async with conn.transaction():
-                        statement = await conn.prepare(sql, timeout=timeout_sec)
-                except Exception as exc:
-                    if "multiple commands" not in str(exc).lower(): raise
+                if statement is None:
                     status = await conn.execute(sql, timeout=timeout_sec)
                     return {"cols": ["status"], "rows": [[status]], "truncated": False}
                 if not statement.get_attributes():
