@@ -263,6 +263,7 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_column_single_update` | `users` columns updated alone by `/my/user-update` and `/admin/user-update` (`username`, `password`, `email`, `mobile`) |
 | `config_column_users_blocked` | `users` columns neither `/my/user-update` nor `/admin/user-update` may change (`created_*`, `updated_*`, `deleted_*`, `is_protected`, `last_active_at`); a project adds its own (e.g. a column only a script sets) |
 | `config_column_users_my_blocked` | `users` columns only `/admin/user-update` may change; `/my/user-update` refuses them (`role`, `permissions`, `deactivated_at`, ...) |
+| `config_column_users_permission_blocked` | `users` columns `/permission/user-update` refuses (`role`, `permissions`, the login ones `username`, `email`, `mobile`, ...); every other column, `password` and `deactivated_at` included, may change. Startup refuses a list without `role` and `permissions` |
 | `config_column_read_blocked` | Sensitive columns blocked and stripped from read responses and relations (`password`) |
 | `config_column_users_private_read` | The only `users` columns `/private/user-read` returns, filters and sorts on (`id`, `username`, `name`, `role`, `permissions`, `created_at`, `deactivated_at`); readable by every logged-in user, checked at startup |
 

@@ -84,6 +84,8 @@ def func_check_runtime_config(*, app_state: State) -> None:
         if column == "password" or column in (values.get("config_column_read_blocked") or []): raise ValueError(f"config_column_users_private_read: {column} is never readable (config_column_read_blocked)")
         if users_columns and column not in users_columns: raise ValueError(f"config_column_users_private_read: no users column {column!r} in config_postgres")
     if "config_permission_user_create_roles" in values: raise ValueError("config_permission_user_create_roles was renamed in Atom 14.0.0 to config_permission_user_roles (used by /permission/user-create and /permission/user-update)")
+    permission_blocked = values.get("config_column_users_permission_blocked")
+    if "config_column_users_permission_blocked" in values and (not isinstance(permission_blocked, list) or not {"role", "permissions"} <= set(permission_blocked)): raise ValueError("config_column_users_permission_blocked must be a list that keeps role and permissions (only an admin changes them)")
     user_roles = values.get("config_permission_user_roles")
     if user_roles is not None and (not isinstance(user_roles, list) or any(isinstance(role, bool) or not isinstance(role, int) or role < 2 for role in user_roles)): raise ValueError("config_permission_user_roles must be a list of roles from 2 (role 1 is the admin, never created or changed by the /permission user routes)")
     for key in ("config_cache_row_limit_config", "config_cache_row_limit_users_role", "config_cache_row_limit_users_deactivated", "config_cache_row_limit_users_deleted"):

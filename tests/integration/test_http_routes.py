@@ -155,8 +155,7 @@ class HttpRouteTests(unittest.TestCase):
             self.app.state.config_permission_user_roles = [5]
             self.assertIn("role 1 not allowed", self.message(update(bob, {"id": 1, "password": "taken-over"}), 400))    # root and admins never
             self.assertIn("send id and the columns", self.message(update(bob, {"id": self.alice_id}), 400))
-            for body in ({"id": self.alice_id, "name": "A", "password": "x-pass-1"}, {"id": self.alice_id, "city": "Pune", "deactivated_at": None}):
-                with self.subTest(body=body): self.assertIn("must be sent alone", self.message(update(bob, body), 400))
+            self.assertIn("password must be updated alone", self.message(update(bob, {"id": self.alice_id, "name": "A", "password": "x-pass-1"}), 400))    # Atom's single-update rule
             for column, value in (("role", 9), ("permissions", [139]), ("username", "alice2"), ("email", "a@example.com"), ("deactivated_by_id", 1), ("created_by_id", 1)):
                 with self.subTest(column=column): self.assertIn(f"{column} cannot be updated here", self.message(update(bob, {"id": self.alice_id, column: value}), 400))
             self.message(update(bob, {"id": self.alice_id, "name": "Alice A", "city": "Pune", "job_title": "Lead"}))    # the profile columns, together

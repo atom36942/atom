@@ -58,9 +58,9 @@ Atom's version is `ATOM_VERSION` in `sync.py` (for example `ATOM_VERSION = "1.2.
 
 Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. Sync always takes the latest `main`; to mark a new version, raise `ATOM_VERSION` and the `Version` line at the top of `readme.md` (a test checks they match) and push to `main` (no tags or GitHub releases). Commits in between keep the last version. A project synced before versions existed shows `unknown` until its next sync. If a sync fails after installing the new `sync.py`, that file already shows the new version while the other files may be older; the error says so, and running sync again finishes it.
 
-### 14.2.0
+### 14.3.0
 
-`PUT /permission/user-update` also takes the profile columns a user changes with `/my/user-update` (`name`, `job_title`, `city`, ...), several in one request, for an app's Edit profile; `password` and `deactivated_at` still go alone. Nothing to change in projects.
+`PUT /permission/user-update` takes any `users` column except those in the new `config_column_users_permission_blocked` (`role`, `permissions`, `username`, `email`, `mobile`, ...; startup refuses a list without `role` and `permissions`), several at once, for an app's Edit profile; `password` still goes alone. Nothing to change in projects.
 
 ### Upgrading to 14.0.0
 
