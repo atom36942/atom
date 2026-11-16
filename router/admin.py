@@ -76,7 +76,7 @@ async def func_api_admin_postgres_schema(*, request: Request):
 async def func_api_admin_object_create(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "mode", "type": "str", "allowed": ["now", "buffer"], "default": "now"}])
-    app_state.func_check_table_not_users(table=oq["table"], api="/admin/user-create")
+    app_state.func_check_table_not_users(table=oq["table"])
     app_state.func_check_table_write_blocked(app_state=app_state, table=oq["table"])
     obj_list = await app_state.func_extract_request_object_list(request=request)
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
@@ -116,7 +116,7 @@ async def func_api_admin_table_column_distinct(*, request: Request):
 async def func_api_admin_object_update(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}])
-    app_state.func_check_table_not_users(table=oq["table"], api="/admin/user-update")
+    app_state.func_check_table_not_users(table=oq["table"])
     app_state.func_check_table_write_blocked(app_state=app_state, table=oq["table"])
     obj_list = await app_state.func_extract_request_object_list(request=request)
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
@@ -153,7 +153,7 @@ async def func_api_admin_object_delete(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "ids", "type": "list:int", "required": True}])
     table, ids = ob["table"], ob["ids"]
-    app_state.func_check_table_not_users(table=table, api="/admin/user-delete")
+    app_state.func_check_table_not_users(table=table)
     app_state.func_check_table_write_blocked(app_state=app_state, table=table)
     app_state.func_check_batch_limit(app_state=app_state, items=ids)
     deleted_count = await app_state.func_postgres_delete(client_postgres=request.state.client_postgres, client_postgres_conn=None, cache_postgres_schema=request.state.cache_postgres_schema, table=table, ids=ids, created_by_id=None)

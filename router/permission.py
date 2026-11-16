@@ -11,7 +11,7 @@ async def func_api_permission_object_update(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}])
     app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="permission", action="write")
-    app_state.func_check_table_not_users(table=oq["table"], api="/permission/user-update")
+    app_state.func_check_table_not_users(table=oq["table"])
     app_state.func_check_table_write_blocked(app_state=app_state, table=oq["table"])
     obj_list = await app_state.func_extract_request_object_list(request=request)
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
@@ -26,7 +26,7 @@ async def func_api_permission_object_delete(*, request: Request):
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "ids", "type": "list:int", "required": True}])
     table, ids = ob["table"], ob["ids"]
     app_state.func_check_table_permission(app_state=app_state, table=table, scope="permission", action="write")
-    app_state.func_check_table_not_users(table=table, api="/permission/user-update")
+    app_state.func_check_table_not_users(table=table)
     app_state.func_check_table_write_blocked(app_state=app_state, table=table)
     app_state.func_check_batch_limit(app_state=app_state, items=ids)
     deleted_count = await app_state.func_postgres_delete(client_postgres=request.state.client_postgres, client_postgres_conn=None, cache_postgres_schema=request.state.cache_postgres_schema, table=table, ids=ids, created_by_id=None)

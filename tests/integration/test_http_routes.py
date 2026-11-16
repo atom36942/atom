@@ -184,9 +184,9 @@ class HttpRouteTests(unittest.TestCase):
             self.assertEqual(self.message(update(bob), 400), "write disabled for table: test")    # Atom's default: no table
             self.app.state.config_permission_table_write_allowed = ["test"]
             self.assertEqual(self.message(update(bob, "users"), 400), "write disabled for table: users")
-            self.app.state.config_permission_table_write_allowed = ["*"]    # every table: users is still refused, with the users route to use
-            self.assertEqual(self.message(update(bob, "users"), 400), "users table: use /permission/user-update")
-            self.assertEqual(self.message(self.client.post("/permission/object-delete", json={"table": "users", "ids": [self.alice_id]}, headers=self.auth(bob)), 400), "users table: use /permission/user-update")
+            self.app.state.config_permission_table_write_allowed = ["*"]    # every table: users is still refused
+            self.assertEqual(self.message(update(bob, "users"), 400), "write disabled for table: users")
+            self.assertEqual(self.message(self.client.post("/permission/object-delete", json={"table": "users", "ids": [self.alice_id]}, headers=self.auth(bob)), 400), "write disabled for table: users")
             self.app.state.config_permission_table_write_allowed = ["test"]
             self.assertEqual(self.message(update(bob)), [row_id])
             self.assertEqual(fetch(self.url, "SELECT title, created_by_id, updated_by_id FROM test WHERE id = $1", row_id), [{"title": "by bob", "created_by_id": self.alice_id, "updated_by_id": self.bob_id}])

@@ -89,9 +89,9 @@ class PermissionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(config.config_postgres["control"]["table_row_update_disable"], ["log_api", "log_users_password"])
 
     def test_generic_object_apis_refuse_the_users_table(self):
-        func_check_table_not_users(table="orders", api="/my/user-update")
-        with self.assertRaisesRegex(Exception, "users table: use /my/user-update"):
-            func_check_table_not_users(table="users", api="/my/user-update")
+        func_check_table_not_users(table="orders")
+        with self.assertRaisesRegex(Exception, "write disabled for table: users"):
+            func_check_table_not_users(table="users")
 
     async def update_check(self, obj, **changes):
         args = dict(client_postgres=object(), obj=obj, is_admin=False, is_otp_required=True,

@@ -67,9 +67,9 @@ def func_check_table_write_blocked(*, app_state: State, table: str) -> None:
     """Refuse a table in config_table_write_blocked (tables only Atom writes, such as logs) in every generic write API, admin's included: 403."""
     if table in (getattr(app_state, "config_table_write_blocked", None) or []): raise func_api_error(message=f"write disabled for table: {table}", status_code=403)
 
-def func_check_table_not_users(*, table: str, api: str) -> None:
-    """Refuse the users table in a generic object API: users rows are written only through their own APIs (/my/user-*, /permission/user-*, /admin/user-*); api names the one to use."""
-    if table == "users": raise Exception(f"users table: use {api}")
+def func_check_table_not_users(*, table: str) -> None:
+    """Refuse the users table in a generic object API: users rows are written only through their own APIs (/my/user-*, /permission/user-*, /admin/user-*)."""
+    if table == "users": raise Exception("write disabled for table: users")
 
 def func_check_permission_user_role(*, app_state: State, role: int) -> None:
     """Refuse a role outside config_permission_user_roles in a /permission user route: the role a new user gets, or the role of the user being changed; never role 1."""

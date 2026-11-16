@@ -150,7 +150,7 @@ Compares the input against `config_login_password` configured in `.env`. If unco
 
 ## 4. Managing Users
 
-Rows of `users` are written only through these APIs; the generic object APIs (`/my/object-update`, `/my/object-delete`, `/admin/object-create`, `/admin/object-update`, `/admin/object-delete`) refuse `table=users` and name the right one. The one exception is `/admin/postgres-import` (admins only, any table): a CSV can create or update `users` in bulk, and its `password` cells are hashed like everywhere else. Reading stays generic: `GET /my/profile` (own row plus `config_profile_metadata_sql`) and `/admin/object-read?table=users` (`password` is never readable).
+Rows of `users` are written only through these APIs; the generic object APIs (`/my/object-update`, `/my/object-delete`, `/admin/object-create`, `/admin/object-update`, `/admin/object-delete`) refuse `table=users` (`write disabled for table: users`). The one exception is `/admin/postgres-import` (admins only, any table): a CSV can create or update `users` in bulk, and its `password` cells are hashed like everywhere else. Reading stays generic: `GET /my/profile` (own row plus `config_profile_metadata_sql`) and `/admin/object-read?table=users` (`password` is never readable).
 
 | API | Query | Body | Rules |
 |---|---|---|---|

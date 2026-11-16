@@ -97,7 +97,7 @@ async def func_api_my_object_read_export(*, request: Request):
 async def func_api_my_object_update(*, request: Request):
     app_state = request.app.state
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "ownership_column", "type": "str", "allowed": app_state.config_column_ownership_update, "default": "created_by_id"}, {"name": "queue", "type": "str", "allowed": app_state.config_queue_services}])
-    app_state.func_check_table_not_users(table=oq["table"], api="/my/user-update")
+    app_state.func_check_table_not_users(table=oq["table"])
     app_state.func_check_table_write_blocked(app_state=app_state, table=oq["table"])
     obj_list = await app_state.func_extract_request_object_list(request=request)
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
@@ -130,7 +130,7 @@ async def func_api_my_ids_delete(*, request: Request):
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "ownership_column", "type": "str", "allowed": app_state.config_column_ownership_delete, "default": "created_by_id"}])
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "ids", "type": "list:int", "required": True}])
     table, ids = ob["table"], ob["ids"]
-    app_state.func_check_table_not_users(table=table, api="/my/user-delete")
+    app_state.func_check_table_not_users(table=table)
     app_state.func_check_table_write_blocked(app_state=app_state, table=table)
     app_state.func_check_batch_limit(app_state=app_state, items=ids)
     ownership_column = oq["ownership_column"]
@@ -143,7 +143,7 @@ async def func_api_my_ids_delete(*, request: Request):
 async def func_api_my_object_delete_all(*, request: Request):
     app_state, user_id = request.app.state, request.state.user["id"]
     oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "table", "type": "str", "required": True}, {"name": "ownership_column", "type": "str", "allowed": app_state.config_column_ownership_delete, "default": "created_by_id"}])
-    app_state.func_check_table_not_users(table=oq["table"], api="/my/user-delete")
+    app_state.func_check_table_not_users(table=oq["table"])
     app_state.func_check_table_write_blocked(app_state=app_state, table=oq["table"])
     app_state.func_check_table_permission(app_state=app_state, table=oq["table"], scope="my", action="delete_all")
     app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column=oq["ownership_column"], purpose="ownership tracking")
