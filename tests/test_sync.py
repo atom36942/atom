@@ -307,7 +307,8 @@ class SyncTests(unittest.TestCase):
         self.run_sync()
         self.assertEqual((self.root / ".env").read_text(), sync.EXTEND_FILES[".env"])
         if os.name != "nt": self.assertEqual((self.root / ".env").stat().st_mode & 0o777, 0o600)
-        self.assertTrue(all(line.startswith("#") for line in sync.ENV_STARTER.splitlines()))
+        self.assertTrue(all(line.startswith("#") for line in sync.ENV_STARTER.splitlines() if line))
+        self.assertIn("\n\n# extend\n", sync.ENV_STARTER)    # a blank line before # extend, as in every .env
 
     def test_extensions_are_never_written_even_when_upstream_has_them(self):
         extensions = ["docs_extend", "router_extend", "function_extend", "script_extend", "static_extend", "files_extend", "tests_extend", "config_extend.py"]

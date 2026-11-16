@@ -58,6 +58,10 @@ Atom's version is `ATOM_VERSION` in `sync.py` (for example `ATOM_VERSION = "1.2.
 
 Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. Sync always takes the latest `main`; to mark a new version, raise `ATOM_VERSION` and the `Version` line at the top of `readme.md` (a test checks they match) and push to `main` (no tags or GitHub releases). Commits in between keep the last version. A project synced before versions existed shows `unknown` until its next sync. If a sync fails after installing the new `sync.py`, that file already shows the new version while the other files may be older; the error says so, and running sync again finishes it.
 
+### 15.3.0
+
+The Admin page is now **Analytics** (`/page/analytics`; `/page/admin` is gone): read-only insights for developers, the same role 1 login, sections Overview, Users, Access, API traffic, Errors and Data, and each table's insights. Rows, SQL and exports are PgWeb's, and changes go through PgWeb or the API page. Also: the API page's Log in opens the login route's runner (any user, any role), PgWeb's SQL Runner sits at the top of its sidebar, every Atom page shows the Atom version after its title, and the monitor's server info names the master database (host / database). Nothing to change in projects; bookmarks to `/page/admin` must move to `/page/analytics`.
+
 ### 15.2.0
 
 Root (id 1) holds exactly the `/admin` permission routes: every startup sets its `permissions` to that list instead of only adding to it, so a stale id (a route that lost its permission check) or a `/permission` route granted to root by hand is removed at the next start. Grant `/permission` routes to other users. Nothing to change in projects.

@@ -8,7 +8,7 @@ Patterns that work well for an app page on Atom (`static_extend/<app>/`). They a
 - Element ids, function names and routes stay each app's own; what users see (login, header, dialogs, words) is worth keeping the same across a project's apps.
 
 ## Page standard
-Atom's pages that log in (Admin, Monitor, API, Message) are built the same way, so a new page or project copies the structure instead of deciding it again. Each page carries five blocks, copied unchanged from page to page (a test, `tests/test_page_auth.py`, fails when a copy differs); only what is around them is the page's own.
+Atom's pages that log in (Analytics, Monitor, API, Message) are built the same way, so a new page or project copies the structure instead of deciding it again. Each page carries five blocks, copied unchanged from page to page (a test, `tests/test_page_auth.py`, fails when a copy differs); only what is around them is the page's own.
 
 | Block | Where in the page | What it holds |
 | :--- | :--- | :--- |
@@ -18,7 +18,7 @@ Atom's pages that log in (Admin, Monitor, API, Message) are built the same way, 
 | account header (`<!-- ==== atom page: account header ==== -->`) | the right end of the page's header | Log in (logged out, on a page that works without a login) and the avatar with its menu (logged in) |
 | dialogs (`<!-- ==== atom page: dialogs ==== -->`) | the end of `<body>` | the login page, the blocked-account dialog, the shared dialog, the toast |
 
-**`PAGE`**, set just above the account block, is the only part that differs: `key` (the localStorage key and IndexedDB database), `title`, `role` (the login role; `null` for any role), `loginRequired` (`false` lets the page work logged out, with a Log in button), `idb` (whether it keeps data in IndexedDB), and the hooks `refresh` (downloads the page's data into the cache), `onIn` (logged in: show the page), `onOut` (logged out: forget what it shows), `onSynced` (a sync finished: draw again) and `intro` (the login page's left side: `{heading, text, features: [[svg paths, title, line], …]}`, four features). The page calls `Page.start()` last.
+**`PAGE`**, set just above the account block, is the only part that differs: `key` (the localStorage key and IndexedDB database), `title`, `role` (the login role; `null` for any role), `loginRequired` (`false` lets the page work logged out, with a Log in button), `idb` (whether it keeps data in IndexedDB), and the hooks `refresh` (downloads the page's data into the cache), `onIn` (logged in: show the page), `onOut` (logged out: forget what it shows), `onSynced` (a sync finished: draw again), `login` (optional: the page's own login instead of the login card; API opens the runner of the login route) and `intro` (the login page's left side: `{heading, text, features: [[svg paths, title, line], …]}`, four features). The page calls `Page.start()` last.
 
 **`Page`** is what the page's own code uses: `api(path, options)` (Atom's `{status, message}` answer, the token added, a 401 renewed once), `request` (the raw response, for downloads), `read()` and `save(changes)` (the localStorage object), `user()`, `cacheGet(name)` and `cacheSet(name, data)` (IndexedDB records `{name, user_id, saved_at, data}`), `syncData()` (the page's download, one at a time), `dialog`, `form({title, body, ok, tone, submit})`, `confirm(title, text, ok, danger)`, `toast(text, isError)`, `kv(rows)`, `esc`, `loggedIn()`, `signIn(token)`, `logOut(message)`, `tokenFresh()` and `tokenRefresh()`. Every dialog of the page (its own forms and confirmations too) goes through `dialog`, `form` and `confirm`, so all of them look and behave alike.
 
@@ -26,7 +26,7 @@ Atom's pages that log in (Admin, Monitor, API, Message) are built the same way, 
 
 | Page | `PAGE` | Its data in IndexedDB |
 | :--- | :--- | :--- |
-| Admin | `key: "admin", role: 1, loginRequired: true, idb: true` | `reference`: schema, `/info`, row counts, settings, triggers, CHECK constraints |
+| Analytics | `key: "analytics", role: 1, loginRequired: true, idb: true` | `reference`: schema, `/info`, row estimates, settings; `analytics`: each section's saved cards |
 | Monitor | `key: "monitor", role: 1, loginRequired: true, idb: false` | none (every tab reads live) |
 | API | `key: "api", role: null, loginRequired: false, idb: true` | `openapi`: `/openapi.json` (logged out, a copy over 3 hours old is downloaded again on open) |
 | Message | `key: "message", role: null, loginRequired: true, idb: false` | none (messages are live) |

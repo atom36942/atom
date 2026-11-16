@@ -1,0 +1,1194 @@
+<!doctype html>
+<html lang="en" data-storage-key="analytics">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Analytics</title>
+<!-- ==== atom page: theme ==== -->
+<script>
+// Identical in every Atom page (docs/page.md, Page standard): the look before the page draws, so it never flashes another one.
+// Saved in the page's own localStorage key (<html data-storage-key>, the key it keeps its login in) under "settings": theme = "dark" (the default), "light" or "system"
+// (the computer's mode, followed as it changes); density = "comfortable" (the default) or "compact". So each page keeps its own; logout removes the whole key (back on the defaults).
+// Chosen in Settings (account menu), followed by every tab of the page; the result is <html data-theme data-density>. window.atomSettings: get, set, apply.
+(() => {
+  const root = document.documentElement, key = root.dataset.storageKey, media = matchMedia("(prefers-color-scheme: dark)");
+  const stored = () => { try { const data = JSON.parse(localStorage.getItem(key) || "{}"); return data && typeof data === "object" && !Array.isArray(data) ? data : {} } catch { return {} } };
+  const get = (name, options) => { const value = stored().settings?.[name]; return options.includes(value) ? value : options[0] };
+  const apply = () => {
+    const theme = get("theme", ["dark", "light", "system"]);
+    root.dataset.theme = theme === "system" ? (media.matches ? "dark" : "light") : theme;
+    root.dataset.density = get("density", ["comfortable", "compact"]);
+  };
+  const set = (name, value) => { const data = stored(); try { localStorage.setItem(key, JSON.stringify({ ...data, settings: { ...data.settings, [name]: value } })) } catch {} apply() };
+  apply();
+  media.addEventListener("change", apply);
+  addEventListener("storage", e => { if (e.key === key || e.key === null) apply() });
+  window.atomSettings = { get, set, apply };
+})();
+</script>
+<!-- ==== end atom page: theme ==== -->
+<style>
+/* ==== atom page: look ==== */
+/* Identical in every Atom page (docs/page.md, Page standard); a page's own styles come after this block and only add layout. A test checks the copies match. */
+:root{--bg:#0b0d10;--card:#0f1114;--panel:#1a1d23;--field:#14171c;--line:rgba(var(--hl),.08);--line-strong:rgba(var(--hl),.14);--text:#e6eef3;--muted:#9aa0a6;--primary:#38a169;--accent:#4299e1;--brand:#2b6cb0;--brand-soft:#c3dafe;--brand-ink:#90cdf4;--hl:255,255,255;--warn:#ed8936;--danger:#f87171;--font:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;--mono:"SF Mono",Menlo,Consolas,monospace;--fs:13px;--fs-small:12px;--fs-title:15px;--radius:8px;--control-h:34px;--cell-y:8px;color-scheme:dark}
+/* light: <html data-theme="light"> (Settings > Theme, or the computer when Theme is System); --hl is the overlay colour (white on dark, ink on light) */
+/* compact: <html data-density="compact"> (Settings > Density): smaller fields, buttons and table rows */
+:root[data-density="compact"]{--control-h:28px;--cell-y:4px}
+:root[data-theme="light"]{--bg:#f5f7fa;--card:#fff;--panel:#eef1f5;--field:#fff;--text:#1c2430;--muted:#5f6b7a;--primary:#2f855a;--accent:#2b6cb0;--brand-soft:#dbe8fb;--brand-ink:#2b6cb0;--warn:#c05621;--danger:#c53030;--hl:15,23,42;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5}
+[hidden]{display:none!important}
+h1,h2,h3{font-family:var(--font)}
+:where(button,select,input,textarea){font-family:var(--font);font-size:var(--fs);color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:var(--radius);height:var(--control-h);padding:0 12px}
+/* every dropdown draws its arrow as Pulse does: 12px in from the right edge, the text kept clear of it */
+select:not([multiple]):not([size]){appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='M3 5l4 4 4-4' fill='none' stroke='%239aa0a6' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:14px;padding-right:36px}
+:root[data-theme="light"] select:not([multiple]):not([size]){background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='M3 5l4 4 4-4' fill='none' stroke='%235f6b7a' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+:where(textarea){height:auto;min-height:80px;padding:8px 12px;resize:vertical;font-family:var(--mono);font-size:var(--fs-small)}
+:where(button){cursor:pointer;white-space:nowrap;font-weight:500;transition:border-color .15s,background .15s}
+:where(button:hover:not(:disabled)){border-color:rgba(66,153,225,.5);background:var(--panel)}
+:where(button:disabled){opacity:.5;cursor:default}
+button.primary{background:rgba(56,161,105,.12);border-color:rgba(56,161,105,.35);color:var(--primary)}
+button.primary:hover:not(:disabled){background:rgba(56,161,105,.2);border-color:rgba(56,161,105,.55)}
+button.danger{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.3);color:var(--danger)}
+button.small{height:28px;padding:0 10px;font-size:var(--fs-small)}
+button.link{height:auto;padding:0;border:none;background:none;color:var(--accent);font-size:inherit}
+button.link:hover:not(:disabled){background:none;text-decoration:underline}
+:where(select){padding-right:8px;cursor:pointer}
+:where(input:focus,select:focus,textarea:focus){outline:none;border-color:var(--accent)}
+.muted{color:var(--muted)}
+.mono{font-family:var(--mono);font-size:var(--fs-small)}
+.error-box{padding:10px 12px;border-radius:var(--radius);font-size:var(--fs);background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--danger);white-space:pre-wrap}
+/* dialogs: a header in its own colour, a padded body, actions on their own band; every dialog of the page uses them */
+dialog.dlg{width:min(460px,calc(100vw - 32px));max-height:calc(100vh - 32px);padding:0;border:1px solid var(--line-strong);border-radius:12px;background:var(--card);color:var(--text);font-size:var(--fs);box-shadow:0 20px 50px rgba(0,0,0,.55);overflow:hidden}
+dialog.dlg[open]{display:flex;flex-direction:column}
+dialog.dlg::backdrop{background:rgba(0,0,0,.6)}
+.dlg-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 18px;background:var(--brand);color:#fff}
+.dlg-head h3{margin:0;font-size:var(--fs-title);font-weight:600;line-height:1.3;color:#fff}
+.dlg-sub{margin:3px 0 0;color:var(--brand-soft);font-size:var(--fs-small);font-weight:400}
+.dlg-body{padding:18px;overflow-y:auto;display:grid;gap:14px}
+.dlg-body:empty{display:none}
+/* inside the shared dialogs, fields and buttons look the same on every page, whatever the page's own rules */
+dialog.dlg input,dialog.dlg select{width:100%;height:var(--control-h);margin:0;padding:0 12px;font-family:var(--font);font-size:var(--fs);color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:var(--radius);box-shadow:none}
+dialog.dlg input:focus,dialog.dlg select:focus{outline:none;border-color:var(--accent)}
+dialog.dlg input:disabled{color:var(--muted);background:rgba(var(--hl),.02)}
+dialog.dlg .pw-wrap input{padding-right:40px}
+dialog.dlg .dlg-actions button:not(.kv-btn){height:var(--control-h);padding:0 14px;font-size:var(--fs);font-weight:500;border-radius:var(--radius)}
+.dlg-actions{display:flex;justify-content:flex-end;gap:8px;padding:12px 18px;background:var(--panel);border-top:1px solid var(--line-strong)}
+.dlg-x{width:30px;height:30px;margin:-4px -6px 0 0;padding:0;border:none;background:none;color:rgba(255,255,255,.8);display:inline-flex;align-items:center;justify-content:center;flex:none}
+.dlg-x:hover:not(:disabled){background:rgba(255,255,255,.14);color:#fff}
+.dlg-x svg,.kv-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.confirm-text{margin:0}
+.dlg-form{display:grid;gap:14px}
+:where(input:disabled,select:disabled,textarea:disabled){color:var(--muted);background:rgba(var(--hl),.02);cursor:not-allowed}
+.field{display:grid;gap:6px}
+.field label{color:var(--muted);font-size:var(--fs-small);font-weight:600}
+.field input,.field select{width:100%}
+.kv .kv-input{width:100%;height:calc(var(--control-h) - 4px)}
+.kv textarea.kv-input{height:auto;min-height:60px;font-family:var(--font);font-size:var(--fs)}
+.field-help{margin:0;color:var(--muted);font-size:var(--fs-small)}
+.pw-wrap{position:relative;display:flex}
+.pw-wrap input{flex:1;padding-right:40px}
+.pw-eye{position:absolute;right:2px;top:50%;transform:translateY(-50%);width:30px;height:30px;padding:0;border:none;background:none;color:var(--muted);display:inline-flex;align-items:center;justify-content:center}
+.pw-eye:hover:not(:disabled){background:none;color:var(--text)}
+.pw-eye svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.kv-btn{width:28px;height:28px;padding:0;display:inline-flex;align-items:center;justify-content:center;flex:none}
+/* key-value rows: My profile, Login details, Sync and any page's record view */
+.kv{width:100%;border:1px solid var(--line);border-radius:10px;border-collapse:separate;border-spacing:0;overflow:hidden}
+.kv th{width:38%;padding:10px 12px;text-align:left;vertical-align:middle;background:var(--panel);color:var(--muted);font-weight:600;font-size:var(--fs-small);border-bottom:1px solid var(--line)}
+.kv td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.kv tr:last-child th,.kv tr:last-child td{border-bottom:none}
+.kv th,.kv td{white-space:normal;font-family:var(--font)}
+.kv tbody tr:hover{background:none}
+.kv .cell{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sync-progress{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.sync-fill{height:100%;width:0;background:var(--accent);border-radius:3px;transition:width .3s ease}
+.sync-status{margin:0;color:var(--muted)}
+.sync-status:empty{display:none}    /* shown only while syncing or after an error, so the dialog has no empty space under its rows */
+.sync-status.error{color:var(--danger)}
+/* toast: bottom right (centred on a phone), the same in every Atom page and in the projects' pages: a green check or a red !, the message, a ×; 6 s, kept while the mouse is over it; a popover, so it shows above an open dialog */
+.toast{position:fixed;inset:auto 24px 24px auto;margin:0;max-width:min(440px,calc(100vw - 32px));padding:8px 8px 8px 12px;border:1px solid var(--line-strong);border-radius:10px;background:var(--panel);color:var(--text);font-size:var(--fs);box-shadow:0 8px 24px rgba(0,0,0,.4);overflow:visible}
+.toast:popover-open{display:flex;align-items:center;gap:10px}
+.toast-icon{flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--primary);color:#fff;font-size:12px;font-weight:700;line-height:1}
+.toast.error .toast-icon{background:var(--danger)}
+.toast-text{flex:1;min-width:0}
+.toast-close{flex:none;display:grid;place-items:center;width:26px;height:26px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--muted);font-size:16px;line-height:1}
+.toast-close:hover{color:var(--text);background:rgba(var(--hl),.08)}
+@media (max-width:600px){.toast{inset:auto 16px 16px 16px;max-width:none}}
+/* header account area: the avatar and its menu (My profile, Login details, Sync, Settings, Logout, as in the apps), or Login when logged out */
+.atom-account{display:flex;align-items:center;gap:8px}
+.account{position:relative;display:flex}
+.avatar{width:32px;height:32px;border-radius:50%;border:none;padding:0;background:var(--accent);color:#fff;font-size:12px;font-weight:700;letter-spacing:.5px;display:inline-flex;align-items:center;justify-content:center}
+.avatar:hover:not(:disabled),.avatar[aria-expanded="true"]{background:var(--accent);border:none;box-shadow:0 0 0 3px rgba(66,153,225,.35)}
+.account-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:60;min-width:190px;padding:6px;border-radius:12px;background:var(--panel);border:1px solid var(--line-strong);box-shadow:0 12px 32px rgba(0,0,0,.45)}
+.account-item{display:flex;align-items:center;gap:9px;width:100%;height:36px;padding:0 18px 0 11px;border:none;border-radius:var(--radius);background:none;color:var(--text);font-size:var(--fs);font-weight:400;text-align:left}
+.account-item:hover:not(:disabled){background:rgba(var(--hl),.06);border:none}
+.account-item svg{flex:none;width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.account-item.danger-item{color:var(--danger)}
+.account-item.danger-item:hover:not(:disabled){background:rgba(248,113,113,.12)}
+/* login page: a wordmark, the page's intro (badge, heading, a line, four feature cards) on the left, the login card on the right; a page that works without a login (API) shows only the card, over the page, with a × */
+.login-page{position:fixed;inset:0;z-index:50;overflow-y:auto;background:radial-gradient(circle at 15% 10%,rgba(43,108,176,.18),transparent 45%),var(--bg);display:flex;flex-direction:column}
+.login-page.card-only{background:rgba(0,0,0,.6);align-items:center;justify-content:center;padding:16px}
+.login-wordmark{display:flex;align-items:center;gap:10px;padding:20px 28px;font-weight:700;font-size:16px}
+.login-mark{display:grid;place-items:center;width:30px;height:30px;border-radius:8px;background:var(--brand);color:#fff;font-size:15px}
+.login-wrap{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:48px;align-items:center;width:min(1100px,100%);margin:48px auto 0;padding:24px 28px 56px}    /* the apps' login layout: a fixed distance under the wordmark (never centred in a tall window), the text and a 370px card */
+.login-page.card-only .login-wrap{display:block;flex:none;width:min(400px,100%);padding:0;margin:0}
+.login-badge{display:inline-block;padding:4px 10px;border-radius:999px;background:rgba(43,108,176,.18);color:var(--brand-ink);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.login-intro h1{margin:16px 0;font-family:Georgia,"Times New Roman",serif;font-size:38px;font-weight:600;line-height:1.15}
+.login-intro>p{margin:0 0 28px;color:var(--muted);font-size:15px;max-width:520px}
+.login-features{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.login-feature{display:flex;gap:12px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.login-feature strong{display:block;font-size:14px;font-weight:600}
+.login-feature p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.feature-icon{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:8px;background:rgba(43,108,176,.18);color:var(--brand-ink)}
+.feature-icon svg,.login-input>svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.login-card{border:1px solid var(--line-strong);border-radius:12px;background:var(--card);box-shadow:0 20px 50px rgba(0,0,0,.45);overflow:hidden}
+.login-card .dlg-x{display:inline-flex}
+.login-body{display:grid;gap:16px;padding:20px 26px 26px}
+.login-body .field{grid-template-columns:none;padding:0;border:0}
+.login-input{position:relative;display:flex;align-items:center}
+.login-input>svg{position:absolute;left:11px;color:var(--muted);pointer-events:none}
+.login-input input{width:100%;padding-left:36px}
+.login-input.pw-wrap input{padding-right:40px}
+.login-btn{width:100%;height:45px;margin-top:6px;border-radius:var(--radius);font-size:14px;border:none;background:var(--brand);color:#fff;font-weight:600}
+.login-card input{height:45px;border-radius:var(--radius);font-size:14px}    /* the apps' login card: 45px fields and button with the 8px corners, 14px text; label 8px over its field, 16px between fields, 22px to the button */
+.login-card .field{gap:8px}
+.login-card .field label{font-size:13px}
+.login-card .dlg-head{padding:16px 20px}
+.login-card .dlg-head h3{font-size:17px}
+.login-btn:hover:not(:disabled){background:#2c5282;border:none}
+@media (max-width:860px){.login-wrap{grid-template-columns:1fr;align-content:start;gap:24px;margin-top:16px;padding:8px 16px 32px}.login-features{display:none}.login-intro h1{font-size:28px}.login-wordmark{padding:16px}}
+/* Settings: one row per setting, each a choice of a few options (Theme: Dark, Light, System; Density: Comfortable, Compact) */
+.setting-row{display:grid;gap:10px;padding:14px;border:1px solid var(--line);border-radius:10px}
+.setting-row strong{display:block;font-weight:600}
+.setting-row p{margin:2px 0 0;color:var(--muted);font-size:var(--fs-small)}
+.choices{display:grid;grid-auto-columns:1fr;grid-auto-flow:column;gap:4px;padding:4px;border-radius:var(--radius);background:var(--panel)}
+dialog.dlg .choices button{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 10px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--muted);font-weight:600}
+dialog.dlg .choices button:hover:not(:disabled){background:transparent;color:var(--text);border-color:transparent}
+dialog.dlg .choices button[aria-checked="true"]{background:var(--card);border-color:var(--line-strong);color:var(--brand-ink)}
+.choices svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+/* ==== end atom page: look ==== */
+:root{--side:232px}
+body{min-height:100vh}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.null{color:rgba(var(--hl),.25)}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;background:rgba(var(--hl),.06);color:var(--muted);white-space:nowrap}
+.pill.ok{background:rgba(56,161,105,.15);color:var(--primary)}
+.pill.bad{background:rgba(248,113,113,.15);color:var(--danger)}
+.pill.warn{background:rgba(237,137,54,.15);color:var(--warn)}
+.pill.blue{background:rgba(66,153,225,.15);color:var(--accent)}
+.message{margin-bottom:16px;padding:12px 16px;border-radius:10px;font-size:13px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--danger);white-space:pre-wrap}
+.info{margin-bottom:16px;padding:12px 16px;border-radius:10px;font-size:13px;background:var(--card);border:1px solid var(--line);color:var(--muted)}
+/* ==== layout ==== */
+.shell{display:grid;grid-template-columns:var(--side) 1fr;min-height:100vh}
+aside.side{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;background:var(--card);border-right:1px solid var(--line)}
+.brand{padding:18px 16px 14px}
+.brand h1{margin:0;font-size:18px;font-weight:700}
+.brand h1 a{color:inherit;text-decoration:none}
+.brand-db{margin:2px 0 0;color:var(--muted);font-size:11px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* the sections, one button each with its icon; the open one tinted in the accent, as PgWeb's SQL Runner */
+.nav{display:flex;flex-direction:column;gap:4px;padding:6px 10px;border-top:1px solid var(--line)}
+.nav-item{display:flex;align-items:center;gap:8px;width:100%;height:36px;padding:0 12px;border:1px solid transparent;border-radius:8px;background:none;color:var(--muted);font-size:13px;font-weight:500;text-align:left}
+.nav-item span{display:flex;align-items:center;gap:10px}
+.nav-item svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.nav-item:hover:not(:disabled){background:var(--panel);color:var(--text)}
+.nav-item.active,.nav-item.active:hover:not(:disabled){background:rgba(66,153,225,.16);border-color:rgba(66,153,225,.35);color:var(--brand-ink);font-weight:600}
+.side-foot{margin-top:auto;padding:12px 16px;border-top:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1.5}
+.side-foot a{color:var(--accent)}
+main{min-width:0;padding:20px 24px 48px}
+header.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+header.top h2{margin:0;font-size:20px;font-weight:700}
+header.top .sub{margin:2px 0 0;color:var(--muted);font-size:13px}
+.actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.view-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:12px}
+h4.section{margin:18px 0 10px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+@media (max-width:860px){.shell{grid-template-columns:1fr}aside.side{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line)}.nav{flex-direction:row;flex-wrap:wrap}.nav-item{width:auto}.side-foot{display:none}main{padding:16px}}
+/* ==== cards, tiles and charts ==== */
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:16px;min-width:0}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);border-radius:12px 12px 0 0}
+.card-head h3{margin:0;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.card-note{color:var(--muted);font-size:12px}
+.card-scroll{overflow-x:auto;max-height:420px;overflow-y:auto}
+.empty{padding:18px 16px;color:var(--muted);font-size:13px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.tiles>.empty{grid-column:1/-1;padding:0}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.tile .label{color:var(--muted);font-size:12px}
+.tile .value{font-size:22px;font-weight:700;line-height:1.3}
+.tile .value.bad{color:var(--danger)}
+.tile .value.warn{color:var(--warn)}
+.tile .hint{color:var(--muted);font-size:11px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.two>.card{margin-bottom:16px}
+@media (max-width:1100px){.two{grid-template-columns:1fr}}
+.chart{display:flex;align-items:flex-end;gap:2px;height:120px;padding:16px 16px 0}
+.chart .col{flex:1;min-width:2px;height:100%;display:flex;flex-direction:column;justify-content:flex-end}
+.chart .col:hover{background:rgba(var(--hl),.04)}
+.chart .ok{background:var(--accent);border-radius:2px 2px 0 0}
+.chart .err{background:var(--danger)}
+.chart .new{background:var(--primary);border-radius:2px 2px 0 0}
+.axis{display:flex;justify-content:space-between;padding:6px 16px 12px;color:var(--muted);font-size:11px}
+.legend{display:flex;gap:12px;color:var(--muted);font-size:12px}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.bar{height:6px;border-radius:3px;background:rgba(var(--hl),.06);overflow:hidden;min-width:80px}
+.bar span{display:block;height:100%;background:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{padding:calc(var(--cell-y) + 1px) 12px;text-align:left;font-size:12px;font-weight:600;color:var(--muted);border-bottom:1px solid rgba(var(--hl),.1);white-space:nowrap;background:var(--card);position:sticky;top:0}
+td{padding:calc(var(--cell-y) - 1px) 12px;border-bottom:1px solid rgba(var(--hl),.05);white-space:nowrap;max-width:360px;overflow:hidden;text-overflow:ellipsis}
+tbody tr:last-child td{border-bottom:none}
+tbody tr.row{cursor:pointer}
+tbody tr.row:hover{background:rgba(var(--hl),.03)}
+.atom-ver{margin-left:6px;font-size:11px;font-weight:400;letter-spacing:0;color:var(--muted);opacity:.7;vertical-align:middle}
+</style>
+</head>
+<body>
+<!-- ==== app ==== -->
+<div class="shell" id="appView" hidden>
+  <aside class="side">
+    <div class="brand"><h1><a id="brandHome" href="/page/analytics" aria-label="Analytics home">Analytics</a><span class="atom-ver"></span></h1><p class="brand-db" id="brandDb" hidden></p></div>
+    <nav class="nav" id="sectionNav" aria-label="Sections"></nav>
+    <div class="side-foot">Read-only insights. Rows, SQL and exports: <a href="/page/pgweb">PgWeb</a> · every API: <a href="/page/api">API</a></div>
+  </aside>
+  <main>
+    <header class="top">
+      <div><h2 id="title">Overview</h2><p class="sub" id="subtitle"></p></div>
+      <div class="actions">
+        <button type="button" id="refreshBtn" title="Read this view again from the database">Refresh</button>
+        <!-- ==== atom page: account header ==== -->
+        <div class="atom-account">
+          <button type="button" class="primary" id="loginOpenBtn" hidden>Log in</button>
+          <div class="account" id="accountWrap" hidden>
+            <button type="button" class="avatar" id="accountBtn" data-tip="Account" aria-haspopup="true" aria-expanded="false" aria-label="Account menu"><span id="avatarText">?</span></button>
+            <div class="account-menu" id="accountMenu" role="menu" hidden>
+              <button type="button" class="account-item" id="profileBtn" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>My profile</button>
+              <button type="button" class="account-item" id="detailsBtn" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Login details</button>
+              <button type="button" class="account-item" id="syncBtn" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 17.9 17"/></svg>Sync</button>
+              <button type="button" class="account-item" id="settingsBtn" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</button>
+              <button type="button" class="account-item danger-item" id="logoutBtn" role="menuitem"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M15 4h5v16h-5"/></svg>Logout</button>
+            </div>
+          </div>
+        </div>
+        <!-- ==== end atom page: account header ==== -->
+      </div>
+    </header>
+    <div class="message" id="error" hidden></div>
+    <div id="view"></div>
+  </main>
+</div>
+
+<!-- ==== atom page: dialogs ==== -->
+<section class="login-page" id="loginPage" aria-labelledby="loginTitle" hidden>
+  <div class="login-wordmark" id="loginWordmark"><span class="login-mark">A</span><span id="loginPageName"></span></div>
+  <div class="login-wrap">
+    <div class="login-intro" id="loginIntro"><span class="login-badge" id="loginBadge"></span><h1 id="loginHeading"></h1><p id="loginText"></p><div class="login-features" id="loginFeatures"></div></div>
+    <form class="login-card" id="loginForm" novalidate>
+      <div class="dlg-head"><div><h3 id="loginTitle">Login</h3><p class="dlg-sub" id="loginSub"></p></div><button type="button" class="dlg-x" id="loginClose" aria-label="Close" data-tip="Close"></button></div>
+      <div class="login-body">
+        <div class="field" id="loginRoleField"><label for="loginRole">Role</label><input id="loginRole" inputmode="numeric" autocomplete="off"></div>
+        <div class="field"><label for="loginUsername">Username</label><span class="login-input"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M4 21v-3a5 5 0 0 1 5-5h6a5 5 0 0 1 5 5v3"/></svg><input id="loginUsername" autocomplete="username" maxlength="120"></span></div>
+        <div class="field"><label for="loginPassword">Password</label><span class="login-input pw-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4"/></svg><input id="loginPassword" type="password" autocomplete="current-password" maxlength="120"><button type="button" class="pw-eye" id="loginEye" aria-label="Show password" data-tip="Show password"></button></span></div>
+        <div class="error-box" id="loginError" hidden></div>
+        <button type="submit" class="login-btn" id="loginBtn">Login</button>
+      </div>
+    </form>
+  </div>
+</section>
+<dialog class="dlg" id="blockedDialog" aria-labelledby="blockedTitle">
+  <div class="dlg-head"><div><h3 id="blockedTitle"></h3></div></div>
+  <div class="dlg-body"><p class="confirm-text" id="blockedText"></p></div>
+  <div class="dlg-actions"><button type="button" class="primary" id="blockedOk">OK</button></div>
+</dialog>
+<dialog class="dlg" id="atomDialog" aria-labelledby="atomTitle">
+  <div class="dlg-head"><div><h3 id="atomTitle"></h3><p class="dlg-sub" id="atomSub" hidden></p></div><button type="button" class="dlg-x" id="atomClose" aria-label="Close" data-tip="Close"></button></div>
+  <div class="dlg-body" id="atomBody"></div>
+  <div class="dlg-actions" id="atomActions" hidden></div>
+</dialog>
+<div class="toast" id="toast" role="status" aria-live="polite" popover="manual"><span class="toast-icon" aria-hidden="true"></span><span class="toast-text"></span><button class="toast-close" id="toastClose" type="button" aria-label="Close" data-tip="Close">×</button></div>
+<!-- ==== end atom page: dialogs ==== -->
+
+<script>
+/* ==== page settings and the account block ==== */
+// Analytics needs a role 1 login, as Atom's /admin read routes do. Read-only: insights only, rows, SQL and exports are PgWeb's.
+// Its reference data (schema, /info, row estimates, a few server settings) is one IndexedDB record, "reference", downloaded at the first login and by every sync;
+// each section's cards are the record "analytics", shown with their age until Refresh or a sync.
+// localStorage "analytics" = {v, token, user, synced_at} (the account block) plus this page's choice: range
+const PAGE = { key: "analytics", title: "Analytics", role: 1, loginRequired: true, idb: true, intro: { heading: "Your backend, at a glance", text: "Users, access, API traffic, errors and data, read straight from the database: no queries to write.", features: [['<circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M17 4a4 4 0 0 1 0 8M22 21a7 7 0 0 0-4-6.3"/>', "Users and access", "Sign-ups, activity, roles and permissions."], ['<path d="M4 19V10M10 19V5M16 19v-7M22 19V8"/>', "API traffic", "Volume, speed and the busiest routes."], ['<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/>', "Errors", "What fails, where and how often."], ['<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/>', "Data", "Size and growth of every table."]] }, refresh: () => referenceRefresh(), onIn: () => analyticsOpen(), onOut: () => analyticsClose(), onSynced: () => analyticsSynced() };
+/* ==== atom page: account ==== */
+// Identical in every Atom page that logs in (docs/page.md, Page standard); the page sets PAGE just above this block and calls Page.start() last. A test checks the copies match.
+// localStorage[PAGE.key] = {v, token, user, info, synced_at, ...the page's choices}; IndexedDB database PAGE.key, store "cache", records {name, user_id, saved_at, data} (pages with PAGE.idb).
+// Logged in means a valid token object; the user comes from GET /my/profile and is checked on every sync; Sync runs every 3 hours and from the account menu; logout clears everything in every tab.
+// Without a login: a page that needs one shows the login page (PAGE.intro: {heading, text, features: [[svg paths, title, line], ...]}); a page with PAGE.login opens its own login instead (API: the runner).
+const Page = (() => {
+  const STORAGE_KEY = PAGE.key, STORAGE_VERSION = 1, IDB_STORE = "cache", IDB_VERSION = 2, SYNC_EVERY_MS = 3 * 3600 * 1000;
+  const EXPIRED = "Your session has expired. Please log in again.";
+  const el = id => document.getElementById(id);
+  const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const dash = v => v == null || v === "" ? "-" : esc(v);
+  const nowSec = () => Math.floor(Date.now() / 1000);
+  const ICON = {
+    x: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
+    pencil: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+    eye: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+    eyeOff: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.9 8.4 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
+  };
+
+  /* -- storage -- */
+  const read = () => { try { const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); return s && s.v === STORAGE_VERSION ? s : {} } catch { return {} } };
+  const save = changes => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...read(), settings: JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")?.settings, ...changes, v: STORAGE_VERSION })) } catch {} };    // settings (the theme block's) are kept, even when chosen before login
+  // the whole token object, valid, or logged out
+  const loginValid = token => !!token && typeof token.access_token === "string" && token.access_token !== "" && typeof token.refresh_token === "string" && token.refresh_token !== "" && Number.isFinite(token.access_token_expires_at) && Number.isFinite(token.refresh_token_expires_at) && token.refresh_token_expires_at > nowSec();
+  // a deleted or deactivated account: Atom answers 403 "account deleted" / "account deactivated" at login, at token refresh and on every token route; the page logs out and says so
+  const ACCOUNT_REFUSED = { "account deleted": "Your account was deleted. Please contact your admin.", "account deactivated": "Your account is deactivated. Please contact your admin." };
+  const BLOCKED_TITLE = { [ACCOUNT_REFUSED["account deleted"]]: "Account deleted", [ACCOUNT_REFUSED["account deactivated"]]: "Account deactivated" };
+  let accountRefused = "";    // set by a refused request: every logout until the next login shows it, never "session expired"
+  const userBlock = user => !user ? "Your account could not be loaded." : user.deleted_at ? ACCOUNT_REFUSED["account deleted"] : user.deactivated_at ? ACCOUNT_REFUSED["account deactivated"] : PAGE.role != null && Number(user.role) !== PAGE.role ? `${PAGE.title} access is unavailable.` : "";
+
+  /* -- IndexedDB cache: big or slow reference data; a record saved for another user is ignored -- */
+  const idbOpen = () => new Promise((resolve, reject) => {
+    const q = indexedDB.open(STORAGE_KEY, IDB_VERSION);
+    q.onupgradeneeded = () => { const db = q.result; if (db.objectStoreNames.contains(IDB_STORE)) db.deleteObjectStore(IDB_STORE); db.createObjectStore(IDB_STORE, { keyPath: "name" }) };
+    q.onsuccess = () => resolve(q.result);
+    q.onerror = () => reject(q.error);
+  });
+  const idbRun = async (mode, work) => { const db = await idbOpen(); try { return await new Promise((resolve, reject) => { const q = work(db.transaction(IDB_STORE, mode).objectStore(IDB_STORE)); q.onsuccess = () => resolve(q.result); q.onerror = () => reject(q.error) }) } finally { db.close() } };
+  const cacheGet = async name => { if (!PAGE.idb) return null; try { const r = await idbRun("readonly", s => s.get(name)); return r && r.user_id === (read().user?.id ?? null) ? r : null } catch { return null } };
+  const cacheSet = async (name, data) => { if (!PAGE.idb || (PAGE.loginRequired && !loginValid(read().token))) return; try { await idbRun("readwrite", s => s.put({ name, user_id: read().user?.id ?? null, saved_at: Date.now(), data })) } catch {} };
+  const cacheCount = async () => { if (!PAGE.idb) return 0; try { return await idbRun("readonly", s => s.count()) } catch { return 0 } };
+  const cacheClear = () => new Promise(resolve => { if (!PAGE.idb) return resolve(); const q = indexedDB.deleteDatabase(STORAGE_KEY); q.onsuccess = q.onerror = q.onblocked = () => resolve() });
+
+  /* -- toast and the one dialog every part of the page uses -- */
+  let toastTimer = null;
+  const toastClose = () => { clearTimeout(toastTimer); if (el("toast").matches(":popover-open")) el("toast").hidePopover() };
+  const toastWait = () => { clearTimeout(toastTimer); toastTimer = setTimeout(toastClose, 6000) };
+  // shown again each time, so it is the newest thing in the top layer (above a dialog opened since)
+  const toast = (text, isError = false) => { const t = el("toast"); t.querySelector(".toast-text").textContent = text; t.querySelector(".toast-icon").textContent = isError ? "!" : "✓"; t.classList.toggle("error", !!isError); if (t.matches(":popover-open")) t.hidePopover(); t.showPopover(); toastWait() };
+  el("toast").querySelector(".toast-close").addEventListener("click", toastClose);
+  el("toast").addEventListener("mouseenter", () => clearTimeout(toastTimer));
+  el("toast").addEventListener("mouseleave", () => { if (el("toast").matches(":popover-open")) toastWait() });
+  let dialogOn = {}, dialogLocked = false, formResolve = null;
+  // dialog({title, sub, body, actions, on: {buttonId: handler}}): a title, an optional subtitle, a body and actions only when there is something to do
+  const dialog = ({ title, sub = "", body = "", actions = "", on = {} }) => {
+    formResolve?.(false);    // a form still waiting is answered "no" when the dialog shows something else
+    formResolve = null;
+    el("atomTitle").textContent = title;
+    el("atomSub").textContent = sub;
+    el("atomSub").hidden = !sub;
+    el("atomBody").innerHTML = body + '<div class="error-box" id="atomError" hidden></div>';
+    el("atomActions").innerHTML = actions;
+    el("atomActions").hidden = !actions;
+    dialogOn = on;
+    if (!el("atomDialog").open) el("atomDialog").showModal();
+  };
+  const dialogClose = () => { if (el("atomDialog").open) el("atomDialog").close() };
+  const dialogError = text => { const e = el("atomError"); if (e) { e.textContent = text || ""; e.hidden = !text } };
+  const dialogLock = on => { dialogLocked = on; for (const b of el("atomDialog").querySelectorAll("button")) b.disabled = on };
+  // form({title, sub, body, ok, tone, submit}): Cancel, then the main action; submit() runs on the action or Enter and its error stays in the dialog;
+  // resolves true when done, false on Cancel or close. confirm(title, text, ok, danger) is a form without fields
+  const form = ({ title, sub = "", body = "", ok = "OK", tone = "primary", submit = null }) => new Promise(resolve => {
+    const done = value => { formResolve = null; dialogClose(); resolve(value) };
+    const run = async () => {
+      if (!submit) return done(true);
+      dialogError("");
+      dialogLock(true);
+      try { await submit(); dialogLock(false); done(true) }
+      catch (failure) { dialogLock(false); dialogError(failure.message) }
+    };
+    dialog({ title, sub, body: `<form class="dlg-form" id="atomForm" novalidate>${body}</form>`, actions: `<button type="button" id="atomCancel">Cancel</button><button type="submit" form="atomForm" class="${tone}" id="atomOk">${esc(ok)}</button>`, on: { atomCancel: () => done(false) } });
+    formResolve = resolve;
+    el("atomForm").addEventListener("submit", e => { e.preventDefault(); run() });
+    (el("atomForm").querySelector("input:not([disabled]),select,textarea") || el("atomOk")).focus();
+  });
+  const confirm = (title, text, ok = "OK", danger = false) => form({ title, body: `<p class="confirm-text">${esc(text)}</p>`, ok, tone: danger ? "danger" : "primary" });
+  const kv = rows => `<table class="kv"><tbody>${rows.map(([label, html]) => `<tr><th scope="row">${esc(label)}</th><td>${html}</td></tr>`).join("")}</tbody></table>`;
+  const eyeToggle = (input, button) => {
+    const draw = () => { const shown = input.type === "text"; button.innerHTML = shown ? ICON.eyeOff : ICON.eye; button.ariaLabel = shown ? "Hide password" : "Show password" };
+    button.addEventListener("click", () => { input.type = input.type === "password" ? "text" : "password"; draw(); input.focus() });
+    draw();
+  };
+
+  /* -- requests: the token as Bearer; a 401 renews the token once and retries -- */
+  let refreshing = null;
+  // true: a valid new token is saved; false: the refresh token expired or was refused (log out); null: the server could not be reached (keep the token, try later)
+  const tokenRefresh = () => refreshing ||= (async () => {
+    const token = read().token;
+    if (!loginValid(token)) return false;
+    try {
+      const response = await fetch("/my/token-refresh", { method: "POST", headers: { Authorization: `Bearer ${token.refresh_token}` } });
+      const body = await response.json().catch(() => ({}));
+      if (response.ok && body.status === 1) { if (!loginValid(body.message)) return false; save({ token: body.message }); return true }
+      if (response.status === 403) accountRefused = ACCOUNT_REFUSED[body.message] || accountRefused;
+      return response.status === 401 || response.status === 403 ? false : null;
+    } catch { return null }
+  })().finally(() => { refreshing = null });
+  const request = async (path, options = {}, retry = true) => {
+    let token = read().token;
+    if (loginValid(token) && token.access_token_expires_at - nowSec() <= 30) { if (await tokenRefresh() === false) { logOut(EXPIRED); throw Object.assign(new Error(EXPIRED), { status: 401 }) } token = read().token }
+    const json = typeof options.body === "string";
+    const headers = { ...(json ? { "Content-Type": "application/json" } : {}), ...(options.headers || {}), ...(loginValid(token) ? { Authorization: `Bearer ${token.access_token}` } : {}) };
+    const response = await fetch(path, { ...options, headers });
+    if (response.status === 403 && loginValid(token)) {
+      const refused = ACCOUNT_REFUSED[(await response.clone().json().catch(() => ({}))).message];
+      if (refused) { accountRefused = refused; logOut(); throw Object.assign(new Error(refused), { status: 403 }) }
+    }
+    if (response.status === 401 && retry && loginValid(token)) {
+      const renewed = await tokenRefresh();
+      if (renewed) return request(path, options, false);
+      if (renewed === false) logOut(EXPIRED);
+    }
+    return response;
+  };
+  // Atom's answer {status: 1, message}: the message, or an Error with the server's text and .status
+  const api = async (path, options = {}) => {
+    const response = await request(path, options);
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body.status !== 1) throw Object.assign(new Error(typeof body.message === "string" ? body.message : `HTTP ${response.status}`), { status: response.status });
+    return body.message;
+  };
+
+  /* -- session -- */
+  const loggedIn = () => !el("accountWrap").hidden;
+  // the user (GET /my/profile) into "user": on login, when missing and on every sync; false when the user may not use the page (logged out)
+  const profileLoad = async (force = false) => {
+    if (!loginValid(read().token)) return false;
+    if (force || !read().user) {
+      try { save({ user: await api("/my/profile") }) }
+      catch (error) { if (error.status === 401 || error.status === 403) { logOut(EXPIRED); return false } }    // offline: keep the saved user
+    }
+    const block = userBlock(read().user);
+    if (block) { if (BLOCKED_TITLE[block]) accountRefused = block; logOut(block); return false }
+    renderAccount();
+    return true;
+  };
+  // sync: new token, the user, the settings (/info), then the page's data (PAGE.refresh); synced_at when it finishes. step(i) names the step for the Sync dialog
+  const syncSteps = () => ["Renewing login…", "Loading your profile…", "Loading settings…", ...(PAGE.refresh ? ["Downloading data…"] : [])];
+  // GET /info (public) → info = {config_column_int_mapping, export_limit}: labels and settings come from the server, never from the page
+  const infoLoad = async (session = sessionId) => {
+    const response = await fetch("/info"), body = await response.json().catch(() => ({}));
+    if (!response.ok || body.status !== 1) throw new Error("Sync failed. Please try again.");
+    if (session !== sessionId) return;    // logged out while it downloaded: nothing is saved
+    save({ info: { config_column_int_mapping: body.message.config_column_int_mapping || {}, export_limit: Number(body.message.export_limit) || 0 } });
+  };
+  // the settings and the page's data, one download at a time (a page with no cache yet calls it too): /info, PAGE.refresh, then synced_at, then PAGE.onSynced
+  // sessionId changes at every logout, so a download that finishes after one saves nothing
+  let dataSyncing = null, sessionId = 0;
+  const syncData = (step = () => {}) => dataSyncing ||= (async () => { const session = sessionId; step(2); await infoLoad(session); if (PAGE.refresh) { step(3); await PAGE.refresh() } if (session !== sessionId) return; save({ synced_at: Date.now() }); PAGE.onSynced?.() })().finally(() => { dataSyncing = null });
+  const syncRun = async (step = () => {}) => {
+    step(0);
+    if (await tokenRefresh() === false) { logOut(EXPIRED); return false }
+    step(1);
+    if (!await profileLoad(true)) return false;
+    await syncData(step);
+    return true;
+  };
+  // 5 minutes or less left on the access token: renew it now (refused → logged out); false when logged out
+  const tokenFresh = async () => {
+    const token = read().token;
+    if (!loginValid(token)) { if (token) logOut(EXPIRED); return false }
+    if (token.access_token_expires_at - nowSec() <= 300 && await tokenRefresh() === false) { logOut(EXPIRED); return false }
+    return true;
+  };
+  // on open, every minute and when the tab comes back: a valid, fresh token; then the user, then a sync when synced_at is 3 hours old
+  const sessionCheck = async () => {
+    if (!read().token || !loggedIn()) return;
+    if (!await tokenFresh()) return;
+    if (!await profileLoad()) return;
+    if (Date.now() - (read().synced_at || 0) > SYNC_EVERY_MS || !read().info) syncRun().catch(() => {});    // no info: synced before /info joined Sync
+  };
+  // a token object from a login: check it, then the user, then the first sync, then the page
+  const signIn = async token => {
+    if (!loginValid(token)) throw new Error("The server sent an incomplete login. Please try again.");
+    accountRefused = "";
+    save({ token, user: null, synced_at: 0 });
+    let user;
+    try { user = await api("/my/profile") } catch (error) { forgetAll(); throw error }
+    const block = userBlock(user);
+    if (block) { forgetAll(); throw new Error(block) }
+    save({ user });
+    showIn();
+  };
+  const forgetAll = () => { try { localStorage.removeItem(STORAGE_KEY) } catch {} window.atomSettings?.apply(); cacheClear() };    // the settings go too: back on the defaults
+  // logout and every forced logout: forget the key and the cache, close dialogs, show the login with a plain sentence
+  // a blocked account (refused by Atom, or its profile deactivated or deleted): the login page, then the "Account deactivated" / "Account deleted" dialog over it until OK
+  const logOut = (message = "") => { sessionId++; forgetAll(); const refused = accountRefused; showOut(refused ? "" : message); if (refused) blockedShow(refused) };
+  const blockedShow = text => { el("blockedTitle").textContent = BLOCKED_TITLE[text] || "Account blocked"; el("blockedText").textContent = text; if (!el("blockedDialog").open) el("blockedDialog").showModal(); el("blockedOk").focus() };
+  const initials = name => {
+    const words = String(name || "").split("@")[0].split(/[\s._-]+/).filter(Boolean);
+    return (words.length > 1 ? words[0][0] + words[1][0] : (words[0] || "?").slice(0, 2)).toUpperCase();
+  };
+  const renderAccount = () => { const u = read().user || {}; el("avatarText").textContent = initials(u.username || u.email) };
+  const showIn = () => {
+    el("loginOpenBtn").hidden = true;
+    el("accountWrap").hidden = false;
+    loginHide();
+    renderAccount();
+    PAGE.onIn?.(read().user);
+    if (!read().synced_at || !read().info) syncData().catch(() => {});    // the first sync after a login: the token is new, so only the page's data
+  };
+  const showOut = message => {
+    menuToggle(false);
+    for (const d of document.querySelectorAll("dialog[open]")) d.close();
+    el("accountWrap").hidden = true;
+    el("loginOpenBtn").hidden = !!PAGE.loginRequired;
+    PAGE.onOut?.(message);
+    if (PAGE.loginRequired || message) loginOpen(message);
+  };
+
+  /* -- login page: role (fixed and hidden when the page has one), username, password -- */
+  // while it shows, the rest of the page is inert (no focus, no clicks); dialogs and the toast stay usable above it
+  const loginShown = () => !el("loginPage").hidden;
+  const loginShow = () => { for (const node of document.body.children) node.inert = !(node === el("loginPage") || node.tagName === "DIALOG" || node.tagName === "SCRIPT" || node.id === "toast"); el("loginPage").hidden = false };
+  const loginHide = () => { el("loginPage").hidden = true; for (const node of document.body.children) node.inert = false };
+  const loginOpen = (message = "") => {
+    if (PAGE.login) { if (message) toast(message, true); return PAGE.login() }    // a page with its own login (API: the login route's runner)
+    const full = !!PAGE.loginRequired, intro = PAGE.intro || {};
+    el("loginPage").classList.toggle("card-only", !full);
+    el("loginWordmark").hidden = el("loginIntro").hidden = !full;
+    el("loginPageName").textContent = PAGE.title;    // the wordmark: the page's name only
+    el("loginBadge").textContent = "Atom";    // the badge over the heading: these are Atom's pages
+    el("loginHeading").textContent = intro.heading || PAGE.title;
+    el("loginText").textContent = intro.text || "";
+    el("loginFeatures").innerHTML = (intro.features || []).map(([icon, title, text]) => `<div class="login-feature"><span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg></span><div><strong>${esc(title)}</strong><p>${esc(text)}</p></div></div>`).join("");
+    el("loginSub").textContent = PAGE.role != null ? `For role ${PAGE.role} accounts` : "For any role";
+    el("loginRoleField").hidden = PAGE.role != null;
+    if (PAGE.role != null) el("loginRole").value = PAGE.role;
+    el("loginClose").hidden = full;
+    el("loginPassword").value = "";
+    el("loginError").textContent = message;
+    el("loginError").hidden = !message;
+    loginShow();
+    (el("loginUsername").value ? el("loginPassword") : el("loginUsername")).focus();
+  };
+  const loginSubmit = async event => {
+    event.preventDefault();
+    const role = el("loginRole").value.trim(), username = el("loginUsername").value.trim(), password = el("loginPassword").value;
+    const error = !username || !password ? "Enter your username and password." : role && !/^\d+$/.test(role) ? "Role is a number." : "";
+    el("loginError").textContent = error;
+    el("loginError").hidden = !error;
+    if (error) return;
+    el("loginBtn").disabled = true;
+    try {
+      const response = await fetch("/auth/login-username-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...(role ? { role: Number(role) } : {}), username, password }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body.status !== 1) throw new Error(typeof body.message === "string" ? body.message : `HTTP ${response.status}`);
+      await signIn(body.message);
+    } catch (failure) {
+      const refused = ACCOUNT_REFUSED[failure.message] || (BLOCKED_TITLE[failure.message] ? failure.message : "");
+      el("loginError").textContent = refused ? "" : failure.message;
+      el("loginError").hidden = !!refused;
+      if (refused) blockedShow(refused);
+    }
+    finally { el("loginBtn").disabled = false }
+  };
+
+  /* -- account menu: My profile, Login details, Sync, Settings, Logout -- */
+  const menuToggle = open => { const isOpen = open ?? el("accountMenu").hidden; el("accountMenu").hidden = !isOpen; el("accountBtn").setAttribute("aria-expanded", String(isOpen)) };
+  const roleText = role => { if (role == null) return "-"; const label = read().info?.config_column_int_mapping?.users?.role?.[role]; return esc(label ? `${role} (${label})` : String(role)) };    // "1 (Admin)": the number first, the label from /info in brackets; only the number before the first sync
+  // the route ids as stored, comma separated ("136, 137"); "None" when there are none: a user tells the developer the numbers, the labels are in the backend
+  const permissionsCell = u => { const ids = Array.isArray(u.permissions) ? u.permissions : []; return ids.length ? esc(ids.join(", ")) : "None" };
+  const usernameCell = u => u.username ? `<span class="cell"><span>${esc(u.username)}</span><button type="button" class="kv-btn" data-copy="${esc(u.username)}" aria-label="Copy username">${ICON.copy}</button></span>` : "-";
+  // My profile is the person, Login details what the login sends: each field shows in one of the two only.
+  // Created (read-only, how long ago; the date on hover), then the users columns a user changes without OTP: [column, label, max length]; Email and Mobile are
+  // the contact ones (email_secondary, mobile_secondary): the login email and mobile need an OTP and are not here. Edit sends only what changed (PUT /my/user-update).
+  const PROFILE = [["name", "Name", 120], ["job_title", "Job title", 120], ["email_secondary", "Email", 254], ["mobile_secondary", "Mobile", 20], ["city", "City", 120], ["country", "Country", 120], ["about", "About", 500]];
+  const PROFILE_CHECK = { email_secondary: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Email must look like name@example.com"], mobile_secondary: [/^\+?[0-9][0-9 -]{5,19}$/, "Mobile must be 6-20 digits (spaces, dashes and a leading + allowed)"] };    // the same rules as config_column_regex
+  const createdCell = iso => { if (!iso) return "-"; const days = Math.floor((new Date().setHours(0, 0, 0, 0) - new Date(iso).setHours(0, 0, 0, 0)) / 864e5); return `<span title="${esc(new Date(iso).toLocaleString())}">${days <= 0 ? "Today" : days === 1 ? "Yesterday" : `${days} days ago`}</span>` };
+  const profileOpen = () => { const u = read().user || {}; dialog({ title: "My profile", body: kv([["Created", createdCell(u.created_at)], ...PROFILE.map(([key, label]) => [label, dash(u[key])])]), actions: '<button type="button" class="primary" id="profileEdit">Edit</button>', on: { profileEdit: profileEditOpen } }) };
+  const profileEditOpen = () => {
+    const u = read().user || {};
+    // editing in place: the same rows, each value an input (the label stays on the left)
+    dialog({ title: "My profile",
+      body: kv([["Created", createdCell(u.created_at)], ...PROFILE.map(([key, label, max]) => [label, key === "about" ? `<textarea class="kv-input" id="pf-${key}" aria-label="${label}" maxlength="${max}" rows="3">${esc(u[key] ?? "")}</textarea>` : `<input class="kv-input" id="pf-${key}" aria-label="${label}" maxlength="${max}" value="${esc(u[key] ?? "")}"${key === "email_secondary" ? ' type="email"' : key === "mobile_secondary" ? ' type="tel"' : ""}>`])]),
+      actions: '<button type="button" id="profileCancel">Cancel</button><button type="button" class="primary" id="profileSave">Save</button>',
+      on: { profileCancel: profileOpen, profileSave: profileSaveRun } });
+    el("pf-name").focus();
+  };
+  const profileSaveRun = async () => {
+    const u = read().user || {}, changes = {};
+    for (const [key] of PROFILE) { const value = el(`pf-${key}`).value.trim() || null; if (value !== (u[key] ?? null)) changes[key] = value }
+    const failed = Object.entries(changes).find(([key, value]) => value && PROFILE_CHECK[key] && !PROFILE_CHECK[key][0].test(value));
+    if (failed) return dialogError(PROFILE_CHECK[failed[0]][1]);
+    if (!Object.keys(changes).length) { profileOpen(); return toast("No changes") }
+    el("profileSave").disabled = true;
+    try { await api("/my/user-update", { method: "PUT", body: JSON.stringify(changes) }); save({ user: await api("/my/profile") }); showIn(); profileOpen(); toast("Profile updated") }
+    catch (failure) { dialogError(failure.message); if (el("profileSave")) el("profileSave").disabled = false }
+  };
+  const detailsOpen = () => {
+    const u = read().user || {};
+    dialog({ title: "Login details", body: kv([["Username", usernameCell(u)], ["Password", `<span class="cell"><span>••••••••</span><button type="button" class="kv-btn" id="passwordEdit" aria-label="Change password">${ICON.pencil}</button></span>`], ["Role", roleText(u.role)], ["Permissions", permissionsCell(u)]]), on: { passwordEdit: passwordOpen } });
+  };
+  // Update password: Atom's rule, 6-120 characters without spaces (PUT /my/user-update)
+  const passwordOpen = () => {
+    dialog({ title: "Update password",
+      body: '<div class="field"><label for="pwNew">New password</label><input id="pwNew" type="password" autocomplete="new-password" maxlength="120"></div><div class="field"><label for="pwConfirm">Confirm new password</label><input id="pwConfirm" type="password" autocomplete="new-password" maxlength="120"></div><p class="field-help">6–120 characters, no spaces.</p>',
+      actions: '<button type="button" id="pwCancel">Cancel</button><button type="button" class="primary" id="pwSave">Update password</button>',
+      on: { pwCancel: detailsOpen, pwSave: passwordSave } });
+    el("pwNew").focus();
+  };
+  const passwordSave = async () => {
+    const value = el("pwNew").value, error = /\s/.test(value) || value.length < 6 || value.length > 120 ? "Use 6–120 characters, no spaces" : value !== el("pwConfirm").value ? "Passwords don't match" : "";
+    if (error) return dialogError(error);
+    el("pwSave").disabled = true;
+    try { await api("/my/user-update", { method: "PUT", body: JSON.stringify({ password: value }) }); dialogClose(); toast("Password updated") }
+    catch (failure) { dialogError(failure.message); if (el("pwSave")) el("pwSave").disabled = false }
+  };
+  const logoutOpen = () => dialog({ title: "Logout?", body: '<p class="confirm-text">Are you sure you want to logout?</p>', actions: '<button type="button" id="logoutCancel">Cancel</button><button type="button" class="primary" id="logoutConfirm">Logout</button>', on: { logoutCancel: dialogClose, logoutConfirm: () => logOut("") } });
+
+  /* -- Settings: one row per setting, each a choice of a few options, applied at once and saved in this page's localStorage key ("settings", removed at logout) -- */
+  // Theme: Dark (the default), Light, or System (the computer's mode); Density: Comfortable (the default) or Compact. The theme block applies them.
+  const SETTINGS = [
+    { key: "theme", label: "Theme", help: "System follows your computer's light or dark mode.", options: [["dark", "Dark", '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'], ["light", "Light", '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'], ["system", "System", '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>']] },
+    { key: "density", label: "Density", help: "Compact fits more rows on the screen.", options: [["comfortable", "Comfortable", '<path d="M4 6h16M4 12h16M4 18h16"/>'], ["compact", "Compact", '<path d="M4 5h16M4 9h16M4 13h16M4 17h16"/>']] },
+  ];
+  const settingValue = setting => window.atomSettings.get(setting.key, setting.options.map(([option]) => option));
+  const settingsDraw = () => { for (const b of el("atomDialog").querySelectorAll("[data-option]")) b.setAttribute("aria-checked", String(settingValue(SETTINGS[b.dataset.setting]) === b.dataset.option)) };
+  const settingChoose = (setting, option) => { window.atomSettings.set(setting.key, option); settingsDraw() };
+  const settingsOpen = () => {
+    dialog({ title: "Settings", sub: "Saved in this browser",
+      body: SETTINGS.map((setting, index) => `<div class="setting-row"><div><strong id="setting-${setting.key}">${setting.label}</strong><p>${setting.help}</p></div><div class="choices" role="radiogroup" aria-labelledby="setting-${setting.key}">${setting.options.map(([option, label, icon]) => `<button type="button" role="radio" data-setting="${index}" data-option="${option}"><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}</button>`).join("")}</div></div>`).join(""),
+      actions: '<button type="button" class="primary" id="settingsDone">Done</button>', on: { settingsDone: dialogClose } });
+    settingsDraw();
+    el("atomDialog").querySelector('[aria-checked="true"]')?.focus();
+  };
+
+  /* -- Sync dialog: what this page keeps and when it last downloaded; Sync now runs the whole sync -- */
+  const agoText = ms => { const s = Math.max(0, Math.round((Date.now() - ms) / 1000)); if (s < 60) return "just now"; for (const [size, unit] of [[31536000, "yr"], [2592000, "mo"], [86400, "day"], [3600, "hr"], [60, "min"]]) if (s >= size) { const n = Math.floor(s / size); return `${n} ${unit === "day" && n !== 1 ? "days" : unit} ago` } };
+  const usedText = n => n ? `Used, ${n} item${n === 1 ? "" : "s"}` : "Not used";
+  const syncOpen = async () => {
+    const store = read(), local = Object.keys(store).length, records = await cacheCount();
+    dialog({ title: "Sync", sub: `${store.synced_at ? `Last synced ${agoText(store.synced_at)}` : "Never synced"} (auto sync every 3 hours)`,
+      body: kv([["Local storage", usedText(local)], ["IndexedDB", usedText(records)]]) + '<div class="sync-progress" id="syncProgress" hidden><div class="sync-fill" id="syncFill"></div></div><p class="sync-status" id="syncStatus" role="status"></p>',
+      actions: '<button type="button" id="syncClose">Close</button><button type="button" class="primary" id="syncNow">Sync now</button>',
+      on: { syncClose: dialogClose, syncNow } });
+  };
+  const syncNow = async () => {
+    const steps = syncSteps();
+    const step = i => { if (!el("syncStatus")) return; el("syncStatus").textContent = `${steps[i]} (${i + 1} of ${steps.length})`; el("syncFill").style.width = `${Math.round(i / steps.length * 100)}%` };
+    el("syncStatus").classList.remove("error");
+    el("syncProgress").hidden = false;
+    dialogLock(true);
+    let ok = false;
+    try { ok = await syncRun(step) } catch { ok = false }
+    dialogLock(false);
+    if (!el("atomDialog").open || el("atomTitle").textContent !== "Sync") return;
+    await syncOpen();
+    el("syncStatus").textContent = ok ? "Everything is up to date." : "Sync failed. Please try again.";
+    el("syncStatus").classList.toggle("error", !ok);
+  };
+
+  /* -- start: wire the parts, then open logged in (a valid token) or logged out -- */
+  const start = () => {
+    el("accountBtn").addEventListener("click", e => { e.stopPropagation(); menuToggle() });
+    el("accountMenu").addEventListener("click", e => e.stopPropagation());
+    document.addEventListener("click", () => menuToggle(false));
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && !el("accountMenu").hidden) { menuToggle(false); el("accountBtn").focus() } });
+    el("profileBtn").addEventListener("click", () => { menuToggle(false); profileOpen() });
+    el("detailsBtn").addEventListener("click", () => { menuToggle(false); detailsOpen() });
+    el("logoutBtn").addEventListener("click", () => { menuToggle(false); logoutOpen() });
+    el("settingsBtn").addEventListener("click", () => { menuToggle(false); settingsOpen() });
+    el("syncBtn").addEventListener("click", () => { menuToggle(false); syncOpen() });
+    el("loginOpenBtn").addEventListener("click", () => loginOpen());
+    el("loginClose").addEventListener("click", loginHide);
+    el("loginForm").addEventListener("submit", loginSubmit);
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && loginShown() && !PAGE.loginRequired && !document.querySelector("dialog[open]")) loginHide() });    // only the card (API) closes; a page that needs a login keeps it
+    el("blockedOk").addEventListener("click", () => el("blockedDialog").close());
+    el("blockedDialog").addEventListener("cancel", e => e.preventDefault());    // only OK closes it
+    eyeToggle(el("loginPassword"), el("loginEye"));
+    el("atomClose").innerHTML = el("loginClose").innerHTML = ICON.x;
+    el("atomClose").addEventListener("click", dialogClose);
+    el("atomDialog").addEventListener("cancel", e => { if (dialogLocked) e.preventDefault() });
+    // a setting's choice moves with the arrow keys, as in any radio group
+    el("atomDialog").addEventListener("keydown", e => {
+      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key], button = e.target.closest?.("[data-option]");
+      if (!step || !button) return;
+      e.preventDefault();
+      const setting = SETTINGS[button.dataset.setting], options = setting.options.map(([option]) => option), next = options[(options.indexOf(settingValue(setting)) + step + options.length) % options.length];
+      settingChoose(setting, next);
+      el("atomDialog").querySelector(`[data-setting="${button.dataset.setting}"][data-option="${next}"]`).focus();
+    });    // Escape does nothing while Sync runs
+    el("atomDialog").addEventListener("close", () => { formResolve?.(false); formResolve = null; dialogOn = {} });
+    el("atomDialog").addEventListener("click", e => {
+      const choice = e.target.closest("[data-option]");
+      if (choice) return settingChoose(SETTINGS[choice.dataset.setting], choice.dataset.option);
+      const copy = e.target.closest("[data-copy]");
+      if (copy) return navigator.clipboard.writeText(copy.dataset.copy).then(() => toast("Username copied"), () => toast("Could not copy username", true));
+      const button = e.target.closest("button[id]");
+      if (button && dialogOn[button.id]) dialogOn[button.id](e);
+    });
+    // logout in another tab removes the key: this tab finds no valid token and logs out too
+    window.addEventListener("storage", e => { if (e.key === STORAGE_KEY && loggedIn() && !loginValid(read().token)) showOut("You logged out in another tab.") });
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) sessionCheck() });
+    setInterval(sessionCheck, 60000);
+    const token = read().token;
+    if (loginValid(token)) { showIn(); sessionCheck() }
+    else { if (token) forgetAll(); showOut(token ? EXPIRED : "") }
+  };
+
+  return { start, esc, dash, toast, dialog, dialogClose, dialogError, dialogLock, form, confirm, kv, eyeToggle, api, request, read, save, user: () => read().user || null, loggedIn, signIn, logOut, loginOpen, loginValid, tokenRefresh, tokenFresh, syncData, cacheGet, cacheSet, syncOpen, initials, agoText, EXPIRED };
+})();
+/* ==== end atom page: account ==== */
+
+/* ==== page state ==== */
+const $ = id => document.getElementById(id);
+const he = v => Page.esc(v);
+const readStore = () => Page.read();
+const writeStore = changes => Page.save(changes);
+const api = (path, options) => Page.api(path, options);
+const toast = (text, isError) => Page.toast(text, isError);
+const showError = (el, text) => { el.textContent = text || ""; el.hidden = !text };
+const formatNumber = n => n == null ? "—" : Number(n).toLocaleString();
+const formatBytes = n => {
+  if (n == null) return "—";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let i = 0;
+  while (Math.abs(n) >= 1024 && i < units.length - 1) { n /= 1024; i++ }
+  return `${n.toFixed(i && n < 10 ? 1 : 0)} ${units[i]}`;
+};
+// times in this browser's time zone, written out with the offset so nobody has to guess: 2026-11-09 01:46 +05:30
+const tzOffset = d => { const m = -d.getTimezoneOffset(), a = Math.abs(m); return `${m >= 0 ? "+" : "-"}${String(Math.floor(a / 60)).padStart(2, "0")}:${String(a % 60).padStart(2, "0")}` };
+const formatDate = (v, seconds = false) => {
+  if (!v) return "null";
+  const d = new Date(v), p = n => String(n).padStart(2, "0");
+  if (Number.isNaN(d.getTime())) return String(v);
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}${seconds ? `:${p(d.getSeconds())}` : ""} ${tzOffset(d)}`;
+};
+const formatAgo = v => {
+  const sec = Math.round((Date.now() - new Date(v).getTime()) / 1000);
+  if (!Number.isFinite(sec)) return String(v);
+  const abs = Math.abs(sec), suffix = sec >= 0 ? "ago" : "from now";
+  if (abs < 60) return "just now";
+  if (abs < 3600) return `${Math.floor(abs / 60)} min ${suffix}`;
+  if (abs < 86400) return `${Math.floor(abs / 3600)} h ${suffix}`;
+  return `${Math.floor(abs / 86400)} d ${suffix}`;
+};
+const truncate = (s, n) => s.length > n ? `${s.slice(0, n)}…` : s;
+const qs = params => new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "")).toString();
+
+/* ==== requests ==== */
+// every read goes through Atom's role 1 read routes: the SQL reader (read-only, 30 s limit), counts per value and rows
+const sql = (text, connection) => api(`/admin/postgres-query-runner-read${connection ? `?${qs({ connection })}` : ""}`, { method: "POST", body: JSON.stringify({ sql: text }) });
+const groupby = (table, col, { filter = [], ...params } = {}) => api(`/admin/table-column-groupby?${qs({ table, col: JSON.stringify(col), filter: JSON.stringify(filter), ...params })}`);
+
+/* ==== schema and settings ==== */
+// tables and columns from GET /admin/postgres-schema; the few server settings the page needs from GET /admin/monitor?view=app
+let SCHEMA = {}, INFO = {}, STATS = {};
+const AUDIT = ["created_at", "created_by_id", "updated_at", "updated_by_id"];
+const RULES_DEFAULT = { read_blocked: ["password"], database: "", is_log_api: true, log_db: "master" };
+let RULES = { ...RULES_DEFAULT };
+const readable = col => !RULES.read_blocked.includes(col);
+const isNotNull = c => String(c?.is_nullable).toUpperCase() === "NO" || c?.is_nullable === false;
+const logConn = () => RULES.log_db && RULES.log_db !== "master" ? RULES.log_db : undefined;    // log_api may live in its own database (config_postgres_db_log_api)
+const connFor = table => table === "log_api" ? logConn() : undefined;
+const rulesFetch = async () => {
+  const app = await api("/admin/monitor?view=app").catch(() => null);
+  const cfg = Object.fromEntries((app?.config || []).map(c => [c.name, c.value]));
+  return {
+    read_blocked: Array.isArray(cfg.config_column_read_blocked) ? cfg.config_column_read_blocked : RULES_DEFAULT.read_blocked,
+    database: typeof app?.server?.database === "string" ? app.server.database : "",
+    is_log_api: cfg.config_is_log_api !== false,
+    log_db: typeof cfg.config_postgres_db_log_api === "string" && cfg.config_postgres_db_log_api ? cfg.config_postgres_db_log_api : "master",
+  };
+};
+const USER_REFS = ["user_id", "received_by_id", "assigned_to_id"];
+const isUserRef = (table, col) => /_by_id$/.test(col) || USER_REFS.includes(col) || (table === "users" && col === "parent_id");
+const columns = table => Object.values(SCHEMA[table] || {}).sort((a, b) => a.column_number - b.column_number);
+const relationType = table => columns(table)[0]?.relation_type || "table";
+const kind = meta => {
+  const t = String(meta?.datatype || "").toLowerCase();
+  if (t.endsWith("[]")) return "array";
+  if (t.startsWith("geography") || t.startsWith("geometry")) return "geo";
+  if (t === "boolean") return "bool";
+  if (t.startsWith("timestamp")) return "timestamp";
+  if (t === "date") return "date";
+  if (/^(smallint|integer|bigint)/.test(t)) return "int";
+  if (/^(numeric|real|double|decimal)/.test(t)) return "float";
+  if (t.startsWith("json")) return "json";
+  return "text";
+};
+const KIND_LABEL = { text: "Text", int: "Number", float: "Decimal", timestamp: "Date and time", date: "Date", bool: "Yes / no", array: "List", json: "JSON", geo: "Location" };
+const intMap = (table, col) => INFO.config_column_int_mapping?.[table]?.[col];
+// a role is its number, its label (config_column_int_mapping users.role) in brackets: 1 (Admin)
+const roleLabel = role => { const label = INFO.config_column_int_mapping?.users?.role?.[String(role)]; return label ? `${role} (${label})` : String(role) };
+const permissionLabel = id => { const label = INFO.config_column_int_mapping?.users?.permissions?.[String(id)]; return label ? `${id} (${label})` : String(id) };
+// row estimates and sizes per table: PostgreSQL's statistics, never a count
+const statsFetch = async () => Object.fromEntries((await sql("select s.relname as name, s.n_live_tup::bigint as rows, pg_total_relation_size(s.relid)::bigint as bytes from pg_stat_user_tables s where s.schemaname = 'public'").catch(() => [])).map(s => [s.name, s]));
+const statsLoad = async () => { STATS = await statsFetch() };
+// what the page knows before it reads rows: schema, /info, row estimates and settings, at once; kept in IndexedDB ("reference") until the next sync
+const referenceFetch = async () => {
+  const [schema, info, stats, rules] = await Promise.all([
+    api("/admin/postgres-schema"),
+    fetch("/info").then(r => r.json()).then(b => b.message || {}).catch(() => ({})),
+    statsFetch(),
+    rulesFetch(),
+  ]);
+  return { schema: schema || {}, info, stats, rules };
+};
+const shortHost = db => db.replace(/^([^ /:]+)/, h => /^[\d.]+$/.test(h) ? h : h.replace(/\.(postgres\.database\.azure\.com|database\.windows\.net|[a-z0-9-]+\.rds\.amazonaws\.com|rds\.amazonaws\.com|supabase\.co|neon\.tech|cloudsql\.com)$/i, ""));
+const referenceApply = ref => {
+  SCHEMA = ref.schema; INFO = ref.info; STATS = ref.stats; RULES = { ...RULES_DEFAULT, ...ref.rules };
+  $("brandHome").title = location.host;
+  // the master database under the title, as PgWeb shows its connection: host / database / public
+  const db = shortHost(RULES.database);
+  $("brandDb").hidden = !db; $("brandDb").textContent = db ? `${db} / public` : ""; $("brandDb").title = RULES.database;
+  renderNav();
+};
+// a sync downloads the reference again and drops every saved section
+const referenceRefresh = async () => { const fresh = await referenceFetch(); await Page.cacheSet("reference", fresh); await Page.cacheSet("analytics", {}); referenceApply(fresh) };
+
+/* ==== user names ==== */
+// ids that point at users (created_by_id, user_id, ...) show who they are; one read per page of rows
+const USERNAMES = new Map();
+const usersResolve = async ids => {
+  const need = [...new Set(ids.map(Number).filter(id => Number.isInteger(id) && id > 0 && !USERNAMES.has(id)))].slice(0, 500);
+  if (!need.length || !SCHEMA.users) return;
+  try {
+    const res = await api(`/admin/object-read?${qs({ table: "users", column: "id,username,email,role", limit: need.length, filter: JSON.stringify([`id in ${need.join(",")}`]) })}`);
+    need.forEach(id => USERNAMES.set(id, null));
+    res.obj_list.forEach(u => USERNAMES.set(u.id, u));
+  } catch { /* names are a nicety: ids still show */ }
+};
+// a user id and who it is: 812 (riya@example.com)
+const userName = id => {
+  const u = USERNAMES.get(Number(id)), who = u ? (u.username || u.email || "no username") : USERNAMES.has(Number(id)) ? "no such user" : "";
+  return `${he(id)}${who ? ` <span class="muted">(${he(who)})</span>` : ""}`;
+};
+
+/* ==== values ==== */
+const jsonValue = v => { if (typeof v !== "string") return v; try { return JSON.parse(v) } catch { return v } };
+const STATE_TONE = { deactivated_at: "warn", deleted_at: "bad", verified_at: "ok", read_at: "blue" };
+const stateOf = row => row.deleted_at ? ["Deleted", "bad"] : row.deactivated_at ? ["Deactivated", "warn"] : ["Active", "ok"];
+// a value as stored: empty is "null", times in this browser's time zone, codes keep their number before any label, user ids show the user
+const cellHtml = (table, col, v, full = false) => {
+  if (v === null || v === undefined) return `<span class="null">null</span>`;
+  if (v === "") return `<span class="null">""</span>`;
+  const meta = SCHEMA[table]?.[col], k = kind(meta);
+  if (k === "timestamp") {
+    const tone = STATE_TONE[col] ? ` class="pill ${STATE_TONE[col]}"` : "";
+    return full ? `<span${tone}>${he(formatDate(v, true))}</span> <span class="muted">· ${he(formatAgo(v))}</span>` : `<span${tone} title="${he(formatAgo(v))}">${he(formatDate(v))}</span>`;
+  }
+  if (k === "bool") return v ? `<span class="pill ok">true</span>` : `<span class="pill">false</span>`;
+  if (table === "users" && col === "role") return `<span class="pill ${v === 1 ? "bad" : "blue"}">${he(roleLabel(v))}</span>`;
+  const map = intMap(table, col);
+  if (map && map[String(v)] != null) return `${he(v)} <span class="muted">(${he(map[String(v)])})</span>`;
+  if (isUserRef(table, col) && Number.isInteger(v)) return userName(v);
+  if (k === "json") v = jsonValue(v);
+  if (typeof v === "object") return full ? `<pre>${he(JSON.stringify(v, null, 2))}</pre>` : `<span class="mono">${he(truncate(JSON.stringify(v), 60))}</span>`;
+  return full ? he(v) : he(truncate(String(v), 80));
+};
+
+/* ==== cards ==== */
+const tile = (label, value, hint = "", tone = "") => `<div class="tile"><div class="label">${he(label)}</div><div class="value${tone ? ` ${tone}` : ""}">${he(value)}</div><div class="hint">${he(hint)}</div></div>`;
+const chartHtml = (rows, bucket, series) => {
+  if (!rows.length) return `<div class="empty">No data</div>`;
+  const max = Math.max(1, ...rows.map(r => series.reduce((sum, s) => sum + Number(r[s.key] || 0), 0)));
+  const label = t => new Date(t).toLocaleString([], bucket === "hour" ? { hour: "2-digit", minute: "2-digit" } : { day: "numeric", month: "short" });
+  return `<div class="chart">${rows.map(r => `<div class="col" title="${he(label(r.t))}: ${series.map(s => `${formatNumber(r[s.key])} ${s.label}`).join(", ")}">${series.slice().reverse().map(s => `<div class="${s.cls}" style="height:${(Number(r[s.key] || 0) / max) * 100}%"></div>`).join("")}</div>`).join("")}</div><div class="axis"><span>${he(label(rows[0].t))}</span><span>${he(label(rows[rows.length - 1].t))}</span></div>`;
+};
+const tableHtml = (head, rows, empty = "No data") => rows.length ? `<table><thead><tr>${head.map(h => `<th class="${h.num ? "num" : ""}">${he(h.label)}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>` : `<div class="empty">${he(empty)}</div>`;
+const barCell = (value, max) => `<td style="width:30%"><div class="bar"><span style="width:${Number(value) / Math.max(1, max) * 100}%"></span></div></td>`;
+const cardShell = (id, title, note = "", wide = false) => `<div class="card${wide ? " wide" : ""}"><div class="card-head"><h3>${he(title)}</h3>${note ? `<span class="card-note">${note}</span>` : ""}</div><div class="card-scroll" id="${id}"><div class="empty">Loading...</div></div></div>`;
+// a page of cards, kept per key in the IndexedDB record "analytics" and shown from there with its age:
+// only Refresh, a key not loaded yet, or a sync reads the database again. A card that fails shows its error and nothing is saved
+const cardsLoad = async ({ record, key, force, live, build }) => {
+  const saved = (await Page.cacheGet(record))?.data || {};
+  if (!live()) return;
+  const age = at => { if ($("cardsAge")) $("cardsAge").textContent = at ? `Updated ${formatAgo(new Date(at).toISOString())} · Refresh to update` : "Loading..." };
+  if (!force && saved[key]) { for (const [id, html] of Object.entries(saved[key].html)) if ($(id)) $(id).innerHTML = html; return age(saved[key].at) }
+  const html = {};
+  let ok = true;
+  const run = (id, work) => (async () => {
+    try { const h = await work(); html[id] = h; if (live() && $(id)) $(id).innerHTML = h }
+    catch (error) { ok = false; if (live() && $(id)) $(id).innerHTML = `<div class="empty" style="color:var(--danger)">${he(error.message)}</div>` }
+  })();
+  age(0);
+  await Promise.all(build(run));
+  if (!live()) return;
+  if (ok) { const at = Date.now(); await Page.cacheSet(record, { ...saved, [key]: { at, html } }); age(at) }
+  else if ($("cardsAge")) $("cardsAge").textContent = "Some cards could not load · Refresh to try again";
+};
+// counts per hour or day since start, every bucket present (0 when empty): one index range scan on created_at
+const series = (table, bucket, n, extra = "false") => {
+  const start = `date_trunc('${bucket}', now()) - interval '${n - 1} ${bucket}'`;
+  return `with b as (select generate_series(${start}, date_trunc('${bucket}', now()), interval '1 ${bucket}') t),`
+    + ` x as (select date_trunc('${bucket}', created_at) t, count(*) total, count(*) filter (where ${extra}) errors from ${table} where created_at >= ${start} group by 1)`
+    + ` select b.t, coalesce(x.total, 0)::bigint as total, coalesce(x.errors, 0)::bigint as errors from b left join x using (t) order by b.t`;
+};
+
+
+/* ==== sections ==== */
+// the sidebar: one insight per section, each a page of cards answered by the database without writing a query (rows, SQL and exports are PgWeb's).
+// users is read once per section (grouped), log_api only within the chosen range, tables by PostgreSQL's estimates; every section is kept with its age
+const RANGES = { "24h": { label: "Last 24 hours", interval: "24 hours", bucket: "hour", n: 24 }, "7d": { label: "Last 7 days", interval: "7 days", bucket: "day", n: 7 }, "30d": { label: "Last 30 days", interval: "30 days", bucket: "day", n: 30 } };
+const rangeKey = () => RANGES[readStore().range] ? readStore().range : "24h";
+const ICONS = {
+  overview: '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
+  users: '<circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M17 4a4 4 0 0 1 0 8M22 21a7 7 0 0 0-4-6.3"/>',
+  access: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  api: '<path d="M4 19V10M10 19V5M16 19v-7M22 19V8"/>',
+  errors: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/>',
+  data: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
+};
+const SECTIONS = [["overview", "Overview"], ["users", "Users"], ["access", "Access"], ["api", "API traffic"], ["errors", "Errors"], ["data", "Data"]];
+const renderNav = () => {
+  const on = route.view === "table" ? "data" : route.view;
+  $("sectionNav").innerHTML = SECTIONS.map(([key, label]) => `<button type="button" class="nav-item nav-section${key === on ? " active" : ""}" data-section="${key}"><span><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[key]}</svg>${label}</span></button>`).join("");
+};
+$("sectionNav").addEventListener("click", e => { const b = e.target.closest("[data-section]"); if (b) go(b.dataset.section) });
+$("brandHome").addEventListener("click", e => { if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return; e.preventDefault(); go("overview") });
+
+/* ==== routing ==== */
+// the address keeps the view: #overview, #users, ... or #table/<name> (one table's insights), so Back works and any view can be bookmarked
+let route = { view: "overview" };
+const go = hash => { if (location.hash.slice(1) === hash) render(); else location.hash = hash };
+window.addEventListener("hashchange", () => render());
+const render = () => {
+  const [view, table] = decodeURIComponent(location.hash.slice(1)).split("/");
+  route = view === "table" && SCHEMA[table] ? { view: "table", table } : { view: SECTIONS.some(([k]) => k === view) ? view : "overview" };
+  showError($("error"), "");
+  renderNav();
+  if (route.view === "table") tableOpen(route.table); else sectionOpen(route.view);
+};
+$("refreshBtn").addEventListener("click", async () => {
+  $("refreshBtn").disabled = true;
+  try { await statsLoad(); await (route.view === "table" ? tableLoad(true) : sectionLoad(true)) }
+  catch (error) { showError($("error"), error.message) }
+  finally { $("refreshBtn").disabled = false }
+});
+
+/* ==== the sections' cards ==== */
+const LOG_OFF = new Error("API logging is off (config_is_log_api): there are no requests to show");
+const logSql = text => RULES.is_log_api ? sql(text, logConn()) : Promise.reject(LOG_OFF);
+const tilesBox = id => `<div class="tiles" id="${id}"><div class="empty">Loading...</div></div>`;
+const chartCard = (id, title, legend = "") => `<div class="card"><div class="card-head"><h3>${he(title)}</h3>${legend}</div><div id="${id}"><div class="empty">Loading...</div></div></div>`;
+const LEGEND_API = `<div class="legend"><span><i style="background:var(--accent)"></i>OK</span><span><i style="background:var(--danger)"></i>Errors</span></div>`;
+const statusName = c => c >= 500 ? "server error" : c >= 400 ? "client error" : c >= 300 ? "redirect" : "ok";
+// each section: its subtitle, its layout, and its cards (ids → work) for one range r: { since, label, bucket, n }
+const VIEWS = {
+  overview: {
+    sub: "The backend at a glance: people, traffic, failures and data",
+    html: () => `<h4 class="section">Users</h4>${tilesBox("oUsers")}<h4 class="section">API traffic</h4>${tilesBox("oApi")}${chartCard("oTraffic", "Requests", LEGEND_API)}<h4 class="section">Data</h4>${tilesBox("oData")}`,
+    cards: r => ({ oUsers: () => usersTiles(r), oApi: () => apiTiles(r), oTraffic: () => trafficChart(r), oData: () => dataTiles() }),
+  },
+  users: {
+    sub: "Who uses the backend: sign-ups, activity and account states",
+    html: () => `${tilesBox("uTiles")}${chartCard("uSignups", "New users")}<div class="two">${cardShell("uRoles", "Users by role")}${cardShell("uActive", "Most active users", "by requests")}</div>${cardShell("uRecent", "Newest users")}`,
+    cards: r => ({
+      uTiles: () => usersTiles(r),
+      uSignups: async () => chartHtml(await sql(series("users", r.bucket, r.n)), r.bucket, [{ key: "total", label: "new users", cls: "new" }]),
+      uRoles: () => rolesTable(r),
+      uActive: () => activeUsers(r),
+      uRecent: async () => {
+        const rows = await sql("select id, username, role, created_at, last_active_at, deactivated_at, deleted_at from users order by id desc limit 10");
+        return tableHtml([{ label: "User" }, { label: "Role" }, { label: "Joined" }, { label: "Last seen" }, { label: "State" }], rows.map(u => { const [state, tone] = stateOf(u); return `<tr><td>${he(u.id)} <span class="muted">${he(u.username || "")}</span></td><td><span class="pill ${u.role === 1 ? "bad" : "blue"}">${he(roleLabel(u.role))}</span></td><td class="muted">${he(formatAgo(u.created_at))}</td><td class="muted">${u.last_active_at ? he(formatAgo(u.last_active_at)) : "—"}</td><td><span class="pill ${tone}">${state}</span></td></tr>` }), "No users");
+      },
+    }),
+  },
+  access: {
+    sub: "Roles and the permissions granted to users, as the routes check them",
+    html: () => `${tilesBox("aTiles")}<div class="two">${cardShell("aRoles", "Users by role")}${cardShell("aPerms", "Users by permission", "route ids granted")}</div>${cardShell("aHolders", "Users holding permissions")}`,
+    cards: r => ({
+      aTiles: async () => {
+        const [a] = await sql(`select count(*) filter (where role = 1)::bigint admins, count(distinct role)::bigint roles${SCHEMA.users?.permissions ? ", count(*) filter (where cardinality(permissions) > 0 and deleted_at is null)::bigint granted, (select count(distinct p) from users, unnest(permissions) p where deleted_at is null)::bigint perms" : ""} from users`);
+        return [tile("Roles in use", formatNumber(a.roles)), tile("Admins", formatNumber(a.admins), "role 1"), ...(a.granted != null ? [tile("Users with permissions", formatNumber(a.granted)), tile("Permissions granted", formatNumber(a.perms), "distinct route ids")] : [])].join("");
+      },
+      aRoles: () => rolesTable(r),
+      aPerms: async () => {
+        if (!SCHEMA.users?.permissions) return `<div class="empty">users has no permissions column</div>`;
+        const rows = await sql("select p::int permission, count(*)::bigint users from users, unnest(permissions) p where deleted_at is null group by 1 order by 1"), max = Math.max(...rows.map(x => Number(x.users)), 1);
+        return tableHtml([{ label: "Permission" }, { label: "Users", num: true }, { label: "" }], rows.map(x => `<tr><td><span class="pill blue">${he(permissionLabel(x.permission))}</span></td><td class="num">${formatNumber(x.users)}</td>${barCell(x.users, max)}</tr>`), "Nobody holds a permission");
+      },
+      aHolders: async () => {
+        if (!SCHEMA.users?.permissions) return `<div class="empty">users has no permissions column</div>`;
+        const rows = await sql("select id, username, role, permissions, deactivated_at, deleted_at from users where cardinality(permissions) > 0 and deleted_at is null order by id limit 50");
+        return tableHtml([{ label: "User" }, { label: "Role" }, { label: "Permissions" }, { label: "State" }], rows.map(u => { const [state, tone] = stateOf(u); return `<tr><td>${he(u.id)} <span class="muted">${he(u.username || "")}</span></td><td><span class="pill ${u.role === 1 ? "bad" : "blue"}">${he(roleLabel(u.role))}</span></td><td class="mono">${he((u.permissions || []).join(", "))}</td><td><span class="pill ${tone}">${state}</span></td></tr>` }), "Nobody holds a permission");
+      },
+    }),
+  },
+  api: {
+    sub: "How the API is used: volume, speed and who calls it",
+    html: () => `${tilesBox("pTiles")}${chartCard("pTraffic", "Requests", LEGEND_API)}<div class="two">${cardShell("pBusy", "Busiest APIs")}${cardShell("pSlow", "Slowest APIs", "average, at least 10 requests")}</div><div class="two">${cardShell("pStatus", "Responses")}${cardShell("pUsers", "Most active users")}</div>`,
+    cards: r => ({
+      pTiles: () => apiTiles(r),
+      pTraffic: () => trafficChart(r),
+      pBusy: async () => pathsTable(await logSql(`select method, path, count(*)::bigint calls, round(avg(response_time_ms))::int avg_ms, count(*) filter (where status_code >= 400)::bigint errors from log_api where created_at >= ${r.since} group by 1, 2 order by calls desc limit 10`)),
+      pSlow: async () => pathsTable(await logSql(`select method, path, count(*)::bigint calls, round(avg(response_time_ms))::int avg_ms, count(*) filter (where status_code >= 400)::bigint errors from log_api where created_at >= ${r.since} group by 1, 2 having count(*) >= 10 order by avg_ms desc limit 10`)),
+      pStatus: async () => {
+        const rows = await logSql(`select status_code, count(*)::bigint calls from log_api where created_at >= ${r.since} group by 1 order by 2 desc limit 12`), total = rows.reduce((s, x) => s + Number(x.calls), 0);
+        return tableHtml([{ label: "Status" }, { label: "Requests", num: true }, { label: "" }], rows.map(x => `<tr><td><span class="pill ${x.status_code >= 500 ? "bad" : x.status_code >= 400 ? "warn" : "ok"}">${he(x.status_code ?? "—")}</span> <span class="muted">${statusName(x.status_code)}</span></td><td class="num">${formatNumber(x.calls)}</td>${barCell(x.calls, total)}</tr>`), "No requests in this range");
+      },
+      pUsers: () => activeUsers(r),
+    }),
+  },
+  errors: {
+    sub: "What fails, where and how often",
+    html: () => `${tilesBox("eTiles")}${chartCard("eChart", "Errors", `<div class="legend"><span><i style="background:var(--danger)"></i>4xx and 5xx</span></div>`)}<div class="two">${cardShell("eApis", "APIs that fail most")}${cardShell("eMessages", "Most common errors")}</div>${cardShell("eLatest", "Latest errors")}`,
+    cards: r => ({
+      eTiles: async () => {
+        const [x] = await logSql(`select count(*)::bigint total, count(*) filter (where status_code >= 500)::bigint s5, count(*) filter (where status_code >= 400 and status_code < 500)::bigint s4, count(distinct path) filter (where status_code >= 400)::bigint paths from log_api where created_at >= ${r.since}`);
+        const rate = x.total ? ((Number(x.s5) + Number(x.s4)) / x.total * 100).toFixed(1) : null;
+        return [tile("Failed", rate == null ? "—" : `${rate}%`, r.label, Number(x.s5) ? "bad" : ""), tile("Server errors", formatNumber(x.s5), "5xx", Number(x.s5) ? "bad" : ""), tile("Client errors", formatNumber(x.s4), "4xx"), tile("Failing APIs", formatNumber(x.paths), "with any error")].join("");
+      },
+      eChart: async () => chartHtml((await logSql(series("log_api", r.bucket, r.n, "status_code >= 400"))).map(x => ({ ...x, err: x.errors })), r.bucket, [{ key: "err", label: "errors", cls: "err" }]),
+      eApis: async () => {
+        const rows = await logSql(`select method, path, count(*)::bigint errors, count(*) filter (where status_code >= 500)::bigint s5 from log_api where created_at >= ${r.since} and status_code >= 400 group by 1, 2 order by errors desc limit 10`);
+        return tableHtml([{ label: "API" }, { label: "Errors", num: true }, { label: "5xx", num: true }], rows.map(x => `<tr><td class="mono">${he(x.method || "")} ${he(x.path)}</td><td class="num">${formatNumber(x.errors)}</td><td class="num"${Number(x.s5) ? ' style="color:var(--danger)"' : ""}>${formatNumber(x.s5)}</td></tr>`), "No errors in this range");
+      },
+      eMessages: async () => {
+        const rows = await logSql(`select left(coalesce(error, ''), 120) error, max(status_code) status_code, count(*)::bigint times from log_api where created_at >= ${r.since} and status_code >= 400 group by 1 order by times desc limit 10`);
+        return tableHtml([{ label: "Error" }, { label: "Status" }, { label: "Times", num: true }], rows.map(x => `<tr><td title="${he(x.error)}">${he(truncate(x.error || "(no message)", 70))}</td><td><span class="pill ${x.status_code >= 500 ? "bad" : "warn"}">${he(x.status_code)}</span></td><td class="num">${formatNumber(x.times)}</td></tr>`), "No errors in this range");
+      },
+      eLatest: async () => {
+        const rows = await logSql(`select created_at, method, path, status_code, error, created_by_id from log_api where status_code >= 400 and created_at >= ${r.since} order by id desc limit 15`);
+        await usersResolve(rows.map(x => x.created_by_id));
+        return tableHtml([{ label: "When" }, { label: "Status" }, { label: "API" }, { label: "User" }, { label: "Error" }], rows.map(x => `<tr><td class="muted" title="${he(formatDate(x.created_at, true))}">${he(formatAgo(x.created_at))}</td><td><span class="pill ${x.status_code >= 500 ? "bad" : "warn"}">${he(x.status_code)}</span></td><td class="mono">${he(x.method || "")} ${he(x.path)}</td><td>${x.created_by_id ? userName(x.created_by_id) : '<span class="muted">—</span>'}</td><td class="muted" title="${he(x.error || "")}">${he(truncate(String(x.error || ""), 70))}</td></tr>`), "No errors in this range");
+      },
+    }),
+  },
+  data: {
+    sub: "The database: size, the biggest and the fastest-growing tables; click a table for its insights",
+    html: () => `${tilesBox("dTiles")}<div class="two">${cardShell("dBig", "Biggest tables", "click a table for its insights")}${cardShell("dGrowth", "Growing fastest", "new rows, last 7 days")}</div>${cardShell("dAll", "All tables")}`,
+    cards: () => ({
+      dTiles: () => dataTiles(),
+      dBig: async () => tablesTable(Object.values(STATS).sort((a, b) => Number(b.bytes) - Number(a.bytes)).slice(0, 10)),
+      // the tables with an indexed created_at, each a range count on its index; the twenty biggest at most
+      dGrowth: async () => {
+        const names = Object.keys(STATS).filter(t => indexed(t, "created_at") && !connFor(t)).sort((a, b) => Number(STATS[b].bytes) - Number(STATS[a].bytes)).slice(0, 20);
+        if (!names.length) return `<div class="empty">No table has an indexed created_at</div>`;
+        const rows = (await sql(names.map(t => `select '${t}' as name, count(*)::bigint added from ${t} where created_at >= now() - interval '7 days'`).join(" union all "))).filter(x => Number(x.added)).sort((a, b) => Number(b.added) - Number(a.added)).slice(0, 10);
+        const max = Math.max(...rows.map(x => Number(x.added)), 1);
+        return tableHtml([{ label: "Table" }, { label: "New rows", num: true }, { label: "" }], rows.map(x => `<tr class="row" data-go="table/${he(x.name)}"><td>${he(x.name)}</td><td class="num">${formatNumber(x.added)}</td>${barCell(x.added, max)}</tr>`), "No new rows in 7 days");
+      },
+      dAll: async () => tablesTable(Object.keys(SCHEMA).sort().map(name => ({ name, rows: STATS[name]?.rows, bytes: STATS[name]?.bytes, kind: relationType(name) })), true),
+    }),
+  },
+};
+// the cards more than one section shows
+const usersByRole = r => sql(`select role, count(*)::bigint total, count(*) filter (where deactivated_at is null and deleted_at is null)::bigint active, count(*) filter (where deactivated_at is not null)::bigint deactivated, count(*) filter (where deleted_at is not null)::bigint deleted, count(*) filter (where created_at >= ${r.since})::bigint new, count(*) filter (where last_active_at >= ${r.since})::bigint seen, max(last_active_at) last_active from users group by role order by role`);
+const usersTiles = async r => {
+  const rows = await (r.byRole ||= usersByRole(r)), sum = k => rows.reduce((s, x) => s + Number(x[k]), 0);
+  return [tile("Users", formatNumber(sum("total")), `${formatNumber(sum("active"))} active`), tile("New", formatNumber(sum("new")), r.label), tile("Signed in", formatNumber(sum("seen")), r.label), tile("Deactivated", formatNumber(sum("deactivated")), "can't log in", sum("deactivated") ? "warn" : ""), tile("Deleted", formatNumber(sum("deleted")), "soft deleted")].join("");
+};
+const rolesTable = async r => {
+  const rows = await (r.byRole ||= usersByRole(r)), max = Math.max(...rows.map(x => Number(x.total)), 1);
+  return tableHtml([{ label: "Role" }, { label: "Users", num: true }, { label: "" }, { label: "Active", num: true }, { label: "Deactivated", num: true }, { label: "Deleted", num: true }, { label: "Last seen" }],
+    rows.map(x => `<tr><td><span class="pill ${x.role === 1 ? "bad" : "blue"}">${he(roleLabel(x.role))}</span></td><td class="num">${formatNumber(x.total)}</td>${barCell(x.total, max)}<td class="num">${formatNumber(x.active)}</td><td class="num">${formatNumber(x.deactivated)}</td><td class="num">${formatNumber(x.deleted)}</td><td class="muted">${x.last_active ? he(formatAgo(x.last_active)) : "—"}</td></tr>`), "No users");
+};
+const apiTiles = async r => {
+  const [x] = await logSql(`select count(*)::bigint total, count(*) filter (where status_code >= 500)::bigint s5, count(*) filter (where status_code >= 400 and status_code < 500)::bigint s4, round(avg(response_time_ms))::int avg_ms, round(percentile_cont(0.95) within group (order by response_time_ms))::int p95_ms, count(distinct created_by_id)::bigint callers from log_api where created_at >= ${r.since}`);
+  const rate = x.total ? ((Number(x.s5) + Number(x.s4)) / x.total * 100).toFixed(1) : null;
+  return [tile("Requests", formatNumber(x.total), r.label), tile("Callers", formatNumber(x.callers), "signed-in users"), tile("Failed", rate == null ? "—" : `${rate}%`, `${formatNumber(x.s5)} server · ${formatNumber(x.s4)} client`, Number(x.s5) ? "bad" : ""), tile("Avg response", x.avg_ms == null ? "—" : `${formatNumber(x.avg_ms)} ms`, x.p95_ms == null ? "" : `95% under ${formatNumber(x.p95_ms)} ms`)].join("");
+};
+const trafficChart = async r => chartHtml((await logSql(series("log_api", r.bucket, r.n, "status_code >= 400"))).map(x => ({ ...x, ok: Number(x.total) - Number(x.errors) })), r.bucket, [{ key: "ok", label: "ok", cls: "ok" }, { key: "errors", label: "errors", cls: "err" }]);
+const pathsTable = rows => tableHtml([{ label: "API" }, { label: "Requests", num: true }, { label: "Avg ms", num: true }, { label: "Errors", num: true }],
+  rows.map(x => `<tr><td class="mono">${he(x.method || "")} ${he(x.path)}</td><td class="num">${formatNumber(x.calls)}</td><td class="num">${formatNumber(x.avg_ms)}</td><td class="num"${Number(x.errors) ? ' style="color:var(--danger)"' : ""}>${formatNumber(x.errors)}</td></tr>`), "No requests in this range");
+const activeUsers = async r => {
+  const rows = await logSql(`select created_by_id id, count(*)::bigint calls, count(*) filter (where status_code >= 400)::bigint errors, max(created_at) last from log_api where created_at >= ${r.since} and created_by_id is not null group by 1 order by calls desc limit 10`);
+  await usersResolve(rows.map(x => x.id));
+  return tableHtml([{ label: "User" }, { label: "Role" }, { label: "Requests", num: true }, { label: "Errors", num: true }, { label: "Last request" }],
+    rows.map(x => `<tr><td>${userName(x.id)}</td><td class="muted">${USERNAMES.get(Number(x.id)) ? he(roleLabel(USERNAMES.get(Number(x.id)).role)) : "—"}</td><td class="num">${formatNumber(x.calls)}</td><td class="num">${formatNumber(x.errors)}</td><td class="muted">${he(formatAgo(x.last))}</td></tr>`), "No signed-in requests in this range");
+};
+const dataTiles = async () => {
+  const [db] = await sql("select pg_database_size(current_database())::bigint bytes"), names = Object.keys(SCHEMA), rows = Object.values(STATS).reduce((s, t) => s + Number(t.rows || 0), 0);
+  return [tile("Database size", formatBytes(Number(db.bytes))), tile("Tables", formatNumber(names.filter(n => ["table", "partitioned_table"].includes(relationType(n))).length), `${formatNumber(names.length)} with views`), tile("Rows", `~${formatNumber(rows)}`, "estimate, all tables")].join("");
+};
+const tablesTable = (rows, withKind = false) => {
+  const max = Math.max(...rows.map(x => Number(x.bytes || 0)), 1);
+  return tableHtml([{ label: "Table" }, ...(withKind ? [{ label: "Kind" }] : []), { label: "Rows (about)", num: true }, { label: "Size", num: true }, { label: "" }],
+    rows.map(x => `<tr class="row" data-go="table/${he(x.name)}"><td>${he(x.name)}</td>${withKind ? `<td class="muted">${he(String(x.kind).replace("_", " "))}</td>` : ""}<td class="num">${formatNumber(x.rows)}</td><td class="num">${x.bytes == null ? "—" : formatBytes(Number(x.bytes))}</td>${barCell(x.bytes || 0, max)}</tr>`), "No tables");
+};
+let viewToken = 0;
+const sectionOpen = view => {
+  const key = rangeKey(), v = VIEWS[view];
+  $("title").textContent = SECTIONS.find(([k]) => k === view)[1];
+  $("subtitle").textContent = v.sub;
+  $("view").innerHTML = `<div class="view-bar">${view === "data" ? "" : `<select id="rangeSelect" aria-label="Time range">${Object.entries(RANGES).map(([k, r]) => `<option value="${k}"${k === key ? " selected" : ""}>${r.label}</option>`).join("")}</select>`}<span class="muted" id="cardsAge"></span></div>${v.html()}`;
+  $("rangeSelect")?.addEventListener("change", e => { writeStore({ range: e.target.value }); sectionLoad() });
+  sectionLoad();
+};
+const sectionLoad = (force = false) => {
+  const view = route.view, token = ++viewToken, range = RANGES[rangeKey()];
+  const r = { since: `now() - interval '${range.interval}'`, label: range.label.toLowerCase(), bucket: range.bucket, n: range.n };
+  const cards = VIEWS[view].cards(r);
+  return cardsLoad({ record: "analytics", key: view === "data" ? "data" : `${view}:${rangeKey()}`, force, live: () => token === viewToken && route.view === view, build: run => Object.entries(cards).map(([id, work]) => run(id, work)) });
+};
+
+/* ==== one table ==== */
+// a table's insights, without writing a query: its size, how fast it grows (created_at, when indexed) and how its rows split on the columns that group well
+const indexed = (table, col) => !!SCHEMA[table]?.[col] && (SCHEMA[table][col].is_index || SCHEMA[table][col].is_primary);
+const BREAKDOWN_NAMES = /^(role|status|status_code|type|kind|state|category|priority|method|level|source|country|city|currency|language|gender|channel|platform|is_.+)$/;
+const breakdownColumns = table => columns(table).map(c => c.column_name).filter(c => readable(c) && (intMap(table, c) || kind(SCHEMA[table][c]) === "bool" || BREAKDOWN_NAMES.test(c))).slice(0, 6);
+const BIG_TABLE = 1e6;    // above about a million rows a breakdown reads only when asked: each one scans the whole table
+const tableOpen = table => {
+  const stats = STATS[table], cols = breakdownColumns(table), growth = indexed(table, "created_at");
+  $("title").textContent = table;
+  $("subtitle").textContent = `${relationType(table).replace("_", " ")}${stats ? ` · about ${formatNumber(stats.rows)} rows · ${formatBytes(Number(stats.bytes))}` : ""} · rows, SQL and export in PgWeb`;
+  $("view").innerHTML = `<div class="view-bar"><button type="button" class="small" data-section-go="data">‹ All tables</button><span class="muted" id="cardsAge"></span></div>${tilesBox("tTiles")}
+    ${growth ? chartCard("tGrowth", "New rows per day, last 30 days") : ""}
+    ${cols.length ? `<div class="two">${cols.map(c => cardShell(`tBy_${c}`, `By ${c}`)).join("")}</div>` : ""}
+    ${cardShell("tColumns", "Columns")}`;
+  tableLoad();
+};
+const tableLoad = (force = false) => {
+  const table = route.table, token = ++viewToken, conn = connFor(table), stats = STATS[table] || {}, big = Number(stats.rows) > BIG_TABLE;
+  const cards = {
+    tTiles: async () => {
+      const tiles = [tile("Rows", stats.rows == null ? "—" : `~${formatNumber(stats.rows)}`, "estimate"), tile("Size", stats.bytes == null ? "—" : formatBytes(Number(stats.bytes)), "with indexes"), tile("Columns", formatNumber(columns(table).length))];
+      if (indexed(table, "created_at")) {
+        const [x] = await sql(`select (select max(created_at) from ${table}) newest, count(*) filter (where created_at >= now() - interval '1 day')::bigint d1, count(*) filter (where created_at >= now() - interval '7 days')::bigint d7, count(*)::bigint d30 from ${table} where created_at >= now() - interval '30 days'`, conn);
+        tiles.push(tile("Newest row", x.newest ? formatAgo(x.newest) : "—", x.newest ? formatDate(x.newest) : ""), tile("Added today", formatNumber(x.d1), "last 24 hours"), tile("This week", formatNumber(x.d7), "last 7 days"), tile("This month", formatNumber(x.d30), "last 30 days"));
+      }
+      if (indexed(table, "updated_at")) { const [u] = await sql(`select max(updated_at) last from ${table}`, conn); tiles.push(tile("Last change", u.last ? formatAgo(u.last) : "—", u.last ? formatDate(u.last) : "")) }
+      return tiles.join("");
+    },
+    ...(indexed(table, "created_at") ? { tGrowth: async () => chartHtml(await sql(series(table, "day", 30), conn), "day", [{ key: "total", label: "new rows", cls: "new" }]) } : {}),
+    ...Object.fromEntries(breakdownColumns(table).map(col => [`tBy_${col}`, async () => big ? `<div class="empty"><button type="button" class="small" data-breakdown="${he(col)}">Count rows by ${he(col)}</button> <span class="muted">a big table: this reads all of it</span></div>` : breakdownHtml(table, col)])),
+    tColumns: async () => columnsHtml(table),
+  };
+  return cardsLoad({ record: "analytics", key: `table:${table}`, force, live: () => token === viewToken && route.table === table, build: run => Object.entries(cards).map(([id, work]) => run(id, work)) });
+};
+const breakdownHtml = async (table, col) => {
+  const res = await groupby(table, [col], { limit: 10, connection: connFor(table) });
+  if (isUserRef(table, col)) await usersResolve(res.obj_list.map(o => o[col]));
+  const max = Math.max(...res.obj_list.map(o => Number(o.count)), 1);
+  return tableHtml([{ label: col }, { label: "Rows", num: true }, { label: "" }], res.obj_list.map(o => `<tr><td>${cellHtml(table, col, o[col])}</td><td class="num">${formatNumber(o.count)}</td>${barCell(o.count, max)}</tr>`).concat(res.after ? [`<tr><td colspan="3" class="muted">Top 10 shown</td></tr>`] : []), "No rows");
+};
+// each column in plain words: its kind of value, whether it must be filled, unique, fast to filter (indexed), and its labels
+const columnsHtml = table => {
+  const yes = on => on ? `<span class="pill ok">yes</span>` : `<span class="muted">—</span>`;
+  return `<table><thead><tr><th>Column</th><th>Kind</th><th>Required</th><th>Unique</th><th>Fast filter</th><th>Values</th></tr></thead><tbody>${columns(table).map(c => {
+    const map = intMap(table, c.column_name);
+    return `<tr><td class="mono">${he(c.column_name)}${readable(c.column_name) ? "" : ' <span class="muted">(never shown)</span>'}</td><td title="${he(c.datatype)}">${KIND_LABEL[kind(c)]}</td><td>${yes(isNotNull(c) && !c.is_primary)}</td><td>${yes(c.is_unique || c.is_primary)}</td><td>${yes(c.is_index || c.is_primary)}</td><td class="muted">${map ? he(Object.entries(map).map(([k, v]) => `${k} ${v}`).join(", ")) : ""}</td></tr>`;
+  }).join("")}</tbody></table>`;
+};
+$("view").addEventListener("click", async e => {
+  const goto = e.target.closest("[data-go]");
+  if (goto) return go(goto.dataset.go);
+  const section = e.target.closest("[data-section-go]");
+  if (section) return go(section.dataset.sectionGo);
+  const breakdown = e.target.closest("[data-breakdown]");
+  if (breakdown && route.table) {
+    const box = breakdown.closest(".card-scroll");
+    box.innerHTML = `<div class="empty">Loading...</div>`;
+    try { box.innerHTML = await breakdownHtml(route.table, breakdown.dataset.breakdown) } catch (error) { box.innerHTML = `<div class="empty" style="color:var(--danger)">${he(error.message)}</div>` }
+  }
+});
+
+/* ==== open and close ==== */
+// logged in (PAGE.onIn): the saved reference record at once; none yet (first login, a cleared browser) → download it first
+const analyticsOpen = async () => {
+  $("appView").hidden = false;
+  const saved = await Page.cacheGet("reference");
+  if (saved?.data?.schema) { referenceApply(saved.data); return render() }
+  $("view").innerHTML = '<div class="empty">Downloading the schema...</div>';
+  try { await Page.syncData() }
+  catch (error) { if (error.status !== 401) showError($("error"), `Could not read the schema: ${error.message}`) }
+};
+const analyticsSynced = () => { if (!$("appView").hidden) render() };
+// logged out (PAGE.onOut, also from another tab): forget what the page holds
+const analyticsClose = () => { SCHEMA = {}; STATS = {}; USERNAMES.clear(); $("appView").hidden = true };
+Page.start();
+
+/* the Atom version, small after the page title: from GET /info (public), nothing when it fails */
+fetch("/info").then(r => r.json()).then(b => { const v = b?.message?.atom_version; if (v) document.querySelectorAll(".atom-ver").forEach(e => { e.textContent = "v" + v }) }).catch(() => {});
+</script>
+</body>
+</html>

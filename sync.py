@@ -44,7 +44,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # setting
 # Atom's version: raised by hand when a change is worth a new number (no tags); a project's sync.py shows the version it has
-ATOM_VERSION = "15.2.0"
+ATOM_VERSION = "15.3.0"
 REPO_URL = "https://github.com/atom36942/atom.git"
 # Single files replaced from upstream on every sync.
 SYNC_FILES = [
@@ -106,6 +106,7 @@ ENV_STARTER = (
     "# config_is_prod=false\n"
     "# config_is_pgweb_enabled=true\n"
     "# config_redis_url_api_response=redis://localhost:6379/0\n"
+    "\n"
     "# extend\n"
 )
 EXTEND_FILES = {

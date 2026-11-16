@@ -87,7 +87,7 @@ input[type="search"]::-webkit-search-cancel-button{cursor:pointer;margin-left:6p
 #brand{display:flex;flex-direction:column;justify-content:center;min-width:0}
 #dbname{font-size:11px;font-weight:500;line-height:14px;opacity:.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 
-#sidetabs{display:flex;padding:6px 8px 5px;gap:4px;background:var(--side);border-bottom:1px solid var(--line)}
+#sidetabs{display:flex;padding:8px 8px 5px;gap:4px;background:var(--side);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
 #sidetabs[hidden]{display:none!important}
 .side-tab{flex:1 0 auto;text-align:center;padding:4px 7px;font-size:11.5px;font-weight:500;border-radius:4px;
   border:1px solid transparent;background:transparent;color:var(--dim);cursor:pointer;white-space:nowrap;
@@ -154,21 +154,21 @@ body.more-open .tab.on{background:transparent;color:var(--nav-fg)}    /* only on
 #moremenu button{display:block;width:100%;padding:7px 10px;border:0;text-align:left;background:transparent;white-space:nowrap}
 #moremenu button:hover,#moremenu button.on{background:var(--hl);color:var(--fg)}
 #tabs .sp{flex:1}
-#tabs > button,#tabs > #optionswrap > button:not(.sql-runner-pill){align-self:center;background:transparent;color:#fff;border-color:rgba(255,255,255,.6);
+#tabs > button,#tabs > #optionswrap > button{align-self:center;background:transparent;color:#fff;border-color:rgba(255,255,255,.6);
   margin-right:8px;font-size:12px;flex:none;white-space:nowrap}
-#tabs > button:hover:not(:disabled),#tabs > #optionswrap > button:not(.sql-runner-pill):hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
+#tabs > button:hover:not(:disabled),#tabs > #optionswrap > button:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
 #optionswrap{align-self:stretch;display:flex;align-items:center;gap:4px;flex:none;margin:0 6px 0 12px;
   background:var(--nav);position:relative;z-index:2}
 #optionswrap[hidden],#optionswrap > [hidden]{display:none!important}
-.sql-runner-pill{align-self:center;height:26px;line-height:24px;padding:0 12px;margin:0 0 0 8px;
-  display:inline-flex;align-items:center;gap:6px;border-radius:3px;font-size:12px;font-weight:500;
-  color:#fff;background:transparent;border:1px solid rgba(255,255,255,.5);
-  cursor:pointer;white-space:nowrap;user-select:none;outline:none;transition:all .15s ease}
-.sql-runner-pill:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
-.sql-runner-pill.on{background:#fff;color:var(--nav);border-color:#fff;font-weight:600}
-:root[data-theme=dark] .sql-runner-pill{border-color:rgba(255,255,255,.5);color:#fff}
-:root[data-theme=dark] .sql-runner-pill:hover:not(:disabled){background:#fff;color:var(--nav);border-color:#fff}
-:root[data-theme=dark] .sql-runner-pill.on{background:#262632;color:#fff;border-color:rgba(255,255,255,.6)}
+/* SQL Runner: the fixed first item of the sidebar, like Admin's Dashboard; .on while the runner is open */
+.side-runner{display:flex;align-items:center;justify-content:center;gap:8px;margin:10px 8px 10px;height:34px;padding:0 10px;border:1px solid var(--line);border-radius:6px;
+  background:var(--bg);color:var(--fg);font-size:12.5px;font-weight:500;cursor:pointer}
+.side-runner[hidden]{display:none}
+.side-runner svg{width:15px;height:15px;flex:none;fill:none;stroke:var(--nav);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;opacity:.8}
+.side-runner:hover:not(:disabled){background:var(--hl)}
+:root[data-theme=dark] .side-runner svg{stroke:#c792ea}
+.side-runner.on{background:rgba(121,88,159,.1);border-color:rgba(121,88,159,.35);color:var(--nav);font-weight:600}
+:root[data-theme=dark] .side-runner.on{background:rgba(199,146,234,.14);border-color:rgba(199,146,234,.35);color:#c792ea}
 #tabs .headicon{width:30px;height:30px;padding:0;margin:0 2px;border:0;border-radius:3px;
   font-size:16px;line-height:28px;text-align:center;align-self:center;background:transparent;color:#fff}
 #tabs .headicon:hover:not(:disabled){background:rgba(255,255,255,.2);color:#fff;border-color:transparent}
@@ -538,6 +538,7 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 .saved-conn-btn.connect:hover{color:var(--green-h);background:var(--apply-bg);border-color:var(--apply-border)}
 .saved-conn-btn.delete{color:var(--dim)}
 .saved-conn-btn.delete:hover{color:var(--err);background:var(--cancel-bg);border-color:var(--cancel-border)}
+.atom-ver{margin-left:6px;font-size:11px;font-weight:400;letter-spacing:0;opacity:.55;vertical-align:middle}
 </style>
 </head>
 <body>
@@ -545,8 +546,9 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
 <div id="app">
   <aside id="side" hidden>
     <div id="dbline">
-      <div id="brand"><span id="productname">PgWeb</span><span id="dbname" hidden></span></div>
+      <div id="brand"><span id="productname">PgWeb<span class="atom-ver"></span></span><span id="dbname" hidden></span></div>
     </div>
+    <button type="button" id="queryrunner" class="side-runner" title="Query runner (SQL Editor)" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 8 4 4-4 4M12 17h7"/></svg>SQL Runner</button>
     <div id="sidetabs" role="tablist" aria-label="Object types" hidden>
       <button type="button" class="side-tab on" data-kind="table">Tables</button>
       <button type="button" class="side-tab" data-kind="view">Views</button>
@@ -564,7 +566,7 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
   <main id="main">
     <div id="tabs">
       <button class="headicon" id="sidetoggle-expand" title="Expand sidebar (Ctrl+B)" aria-label="Expand sidebar" hidden></button>
-      <span id="brandname">PgWeb</span>
+      <span id="brandname">PgWeb<span class="atom-ver"></span></span>
       <div id="tablist" role="tablist" aria-label="Table views">
         <div class="tab" data-v="rows" hidden>Rows</div>
         <div class="tab" data-v="struct" hidden>Columns</div>
@@ -586,7 +588,6 @@ dialog.structured .bd{padding:0;overflow:hidden;background:var(--side)}
         <button class="headicon on conn-only" id="readonly" title="Read only: On" aria-label="Read only: On" hidden></button>
         <button class="headicon conn-only" id="dbinfo" title="Database info" aria-label="Database info" hidden></button>
         <button class="headicon conn-only" id="reload" title="Refresh schema" aria-label="Refresh schema" hidden></button>
-        <button id="queryrunner" class="sql-runner-pill conn-only" title="Query runner (SQL Editor)" hidden>SQL Runner</button>
       </div>
       <button id="connbtn" hidden>Connect</button>
     </div>
@@ -966,6 +967,7 @@ function setConnected(on){
   $('pane').hidden = false;
   $('status').hidden = true;
   $('queryrunner').disabled = !on;
+  $('queryrunner').hidden = !on;
   $('sidetabs').hidden = !on;
   $('tablesearch').hidden = !on;
   $('tree').hidden = !on;
@@ -2719,6 +2721,9 @@ function showBlocked(message){
   $('home-blocked').hidden = false;
   for(const id of ['home-dsn', 'home-connect-btn', 'home-connect-ro-btn']) if($(id)) $(id).disabled = true;
 }
+
+/* the Atom version, small after the page title: from GET /info (public), nothing when it fails */
+fetch("/info").then(r => r.json()).then(b => { const v = b?.message?.atom_version; if (v) document.querySelectorAll(".atom-ver").forEach(e => { e.textContent = "v" + v }) }).catch(() => {});
 </script>
 </body>
 </html>

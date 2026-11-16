@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PAGES = {name: (ROOT / "static" / f"{name}.html").read_text() for name in ("admin", "monitor", "api", "message")}
+PAGES = {name: (ROOT / "static" / f"{name}.html").read_text() for name in ("analytics", "monitor", "api", "message")}
 BLOCKS = {
     "theme": r"<!-- ==== atom page: theme ==== -->.*?<!-- ==== end atom page: theme ==== -->",
     "look": r"/\* ==== atom page: look ==== \*/.*?/\* ==== end atom page: look ==== \*/",
@@ -15,7 +15,7 @@ BLOCKS = {
 }
 # what each page sets in PAGE: key (its localStorage key and IndexedDB database), role (null: any role), whether it needs a login, whether it keeps IndexedDB data
 SETTINGS = {
-    "admin": 'key: "admin", title: "Admin", role: 1, loginRequired: true, idb: true',
+    "analytics": 'key: "analytics", title: "Analytics", role: 1, loginRequired: true, idb: true',
     "monitor": 'key: "monitor", title: "Monitor", role: 1, loginRequired: true, idb: false',
     "api": 'key: "api", title: "API", role: null, loginRequired: false, idb: true',
     "message": 'key: "message", title: "Message", role: null, loginRequired: true, idb: false',
@@ -27,8 +27,8 @@ def block(page, name):
     return [re.sub(r"\n[ \t]+", "\n", text) for text in found]    # the indentation where a page places the block does not count
 
 
-ACCOUNT = block("admin", "account")[0]
-LOOK = block("admin", "look")[0]
+ACCOUNT = block("analytics", "account")[0]
+LOOK = block("analytics", "look")[0]
 
 
 class PageStandardTests(unittest.TestCase):
@@ -55,7 +55,7 @@ class PageStandardTests(unittest.TestCase):
         for page, text in PAGES.items():
             outside = text
             for pattern in BLOCKS.values(): outside = re.sub(pattern, "", outside, flags=re.S)
-            for name in ("const loginValid", "const tokenRefresh", "const userBlock", "/auth/login-username-password\"", "fetch(\"/my/token-refresh\"", "accountDialog", "id=\"loginForm\"", "id=\"accountBtn\""):
+            for name in ("const loginValid", "const tokenRefresh", "const userBlock", "fetch(\"/auth/login-username-password\"", "fetch(\"/my/token-refresh\"", "accountDialog", "id=\"loginForm\"", "id=\"accountBtn\""):
                 with self.subTest(page=page, name=name): self.assertNotIn(name, outside)
 
     def test_logged_in_means_a_valid_token_object(self):
@@ -94,7 +94,7 @@ class PageStandardTests(unittest.TestCase):
                       '"Sync failed. Please try again."', '"Renewing login…"', '"Loading your profile…"', '"Loading settings…"', '"Downloading data…"', '"/my/user-update"', "const initials = name =>"):
             with self.subTest(words=words): self.assertIn(words, ACCOUNT)
         self.assertNotIn("Logged out", ACCOUNT)    # logout shows no message
-        header = block("admin", "account header")[0]
+        header = block("analytics", "account header")[0]
         for label in (">My profile</button>", ">Login details</button>", ">Logout</button>", ">Sync</button>", ">Log in</button>"):
             with self.subTest(label=label): self.assertIn(label, header)
 
@@ -102,12 +102,12 @@ class PageStandardTests(unittest.TestCase):
     def test_the_login_and_account_flow_of_the_projects_pages(self):
         # the login page (intro and card; only the card where no login is needed), the role fixed when the page has one, Sync in the account menu,
         # My profile and Login details sharing no field, the role as "1 (Admin)", a blocked account told in its own dialog
-        dialogs, header = block("admin", "dialogs")[0], block("admin", "account header")[0]
+        dialogs, header = block("analytics", "dialogs")[0], block("analytics", "account header")[0]
         for part in ('id="loginPage"', 'id="loginIntro"', 'id="loginFeatures"', 'class="login-btn" id="loginBtn">Login</button>', 'id="blockedDialog"', 'id="blockedOk">OK</button>'):
             with self.subTest(part=part): self.assertIn(part, dialogs)
         self.assertNotIn("loginDialog", dialogs)
         # Login details' Permissions: the ids as stored, comma separated, "None" when there are none
-        account = block("admin", "account")[0]
+        account = block("analytics", "account")[0]
         for part in ('["Permissions", permissionsCell(u)]', 'esc(ids.join(", ")) : "None"'):
             with self.subTest(part=part): self.assertIn(part, account)
         self.assertIn('class="account-item" id="syncBtn"', header)
@@ -117,7 +117,7 @@ class PageStandardTests(unittest.TestCase):
                      'if (value !== (u[key] ?? null)) changes[key] = value', 'api("/my/user-update", { method: "PUT", body: JSON.stringify(changes) })',
                      '`${role} (${label})`', '"Account deactivated"', '"Account deleted"', "`${PAGE.title} access is unavailable.`"):
             with self.subTest(part=part): self.assertIn(part, ACCOUNT)
-        for page in ("admin", "monitor", "message"):
+        for page in ("analytics", "monitor", "message"):
             with self.subTest(page=page): self.assertRegex(PAGES[page], r"const PAGE = \{[^\n]*intro: \{ heading: ")
 
 
@@ -127,7 +127,7 @@ class PageThemeTests(unittest.TestCase):
         for token in ("--bg:#0b0d10", "--danger:#f87171", "--hl:255,255,255", "--font:", "--fs:13px", "--fs-title:15px"):
             with self.subTest(token=token): self.assertIn(token, LOOK)
         self.assertRegex(LOOK, r':root\[data-theme="light"\]\{--bg:#f5f7fa;[^}]*--hl:15,23,42;[^}]*color-scheme:light\}')
-        theme = re.search(BLOCKS["theme"], PAGES["admin"], re.S).group(0)
+        theme = re.search(BLOCKS["theme"], PAGES["analytics"], re.S).group(0)
         for part in ('get("theme", ["dark", "light", "system"])', 'get("density", ["comfortable", "compact"])', 'matchMedia("(prefers-color-scheme: dark)")', "root.dataset.theme", "root.dataset.density", "key = root.dataset.storageKey", "stored().settings?.[name]", 'addEventListener("storage"'):
             with self.subTest(part=part): self.assertIn(part, theme)
         for page, text in PAGES.items():
@@ -136,7 +136,7 @@ class PageThemeTests(unittest.TestCase):
                 self.assertIn(f'<html lang="en" data-storage-key="{page}">', text)    # the theme is kept in the page's own key: the same as PAGE.key
                 self.assertIn(f'const PAGE = {{ key: "{page}"', text)
                 self.assertNotRegex(text, r"rgba\(255, ?255, ?255,(?!\.8\)|\.14\))")    # overlays use --hl; only the close button on the filled header stays white
-        self.assertIn('id="settingsBtn" role="menuitem"', block("admin", "account header")[0])
+        self.assertIn('id="settingsBtn" role="menuitem"', block("analytics", "account header")[0])
         for part in ('title: "Settings", sub: "Saved in this browser"', 'options: [["dark", "Dark"', '["light", "Light"', '["system", "System"', 'options: [["comfortable", "Comfortable"', '["compact", "Compact"', 'role="radiogroup"', "window.atomSettings.set(setting.key, option)"):
             with self.subTest(part=part): self.assertIn(part, ACCOUNT)    # the first option of each setting is its default: Dark, Comfortable
         self.assertIn("localStorage.removeItem(STORAGE_KEY) } catch {} window.atomSettings?.apply()", ACCOUNT)    # logout removes the whole key, settings too, and the page is back on its defaults at once

@@ -68,13 +68,14 @@ td.col-path{color:var(--muted);font:12px var(--mono)}
 .message{padding:40px 20px;text-align:center;color:var(--muted);background:var(--card);border:1px dashed var(--line);border-radius:12px}
 .message.error{color:var(--error)}
 @media (max-width:560px){.wrap{padding:0 14px}.hero{padding:24px 0 56px}.tools{flex:1 1 100%}.col-path{display:none}}
+.atom-ver{margin-left:6px;font-size:11px;font-weight:400;letter-spacing:0;color:var(--muted);opacity:.7;vertical-align:middle}
 </style>
 </head>
 <body>
 <header class="hero">
   <div class="wrap">
     <div>
-      <h1>Pages</h1>
+      <h1>Pages<span class="atom-ver"></span></h1>
       <p class="sub" id="count">Loading pages...</p>
     </div>
     <div class="tools">
@@ -136,6 +137,9 @@ document.addEventListener("keydown", e => {
     showMessage(`Could not load the page list: ${error.message}`, true);
   }
 })();
+
+/* the Atom version, small after the page title: from GET /info (public), nothing when it fails */
+fetch("/info").then(r => r.json()).then(b => { const v = b?.message?.atom_version; if (v) document.querySelectorAll(".atom-ver").forEach(e => { e.textContent = "v" + v }) }).catch(() => {});
 </script>
 </body>
 </html>

@@ -40,6 +40,9 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);fon
 [hidden]{display:none!important}
 h1,h2,h3{font-family:var(--font)}
 :where(button,select,input,textarea){font-family:var(--font);font-size:var(--fs);color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:var(--radius);height:var(--control-h);padding:0 12px}
+/* every dropdown draws its arrow as Pulse does: 12px in from the right edge, the text kept clear of it */
+select:not([multiple]):not([size]){appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='M3 5l4 4 4-4' fill='none' stroke='%239aa0a6' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:14px;padding-right:36px}
+:root[data-theme="light"] select:not([multiple]):not([size]){background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='M3 5l4 4 4-4' fill='none' stroke='%235f6b7a' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
 :where(textarea){height:auto;min-height:80px;padding:8px 12px;resize:vertical;font-family:var(--mono);font-size:var(--fs-small)}
 :where(button){cursor:pointer;white-space:nowrap;font-weight:500;transition:border-color .15s,background .15s}
 :where(button:hover:not(:disabled)){border-color:rgba(66,153,225,.5);background:var(--panel)}
@@ -551,6 +554,7 @@ select.row-val{padding-right:64px}
   .modal-card-header{padding:8px}
   .json-type-selector{flex:1 1 100%;width:100%}
 }
+.atom-ver{margin-left:6px;font-size:11px;font-weight:400;letter-spacing:0;color:var(--muted);opacity:.7;vertical-align:middle}
 </style>
 </head>
 <body>
@@ -566,7 +570,7 @@ select.row-val{padding-right:64px}
 <div class="container">
   <div class="card">
     <div class="modal-header app-header">
-      <h3>API</h3>
+      <h3>API<span class="atom-ver"></span></h3>
       <div class="modal-actions app-actions">
         <button type="button" class="icon-btn" id="infoToggleBtn" data-icon="info" data-size="18" data-tip="Info (D)"></button>
         <button type="button" class="icon-btn" id="pasteCurlToggleBtn" data-icon="curl" data-size="18" data-tip="Paste cURL"></button>
@@ -775,7 +779,7 @@ select.row-val{padding-right:64px}
     <form class="login-card" id="loginForm" novalidate>
       <div class="dlg-head"><div><h3 id="loginTitle">Login</h3><p class="dlg-sub" id="loginSub"></p></div><button type="button" class="dlg-x" id="loginClose" aria-label="Close" data-tip="Close"></button></div>
       <div class="login-body">
-        <div class="field" id="loginRoleField"><label for="loginRole">Role</label><input id="loginRole" inputmode="numeric" autocomplete="off" placeholder="Any role"></div>
+        <div class="field" id="loginRoleField"><label for="loginRole">Role</label><input id="loginRole" inputmode="numeric" autocomplete="off"></div>
         <div class="field"><label for="loginUsername">Username</label><span class="login-input"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M4 21v-3a5 5 0 0 1 5-5h6a5 5 0 0 1 5 5v3"/></svg><input id="loginUsername" autocomplete="username" maxlength="120"></span></div>
         <div class="field"><label for="loginPassword">Password</label><span class="login-input pw-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4"/></svg><input id="loginPassword" type="password" autocomplete="current-password" maxlength="120"><button type="button" class="pw-eye" id="loginEye" aria-label="Show password" data-tip="Show password"></button></span></div>
         <div class="error-box" id="loginError" hidden></div>
@@ -801,15 +805,15 @@ select.row-val{padding-right:64px}
 const d = document;
 const UI = id => d.getElementById(id);
 /* ==== page settings and the account block ==== */
-// API works logged out (public routes); Log in opens the standard login (any role), and running a /auth/login-* route in the runner logs in too.
+// API works logged out (public routes); Log in opens the runner of /auth/login-username-password (any user, any role: each sees what the backend allows), and running any /auth/login-* route logs in.
 // The OpenAPI spec is its reference data: the IndexedDB record "openapi", downloaded on first open and by every sync (3 hours, or Sync now); responses stay in memory
 // localStorage "api" = {v, token, user, synced_at} (the account block)
-const PAGE = { key: "api", title: "API", role: null, loginRequired: false, idb: true, refresh: () => specRefresh(), onOut: () => { Store.responses = {} } };
+const PAGE = { key: "api", title: "API", role: null, loginRequired: false, idb: true, login: () => openLoginRunner(), refresh: () => specRefresh(), onOut: () => { Store.responses = {} } };
 /* ==== atom page: account ==== */
 // Identical in every Atom page that logs in (docs/page.md, Page standard); the page sets PAGE just above this block and calls Page.start() last. A test checks the copies match.
 // localStorage[PAGE.key] = {v, token, user, info, synced_at, ...the page's choices}; IndexedDB database PAGE.key, store "cache", records {name, user_id, saved_at, data} (pages with PAGE.idb).
 // Logged in means a valid token object; the user comes from GET /my/profile and is checked on every sync; Sync runs every 3 hours and from the account menu; logout clears everything in every tab.
-// Without a login: a page that needs one shows the login page (PAGE.intro: {heading, text, features: [[svg paths, title, line], ...]}); one that doesn't (API) shows only the login card, from Log in.
+// Without a login: a page that needs one shows the login page (PAGE.intro: {heading, text, features: [[svg paths, title, line], ...]}); a page with PAGE.login opens its own login instead (API: the runner).
 const Page = (() => {
   const STORAGE_KEY = PAGE.key, STORAGE_VERSION = 1, IDB_STORE = "cache", IDB_VERSION = 2, SYNC_EVERY_MS = 3 * 3600 * 1000;
   const EXPIRED = "Your session has expired. Please log in again.";
@@ -1032,6 +1036,7 @@ const Page = (() => {
   const loginShow = () => { for (const node of document.body.children) node.inert = !(node === el("loginPage") || node.tagName === "DIALOG" || node.tagName === "SCRIPT" || node.id === "toast"); el("loginPage").hidden = false };
   const loginHide = () => { el("loginPage").hidden = true; for (const node of document.body.children) node.inert = false };
   const loginOpen = (message = "") => {
+    if (PAGE.login) { if (message) toast(message, true); return PAGE.login() }    // a page with its own login (API: the login route's runner)
     const full = !!PAGE.loginRequired, intro = PAGE.intro || {};
     el("loginPage").classList.toggle("card-only", !full);
     el("loginWordmark").hidden = el("loginIntro").hidden = !full;
@@ -1829,6 +1834,12 @@ const toggleApiTag = t => {
   setSearch(UI("apiInfoSearch").value === t ? "" : t);
   hideModal("infoModal");
 };
+// Log in: the runner of POST /auth/login-username-password, the same runner as any route; a run that succeeds logs the page in
+const openLoginRunner = () => {
+  const i = COMMANDS.findIndex(c => c.m === "POST" && c.p === "/auth/login-username-password");
+  if (i === -1) return toast("/auth/login-username-password is not in the API list", true);
+  openCommand(i);
+};
 const openCommand = i => {
   activeMasterRunIndex = i;
   const isWs = COMMANDS[i].m === "WS";
@@ -2519,6 +2530,9 @@ async function init() {
   }
 }
 init();
+
+/* the Atom version, small after the page title: from GET /info (public), nothing when it fails */
+fetch("/info").then(r => r.json()).then(b => { const v = b?.message?.atom_version; if (v) document.querySelectorAll(".atom-ver").forEach(e => { e.textContent = "v" + v }) }).catch(() => {});
 </script>
 </body>
 </html>

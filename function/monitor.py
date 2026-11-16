@@ -6,6 +6,7 @@ from datetime import datetime
 from datetime import timedelta
 from importlib import metadata
 from typing import Any
+from urllib.parse import urlsplit
 import asyncpg
 import orjson
 from starlette.datastructures import State
@@ -115,6 +116,14 @@ def func_monitor_config_value(*, name: str, value) -> object:
     if isinstance(value, (dict, list, tuple, set)): return value if len(orjson.dumps(value, default=str, option=orjson.OPT_NON_STR_KEYS)) <= 200 else f"{len(value)} items"
     return value if value is None or isinstance(value, (bool, int, float)) else str(value)[:200]
 
+def func_monitor_database_name(*, url: str | None) -> str:
+    """The master database as Admin and PgWeb name it, host / database, never the user or password: "" when unset or unreadable."""
+    try: parts = urlsplit(url or "")
+    except ValueError: return ""
+    if not parts.hostname: return ""
+    port, name = (f":{parts.port}" if parts.port and parts.port != 5432 else ""), parts.path.strip("/")
+    return parts.hostname + port + (f" / {name}" if name else "")
+
 def func_monitor_app(*, app_state: State, app_routes: list, packages: tuple = ("fastapi", "starlette", "uvicorn", "asyncpg", "pydantic", "orjson", "redis", "psutil")) -> dict:
     """What this server runs: Atom's version, Python and packages, mode flags, routes and func_* functions (split into Atom's and the project's), which clients are connected, and every setting (secrets masked)."""
     state = vars(app_state)["_state"]
@@ -131,7 +140,7 @@ def func_monitor_app(*, app_state: State, app_routes: list, packages: tuple = ("
         is_on = bool(value) if isinstance(value, dict) else value is not None
         clients.append({"name": name, "is_on": is_on, "detail": ", ".join(sorted(value)) if isinstance(value, dict) else ""})
     return {
-        "server": {"python": platform.python_version(), "platform": platform.platform(terse=True), "pid": os.getpid(), "workers": state.get("config_uvicorn_workers", 1), "is_prod": state.get("config_is_prod"), "is_read_only": state.get("config_is_read_only"), "atom_version": state.get("cache_atom_version"),
+        "server": {"python": platform.python_version(), "platform": platform.platform(terse=True), "pid": os.getpid(), "workers": state.get("config_uvicorn_workers", 1), "is_prod": state.get("config_is_prod"), "is_read_only": state.get("config_is_read_only"), "atom_version": state.get("cache_atom_version"), "database": func_monitor_database_name(url=state.get("config_postgres_url_master")),
                    "routes": len(app_routes), "routes_project": project_routes, "apis_configured": len(state.get("config_api", {})), "functions": len(functions), "functions_project": project_functions},
         "packages": versions,
         "clients": clients,
