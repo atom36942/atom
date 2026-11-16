@@ -68,7 +68,7 @@ def func_check_table_write_blocked(*, app_state: State, table: str) -> None:
     if table in (getattr(app_state, "config_table_write_blocked", None) or []): raise func_api_error(message=f"write disabled for table: {table}", status_code=403)
 
 def func_check_table_not_users(*, table: str, api: str) -> None:
-    """Refuse the users table in a generic object API: users rows are written only through their own APIs (/my/user-*, /admin/user-*)."""
+    """Refuse the users table in a generic object API: users rows are written only through their own APIs (/my/user-*, /permission/user-*, /admin/user-*); api names the one to use."""
     if table == "users": raise Exception(f"users table: use {api}")
 
 def func_check_permission_user_role(*, app_state: State, role: int) -> None:
