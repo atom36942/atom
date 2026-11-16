@@ -471,4 +471,4 @@ The client can call the exact same endpoint in a loop while `has_more` is `true`
 
 ### 4. User Account Deletion
 
-The generic object APIs never write `users`: they refuse `table=users` and name the API to use. Users are created, updated and deleted with `/admin/user-create`, `/admin/user-update`, `/admin/user-delete`, `/my/user-update` and `/my/user-delete` (see [Managing Users](auth.md#4-managing-users)); `/admin/object-read?table=users` still reads them.
+The generic object APIs never write `users`: they refuse `table=users` and name the API to use. Users are created, updated and deleted with `/admin/user-create`, `/admin/user-update`, `/admin/user-delete`, `/permission/user-create`, `/permission/user-update`, `/my/user-update` and `/my/user-delete` (see [Managing Users](auth.md#4-managing-users)); `/admin/object-read?table=users` still reads them.

@@ -36,7 +36,21 @@ async def func_api_permission_object_delete(*, request: Request):
 async def func_api_permission_user_create(*, request: Request):
     app_state = request.app.state
     ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "username", "type": "str", "required": True}, {"name": "password", "type": "str", "required": True}, {"name": "role", "type": "int", "required": True}], strict=True, strict_types=True, reject_unknown=True)
-    allowed = app_state.config_permission_user_create_roles or []
-    if ob["role"] == 1 or ob["role"] not in allowed: raise app_state.func_api_error(message=f"role {ob['role']} not allowed (config_permission_user_create_roles: {allowed})", status_code=400)
+    app_state.func_check_permission_user_role(app_state=app_state, role=ob["role"])
     user_id = await app_state.func_user_create(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, config_column_regex=app_state.config_column_regex, role=ob["role"], username=ob["username"], password=ob["password"], created_by_id=request.state.user["id"])
     return {"status": 1, "message": {"id": user_id}}
+
+@router.put("/permission/user-update")
+async def func_api_permission_user_update(*, request: Request):
+    app_state = request.app.state
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "id", "type": "int", "required": True}, {"name": "name", "type": "any"}, {"name": "password", "type": "any"}, {"name": "deactivated_at", "type": "any"}], strict=True, strict_types=True, reject_unknown=True)
+    columns = [key for key in await request.json() if key != "id"]
+    if len(columns) != 1: raise app_state.func_api_error(message="send id and exactly one of name, password, deactivated_at", status_code=400)
+    column, value = columns[0], ob[columns[0]]
+    user = await app_state.func_user_read_single(client_postgres=request.state.client_postgres, user_id=ob["id"])
+    app_state.func_check_permission_user_role(app_state=app_state, role=user["role"])
+    if column == "password" and not isinstance(value, str): raise app_state.func_api_error(message="password must be a string", status_code=400)
+    if value is not None and not isinstance(value, str): raise app_state.func_api_error(message=f"{column} must be a string or null", status_code=400)
+    obj = {"id": ob["id"], column: value, **({"deactivated_by_id": request.state.user["id"] if value is not None else None} if column == "deactivated_at" else {})}
+    await app_state.func_user_update(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_column_regex=app_state.config_column_regex, obj_list=[obj], updated_by_id=request.state.user["id"], is_otp_required=False, config_column_single_update=app_state.config_column_single_update, config_column_users_blocked=app_state.config_column_users_blocked, config_column_users_my_blocked=app_state.config_column_users_my_blocked, config_otp_expiry_sec=app_state.config_otp_expiry_sec, config_otp_static=app_state.config_otp_static, config_otp_max_attempt=app_state.config_otp_max_attempt)
+    return {"status": 1, "message": "user updated"}

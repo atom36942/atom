@@ -58,9 +58,13 @@ Atom's version is `ATOM_VERSION` in `sync.py` (for example `ATOM_VERSION = "1.2.
 
 Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. Sync always takes the latest `main`; to mark a new version, raise `ATOM_VERSION` and the `Version` line at the top of `readme.md` (a test checks they match) and push to `main` (no tags or GitHub releases). Commits in between keep the last version. A project synced before versions existed shows `unknown` until its next sync. If a sync fails after installing the new `sync.py`, that file already shows the new version while the other files may be older; the error says so, and running sync again finishes it.
 
+### Upgrading to 14.0.0
+
+`config_permission_user_create_roles` is now `config_permission_user_roles` (startup names the new key if the old one is still set): rename it in `config_extend.py`. The same list now also limits the new `PUT /permission/user-update` (permission 139): `{id, name}`, `{id, password}` or `{id, deactivated_at}` (a timestamp blocks, `null` restores), only for users whose role is in the list. Nobody holds 139 by default. To make a block take effect at once instead of at the user's next token renewal, set `config_api_global_user_check_deactivated = "realtime"`.
+
 ### 13.2.0
 
-`POST /permission/user-create` (permission 138): `{username, password, role}`, for an app's own user management. Off twice by default: nobody holds 138, and `config_permission_user_create_roles` is `[]`; set the roles it may create in `config_extend.py` (from 2; startup refuses 1).
+`POST /permission/user-create` (permission 138): `{username, password, role}`, for an app's own user management. Off twice by default: nobody holds 138, and `config_permission_user_create_roles` (now `config_permission_user_roles`) is `[]`; set the roles it may create in `config_extend.py` (from 2; startup refuses 1).
 
 ### Upgrading to 13.0.0
 

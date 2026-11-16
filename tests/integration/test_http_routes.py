@@ -128,7 +128,7 @@ class HttpRouteTests(unittest.TestCase):
         bob = app_login(self.client, path="/auth/login-username-password", body={"username": "bob", "password": "bob-pass"})
         try:
             self.assertIn("role 5 not allowed", self.message(create(bob, 5), 400))    # Atom's default: no role
-            self.app.state.config_permission_user_create_roles = [5]
+            self.app.state.config_permission_user_roles = [5]
             self.assertIn("role 1 not allowed", self.message(create(bob, 1), 400))
             self.assertIn("role 6 not allowed", self.message(create(bob, 6), 400))
             user_id = self.message(create(bob, 5))["id"]
@@ -137,7 +137,35 @@ class HttpRouteTests(unittest.TestCase):
             self.assertTrue(app_login(self.client, path="/auth/login-username-password", body={"username": "carol", "password": "carol-pass"}))
             self.message(self.client.put("/admin/user-update", json={"id": user_id, "role": 9}, headers=self.auth(self.admin)))    # other tests count role 5 users
         finally:
-            self.app.state.config_permission_user_create_roles = []
+            self.app.state.config_permission_user_roles = []
+            self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": None}, headers=self.auth(self.admin)))
+
+    def test_permission_user_update_needs_the_permission_and_an_allowed_role(self):
+        update = lambda token, body: self.client.put("/permission/user-update", json=body, headers=self.auth(token))
+        user = lambda: fetch(self.url, "SELECT name, deactivated_at IS NOT NULL AS off, deactivated_by_id, updated_by_id FROM users WHERE id = $1", self.alice_id)[0]
+        self.assertEqual(self.message(update(self.bob, {"id": self.alice_id, "name": "A"}), 403), "permission denied")
+        self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [139]}, headers=self.auth(self.admin)))
+        bob = app_login(self.client, path="/auth/login-username-password", body={"username": "bob", "password": "bob-pass"})
+        try:
+            self.assertIn("role 5 not allowed", self.message(update(bob, {"id": self.alice_id, "name": "A"}), 400))    # Atom's default: no role
+            self.app.state.config_permission_user_roles = [5]
+            self.assertIn("role 1 not allowed", self.message(update(bob, {"id": 1, "password": "taken-over"}), 400))    # root and admins never
+            for body in ({"id": self.alice_id}, {"id": self.alice_id, "name": "A", "password": "x-pass-1"}):
+                with self.subTest(body=body): self.assertIn("exactly one of", self.message(update(bob, body), 400))
+            self.message(update(bob, {"id": self.alice_id, "role": 9}), 400)    # role, permissions, username: never through this route
+            self.message(update(bob, {"id": self.alice_id, "name": "Alice A"}))
+            self.assertEqual(user(), {"name": "Alice A", "off": False, "deactivated_by_id": None, "updated_by_id": self.bob_id})
+            self.message(update(bob, {"id": self.alice_id, "password": "alice-new-pass"}))
+            self.assertTrue(app_login(self.client, path="/auth/login-username-password", body={"username": "alice", "password": "alice-new-pass"}))
+            self.message(update(bob, {"id": self.alice_id, "deactivated_at": "2026-01-01T00:00:00+00:00"}))
+            self.assertEqual(user()["off"], True)
+            self.assertEqual(user()["deactivated_by_id"], self.bob_id)
+            self.message(update(bob, {"id": self.alice_id, "deactivated_at": None}))
+            self.assertEqual((user()["off"], user()["deactivated_by_id"]), (False, None))
+        finally:
+            self.app.state.config_permission_user_roles = []
+            self.message(self.client.put("/admin/user-update", json={"id": self.alice_id, "name": None}, headers=self.auth(self.admin)))
+            self.message(self.client.put("/admin/user-update", json={"id": self.alice_id, "password": "alice-pass"}, headers=self.auth(self.admin)))
             self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": None}, headers=self.auth(self.admin)))
 
     def test_permission_write_needs_the_permission_and_an_allowed_table(self):

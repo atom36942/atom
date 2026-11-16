@@ -153,12 +153,14 @@ class DatabaseConfigCheckTests(unittest.TestCase):
         func_check_log_api_table(app_state=log_state({}, config_is_log_api=False))    # logging off
         func_check_log_api_table(app_state=log_state({}, client_postgres_dict={}))    # no databases configured
 
-    def test_user_create_roles_are_roles_from_2(self):
+    def test_permission_user_roles_are_roles_from_2(self):
         limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)
-        state = lambda roles: SimpleNamespace(**limits, config_retention_day_otp=None, config_retention_day_log_api=None, config_buffer_limit_default=100, config_buffer_rows_max=1000, config_permission_user_create_roles=roles)
+        state = lambda roles: SimpleNamespace(**limits, config_retention_day_otp=None, config_retention_day_log_api=None, config_buffer_limit_default=100, config_buffer_rows_max=1000, config_permission_user_roles=roles)
         for roles in ([], [2], [2, 3, 6]): func_check_runtime_config(app_state=state(roles))
         for roles in ([1], [1, 2], ["2"], [True], 2):
-            with self.subTest(roles=roles), self.assertRaisesRegex(Exception, "config_permission_user_create_roles must be"): func_check_runtime_config(app_state=state(roles))
+            with self.subTest(roles=roles), self.assertRaisesRegex(Exception, "config_permission_user_roles must be"): func_check_runtime_config(app_state=state(roles))
+        old = SimpleNamespace(**vars(state([2])), config_permission_user_create_roles=[2])
+        with self.assertRaisesRegex(Exception, "renamed in Atom 14.0.0 to config_permission_user_roles"): func_check_runtime_config(app_state=old)
 
     def test_buffer_rows_max_must_be_an_integer_of_at_least_1000(self):
         limits = dict.fromkeys(("config_query_runner_read_limit", "config_export_limit", "config_sql_read_limit_default", "config_sql_read_limit_max", "config_sql_read_relation_fetch_limit_max", "config_postgres_buffer_flush_auto_sec", "config_inmemory_cache_cleanup_auto_sec", "config_uvicorn_workers", "config_request_body_max_kb", "config_request_form_max_kb", "config_api_cache_inmemory_max_kb"), 100)

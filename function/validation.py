@@ -70,6 +70,11 @@ def func_check_table_not_users(*, table: str, api: str) -> None:
     """Refuse the users table in a generic object API: users rows are written only through their own APIs (/my/user-*, /admin/user-*)."""
     if table == "users": raise Exception(f"users table: use {api}")
 
+def func_check_permission_user_role(*, app_state: State, role: int) -> None:
+    """Refuse a role outside config_permission_user_roles in a /permission user route: the role a new user gets, or the role of the user being changed; never role 1."""
+    allowed = getattr(app_state, "config_permission_user_roles", None) or []
+    if role == 1 or role not in allowed: raise func_api_error(message=f"role {role} not allowed (config_permission_user_roles: {allowed})", status_code=400)
+
 def func_check_batch_limit(*, app_state: State, items: list) -> None:
     """Ensure batch item list length does not exceed config_batch_item_limit."""
     limit = getattr(app_state, "config_batch_item_limit", None)
