@@ -43,7 +43,7 @@ config_column_int_mapping = {"users": {"role": {1: "Admin"}, "permissions": {6: 
 | 136, 137: `/permission/object-update`, `/permission/object-delete` | permission only | users granted it, any role; only tables in `config_permission_table_write_allowed` (default none) |
 | 138, 139: `/permission/user-create`, `/permission/user-update` | permission only | users granted it, any role; only users of roles in `config_permission_user_roles` (default none, never 1) |
 
-Root (id 1) gets every `/admin` permission route at every startup, Atom's (6) and a project's, added to what it holds and never removed, so it cannot be locked out of the admin group. `/permission` routes (Atom's 136, 137 and a project's) and every other permission route are granted explicitly, to root too.
+Root (id 1) holds exactly the `/admin` permission routes, Atom's (6) and a project's: every startup sets its `permissions` to that list, so it is never locked out of the admin group and keeps nothing stale (an id whose route lost its permission check goes at the next start). `/permission` routes (Atom's 136–139 and a project's) and every other permission route are for other users, granted explicitly; root never holds them (a restart removes one granted by hand).
 
 A project route works the same way, for example only some role 2 users may delete a task:
 

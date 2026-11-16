@@ -57,13 +57,13 @@ class SchemaInitTests(unittest.IsolatedAsyncioTestCase):
         self.assertLessEqual(len(second), 25, f"{len(second)} statements on an unchanged start")
         self.assertEqual(await self.pool.fetch("SELECT oid, tgname FROM pg_trigger WHERE NOT tgisinternal ORDER BY oid"), trigger_ids, "no trigger was recreated (same oids)")
 
-    async def test_root_gets_every_admin_permission_route_and_keeps_its_own(self):
+    async def test_root_holds_exactly_the_admin_permission_routes(self):
         app_state = SimpleNamespace(**{name: getattr(function, name) for name in function.__all__}, config_api={"/admin/a": {"id": 6, "user_check_permission": {"mode": "token"}}, "/admin/b": {"id": 132, "user_check_permission": {"mode": "token"}}, "/admin/c": {"id": 7}, "/admin/project": {"id": 301, "user_check_permission": {"mode": "token"}}, "/permission/w": {"id": 136, "user_check_permission": {"mode": "token"}}, "/x/project": {"id": 300, "user_check_permission": {"mode": "token"}}})
         await self.init(app_state)
         self.assertEqual(await self.pool.fetchval("SELECT permissions FROM users WHERE id = 1"), [6, 132, 301], "every /admin permission route, a project's too; /permission 136 and other routes are granted explicitly")
-        await self.pool.execute("UPDATE users SET permissions = '{300}' WHERE id = 1")
+        await self.pool.execute("UPDATE users SET permissions = '{6,136,300}' WHERE id = 1")    # a stale id and a /permission route granted by hand
         await self.init(app_state)
-        self.assertEqual(await self.pool.fetchval("SELECT permissions FROM users WHERE id = 1"), [6, 132, 300, 301], "added, never removed")
+        self.assertEqual(await self.pool.fetchval("SELECT permissions FROM users WHERE id = 1"), [6, 132, 301], "reset to exactly the /admin permission routes")
         # with config_is_postgres_schema_init off, the root update is routine, so an unchanged database passes the check
         await function.func_postgres_schema_check(app_state=app_state, client_postgres=self.pool, config_postgres=config_postgres())
 

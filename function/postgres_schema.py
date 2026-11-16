@@ -300,7 +300,7 @@ async def func_postgres_schema_trigger_set(*, conn: asyncpg.Connection, existing
     existing[(table, name)] = f"CREATE TRIGGER {name} {definition}"
 
 async def func_postgres_schema_users_init(*, conn: asyncpg.Connection, db_tables: dict, catalog: dict, context: dict, root_user_password_hash: str = None, root_user_permissions: list | None = None) -> None:
-    """Initialize root-user protection, root credentials (and Atom's permission route ids, root_user_permissions, added to its permissions), and user audit triggers."""
+    """Initialize root-user protection, root credentials (and its permissions: exactly root_user_permissions, the /admin permission route ids), and user audit triggers."""
     is_root_user_delete_disabled = context["is_root_user_delete_disabled"]
     is_root_user_create = context["is_root_user_create"]
     is_log_users_password = context["is_log_users_password"]
@@ -320,9 +320,9 @@ async def func_postgres_schema_users_init(*, conn: asyncpg.Connection, db_tables
                 raise Exception("config_root_user_password must be set in env when is_root_user_create is enabled")
             await conn.execute("INSERT INTO users (username, password, role) VALUES ('admin', $1, 1) ON CONFLICT (username, role) DO UPDATE SET username = 'admin', password = EXCLUDED.password, role = 1, deleted_at = NULL, deactivated_at = NULL;", root_user_password_hash)
             await conn.execute("UPDATE users SET username = 'admin', password = $1, role = 1, deleted_at = NULL, deactivated_at = NULL WHERE id = 1;", root_user_password_hash)
-            # root always holds every /admin permission route, Atom's and a project's; added, never removed; /permission routes are granted explicitly, to root too
-            if root_user_permissions and "permissions" in users_cols:
-                await conn.execute("UPDATE users SET permissions = (SELECT array_agg(DISTINCT p ORDER BY p) FROM unnest(coalesce(permissions, '{}') || $1::smallint[]) p) WHERE id = 1 AND NOT coalesce(permissions, '{}') @> $1::smallint[];", root_user_permissions)
+            # root holds exactly the /admin permission routes (Atom's and a project's), reset at every start; nothing else: /permission and other permission routes are never root's
+            if "permissions" in users_cols:
+                await conn.execute("UPDATE users SET permissions = $1::smallint[] WHERE id = 1 AND permissions IS DISTINCT FROM $1::smallint[];", root_user_permissions or None)
         if is_log_password:
             catalog["tg"].add("trigger_password_log_users")
             await func_postgres_schema_trigger_set(conn=conn, existing=existing, table="users", name="trigger_password_log_users", definition="AFTER UPDATE ON users FOR EACH ROW EXECUTE FUNCTION func_password_log_users()")
