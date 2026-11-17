@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [15.7.1] - 2026-11-17
+
+`readme.md` shows the version as a release badge (the latest GitHub Release, updated by CI) instead of a `Version` line, so a release no longer edits `readme.md`; a test still checks `ATOM_VERSION` and the top `CHANGELOG.md` entry agree. Nothing to change in projects.
+
 ## [15.7.0] - 2026-11-17
 
 Standard versioning: release notes moved from `docs/sync.md` to `CHANGELOG.md` at the root (synced to projects); each version is a git tag `vX.Y.Z` and a GitHub Release, created by CI once the tests pass on the version's commit (every earlier version is tagged too). `python3 sync.py --ref v15.7.0` pins or rolls back a project by version (a commit id still works). Tests check `ATOM_VERSION`, `readme.md` and the top `CHANGELOG.md` entry agree. Nothing to change in projects.

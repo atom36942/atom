@@ -1,7 +1,6 @@
 # Atom
-Version 15.7.0
 
-[![tests](https://github.com/atom36942/atom/actions/workflows/tests.yml/badge.svg)](https://github.com/atom36942/atom/actions/workflows/tests.yml) ![Python 3.14](https://img.shields.io/badge/python-3.14-blue) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/atom36942/atom/blob/main/LICENSE)
+[![Release](https://img.shields.io/github/v/release/atom36942/atom?label=release&sort=semver)](https://github.com/atom36942/atom/releases) [![tests](https://github.com/atom36942/atom/actions/workflows/tests.yml/badge.svg)](https://github.com/atom36942/atom/actions/workflows/tests.yml) ![Python 3.14](https://img.shields.io/badge/python-3.14-blue) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/atom36942/atom/blob/main/LICENSE)
 
 Batteries-included FastAPI framework for production backends: auth, CRUD over any table, caching, rate limits, queues, workers, web pages and optional integrations, all driven by config. Your code lives in `*_extend` paths, so updating Atom never overwrites it.
 

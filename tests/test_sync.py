@@ -127,9 +127,9 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(parsed, sorted(set(parsed), reverse=True), "CHANGELOG.md entries: newest first, each version once")
         self.assertEqual(len(versions), len(re.findall(r"^## ", changelog, re.M)), "every ## heading in CHANGELOG.md is a version: ## [X.Y.Z] - YYYY-MM-DD")
 
-    def test_readme_shows_the_version(self):
+    def test_readme_shows_the_release_badge(self):
         readme = Path(sync.__file__).with_name("readme.md").read_text()
-        self.assertEqual(readme.splitlines()[1], f"Version {sync.ATOM_VERSION}", "raise the version in readme.md together with ATOM_VERSION")
+        self.assertIn("https://img.shields.io/github/v/release/atom36942/atom", readme.split("\n\n", 2)[1], "the version shows as the release badge, first in the badge line")
 
     def test_version_change_lines(self):
         self.assertEqual(sync.version_change(old="1.2.0", new="1.3.0", is_same_revision=False), "Atom 1.2.0 -> 1.3.0")

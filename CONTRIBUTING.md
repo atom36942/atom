@@ -18,7 +18,7 @@ Windows: [docs/windows.md](docs/windows.md). Tests against real services: [tests
 - Read [AGENTS.md](AGENTS.md): Atom's only rules file (naming, `func_*`, `config_api`, scripts, pages). The design decisions in [docs/about.md](docs/about.md) stay unless the issue is about changing one.
 - One focused change per pull request, with tests in `tests/` and the matching doc in `docs/` updated.
 - `venv/bin/python -m script.check` passes.
-- Raise `ATOM_VERSION` in `sync.py` and the `Version` line in `readme.md` by semver (major: projects must change code; minor: new feature; patch: fix), and add its dated entry at the top of [CHANGELOG.md](CHANGELOG.md) saying what changed and what projects must do (a major marked **Upgrade**). Don't tag or release by hand: CI creates the tag and GitHub Release once the tests pass.
+- Raise `ATOM_VERSION` in `sync.py` by semver (major: projects must change code; minor: new feature; patch: fix), and add its dated entry at the top of [CHANGELOG.md](CHANGELOG.md) saying what changed and what projects must do (a major marked **Upgrade**). Don't tag or release by hand: CI creates the tag and GitHub Release once the tests pass.
 - No personal or company data (names, emails, paths, secrets) in code, tests or docs.
 
 ## Issues
