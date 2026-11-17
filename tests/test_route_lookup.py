@@ -18,14 +18,21 @@ from function import func_app_route_lookup_add
 from function import func_endpoint_json_wrap
 
 
+def atom_route(router, path, result, methods):
+    """A route written the Atom way (async, request only, wrapped), so the lookup table may take it."""
+    async def endpoint(*, request: Request): return result() if callable(result) else result
+    router.add_api_route(path, endpoint, methods=methods)
+    router.routes[-1].endpoint = func_endpoint_json_wrap(endpoint=router.routes[-1].endpoint, status_code=router.routes[-1].status_code)
+
+
 def build_app():
     first, second = APIRouter(), APIRouter()
-    first.add_api_route("/info", lambda: {"route": "info"}, methods=["GET"])
+    atom_route(first, "/info", {"route": "info"}, ["GET"])
     first.add_api_route("/item/{item_id}", lambda item_id: {"route": "param", "id": item_id}, methods=["GET"])
-    first.add_api_route("/form", lambda: {"route": "form-post"}, methods=["POST"])
-    second.add_api_route("/item/fixed", lambda: {"route": "fixed"}, methods=["GET"])    # shadowed: /item/{item_id} comes first and wins
-    second.add_api_route("/form", lambda: {"route": "form-get"}, methods=["GET"])
-    second.add_api_route("/text", lambda: PlainTextResponse("plain"), methods=["GET"])
+    atom_route(first, "/form", {"route": "form-post"}, ["POST"])
+    atom_route(second, "/item/fixed", {"route": "fixed"}, ["GET"])    # shadowed: /item/{item_id} comes first and wins
+    atom_route(second, "/form", {"route": "form-get"}, ["GET"])
+    atom_route(second, "/text", lambda: PlainTextResponse("plain"), ["GET"])
     @second.websocket("/socket")
     async def socket(websocket: WebSocket):
         await websocket.accept()
@@ -105,7 +112,7 @@ class DirectCallTests(unittest.TestCase):
     def test_responses_match_and_only_request_only_routes_skip_handle(self):
         expected = self.responses(build_atom_app())
         app = build_atom_app()
-        self.assertEqual(func_app_route_lookup_add(app=app), 8)
+        self.assertEqual(func_app_route_lookup_add(app=app), 4)    # /read, /create, /fail, /text; the others keep FastAPI's handling
         handled = []
         original = APIRoute.handle
         async def spy(route, scope, receive, send):

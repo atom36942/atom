@@ -170,7 +170,7 @@ dialog.dlg .choices button[aria-checked="true"]{background:var(--card);border-co
 :root{--delete:#dc3545;--card-pad:22px}
 body{height:100vh;overflow:hidden;display:flex;flex-direction:column}
 /* this page's own buttons size themselves */
-.icon-btn,.view-btn,.copy-endpoint-btn,.clear-api-btn,.clear-input-btn,.remove-btn,.toggle-mode-btn,.link-btn,.tag-filter{height:auto;font-weight:inherit}
+.icon-btn,.view-btn,.copy-endpoint-btn,.endpoint-curl-btn,.clear-api-btn,.clear-input-btn,.remove-btn,.toggle-mode-btn,.link-btn,.tag-filter{height:auto;font-weight:inherit}
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(var(--hl),.15);border-radius:3px}
@@ -252,8 +252,9 @@ button:disabled[data-tip]{pointer-events:none}    /* the hover tooltip finds dis
 .btn-primary .spinner{display:none;width:16px;height:16px;border:2px solid rgba(56,161,105,.2);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite;margin-right:6px}
 .btn-primary.loading .spinner{display:inline-block}
 .add-btn-small{background:var(--accent);color:#fff;border:none;border-radius:5px;cursor:pointer;height:22px;width:22px;display:flex;align-items:center;justify-content:center}
-.copy-endpoint-btn{background:none;border:none;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:4px;border-radius:4px;transition:all .2s;flex-shrink:0;margin-left:auto}
-.copy-endpoint-btn:hover{color:#fff;background:rgba(var(--hl),.05)}
+.copy-endpoint-btn,.endpoint-curl-btn{background:none;border:none;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:4px;border-radius:4px;transition:all .2s;flex-shrink:0;margin-left:auto}
+.endpoint-curl-btn+.copy-endpoint-btn{margin-left:0}
+.copy-endpoint-btn:hover,.endpoint-curl-btn:hover{color:#fff;background:rgba(var(--hl),.05)}
 .link-btn{background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px;padding:0;font-family:inherit}
 .hover-tip{position:fixed;z-index:10000;pointer-events:none;padding:3px 8px;border-radius:5px;background:rgba(20,23,28,.96);border:1px solid rgba(var(--hl),.1);color:#c9d1d9;font-size:11px;font-weight:500;line-height:1.4;white-space:nowrap;opacity:0;transform:translateY(-2px);transition:opacity .12s,transform .12s}
 .hover-tip.on{opacity:1;transform:none}
@@ -613,8 +614,6 @@ select.row-val{padding-right:64px}
     <div class="modal-header">
       <h3>API Runner</h3>
       <div class="modal-actions">
-        <button type="button" class="icon-btn" id="runnerCurlBtn" data-icon="curl" data-size="18" data-tip="View cURL"></button>
-        <button type="button" class="icon-btn" id="runnerDownloadCurlBtn" data-icon="download" data-size="18" data-tip="Download cURL (.txt)"></button>
         <button type="button" class="btn btn-danger compact" id="stopRequestBtn" hidden>Stop</button>
         <button type="submit" class="btn btn-primary compact" id="subBtn" form="apiForm" data-tip="Run (Ctrl/⌘+Enter)"><div class="spinner"></div><span id="subBtnIcon" class="btn-icon" data-icon="play" data-size="14"></span><span id="subBtnText">Run</span></button>
         <button type="button" class="icon-btn" id="runnerCloseBtn" data-icon="close" data-size="24" data-tip="Close (Esc)"></button>
@@ -698,7 +697,6 @@ select.row-val{padding-right:64px}
         <button type="button" class="icon-btn view-toggle" id="apiDetailTreeBtn" data-icon="list" data-size="20" data-tip="Tree view"></button>
         <button type="button" class="icon-btn view-toggle" id="apiDetailTableBtn" data-icon="table" data-size="20" data-tip="Table view"></button>
         <div class="action-divider" id="apiDetailDivider"></div>
-        <button type="button" class="icon-btn" id="apiDetailDownloadCurlBtn" data-icon="download" data-size="20" data-tip="Download cURL (.txt)" hidden></button>
         <button type="button" class="icon-btn" id="apiDetailJson" data-icon="downloadJson" data-size="20" data-tip="Download JSON"></button>
         <button type="button" class="icon-btn" id="apiDetailCopy" data-icon="copy" data-size="20" data-tip="Copy"></button>
         <button type="button" class="icon-btn" id="apiDetailCloseBtn" data-icon="close" data-size="24" data-tip="Close"></button>
@@ -1694,7 +1692,6 @@ const isOpen = id => UI(id).style.display === "block";
 const setDetailMode = (title, json) => {
   UI("apiDetailTitle").textContent = title;
   ["apiDetailCopy", "apiDetailJson", "apiDetailDivider"].forEach(id => { UI(id).hidden = !json });
-  UI("apiDetailDownloadCurlBtn").hidden = json;
 };
 const openJsonResponseModal = (title, data) => {
   const jsonStr = typeof data === "string" ? data : JSON.stringify(data, null, 2);
@@ -1721,7 +1718,6 @@ const openApiCurlModal = command => {
   const card = (title, key) => `<div class="modal-card"><div class="modal-card-header"><h4>${title}</h4><div class="card-actions"><button type="button" class="icon-btn curl-action" data-curl-dl="${key}" ${tipAttrs("Download cURL (.txt)")}>${ICON.download(14)}</button><button type="button" class="icon-btn curl-action" data-curl-copy="${key}" ${tipAttrs("Copy")}>${ICON.copy(14)}</button></div></div><div class="modal-card-body"><pre class="curl-pre">${he(cards[key])}</pre></div></div>`;
   setDetailMode("API cURL", false);
   UI("apiDetailTreeBtn").hidden = UI("apiDetailTableBtn").hidden = true;
-  UI("apiDetailDownloadCurlBtn").onclick = () => downloadCurlCommand(command);
   const box = UI("apiDetailContent");
   box.className = "curl";
   box.innerHTML = `<div class="curl-cards">${card("cURL", "curl")}${card("Placeholder cURL", "placeholderCurl")}</div>`;
@@ -1984,11 +1980,9 @@ const resetRunner = command => {
   ResponseView.clear();
   UI("runnerPathHeader").innerHTML = command ? renderRunnerEndpoint(command) : "";
   UI("runnerAdhocBanner").hidden = !command?._adhoc;
-  UI("runnerCurlBtn").disabled = !command || !!command._adhoc;
-  UI("runnerDownloadCurlBtn").disabled = !command;
   UI("runnerResetBtn").disabled = true;
 };
-const renderRunnerEndpoint = command => `<div class="endpoint"><span class="method-badge ${command.m.toLowerCase()}">${command.m}</span><span class="endpoint-path">${he(command.p)}</span><button type="button" class="copy-endpoint-btn" data-copy="${he(command.p)}" ${tipAttrs("Copy path")}>${ICON.copy(14)}</button></div>`;
+const renderRunnerEndpoint = command => `<div class="endpoint"><span class="method-badge ${command.m.toLowerCase()}">${command.m}</span><span class="endpoint-path">${he(command.p)}</span>${command.m === "WS" || command._adhoc ? "" : `<button type="button" class="endpoint-curl-btn" ${tipAttrs("View cURL")}>${ICON.curl(14)}</button>`}<button type="button" class="copy-endpoint-btn" data-copy="${he(command.p)}" ${tipAttrs("Copy path")}>${ICON.copy(14)}</button></div>`;
 const load = i => {
   preparePreviewApi(i);
   resetRunner(i === null ? null : COMMANDS[i]);
@@ -2307,8 +2301,6 @@ const submitPasteCurl = () => {
 const setupEventListeners = () => {
   UI("stopRequestBtn").addEventListener("click", () => cancelCurrentRequest());
   UI("apiForm").addEventListener("submit", e => { e.preventDefault(); executeCurrentApi() });
-  UI("runnerCurlBtn").addEventListener("click", () => openApiCurlModal(curr));
-  UI("runnerDownloadCurlBtn").addEventListener("click", () => downloadCurlCommand(curr));
   UI("runnerResetBtn").addEventListener("click", () => {
     if (activeMasterRunIndex === null) return;
     Store.removeResponse(activeMasterRunIndex);
@@ -2403,6 +2395,7 @@ const setupEventListeners = () => {
     if (view) return ResponseView.switchTo(view.dataset.view);
     const info = t.closest(".info-icon-btn");
     if (info) { e.stopPropagation(); return showInfoModal(info.dataset.key, info.dataset.regex, info.dataset.desc) }
+    if (t.closest(".endpoint-curl-btn")) return openApiCurlModal(curr);
     const copyEndpoint = t.closest(".copy-endpoint-btn");
     if (copyEndpoint) return copyWithFeedback(copyEndpoint, copyEndpoint.dataset.copy, 14, "Path copied");
     const toggle = t.closest(".tree-toggle");

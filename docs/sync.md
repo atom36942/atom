@@ -58,6 +58,10 @@ Atom's version is `ATOM_VERSION` in `sync.py` (for example `ATOM_VERSION = "1.2.
 
 Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. Sync always takes the latest `main`; to mark a new version, raise `ATOM_VERSION` and the `Version` line at the top of `readme.md` (a test checks they match) and push to `main` (no tags or GitHub releases). Commits in between keep the last version. A project synced before versions existed shows `unknown` until its next sync. If a sync fails after installing the new `sync.py`, that file already shows the new version while the other files may be older; the error says so, and running sync again finishes it.
 
+### 15.6.1
+
+The fast route lookup uses only public FastAPI and Starlette APIs (no private `_IncludedRouter`, `_get_fastapi_scope`, `_FASTAPI_*`), so a FastAPI upgrade can't silently break it; it covers the same Atom routes. API page: the runner's cURL button sits in the request line before Copy, and the duplicate header download buttons (runner and cURL dialog) are gone; each cURL card keeps its own download. Nothing to change in projects.
+
 ### 15.6.0
 
 Limits even admins have: every `/admin/*` route that writes or grants access checks the role, deactivation and permission against the database on each call and is rate limited (60 a minute; user and object delete keep their own); `user_check_permission` gains a `realtime` mode. Audit columns (new `config_column_audit_blocked`) are refused in admin create, update and CSV import, and imported rows get the importing admin as `created_by_id`. `/admin/postgres-query-runner-write` takes one `INSERT`, `UPDATE` or `DELETE`, the last two with a `WHERE` (schema changes go through `config_postgres`, PgWeb for anything else). No user changes their own role, permissions or deactivation through the admin or permission routes. Nothing to change in projects, unless a project's own `config_api` overrides an `/admin/*` entry: give it the same checks.

@@ -407,55 +407,35 @@ def func_app_state_add(*, app: FastAPI, data_dict: dict, prefixes: tuple) -> Non
             setattr(app.state, k, v)
 
 def func_app_route_lookup_add(*, app: FastAPI) -> int:
-    """Find fixed-path HTTP routes with one dict lookup instead of FastAPI checking every route in order.
+    """Find fixed-path HTTP routes with one dict lookup instead of FastAPI checking every route in order; public FastAPI and Starlette APIs only, so a FastAPI upgrade can't silently break it.
 
-    Only (method, path) pairs that FastAPI's own matching resolves to the same route at startup go in the table; anything else
-    (static files, websockets, path parameters, 404, 405) runs FastAPI's normal matching. Returns the number of entries.
-    A route that is async, takes only the request, has no dependencies and returns through func_endpoint_json_wrap (every Atom route)
-    is called directly: FastAPI's dependency solving would find nothing to resolve. Other routes run route.handle as before.
+    Only routes written the Atom way go in the table (_route_is_direct: async, request only, no dependencies, wrapped by func_endpoint_json_wrap, so
+    calling the endpoint is all FastAPI would do), and only (method, path) pairs that the first matching route in FastAPI's own order resolves to that
+    same route at startup. Anything else (static files, websockets, path parameters, dependencies, 404, 405) runs FastAPI's normal matching. Returns the number of entries.
     """
-    try:
-        from fastapi.routing import _FASTAPI_EFFECTIVE_ROUTE_CONTEXT_KEY
-        from fastapi.routing import _FASTAPI_INCLUDED_ROUTER_KEY
-        from fastapi.routing import _IncludedRouter
-        from fastapi.routing import _get_fastapi_scope
-    except ImportError: return 0    # FastAPI internals moved: keep normal matching
     router = app.router
     if router.middleware_stack != router.app: return 0    # router-level middleware present: keep normal matching
-    def normal_match(method, path):
+    routes = func_app_route_list(app=app)
+    def first_match(method, path):
         scope = {"type": "http", "method": method, "path": path, "root_path": "", "app": app, "headers": [], "query_string": b""}
-        for top in router.routes:
-            match, _ = top.matches(scope)
-            if match == Match.FULL: return top, (top._match(scope)[3] if isinstance(top, _IncludedRouter) else None)
-        return None, None
+        return next((route for route in routes if route.matches(scope)[0] == Match.FULL), None)
     table = {}
-    for top in router.routes:
-        if not isinstance(top, _IncludedRouter): continue
-        for context in top.effective_candidates():
-            route = getattr(context, "original_route", None)
-            if not isinstance(route, APIRoute) or route.param_convertors or context.starlette_route is not None: continue
-            for method in route.methods:
-                key = (method, route.path)
-                if key in table: continue
-                winner, winner_context = normal_match(method, route.path)
-                if winner is top and winner_context is context: table[key] = (top, context, route, _route_is_direct(route))
+    for route in routes:
+        if not isinstance(route, APIRoute) or route.param_convertors or not _route_is_direct(route): continue
+        for method in route.methods:
+            key = (method, route.path)
+            if key not in table and first_match(method, route.path) is route: table[key] = route
     normal_app = router.middleware_stack
     async def lookup_app(scope, receive, send):
-        entry = table.get((scope.get("method"), scope.get("path"))) if scope["type"] == "http" and not scope.get("root_path") else None
-        if entry is None: return await normal_app(scope, receive, send)
-        top, context, route, is_direct = entry
+        route = table.get((scope.get("method"), scope.get("path"))) if scope["type"] == "http" and not scope.get("root_path") else None
+        if route is None: return await normal_app(scope, receive, send)
         match, child_scope = route.matches(scope)
         if match != Match.FULL: return await normal_app(scope, receive, send)
         if "router" not in scope: scope["router"] = router
         scope.update(child_scope)
-        fastapi_scope = _get_fastapi_scope(scope)
-        fastapi_scope[_FASTAPI_INCLUDED_ROUTER_KEY] = top
-        fastapi_scope[_FASTAPI_EFFECTIVE_ROUTE_CONTEXT_KEY] = context
         scope["route"] = route
-        if is_direct:
-            response = await route.endpoint(request=Request(scope, receive, send))
-            return await response(scope, receive, send)
-        await route.handle(scope, receive, send)
+        response = await route.endpoint(request=Request(scope, receive, send))
+        return await response(scope, receive, send)
     router.middleware_stack = lookup_app
     return len(table)
 
