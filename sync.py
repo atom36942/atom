@@ -5,7 +5,7 @@
 # command: python3 sync.py --no-venv    (files only: venv managed yourself, Docker)
 # command: python3 sync.py --no-venv --no-outdated    (CI: files only, no PyPI lookup)
 # command: python3 sync.py --status    (which Atom version this project has and the latest; changes nothing)
-# command: python3 sync.py --ref <commit>    (that Atom commit on main instead of the latest: a repeatable update, or going back to the Atom a project ran before)
+# command: python3 sync.py --ref v15.6.1    (that Atom version, or --ref <commit>, instead of main's latest: a repeatable update, or going back to the Atom a project ran before)
 
 # command (Windows): py sync.py    (same flags; from a new PowerShell window, outside the venv)
 
@@ -44,7 +44,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # setting
 # Atom's version: raised by hand when a change is worth a new number (no tags); a project's sync.py shows the version it has
-ATOM_VERSION = "15.6.1"
+ATOM_VERSION = "15.7.0"
 REPO_URL = "https://github.com/atom36942/atom.git"
 # Single files replaced from upstream on every sync.
 SYNC_FILES = [
@@ -52,6 +52,7 @@ SYNC_FILES = [
     ".gitignore",
     "Dockerfile",
     "AGENTS.md",
+    "CHANGELOG.md",
     "config.py",
     "main.py",
     "readme.md",
@@ -420,17 +421,21 @@ def status(*, root, repo_url=REPO_URL):
     print("Up to date." if is_same else "Run python3 sync.py to update.")
 
 def fetch_revision(*, root, repo_url, ref=None):
-    """The commit to apply: main's latest, or ref (a commit id, 7 to 40 hex characters) when it is on main's history."""
+    """The commit to apply: main's latest, or ref when it is on main's history: a version tag (vX.Y.Z) or a commit id (7 to 40 hex characters)."""
     print("Fetching Atom main...", flush=True)
     git("fetch", "--no-tags", repo_url, "main", root=root)
     head = git("rev-parse", "--verify", "FETCH_HEAD^{commit}", root=root).decode().strip()
     if ref is None: return head
-    if not re.fullmatch(r"[0-9a-f]{7,40}", ref): raise ValueError(f"--ref {ref}: use a commit id from Atom's main (7 to 40 hex characters)")
+    is_tag = bool(re.fullmatch(r"v\d+\.\d+\.\d+", ref))
+    if not is_tag and not re.fullmatch(r"[0-9a-f]{7,40}", ref): raise ValueError(f"--ref {ref}: use a version tag (v15.6.1) or a commit id from Atom's main (7 to 40 hex characters)")
     try:
-        revision = git("rev-parse", "--verify", f"{ref}^{{commit}}", root=root).decode().strip()
+        if is_tag:
+            git("fetch", "--no-tags", repo_url, f"refs/tags/{ref}", root=root)
+            revision = git("rev-parse", "--verify", "FETCH_HEAD^{commit}", root=root).decode().strip()
+        else: revision = git("rev-parse", "--verify", f"{ref}^{{commit}}", root=root).decode().strip()
         git("merge-base", "--is-ancestor", revision, head, root=root)
-    except subprocess.CalledProcessError: raise ValueError(f"--ref {ref}: not a commit on Atom's main") from None
-    print(f"Pinned to {revision[:7]} (--ref)", flush=True)
+    except subprocess.CalledProcessError: raise ValueError(f"--ref {ref}: {'no such Atom version' if is_tag else 'not a commit'} on Atom's main") from None
+    print(f"Pinned to {ref + ' (' + revision[:7] + ')' if is_tag else revision[:7]} (--ref)", flush=True)
     return revision
 
 def create_extend_paths(*, root):
@@ -603,7 +608,7 @@ def main():
         elif not args:
             bootstrap_sync(root=root, is_venv_sync=is_venv_sync, is_outdated_check=is_outdated_check)
         else:
-            raise ValueError("Usage: python3 sync.py [--no-venv] [--no-outdated] [--ref <commit>] | python3 sync.py --status")
+            raise ValueError("Usage: python3 sync.py [--no-venv] [--no-outdated] [--ref <vX.Y.Z or commit>] | python3 sync.py --status")
     except (OSError, ValueError, SyntaxError, subprocess.CalledProcessError) as error:
         # Avoid printing command arguments or fetched contents containing credentials.
         message = f"Git command failed (exit {error.returncode})" if isinstance(error, subprocess.CalledProcessError) else str(error)

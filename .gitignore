@@ -3,6 +3,7 @@
 !.gitignore
 !.dockerignore
 !AGENTS.md
+!CHANGELOG.md
 !CODE_OF_CONDUCT.md
 !CONTRIBUTING.md
 !Dockerfile

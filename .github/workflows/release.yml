@@ -1,0 +1,40 @@
+# Tag and release each new ATOM_VERSION: when the tests pass on a main commit whose ATOM_VERSION has no tag yet, create tag vX.Y.Z and a GitHub Release with that version's CHANGELOG.md entry as its notes.
+name: release
+
+on:
+  workflow_run:
+    workflows: [tests]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      # Every templated value reaches the shell through env, never spliced into the script.
+      - name: Tag and release when ATOM_VERSION is new
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          version=$(grep -m1 -oE '^ATOM_VERSION = "[0-9]+\.[0-9]+\.[0-9]+"' sync.py | cut -d'"' -f2)
+          tag="v$version"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then echo "$tag already released"; exit 0; fi
+          awk -v head="## [$version] - " 'index($0, head) == 1 {on = 1; next} on && /^## / {exit} on {print}' CHANGELOG.md > notes.md
+          if ! grep -q '[^[:space:]]' notes.md; then echo "::error::CHANGELOG.md has no entry for $version"; exit 1; fi
+          gh release create "$tag" --target "$SHA" --title "Atom $version" --notes-file notes.md --latest

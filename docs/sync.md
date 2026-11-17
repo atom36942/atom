@@ -52,117 +52,15 @@ Atom's version is `ATOM_VERSION` in `sync.py` (for example `ATOM_VERSION = "1.2.
 | `sync.py` | `ATOM_VERSION = "1.2.0"` |
 | `python3 sync.py` | `Atom 1.2.0 -> 1.3.0` before it applies, `Already on Atom 1.3.0`, or `Atom 1.3.0 (newer commits on main)` |
 | `python3 sync.py --status` | This project's version and the latest on main; changes nothing |
-| `python3 sync.py --ref <commit>` | `Pinned to 1d4f8a1 (--ref)`, then applies that commit instead of the latest |
+| `python3 sync.py --ref v1.2.0` (or a commit id) | `Pinned to v1.2.0 (1d4f8a1)`, then applies that version instead of the latest |
 | App startup | `Atom 1.3.0` |
 | `GET /info` | `"atom_version": "1.3.0"` |
 
-Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. Sync always takes the latest `main`; to mark a new version, raise `ATOM_VERSION` and the `Version` line at the top of `readme.md` (a test checks they match) and push to `main` (no tags or GitHub releases). Commits in between keep the last version. A project synced before versions existed shows `unknown` until its next sync. If a sync fails after installing the new `sync.py`, that file already shows the new version while the other files may be older; the error says so, and running sync again finishes it.
-
-### 15.6.1
-
-The fast route lookup uses only public FastAPI and Starlette APIs (no private `_IncludedRouter`, `_get_fastapi_scope`, `_FASTAPI_*`), so a FastAPI upgrade can't silently break it; it covers the same Atom routes. API page: the runner's cURL button sits in the request line before Copy, and the duplicate header download buttons (runner and cURL dialog) are gone; each cURL card keeps its own download. Nothing to change in projects.
-
-### 15.6.0
-
-Limits even admins have: every `/admin/*` route that writes or grants access checks the role, deactivation and permission against the database on each call and is rate limited (60 a minute; user and object delete keep their own); `user_check_permission` gains a `realtime` mode. Audit columns (new `config_column_audit_blocked`) are refused in admin create, update and CSV import, and imported rows get the importing admin as `created_by_id`. `/admin/postgres-query-runner-write` takes one `INSERT`, `UPDATE` or `DELETE`, the last two with a `WHERE` (schema changes go through `config_postgres`, PgWeb for anything else). No user changes their own role, permissions or deactivation through the admin or permission routes. Nothing to change in projects, unless a project's own `config_api` overrides an `/admin/*` entry: give it the same checks.
-
-### 15.5.0
-
-`/admin/user-create` and `/permission/user-create` also take other `users` columns (profile fields, a project's own columns such as a region) and create the user with them in one insert, so a user never exists half set up. Refused by name, nothing created: columns in `config_permission_user_column_blocked` and `config_column_users_blocked` (sign-up, login, verification, permissions, system), `id` and `deactivated_at`; values get the usual column rules and the password is hashed. Callers sending only role, username and password are unchanged. Nothing to change in projects.
-
-### 15.4.1
-
-Atom's repository gets the files open-source contributors expect: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue and pull request templates in `.github/`, and `docker-compose.yml` for local Postgres (PostGIS), Redis and RabbitMQ. None of them is synced; `.gitignore` `# atom` now allows those three root names. Nothing to change in projects.
-
-### 15.4.0
-
-A Claude client: with `config_anthropic_key` in `.env`, Atom opens `app_state.client_anthropic` (the official `anthropic` SDK, async) and closes it at shutdown; without the key nothing is imported. `func_anthropic_json` returns JSON that always matches a schema (example in [extend.md](extend.md)), and the AI SQL generators accept `ai: "claude"`. Sync without `--no-venv` once, to install `anthropic`. Nothing else to change in projects.
-
-### 15.3.1
-
-[timescaledb.md](timescaledb.md) now opens with the main steps for a TimescaleDB database of its own (`config_postgres_url_<name>`, a normal Postgres URL, so the app gets its pool in `client_postgres_dict`; the schema in `files_extend/<feature>_schema.sql`, run in that database; then the feature's APIs and page) and a table of standard practices. Docs only; nothing to change in projects.
-
-### 15.3.0
-
-The Admin page is now **Analytics** (`/page/analytics`; `/page/admin` is gone): read-only insights for developers, the same role 1 login, sections Overview, Users, Access, API traffic, Errors and Data, and each table's insights. Rows, SQL and exports are PgWeb's, and changes go through PgWeb or the API page. Also: the API page's Log in opens the login route's runner (any user, any role), PgWeb's SQL Runner sits at the top of its sidebar, every Atom page shows the Atom version after its title, and the monitor's server info names the master database (host / database). Nothing to change in projects; bookmarks to `/page/admin` must move to `/page/analytics`.
-
-### 15.2.0
-
-Root (id 1) holds exactly the `/admin` permission routes: every startup sets its `permissions` to that list instead of only adding to it, so a stale id (a route that lost its permission check) or a `/permission` route granted to root by hand is removed at the next start. Grant `/permission` routes to other users. Nothing to change in projects.
-
-### Upgrading to 15.0.0
-
-The `/permission` route settings are together in one `# permission` section, all named `config_permission_*`: rename `config_table_permission_write_allowed` to `config_permission_table_write_allowed` and `config_column_users_permission_blocked` to `config_permission_user_column_blocked` in `config_extend.py` (startup names the new key if an old one is still set). `config_permission_user_roles` keeps its name.
-
-### 14.3.0
-
-`PUT /permission/user-update` takes any `users` column except those in the new `config_column_users_permission_blocked` (`role`, `permissions`, `username`, `email`, `mobile`, ...; startup refuses a list without `role` and `permissions`), several at once, for an app's Edit profile; `password` still goes alone. Nothing to change in projects.
-
-### Upgrading to 14.0.0
-
-`config_permission_user_create_roles` is now `config_permission_user_roles` (startup names the new key if the old one is still set): rename it in `config_extend.py`. The same list now also limits the new `PUT /permission/user-update` (permission 139): `{id, name}`, `{id, password}` or `{id, deactivated_at}` (a timestamp blocks, `null` restores), only for users whose role is in the list. Nobody holds 139 by default. To make a block take effect at once instead of at the user's next token renewal, set `config_api_global_user_check_deactivated = "realtime"`.
-
-### 13.2.0
-
-`POST /permission/user-create` (permission 138): `{username, password, role}`, for an app's own user management. Off twice by default: nobody holds 138, and `config_permission_user_create_roles` (now `config_permission_user_roles`) is `[]`; set the roles it may create in `config_extend.py` (from 2; startup refuses 1).
-
-### Upgrading to 13.0.0
-
-A new route group, `/permission/*` (`router/permission.py`, between private and admin): token plus a permission, any role. `/private/object-update` and `/private/object-delete` are now `/permission/object-update` and `/permission/object-delete` (same ids 136, 137, so granted users keep them), and `config_table_private_write_allowed` is `config_table_permission_write_allowed`: rename both in `config_extend.py` and in the page. Startup now refuses a `/permission/*` route without `user_check_permission`, and a route with a role, permission, deactivated or deleted check whose `is_token` is not `True`. Root gets every `/admin` permission route at startup, a project's too.
-
-### Upgrading to 12.0.0
-
-`/private/users-list` is now `/private/user-read` (same id 112, token only). It reads `users` like `/private/object-read`: `filter`, `order` (default `id desc`), `after`, `page` and `limit`, and no `role`; send `filter=["role = 2"]` instead. It returns the columns in `config_column_users_private_read` (`id`, `username`, `role`, `created_at`, `deactivated_at`) and refuses filters or order on any other `users` column. Rename the route wherever a project or client calls it.
-
-### Upgrading to 11.0.0
-
-The `users` columns `title` and `description` are now `job_title` and `about` (clearer on a user). Startup adds the new ones; Atom never drops a column, so the old two stay in the database: copy any values across and drop them yourself (`ALTER TABLE users DROP COLUMN title, DROP COLUMN description`), and rename `title` and `description` wherever a project reads or writes them on `users`. `email_secondary` and `mobile_secondary` are now checked by `config_column_regex` (an email; 6–20 digits with spaces, dashes and a leading +).
-
-### Upgrading to 10.0.0
-
-Per-user permissions are enforced: a route with `user_check_permission: {"mode": "token"}` admits only users whose `users.permissions` holds its `id` ([auth.md](auth.md#per-user-permissions)). Atom's samples: `/admin/postgres-query-runner-write` (6) needs role 1 and permission 6; `/admin/user-delete` (132) needs permission 132 only. Root (id 1) gets both at startup; root logs in again to use them, and other admins need a grant through `/admin/user-update`.
-
-A project that sets `config_column_int_mapping["users"]` keeps Atom's labels (startup refuses a permission route without one):
-
-```python
-"users": {**base_config_column_int_mapping["users"], "role": {1: "Admin", 2: "General"}},
-```
-
-### Upgrading to 9.0.0
-
-`config_sql` and `config_table` are removed: the startup queries are Atom's own code now, and a table's buffer size is a plain setting. A project that set either (startup stops, naming the new keys) sets plain values instead, in `config_extend.py` or `.env`:
-
-| Before | 9.0.0 |
-|---|---|
-| `config_sql["config"]` (its `limit`) | `config_cache_row_limit_config` |
-| `config_sql["users_role"]`, `["users_deactivated"]`, `["users_deleted"]` | `config_cache_row_limit_users_role`, `_users_deactivated`, `_users_deleted` (`0` = off) |
-| `config_sql["profile_metadata"]` | `config_profile_metadata_sql` |
-| `config_table["<table>"]["buffer_limit"]` | `config_buffer_limit_<table>` (Atom sets `config_buffer_limit_log_api = 1000`) |
-
-`config_extend.py` sections are now `# base`, `# atom`, `# extend` (was `# misc`): move plain overrides of Atom's settings into `# atom`, keep only the project's own settings under `# extend` ([extend.md](extend.md)). Layout only; nothing checks it.
-
-A script's schedule is `config_schedule_script_<script>` (was `config_schedule_<script>`), so it never clashes with the scheduler's own `config_schedule_timezone` and `config_schedule_check_sec`. Rename each one in `config_extend.py`, `.env` and the server's settings (`config_schedule_postgres_cleanup` → `config_schedule_script_postgres_cleanup`); an old name, even `off`, stops startup naming the new one.
-
-### Upgrading to 8.0.0
-
-- Two of Atom's scripts were renamed: `script/cleanup.py` → `script/postgres_cleanup.py` and `script/schema_plan.py` → `script/postgres_schema_plan.py` (run them as `venv/bin/python -m script.postgres_cleanup` and `script.postgres_schema_plan`). The setting `config_schedule_cleanup` is now `config_schedule_postgres_cleanup`: a project that sets the old name renames it (an old name that is not `off` stops startup: no script named cleanup).
-- Every script starts with `# type: job` (runs once and exits) or `# type: continuous` (runs until stopped). Add it as the first line of each `script_extend/` script, then a blank line; a scheduled script without `# type: job` stops startup, and a `continuous` one is never scheduled ([schedule.md](schedule.md)).
-
-### Upgrading to 7.0.0
-
-Three settings were renamed; a project that sets one in `config_extend.py` or `.env` renames it (the old name stops startup, naming the new one):
-
-| Before | 7.0.0 |
-|---|---|
-| `config_otp_retention_day` | `config_retention_day_otp` |
-| `config_log_api_retention_day` | `config_retention_day_log_api` |
-| `config_users_delete_retention_day` | `config_retention_day_users_delete` |
-
-OTP and API-log cleanup now run as `script/cleanup.py` on `config_schedule_cleanup` ([schedule.md](schedule.md)); a new table, `script_run`, is created at startup.
+Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. Sync takes the latest `main` unless `--ref` pins a version. To release, raise `ATOM_VERSION` and the `Version` line at the top of `readme.md`, add its entry at the top of [CHANGELOG.md](../CHANGELOG.md) (tests check all three agree), and push to `main`: once the tests pass on that commit, CI creates the tag `vX.Y.Z` and a GitHub Release with that entry as its notes. Every earlier version has its tag too. Commits in between keep the last version. A project synced before versions existed shows `unknown` until its next sync. If a sync fails after installing the new `sync.py`, that file already shows the new version while the other files may be older; the error says so, and running sync again finishes it.
 
 ### A fixed version: `--ref`
 
-`python3 sync.py --ref <commit>` applies that Atom commit instead of main's latest: the same update on every machine and in CI, or going back to the Atom a project ran before. The commit must be on Atom's `main` (a short id such as `1d4f8a1` works; `git log --oneline` in an Atom clone, or the commit list on GitHub, shows each version's commit); anything else is refused before a file changes. It combines with `--no-venv` and `--no-outdated`. The pinned commit's own `sync.py` does the update, so a commit from before 3.24.0 installs an updater without `--ref`: run `python3 sync.py` (the latest) to get it back.
+`python3 sync.py --ref v15.6.1` applies that Atom version instead of main's latest: the same update on every machine and in CI, or going back to the Atom a project ran before. It takes a version tag (`vX.Y.Z`, listed on GitHub under Tags and Releases) or a commit id on Atom's `main` (a short id such as `1d4f8a1` works); anything else is refused before a file changes. It combines with `--no-venv` and `--no-outdated`. The pinned commit's own `sync.py` does the update, so a commit from before 3.24.0 installs an updater without `--ref`: run `python3 sync.py` (the latest) to get it back.
 
 ## Recovering an interrupted update
 

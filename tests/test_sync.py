@@ -4,6 +4,7 @@ from contextlib import redirect_stdout
 from contextlib import redirect_stderr
 import io
 import json
+import re
 import os
 from pathlib import Path
 import subprocess
@@ -108,6 +109,24 @@ class SyncTests(unittest.TestCase):
         self.assertIsNone(sync.atom_version(source=b"# a sync.py from before versions\n"))
         self.assertRegex(sync.atom_version(source=Path(sync.__file__).read_bytes()), r"^\d+\.\d+\.\d+$")
 
+    def test_ref_takes_a_version_tag(self):
+        self.write(self.upstream, "router/index.py", "# router at v1.0.0\n")
+        self.commit(self.upstream)
+        self.git(self.upstream, "tag", "v1.0.0")
+        self.write(self.upstream, "router/index.py", "# router at the latest commit\n")
+        self.commit(self.upstream)
+        sync.sync(root=self.root, repo_url=str(self.upstream), ref="v1.0.0")
+        self.assertEqual((self.root / "router/index.py").read_text(), "# router at v1.0.0\n")
+        self.assertRegex(self.output.getvalue(), r"Pinned to v1\.0\.0 \([0-9a-f]{7}\) \(--ref\)")
+
+    def test_changelog_starts_with_the_version(self):
+        changelog = Path(sync.__file__).with_name("CHANGELOG.md").read_text()
+        versions = re.findall(r"^## \[(\d+\.\d+\.\d+)\] - \d{4}-\d{2}-\d{2}$", changelog, re.M)
+        self.assertEqual(versions[0], sync.ATOM_VERSION, "add the new version's entry at the top of CHANGELOG.md, dated: CI releases it with that text")
+        parsed = [tuple(map(int, v.split("."))) for v in versions]
+        self.assertEqual(parsed, sorted(set(parsed), reverse=True), "CHANGELOG.md entries: newest first, each version once")
+        self.assertEqual(len(versions), len(re.findall(r"^## ", changelog, re.M)), "every ## heading in CHANGELOG.md is a version: ## [X.Y.Z] - YYYY-MM-DD")
+
     def test_readme_shows_the_version(self):
         readme = Path(sync.__file__).with_name("readme.md").read_text()
         self.assertEqual(readme.splitlines()[1], f"Version {sync.ATOM_VERSION}", "raise the version in readme.md together with ATOM_VERSION")
@@ -144,7 +163,7 @@ class SyncTests(unittest.TestCase):
         self.write(self.upstream, "router/index.py", "# not on main\n")
         self.commit(self.upstream)
         side = self.git(self.upstream, "rev-parse", "HEAD").decode().strip()
-        for ref, message in ((side, "not a commit on Atom's main"), ("main", "use a commit id"), ("0" * 40, "not a commit on Atom's main")):
+        for ref, message in ((side, "not a commit on Atom's main"), ("main", "use a version tag"), ("0" * 40, "not a commit on Atom's main"), ("v9.9.9", "no such Atom version")):
             with self.subTest(ref=ref), self.assertRaisesRegex(ValueError, message): sync.sync(root=self.root, repo_url=str(self.upstream), ref=ref)
         self.assertEqual((self.root / "router/index.py").read_text(), "# router at the latest commit\n", "a refused ref changes nothing")
 
