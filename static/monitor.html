@@ -171,6 +171,13 @@ dialog.dlg .choices button[aria-checked="true"]{background:var(--card);border-co
 header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
 h1{margin:0;font-size:22px;font-weight:700}
 .sub{margin:2px 0 0;color:var(--muted);font-size:13px}
+#subtitle{font-size:11px;line-height:1.5;opacity:.7;min-height:1.5em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+header>div:first-child{flex:1 1 auto;min-width:0}
+/* the DB line under the page name: host / database, one line; a click opens a dialog: its parts in a table, then the connection string with a copy icon (the same in Monitor, Analytics and PgWeb) */
+.db-url-row{display:flex;align-items:center;gap:8px}
+.db-url{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--field);font-family:var(--mono);font-size:12px;color:var(--muted);overflow-wrap:anywhere;user-select:all}
+.db-copy{flex:none;display:grid;place-items:center;width:34px;height:34px;padding:0}
+.db-copy svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 /* ==== tabs and cards: the section tabs (Memory, Requests, ...) over a bottom line, each section's tables in cards with a header row, like the admin page ==== */
 .toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px;border-bottom:1px solid var(--line)}
@@ -224,6 +231,8 @@ tbody tr:hover{background:rgba(var(--hl),.03)}
 .chart{display:flex;align-items:flex-end;gap:2px;height:120px;padding:16px 16px 0}
 .chart .col{flex:1;min-width:2px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;border-radius:2px 2px 0 0}
 .chart .col:hover{background:rgba(var(--hl),.04)}
+.chart-tip{position:fixed;z-index:30;pointer-events:none;max-width:min(320px,calc(100vw - 16px));padding:6px 9px;border:1px solid var(--line-strong);border-radius:8px;background:var(--panel);color:var(--text);font-size:12px;line-height:1.4;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.chart-tip strong{display:block;font-weight:600}
 .chart .ok{background:var(--accent);border-radius:2px 2px 0 0}
 .chart .err{background:var(--danger)}
 .axis{display:flex;justify-content:space-between;padding:6px 16px 12px;color:var(--muted);font-size:11px}
@@ -231,6 +240,11 @@ tbody tr:hover{background:rgba(var(--hl),.03)}
 .legend span{white-space:nowrap}
 .legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle}
 .message{margin-bottom:18px;padding:12px 16px;border-radius:10px;font-size:13px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);color:var(--danger)}
+.upgrade-verdict{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--line);font-size:13px}
+.upgrade-verdict strong{font-size:15px}
+.upgrade-actions{padding:12px 16px;border-bottom:1px solid var(--line)}
+.upgrade-actions h3{margin:0 0 6px;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.upgrade-actions ol{margin:0 0 12px;padding-left:20px;line-height:1.6}
 .info{margin-bottom:18px;padding:12px 16px;border-radius:10px;font-size:13px;background:var(--card);border:1px solid var(--line);color:var(--muted)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
 .two>*{min-width:0}
@@ -281,7 +295,6 @@ tbody tr:hover{background:rgba(var(--hl),.03)}
       </nav>
       <div class="filters">
         <select id="hoursSelect" aria-label="Time range" hidden><option value="1">Last hour</option><option value="24">Last 24 hours</option><option value="168">Last 7 days</option></select>
-        <select id="connectionSelect" aria-label="Connection" hidden></select>
       </div>
     </div>
     <p class="tab-note" id="tabNote"></p>
@@ -629,9 +642,10 @@ const Page = (() => {
   // Update password: Atom's rule, 6-120 characters without spaces (PUT /my/user-update)
   const passwordOpen = () => {
     dialog({ title: "Update password",
-      body: '<div class="field"><label for="pwNew">New password</label><input id="pwNew" type="password" autocomplete="new-password" maxlength="120"></div><div class="field"><label for="pwConfirm">Confirm new password</label><input id="pwConfirm" type="password" autocomplete="new-password" maxlength="120"></div><p class="field-help">6–120 characters, no spaces.</p>',
+      body: '<div class="field"><label for="pwNew">New password</label><span class="pw-wrap"><input id="pwNew" type="password" autocomplete="new-password" maxlength="120"><button type="button" class="pw-eye" id="pwNewEye" aria-label="Show password" data-tip="Show password"></button></span></div><div class="field"><label for="pwConfirm">Confirm new password</label><span class="pw-wrap"><input id="pwConfirm" type="password" autocomplete="new-password" maxlength="120"><button type="button" class="pw-eye" id="pwConfirmEye" aria-label="Show password" data-tip="Show password"></button></span></div><p class="field-help">6–120 characters, no spaces.</p>',
       actions: '<button type="button" id="pwCancel">Cancel</button><button type="button" class="primary" id="pwSave">Update password</button>',
       on: { pwCancel: detailsOpen, pwSave: passwordSave } });
+    eyeToggle(el("pwNew"), el("pwNewEye")); eyeToggle(el("pwConfirm"), el("pwConfirmEye"));
     el("pwNew").focus();
   };
   const passwordSave = async () => {
@@ -739,16 +753,15 @@ const Page = (() => {
 
 /* ==== page state and tabs ==== */
 // this page keeps its own login, user and choices under the "monitor" key, so it works without any other page
-// localStorage "monitor" = {v, token, user, synced_at} (the account block) plus this page's choices: tab, hours, connection
+// localStorage "monitor" = {v, token, user, synced_at} (the account block) plus this page's choices: tab, hours
 const TABS = ["memory", "requests", "errors", "database", "background", "app"];
 // what each tab shows and for which scope: one worker (this process) or the whole server/database
 const TAB_NOTES = {
-  memory: "RAM of <b>the server worker that answered</b>: what it holds in memory. Sizes and counts only, never values.",
-  requests: "Every API request saved in <b>log_api</b> for the chosen range, from <b>all workers</b>.",
-  errors: "Requests that failed (status 400 and above) saved in <b>log_api</b> for the chosen range, from <b>all workers</b>. Background failures are on the Background tab.",
-  database: "Live statistics read from <b>PostgreSQL</b>. Connection pools are <b>this worker's</b>; everything else is for the <b>whole database</b>.",
-  background: "Work <b>the server worker that answered</b> does outside requests. Counters start at zero when the server restarts.",
-  app: "What <b>this server</b> runs and how it is configured. Secrets and connection URLs only show whether they are set.",
+  memory: "RAM of <b>this worker</b>. Sizes and counts only.",
+  requests: "From <b>log_api</b>, <b>all workers</b>.",
+  errors: "Status 400+ from <b>log_api</b>, <b>all workers</b>. Background failures: Background tab.",
+  background: "<b>This worker</b>, outside requests. Counters reset on restart.",
+  app: "<b>This server</b>'s setup. Secrets show only whether they are set.",
 };
 const $ = id => document.getElementById(id);
 const he = v => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -776,65 +789,58 @@ const showError = (el, text) => { el.textContent = text || ""; el.hidden = !text
 /* ==== building blocks ==== */
 // what each tile means, shown under the tile when hovering or tapping the ⓘ next to its label
 const TILE_HELP = {
-  "Process RAM (RSS)": "Memory this worker uses now, and the most it has used since it started.",
-  "Machine memory": "Memory used on the whole machine, by every program. Near 100% the system slows down or kills processes.",
-  "App data": "Memory Atom's own caches, buffers and settings take, listed in App in-memory data below.",
-  "Uptime": "Time since this worker started. A worker that restarts often shows a short uptime.",
-  "CPU time": "Processor time this worker has used since it started: user is Python code, system is the operating system working for it.",
-  "Python objects": "Objects Python is tracking in this worker. Normal to be large; a number that keeps rising between refreshes points to a leak.",
-  "Requests": "Requests logged in the chosen range.",
-  "Error rate": "Share of requests that failed: server errors are bugs or outages, client errors are wrong input or missing login.",
-  "Avg response": "Average time to answer a request.",
-  "p95 response": "95% of requests were answered faster than this. Better than the average for spotting slowness users feel.",
-  "Users": "Distinct signed-in users who made a request in this range.",
-  "Failed requests": "Requests that ended with status 400 or above.",
-  "Server errors": "Status 500 and above: something broke on the server. Should stay at 0.",
-  "Client errors": "Status 400–499: the caller sent something wrong, was not logged in or not allowed.",
-  "Failing APIs": "How many different APIs returned an error.",
-  "Database size": "Space the database takes on disk.",
-  "Connections": "Connections open to this database from every app, against the most it allows.",
-  "Cache hit": "Share of reads served from the database's memory instead of disk. Healthy is above 99%.",
-  "Waiting locks": "Queries waiting for another one to release a row or table. Above 0 for long means something is stuck.",
-  "Long queries": "Queries running longer than 5 seconds right now.",
-  "Buffered rows": "Rows waiting to be written to PostgreSQL in bulk.",
-  "Background tasks": "Requests sent with is_background=true that are still running.",
-  "Websockets": "Open websocket connections to this worker.",
-  "Background errors": "Failures outside requests since this worker started. Details in Error counters.",
-  "Atom": "Atom version this server runs, with its Python and operating system.",
-  "Workers": "Server processes. Each has its own memory, so most numbers on this page are for this one worker.",
-  "Mode": "Production or development, and whether the server may write to the database.",
-  "Routes": "API routes this server answers: Atom's and the project's own.",
-  "Functions": "func_* functions available to the app: Atom's and the project's own.",
-  "Clients": "Outside services connected, of those Atom knows about.",
+  "Process RAM (RSS)": "This worker's memory now, and its peak.",
+  "Machine memory": "Whole machine. Near 100%, processes slow down or get killed.",
+  "App data": "Atom's caches, buffers and settings (listed below).",
+  "Uptime": "Since this worker started.",
+  "CPU time": "User: Python code. System: the OS working for it.",
+  "Python objects": "Rising between refreshes points to a leak.",
+  "Requests": "Logged in this range.",
+  "Error rate": "5xx: server bugs. 4xx: bad input or no login.",
+  "Avg response": "Mean time to answer.",
+  "p95 response": "95% of requests were faster.",
+  "Users": "Signed-in users with requests.",
+  "Failed requests": "Status 400+.",
+  "Server errors": "Status 500+. Should be 0.",
+  "Client errors": "Status 400–499.",
+  "Failing APIs": "APIs with at least one error.",
+  "Database size": "On disk, with indexes.",
+  "Waiting locks": "Queries blocked by another. Long above 0: something is stuck.",
+  "Long queries": "Running over 5 s now.",
+  "Buffered rows": "Waiting for the next bulk write.",
+  "Background tasks": "is_background=true requests still running.",
+  "Websockets": "Open on this worker.",
+  "Background errors": "Since this worker started.",
+  "Atom": "Atom, Python and OS versions.",
+  "Workers": "Server processes; each has its own memory.",
+  "Mode": "Production or development; read-only or not.",
+  "Routes": "Atom's and the project's.",
+  "Functions": "func_*: Atom's and the project's.",
+  "Clients": "Outside services connected.",
 };
 const tile = (label, value, hint = "", percent = null, isBad = false) => `<div class="tile"><div class="label">${he(label)}${TILE_HELP[label] ? `<span class="tip" tabindex="0" role="note" data-tip="${he(TILE_HELP[label])}" aria-label="${he(TILE_HELP[label])}">ⓘ</span>` : ""}</div><div class="value${isBad ? " bad" : ""}">${he(value)}</div>${hint ? `<div class="hint">${he(hint)}</div>` : ""}${percent == null ? "" : `<div class="meter"><span class="${percent >= 85 ? "high" : ""}" style="width:${Math.min(100, percent)}%"></span></div>`}</div>`;
 const tiles = list => `<div class="tiles">${list.join("")}</div>`;
 const rows = (list, render, empty, columns) => list.length ? list.map(render).join("") : `<tr><td colspan="${columns}" class="empty">${empty}</td></tr>`;
 // what each card shows, in one line under its title
 const CARD_HELP = {
-  "RAM over time": "This worker's RAM, read once a minute since it started, up to the last 24 hours (kept in its memory, so a restart starts it again). A line that keeps rising and never falls back points to a leak.",
-  "App in-memory data": "What Atom keeps in this worker's memory: caches (safe to lose, rebuilt on demand), write buffers (rows not yet saved) and settings.",
-  "Python objects": "The most common object types in the whole process, packages included. A count that grows between refreshes points to a leak.",
-  "Allocation tracing": "Which source lines hold the most memory right now, and whose code they are: Atom's, the project's or an installed package's.",
-  "Requests over time": "Requests per time slot from log_api, failed ones in red. Hover a bar for its numbers.",
-  "Busiest APIs": "The APIs called most often in this range, with failures and response times.",
-  "Slowest APIs (by p95)": "The APIs with the slowest typical response: 95% of their requests were faster than p95.",
-  "Status codes": "How requests ended: 2xx succeeded, 4xx the caller's mistake, 5xx a server error.",
-  "Most active users": "The signed-in users who made the most requests in this range.",
-  "Failing APIs": "APIs that returned errors, grouped by status, with the last error message.",
-  "Latest failed requests": "The most recent requests that ended with status 400 or above.",
-  "Connection pools (this worker)": "Database connections this worker holds: in use, idle and the most it may open.",
-  "Connections to this database, by state": "Every connection to this database from all apps, grouped by what it is doing.",
-  "Long-running queries (over 5 s)": "Queries running longer than 5 seconds right now. They can hold locks and slow others.",
-  "Biggest tables": "The largest tables, with dead rows waiting for vacuum and when vacuum last ran.",
-  "Most expensive statements": "The SQL that took the most total database time (needs the pg_stat_statements extension).",
-  "Periodic tasks": "Atom's background jobs in this worker: running is healthy, failed needs a look in the logs.",
-  "Write buffers": "Rows waiting to be written in bulk. They are saved on the next flush; a full buffer refuses new rows.",
-  "Redis queues": "Jobs per channel on the queue Redis: waiting, running in a consumer, and failed (kept in <channel>_failed after their last retry). No consumer with jobs waiting means nothing is taking them.",
-  "Error counters": "Failures counted outside requests since this worker started (buffer flushes, cleanups, background tasks).",
-  "Clients": "Outside services Atom connected to at startup (databases, storage, queues): on means configured and connected.",
-  "Packages": "Versions of the main packages this server runs.",
-  "Settings": "Every config_* value this server uses. Secrets and connection URLs only show whether they are set.",
+  "Upgrade check": "From the server's counters. Disk needs config_postgres_storage_gb.",
+  "RAM over time": "Once a minute, up to 24 h; resets on restart. Never falling back: a leak.",
+  "App in-memory data": "Caches (rebuilt on demand), write buffers (unsaved rows) and settings.",
+  "Python objects": "Whole process. Growing between refreshes: a leak.",
+  "Allocation tracing": "Source lines holding the most memory now.",
+  "Requests over time": "Failed in red; hover a bar for its numbers.",
+  "Status codes": "2xx ok, 4xx caller's mistake, 5xx server error.",
+  "Failing APIs": "By status, with the last error.",
+  "Connections to this database, by state": "All apps.",
+  "Long-running queries (over 5 s)": "Running now; they may hold locks.",
+  "Biggest tables": "Dead rows wait for vacuum.",
+  "Most expensive statements": "Most total time (needs pg_stat_statements).",
+  "Periodic tasks": "Failed: check the logs.",
+  "Write buffers": "Saved on the next flush; a full buffer refuses rows.",
+  "Redis queues": "Failed jobs stay in <channel>_failed. Jobs waiting with no consumer: nothing takes them.",
+  "Error counters": "Outside requests, since this worker started.",
+  "Clients": "Connected at startup.",
+  "Settings": "Secrets show only whether they are set.",
 };
 const help = title => CARD_HELP[title] ? `<p class="card-help">${he(CARD_HELP[title])}</p>` : "";
 // one card with a table: heads are [label, "num"?] pairs
@@ -843,13 +849,34 @@ const info = html => `<div class="info">${html}</div>`;    // html: callers esca
 const shareBar = (part, total) => `<div class="bar"><span style="width:${total ? part / total * 100 : 0}%"></span></div>`;
 const statusPill = code => `<span class="pill ${code >= 500 ? "bad" : code >= 400 ? "warn" : "ok"}">${he(code)}</span>`;
 const apiPath = (method, path) => `<span class="muted">${he(method)}</span> <span class="mono">${he(path)}</span>`;
-const LOG_OFF = info("API logging is off (<span class=\"mono\">config_is_log_api</span>), so there are no requests to show.");
+const LOG_OFF = info("API logging is off (<span class=\"mono\">config_is_log_api</span>).");
 
 /* ==== view: memory ==== */
 // memory: this worker's RAM and what holds it; kind comes from the app_state name prefix
 const KIND_CLASS = { cache: "ok", buffer: "warn", other: "bad" };
 const KIND_HELP = { cache: "kept for reuse; rebuilt if lost", buffer: "rows waiting to be written; lost if the server crashes", runtime: "live process state: tasks, locks, counters", config: "settings", extend: "the project's own data (func_extend)", other: "no known prefix: name it cache_, buffer_ or runtime_, or keep it in app_state.extend" };
 // RAM over time: up to 96 bars (each the highest reading in its slot), scaled between the lowest and highest reading (both on the axis) so a rise of a few MB shows
+// chart hover: the bar under the pointer (mouse, pen or a tap) shows its time and numbers in a tip by the pointer; each bar keeps them in data-label and data-value.
+// Not the native title: it shows only after the mouse rests about a second on one bar (bars are a few px wide) and never in some browsers or on touch.
+(() => {
+  const tip = document.createElement("div");
+  tip.className = "chart-tip"; tip.hidden = true; tip.setAttribute("role", "tooltip");
+  document.body.append(tip);
+  const show = e => {
+    const col = e.target.closest?.(".chart .col");
+    if (!col) { if (!e.target.closest?.(".chart")) tip.hidden = true; return }    // the gaps between bars keep the last bar's tip
+    if (col.dataset.value == null) { tip.hidden = true; return }    // a bar drawn without its numbers: no tip rather than "undefined"
+    tip.replaceChildren(Object.assign(document.createElement("strong"), { textContent: col.dataset.label }), col.dataset.value);
+    tip.hidden = false;
+    const box = tip.getBoundingClientRect(), x = Math.max(8, Math.min(e.clientX + 12, innerWidth - box.width - 8)), y = e.clientY - box.height - 12;
+    tip.style.left = `${x}px`; tip.style.top = `${y < 8 ? e.clientY + 18 : y}px`;
+  };
+  document.addEventListener("pointermove", show);
+  document.addEventListener("pointerdown", show);
+  document.addEventListener("pointerleave", () => { tip.hidden = true });
+  addEventListener("scroll", () => { tip.hidden = true }, true);
+})();
+const chartCol = (label, value) => `class="col" data-label="${he(label)}" data-value="${he(value)}" aria-label="${he(`${label}: ${value}`)}"`;
 const ramChart = history => {
   const head = note => `<section class="card"><div class="card-head"><h2>RAM over time</h2>${note ? `<span class="note">${note}</span>` : ""}</div>${help("RAM over time")}`;
   if (history.length < 2) return head("") + `<div class="empty">Collecting: one reading a minute, shown from the second one.</div></section>`;
@@ -859,7 +886,7 @@ const ramChart = history => {
   const base = Math.max(0, low - (peak - low) * 0.25 - 1), height = rss => (rss - base) / (peak - base) * 100;    // the lowest bar stays visible
   const time = t => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   return head(`${growth >= 0 ? "+" : "−"}${formatBytes(Math.abs(growth))} since ${time(history[0][0])}`)
-    + `<div class="chart">${bars.map(([t, rss]) => `<div class="col" title="${he(time(t))}: ${he(formatBytes(rss))}"><div class="ok" style="height:${height(rss)}%"></div></div>`).join("")}</div>`
+    + `<div class="chart">${bars.map(([t, rss]) => `<div ${chartCol(time(t), formatBytes(rss))}><div class="ok" style="height:${height(rss)}%"></div></div>`).join("")}</div>`
     + `<div class="axis"><span>${he(time(history[0][0]))}</span><span>low ${he(formatBytes(low))} · peak ${he(formatBytes(peak))}</span><span>${he(time(history[history.length - 1][0]))}</span></div></section>`;
 };
 const codePill = source => `<span class="pill${source === "package" ? "" : " ok"}">${source === "project" ? "Project" : source === "atom" ? "Atom" : "Package"}</span>`;    // whose code: Atom's, the project's, or an installed package / Python
@@ -904,7 +931,7 @@ const renderRequests = report => {
     tile("Users", formatNumber(t.users), "signed-in users seen"),
   ])
   + `<section class="card"><div class="card-head"><h2>Requests over time</h2><span class="legend"><span><i style="background:var(--accent)"></i>OK</span><span><i style="background:var(--danger)"></i>Failed</span><span>per ${report.unit}</span></span></div>${help("Requests over time")}`
-  + `<div class="chart">${report.timeline.map(b => `<div class="col" title="${he(label(b))}: ${b.requests} requests, ${b.errors} failed${b.avg_ms == null ? "" : `, avg ${b.avg_ms} ms`}"><div class="err" style="height:${b.errors / peak * 100}%"></div><div class="ok" style="height:${(b.requests - b.errors) / peak * 100}%"></div></div>`).join("")}</div>`
+  + `<div class="chart">${report.timeline.map(b => `<div ${chartCol(label(b), `${formatNumber(b.requests)} requests, ${formatNumber(b.errors)} failed${b.avg_ms == null ? "" : `, avg ${formatMs(b.avg_ms)}`}`)}><div class="err" style="height:${b.errors / peak * 100}%"></div><div class="ok" style="height:${(b.requests - b.errors) / peak * 100}%"></div></div>`).join("")}</div>`
   + `<div class="axis"><span>${first ? he(label(first)) : ""}</span><span>peak ${formatNumber(peak)}</span><span>${last ? he(label(last)) : ""}</span></div></section>`
   + table("Busiest APIs", [["API"], ["Requests", "num"], ["Failed", "num"], ["Avg", "num"], ["p95", "num"], ["Max", "num"]], report.paths,
     r => `<tr><td>${apiPath(r.method, r.path)}</td><td class="num">${formatNumber(r.requests)}</td><td class="num${r.errors ? " bad" : ""}">${formatNumber(r.errors)}</td><td class="num">${formatMs(r.avg_ms)}</td><td class="num">${formatMs(r.p95_ms)}</td><td class="num">${formatMs(r.max_ms)}</td></tr>`, "No requests in this range.")
@@ -933,21 +960,29 @@ const renderErrors = report => {
 
 /* ==== view: database ==== */
 // database: pools, size, activity and tables
+// the upgrade check (func_monitor_database_upgrade): the verdict, the actions to ask DevOps for with the request to copy, then each signal
+const UPGRADE_VERDICT = { ok: ["ok", "No upgrade needed", "Room to spare."], watch: ["warn", "Keep an eye on it", "Nothing to ask for yet."], upgrade: ["bad", "Upgrade recommended", "Ask DevOps for the actions below."] };
+const UPGRADE_STATUS = { ok: ["ok", "OK"], watch: ["warn", "Watch"], upgrade: ["bad", "Upgrade"], unknown: ["", "Not set"] };
+let upgradeRequest = "";
+const upgradeCard = u => {
+  if (!u) return "";
+  upgradeRequest = u.request || "";
+  const [tone, title, text] = UPGRADE_VERDICT[u.verdict] || UPGRADE_VERDICT.ok;
+  return `<section class="card"><div class="card-head"><h2>Upgrade check</h2><span class="note">${he(u.window)}</span></div>${help("Upgrade check")}`
+    + `<div class="upgrade-verdict"><span class="pill ${tone}">${he(title)}</span><span>${he(text)}</span></div>`
+    + (u.actions.length ? `<div class="upgrade-actions"><h3>Ask DevOps to</h3><ol>${u.actions.map(a => `<li>${he(a)}</li>`).join("")}</ol><button type="button" class="primary" data-copy-request>Copy request for DevOps</button></div>` : "")
+    + `<table><thead><tr><th>Signal</th><th>Status</th><th>Now</th><th>Detail</th></tr></thead><tbody>${u.signals.map(x => { const [cls, label] = UPGRADE_STATUS[x.status] || UPGRADE_STATUS.unknown; return `<tr><td>${he(x.name)}</td><td><span class="pill ${cls}">${label}</span></td><td class="mono">${he(x.value)}</td><td class="muted wrap-text">${he(x.detail)}</td></tr>` }).join("")}</tbody></table></section>`;
+};
 const renderDatabase = report => {
-  const names = report.pools.map(p => p.name), select = $("connectionSelect");
-  select.innerHTML = names.map(n => `<option value="${he(n)}">${he(n)}</option>`).join("");
-  select.value = report.connection;
-  select.hidden = false;    // always shown, so the tab says which connection it reads
   const pools = table("Connection pools (this worker)", [["Connection"], ["Open", "num"], ["In use", "num"], ["Idle", "num"], ["Min", "num"], ["Max", "num"], ["Use", "share"]], report.pools,
     p => `<tr><td class="mono">${he(p.name)}${p.is_log_api ? ` <span class="pill">log_api</span>` : ""}</td><td class="num">${p.size}</td><td class="num">${p.size - p.idle}</td><td class="num">${p.idle}</td><td class="num">${p.min}</td><td class="num">${p.max}</td><td class="share">${shareBar(p.size - p.idle, p.max)}</td></tr>`, "No PostgreSQL connections configured.");
-  if (!report.is_enabled) return info(`No PostgreSQL connection named <span class="mono">${he(report.connection)}</span>.`) + pools;
+  if (!report.is_enabled) return info("No master PostgreSQL connection (config_postgres_url_master).") + pools;
   const i = report.info, slow = report.slow_queries;
-  const where = i.host ? `${he(i.host.includes(":") ? `[${i.host}]` : i.host)}:${he(i.port)}` : "a local socket";
-  return info(`Connection <b class="mono">${he(report.connection)}</b> → database <b class="mono">${he(i.name)}</b> on <b class="mono">${where}</b> · user <span class="mono">${he(i.user_name)}</span> · PostgreSQL ${he(String(i.version).split(" ")[0])}${report.pools.find(p => p.name === report.connection)?.is_log_api ? " · <b>log_api</b> is written here" : ""}`)
+  // the master database, always (this page doesn't pick a connection), named once in the page header
+  return info(`Connected as <b>${he(i.user_name)}</b> · PostgreSQL ${he(String(i.version).split(" ")[0])}${report.pools.find(p => p.name === report.connection)?.is_log_api ? " · also stores the API log (log_api)" : ""}. Connection pools: <b>this worker</b> only; everything else: the <b>whole database</b>.`)
+  + upgradeCard(report.upgrade)
   + tiles([
     tile("Database size", formatBytes(i.size_bytes), "tables, indexes and their history"),
-    tile("Connections", `${i.connections} / ${i.max_connections}`, "server-wide, all apps", i.connections / i.max_connections * 100),
-    tile("Cache hit", i.cache_hit_percent == null ? "—" : `${i.cache_hit_percent}%`, "reads served from memory; aim for 99%", null, i.cache_hit_percent != null && i.cache_hit_percent < 95),
     tile("Waiting locks", formatNumber(i.locks_waiting), "queries blocked by another", null, i.locks_waiting > 0),
     tile("Long queries", formatNumber(report.long_queries.length), "running over 5 seconds", null, report.long_queries.length > 0),
   ])
@@ -1013,13 +1048,13 @@ const load = async (trace = "") => {
   const params = new URLSearchParams({ view: tab });
   if (trace) params.set("trace", trace);
   if (tab === "requests" || tab === "errors") params.set("hours", String(store.hours || 24));
-  if (tab === "database" && store.connection) params.set("connection", store.connection);
   try {
     const report = await api(`/admin/monitor?${params}`);
     if (tab !== current) return;
     $("view").innerHTML = RENDER[tab](report);
-    const workers = tab === "memory" && report.process.workers > 1 ? ` · worker pid ${report.process.pid}, one of ${report.process.workers}: a refresh may reach another` : "";
-    $("subtitle").textContent = `Updated ${new Date().toLocaleTimeString()}${workers}`;
+    const workers = tab === "memory" && report.process.workers > 1 ? `worker pid ${report.process.pid}, one of ${report.process.workers}: a refresh may reach another` : "";
+    $("subtitle").textContent = [report.master_database && `Master DB: ${report.master_database}`, workers].filter(Boolean).join(" · ");
+    $("subtitle").dataset.url = report.master_database_url || "";    // the database it read, once, here, for every tab (the server is in the address bar)
     showError($("error"), "");
   } catch (error) {
     if (error.status === 401) return;    // the account block logged out
@@ -1032,10 +1067,9 @@ const load = async (trace = "") => {
 const openTab = tab => {
   current = TABS.includes(tab) ? tab : "memory";
   writeStore({ tab: current });
-  $("tabNote").innerHTML = TAB_NOTES[current];
+  $("tabNote").innerHTML = TAB_NOTES[current] || ""; $("tabNote").hidden = !TAB_NOTES[current];    // the Database tab says its scope in its info box instead
   document.querySelectorAll("#tabs .tab").forEach(button => button.classList.toggle("active", button.dataset.tab === current));
   $("hoursSelect").hidden = !["requests", "errors"].includes(current);
-  if (current !== "database") $("connectionSelect").hidden = true;
   $("view").innerHTML = `<div class="info">Loading ${current}...</div>`;
   loading = false;
   load();
@@ -1043,8 +1077,30 @@ const openTab = tab => {
 $("tabs").addEventListener("click", e => { const button = e.target.closest("[data-tab]"); if (button) openTab(button.dataset.tab) });
 $("refreshBtn").addEventListener("click", () => load());
 $("hoursSelect").addEventListener("change", e => { writeStore({ hours: Number(e.target.value) }); load() });
-$("connectionSelect").addEventListener("change", e => { writeStore({ connection: e.target.value }); load() });
 $("view").addEventListener("click", e => { const button = e.target.closest("[data-trace]"); if (button) load(button.dataset.trace) });
+// the clipboard API first; where a browser or an embedded view refuses it (no HTTPS, no permission), a hidden text box and the copy command
+const copyText = async (text, message) => {
+  const copied = await navigator.clipboard?.writeText(text).then(() => true, () => false) || (() => { const box = Object.assign(document.createElement("textarea"), { value: text }); box.style.cssText = "position:fixed;opacity:0"; document.body.append(box); box.select(); let ok = false; try { ok = document.execCommand("copy") } catch {} box.remove(); return ok })();
+  toast(copied ? message : "Could not copy", !copied);
+  return copied;
+};
+// the master database's URL (password hidden as ***) in parts, for the line and its dialog
+const dbParts = url => { try { const u = new URL(String(url).replace(/^postgres(ql)?:\/\//i, "http://")); return { user: decodeURIComponent(u.username), password: !!u.password, host: u.hostname, port: u.port || "5432", db: decodeURIComponent(u.pathname.replace(/^\//, "")) } } catch { return null } };
+// the DB line under the page name (el.dataset.url: the URL, password hidden): a click (or Enter) opens a dialog with its parts in a table (user, password as dots, host, port,
+// database), then the connection string with a copy icon (copied without the password, so a client asks for it); the same in Monitor, Analytics and PgWeb
+const dbLine = el => {
+  el.tabIndex = 0; el.setAttribute("role", "button"); el.setAttribute("aria-haspopup", "dialog");
+  el.addEventListener("click", () => {
+    const url = el.dataset.url, p = url && dbParts(url);
+    if (!p) return;
+    Page.dialog({ title: "Master DB", body: Page.kv([["User", he(p.user || "—")], ["Password", p.password ? "••••••" : "—"], ["Host", he(p.host)], ["Port", he(p.port)], ["Database", he(p.db || "—")]])
+      + `<div class="db-url-row"><code class="db-url">${he(url)}</code><button type="button" class="db-copy" id="dbUrlCopy" aria-label="Copy the connection string, without the password"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></div>`,
+      on: { dbUrlCopy: () => copyText(url.replace(/:[^:@/]*@/, "@"), "Connection string copied") } });
+  });
+  el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); el.click() } });
+};
+dbLine($("subtitle"));
+$("view").addEventListener("click", e => { if (e.target.closest("[data-copy-request]") && upgradeRequest) copyText(upgradeRequest, "Request copied: paste it to DevOps") });
 $("view").addEventListener("input", e => {
   if (!e.target.matches("[data-filter]")) return;
   const text = e.target.value.trim().toLowerCase();

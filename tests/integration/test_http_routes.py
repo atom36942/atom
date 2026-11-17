@@ -520,7 +520,8 @@ class HttpRouteTests(unittest.TestCase):
         config = {item["name"]: item["value"] for item in self.message(app)["config"]}
         self.assertIn("client_postgres_dict", {client["name"] for client in self.message(app)["clients"]})
         self.assertEqual(config["config_postgres_url_dict"], "set")    # secrets and URLs are masked
-        self.assertNotIn("postgresql://", app.text)
+        self.assertFalse([name for name, value in config.items() if "postgresql://" in str(value)])
+        self.assertNotRegex(app.text, r"postgresql://[^:@/\"]+:(?!\*\*\*@)[^@\"]*@")    # the master DB line's URL comes masked, never with its password
         self.assertEqual(self.client.get("/admin/monitor", params={"view": "secrets"}, headers=self.auth(self.admin)).status_code, 400)
         self.assertEqual(self.client.get("/admin/monitor", params={"view": "requests", "hours": 5}, headers=self.auth(self.admin)).status_code, 400)
 

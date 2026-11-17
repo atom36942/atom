@@ -106,6 +106,7 @@ config_buffer_limit_default = 100
 config_buffer_limit_log_api = 1000
 config_buffer_rows_max = 100000
 config_postgres_buffer_flush_auto_sec = 60
+config_postgres_storage_gb = None
 
 # log_api
 config_is_log_api = True

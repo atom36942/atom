@@ -57,7 +57,8 @@ async def func_monitor_errors(*, client_postgres: asyncpg.Pool | None, hours: in
     return {"is_enabled": True, "hours": hours, "groups": [{**dict(row), "last_error": (row["last_error"] or "")[:500]} for row in groups], "latest": [dict(row) for row in rows]}
 
 async def func_monitor_database(*, app_state: State, connection: str, top: int = 20, long_query_sec: int = 5, timeout_sec: int = 15) -> dict:
-    """Pool use of every PostgreSQL connection (which one log_api writes to), and for one database: where it is (database, host, port, user), size, cache hit ratio, connections, long-running queries, waiting locks and the biggest tables."""
+    """Pool use of every PostgreSQL connection (which one log_api writes to), and for one database: where it is (database, host, port, user), size, cache hit ratio, connections, long-running queries, waiting locks,
+    the biggest tables, and whether the server needs upgrading (func_monitor_database_upgrade; the master server's disk size from config_postgres_storage_gb)."""
     client_postgres_dict = getattr(app_state, "client_postgres_dict", {})
     log_database = getattr(app_state, "config_postgres_db_log_api", None) if getattr(app_state, "config_is_log_api", True) else None
     pools = [{"name": name, "size": pool.get_size(), "idle": pool.get_idle_size(), "min": pool.get_min_size(), "max": pool.get_max_size(), "is_log_api": name == log_database} for name, pool in client_postgres_dict.items()]
@@ -77,8 +78,83 @@ async def func_monitor_database(*, app_state: State, connection: str, top: int =
             SELECT schemaname || '.' || relname AS name, n_live_tup AS rows, n_dead_tup AS dead_rows, pg_total_relation_size(relid) AS size_bytes, seq_scan, idx_scan,
                    greatest(last_vacuum, last_autovacuum) AS vacuumed_at, greatest(last_analyze, last_autoanalyze) AS analyzed_at
             FROM pg_stat_user_tables ORDER BY pg_total_relation_size(relid) DESC LIMIT $1""", top, timeout=timeout_sec)
+        # the counters behind the upgrade check, all since their last reset: reads, spills to disk and deadlocks of this database; the net bytes its tables gained
+        # (rows inserted minus deleted, times each table's bytes per row); the data of every database on the server this login may open; the WAL written (pg_stat_wal, PostgreSQL 14 and later)
+        stats = dict(await conn.fetchrow("""
+            SELECT blks_hit, blks_read, temp_bytes, deadlocks, coalesce(stats_reset, pg_postmaster_start_time()) AS stats_reset, extract(epoch FROM now() - coalesce(stats_reset, pg_postmaster_start_time()))::float AS stats_age_sec,
+                   pg_size_bytes(current_setting('shared_buffers')) AS shared_buffers_bytes, pg_size_bytes(current_setting('work_mem')) AS work_mem_bytes, current_setting('server_version_num')::int AS version_num,
+                   (SELECT sum((n_tup_ins - n_tup_del) * pg_total_relation_size(relid)::float / greatest(n_live_tup, 1)) FROM pg_stat_user_tables) AS net_bytes,
+                   (SELECT sum(pg_database_size(datname)) FROM pg_database WHERE datallowconn AND has_database_privilege(datname, 'CONNECT'))::bigint AS server_bytes
+            FROM pg_stat_database WHERE datname = current_database()""", timeout=timeout_sec))
+        wal = dict(await conn.fetchrow("""
+            SELECT wal_bytes::float, extract(epoch FROM now() - coalesce(stats_reset, pg_postmaster_start_time()))::float AS age_sec, pg_size_bytes(current_setting('max_wal_size')) AS max_wal_bytes,
+                   extract(epoch FROM current_setting('checkpoint_timeout')::interval)::float AS checkpoint_timeout_sec FROM pg_stat_wal""", timeout=timeout_sec)) if stats["version_num"] >= 140000 else {}
     slow_queries = await app_state.func_postgres_slow_queries_read(client_postgres=client_postgres, limit=top, order="total_time")
-    return {"connection": connection, "pools": pools, "is_enabled": True, "info": info, "states": [dict(row) for row in states], "long_queries": [dict(row) for row in queries], "tables": [dict(row) for row in tables], "slow_queries": slow_queries}
+    storage_gb = getattr(app_state, "config_postgres_storage_gb", None) if connection == "master" else None    # the master server's disk; another connection's is unknown
+    upgrade = func_monitor_database_upgrade(info=info, stats=stats, wal=wal, storage_gb=storage_gb)
+    return {"connection": connection, "pools": pools, "is_enabled": True, "info": info, "states": [dict(row) for row in states], "long_queries": [dict(row) for row in queries], "tables": [dict(row) for row in tables], "slow_queries": slow_queries, "upgrade": upgrade}
+
+def func_monitor_database_upgrade(*, info: dict, stats: dict, wal: dict, storage_gb: float | None) -> dict:
+    """Whether the PostgreSQL server needs upgrading, from its own counters: one signal per resource (status ok, watch, upgrade or unknown; its value and what it means), the actions to ask DevOps for,
+    and that request as text to copy. wal: pg_stat_wal's bytes and age with max_wal_size and checkpoint_timeout (empty before PostgreSQL 14). Counters run since their last reset, so a young window (under a day) is said to be too short to judge. Deadlocks are a code issue: they never ask for an upgrade."""
+    def size(n: float) -> str:
+        for unit in ("B", "KB", "MB", "GB", "TB"):
+            if abs(n) < 1024 or unit == "TB": return f"{n:.0f} {unit}" if unit in ("B", "KB") or abs(n) >= 10 else f"{n:.1f} {unit}"
+            n /= 1024
+    def level(value: float | None, watch: float, upgrade: float, below: bool = False) -> str:
+        if value is None: return "ok"
+        if below: return "upgrade" if value < upgrade else "watch" if value < watch else "ok"
+        return "upgrade" if value >= upgrade else "watch" if value >= watch else "ok"
+    days = max((stats.get("stats_age_sec") or 0) / 86400, 1 / 24)
+    signals, actions = [], []
+    # disk: the data of every database on the server against the disk DevOps gave it, and when it fills at the growth since the counters reset
+    used, growth = stats.get("server_bytes") or info.get("size_bytes") or 0, max((stats.get("net_bytes") or 0) / days, 0)
+    grows = f"+{size(growth * 30)} a month" if growth >= 1024 ** 2 / 30 else "not growing"
+    if storage_gb:
+        disk = storage_gb * 1024 ** 3
+        used_pct, days_left = used / disk * 100, (disk - used) / growth if growth else None
+        status = "upgrade" if used_pct >= 85 or (days_left is not None and days_left < 90) else "watch" if used_pct >= 70 or (days_left is not None and days_left < 180) else "ok"
+        full = "" if days_left is None or days_left >= 3650 else f", full in about {days_left:.0f} days" if days_left < 60 else f", full in about {days_left / 30:.0f} months"
+        signals.append({"name": "Disk", "status": status, "value": f"{used_pct:.0f}% of {storage_gb:g} GB", "detail": f"{size(used)} of data, {grows}{full}"})
+        if status == "upgrade":
+            need = (used + growth * 365) / 0.6 / 1024 ** 3    # a year of growth and still 40% free
+            target = next((gb for gb in (32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384) if gb >= need and gb > storage_gb), storage_gb * 2)
+            actions.append(f"Increase storage from {storage_gb:g} GB to {target:g} GB ({used_pct:.0f}% used{full})")
+    else: signals.append({"name": "Disk", "status": "unknown", "value": size(used), "detail": f"{grows}; set config_postgres_storage_gb for disk use"})
+    # connections: every app's, against the server's limit
+    connections_pct = info["connections"] / info["max_connections"] * 100 if info.get("max_connections") else None
+    status = level(connections_pct, 60, 80)
+    signals.append({"name": "Connections", "status": status, "value": f"{info.get('connections')} of {info.get('max_connections')}", "detail": "all apps, vs max_connections"})
+    if status == "upgrade": actions.append(f"More connections: a bigger tier or PgBouncer ({info.get('connections')} of {info.get('max_connections')} used)")
+    # memory: reads served from RAM; judged only once there are enough reads
+    reads = (stats.get("blks_hit") or 0) + (stats.get("blks_read") or 0)
+    hit = stats["blks_hit"] / reads * 100 if reads >= 10000 else None
+    status = level(hit, 99, 95, below=True)
+    signals.append({"name": "Memory", "status": status, "value": "—" if hit is None else f"{hit:.1f}%", "detail": "too few reads yet" if hit is None else f"reads from RAM, aim 99%; shared_buffers {size(stats.get('shared_buffers_bytes') or 0)}"})
+    if status == "upgrade": actions.append(f"More RAM: a bigger tier ({hit:.1f}% of reads from memory)")
+    # sorts and joins too big for work_mem spill to temporary files
+    spill = (stats.get("temp_bytes") or 0) / days
+    status = level(spill, 512 * 1024 ** 2, 5 * 1024 ** 3)
+    signals.append({"name": "Work memory", "status": status, "value": f"{size(spill)} a day", "detail": f"spilled to disk; work_mem {size(stats.get('work_mem_bytes') or 0)}"})
+    if status == "upgrade": actions.append(f"Raise work_mem from {size(stats.get('work_mem_bytes') or 0)}, with RAM to spare ({size(spill)} a day spilled to disk)")
+    # write load: the WAL written in one checkpoint interval against max_wal_size; at 100% writes force checkpoints before their time. Not the requested-checkpoint count:
+    # backups and manual CHECKPOINTs request them too (on Azure most of them), whatever the write load
+    per_interval = wal["wal_bytes"] / wal["age_sec"] * wal["checkpoint_timeout_sec"] if wal.get("age_sec") and wal.get("checkpoint_timeout_sec") and wal.get("wal_bytes") is not None else None
+    load = per_interval / wal["max_wal_bytes"] * 100 if per_interval is not None and wal.get("max_wal_bytes") else None
+    status = level(load, 50, 100)
+    signals.append({"name": "Write load", "status": status, "value": "—" if load is None else f"{load:.0f}% of max_wal_size", "detail": "needs PostgreSQL 14+" if load is None else f"{size(per_interval)} WAL per checkpoint interval"})
+    if status == "upgrade": actions.append(f"Raise max_wal_size from {size(wal['max_wal_bytes'])}, or more IOPS ({size(per_interval)} WAL per checkpoint interval)")
+    # deadlocks: transactions locking the same rows in different orders, fixed in the code
+    deadlocks = stats.get("deadlocks") or 0
+    signals.append({"name": "Deadlocks", "status": "watch" if deadlocks else "ok", "value": f"{deadlocks}", "detail": "a code issue, not an upgrade" if deadlocks else ""})
+    statuses = {signal["status"] for signal in signals}
+    verdict = "upgrade" if "upgrade" in statuses else "watch" if "watch" in statuses else "ok"
+    since = stats.get("stats_reset")
+    window = f"counters since {since:%Y-%m-%d}" if since else "counters of unknown age"
+    if (stats.get("stats_age_sec") or 0) < 86400: window += " (under a day: judge again after a few days)"
+    where = f"{info.get('name')} on {info.get('host') or 'a local socket'}"
+    request = (f"PostgreSQL server for database {where} needs an upgrade (from Atom Monitor, {window}):\n" + "\n".join(f"- {action}" for action in actions)) if actions else ""
+    return {"verdict": verdict, "signals": signals, "actions": actions, "request": request, "window": window}
 
 async def func_monitor_queues(*, client_redis: Any, channels: list) -> dict:
     """Redis queue backlog per channel: jobs waiting (<channel>), running (<channel>_processing) and kept after their last retry (<channel>_failed), and whether a consumer holds the channel. Channels: Atom's, plus any a consumer has used (found by their key names). Counts only, never payloads."""
@@ -117,7 +193,7 @@ def func_monitor_config_value(*, name: str, value) -> object:
     return value if value is None or isinstance(value, (bool, int, float)) else str(value)[:200]
 
 def func_monitor_database_name(*, url: str | None) -> str:
-    """The master database as Admin and PgWeb name it, host / database, never the user or password: "" when unset or unreadable."""
+    """The master database as host[:port] / database, never the user or password, for the line under the page name (a click shows the URL, password hidden): "" when unset or unreadable."""
     try: parts = urlsplit(url or "")
     except ValueError: return ""
     if not parts.hostname: return ""
@@ -140,7 +216,7 @@ def func_monitor_app(*, app_state: State, app_routes: list, packages: tuple = ("
         is_on = bool(value) if isinstance(value, dict) else value is not None
         clients.append({"name": name, "is_on": is_on, "detail": ", ".join(sorted(value)) if isinstance(value, dict) else ""})
     return {
-        "server": {"python": platform.python_version(), "platform": platform.platform(terse=True), "pid": os.getpid(), "workers": state.get("config_uvicorn_workers", 1), "is_prod": state.get("config_is_prod"), "is_read_only": state.get("config_is_read_only"), "atom_version": state.get("cache_atom_version"), "database": func_monitor_database_name(url=state.get("config_postgres_url_master")),
+        "server": {"python": platform.python_version(), "platform": platform.platform(terse=True), "pid": os.getpid(), "workers": state.get("config_uvicorn_workers", 1), "is_prod": state.get("config_is_prod"), "is_read_only": state.get("config_is_read_only"), "atom_version": state.get("cache_atom_version"), "database": func_monitor_database_name(url=(master := state.get("config_postgres_url_master") or (state.get("config_postgres_url_dict") or {}).get("master"))), "database_url": state["func_pgweb_dsn_safe"](master) if master else "",
                    "routes": len(app_routes), "routes_project": project_routes, "apis_configured": len(state.get("config_api", {})), "functions": len(functions), "functions_project": project_functions},
         "packages": versions,
         "clients": clients,
@@ -148,11 +224,13 @@ def func_monitor_app(*, app_state: State, app_routes: list, packages: tuple = ("
     }
 
 async def func_monitor_report(*, app_state: State, view: str, hours: int = 24, connection: str = "master", app_routes: list = None) -> dict:
-    """One monitor view: memory, requests, errors, database, background or app."""
-    if view == "memory": return await app_state.func_memory_report(app_state=app_state)
-    if view == "requests": return await func_monitor_requests(client_postgres=getattr(app_state, "client_postgres_log_api", None), hours=hours)
-    if view == "errors": return await func_monitor_errors(client_postgres=getattr(app_state, "client_postgres_log_api", None), hours=hours)
-    if view == "database": return await func_monitor_database(app_state=app_state, connection=connection)
-    if view == "background": return {**func_monitor_background(app_state=app_state), "queues": await func_monitor_queues(client_redis=app_state.client_redis_dict.get("queue"), channels=list(app_state.func_consumer_channels()))}
-    if view == "app": return func_monitor_app(app_state=app_state, app_routes=app_routes or [])
-    raise Exception(f"invalid view: {view}")
+    """One monitor view: memory, requests, errors, database, background or app; every one also names the master database for the page's header: master_database (host / database) and master_database_url (the URL, password hidden)."""
+    if view == "memory": report = await app_state.func_memory_report(app_state=app_state)
+    elif view == "requests": report = await func_monitor_requests(client_postgres=getattr(app_state, "client_postgres_log_api", None), hours=hours)
+    elif view == "errors": report = await func_monitor_errors(client_postgres=getattr(app_state, "client_postgres_log_api", None), hours=hours)
+    elif view == "database": report = await func_monitor_database(app_state=app_state, connection=connection)
+    elif view == "background": report = {**func_monitor_background(app_state=app_state), "queues": await func_monitor_queues(client_redis=app_state.client_redis_dict.get("queue"), channels=list(app_state.func_consumer_channels()))}
+    elif view == "app": report = func_monitor_app(app_state=app_state, app_routes=app_routes or [])
+    else: raise Exception(f"invalid view: {view}")
+    master = getattr(app_state, "config_postgres_url_master", None) or (getattr(app_state, "config_postgres_url_dict", None) or {}).get("master")
+    return {**report, "master_database": func_monitor_database_name(url=master), "master_database_url": app_state.func_pgweb_dsn_safe(master) if master else ""}    # the URL with its password hidden (as PgWeb shows it), for the role 1 page

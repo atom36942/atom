@@ -4,6 +4,17 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [15.8.0] - 2026-11-17
+
+Monitor, Analytics and PgWeb get clearer, shorter and more consistent; Monitor gains a database upgrade check. Nothing to change in projects; set `config_postgres_storage_gb` to use the disk part of the check.
+
+- **Monitor, Database tab: upgrade check.** One verdict (no upgrade needed, keep an eye on it, upgrade recommended) from the server's own counters: disk (how full, and when it fills, with the new optional `config_postgres_storage_gb`), connections, memory (reads served from RAM), work memory (spills to disk), write load (WAL per checkpoint interval against `max_wal_size`) and deadlocks; an upgrade lists what to ask DevOps for, with a button that copies the request. The connection picker is gone: the tab reads the master database, named once in the page header.
+- **Monitor:** shorter texts on every tab; chart bars show their value on hover (a tip drawn by the page, not the browser's slow `title`).
+- **Analytics:** each figure in one section only, with the range dropdown above the figures it changes and each one's change against the previous period; new charts (active users, response time, error rate) and an Overview of headlines that open their section; tiles with rows behind them open a list in a dialog, paged after a cursor (`/admin/object-read` for users, no total count); chart values on hover.
+- **Monitor, Analytics and PgWeb:** the database under the page name as host / database (the host shortened where narrow, so the database shows); a click opens its URL, password hidden, with a copy icon.
+- **PgWeb:** the query runner is the first row of the table list; dialogs restyled; copy buttons work where the browser blocks the clipboard API.
+- **API page:** the refresh icon is gone from the search bar (Sync re-downloads the list).
+
 ## [15.7.1] - 2026-11-17
 
 `readme.md` shows the version as a release badge (the latest GitHub Release, updated by CI) instead of a `Version` line, so a release no longer edits `readme.md`; a test still checks `ATOM_VERSION` and the top `CHANGELOG.md` entry agree. Nothing to change in projects.

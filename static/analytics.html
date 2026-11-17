@@ -184,7 +184,15 @@ aside.side{position:sticky;top:0;height:100vh;display:flex;flex-direction:column
 .brand{padding:18px 16px 14px}
 .brand h1{margin:0;font-size:18px;font-weight:700}
 .brand h1 a{color:inherit;text-decoration:none}
-.brand-db{margin:2px 0 0;color:var(--muted);font-size:11px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand-db{margin:2px 0 0;color:var(--muted);font-size:11px;line-height:1.5;opacity:.7;cursor:pointer}
+.brand-db:not([hidden]){display:flex;min-width:0;white-space:pre}
+.brand-db>span{flex:none}
+.brand-db>.db-line-host{flex:0 1 auto;min-width:0;max-width:18ch;overflow:hidden;text-overflow:ellipsis}    /* the host's first letters: the database name is the part that must show */
+/* the DB line under the page name: host / database, one line; a click opens a dialog: its parts in a table, then the connection string with a copy icon (the same in Monitor, Analytics and PgWeb) */
+.db-url-row{display:flex;align-items:center;gap:8px}
+.db-url{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--field);font-family:var(--mono);font-size:12px;color:var(--muted);overflow-wrap:anywhere;user-select:all}
+.db-copy{flex:none;display:grid;place-items:center;width:34px;height:34px;padding:0}
+.db-copy svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 /* the sections, one button each with its icon; the open one tinted in the accent, as PgWeb's SQL Runner */
 .nav{display:flex;flex-direction:column;gap:4px;padding:6px 10px;border-top:1px solid var(--line)}
 .nav-item{display:flex;align-items:center;gap:8px;width:100%;height:36px;padding:0 12px;border:1px solid transparent;border-radius:8px;background:none;color:var(--muted);font-size:13px;font-weight:500;text-align:left}
@@ -217,15 +225,37 @@ h4.section{margin:18px 0 10px;color:var(--muted);font-size:11px;font-weight:700;
 .tile .value.bad{color:var(--danger)}
 .tile .value.warn{color:var(--warn)}
 .tile .hint{color:var(--muted);font-size:11px}
+.tile .delta{margin-top:3px;color:var(--muted);font-size:11px}
+.tile .delta.good{color:var(--primary)}
+.tile .delta.bad{color:var(--danger)}
+.tile.click{cursor:pointer;transition:border-color .15s,background .15s}
+.tile.click:hover,.tile.click:focus-visible{border-color:rgba(66,153,225,.55);background:rgba(66,153,225,.05);outline:none}
+.tile .more{margin-top:6px;color:var(--brand-ink);font-size:11px;font-weight:600}
+dialog.dlg:has(.list-box){width:min(940px,calc(100vw - 32px))}
+.list-box{display:grid;gap:10px;min-width:0}
+.list-scroll{overflow:auto;height:min(58vh,420px);border:1px solid var(--line);border-radius:8px}
+.list-pager{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;color:var(--muted);font-size:12px}
+.list-pager .actions button{height:30px;padding:0 12px}
+h4.section .scope{margin-left:8px;padding:2px 8px;border-radius:999px;background:rgba(var(--hl),.07);font-size:10px;font-weight:600;letter-spacing:.4px;vertical-align:1px}
+.range-head{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin:18px 0 10px}
+.range-head h4.section{margin:0}
+.range-head select{min-width:150px;border-color:rgba(66,153,225,.45)}
+.range-head .muted{font-size:12px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .two>.card{margin-bottom:16px}
 @media (max-width:1100px){.two{grid-template-columns:1fr}}
 .chart{display:flex;align-items:flex-end;gap:2px;height:120px;padding:16px 16px 0}
 .chart .col{flex:1;min-width:2px;height:100%;display:flex;flex-direction:column;justify-content:flex-end}
 .chart .col:hover{background:rgba(var(--hl),.04)}
+.chart-tip{position:fixed;z-index:30;pointer-events:none;max-width:min(320px,calc(100vw - 16px));padding:6px 9px;border:1px solid var(--line-strong);border-radius:8px;background:var(--panel);color:var(--text);font-size:12px;line-height:1.4;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.chart-tip strong{display:block;font-weight:600}
 .chart .ok{background:var(--accent);border-radius:2px 2px 0 0}
 .chart .err{background:var(--danger)}
 .chart .new{background:var(--primary);border-radius:2px 2px 0 0}
+:root{--c-users:#9f7aea;--c-time:#4fd1c5}
+:root[data-theme="light"]{--c-users:#805ad5;--c-time:#319795}
+.chart .users{background:var(--c-users);border-radius:2px 2px 0 0}
+.chart .time{background:var(--c-time);border-radius:2px 2px 0 0}
 .axis{display:flex;justify-content:space-between;padding:6px 16px 12px;color:var(--muted);font-size:11px}
 .legend{display:flex;gap:12px;color:var(--muted);font-size:12px}
 .legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle}
@@ -619,9 +649,10 @@ const Page = (() => {
   // Update password: Atom's rule, 6-120 characters without spaces (PUT /my/user-update)
   const passwordOpen = () => {
     dialog({ title: "Update password",
-      body: '<div class="field"><label for="pwNew">New password</label><input id="pwNew" type="password" autocomplete="new-password" maxlength="120"></div><div class="field"><label for="pwConfirm">Confirm new password</label><input id="pwConfirm" type="password" autocomplete="new-password" maxlength="120"></div><p class="field-help">6–120 characters, no spaces.</p>',
+      body: '<div class="field"><label for="pwNew">New password</label><span class="pw-wrap"><input id="pwNew" type="password" autocomplete="new-password" maxlength="120"><button type="button" class="pw-eye" id="pwNewEye" aria-label="Show password" data-tip="Show password"></button></span></div><div class="field"><label for="pwConfirm">Confirm new password</label><span class="pw-wrap"><input id="pwConfirm" type="password" autocomplete="new-password" maxlength="120"><button type="button" class="pw-eye" id="pwConfirmEye" aria-label="Show password" data-tip="Show password"></button></span></div><p class="field-help">6–120 characters, no spaces.</p>',
       actions: '<button type="button" id="pwCancel">Cancel</button><button type="button" class="primary" id="pwSave">Update password</button>',
       on: { pwCancel: detailsOpen, pwSave: passwordSave } });
+    eyeToggle(el("pwNew"), el("pwNewEye")); eyeToggle(el("pwConfirm"), el("pwConfirmEye"));
     el("pwNew").focus();
   };
   const passwordSave = async () => {
@@ -772,7 +803,7 @@ const groupby = (table, col, { filter = [], ...params } = {}) => api(`/admin/tab
 // tables and columns from GET /admin/postgres-schema; the few server settings the page needs from GET /admin/monitor?view=app
 let SCHEMA = {}, INFO = {}, STATS = {};
 const AUDIT = ["created_at", "created_by_id", "updated_at", "updated_by_id"];
-const RULES_DEFAULT = { read_blocked: ["password"], database: "", is_log_api: true, log_db: "master" };
+const RULES_DEFAULT = { read_blocked: ["password"], database: "", database_url: "", is_log_api: true, log_db: "master" };
 let RULES = { ...RULES_DEFAULT };
 const readable = col => !RULES.read_blocked.includes(col);
 const isNotNull = c => String(c?.is_nullable).toUpperCase() === "NO" || c?.is_nullable === false;
@@ -784,6 +815,7 @@ const rulesFetch = async () => {
   return {
     read_blocked: Array.isArray(cfg.config_column_read_blocked) ? cfg.config_column_read_blocked : RULES_DEFAULT.read_blocked,
     database: typeof app?.server?.database === "string" ? app.server.database : "",
+    database_url: typeof app?.server?.database_url === "string" ? app.server.database_url : "",
     is_log_api: cfg.config_is_log_api !== false,
     log_db: typeof cfg.config_postgres_db_log_api === "string" && cfg.config_postgres_db_log_api ? cfg.config_postgres_db_log_api : "master",
   };
@@ -813,6 +845,8 @@ const permissionLabel = id => { const label = INFO.config_column_int_mapping?.us
 const statsFetch = async () => Object.fromEntries((await sql("select s.relname as name, s.n_live_tup::bigint as rows, pg_total_relation_size(s.relid)::bigint as bytes from pg_stat_user_tables s where s.schemaname = 'public'").catch(() => [])).map(s => [s.name, s]));
 const statsLoad = async () => { STATS = await statsFetch() };
 // what the page knows before it reads rows: schema, /info, row estimates and settings, at once; kept in IndexedDB ("reference") until the next sync
+// raised when the reference's content changes (2: rules.database, the master database's name; 5: rules.database_url, the URL with its password hidden), so a copy saved by an older page is downloaded again at open, not at the next sync
+const REFERENCE_FORMAT = 5;
 const referenceFetch = async () => {
   const [schema, info, stats, rules] = await Promise.all([
     api("/admin/postgres-schema"),
@@ -820,15 +854,38 @@ const referenceFetch = async () => {
     statsFetch(),
     rulesFetch(),
   ]);
-  return { schema: schema || {}, info, stats, rules };
+  return { schema: schema || {}, info, stats, rules, format: REFERENCE_FORMAT };
 };
-const shortHost = db => db.replace(/^([^ /:]+)/, h => /^[\d.]+$/.test(h) ? h : h.replace(/\.(postgres\.database\.azure\.com|database\.windows\.net|[a-z0-9-]+\.rds\.amazonaws\.com|rds\.amazonaws\.com|supabase\.co|neon\.tech|cloudsql\.com)$/i, ""));
+// the clipboard API first; where a browser or an embedded view refuses it (no HTTPS, no permission), a hidden text box and the copy command
+const copyText = async (text, message) => {
+  const copied = await navigator.clipboard?.writeText(text).then(() => true, () => false) || (() => { const box = Object.assign(document.createElement("textarea"), { value: text }); box.style.cssText = "position:fixed;opacity:0"; document.body.append(box); box.select(); let ok = false; try { ok = document.execCommand("copy") } catch {} box.remove(); return ok })();
+  toast(copied ? message : "Could not copy", !copied);
+  return copied;
+};
+// the master database's URL (password hidden as ***) in parts, for the line and its dialog
+const dbParts = url => { try { const u = new URL(String(url).replace(/^postgres(ql)?:\/\//i, "http://")); return { user: decodeURIComponent(u.username), password: !!u.password, host: u.hostname, port: u.port || "5432", db: decodeURIComponent(u.pathname.replace(/^\//, "")) } } catch { return null } };
+// the DB line under the page name (el.dataset.url: the URL, password hidden): a click (or Enter) opens a dialog with its parts in a table (user, password as dots, host, port,
+// database), then the connection string with a copy icon (copied without the password, so a client asks for it); the same in Monitor, Analytics and PgWeb
+const dbLine = el => {
+  el.tabIndex = 0; el.setAttribute("role", "button"); el.setAttribute("aria-haspopup", "dialog");
+  el.addEventListener("click", () => {
+    const url = el.dataset.url, p = url && dbParts(url);
+    if (!p) return;
+    Page.dialog({ title: "Master DB", body: Page.kv([["User", he(p.user || "—")], ["Password", p.password ? "••••••" : "—"], ["Host", he(p.host)], ["Port", he(p.port)], ["Database", he(p.db || "—")]])
+      + `<div class="db-url-row"><code class="db-url">${he(url)}</code><button type="button" class="db-copy" id="dbUrlCopy" aria-label="Copy the connection string, without the password"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></div>`,
+      on: { dbUrlCopy: () => copyText(url.replace(/:[^:@/]*@/, "@"), "Connection string copied") } });
+  });
+  el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); el.click() } });
+};
+dbLine($("brandDb"));
 const referenceApply = ref => {
   SCHEMA = ref.schema; INFO = ref.info; STATS = ref.stats; RULES = { ...RULES_DEFAULT, ...ref.rules };
   $("brandHome").title = location.host;
   // the master database under the title, as PgWeb shows its connection: host / database / public
-  const db = shortHost(RULES.database);
-  $("brandDb").hidden = !db; $("brandDb").textContent = db ? `${db} / public` : ""; $("brandDb").title = RULES.database;
+  const db = RULES.database;    // host / database (the line shortens the host from database_url)
+  const parts = dbParts(RULES.database_url), span = (text, cls = "") => Object.assign(document.createElement("span"), { textContent: text, className: cls });
+  $("brandDb").hidden = !db; $("brandDb").dataset.url = RULES.database_url || "";
+  $("brandDb").replaceChildren(...(parts ? [span("Master DB: "), span(parts.host, "db-line-host"), span(` / ${parts.db}`)] : db ? [span(`Master DB: ${db}`)] : []));    // only the host shrinks, so the database shows    // the database, once, here (the server is in the address bar)
   renderNav();
 };
 // a sync downloads the reference again and drops every saved section
@@ -876,23 +933,68 @@ const cellHtml = (table, col, v, full = false) => {
 };
 
 /* ==== cards ==== */
-const tile = (label, value, hint = "", tone = "") => `<div class="tile"><div class="label">${he(label)}</div><div class="value${tone ? ` ${tone}` : ""}">${he(value)}</div><div class="hint">${he(hint)}</div></div>`;
+// a tile: its label, value, a hint, and for a range figure its change against the period before (delta, from change())
+// link: { list: name } opens that list (LISTS), { go: section } opens the section that owns the figure
+const tile = (label, value, hint = "", tone = "", delta = "", link = null) => {
+  const attrs = link ? ` role="button" tabindex="0" ${link.list ? `data-list="${he(link.list)}"` : `data-go="${he(link.go)}"`}` : "";
+  const more = link ? `<div class="more">${link.list ? "View list ›" : `Open ${he(SECTIONS.find(([k]) => k === link.go)?.[1] || link.go)} ›`}</div>` : "";
+  return `<div class="tile${link ? " click" : ""}"${attrs}><div class="label">${he(label)}</div><div class="value${tone ? ` ${tone}` : ""}">${he(value)}</div><div class="hint">${he(hint)}</div>${delta}${more}</div>`;
+};
+// the change of a range figure against the same length of time just before it: green when it moved the good way (down for errors and response times), red when not;
+// a rate (percent) changes in points, everything else in percent
+const change = (now, before, r, { down = false, points = false } = {}) => {
+  if (now == null || before == null) return "";
+  const a = Number(now), b = Number(before), vs = ` vs ${r.prevLabel}`;
+  if (points ? Math.abs(a - b) < 0.05 : (!a && !b) || (b && Math.abs((a - b) / b) < 0.005)) return `<div class="delta">no change${vs}</div>`;
+  if (!points && !b) return `<div class="delta${down ? " bad" : " good"}">up from 0${vs}</div>`;
+  const diff = points ? a - b : (a - b) / b * 100, size = Math.abs(diff);
+  const amount = points ? `${size.toFixed(1)} pts` : a / b >= 10 ? `${Math.round(a / b)}×` : `${size >= 10 ? Math.round(size) : size.toFixed(1)}%`;    // ten times or more as "12×", not "1100%"
+  return `<div class="delta ${(diff > 0) !== down ? "good" : "bad"}">${diff > 0 ? "▲" : "▼"} ${amount}${vs}</div>`;
+};
+const formatMsOrDash = v => v == null ? "—" : `${formatNumber(v)} ms`;
+const formatPct = v => v == null ? "—" : `${Number(v).toFixed(1)}%`;
+// a time slot, with its date: "17 Nov, 14:00" per hour, "Tue 17 Nov" per day
+const slotLabel = (t, bucket) => new Date(t).toLocaleString([], bucket === "hour" ? { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" } : { weekday: "short", day: "numeric", month: "short" });
+// chart hover: the bar under the pointer (mouse, pen or a tap) shows its time and numbers in a tip by the pointer; each bar keeps them in data-label and data-value.
+// Not the native title: it shows only after the mouse rests about a second on one bar (bars are a few px wide) and never in some browsers or on touch.
+(() => {
+  const tip = document.createElement("div");
+  tip.className = "chart-tip"; tip.hidden = true; tip.setAttribute("role", "tooltip");
+  document.body.append(tip);
+  const show = e => {
+    const col = e.target.closest?.(".chart .col");
+    if (!col) { if (!e.target.closest?.(".chart")) tip.hidden = true; return }    // the gaps between bars keep the last bar's tip
+    if (col.dataset.value == null) { tip.hidden = true; return }    // a bar drawn without its numbers: no tip rather than "undefined"
+    tip.replaceChildren(Object.assign(document.createElement("strong"), { textContent: col.dataset.label }), col.dataset.value);
+    tip.hidden = false;
+    const box = tip.getBoundingClientRect(), x = Math.max(8, Math.min(e.clientX + 12, innerWidth - box.width - 8)), y = e.clientY - box.height - 12;
+    tip.style.left = `${x}px`; tip.style.top = `${y < 8 ? e.clientY + 18 : y}px`;
+  };
+  document.addEventListener("pointermove", show);
+  document.addEventListener("pointerdown", show);
+  document.addEventListener("pointerleave", () => { tip.hidden = true });
+  addEventListener("scroll", () => { tip.hidden = true }, true);
+})();
+const chartCol = (label, value) => `class="col" data-label="${he(label)}" data-value="${he(value)}" aria-label="${he(`${label}: ${value}`)}"`;
+// a bar per time slot: series [{key, label, cls, fmt}] stack from the bottom (the first on top); one without cls shows only in the tip (e.g. p95 next to the average)
 const chartHtml = (rows, bucket, series) => {
   if (!rows.length) return `<div class="empty">No data</div>`;
-  const max = Math.max(1, ...rows.map(r => series.reduce((sum, s) => sum + Number(r[s.key] || 0), 0)));
-  const label = t => new Date(t).toLocaleString([], bucket === "hour" ? { hour: "2-digit", minute: "2-digit" } : { day: "numeric", month: "short" });
-  return `<div class="chart">${rows.map(r => `<div class="col" title="${he(label(r.t))}: ${series.map(s => `${formatNumber(r[s.key])} ${s.label}`).join(", ")}">${series.slice().reverse().map(s => `<div class="${s.cls}" style="height:${(Number(r[s.key] || 0) / max) * 100}%"></div>`).join("")}</div>`).join("")}</div><div class="axis"><span>${he(label(rows[0].t))}</span><span>${he(label(rows[rows.length - 1].t))}</span></div>`;
+  const bars = series.filter(x => x.cls), fmt = bars[0]?.fmt || formatNumber, total = r => bars.reduce((sum, x) => sum + Number(r[x.key] || 0), 0);
+  const max = Math.max(...rows.map(total));
+  return `<div class="chart">${rows.map(r => `<div ${chartCol(slotLabel(r.t, bucket), series.map(x => `${(x.fmt || formatNumber)(r[x.key])} ${x.label}`).join(", "))}>${bars.slice().reverse().map(x => `<div class="${x.cls}" style="height:${max ? Number(r[x.key] || 0) / max * 100 : 0}%"></div>`).join("")}</div>`).join("")}</div>`
+    + `<div class="axis"><span>${he(slotLabel(rows[0].t, bucket))}</span><span>peak ${he(fmt(max))}</span><span>${he(slotLabel(rows[rows.length - 1].t, bucket))}</span></div>`;
 };
 const tableHtml = (head, rows, empty = "No data") => rows.length ? `<table><thead><tr>${head.map(h => `<th class="${h.num ? "num" : ""}">${he(h.label)}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>` : `<div class="empty">${he(empty)}</div>`;
 const barCell = (value, max) => `<td style="width:30%"><div class="bar"><span style="width:${Number(value) / Math.max(1, max) * 100}%"></span></div></td>`;
 const cardShell = (id, title, note = "", wide = false) => `<div class="card${wide ? " wide" : ""}"><div class="card-head"><h3>${he(title)}</h3>${note ? `<span class="card-note">${note}</span>` : ""}</div><div class="card-scroll" id="${id}"><div class="empty">Loading...</div></div></div>`;
 // a page of cards, kept per key in the IndexedDB record "analytics" and shown from there with its age:
-// only Refresh, a key not loaded yet, or a sync reads the database again. A card that fails shows its error and nothing is saved
+// only Refresh, a key not loaded yet, a sync, or cards saved by an older page (CARDS_FORMAT, raised when the cards' HTML changes) read the database again. A card that fails shows its error and nothing is saved
+const CARDS_FORMAT = 5;
 const cardsLoad = async ({ record, key, force, live, build }) => {
   const saved = (await Page.cacheGet(record))?.data || {};
   if (!live()) return;
-  const age = at => { if ($("cardsAge")) $("cardsAge").textContent = at ? `Updated ${formatAgo(new Date(at).toISOString())} · Refresh to update` : "Loading..." };
-  if (!force && saved[key]) { for (const [id, html] of Object.entries(saved[key].html)) if ($(id)) $(id).innerHTML = html; return age(saved[key].at) }
+  const age = at => { if ($("cardsAge")) $("cardsAge").textContent = at ? `Updated ${formatAgo(new Date(at).toISOString())}` : "Loading..." };
+  if (!force && saved[key]?.format === CARDS_FORMAT) { for (const [id, html] of Object.entries(saved[key].html)) if ($(id)) $(id).innerHTML = html; return age(saved[key].at) }
   const html = {};
   let ok = true;
   const run = (id, work) => (async () => {
@@ -902,7 +1004,7 @@ const cardsLoad = async ({ record, key, force, live, build }) => {
   age(0);
   await Promise.all(build(run));
   if (!live()) return;
-  if (ok) { const at = Date.now(); await Page.cacheSet(record, { ...saved, [key]: { at, html } }); age(at) }
+  if (ok) { const at = Date.now(); await Page.cacheSet(record, { ...saved, [key]: { at, html, format: CARDS_FORMAT } }); age(at) }
   else if ($("cardsAge")) $("cardsAge").textContent = "Some cards could not load · Refresh to try again";
 };
 // counts per hour or day since start, every bucket present (0 when empty): one index range scan on created_at
@@ -917,8 +1019,11 @@ const series = (table, bucket, n, extra = "false") => {
 /* ==== sections ==== */
 // the sidebar: one insight per section, each a page of cards answered by the database without writing a query (rows, SQL and exports are PgWeb's).
 // users is read once per section (grouped), log_api only within the chosen range, tables by PostgreSQL's estimates; every section is kept with its age
-const RANGES = { "24h": { label: "Last 24 hours", interval: "24 hours", bucket: "hour", n: 24 }, "7d": { label: "Last 7 days", interval: "7 days", bucket: "day", n: 7 }, "30d": { label: "Last 30 days", interval: "30 days", bucket: "day", n: 30 } };
+// each range compares with the same length of time just before it (prev: the start of that one)
+const RANGES = { "24h": { label: "Last 24 hours", interval: "24 hours", prev: "48 hours", bucket: "hour", n: 24 }, "7d": { label: "Last 7 days", interval: "7 days", prev: "14 days", bucket: "day", n: 7 }, "30d": { label: "Last 30 days", interval: "30 days", prev: "60 days", bucket: "day", n: 30 } };
 const rangeKey = () => RANGES[readStore().range] ? readStore().range : "24h";
+// the chosen range for the cards' SQL and labels: since/prev are SQL, label "last 24 hours", prevLabel "previous 24 hours", slot "hour" or "day"
+const rangeNow = () => { const x = RANGES[rangeKey()]; return { hours: { hour: x.n, day: x.n * 24 }[x.bucket], since: `now() - interval '${x.interval}'`, prev: `now() - interval '${x.prev}'`, label: x.label.toLowerCase(), prevLabel: `previous ${x.interval}`, bucket: x.bucket, slot: x.bucket, n: x.n } };
 const ICONS = {
   overview: '<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
   users: '<circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M17 4a4 4 0 0 1 0 8M22 21a7 7 0 0 0-4-6.3"/>',
@@ -959,36 +1064,64 @@ const LOG_OFF = new Error("API logging is off (config_is_log_api): there are no 
 const logSql = text => RULES.is_log_api ? sql(text, logConn()) : Promise.reject(LOG_OFF);
 const tilesBox = id => `<div class="tiles" id="${id}"><div class="empty">Loading...</div></div>`;
 const chartCard = (id, title, legend = "") => `<div class="card"><div class="card-head"><h3>${he(title)}</h3>${legend}</div><div id="${id}"><div class="empty">Loading...</div></div></div>`;
-const LEGEND_API = `<div class="legend"><span><i style="background:var(--accent)"></i>OK</span><span><i style="background:var(--danger)"></i>Errors</span></div>`;
+const legend = items => `<div class="legend">${items.map(([color, text]) => `<span><i style="background:${color}"></i>${he(text)}</span>`).join("")}</div>`;
+const LEGEND_API = legend([["var(--accent)", "OK"], ["var(--danger)", "Errors"]]);
+// a group of cards and what time it covers: "all time" / "now" (the range doesn't change it), or the range picker itself, right above the figures it changes (one per section)
+const group = (title, scope, isRange = false) => isRange
+  ? `<div class="range-head"><h4 class="section">${he(title)}</h4><select id="rangeSelect" aria-label="Range of the ${he(title.toLowerCase())} figures">${Object.entries(RANGES).map(([k, x]) => `<option value="${k}"${k === rangeKey() ? " selected" : ""}>${x.label}</option>`).join("")}</select><span class="muted">changes the figures, charts and tables below</span></div>`
+  : `<h4 class="section">${he(title)}<span class="scope">${he(scope)}</span></h4>`;
 const statusName = c => c >= 500 ? "server error" : c >= 400 ? "client error" : c >= 300 ? "redirect" : "ok";
-// each section: its subtitle, its layout, and its cards (ids → work) for one range r: { since, label, bucket, n }
+// each section: its subtitle, whether the range applies (range), its layout for one range r, and its cards (ids → work).
+// Every figure has one home section: Overview only repeats a headline per section, each a link to it; a tile with rows behind it opens them (LISTS)
 const VIEWS = {
   overview: {
-    sub: "The backend at a glance: people, traffic, failures and data",
-    html: () => `<h4 class="section">Users</h4>${tilesBox("oUsers")}<h4 class="section">API traffic</h4>${tilesBox("oApi")}${chartCard("oTraffic", "Requests", LEGEND_API)}<h4 class="section">Data</h4>${tilesBox("oData")}`,
-    cards: r => ({ oUsers: () => usersTiles(r), oApi: () => apiTiles(r), oTraffic: () => trafficChart(r), oData: () => dataTiles() }),
-  },
-  users: {
-    sub: "Who uses the backend: sign-ups, activity and account states",
-    html: () => `${tilesBox("uTiles")}${chartCard("uSignups", "New users")}<div class="two">${cardShell("uRoles", "Users by role")}${cardShell("uActive", "Most active users", "by requests")}</div>${cardShell("uRecent", "Newest users")}`,
+    sub: "A headline from each section; click one to open it",
+    range: true,
+    html: r => `${group("Now", "all time")}${tilesBox("oNow")}${group("Activity", r.label, true)}${tilesBox("oActivity")}`,
     cards: r => ({
-      uTiles: () => usersTiles(r),
-      uSignups: async () => chartHtml(await sql(series("users", r.bucket, r.n)), r.bucket, [{ key: "total", label: "new users", cls: "new" }]),
-      uRoles: () => rolesTable(r),
-      uActive: () => activeUsers(r),
-      uRecent: async () => {
-        const rows = await sql("select id, username, role, created_at, last_active_at, deactivated_at, deleted_at from users order by id desc limit 10");
-        return tableHtml([{ label: "User" }, { label: "Role" }, { label: "Joined" }, { label: "Last seen" }, { label: "State" }], rows.map(u => { const [state, tone] = stateOf(u); return `<tr><td>${he(u.id)} <span class="muted">${he(u.username || "")}</span></td><td><span class="pill ${u.role === 1 ? "bad" : "blue"}">${he(roleLabel(u.role))}</span></td><td class="muted">${he(formatAgo(u.created_at))}</td><td class="muted">${u.last_active_at ? he(formatAgo(u.last_active_at)) : "—"}</td><td><span class="pill ${tone}">${state}</span></td></tr>` }), "No users");
+      oNow: async () => {
+        const rows = await byRole(r), [db] = await sql("select pg_database_size(current_database())::bigint bytes"), tables = Object.keys(SCHEMA).filter(n => ["table", "partitioned_table"].includes(relationType(n))).length;
+        return [tile("Users", formatNumber(roleSum(rows, "total")), `${formatNumber(roleSum(rows, "active"))} can log in`, "", "", { go: "users" }), tile("Deactivated", formatNumber(roleSum(rows, "deactivated")), `${formatNumber(roleSum(rows, "deleted"))} deleted`, roleSum(rows, "deactivated") ? "warn" : "", "", { go: "users" }),
+          tile("Database size", formatBytes(Number(db.bytes)), "with indexes", "", "", { go: "data" }), tile("Tables", formatNumber(tables), `~${formatNumber(Object.values(STATS).reduce((sum, t) => sum + Number(t.rows || 0), 0))} rows`, "", "", { go: "data" })].join("");
+      },
+      oActivity: async () => {
+        const rows = await byRole(r);
+        if (!RULES.is_log_api) return newUsersTile(rows, r, { go: "users" });
+        const x = await apiStats(r);
+        const top = (await logSeries(r)).reduce((a, s) => Number(s.total) > Number(a?.total ?? 0) ? s : a, null);
+        return [activeTile(x, rows, r, { go: "users" }), newUsersTile(rows, r, { go: "users" }), tile("Requests", formatNumber(x.total), "to the API", "", change(x.total, x.p_total, r), { go: "api" }), tile("p95 response", formatMsOrDash(x.p95_ms), `average ${formatMsOrDash(x.avg_ms)}`, "", change(x.p95_ms, x.p_p95_ms, r, { down: true }), { go: "api" }),
+          errorRateTile(x, r, { go: "errors" }), tile("Server errors", formatNumber(x.s5), "5xx", Number(x.s5) ? "bad" : "", change(x.s5, x.p_s5, r, { down: true }), { go: "errors" }), tile("Failing APIs", formatNumber(x.paths), "with an error", "", change(x.paths, x.p_paths, r, { down: true }), { go: "errors" }),
+          tile(`Busiest ${r.slot}`, top ? slotLabel(top.t, r.bucket) : "—", top ? `${formatNumber(top.total)} requests` : "no requests", "", "", { go: "api" })].join("");
       },
     }),
   },
+  users: {
+    sub: "The accounts, sign-ups and who is active; click a figure for its users",
+    range: true,
+    html: r => `${group("Accounts", "all time")}${tilesBox("uTotals")}${group("Activity", r.label, true)}${tilesBox("uActivity")}<div class="two">${chartCard("uSignups", `New users per ${r.slot}`)}${chartCard("uActive", `Active users per ${r.slot}`, legend([["var(--c-users)", "Signed-in users with requests"]]))}</div>`,
+    cards: r => ({
+      uTotals: async () => {
+        const rows = await byRole(r), sum = k => roleSum(rows, k);
+        return [tile("Users", formatNumber(sum("total")), `in ${rows.length} role${rows.length === 1 ? "" : "s"}`, "", "", { list: "users" }), tile("Active accounts", formatNumber(sum("active")), "can log in", "", "", { list: "usersActive" }), tile("Deactivated", formatNumber(sum("deactivated")), "can't log in", sum("deactivated") ? "warn" : "", "", { list: "usersDeactivated" }), tile("Deleted", formatNumber(sum("deleted")), "soft deleted", "", "", { list: "usersDeleted" })].join("");
+      },
+      uActivity: async () => {
+        const rows = await byRole(r);
+        if (!RULES.is_log_api) return [newUsersTile(rows, r, { list: "usersNew" }), tile("Seen", formatNumber(roleSum(rows, "seen")), "active users (last_active_at)")].join("");
+        const x = await apiStats(r), per = Number(x.callers) ? Number(x.total) / Number(x.callers) : null, before = Number(x.p_callers) ? Number(x.p_total) / Number(x.p_callers) : null;
+        return [newUsersTile(rows, r, { list: "usersNew" }), activeTile(x, rows, r, { list: "activeUsers" }), tile("Requests per active user", per == null ? "—" : formatNumber(Math.round(per)), "average", "", change(per, before, r)), tile("Active share", Number(roleSum(rows, "active")) ? formatPct(Number(x.callers) / roleSum(rows, "active") * 100) : "—", "of the accounts that can log in")].join("");
+      },
+      uSignups: async () => chartHtml(await sql(series("users", r.bucket, r.n)), r.bucket, [{ key: "total", label: "new users", cls: "new" }]),
+      uActive: () => activeChart(r),
+    }),
+  },
   access: {
-    sub: "Roles and the permissions granted to users, as the routes check them",
-    html: () => `${tilesBox("aTiles")}<div class="two">${cardShell("aRoles", "Users by role")}${cardShell("aPerms", "Users by permission", "route ids granted")}</div>${cardShell("aHolders", "Users holding permissions")}`,
+    sub: "Roles and the permissions granted to users, as the routes check them; click a figure for its users",
+    range: false,
+    html: () => `${group("Access", "now")}${tilesBox("aTiles")}<div class="two">${cardShell("aRoles", "Users by role")}${cardShell("aPerms", "Users by permission", "route ids granted")}</div>`,
     cards: r => ({
       aTiles: async () => {
         const [a] = await sql(`select count(*) filter (where role = 1)::bigint admins, count(distinct role)::bigint roles${SCHEMA.users?.permissions ? ", count(*) filter (where cardinality(permissions) > 0 and deleted_at is null)::bigint granted, (select count(distinct p) from users, unnest(permissions) p where deleted_at is null)::bigint perms" : ""} from users`);
-        return [tile("Roles in use", formatNumber(a.roles)), tile("Admins", formatNumber(a.admins), "role 1"), ...(a.granted != null ? [tile("Users with permissions", formatNumber(a.granted)), tile("Permissions granted", formatNumber(a.perms), "distinct route ids")] : [])].join("");
+        return [tile("Roles in use", formatNumber(a.roles), "see Users by role"), tile("Admins", formatNumber(a.admins), "role 1", "", "", { list: "admins" }), ...(a.granted != null ? [tile("Users with permissions", formatNumber(a.granted), "not deleted", "", "", { list: "permissionHolders" }), tile("Permissions granted", formatNumber(a.perms), "distinct route ids")] : [])].join("");
       },
       aRoles: () => rolesTable(r),
       aPerms: async () => {
@@ -996,60 +1129,51 @@ const VIEWS = {
         const rows = await sql("select p::int permission, count(*)::bigint users from users, unnest(permissions) p where deleted_at is null group by 1 order by 1"), max = Math.max(...rows.map(x => Number(x.users)), 1);
         return tableHtml([{ label: "Permission" }, { label: "Users", num: true }, { label: "" }], rows.map(x => `<tr><td><span class="pill blue">${he(permissionLabel(x.permission))}</span></td><td class="num">${formatNumber(x.users)}</td>${barCell(x.users, max)}</tr>`), "Nobody holds a permission");
       },
-      aHolders: async () => {
-        if (!SCHEMA.users?.permissions) return `<div class="empty">users has no permissions column</div>`;
-        const rows = await sql("select id, username, role, permissions, deactivated_at, deleted_at from users where cardinality(permissions) > 0 and deleted_at is null order by id limit 50");
-        return tableHtml([{ label: "User" }, { label: "Role" }, { label: "Permissions" }, { label: "State" }], rows.map(u => { const [state, tone] = stateOf(u); return `<tr><td>${he(u.id)} <span class="muted">${he(u.username || "")}</span></td><td><span class="pill ${u.role === 1 ? "bad" : "blue"}">${he(roleLabel(u.role))}</span></td><td class="mono">${he((u.permissions || []).join(", "))}</td><td><span class="pill ${tone}">${state}</span></td></tr>` }), "Nobody holds a permission");
-      },
     }),
   },
   api: {
-    sub: "How the API is used: volume, speed and who calls it",
-    html: () => `${tilesBox("pTiles")}${chartCard("pTraffic", "Requests", LEGEND_API)}<div class="two">${cardShell("pBusy", "Busiest APIs")}${cardShell("pSlow", "Slowest APIs", "average, at least 10 requests")}</div><div class="two">${cardShell("pStatus", "Responses")}${cardShell("pUsers", "Most active users")}</div>`,
+    sub: "How the API is used: volume, speed and the busiest routes",
+    range: true,
+    html: r => `${group("Traffic", r.label, true)}${tilesBox("pTiles")}<div class="two">${chartCard("pTraffic", `Requests per ${r.slot}`, LEGEND_API)}${chartCard("pTime", `Response time per ${r.slot}`, legend([["var(--c-time)", "Average · p95 in the tip"]]))}</div><div class="two">${cardShell("pBusy", "Busiest APIs", he(r.label))}${cardShell("pSlow", "Slowest APIs", `average, at least 10 requests, ${he(r.label)}`)}</div>${cardShell("pStatus", "Responses", he(r.label))}`,
     cards: r => ({
-      pTiles: () => apiTiles(r),
+      pTiles: async () => {
+        const x = await apiStats(r);
+        return [tile("Requests", formatNumber(x.total), "to the API", "", change(x.total, x.p_total, r)), tile("Avg response", formatMsOrDash(x.avg_ms), "all requests", "", change(x.avg_ms, x.p_avg_ms, r, { down: true })), tile("p95 response", formatMsOrDash(x.p95_ms), "95% are faster", "", change(x.p95_ms, x.p_p95_ms, r, { down: true })), await busiest(r)].join("");
+      },
       pTraffic: () => trafficChart(r),
+      pTime: async () => chartHtml(await logSeries(r), r.bucket, [{ key: "avg_ms", label: "average", cls: "time", fmt: formatMsOrDash }, { key: "p95_ms", label: "p95", fmt: formatMsOrDash }, { key: "total", label: "requests" }]),
       pBusy: async () => pathsTable(await logSql(`select method, path, count(*)::bigint calls, round(avg(response_time_ms))::int avg_ms, count(*) filter (where status_code >= 400)::bigint errors from log_api where created_at >= ${r.since} group by 1, 2 order by calls desc limit 10`)),
       pSlow: async () => pathsTable(await logSql(`select method, path, count(*)::bigint calls, round(avg(response_time_ms))::int avg_ms, count(*) filter (where status_code >= 400)::bigint errors from log_api where created_at >= ${r.since} group by 1, 2 having count(*) >= 10 order by avg_ms desc limit 10`)),
       pStatus: async () => {
         const rows = await logSql(`select status_code, count(*)::bigint calls from log_api where created_at >= ${r.since} group by 1 order by 2 desc limit 12`), total = rows.reduce((s, x) => s + Number(x.calls), 0);
         return tableHtml([{ label: "Status" }, { label: "Requests", num: true }, { label: "" }], rows.map(x => `<tr><td><span class="pill ${x.status_code >= 500 ? "bad" : x.status_code >= 400 ? "warn" : "ok"}">${he(x.status_code ?? "—")}</span> <span class="muted">${statusName(x.status_code)}</span></td><td class="num">${formatNumber(x.calls)}</td>${barCell(x.calls, total)}</tr>`), "No requests in this range");
       },
-      pUsers: () => activeUsers(r),
     }),
   },
   errors: {
-    sub: "What fails, where and how often",
-    html: () => `${tilesBox("eTiles")}${chartCard("eChart", "Errors", `<div class="legend"><span><i style="background:var(--danger)"></i>4xx and 5xx</span></div>`)}<div class="two">${cardShell("eApis", "APIs that fail most")}${cardShell("eMessages", "Most common errors")}</div>${cardShell("eLatest", "Latest errors")}`,
+    sub: "What fails, where and how often; click a figure for its requests",
+    range: true,
+    html: r => `${group("Failures", r.label, true)}${tilesBox("eTiles")}<div class="two">${chartCard("eChart", `Errors per ${r.slot}`, legend([["var(--danger)", "4xx and 5xx"]]))}${chartCard("eRate", `Error rate per ${r.slot}`, legend([["var(--danger)", "% of requests"]]))}</div>${cardShell("eMessages", "Most common errors", he(r.label))}`,
     cards: r => ({
       eTiles: async () => {
-        const [x] = await logSql(`select count(*)::bigint total, count(*) filter (where status_code >= 500)::bigint s5, count(*) filter (where status_code >= 400 and status_code < 500)::bigint s4, count(distinct path) filter (where status_code >= 400)::bigint paths from log_api where created_at >= ${r.since}`);
-        const rate = x.total ? ((Number(x.s5) + Number(x.s4)) / x.total * 100).toFixed(1) : null;
-        return [tile("Failed", rate == null ? "—" : `${rate}%`, r.label, Number(x.s5) ? "bad" : ""), tile("Server errors", formatNumber(x.s5), "5xx", Number(x.s5) ? "bad" : ""), tile("Client errors", formatNumber(x.s4), "4xx"), tile("Failing APIs", formatNumber(x.paths), "with any error")].join("");
+        const x = await apiStats(r);
+        return [errorRateTile(x, r), tile("Server errors", formatNumber(x.s5), "5xx: the backend failed", Number(x.s5) ? "bad" : "", change(x.s5, x.p_s5, r, { down: true }), { list: "errors5xx" }), tile("Client errors", formatNumber(x.s4), "4xx: refused requests", "", change(x.s4, x.p_s4, r, { down: true }), { list: "errors4xx" }), tile("Failing APIs", formatNumber(x.paths), "with at least one error", "", change(x.paths, x.p_paths, r, { down: true }), { list: "failingApis" })].join("");
       },
-      eChart: async () => chartHtml((await logSql(series("log_api", r.bucket, r.n, "status_code >= 400"))).map(x => ({ ...x, err: x.errors })), r.bucket, [{ key: "err", label: "errors", cls: "err" }]),
-      eApis: async () => {
-        const rows = await logSql(`select method, path, count(*)::bigint errors, count(*) filter (where status_code >= 500)::bigint s5 from log_api where created_at >= ${r.since} and status_code >= 400 group by 1, 2 order by errors desc limit 10`);
-        return tableHtml([{ label: "API" }, { label: "Errors", num: true }, { label: "5xx", num: true }], rows.map(x => `<tr><td class="mono">${he(x.method || "")} ${he(x.path)}</td><td class="num">${formatNumber(x.errors)}</td><td class="num"${Number(x.s5) ? ' style="color:var(--danger)"' : ""}>${formatNumber(x.s5)}</td></tr>`), "No errors in this range");
-      },
+      eChart: async () => chartHtml(await logSeries(r), r.bucket, [{ key: "errors", label: "errors", cls: "err" }, { key: "total", label: "requests" }]),
+      eRate: async () => chartHtml((await logSeries(r)).map(x => ({ ...x, rate: Number(x.total) ? Number(x.errors) / Number(x.total) * 100 : null })), r.bucket, [{ key: "rate", label: "failed", cls: "err", fmt: formatPct }, { key: "errors", label: "errors" }, { key: "total", label: "requests" }]),
       eMessages: async () => {
         const rows = await logSql(`select left(coalesce(error, ''), 120) error, max(status_code) status_code, count(*)::bigint times from log_api where created_at >= ${r.since} and status_code >= 400 group by 1 order by times desc limit 10`);
         return tableHtml([{ label: "Error" }, { label: "Status" }, { label: "Times", num: true }], rows.map(x => `<tr><td title="${he(x.error)}">${he(truncate(x.error || "(no message)", 70))}</td><td><span class="pill ${x.status_code >= 500 ? "bad" : "warn"}">${he(x.status_code)}</span></td><td class="num">${formatNumber(x.times)}</td></tr>`), "No errors in this range");
-      },
-      eLatest: async () => {
-        const rows = await logSql(`select created_at, method, path, status_code, error, created_by_id from log_api where status_code >= 400 and created_at >= ${r.since} order by id desc limit 15`);
-        await usersResolve(rows.map(x => x.created_by_id));
-        return tableHtml([{ label: "When" }, { label: "Status" }, { label: "API" }, { label: "User" }, { label: "Error" }], rows.map(x => `<tr><td class="muted" title="${he(formatDate(x.created_at, true))}">${he(formatAgo(x.created_at))}</td><td><span class="pill ${x.status_code >= 500 ? "bad" : "warn"}">${he(x.status_code)}</span></td><td class="mono">${he(x.method || "")} ${he(x.path)}</td><td>${x.created_by_id ? userName(x.created_by_id) : '<span class="muted">—</span>'}</td><td class="muted" title="${he(x.error || "")}">${he(truncate(String(x.error || ""), 70))}</td></tr>`), "No errors in this range");
       },
     }),
   },
   data: {
     sub: "The database: size, the biggest and the fastest-growing tables; click a table for its insights",
-    html: () => `${tilesBox("dTiles")}<div class="two">${cardShell("dBig", "Biggest tables", "click a table for its insights")}${cardShell("dGrowth", "Growing fastest", "new rows, last 7 days")}</div>${cardShell("dAll", "All tables")}`,
+    range: false,
+    html: () => `${group("Database", "now")}${tilesBox("dTiles")}<div class="two">${cardShell("dBig", "Biggest tables", "click a table for its insights")}${cardShell("dGrowth", "Growing fastest", "new rows, last 7 days")}</div>${cardShell("dAll", "All tables")}`,
     cards: () => ({
       dTiles: () => dataTiles(),
       dBig: async () => tablesTable(Object.values(STATS).sort((a, b) => Number(b.bytes) - Number(a.bytes)).slice(0, 10)),
-      // the tables with an indexed created_at, each a range count on its index; the twenty biggest at most
       dGrowth: async () => {
         const names = Object.keys(STATS).filter(t => indexed(t, "created_at") && !connFor(t)).sort((a, b) => Number(STATS[b].bytes) - Number(STATS[a].bytes)).slice(0, 20);
         if (!names.length) return `<div class="empty">No table has an indexed created_at</div>`;
@@ -1061,34 +1185,106 @@ const VIEWS = {
     }),
   },
 };
-// the cards more than one section shows
-const usersByRole = r => sql(`select role, count(*)::bigint total, count(*) filter (where deactivated_at is null and deleted_at is null)::bigint active, count(*) filter (where deactivated_at is not null)::bigint deactivated, count(*) filter (where deleted_at is not null)::bigint deleted, count(*) filter (where created_at >= ${r.since})::bigint new, count(*) filter (where last_active_at >= ${r.since})::bigint seen, max(last_active_at) last_active from users group by role order by role`);
-const usersTiles = async r => {
-  const rows = await (r.byRole ||= usersByRole(r)), sum = k => rows.reduce((s, x) => s + Number(x[k]), 0);
-  return [tile("Users", formatNumber(sum("total")), `${formatNumber(sum("active"))} active`), tile("New", formatNumber(sum("new")), r.label), tile("Signed in", formatNumber(sum("seen")), r.label), tile("Deactivated", formatNumber(sum("deactivated")), "can't log in", sum("deactivated") ? "warn" : ""), tile("Deleted", formatNumber(sum("deleted")), "soft deleted")].join("");
-};
+// the queries more than one card reads, run once per load (kept on r)
+const usersByRole = r => sql(`select role, count(*)::bigint total, count(*) filter (where deactivated_at is null and deleted_at is null)::bigint active, count(*) filter (where deactivated_at is not null)::bigint deactivated, count(*) filter (where deleted_at is not null)::bigint deleted, count(*) filter (where created_at >= ${r.since})::bigint new, count(*) filter (where created_at >= ${r.prev} and created_at < ${r.since})::bigint p_new, count(*) filter (where last_active_at >= ${r.since})::bigint seen, max(last_active_at) last_active from users group by role order by role`);
+const byRole = r => r.byRole ||= usersByRole(r);
+const roleSum = (rows, k) => rows.reduce((s, x) => s + Number(x[k]), 0);
+// log_api in the range (c) and in the period before it, in one scan of both
+const apiStats = r => r.apiStats ||= logSql(`select count(*) filter (where c)::bigint total, count(*) filter (where not c)::bigint p_total,
+  count(*) filter (where c and status_code >= 500)::bigint s5, count(*) filter (where not c and status_code >= 500)::bigint p_s5,
+  count(*) filter (where c and status_code >= 400 and status_code < 500)::bigint s4, count(*) filter (where not c and status_code >= 400 and status_code < 500)::bigint p_s4,
+  round(avg(response_time_ms) filter (where c))::int avg_ms, round(avg(response_time_ms) filter (where not c))::int p_avg_ms,
+  round(percentile_cont(0.95) within group (order by response_time_ms) filter (where c))::int p95_ms, round(percentile_cont(0.95) within group (order by response_time_ms) filter (where not c))::int p_p95_ms,
+  count(distinct created_by_id) filter (where c)::bigint callers, count(distinct created_by_id) filter (where not c)::bigint p_callers,
+  count(distinct path) filter (where c and status_code >= 400)::bigint paths, count(distinct path) filter (where not c and status_code >= 400)::bigint p_paths
+  from (select created_at >= ${r.since} c, status_code, response_time_ms, created_by_id, path from log_api where created_at >= ${r.prev}) x`).then(rows => rows[0]);
+// log_api per time slot: requests, errors, signed-in users, average and p95 response time; every slot present
+const logSeries = r => r.logSeries ||= logSql((() => {
+  const start = `date_trunc('${r.bucket}', now()) - interval '${r.n - 1} ${r.bucket}'`;
+  return `with b as (select generate_series(${start}, date_trunc('${r.bucket}', now()), interval '1 ${r.bucket}') t),`
+    + ` x as (select date_trunc('${r.bucket}', created_at) t, count(*) total, count(*) filter (where status_code >= 400) errors, count(distinct created_by_id) users, round(avg(response_time_ms))::int avg_ms, round(percentile_cont(0.95) within group (order by response_time_ms))::int p95_ms from log_api where created_at >= ${start} group by 1)`
+    + ` select b.t, coalesce(x.total, 0)::bigint total, coalesce(x.errors, 0)::bigint errors, coalesce(x.users, 0)::bigint users, x.avg_ms, x.p95_ms from b left join x using (t) order by b.t`;
+})());
+const failRate = (total, s5, s4) => Number(total) ? (Number(s5) + Number(s4)) / Number(total) * 100 : null;
+const busiest = async r => { const rows = await logSeries(r), top = rows.reduce((a, x) => Number(x.total) > Number(a?.total ?? 0) ? x : a, null); return tile(`Busiest ${r.slot}`, top ? slotLabel(top.t, r.bucket) : "—", top ? `${formatNumber(top.total)} requests` : "no requests") };
+// the tiles more than one section shows (Overview's links to the section that owns them)
+const newUsersTile = (rows, r, link) => tile("New users", formatNumber(roleSum(rows, "new")), "signed up", "", change(roleSum(rows, "new"), roleSum(rows, "p_new"), r), link);
+const activeTile = (x, rows, r, link) => tile("Active users", formatNumber(x.callers), `made requests · ${formatNumber(roleSum(rows, "seen"))} seen`, "", change(x.callers, x.p_callers, r), link);
+const errorRateTile = (x, r, link) => { const rate = failRate(x.total, x.s5, x.s4); return tile("Error rate", formatPct(rate), `${formatNumber(x.s5)} server · ${formatNumber(x.s4)} client`, Number(x.s5) ? "bad" : "", change(rate, failRate(x.p_total, x.p_s5, x.p_s4), r, { down: true, points: true }), link) };
 const rolesTable = async r => {
-  const rows = await (r.byRole ||= usersByRole(r)), max = Math.max(...rows.map(x => Number(x.total)), 1);
+  const rows = await byRole(r), max = Math.max(...rows.map(x => Number(x.total)), 1);
   return tableHtml([{ label: "Role" }, { label: "Users", num: true }, { label: "" }, { label: "Active", num: true }, { label: "Deactivated", num: true }, { label: "Deleted", num: true }, { label: "Last seen" }],
     rows.map(x => `<tr><td><span class="pill ${x.role === 1 ? "bad" : "blue"}">${he(roleLabel(x.role))}</span></td><td class="num">${formatNumber(x.total)}</td>${barCell(x.total, max)}<td class="num">${formatNumber(x.active)}</td><td class="num">${formatNumber(x.deactivated)}</td><td class="num">${formatNumber(x.deleted)}</td><td class="muted">${x.last_active ? he(formatAgo(x.last_active)) : "—"}</td></tr>`), "No users");
 };
-const apiTiles = async r => {
-  const [x] = await logSql(`select count(*)::bigint total, count(*) filter (where status_code >= 500)::bigint s5, count(*) filter (where status_code >= 400 and status_code < 500)::bigint s4, round(avg(response_time_ms))::int avg_ms, round(percentile_cont(0.95) within group (order by response_time_ms))::int p95_ms, count(distinct created_by_id)::bigint callers from log_api where created_at >= ${r.since}`);
-  const rate = x.total ? ((Number(x.s5) + Number(x.s4)) / x.total * 100).toFixed(1) : null;
-  return [tile("Requests", formatNumber(x.total), r.label), tile("Callers", formatNumber(x.callers), "signed-in users"), tile("Failed", rate == null ? "—" : `${rate}%`, `${formatNumber(x.s5)} server · ${formatNumber(x.s4)} client`, Number(x.s5) ? "bad" : ""), tile("Avg response", x.avg_ms == null ? "—" : `${formatNumber(x.avg_ms)} ms`, x.p95_ms == null ? "" : `95% under ${formatNumber(x.p95_ms)} ms`)].join("");
-};
-const trafficChart = async r => chartHtml((await logSql(series("log_api", r.bucket, r.n, "status_code >= 400"))).map(x => ({ ...x, ok: Number(x.total) - Number(x.errors) })), r.bucket, [{ key: "ok", label: "ok", cls: "ok" }, { key: "errors", label: "errors", cls: "err" }]);
 const pathsTable = rows => tableHtml([{ label: "API" }, { label: "Requests", num: true }, { label: "Avg ms", num: true }, { label: "Errors", num: true }],
   rows.map(x => `<tr><td class="mono">${he(x.method || "")} ${he(x.path)}</td><td class="num">${formatNumber(x.calls)}</td><td class="num">${formatNumber(x.avg_ms)}</td><td class="num"${Number(x.errors) ? ' style="color:var(--danger)"' : ""}>${formatNumber(x.errors)}</td></tr>`), "No requests in this range");
-const activeUsers = async r => {
-  const rows = await logSql(`select created_by_id id, count(*)::bigint calls, count(*) filter (where status_code >= 400)::bigint errors, max(created_at) last from log_api where created_at >= ${r.since} and created_by_id is not null group by 1 order by calls desc limit 10`);
-  await usersResolve(rows.map(x => x.id));
-  return tableHtml([{ label: "User" }, { label: "Role" }, { label: "Requests", num: true }, { label: "Errors", num: true }, { label: "Last request" }],
-    rows.map(x => `<tr><td>${userName(x.id)}</td><td class="muted">${USERNAMES.get(Number(x.id)) ? he(roleLabel(USERNAMES.get(Number(x.id)).role)) : "—"}</td><td class="num">${formatNumber(x.calls)}</td><td class="num">${formatNumber(x.errors)}</td><td class="muted">${he(formatAgo(x.last))}</td></tr>`), "No signed-in requests in this range");
-};
 const dataTiles = async () => {
   const [db] = await sql("select pg_database_size(current_database())::bigint bytes"), names = Object.keys(SCHEMA), rows = Object.values(STATS).reduce((s, t) => s + Number(t.rows || 0), 0);
   return [tile("Database size", formatBytes(Number(db.bytes))), tile("Tables", formatNumber(names.filter(n => ["table", "partitioned_table"].includes(relationType(n))).length), `${formatNumber(names.length)} with views`), tile("Rows", `~${formatNumber(rows)}`, "estimate, all tables")].join("");
+};
+// the charts
+const trafficChart = async r => chartHtml((await logSeries(r)).map(x => ({ ...x, ok: Number(x.total) - Number(x.errors) })), r.bucket, [{ key: "ok", label: "ok", cls: "ok" }, { key: "errors", label: "errors", cls: "err" }]);
+const activeChart = async r => chartHtml(await logSeries(r), r.bucket, [{ key: "users", label: "active users", cls: "users" }, { key: "total", label: "requests" }]);
+
+/* ==== lists: the rows behind a tile, in a dialog, a page at a time ==== */
+// Paged as every Atom list: Next reads after the last row shown, Previous goes back to a page already passed; no total count (docs/crud.md).
+// each list: title, scope (what time it covers), cols [label, cell(row), num], users (the column to name), and page(r, cursor) → {rows, next} from one of:
+// objectRead: the users table through /admin/object-read (its filter and after); logKeyset: log_api rows newest first, after the last id (the query runner: log_api
+// may live in its own database, which object-read can't reach); logGrouped: counts per user or API (the query runner: object-read doesn't aggregate), a page at an offset
+const LIST_PAGE = 10;
+const sinceIso = r => new Date(Date.now() - r.hours * 3600e3).toISOString();
+const objectRead = (column, filter) => async (r, after) => { const res = await api(`/admin/object-read?${qs({ table: "users", column: column(), order: "id desc", limit: LIST_PAGE, filter: JSON.stringify(filter(r)), after: after ?? undefined })}`); return { rows: res.obj_list, next: res.after } };
+const logKeyset = text => async (r, after) => { const rows = await logSql(`select * from (${text(r)}) q${after == null ? "" : ` where id < ${Number(after)}`} order by id desc limit ${LIST_PAGE + 1}`); return { rows: rows.slice(0, LIST_PAGE), next: rows.length > LIST_PAGE ? rows[LIST_PAGE - 1].id : null } };
+const logGrouped = (text, order) => async (r, offset) => { const at = Number(offset) || 0, rows = await logSql(`select * from (${text(r)}) q order by ${order} limit ${LIST_PAGE + 1} offset ${at}`); return { rows: rows.slice(0, LIST_PAGE), next: rows.length > LIST_PAGE ? at + LIST_PAGE : null } };
+const rolePill = role => `<span class="pill ${Number(role) === 1 ? "bad" : "blue"}">${he(roleLabel(role))}</span>`;
+const whenCell = v => v ? `<span title="${he(formatDate(v, true))}">${he(formatAgo(v))}</span>` : '<span class="muted">—</span>';
+// users: the basic columns only (who, not their details)
+const USER_COLS = [["ID", u => he(u.id), true], ["Username", u => he(u.username || "—")], ["Name", u => he(u.name || "—")], ["Role", u => rolePill(u.role)], ["Joined", u => whenCell(u.created_at)]];
+const usersList = (title, filter, scope = () => "all time", extra = null) => ({ title, scope, cols: extra ? [...USER_COLS, extra[0]] : USER_COLS, page: objectRead(() => `id,username${SCHEMA.users?.name ? ",name" : ""},role,created_at${extra ? `,${extra[1]}` : ""}`, filter) });    // columns when it opens: SCHEMA loads after this
+const ERROR_COLS = [["When", x => whenCell(x.created_at)], ["Status", x => `<span class="pill ${x.status_code >= 500 ? "bad" : "warn"}">${he(x.status_code)}</span>`], ["API", x => `<span class="mono">${he(x.method || "")} ${he(x.path)}</span>`], ["User", x => x.created_by_id ? userName(x.created_by_id) : '<span class="muted">—</span>'], ["Error", x => `<span class="muted" title="${he(x.error || "")}">${he(truncate(String(x.error || ""), 70))}</span>`]];
+const errorsList = (title, where) => ({ title, scope: r => r.label, users: "created_by_id", cols: ERROR_COLS, page: logKeyset(r => `select id, created_at, method, path, status_code, error, created_by_id from log_api where created_at >= ${r.since} and ${where}`) });
+const LISTS = {
+  users: usersList("Users", () => []),
+  usersActive: usersList("Active accounts", () => ["deactivated_at is null", "deleted_at is null"]),
+  usersDeactivated: usersList("Deactivated users", () => ["deactivated_at is not null"]),
+  usersDeleted: usersList("Deleted users", () => ["deleted_at is not null"]),
+  usersNew: usersList("New users", r => [`created_at >= ${sinceIso(r)}`], r => r.label),
+  admins: usersList("Admins", () => ["role = 1"], () => "now"),
+  permissionHolders: usersList("Users with permissions", () => ["permissions != {}", "deleted_at is null"], () => "now", [["Permissions", u => `<span class="mono">${he((u.permissions || []).map(permissionLabel).join(", "))}</span>`], "permissions"]),
+  activeUsers: { title: "Active users", scope: r => `${r.label}, by requests`, users: "id",
+    page: logGrouped(r => `select created_by_id id, count(*)::bigint calls, count(*) filter (where status_code >= 400)::bigint errors, max(created_at) last from log_api where created_at >= ${r.since} and created_by_id is not null group by 1`, "calls desc, id"),
+    cols: [["User", x => userName(x.id)], ["Role", x => USERNAMES.get(Number(x.id)) ? rolePill(USERNAMES.get(Number(x.id)).role) : "—"], ["Requests", x => formatNumber(x.calls), true], ["Errors", x => formatNumber(x.errors), true], ["Last request", x => whenCell(x.last)]] },
+  errors5xx: errorsList("Server errors (5xx)", "status_code >= 500"),
+  errors4xx: errorsList("Client errors (4xx)", "status_code >= 400 and status_code < 500"),
+  failingApis: { title: "Failing APIs", scope: r => `${r.label}, by errors`,
+    page: logGrouped(r => `select method, path, count(*)::bigint errors, count(*) filter (where status_code >= 500)::bigint s5, max(created_at) last from log_api where created_at >= ${r.since} and status_code >= 400 group by 1, 2`, "errors desc, path, method"),
+    cols: [["API", x => `<span class="mono">${he(x.method || "")} ${he(x.path)}</span>`], ["Errors", x => formatNumber(x.errors), true], ["5xx", x => formatNumber(x.s5), true], ["Last error", x => whenCell(x.last)]] },
+};
+// a click outside a list (on the backdrop: the dialog element itself, around its content) closes it; forms keep their dialog, so typing isn't lost
+$("atomDialog").addEventListener("click", e => { if (e.target === e.currentTarget && $("listRows")) { const b = e.currentTarget.getBoundingClientRect(); if (e.clientX < b.left || e.clientX > b.right || e.clientY < b.top || e.clientY > b.bottom) Page.dialogClose() } });
+let listToken = 0;
+const listOpen = name => {
+  const list = LISTS[name], r = rangeNow(), token = ++listToken, cursors = [null];    // cursors[i]: what page i reads after (null for the first)
+  let pageIndex = 0;
+  const show = async () => {
+    Page.dialogLock(true);
+    try {
+      const { rows, next } = await list.page(r, cursors[pageIndex]);
+      if (list.users) await usersResolve(rows.map(x => x[list.users]));
+      if (token !== listToken) return;
+      cursors[pageIndex + 1] = next ?? null;
+      const first = pageIndex * LIST_PAGE + 1;
+      $("listRows").innerHTML = tableHtml(list.cols.map(([label, , num]) => ({ label, num })), rows.map(x => `<tr>${list.cols.map(([, cell, num]) => `<td${num ? ' class="num"' : ""}>${cell(x)}</td>`).join("")}</tr>`), "Nothing here");
+      $("listRows").scrollTop = 0;
+      $("listInfo").textContent = rows.length ? `Rows ${formatNumber(first)}–${formatNumber(first + rows.length - 1)} · page ${pageIndex + 1}${next == null ? " · the last" : ""}` : "";
+      Page.dialogLock(false);
+      $("listPrev").disabled = pageIndex === 0;
+      $("listNext").disabled = next == null;
+    } catch (error) { if (token === listToken) { Page.dialogLock(false); Page.dialogError(error.message) } }
+  };
+  Page.dialog({ title: list.title, sub: list.scope(r), body: `<div class="list-box"><div class="list-scroll" id="listRows"><div class="empty">Loading...</div></div><div class="list-pager"><span id="listInfo"></span><span class="actions"><button type="button" id="listPrev" disabled>‹ Previous</button><button type="button" id="listNext" disabled>Next ›</button></span></div></div>`,
+    on: { listPrev: () => { if (pageIndex > 0) { pageIndex--; show() } }, listNext: () => { if (cursors[pageIndex + 1] != null) { pageIndex++; show() } } } });
+  show();
 };
 const tablesTable = (rows, withKind = false) => {
   const max = Math.max(...rows.map(x => Number(x.bytes || 0)), 1);
@@ -1097,18 +1293,16 @@ const tablesTable = (rows, withKind = false) => {
 };
 let viewToken = 0;
 const sectionOpen = view => {
-  const key = rangeKey(), v = VIEWS[view];
+  const v = VIEWS[view];
   $("title").textContent = SECTIONS.find(([k]) => k === view)[1];
   $("subtitle").textContent = v.sub;
-  $("view").innerHTML = `<div class="view-bar">${view === "data" ? "" : `<select id="rangeSelect" aria-label="Time range">${Object.entries(RANGES).map(([k, r]) => `<option value="${k}"${k === key ? " selected" : ""}>${r.label}</option>`).join("")}</select>`}<span class="muted" id="cardsAge"></span></div>${v.html()}`;
-  $("rangeSelect")?.addEventListener("change", e => { writeStore({ range: e.target.value }); sectionLoad() });
+  $("view").innerHTML = `<div class="view-bar"><span class="muted" id="cardsAge"></span></div>${v.html(rangeNow())}`;
+  $("rangeSelect")?.addEventListener("change", e => { writeStore({ range: e.target.value }); sectionOpen(view) });    // again from the layout: the groups name the range
   sectionLoad();
 };
 const sectionLoad = (force = false) => {
-  const view = route.view, token = ++viewToken, range = RANGES[rangeKey()];
-  const r = { since: `now() - interval '${range.interval}'`, label: range.label.toLowerCase(), bucket: range.bucket, n: range.n };
-  const cards = VIEWS[view].cards(r);
-  return cardsLoad({ record: "analytics", key: view === "data" ? "data" : `${view}:${rangeKey()}`, force, live: () => token === viewToken && route.view === view, build: run => Object.entries(cards).map(([id, work]) => run(id, work)) });
+  const view = route.view, token = ++viewToken, v = VIEWS[view], cards = v.cards(rangeNow());
+  return cardsLoad({ record: "analytics", key: v.range ? `${view}:${rangeKey()}` : view, force, live: () => token === viewToken && route.view === view, build: run => Object.entries(cards).map(([id, work]) => run(id, work)) });
 };
 
 /* ==== one table ==== */
@@ -1162,6 +1356,8 @@ const columnsHtml = table => {
 $("view").addEventListener("click", async e => {
   const goto = e.target.closest("[data-go]");
   if (goto) return go(goto.dataset.go);
+  const list = e.target.closest("[data-list]");
+  if (list && LISTS[list.dataset.list]) return listOpen(list.dataset.list);
   const section = e.target.closest("[data-section-go]");
   if (section) return go(section.dataset.sectionGo);
   const breakdown = e.target.closest("[data-breakdown]");
@@ -1172,12 +1368,14 @@ $("view").addEventListener("click", async e => {
   }
 });
 
+$("view").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches(".tile.click")) { e.preventDefault(); e.target.click() } });
+
 /* ==== open and close ==== */
 // logged in (PAGE.onIn): the saved reference record at once; none yet (first login, a cleared browser) → download it first
 const analyticsOpen = async () => {
   $("appView").hidden = false;
   const saved = await Page.cacheGet("reference");
-  if (saved?.data?.schema) { referenceApply(saved.data); return render() }
+  if (saved?.data?.schema && saved.data.format === REFERENCE_FORMAT) { referenceApply(saved.data); return render() }
   $("view").innerHTML = '<div class="empty">Downloading the schema...</div>';
   try { await Page.syncData() }
   catch (error) { if (error.status !== 401) showError($("error"), `Could not read the schema: ${error.message}`) }
