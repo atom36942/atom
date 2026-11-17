@@ -1,9 +1,11 @@
 # Atom
-Version 15.4.0
+Version 15.4.1
+
+[![tests](https://github.com/atom36942/atom/actions/workflows/tests.yml/badge.svg)](https://github.com/atom36942/atom/actions/workflows/tests.yml) ![Python 3.14](https://img.shields.io/badge/python-3.14-blue) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/atom36942/atom/blob/main/LICENSE)
 
 Batteries-included FastAPI framework for production backends: auth, CRUD over any table, caching, rate limits, queues, workers, web pages and optional integrations, all driven by config. Your code lives in `*_extend` paths, so updating Atom never overwrites it.
 
-Details: [docs/about.md](docs/about.md)
+Details: [docs/about.md](docs/about.md) · Changelog: [docs/sync.md](docs/sync.md#versions)
 
 # Installation (new project)
 ```bash
@@ -108,10 +110,11 @@ cd atom
 python3.14 -m venv venv
 venv/bin/pip install --upgrade pip
 venv/bin/pip install -r requirements.txt
+docker compose up -d                            # optional: local Postgres (PostGIS), Redis, RabbitMQ
 venv/bin/python -m script.check                 # must pass before a pull request
 ```
 
-Then open a pull request against `main`. Details: [tests/README.md](tests/README.md)
+Then open a pull request against `main`. Details: [CONTRIBUTING.md](https://github.com/atom36942/atom/blob/main/CONTRIBUTING.md) · [Code of Conduct](https://github.com/atom36942/atom/blob/main/CODE_OF_CONDUCT.md) · [tests/README.md](tests/README.md)
 
 # Docs
 - **Start:** [quickstart](docs/quickstart.md) · [about](docs/about.md) · [config](docs/config.md) · [extend](docs/extend.md) · [sync](docs/sync.md) · [windows](docs/windows.md) · [faq](docs/faq.md) · [AGENTS.md](AGENTS.md)

@@ -1,0 +1,33 @@
+name: Bug
+description: Something in Atom does not work as documented
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Atom version
+      description: "`python3 sync.py --status`, the startup line or `GET /info` `atom_version`"
+      placeholder: "major.minor.patch"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "Python 3.14.0, macOS 15, PostgreSQL 17"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The route or script, the request or command, and the relevant config (key names only, never secrets).
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual result
+      description: What you expected, what happened, and the error or log lines.
+    validations:
+      required: true

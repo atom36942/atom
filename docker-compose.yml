@@ -1,0 +1,21 @@
+# Local services for Atom and its tests: docker compose up -d (stop: docker compose down; wipe data: docker compose down -v).
+# The same images as CI. .env: config_postgres_url_master=postgresql://postgres:postgres@localhost:5432/postgres, config_redis_url_*=redis://localhost:6379/0.
+services:
+  postgres:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_PASSWORD: postgres
+    ports: ["5432:5432"]
+    volumes: ["postgres:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      retries: 10
+  redis:
+    image: redis:6.2
+    ports: ["6379:6379"]
+  rabbitmq:
+    image: rabbitmq:4
+    ports: ["5672:5672"]
+volumes:
+  postgres:

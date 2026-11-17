@@ -58,6 +58,10 @@ Atom's version is `ATOM_VERSION` in `sync.py` (for example `ATOM_VERSION = "1.2.
 
 Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. Sync always takes the latest `main`; to mark a new version, raise `ATOM_VERSION` and the `Version` line at the top of `readme.md` (a test checks they match) and push to `main` (no tags or GitHub releases). Commits in between keep the last version. A project synced before versions existed shows `unknown` until its next sync. If a sync fails after installing the new `sync.py`, that file already shows the new version while the other files may be older; the error says so, and running sync again finishes it.
 
+### 15.4.1
+
+Atom's repository gets the files open-source contributors expect: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue and pull request templates in `.github/`, and `docker-compose.yml` for local Postgres (PostGIS), Redis and RabbitMQ. None of them is synced; `.gitignore` `# atom` now allows those three root names. Nothing to change in projects.
+
 ### 15.4.0
 
 A Claude client: with `config_anthropic_key` in `.env`, Atom opens `app_state.client_anthropic` (the official `anthropic` SDK, async) and closes it at shutdown; without the key nothing is imported. `func_anthropic_json` returns JSON that always matches a schema (example in [extend.md](extend.md)), and the AI SQL generators accept `ai: "claude"`. Sync without `--no-venv` once, to install `anthropic`. Nothing else to change in projects.

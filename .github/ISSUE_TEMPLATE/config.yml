@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question
+    url: https://github.com/atom36942/atom/discussions
+    about: Ask how to do something with Atom.
+  - name: Security problem
+    url: https://github.com/atom36942/atom/security/advisories/new
+    about: Report a vulnerability privately, never in an issue.

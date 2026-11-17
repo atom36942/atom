@@ -3,11 +3,14 @@
 !.gitignore
 !.dockerignore
 !AGENTS.md
+!CODE_OF_CONDUCT.md
+!CONTRIBUTING.md
 !Dockerfile
 !LICENSE
 !SECURITY.md
 !config.py
 !config_extend.py
+!docker-compose.yml
 !main.py
 !readme.md
 !requirements.txt
