@@ -1,21 +1,28 @@
 # import
-import asyncio
 import asyncpg
 from argon2 import PasswordHasher
 from .auth import func_otp_verify
 from .middleware import func_api_error
 from .postgres_crud import func_postgres_update
+from .postgres_query import func_postgres_serialize
 from .validation import func_regex_check
 
 # function
-async def func_user_create(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, config_column_regex: dict, role: int, username: str, password: str, created_by_id: int = None) -> int:
-    """Create a username + password user (admin); returns its id. A taken username in that role fails as "username, role already exists"."""
+async def func_user_create(*, client_postgres: asyncpg.Pool | None, client_password_hasher: PasswordHasher | None, cache_postgres_schema: dict, config_column_regex: dict, role: int, username: str, password: str, created_by_id: int = None, columns: dict | None = None, columns_blocked: list | None = None) -> int:
+    """Create a username + password user in one insert and return its id; columns adds other users columns (a project's own, profile fields).
+    A column in columns_blocked (sign-up, login, verification, permission and system columns), id or deactivated_at is refused by name; an unknown column fails in serialization; values get the users column rules (regex, types) and the password is hashed.
+    A taken username in that role fails as "username, role already exists"."""
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if not client_password_hasher: raise func_api_error(message="password hasher not initialized", status_code=500)
-    username = username.strip()
-    await func_regex_check(config_column_regex=config_column_regex, obj_list=[{"username": username, "password": password}])
-    hashed_password = await asyncio.to_thread(client_password_hasher.hash, str(password))
-    return await client_postgres.fetchval("INSERT INTO users (role, username, password, created_by_id) VALUES ($1, $2, $3, $4) RETURNING id;", role, username, hashed_password, created_by_id)
+    if "users" not in (cache_postgres_schema or {}): raise func_api_error(message="users table not in the schema cache", status_code=500)    # serialization hashes the password only through it
+    columns = dict(columns or {})
+    if refused := [c for c in columns if c in ("id", "role", "username", "password", "deactivated_at") or c in (columns_blocked or [])]: raise func_api_error(message=f"{', '.join(refused)} cannot be set when creating a user", status_code=400)
+    obj = {**columns, "role": role, "username": username.strip(), "password": password, "created_by_id": created_by_id}
+    await func_regex_check(config_column_regex=config_column_regex, obj_list=[obj])
+    row = (await func_postgres_serialize(client_postgres=client_postgres, client_password_hasher=client_password_hasher, cache_postgres_schema=cache_postgres_schema, table="users", obj_list=[obj], is_base=True))[0]
+    names = list(row)
+    sql = f'INSERT INTO users ({", ".join(f'"{n}"' for n in names)}) VALUES ({", ".join(f"${i + 1}" for i in range(len(names)))}) RETURNING id;'  # noqa: S608 - names are users columns checked by serialization, values bound as $n
+    return await client_postgres.fetchval(sql, *[row[n] for n in names])
 
 async def func_user_update_check(*, client_postgres: asyncpg.Pool | None, obj: dict, is_admin: bool, is_otp_required: bool, config_column_single_update: list, config_column_users_blocked: list, config_column_users_my_blocked: list, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5, config_permission_label: dict | None = None) -> dict:
     """The columns of one user update after its rules: permissions a list of ids labelled in config_permission_label (config_column_int_mapping["users"]["permissions"]), or null; config_column_users_blocked refused for everyone (deletion has its own API), config_column_users_my_blocked refused for the user's own update,

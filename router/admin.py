@@ -129,8 +129,8 @@ async def func_api_admin_object_update(*, request: Request):
 @router.post("/admin/user-create")
 async def func_api_admin_user_create(*, request: Request):
     app_state = request.app.state
-    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "role", "type": "int", "required": True}, {"name": "username", "type": "str", "required": True}, {"name": "password", "type": "str", "required": True}], strict=True, strict_types=True, reject_unknown=True)
-    user_id = await app_state.func_user_create(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, config_column_regex=app_state.config_column_regex, role=ob["role"], username=ob["username"], password=ob["password"], created_by_id=request.state.user["id"])
+    ob = await app_state.func_request_param_read(request=request, mode="body", param_specs=[{"name": "role", "type": "int", "required": True}, {"name": "username", "type": "str", "required": True}, {"name": "password", "type": "str", "required": True}], strict_types=True)    # other users columns pass through to func_user_create, which refuses blocked ones
+    user_id = await app_state.func_user_create(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, config_column_regex=app_state.config_column_regex, role=ob["role"], username=ob["username"], password=ob["password"], created_by_id=request.state.user["id"], columns={k: v for k, v in ob.items() if k not in ("role", "username", "password")}, columns_blocked=[*(app_state.config_permission_user_column_blocked or []), *(app_state.config_column_users_blocked or [])])
     return {"status": 1, "message": {"id": user_id}}
 
 @router.put("/admin/user-update")

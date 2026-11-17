@@ -121,6 +121,17 @@ class HttpRouteTests(unittest.TestCase):
         self.assertEqual(fetch(self.url, "SELECT city FROM users WHERE id = $1", self.alice_id), [{"city": "Pune"}])    # rolled back
         self.message(self.client.put("/admin/user-update", json={"obj_list": [{"id": self.alice_id, "city": None}, {"id": self.bob_id, "job_title": None}]}, headers=self.auth(self.admin)))
 
+    def test_admin_user_create_takes_other_users_columns_in_one_go(self):
+        create = lambda body: self.client.post("/admin/user-create", json={"role": 5, "password": "dave-pass", **body}, headers=self.auth(self.admin))
+        for column, value in (("google_login_id", "g1"), ("email", "d@x.io"), ("permissions", [6]), ("created_at", "2026-01-01"), ("verified_at", "2026-01-01"), ("deactivated_at", "2026-01-01"), ("id", 5)):
+            with self.subTest(column=column):
+                self.assertIn(f"{column} cannot be set when creating a user", self.message(create({"username": "dave", column: value}), 400))
+        self.assertIn("does not exist", self.message(create({"username": "dave", "no_such_column": 1}), 400))
+        self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM users WHERE username = 'dave'"), [{"n": 0}])    # nothing half-created
+        user_id = self.message(create({"username": "dave", "city": "Pune", "job_title": "Lead"}))["id"]
+        self.assertEqual(fetch(self.url, "SELECT role, city, job_title, created_by_id FROM users WHERE id = $1", user_id), [{"role": 5, "city": "Pune", "job_title": "Lead", "created_by_id": 1}])
+        self.assertTrue(fetch(self.url, "SELECT password FROM users WHERE id = $1", user_id)[0]["password"].startswith("$argon2"))    # hashed, never stored as sent
+
     def test_permission_user_create_needs_the_permission_and_an_allowed_role(self):
         create = lambda token, role, username="carol": self.client.post("/permission/user-create", json={"username": username, "password": "carol-pass", "role": role}, headers=self.auth(token))
         self.assertEqual(self.message(create(self.bob, 5), 403), "permission denied")

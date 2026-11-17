@@ -58,6 +58,10 @@ Atom's version is `ATOM_VERSION` in `sync.py` (for example `ATOM_VERSION = "1.2.
 
 Versions follow semver: major (`2.0.0`) when projects must change their code, minor (`1.1.0`) for new features, patch (`1.0.1`) for fixes. Sync always takes the latest `main`; to mark a new version, raise `ATOM_VERSION` and the `Version` line at the top of `readme.md` (a test checks they match) and push to `main` (no tags or GitHub releases). Commits in between keep the last version. A project synced before versions existed shows `unknown` until its next sync. If a sync fails after installing the new `sync.py`, that file already shows the new version while the other files may be older; the error says so, and running sync again finishes it.
 
+### 15.5.0
+
+`/admin/user-create` and `/permission/user-create` also take other `users` columns (profile fields, a project's own columns such as a region) and create the user with them in one insert, so a user never exists half set up. Refused by name, nothing created: columns in `config_permission_user_column_blocked` and `config_column_users_blocked` (sign-up, login, verification, permissions, system), `id` and `deactivated_at`; values get the usual column rules and the password is hashed. Callers sending only role, username and password are unchanged. Nothing to change in projects.
+
 ### 15.4.1
 
 Atom's repository gets the files open-source contributors expect: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue and pull request templates in `.github/`, and `docker-compose.yml` for local Postgres (PostGIS), Redis and RabbitMQ. None of them is synced; `.gitignore` `# atom` now allows those three root names. Nothing to change in projects.
