@@ -73,7 +73,7 @@ def func_middleware_user_row_reader(*, client_postgres: asyncpg.Pool | None, use
         if "value" not in row:
             if not client_postgres: raise func_api_error(message="postgres client missing", status_code=500)
             async with client_postgres.acquire() as conn:
-                rows = await conn.fetch("select role, deactivated_at, deleted_at from users where id=$1", user_dict["id"])
+                rows = await conn.fetch("select role, permissions, deactivated_at, deleted_at from users where id=$1", user_dict["id"])
             if not rows: raise func_api_error(message="user not found", status_code=401)
             row["value"] = rows[0]
         return row["value"]
@@ -202,13 +202,17 @@ async def func_middleware_check_role(*, user_dict: dict, user_check_role: Any, c
             raise func_api_error(message="invalid user role type", status_code=403) from None
     if user_role not in roles: raise func_api_error(message="access denied", status_code=403)
 
-async def func_middleware_check_permission(*, user_dict: dict, user_check_permission: dict | None, api_id: int | None) -> None:
-    """Allow the route only to users whose permissions (users.permissions, from the token) hold this route's config_api id; no role is exempt, admins included."""
+async def func_middleware_check_permission(*, user_dict: dict, user_check_permission: dict | None, api_id: int | None, user_row_read: Any = None) -> None:
+    """Allow the route only to users whose permissions (users.permissions) hold this route's config_api id; no role is exempt, admins included.
+    mode token reads them from the token; realtime from the users row (user_row_read, shared with the role checks), so a revoked permission stops at once."""
     if not user_check_permission: return
     if not user_dict: raise func_api_error(message="authorization token missing", status_code=401)
     mode = user_check_permission.get("mode")
-    if mode != "token": raise func_api_error(message=f"invalid mode: {mode}, allowed: token", status_code=500)
-    permissions = user_dict.get("permissions", "absent")
+    if mode not in ("token", "realtime"): raise func_api_error(message=f"invalid mode: {mode}, allowed: token, realtime", status_code=500)
+    if mode == "realtime":
+        if user_row_read is None: raise func_api_error(message="user row reader missing", status_code=500)
+        permissions = (await user_row_read())["permissions"]
+    else: permissions = user_dict.get("permissions", "absent")
     if permissions == "absent": raise func_api_error(message="user permissions missing from token", status_code=500)
     if api_id is None or int(api_id) not in (permissions or []): raise func_api_error(message="permission denied", status_code=403)
 

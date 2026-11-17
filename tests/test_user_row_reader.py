@@ -34,7 +34,7 @@ class UserRowReaderTests(unittest.IsolatedAsyncioTestCase):
         await run_checks(pool)
         self.assertEqual(conn.fetch.await_count, 1)
         self.assertEqual(pool.acquire.call_count, 1)
-        self.assertIn("select role, deactivated_at, deleted_at from users", conn.fetch.await_args.args[0])
+        self.assertIn("select role, permissions, deactivated_at, deleted_at from users", conn.fetch.await_args.args[0])
 
     async def test_inmemory_misses_reuse_the_same_row(self):
         pool, conn = pool_returning([{"role": 2, "deactivated_at": None, "deleted_at": None}])

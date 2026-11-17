@@ -375,6 +375,25 @@ class HttpRouteTests(unittest.TestCase):
         self.message(self.client.post("/public/object-create", params={"table": "test"}, json={"title": "runner target"}))
         self.assertEqual(self.message(self.client.post("/admin/postgres-query-runner-write", json={"sql": "UPDATE test SET title = 'runner wrote' WHERE title = 'runner target'"}, headers=self.auth(self.admin))), "UPDATE 1")
 
+    def test_admin_cannot_forge_audit_columns_run_ddl_or_change_itself(self):
+        created = self.message(self.client.post("/admin/object-create", params={"table": "test"}, json={"title": "audit target"}, headers=self.auth(self.admin)))
+        row_id = created[0] if isinstance(created, list) else fetch(self.url, "SELECT id FROM test WHERE title = 'audit target'")[0]["id"]
+        for column, value in (("created_by_id", self.bob_id), ("created_at", "2020-01-01"), ("deleted_by_id", 1)):
+            with self.subTest(column=column):
+                self.assertIn(f"{column} is set by Atom", self.message(self.client.put("/admin/object-update", params={"table": "test"}, json={"id": row_id, column: value}, headers=self.auth(self.admin)), 400))
+                self.assertIn(f"{column} is set by Atom", self.message(self.client.post("/admin/object-create", params={"table": "test"}, json={"title": "x", column: value}, headers=self.auth(self.admin)), 400))
+        upload = lambda mode, csv: self.client.post("/admin/postgres-import", data={"mode": mode, "table": "test"}, files={"file": ("rows.csv", csv.encode(), "text/csv")}, headers=self.auth(self.admin))
+        self.assertIn("created_by_id is set by Atom", self.message(upload("create", f"title,created_by_id\nforged,{self.bob_id}\n"), 400))
+        self.assertEqual(fetch(self.url, "SELECT count(*) AS n FROM test WHERE title = 'forged'"), [{"n": 0}])
+        self.message(upload("create", "title\nimported by admin\n"))
+        self.assertEqual(fetch(self.url, "SELECT created_by_id FROM test WHERE title = 'imported by admin'"), [{"created_by_id": 1}])    # the importing admin, set by Atom
+        write = lambda sql: self.client.post("/admin/postgres-query-runner-write", json={"sql": sql}, headers=self.auth(self.admin))
+        for sql, message in (("DROP TABLE test", "DROP is not allowed"), ("TRUNCATE test", "TRUNCATE is not allowed"), ("DELETE FROM test", "DELETE needs a WHERE"), ("UPDATE test SET title = 'a' WHERE id = 1; DROP TABLE test", "one statement only")):
+            with self.subTest(sql=sql): self.assertIn(message, self.message(write(sql), 400))
+        self.assertIn("you cannot change your own permissions", self.message(self.client.put("/admin/user-update", json={"id": 1, "permissions": None}, headers=self.auth(self.admin)), 403))
+        for column, value in (("role", 9), ("deactivated_at", "2026-01-01T00:00:00+00:00")):    # root's role and deactivation are refused by the root rule first
+            with self.subTest(own=column): self.assertIn(f"root user {column} cannot be updated", self.message(self.client.put("/admin/user-update", json={"id": 1, column: value}, headers=self.auth(self.admin)), 400))
+
     def test_postgres_info_schema_and_sync(self):
         info = self.message(self.client.get("/admin/postgres-info", headers=self.auth(self.admin)))
         self.assertEqual(info["database_name"], self.db_name)

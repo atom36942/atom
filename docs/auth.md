@@ -28,7 +28,7 @@ A request passes these gates, in order, before the route runs. Role and permissi
 Atom's permission routes, in `config.py`: the admin sample (role 1, then a permission on top) and the two `/permission` writes (permission only):
 
 ```python
-"/admin/postgres-query-runner-write": {"id": 6, "is_active": True, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_permission": {"mode": "token"}},
+"/admin/postgres-query-runner-write": {"id": 6, "is_active": True, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_permission": {"mode": "realtime"}, ...},
 "/permission/object-update": {"id": 136, "is_token": True, "user_check_permission": {"mode": "token"}},
 "/permission/object-delete": {"id": 137, "is_token": True, "user_check_permission": {"mode": "token"}, "rate_limit": {...}},
 "/permission/user-create": {"id": 138, "is_token": True, "user_check_permission": {"mode": "token"}, "rate_limit": {...}},
@@ -56,7 +56,7 @@ A project route works the same way, for example only some role 2 users may delet
 - **Mode**: `token` only (the token's `permissions`); a change applies when the user logs in again.
 - **Granting**: only `/admin/user-update` writes `permissions`; `/my/user-update` refuses it (`config_column_users_my_blocked`) and the object APIs refuse `table=users`.
 - **Permission without role**: drop `user_check_role` and any role granted the `id` may call the route.
-- **Startup refuses** a `user_check_permission` mode other than `token`, or an `id` without a label in `config_column_int_mapping["users"]["permissions"]`.
+- `user_check_permission` modes: `token` (from the token) or `realtime` (from the users row on each call, so a revoked permission stops at once; Atom's admin write routes use it). **Startup refuses** any other mode, or an `id` without a label in `config_column_int_mapping["users"]["permissions"]`.
 
 ---
 

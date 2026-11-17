@@ -5,6 +5,7 @@ from typing import Any
 import asyncpg
 from starlette.datastructures import State
 from .middleware import func_api_error
+from .validation import func_check_audit_columns
 
 # function
 async def func_mongodb_import(*, client_mongodb: Any, mode: str, database: str, table: str, file: Any) -> str:
@@ -38,8 +39,9 @@ async def func_mongodb_import(*, client_mongodb: Any, mode: str, database: str, 
         count += len(ol)
     return f"{count} rows processed"
 
-async def func_postgres_import(*, app_state: State, mode: str, table: str, file: Any, client_postgres: asyncpg.Pool | None = None, cache_postgres_schema: dict = None) -> str:
-    """Imports, updates, or deletes records in PostgreSQL from a CSV upload file in batches."""
+async def func_postgres_import(*, app_state: State, mode: str, table: str, file: Any, client_postgres: asyncpg.Pool | None = None, cache_postgres_schema: dict = None, created_by_id: int | None = None) -> str:
+    """Imports, updates, or deletes records in PostgreSQL from a CSV upload file in batches, all in one transaction.
+    Audit columns (config_column_audit_blocked) in the CSV are refused; created rows get created_by_id (the importing admin) when the table has that column."""
     client_postgres = client_postgres or app_state.client_postgres_dict.get("master")
     cache_postgres_schema = cache_postgres_schema if cache_postgres_schema is not None else app_state.cache_postgres_schema_dict.get("master", {})
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
@@ -49,6 +51,8 @@ async def func_postgres_import(*, app_state: State, mode: str, table: str, file:
             async for ol in func_api_file_to_chunks(upload_file=file, chunk_size=5000):
                 if not ol: continue
                 if mode in ("update", "delete") and any("id" not in obj for obj in ol): raise Exception(f"CSV format error: Postgres {mode} requires 'id' column")
+                if mode in ("create", "update"): func_check_audit_columns(app_state=app_state, obj_list=ol)
+                if mode == "create" and created_by_id is not None and "created_by_id" in cache_postgres_schema.get(table, {}): ol = [{**obj, "created_by_id": created_by_id} for obj in ol]
                 if mode == "create":
                     await app_state.func_postgres_create(client_postgres=client_postgres, client_postgres_conn=conn, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=cache_postgres_schema, buffer_postgres=app_state.buffer_postgres_create, config_column_regex=app_state.config_column_regex, buffer_limit=app_state.config_buffer_limit_default, mode="now", table=table, obj_list=ol)
                 elif mode == "update":

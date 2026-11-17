@@ -244,8 +244,9 @@ class PermissionConfigCheckTests(unittest.TestCase):
     def test_permission_route_is_checked_at_startup(self):
         func_check_api_config(app=self.app({"user_check_permission": {"mode": "token"}}))
         func_check_api_config(app=self.app({"user_check_permission": {"mode": "token"}, "user_check_role": {"mode": "token", "roles": [1, 2]}}))
+        func_check_api_config(app=self.app({"user_check_permission": {"mode": "realtime"}}, None, ("id", "role")))    # realtime reads the users row, so the token needn't carry permissions
         for cfg, labels, token_encode, message in [
-            ({"user_check_permission": {"mode": "realtime"}}, None, ("permissions",), "allowed: token"),
+            ({"user_check_permission": {"mode": "inmemory"}}, None, ("permissions",), "allowed: token, realtime"),
             ({"user_check_permission": {"mode": "token", "id": 9}}, None, ("permissions",), "invalid user_check_permission"),
             ({"user_check_permission": True}, None, ("permissions",), "invalid user_check_permission"),
             ({"user_check_permission": {"mode": "token"}}, {}, ("permissions",), "label id 205"),

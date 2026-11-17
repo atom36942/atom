@@ -270,6 +270,7 @@ The `/permission/*` routes' settings, together as `config_permission_*` (the rou
 | `config_column_ownership_delete` | Ownership columns accepted by `/my/object-delete` and `/my/object-delete-all`; defaults to `created_by_id` when omitted. Also used by the user-deletion worker to discover user-linked rows. |
 | `config_column_admin` | Server-managed columns blocked from user mutation (`created_at`, `role`, etc.) |
 | `config_column_single_update` | `users` columns updated alone by `/my/user-update` and `/admin/user-update` (`username`, `password`, `email`, `mobile`) |
+| `config_column_audit_blocked` | Audit columns no request may set on any table, admin's included (default `created_at`, `created_by_id`, `updated_at`, `updated_by_id`, `deleted_at`, `deleted_by_id`): Atom sets them; admin create, update and CSV import refuse them |
 | `config_column_users_blocked` | `users` columns neither `/my/user-update` nor `/admin/user-update` may change (`created_*`, `updated_*`, `deleted_*`, `is_protected`, `last_active_at`); a project adds its own (e.g. a column only a script sets) |
 | `config_column_users_my_blocked` | `users` columns only `/admin/user-update` may change; `/my/user-update` refuses them (`role`, `permissions`, `deactivated_at`, ...) |
 | `config_column_read_blocked` | Sensitive columns blocked and stripped from read responses and relations (`password`) |

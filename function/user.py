@@ -24,9 +24,9 @@ async def func_user_create(*, client_postgres: asyncpg.Pool | None, client_passw
     sql = f'INSERT INTO users ({", ".join(f'"{n}"' for n in names)}) VALUES ({", ".join(f"${i + 1}" for i in range(len(names)))}) RETURNING id;'  # noqa: S608 - names are users columns checked by serialization, values bound as $n
     return await client_postgres.fetchval(sql, *[row[n] for n in names])
 
-async def func_user_update_check(*, client_postgres: asyncpg.Pool | None, obj: dict, is_admin: bool, is_otp_required: bool, config_column_single_update: list, config_column_users_blocked: list, config_column_users_my_blocked: list, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5, config_permission_label: dict | None = None) -> dict:
+async def func_user_update_check(*, client_postgres: asyncpg.Pool | None, obj: dict, is_admin: bool, actor_id: int | None = None, is_otp_required: bool, config_column_single_update: list, config_column_users_blocked: list, config_column_users_my_blocked: list, config_otp_expiry_sec: int, config_otp_static: int = None, config_otp_max_attempt: int = 5, config_permission_label: dict | None = None) -> dict:
     """The columns of one user update after its rules: permissions a list of ids labelled in config_permission_label (config_column_int_mapping["users"]["permissions"]), or null; config_column_users_blocked refused for everyone (deletion has its own API), config_column_users_my_blocked refused for the user's own update,
-    a single-update column (password, email, ...) sent alone, email or mobile verified with the otp sent to the new value when is_otp_required, email lowercased."""
+    the caller's own role, permissions or deactivation refused (actor_id: another admin must change them), a single-update column (password, email, ...) sent alone, email or mobile verified with the otp sent to the new value when is_otp_required, email lowercased."""
     obj = dict(obj)
     otp, user_id = obj.pop("otp", None), obj.pop("id", None)
     if not obj: raise Exception("update field required")
@@ -39,6 +39,7 @@ async def func_user_update_check(*, client_postgres: asyncpg.Pool | None, obj: d
         if unknown := sorted({p for p in permissions if p not in (config_permission_label or {})}): raise Exception(f"permissions {unknown} are not labelled in config_column_int_mapping users permissions")
         obj["permissions"] = sorted(set(permissions))
     if user_id == 1 and (column := next((c for c in obj if c in ("role", "deactivated_at")), None)): raise Exception(f"root user {column} cannot be updated")
+    if actor_id is not None and user_id == actor_id and (column := next((c for c in obj if c in ("role", "permissions", "deactivated_at")), None)): raise func_api_error(message=f"you cannot change your own {column}: another admin must", status_code=403)
     if isinstance(obj.get("email"), str): obj["email"] = obj["email"].strip().lower()
     if is_otp_required and ("email" in obj or "mobile" in obj):
         if otp is None: raise Exception(f"{'email' if 'email' in obj else 'mobile'} update needs otp")
@@ -58,7 +59,7 @@ async def func_user_update(*, client_postgres: asyncpg.Pool | None, client_passw
     if repeated := sorted({i for i in ids if ids.count(i) > 1}): raise Exception(f"id repeated: {repeated}")
     groups = {}
     for obj in obj_list:
-        values = await func_user_update_check(client_postgres=client_postgres, obj=obj, is_admin=True, is_otp_required=is_otp_required, config_column_single_update=config_column_single_update, config_column_users_blocked=config_column_users_blocked, config_column_users_my_blocked=config_column_users_my_blocked, config_otp_expiry_sec=config_otp_expiry_sec, config_otp_static=config_otp_static, config_otp_max_attempt=config_otp_max_attempt, config_permission_label=config_permission_label)
+        values = await func_user_update_check(client_postgres=client_postgres, obj=obj, is_admin=True, actor_id=updated_by_id, is_otp_required=is_otp_required, config_column_single_update=config_column_single_update, config_column_users_blocked=config_column_users_blocked, config_column_users_my_blocked=config_column_users_my_blocked, config_otp_expiry_sec=config_otp_expiry_sec, config_otp_static=config_otp_static, config_otp_max_attempt=config_otp_max_attempt, config_permission_label=config_permission_label)
         groups.setdefault(tuple(sorted(values)), []).append({**values, "id": obj["id"], "updated_by_id": updated_by_id})
     updated = []
     async with client_postgres.acquire() as connection, connection.transaction():

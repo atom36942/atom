@@ -67,6 +67,11 @@ def func_check_table_write_blocked(*, app_state: State, table: str) -> None:
     """Refuse a table in config_table_write_blocked (tables only Atom writes, such as logs) in every generic write API, admin's included: 403."""
     if table in (getattr(app_state, "config_table_write_blocked", None) or []): raise func_api_error(message=f"write disabled for table: {table}", status_code=403)
 
+def func_check_audit_columns(*, app_state: State, obj_list: list) -> None:
+    """Refuse a column of config_column_audit_blocked (who and when a row was created, updated or deleted) in any request row, admin's included: Atom sets them, so they can't be forged: 400."""
+    blocked = set(getattr(app_state, "config_column_audit_blocked", None) or [])
+    if columns := sorted({c for obj in obj_list if isinstance(obj, dict) for c in obj if c in blocked}): raise func_api_error(message=f"{', '.join(columns)} is set by Atom, not by a request", status_code=400)
+
 def func_check_table_not_users(*, table: str) -> None:
     """Refuse the users table in a generic object API: users rows are written only through their own APIs (/my/user-*, /permission/user-*, /admin/user-*)."""
     if table == "users": raise Exception("write disabled for table: users")

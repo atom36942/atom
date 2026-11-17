@@ -81,6 +81,7 @@ async def func_api_admin_object_create(*, request: Request):
     obj_list = await app_state.func_extract_request_object_list(request=request)
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
     app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column="created_by_id", purpose="ownership tracking")
+    app_state.func_check_audit_columns(app_state=app_state, obj_list=obj_list)
     obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="created_by_id")
     return {"status": 1, "message": await app_state.func_postgres_create(client_postgres=request.state.client_postgres, client_postgres_conn=None, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, buffer_postgres=app_state.buffer_postgres_create, buffer_rows_max=app_state.config_buffer_rows_max, buffer_full_mode="reject", config_column_regex=app_state.config_column_regex, buffer_limit=app_state.func_buffer_limit(app_state=app_state, table=oq["table"]), mode=oq["mode"], table=oq["table"], obj_list=obj_list)}
 
@@ -121,6 +122,7 @@ async def func_api_admin_object_update(*, request: Request):
     obj_list = await app_state.func_extract_request_object_list(request=request)
     app_state.func_check_batch_limit(app_state=app_state, items=obj_list)
     app_state.func_check_table_column_exists(app_state=app_state, table=oq["table"], column="updated_by_id", purpose="update tracking")
+    app_state.func_check_audit_columns(app_state=app_state, obj_list=obj_list)
     obj_list = app_state.func_attach_user_audit_fields(request=request, obj_list=obj_list, field="updated_by_id")
     created_by_id = None
     result = await app_state.func_postgres_update(client_postgres=request.state.client_postgres, client_password_hasher=app_state.client_password_hasher, cache_postgres_schema=request.state.cache_postgres_schema, table=oq["table"], obj_list=obj_list, created_by_id=created_by_id, client_postgres_conn=None, config_column_regex=app_state.config_column_regex)
@@ -164,7 +166,7 @@ async def func_api_admin_postgres_import(*, request: Request):
     app_state = request.app.state
     of = await app_state.func_request_param_read(request=request, mode="form", param_specs=[{"name": "mode", "type": "str", "required": True, "allowed": ["create", "update", "delete"]}, {"name": "table", "type": "str", "required": True}, {"name": "file", "type": "file", "required": True}])
     app_state.func_check_table_write_blocked(app_state=app_state, table=of["table"])
-    res = await app_state.func_postgres_import(app_state=app_state, mode=of["mode"], table=of["table"], file=of["file"][-1], client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema)
+    res = await app_state.func_postgres_import(app_state=app_state, mode=of["mode"], table=of["table"], file=of["file"][-1], client_postgres=request.state.client_postgres, cache_postgres_schema=request.state.cache_postgres_schema, created_by_id=request.state.user["id"])
     return {"status": 1, "message": res}
 
 @router.post("/admin/mongodb-import")

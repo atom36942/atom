@@ -37,6 +37,12 @@ Atom attaches standard baseline security headers to every HTTP response before r
 - **Database Trigger Protections**: Superadmin user (`id: 1`) is guarded by PostgreSQL triggers (`trigger_protect_root_users`) preventing deletion.
 - **Logs Nobody Edits**: tables only Atom writes (`config_table_write_blocked`: `log_api`, `log_users_password`, `log_users_delete`, `script_run`, `otp`) are refused by every generic write API, admin's included (403), and `log_api` and `log_users_password` are append-only in the database (`table_row_update_disable`: a trigger refuses every `UPDATE`). The app's database login owns the tables and can drop a trigger, so the SQL runner can still undo this; for logs that even a database owner can't change, give the app a login that doesn't own them.
 
+- **Limits Even Admins Have**:
+  - Every `/admin/*` route that writes or grants access (object create, update, delete; user create, update, delete; imports; the SQL write runners; blob operations; slow-query reset) checks the role, deactivation and any permission against the database on each call (`realtime`), so a demoted, deactivated or revoked admin stops at once, whatever the token says; and it is rate limited.
+  - Audit columns (`config_column_audit_blocked`: `created_*`, `updated_*`, `deleted_*`) are set only by Atom: admin create, update and CSV import refuse them, and imported rows get the importing admin as `created_by_id`.
+  - `/admin/postgres-query-runner-write` takes one `INSERT`, `UPDATE` or `DELETE`; `UPDATE` and `DELETE` need a `WHERE`; no `DROP`, `TRUNCATE`, `ALTER`, `CREATE`, `GRANT`, `DO` or other commands (the schema comes from `config_postgres`; PgWeb, with its own database login, stays the full SQL tool).
+  - No user changes their own `role`, `permissions` or `deactivated_at` through the admin or permission user routes: another admin must.
+
 ---
 
 ## 4. Abuse Mitigation & Rate Limiting

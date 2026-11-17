@@ -187,9 +187,9 @@ def func_check_api_config(*, app: FastAPI) -> None:
         if cfg["is_token"] is not True and any(cfg.get(key) for key in ("user_check_role", "user_check_permission", "user_check_deactivated", "user_check_deleted")): raise Exception(f"{path}: a role, permission, deactivated or deleted check needs is_token True")
         if "user_check_permission" in cfg:
             permission_val = cfg["user_check_permission"]
-            if not isinstance(permission_val, dict) or set(permission_val) != {"mode"}: raise Exception(f"{path} invalid user_check_permission: expected {{\"mode\": \"token\"}}")
-            if permission_val["mode"] != "token": raise Exception(f"{path} invalid user_check_permission mode: {permission_val['mode']}, allowed: token")
-            if "permissions" not in (getattr(app.state, "config_column_token_encode", None) or []): raise Exception(f"{path} user_check_permission: add permissions to config_column_token_encode")
+            if not isinstance(permission_val, dict) or set(permission_val) != {"mode"}: raise Exception(f"{path} invalid user_check_permission: expected {{\"mode\": \"token\"}} or realtime")
+            if permission_val["mode"] not in ("token", "realtime"): raise Exception(f"{path} invalid user_check_permission mode: {permission_val['mode']}, allowed: token, realtime")
+            if permission_val["mode"] == "token" and "permissions" not in (getattr(app.state, "config_column_token_encode", None) or []): raise Exception(f"{path} user_check_permission: add permissions to config_column_token_encode")
             if api_id not in ((getattr(app.state, "config_column_int_mapping", None) or {}).get("users", {}).get("permissions") or {}): raise Exception(f"{path} user_check_permission: label id {api_id} in config_column_int_mapping[\"users\"][\"permissions\"]")
         for key in ("user_check_deactivated", "user_check_deleted"):
             u_val = cfg.get(key)

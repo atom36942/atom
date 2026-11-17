@@ -40,8 +40,9 @@ class PoolSessionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_typed_sql_leaves_no_session_state_behind(self):
         clean = await self.session()
-        await func_postgres_query_runner_write(client_postgres=self.pool, sql="SET search_path TO pg_catalog")
-        await func_postgres_query_runner_write(client_postgres=self.pool, sql="DO $$ BEGIN PERFORM pg_advisory_lock(42); END $$")
+        with self.assertRaisesRegex(Exception, "SET is not allowed"): await func_postgres_query_runner_write(client_postgres=self.pool, sql="SET search_path TO pg_catalog")    # the write runner takes INSERT, UPDATE, DELETE only
+        await func_pgweb_query(pool=self.pool, sql="SET search_path TO pg_catalog", is_confirmed=True)
+        await func_postgres_query_runner_read(client_postgres=self.pool, config_query_runner_read_limit=10, sql="SELECT pg_advisory_lock(42)")
         await func_postgres_query_runner_read(client_postgres=self.pool, config_query_runner_read_limit=10, sql="SELECT set_config('application_name', 'leaked', false)")
         await func_pgweb_query(pool=self.pool, sql="SET statement_timeout = '1ms'", is_confirmed=True)
         after = await self.session()

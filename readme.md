@@ -1,5 +1,5 @@
 # Atom
-Version 15.5.0
+Version 15.6.0
 
 [![tests](https://github.com/atom36942/atom/actions/workflows/tests.yml/badge.svg)](https://github.com/atom36942/atom/actions/workflows/tests.yml) ![Python 3.14](https://img.shields.io/badge/python-3.14-blue) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/atom36942/atom/blob/main/LICENSE)
 
