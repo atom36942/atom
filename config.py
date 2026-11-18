@@ -186,6 +186,7 @@ config_column_audit_blocked = ["created_at", "created_by_id", "updated_at", "upd
 config_column_users_my_blocked = ["role", "permissions", "verified_at", "verified_by_id", "deactivated_at", "deactivated_by_id", "parent_id", "source", "id_ext", "google_login_id", "google_login_metadata"]
 config_column_read_blocked = ["password"]
 config_column_users_private_read = ["id", "username", "name", "role", "permissions", "created_at", "deactivated_at"]
+config_column_private_read_blocked = {"script_run": ["started_by", "host", "step", "message", "peak_memory_mb"]}
 
 # dict
 config_column_regex = {

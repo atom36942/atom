@@ -245,6 +245,13 @@ class CrudTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(column=column), self.assertRaisesRegex(Exception, "filtering on column 'password' is blocked|invalid filter column"):
                 await func_postgres_where_build(**self.common, filter=[{column: "eq,hello"}])
 
+    async def test_a_private_read_refuses_the_table_s_blocked_columns(self):
+        from types import SimpleNamespace
+        from router.private import private_read_blocked
+        blocked = private_read_blocked(app_state=SimpleNamespace(config_column_read_blocked=["password"], config_column_private_read_blocked={"product": ["name"]}), table="product")
+        self.assertEqual(blocked, ["password", "name"])
+        with self.assertRaisesRegex(Exception, "filtering on column 'name' is blocked"): await func_postgres_where_build(**self.common, filter=[{"name": "eq,x"}], config_column_read_blocked=blocked)
+
     async def test_update_includes_owner_in_query_and_returns_updated_ids(self):
         self.conn.fetch.return_value = [{"id": 3}]
         self.assertEqual(await self.update(), [3])

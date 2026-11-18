@@ -275,6 +275,7 @@ The `/permission/*` routes' settings, together as `config_permission_*` (the rou
 | `config_column_users_blocked` | `users` columns neither `/my/user-update` nor `/admin/user-update` may change (`created_*`, `updated_*`, `deleted_*`, `is_protected`, `last_active_at`); a project adds its own (e.g. a column only a script sets) |
 | `config_column_users_my_blocked` | `users` columns only `/admin/user-update` may change; `/my/user-update` refuses them (`role`, `permissions`, `deactivated_at`, ...) |
 | `config_column_read_blocked` | Sensitive columns blocked and stripped from read responses and relations (`password`) |
+| `config_column_private_read_blocked` | Per table, the columns `/private/*` reads may not select, filter, sort or group by, on top of `config_column_read_blocked` (Atom: `script_run`'s `started_by`, `host`, `step`, `message`, `peak_memory_mb`, so any user may read the run list but not the server details); extend it in `config_extend.py` (`{**base, "invoice": ["cost"]}`) |
 | `config_column_users_private_read` | The only `users` columns `/private/user-read` returns, filters and sorts on (`id`, `username`, `name`, `role`, `permissions`, `created_at`, `deactivated_at`); readable by every logged-in user, checked at startup |
 
 ### Service Registries
@@ -358,7 +359,7 @@ Declarative schema initialization and migration configuration.
 | `unique` | `str` | Unique constraint (`"code,type"` for composite; `"code,type\|code,slug"` for multiple) |
 | `check` | `str` | SQL `CHECK` clause (e.g. `"rating >= 0 AND rating <= 10"`) |
 | `regex` | `str` | Validation pattern checked on write by `func_regex_check` |
-| `index` | `str` | Index spec (`"btree(email)"`, `"gin_trgm(title)"`, `"gist(coordinate)"`) |
+| `index` | `str` | Index spec (`"btree(email)"`, `"gin_trgm(title)"`, `"gist(coordinate)"`); several joined by `\|`; a btree column may add its sort order, so a list sorted that way reads in index order: `"btree(score desc nulls last,id)"` for `ORDER BY score desc nulls last, id` |
 | `in` | `tuple` | Allowed integer value set (e.g. `(1, 2, 3, 4)`) |
 | `old` | `str` | Renames existing column from `old` to `name` safely without dropping data |
 

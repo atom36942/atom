@@ -38,7 +38,7 @@ What Atom owns and enforces in every project. A project never edits these paths;
 
 ## Scale and speed (defaults: a project keeps working at 100× today's data)
 - Each screen read is one SQL statement through the pool: several result sets in one statement as JSON subqueries (`COALESCE(json_agg(t), '[]')`), no transaction around a single read, a timeout on every query.
-- Every filter, sort and search column has an index in `config_postgres` (`btree` for equality, ranges and sorts, `gin_trgm` for contains-search); a list's `ORDER BY` matches an index, with `id` as the cursor's tie-break.
+- Every filter, sort and search column has an index in `config_postgres` (`btree` for equality, ranges and sorts, `gin_trgm` for contains-search); a list's `ORDER BY` matches an index, with `id` as the cursor's tie-break (a descending sort with empty values last: `btree(col desc nulls last,id)`).
 - Aggregates in SQL; no `OFFSET` past the first pages, no `count(*)` per page; exports streamed with a cursor, never built in memory.
 - Sync and import scripts write in batches inside a transaction and resume from `tmp/<script>/`.
 - Route params with `strict=True, strict_types=True, reject_unknown=True`.

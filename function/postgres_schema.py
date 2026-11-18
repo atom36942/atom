@@ -59,8 +59,13 @@ def func_postgres_schema_config_validate(*, config_postgres: dict) -> None:
                         index_type = index_type.strip().lower()
                         index_cols = [c.strip() for c in cols_str.split(",")]
                         for ic in index_cols:
-                            if ic not in column_names:
-                                raise Exception(f"Index in {table_name} references non-existent column '{ic}'. Defined: {list(column_names)}")
+                            column, order = func_postgres_schema_index_column(token=ic)
+                            if column not in column_names:
+                                raise Exception(f"Index in {table_name} references non-existent column '{column}'. Defined: {list(column_names)}")
+                            if order is None:
+                                raise Exception(f"Index column '{ic}' in {table_name}: after the name only asc or desc, then nulls first or nulls last (btree(deviation_days desc nulls last,id))")
+                            if order and index_type != "btree":
+                                raise Exception(f"Index column '{ic}' in {table_name}: a sort direction only on btree indexes")
                         if index_type == "gin":
                             if not any(x in dtype.lower() for x in ("[]", "jsonb", "text", "varchar")):
                                 raise Exception(f"GIN index is not compatible with '{dtype}' on {table_name}.{name}. Supported: arrays, jsonb, text, varchar.")
@@ -109,6 +114,14 @@ def func_postgres_schema_identifier(name: str) -> str:
     """Clamp a managed PostgreSQL identifier to PostgreSQL's 63-byte naming convention."""
     if len(name) <= 63: return name
     return f"{name[:58]}_{func_postgres_schema_hash(name)}"
+
+INDEX_ORDERS = ("", "ASC", "DESC", "ASC NULLS FIRST", "ASC NULLS LAST", "DESC NULLS FIRST", "DESC NULLS LAST", "NULLS FIRST", "NULLS LAST")
+
+def func_postgres_schema_index_column(*, token: str) -> tuple:
+    """(column, order) of one index column token: "deviation_days desc nulls last" -> ("deviation_days", "DESC NULLS LAST"); order is "" when none and None when it is not a valid sort order."""
+    column, *words = token.split()
+    order = " ".join(words).upper()
+    return column, order if order in INDEX_ORDERS else None
 
 def func_postgres_schema_col_setting_enabled(col_cfg: dict, key: str) -> bool:
     """Return whether an optional column setting has a usable configured value."""
@@ -209,7 +222,7 @@ async def func_postgres_schema_tables_sync(*, conn: asyncpg.Connection, tables: 
                         index_type, cols_str = index_group[:-1].split("(", 1)
                         index_type = index_type.strip().lower()
                         index_cols = [c.strip() for c in cols_str.split(",")]
-                        idx_name = func_postgres_schema_identifier(f"idx_{table_name}_{'_'.join(index_cols)}_{index_type}")
+                        idx_name = func_postgres_schema_identifier(f"idx_{table_name}_{'_'.join(c.replace(' ', '_') for c in index_cols)}_{index_type}")
                         catalog["idx"].add(idx_name)
                         if idx_name not in existing_meta:
                             # access method + operator class derived from the explicit token
@@ -217,7 +230,7 @@ async def func_postgres_schema_tables_sync(*, conn: asyncpg.Connection, tables: 
                             if opclass:
                                 await conn.execute(f'CREATE INDEX IF NOT EXISTS "{idx_name}" ON "{table_name}" USING {access_method}("{index_cols[0]}" {opclass});')
                             else:
-                                cols_quoted = ", ".join([f'"{c}"' for c in index_cols])
+                                cols_quoted = ", ".join(f'"{column}"' + (f" {order}" if order else "") for column, order in (func_postgres_schema_index_column(token=c) for c in index_cols))
                                 await conn.execute(f'CREATE INDEX IF NOT EXISTS "{idx_name}" ON "{table_name}" USING {access_method}({cols_quoted});')
                             table_changed = True
             if func_postgres_schema_col_setting_enabled(col_cfg, "in"):

@@ -57,6 +57,14 @@ class SchemaInitTests(unittest.IsolatedAsyncioTestCase):
         self.assertLessEqual(len(second), 25, f"{len(second)} statements on an unchanged start")
         self.assertEqual(await self.pool.fetch("SELECT oid, tgname FROM pg_trigger WHERE NOT tgisinternal ORDER BY oid"), trigger_ids, "no trigger was recreated (same oids)")
 
+    async def test_an_index_column_keeps_its_sort_order(self):
+        config = config_postgres()
+        config["table"]["sorted_item"] = [{"name": "id", "datatype": "bigint", "identity": "always", "is_primary": True}, {"name": "score", "datatype": "numeric", "index": "btree(score desc nulls last,id)|btree(score,id)"}]
+        await func_postgres_schema_init(app_state=SimpleNamespace(**{name: getattr(function, name) for name in function.__all__}), client_postgres=self.pool, config_postgres=config, root_user_password_hash=PASSWORD_HASH)
+        definitions = {r["indexname"]: r["indexdef"] for r in await self.pool.fetch("SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'sorted_item'")}
+        self.assertIn("(score DESC NULLS LAST, id)", definitions["idx_sorted_item_score_desc_nulls_last_id_btree"])
+        self.assertIn("(score, id)", definitions["idx_sorted_item_score_id_btree"])
+
     async def test_root_holds_exactly_the_admin_permission_routes(self):
         app_state = SimpleNamespace(**{name: getattr(function, name) for name in function.__all__}, config_api={"/admin/a": {"id": 6, "user_check_permission": {"mode": "token"}}, "/admin/b": {"id": 132, "user_check_permission": {"mode": "token"}}, "/admin/c": {"id": 7}, "/admin/project": {"id": 301, "user_check_permission": {"mode": "token"}}, "/permission/w": {"id": 136, "user_check_permission": {"mode": "token"}}, "/x/project": {"id": 300, "user_check_permission": {"mode": "token"}}})
         await self.init(app_state)

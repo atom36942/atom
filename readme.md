@@ -75,7 +75,21 @@ Atom owns every unsuffixed path; you own the `*_extend` ones.
 
 Details: [docs/extend.md](docs/extend.md)
 
-# Sync (update a project to the latest Atom)
+# Update (bring a project to the latest Atom)
+Every project on Atom shares most of its code and the same rules, so any developer can open any project and know where things are. Updating takes two steps, run from time to time (after an Atom release, or monthly):
+
+| Step | Covers | What it does | Run |
+| :--- | :--- | :--- | :--- |
+| 1. Sync | about 90%: Atom's core | Replaces Atom's own files (`function/`, `router/`, `static/`, `docs/`, `config.py`, `AGENTS.md`, ...) with the latest version, exactly; the project's code is never touched | `python3 sync.py` |
+| 2. Rules | about 5%: the shared standard | The AI agent brings the project's own code in line with `AGENTS.md`: structure, security, speed and scale, the page flow (login, account menu, sync, settings), clean-up; it proposes first and fixes after your OK | the prompt below |
+| (yours) | the rest | The project's own features and screens: nothing changes them | — |
+
+Step 2 prompt (sync prints it too):
+```text
+Update this repo to the latest Atom: follow Update in AGENTS.md.
+```
+
+## Sync options
 Commit your work and stop the app first.
 ```bash
 python3 sync.py                              # update files, rebuild venv/, list newer # extend packages

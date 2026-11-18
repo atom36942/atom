@@ -10,6 +10,7 @@ from function import func_check_config_extend_keeps_atom
 from function import func_check_database_config
 from function import func_check_log_api_table
 from function import func_check_runtime_config
+from function.postgres_schema import func_postgres_schema_config_validate
 
 URL = "postgresql://user@localhost:5432/db"
 
@@ -17,6 +18,18 @@ URL = "postgresql://user@localhost:5432/db"
 def state(**changes):
     return SimpleNamespace(**({"config_postgres_pool_min_size": 1, "config_postgres_pool_max_size": 5, "config_postgres_url_dict": {},
                                "config_postgres_db_log_api": "master"} | changes))
+
+
+class IndexSortOrderTests(unittest.TestCase):
+    def validate(self, index):
+        func_postgres_schema_config_validate(config_postgres={"table": {"item": [{"name": "id", "datatype": "bigint", "is_primary": True}, {"name": "score", "datatype": "text", "index": index}]}})
+
+    def test_a_btree_column_may_name_its_sort_order(self):
+        for index in ("btree(score desc nulls last,id)", "btree(score asc,id)", "btree(score nulls first)", "btree(score,id)", "gin_trgm(score)"): self.validate(index)
+
+    def test_a_wrong_order_or_an_order_on_another_type_stops_startup(self):
+        for index, message in (("btree(score downward,id)", "only asc or desc"), ("gin_trgm(score desc)", "only on btree"), ("btree(scores desc)", "non-existent column 'scores'")):
+            with self.subTest(index=index), self.assertRaisesRegex(Exception, message): self.validate(index)
 
 
 class ConfigExtendKeepsAtomTests(unittest.TestCase):

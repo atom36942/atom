@@ -4,6 +4,12 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [16.2.0] - 2026-11-18
+
+- **Index sort order:** a btree index column may name its order, `"btree(score desc nulls last,id)"`, so a list sorted `score desc nulls last, id` reads in index order instead of sorting the whole table; startup refuses an unknown order or one on another index type.
+- **`config_column_private_read_blocked`:** per table, the columns `/private/*` reads (object-read, its export, groupby, distinct) may not select, filter, sort or group by. Atom blocks `script_run`'s `started_by`, `host`, `step`, `message` and `peak_memory_mb`, so any user may read the run list but not the server details. A project that read those through `/private/*` reads them through `/admin/*` instead.
+- **readme:** an Update section: step 1 `python3 sync.py` (Atom's core), step 2 the prompt that brings the project's own code in line with `AGENTS.md`.
+
 ## [16.1.0] - 2026-11-18
 
 Updating a project is two steps: `python3 sync.py` (Atom's files, exactly) and one prompt, `Update this repo to the latest Atom: follow Update in AGENTS.md`, which sync now prints at the end. `docs/align.md` moved into `AGENTS.md` as its **Update** section (sync removes the old file), so the rules and how to apply them are in one file. Nothing to change in projects.

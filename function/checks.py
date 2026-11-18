@@ -83,6 +83,8 @@ def func_check_runtime_config(*, app_state: State) -> None:
     for column in private_read or []:
         if column == "password" or column in (values.get("config_column_read_blocked") or []): raise ValueError(f"config_column_users_private_read: {column} is never readable (config_column_read_blocked)")
         if users_columns and column not in users_columns: raise ValueError(f"config_column_users_private_read: no users column {column!r} in config_postgres")
+    private_blocked = values.get("config_column_private_read_blocked")
+    if "config_column_private_read_blocked" in values and (not isinstance(private_blocked, dict) or not all(isinstance(columns, list) and all(isinstance(column, str) for column in columns) for columns in private_blocked.values())): raise ValueError("config_column_private_read_blocked must be a dict of table: [columns]")
     if "config_permission_user_create_roles" in values: raise ValueError("config_permission_user_create_roles was renamed in Atom 14.0.0 to config_permission_user_roles (used by /permission/user-create and /permission/user-update)")
     for old, new in (("config_table_permission_write_allowed", "config_permission_table_write_allowed"), ("config_column_users_permission_blocked", "config_permission_user_column_blocked")):
         if old in values: raise ValueError(f"{old} was renamed in Atom 15.0.0 to {new} (the /permission settings are together as config_permission_*)")
