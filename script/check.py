@@ -5,11 +5,12 @@
 
 # info: Runs Atom's startup checks, ruff, a syntax check of the pages' JavaScript and the tests in one go and prints only what needs attention: a summary line, each failing test with its traceback, and why tests were skipped.
 # - startup: imports the app and runs func_check in a separate process, with the project's .env: catches config, duplicate func_* and import errors without opening a connection or starting a server
+# - names: every app_state.func_* the project's code calls (function_extend, router_extend, script_extend, files_extend, config_extend.py) is defined in Atom or the project; a name Atom renamed or removed otherwise fails only when that line runs
 # - pages: every .html (its inline scripts) and .js file in static/ and static_extend/ is parsed with node --check; skipped when node is not installed
 # - tests come from tests/ in Atom and tests_extend/ in a project; service tests run when their ATOM_TEST_* setting is in the environment (see tests/README.md)
 # - standard (projects only, report only, never fails the check): how many of AGENTS.md's measurable Rules and Defaults the project's code and pages follow, and which it misses; a Default kept on purpose has its reason in docs_extend/
 # - a test running over TEST_TIMEOUT_SEC stops the check: it prints the test and every thread's stack (where it waits), then exits 1
-# - exit code 0 only when startup, ruff, pages and every test pass
+# - exit code 0 only when startup, ruff, names, pages and every test pass
 
 # import
 import faulthandler
@@ -37,6 +38,10 @@ STARTUP_TIMEOUT_SEC = 120
 STARTUP_ERROR_LINES = 3
 TEST_TIMEOUT_SEC = 60
 PAGE_FOLDERS = ["static", "static_extend"]
+NAME_DEFINE_FOLDERS = ["function", "router", "script", "function_extend", "router_extend", "script_extend", "files_extend"]
+NAME_USE_FOLDERS = ["function_extend", "router_extend", "script_extend", "files_extend"]
+NAME_DEFINE = re.compile(r"^\s*(?:async\s+)?def\s+(func_\w+)", re.MULTILINE)
+NAME_USE = re.compile(r"\bstate\.(func_\w+)")
 PAGE_TMP = "tmp/check"
 SCRIPT_TAG = re.compile(r"<script(?P<attrs>[^>]*)>(?P<code>.*?)</script>", re.DOTALL | re.IGNORECASE)
 SCRIPT_TYPES = ("", "text/javascript", "module")    # other types (application/json, importmap, templates) are not JavaScript
@@ -103,6 +108,15 @@ def pages_check():
     try: errors = [error for path in paths for is_module, code in page_scripts_read(path=path) if (error := node_check(node=node, code=code, is_module=is_module, name=str(path)))]
     finally: shutil.rmtree(PAGE_TMP, ignore_errors=True)
     return not errors, "\n\n".join(errors)
+
+
+def names_check(*, root="."):
+    """(status, output) of the project's app_state.func_* calls: True ok, False with each unknown name and where it is used, None outside a project."""
+    if not Path(root, "config_extend.py").is_file(): return None, "not a project (no config_extend.py)"
+    def files(folders): return [path for folder in folders for path in Path(root, folder).rglob("*.py")]
+    defined = {name for path in [*files(NAME_DEFINE_FOLDERS), Path(root, "main.py")] if path.is_file() for name in NAME_DEFINE.findall(path.read_text(encoding="utf-8", errors="replace"))}
+    unknown = [f"{path.relative_to(root)}:{number}: {name} is not defined in Atom or the project (renamed or removed? see CHANGELOG.md)" for path in [*files(NAME_USE_FOLDERS), Path(root, "config_extend.py")] for number, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1) for name in NAME_USE.findall(line) if name not in defined]
+    return not unknown, "\n".join(unknown)
 
 
 def ruff_run():
@@ -225,7 +239,7 @@ def main():
     is_ruff_ok, ruff_output = ruff_run()
     pages = pages_check()
     result = tests_run(suite=tests_load(names=names))
-    steps = [("startup", *startup_finish(process=startup)), ("ruff", is_ruff_ok, ruff_output), ("pages", *pages)]
+    steps = [("startup", *startup_finish(process=startup)), ("ruff", is_ruff_ok, ruff_output), *([("names", *names)] if (names := names_check())[0] is not None else []), ("pages", *pages)]
     print("\n".join(summary_format(steps=steps, result=result, seconds=time.monotonic() - started, standard=standard_check())))
     sys.exit(0 if all(status is not False for _, status, _ in steps) and result.wasSuccessful() else 1)
 

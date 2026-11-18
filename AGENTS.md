@@ -88,7 +88,7 @@ Built only when an app needs them, each with its own doc: user management ([user
 | Why Atom is built this way | [about.md](docs/about.md) |
 
 ## Verify
-- `venv/bin/python -m script.check` (Windows `venv\Scripts\`): startup checks, ruff, every page's JavaScript and every test, as CI runs it; a test name such as `tests_extend.test_invoice` runs just that.
+- `venv/bin/python -m script.check` (Windows `venv\Scripts\`): startup checks, ruff, every `app_state.func_*` the project calls still defined (a renamed Atom function fails here, not in production), every page's JavaScript and every test, as CI runs it; a test name such as `tests_extend.test_invoice` runs just that.
 - The check's last part, `standard Rules x/y, Defaults x/y`, reports what a project misses of the measurable Rules and Defaults (report only: it never fails the check); a Rule missed is fixed, a Default kept on purpose has its reason in `docs_extend/`.
 - Database tests use a throwaway local database, never a shared or production one. Keep tests light: test the rules whose mistake gives wrong data without an error.
 
@@ -99,7 +99,7 @@ Two parts: `python3 sync.py` replaces Atom's files exactly (the shared core); th
 3. **Audit**, from the check's `standard` lines, then every rule above and the docs it links, for the areas the repo has:
    - Structure: right `*_extend` folder, one feature name, no edited core file, generated files only in `tmp/`.
    - Security: secrets outside `.env` (also `git log -p`; a leaked key is reported for rotation), route access, responses wider than their screen, SQL built from strings, unescaped HTML, tokens or personal data in URLs or logs.
-   - Speed and scale: a filter, sort or search without an index, one query per item, totals counted in the browser, tables downloaded whole, exports not streamed, caches without a limit.
+   - Speed and scale: a filter, sort or search without an index, one query per item, totals counted in the browser, tables downloaded whole, exports not streamed, caches without a limit; with database access, from the evidence too: `/admin/monitor` (database view) lists each table's sequential vs index scans and the slowest queries.
    - Pages: against the reference pages above and [frontend.md](docs/frontend.md); at phone width and in dark mode.
    - Clean-up: dead code, unused files, CSS and settings, duplicate helpers, `docs_extend/` out of date, missing tests for rules that fail silently.
 4. **Propose** a table (area, now, the rule, its tier, the fix) and wait for the OK. A missed Rule is fixed; a Default is a suggestion: one kept on purpose gets its reason in `docs_extend/`, a risky change to a working page is optional.

@@ -4,6 +4,12 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [16.3.0] - 2026-11-18
+
+- **`script.check` names step:** in a project, every `app_state.func_*` its code calls (`function_extend`, `router_extend`, `script_extend`, `files_extend`, `config_extend.py`) must be defined in Atom or the project; an unknown name fails the check with its file and line, so a function Atom renamed or removed fails in the check after sync instead of on that route in production.
+- **pgweb filter:** `LIKE`/`ILIKE` without a `%` in the value now search for it anywhere (`adm` finds `admin`; before it matched only the whole value), and they are offered on every column type (numbers, dates, uuid, json, arrays, enums), compared as text.
+- **AGENTS.md Update:** the speed audit also reads the evidence in `/admin/monitor` (each table's sequential vs index scans, the slowest queries) when the agent has database access.
+
 ## [16.2.0] - 2026-11-18
 
 - **Index sort order:** a btree index column may name its order, `"btree(score desc nulls last,id)"`, so a list sorted `score desc nulls last, id` reads in index order instead of sorting the whole table; startup refuses an unknown order or one on another index type.

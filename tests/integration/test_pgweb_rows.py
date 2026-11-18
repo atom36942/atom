@@ -49,6 +49,12 @@ class PgwebRowsTests(unittest.TestCase):
         self.assertEqual(([r[0] for r in following["rows"]], following["after"]), ([3, 2], '["2"]'))
         self.assertEqual([r[1] for r in filtered["rows"]], [4, 5])
 
+    def test_like_and_ilike_search_any_column_type_as_text(self):
+        for sql in ("CREATE TABLE item (id bigserial PRIMARY KEY, name varchar(20), tags text[], data jsonb)", """INSERT INTO item (name, tags, data) VALUES ('Apple', '{red}', '{"k": 1}'), ('pear', '{green}', '{}')"""): fetch(self.url, sql)
+        async def run(pool):
+            return [[r[0] for r in (await func_pgweb_rows(pool=pool, table="item", pk="id", filter_col=col, filter_op=op, filter_value=value))["rows"]] for col, op, value in (("name", "ILIKE", "%APP%"), ("tags", "ILIKE", "%RE%"), ("data", "LIKE", '%"k"%'), ("id", "LIKE", "2"))]
+        self.assertEqual(self.run_on_pool(run), [[1], [1, 2], [1], [2]])
+
     def test_an_out_of_date_key_is_read_again_with_the_real_one(self):
         for sql in ("CREATE TABLE item (id bigserial PRIMARY KEY, code text UNIQUE)", "INSERT INTO item (code) VALUES ('b'), ('a'), ('c')"): fetch(self.url, sql)
         async def run(pool):

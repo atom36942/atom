@@ -10,6 +10,7 @@ from unittest.mock import patch
 from io import StringIO
 from pathlib import Path
 
+from script.check import names_check
 from script.check import pages_check
 from script.check import standard_check
 from script.check import summary_format
@@ -91,6 +92,28 @@ class PageCheckTests(unittest.TestCase):
 
     def test_without_node_the_step_is_skipped(self):
         with patch("script.check.shutil.which", return_value=None): self.assertEqual(self.pages({})[0], None)
+
+class NamesCheckTests(unittest.TestCase):
+    def check(self, files):
+        """names_check run in a temporary project holding these files."""
+        with tempfile.TemporaryDirectory() as root:
+            for name, text in {"config_extend.py": "", **files}.items():
+                Path(root, name).parent.mkdir(parents=True, exist_ok=True)
+                Path(root, name).write_text(text)
+            return names_check(root=root)
+
+    def test_calls_to_defined_functions_pass(self):
+        status, _ = self.check({"function/user.py": "async def func_user_read(): pass\n", "function_extend/shop.py": "def func_shop_total(): pass\n", "router_extend/shop.py": "x = request.app.state.func_user_read\ny = app_state.func_shop_total\n"})
+        self.assertIs(status, True)
+
+    def test_an_unknown_function_is_named_with_its_line(self):
+        status, output = self.check({"function/user.py": "def func_user_read(): pass\n", "router_extend/shop.py": "\nx = request.app.state.func_user_get\n"})
+        self.assertIs(status, False)
+        self.assertIn("router_extend/shop.py:2: func_user_get", output)
+
+    def test_outside_a_project_the_step_is_skipped(self):
+        with tempfile.TemporaryDirectory() as root: self.assertIsNone(names_check(root=root)[0])
+
 
 class StandardTests(unittest.TestCase):
     """The standard score only reports: it names what a project misses and never fails the check."""

@@ -375,7 +375,8 @@ async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, 
                 clauses.append(f"{column_sql} {operator}")
             else:
                 args.append("" if filter_value is None else str(filter_value))
-                clauses.append(f"{column_sql} {operator} (${len(args)}::text)::{filter_type}")
+                if operator.endswith("LIKE"): clauses.append(f"{column_sql}{'' if re.fullmatch(r'(text|citext|character( varying)?)(\(\d+\))?', filter_type) else '::text'} {operator} ${len(args)}::text")    # any column type compares as text (uuid, json, arrays, enums, dates)
+                else: clauses.append(f"{column_sql} {operator} (${len(args)}::text)::{filter_type}")
         where_sql = (" WHERE " + " AND ".join(clauses)) if clauses else ""
         order_sql = f" ORDER BY {func_page_order_sql(keys=keys)}" if keys else ""
         # a table with a key: values over PGWEB_CUT_BYTES come as a preview, measured in SQL without reading them, so a page of large json or text stays small

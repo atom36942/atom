@@ -105,7 +105,7 @@ Details: [docs/sync.md](docs/sync.md)
 ```bash
 venv/bin/python -m script.check
 ```
-Runs the startup checks, ruff, the pages' JavaScript and the tests in `tests_extend/` together and prints one summary line, plus only the failures.
+Runs the startup checks, ruff, a check that every `app_state.func_*` the project calls still exists, the pages' JavaScript and the tests in `tests_extend/` together and prints one summary line, plus only the failures.
 
 # Other ways to start
 ## Existing project (built on Atom)

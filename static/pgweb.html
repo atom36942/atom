@@ -2515,10 +2515,10 @@ const OPS={'=':'=','≠':'<>','>':'>','<':'<','≥':'>=','≤':'<=','LIKE':'LIKE
            'IS NULL':'IS NULL','IS NOT NULL':'IS NOT NULL'};
 function filterOperators(){
   const type=(S.meta?.columns.find(c=>c.name===$('fcol').value)?.type||'').toLowerCase();
-  if(/char|text|citext/.test(type)) return ['=','≠','LIKE','ILIKE','IS NULL','IS NOT NULL'];
+  if(/char|text|citext/.test(type)) return ['ILIKE','LIKE','=','≠','IS NULL','IS NOT NULL'];
   if(/int|numeric|decimal|real|double|serial|date|time|timestamp|interval|money/.test(type))
-    return ['=','≠','>','<','≥','≤','IS NULL','IS NOT NULL'];
-  return ['=','≠','IS NULL','IS NOT NULL'];
+    return ['=','≠','>','<','≥','≤','ILIKE','LIKE','IS NULL','IS NOT NULL'];
+  return ['=','≠','ILIKE','LIKE','IS NULL','IS NOT NULL'];
 }
 function drawFilterOps(keep=true){
   const previous=keep ? $('fop').value : S.filterApplied.op;
@@ -2526,7 +2526,7 @@ function drawFilterOps(keep=true){
   $('fop').innerHTML=choices.map(op=>`<option>${op}</option>`).join('');
   $('fop').value=choices.includes(previous) ? previous : choices[0];
   const noValue=$('fop').value.startsWith('IS ');
-  $('fval').disabled=noValue; $('fval').placeholder=noValue?'No value required':'Filter value';
+  $('fval').disabled=noValue; $('fval').placeholder=noValue?'No value required':/LIKE$/.test($('fop').value)?'Contains (% for a pattern)':'Filter value';
 }
 function filterChanged(){
   return $('fcol').value!==S.filterApplied.col || $('fop').value!==S.filterApplied.op ||
@@ -2539,12 +2539,13 @@ $('fcol').onchange=()=>{ syncFcolBtnText(); drawFilterOps(); drawFilterActions()
 $('fop').onchange=()=>{ drawFilterOps(); drawFilterActions(); };
 $('fval').oninput=drawFilterActions;
 $('fgo').onclick = async () => {
-  const col=$('fcol').value, op=OPS[$('fop').value], val=$('fval').value;
+  const col=$('fcol').value, op=OPS[$('fop').value], typed=$('fval').value;
   if(!col) return;
+  const val=/LIKE$/.test(op)&&typed&&!typed.includes('%')?`%${typed}%`:typed;    // LIKE/ILIKE without % means contains
   const previous=S.where;
   S.where=!val&&!op.startsWith('IS')?null:{col,op,val};
   if(await applyFilter()){
-    S.filterApplied={col,op:$('fop').value,val}; drawFilterActions();
+    S.filterApplied={col,op:$('fop').value,val:typed}; drawFilterActions();
   }else S.where=previous;
 };
 $('fclr').onclick = async () => {
