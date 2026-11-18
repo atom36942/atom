@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [16.0.1] - 2026-11-18
+
+Account menu rule clarified in `AGENTS.md` and `docs/frontend.md`: the five items stay; new needs grow inside them (Sync is the whole sync flow, Settings takes new settings, My profile new profile fields), a sixth item only for a real account need; a page's actions and features, Users included, are header buttons left of the avatar. Nothing to change in projects.
+
 ## [16.0.0] - 2026-11-18
 
 **Upgrade (projects must change):** `config_api` ids are renumbered 1, 2, 3, … in route order (a project's own routes stay at 200 and up). The permission routes are now `/permission/object-update` 59, `/permission/object-delete` 60, `/permission/user-create` 61, `/permission/user-update` 62, and the Postgres query runner write 86 (was 136, 137, 138, 139 and 6). In each project: change these ids in its pages and docs (for example a page's create and update permission constants), and in `users.permissions` replace the old ids with the new ones (back up first; root gets its `/admin` ids again at startup).

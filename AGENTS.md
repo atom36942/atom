@@ -66,7 +66,7 @@ Rules:
 
 Defaults (one flow on every page, Atom's own included; the working code to copy is in `static/analytics.html`, the full example, and `static/monitor.html`, the smallest: their five `atom page` blocks go into a page unchanged, only `PAGE` and the page's own screens differ):
 - Login with the page's one role (`/auth/login-username-password`), then `/my/profile`.
-- Account menu (the avatar's initials) holds exactly: My profile, Login details, Sync, Settings, Logout. A page's own actions are header buttons left of the avatar.
+- Account menu (the avatar's initials): My profile, Login details, Sync, Settings, Logout. New needs grow inside them (Sync is the whole sync flow, Settings takes new settings); a sixth item only for a real account need. A page's own actions and features (Users included) are header buttons left of the avatar.
 - Sync every 3 hours and from the menu: token, `/my/profile`, `/info` (labels and limits), the page's reference data in IndexedDB.
 - Settings: Theme and Density; every colour and size a CSS variable; an app page starts light (`<html data-default-theme="light">`), Atom's own dark. One dialog, toast and password box style.
 - Lists: cursor paging (Previous/Next), search on Enter, an export dialog up to `/info` `export_limit`.
