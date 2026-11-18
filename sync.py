@@ -44,7 +44,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # setting
 # Atom's version: raised by hand when a change is worth a new number (no tags); a project's sync.py shows the version it has
-ATOM_VERSION = "16.0.1"
+ATOM_VERSION = "16.1.0"
 REPO_URL = "https://github.com/atom36942/atom.git"
 # Single files replaced from upstream on every sync.
 SYNC_FILES = [
@@ -574,6 +574,7 @@ def bootstrap_sync(*, root, repo_url=REPO_URL, is_venv_sync=True, is_outdated_ch
             raise
         if result.returncode:
             raise ValueError(f"Latest Atom updater failed (exit {result.returncode}). sync.py now shows Atom {atom_version(source=source) or 'unknown'}, but the other files may not be updated: review the working tree, then run python3 sync.py again")
+        print(f'Next, ask your AI agent: "Update this repo to the latest Atom: follow Update in AGENTS.md" ({version_change(old=atom_version(source=previous[0]) if previous else None, new=atom_version(source=source), is_same_revision=False)}).')
 
 def apply_bootstrapped_revision(*, root, revision, is_venv_sync=True, is_outdated_check=True):
     """Internal child entry: validate the parent lock and pinned updater source."""

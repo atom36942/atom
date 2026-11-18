@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [16.1.0] - 2026-11-18
+
+Updating a project is two steps: `python3 sync.py` (Atom's files, exactly) and one prompt, `Update this repo to the latest Atom: follow Update in AGENTS.md`, which sync now prints at the end. `docs/align.md` moved into `AGENTS.md` as its **Update** section (sync removes the old file), so the rules and how to apply them are in one file. Nothing to change in projects.
+
 ## [16.0.1] - 2026-11-18
 
 Account menu rule clarified in `AGENTS.md` and `docs/frontend.md`: the five items stay; new needs grow inside them (Sync is the whole sync flow, Settings takes new settings, My profile new profile fields), a sixth item only for a real account need; a page's actions and features, Users included, are header buttons left of the avatar. Nothing to change in projects.

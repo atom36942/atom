@@ -10,7 +10,7 @@ Atom is a backend: its front-end parts are Defaults, so a project may build any 
 
 ## Work
 - Work autonomously; ask only for essential missing info or destructive actions outside the request.
-- Before a project task: `python3 sync.py --status`; if Atom is behind, sync first ([sync.md](docs/sync.md)), then follow the latest rules. Bringing a project, or a folder of them, in line with Atom: [align.md](docs/align.md).
+- Before a project task: `python3 sync.py --status`; if Atom is behind, follow [Update](#update) first.
 - Match surrounding code: naming, density, one-line statements, comments. Never expose `.env` values or credentials (key names only).
 - One simple rule over exceptions; no backward-compat shims. Docs describe patterns (`<feature>.py`, `/page/<name>`), never specific file names.
 - A framework change keeps Atom's design decisions ([about.md](docs/about.md), with the reason for each) unless the user asks to change one.
@@ -85,10 +85,22 @@ Built only when an app needs them, each with its own doc: user management ([user
 | Auth, roles, permissions; user management | [auth.md](docs/auth.md), [user-management.md](docs/user-management.md) |
 | Rows, paging, ownership, export | [crud.md](docs/crud.md), [ownership.md](docs/ownership.md) |
 | Every setting; extending; syncing | [config.md](docs/config.md), [extend.md](docs/extend.md), [sync.md](docs/sync.md) |
-| Bringing projects in line with Atom (a procedure, no rules) | [align.md](docs/align.md) |
 | Why Atom is built this way | [about.md](docs/about.md) |
 
 ## Verify
 - `venv/bin/python -m script.check` (Windows `venv\Scripts\`): startup checks, ruff, every page's JavaScript and every test, as CI runs it; a test name such as `tests_extend.test_invoice` runs just that.
 - The check's last part, `standard Rules x/y, Defaults x/y`, reports what a project misses of the measurable Rules and Defaults (report only: it never fails the check); a Rule missed is fixed, a Default kept on purpose has its reason in `docs_extend/`.
 - Database tests use a throwaway local database, never a shared or production one. Keep tests light: test the rules whose mistake gives wrong data without an error.
+
+## Update
+Two parts: `python3 sync.py` replaces Atom's files exactly (the shared core); then the AI agent brings the project's own code in line with the rules above. Started with `Update this repo to the latest Atom: follow Update in AGENTS.md` (or `each Atom-based repo of this folder`); sync prints that line too.
+1. **Repos.** `./CLAUDE.md` first: it says what may change and how, and wins over this. A repo is Atom-based when it has `sync.py`, `config_extend.py` and `*_extend` folders. Show the list and wait for the OK; then one repo at a time:
+2. **Sync.** With a clean `git status` (else stop and ask) and the app stopped, `python3 sync.py` outside the venv ([sync.md](docs/sync.md)); follow every **Upgrade** note in `CHANGELOG.md` between the versions sync printed (`Atom old -> new`); `script.check` passes.
+3. **Audit**, from the check's `standard` lines, then every rule above and the docs it links, for the areas the repo has:
+   - Structure: right `*_extend` folder, one feature name, no edited core file, generated files only in `tmp/`.
+   - Security: secrets outside `.env` (also `git log -p`; a leaked key is reported for rotation), route access, responses wider than their screen, SQL built from strings, unescaped HTML, tokens or personal data in URLs or logs.
+   - Speed and scale: a filter, sort or search without an index, one query per item, totals counted in the browser, tables downloaded whole, exports not streamed, caches without a limit.
+   - Pages: against the reference pages above and [frontend.md](docs/frontend.md); at phone width and in dark mode.
+   - Clean-up: dead code, unused files, CSS and settings, duplicate helpers, `docs_extend/` out of date, missing tests for rules that fail silently.
+4. **Propose** a table (area, now, the rule, its tier, the fix) and wait for the OK. A missed Rule is fixed; a Default is a suggestion: one kept on purpose gets its reason in `docs_extend/`, a risky change to a working page is optional.
+5. **Refactor and verify.** Project files only (never Atom's core, `.env` values or data); the check passes; click through every page; report what changed and what was skipped. Commit or push only when asked or `CLAUDE.md` allows. A later run proposes only what drifted.
