@@ -4,6 +4,16 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [16.0.0] - 2026-11-18
+
+**Upgrade (projects must change):** `config_api` ids are renumbered 1, 2, 3, … in route order (a project's own routes stay at 200 and up). The permission routes are now `/permission/object-update` 59, `/permission/object-delete` 60, `/permission/user-create` 61, `/permission/user-update` 62, and the Postgres query runner write 86 (was 136, 137, 138, 139 and 6). In each project: change these ids in its pages and docs (for example a page's create and update permission constants), and in `users.permissions` replace the old ids with the new ones (back up first; root gets its `/admin` ids again at startup).
+
+- **Rules for every project:** `AGENTS.md` is shorter and the source of truth, each rule marked Enforced, Rule or Default, with the project structure; the detail moves to `docs/backend.md` (structure, data, settings, routes, scripts, scale and speed, security) and `docs/frontend.md` (replaces `docs/page.md`: login, the 5-item account menu, sync, settings, screens, layout, size and colour, scale), with user management in its own `docs/user-management.md`. Atom is a backend: front-end parts are Defaults.
+- **`docs/align.md`:** one procedure for an AI agent to bring a project, or a folder of them, up to the latest Atom and in line with `AGENTS.md`, auditing structure, security, speed and scale, pages and clean-up in one run.
+- **`script.check` standard score:** in a project, the summary line ends with `standard Rules x/y, Defaults x/y` and lists what is missed (secrets in code, asyncpg only, `.env` ignored, feature files, page login flow, account menu, sync, settings, export, no outside scripts, viewport, CSS variables). Report only: it never fails the check.
+- **Page theme default:** the theme block reads `<html data-default-theme>`; an app page starts light, Atom's own pages stay dark.
+- **PgWeb:** a field modal of one size for every type, editing by type (JSON editor, array item rows, true/false, date and date-time pickers, `users.password` hashed); a compact Add row form with the columns set later folded; filters on the Columns, Indexes and Constraints tabs with a Reset; every download asks first and says what it holds; the row panel shows `table.key` with a copy icon and downloads the row vertically; the query runner reports a write's status, and Explain refuses a script.
+
 ## [15.8.0] - 2026-11-17
 
 Monitor, Analytics and PgWeb get clearer, shorter and more consistent; Monitor gains a database upgrade check. Nothing to change in projects; set `config_postgres_storage_gb` to use the disk part of the check.

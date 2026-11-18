@@ -17,7 +17,7 @@ A guideline, not a fixed recipe: adapt it to the feature. Examples use the conne
 5. **Run it** in that database with any Postgres client, e.g. `psql "<url>" -v ON_ERROR_STOP=1 -f files_extend/gps_schema.sql`. Atom never runs this file and never changes this database's schema; it manages `master` only.
 6. **Reload** the schema cache: restart Atom or call `GET /admin/sync`.
 7. **APIs.** The feature's own `function_extend/gps.py` (`func_gps_*` with the SQL), `router_extend/gps.py` (reads params, calls one function) and a `config_api` entry per route in `config_extend.py`, as for any feature ([extend.md](extend.md)).
-8. **UI.** A page in `static_extend/gps/` that calls those APIs (map, charts, reports), built to [page.md](page.md); business rules in `docs_extend/gps.md`, tests in `tests_extend/test_gps.py`.
+8. **UI.** A page in `static_extend/gps/` that calls those APIs (map, charts, reports), built to [frontend.md](frontend.md); business rules in `docs_extend/gps.md`, tests in `tests_extend/test_gps.py`.
 
 A route on the new pool, for example:
 ```python

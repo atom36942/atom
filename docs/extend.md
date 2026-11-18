@@ -63,7 +63,7 @@ config_values = {key: value for module in config_modules for key, value in vars(
 
 ## Reuse what Atom provides
 
-Before writing a helper, client or pool, check what Atom already has. Databases come from `.env`, any number per type: each line `config_<db>_url_<name>=<url>` (`config_postgres_url_master`, `config_postgres_url_reports`, `config_mssql_url_master`, ...) fills `config_<db>_url_dict` in `config.py`, and Atom opens one pool per entry at startup in `app.state.client_postgres_dict["<name>"]`, `client_mssql_dict["<name>"]`, `client_redis_dict["<name>"]` or `client_clickhouse_dict["<name>"]` (`master` is the default), and closes it at shutdown. Adding a database is one `.env` line, no code. Atom also creates `client_s3`, `client_ses`, `client_openai`, `client_gemini`, `client_http` and the rest. Routes and functions use them; they never open a second pool or SDK client. Atom's `func_*` helpers cover request params, errors, table CRUD, SQL runners, CSV export and import, file storage, email and SMS, queues and background tasks; [AGENTS.md](../AGENTS.md) lists them under "Reuse Atom". When something is missing, write a project `func_<feature>_*` or propose it for Atom.
+Before writing a helper, client or pool, check what Atom already has. Databases come from `.env`, any number per type: each line `config_<db>_url_<name>=<url>` (`config_postgres_url_master`, `config_postgres_url_reports`, `config_mssql_url_master`, ...) fills `config_<db>_url_dict` in `config.py`, and Atom opens one pool per entry at startup in `app.state.client_postgres_dict["<name>"]`, `client_mssql_dict["<name>"]`, `client_redis_dict["<name>"]` or `client_clickhouse_dict["<name>"]` (`master` is the default), and closes it at shutdown. Adding a database is one `.env` line, no code. Atom also creates `client_s3`, `client_ses`, `client_openai`, `client_gemini`, `client_http` and the rest. Routes and functions use them; they never open a second pool or SDK client. Atom's `func_*` helpers cover request params, errors, table CRUD, SQL runners, CSV export and import, file storage, email and SMS, queues and background tasks; [backend.md](backend.md) lists them under "Reuse Atom". When something is missing, write a project `func_<feature>_*` or propose it for Atom.
 
 Data users can change from a page (an option list, a setting) belongs in the database, never in a tracked file, which a deploy or `git pull` would silently replace: a setting is one row in Atom's `config` table (`key`, jsonb `value`), other data gets its own table in `config_postgres`. Option lists: lists developers change go in `config_options`; lists users change from a page go in a table the project designs, written only through the feature's own routes and listed in `config_table_my_create_blocked`.
 
@@ -138,7 +138,7 @@ config_column_int_mapping = {
 config_api = {
     **base_config_api,
     "/custom/hello": {"id": 200, "is_token": False},
-    "/my/object-read": {"id": 50, "is_token": True, "is_connection_param": True, "is_active": False},
+    "/my/object-read": {"id": 26, "is_token": True, "is_connection_param": True, "is_active": False},
 }
 
 # 3. Add a table, and a column to Atom's users table (a new list: Atom's columns plus yours).

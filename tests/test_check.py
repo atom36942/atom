@@ -11,6 +11,7 @@ from io import StringIO
 from pathlib import Path
 
 from script.check import pages_check
+from script.check import standard_check
 from script.check import summary_format
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -90,6 +91,41 @@ class PageCheckTests(unittest.TestCase):
 
     def test_without_node_the_step_is_skipped(self):
         with patch("script.check.shutil.which", return_value=None): self.assertEqual(self.pages({})[0], None)
+
+class StandardTests(unittest.TestCase):
+    """The standard score only reports: it names what a project misses and never fails the check."""
+    def project(self, files):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        for name, text in {"config_extend.py": "", ".gitignore": ".env\n", **files}.items():
+            Path(root, name).parent.mkdir(parents=True, exist_ok=True)
+            Path(root, name).write_text(text, encoding="utf-8")
+        rules, defaults = standard_check(root=root)
+        return {what: missing for what, missing in [*rules, *defaults] if missing}
+
+    def test_outside_a_project_there_is_no_score(self):
+        self.assertIsNone(standard_check(root=tempfile.gettempdir() + "/no-such-project"))
+
+    def test_a_project_following_the_standard_misses_nothing(self):
+        page = '<meta name="viewport"><style>a{color:var(--text)}</style><script>"/auth/login /my/profile /my/token-refresh /info export_limit theme density My profile Login details Sync Settings Logout"</script>'
+        files = {"router_extend/invoice.py": "", "function_extend/invoice.py": "import asyncpg", "docs_extend/invoice.md": "", "tests_extend/test_invoice.py": "", "static_extend/invoice/index.html": page}
+        self.assertEqual(self.project(files), {})
+
+    def test_what_is_missing_is_named(self):
+        missing = self.project({"router_extend/invoice.py": "import psycopg2", "files_extend/key.txt": "postgresql://app:hunter2@db.example.com/app",
+                                "static_extend/invoice.html": '<script src="https://cdn.example.com/x.js"></script><script>fetch("/auth/login")</script>', ".gitignore": ""})
+        self.assertEqual(missing["no secret in code or docs (only in .env)"], ["files_extend/key.txt"])
+        self.assertEqual(missing["Postgres only through asyncpg"], ["router_extend/invoice.py"])
+        self.assertEqual(missing[".env kept out of Git"], [".gitignore"])
+        self.assertEqual(missing["each feature has tests_extend/test_<f>.py"], ["invoice"])
+        self.assertEqual(missing["pages load no script or style from another site"], ["invoice"])
+        self.assertEqual(missing["keeps the login alive (/my/token-refresh)"], ["invoice"])
+
+    def test_the_score_is_in_the_summary_and_never_fails_it(self):
+        standard = ([("rule a", [])], [("default b", ["invoice"]), ("default c", [])])
+        lines = summary_format(steps=[("startup", True, "")], result=sample_result("test_passes"), seconds=1, standard=standard)
+        self.assertIn("standard Rules 1/1, Defaults 1/2", lines[0])
+        self.assertIn("  Default: default b: invoice", lines)
 
 if __name__ == "__main__":
     unittest.main()

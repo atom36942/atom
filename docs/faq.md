@@ -225,7 +225,7 @@ Set `"is_active": False` in the route's `config_api` policy (e.g., in `config_ex
 
 ```python
 config_api["/admin/postgres-query-runner-write"] = {
-    "id": 6,
+    "id": 86,
     "is_active": False,  # <-- Disables this route in production
     "is_token": True,
     "user_check_role": {"mode": "realtime", "roles": [1]},

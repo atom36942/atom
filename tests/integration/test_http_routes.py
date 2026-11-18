@@ -94,14 +94,14 @@ class HttpRouteTests(unittest.TestCase):
                 self.assertEqual((user.status_code, user.json()["message"]), (403, expected))
 
     def test_permission_routes_root_holds_them_others_need_a_grant(self):
-        # root gets Atom's /admin permission route at startup (6); the /permission writes (136, 137) are granted explicitly, root included
-        self.assertEqual(fetch(self.url, "SELECT permissions FROM users WHERE id = 1"), [{"permissions": [6]}])
+        # root gets Atom's /admin permission route at startup (86); the /permission writes (59, 60) are granted explicitly, root included
+        self.assertEqual(fetch(self.url, "SELECT permissions FROM users WHERE id = 1"), [{"permissions": [86]}])
         self.message(self.client.post("/admin/user-create", json={"role": 1, "username": "admin2", "password": "admin2-pass"}, headers=self.auth(self.admin)))
         admin2 = app_login(self.client, path="/auth/login-username-password", body={"username": "admin2", "password": "admin2-pass"})
         self.assertEqual(self.message(self.client.post("/admin/postgres-query-runner-write", json={"sql": "SELECT 1"}, headers=self.auth(admin2)), 403), "permission denied")
         self.assertEqual(self.message(self.client.delete("/admin/user-delete", params={"id": self.bob_id}, headers=self.auth(admin2)), 403), "users hard delete disabled")    # role 1 only; config_is_user_delete is off
         # role 1 + permission: a role 5 user granted 6 is still refused by the role
-        self.message(self.client.put("/admin/user-update", json={"id": self.alice_id, "permissions": [6]}, headers=self.auth(self.admin)))
+        self.message(self.client.put("/admin/user-update", json={"id": self.alice_id, "permissions": [86]}, headers=self.auth(self.admin)))
         self.assertEqual(self.message(self.client.put("/admin/user-update", json={"id": self.alice_id, "permissions": [999]}, headers=self.auth(self.admin)), 400).count("not labelled"), 1)
         alice = app_login(self.client, path="/auth/login-username-password", body={"username": "alice", "password": "alice-pass"})
         self.assertEqual(self.message(self.client.delete("/admin/user-delete", params={"id": self.bob_id}, headers=self.auth(alice)), 403), "access denied")
@@ -123,7 +123,7 @@ class HttpRouteTests(unittest.TestCase):
 
     def test_admin_user_create_takes_other_users_columns_in_one_go(self):
         create = lambda body: self.client.post("/admin/user-create", json={"role": 5, "password": "dave-pass", **body}, headers=self.auth(self.admin))
-        for column, value in (("google_login_id", "g1"), ("email", "d@x.io"), ("permissions", [6]), ("created_at", "2026-01-01"), ("verified_at", "2026-01-01"), ("deactivated_at", "2026-01-01"), ("id", 5)):
+        for column, value in (("google_login_id", "g1"), ("email", "d@x.io"), ("permissions", [86]), ("created_at", "2026-01-01"), ("verified_at", "2026-01-01"), ("deactivated_at", "2026-01-01"), ("id", 5)):
             with self.subTest(column=column):
                 self.assertIn(f"{column} cannot be set when creating a user", self.message(create({"username": "dave", column: value}), 400))
         self.assertIn("does not exist", self.message(create({"username": "dave", "no_such_column": 1}), 400))
@@ -135,7 +135,7 @@ class HttpRouteTests(unittest.TestCase):
     def test_permission_user_create_needs_the_permission_and_an_allowed_role(self):
         create = lambda token, role, username="carol": self.client.post("/permission/user-create", json={"username": username, "password": "carol-pass", "role": role}, headers=self.auth(token))
         self.assertEqual(self.message(create(self.bob, 5), 403), "permission denied")
-        self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [138]}, headers=self.auth(self.admin)))
+        self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [61]}, headers=self.auth(self.admin)))
         bob = app_login(self.client, path="/auth/login-username-password", body={"username": "bob", "password": "bob-pass"})
         try:
             self.assertIn("role 5 not allowed", self.message(create(bob, 5), 400))    # Atom's default: no role
@@ -159,7 +159,7 @@ class HttpRouteTests(unittest.TestCase):
         self.addCleanup(route.__setitem__, "rate_limit", limit)
         user = lambda: fetch(self.url, "SELECT name, deactivated_at IS NOT NULL AS off, deactivated_by_id, updated_by_id FROM users WHERE id = $1", self.alice_id)[0]
         self.assertEqual(self.message(update(self.bob, {"id": self.alice_id, "name": "A"}), 403), "permission denied")
-        self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [139]}, headers=self.auth(self.admin)))
+        self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [62]}, headers=self.auth(self.admin)))
         bob = app_login(self.client, path="/auth/login-username-password", body={"username": "bob", "password": "bob-pass"})
         try:
             self.assertIn("role 5 not allowed", self.message(update(bob, {"id": self.alice_id, "name": "A"}), 400))    # Atom's default: no role
@@ -167,7 +167,7 @@ class HttpRouteTests(unittest.TestCase):
             self.assertIn("role 1 not allowed", self.message(update(bob, {"id": 1, "password": "taken-over"}), 400))    # root and admins never
             self.assertIn("send id and the columns", self.message(update(bob, {"id": self.alice_id}), 400))
             self.assertIn("password must be updated alone", self.message(update(bob, {"id": self.alice_id, "name": "A", "password": "x-pass-1"}), 400))    # Atom's single-update rule
-            for column, value in (("role", 9), ("permissions", [139]), ("username", "alice2"), ("email", "a@example.com"), ("deactivated_by_id", 1), ("created_by_id", 1)):
+            for column, value in (("role", 9), ("permissions", [62]), ("username", "alice2"), ("email", "a@example.com"), ("deactivated_by_id", 1), ("created_by_id", 1)):
                 with self.subTest(column=column): self.assertIn(f"{column} cannot be updated here", self.message(update(bob, {"id": self.alice_id, column: value}), 400))
             self.message(update(bob, {"id": self.alice_id, "name": "Alice A", "city": "Pune", "job_title": "Lead"}))    # the profile columns, together
             self.assertEqual(user(), {"name": "Alice A", "off": False, "deactivated_by_id": None, "updated_by_id": self.bob_id})
@@ -189,7 +189,7 @@ class HttpRouteTests(unittest.TestCase):
         [row_id] = self.message(self.client.post("/my/object-create", params={"table": "test"}, json={"title": "alice's"}, headers=self.auth(self.alice)))
         update = lambda token, table="test": self.client.put("/permission/object-update", params={"table": table}, json={"id": row_id, "title": "by bob"}, headers=self.auth(token))
         self.assertEqual(self.message(update(self.bob), 403), "permission denied")
-        self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [136, 137]}, headers=self.auth(self.admin)))
+        self.message(self.client.put("/admin/user-update", json={"id": self.bob_id, "permissions": [59, 60]}, headers=self.auth(self.admin)))
         bob = app_login(self.client, path="/auth/login-username-password", body={"username": "bob", "password": "bob-pass"})
         try:
             self.assertEqual(self.message(update(bob), 400), "write disabled for table: test")    # Atom's default: no table

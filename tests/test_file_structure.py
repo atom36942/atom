@@ -1,4 +1,4 @@
-"""Atom's Python files (routers, functions, scripts and sync.py) keep the section headers AGENTS.md describes, so every file reads the same way."""
+"""Atom's Python files (routers, functions, scripts and sync.py) keep the section headers docs/backend.md describes, so every file reads the same way."""
 import ast
 import io
 import re

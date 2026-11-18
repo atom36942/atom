@@ -2,6 +2,7 @@
 import asyncio
 import csv
 import io
+import re
 import time
 from contextlib import suppress
 from typing import Any
@@ -16,6 +17,7 @@ from starlette.responses import StreamingResponse
 from .clients import func_client_postgres
 from .clients import func_postgres_acquire_clean
 from .middleware import func_api_error
+from .monitor import func_monitor_database_upgrade
 from .postgres_page import func_page_after_next
 from .postgres_page import func_page_after_where
 from .postgres_page import func_page_order_sql
@@ -111,10 +113,16 @@ def func_pgweb_dsn_safe(dsn: str) -> str:
     except Exception: return "connection URL unavailable"
 
 def func_pgweb_write_check(*, sql: str, is_confirmed: bool = False, is_read_only: bool = False) -> None:
-    """Refuse empty SQL, and DROP, TRUNCATE or UPDATE/DELETE without WHERE unless confirmed (read-only mode cannot write anyway)."""
+    """Refuse empty SQL, and DROP, TRUNCATE or UPDATE/DELETE without WHERE unless confirmed (read-only mode cannot write anyway).
+    Each statement of a script is checked, comments removed; EXPLAIN ANALYZE runs its statement, and a WITH can hide an UPDATE or DELETE, so both count."""
     if not sql or not sql.strip(): raise Exception("sql is required")
-    normalized = " ".join(sql.lower().split())
-    if not is_read_only and not is_confirmed and (normalized.startswith(("truncate", "drop ")) or (normalized.startswith(("update ", "delete ")) and " where " not in normalized)): raise Exception("unbounded_write")
+    if is_read_only or is_confirmed: return
+    text = re.sub(r"--[^\n]*|/\*.*?\*/", " ", sql, flags=re.S).lower()
+    for part in text.split(";"):
+        statement = " ".join(part.split())
+        statement = re.sub(r"^explain\s+(\([^)]*analyze[^)]*\)|analyze)\s*(verbose\s+)?", "", statement)    # EXPLAIN ANALYZE executes what follows
+        writes = statement.startswith(("update ", "delete ")) or (statement.startswith("with ") and re.search(r"\b(update|delete)\b", statement))
+        if statement.startswith(("truncate", "drop ")) or (writes and " where " not in statement): raise Exception("unbounded_write")
 
 async def func_pgweb_column_type(*, pool: asyncpg.Pool, table: str, column: str, timeout_sec: int = 30) -> str:
     """Full type of a public table's column (e.g. numeric(10,2)), or None when the column does not exist."""
@@ -422,7 +430,9 @@ async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, 
                    (SELECT pa.attname FROM pg_index i JOIN pg_attribute pa ON pa.attrelid = i.indrelid AND pa.attnum = ANY(i.indkey)
                     WHERE i.indrelid = a.attrelid AND i.indisprimary AND i.indnkeyatts = 1
                     ORDER BY array_position(i.indkey::smallint[], pa.attnum) LIMIT 1) AS pk,
-                   pg_size_pretty(c.relpages::bigint * 8192) AS total_size
+                   pg_size_pretty(c.relpages::bigint * 8192) AS total_size,
+                   (SELECT array_agg(t.tgname::text ORDER BY t.tgname) FROM pg_trigger t
+                    WHERE t.tgrelid = c.oid AND NOT t.tgisinternal AND t.tgenabled <> 'D' AND (t.tgtype & 4) <> 0) AS insert_triggers
             FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid
             LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
             WHERE a.attrelid = $1::regclass AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum""", func_pgweb_regclass(table), timeout=timeout_sec)
@@ -438,7 +448,8 @@ async def func_pgweb_rows(*, pool: asyncpg.Pool, table: str, limit: int = 1000, 
     pk_type = next((row["type"] for row in catalog if row["name"] == detected_pk), "")
     meta = {"columns": [{k: row[k] for k in ("position", "name", "type", "key_type", "nullable", "default_value", "generated")} for row in catalog],
             "pk": detected_pk, "latest_first": func_pgweb_latest_first(pk=detected_pk, pk_type=pk_type),
-            "stats": {"total_size": first_meta["total_size"] if first_meta else "0 bytes"}}
+            "stats": {"total_size": first_meta["total_size"] if first_meta else "0 bytes"},
+            "insert_triggers": list(first_meta["insert_triggers"] or []) if first_meta else []}
     cache_table[table] = {"pk": meta["pk"], "latest_first": meta["latest_first"], "types": {row["name"]: row["type"] for row in catalog}}
     if plan(meta) != guess or isinstance(out, BaseException): out = await page(*plan(meta))    # the remembered key was out of date: read the page again with the real one
     out["meta"] = meta
@@ -453,9 +464,10 @@ async def func_pgweb_row(*, pool: asyncpg.Pool, table: str, pk: str, pk_value: A
     records = await pool.fetch(f"SELECT * FROM {func_pgweb_ident('public', table)} WHERE {func_pgweb_ident(pk)} = ($1::text)::{pk_type}", str(pk_value), timeout=timeout_sec)  # noqa: S608 - identifiers via func_pgweb_ident, type from pg_catalog
     return func_pgweb_pack(records)
 
-async def func_pgweb_query(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool = False, is_read_only: bool = False,
+async def func_pgweb_query(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool = False, is_read_only: bool = False, is_explain: bool = False,
                            query_id: str = None, active_queries: dict = None, timeout_sec: int = 30) -> dict:
-    """Execute query-runner SQL with write guards and optional read-only mode."""
+    """Execute query-runner SQL with write guards and optional read-only mode. is_explain: the page's Explain, which must stay one statement
+    (a script would run its other statements, which Explain promises not to)."""
     func_pgweb_write_check(sql=sql, is_confirmed=is_confirmed, is_read_only=is_read_only)
     result_limit = 10000
     async with func_postgres_acquire_clean(client_postgres=pool) as conn:
@@ -466,13 +478,15 @@ async def func_pgweb_query(*, pool: asyncpg.Pool, sql: str, is_confirmed: bool =
             try: statement = await conn.prepare(sql, timeout=timeout_sec)
             except Exception as exc:
                 if "multiple commands" not in str(exc).lower(): raise
+                if is_explain: raise Exception("Explain takes one statement; run the script with Execute") from exc
                 statement = None
             async with conn.transaction(readonly=bool(is_read_only)):
                 if statement is None:
                     status = await conn.execute(sql, timeout=timeout_sec)
                     return {"cols": ["status"], "rows": [[status]], "truncated": False}
-                if not statement.get_attributes():
-                    return func_pgweb_pack(await statement.fetch(timeout=timeout_sec))
+                if not statement.get_attributes():    # a write without RETURNING, DDL: its status (e.g. UPDATE 500), not "0 rows"
+                    await statement.fetch(timeout=timeout_sec)
+                    return {"cols": ["status"], "rows": [[statement.get_statusmsg()]], "truncated": False}
                 cursor = await statement.cursor(timeout=timeout_sec)
                 records = await cursor.fetch(result_limit + 1)
                 out = func_pgweb_pack(records[:result_limit])
@@ -544,7 +558,6 @@ async def func_pgweb_editable_table(*, pool: asyncpg.Pool, table: str, pk_value:
         if not info["column_type"]: raise Exception(f"unknown column: {column}")
         if column == info["pk"]: raise Exception("the primary key column cannot be edited here")
         if info["attgenerated"] or info["attidentity"]: raise Exception("generated and identity columns cannot be edited")
-        if info["typcategory"] == "A" or info["column_type"] == "bytea": raise Exception("array and binary columns cannot be edited here; use the SQL runner")
     return dict(info)
 
 def func_pgweb_same_value(*, loaded: Any, original: Any) -> bool:
@@ -553,13 +566,54 @@ def func_pgweb_same_value(*, loaded: Any, original: Any) -> bool:
     if isinstance(loaded, (int, float)) and isinstance(original, (int, float)) and not isinstance(loaded, bool) and not isinstance(original, bool): return float(loaded) == float(original)
     return False
 
-async def func_pgweb_update_cell(*, pool: asyncpg.Pool, table: str, column: str, pk_value: Any, original: Any = None, value: Any = None, is_null: bool = False,
-                                 is_read_only: bool = False, timeout_sec: int = 30) -> dict:
-    """Change one cell, finding the row by its single-column primary key; returns the updated row.
+async def func_pgweb_password(*, value: Any, is_hash: bool, client_password_hasher: Any) -> str:
+    """users.password as it is stored: Atom's argon2 hash of the value (is_hash), or, with is_hash off, only a value that already is an argon2 hash, so a plain password is never stored."""
+    if is_hash:
+        if not client_password_hasher: raise Exception("password hashing is unavailable")
+        return await asyncio.to_thread(client_password_hasher.hash, str(value or ""))
+    if not str(value or "").startswith("$argon2"): raise Exception("with hashing off, paste an existing argon2 hash ($argon2…); a plain password is never stored")
+    return str(value)
+
+async def func_pgweb_insert_row(*, pool: asyncpg.Pool, table: str, values: dict = None, is_hash: bool = True, client_password_hasher: Any = None, is_read_only: bool = False, timeout_sec: int = 30) -> dict:
+    """Add one row and return it. values is {column: text or None}: PostgreSQL converts each text to the column's type (arrays as '{a,b}', bytea as '\\x0a1b'),
+    None is NULL, and a column left out gets its default (or NULL). Generated and identity-always columns are refused; users.password is hashed as in update_cell."""
+    if is_read_only: raise Exception("read-only mode: turn it off to change data")
+    values = values or {}
+    if not isinstance(values, dict): raise Exception("values must be an object of column: value")
+    func_pgweb_ident(table)
+    for column in values: func_pgweb_ident(column)
+    catalog = await pool.fetch("""
+        SELECT c.relkind::text AS relkind, a.attname AS name, format_type(a.atttypid, a.atttypmod) AS type, a.attidentity::text AS attidentity, a.attgenerated::text AS attgenerated
+        FROM pg_class c LEFT JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+        WHERE c.oid = $1::regclass""", func_pgweb_regclass(table), timeout=timeout_sec)
+    if not catalog or catalog[0]["relkind"] not in ("r", "p"): raise Exception("rows can be created only in tables")
+    columns = {row["name"]: row for row in catalog if row["name"]}
+    for column in values:
+        if column not in columns: raise Exception(f"unknown column: {column}")
+        if columns[column]["attgenerated"] or columns[column]["attidentity"] == "a": raise Exception(f"{column} is filled by the database and cannot be set")
+    values = dict(values)
+    if table == "users" and values.get("password") not in (None, ""):
+        values["password"] = await func_pgweb_password(value=values["password"], is_hash=is_hash, client_password_hasher=client_password_hasher)
+    table_sql, names = func_pgweb_ident("public", table), list(values)
+    if names:
+        cols_sql = ", ".join(func_pgweb_ident(name) for name in names)
+        values_sql = ", ".join(f"(${i}::text)::{columns[name]['type']}" for i, name in enumerate(names, 1))
+        sql, args = f"INSERT INTO {table_sql} ({cols_sql}) VALUES ({values_sql}) RETURNING *", [None if values[name] is None else str(values[name]) for name in names]  # noqa: S608 - identifiers via func_pgweb_ident, types from pg_catalog, values as parameters
+    else:
+        sql, args = f"INSERT INTO {table_sql} DEFAULT VALUES RETURNING *", []  # noqa: S608 - identifier via func_pgweb_ident
+    return func_pgweb_pack(await pool.fetch(sql, *args, timeout=timeout_sec))
+
+async def func_pgweb_update_cell(*, pool: asyncpg.Pool, table: str, column: str, pk_value: Any, original: Any = None, value: Any = None, is_null: bool = False, is_default: bool = False,
+                                 is_hash: bool = True, client_password_hasher: Any = None, is_read_only: bool = False, timeout_sec: int = 30) -> dict:
+    """Change one cell, finding the row by its single-column primary key; returns the updated row. The value is text that PostgreSQL converts to the column's type
+    (arrays as '{a,b}', bytea as '\\x0a1b'); is_null sets NULL, is_default the column's default. users.password is saved as Atom's argon2 hash (is_hash, the default),
+    or, with is_hash off, only a value that already is an argon2 hash, so a plain password is never stored.
 
     The row is locked and the cell compared with the value the page loaded, so a change made meanwhile is never overwritten;
     any update that would not change exactly one row is rolled back.
     """
+    if table == "users" and column == "password" and not is_null and not is_default:
+        value = await func_pgweb_password(value=value, is_hash=is_hash, client_password_hasher=client_password_hasher)
     info = await func_pgweb_editable_table(pool=pool, table=table, pk_value=pk_value, column=column, is_read_only=is_read_only, timeout_sec=timeout_sec)
     table_sql, column_sql, pk_sql = func_pgweb_ident("public", table), func_pgweb_ident(column), func_pgweb_ident(info["pk"])
     pk_cast, column_cast = info["pk_type"], info["column_type"]
@@ -567,8 +621,8 @@ async def func_pgweb_update_cell(*, pool: asyncpg.Pool, table: str, column: str,
         current = await conn.fetchrow(f"SELECT {column_sql} AS value FROM {table_sql} WHERE {pk_sql} = ($1::text)::{pk_cast} FOR UPDATE", str(pk_value), timeout=timeout_sec)  # noqa: S608 - identifiers via func_pgweb_ident, types from pg_catalog
         if current is None: raise Exception("row not found: it was deleted or its key changed; reload the rows")
         if not func_pgweb_same_value(loaded=orjson.loads(func_pgweb_orjson_dumps({"value": current["value"]}))["value"], original=original): raise Exception("this cell changed since the rows were loaded; reload and try again")
-        set_sql = "NULL" if is_null else f"($2::text)::{column_cast}"
-        args = [str(pk_value)] + ([] if is_null else ["" if value is None else str(value)])
+        set_sql = "NULL" if is_null else "DEFAULT" if is_default else f"($2::text)::{column_cast}"
+        args = [str(pk_value)] + ([] if is_null or is_default else ["" if value is None else str(value)])
         records = await conn.fetch(f"UPDATE {table_sql} SET {column_sql} = {set_sql} WHERE {pk_sql} = ($1::text)::{pk_cast} RETURNING *", *args, timeout=timeout_sec)  # noqa: S608 - identifiers via func_pgweb_ident, types from pg_catalog, values as parameters
         if len(records) != 1: raise Exception(f"expected to change 1 row, would change {len(records)}; nothing was saved")
     return func_pgweb_pack(records)
@@ -724,6 +778,64 @@ async def func_pgweb_detail(*, pool: asyncpg.Pool, table: str, part: str, timeou
     else: raise Exception(f"invalid part: {part}")
     return {"rows": [dict(row) for row in await pool.fetch(query, *args, timeout=timeout_sec)]}
 
+async def func_pgweb_health(*, pool: asyncpg.Pool, long_query_sec: int = 5, idle_transaction_sec: int = 60, top: int = 50, timeout_sec: int = 20) -> dict:
+    """The health of the whole server the connection is on, as far as its login may see (PostgreSQL decides: another user's sessions show no state or query without pg_read_all_stats or pg_monitor,
+    a database it may not open shows no size): the server, every database's counters, connections by database and state, queries running over long_query_sec, sessions idle in a transaction
+    over idle_transaction_sec, blocked queries and who blocks them, checkpoints, and the upgrade check Monitor gives for its master (func_monitor_database_upgrade), over every database's counters.
+    One read-only transaction with a statement timeout, so it never changes or holds up the server."""
+    async with pool.acquire() as conn, conn.transaction(readonly=True):
+        await conn.execute(f"SET LOCAL statement_timeout = {int(timeout_sec * 1000)}")
+        server = dict(await conn.fetchrow("""
+            SELECT current_setting('server_version') AS version, current_setting('server_version_num')::int AS version_num, current_user AS user_name, host(inet_server_addr()) AS host, inet_server_port() AS port,
+                   extract(epoch FROM now() - pg_postmaster_start_time())::bigint AS uptime_sec, (SELECT count(*) FROM pg_stat_activity) AS connections, current_setting('max_connections')::int AS max_connections,
+                   current_setting('shared_buffers') AS shared_buffers, current_setting('work_mem') AS work_mem, current_setting('max_wal_size') AS max_wal_size,
+                   (SELECT count(*) FROM pg_database WHERE NOT datistemplate) AS databases,
+                   (SELECT count(*) FROM pg_database WHERE NOT datistemplate AND NOT has_database_privilege(datname, 'CONNECT')) AS databases_no_access,
+                   (SELECT sum(pg_database_size(datname)) FROM pg_database WHERE NOT datistemplate AND has_database_privilege(datname, 'CONNECT'))::bigint AS size_bytes,
+                   (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) OR pg_has_role(current_user, 'pg_read_all_stats', 'MEMBER') AS sees_all""", timeout=timeout_sec))
+        databases = await conn.fetch("""
+            SELECT d.datname AS name, CASE WHEN has_database_privilege(d.datname, 'CONNECT') THEN pg_database_size(d.datname) END AS size_bytes, s.numbackends AS connections,
+                   s.xact_commit + s.xact_rollback AS transactions, round(100.0 * s.xact_rollback / nullif(s.xact_commit + s.xact_rollback, 0), 2)::float AS rollback_percent,
+                   round(100.0 * s.blks_hit / nullif(s.blks_hit + s.blks_read, 0), 2)::float AS cache_hit_percent, s.deadlocks, s.temp_bytes, age(d.datfrozenxid) AS xid_age
+            FROM pg_database d JOIN pg_stat_database s ON s.datid = d.oid WHERE NOT d.datistemplate
+            ORDER BY CASE WHEN has_database_privilege(d.datname, 'CONNECT') THEN pg_database_size(d.datname) END DESC NULLS LAST, d.datname""", timeout=timeout_sec)
+        connections = await conn.fetch("""
+            SELECT coalesce(datname, '(server)') AS database, coalesce(state, CASE WHEN backend_type IS NULL OR backend_type = 'client backend' THEN 'hidden' ELSE 'background' END) AS state, count(*) AS connections, max(extract(epoch FROM now() - state_change))::bigint AS longest_sec
+            FROM pg_stat_activity GROUP BY 1, 2 ORDER BY 3 DESC, 1""", timeout=timeout_sec)
+        long_queries = await conn.fetch("""
+            SELECT datname AS database, usename AS user_name, pid, extract(epoch FROM now() - query_start)::bigint AS running_sec, wait_event_type || ':' || wait_event AS waiting_on, left(query, 500) AS query
+            FROM pg_stat_activity WHERE state = 'active' AND pid <> pg_backend_pid() AND query_start < now() - make_interval(secs => $1) ORDER BY query_start LIMIT $2""", long_query_sec, top, timeout=timeout_sec)
+        idle_transactions = await conn.fetch("""
+            SELECT datname AS database, usename AS user_name, pid, extract(epoch FROM now() - state_change)::bigint AS idle_sec, left(query, 500) AS last_query
+            FROM pg_stat_activity WHERE state LIKE 'idle in transaction%' AND state_change < now() - make_interval(secs => $1) ORDER BY state_change LIMIT $2""", idle_transaction_sec, top, timeout=timeout_sec)
+        blocked = await conn.fetch("""
+            SELECT a.datname AS database, a.pid AS blocked_pid, extract(epoch FROM now() - a.query_start)::bigint AS waiting_sec, b.pid AS blocker_pid, b.usename AS blocker_user, b.state AS blocker_state, left(a.query, 500) AS blocked_query
+            FROM pg_stat_activity a CROSS JOIN LATERAL unnest(pg_blocking_pids(a.pid)) AS x(pid) JOIN pg_stat_activity b ON b.pid = x.pid ORDER BY waiting_sec DESC LIMIT $1""", top, timeout=timeout_sec)
+        # checkpoints moved from pg_stat_bgwriter to pg_stat_checkpointer in PostgreSQL 17
+        checkpoints = dict(await conn.fetchrow("""
+            SELECT num_timed AS timed, num_requested AS requested, buffers_written * current_setting('block_size')::bigint AS written_by_checkpoints_bytes, NULL::bigint AS written_by_queries_bytes, stats_reset FROM pg_stat_checkpointer"""
+            if server["version_num"] >= 170000 else """
+            SELECT checkpoints_timed AS timed, checkpoints_req AS requested, buffers_checkpoint * current_setting('block_size')::bigint AS written_by_checkpoints_bytes,
+                   buffers_backend * current_setting('block_size')::bigint AS written_by_queries_bytes, stats_reset FROM pg_stat_bgwriter""", timeout=timeout_sec))
+        # the upgrade check over the whole server: every database's reads, spills and deadlocks summed, since the oldest reset
+        stats = dict(await conn.fetchrow("""
+            SELECT sum(blks_hit)::bigint AS blks_hit, sum(blks_read)::bigint AS blks_read, sum(temp_bytes)::bigint AS temp_bytes, sum(deadlocks)::bigint AS deadlocks,
+                   coalesce(min(stats_reset), $1, pg_postmaster_start_time()) AS stats_reset, extract(epoch FROM now() - coalesce(min(stats_reset), $1, pg_postmaster_start_time()))::float AS stats_age_sec,
+                   pg_size_bytes(current_setting('shared_buffers')) AS shared_buffers_bytes, pg_size_bytes(current_setting('work_mem')) AS work_mem_bytes, current_setting('server_version_num')::int AS version_num
+            FROM pg_stat_database WHERE datname IS NOT NULL""", checkpoints["stats_reset"], timeout=timeout_sec))    # counters never reset run since the cluster's stats began, which the checkpoint counters' reset dates (a restart keeps them)
+        stats["server_bytes"] = server["size_bytes"]
+        wal = dict(await conn.fetchrow("""
+            SELECT wal_bytes::float, extract(epoch FROM now() - coalesce(stats_reset, pg_postmaster_start_time()))::float AS age_sec, pg_size_bytes(current_setting('max_wal_size')) AS max_wal_bytes,
+                   extract(epoch FROM current_setting('checkpoint_timeout')::interval)::float AS checkpoint_timeout_sec FROM pg_stat_wal""", timeout=timeout_sec)) if server["version_num"] >= 140000 else {}
+    info = {"name": "every database", "host": server["host"], "size_bytes": server["size_bytes"], "connections": server["connections"], "max_connections": server["max_connections"]}
+    upgrade = func_monitor_database_upgrade(info=info, stats=stats, wal=wal, storage_gb=None)
+    for signal in upgrade["signals"]:
+        if signal["name"] == "Disk": signal["detail"] = "data this login can see; the disk size is in the cloud console"    # no disk size here, and growth needs each database's tables
+    upgrade["request"] = (f"PostgreSQL server {server['host'] or 'on a local socket'} needs an upgrade (from Atom PgWeb server health, {upgrade['window']}):\n" + "\n".join(f"- {action}" for action in upgrade["actions"])) if upgrade["actions"] else ""
+    return {"server": server, "databases": [dict(row) for row in databases], "connections": [dict(row) for row in connections], "long_queries": [dict(row) for row in long_queries],
+            "idle_transactions": [dict(row) for row in idle_transactions], "blocked": [dict(row) for row in blocked], "checkpoints": checkpoints, "upgrade": upgrade,
+            "limits": {"long_query_sec": long_query_sec, "idle_transaction_sec": idle_transaction_sec}}
+
 async def func_pgweb(*, app_state: State, action: str, **params) -> dict:
     """Dispatch pgweb actions through focused app-state handlers."""
     client_postgres_pgweb = app_state.client_postgres_pgweb
@@ -743,12 +855,13 @@ async def func_pgweb(*, app_state: State, action: str, **params) -> dict:
         finally: await conn.close()
     handlers = {"schema": app_state.func_pgweb_schema, "info": app_state.func_pgweb_info,
                 "catalog": app_state.func_pgweb_catalog, "rows": app_state.func_pgweb_rows, "row": app_state.func_pgweb_row,
-                "query": app_state.func_pgweb_query, "detail": app_state.func_pgweb_detail, "update_cell": app_state.func_pgweb_update_cell, "delete_row": app_state.func_pgweb_delete_row}
+                "query": app_state.func_pgweb_query, "detail": app_state.func_pgweb_detail, "health": app_state.func_pgweb_health, "update_cell": app_state.func_pgweb_update_cell, "insert_row": app_state.func_pgweb_insert_row, "delete_row": app_state.func_pgweb_delete_row}
     handler = handlers.get(action)
     if not handler: raise Exception(f"invalid action: {action}")
     if action in ("schema", "rows", "row"): params["cache_table"] = client_postgres_pgweb.setdefault("cache_table", {})
     if action == "info": params["connection_url"] = client_postgres_pgweb.get("connection_url", "—")
     if action == "query": params["active_queries"] = active_queries
+    if action in ("update_cell", "insert_row"): params["client_password_hasher"] = getattr(app_state, "client_password_hasher", None)
     result = await handler(pool=pool, **params)
     if action == "schema": result["connection_url"] = client_postgres_pgweb.get("connection_url", "")    # lets a reloaded page show which server it is on
     return result

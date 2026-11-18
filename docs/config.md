@@ -257,7 +257,7 @@ The `/permission/*` routes' settings, together as `config_permission_*` (the rou
 
 | Key | Description |
 |---|---|
-| `config_permission_table_write_allowed` | Tables that `/permission/object-update` and `/permission/object-delete` may change (any row, not only the caller's); default `[]`, off. Callers also need the route's permission (136, 137) |
+| `config_permission_table_write_allowed` | Tables that `/permission/object-update` and `/permission/object-delete` may change (any row, not only the caller's); default `[]`, off. Callers also need the route's permission (59, 60) |
 | `config_permission_user_roles` | Roles the `/permission` user routes may act on (default `[]`: none): the role `/permission/user-create` may give, and the role of the user `/permission/user-update` may change. Roles from 2 only; startup refuses role 1. Renamed from `config_permission_user_create_roles` in 14.0.0 |
 | `config_permission_user_column_blocked` | `users` columns `/permission/user-update` refuses (`role`, `permissions`, the login ones `username`, `email`, `mobile`, ...); every other column, `password` and `deactivated_at` included, may change. Startup refuses a list without `role` and `permissions` |
 
@@ -431,13 +431,13 @@ Human-readable labels for integer-coded database columns. Atom ships only the co
 | `blob.type` | `1` | File |
 | `blob.type` | `2` | Presigned Url |
 
-Projects add their own tables and columns (roles, statuses, types) in `config_extend.py` with `{**base_config_column_int_mapping, ...}`. Startup stops if `config_extend.py` drops any of the codes above; their labels may be renamed and codes added. Pages show labels only from `/info` (saved by their sync, [page.md](page.md)), never written in the page. Labels are display text only: they do not grant access (role `1` is admin because routes check `roles: [1]`, not because of a label).
+Projects add their own tables and columns (roles, statuses, types) in `config_extend.py` with `{**base_config_column_int_mapping, ...}`. Startup stops if `config_extend.py` drops any of the codes above; their labels may be renamed and codes added. Pages show labels only from `/info` (saved by their sync, [frontend.md](frontend.md)), never written in the page. Labels are display text only: they do not grant access (role `1` is admin because routes check `roles: [1]`, not because of a label).
 
 Mappings use the lookup order `config_column_int_mapping[table][column][value]`.
 
 ### Permission labels
 
-A permission ID is a `config_api` route `id` (routes with `user_check_permission`). Atom labels its own (`6`, `136`, `137`, `138`, `139`); a project keeps them and adds its own in `config_extend.py`; startup refuses a permission route without a label:
+A permission ID is a `config_api` route `id` (routes with `user_check_permission`). Atom labels its own (`59`, `60`, `61`, `62`, `86`); a project keeps them and adds its own in `config_extend.py`; startup refuses a permission route without a label:
 
 ```python
 # config_extend.py

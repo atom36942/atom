@@ -10,7 +10,7 @@ Atom is an opinionated async Python framework on **FastAPI**, **Starlette**, **U
 
 | Decision | Why | Not chosen |
 |---|---|---|
-| One rules file, `AGENTS.md`, the same in every project | One place to read; every project follows the same rules; it is short enough to read in full before any work | Rules spread across docs, per-project rule files (they drift apart) |
+| One rules entry, `AGENTS.md`, the same in every project: each rule in short, marked enforced, rule or default, linking the doc with the detail | One short place to read in full before any work; the detail stays next to its feature; every project follows the same rules | Every rule in full in one long file; per-project rule files (they drift apart) |
 | Route policy in `config_api` (token, roles, user checks, cache, rate limit), enforced by one middleware before the route | A route's behaviour is visible in one place without opening its code; startup fails on a route without an entry, so nothing is unprotected by accident | Decorators or checks inside each route (easy to forget one, nothing to validate at startup) |
 | Every function is `func_*`, keyword-only, unique across Atom and the project, called as `app_state.func_*` | One calling style in every file and project; one search finds any definition; a test swaps one function on the app's state; project functions register the same way as Atom's | Direct imports (each file differs in what it imports; tests patch module paths) |
 | `sync.py` copies Atom's files into each project instead of installing a package | The framework's code is in the project, readable and searchable like its own; one command updates files, requirements and the venv; `*_extend` paths are never touched | A pip package (its code hidden in `venv/`, needs publishing and releases) |
@@ -23,7 +23,7 @@ Atom is an opinionated async Python framework on **FastAPI**, **Starlette**, **U
 | One simple rule over exceptions, no backward-compatibility shims | Fewer cases to remember and test; a rename changes every caller at once | Aliases and deprecation paths (two ways to do one thing, forever) |
 | Every list pages after a cursor by default (`after` in and out, `null` at the end; limit + 1 rows read), `page` only to jump within the first 10,000 rows, with an index matching each filter and sort | Every page costs the same at row 10 and row 10 million; a page only needs to know whether Next exists | A total `count(*)` (scans the table on every page) and a growing `OFFSET` (reads and discards every earlier row) |
 | Every CSV export goes through one function per database (`func_<db>_export`): one read query, a cursor, streamed and gzipped, at most `config_export_limit` rows, no count first; the file is the data as stored (real column names, values as they are) | Constant memory for a million rows; one limit in one place; a project writes only its query; an export means the same thing everywhere and matches the database | CSV code per project, a size-based switch between ways of exporting, a count before the download (a second full query) |
-| Atom shares the backend only; pages and their files are each project's own, guided by `docs/page.md` defaults | Projects choose their own look and build; a framework update never changes a page | Shared front-end files (every project's page changes with each sync) |
+| Atom shares the backend only; pages and their files are each project's own, guided by `docs/frontend.md` defaults | Projects choose their own look and build; a framework update never changes a page | Shared front-end files (every project's page changes with each sync) |
 | Startup checks over runtime surprises | Bad config, a missing `config_api` entry, duplicate `func_*` names or a weak production secret stop startup with a plain message | Failing on the first request that hits the problem |
 
 ---
@@ -39,7 +39,7 @@ atom/
 ├── static/         # Atom's pages (API console, Monitor, pgweb) and their assets
 ├── script/         # scripts that work in every project: check, consumers, postgres_schema_plan, load_test, ...
 ├── files/          # read-only data (countries, currencies)
-├── docs/           # these docs; AGENTS.md is the rules file
+├── docs/           # these docs; AGENTS.md is the rules entry
 ├── tests/          # Atom's tests (unittest), run by script.check and CI
 ├── sync.py         # updates a project from Atom's main
 ├── requirements.txt
@@ -142,7 +142,7 @@ Every Atom route belongs to one group, by its first path segment. The groups app
 | 3 | `/my/*` | The user's own things: profile, own rows, messages, files, own account | Yes | Rows are limited to the user's own (ownership) |
 | 4 | `/public/*` | Anyone, no login: public tables, OTP, small tools | No | Tables in `config_table_public_*`; rate limit on OTP and password-hash |
 | 5 | `/private/*` | Any logged-in user, any role: shared lists, counts, users, email, uploads | Yes | None beyond the token (tables in `config_table_private_read_allowed`) |
-| 6 | `/permission/*` | Users granted the route, any role: change or delete anyone's rows (136, 137), create and update users of allowed roles (138, 139) | Yes | A permission on every route (startup refuses one without it); a role may be added; tables in `config_permission_table_write_allowed`, none by default |
+| 6 | `/permission/*` | Users granted the route, any role: change or delete anyone's rows (59, 60), create and update users of allowed roles (61, 62) | Yes | A permission on every route (startup refuses one without it); a role may be added; tables in `config_permission_table_write_allowed`, none by default |
 | 7 | `/admin/*` | The backend admin: every table, users, SQL, imports, storage, monitor | Yes | Role 1 on every route (startup refuses one without it); other roles and a permission may be added (Atom's sample: 6, SQL writes) |
 
 A route with a role, permission, deactivated or deleted check must set `is_token: True` (startup refuses it otherwise). On every token route Atom also refuses deactivated and deleted users (the global checks). A project adds its own group (`/<app>/*`, e.g. `/order/*`) in `config_extend.py` with its role, and permission where only some users may act. Before writing one, check whether one of Atom's routes already does it ([crud.md](crud.md#which-route-for-which-screen)).
