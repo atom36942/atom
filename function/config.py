@@ -18,8 +18,11 @@ def func_config_options_file_read(*, key: str, path: str) -> list:
     return items
 
 def func_config_load(*, global_dict: dict) -> None:
-    """Override config_* values in global_dict from .env and the environment; config_postgres_url_<name>, config_redis_url_<name>, config_clickhouse_url_<name>, and config_mssql_url_<name> fill the matching *_url_dict; a config_options value that is a file path is loaded into its list."""
-    load_dotenv(".env")
+    """Override config_* values in global_dict from .env and the environment; config_postgres_url_<name>, config_redis_url_<name>, config_clickhouse_url_<name>, and config_mssql_url_<name> fill the matching *_url_dict; a config_options value that is a file path is loaded into its list.
+    ATOM_ENV_FILE (environment only) names another file to read instead of .env, such as tmp/local.env for a local run against a throwaway database; it must exist."""
+    env_file = os.environ.get("ATOM_ENV_FILE", ".env")
+    if env_file != ".env" and not os.path.isfile(env_file): raise ValueError(f"ATOM_ENV_FILE {env_file} not found")
+    load_dotenv(env_file)
     env = {k.lower(): v for k, v in os.environ.items()}
     env.update({k: v for k, v in os.environ.items() if k == k.lower()})
     for k, v in list(global_dict.items()):

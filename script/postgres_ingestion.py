@@ -16,7 +16,7 @@ import asyncpg
 from dotenv import load_dotenv
 
 # config
-load_dotenv(".env")
+load_dotenv(os.environ.get("ATOM_ENV_FILE", ".env"))
 pg_dsn = os.getenv("PG_DSN")
 csv_path = os.getenv("csv_path")
 table = os.getenv("table")

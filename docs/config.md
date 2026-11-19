@@ -12,13 +12,14 @@ Every `config_*` value is read once, at startup, in this order; a later one wins
 |---|---|---|
 | 1 | `config.py` | Atom's defaults |
 | 2 | `config_extend.py` | the project's defaults and structure (tables, routes); git-tracked, survives `sync.py`. See [extend.md](extend.md); startup stops if its `config_api`, `config_postgres` or `config_column_int_mapping` drops any of Atom's routes, Postgres entries or mapped codes ([what is checked](extend.md#what-startup-checks-in-config_extendpy)) |
-| 3 | `.env` | one machine's values: secrets, URLs, flags |
+| 3 | `.env` | one machine's values: secrets, URLs, flags (or the file `ATOM_ENV_FILE` names: [local run](#local-run)) |
 | 4 | environment variables | a server's settings (Azure app settings, `docker run -e`, CI); `.env` never overwrites a variable that is already set |
 
 Example: `config_extend.py` has `config_schedule_script_report = "off"`; a laptop without the key in `.env` keeps `off`, a server with `config_schedule_script_report=daily 02:00` in its settings runs it at 02:00. `func_config_load` (`function/config.py`, called from `main.py`) does the merge; the result is `app.state.config_<name>`.
 
 - **Type:** an overriding value takes the type of the default in code: a `True`/`False` default reads `true`/`false` (also `1`/`0`, `yes`/`no`, `on`/`off`; anything else stops startup), a number reads a number, a list or dict reads JSON (a value that is not valid JSON leaves the code's value), a string stays text (all digits become an integer). A key with no default in code is guessed the same way ([section 2](#2-dynamic-env-discovery--type-inference)).
 - **When:** only at startup; a changed `.env` or server setting applies after a restart (Azure restarts the app when a setting changes).
+- **Local run:** <a id="local-run"></a>`ATOM_ENV_FILE=tmp/local.env venv/bin/python main.py` makes the app (and Atom's scripts) read `tmp/local.env` instead of `.env`, so none of `.env`'s real databases and services is reachable; a name that is not a file stops startup. Three keys are enough: `config_postgres_url_master` of a throwaway local database (with `postgis`, `pg_trgm` and `btree_gin`), `config_root_user_password` and `config_token_secret_key` (any random values). Startup creates the schema and the `admin` user.
 - **Checks:** startup validates the merged values, so a bad one (`config_schedule_script_report=daily 2am`) stops the app with its name.
 
 > **Rule of Thumb**: Use `.env` for secrets, credentials, and environment flags; use `config_extend.py` for structural changes (tables, custom route policies).
@@ -76,7 +77,7 @@ config_payment_gateway_url=https://payments.example.com
 
 The sections are only comments: the backend and every script load the whole file, and a repeated key silently takes the last value. So `# atom` and `# extend` are active, and every line in a `# script.<name>` section is commented out; a developer uncomments the section where the script runs. An active copy of a backend key would change the backend's value, and an active `config_<db>_url_<name>` line makes the backend open a pool to that database at startup (startup fails when it can't be reached).
 
-A script reads these values in its `# config` section with `load_dotenv(".env")` and `os.getenv("<exact key>")`, so the names in the script and in `.env` match. Settings that have a default in code (`config_column_regex`, buffer limits) are imported in `# import` with `from config import ...`.
+A script reads these values in its `# config` section with `load_dotenv(os.environ.get("ATOM_ENV_FILE", ".env"))` and `os.getenv("<exact key>")`, so the names in the script and in `.env` match. Settings that have a default in code (`config_column_regex`, buffer limits) are imported in `# import` with `from config import ...`.
 
 ### Accessing in Routes:
 ```python

@@ -12,7 +12,7 @@ Atom is a backend: its front-end parts are Defaults, so a project may build any 
 - Work autonomously; ask only for essential missing info or destructive actions outside the request.
 - Before a project task: `python3 sync.py --status`; if Atom is behind, follow [Update](#update) first.
 - Match surrounding code: naming, density, one-line statements, comments. Never expose `.env` values or credentials (key names only).
-- Every database and service in `.env` is real, usually production: starting the app applies `config_postgres` schema changes to its database, so back up first or run against a throwaway local database. Never run a project script to see if it starts (scripts act on real systems): import it or test it with mocks.
+- Every database and service in `.env` is real, usually production: never start the app or run a script with it. Run the app as `ATOM_ENV_FILE=tmp/local.env venv/bin/python main.py`: Atom reads only that file, with `config_postgres_url_master` of a throwaway local database (`createdb <project>_local`, or the `postgis/postgis` Docker image; it needs `postgis`, `pg_trgm`, `btree_gin`), `config_root_user_password` and `config_token_secret_key` (random values) ([config.md](docs/config.md#local-run)). Startup creates the schema and `admin`; add test data through the admin APIs. Project scripts are imported or tested with mocks, never run.
 - One simple rule over exceptions; no backward-compat shims. Docs describe patterns (`<feature>.py`, `/page/<name>`), never specific file names.
 - A framework change keeps Atom's design decisions ([about.md](docs/about.md), with the reason for each) unless the user asks to change one.
 
@@ -106,4 +106,4 @@ Two parts: `python3 sync.py` replaces Atom's files exactly (the shared core); th
    - Pages: against the reference pages above and [frontend.md](docs/frontend.md); at phone width and in dark mode.
    - Clean-up: dead code, unused files, CSS and settings, duplicate helpers, `docs_extend/` out of date, missing tests for rules that fail silently.
 4. **Propose** a table (area, now, the rule, its tier, the fix) and wait for the OK. A missed Rule is fixed; a Default is a suggestion: one kept on purpose gets its reason in `docs_extend/`, a risky change to a working page is optional.
-5. **Refactor and verify.** Project files only (never Atom's core, `.env` values or data); the check passes; click through every page; report what changed and what was skipped. Commit or push only when asked or `CLAUDE.md` allows. A later run proposes only what drifted.
+5. **Refactor and verify.** Project files only (never Atom's core, `.env` values or data); the check passes; click through every page on the local run; report what changed and what was skipped. Commit or push only when asked or `CLAUDE.md` allows. A later run proposes only what drifted.

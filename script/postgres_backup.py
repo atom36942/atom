@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 from function import func_script_run
 
 # config
-load_dotenv(".env")
+load_dotenv(os.environ.get("ATOM_ENV_FILE", ".env"))
 postgres_url_master = os.getenv("config_postgres_url_master")
 
 # setting

@@ -19,7 +19,7 @@ from function import func_client_postgres
 from function import func_client_azure_blob
 
 # config
-load_dotenv(".env")
+load_dotenv(os.environ.get("ATOM_ENV_FILE", ".env"))
 config_aws_access_key_id = os.getenv("config_aws_access_key_id")
 config_aws_secret_access_key = os.getenv("config_aws_secret_access_key")
 config_azure_account_key = os.getenv("config_azure_account_key")

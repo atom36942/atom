@@ -4,6 +4,11 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [16.5.0] - 2026-11-19
+
+- **Local run on a throwaway database:** `ATOM_ENV_FILE=tmp/local.env venv/bin/python main.py` makes the app and Atom's scripts read that file instead of `.env`, so a local run never reaches `.env`'s real databases and services; a name that is not a file stops startup. Three keys are enough: `config_postgres_url_master` of a throwaway local database, `config_root_user_password`, `config_token_secret_key` ([docs/config.md](docs/config.md#local-run)). A script's `# config` now reads `load_dotenv(os.environ.get("ATOM_ENV_FILE", ".env"))`; a project script may switch to the same line.
+- **AGENTS.md:** an agent never starts the app or runs a script with `.env`; it runs the app on the local run above and clicks through pages there. This replaces 16.4.1's "back up first", which did not work for large databases.
+
 ## [16.4.1] - 2026-11-19
 
 - **AGENTS.md for agents working alone:** Enforced now names `script.check` with import, startup and sync; Work says every database and service in `.env` is real (starting the app applies schema changes to it; never run a script to see if it starts); Verify says a failing check is fixed at its cause, never by skipping or weakening a test, `# noqa`, editing Atom's core or changing `config_api` to suit a page.

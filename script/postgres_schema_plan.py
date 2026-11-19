@@ -24,7 +24,7 @@ from function import func_postgres_schema_init
 from function import func_postgres_schema_plan
 
 # config
-load_dotenv(".env")
+load_dotenv(os.environ.get("ATOM_ENV_FILE", ".env"))
 config_postgres_url_master = os.getenv("config_postgres_url_master")
 config_root_user_password = os.getenv("config_root_user_password")
 

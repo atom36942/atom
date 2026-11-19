@@ -19,7 +19,7 @@ from function import func_consumer_channels
 from function import func_consumer_run
 
 # config
-load_dotenv(".env")
+load_dotenv(os.environ.get("ATOM_ENV_FILE", ".env"))
 config_postgres_url_master = os.getenv("config_postgres_url_master")
 config_redis_url_queue = os.getenv("config_redis_url_queue")
 
