@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [16.8.1] - 2026-11-19
+
+- **API page:** a boolean field (in a query, form or JSON body) is a true/false list instead of a text box, and a JSON row switched to `bool` gets the same list; a response object's key/value table gives its values the full width, with the expand button at the right.
+
 ## [16.8.0] - 2026-11-19
 
 - **Redis keys start with the app's name:** every response-cache, user-state and rate-limit key now starts with the app's master database name (`finance:cache:api:...`, `pulse:ratelimiter:...`), so apps sharing one Redis never read each other's keys; nothing to set. Old unprefixed keys are no longer read and expire on their own (the first requests after the update miss the cache once). Queue channels are unchanged: each app keeps its own `config_redis_url_queue`. Monitor's Redis tab shows the app's prefix ([docs/redis.md](docs/redis.md)).

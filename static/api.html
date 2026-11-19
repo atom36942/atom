@@ -394,7 +394,8 @@ select.row-val{padding-right:64px}
 .grid-tbl td.grid-nest .grid-tbl{border:1px solid var(--line)}
 .grid-cell{display:flex;align-items:center;gap:6px}
 .grid-cell-text{display:inline-block;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;font-family:var(--mono);font-size:12px}
-.cell-expand-btn{padding:2px;flex-shrink:0}
+.cell-expand-btn{padding:2px;flex-shrink:0;margin-left:auto}
+.grid-kv>tbody>tr>td>.grid-cell>.grid-cell-text{flex:1;max-width:none;min-width:120px;contain:inline-size}
 .nested-toggle{cursor:pointer;font-size:11px;color:var(--accent);margin:2px 2px 4px;display:inline-block;padding:2px 6px;background:rgba(var(--hl),.05);border-radius:4px}
 .col-resizer{width:4px;height:100%;position:absolute;right:0;top:0;cursor:col-resize;background:rgba(var(--hl),.03);z-index:10;transition:background .2s}
 .col-resizer:hover,.col-resizer.dragging{background:var(--accent)}
@@ -1373,11 +1374,12 @@ const mapSchemaType = schema => {
   const type = s.type || (s.anyOf || s.oneOf || []).map(item => resolveSchema(item)?.type).find(item => item && item !== "null");
   return { string: "str", integer: "int", number: "float", boolean: "bool", array: "list", object: "object" }[type] || "str";
 };
+const BOOL_ENUM = ["true", "false"];    // a boolean field is a true/false list
 const getSchemaEnum = schema => {
   const s = resolveSchema(schema) || {};
   if (Array.isArray(s.enum)) return s.enum;
   if (Array.isArray(s.items?.enum)) return s.items.enum;
-  return null;
+  return mapSchemaType(s) === "bool" ? BOOL_ENUM : null;
 };
 const getBodyRows = (bodyContent, mediaType, rowType) => {
   const schema = resolveSchema(bodyContent?.[mediaType]?.schema);
@@ -1577,14 +1579,14 @@ const fmtGrid = (v, depth = 0) => {
     return `<div class="grid-cell" title="${he(val)}"><span class="grid-cell-text${typeClass}">${display}</span>${expand}</div>`;
   };
   const td = html => `<td${html.startsWith('<div class="nested-grid-wrapper">') ? ' class="grid-nest"' : ""}>${html}</td>`;
-  const table = (head, rows) => {
-    const html = `<table class="grid-tbl${depth === 0 ? " grid-tbl-root" : ""}"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+  const table = (head, rows, kv) => {
+    const html = `<table class="grid-tbl${depth === 0 ? " grid-tbl-root" : ""}${kv ? " grid-kv" : ""}"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
     return depth === 0 ? `<div class="modal-card grid-card"><div class="modal-card-body"><div class="grid-wrap">${html}</div></div></div>` : html;
   };
   if (!Array.isArray(v)) {
     const entries = Object.entries(v);
     if (!entries.length) return '<span class="muted">{}</span>';
-    return table('<th class="grid-key">Key</th><th>Value</th>', entries.map(([k, cv]) => `<tr><td class="grid-key">${he(k)}</td>${td(renderCell(cv))}</tr>`).join(""));
+    return table('<th class="grid-key">Key</th><th>Value</th>', entries.map(([k, cv]) => `<tr><td class="grid-key">${he(k)}</td>${td(renderCell(cv))}</tr>`).join(""), depth === 0);
   }
   if (!v.length) return '<span class="muted">[]</span>';
   if (typeof v[0] !== "object" || v[0] === null) return table("<th>Value</th>", v.map(val => `<tr>${td(renderCell(val))}</tr>`).join(""));
@@ -2422,6 +2424,16 @@ const setupEventListeners = () => {
     }
   });
   d.addEventListener("change", e => {
+    const typeSel = e.target.closest(".json-type-selector:not(.form-type-selector)");
+    if (typeSel) {    // a JSON row set to bool gets the true/false list, and back to text otherwise
+      const row = typeSel.closest(".input-row"), input = row.querySelector(".row-val"), isBool = typeSel.value === "bool", boolData = encodeURIComponent(JSON.stringify(BOOL_ENUM));
+      if (isBool && input.tagName !== "SELECT") input.outerHTML = enumSelect(boolData, String(input.value).toLowerCase());
+      else if (!isBool && input.tagName === "SELECT" && input.dataset.enum === boolData) input.outerHTML = `<input type="text" class="row-val" value="${he(input.value)}">`;
+      else return;
+      bindClear(row);
+      syncParams();
+      return;
+    }
     const sel = e.target.closest(".form-type-selector");
     if (!sel) return;    // a form field switched between text and file
     const row = sel.closest(".input-row"), input = row.querySelector(".row-val"), isFile = sel.value === "file";
