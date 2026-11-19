@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [16.5.2] - 2026-11-19
+
+- **AGENTS.md local run is invisible to the developer:** the agent keeps `local.env` and everything its run makes in its own scratch folder outside the project (its scratchpad, else a temporary folder), never in the project's `tmp/`; it names its databases and containers `<project>_agent` (never a developer's own `_local` one), starts the app on a free port with `uvicorn`, and removes it all when done; the developer sees only the result.
+
 ## [16.5.1] - 2026-11-19
 
 - **AGENTS.md local run:** a feature that needs another service (Redis, ClickHouse, RabbitMQ, ...) also gets a throwaway local one in `tmp/local.env`, never `.env`'s; everything the run makes stays in `tmp/`, local databases and containers are named `<project>_local` and removed when done ([docs/config.md](docs/config.md#local-run)).
