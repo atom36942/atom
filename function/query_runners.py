@@ -11,8 +11,9 @@ from .postgres_metadata import func_postgres_schema_ai_view
 from .postgres_metadata import func_postgres_schema_read
 
 # function
-async def func_postgres_query_generator_ai(*, client_postgres: asyncpg.Pool | None, client_gemini: Any, client_openai: Any, client_anthropic: Any, cache_postgres_schema: dict, config_query_runner_read_limit: int, ai: str, question: str) -> dict:
-    """Generates and validates safe PostgreSQL SELECT queries using LLM (Gemini/OpenAI/Claude) based on the database schema."""
+async def func_postgres_query_ai(*, client_postgres: asyncpg.Pool | None, client_gemini: Any, client_openai: Any, client_anthropic: Any, cache_postgres_schema: dict, config_query_runner_read_limit: int, ai: str, question: str, execute: bool = False) -> dict:
+    """Generates and validates a safe PostgreSQL SELECT query using LLM (Gemini/OpenAI/Claude) based on the database schema.
+    With execute, also runs it through func_postgres_query_runner_read (read-only transaction, 30 s timeout, row limit) and returns its rows."""
     from google.genai import types
     if not client_postgres: raise func_api_error(message="postgres client not initialized", status_code=500)
     if ai == "gemini" and not client_gemini: raise func_api_error(message="Gemini client not initialized", status_code=500)
@@ -154,7 +155,9 @@ async def func_postgres_query_generator_ai(*, client_postgres: asyncpg.Pool | No
     if not data.get("sql"):
         return {"sql": None, "message": func_postgres_query_ai_blocked_message(data.get("message")), "warnings": data.get("warnings") or []}
     sql = func_postgres_query_ai_validate_sql(sql=data.get("sql"), default_limit=default_limit, max_limit=max_limit, cache_postgres_schema_ai=cache_postgres_schema_ai)
-    return {"sql": sql, "message": "SQL generated in the editor. Review before Run or Export.", "warnings": data.get("warnings") or []}
+    if not execute: return {"sql": sql, "message": "SQL generated in the editor. Review before Run or Export.", "warnings": data.get("warnings") or []}
+    rows = await func_postgres_query_runner_read(client_postgres=client_postgres, config_query_runner_read_limit=config_query_runner_read_limit, sql=sql)
+    return {"sql": sql, "message": f"SQL generated and run read-only: {len(rows)} rows.", "warnings": data.get("warnings") or [], "rows": rows}
 
 def func_mssql_client_read(*, client_mssql_dict: dict, name: str, user: dict | None = None) -> Any:
     """Return the named MSSQL pool; 404 for a name not in config_mssql_url_dict, None when none are configured.
@@ -311,7 +314,7 @@ async def func_clickhouse_schema_read(*, client_clickhouse: Any) -> dict:
         schema.setdefault(f"{database}.{table}", {})[name] = {"data_type": data_type, "is_primary_key": bool(is_primary), "is_sorting_key": bool(is_sorting)}
     return schema
 
-async def func_clickhouse_query_generator_ai(*, client_clickhouse: Any, client_gemini: Any, client_openai: Any, client_anthropic: Any, cache_clickhouse_schema: dict, config_query_runner_read_limit: int, ai: str, question: str) -> dict:
+async def func_clickhouse_query_ai(*, client_clickhouse: Any, client_gemini: Any, client_openai: Any, client_anthropic: Any, cache_clickhouse_schema: dict, config_query_runner_read_limit: int, ai: str, question: str, execute: bool = False) -> dict:
     """Generate schema-aware, read-only ClickHouse SQL with Gemini, OpenAI or Claude."""
     from google.genai import types
     if not client_clickhouse: raise func_api_error(message="clickhouse client not initialized", status_code=500)
@@ -361,4 +364,6 @@ async def func_clickhouse_query_generator_ai(*, client_clickhouse: Any, client_g
         sql = re.sub(r"\blimit\s+\d+\s*$", f"LIMIT {limit}", sql, flags=re.IGNORECASE)
     else:
         sql = f"{sql}\nLIMIT {default_limit}"
-    return {"sql": f"{sql};", "message": "SQL generated in the editor. Review before Run or Export.", "warnings": data.get("warnings") or []}
+    if not execute: return {"sql": f"{sql};", "message": "SQL generated in the editor. Review before Run or Export.", "warnings": data.get("warnings") or []}
+    rows = await func_clickhouse_query_runner_read(client_clickhouse=client_clickhouse, config_query_runner_read_limit=config_query_runner_read_limit, sql=sql)
+    return {"sql": f"{sql};", "message": f"SQL generated and run read-only: {len(rows)} rows.", "warnings": data.get("warnings") or [], "rows": rows}

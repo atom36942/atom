@@ -6,11 +6,12 @@
 # info: Runs Atom's startup checks, ruff, a syntax check of the pages' JavaScript and the tests in one go and prints only what needs attention: a summary line, each failing test with its traceback, and why tests were skipped.
 # - startup: imports the app and runs func_check in a separate process, with the project's .env: catches config, duplicate func_* and import errors without opening a connection or starting a server
 # - names: every app_state.func_* the project's code calls (function_extend, router_extend, script_extend, files_extend, config_extend.py) is defined in Atom or the project; a name Atom renamed or removed otherwise fails only when that line runs
+# - routes (projects only): every quoted path in static_extend/ pages and .js files whose first part is a config_api route's first part (/admin, /my, /auth, the project's own /<feature>, ...) is a config_api route; ${...} counts as one route value ({name}), anything after ? or # is ignored, and /static/ files and third-party URLs are not checked; a route Atom renamed or removed otherwise fails only when the page calls it
 # - pages: every .html (its inline scripts) and .js file in static/ and static_extend/ is parsed with node --check; skipped when node is not installed
 # - tests come from tests/ in Atom and tests_extend/ in a project; service tests run when their ATOM_TEST_* setting is in the environment (see tests/README.md)
 # - standard (projects only, report only, never fails the check): how many of AGENTS.md's measurable Rules and Defaults the project's code and pages follow, and which it misses; a Default kept on purpose has its reason in docs_extend/
 # - a test running over TEST_TIMEOUT_SEC stops the check: it prints the test and every thread's stack (where it waits), then exits 1
-# - exit code 0 only when startup, ruff, names, pages and every test pass
+# - exit code 0 only when startup, ruff, names, routes, pages and every test pass
 
 # import
 import faulthandler
@@ -42,6 +43,9 @@ NAME_DEFINE_FOLDERS = ["function", "router", "script", "function_extend", "route
 NAME_USE_FOLDERS = ["function_extend", "router_extend", "script_extend", "files_extend"]
 NAME_DEFINE = re.compile(r"^\s*(?:async\s+)?def\s+(func_\w+)", re.MULTILINE)
 NAME_USE = re.compile(r"\bstate\.(func_\w+)")
+ROUTE_PAGE_FOLDER = "static_extend"
+ROUTE_SKIP = {"", "static"}    # "/" and the /static file mount: not API routes
+ROUTE_START = re.compile(r"""(["'`])/(?=[A-Za-z$])""")
 PAGE_TMP = "tmp/check"
 SCRIPT_TAG = re.compile(r"<script(?P<attrs>[^>]*)>(?P<code>.*?)</script>", re.DOTALL | re.IGNORECASE)
 SCRIPT_TYPES = ("", "text/javascript", "module")    # other types (application/json, importmap, templates) are not JavaScript
@@ -116,6 +120,44 @@ def names_check(*, root="."):
     def files(folders): return [path for folder in folders for path in Path(root, folder).rglob("*.py")]
     defined = {name for path in [*files(NAME_DEFINE_FOLDERS), Path(root, "main.py")] if path.is_file() for name in NAME_DEFINE.findall(path.read_text(encoding="utf-8", errors="replace"))}
     unknown = [f"{path.relative_to(root)}:{number}: {name} is not defined in Atom or the project (renamed or removed? see CHANGELOG.md)" for path in [*files(NAME_USE_FOLDERS), Path(root, "config_extend.py")] for number, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1) for name in NAME_USE.findall(line) if name not in defined]
+    return not unknown, "\n".join(unknown)
+
+
+def route_paths(*, text):
+    """[(line, path)] for every quoted string in text that starts with /<letter>: the path up to its quote, whitespace, ? or #, with each ${...} of a template as {}."""
+    paths = []
+    for match in ROUTE_START.finditer(text):
+        quote, index, path = match.group(1), match.end() - 1, ""
+        while index < len(text):
+            if quote == "`" and text.startswith("${", index):
+                depth, index = 1, index + 2
+                while index < len(text) and depth:
+                    depth += {"{": 1, "}": -1}.get(text[index], 0)
+                    index += 1
+                path += "{}"
+                continue
+            if text[index] in "\"'`?#" or text[index].isspace(): break
+            path += text[index]
+            index += 1
+        paths.append((text.count("\n", 0, match.start()) + 1, path))
+    return paths
+
+
+def routes_config_api():
+    """The project's config_api: config_extend.py's when it defines one (it keeps Atom's entries), else Atom's config.py."""
+    import importlib
+    return getattr(importlib.import_module("config_extend"), "config_api", None) or importlib.import_module("config").config_api
+
+
+def routes_check(*, root=".", config_api=None):
+    """(status, output) of the routes the project's pages call: True ok, False with each unknown path and where it is, None outside a project."""
+    if not Path(root, "config_extend.py").is_file(): return None, "not a project (no config_extend.py)"
+    routes = config_api if config_api is not None else routes_config_api()
+    patterns = [re.compile("^" + re.sub(r"\\\{[^/]*?\\\}", "[^/]+", re.escape(route)) + "$") for route in routes]
+    starts = {route.strip("/").split("/")[0] for route in routes} - ROUTE_SKIP
+    def is_route(path): return any(pattern.match(path) for pattern in patterns) or (path.endswith("{}") and not path.endswith("/{}") and is_route(path[:-2]))    # a trailing ${...} glued to the route adds its query
+    paths = sorted(path for path in Path(root, ROUTE_PAGE_FOLDER).rglob("*") if path.suffix in (".html", ".js") and path.is_file())
+    unknown = [f"{page.relative_to(root)}:{line}: {path} is not a route in config_api (renamed or removed? see CHANGELOG.md)" for page in paths for line, path in route_paths(text=page.read_text(encoding="utf-8", errors="replace")) if path.strip("/").split("/")[0] in starts and not is_route(path)]
     return not unknown, "\n".join(unknown)
 
 
@@ -239,7 +281,7 @@ def main():
     is_ruff_ok, ruff_output = ruff_run()
     pages = pages_check()
     result = tests_run(suite=tests_load(names=names))
-    steps = [("startup", *startup_finish(process=startup)), ("ruff", is_ruff_ok, ruff_output), *([("names", *names)] if (names := names_check())[0] is not None else []), ("pages", *pages)]
+    steps = [("startup", *startup_finish(process=startup)), ("ruff", is_ruff_ok, ruff_output), *([("names", *names)] if (names := names_check())[0] is not None else []), *([("routes", *routes)] if (routes := routes_check())[0] is not None else []), ("pages", *pages)]
     print("\n".join(summary_format(steps=steps, result=result, seconds=time.monotonic() - started, standard=standard_check())))
     sys.exit(0 if all(status is not False for _, status, _ in steps) and result.wasSuccessful() else 1)
 

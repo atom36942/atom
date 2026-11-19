@@ -4,6 +4,11 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [16.4.0] - 2026-11-19
+
+- **AI query routes run read-only:** `/admin/postgres-query-generator-ai` is now `/admin/postgres-query-ai` and `/admin/clickhouse-query-generator-ai` is now `/admin/clickhouse-query-ai` (same `config_api` ids; functions `func_postgres_query_ai`, `func_clickhouse_query_ai`). New body param `execute` (default `false`): with `true` the generated SQL also runs through the read runner (read-only transaction or `readonly=1`, 30 s timeout, row limit) and the response adds `rows`. A caller of the old path switches to the new one ([docs/database.md](docs/database.md)).
+- **`script.check` routes step:** in a project, every quoted path in `static_extend/` pages and `.js` files that starts like a `config_api` route (`/admin`, `/my`, `/auth`, the project's own `/<feature>`, ...) must be a `config_api` route; `${...}` counts as one route value, anything after `?` or `#` is ignored, `/static/` files and third-party URLs are not checked. A route Atom renames or removes now fails the check after sync with the page, line and path, instead of failing in production. AGENTS.md (Front end) says how to fix it: change the page, never `config_api`.
+
 ## [16.3.1] - 2026-11-19
 
 - **`config.py` sections:** the one `# integration` section is split by kind of service into `# database`, `# queue`, `# cloud` (aws, azure, msgraph, sftp), `# messaging`, `# ai` and `# monitoring`; `config_google_login_client_id` moves to `# auth`. Keys and defaults are unchanged; [docs/config.md](docs/config.md) splits its Integrations table the same way.

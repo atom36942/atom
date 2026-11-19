@@ -12,6 +12,7 @@ from pathlib import Path
 
 from script.check import names_check
 from script.check import pages_check
+from script.check import routes_check
 from script.check import standard_check
 from script.check import summary_format
 
@@ -113,6 +114,38 @@ class NamesCheckTests(unittest.TestCase):
 
     def test_outside_a_project_the_step_is_skipped(self):
         with tempfile.TemporaryDirectory() as root: self.assertIsNone(names_check(root=root)[0])
+
+
+class RoutesCheckTests(unittest.TestCase):
+    API = {"/": {}, "/static": {}, "/page/{name}": {}, "/info": {}, "/admin/object-read": {}, "/admin/postgres-query-ai": {}, "/my/profile": {}, "/shop/order-read": {}}
+
+    def check(self, page):
+        """routes_check run in a temporary project whose one page holds this text."""
+        with tempfile.TemporaryDirectory() as root:
+            Path(root, "config_extend.py").write_text("")
+            Path(root, "static_extend").mkdir()
+            Path(root, "static_extend/shop.html").write_text(page)
+            return routes_check(root=root, config_api=self.API)
+
+    def test_routes_queries_values_files_and_other_hosts_pass(self):
+        page = r"""<a href="/page/shop">x</a><script src="/static/shop/app.js"></script><script>
+fetch("/info"); fetch('/my/profile'); fetch(`/admin/object-read?table=${t}`); fetch("/admin/object-read?table=" + t)
+fetch(`/page/${name}`); fetch(`/admin/object-read${q ? `?${qs(q)}` : ""}`); fetch("/shop/order-read#top")
+fetch("https://api.other.com/admin/x"); const re = /a\/b/; const s = "a / b"; const r = "/"; fetch("/static/shop/x.json")
+</script>"""
+        self.assertEqual(self.check(page), (True, ""))
+
+    def test_a_renamed_route_is_named_with_its_line(self):
+        status, output = self.check('<script>\nfetch("/admin/postgres-query-generator-ai", { method: "POST" })\n</script>')
+        self.assertIs(status, False)
+        self.assertIn("static_extend/shop.html:2: /admin/postgres-query-generator-ai", output)
+
+    def test_a_path_built_from_parts_or_an_unknown_project_route_fails(self):
+        for page in ['fetch("/admin/" + view)', "fetch(`/admin/${view}`)", 'fetch("/shop/order-delete")', 'fetch("/my/profile/x")']:
+            with self.subTest(page=page): self.assertIs(self.check(f"<script>{page}</script>")[0], False)
+
+    def test_outside_a_project_the_step_is_skipped(self):
+        with tempfile.TemporaryDirectory() as root: self.assertIsNone(routes_check(root=root, config_api=self.API)[0])
 
 
 class StandardTests(unittest.TestCase):

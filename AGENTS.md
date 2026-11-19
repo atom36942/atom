@@ -59,6 +59,7 @@ Defaults:
 ## Front end ([frontend.md](docs/frontend.md))
 Enforced:
 - A page is `static_extend/<name>.html` or `static_extend/<name>/index.html`, served at `/page/<name>`; its other files at `/static/<path>`, linked by full path (Atom stamps `?v=`).
+- A page calls Atom's and the project's routes by their full `config_api` path, written whole: values only after `?`, or as `${...}` where the route has `{name}`. `config_api` is the source of truth: when a route is renamed or removed, the page changes to the new path in `CHANGELOG.md`, never `config_api` to suit the page.
 
 Rules:
 - Each page is standalone: its own login and storage, every key named after it; logout clears all of it. Escape data before `innerHTML`.
@@ -88,7 +89,7 @@ Built only when an app needs them, each with its own doc: user management ([user
 | Why Atom is built this way | [about.md](docs/about.md) |
 
 ## Verify
-- `venv/bin/python -m script.check` (Windows `venv\Scripts\`): startup checks, ruff, every `app_state.func_*` the project calls still defined (a renamed Atom function fails here, not in production), every page's JavaScript and every test, as CI runs it; a test name such as `tests_extend.test_invoice` runs just that.
+- `venv/bin/python -m script.check` (Windows `venv\Scripts\`): startup checks, ruff, every `app_state.func_*` the project calls still defined and every route its pages call still in `config_api` (a renamed Atom function or route fails here, not in production), every page's JavaScript and every test, as CI runs it; a test name such as `tests_extend.test_invoice` runs just that.
 - The check's last part, `standard Rules x/y, Defaults x/y`, reports what a project misses of the measurable Rules and Defaults (report only: it never fails the check); a Rule missed is fixed, a Default kept on purpose has its reason in `docs_extend/`.
 - Database tests use a throwaway local database, never a shared or production one. Keep tests light: test the rules whose mistake gives wrong data without an error.
 

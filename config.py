@@ -522,14 +522,14 @@ config_api = {
 "/admin/postgres-query-runner-write": {"id": 86, "is_active": True, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_permission": {"mode": "realtime"}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
 "/admin/postgres-query-runner-read": {"id": 87, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "is_connection_param": True},
 "/admin/postgres-query-runner-read-export": {"id": 88, "is_token": True, "user_check_role": {"mode": "inmemory", "roles": [1]}, "is_connection_param": True},
-"/admin/postgres-query-generator-ai": {"id": 89, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "is_connection_param": True},
+"/admin/postgres-query-ai": {"id": 89, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}, "is_connection_param": True},
 "/admin/mssql-query-runner-write": {"id": 90, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
 "/admin/mssql-query-runner-read": {"id": 91, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/mssql-query-runner-read-export": {"id": 92, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}},
 "/admin/clickhouse-query-runner-write": {"id": 93, "is_token": True, "user_check_role": {"mode": "realtime", "roles": [1]}, "user_check_deactivated": {"mode": "realtime"}, "rate_limit": {"mode": "inmemory", "limit": 60, "window_sec": 60}},
 "/admin/clickhouse-query-runner-read": {"id": 94, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 "/admin/clickhouse-query-runner-read-export": {"id": 95, "is_token": True, "user_check_role": {"mode": "inmemory", "roles": [1]}},
-"/admin/clickhouse-query-generator-ai": {"id": 96, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
+"/admin/clickhouse-query-ai": {"id": 96, "is_token": True, "user_check_role": {"mode": "token", "roles": [1]}},
 }
 
 # override

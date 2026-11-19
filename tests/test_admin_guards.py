@@ -18,7 +18,7 @@ class AdminGuardTests(unittest.TestCase):
 
     def test_a_new_admin_write_route_is_listed_here(self):
         # an /admin route that is not a read must be in ADMIN_WRITES, so it gets the guards above
-        reads = {"monitor", "object-read", "object-read-export", "postgres-info", "postgres-schema", "postgres-slow-queries", "postgres-query-runner-read", "postgres-query-runner-read-export", "postgres-query-generator-ai", "mssql-query-runner-read", "mssql-query-runner-read-export", "clickhouse-query-runner-read", "clickhouse-query-runner-read-export", "clickhouse-query-generator-ai", "table-column-groupby", "table-column-distinct", "blob-container-read", "blob-preview-urls", "sync"}
+        reads = {"monitor", "object-read", "object-read-export", "postgres-info", "postgres-schema", "postgres-slow-queries", "postgres-query-runner-read", "postgres-query-runner-read-export", "postgres-query-ai", "mssql-query-runner-read", "mssql-query-runner-read-export", "clickhouse-query-runner-read", "clickhouse-query-runner-read-export", "clickhouse-query-ai", "table-column-groupby", "table-column-distinct", "blob-container-read", "blob-preview-urls", "sync"}
         routes = {path.removeprefix("/admin/") for path in config.config_api if path.startswith("/admin/")}
         self.assertEqual(sorted(routes - reads - ADMIN_WRITES), [])
 
