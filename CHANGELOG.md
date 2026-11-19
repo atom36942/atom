@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [16.5.1] - 2026-11-19
+
+- **AGENTS.md local run:** a feature that needs another service (Redis, ClickHouse, RabbitMQ, ...) also gets a throwaway local one in `tmp/local.env`, never `.env`'s; everything the run makes stays in `tmp/`, local databases and containers are named `<project>_local` and removed when done ([docs/config.md](docs/config.md#local-run)).
+
 ## [16.5.0] - 2026-11-19
 
 - **Local run on a throwaway database:** `ATOM_ENV_FILE=tmp/local.env venv/bin/python main.py` makes the app and Atom's scripts read that file instead of `.env`, so a local run never reaches `.env`'s real databases and services; a name that is not a file stops startup. Three keys are enough: `config_postgres_url_master` of a throwaway local database, `config_root_user_password`, `config_token_secret_key` ([docs/config.md](docs/config.md#local-run)). A script's `# config` now reads `load_dotenv(os.environ.get("ATOM_ENV_FILE", ".env"))`; a project script may switch to the same line.
