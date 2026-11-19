@@ -1,27 +1,18 @@
-# integration
+# database
 config_postgres_url_dict = {}
 config_redis_url_dict = {}
 config_mssql_url_dict = {}
 config_clickhouse_url_dict = {}
 config_mongodb_url = None
-config_google_login_client_id = None
-config_openai_key = None
-config_gemini_key = None
-config_anthropic_key = None
-config_posthog_project_host = None
-config_posthog_project_key = None
-config_sentry_dsn = None
-config_sentry_traces_sample_rate = 0.05
-config_fast2sms_url = None
-config_fast2sms_key = None
-config_resend_url = None
-config_resend_key = None
-config_sftp_host = None
-config_sftp_port = None
-config_sftp_username = None
-config_sftp_password = None
-config_sftp_known_hosts_path = None
-config_sftp_is_host_verify = True
+
+# queue
+config_kafka_url = None
+config_kafka_username = None
+config_kafka_password = None
+config_rabbitmq_url = None
+config_celery_url = None
+
+# cloud
 config_aws_access_key_id = None
 config_aws_secret_access_key = None
 config_aws_s3_region_name = None
@@ -35,11 +26,29 @@ config_azure_sms_from_number = None
 config_msgraph_tenant_id = None
 config_msgraph_client_id = None
 config_msgraph_client_secret = None
-config_kafka_url = None
-config_kafka_username = None
-config_kafka_password = None
-config_rabbitmq_url = None
-config_celery_url = None
+config_sftp_host = None
+config_sftp_port = None
+config_sftp_username = None
+config_sftp_password = None
+config_sftp_known_hosts_path = None
+config_sftp_is_host_verify = True
+
+# messaging
+config_fast2sms_url = None
+config_fast2sms_key = None
+config_resend_url = None
+config_resend_key = None
+
+# ai
+config_openai_key = None
+config_gemini_key = None
+config_anthropic_key = None
+
+# monitoring
+config_posthog_project_host = None
+config_posthog_project_key = None
+config_sentry_dsn = None
+config_sentry_traces_sample_rate = 0.05
 
 # app
 config_is_prod = True
@@ -75,6 +84,7 @@ config_cache_row_limit_users_deleted = 10000
 
 # auth
 config_root_user_password = None
+config_google_login_client_id = None
 config_login_password = None
 config_token_secret_key = None
 config_access_token_expires_sec = 604800

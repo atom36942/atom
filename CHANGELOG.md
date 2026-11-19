@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [16.3.1] - 2026-11-19
+
+- **`config.py` sections:** the one `# integration` section is split by kind of service into `# database`, `# queue`, `# cloud` (aws, azure, msgraph, sftp), `# messaging`, `# ai` and `# monitoring`; `config_google_login_client_id` moves to `# auth`. Keys and defaults are unchanged; [docs/config.md](docs/config.md) splits its Integrations table the same way.
+
 ## [16.3.0] - 2026-11-18
 
 - **`script.check` names step:** in a project, every `app_state.func_*` its code calls (`function_extend`, `router_extend`, `script_extend`, `files_extend`, `config_extend.py`) must be defined in Atom or the project; an unknown name fails the check with its file and line, so a function Atom renamed or removed fails in the check after sync instead of on that route in production.

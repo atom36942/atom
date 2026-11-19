@@ -98,7 +98,9 @@ All scalar and list settings in `config.py` grouped by section:
 
 ### Integrations
 
-Disabled (`None`) by default; activated automatically when connection credentials are set.
+Disabled (`None`) by default; activated automatically when connection credentials are set. In `config.py` they are the sections from `# database` to `# monitoring`.
+
+#### Database
 
 | Key | Usage |
 |---|---|
@@ -111,18 +113,21 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_mssql_url_dict` | Runtime mapping of named MSSQL connection strings; pools in `client_mssql_dict` |
 | `config_clickhouse_url_<name>` | ClickHouse DSN per named server, collected into `config_clickhouse_url_dict`; the `/admin/clickhouse-*` routes pick one with body param `connection` (default `master`; unknown name → 404) |
 | `config_clickhouse_url_dict` | Runtime mapping of named ClickHouse URLs; clients in `client_clickhouse_dict`, schemas in `cache_clickhouse_schema_dict` |
-| `config_google_login_client_id` | Google OAuth Client ID for token verification |
-| `config_openai_key` | OpenAI API key |
-| `config_gemini_key` | Google Gemini API key |
-| `config_anthropic_key` | Anthropic API key: opens `client_anthropic` (Claude) |
-| `config_posthog_project_host` | PostHog analytics host URL |
-| `config_posthog_project_key` | PostHog analytics project key |
-| `config_sentry_dsn` | Sentry DSN for error tracking |
-| `config_sentry_traces_sample_rate` | Share of requests Sentry traces and profiles, 0 to 1 (default `0.05`). Every error is still sent. Tracing every request (`1.0`) adds noticeable overhead to each one; raise it briefly while investigating a slow route. |
-| `config_fast2sms_url` | Fast2SMS gateway URL |
-| `config_fast2sms_key` | Fast2SMS API key |
-| `config_resend_url` | Resend email API URL |
-| `config_resend_key` | Resend email API key |
+
+#### Queue
+
+| Key | Usage |
+|---|---|
+| `config_kafka_url` | Apache Kafka broker URL |
+| `config_kafka_username` | Kafka SASL username |
+| `config_kafka_password` | Kafka SASL password |
+| `config_rabbitmq_url` | RabbitMQ broker URL |
+| `config_celery_url` | Celery broker/backend URL |
+
+#### Cloud
+
+| Key | Usage |
+|---|---|
 | `config_sftp_host` | SFTP server hostname |
 | `config_sftp_port` | SFTP server port |
 | `config_sftp_username` | SFTP server username |
@@ -139,17 +144,39 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_azure_email_connection_string` | Azure email connection string |
 | `config_azure_sms_connection_string` | Azure Communication Services SMS connection string |
 | `config_azure_sms_from_number` | Azure SMS sender phone number or alphanumeric sender ID |
-| `config_kafka_url` | Apache Kafka broker URL |
-| `config_kafka_username` | Kafka SASL username |
-| `config_kafka_password` | Kafka SASL password |
-| `config_rabbitmq_url` | RabbitMQ broker URL |
-| `config_celery_url` | Celery broker/backend URL |
+
+#### Messaging
+
+| Key | Usage |
+|---|---|
+| `config_fast2sms_url` | Fast2SMS gateway URL |
+| `config_fast2sms_key` | Fast2SMS API key |
+| `config_resend_url` | Resend email API URL |
+| `config_resend_key` | Resend email API key |
+
+#### AI
+
+| Key | Usage |
+|---|---|
+| `config_openai_key` | OpenAI API key |
+| `config_gemini_key` | Google Gemini API key |
+| `config_anthropic_key` | Anthropic API key: opens `client_anthropic` (Claude) |
+
+#### Monitoring
+
+| Key | Usage |
+|---|---|
+| `config_posthog_project_host` | PostHog analytics host URL |
+| `config_posthog_project_key` | PostHog analytics project key |
+| `config_sentry_dsn` | Sentry DSN for error tracking |
+| `config_sentry_traces_sample_rate` | Share of requests Sentry traces and profiles, 0 to 1 (default `0.05`). Every error is still sent. Tracing every request (`1.0`) adds noticeable overhead to each one; raise it briefly while investigating a slow route. |
 
 ### System & Security
 
 | Key | Usage |
 |---|---|
 | `config_root_user_password` | Password for seeded root admin (hashed at startup) |
+| `config_google_login_client_id` | Google OAuth Client ID for token verification |
 | `config_login_password` | Static login password for `/auth/login-password` (Must set in `.env` if used) |
 | `config_token_secret_key` | HMAC secret key for signing/verifying JWT tokens *(Must change)*. With `config_is_prod` on, startup refuses keys shorter than 32 bytes; generate one with `python3 -c "import secrets; print(secrets.token_urlsafe(48))"` |
 | `config_root_html_path` | Path to static HTML file served at `/` (default: Atom's home page, which lists every page in `static/` and `static_extend/`) |
