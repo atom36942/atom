@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [16.5.3] - 2026-11-19
+
+- **AGENTS.md: agents reuse their work:** the agent's local run lives in its own folder `~/.atom/<project>/` (outside the project, so the developer never sees it), kept between runs instead of removed: `local.env`, the `<project>_agent` database with its test data and seed script, and `notes.md` (Atom version last audited, what changed, what was skipped and why, what to check next). Every run reads it first and keeps it current; anything that no longer matches the code is rebuilt; no `.env` values or production data. Update's later run reads `notes.md` to propose only what drifted.
+
 ## [16.5.2] - 2026-11-19
 
 - **AGENTS.md local run is invisible to the developer:** the agent keeps `local.env` and everything its run makes in its own scratch folder outside the project (its scratchpad, else a temporary folder), never in the project's `tmp/`; it names its databases and containers `<project>_agent` (never a developer's own `_local` one), starts the app on a free port with `uvicorn`, and removes it all when done; the developer sees only the result.
