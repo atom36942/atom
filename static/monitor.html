@@ -824,7 +824,7 @@ const TILE_HELP = {
   "Background errors": "Since this worker started.",
   "Ping": "From this server. Same region: about 1 ms.",
   "Memory": "Used now, and its limit when the server reports one.",
-  "Keys": "In this database now.",
+  "Keys": "In this Redis now, every app sharing it included.",
   "Hit ratio": "Reads that found their key. Aim for 80%+.",
   "Load": "Commands per second now, and connected clients.",
   "Evicted keys": "Dropped because memory was full. Should be 0.",
@@ -1046,7 +1046,7 @@ const renderRedis = report => {
   if (!list.length) return info("Redis not configured (<span class=\"mono\">config_redis_url_&lt;name&gt;</span>).");
   const where = r => `${r.is_tls ? "rediss" : "redis"}://${r.host}${r.port ? `:${r.port}` : ""}/${r.db}`;
   return list.map(r => {
-    const head = `<div class="redis-head"><span class="mono redis-name">config_redis_url_${he(r.name)}</span><span class="pill ${r.status === "ok" ? "ok" : "bad"}">${he(r.status)}</span><span class="mono muted redis-url" title="${he(where(r))}">${he(where(r))}</span></div>`;
+    const head = `<div class="redis-head"><span class="mono redis-name">config_redis_url_${he(r.name)}</span><span class="pill ${r.status === "ok" ? "ok" : "bad"}">${he(r.status)}</span><span class="mono muted redis-url" title="${he(where(r))}">${he(where(r))}</span>${r.key_prefix ? `<span class="muted redis-url">this app's keys start with <span class="mono">${he(r.key_prefix)}</span></span>` : ""}</div>`;
     if (r.status !== "ok") return head + `<div class="error-box redis-error">${he(r.error)}</div>`;
     const limit = r.max_memory_bytes, share = limit ? r.used_memory_bytes / limit * 100 : null;
     return head + tiles([

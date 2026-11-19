@@ -53,7 +53,8 @@ async def func_lifespan(app: FastAPI):
         # each dict exists before its clients open, so when one fails partway the ones already open are closed below
         client_postgres_dict, client_mssql_dict, client_clickhouse_dict = {}, {}, {}
         await app.state.func_client_dict_open(client_dict=client_postgres_dict, url_dict=app.state.config_postgres_url_dict, client_open=lambda name, url: app.state.func_client_postgres(dsn=url, **app.state.func_client_pool_size(app_state=app.state, db="postgres", name=name), **postgres_pool_kwargs))
-        client_redis_dict = {name: app.state.func_client_redis(url=url) for name, url in (app.state.config_redis_url_dict or {}).items() if url}
+        redis_key_prefix = app.state.func_redis_key_prefix(postgres_url=getattr(app.state, "config_postgres_url_master", None) or (app.state.config_postgres_url_dict or {}).get("master"))    # the master database name: apps sharing one Redis keep apart
+        client_redis_dict = {name: app.state.func_client_redis(url=url, key_prefix=redis_key_prefix) for name, url in (app.state.config_redis_url_dict or {}).items() if url}
         client_mongodb = app.state.func_client_mongodb(url=app.state.config_mongodb_url)
         await app.state.func_client_dict_open(client_dict=client_mssql_dict, url_dict=app.state.config_mssql_url_dict, client_open=lambda name, url: app.state.func_client_mssql(dsn=url, **app.state.func_client_pool_size(app_state=app.state, db="mssql", name=name), recycle_sec=app.state.config_mssql_pool_recycle_sec))
         await app.state.func_client_dict_open(client_dict=client_clickhouse_dict, url_dict=app.state.config_clickhouse_url_dict, client_open=lambda name, url: app.state.func_client_clickhouse(dsn=url))

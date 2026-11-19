@@ -162,7 +162,7 @@ async def func_monitor_redis(*, client_redis_dict: dict, url_dict: dict, timeout
     async def one(name: str, client: Any) -> dict:
         try: parts = urlsplit(url_dict.get(name) or "")
         except ValueError: parts = urlsplit("")
-        row = {"name": name, "host": parts.hostname or "", "port": parts.port, "db": parts.path.strip("/") or "0", "is_tls": parts.scheme == "rediss"}
+        row = {"name": name, "key_prefix": getattr(client, "atom_key_prefix", ""), "host": parts.hostname or "", "port": parts.port, "db": parts.path.strip("/") or "0", "is_tls": parts.scheme == "rediss"}
         if client is None: return {**row, "status": "off", "error": "no client"}
         try:
             async def read() -> tuple:

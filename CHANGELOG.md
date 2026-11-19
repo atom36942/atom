@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [16.8.0] - 2026-11-19
+
+- **Redis keys start with the app's name:** every response-cache, user-state and rate-limit key now starts with the app's master database name (`finance:cache:api:...`, `pulse:ratelimiter:...`), so apps sharing one Redis never read each other's keys; nothing to set. Old unprefixed keys are no longer read and expire on their own (the first requests after the update miss the cache once). Queue channels are unchanged: each app keeps its own `config_redis_url_queue`. Monitor's Redis tab shows the app's prefix ([docs/redis.md](docs/redis.md)).
+
 ## [16.7.0] - 2026-11-19
 
 - **Postgres queue, the default:** background jobs need no broker. `?queue=postgres` on `/my/object-create` and `/my/object-update` (or `app_state.func_producer(queue="postgres", client_postgres=...)`) adds a row to the new table `queue_job` and returns its id; `venv/bin/python -m script.consumer_postgres <channel>` runs it. Jobs are taken with `FOR UPDATE SKIP LOCKED` inside a transaction held until the job is finished, so several consumers can share a channel and a killed one leaves nothing stuck; `LISTEN/NOTIFY` wakes consumers at once; retries wait in `run_at`; a job failed after `config_queue_retry_max` retries stays with `status` 2 and its error. Redis, RabbitMQ, Kafka and Celery are unchanged ([docs/queue.md](docs/queue.md)).

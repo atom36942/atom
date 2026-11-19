@@ -7,6 +7,7 @@ from asyncpg.pool import Pool
 from asyncpg.pool import PoolConnectionProxy
 import httpx
 import redis.asyncio as redis
+from urllib.parse import urlsplit
 from argon2 import PasswordHasher
 from starlette.datastructures import State
 
@@ -70,9 +71,23 @@ async def func_postgres_acquire_clean(*, client_postgres: asyncpg.Pool):
             try: await conn.reset(timeout=5)
             except Exception: conn.terminate()
 
-def func_client_redis(*, url: str, max_connections: int = 100, timeout_sec: float = 5):
-    """Initialize a single Redis connection pool: when all max_connections are busy, a command waits up to timeout_sec for one instead of failing at once."""
-    return redis.Redis.from_pool(redis.BlockingConnectionPool.from_url(url, max_connections=max_connections, timeout=timeout_sec)) if url else None
+def func_client_redis(*, url: str, max_connections: int = 100, timeout_sec: float = 5, key_prefix: str = ""):
+    """Initialize a single Redis connection pool: when all max_connections are busy, a command waits up to timeout_sec for one instead of failing at once. key_prefix (kept on the client as atom_key_prefix) starts every cache, user-state and rate-limit key, so apps sharing one Redis never read each other's keys."""
+    if not url: return None
+    client = redis.Redis.from_pool(redis.BlockingConnectionPool.from_url(url, max_connections=max_connections, timeout=timeout_sec))
+    client.atom_key_prefix = key_prefix
+    return client
+
+def func_redis_key_prefix(*, postgres_url: str | None) -> str:
+    """The app's Redis key prefix: its master database name and a colon (finance -> "finance:"), "" without one. Apps on one Redis have different databases, so their keys differ with nothing to set."""
+    try: parts = urlsplit(postgres_url or "")
+    except ValueError: return ""
+    name = parts.path.strip("/") if parts.scheme else ""
+    return f"{name}:" if name else ""
+
+def func_redis_key(*, client_redis, key: str) -> str:
+    """A Redis key with the client's app prefix (func_client_redis key_prefix); unchanged for a client without one or None (the in-memory modes)."""
+    return getattr(client_redis, "atom_key_prefix", "") + key
 
 def func_client_mongodb(*, url: str):
     """Initialize Motor MongoDB client."""

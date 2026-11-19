@@ -22,6 +22,7 @@ from starlette.routing import compile_path
 from starlette.routing import Match
 from redis.asyncio import Redis
 from .background import func_runtime_error_record
+from .clients import func_redis_key
 from .request import func_query_bool_parse
 from .request import func_request_form_close
 
@@ -94,7 +95,7 @@ async def func_middleware_check_user_deactivated(*, user_dict: dict, user_check_
         return rows[0]["deactivated_at"]
     if mode == "redis":
         if not client_redis: raise func_api_error(message="redis client missing", status_code=500)
-        cache_key = f"""cache:user:active:{user_dict["id"]}"""
+        cache_key = func_redis_key(client_redis=client_redis, key=f"""cache:user:active:{user_dict["id"]}""")
         active_status = None
         cached_val = await client_redis.get(cache_key)
         if cached_val is not None:
@@ -130,7 +131,7 @@ async def func_middleware_check_user_deleted(*, user_dict: dict, user_check_dele
         return rows[0]["deleted_at"]
     if mode == "redis":
         if not client_redis: raise func_api_error(message="redis client missing", status_code=500)
-        cache_key = f"""cache:user:deleted_at:{user_dict["id"]}"""
+        cache_key = func_redis_key(client_redis=client_redis, key=f"""cache:user:deleted_at:{user_dict["id"]}""")
         deleted_status = None
         cached_val = await client_redis.get(cache_key)
         if cached_val is not None:
@@ -174,7 +175,7 @@ async def func_middleware_check_role(*, user_dict: dict, user_check_role: Any, c
         return rows[0]["role"]
     if mode == "redis":
         if not client_redis: raise func_api_error(message="redis client missing", status_code=500)
-        cache_key = f"""cache:user:role:{user_dict["id"]}"""
+        cache_key = func_redis_key(client_redis=client_redis, key=f"""cache:user:role:{user_dict["id"]}""")
         user_role = None
         cached_val = await client_redis.get(cache_key)
         if cached_val is not None:
@@ -230,7 +231,7 @@ async def func_middleware_check_ratelimiter(*, client_redis: Redis | None, rate_
         return
     limit, window = int(limit), int(window)
     if limit <= 0 or window <= 0: return
-    cache_key = f"ratelimiter:{url_path}:{identifier}"
+    cache_key = func_redis_key(client_redis=client_redis if mode == "redis" else None, key=f"ratelimiter:{url_path}:{identifier}")
     if mode == "redis":
         if not client_redis: raise func_api_error(message="redis client missing", status_code=500)
         # one atomic round trip: count the request and give a new (or expiry-less) key its window
@@ -277,7 +278,7 @@ async def func_middleware_api_cache(*, mode: str, path: str, query_params: dict,
     if mode == "get" and not is_enabled: return None
     if cache_api_response is None: cache_api_response = {}
     uid = user_id if is_user_cache else 0
-    key = f"cache:api:{path}?{urlencode(sorted(query_params.items()))}:{uid}"    # encoded, so a value holding & or = cannot match another query
+    key = func_redis_key(client_redis=client_redis if cache_mode == "redis" else None, key=f"cache:api:{path}?{urlencode(sorted(query_params.items()))}:{uid}")    # encoded, so a value holding & or = cannot match another query
     if mode == "get":
         data = await client_redis.get(key) if cache_mode == "redis" else (item["data"] if (item := cache_api_response.get(key)) and item["expire_at"] > time.time() else None)
         if not data: return None

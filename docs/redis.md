@@ -97,8 +97,10 @@ This mode reduces Postgres reads but permits values to remain stale until the TT
 The dict keys are `{"mode": "...", "ttl_sec": ..., "is_per_user": ...}`. Set `is_per_user` to `True` to include the authenticated user id in the key, or `False` to share the cached response. Cache keys have this shape:
 
 ```text
-cache:{path}?{sorted_query_parameters}:{user_id_or_0}
+{app}:cache:api:{path}?{sorted_query_parameters}:{user_id_or_0}
 ```
+
+`{app}:` is the app's master database name (`finance:`, `pulse:`), added by Atom to every cache, user-state and rate-limit key, so apps sharing one Redis never read each other's keys and nothing needs setting; without a master database there is no prefix. Azure Managed Redis has only database `0`, so `/1`, `/2` can't separate apps; the prefix does. Queue channels are not prefixed: give each app its own `config_redis_url_queue`. A developer's local run uses a local Redis (`redis://localhost:6379/0`), never a shared one.
 
 Responses are gzip-compressed and Base64-encoded before storage. Clients can bypass the lookup and write for a request with `?is_disable_cache=true`. Boolean query flags use `true`/`false`; legacy `1`/`0` values remain accepted for compatibility.
 
@@ -119,7 +121,7 @@ Enable distributed rate limiting for a route with:
 The dict keys are `{"mode": "...", "limit": ..., "window_sec": ...}`. Each counter is keyed by the authenticated user id or, for anonymous requests, the client IP:
 
 ```text
-ratelimiter:{request_path}:{user_id_or_client_ip}
+{app}:ratelimiter:{request_path}:{user_id_or_client_ip}
 ```
 
 The first request creates the counter and applies the configured window as its expiry. Later requests increment it; requests above the limit raise `ratelimiter exceeded`.
