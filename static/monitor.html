@@ -204,6 +204,10 @@ header>div:first-child{flex:1 1 auto;min-width:0}
 /* ==== tile explanations ==== */
 /* the explanation, drawn by the page under the tile: shows at once on hover, and on tap or keyboard focus (phones have no hover) */
 .tile .tip:hover::after,.tile .tip:focus::after{content:attr(data-tip);position:absolute;left:8px;right:8px;top:calc(100% + 6px);z-index:10;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);font-size:12px;font-weight:400;line-height:1.4;box-shadow:0 6px 20px rgba(0,0,0,.35);white-space:normal}
+.redis-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px;min-width:0}
+.redis-name{font-weight:700;font-size:14px}
+.redis-url{font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.redis-error{margin-bottom:18px}
 .tile .value{font-size:22px;font-weight:700;line-height:1.3;overflow-wrap:anywhere}
 .tile .value.bad{color:var(--danger)}
 .tile .hint{color:var(--muted);font-size:11px}
@@ -296,6 +300,7 @@ tbody tr:hover{background:rgba(var(--hl),.03)}
         <button type="button" class="tab" data-tab="errors">Errors</button>
         <button type="button" class="tab" data-tab="database">Database</button>
         <button type="button" class="tab" data-tab="background">Background</button>
+        <button type="button" class="tab" data-tab="redis">Redis</button>
         <button type="button" class="tab" data-tab="app">App</button>
       </nav>
       <div class="filters">
@@ -759,13 +764,14 @@ const Page = (() => {
 /* ==== page state and tabs ==== */
 // this page keeps its own login, user and choices under the "monitor" key, so it works without any other page
 // localStorage "monitor" = {v, token, user, synced_at} (the account block) plus this page's choices: tab, hours
-const TABS = ["memory", "requests", "errors", "database", "background", "app"];
+const TABS = ["memory", "requests", "errors", "database", "background", "redis", "app"];
 // what each tab shows and for which scope: one worker (this process) or the whole server/database
 const TAB_NOTES = {
   memory: "RAM of <b>this worker</b>. Sizes and counts only.",
   requests: "From <b>log_api</b>, <b>all workers</b>.",
   errors: "Status 400+ from <b>log_api</b>, <b>all workers</b>. Background failures: Background tab.",
   background: "<b>This worker</b>, outside requests. Counters reset on restart.",
+  redis: "Every <b>config_redis_url_&lt;name&gt;</b>, read-only (INFO). Counters are the <b>whole server</b>'s since it started; ping is from <b>this server</b>.",
   app: "<b>This server</b>'s setup. Secrets show only whether they are set.",
 };
 const $ = id => document.getElementById(id);
@@ -816,6 +822,13 @@ const TILE_HELP = {
   "Background tasks": "is_background=true requests still running.",
   "Websockets": "Open on this worker.",
   "Background errors": "Since this worker started.",
+  "Ping": "From this server. Same region: about 1 ms.",
+  "Memory": "Used now, and its limit when the server reports one.",
+  "Keys": "In this database now.",
+  "Hit ratio": "Reads that found their key. Aim for 80%+.",
+  "Load": "Commands per second now, and connected clients.",
+  "Evicted keys": "Dropped because memory was full. Should be 0.",
+  "Redis version": "And time since the server restarted.",
   "Atom": "Atom, Python and OS versions.",
   "Workers": "Server processes; each has its own memory.",
   "Mode": "Production or development; read-only or not.",
@@ -828,7 +841,7 @@ const tiles = list => `<div class="tiles">${list.join("")}</div>`;
 const rows = (list, render, empty, columns) => list.length ? list.map(render).join("") : `<tr><td colspan="${columns}" class="empty">${empty}</td></tr>`;
 // what each card shows, in one line under its title
 const CARD_HELP = {
-  "Upgrade check": "From the server's counters. Disk needs config_postgres_storage_gb.",
+  "Upgrade check": "From the server's counters.",
   "RAM over time": "Once a minute, up to 24 h; resets on restart. Never falling back: a leak.",
   "App in-memory data": "Caches (rebuilt on demand), write buffers (unsaved rows) and settings.",
   "Python objects": "Whole process. Growing between refreshes: a leak.",
@@ -967,7 +980,7 @@ const renderErrors = report => {
 // database: pools, size, activity and tables
 // the upgrade check (func_monitor_database_upgrade): the verdict, the actions to ask DevOps for with the request to copy, then each signal
 const UPGRADE_VERDICT = { ok: ["ok", "No upgrade needed", "Room to spare."], watch: ["warn", "Keep an eye on it", "Nothing to ask for yet."], upgrade: ["bad", "Upgrade recommended", "Ask DevOps for the actions below."] };
-const UPGRADE_STATUS = { ok: ["ok", "OK"], watch: ["warn", "Watch"], upgrade: ["bad", "Upgrade"], unknown: ["", "Not set"] };
+const UPGRADE_STATUS = { ok: ["ok", "OK"], watch: ["warn", "Watch"], upgrade: ["bad", "Upgrade"], unknown: ["", "Info"] };
 let upgradeRequest = "";
 const upgradeCard = u => {
   if (!u) return "";
@@ -1026,6 +1039,27 @@ const renderBackground = report => {
     q => `<tr><td class="mono">${he(q.channel)}</td><td>${q.is_consumer ? '<span class="pill ok">running</span>' : `<span class="pill${q.waiting ? " bad" : ""}">none</span>`}</td><td class="num">${formatNumber(q.waiting)}</td><td class="num">${formatNumber(q.running)}</td><td class="num${q.failed ? " bad" : ""}">${formatNumber(q.failed)}</td></tr>`, "No channels yet.") : "");
 };
 
+/* ==== view: redis ==== */
+// redis: one block per config_redis_url_<name>: its name and URL (no password) on top, then its tiles; memory against its limit when the server reports one
+const renderRedis = report => {
+  const list = report.connections || [];
+  if (!list.length) return info("Redis not configured (<span class=\"mono\">config_redis_url_&lt;name&gt;</span>).");
+  const where = r => `${r.is_tls ? "rediss" : "redis"}://${r.host}${r.port ? `:${r.port}` : ""}/${r.db}`;
+  return list.map(r => {
+    const head = `<div class="redis-head"><span class="mono redis-name">config_redis_url_${he(r.name)}</span><span class="pill ${r.status === "ok" ? "ok" : "bad"}">${he(r.status)}</span><span class="mono muted redis-url" title="${he(where(r))}">${he(where(r))}</span></div>`;
+    if (r.status !== "ok") return head + `<div class="error-box redis-error">${he(r.error)}</div>`;
+    const limit = r.max_memory_bytes, share = limit ? r.used_memory_bytes / limit * 100 : null;
+    return head + tiles([
+      tile("Ping", formatMs(r.ping_ms), "round trip from this server", null, r.ping_ms > 50),
+      tile("Memory", formatBytes(r.used_memory_bytes), `peak ${formatBytes(r.peak_memory_bytes)}${limit ? ` · limit ${formatBytes(limit)}` : ""}`, share, share != null && share > 80),
+      tile("Keys", formatNumber(r.keys), `${formatNumber(r.expired_keys)} expired since start`),
+      tile("Hit ratio", r.hit_ratio_pct == null ? "—" : `${r.hit_ratio_pct}%`, `${formatNumber(r.hits)} hits · ${formatNumber(r.misses)} misses`, null, r.hit_ratio_pct != null && r.hit_ratio_pct < 80),
+      tile("Load", `${formatNumber(r.ops_per_sec)} ops/s`, `${formatNumber(r.clients)} clients of ${formatNumber(r.max_clients)} · ${formatNumber(r.rejected_connections)} rejected`, null, r.rejected_connections > 0),
+      tile("Evicted keys", formatNumber(r.evicted_keys), `policy ${r.policy || "—"}${r.policy === "noeviction" ? ": writes fail when full" : ""}`, null, r.evicted_keys > 0),
+      tile("Redis version", r.version || "—", r.uptime_sec == null ? "" : `up ${formatDuration(r.uptime_sec)}`),
+    ]);
+  }).join("");
+};
 /* ==== view: app ==== */
 // app: what this server runs
 const renderApp = report => {
@@ -1046,7 +1080,7 @@ const renderApp = report => {
 
 /* ==== loading and boot ==== */
 // loading: one route, /admin/monitor?view=<tab>, loaded when its tab opens or Refresh is pressed
-const RENDER = { memory: renderMemory, requests: renderRequests, errors: renderErrors, database: renderDatabase, background: renderBackground, app: renderApp };
+const RENDER = { memory: renderMemory, requests: renderRequests, errors: renderErrors, database: renderDatabase, background: renderBackground, redis: renderRedis, app: renderApp };
 let current = "memory", loading = false;
 const load = async (trace = "") => {
   if (loading) return;

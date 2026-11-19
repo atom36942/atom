@@ -829,9 +829,9 @@ async def func_pgweb_health(*, pool: asyncpg.Pool, long_query_sec: int = 5, idle
             SELECT wal_bytes::float, extract(epoch FROM now() - coalesce(stats_reset, pg_postmaster_start_time()))::float AS age_sec, pg_size_bytes(current_setting('max_wal_size')) AS max_wal_bytes,
                    extract(epoch FROM current_setting('checkpoint_timeout')::interval)::float AS checkpoint_timeout_sec FROM pg_stat_wal""", timeout=timeout_sec)) if server["version_num"] >= 140000 else {}
     info = {"name": "every database", "host": server["host"], "size_bytes": server["size_bytes"], "connections": server["connections"], "max_connections": server["max_connections"]}
-    upgrade = func_monitor_database_upgrade(info=info, stats=stats, wal=wal, storage_gb=None)
+    upgrade = func_monitor_database_upgrade(info=info, stats=stats, wal=wal)
     for signal in upgrade["signals"]:
-        if signal["name"] == "Disk": signal["detail"] = "data this login can see; the disk size is in the cloud console"    # no disk size here, and growth needs each database's tables
+        if signal["name"] == "Data size": signal["detail"] = "data this login can see"    # growth needs each database's tables
     upgrade["request"] = (f"PostgreSQL server {server['host'] or 'on a local socket'} needs an upgrade (from Atom PgWeb server health, {upgrade['window']}):\n" + "\n".join(f"- {action}" for action in upgrade["actions"])) if upgrade["actions"] else ""
     return {"server": server, "databases": [dict(row) for row in databases], "connections": [dict(row) for row in connections], "long_queries": [dict(row) for row in long_queries],
             "idle_transactions": [dict(row) for row in idle_transactions], "blocked": [dict(row) for row in blocked], "checkpoints": checkpoints, "upgrade": upgrade,

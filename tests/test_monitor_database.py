@@ -23,8 +23,8 @@ class MonitorDatabaseTests(unittest.TestCase):
 
 
 class MonitorDatabaseUpgradeTests(unittest.TestCase):
-    def check(self, storage_gb=32, wal=WAL, **changes):
-        return func_monitor_database_upgrade(info={**INFO, **{k: v for k, v in changes.items() if k in INFO}}, stats={**STATS, **{k: v for k, v in changes.items() if k in STATS}}, wal=wal, storage_gb=storage_gb)
+    def check(self, wal=WAL, **changes):
+        return func_monitor_database_upgrade(info={**INFO, **{k: v for k, v in changes.items() if k in INFO}}, stats={**STATS, **{k: v for k, v in changes.items() if k in STATS}}, wal=wal)
 
     def status(self, result, name):
         return next(signal["status"] for signal in result["signals"] if signal["name"] == name)
@@ -34,21 +34,15 @@ class MonitorDatabaseUpgradeTests(unittest.TestCase):
         self.assertEqual(result["verdict"], "ok")
         self.assertEqual((result["actions"], result["request"]), ([], ""))
 
-    def test_full_disk_asks_for_more_storage(self):
-        result = self.check(server_bytes=29 * 1024 ** 3)
-        self.assertEqual((result["verdict"], self.status(result, "Disk")), ("upgrade", "upgrade"))
-        self.assertIn("Increase storage from 32 GB to 64 GB", result["actions"][0])
+    def test_data_size_is_information_only(self):
+        result = self.check(server_bytes=500 * 1024 ** 3, net_bytes=20 * 1024 ** 3)    # large and growing fast: still no disk verdict, the disk size is not visible
+        self.assertEqual((self.status(result, "Data size"), result["verdict"], result["actions"]), ("unknown", "ok", []))
+        self.assertEqual(result["signals"][0]["value"], "500 GB")
+
+    def test_an_upgrade_names_the_server_in_the_request(self):
+        result = self.check(connections=85)
+        self.assertEqual(result["verdict"], "upgrade")
         self.assertIn("db.example.com", result["request"])
-
-    def test_disk_filling_soon_is_an_upgrade_even_when_mostly_free(self):
-        result = self.check(server_bytes=10 * 1024 ** 3, net_bytes=20 * 1024 ** 3)    # 2 GB a day, 22 GB free: full in 11 days
-        self.assertEqual(self.status(result, "Disk"), "upgrade")
-        self.assertIn("days", result["actions"][0])
-
-    def test_unknown_disk_size_is_said_not_guessed(self):
-        result = self.check(storage_gb=None)
-        self.assertEqual((self.status(result, "Disk"), result["verdict"]), ("unknown", "ok"))
-        self.assertIn("config_postgres_storage_gb", result["signals"][0]["detail"])
 
     def test_each_resource_has_its_own_threshold(self):
         self.assertEqual(self.status(self.check(connections=70), "Connections"), "watch")

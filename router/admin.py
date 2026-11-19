@@ -41,7 +41,7 @@ async def func_api_admin_sync(*, request: Request):
 @router.get("/admin/monitor")
 async def func_api_admin_monitor(*, request: Request):
     app_state = request.app.state
-    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "view", "type": "str", "allowed": ["memory", "requests", "errors", "database", "background", "app"], "default": "memory"}, {"name": "trace", "type": "str", "allowed": ["start", "stop"]}, {"name": "hours", "type": "int", "allowed": [1, 24, 168], "default": 24}, {"name": "connection", "type": "str", "default": "master"}], strict=True, strict_types=True, reject_unknown=True)
+    oq = await app_state.func_request_param_read(request=request, mode="query", param_specs=[{"name": "view", "type": "str", "allowed": ["memory", "requests", "errors", "database", "background", "redis", "app"], "default": "memory"}, {"name": "trace", "type": "str", "allowed": ["start", "stop"]}, {"name": "hours", "type": "int", "allowed": [1, 24, 168], "default": 24}, {"name": "connection", "type": "str", "default": "master"}], strict=True, strict_types=True, reject_unknown=True)
     if oq.get("trace"): app_state.func_memory_trace(app_state=app_state, action=oq["trace"])
     res = await app_state.func_monitor_report(app_state=app_state, view=oq["view"], hours=oq["hours"], connection=oq["connection"], app_routes=app_state.func_app_route_list(app=request.app))    # on the event loop (a thread could read the caches while requests change them); the memory walk yields as it goes
     return {"status": 1, "message": res}

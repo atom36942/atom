@@ -1,6 +1,8 @@
 # import
+import asyncio
 import os
 import platform
+import time
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
@@ -58,7 +60,7 @@ async def func_monitor_errors(*, client_postgres: asyncpg.Pool | None, hours: in
 
 async def func_monitor_database(*, app_state: State, connection: str, top: int = 20, long_query_sec: int = 5, timeout_sec: int = 15) -> dict:
     """Pool use of every PostgreSQL connection (which one log_api writes to), and for one database: where it is (database, host, port, user), size, cache hit ratio, connections, long-running queries, waiting locks,
-    the biggest tables, and whether the server needs upgrading (func_monitor_database_upgrade; the master server's disk size from config_postgres_storage_gb)."""
+    the biggest tables, and whether the server needs upgrading (func_monitor_database_upgrade)."""
     client_postgres_dict = getattr(app_state, "client_postgres_dict", {})
     log_database = getattr(app_state, "config_postgres_db_log_api", None) if getattr(app_state, "config_is_log_api", True) else None
     pools = [{"name": name, "size": pool.get_size(), "idle": pool.get_idle_size(), "min": pool.get_min_size(), "max": pool.get_max_size(), "is_log_api": name == log_database} for name, pool in client_postgres_dict.items()]
@@ -90,11 +92,10 @@ async def func_monitor_database(*, app_state: State, connection: str, top: int =
             SELECT wal_bytes::float, extract(epoch FROM now() - coalesce(stats_reset, pg_postmaster_start_time()))::float AS age_sec, pg_size_bytes(current_setting('max_wal_size')) AS max_wal_bytes,
                    extract(epoch FROM current_setting('checkpoint_timeout')::interval)::float AS checkpoint_timeout_sec FROM pg_stat_wal""", timeout=timeout_sec)) if stats["version_num"] >= 140000 else {}
     slow_queries = await app_state.func_postgres_slow_queries_read(client_postgres=client_postgres, limit=top, order="total_time")
-    storage_gb = getattr(app_state, "config_postgres_storage_gb", None) if connection == "master" else None    # the master server's disk; another connection's is unknown
-    upgrade = func_monitor_database_upgrade(info=info, stats=stats, wal=wal, storage_gb=storage_gb)
+    upgrade = func_monitor_database_upgrade(info=info, stats=stats, wal=wal)
     return {"connection": connection, "pools": pools, "is_enabled": True, "info": info, "states": [dict(row) for row in states], "long_queries": [dict(row) for row in queries], "tables": [dict(row) for row in tables], "slow_queries": slow_queries, "upgrade": upgrade}
 
-def func_monitor_database_upgrade(*, info: dict, stats: dict, wal: dict, storage_gb: float | None) -> dict:
+def func_monitor_database_upgrade(*, info: dict, stats: dict, wal: dict) -> dict:
     """Whether the PostgreSQL server needs upgrading, from its own counters: one signal per resource (status ok, watch, upgrade or unknown; its value and what it means), the actions to ask DevOps for,
     and that request as text to copy. wal: pg_stat_wal's bytes and age with max_wal_size and checkpoint_timeout (empty before PostgreSQL 14). Counters run since their last reset, so a young window (under a day) is said to be too short to judge. Deadlocks are a code issue: they never ask for an upgrade."""
     def size(n: float) -> str:
@@ -107,20 +108,10 @@ def func_monitor_database_upgrade(*, info: dict, stats: dict, wal: dict, storage
         return "upgrade" if value >= upgrade else "watch" if value >= watch else "ok"
     days = max((stats.get("stats_age_sec") or 0) / 86400, 1 / 24)
     signals, actions = [], []
-    # disk: the data of every database on the server against the disk DevOps gave it, and when it fills at the growth since the counters reset
+    # data size: every database on the server and its growth since the counters reset, for information (the disk size is not visible to PostgreSQL)
     used, growth = stats.get("server_bytes") or info.get("size_bytes") or 0, max((stats.get("net_bytes") or 0) / days, 0)
     grows = f"+{size(growth * 30)} a month" if growth >= 1024 ** 2 / 30 else "not growing"
-    if storage_gb:
-        disk = storage_gb * 1024 ** 3
-        used_pct, days_left = used / disk * 100, (disk - used) / growth if growth else None
-        status = "upgrade" if used_pct >= 85 or (days_left is not None and days_left < 90) else "watch" if used_pct >= 70 or (days_left is not None and days_left < 180) else "ok"
-        full = "" if days_left is None or days_left >= 3650 else f", full in about {days_left:.0f} days" if days_left < 60 else f", full in about {days_left / 30:.0f} months"
-        signals.append({"name": "Disk", "status": status, "value": f"{used_pct:.0f}% of {storage_gb:g} GB", "detail": f"{size(used)} of data, {grows}{full}"})
-        if status == "upgrade":
-            need = (used + growth * 365) / 0.6 / 1024 ** 3    # a year of growth and still 40% free
-            target = next((gb for gb in (32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384) if gb >= need and gb > storage_gb), storage_gb * 2)
-            actions.append(f"Increase storage from {storage_gb:g} GB to {target:g} GB ({used_pct:.0f}% used{full})")
-    else: signals.append({"name": "Disk", "status": "unknown", "value": size(used), "detail": f"{grows}; set config_postgres_storage_gb for disk use"})
+    signals.append({"name": "Data size", "status": "unknown", "value": size(used), "detail": grows})
     # connections: every app's, against the server's limit
     connections_pct = info["connections"] / info["max_connections"] * 100 if info.get("max_connections") else None
     status = level(connections_pct, 60, 80)
@@ -165,6 +156,30 @@ async def func_monitor_queues(*, client_redis: Any, channels: list) -> dict:
         for name in names: pipe.llen(name).llen(f"{name}_processing").llen(f"{name}_failed").exists(f"{name}_consumer")
         counts = await pipe.execute()
     return {"is_enabled": True, "channels": [{"channel": name, "waiting": counts[i * 4], "running": counts[i * 4 + 1], "failed": counts[i * 4 + 2], "is_consumer": bool(counts[i * 4 + 3])} for i, name in enumerate(names)]}
+
+async def func_monitor_redis(*, client_redis_dict: dict, url_dict: dict, timeout_sec: float = 5) -> dict:
+    """Every Redis connection (config_redis_url_<name>), read-only: where it is (host, port, db; never the password), memory used and its limit (None when the provider hides it, as Azure does), keys, hit ratio, load, evictions and one timed PING from this server. One that cannot be reached shows its error."""
+    async def one(name: str, client: Any) -> dict:
+        try: parts = urlsplit(url_dict.get(name) or "")
+        except ValueError: parts = urlsplit("")
+        row = {"name": name, "host": parts.hostname or "", "port": parts.port, "db": parts.path.strip("/") or "0", "is_tls": parts.scheme == "rediss"}
+        if client is None: return {**row, "status": "off", "error": "no client"}
+        try:
+            async def read() -> tuple:
+                await client.ping()    # opens a connection if the pool has none, so the timed one is the round trip alone
+                start = time.perf_counter()
+                await client.ping()
+                ping_ms = round((time.perf_counter() - start) * 1000, 1)
+                return ping_ms, await client.info(), await client.dbsize()
+            ping_ms, info, keys = await asyncio.wait_for(read(), timeout=timeout_sec)
+        except Exception as error: return {**row, "status": "error", "error": str(error)[:300] or type(error).__name__}
+        hits, misses, limit = info.get("keyspace_hits", 0), info.get("keyspace_misses", 0), info.get("maxmemory")
+        return {**row, "status": "ok", "error": "", "ping_ms": ping_ms, "version": info.get("redis_version"), "mode": info.get("redis_mode"), "uptime_sec": info.get("uptime_in_seconds"),
+                "used_memory_bytes": info.get("used_memory"), "peak_memory_bytes": info.get("used_memory_peak"), "max_memory_bytes": limit or None, "policy": info.get("maxmemory_policy"), "fragmentation": info.get("mem_fragmentation_ratio"),
+                "keys": keys, "hits": hits, "misses": misses, "hit_ratio_pct": round(hits / (hits + misses) * 100, 1) if hits + misses else None, "ops_per_sec": info.get("instantaneous_ops_per_sec"),
+                "clients": info.get("connected_clients"), "max_clients": info.get("maxclients"), "rejected_connections": info.get("rejected_connections"), "evicted_keys": info.get("evicted_keys"), "expired_keys": info.get("expired_keys")}
+    names = sorted({name for name, client in (client_redis_dict or {}).items() if client} | {name for name, url in (url_dict or {}).items() if url})
+    return {"connections": list(await asyncio.gather(*(one(name, (client_redis_dict or {}).get(name)) for name in names)))}
 
 def func_monitor_background(*, app_state: State) -> dict:
     """Work this worker does outside requests: periodic tasks, rows waiting in the write buffers, running background tasks, open websockets and error counters."""
@@ -224,12 +239,13 @@ def func_monitor_app(*, app_state: State, app_routes: list, packages: tuple = ("
     }
 
 async def func_monitor_report(*, app_state: State, view: str, hours: int = 24, connection: str = "master", app_routes: list = None) -> dict:
-    """One monitor view: memory, requests, errors, database, background or app; every one also names the master database for the page's header: master_database (host / database) and master_database_url (the URL, password hidden)."""
+    """One monitor view: memory, requests, errors, database, background, redis or app; every one also names the master database for the page's header: master_database (host / database) and master_database_url (the URL, password hidden)."""
     if view == "memory": report = await app_state.func_memory_report(app_state=app_state)
     elif view == "requests": report = await func_monitor_requests(client_postgres=getattr(app_state, "client_postgres_log_api", None), hours=hours)
     elif view == "errors": report = await func_monitor_errors(client_postgres=getattr(app_state, "client_postgres_log_api", None), hours=hours)
     elif view == "database": report = await func_monitor_database(app_state=app_state, connection=connection)
     elif view == "background": report = {**func_monitor_background(app_state=app_state), "queues": await func_monitor_queues(client_redis=app_state.client_redis_dict.get("queue"), channels=list(app_state.func_consumer_channels()))}
+    elif view == "redis": report = await func_monitor_redis(client_redis_dict=getattr(app_state, "client_redis_dict", None) or {}, url_dict=getattr(app_state, "config_redis_url_dict", None) or {})
     elif view == "app": report = func_monitor_app(app_state=app_state, app_routes=app_routes or [])
     else: raise Exception(f"invalid view: {view}")
     master = getattr(app_state, "config_postgres_url_master", None) or (getattr(app_state, "config_postgres_url_dict", None) or {}).get("master")

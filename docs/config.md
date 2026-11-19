@@ -216,7 +216,6 @@ Disabled (`None`) by default; activated automatically when connection credential
 | `config_mssql_pool_min_size` | Minimum connections per SQL Server pool (default: `1`) |
 | `config_mssql_pool_max_size` | Maximum connections per SQL Server pool (default: `10`) |
 | `config_postgres_pool_min_size_<name>`, `config_postgres_pool_max_size_<name>` | One database's pool size, e.g. `config_postgres_pool_max_size_test=3`; others keep the shared sizes. `config_mssql_pool_min_size_<name>`, `config_mssql_pool_max_size_<name>` do the same for SQL Server. An unknown `<name>` stops startup |
-| `config_postgres_storage_gb` | The disk size, in GB, of the master database's server, as DevOps set it (e.g. Azure storage `32`), which PostgreSQL itself can't see. Monitor's upgrade check uses it for how full the disk is and when it fills. Default: none (the check shows the data size and growth only) |
 | `config_mssql_pool_recycle_sec` | Reopen SQL Server connections older than this, in seconds (default: `1800`) |
 | `config_otp_length` | Digit length generated for OTP codes (default: `6`) |
 | `config_otp_expiry_sec` | Expiry window for OTP codes in seconds (default: `600`) |

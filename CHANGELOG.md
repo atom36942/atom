@@ -4,6 +4,11 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [16.6.0] - 2026-11-19
+
+- **Monitor: Redis tab:** `/page/monitor` has a Redis tab (`GET /admin/monitor?view=redis`) with one block per `config_redis_url_<name>`, headed by its key name and URL: ping from the server, memory and its limit, keys, hit ratio, ops per second, clients, evictions, eviction policy, version and uptime; read-only, an unreachable one shows its error, and none configured says so ([docs/admin.md](docs/admin.md)).
+- **`config_postgres_storage_gb` removed:** Monitor shows only what the servers report. The upgrade check's Disk signal becomes **Data size** (size and growth, marked Info, never an upgrade), since PostgreSQL can't see the disk size; a project that set the key can drop it from `.env` (it is ignored).
+
 ## [16.5.3] - 2026-11-19
 
 - **AGENTS.md: agents reuse their work:** the agent's local run lives in its own folder `~/.atom/<project>/` (outside the project, so the developer never sees it), kept between runs instead of removed: `local.env`, the `<project>_agent` database with its test data and seed script, and `notes.md` (Atom version last audited, what changed, what was skipped and why, what to check next). Every run reads it first and keeps it current; anything that no longer matches the code is rebuilt; no `.env` values or production data. Update's later run reads `notes.md` to propose only what drifted.
