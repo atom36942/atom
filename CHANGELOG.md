@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [16.4.1] - 2026-11-19
+
+- **AGENTS.md for agents working alone:** Enforced now names `script.check` with import, startup and sync; Work says every database and service in `.env` is real (starting the app applies schema changes to it; never run a script to see if it starts); Verify says a failing check is fixed at its cause, never by skipping or weakening a test, `# noqa`, editing Atom's core or changing `config_api` to suit a page.
+
 ## [16.4.0] - 2026-11-19
 
 - **AI query routes run read-only:** `/admin/postgres-query-generator-ai` is now `/admin/postgres-query-ai` and `/admin/clickhouse-query-generator-ai` is now `/admin/clickhouse-query-ai` (same `config_api` ids; functions `func_postgres_query_ai`, `func_clickhouse_query_ai`). New body param `execute` (default `false`): with `true` the generated SQL also runs through the read runner (read-only transaction or `readonly=1`, 30 s timeout, row limit) and the response adds `rows`. A caller of the old path switches to the new one ([docs/database.md](docs/database.md)).

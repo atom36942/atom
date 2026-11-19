@@ -2,7 +2,7 @@
 The rules for building on Atom, in short; each part links the doc with the detail: read it before working in that area. The same file in every project (synced, never edited there); a project's feature details and business rules go in `docs_extend/<feature>.md`. Read by AI agents: dense on purpose.
 
 Three kinds of rule:
-- **Enforced**: Atom fails (import, startup, sync, CI) when it is broken. Never work around one.
+- **Enforced**: Atom fails when it is broken: at import or startup, in sync, or in `script.check` (run in [Verify](#verify), [Update](#update) and Atom's CI). Never work around one.
 - **Rule**: not checked by code, always followed.
 - **Default**: Atom's chosen way, already weighed. Follow it unless the project has a real reason, written in its `docs_extend/`.
 
@@ -12,6 +12,7 @@ Atom is a backend: its front-end parts are Defaults, so a project may build any 
 - Work autonomously; ask only for essential missing info or destructive actions outside the request.
 - Before a project task: `python3 sync.py --status`; if Atom is behind, follow [Update](#update) first.
 - Match surrounding code: naming, density, one-line statements, comments. Never expose `.env` values or credentials (key names only).
+- Every database and service in `.env` is real, usually production: starting the app applies `config_postgres` schema changes to its database, so back up first or run against a throwaway local database. Never run a project script to see if it starts (scripts act on real systems): import it or test it with mocks.
 - One simple rule over exceptions; no backward-compat shims. Docs describe patterns (`<feature>.py`, `/page/<name>`), never specific file names.
 - A framework change keeps Atom's design decisions ([about.md](docs/about.md), with the reason for each) unless the user asks to change one.
 
@@ -90,6 +91,7 @@ Built only when an app needs them, each with its own doc: user management ([user
 
 ## Verify
 - `venv/bin/python -m script.check` (Windows `venv\Scripts\`): startup checks, ruff, every `app_state.func_*` the project calls still defined and every route its pages call still in `config_api` (a renamed Atom function or route fails here, not in production), every page's JavaScript and every test, as CI runs it; a test name such as `tests_extend.test_invoice` runs just that.
+- A failing check is fixed at its cause, in the project's code: never skip, weaken or delete a test, add `# noqa` or a mock only to pass, edit Atom's core, or change `config_api` to suit a page. A fix that needs Atom is proposed to Atom.
 - The check's last part, `standard Rules x/y, Defaults x/y`, reports what a project misses of the measurable Rules and Defaults (report only: it never fails the check); a Rule missed is fixed, a Default kept on purpose has its reason in `docs_extend/`.
 - Database tests use a throwaway local database, never a shared or production one. Keep tests light: test the rules whose mistake gives wrong data without an error.
 
