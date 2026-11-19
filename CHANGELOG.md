@@ -4,6 +4,12 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [16.7.0] - 2026-11-19
+
+- **Postgres queue, the default:** background jobs need no broker. `?queue=postgres` on `/my/object-create` and `/my/object-update` (or `app_state.func_producer(queue="postgres", client_postgres=...)`) adds a row to the new table `queue_job` and returns its id; `venv/bin/python -m script.consumer_postgres <channel>` runs it. Jobs are taken with `FOR UPDATE SKIP LOCKED` inside a transaction held until the job is finished, so several consumers can share a channel and a killed one leaves nothing stuck; `LISTEN/NOTIFY` wakes consumers at once; retries wait in `run_at`; a job failed after `config_queue_retry_max` retries stays with `status` 2 and its error. Redis, RabbitMQ, Kafka and Celery are unchanged ([docs/queue.md](docs/queue.md)).
+- **Rules are checked by code:** `script.check` has a `rules` step that fails a project on: a secret in code or docs, Postgres through anything but asyncpg, `.env` missing from `.gitignore`, a pool or SDK client opened in `function_extend/` or `router_extend/` (scripts may open their own), a role or permission check in `router_extend/` (`config_api` does it). Each break is named with its file and line. The report-only score is now `standard Defaults x/y` (no Rules part).
+- **Front end is Defaults only:** `AGENTS.md` and `docs/frontend.md` say plainly that every front-end point is a suggestion a page may follow or not; the two former front-end Rules (standalone page storage and escaping, keeping the login alive) are Defaults. Only how Atom serves pages and the route paths they call stay enforced.
+
 ## [16.6.0] - 2026-11-19
 
 - **Monitor: Redis tab:** `/page/monitor` has a Redis tab (`GET /admin/monitor?view=redis`) with one block per `config_redis_url_<name>`, headed by its key name and URL: ping from the server, memory and its limit, keys, hit ratio, ops per second, clients, evictions, eviction policy, version and uptime; read-only, an unreachable one shows its error, and none configured says so ([docs/admin.md](docs/admin.md)).

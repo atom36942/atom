@@ -1,4 +1,4 @@
-"""Queue jobs are done at least once on every broker: a job counts as done only after its function returns, a failed job is retried up to retry_max times and then kept in <channel>_failed, and a consumer that is killed mid-job loses nothing. Real Redis (ATOM_TEST_REDIS_URL) and RabbitMQ (ATOM_TEST_RABBITMQ_URL), each consumer in its own process; Kafka and Celery with fakes."""
+"""Queue jobs are done at least once on every broker: a job counts as done only after its function returns, a failed job is retried up to retry_max times and then kept (Postgres: status 2 in queue_job; brokers: <channel>_failed), and a consumer that is killed mid-job loses nothing. Real Postgres (ATOM_TEST_POSTGRES_URL, a throwaway database), Redis (ATOM_TEST_REDIS_URL) and RabbitMQ (ATOM_TEST_RABBITMQ_URL), each consumer in its own process; Kafka and Celery with fakes."""
 import asyncio
 import os
 import secrets
@@ -15,6 +15,7 @@ from unittest.mock import patch
 
 import orjson
 
+from function.queues import func_producer
 from function.queues import func_queue_celery_job_finish
 from function.queues import func_queue_kafka_job_finish
 from function.queues import func_queue_redis_job_finish
@@ -26,6 +27,7 @@ from function.queues import func_queue_redis_recover
 from tests.support import service_setting
 
 ROOT = Path(__file__).resolve().parents[1]
+POSTGRES_URL = service_setting("ATOM_TEST_POSTGRES_URL")
 REDIS_URL = service_setting("ATOM_TEST_REDIS_URL")
 RABBITMQ_URL = service_setting("ATOM_TEST_RABBITMQ_URL")
 WAIT_SEC = 20
@@ -84,6 +86,99 @@ class ConsumerProcess:
     def cleanup(self):
         if self.process and self.process.poll() is None: self.kill()
         for path in (self.done_file, self.slow_go, Path(f"{self.done_file}.started")): path.unlink(missing_ok=True)
+
+
+@unittest.skipUnless(POSTGRES_URL, "set ATOM_TEST_POSTGRES_URL to run Postgres queue tests")
+class PostgresDeliveryTests(unittest.TestCase):
+    """The Postgres queue on a throwaway database holding only queue_job (as config_postgres defines it)."""
+    @classmethod
+    def setUpClass(cls):
+        from tests.integration.support import config_postgres
+        from tests.integration.support import create_database
+        from tests.integration.support import drop_database
+        cls.db_name, cls.url = create_database()
+        cls.addClassCleanup(drop_database, cls.db_name)
+        columns = {column["name"]: column for column in config_postgres()["table"]["queue_job"]}
+        def ddl(column): return f'"{column['name']}" {column['datatype']}' + (" GENERATED ALWAYS AS IDENTITY PRIMARY KEY" if column.get("identity") else "") + (" NOT NULL" if column.get("is_mandatory") else "") + (f" DEFAULT {column['default']}" if "default" in column else "")
+        cls.sql(f"CREATE TABLE queue_job ({', '.join(ddl(column) for column in columns.values())})")
+
+    @classmethod
+    def sql(cls, query, *args):
+        async def run():
+            conn = await asyncpg_connect(cls.url)
+            try: return [dict(row) for row in await conn.fetch(query, *args)]
+            finally: await conn.close()
+        return asyncio.run(run())
+
+    def setUp(self):
+        self.channel = f"atom_test_{secrets.token_hex(4)}"
+
+    def push(self, *jobs):
+        async def run():
+            pool = await asyncpg_pool(self.url)
+            try: return [await func_producer(queue="postgres", client_celery_producer=None, client_kafka_producer=None, client_rabbitmq_producer=None, client_redis_producer=None, client_postgres=pool, channel=self.channel, payload={"job": job}) for job in jobs]
+            finally: await pool.close()
+        return asyncio.run(run())
+
+    def rows(self):
+        return self.sql("SELECT payload, status, attempt, error FROM queue_job WHERE channel = $1 ORDER BY id", self.channel)
+
+    def consumer(self):
+        return ConsumerProcess(self, queue="postgres", channel=self.channel, url_key="config_postgres_url_master", url=self.url)
+
+    def test_the_producer_returns_the_new_job_id(self):
+        ids = self.push("a", "b")
+        self.assertEqual(len(set(ids)), 2)
+        self.assertEqual([(orjson.loads(row["payload"]), row["status"], row["attempt"]) for row in self.rows()], [({"job": "a"}, 1, 0), ({"job": "b"}, 1, 0)])
+
+    def test_retry_then_failed_and_a_killed_consumer_loses_nothing(self):
+        consumer = self.consumer()
+        self.push("ok", "fail", "slow")
+        consumer.start()
+        wait_until(lambda: consumer.done() == ["ok"] and [row["status"] for row in self.rows()] == [2, 1] and "slow" in consumer.started(), "ok done, fail kept as failed, slow running")
+        failed = self.rows()[0]
+        self.assertEqual((orjson.loads(failed["payload"]), failed["attempt"]), ({"job": "fail"}, 2), "run once, retried once (retry_max=1), then kept")
+        self.assertIn("ValueError: job failed on purpose", failed["error"])
+        consumer.kill()    # mid-job: its transaction rolls back, so "slow" is waiting again
+        consumer.slow_go.touch()
+        consumer.start()
+        wait_until(lambda: consumer.done() == ["ok", "slow"], "the restarted consumer finishes the job the killed one left")
+        self.assertEqual([row["status"] for row in self.rows()], [2], "only the failed job is left")
+
+    def test_sigterm_finishes_the_running_job_then_exits(self):
+        consumer = self.consumer()
+        consumer.start()
+        self.push("slow")
+        wait_until(lambda: consumer.started() == ["slow"], "the slow job is running (woken by the notify)")
+        consumer.stop()
+        time.sleep(1.5)
+        self.assertIsNone(consumer.process.poll(), "it waits for the running job")
+        self.push("ok")
+        consumer.slow_go.touch()
+        self.assertEqual(consumer.process.wait(timeout=WAIT_SEC), 0)
+        self.assertEqual(consumer.done(), ["slow"], "the running job finished; the new one was not taken")
+        self.assertEqual([orjson.loads(row["payload"]) for row in self.rows()], [{"job": "ok"}], "the new job waits in the table")
+
+    def test_two_consumers_share_a_channel_and_run_each_job_once(self):
+        first, second = self.consumer(), self.consumer()
+        jobs = [f"job{n:02}" for n in range(20)]
+        self.push(*jobs)
+        first.start()
+        second.start()
+        wait_until(lambda: first.done() == sorted(jobs), "every job done")
+        time.sleep(1)
+        self.assertEqual(sorted(first.started()), sorted(jobs), "each job ran once across both consumers")
+        self.assertEqual(self.rows(), [])
+
+
+async def asyncpg_connect(url):
+    import asyncpg
+    return await asyncpg.connect(url)
+
+
+async def asyncpg_pool(url):
+    from function.clients import func_client_postgres
+    return await func_client_postgres(dsn=url, min_size=1, max_size=2)
 
 
 @unittest.skipUnless(REDIS_URL, "set ATOM_TEST_REDIS_URL to run Redis tests")

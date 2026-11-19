@@ -1,13 +1,14 @@
 # Front end
 
-How a project's pages (`static_extend/<app>/`) and Atom's own work with Atom: one login, account menu, sync and list flow on every page, so a user meets the same app everywhere and no page re-decides them. [AGENTS.md](../AGENTS.md) lists these in short; this page has the detail. Atom shares the backend only: the page, its build and its look are the project's own. A few points are enforced or firm rules (said so below); the rest are Atom's defaults, already weighed: use them as written and differ only for a real reason, written in the project's `docs_extend/`.
+How a project's pages (`static_extend/<app>/`) and Atom's own work with Atom: one login, account menu, sync and list flow on every page, so a user meets the same app everywhere and no page re-decides them. [AGENTS.md](../AGENTS.md) lists these in short; this page has the detail. Atom shares the backend only: the page, its build and its look are the project's own. Only how Atom serves pages and the route paths they call are enforced (said so below); everything else is a Default: a suggestion, never a rule. Pages may always differ; a project that differs on purpose writes why in its `docs_extend/`.
 
 ## Pages
 What Atom enforces (startup or serving):
 - A page is `static_extend/<name>.html` or `static_extend/<name>/index.html` (its other files inside `<name>/`): served at `/page/<name>`, listed on `/`, no route or `config_api` entry; `/` serves `config_root_html_path`. Every other file is served at `/static/<path>` only (`/static_extend/...` is not a URL); Atom's `static/` follows the same rule. Startup fails on a path in both folders or two pages with one name (ignoring case); restart after creating the folder.
-- Link local files by full path (`/static/<name>/js/app.js`): Atom stamps `?v=<fingerprint>`, so no hand-kept `?v=`. Escape data from the database or other systems before `innerHTML`.
+- Link local files by full path (`/static/<name>/js/app.js`): Atom stamps `?v=<fingerprint>`, so no hand-kept `?v=`.
 
-Defaults, not rules: use them unless a page has a real reason to differ (the details below); the page, its build (plain files, modules or a bundler) and its look are the project's own, since Atom shares backend only.
+Defaults, not rules: suggestions a page may follow or not (the details below); the page, its build (plain files, modules or a bundler) and its look are the project's own, since Atom shares backend only.
+- Escape data from the database or other systems before `innerHTML`.
 - One page per app; state such as a tab goes in the query (`/page/<name>?tab=<tab>`), not a sub-path.
 - Files: a page starts as one `<name>.html` with its CSS and JS inline (one place to search and change); it becomes a `<name>/` folder (`index.html`, `css/`, `js/`) when it carries its own assets (images, fonts) or one file grows hard to work in (about 3000+ lines). Pages never share CSS or JS files, even when code repeats, so each can change on its own path. Atom's own pages do the same.
 - A page is standalone: its own login and storage, every key and database named after it (`<name>`), never general names like `token` or `user` (apps share `localhost` in development and may share a domain later).

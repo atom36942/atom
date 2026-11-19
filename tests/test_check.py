@@ -13,6 +13,7 @@ from pathlib import Path
 from script.check import names_check
 from script.check import pages_check
 from script.check import routes_check
+from script.check import rules_check
 from script.check import standard_check
 from script.check import summary_format
 
@@ -148,16 +149,41 @@ fetch("https://api.other.com/admin/x"); const re = /a\/b/; const s = "a / b"; co
         with tempfile.TemporaryDirectory() as root: self.assertIsNone(routes_check(root=root, config_api=self.API)[0])
 
 
+def project_make(test, files):
+    """A throwaway project folder with files ({path: text}), removed after the test."""
+    root = Path(tempfile.mkdtemp())
+    test.addCleanup(shutil.rmtree, root, ignore_errors=True)
+    for name, text in {"config_extend.py": "", ".gitignore": ".env\n", **files}.items():
+        Path(root, name).parent.mkdir(parents=True, exist_ok=True)
+        Path(root, name).write_text(text, encoding="utf-8")
+    return root
+
+
+class RulesTests(unittest.TestCase):
+    """AGENTS.md's Enforced code rules fail the check, each break named with its file and line."""
+    def test_outside_a_project_the_step_is_skipped(self):
+        with tempfile.TemporaryDirectory() as root: self.assertIsNone(rules_check(root=root)[0])
+
+    def test_a_project_following_the_rules_passes(self):
+        files = {"function_extend/invoice.py": "import asyncpg\nasync def func_invoice_read(*, client_postgres): return await client_postgres.fetch('SELECT 1')",
+                 "router_extend/invoice.py": "async def invoice_read(request):\n    user_id = request.state.user['id']\n    row = {'role': 2}\n    return row['role'], row.get('permissions')",
+                 "script_extend/invoice_sync.py": "import asyncpg\nasync def main(): return await asyncpg.connect('')"}
+        self.assertEqual(rules_check(root=project_make(self, files)), (True, ""))
+
+    def test_each_break_is_named_with_its_line(self):
+        files = {"function_extend/invoice.py": "import httpx\nimport redis.asyncio as redis\nclient = httpx.AsyncClient()\npool = redis.Redis.from_url('')",
+                 "router_extend/invoice.py": "import psycopg2\ndef read(request):\n    if request.state.user['role'] != 2: return\n    return request.state.user.get('permissions')",
+                 "files_extend/key.txt": "\npostgresql://app:hunter2@db.example.com/app", ".gitignore": ""}
+        status, output = rules_check(root=project_make(self, files))
+        self.assertIs(status, False)
+        for line in ["function_extend/invoice.py:3: httpx.AsyncClient()", "function_extend/invoice.py:4: redis.Redis.from_url()", "router_extend/invoice.py:1: Postgres only through asyncpg (no psycopg2)", "router_extend/invoice.py:3: checks the user's role", "router_extend/invoice.py:4: checks the user's permissions", "files_extend/key.txt:2: a secret in code", ".gitignore: .env is not listed"]:
+            self.assertIn(line, output)
+
+
 class StandardTests(unittest.TestCase):
-    """The standard score only reports: it names what a project misses and never fails the check."""
+    """The standard score only reports: it names which Defaults a project misses and never fails the check."""
     def project(self, files):
-        root = Path(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
-        for name, text in {"config_extend.py": "", ".gitignore": ".env\n", **files}.items():
-            Path(root, name).parent.mkdir(parents=True, exist_ok=True)
-            Path(root, name).write_text(text, encoding="utf-8")
-        rules, defaults = standard_check(root=root)
-        return {what: missing for what, missing in [*rules, *defaults] if missing}
+        return {what: missing for what, missing in standard_check(root=project_make(self, files)) if missing}
 
     def test_outside_a_project_there_is_no_score(self):
         self.assertIsNone(standard_check(root=tempfile.gettempdir() + "/no-such-project"))
@@ -168,20 +194,16 @@ class StandardTests(unittest.TestCase):
         self.assertEqual(self.project(files), {})
 
     def test_what_is_missing_is_named(self):
-        missing = self.project({"router_extend/invoice.py": "import psycopg2", "files_extend/key.txt": "postgresql://app:hunter2@db.example.com/app",
-                                "static_extend/invoice.html": '<script src="https://cdn.example.com/x.js"></script><script>fetch("/auth/login")</script>', ".gitignore": ""})
-        self.assertEqual(missing["no secret in code or docs (only in .env)"], ["files_extend/key.txt"])
-        self.assertEqual(missing["Postgres only through asyncpg"], ["router_extend/invoice.py"])
-        self.assertEqual(missing[".env kept out of Git"], [".gitignore"])
+        missing = self.project({"router_extend/invoice.py": "", "static_extend/invoice.html": '<script src="https://cdn.example.com/x.js"></script><script>fetch("/auth/login")</script>'})
         self.assertEqual(missing["each feature has tests_extend/test_<f>.py"], ["invoice"])
         self.assertEqual(missing["pages load no script or style from another site"], ["invoice"])
         self.assertEqual(missing["keeps the login alive (/my/token-refresh)"], ["invoice"])
 
     def test_the_score_is_in_the_summary_and_never_fails_it(self):
-        standard = ([("rule a", [])], [("default b", ["invoice"]), ("default c", [])])
+        standard = [("default b", ["invoice"]), ("default c", [])]
         lines = summary_format(steps=[("startup", True, "")], result=sample_result("test_passes"), seconds=1, standard=standard)
-        self.assertIn("standard Rules 1/1, Defaults 1/2", lines[0])
-        self.assertIn("  Default: default b: invoice", lines)
+        self.assertIn("standard Defaults 1/2", lines[0])
+        self.assertIn("  default b: invoice", lines)
 
 if __name__ == "__main__":
     unittest.main()

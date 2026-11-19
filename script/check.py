@@ -9,11 +9,13 @@
 # - routes (projects only): every quoted path in static_extend/ pages and .js files whose first part is a config_api route's first part (/admin, /my, /auth, the project's own /<feature>, ...) is a config_api route; ${...} counts as one route value ({name}), anything after ? or # is ignored, and /static/ files and third-party URLs are not checked; a route Atom renamed or removed otherwise fails only when the page calls it
 # - pages: every .html (its inline scripts) and .js file in static/ and static_extend/ is parsed with node --check; skipped when node is not installed
 # - tests come from tests/ in Atom and tests_extend/ in a project; service tests run when their ATOM_TEST_* setting is in the environment (see tests/README.md)
-# - standard (projects only, report only, never fails the check): how many of AGENTS.md's measurable Rules and Defaults the project's code and pages follow, and which it misses; a Default kept on purpose has its reason in docs_extend/
+# - rules (projects only): AGENTS.md's Enforced code rules: no secret in code or docs, Postgres only through asyncpg, .env in .gitignore, no pool or SDK client opened in function_extend/ or router_extend/, no role or permission check in router_extend/; each break is named with its file and line
+# - standard (projects only, report only, never fails the check): how many of AGENTS.md's measurable Defaults the project's code and pages follow, and which it misses; a Default kept on purpose has its reason in docs_extend/
 # - a test running over TEST_TIMEOUT_SEC stops the check: it prints the test and every thread's stack (where it waits), then exits 1
-# - exit code 0 only when startup, ruff, names, routes, pages and every test pass
+# - exit code 0 only when startup, ruff, names, routes, rules, pages and every test pass
 
 # import
+import ast
 import faulthandler
 import os
 import re
@@ -50,10 +52,15 @@ PAGE_TMP = "tmp/check"
 SCRIPT_TAG = re.compile(r"<script(?P<attrs>[^>]*)>(?P<code>.*?)</script>", re.DOTALL | re.IGNORECASE)
 SCRIPT_TYPES = ("", "text/javascript", "module")    # other types (application/json, importmap, templates) are not JavaScript
 SECRET_PATTERNS = [r"AKIA[0-9A-Z]{16}", r"sk-[A-Za-z0-9_-]{20,}", r"-----BEGIN [A-Z ]*PRIVATE KEY", r"(postgres(ql)?|redis|mongodb(\+srv)?|amqp)://[^:/\s\"']+:[^@\s\"']+@"]
-STANDARD_CODE_FOLDERS = ["function_extend", "router_extend", "script_extend", "files_extend", "static_extend", "docs_extend"]
 STANDARD_PAGE_LOGIN = "/auth/login"
-STANDARD_PAGE_RULES = [("keeps the login alive (/my/token-refresh)", ["/my/token-refresh"])]
+RULE_CODE_FOLDERS = ["function_extend", "router_extend", "script_extend", "files_extend", "static_extend", "docs_extend"]
+RULE_CLIENT_FOLDERS = ["function_extend", "router_extend"]    # scripts run as their own process and may open their own
+RULE_CLIENT_CALLS = {"asyncpg.create_pool", "asyncpg.connect", "create_pool", "redis.Redis", "Redis", "redis.from_url", "Redis.from_url", "httpx.AsyncClient", "httpx.Client", "AsyncClient", "boto3.client", "boto3.resource", "AsyncIOMotorClient", "MongoClient", "OpenAI", "AsyncOpenAI", "openai.OpenAI", "openai.AsyncOpenAI", "Anthropic", "AsyncAnthropic", "anthropic.Anthropic", "anthropic.AsyncAnthropic", "genai.Client", "BlobServiceClient", "BlobServiceClient.from_connection_string"}
+RULE_ACCESS_FOLDER = "router_extend"
+RULE_ACCESS_KEYS = {"role", "permissions"}
+RULE_DRIVERS = re.compile(r"^\s*(import|from)\s+(psycopg|psycopg2|sqlalchemy)\b", re.MULTILINE)
 STANDARD_PAGE_DEFAULTS = [
+    ("keeps the login alive (/my/token-refresh)", ["/my/token-refresh"]),
     ("loads /my/profile after login", ["/my/profile"]),
     ("account menu: My profile, Login details, Sync, Settings, Logout", ["My profile", "Login details", "Sync", "Settings", "Logout"]),
     ("Sync reads /info", ["/info"]),
@@ -178,21 +185,63 @@ def standard_pages(*, root):
     return pages
 
 
+def rule_call_name(*, node):
+    """The dotted name a call is made on (redis.asyncio.Redis.from_url → redis.asyncio.Redis.from_url), or "" for anything else."""
+    parts, node = [], node.func
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if isinstance(node, ast.Name): parts.append(node.id)
+    return ".".join(reversed(parts))
+
+
+def rule_client_opened(*, tree):
+    """[(line, call)] for every pool or SDK client the code opens itself."""
+    found = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call): continue
+        name = rule_call_name(node=node)
+        if any(name == call or name.endswith("." + call) for call in RULE_CLIENT_CALLS): found.append((node.lineno, name))
+    return found
+
+
+def rule_access_checked(*, tree):
+    """[(line, key)] for every role or permissions read from the request's user (request.state.user["role"], .get("permissions"))."""
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Constant) and node.slice.value in RULE_ACCESS_KEYS and "state.user" in ast.unparse(node.value): found.append((node.lineno, node.slice.value))
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "get" and node.args and isinstance(node.args[0], ast.Constant) and node.args[0].value in RULE_ACCESS_KEYS and "state.user" in ast.unparse(node.func.value): found.append((node.lineno, node.args[0].value))
+    return found
+
+
+def rules_check(*, root="."):
+    """(status, output) of AGENTS.md's Enforced code rules: True ok, False with each break and where it is, None outside a project."""
+    root = Path(root)
+    if not (root / "config_extend.py").is_file(): return None, "not a project (no config_extend.py)"
+    files = [root / "config_extend.py", *sorted(path for folder in RULE_CODE_FOLDERS if (root / folder).is_dir() for path in (root / folder).rglob("*") if path.is_file() and path.suffix in (".py", ".html", ".js", ".css", ".md", ".json", ".sql", ".txt"))]
+    secret = re.compile("|".join(SECRET_PATTERNS))
+    breaks = []
+    for path in files:
+        name, text = str(path.relative_to(root)), path.read_text(encoding="utf-8", errors="replace")
+        breaks += [f"{name}:{text.count(chr(10), 0, match.start()) + 1}: a secret in code (keep it in .env)" for match in secret.finditer(text)]
+        if path.suffix != ".py": continue
+        breaks += [f"{name}:{text.count(chr(10), 0, match.start()) + 1}: Postgres only through asyncpg (no {match.group(2)})" for match in RULE_DRIVERS.finditer(text)]
+        try: tree = ast.parse(text)
+        except SyntaxError: continue    # ruff and startup report it
+        folder = path.relative_to(root).parts[0]
+        if folder in RULE_CLIENT_FOLDERS: breaks += [f"{name}:{line}: {call}() opens a pool or client (use Atom's: app_state.client_*)" for line, call in rule_client_opened(tree=tree)]
+        if folder == RULE_ACCESS_FOLDER: breaks += [f"{name}:{line}: checks the user's {key} in a route (config_api does it: user_check_role, user_check_permission)" for line, key in rule_access_checked(tree=tree)]
+    gitignore = (root / ".gitignore").read_text(encoding="utf-8") if (root / ".gitignore").exists() else ""
+    if not re.search(r"^/?\.env$", gitignore, re.MULTILINE): breaks.append(".gitignore: .env is not listed (it would be committed)")
+    return not breaks, "\n".join(breaks)
+
+
 def standard_check(*, root="."):
-    """(rules, defaults) for a project: each [(what, [what is missing])], empty when there is no project code yet; None outside a project (no config_extend.py)."""
+    """[(what, [what is missing])] of AGENTS.md's measurable Defaults for a project, empty when there is no project code yet; None outside a project (no config_extend.py)."""
     root = Path(root)
     if not (root / "config_extend.py").exists(): return None
-    files = [root / "config_extend.py", *[path for folder in STANDARD_CODE_FOLDERS if (root / folder).is_dir() for path in (root / folder).rglob("*") if path.is_file() and path.suffix in (".py", ".html", ".js", ".css", ".md", ".json", ".sql", ".txt")]]
-    texts = {str(path.relative_to(root)): path.read_text(encoding="utf-8", errors="replace") for path in files}
     features = sorted(path.stem for path in (root / "router_extend").glob("*.py") if path.stem != "__init__") if (root / "router_extend").is_dir() else []
     pages = standard_pages(root=root)
-    secret = re.compile("|".join(SECRET_PATTERNS))
-    python = {name: text for name, text in texts.items() if name.endswith(".py")}
-    rules = [
-        ("no secret in code or docs (only in .env)", [name for name, text in texts.items() if secret.search(text)]),
-        ("Postgres only through asyncpg", [name for name, text in python.items() if re.search(r"^\s*(import|from)\s+(psycopg|psycopg2|sqlalchemy)\b", text, re.MULTILINE)]),
-        (".env kept out of Git", [] if re.search(r"^/?\.env$", (root / ".gitignore").read_text(encoding="utf-8") if (root / ".gitignore").exists() else "", re.MULTILINE) else [".gitignore"]),
-    ]
     defaults = [
         ("each route file has its function_extend/<f>.py", [f for f in features if not (root / "function_extend" / f"{f}.py").exists()]),
         ("each feature has docs_extend/<f>.md", [f for f in features if not (root / "docs_extend" / f"{f}.md").exists()]),
@@ -202,18 +251,14 @@ def standard_check(*, root="."):
         ("pages take colours and sizes from CSS variables", [name for name, text in pages.items() if "var(--" not in text]),
     ]
     logins = {name: text for name, text in pages.items() if STANDARD_PAGE_LOGIN in text}
-    rules += [(what, [name for name, text in logins.items() if not all(word in text for word in words)]) for what, words in STANDARD_PAGE_RULES]
-    defaults += [(what, [name for name, text in logins.items() if not all(word in text for word in words)]) for what, words in STANDARD_PAGE_DEFAULTS]
-    return rules, defaults
+    return defaults + [(what, [name for name, text in logins.items() if not all(word in text for word in words)]) for what, words in STANDARD_PAGE_DEFAULTS]
 
 
 def standard_format(*, standard):
     """(the summary part, the lines listing what is missing) of standard_check's result."""
     if standard is None: return None, []
-    rules, defaults = standard
-    count = lambda items: f"{sum(not missing for _, missing in items)}/{len(items)}"
-    lines = [f"  {kind}: {what}: {', '.join(missing)}" for kind, items in (("Rule", rules), ("Default", defaults)) for what, missing in items if missing]
-    return f"standard Rules {count(rules)}, Defaults {count(defaults)}", (["", "standard (report only; a Default kept on purpose has its reason in docs_extend/):", *lines] if lines else [])
+    lines = [f"  {what}: {', '.join(missing)}" for what, missing in standard if missing]
+    return f"standard Defaults {sum(not missing for _, missing in standard)}/{len(standard)}", (["", "standard (report only; a Default kept on purpose has its reason in docs_extend/):", *lines] if lines else [])
 
 
 def tests_load(*, names):
@@ -281,7 +326,7 @@ def main():
     is_ruff_ok, ruff_output = ruff_run()
     pages = pages_check()
     result = tests_run(suite=tests_load(names=names))
-    steps = [("startup", *startup_finish(process=startup)), ("ruff", is_ruff_ok, ruff_output), *([("names", *names)] if (names := names_check())[0] is not None else []), *([("routes", *routes)] if (routes := routes_check())[0] is not None else []), ("pages", *pages)]
+    steps = [("startup", *startup_finish(process=startup)), ("ruff", is_ruff_ok, ruff_output), *([("names", *names)] if (names := names_check())[0] is not None else []), *([("routes", *routes)] if (routes := routes_check())[0] is not None else []), *([("rules", *rules)] if (rules := rules_check())[0] is not None else []), ("pages", *pages)]
     print("\n".join(summary_format(steps=steps, result=result, seconds=time.monotonic() - started, standard=standard_check())))
     sys.exit(0 if all(status is not False for _, status, _ in steps) and result.wasSuccessful() else 1)
 

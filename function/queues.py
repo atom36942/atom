@@ -18,11 +18,19 @@ from .postgres_crud import func_postgres_update
 from .postgres_metadata import func_postgres_schema_read
 
 # function
-async def func_producer(*, queue: str, client_celery_producer: Any, client_kafka_producer: Any, client_rabbitmq_producer: Any, client_redis_producer: Any, channel: str, payload: dict) -> Any:
-    """Ultra-standardized producer orchestration. Handles multi-tech dispatch with explicit clients."""
-    allowed_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
+QUEUE_POSTGRES_NOTIFY = "atom_queue_job"
+QUEUE_POSTGRES_INSERT = "WITH job AS (INSERT INTO queue_job (channel, payload) VALUES ($1, $2::jsonb) RETURNING id) SELECT (SELECT id FROM job), pg_notify('atom_queue_job', $1)"    # the notify channel is QUEUE_POSTGRES_NOTIFY
+QUEUE_POSTGRES_TAKE = "SELECT id, payload, attempt FROM queue_job WHERE channel = $1 AND status = 1 AND run_at <= now() ORDER BY run_at, id LIMIT 1 FOR UPDATE SKIP LOCKED"
+QUEUE_POSTGRES_POLL_SEC = 1
+
+async def func_producer(*, queue: str, client_celery_producer: Any, client_kafka_producer: Any, client_rabbitmq_producer: Any, client_redis_producer: Any, channel: str, payload: dict, client_postgres: Any = None) -> Any:
+    """Send payload to channel on queue: postgres (a queue_job row; returns its id), redis, rabbitmq, kafka or celery, each with its own client."""
+    allowed_queue_services = ["postgres", "redis", "rabbitmq", "kafka", "celery"]
     if not queue: raise Exception("invalid queue format: queue missing")
     if queue not in allowed_queue_services: raise Exception(f"invalid queue: {queue}. allowed: {allowed_queue_services}")
+    if queue == "postgres":
+        if not client_postgres: raise func_api_error(message="postgres client missing", status_code=500)
+        return await client_postgres.fetchval(QUEUE_POSTGRES_INSERT, channel, orjson.dumps(payload).decode())    # the notify wakes the channel's consumers when the insert commits
     if queue == "celery":
         if not client_celery_producer: raise func_api_error(message="celery producer not initialized", status_code=500)
         return (await asyncio.to_thread(client_celery_producer.send_task, channel, kwargs=payload, queue=channel)).id
@@ -101,10 +109,23 @@ def func_queue_celery_job_finish(*, app: Any, task: Any, channel: str, payload: 
     app.send_task(channel, kwargs=payload, queue=f"{channel}_failed", headers={"x-attempt": task.request.retries + 1, "x-error": f"{type(error).__name__}: {error}"[:1000]})
     return "failed"
 
+async def func_queue_postgres_job_take(*, client_postgres: Any, channel: str, run: callable, retry_max: int, retry_wait_sec: float = 2) -> str | None:
+    """Take channel's oldest due job and run it (run(payload) returns its error or None), holding the row's lock in one transaction until it is finished: done → deleted; failed → waiting again with attempt + 1 and run_at func_queue_retry_wait_sec later, or status 2 (failed) with its error once retried retry_max times. A consumer that stops mid-job rolls back, so the job is taken again. Returns done, retry or failed, or None when no job is due."""
+    async with client_postgres.acquire() as conn, conn.transaction():
+        row = await conn.fetchrow(QUEUE_POSTGRES_TAKE, channel)
+        if not row: return None
+        error = await run(row["payload"])
+        attempt = row["attempt"] + 1
+        outcome = "done" if error is None else "retry" if attempt <= retry_max else "failed"
+        if outcome == "done": await conn.execute("DELETE FROM queue_job WHERE id = $1", row["id"])
+        elif outcome == "retry": await conn.execute("UPDATE queue_job SET attempt = $2, run_at = now() + make_interval(secs => $3), error = $4, updated_at = now() WHERE id = $1", row["id"], attempt, float(func_queue_retry_wait_sec(attempt=attempt, retry_wait_sec=retry_wait_sec)), f"{type(error).__name__}: {error}"[:1000])
+        else: await conn.execute("UPDATE queue_job SET attempt = $2, status = 2, error = $3, updated_at = now() WHERE id = $1", row["id"], attempt, f"{type(error).__name__}: {error}"[:1000])
+        return outcome
+
 def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_callback: callable, execute_callback: callable, concurrency: int = 10, retry_max: int = 3, retry_wait_sec: float = 2, stop_wait_sec: int = 60):
     if not channel: raise Exception("channel name required")
-    url_key = {"redis": "config_redis_url_queue", "rabbitmq": "config_rabbitmq_url", "kafka": "config_kafka_url", "celery": "config_celery_url"}.get(queue)
-    if not url_key: raise Exception(f"invalid queue: {queue}; use redis, rabbitmq, kafka or celery")
+    url_key = {"postgres": "config_postgres_url_master", "redis": "config_redis_url_queue", "rabbitmq": "config_rabbitmq_url", "kafka": "config_kafka_url", "celery": "config_celery_url"}.get(queue)
+    if not url_key: raise Exception(f"invalid queue: {queue}; use postgres, redis, rabbitmq, kafka or celery")
     if not broker_settings.get(url_key): raise Exception(f"{queue} consumer needs {url_key}: set it in .env")
     _run_counter = count(1)
     if queue == "celery":
@@ -162,7 +183,37 @@ def func_run_broker(*, queue: str, channel: str, broker_settings: dict, setup_ca
         async def jobs_finish():
             if running: await asyncio.wait(set(running), timeout=stop_wait_sec)    # a job still running after that runs again on the next start
         try:
-            if queue == "redis":
+            if queue == "postgres":
+                import asyncpg
+                url = broker_settings.get("config_postgres_url_master")
+                pool = await func_client_postgres(dsn=url, min_size=1, max_size=concurrency)    # one connection per running job: it holds the job's lock
+                listener = await asyncpg.connect(url)
+                wake = {"event": asyncio.Event()}
+                def on_notify(connection, pid, name, payload):
+                    if payload != channel: return
+                    event, wake["event"] = wake["event"], asyncio.Event()    # a fresh event per notify: a worker that looked before it never misses it
+                    event.set()
+                await listener.add_listener(QUEUE_POSTGRES_NOTIFY, on_notify)
+                print(f"postgres consumer started on {channel}", flush=True)
+                async def postgres_run(raw):
+                    n = next(_run_counter)
+                    print(f"task started #{n}: {channel}", flush=True)
+                    return await run_job(n, raw, orjson.loads)
+                async def worker():
+                    while not stopping.is_set():
+                        event = wake["event"]
+                        if await func_queue_postgres_job_take(client_postgres=pool, channel=channel, run=postgres_run, retry_max=retry_max, retry_wait_sec=retry_wait_sec) is None:
+                            with contextlib.suppress(TimeoutError): await asyncio.wait_for(event.wait(), QUEUE_POSTGRES_POLL_SEC)    # a notify, or a retry's run_at coming due
+                try:
+                    for _ in range(concurrency): job_start(worker())
+                    await stopping.wait()
+                    await jobs_finish()
+                    for task in list(running): task.cancel()    # still running after stop_wait_sec: rolled back, taken again on the next start
+                    await asyncio.gather(*running, return_exceptions=True)
+                finally:
+                    await listener.close()
+                    await pool.close()
+            elif queue == "redis":
                 import redis.asyncio as redis
                 client = redis.Redis.from_pool(redis.ConnectionPool.from_url(broker_settings.get("config_redis_url_queue"))) if broker_settings.get("config_redis_url_queue") else None
                 lock_key, lock_token = f"{channel}_consumer", secrets.token_hex(8)    # one Redis consumer per channel: a second one waits as a standby

@@ -1,15 +1,16 @@
 # ⚡ Asynchronous Queues & Background Workers
 
-Atom provides an asynchronous job processing system spanning multiple message brokers (**Redis Streams**, **RabbitMQ**, **Apache Kafka**, **Celery**) and standalone consumer workers in `script/`.
+Atom runs background jobs on **Postgres** by default: the database every project already has, so a queue needs no other service. **Redis**, **RabbitMQ**, **Apache Kafka** and **Celery** stay available for a project that outgrows it. Consumers are standalone workers in `script/`.
 
 ---
 
 ## 1. Supported Message Brokers
 
-All queue brokers are optional and configured via `.env`:
+Postgres is the default; the other brokers are optional and configured via `.env`:
 
 | Broker | Configuration Key | Runtime Client | Use Case |
 | :--- | :--- | :--- | :--- |
+| **Postgres** (default) | `config_postgres_url_master` | `client_postgres_dict["master"]` | Every project: jobs in table `queue_job`, no other service; up to a few hundred jobs a second. |
 | **Redis Streams** | `config_redis_url_queue` | `client_redis_dict["queue"]` | High throughput, lightweight streaming. |
 | **RabbitMQ** | `config_rabbitmq_url` | `client_rabbitmq_channel` | Traditional AMQP message queuing with ACKs. |
 | **Apache Kafka** | `config_kafka_url` | `client_kafka_producer` | Partitioned distributed log streaming. |
@@ -22,7 +23,7 @@ All queue brokers are optional and configured via `.env`:
 Any API request can offload heavy processing to a background queue using the `queue` query parameter on generic create/update endpoints:
 
 ```bash
-POST /my/object-create?table=reports&queue=redis
+POST /my/object-create?table=reports&queue=postgres
 {
   "title": "Quarterly Analytics",
   "parameters": {"year": 2026, "quarter": 1}
@@ -30,9 +31,9 @@ POST /my/object-create?table=reports&queue=redis
 ```
 
 When `queue` is provided:
-1. Atom validates the backend against `config_queue_services` (`["redis", "rabbitmq", "kafka", "celery"]`).
+1. Atom validates the backend against `config_queue_services` (`["postgres", "redis", "rabbitmq", "kafka", "celery"]`).
 2. `func_producer` serializes the payload and pushes it to the designated broker channel.
-3. The API immediately responds with `{"status": 1, "message": {"queued": true, "queue": "redis"}}`.
+3. The API responds at once; with `queue=postgres` the message is the new `queue_job` id.
 
 ### App-Process Background Tasks (`?is_background=true`):
 For lighter asynchronous tasks that don't need external queue broker infrastructure, append `?is_background=true` to any request. The middleware returns `202 added in background` at once and runs the route in an in-process task (tracked, and cancelled at shutdown). Errors are printed as `❌ background api error: ...`; nothing is retried, so use a queue for work that must not be lost.
@@ -44,7 +45,7 @@ For lighter asynchronous tasks that don't need external queue broker infrastruct
 Standalone consumer scripts reside in [`script/`](../script). They run as independent OS processes outside of the web server.
 
 ### Built-in Consumers:
-Atom's `script/` has one consumer per broker: `consumer_redis`, `consumer_rabbitmq`, `consumer_kafka`, `consumer_celery`. Each reads only its own broker's `.env` keys plus `config_postgres_url_master`, and takes the channel to listen on from the command.
+Atom's `script/` has one consumer per broker: `consumer_postgres`, `consumer_redis`, `consumer_rabbitmq`, `consumer_kafka`, `consumer_celery`. Each reads only its own broker's `.env` keys plus `config_postgres_url_master`, and takes the channel to listen on from the command.
 
 ### Channels:
 `func_consumer_channels` (`function/queues.py`) is the only place a channel name maps to the function that handles it. Channel names start with `channel_` and say what the message does:
@@ -61,7 +62,7 @@ Each broker script calls `func_consumer_run`, which checks the channel, opens th
 
 ```python
 func_run_broker(
-    queue="redis",                   # redis | rabbitmq | kafka | celery
+    queue="postgres",                # postgres | redis | rabbitmq | kafka | celery
     channel="channel_object_create", # topic, queue or list name
     broker_settings={...},           # connection credentials
     setup_callback=setup,            # runs once (opens db pools, loads schema)
@@ -77,6 +78,7 @@ A job counts as done only after its function returns. A job that raises is retri
 
 | Broker | Taken | Done | Kept after the last retry |
 |---|---|---|---|
+| Postgres | the oldest due row (`status` 1, `run_at` passed), locked with `FOR UPDATE SKIP LOCKED` in a transaction held until the job is finished; `concurrency` workers, each with its own connection | the row deleted; a retry sets `run_at` later instead of waiting in the consumer | the row with `status` 2 (Failed), `attempt` and `error` |
 | Redis | moved to `<channel>_processing` (`BLMOVE`), only when a worker is free, so waiting jobs stay in Redis | removed from `<channel>_processing`; on start, a consumer puts back what a stopped one left | list `<channel>_failed`: `{"payload", "attempt", "error", "failed_at"}` |
 | RabbitMQ | delivered, at most `concurrency` unacknowledged | acknowledged (a failure is published again with header `x-attempt` first) | queue `<channel>_failed`, headers `x-attempt` and `x-error` |
 | Kafka | batches of at most `concurrency` messages, auto-commit off | the batch's offsets are committed once every job in it is finished (a failure is produced again with header `x-attempt` first) | topic `<channel>_failed`, headers `x-attempt` and `x-error` |
@@ -87,9 +89,10 @@ A job counts as done only after its function returns. A job that raises is retri
 - Stopping: SIGTERM (a deploy, a scale-down) or Ctrl+C makes a consumer take no new job, wait up to 60 s (`func_run_broker(stop_wait_sec=...)`) for the running ones, then exit; a Redis consumer releases its channel, so a restart takes over at once. A second Ctrl+C exits at once, and a job cut short that way runs again on the next start. Celery does the same on its own (warm shutdown).
 - Queued creates are written at once, whatever `mode` the API call had: rows buffered in a consumer would be lost if it stopped after the job counted as done.
 - Redis jobs are `{"payload": ..., "attempt": n}`, as `func_producer` sends them.
+- Postgres: any number of consumers may run one channel at once (`SKIP LOCKED` gives each job to one of them). A new job wakes them at once (`pg_notify('atom_queue_job', <channel>)`, sent when the insert commits); without it they look every second. A consumer killed mid-job loses its connection, its transaction rolls back and the job is waiting again, so nothing is stuck. The lock is held for the whole job, so a server `idle_in_transaction_session_timeout` shorter than the longest job makes it run again. Send a failed job again with `UPDATE queue_job SET status = 1, attempt = 0, run_at = now() WHERE id = <id>`; delete it to drop it.
 
 ### Running a Consumer:
-One process per broker and channel, for example `venv/bin/python -m script.consumer_redis channel_object_create`. The `# command` lines at the top of each consumer list its channels; the API call's `queue` must match the script's broker.
+One process per broker and channel, for example `venv/bin/python -m script.consumer_postgres channel_object_create`. The `# command` lines at the top of each consumer list its channels; the API call's `queue` must match the script's broker.
 
 ---
 

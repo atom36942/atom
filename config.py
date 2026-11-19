@@ -158,7 +158,7 @@ config_blob_expire_sec_upload = 3600
 config_blob_expire_sec_preview = 360000
 
 # service
-config_queue_services = ["redis", "rabbitmq", "kafka", "celery"]
+config_queue_services = ["postgres", "redis", "rabbitmq", "kafka", "celery"]
 config_queue_concurrency = 10
 config_queue_retry_max = 3
 config_queue_retry_wait_sec = 2
@@ -169,9 +169,9 @@ config_ai_services = ["gemini", "openai", "claude"]
 
 # table
 config_table_exclude_from_users_delete = ["spatial_ref_sys", "users", "log_users_delete"]
-config_table_write_blocked = ["log_api", "log_users_password", "log_users_delete", "script_run", "otp", "spatial_ref_sys"]
-config_table_my_create_blocked = ["users", "log_api", "log_users_password", "otp", "script_run", "spatial_ref_sys"]
-config_table_my_read_blocked = ["users", "config", "log_users_password", "otp", "script_run", "spatial_ref_sys"]
+config_table_write_blocked = ["log_api", "log_users_password", "log_users_delete", "script_run", "queue_job", "otp", "spatial_ref_sys"]
+config_table_my_create_blocked = ["users", "log_api", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
+config_table_my_read_blocked = ["users", "config", "log_users_password", "otp", "script_run", "queue_job", "spatial_ref_sys"]
 config_table_my_delete_all_allowed = ["test", "message", "notification"]
 config_table_public_create_allowed = ["test"]
 config_table_public_read_allowed = ["test"]
@@ -222,6 +222,9 @@ config_column_int_mapping = {
 },
 "script_run": {
 "status": {1: "Running", 2: "Done", 3: "Failed"},
+},
+"queue_job": {
+"status": {1: "Waiting", 2: "Failed"},
 },
 "log_users_delete": {
 "type": {1: "User Soft Deleted", 2: "User Restored", 3: "User Hard Deleted"},
@@ -395,6 +398,17 @@ config_postgres = {
 {"name":"message","datatype":"text"},
 {"name":"peak_memory_mb","datatype":"integer"},
 {"name":"finished_at","datatype":"timestamptz"}
+],
+"queue_job":[
+{"name":"id","datatype":"bigint","identity":"always","is_primary": True},
+{"name":"created_at","datatype":"timestamptz","default":"now()"},
+{"name":"updated_at","datatype":"timestamptz"},
+{"name":"channel","datatype":"text","is_mandatory": True},
+{"name":"payload","datatype":"jsonb","is_mandatory": True},
+{"name":"status","datatype":"smallint","is_mandatory": True,"default":1,"in":(1,2)},
+{"name":"attempt","datatype":"integer","is_mandatory": True,"default":0},
+{"name":"run_at","datatype":"timestamptz","is_mandatory": True,"default":"now()","index":"btree(channel,status,run_at,id)"},
+{"name":"error","datatype":"text"}
 ],
 "log_users_delete":[
 {"name":"id","datatype":"bigint","identity":"always","is_primary": True},
