@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [16.8.2] - 2026-11-19
+
+- **Shorter placeholders:** the API page's cURL box ("Paste cURL…"), the message box ("Type a message…") and pgweb's saved-connection search ("Search…").
+
 ## [16.8.1] - 2026-11-19
 
 - **API page:** a boolean field (in a query, form or JSON body) is a true/false list instead of a text box, and a JSON row switched to `bool` gets the same list; a response object's key/value table gives its values the full width, with the expand button at the right.
