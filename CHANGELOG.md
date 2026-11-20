@@ -4,6 +4,10 @@ Every Atom release with notes, newest first. Versions follow [semver](https://se
 
 Pin or roll back a project to a version: `python3 sync.py --ref v15.6.1` ([docs/sync.md](docs/sync.md)).
 
+## [18.3.1] - 2026-11-20
+
+- **Tickets page:** Add ticket's fields have no placeholders and no Markdown hint, as in Pulse's Add task (formatting still shows in the ticket).
+
 ## [18.3.0] - 2026-11-20
 
 - **Login details in two groups, with the ID:** the account menu's Login details now shows **Sign in** (Username with copy, Password with its pencil) and **Account** (ID, the `users` id User management shows, with a copy button and the toast "ID copied"; Role; Permissions), each a small caption (`.kv-group`) over its own row list, on every Atom page with a login. A suggestion for a project's pages too ([docs/frontend.md](docs/frontend.md#header-and-account)).
